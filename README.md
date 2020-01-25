@@ -1,1 +1,1 @@
-# agda-mode-vscode
+# agda-mode on vscode
