@@ -13,7 +13,7 @@
 		"onCommand:extension.helloWorld",
 		"onCommand:extension.hey"
 	],
-	"main": "./extension.js",
+	"main": "./lib/js/src/Main.bs.js",
 	"contributes": {
 		"commands": [
 			{
@@ -27,11 +27,23 @@
 		]
 	},
 	"scripts": {
-		"test": "node ./test/runTest.js"
+		"test": "node ./test/runTest.js",
+		"build": "bsb -make-world",
+		"start": "bsb -make-world -w",
+		"clean": "bsb -clean-world"
 	},
 	"devDependencies": {
 		"glob": "^7.1.5",
 		"mocha": "^6.2.2",
-		"vscode-test": "^1.2.2"
+		"vscode-test": "^1.2.2",
+		"@glennsl/bs-json": "^3.0.0",
+		"bs-platform": "^7.0.1",
+		"bs-webapi": "^0.15.3"
+	},
+	"dependencies": {
+		"react": "^16.9.0",
+		"react-dom": "^16.9.0",
+		"reason-react": "^0.7.0",
+		"reason-react-update": "^0.1.1"
 	}
 }

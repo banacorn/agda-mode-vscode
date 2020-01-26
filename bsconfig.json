@@ -1,0 +1,24 @@
+{
+  "name": "agda-mode-vscode",
+  "reason": {
+    "react-jsx": 3
+  },
+  "sources": [{
+    "dir" : "src",
+    "subdirs" : true
+  }],
+  "package-specs": [{
+    "module": "commonjs",
+    "in-source": false
+  }],
+  "suffix": ".bs.js",
+  "namespace": true,
+  "bs-dependencies": [
+    "reason-react",
+    "@glennsl/bs-json",
+    "bs-webapi",
+    "reason-react-update"
+  ],
+  "bsc-flags": ["-bs-g"]  ,
+  "refmt": 3
+}
