@@ -24,6 +24,13 @@
 				"command": "extension.hey",
 				"title": "Hey"
 			}
+		],
+		"keybindings": [
+			{
+				"command": "extension.helloWorld",
+				"key": "ctrl+c ctrl+l",
+				"mac": "ctrl+c ctrl+l"
+			}
 		]
 	},
 	"scripts": {

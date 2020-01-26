@@ -1,3 +1,6 @@
+# editor
+.vscode
+
 # OCaml
 .DS_Store
 .merlin
