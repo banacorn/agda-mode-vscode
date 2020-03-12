@@ -40,17 +40,11 @@
 		"clean": "bsb -clean-world"
 	},
 	"devDependencies": {
-		"glob": "^7.1.5",
-		"mocha": "^6.2.2",
-		"vscode-test": "^1.2.2",
-		"@glennsl/bs-json": "^3.0.0",
-		"bs-platform": "^7.0.1",
-		"bs-webapi": "^0.15.3"
+		"vscode-test": "^1.2.2"
 	},
 	"dependencies": {
-		"react": "^16.9.0",
-		"react-dom": "^16.9.0",
-		"reason-react": "^0.7.0",
-		"reason-react-update": "^0.1.1"
+		"agda-mode": "github:banacorn/agda-mode#dev",
+		"bs-platform": "^7.0.1",
+		"reason-promise": "^1.0.1"
 	}
 }
