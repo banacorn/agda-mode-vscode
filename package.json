@@ -10,24 +10,19 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:extension.helloWorld",
-		"onCommand:extension.hey"
+		"onCommand:extension.load"
 	],
 	"main": "./lib/js/src/Main.bs.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "extension.helloWorld",
-				"title": "Hello World"
-			},
-			{
-				"command": "extension.hey",
-				"title": "Hey"
+				"command": "extension.load",
+				"title": "Load"
 			}
 		],
 		"keybindings": [
 			{
-				"command": "extension.helloWorld",
+				"command": "extension.load",
 				"key": "ctrl+c ctrl+l",
 				"mac": "ctrl+c ctrl+l"
 			}
