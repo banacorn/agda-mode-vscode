@@ -14,6 +14,18 @@
 	],
 	"main": "./lib/js/src/Main.bs.js",
 	"contributes": {
+		"languages": [
+			{
+				"id": "agda",
+				"extensions": [
+					".agda"
+				],
+				"aliases": [
+					"Agda"
+				],
+				"filenames": []
+			}
+		],
 		"commands": [
 			{
 				"command": "extension.load",

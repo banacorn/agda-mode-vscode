@@ -119,7 +119,30 @@ module WebviewPanel = {
   external onDidDispose: (t, unit => unit) => Disposable.t = "onDidDispose";
 };
 
+module TextDocument = {
+  type t = {
+    eol: int,
+    fileName: string,
+    isClosed: bool,
+    isDirty: bool,
+    isUntitled: bool,
+    languageId: string,
+    lineCount: int,
+    uri: Uri.t,
+    version: int,
+  };
+  // [@bs.send]
+  // external onDidDispose: (t, unit => unit) => Disposable.t = "onDidDispose";
+};
+
+module TextEditor = {
+  type t = {document: TextDocument.t};
+};
+
 module Window = {
+  [@bs.module "vscode"] [@bs.scope "window"]
+  external activeTextEditor: option(TextEditor.t) = "activeTextEditor";
+
   [@bs.module "vscode"] [@bs.scope "window"]
   external showInformationMessage: string => unit = "showInformationMessage";
 
@@ -152,4 +175,22 @@ module Window = {
   external createWebviewPanel:
     (string, string, WebviewOption.t) => WebviewPanel.t =
     "createWebviewPanel";
+
+  [@bs.module "vscode"] [@bs.scope "window"]
+  external onDidChangeActiveTextEditor:
+    (option(TextEditor.t) => unit) => Disposable.t =
+    "onDidChangeActiveTextEditor";
+};
+
+module Workspace = {
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external textDocuments: array(TextDocument.t) = "textDocuments";
+
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidOpenTextDocument: (TextDocument.t => unit) => Disposable.t =
+    "onDidOpenTextDocument";
+
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidCloseTextDocument: (TextDocument.t => unit) => Disposable.t =
+    "onDidCloseTextDocument";
 };
