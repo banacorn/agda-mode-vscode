@@ -7,7 +7,10 @@ module Event = {
 };
 
 module ExtensionContext = {
-  type t = {subscriptions: array(Disposable.t)};
+  type t = {
+    extensionPath: string,
+    subscriptions: array(Disposable.t),
+  };
 };
 
 module Commands = {
@@ -49,15 +52,62 @@ module Commands = {
 
 module Uri = {
   type t;
+
+  [@bs.module "vscode"] [@bs.scope "Uri"] external file: string => t = "file";
+  [@bs.module "vscode"] [@bs.scope "Uri"]
+  external parse: (string, option(bool)) => t = "file";
+
+  [@bs.new]
+  external make: (string, string, string, string, string) => t = "Uri";
+
+  [@bs.get] external authority: t => string = "authority";
+  [@bs.get] external fragment: t => string = "fragment";
+  [@bs.get] external fsPath: t => string = "fsPath";
+  [@bs.get] external path: t => string = "path";
+  [@bs.get] external query: t => string = "query";
+  [@bs.get] external scheme: t => string = "scheme";
+
+  [@bs.send] external toJSON: t => Js.Json.t = "toJSON";
+  [@bs.send] external toString: t => string = "toString";
+
+  type change = {
+    authority: option(string),
+    fragment: option(string),
+    path: option(string),
+    query: option(string),
+    scheme: option(string),
+  };
+
+  let makeChange =
+      (~authority=?, ~fragment=?, ~path=?, ~query=?, ~scheme=?, ()): change => {
+    authority,
+    fragment,
+    path,
+    query,
+    scheme,
+  };
+  [@bs.send] external with_: (t, change) => t = "with";
 };
 
 module ViewColumn = {
   type t = int;
 };
 
+module Webview = {
+  type portMapping;
+  type t = {mutable html: string};
+  type options = {
+    enableCommandUris: option(bool),
+    enableScripts: option(bool),
+    localResourceRoots: option(array(Uri.t)),
+    portMapping: option(array(portMapping)),
+  };
+};
+
 module WebviewPanel = {
-  module Webview = {
-    type t = {mutable html: string};
+  type options = {
+    enableFindWidget: option(bool),
+    retainContextWhenHidden: option(bool),
   };
 
   module IconPath = {
@@ -164,16 +214,53 @@ module Window = {
     Promise.t(option(string)) =
     "showInputBox";
 
-  module WebviewOption = {
+  type viewColumn = int;
+  type showOptions = {
+    preserveFocus: bool,
+    viewColumn,
+  };
+
+  // WebviewPanelOptions & WebviewOptions
+  module WebviewAndWebviewPanelOptions = {
     type t = {
-      preserveFocus: bool,
-      viewColumn: int,
+      enableCommandUris: option(bool),
+      enableScripts: option(bool),
+      localResourceRoots: option(array(Uri.t)),
+      portMapping: option(array(Webview.portMapping)),
+      enableFindWidget: option(bool),
+      retainContextWhenHidden: option(bool),
+    };
+
+    let make =
+        (
+          ~enableCommandUris=?,
+          ~enableScripts=?,
+          ~localResourceRoots=?,
+          ~portMapping=?,
+          ~enableFindWidget=?,
+          ~retainContextWhenHidden=?,
+          (),
+        )
+        : t => {
+      enableCommandUris,
+      enableScripts,
+      localResourceRoots,
+      portMapping,
+      enableFindWidget,
+      retainContextWhenHidden,
     };
   };
 
   [@bs.module "vscode"] [@bs.scope "window"]
   external createWebviewPanel:
-    (string, string, WebviewOption.t) => WebviewPanel.t =
+    (string, string, viewColumn, option(WebviewAndWebviewPanelOptions.t)) =>
+    WebviewPanel.t =
+    "createWebviewPanel";
+
+  [@bs.module "vscode"] [@bs.scope "window"]
+  external createWebviewPanel':
+    (string, string, showOptions, option(WebviewAndWebviewPanelOptions.t)) =>
+    WebviewPanel.t =
     "createWebviewPanel";
 
   [@bs.module "vscode"] [@bs.scope "window"]

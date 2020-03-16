@@ -19,7 +19,11 @@
   "namespace": true,
   "bs-dependencies": [
     "agda-mode",
-    "reason-promise"
+    "bs-webapi",
+    "bs-nd",
+    "reason-promise",
+    "reason-react",
+    "reason-react-update"
   ],
   "bsc-flags": [
     "-bs-g"

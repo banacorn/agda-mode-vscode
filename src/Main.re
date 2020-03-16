@@ -36,11 +36,11 @@ module States = {
   };
 };
 
-let load = () => {
+let load = (context, ()) => {
   Window.activeTextEditor->Option.forEach(editor =>
     switch (States.get(editor)) {
     | None =>
-      let state = State.make(editor);
+      let state = State.make(context, editor);
       States.set(editor.document.fileName, state);
       View.activate(state);
     // looking for Agda
@@ -75,7 +75,7 @@ let activate = (context: ExtensionContext.t) => {
   ->Js.Array.push(context.subscriptions)
   ->ignore;
 
-  Commands.registerCommand("extension.load", load)
+  Commands.registerCommand("extension.load", load(context))
   ->Js.Array.push(context.subscriptions)
   ->ignore;
 };
