@@ -1,7 +1,22 @@
 // open Belt;
 open Vscode;
 
-let html = (extensionPath, styleUri, scriptUri, nonce) => {
+let html = (extensionPath, styleUri, scriptUri) => {
+  let nonce = {
+    let text = ref("");
+    let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let cardinality = Js.String.length(charaterSet);
+    for (_ in 0 to 32) {
+      text :=
+        text^
+        ++ Js.String.charAt(
+             Js.Math.floor(Js.Math.random() *. float_of_int(cardinality)),
+             charaterSet,
+           );
+    };
+    text^;
+  };
+
   let metaContent =
     "default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
     ++ nonce
@@ -63,25 +78,20 @@ let createPanel = (state: State.t) => {
       {preserveFocus: true, viewColumn: 3},
       // None,
       Some(
-        Window.WebviewAndWebviewPanelOptions.make(~enableScripts=true, ()),
+        Window.WebviewAndWebviewPanelOptions.make(
+          ~enableScripts=true,
+          ~localResourceRoots=[||],
+          (),
+        ),
       ),
-      // Some(
-      //   Window.WebviewAndWebviewPanelOptions.make(
-      //     ~enableScripts=true,
-      //     ~localResourceRoots=[|Uri.file("Some path")|],
-      //     (),
-      //   ),
-      // ),
     );
+
   panel.webview.html =
     html(
       state.context.extensionPath,
       "style/style.css",
       "dist/bundled-view.js",
-      "1234",
     );
-
-  // Webapi.Document
 
   panel->WebviewPanel.onDidDispose(() => {state.panel = None})->ignore;
 
