@@ -54,8 +54,8 @@ let load = (context, ()) => {
     //     | Ok(_path) => {},
     //   );
     | Some(state) =>
-      Js.log("already loaded");
-      View.activate(state);
+      // already loaded, open it
+      View.activate(state)
     }
   );
 };

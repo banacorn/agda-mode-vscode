@@ -92,16 +92,32 @@ module Uri = {
 module ViewColumn = {
   type t = int;
 };
-
-module Webview = {
+module WebviewOptions = {
   type portMapping;
-  type t = {mutable html: string};
-  type options = {
+  type t = {
     enableCommandUris: option(bool),
     enableScripts: option(bool),
     localResourceRoots: option(array(Uri.t)),
     portMapping: option(array(portMapping)),
   };
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#Webview
+module Webview = {
+  type t;
+  // events
+  [@bs.send]
+  external onDidReceiveMessage: (t, 'a) => Disposable.t =
+    "onDidReceiveMessage";
+  // properties
+  [@bs.get] external cspSource: t => string = "cspSource";
+  [@bs.get] external html: t => string = "html";
+  [@bs.set] external setHtml: (t, string) => unit = "html";
+
+  [@bs.get] external options: t => WebviewOptions.t = "options";
+  // methods
+  [@bs.send] external asWebviewUri: (t, Uri.t) => Uri.t = "asWebviewUri";
+  [@bs.send] external postMessage: (t, 'a) => Promise.t(bool) = "postMessage";
 };
 
 module WebviewPanel = {
@@ -226,7 +242,7 @@ module Window = {
       enableCommandUris: option(bool),
       enableScripts: option(bool),
       localResourceRoots: option(array(Uri.t)),
-      portMapping: option(array(Webview.portMapping)),
+      portMapping: option(array(WebviewOptions.portMapping)),
       enableFindWidget: option(bool),
       retainContextWhenHidden: option(bool),
     };

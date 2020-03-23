@@ -86,11 +86,13 @@ let createPanel = (state: State.t) => {
       ),
     );
 
-  panel.webview.html =
-    html(
-      state.context.extensionPath,
-      "style/style.css",
-      "dist/bundled-view.js",
+  panel.webview
+  ->Webview.setHtml(
+      html(
+        state.context.extensionPath,
+        "style/style.css",
+        "dist/bundled-view.js",
+      ),
     );
 
   panel->WebviewPanel.onDidDispose(() => {state.panel = None})->ignore;
