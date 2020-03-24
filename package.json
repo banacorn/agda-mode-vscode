@@ -43,7 +43,9 @@
 	"scripts": {
 		"test": "node ./test/runTest.js",
 		"build": "bsb -make-world && npx webpack --mode=production",
-		"start": "bsb -make-world -w",
+		"watch-view": "npx webpack --mode=production --watch",
+		"watch-code": "npx webpack --mode=production --watch",
+		"watch": "npm run watch-code && npm run watch-view",
 		"clean": "bsb -clean-world"
 	},
 	"devDependencies": {
