@@ -1,13 +1,4 @@
 open Belt;
-// AgdaMode.Process.PathSearch.run("agda")
-// ->Promise.get(
-//     fun
-//     | Error(e) => {
-//         let (_, msg) = AgdaMode.Process.PathSearch.Error.toString(e);
-//         Window.showInformationMessage(msg);
-//       }
-//     | Ok(_path) => {},
-//   );
 open Vscode;
 
 module States = {
@@ -36,29 +27,16 @@ module States = {
   };
 };
 
-let load = (context, ()) => {
-  Window.activeTextEditor->Option.forEach(editor =>
+let getState = context =>
+  Window.activeTextEditor->Option.map(editor =>
     switch (States.get(editor)) {
     | None =>
       let state = State.make(context, editor);
       States.set(editor.document.fileName, state);
-      View.activate(state);
-    // looking for Agda
-    // AgdaMode.Process.PathSearch.run("agda")
-    // ->Promise.get(
-    //     fun
-    //     | Error(e) => {
-    //         let (_, msg) = AgdaMode.Process.PathSearch.Error.toString(e);
-    //         Window.showInformationMessage(msg);
-    //       }
-    //     | Ok(_path) => {},
-    //   );
-    | Some(state) =>
-      // already loaded, open it
-      View.activate(state)
+      state;
+    | Some(state) => state
     }
   );
-};
 
 let activate = (context: ExtensionContext.t) => {
   // when a TextEditor gets activated, reveal the corresponding Panel (if any)
@@ -75,7 +53,9 @@ let activate = (context: ExtensionContext.t) => {
   ->Js.Array.push(context.subscriptions)
   ->ignore;
 
-  Commands.registerCommand("extension.load", load(context))
+  Commands.registerCommand("extension.load", () =>
+    getState(context)->Option.forEach(Command.load)
+  )
   ->Js.Array.push(context.subscriptions)
   ->ignore;
 };

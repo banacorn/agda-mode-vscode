@@ -1,3 +1,17 @@
+module Api = {
+  type t;
+
+  [@bs.val] external acquireVsCodeApi: unit => t = "acquireVsCodeApi";
+
+  [@bs.send] external postMessage: (t, 'a) => unit = "postMessage";
+  let onMessage = (callback: 'a => unit): unit => {
+    Webapi.Dom.window
+    |> Webapi.Dom.Window.addEventListener("message", _event => {
+         callback([%raw "_event.data"])
+       });
+  };
+};
+
 module Disposable = {
   type t;
 };

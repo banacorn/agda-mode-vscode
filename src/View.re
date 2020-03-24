@@ -1,6 +1,10 @@
 // open Belt;
 open Vscode;
 
+type message =
+  | Success
+  | CannotFindAgda;
+
 let html = (distPath, styleUri, scriptUri) => {
   let nonce = {
     let text = ref("");
@@ -50,23 +54,6 @@ let html = (distPath, styleUri, scriptUri) => {
 |j};
 };
 
-let moveToBottom = () => {
-  Commands.(
-    executeCommand(
-      `setEditorLayout({
-        orientation: 1,
-        groups:
-          Layout.(
-            [|
-              sized({groups: [|simple|], size: 0.8}),
-              sized({groups: [|simple|], size: 0.2}),
-            |]
-          ),
-      }),
-    )
-  );
-};
-
 let createPanel = (state: State.t) => {
   let fileName =
     Node.Path.basename_ext(state.editor.document.fileName, ".agda");
@@ -89,12 +76,38 @@ let createPanel = (state: State.t) => {
       ),
     );
 
+  // panel.webview->Webview.postMessage(C(3)) |> ignore;
+  // // ->Js.Array.push(state.context.subscriptions)
+  // // ->ignore;
+
+  // panel.webview
+  // ->Webview.onDidReceiveMessage(message => {Js.log(message)})
+  // ->Js.Array.push(state.context.subscriptions)
+  // ->ignore;
+
   panel.webview
   ->Webview.setHtml(html(distPath, "style.css", "bundled-view.js"));
 
-  panel->WebviewPanel.onDidDispose(() => {state.panel = None})->ignore;
+  panel->WebviewPanel.onDidDispose(() => {state.panel = None}) |> ignore;
 
   state.panel = Some(panel);
+};
+
+let moveToBottom = () => {
+  Commands.(
+    executeCommand(
+      `setEditorLayout({
+        orientation: 1,
+        groups:
+          Layout.(
+            [|
+              sized({groups: [|simple|], size: 0.8}),
+              sized({groups: [|simple|], size: 0.2}),
+            |]
+          ),
+      }),
+    )
+  );
 };
 let activate = state =>
   switch (state.State.panel) {
@@ -104,3 +117,7 @@ let activate = state =>
     moveToBottom() |> ignore;
   | Some(panel) => panel->WebviewPanel.reveal(~preserveFocus=true, ())
   };
+
+let postMessage = (panel: WebviewPanel.t, message: message): unit => {
+  panel.webview->Webview.postMessage(message) |> ignore;
+};
