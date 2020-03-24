@@ -2,8 +2,7 @@
 open Vscode;
 
 type message =
-  | Success
-  | CannotFindAgda;
+  | Display(string, string);
 
 let html = (distPath, styleUri, scriptUri) => {
   let nonce = {

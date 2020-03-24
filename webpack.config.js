@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
     target: "node",
-    entry: './lib/js/src/View/Panel.bs.js',
+    entry: './lib/js/src/View/ViewMain.bs.js',
     output: {
         path: path.join(__dirname, 'dist'),
         filename: 'bundled-view.js',

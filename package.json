@@ -44,9 +44,9 @@
 		"test": "node ./test/runTest.js",
 		"build": "bsb -make-world && npx webpack --mode=production",
 		"watch-style": "npx less-watch-compiler style/ dist/",
-		"watch-view": "npm run watch-style && npx webpack --mode=production --watch",
+		"watch-view": "npm run watch-style & npx webpack --mode=production --watch",
 		"watch-code": "npx webpack --mode=production --watch",
-		"watch": "npm run watch-code && npm run watch-view",
+		"watch": "npm run watch-view",
 		"clean": "bsb -clean-world"
 	},
 	"devDependencies": {
