@@ -8,5 +8,13 @@ module.exports = {
         filename: 'bundled-view.js',
         libraryTarget: 'window',
     },
-    devtool: 'source-map'
+    devtool: 'source-map',
+    module: {
+        rules: [
+            {
+                test: /\.less$/,
+                loader: 'less-loader', // compiles Less to CSS
+            },
+        ],
+    },
 };

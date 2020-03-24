@@ -13,7 +13,7 @@ Vscode.Api.onMessage((msg: View.message) => {
 Webapi.Dom.Document.getElementById("root", Webapi.Dom.document)
 ->Option.forEach(element => {
     ReactDOMRe.render(
-      <section>
+      <section className="agda-mode">
         <div className="agda-mode-header">
           {ReasonReact.string("head!!")}
         </div>
