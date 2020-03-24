@@ -1,7 +1,7 @@
 // open Belt;
 open Vscode;
 
-let html = (extensionPath, styleUri, scriptUri) => {
+let html = (distPath, styleUri, scriptUri) => {
   let nonce = {
     let text = ref("");
     let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -17,19 +17,19 @@ let html = (extensionPath, styleUri, scriptUri) => {
     text^;
   };
 
+  let styleUri =
+    Uri.file(Node.Path.join2(distPath, styleUri))
+    ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+
+  let scriptUri =
+    Uri.file(Node.Path.join2(distPath, scriptUri))
+    ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+
   let metaContent =
     "default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
     ++ nonce
     ++ "';style-src vscode-resource: 'unsafe-inline' http: https: data:;";
 
-  let styleUri =
-    Uri.file(Node.Path.join2(extensionPath, styleUri))
-    ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
-  let scriptUri =
-    Uri.file(Node.Path.join2(extensionPath, scriptUri))
-    ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
-  Js.log(styleUri);
-  Js.log(scriptUri);
   {j|
 <!DOCTYPE html>
 			<html lang="en">
@@ -38,14 +38,13 @@ let html = (extensionPath, styleUri, scriptUri) => {
 				<meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
 				<meta name="theme-color" content="#000000">
 				<title>React App</title>
-				<link rel="stylesheet" type="text/css" href="$styleUri">
+        <link rel="stylesheet" type="text/css" href="$styleUri">
 				<meta http-equiv="Content-Security-Policy" content="$metaContent">
 			</head>
-
 			<body>
 				<noscript>You need to enable JavaScript to run this app.</noscript>
-				<div id="root">Yo</div>
-				<script nonce="$nonce" src="$scriptUri"></script>
+				<div id="root"></div>
+        <script nonce="$nonce" src="$scriptUri"></script>
 			</body>
 			</html>
 |j};
@@ -71,6 +70,9 @@ let moveToBottom = () => {
 let createPanel = (state: State.t) => {
   let fileName =
     Node.Path.basename_ext(state.editor.document.fileName, ".agda");
+
+  let distPath = Node.Path.join2(state.context.extensionPath, "dist");
+
   let panel =
     Window.createWebviewPanel'(
       "panel",
@@ -80,20 +82,15 @@ let createPanel = (state: State.t) => {
       Some(
         Window.WebviewAndWebviewPanelOptions.make(
           ~enableScripts=true,
-          ~localResourceRoots=[||],
+          // And restric the webview to only loading content from our extension's `media` directory.
+          ~localResourceRoots=[|Uri.file(distPath)|],
           (),
         ),
       ),
     );
 
   panel.webview
-  ->Webview.setHtml(
-      html(
-        state.context.extensionPath,
-        "style/style.css",
-        "dist/bundled-view.js",
-      ),
-    );
+  ->Webview.setHtml(html(distPath, "style.css", "bundled-view.js"));
 
   panel->WebviewPanel.onDidDispose(() => {state.panel = None})->ignore;
 

@@ -42,10 +42,9 @@
 	},
 	"scripts": {
 		"test": "node ./test/runTest.js",
-		"build": "bsb -make-world",
+		"build": "bsb -make-world && npx webpack --mode=production",
 		"start": "bsb -make-world -w",
-		"clean": "bsb -clean-world",
-		"build-view": "bsb -make-world && npx webpack --mode=production"
+		"clean": "bsb -clean-world"
 	},
 	"devDependencies": {
 		"vscode-test": "^1.2.2",
