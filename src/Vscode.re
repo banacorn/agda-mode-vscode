@@ -20,11 +20,28 @@ module Event = {
   type t('a) = ('a => unit) => Disposable.t;
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#Memento
+module Memento = {
+  type t;
+  // methods
+  [@bs.send] external get: (t, string) => option('a) = "get";
+  [@bs.send] external getWithDefault: (t, string, 'a) => 'a = "get";
+  [@bs.send] external update: (t, string, 'a) => Promise.t(unit) = "update";
+};
+
 module ExtensionContext = {
-  type t = {
-    extensionPath: string,
-    subscriptions: array(Disposable.t),
-  };
+  type t;
+  // properties
+  [@bs.get] external extensionPath: t => string = "extensionPath";
+  [@bs.get] external globalState: t => Memento.t = "globalState";
+  [@bs.get] external globalStoragePath: t => string = "globalStoragePath";
+  [@bs.get] external logPath: t => string = "logPath";
+  [@bs.get] external storagePath: t => option(string) = "storagePath";
+  [@bs.get]
+  external subscriptions: t => array(Disposable.t) = "subscriptions";
+  [@bs.get] external workspaceState: t => Memento.t = "workspaceState";
+  // methods
+  [@bs.send] external asAbsolutePath: (t, string) => string = "asAbsolutePath";
 };
 
 module Commands = {

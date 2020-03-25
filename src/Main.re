@@ -43,20 +43,20 @@ let activate = (context: ExtensionContext.t) => {
   Window.onDidChangeActiveTextEditor(editor => {
     editor->Option.flatMap(States.get)->Option.forEach(View.activate)
   })
-  ->Js.Array.push(context.subscriptions)
+  ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
 
   // when a TextEditor gets closed, delete the corresponding Panel (if any)
   Workspace.onDidCloseTextDocument(textDoc => {
     textDoc.fileName->States.getByFileName->Option.forEach(State.dispose)
   })
-  ->Js.Array.push(context.subscriptions)
+  ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
 
   Commands.registerCommand("extension.load", () =>
     getState(context)->Option.forEach(Command.load)
   )
-  ->Js.Array.push(context.subscriptions)
+  ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
 };
 

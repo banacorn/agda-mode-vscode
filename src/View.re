@@ -57,7 +57,8 @@ let createPanel = (state: State.t) => {
   let fileName =
     Node.Path.basename_ext(state.editor.document.fileName, ".agda");
 
-  let distPath = Node.Path.join2(state.context.extensionPath, "dist");
+  let distPath =
+    Node.Path.join2(state.context->ExtensionContext.extensionPath, "dist");
 
   let panel =
     Window.createWebviewPanel'(
