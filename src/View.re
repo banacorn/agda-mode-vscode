@@ -61,13 +61,13 @@ let createPanel = (state: State.t) => {
     Node.Path.join2(state.context->ExtensionContext.extensionPath, "dist");
 
   let panel =
-    Window.createWebviewPanel'(
+    Window.createWebviewPanel(
       "panel",
       "Agda [" ++ fileName ++ "]",
       {preserveFocus: true, viewColumn: 3},
       // None,
       Some(
-        Window.WebviewAndWebviewPanelOptions.make(
+        WebviewAndWebviewPanelOptions.make(
           ~enableScripts=true,
           // And restric the webview to only loading content from our extension's `media` directory.
           ~localResourceRoots=[|Uri.file(distPath)|],
