@@ -624,15 +624,359 @@ module Window = {
     "withScmProgress";
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#FileSystem
+module FileSystem = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#ConfigurationChangeEvent
+module ConfigurationChangeEvent = {
+  type t;
+
+  [@bs.send]
+  external affectsConfiguration:
+    (
+      t,
+      string,
+      [@bs.unwrap] [
+        | `Uri(Uri.t)
+        | `TextDocument(TextDocument.t)
+        | `WorkspaceFolder(WorkspaceFolder.t)
+        | `Others(
+            option({
+              .
+              "languageId": string,
+              "uri": Uri.t,
+            }),
+          )
+      ]
+    ) =>
+    bool =
+    "affectsConfiguration";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#Range
+module Range = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextDocumentContentChangeEvent
+module TextDocumentContentChangeEvent = {
+  type t;
+  // properties
+  [@bs.get] external range: t => Range.t = "range";
+  [@bs.get] external rangeLength: t => int = "rangeLength";
+  [@bs.get] external rangeOffset: t => int = "rangeOffset";
+  [@bs.get] external text: t => string = "text";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextDocumentChangeEvent
+module TextDocumentChangeEvent = {
+  type t;
+  // properties
+  [@bs.get]
+  external contentChanges: t => array(TextDocumentContentChangeEvent.t) =
+    "contentChanges";
+  [@bs.get] external document: t => TextDocument.t = "document";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#WorkspaceFoldersChangeEvent
+module WorkspaceFoldersChangeEvent = {
+  type t;
+  // properties
+  [@bs.get] external added: t => array(WorkspaceFolder.t) = "added";
+  [@bs.get] external removed: t => array(WorkspaceFolder.t) = "removed";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#FileCreateEvent
+module FileCreateEvent = {
+  type t;
+  // properties
+  [@bs.get] external files: t => array(Uri.t) = "files";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#FileDeleteEvent
+module FileDeleteEvent = {
+  type t;
+  // properties
+  [@bs.get] external files: t => array(Uri.t) = "files";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#FileRenameEvent
+module FileRenameEvent = {
+  type t;
+  // properties
+  [@bs.get]
+  external files:
+    t =>
+    array({
+      .
+      "newUri": Uri.t,
+      "oldUri": Uri.t,
+    }) =
+    "files";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#WorkspaceEdit
+module WorkspaceEdit = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#FileWillCreateEvent
+module FileWillCreateEvent = {
+  type t;
+  // properties
+  [@bs.get] external files: t => array(Uri.t) = "files";
+  // methods
+  [@bs.send]
+  external waitUntilWithWorkspaceEdit: (t, Promise.t(WorkspaceEdit.t)) => unit =
+    "waitUntil";
+  [@bs.send] external waitUntil: (t, Promise.t('a)) => unit = "waitUntil";
+};
+// https://code.visualstudio.com/api/references/vscode-api#FileWillDeleteEvent
+module FileWillDeleteEvent = {
+  type t;
+  // properties
+  [@bs.get] external files: t => array(Uri.t) = "files";
+  // methods
+  [@bs.send]
+  external waitUntilWithWorkspaceEdit: (t, Promise.t(WorkspaceEdit.t)) => unit =
+    "waitUntil";
+  [@bs.send] external waitUntil: (t, Promise.t('a)) => unit = "waitUntil";
+};
+// https://code.visualstudio.com/api/references/vscode-api#FileWillRenameEvent
+module FileWillRenameEvent = {
+  type t;
+  // properties
+  [@bs.get]
+  external files:
+    t =>
+    array({
+      .
+      "newUri": Uri.t,
+      "oldUri": Uri.t,
+    }) =
+    "files";
+  // methods
+  [@bs.send]
+  external waitUntilWithWorkspaceEdit: (t, Promise.t(WorkspaceEdit.t)) => unit =
+    "waitUntil";
+  [@bs.send] external waitUntil: (t, Promise.t('a)) => unit = "waitUntil";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextDocumentSaveReason
+module TextDocumentSaveReason = {
+  type t =
+    | AfterDelay
+    | FocusOut
+    | Manual;
+
+  let toEnum =
+    fun
+    | AfterDelay => 2
+    | FocusOut => 3
+    | Manual => 1;
+  let fromEnum =
+    fun
+    | 2 => AfterDelay
+    | 3 => FocusOut
+    | _ => Manual;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextEdit
+module TextEdit = {
+  type t;
+};
+// https://code.visualstudio.com/api/references/vscode-api#TextDocumentWillSaveEvent
+module TextDocumentWillSaveEvent = {
+  type t;
+  // properties
+  [@bs.get] external document: t => TextDocument.t = "document";
+  [@bs.get] external reason_raw: t => int = "reason";
+  let reason = self => TextDocumentSaveReason.fromEnum(self->reason_raw);
+  // methods
+  [@bs.send]
+  external waitUntilWithTextEdit: (t, Promise.t(TextEdit.t)) => unit =
+    "waitUntil";
+  [@bs.send] external waitUntil: (t, Promise.t('a)) => unit = "waitUntil";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#GlobPattern
+module GlobPattern = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#FileSystemWatcher
+module FileSystemWatcher = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#ConfigurationScope
+module ConfigurationScope = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#WorkspaceConfiguration
+module WorkspaceConfiguration = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextDocumentContentProvider
+module TextDocumentContentProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TaskProvider
+module TaskProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#FileSystemProvider
+module FileSystemProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#workspace
 module Workspace = {
+  // variables
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external fs: FileSystem.t = "fs";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external name: option(string) = "name";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external rootPath: option(string) = "rootPath";
   [@bs.module "vscode"] [@bs.scope "workspace"]
   external textDocuments: array(TextDocument.t) = "textDocuments";
-
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidOpenTextDocument: (TextDocument.t => unit) => Disposable.t =
-    "onDidOpenTextDocument";
-
+  external workspaceFile: option(Uri.t) = "workspaceFile";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidCloseTextDocument: (TextDocument.t => unit) => Disposable.t =
+  external workspaceFolders: option(array(WorkspaceFolder.t)) =
+    "workspaceFolders";
+
+  // events
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidChangeConfiguration: event(ConfigurationChangeEvent.t) =
+    "onDidChangeConfiguration";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidChangeTextDocument: event(TextDocumentChangeEvent.t) =
+    "onDidChangeTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidChangeWorkspaceFolders: event(WorkspaceFoldersChangeEvent.t) =
+    "onDidChangeWorkspaceFolders";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidCloseTextDocument: event(TextDocument.t) =
     "onDidCloseTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidCreateFiles: event(FileCreateEvent.t) = "onDidCreateFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidDeleteFiles: event(FileDeleteEvent.t) = "onDidDeleteFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidOpenTextDocument: event(TextDocument.t) =
+    "onDidOpenTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidRenameFiles: event(FileRenameEvent.t) = "onDidRenameFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onDidSaveTextDocument: event(TextDocument.t) =
+    "onDidSaveTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onWillCreateFiles: event(FileWillCreateEvent.t) =
+    "onWillCreateFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onWillDeleteFiles: event(FileWillDeleteEvent.t) =
+    "onWillDeleteFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onWillRenameFiles: event(FileWillRenameEvent.t) =
+    "onWillRenameFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external onWillSaveTextDocument: event(TextDocumentWillSaveEvent.t) =
+    "onWillSaveTextDocument";
+  // functions
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external applyEdit: WorkspaceEdit.t => Promise.t(bool) = "applyEdit";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external asRelativePath: (string, option(bool)) => string =
+    "asRelativePath";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external asRelativePathWithUri: (Uri.t, option(bool)) => string =
+    "asRelativePath";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external createFileSystemWatcher:
+    (
+      GlobPattern.t,
+      ~ignoreCreateEvents: bool=?,
+      ~ignoreChangeEvents: bool=?,
+      ~ignoreDeleteEvents: bool=?
+    ) =>
+    FileSystemWatcher.t =
+    "createFileSystemWatcher";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external findFiles:
+    (
+      GlobPattern.t,
+      ~exclude: Js.nullable(GlobPattern.t)=?,
+      ~token: CancellationToken.t=?
+    ) =>
+    Promise.t(array(Uri.t)) =
+    "findFiles";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external getConfiguration:
+    (
+      ~section: option(ConfigurationScope.t)=?,
+      ~scope: Js.nullable(ConfigurationScope.t)=?
+    ) =>
+    WorkspaceConfiguration.t =
+    "getConfiguration";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external getWorkspaceFolder: Uri.t => option(WorkspaceFolder.t) =
+    "getWorkspaceFolder";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external openTextDocument: Uri.t => Promise.t(TextDocument.t) =
+    "openTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external openTextDocumentWithFileName: string => Promise.t(TextDocument.t) =
+    "openTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external openTextDocumentWithOptions:
+    option({
+      .
+      "content": string,
+      "language": string,
+    }) =>
+    Promise.t(TextDocument.t) =
+    "openTextDocument";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external registerFileSystemProvider:
+    (
+      string,
+      FileSystemProvider.t,
+      option({
+        .
+        "isCaseSensitive": bool,
+        "isReadonly": bool,
+      })
+    ) =>
+    Disposable.t =
+    "registerFileSystemProvider";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external registerTaskProvider: (string, TaskProvider.t) => Disposable.t =
+    "registerTaskProvider";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external registerTextDocumentContentProvider:
+    (string, TextDocumentContentProvider.t) => Disposable.t =
+    "registerTextDocumentContentProvider";
+  [@bs.module "vscode"] [@bs.scope "workspace"]
+  external saveAll: option(bool) => Promise.t(bool) = "saveAll";
+  [@bs.module "vscode"] [@bs.scope "workspace"] [@bs.variadic]
+  external updateWorkspaceFolders:
+    (
+      int,
+      option(int),
+      array({
+        .
+        "name": string,
+        "uri": Uri.t,
+      })
+    ) =>
+    Promise.t(bool) =
+    "updateWorkspaceFolders";
 };
