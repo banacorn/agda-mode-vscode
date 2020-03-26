@@ -5,7 +5,7 @@ module States = {
   let dict: Js.Dict.t(State.t) = Js.Dict.empty();
 
   let get = editor => {
-    dict->Js.Dict.get(editor.TextEditor.document.fileName);
+    dict->Js.Dict.get(editor.TextEditor.document->TextDocument.fileName);
   };
 
   let getByFileName = fileName => {
@@ -19,7 +19,9 @@ module States = {
 
   // see if an TextEditor has been loaded
   let isLoaded = editor => {
-    dict->Js.Dict.get(editor.TextEditor.document.fileName)->Option.isSome;
+    dict
+    ->Js.Dict.get(editor.TextEditor.document->TextDocument.fileName)
+    ->Option.isSome;
   };
 
   let dispose = () => {
@@ -32,7 +34,7 @@ let getState = context =>
     switch (States.get(editor)) {
     | None =>
       let state = State.make(context, editor);
-      States.set(editor.document.fileName, state);
+      States.set(editor.document->TextDocument.fileName, state);
       state;
     | Some(state) => state
     }
@@ -49,8 +51,8 @@ let activate = (context: ExtensionContext.t) => {
   // when a TextEditor gets closed, delete the corresponding Panel (if any)
   Workspace.onDidCloseTextDocument(textDoc => {
     textDoc
-    ->TextDocument.fileName
-    ->States.getByFileName
+    ->Option.map(TextDocument.fileName)
+    ->Option.flatMap(States.getByFileName)
     ->Option.forEach(State.dispose)
   })
   ->Js.Array.push(context->ExtensionContext.subscriptions)

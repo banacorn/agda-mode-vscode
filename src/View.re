@@ -55,7 +55,10 @@ let html = (distPath, styleUri, scriptUri) => {
 
 let createPanel = (state: State.t) => {
   let fileName =
-    Node.Path.basename_ext(state.editor.document.fileName, ".agda");
+    Node.Path.basename_ext(
+      state.editor.document->TextDocument.fileName,
+      ".agda",
+    );
 
   let distPath =
     Node.Path.join2(state.context->ExtensionContext.extensionPath, "dist");

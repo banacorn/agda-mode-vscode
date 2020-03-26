@@ -212,20 +212,63 @@ module WebviewPanel = {
   external onDidDispose: (t, unit => unit) => Disposable.t = "onDidDispose";
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#Position
+module Position = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#Range
+module Range = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#RegExp
+module RegExp = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextLine
+module TextLine = {
+  type t;
+  // properties
+  [@bs.get]
+  external firstNonWhitespaceCharacterIndex: t => int =
+    "firstNonWhitespaceCharacterIndex";
+  [@bs.get] external isEmptyOrWhitespace: t => bool = "isEmptyOrWhitespace";
+  [@bs.get] external lineNumber: t => int = "lineNumber";
+  [@bs.get] external range: t => Range.t = "range";
+  [@bs.get]
+  external rangeIncludingLineBreak: t => Range.t = "rangeIncludingLineBreak";
+  [@bs.get] external text: t => string = "text";
+};
+
 module TextDocument = {
-  type t = {
-    eol: int,
-    fileName: string,
-    isClosed: bool,
-    isDirty: bool,
-    isUntitled: bool,
-    languageId: string,
-    lineCount: int,
-    uri: Uri.t,
-    version: int,
-  };
-  // [@bs.send]
-  // external onDidDispose: (t, unit => unit) => Disposable.t = "onDidDispose";
+  type t;
+  // properties
+  [@bs.get] external eol: t => int = "eol";
+  [@bs.get] external fileName: t => string = "fileName";
+  [@bs.get] external isClosed: t => bool = "isClosed";
+  [@bs.get] external isDirty: t => bool = "isDirty";
+  [@bs.get] external isUntitled: t => bool = "isUntitled";
+  [@bs.get] external languageId: t => string = "languageId";
+  [@bs.get] external lineCount: t => int = "lineCount";
+  [@bs.get] external uri: t => Uri.t = "uri";
+  [@bs.get] external version: t => int = "version";
+  // methods
+  [@bs.send] external getText: (t, option(Range.t)) => string = "getText";
+  [@bs.send]
+  external getWordRangeAtPosition:
+    (t, Position.t, option(RegExp.t)) => option(Range.t) =
+    "getWordRangeAtPosition";
+  [@bs.send] external lineAt: (t, int) => TextLine.t = "lineAt";
+  [@bs.send] external lineAtPosition: (t, Position.t) => TextLine.t = "lineAt";
+  [@bs.send] external offsetAt: (t, Position.t) => int = "offsetAt";
+  [@bs.send] external positionAt: (t, int) => Position.t = "positionAt";
+  [@bs.send] external save: t => Promise.t(bool) = "save";
+  [@bs.send]
+  external validatePosition: (t, Position.t) => Position.t =
+    "validatePosition";
+  [@bs.send] external validateRange: (t, Range.t) => Range.t = "validateRange";
 };
 
 module TextEditor = {
@@ -658,11 +701,6 @@ module ConfigurationChangeEvent = {
     ) =>
     bool =
     "affectsConfiguration";
-};
-
-// https://code.visualstudio.com/api/references/vscode-api#Range
-module Range = {
-  type t;
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#TextDocumentContentChangeEvent
