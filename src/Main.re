@@ -48,7 +48,10 @@ let activate = (context: ExtensionContext.t) => {
 
   // when a TextEditor gets closed, delete the corresponding Panel (if any)
   Workspace.onDidCloseTextDocument(textDoc => {
-    textDoc.fileName->States.getByFileName->Option.forEach(State.dispose)
+    textDoc
+    ->TextDocument.fileName
+    ->States.getByFileName
+    ->Option.forEach(State.dispose)
   })
   ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;

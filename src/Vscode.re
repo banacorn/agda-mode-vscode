@@ -232,8 +232,6 @@ module TextEditor = {
   type t = {document: TextDocument.t};
 };
 
-type event('a) = ('a => unit) => Disposable.t;
-
 module Terminal = {
   type t;
 };
@@ -436,36 +434,43 @@ module Window = {
   external visibleTextEditors: array(TextEditor.t) = "visibleTextEditors";
   // events
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidChangeActiveTerminal: event(option(Terminal.t)) =
+  external onDidChangeActiveTerminal:
+    (option(Terminal.t) => unit) => Disposable.t =
     "onDidChangeActiveTerminal";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidChangeActiveTextEditor: event(option(TextEditor.t)) =
+  external onDidChangeActiveTextEditor:
+    (option(TextEditor.t) => unit) => Disposable.t =
     "onDidChangeActiveTextEditor";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidChangeTextEditorOptions: event(TextEditorOptionsChangeEvent.t) =
+  external onDidChangeTextEditorOptions:
+    (option(TextEditorOptionsChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeTextEditorOptions";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorSelection:
-    event(TextEditorSelectionChangeEvent.t) =
+    (option(TextEditorSelectionChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeTextEditorSelection";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorViewColumn:
-    event(TextEditorViewColumnChangeEvent.t) =
+    (option(TextEditorViewColumnChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeTextEditorViewColumn";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorVisibleRanges:
-    event(TextEditorVisibleRangesChangeEvent.t) =
+    (option(TextEditorVisibleRangesChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeTextEditorVisibleRanges";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidChangeVisibleTextEditors: event(TextEditor.t) =
+  external onDidChangeVisibleTextEditors:
+    (option(TextEditor.t) => unit) => Disposable.t =
     "onDidChangeVisibleTextEditors";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidChangeWindowState: event(WindowState.t) =
+  external onDidChangeWindowState:
+    (option(WindowState.t) => unit) => Disposable.t =
     "onDidChangeWindowState";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidCloseTerminal: event(Terminal.t) = "onDidCloseTerminal";
+  external onDidCloseTerminal: (option(Terminal.t) => unit) => Disposable.t =
+    "onDidCloseTerminal";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidOpenTerminal: event(Terminal.t) = "onDidOpenTerminal";
+  external onDidOpenTerminal: (option(Terminal.t) => unit) => Disposable.t =
+    "onDidOpenTerminal";
   // functions
   [@bs.module "vscode"] [@bs.scope "window"]
   external createInputBox: unit => InputBox.t = "createInputBox";
@@ -855,40 +860,56 @@ module Workspace = {
 
   // events
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidChangeConfiguration: event(ConfigurationChangeEvent.t) =
+  external onDidChangeConfiguration:
+    (option(ConfigurationChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeConfiguration";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidChangeTextDocument: event(TextDocumentChangeEvent.t) =
+  external onDidChangeTextDocument:
+    (option(TextDocumentChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeTextDocument";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidChangeWorkspaceFolders: event(WorkspaceFoldersChangeEvent.t) =
+  external onDidChangeWorkspaceFolders:
+    (option(WorkspaceFoldersChangeEvent.t) => unit) => Disposable.t =
     "onDidChangeWorkspaceFolders";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidCloseTextDocument: event(TextDocument.t) =
+  external onDidCloseTextDocument:
+    (option(TextDocument.t) => unit) => Disposable.t =
     "onDidCloseTextDocument";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidCreateFiles: event(FileCreateEvent.t) = "onDidCreateFiles";
+  external onDidCreateFiles:
+    (option(FileCreateEvent.t) => unit) => Disposable.t =
+    "onDidCreateFiles";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidDeleteFiles: event(FileDeleteEvent.t) = "onDidDeleteFiles";
+  external onDidDeleteFiles:
+    (option(FileDeleteEvent.t) => unit) => Disposable.t =
+    "onDidDeleteFiles";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidOpenTextDocument: event(TextDocument.t) =
+  external onDidOpenTextDocument:
+    (option(TextDocument.t) => unit) => Disposable.t =
     "onDidOpenTextDocument";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidRenameFiles: event(FileRenameEvent.t) = "onDidRenameFiles";
+  external onDidRenameFiles:
+    (option(FileRenameEvent.t) => unit) => Disposable.t =
+    "onDidRenameFiles";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onDidSaveTextDocument: event(TextDocument.t) =
+  external onDidSaveTextDocument:
+    (option(TextDocument.t) => unit) => Disposable.t =
     "onDidSaveTextDocument";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onWillCreateFiles: event(FileWillCreateEvent.t) =
+  external onWillCreateFiles:
+    (option(FileWillCreateEvent.t) => unit) => Disposable.t =
     "onWillCreateFiles";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onWillDeleteFiles: event(FileWillDeleteEvent.t) =
+  external onWillDeleteFiles:
+    (option(FileWillDeleteEvent.t) => unit) => Disposable.t =
     "onWillDeleteFiles";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onWillRenameFiles: event(FileWillRenameEvent.t) =
+  external onWillRenameFiles:
+    (option(FileWillRenameEvent.t) => unit) => Disposable.t =
     "onWillRenameFiles";
   [@bs.module "vscode"] [@bs.scope "workspace"]
-  external onWillSaveTextDocument: event(TextDocumentWillSaveEvent.t) =
+  external onWillSaveTextDocument:
+    (option(TextDocumentWillSaveEvent.t) => unit) => Disposable.t =
     "onWillSaveTextDocument";
   // functions
   [@bs.module "vscode"] [@bs.scope "workspace"]
