@@ -1,8 +1,8 @@
-open Vscode;
+open Guacamole.Vscode;
 open Belt;
 
 type t = {
-  context: Vscode.ExtensionContext.t,
+  context: Guacamole.Vscode.ExtensionContext.t,
   editor: TextEditor.t,
   mutable connection: option(AgdaMode.Process.t),
   mutable panel: option(WebviewPanel.t),

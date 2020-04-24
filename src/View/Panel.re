@@ -1,4 +1,4 @@
-let vscode = Vscode.Api.acquireVsCodeApi();
+let vscode = Guacamole.Vscode.Api.acquireVsCodeApi();
 
 [@react.component]
 let make = () => {
@@ -8,8 +8,8 @@ let make = () => {
   React.useEffect1(
     () => {
       Js.log("init");
-      vscode->Vscode.Api.postMessage("from view");
-      Vscode.Api.onMessage((msg: View.message) => {
+      vscode->Guacamole.Vscode.Api.postMessage("from view");
+      Guacamole.Vscode.Api.onMessage((msg: View.message) => {
         Js.log2(" >>> ", msg);
         switch (msg) {
         | View.Display(header, body) =>

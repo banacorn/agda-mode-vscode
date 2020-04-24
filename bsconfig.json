@@ -23,7 +23,8 @@
     "bs-nd",
     "reason-promise",
     "reason-react",
-    "reason-react-update"
+    "reason-react-update",
+    "guacamole"
   ],
   "bsc-flags": [
     "-bs-g"
