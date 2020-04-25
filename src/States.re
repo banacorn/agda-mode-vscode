@@ -14,12 +14,9 @@ module StateDict = {
 
     // do nothing if the state already exists
     let add = (fileName, state) => {
-      // let fileName = editor->Interface.getFileName';
       switch (get(fileName)) {
       | Some(_) => ()
-      | None =>
-        Js.log("[ states ][ add ]");
-        dict->Js.Dict.set(fileName, state);
+      | None => dict->Js.Dict.set(fileName, state)
       };
     };
 
@@ -64,9 +61,9 @@ module StateDict = {
 
 module Impl = (Editor: Sig.Editor) => {
   module States = StateDict.Impl(Editor);
+  module State = State.Impl(Editor);
   //   module TaskCommand = Task__Command.Impl(Editor);
   //   module TaskRunner = TaskRunner.Impl(Editor);
-  module State = State.Impl(Editor);
 
   let addToSubscriptions = (f, context) =>
     f->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;
@@ -108,8 +105,8 @@ module Impl = (Editor: Sig.Editor) => {
           | None =>
             // not in the States dict, instantiate one new
             let state = State.make(context, editor);
-            state
             // remove it from the States dict if it got destroyed
+            state
             ->State.onDestroy(() => {States.remove(fileName)})
             ->Editor.addToSubscriptions(context);
             States.add(fileName, state);
@@ -131,7 +128,7 @@ module Impl = (Editor: Sig.Editor) => {
             // not in the States dict, do nothing
             ()
           | Some(_state) =>
-            // already in the States dict, remove and destroy it
+            // already in the States dict, remove it
             fileName->States.destroy
           }
         })

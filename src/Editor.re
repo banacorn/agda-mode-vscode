@@ -7,8 +7,7 @@ module Disposable = {
   let make = Disposable.make;
   let dispose = Disposable.dispose;
 };
-type view = unit;
-// Impl__View.t;
+type view = View__Controller.t;
 
 module Point = {
   type t = Position.t;
@@ -112,6 +111,11 @@ module Config = {
 // View
 //
 
+module View = {
+  include View__Controller;
+  // override View.make to inject editor-dependent arguments
+  let make = View__Controller.make(getExtensionPath);
+};
 //
 // Decoration
 //

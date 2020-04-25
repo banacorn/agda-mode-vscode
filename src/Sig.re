@@ -58,6 +58,18 @@ module type Editor = {
     let setAgdaPath: fileName => Promise.t(unit);
   };
 
+  module View: {
+    // construction/destruction
+    let make: (context, editor) => view;
+    let destroy: view => unit;
+    // show/hide
+    let show: view => unit;
+    let hide: view => unit;
+    // messaging
+    let send: (view, View.Request.t) => Promise.t(bool);
+    let recv: (view, View.Response.t => unit) => Disposable.t;
+  };
+  
   let getCursorPosition: editor => Point.t;
   // let setCursor: (editor, Point.t) => unit;
 

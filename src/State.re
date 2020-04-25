@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
   type t = {
     editor,
     context,
+    view: Editor.view,
     mutable connection: option(Connection.t),
     onDestroyEventEmitter: Event.t(unit),
   };
@@ -74,11 +75,12 @@ module Impl = (Editor: Sig.Editor) => {
 
   let make = (context, editor) => {
     // view initialization
-    // let view = Editor.View.make(context, editor);
+    let view = Editor.View.make(context, editor);
 
     let state = {
       editor,
       context,
+      view,
       connection: None,
       onDestroyEventEmitter: Event.make(),
     };
