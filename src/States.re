@@ -62,8 +62,8 @@ module StateDict = {
 module Impl = (Editor: Sig.Editor) => {
   module States = StateDict.Impl(Editor);
   module State = State.Impl(Editor);
-  //   module TaskCommand = Task__Command.Impl(Editor);
-  //   module TaskRunner = TaskRunner.Impl(Editor);
+  module TaskCommand = Task__Command.Impl(Editor);
+  module TaskRunner = TaskRunner.Impl(Editor);
 
   let addToSubscriptions = (f, context) =>
     f->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;
@@ -140,8 +140,10 @@ module Impl = (Editor: Sig.Editor) => {
       Editor.registerCommand(name, editor => {
         editor
         ->States.getByEditor
-        ->Option.forEach(state => {Js.log(state)})
-        // TaskCommand.dispatch(command) |> TaskRunner.run(state) |> ignore
+        ->Option.forEach(state => {
+            Js.log(state);
+            TaskCommand.dispatch(command) |> TaskRunner.run(state) |> ignore;
+          })
       })
       ->Editor.addToSubscriptions(context)
     });

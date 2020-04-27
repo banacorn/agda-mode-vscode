@@ -8,6 +8,16 @@ module type Disposable = {
   let dispose: t => unit;
 };
 
+module Error = {
+  type t =
+    // | ParseError(array(Parser.Error.t))
+    | Connection(Connection.Error.t)
+    // Cancelled: never makes its way to Agda
+    | Cancelled
+    // Other reasons, also never make their way to Agda
+    | OutOfGoal;
+};
+
 module type Editor = {
   type editor;
   type context;
@@ -53,9 +63,13 @@ module type Editor = {
   let addToSubscriptions: (Disposable.t, context) => unit;
 
   module Config: {
-    // Configurations
+    // Agda path
     let getAgdaPath: unit => option(fileName);
     let setAgdaPath: fileName => Promise.t(unit);
+    // Library path
+    let getLibraryPath: unit => array(fileName);
+    // Highlighting method
+    let getHighlightingMethod: unit => bool;
   };
 
   module View: {
@@ -69,7 +83,7 @@ module type Editor = {
     let send: (view, View.Request.t) => Promise.t(bool);
     let recv: (view, View.Response.t => unit) => Disposable.t;
   };
-  
+
   let getCursorPosition: editor => Point.t;
   // let setCursor: (editor, Point.t) => unit;
 

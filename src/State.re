@@ -42,23 +42,34 @@ module Impl = (Editor: Sig.Editor) => {
     | Some(connection) => Connection.disconnect(connection)
     };
   let sendRequest = (state, request) => {
-    // let value = Request.encode(request);
-    // Js.log2("<<<", value);
+    let version = "2.6.1"; // TODO
+    let filepath = "Editor.getFileName(state.editor)";
+    let libraryPath = Editor.Config.getLibraryPath();
+    let highlightingMethod = Editor.Config.getHighlightingMethod();
+    let encoded =
+      Request.encode(
+        version,
+        filepath,
+        libraryPath,
+        highlightingMethod,
+        request,
+      );
+    Js.log2("<<<", encoded);
     // let%Ok conn = state->connect;
     // let%Ok result =
-    //   Connection.send(value, conn)
+    //   Connection.send(encoded, conn)
     //   ->Promise.mapError(e => Sig.Error.Connection(e));
     // Js.log2(
     //   ">>>",
     //   Js.String.substring(~from=0, ~to_=200, Js.Json.stringify(result)),
     // );
-    // // catching exceptions occured when decoding JSON values
+    // catching exceptions occured when decoding JSON values
     // switch (Response.decode(result)) {
     // | value => Promise.resolved(Ok(value))
     // | exception (Json.Decode.DecodeError(msg)) =>
     //   Promise.resolved(Error(Sig.Error.Decode(msg, result)))
     // };
-    ();
+    // Promise.resolved(Ok());
     ();
   };
 

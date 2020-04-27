@@ -15,17 +15,19 @@ let encode =
       version,
       filepath: string,
       libraryPath: array(string),
-      highlightingMethod: string,
+      highlightingMethod: bool,
       request,
     ) => {
   let libraryPath: string = {
     // add the current directory to the front
     Js.Array.unshift(".", libraryPath)->ignore;
-    // clean, quote, and then concatenate the paths with commas
+    // add quotes and then concatenate the paths with commas
     libraryPath
     ->Array.map(x => "\"" ++ Parser.filepath(x) ++ "\"")
     ->Js.String.concatMany(", ");
   };
+
+  let highlightingMethod = highlightingMethod ? "Direct" : "Indirect";
 
   // the common first half
   let commonPart: highlightingLevel => string =

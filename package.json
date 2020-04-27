@@ -1,5 +1,5 @@
 {
-	"name": "agda-mode-vscode",
+	"name": "agda-mode",
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"version": "0.0.1",
@@ -47,7 +47,34 @@
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Agda Mode",
+			"properties": {
+				"agdaMode.agdaPath": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Path to the executable of Agda, automatically inferred when possible. Overwrite to override."
+				},
+				"agdaMode.libraryPath": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Paths to include (such as agda-stdlib), seperate with comma. Useless after Agda 2.5.0."
+				},
+				"agdaMode.highlightingMethod": {
+					"type": "string",
+					"default": "Direct",
+					"enum": [
+						"Direct",
+						"Indirect"
+					],
+					"scope": "machine-overridable",
+					"description": "Receive highlighting information from Agda, directly via stdio, or indirectly via temporary files (which mwy require frequent disk access)."
+				}
+			}
+		}
 	},
 	"scripts": {
 		"test": "node ./test/runTest.js",
@@ -69,6 +96,7 @@
 		"@glennsl/bs-json": "^5.0.1",
 		"agda-mode": "github:banacorn/agda-mode#dev",
 		"bs-nd": "^0.1.5",
+		"bs-let": "^0.1.11",
 		"bs-platform": "^7.2",
 		"bs-webapi": "^0.15.3",
 		"reason-promise": "^1.0.1",

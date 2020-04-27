@@ -27,6 +27,9 @@
     "reason-react-update",
     "guacamole"
   ],
+  "ppx-flags": [
+    "bs-let/ppx"
+  ],
   "bsc-flags": [
     "-bs-g"
   ],

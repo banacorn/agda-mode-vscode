@@ -99,12 +99,35 @@ let registerCommand = (name, callback) =>
 // Configuration
 //
 module Config = {
+  // Agda path
   let setAgdaPath = path =>
-    Workspace.getConfiguration(Some("agda-mode"), None)
+    Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.updateGlobalSettings("agdaPath", path, None);
   let getAgdaPath = () =>
-    Workspace.getConfiguration(Some("agda-mode"), None)
+    Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.get("agdaPath");
+
+  // Library path
+  let getLibraryPath = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("libraryPath")
+      ->Option.getWithDefault("");
+    // split by comma, and clean them up
+    Js.String.split(",", raw)
+    ->Array.keep(x => x !== "")
+    ->Array.map(Parser.filepath);
+  };
+  // Highlighting method
+  let getHighlightingMethod = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("highlightingMethod");
+    switch (raw) {
+    | Some("Direct") => true
+    | _ => false
+    };
+  };
 };
 
 //
