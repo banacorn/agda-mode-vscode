@@ -4,17 +4,26 @@ module Impl = (Editor: Sig.Editor) => {
   module State = State.Impl(Editor);
   open Belt;
   // run the Tasks
-  let rec run = (state: State.t, tasks: list(Task.t)): Promise.t(unit) => {
-    let runTask = task =>
+  let run = (state: State.t, tasks: list(Task.t)): Promise.t(unit) => {
+    let runTask = (task: Task.t): Promise.t(list(Task.t)) =>
       switch (task) {
-      | Task.WithState(callback) =>
-        callback(state)->Promise.flatMap(run(state))
+      | Task.WithState(callback) => callback(state)
       | DispatchCommand(command) =>
-        Js.log2("[ dispatch command ]", command);
-        TaskCommand.dispatch(command) |> run(state);
+        Js.log2("[ task ][ dispatch command ]", command);
+        TaskCommand.dispatch(command)->Promise.resolved;
       | SendRequest(request) =>
-        Js.log("[ send request ]");
-        Promise.resolved();
+        Js.log("[ task ][ send request ]");
+        Promise.resolved([]);
+      | Connect =>
+        Js.log("[ task ][ connect ]");
+        state
+        ->State.connect
+        ->Promise.tap(Js.log)
+        ->Promise.map(
+            fun
+            | Error(_) => []
+            | Ok () => [],
+          );
       // state
       // ->State.sendRequest(request)
       // ->Promise.flatMap(
@@ -31,9 +40,7 @@ module Impl = (Editor: Sig.Editor) => {
       fun
       | [] => Promise.resolved()
       | [x, ...xs] => {
-          let%P () = runTask(x);
-          let%P () = runEach(xs);
-          Promise.resolved();
+          runTask(x)->Promise.flatMap(xs' => runEach(List.concat(xs', xs)));
         };
     runEach(tasks);
   };

@@ -96,55 +96,57 @@ module Impl = (Editor: Sig.Editor) => {
     })
     ->Editor.addToSubscriptions(context);
 
-    // on "agda-mode:load"
-    Editor.registerCommand("load", editor => {
-      editor
-      ->Editor.getFileName
-      ->Option.forEach(fileName => {
-          switch (States.get(fileName)) {
-          | None =>
-            // not in the States dict, instantiate one new
-            let state = State.make(context, editor);
-            // remove it from the States dict if it got destroyed
-            state
-            ->State.onDestroy(() => {States.remove(fileName)})
-            ->Editor.addToSubscriptions(context);
-            States.add(fileName, state);
-          | Some(_state) =>
-            // already in the States dict, do nothing
-            ()
-          }
-        })
-    })
-    ->Editor.addToSubscriptions(context);
-
-    // on "agda-mode:quit"
-    Editor.registerCommand("quit", editor => {
-      editor
-      ->Editor.getFileName
-      ->Option.forEach(fileName => {
-          switch (States.get(fileName)) {
-          | None =>
-            // not in the States dict, do nothing
-            ()
-          | Some(_state) =>
-            // already in the States dict, remove it
-            fileName->States.destroy
-          }
-        })
-    })
-    ->Editor.addToSubscriptions(context);
-
-    // on other commands
+    // on trigger command
     Command.names->Array.forEach(((command, name)) => {
-      Editor.registerCommand(name, editor => {
-        editor
-        ->States.getByEditor
-        ->Option.forEach(state => {
-            Js.log(state);
-            TaskCommand.dispatch(command) |> TaskRunner.run(state) |> ignore;
-          })
-      })
+      Editor.registerCommand(
+        name,
+        editor => {
+          // special treatments on commands like "Load" and "Quit"
+          switch (command) {
+          | Load =>
+            editor
+            ->Editor.getFileName
+            ->Option.forEach(fileName => {
+                switch (States.get(fileName)) {
+                | None =>
+                  // not in the States dict, instantiate one new
+                  let state = State.make(context, editor);
+                  // remove it from the States dict if it got destroyed
+                  state
+                  ->State.onDestroy(() => {States.remove(fileName)})
+                  ->Editor.addToSubscriptions(context);
+                  States.add(fileName, state);
+                | Some(_state) =>
+                  // already in the States dict, do nothing
+                  ()
+                }
+              })
+          | Quit =>
+            editor
+            ->Editor.getFileName
+            ->Option.forEach(fileName => {
+                switch (States.get(fileName)) {
+                | None =>
+                  // not in the States dict, do nothing
+                  ()
+                | Some(_state) =>
+                  // already in the States dict, remove it
+                  fileName->States.destroy
+                }
+              })
+          | _ => ()
+          };
+          // dispatch Tasks
+          editor
+          ->States.getByEditor
+          ->Option.forEach(state => {
+              Js.log(state);
+              TaskCommand.dispatch(command)
+              |> TaskRunner.run(state)
+              |> ignore;
+            });
+        },
+      )
       ->Editor.addToSubscriptions(context)
     });
   };

@@ -30,17 +30,17 @@ module Impl = (Editor: Sig.Editor) => {
   let connect = state =>
     switch (state.connection) {
     | None =>
-      // Connection.make(Editor.Config.getAgdaPath, Editor.Config.setAgdaPath)
-      // ->Promise.mapError(e => Sig.Error.Connection(e))
-      // ->Promise.tapOk(conn => state.connection = Some(conn))
-      Promise.resolved(Error())
-    | Some(connection) => Promise.resolved(Ok(connection))
+      Connection.make(Editor.Config.getAgdaPath, Editor.Config.setAgdaPath)
+      ->Promise.mapError(e => Sig.Error.Connection(e))
+      ->Promise.mapOk(conn => state.connection = Some(conn))
+    | Some(_) => Promise.resolved(Ok())
     };
   let disconnect = state =>
     switch (state.connection) {
     | None => Promise.resolved()
     | Some(connection) => Connection.disconnect(connection)
     };
+
   let sendRequest = (state, request) => {
     let version = "2.6.1"; // TODO
     let filepath = "Editor.getFileName(state.editor)";
