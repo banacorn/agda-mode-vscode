@@ -18,7 +18,8 @@ module Impl = (Editor: Sig.Editor) => {
         Js.log("[ task ][ connect ]");
         state
         ->State.connect
-        ->Promise.tap(Js.log)
+        ->Promise.tapOk(Js.log2("OK"))
+        ->Promise.tapError(Js.log2("Error"))
         ->Promise.map(
             fun
             | Error(_) => []

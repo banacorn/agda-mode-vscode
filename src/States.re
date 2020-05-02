@@ -140,10 +140,9 @@ module Impl = (Editor: Sig.Editor) => {
           editor
           ->States.getByEditor
           ->Option.forEach(state => {
-              Js.log(state);
               TaskCommand.dispatch(command)
               |> TaskRunner.run(state)
-              |> ignore;
+              |> ignore
             });
         },
       )

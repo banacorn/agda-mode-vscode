@@ -117,3 +117,9 @@ module Version = {
     | LT => false
     };
 };
+
+module Pretty = {
+  let array = xs => {
+    "[" ++ Js.String.concatMany(xs, ", ") ++ "]";
+  };
+};
