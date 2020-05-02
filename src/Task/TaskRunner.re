@@ -3,6 +3,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
   open Belt;
+
   // run the Tasks
   let run = (state: State.t, tasks: list(Task.t)): Promise.t(unit) => {
     let runTask = (task: Task.t): Promise.t(list(Task.t)) =>
@@ -13,7 +14,10 @@ module Impl = (Editor: Sig.Editor) => {
         TaskCommand.dispatch(command)->Promise.resolved;
       | SendRequest(request) =>
         Js.log("[ task ][ send request ]");
-        Promise.resolved([]);
+        state
+        ->State.sendRequest(request)
+        ->Promise.map(ev => {[]})
+        ->Promise.map(_ => []);
       | Connect =>
         Js.log("[ task ][ connect ]");
         state
@@ -23,7 +27,7 @@ module Impl = (Editor: Sig.Editor) => {
         ->Promise.map(
             fun
             | Error(_) => []
-            | Ok () => [],
+            | Ok(_) => [],
           );
       // state
       // ->State.sendRequest(request)

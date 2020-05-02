@@ -23,7 +23,7 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   //
-  // GCL connection/disconnection
+  // Agda connection/disconnection
   //
 
   // connect if not connected yet
@@ -32,16 +32,25 @@ module Impl = (Editor: Sig.Editor) => {
     | None =>
       Connection.make(Editor.Config.getAgdaPath, Editor.Config.setAgdaPath)
       ->Promise.mapError(e => Sig.Error.Connection(e))
-      ->Promise.mapOk(conn => state.connection = Some(conn))
-    | Some(_) => Promise.resolved(Ok())
+      ->Promise.tapOk(conn => state.connection = Some(conn))
+    | Some(connection) => Promise.resolved(Ok(connection))
     };
   let disconnect = state =>
     switch (state.connection) {
     | None => Promise.resolved()
-    | Some(connection) => Connection.disconnect(connection)
+    | Some(connection) =>
+      Connection.destroy(connection);
+      Promise.resolved();
     };
 
-  let sendRequest = (state, request) => {
+  let sendRequest =
+      (state, request)
+      : Promise.t(
+          result(
+            Event.t(result(Connection.response, Connection.Process.Error.t)),
+            Sig.Error.t,
+          ),
+        ) => {
     let version = "2.6.1"; // TODO
     let filepath = "Editor.getFileName(state.editor)";
     let libraryPath = Editor.Config.getLibraryPath();
@@ -55,22 +64,12 @@ module Impl = (Editor: Sig.Editor) => {
         request,
       );
     Js.log2("<<<", encoded);
-    // let%Ok conn = state->connect;
-    // let%Ok result =
-    //   Connection.send(encoded, conn)
-    //   ->Promise.mapError(e => Sig.Error.Connection(e));
-    // Js.log2(
-    //   ">>>",
-    //   Js.String.substring(~from=0, ~to_=200, Js.Json.stringify(result)),
-    // );
-    // catching exceptions occured when decoding JSON values
-    // switch (Response.decode(result)) {
-    // | value => Promise.resolved(Ok(value))
-    // | exception (Json.Decode.DecodeError(msg)) =>
-    //   Promise.resolved(Error(Sig.Error.Decode(msg, result)))
-    // };
-    // Promise.resolved(Ok());
-    ();
+    // let%Ok connection = state->connect;
+    // ();
+    state
+    ->connect
+    ->Promise.mapOk(connection => Connection.send(encoded, connection));
+    // Connection.send(encoded, connection);
   };
 
   //

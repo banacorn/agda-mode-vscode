@@ -82,13 +82,13 @@ let make = (getExtensionPath, context, editor) => {
     let fileName =
       Node.Path.basename_ext(
         editor->TextEditor.document->TextDocument.fileName,
-        ".gcl",
+        ".agda",
       );
 
     let panel =
       Window.createWebviewPanel(
         "panel",
-        "GCL [" ++ fileName ++ "]",
+        "Agda [" ++ fileName ++ "]",
         {preserveFocus: true, viewColumn: 3},
         // None,
         Some(
