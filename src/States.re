@@ -4,8 +4,9 @@ open Guacamole.Vscode;
 // a dictionary of FileName-State entries
 module StateDict = {
   module Impl = (Editor: Sig.Editor) => {
+    module TaskRunner = TaskRunner.Impl(Editor);
     module State = State.Impl(Editor);
-    let dict: Js.Dict.t(State.t) = Js.Dict.empty();
+    let dict: Js.Dict.t((State.t, TaskRunner.t)) = Js.Dict.empty();
 
     let get = fileName => dict->Js.Dict.get(fileName);
 
@@ -41,9 +42,10 @@ module StateDict = {
     };
     let destroy = fileName => {
       get(fileName)
-      ->Option.forEach(state => {
+      ->Option.forEach(((state, runner)) => {
           Js.log("[ states ][ destroy ]");
           State.destroy(state) |> ignore;
+          TaskRunner.destroy(runner) |> ignore;
         });
       remove(fileName);
     };
@@ -53,8 +55,10 @@ module StateDict = {
     let destroyAll = () => {
       dict
       ->Js.Dict.entries
-      ->Array.map(((_, state)) => State.destroy(state))
-      ->ignore;
+      ->Array.forEach(((_, (state, runner))) => {
+          State.destroy(state) |> ignore;
+          TaskRunner.destroy(runner) |> ignore;
+        });
     };
   };
 };
@@ -111,11 +115,12 @@ module Impl = (Editor: Sig.Editor) => {
                 | None =>
                   // not in the States dict, instantiate one new
                   let state = State.make(context, editor);
+                  let taskRunner = TaskRunner.make(state);
                   // remove it from the States dict if it got destroyed
                   state
                   ->State.onDestroy(() => {States.remove(fileName)})
                   ->Editor.addToSubscriptions(context);
-                  States.add(fileName, state);
+                  States.add(fileName, (state, taskRunner));
                 | Some(_state) =>
                   // already in the States dict, do nothing
                   ()
@@ -139,10 +144,8 @@ module Impl = (Editor: Sig.Editor) => {
           // dispatch Tasks
           editor
           ->States.getByEditor
-          ->Option.forEach(state => {
-              TaskCommand.dispatch(command)
-              |> TaskRunner.run(state)
-              |> ignore
+          ->Option.forEach(((state, runner)) => {
+              TaskRunner.addTask(runner, DispatchCommand(command))
             });
         },
       )

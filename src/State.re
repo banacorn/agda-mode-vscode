@@ -95,13 +95,6 @@ module Impl = (Editor: Sig.Editor) => {
       onDestroyEventEmitter: Event.make(),
     };
 
-    // a dictionary of decorations for <Link>
-
-    // update the state on receiving messages from the view
-    // view
-    // ->Editor.View.recv(onRecvMessageFromView)
-    // ->Editor.addToSubscriptions(context);
-
     state;
   };
   //
