@@ -1,43 +1,9 @@
 module Impl = (Editor: Sig.Editor) => {
   module TaskCommand = Task__Command.Impl(Editor);
+  module TaskResponse = Task__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
   open Belt;
-
-  let runTask = (state, task: Task.t): Promise.t(list(Task.t)) =>
-    switch (task) {
-    | Task.WithState(callback) => callback(state)
-    | DispatchCommand(command) =>
-      Js.log("[ task ][ command ] " ++ Command.toString(command));
-      TaskCommand.dispatch(command)->Promise.resolved;
-    | SendRequest(request) =>
-      Js.log("[ task ][ send request ]");
-      state
-      ->State.sendRequest(request)
-      ->Promise.map(ev => {[]})
-      ->Promise.map(_ => []);
-    | Connect =>
-      Js.log("[ task ][ connect ]");
-      state
-      ->State.connect
-      ->Promise.tapOk(Js.log2("OK"))
-      ->Promise.tapError(Js.log2("Error"))
-      ->Promise.map(
-          fun
-          | Error(_) => []
-          | Ok(_) => [],
-        );
-    // state
-    // ->State.sendRequest(request)
-    // ->Promise.flatMap(
-    //     fun
-    //     | Error(error) => {
-    //         let (header, body) = Sig.Error.toString(error);
-    //         [Task.Display(Error(header), Plain(body))] |> run(state);
-    //       }
-    //     | Ok(response) => TaskResponse.handle(response) |> run(state),
-    //   );
-    };
 
   // Busy if there are Tasks currently being executed, Idle otherwise
   type status =
@@ -54,6 +20,65 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let addTask = (self: t, task) => self.taskEmitter.emit(task);
+
+  let addTasks = (self, tasks) => tasks->List.forEach(addTask(self));
+
+  let runTask = (self, state, task: Task.t): Promise.t(unit) =>
+    switch (task) {
+    | Task.WithState(callback) =>
+      callback(state)->Promise.map(addTasks(self))
+    | DispatchCommand(command) =>
+      Js.log("[ task ][ command ] " ++ Command.toString(command));
+      addTasks(self, TaskCommand.dispatch(command))->Promise.resolved;
+    | SendRequest(request) =>
+      Js.log("[ task ][ send request ]");
+
+      let (promise, resolve) = Promise.pending();
+
+      state
+      ->State.sendRequest(request)
+      ->Promise.get(
+          fun
+          | Ok(emitter) => {
+              let _ =
+                emitter.on(
+                  fun
+                  | Error(error) => ()
+                  | Ok(Yield(Error(error))) => ()
+                  | Ok(Yield(Ok ())) => {
+                      Js.log("response");
+                      addTasks(self, TaskResponse.handle());
+                    }
+                  | Ok(Stop) => resolve(),
+                );
+              ();
+            }
+          | Error(error) => (),
+        );
+
+      promise;
+    | Connect =>
+      Js.log("[ task ][ connect ]");
+      state
+      ->State.connect
+      ->Promise.tapOk(Js.log2("OK"))
+      ->Promise.tapError(Js.log2("Error"))
+      ->Promise.map(
+          fun
+          | Error(_) => ()
+          | Ok(_) => (),
+        );
+    // state
+    // ->State.sendRequest(request)
+    // ->Promise.flatMap(
+    //     fun
+    //     | Error(error) => {
+    //         let (header, body) = Sig.Error.toString(error);
+    //         [Task.Display(Error(header), Plain(body))] |> run(state);
+    //       }
+    //     | Ok(response) => TaskResponse.handle(response) |> run(state),
+    //   );
+    };
 
   let make = state => {
     // Tasks get classified and queued here
@@ -83,12 +108,7 @@ module Impl = (Editor: Sig.Editor) => {
         self.status = Idle;
         self.statusEmitter.emit(Idle);
       | Some(task) =>
-        state
-        ->runTask(task)
-        ->Promise.get(newTasks => {
-            newTasks->Belt.List.forEach(addTask(self));
-            runTasksInQueues();
-          })
+        runTask(self, state, task)->Promise.get(runTasksInQueues)
       };
     };
 
