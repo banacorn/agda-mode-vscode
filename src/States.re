@@ -116,6 +116,13 @@ module Impl = (Editor: Sig.Editor) => {
                   // not in the States dict, instantiate one new
                   let state = State.make(context, editor);
                   let taskRunner = TaskRunner.make(state);
+                  // listens to responses from the view
+                  state.view
+                  ->Editor.View.recv(response => {
+                      TaskRunner.addTask(taskRunner, ViewRes(response))
+                    })
+                  ->Editor.addToSubscriptions(context);
+
                   // remove it from the States dict if it got destroyed
                   state
                   ->State.onDestroy(() => {States.remove(fileName)})

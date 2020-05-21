@@ -1,5 +1,6 @@
 module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Task__Error.Impl(Editor);
+  module ViewHandler = Task__View.Impl(Editor);
   module TaskCommand = Task__Command.Impl(Editor);
   module TaskResponse = Task__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
@@ -26,8 +27,11 @@ module Impl = (Editor: Sig.Editor) => {
 
   let runTask = (self, state, task: Task.t): Promise.t(unit) =>
     switch (task) {
-    | Task.WithState(callback) =>
-      callback(state)->Promise.map(addTasks(self))
+    | Task.Terminate =>
+      Js.log("[ task ][ terminate ] ");
+      State.destroy(state)->ignore;
+      Promise.resolved();
+    | WithState(callback) => callback(state)->Promise.map(addTasks(self))
     | DispatchCommand(command) =>
       Js.log("[ task ][ command ] " ++ Command.toString(command));
       addTasks(self, TaskCommand.dispatch(command))->Promise.resolved;
@@ -98,6 +102,10 @@ module Impl = (Editor: Sig.Editor) => {
     //     | Ok(response) => TaskResponse.handle(response) |> run(state),
     //   );
     | ViewReq(request) => state->State.sendRequestToView(request)
+    | ViewRes(response) =>
+      let tasks = ViewHandler.handle(response);
+      addTasks(self, tasks);
+      Promise.resolved();
     };
 
   let make = state => {

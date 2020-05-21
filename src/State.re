@@ -74,9 +74,9 @@ module Impl = (Editor: Sig.Editor) => {
   //
 
   let destroy = state => {
-    // state.view->Editor.View.destroy;
-    state.onDestroyEventEmitter.destroy();
+    state.view->Editor.View.destroy;
     state.onDestroyEventEmitter.emit();
+    state.onDestroyEventEmitter.destroy();
     state->disconnect;
   };
 
