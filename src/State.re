@@ -97,4 +97,7 @@ module Impl = (Editor: Sig.Editor) => {
   //
   // View-related
   //
+
+  let sendRequestToView = (state, request) =>
+    Editor.View.send(state.view, request)->Promise.map(_ => ());
 };

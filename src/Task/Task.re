@@ -4,5 +4,6 @@ module Impl = (Editor: Sig.Editor) => {
     | WithState(State.t => Promise.t(list(t)))
     | DispatchCommand(Command.t)
     | Connect
-    | SendRequest(Request.t);
+    | SendRequest(Request.t)
+    | ViewReq(View.Request.t);
 };

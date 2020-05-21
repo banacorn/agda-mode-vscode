@@ -83,7 +83,10 @@ module Impl = (Editor: Sig.Editor) => {
       ->Promise.map(
           fun
           | Error(_) => ()
-          | Ok(_) => (),
+          | Ok(_) => {
+              addTasks(self, [ViewReq(Plain("hey", "ha"))]);
+              ();
+            },
         );
     // state
     // ->State.sendRequest(request)
@@ -95,6 +98,7 @@ module Impl = (Editor: Sig.Editor) => {
     //       }
     //     | Ok(response) => TaskResponse.handle(response) |> run(state),
     //   );
+    | ViewReq(request) => state->State.sendRequestToView(request)
     };
 
   let make = state => {

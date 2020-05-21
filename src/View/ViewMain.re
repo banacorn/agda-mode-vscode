@@ -21,9 +21,5 @@ onResponse.on(response => {
 // mount the view at the "root" element
 Webapi.Dom.Document.getElementById("root", Webapi.Dom.document)
 ->Option.forEach(element => {
-    ReactDOMRe.render(
-      <span> {React.string("hi")} </span>,
-      //   <Panel editorType=Sig.VsCode onRequest onResponse />,
-      element,
-    )
+    ReactDOMRe.render(<Panel onRequest onResponse />, element)
   });

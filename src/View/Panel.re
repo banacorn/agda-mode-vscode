@@ -1,29 +1,46 @@
-let vscode = Guacamole.Vscode.Api.acquireVsCodeApi();
+// let vscode = Guacamole.Vscode.Api.acquireVsCodeApi();
+
+open ReasonReact;
 
 [@react.component]
-let make = () => {
-  let (header, setHeader) = React.useState(() => "");
-  let (body, setBody) = React.useState(() => "");
+let make =
+    (
+      ~onRequest: Event.t(View.Request.t),
+      ~onResponse: Event.t(View.Response.t),
+    ) => {
+  let (header, setHeader) = React.useState(() => ":D");
+  let (body, setBody) = React.useState(() => ":(");
 
-  // React.useEffect1(
-  //   () => {
-  //     Js.log("init");
-  //     vscode->Guacamole.Vscode.Api.postMessage("from view");
-  //     Guacamole.Vscode.Api.onMessage(msg => {
-  //       Js.log2(" >>> ", msg);
-  //       switch (msg) {
-  //       | View.Display(header, body) =>
-  //         setHeader(_ => header);
-  //         setBody(_ => body);
-  //       };
-  //     });
-  //     None;
-  //   },
-  //   [||],
-  // );
+  // response with Initialized on mount
+  React.useEffect1(
+    () => {
+      onResponse.emit(View.Response.Initialized);
+      None;
+    },
+    [||],
+  );
+
+  // receiving View Requests
+  React.useEffect1(
+    () => {
+      View.Request.(
+        Some(
+          onRequest.on(msg => {
+            switch (msg) {
+            | Plain(header, body) =>
+              setHeader(_ => header);
+              setBody(_ => body);
+            | _ => ()
+            }
+          }),
+        )
+      )
+    },
+    [||],
+  );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <div className="agda-mode-header"> {ReasonReact.string(header)} </div>
-    <div className="agda-mode-body"> {ReasonReact.string(body)} </div>
+    <div className="agda-mode-header"> {string(header)} </div>
+    <div className="agda-mode-body"> {string(body)} </div>
   </section>;
 };

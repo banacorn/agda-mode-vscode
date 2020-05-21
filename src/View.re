@@ -1,6 +1,8 @@
 module Request = {
   type t =
-    | Show;
+    | Show
+    | Hide
+    | Plain(string, string);
 
   open Json.Decode;
   open Util.Decode;
@@ -9,14 +11,27 @@ module Request = {
     sum(
       fun
       | "Show" => TagOnly(_ => Show)
+      | "Hide" => TagOnly(_ => Hide)
+      | "Plain" =>
+        Contents(
+          pair(string, string)
+          |> map(((header, body)) => Plain(header, body)),
+        )
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
     );
 
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Show => object_([("tag", string("Show"))]);
+    | Show => object_([("tag", string("Show"))])
+    | Hide => object_([("tag", string("Hide"))])
+    | Plain(header, body) =>
+      object_([
+        ("tag", string("Plain")),
+        ("contents", (header, body) |> pair(string, string)),
+      ]);
 };
+
 module Response = {
   type t =
     | Initialized
