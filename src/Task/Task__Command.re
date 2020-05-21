@@ -8,5 +8,5 @@ module Impl = (Editor: Sig.Editor) => {
   let dispatch =
     fun
     | Load => [Connect, SendRequest(Load)]
-    | Quit => [];
+    | Quit => [Terminate];
 };

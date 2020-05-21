@@ -94,9 +94,12 @@ module Impl = (Editor: Sig.Editor) => {
 
     // on editor activation, reveal the corresponding Panel (if any)
     Editor.onDidChangeActivation((prev, next) => {
-      //   prev->Option.flatMap(States.get)->Option.forEach(State.hide);
-      //   next->Option.flatMap(States.get)->Option.forEach(State.show);
-      ()
+      prev
+      ->Option.flatMap(States.get)
+      ->Option.forEach(((state, _)) => State.hide(state));
+      next
+      ->Option.flatMap(States.get)
+      ->Option.forEach(((state, _)) => State.show(state));
     })
     ->Editor.addToSubscriptions(context);
 
