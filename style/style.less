@@ -1,21 +1,47 @@
-@header-height: 60px;
+// colors
+@error   : var(--vscode-editorError-foreground);
+@warning : var(--vscode-editorWarning-foreground);
+@success : var(--vscode-editorInfo-foreground);
 
+// dimensions
+@header-height  : 60px;
+@header-padding : 10px;
+@body-padding   : 10px;
+
+// vscode: removes focus outline  
+*:focus {
+    outline: none;
+}
 
 .agda-mode {
-    // background: var(--vscode-sideBar-background);
-    // background: red;
     height: 100%;
 }
 
 .agda-mode-header {
-    /* color: var(--vscode-panelTitle-activeForeground);
-    background: var(--vscode-statusBar-background); */
-    height: @header-height;
+    height : @header-height;
+    padding: 0 @header-padding;
 
-    // background: var(--vscode-sideBarSectionHeader-background);
+    line-height: @header-height;
+    font-size  : 150%;
+
+    &.success {
+        color: @success
+    }
+
+    &.error {
+        color: @error
+    }
+
+    &.warning {
+        color: @warning
+    }
 }
 
 .agda-mode-body {
     white-space: pre;
     background : var(--vscode-sideBar-background);
+
+    font-size: 125%;
+
+    padding: @body-padding;
 }

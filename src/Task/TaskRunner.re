@@ -84,7 +84,6 @@ module Impl = (Editor: Sig.Editor) => {
           fun
           | Error(_) => ()
           | Ok(_) => {
-              addTasks(self, [ViewReq(Plain("hey", "ha"))]);
               ();
             },
         );

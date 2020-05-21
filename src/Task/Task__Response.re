@@ -10,7 +10,9 @@ module Impl = (Editor: Sig.Editor) => {
     open Response.DisplayInfo;
     let handle =
       fun
-      | AllGoalsWarnings(header, body) => [ViewReq(Plain(header, body))]
+      | AllGoalsWarnings(header, body) => [
+          ViewReq(Plain(Plain(header), body)),
+        ]
       | _ => [];
   };
 

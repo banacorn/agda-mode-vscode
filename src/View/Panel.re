@@ -8,7 +8,8 @@ let make =
       ~onRequest: Event.t(View.Request.t),
       ~onResponse: Event.t(View.Response.t),
     ) => {
-  let (header, setHeader) = React.useState(() => ":D");
+  let (header, setHeader) =
+    React.useState(() => View.Request.Header.Plain("Loading ..."));
   let (body, setBody) = React.useState(() => ":(");
 
   // response with Initialized on mount
@@ -31,7 +32,7 @@ let make =
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <div className="agda-mode-header"> {string(header)} </div>
+    <Header header />
     <div className="agda-mode-body"> {string(body)} </div>
   </section>;
 };
