@@ -77,7 +77,9 @@ module Impl = (Editor: Sig.Editor) => {
               promise;
             },
         );
-    | ViewReq(request) => state->State.sendRequestToView(request)
+    | ViewReq(request) =>
+      Js.log("< >");
+      state->State.sendRequestToView(request);
     | ViewRes(response) =>
       let tasks = ViewHandler.handle(response);
       addTasks(self, tasks);

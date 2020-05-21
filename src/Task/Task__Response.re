@@ -60,5 +60,8 @@ module Impl = (Editor: Sig.Editor) => {
   let handle =
     fun
     | DisplayInfo(info) => DisplayInfo.handle(info)
+    | RunningInfo(_verbosity, message) => [
+        ViewReq(Plain(Plain("Type-checking"), Some(message))),
+      ]
     | _ => [];
 };
