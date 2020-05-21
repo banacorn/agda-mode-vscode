@@ -38,7 +38,7 @@ module Request = {
   type t =
     | Show
     | Hide
-    | Plain(Header.t, string);
+    | Plain(Header.t, option(string));
 
   open Json.Decode;
   open Util.Decode;
@@ -50,7 +50,7 @@ module Request = {
       | "Hide" => TagOnly(_ => Hide)
       | "Plain" =>
         Contents(
-          pair(Header.decode, string)
+          pair(Header.decode, optional(string))
           |> map(((header, body)) => Plain(header, body)),
         )
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
@@ -64,7 +64,10 @@ module Request = {
     | Plain(header, body) =>
       object_([
         ("tag", string("Plain")),
-        ("contents", (header, body) |> pair(Header.encode, string)),
+        (
+          "contents",
+          (header, body) |> pair(Header.encode, nullable(string)),
+        ),
       ]);
 };
 

@@ -10,7 +10,7 @@ let make =
     ) => {
   let (header, setHeader) =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
-  let (body, setBody) = React.useState(() => ":(");
+  let (body, setBody) = React.useState(() => None);
 
   // response with Initialized on mount
   React.useEffect1(
@@ -33,6 +33,6 @@ let make =
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
     <Header header />
-    <div className="agda-mode-body"> {string(body)} </div>
+    <Body body />
   </section>;
 };
