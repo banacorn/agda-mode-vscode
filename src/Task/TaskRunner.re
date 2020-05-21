@@ -8,7 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
     switch (task) {
     | Task.WithState(callback) => callback(state)
     | DispatchCommand(command) =>
-      Js.log2("[ task ][ dispatch command ]", command);
+      Js.log("[ task ][ command ] " ++ Command.toString(command));
       TaskCommand.dispatch(command)->Promise.resolved;
     | SendRequest(request) =>
       Js.log("[ task ][ send request ]");
@@ -64,20 +64,24 @@ module Impl = (Editor: Sig.Editor) => {
     let statusEmitter = Event.make();
     let self = {taskEmitter, status: Idle, statusEmitter};
 
-    let rec runTasksInQueues = () => {
+    // see if there are any Tasks in the `taskQueue` or the `commandQueue`
+    // Priority: taskQueue > commandQueue;
+    let getNextTask = () => {
       let nextTask = Js.Array.shift(taskQueue);
       switch (nextTask) {
       | None =>
-        let nextCommand = Js.Array.shift(commandQueue);
-        switch (nextCommand) {
-        | None =>
-          self.status = Idle;
-          self.statusEmitter.emit(Idle);
-        | Some(command) =>
-          state
-          ->runTask(DispatchCommand(command))
-          ->Promise.get(newTasks => newTasks->List.forEach(addTask(self)))
-        };
+        Js.Array.shift(commandQueue)
+        ->Option.map(command => Task.DispatchCommand(command))
+      | Some(task) => Some(task)
+      };
+    };
+
+    let rec runTasksInQueues = () => {
+      let nextTask = getNextTask();
+      switch (nextTask) {
+      | None =>
+        self.status = Idle;
+        self.statusEmitter.emit(Idle);
       | Some(task) =>
         state
         ->runTask(task)
@@ -90,6 +94,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     let _ =
       taskEmitter.on(task => {
+        // classify Tasks base on priority
         switch (task) {
         | DispatchCommand(command) =>
           Js.Array.push(command, commandQueue)->ignore
