@@ -88,25 +88,15 @@ type t = {
   process: Process.t,
   emitter: Event.t(result(response, Process.Error.t)),
   mutable encountedFirstPrompt: bool,
-  mutable resetLogOnLoad: bool,
-  //   mutable log: Log.t,
 };
 
 let destroy = self => {
   self.process.disconnect() |> ignore;
   self.emitter.destroy();
   self.encountedFirstPrompt = false;
-  //   self.log = [||];
 };
 
 let wire = (self): unit => {
-  //   let logSExpression =
-  //     Parser.Incr.Event.tap(
-  //       fun
-  //       | Error(_) => ()
-  //       | Ok(expr) => Log.logSExpression(expr, self.log),
-  //     );
-
   // We use the prompt "Agda2>" as the delimiter of the end of a response
   // However, the prompt "Agda2>" also appears at the very start of the conversation
   // So this would be what it looks like:
@@ -127,13 +117,6 @@ let wire = (self): unit => {
       | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Event.Stop
       | Ok(tokens) => Parser.Incr.Event.Yield(Response.parse(tokens)),
     );
-
-  //   let logResponse =
-  //     Parser.Incr.Event.tap(
-  //       fun
-  //       | Error(_) => ()
-  //       | Ok(expr) => Log.logResponse(expr, self.log),
-  //     );
 
   // resolves the requests in the queue
   let handleResponse = (res: response) => {
@@ -160,15 +143,12 @@ let wire = (self): unit => {
 
   let pipeline =
     Parser.SExpression.makeIncr(x => x->mapError->toResponse->handleResponse);
-  //   x->logSExpression->toResponse->logResponse->handleResponse
 
   // listens to the "data" event on the stdout
   // The chunk may contain various fractions of the Agda output
   let onData: result(string, Process.Error.t) => unit =
     fun
     | Ok(rawText) => {
-        // store the raw text in the log
-        // Log.logRawText(rawText, self.log);
         // split the raw text into pieces and feed it to the parser
         rawText
         ->Parser.split
@@ -209,54 +189,10 @@ let make = (fromConfig, toConfig) => {
         metadata,
         process: Process.make(metadata.path, metadata.args),
         emitter: Event.make(),
-        resetLogOnLoad: true,
         encountedFirstPrompt: false,
-        // log: [||],
       }
     })
   ->Promise.tapOk(wire);
 };
 
-let send = (request, self): unit => {
-  self.process.send(request)->ignore;
-};
-
-module Log = {
-  let resetLog = _self => {
-    //   self.log = [||];
-  };
-
-  let dump = self => {
-    let serialize = _self => {
-      // let metadata = self.metadata |> Metadata.serialize;
-      // let log = self.log |> Log.serialize;
-      // metadata ++ "\n" ++ log ++ "\n";
-      ();
-      "";
-    };
-    let _text = serialize(self);
-    let _itemOptions = {
-      "initialLine": 0,
-      "initialColumn": 0,
-      "split": "left",
-      "activatePane": true,
-      "activateItem": true,
-      "pending": false,
-      "searchAllPanes": true,
-      "location": (None: option(string)),
-    };
-    let _itemURI = "agda-mode://log.md";
-    ();
-    //   Atom.Workspace.open_(itemURI, itemOptions)
-    //   ->Promise.Js.fromBsPromise
-    //   ->Promise.Js.toResult
-    //   ->Promise.map(
-    //       fun
-    //       | Error(_) => ()
-    //       | Ok(newItem) => {
-    //           newItem |> Atom.TextEditor.insertText(text) |> ignore;
-    //         },
-    //     )
-    //   |> ignore;
-  };
-};
+let send = (request, self): unit => self.process.send(request)->ignore;
