@@ -144,7 +144,7 @@ module Impl = (Editor: Sig.Editor) => {
           // dispatch Tasks
           editor
           ->States.getByEditor
-          ->Option.forEach(((state, runner)) => {
+          ->Option.forEach(((_state, runner)) => {
               TaskRunner.addTask(runner, DispatchCommand(command))
             });
         },

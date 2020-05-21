@@ -8,12 +8,22 @@ module Impl = (Editor: Sig.Editor) => {
   let handle =
     fun
     | Connection(error) => {
-        Js.log(Connection.Error.toString(error));
-        [];
+        let (header, body) = Connection.Error.toString(error);
+        [
+          ViewReq(Plain(Error("Connection Error: " ++ header), Some(body))),
+        ];
       }
     | Parser(error) => {
-        Js.log(Parser.Error.toString(error));
-        [];
+        let body = Parser.Error.toString(error);
+        [ViewReq(Plain(Error("Internal Parse Error"), Some(body)))];
       }
-    | _ => [];
+    | Cancelled => [ViewReq(Plain(Error("Query Cancelled"), None))]
+    | OutOfGoal => [
+        ViewReq(
+          Plain(
+            Error("Out of goal"),
+            Some("Please place the cursor in a goal"),
+          ),
+        ),
+      ];
 };

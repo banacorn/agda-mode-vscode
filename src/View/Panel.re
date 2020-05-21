@@ -1,7 +1,3 @@
-// let vscode = Guacamole.Vscode.Api.acquireVsCodeApi();
-
-open ReasonReact;
-
 [@react.component]
 let make =
     (

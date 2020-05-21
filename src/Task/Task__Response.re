@@ -7,10 +7,9 @@ module Impl = (Editor: Sig.Editor) => {
   open View.Request;
 
   module DisplayInfo = {
-    open Response.DisplayInfo;
     let handle =
       fun
-      | CompilationOk => [
+      | Response.DisplayInfo.CompilationOk => [
           ViewReq(Plain(Success("Compilation Done!"), None)),
         ]
       | Constraints(None) => [
