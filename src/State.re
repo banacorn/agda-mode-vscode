@@ -18,9 +18,7 @@ module Impl = (Editor: Sig.Editor) => {
   //
   // events
   //
-  let onDestroy = (state, callback) => {
-    state.onDestroyEventEmitter.on(callback)->Editor.Disposable.make;
-  };
+  let onceDestroyed = state => state.onDestroyEventEmitter.once();
 
   //
   // Agda connection/disconnection

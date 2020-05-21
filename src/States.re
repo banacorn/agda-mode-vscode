@@ -119,6 +119,7 @@ module Impl = (Editor: Sig.Editor) => {
                   // not in the States dict, instantiate one new
                   let state = State.make(context, editor);
                   let taskRunner = TaskRunner.make(state);
+
                   // listens to responses from the view
                   state.view
                   ->Editor.View.recv(response => {
@@ -128,25 +129,14 @@ module Impl = (Editor: Sig.Editor) => {
 
                   // remove it from the States dict if it got destroyed
                   state
-                  ->State.onDestroy(() => {States.remove(fileName)})
-                  ->Editor.addToSubscriptions(context);
+                  ->State.onceDestroyed
+                  ->Promise.get(() => {States.destroy(fileName)});
+
+                  // add this new constructed State and TaskRunner to the dict
                   States.add(fileName, (state, taskRunner));
                 | Some(_state) =>
                   // already in the States dict, do nothing
                   ()
-                }
-              })
-          | Quit =>
-            editor
-            ->Editor.getFileName
-            ->Option.forEach(fileName => {
-                switch (States.get(fileName)) {
-                | None =>
-                  // not in the States dict, do nothing
-                  ()
-                | Some(_state) =>
-                  // already in the States dict, remove it
-                  fileName->States.destroy
                 }
               })
           | _ => ()
