@@ -77,30 +77,6 @@ module Impl = (Editor: Sig.Editor) => {
               promise;
             },
         );
-
-    | Connect =>
-      Js.log("[ task ][ connect ]");
-      state
-      ->State.connect
-      ->Promise.tapOk(Js.log2("OK"))
-      ->Promise.tapError(Js.log2("Error"))
-      ->Promise.map(
-          fun
-          | Error(_) => ()
-          | Ok(_) => {
-              ();
-            },
-        );
-    // state
-    // ->State.sendRequest(request)
-    // ->Promise.flatMap(
-    //     fun
-    //     | Error(error) => {
-    //         let (header, body) = Sig.Error.toString(error);
-    //         [Task.Display(Error(header), Plain(body))] |> run(state);
-    //       }
-    //     | Ok(response) => TaskResponse.handle(response) |> run(state),
-    //   );
     | ViewReq(request) => state->State.sendRequestToView(request)
     | ViewRes(response) =>
       let tasks = ViewHandler.handle(response);

@@ -7,6 +7,6 @@ module Impl = (Editor: Sig.Editor) => {
   // from Editor Command to Tasks
   let dispatch =
     fun
-    | Load => [Connect, SendRequest(Load)]
+    | Load => [SendRequest(Load)]
     | Quit => [Terminate];
 };
