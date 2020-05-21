@@ -21,22 +21,13 @@ let make =
   );
 
   // receiving View Requests
-  React.useEffect1(
-    () => {
-      View.Request.(
-        Some(
-          onRequest.on(msg => {
-            switch (msg) {
-            | Plain(header, body) =>
-              setHeader(_ => header);
-              setBody(_ => body);
-            | _ => ()
-            }
-          }),
-        )
-      )
-    },
-    [||],
+  Hook.on(onRequest, msg =>
+    switch (msg) {
+    | Plain(header, body) =>
+      setHeader(_ => header);
+      setBody(_ => body);
+    | _ => ()
+    }
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
