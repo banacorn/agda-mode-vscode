@@ -37,26 +37,37 @@ module Impl = (Editor: Sig.Editor) => {
 
       state
       ->State.sendRequest(request)
-      ->Promise.get(
+      ->Promise.flatMap(
           fun
-          | Ok(emitter) => {
-              let _ =
-                emitter.on(
+          | Ok(connection) => {
+              let destructor =
+                connection.Connection.emitter.on(
                   fun
-                  | Error(error) => ()
-                  | Ok(Yield(Error(error))) => ()
-                  | Ok(Yield(Ok ())) => {
-                      Js.log("response");
+                  | Error(connError) => {
+                      Js.log("connection error ");
+                      Js.log(Connection.Process.Error.toString(connError));
+                      resolve();
+                    }
+                  | Ok(Yield(Error(parseError))) => {
+                      Js.log("parse error ");
+                      Js.log(Parser.Error.toString(parseError));
+                      resolve();
+                    }
+                  | Ok(Yield(Ok(response))) => {
+                      Js.log(Response.toString(response));
                       addTasks(self, TaskResponse.handle());
                     }
                   | Ok(Stop) => resolve(),
                 );
-              ();
+              promise->Promise.map(destructor);
             }
-          | Error(error) => (),
+          | Error(connError) => {
+              Js.log("cannot make connection");
+              resolve();
+              promise;
+            },
         );
 
-      promise;
     | Connect =>
       Js.log("[ task ][ connect ]");
       state

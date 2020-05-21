@@ -86,8 +86,7 @@ type response = Parser.Incr.Event.t(result(Response.t, Parser.Error.t));
 type t = {
   metadata: Metadata.t,
   process: Process.t,
-  // each Event corresponds to a sent Request, as it may return with multiple Resonses
-  mutable queue: list(Event.t(result(response, Process.Error.t))),
+  emitter: Event.t(result(response, Process.Error.t)),
   mutable encountedFirstPrompt: bool,
   mutable resetLogOnLoad: bool,
   //   mutable log: Log.t,
@@ -95,8 +94,7 @@ type t = {
 
 let destroy = self => {
   self.process.disconnect() |> ignore;
-  // self.queue->List.forEach(ev => ev.Event.emit(Error(error)));
-  self.queue = [];
+  self.emitter.destroy();
   self.encountedFirstPrompt = false;
   //   self.log = [||];
 };
@@ -139,22 +137,15 @@ let wire = (self): unit => {
 
   // resolves the requests in the queue
   let handleResponse = (res: response) => {
-    switch (self.queue) {
-    | [] => ()
-    | [req, ...rest] =>
-      switch (res) {
-      | Yield(x) => req.emit(Ok(Yield(x)))
-      | Stop =>
-        if (self.encountedFirstPrompt) {
-          // pop the queue on Stop
-          req.emit(Ok(Stop));
-          self.queue = rest;
-          req.Event.destroy() |> ignore;
-        } else {
-          // do nothing when encountering the first Stop
-          self.encountedFirstPrompt =
-            true;
-        }
+    switch (res) {
+    | Yield(x) => self.emitter.emit(Ok(Yield(x)))
+    | Stop =>
+      if (self.encountedFirstPrompt) {
+        self.emitter.emit(Ok(Stop));
+      } else {
+        // do nothing when encountering the first Stop
+        self.encountedFirstPrompt =
+          true;
       }
     };
   };
@@ -183,18 +174,10 @@ let wire = (self): unit => {
         ->Parser.split
         ->Array.forEach(Parser.Incr.feed(pipeline));
       }
-    | Error(e) => {
-        // emit error to all of the request in the queue
-        self.queue
-        ->List.forEach(req => {
-            req.Event.emit(Error(e));
-            req.destroy();
-          });
-        // clean the queue
-        self.queue = [];
-      };
+    | Error(e) => self.emitter.emit(Error(e));
 
-  self.process.emitter.on(onData) |> ignore;
+  let _ = self.process.emitter.on(onData);
+  ();
 };
 
 let make = (fromConfig, toConfig) => {
@@ -224,8 +207,8 @@ let make = (fromConfig, toConfig) => {
   ->Promise.mapOk(metadata => {
       {
         metadata,
-        process: Process.make(metadata.path, [||]),
-        queue: [],
+        process: Process.make(metadata.path, metadata.args),
+        emitter: Event.make(),
         resetLogOnLoad: true,
         encountedFirstPrompt: false,
         // log: [||],
@@ -234,14 +217,8 @@ let make = (fromConfig, toConfig) => {
   ->Promise.tapOk(wire);
 };
 
-let send = (request, self): Event.t(result(response, Process.Error.t)) => {
-  // make a Event for the request and push it into the queue
-  let reqEvent = Event.make();
-  self.queue = [reqEvent, ...self.queue];
-  // send it to Agda
-  self.process.send(request) |> ignore;
-  // and wait for the event to be triggered
-  reqEvent;
+let send = (request, self): unit => {
+  self.process.send(request)->ignore;
 };
 
 module Log = {
