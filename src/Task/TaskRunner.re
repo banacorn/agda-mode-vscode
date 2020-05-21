@@ -39,53 +39,94 @@ module Impl = (Editor: Sig.Editor) => {
     //   );
     };
 
+  // Busy if there are Tasks currently being executed, Idle otherwise
+  type status =
+    | Busy
+    | Idle;
+
+  // Task Runner
   type t = {
-    emitter: Event.t(Task.t),
-    listener: unit => unit,
+    // channel for adding Tasks
+    taskEmitter: Event.t(Task.t),
+    // edge triggered Status emitter
+    statusEmitter: Event.t(status),
+    mutable status,
   };
 
-  let destroy = self => {
-    self.emitter.destroy();
-    self.listener();
-  };
+  let addTask = (self: t, task) => self.taskEmitter.emit(task);
 
-  let make = (state: State.t): t => {
-    let emitter = Event.make();
+  let make = state => {
+    // Tasks get classified and queued here
+    let taskQueue: array(Task.t) = [||];
+    let commandQueue: array(Command.t) = [||];
 
-    let queue: array(Task.t) = [||];
-    // use a semaphore so that there's only one worker executing tasks at a time
-    let busy = ref(false);
+    let taskEmitter = Event.make();
+    let statusEmitter = Event.make();
+    let self = {taskEmitter, status: Idle, statusEmitter};
 
-    let rec runTasksInQueue = () => {
-      busy := true;
-      switch (Js.Array.shift(queue)) {
+    let rec runTasksInQueues = () => {
+      let nextTask = Js.Array.shift(taskQueue);
+      switch (nextTask) {
       | None =>
-        // no more tasks to do, clear the semaphore
-        busy := false
+        let nextCommand = Js.Array.shift(commandQueue);
+        switch (nextCommand) {
+        | None =>
+          self.status = Idle;
+          self.statusEmitter.emit(Idle);
+        | Some(command) =>
+          state
+          ->runTask(DispatchCommand(command))
+          ->Promise.get(newTasks => newTasks->List.forEach(addTask(self)))
+        };
       | Some(task) =>
-        // execute the task
-        runTask(state, task)
-        // emit new derived tasks
-        ->Promise.map(tasks => tasks->List.forEach(emitter.emit))
-        // try to execute the next task
-        ->Promise.get(() => runTasksInQueue())
+        state
+        ->runTask(task)
+        ->Promise.get(newTasks => {
+            newTasks->Belt.List.forEach(addTask(self));
+            runTasksInQueues();
+          })
       };
     };
 
-    let listener =
-      emitter.on(task => {
-        // push the task into the queue
-        Js.Array.push(task, queue)->ignore;
-        // start executing them
-        if (! busy^) {
-          runTasksInQueue();
+    let _ =
+      taskEmitter.on(task => {
+        switch (task) {
+        | DispatchCommand(command) =>
+          Js.Array.push(command, commandQueue)->ignore
+        | otherTask => Js.Array.push(otherTask, taskQueue)->ignore
+        };
+
+        // kick start `runTasksInQueues` if it's not already running
+        if (self.status == Idle) {
+          self.status = Busy;
+          self.statusEmitter.emit(Busy);
+          runTasksInQueues();
         };
       });
 
-    {emitter, listener};
+    self;
   };
 
-  let addTask = (runner: t, task: Task.t) => {
-    runner.emitter.emit(task);
+  // destroy only after all tasks have been executed
+  let destroy = (self: t): Promise.t(unit) => {
+    let (promise, resolve) = Promise.pending();
+    let destroy' = () => {
+      self.statusEmitter.destroy();
+      self.taskEmitter.destroy();
+      resolve();
+    };
+
+    switch (self.status) {
+    | Idle => destroy'()
+    | Busy =>
+      let _ =
+        self.statusEmitter.on(
+          fun
+          | Idle => destroy'()
+          | Busy => (),
+        );
+      ();
+    };
+    promise;
   };
 };
