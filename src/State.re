@@ -30,10 +30,9 @@ module Impl = (Editor: Sig.Editor) => {
   let connect = state =>
     switch (state.connection) {
     | None =>
-      Js.log("MAKE CONNECTION");
       Connection.make(Editor.Config.getAgdaPath, Editor.Config.setAgdaPath)
-      ->Promise.mapError(e => Sig.Error.Connection(e))
-      ->Promise.tapOk(conn => state.connection = Some(conn));
+      ->Promise.mapError(e => Error.Connection(e))
+      ->Promise.tapOk(conn => state.connection = Some(conn))
     | Some(connection) => Promise.resolved(Ok(connection))
     };
   let disconnect = state =>
@@ -45,7 +44,7 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
   let sendRequest =
-      (state, request): Promise.t(result(Connection.t, Sig.Error.t)) => {
+      (state, request): Promise.t(result(Connection.t, Error.t)) => {
     let version = "2.6.1"; // TODO
     let filepath =
       Editor.getFileName(state.editor)->Option.getWithDefault(""); //"Editor.getFileName(state.editor)";

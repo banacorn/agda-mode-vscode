@@ -86,7 +86,7 @@ type response = Parser.Incr.Event.t(result(Response.t, Parser.Error.t));
 type t = {
   metadata: Metadata.t,
   process: Process.t,
-  emitter: Event.t(result(response, Process.Error.t)),
+  emitter: Event.t(result(response, Error.t)),
   mutable encountedFirstPrompt: bool,
 };
 
@@ -154,7 +154,7 @@ let wire = (self): unit => {
         ->Parser.split
         ->Array.forEach(Parser.Incr.feed(pipeline));
       }
-    | Error(e) => self.emitter.emit(Error(e));
+    | Error(e) => self.emitter.emit(Error(Process(e)));
 
   let _ = self.process.emitter.on(onData);
   ();

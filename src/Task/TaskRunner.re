@@ -1,4 +1,5 @@
 module Impl = (Editor: Sig.Editor) => {
+  module ErrorHandler = Task__Error.Impl(Editor);
   module TaskCommand = Task__Command.Impl(Editor);
   module TaskResponse = Task__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
@@ -35,34 +36,39 @@ module Impl = (Editor: Sig.Editor) => {
 
       let (promise, resolve) = Promise.pending();
 
+      let onResponse = (
+        fun
+        | Error(error) => {
+            let tasks = ErrorHandler.handle(Error.Connection(error));
+            addTasks(self, tasks);
+            resolve();
+          }
+        | Ok(Parser.Incr.Event.Yield(Error(error))) => {
+            let tasks = ErrorHandler.handle(Error.Parser(error));
+            addTasks(self, tasks);
+            resolve();
+          }
+        | Ok(Yield(Ok(response))) => {
+            Js.log(Response.toString(response));
+            let tasks = TaskResponse.handle();
+            addTasks(self, tasks);
+          }
+        | Ok(Stop) => resolve()
+      );
+
       state
       ->State.sendRequest(request)
       ->Promise.flatMap(
           fun
           | Ok(connection) => {
-              let destructor =
-                connection.Connection.emitter.on(
-                  fun
-                  | Error(connError) => {
-                      Js.log("connection error ");
-                      Js.log(Connection.Process.Error.toString(connError));
-                      resolve();
-                    }
-                  | Ok(Yield(Error(parseError))) => {
-                      Js.log("parse error ");
-                      Js.log(Parser.Error.toString(parseError));
-                      resolve();
-                    }
-                  | Ok(Yield(Ok(response))) => {
-                      Js.log(Response.toString(response));
-                      addTasks(self, TaskResponse.handle());
-                    }
-                  | Ok(Stop) => resolve(),
-                );
+              let destructor = connection.Connection.emitter.on(onResponse);
+              // invoke the destructor after the promise is resolved,
+              // to stop receiving events regarding this request
               promise->Promise.map(destructor);
             }
-          | Error(connError) => {
-              Js.log("cannot make connection");
+          | Error(error) => {
+              let tasks = ErrorHandler.handle(error);
+              addTasks(self, tasks);
               resolve();
               promise;
             },

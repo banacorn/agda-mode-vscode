@@ -8,16 +8,6 @@ module type Disposable = {
   let dispose: t => unit;
 };
 
-module Error = {
-  type t =
-    // | ParseError(array(Parser.Error.t))
-    | Connection(Connection.Error.t)
-    // Cancelled: never makes its way to Agda
-    | Cancelled
-    // Other reasons, also never make their way to Agda
-    | OutOfGoal;
-};
-
 module type Editor = {
   type editor;
   type context;
