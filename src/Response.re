@@ -16,11 +16,11 @@ type makeCaseType =
   | Function
   | ExtendedLambda;
 
-module Info = {
+module DisplayInfo = {
   type t =
     | CompilationOk
     | Constraints(option(string))
-    | AllGoalsWarnings
+    | AllGoalsWarnings(string, string)
     // | AllGoalsWarnings(Emacs.AllGoalsWarnings.t)
     | Time(string)
     | Error(string)
@@ -41,7 +41,7 @@ module Info = {
     | CompilationOk => "CompilationOk"
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
-    | AllGoalsWarnings => "AllGoalsWarnings "
+    | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title
     // | AllGoalsWarnings(warnings) =>
     //   "AllGoalsWarnings " ++ Emacs.AllGoalsWarnings.toString(warnings)
     | Time(string) => "Time " ++ string
@@ -85,11 +85,7 @@ module Info = {
       | Some(A("*Context*")) => Some(Context(payload))
       | Some(A("*Intro*")) => Some(Intro(payload))
       | Some(A("*Agda Version*")) => Some(Version(payload))
-      | Some(A(title)) => Some(AllGoalsWarnings)
-
-      // Some(
-      //   AllGoalsWarnings(Emacs__AllGoalsWarnings.parse(title, payload)),
-      // )
+      | Some(A(title)) => Some(AllGoalsWarnings(title, payload))
       | _ => None
       };
     | _ => None
@@ -122,7 +118,7 @@ type t =
   | SolveAll(array((index, string)))
   /* agda2-info-action */
   /* agda2-info-action-and-copy */
-  | DisplayInfo(Info.t)
+  | DisplayInfo(DisplayInfo.t)
   | ClearRunningInfo
   /* agda2-verbose */
   | RunningInfo(int, string)
@@ -162,7 +158,7 @@ let toString =
     ++ solutions
        ->Array.map(((i, s)) => string_of_int(i) ++ " " ++ s)
        ->Util.Pretty.array
-  | DisplayInfo(info) => "DisplayInfo " ++ Info.toString(info)
+  | DisplayInfo(info) => "DisplayInfo " ++ DisplayInfo.toString(info)
   | ClearRunningInfo => "ClearRunningInfo"
   | RunningInfo(int, string) =>
     "RunningInfo " ++ string_of_int(int) ++ " " ++ string
@@ -283,7 +279,7 @@ let parseWithPriority =
         | _ => Ok(ClearRunningInfo)
         }
       | _ =>
-        switch (Info.parse(xs |> Js.Array.sliceFrom(1))) {
+        switch (DisplayInfo.parse(xs |> Js.Array.sliceFrom(1))) {
         | Some(info) => Ok(DisplayInfo(info))
         | None => err(12)
         }

@@ -50,7 +50,7 @@ module Impl = (Editor: Sig.Editor) => {
           }
         | Ok(Yield(Ok(response))) => {
             Js.log(Response.toString(response));
-            let tasks = TaskResponse.handle();
+            let tasks = TaskResponse.handle(response);
             addTasks(self, tasks);
           }
         | Ok(Stop) => resolve()
