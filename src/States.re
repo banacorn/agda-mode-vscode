@@ -123,7 +123,10 @@ module Impl = (Editor: Sig.Editor) => {
                   // listens to responses from the view
                   state.view
                   ->Editor.View.recv(response => {
-                      TaskRunner.addTask(taskRunner, ViewRes(response))
+                      TaskRunner.dispatchCommand(
+                        taskRunner,
+                        ViewResponse(response),
+                      )
                     })
                   ->Editor.addToSubscriptions(context);
 
@@ -145,7 +148,7 @@ module Impl = (Editor: Sig.Editor) => {
           editor
           ->States.getByEditor
           ->Option.forEach(((_state, runner)) => {
-              TaskRunner.addTask(runner, DispatchCommand(command))
+              TaskRunner.dispatchCommand(runner, command)
             });
         },
       )

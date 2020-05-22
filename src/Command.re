@@ -1,10 +1,12 @@
 type t =
   | Load
-  | Quit;
+  | Quit
+  | ViewResponse(View.Response.t);
 
 let names: array((t, string)) = [|(Load, "load"), (Quit, "quit")|];
 
 let toString =
   fun
   | Load => "Load"
-  | Quit => "Quit";
+  | Quit => "Quit"
+  | ViewResponse(_) => "ViewResponse";

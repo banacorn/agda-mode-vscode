@@ -2,10 +2,15 @@ module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Task__Error.Impl(Editor);
   module ViewHandler = Task__View.Impl(Editor);
   module TaskCommand = Task__Command.Impl(Editor);
-  module TaskResponse = Task__Response.Impl(Editor);
+  module ResponseHandler = Task__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
   open Belt;
+
+  type outcome =
+    | Derived(list(Task.t))
+    | Pending
+    | Concluded;
 
   // Busy if there are Tasks currently being executed, Idle otherwise
   type status =
@@ -14,50 +19,58 @@ module Impl = (Editor: Sig.Editor) => {
 
   // Task Runner
   type t = {
-    // channel for adding Tasks
-    taskEmitter: Event.t(Task.t),
+    // channel for adding Commands to the back of the queue
+    onAddCommand: Event.t(Command.t),
+    // channel for receiving responses from Agda
+    onResponse: Event.t(option(result(Response.t, Error.t))),
+    mutable pendingResponse: bool,
     // edge triggered Status emitter
-    statusEmitter: Event.t(status),
+    onChangeStatus: Event.t(status),
     mutable status,
   };
 
-  let addTask = (self: t, task) => self.taskEmitter.emit(task);
+  let dispatchCommand = (self, command) => self.onAddCommand.emit(command);
 
-  let addTasks = (self, tasks) => tasks->List.forEach(addTask(self));
-
-  let runTask = (self, state, task: Task.t): Promise.t(unit) =>
+  let runTask = (self, state, task: Task.t): Promise.t(outcome) =>
     switch (task) {
     | Task.Terminate =>
       Js.log("[ task ][ terminate ] ");
       State.destroy(state)->ignore;
-      Promise.resolved();
-    | WithState(callback) => callback(state)->Promise.map(addTasks(self))
+      Promise.resolved(Concluded);
+    | WithState(callback) =>
+      callback(state)->Promise.map(tasks => Derived(tasks))
     | DispatchCommand(command) =>
       Js.log("[ task ][ command ] " ++ Command.toString(command));
-      addTasks(self, TaskCommand.dispatch(command))->Promise.resolved;
+      Promise.resolved(Derived(TaskCommand.dispatch(command)));
     | SendRequest(request) =>
       Js.log("[ task ][ send request ]");
+      let destructor = ref(None);
 
-      let (promise, resolve) = Promise.pending();
+      let stop = () => {
+        self.pendingResponse = false;
+        // invoke the destructor
+        // to stop receiving events regarding this request
+        (destructor^)->Option.forEach(f => f());
+      };
 
-      let onResponse = (
+      let handler = (
         fun
         | Error(error) => {
-            let tasks = ErrorHandler.handle(Error.Connection(error));
-            addTasks(self, tasks);
-            resolve();
+            stop();
+            self.onResponse.emit(Some(Error(Error.Connection(error))));
+            self.onResponse.emit(None);
           }
         | Ok(Parser.Incr.Event.Yield(Error(error))) => {
-            let tasks = ErrorHandler.handle(Error.Parser(error));
-            addTasks(self, tasks);
-            resolve();
+            stop();
+            self.onResponse.emit(Some(Error(Error.Parser(error))));
+            self.onResponse.emit(None);
           }
-        | Ok(Yield(Ok(response))) => {
-            Js.log(Response.toString(response));
-            let tasks = TaskResponse.handle(response);
-            addTasks(self, tasks);
+        | Ok(Yield(Ok(response))) =>
+          self.onResponse.emit(Some(Ok(response)))
+        | Ok(Stop) => {
+            stop();
+            self.onResponse.emit(None);
           }
-        | Ok(Stop) => resolve()
       );
 
       state
@@ -65,72 +78,108 @@ module Impl = (Editor: Sig.Editor) => {
       ->Promise.flatMap(
           fun
           | Ok(connection) => {
-              let destructor = connection.Connection.emitter.on(onResponse);
-              // invoke the destructor after the promise is resolved,
-              // to stop receiving events regarding this request
-              promise->Promise.map(destructor);
+              destructor := Some(connection.Connection.emitter.on(handler));
+              Promise.resolved(Pending);
             }
           | Error(error) => {
               let tasks = ErrorHandler.handle(error);
-              addTasks(self, tasks);
-              resolve();
-              promise;
+              Promise.resolved(Derived(tasks));
             },
         );
     | ViewReq(request) =>
       Js.log("< >");
-      state->State.sendRequestToView(request);
+      state->State.sendRequestToView(request)->Promise.map(() => Concluded);
     | ViewRes(response) =>
       let tasks = ViewHandler.handle(response);
-      addTasks(self, tasks);
-      Promise.resolved();
+      Promise.resolved(Derived(tasks));
     };
 
   let make = state => {
-    // Tasks get classified and queued here
-    let taskQueue: array(Task.t) = [||];
-    let commandQueue: array(Command.t) = [||];
+    // emitters
+    let onAddCommand = Event.make();
+    let onResponse = Event.make();
+    let onChangeStatus = Event.make();
+    // statess
+    let queue = ref([||]);
 
-    let taskEmitter = Event.make();
-    let statusEmitter = Event.make();
-    let self = {taskEmitter, status: Idle, statusEmitter};
-
-    // see if there are any Tasks in the `taskQueue` or the `commandQueue`
-    // Priority: taskQueue > commandQueue;
-    let getNextTask = () => {
-      let nextTask = Js.Array.shift(taskQueue);
-      switch (nextTask) {
-      | None =>
-        Js.Array.shift(commandQueue)
-        ->Option.map(command => Task.DispatchCommand(command))
-      | Some(task) => Some(task)
-      };
+    let self = {
+      onAddCommand,
+      onResponse,
+      pendingResponse: false,
+      onChangeStatus,
+      status: Idle,
     };
 
-    let rec runTasksInQueues = () => {
-      let nextTask = getNextTask();
-      switch (nextTask) {
-      | None =>
-        self.status = Idle;
-        self.statusEmitter.emit(Idle);
-      | Some(task) =>
-        runTask(self, state, task)->Promise.get(runTasksInQueues)
+    let getNextTask = () =>
+      if (self.pendingResponse) {
+        None;
+      } else {
+        Js.Array.shift(queue^);
       };
-    };
+
+    let pushDerivedTasks = tasks =>
+      queue := Js.Array.concat(List.toArray(tasks), queue^);
+
+    let rec runTasksInQueues = () =>
+      if (self.pendingResponse) {
+        let destructor = ref(None);
+        destructor :=
+          Some(
+            self.onResponse.on(
+              fun
+              | Some(Ok(response)) => {
+                  Js.log("Response " ++ Response.toString(response));
+                  let tasks = ResponseHandler.handle(response);
+                  pushDerivedTasks(tasks);
+                }
+              | Some(Error(error)) => {
+                  let tasks = ErrorHandler.handle(error);
+                  pushDerivedTasks(tasks);
+                }
+              | None => {
+                  Js.log("status: " ++ string_of_bool(self.pendingResponse));
+                  runTasksInQueues();
+                  (destructor^)->Option.forEach(f => f());
+                },
+            ),
+          );
+        ();
+      } else {
+        let nextTask = getNextTask();
+        switch (nextTask) {
+        | None =>
+          self.status = Idle;
+          self.onChangeStatus.emit(Idle);
+        | Some(task) =>
+          runTask(self, state, task)
+          ->Promise.get(
+              fun
+              | Derived(tasks) => {
+                  Js.log("Derived");
+                  pushDerivedTasks(tasks);
+                  runTasksInQueues();
+                }
+              | Pending => {
+                  Js.log("Pending");
+                  self.pendingResponse = true;
+                  runTasksInQueues();
+                }
+              | Concluded => {
+                  Js.log("Concluded");
+                  runTasksInQueues();
+                },
+            )
+        };
+      };
 
     let _ =
-      taskEmitter.on(task => {
-        // classify Tasks base on priority
-        switch (task) {
-        | DispatchCommand(command) =>
-          Js.Array.push(command, commandQueue)->ignore
-        | otherTask => Js.Array.push(otherTask, taskQueue)->ignore
-        };
-
+      onAddCommand.on(command => {
+        // add it to the back of the queue
+        Js.Array.push(Task.DispatchCommand(command), queue^)->ignore;
         // kick start `runTasksInQueues` if it's not already running
         if (self.status == Idle) {
           self.status = Busy;
-          self.statusEmitter.emit(Busy);
+          self.onChangeStatus.emit(Busy);
           runTasksInQueues();
         };
       });
@@ -142,8 +191,8 @@ module Impl = (Editor: Sig.Editor) => {
   let destroy = (self: t): Promise.t(unit) => {
     let (promise, resolve) = Promise.pending();
     let destroy' = () => {
-      self.statusEmitter.destroy();
-      self.taskEmitter.destroy();
+      self.onChangeStatus.destroy();
+      self.onAddCommand.destroy();
       resolve();
     };
 
@@ -151,7 +200,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Idle => destroy'()
     | Busy =>
       let _ =
-        self.statusEmitter.on(
+        self.onChangeStatus.on(
           fun
           | Idle => destroy'()
           | Busy => (),

@@ -8,5 +8,6 @@ module Impl = (Editor: Sig.Editor) => {
   let dispatch =
     fun
     | Load => [SendRequest(Load)]
-    | Quit => [Terminate];
+    | Quit => [Terminate]
+    | ViewResponse(response) => [ViewRes(response)];
 };
