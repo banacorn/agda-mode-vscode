@@ -3,7 +3,6 @@ module Impl = (Editor: Sig.Editor) => {
   type t =
     //
     | Terminate
-    | DispatchCommand(Command.t)
     // Connection
     | SendRequest(Request.t)
     // View

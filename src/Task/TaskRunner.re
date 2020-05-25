@@ -39,9 +39,9 @@ module Impl = (Editor: Sig.Editor) => {
       Promise.resolved(Concluded);
     | WithState(callback) =>
       callback(state)->Promise.map(tasks => Derived(tasks))
-    | DispatchCommand(command) =>
-      Js.log("[ task ][ command ] " ++ Command.toString(command));
-      Promise.resolved(Derived(TaskCommand.dispatch(command)));
+    // | DispatchCommand(command) =>
+    //   Js.log("[ task ][ command ] " ++ Command.toString(command));
+    //   Promise.resolved(Derived(TaskCommand.dispatch(command)));
     | SendRequest(request) =>
       Js.log("[ task ][ send request ]");
       let destructor = ref(None);
@@ -175,7 +175,7 @@ module Impl = (Editor: Sig.Editor) => {
     let _ =
       onAddCommand.on(command => {
         // add it to the back of the queue
-        Js.Array.push(Task.DispatchCommand(command), queue^)->ignore;
+        pushDerivedTasks(TaskCommand.dispatch(command));
         // kick start `runTasksInQueues` if it's not already running
         if (self.status == Idle) {
           self.status = Busy;
