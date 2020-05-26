@@ -4,9 +4,9 @@ open Guacamole.Vscode;
 // a dictionary of FileName-State entries
 module StateDict = {
   module Impl = (Editor: Sig.Editor) => {
-    module TaskRunner = TaskRunner.Impl(Editor);
+    module Scheduler = Scheduler.Impl(Editor);
     module State = State.Impl(Editor);
-    let dict: Js.Dict.t((State.t, TaskRunner.t)) = Js.Dict.empty();
+    let dict: Js.Dict.t((State.t, Scheduler.t)) = Js.Dict.empty();
 
     let get = fileName => dict->Js.Dict.get(fileName);
 
@@ -45,7 +45,7 @@ module StateDict = {
       ->Option.forEach(((state, runner)) => {
           Js.log("[ states ][ destroy ]");
           State.destroy(state) |> ignore;
-          TaskRunner.destroy(runner) |> ignore;
+          Scheduler.destroy(runner) |> ignore;
         });
       remove(fileName);
     };
@@ -57,7 +57,7 @@ module StateDict = {
       ->Js.Dict.entries
       ->Array.forEach(((_, (state, runner))) => {
           State.destroy(state) |> ignore;
-          TaskRunner.destroy(runner) |> ignore;
+          Scheduler.destroy(runner) |> ignore;
         });
     };
   };
@@ -66,8 +66,7 @@ module StateDict = {
 module Impl = (Editor: Sig.Editor) => {
   module States = StateDict.Impl(Editor);
   module State = State.Impl(Editor);
-  module TaskCommand = Task__Command.Impl(Editor);
-  module TaskRunner = TaskRunner.Impl(Editor);
+  module TaskRunner = Scheduler.Impl(Editor);
 
   let addToSubscriptions = (f, context) =>
     f->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;

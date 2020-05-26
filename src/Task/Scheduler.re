@@ -80,10 +80,10 @@ module Runner = {
 };
 
 module Impl = (Editor: Sig.Editor) => {
-  module ErrorHandler = Task__Error.Impl(Editor);
-  module ViewHandler = Task__View.Impl(Editor);
-  module CommandHandler = Task__Command.Impl(Editor);
-  module ResponseHandler = Task__Response.Impl(Editor);
+  module ErrorHandler = Handle__Error.Impl(Editor);
+  module ViewHandler = Handle__View.Impl(Editor);
+  module CommandHandler = Handle__Command.Impl(Editor);
+  module ResponseHandler = Handle__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
 
@@ -114,7 +114,7 @@ module Impl = (Editor: Sig.Editor) => {
           ->Promise.get(() => {Runner.terminate(runner)});
         }
       | Ok(Yield(Ok(response))) => {
-          Js.log(Response.toString(response));
+          // Task.SendRequest are filtered out
           let otherTasks =
             List.toArray(ResponseHandler.handle(response))
             ->Array.keep(
