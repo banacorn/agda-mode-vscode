@@ -1,4 +1,5 @@
 module Impl = (Editor: Sig.Editor) => {
+  module Goal = Goal.Impl(Editor);
   open Belt;
   type editor = Editor.editor;
   type context = Editor.context;
@@ -7,7 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
     context,
     view: Editor.view,
     mutable connection: option(Connection.t),
-    mutable goals: array(int),
+    mutable goals: array(Goal.t),
     onDestroyEventEmitter: Event.t(unit),
   };
 

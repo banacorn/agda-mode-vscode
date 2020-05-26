@@ -224,14 +224,24 @@ let getCursorPosition = editor => editor->TextEditor.selection->Selection.end_;
 
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
+let pointAtOffset = (editor, offset) =>
+  editor->TextEditor.document->TextDocument.positionAt(offset);
 
-let getText = (editor, range) =>
+let getTextInRange = (editor, range) =>
   editor->TextEditor.document->TextDocument.getText(Some(range));
+let getText = editor =>
+  editor->TextEditor.document->TextDocument.getText(None);
 let selectText = (editor, range) => {
   let start = Guacamole.Vscode.Range.start(range);
   let end_ = Guacamole.Vscode.Range.end_(range);
   let selection = Selection.make(start, end_);
   editor->TextEditor.setSelection(selection);
+};
+let setText = (editor, range, text) => {
+  let editCallback = edit => {
+    edit->TextEditorEdit.replaceAtRange(range, text);
+  };
+  editor->TextEditor.edit(editCallback, None);
 };
 let insertText = (editor, point, text) => {
   let editCallback = edit => {

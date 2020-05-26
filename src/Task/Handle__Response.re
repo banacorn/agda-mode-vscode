@@ -1,6 +1,8 @@
+open Belt;
 // from Agda Response to Tasks
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  module Goal = Goal.Impl(Editor);
   open! Task;
   open Response;
   module DisplayInfo = {
@@ -63,9 +65,14 @@ module Impl = (Editor: Sig.Editor) => {
     | InteractionPoints(indices) => [
         WithState(
           state => {
-            Js.log(indices);
-            // instance |> Goals.instantiateAll(indices);
-            Promise.resolved([]);
+            // destroy all existing goals
+            state.goals->Array.forEach(Goal.destroy);
+            // instantiate new ones
+            Goal.makeMany(state.editor, indices)
+            ->Promise.map(goals => {
+                state.goals = goals;
+                [];
+              });
           },
         ),
       ]

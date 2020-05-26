@@ -91,9 +91,12 @@ module type Editor = {
   // let setCursor: (editor, Point.t) => unit;
 
   let rangeForLine: (editor, int) => Range.t;
+  let pointAtOffset: (editor, int) => Point.t;
 
-  let getText: (editor, Range.t) => string;
+  let getText: editor => string;
+  let getTextInRange: (editor, Range.t) => string;
   let selectText: (editor, Range.t) => unit;
+  let setText: (editor, Range.t, string) => Promise.t(bool);
   let insertText: (editor, Point.t, string) => Promise.t(bool);
   let deleteText: (editor, Range.t) => Promise.t(bool);
 };

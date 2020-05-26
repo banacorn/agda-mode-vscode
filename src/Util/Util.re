@@ -123,3 +123,13 @@ module Pretty = {
     "[" ++ Js.String.concatMany(xs, ", ") ++ "]";
   };
 };
+
+let rec oneByOne' =
+  fun
+  | [] => Promise.resolved([])
+  | [x, ...xs] =>
+    x()
+    ->Promise.flatMap(x' => oneByOne'(xs)->Promise.map(xs' => [x', ...xs']));
+
+let oneByOne = xs =>
+  oneByOne'(List.fromArray(xs))->Promise.map(List.toArray);
