@@ -7,6 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
     context,
     view: Editor.view,
     mutable connection: option(Connection.t),
+    mutable goals: array(int),
     onDestroyEventEmitter: Event.t(unit),
   };
 
@@ -87,6 +88,7 @@ module Impl = (Editor: Sig.Editor) => {
       context,
       view,
       connection: None,
+      goals: [||],
       onDestroyEventEmitter: Event.make(),
     };
 

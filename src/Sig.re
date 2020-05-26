@@ -74,6 +74,19 @@ module type Editor = {
     let recv: (view, View.Response.t => unit) => Disposable.t;
   };
 
+  module Decoration: {
+    type t;
+    type kind =
+      | Error
+      | Highlight
+      | Spec;
+
+    let digHole: (editor, Range.t) => unit;
+    let highlightBackground: (editor, kind, Range.t) => array(t);
+    let overlayText: (editor, kind, string, Range.t) => array(t);
+    let destroy: t => unit;
+  };
+
   let getCursorPosition: editor => Point.t;
   // let setCursor: (editor, Point.t) => unit;
 

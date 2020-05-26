@@ -60,5 +60,14 @@ module Impl = (Editor: Sig.Editor) => {
     | RunningInfo(_verbosity, message) => [
         ViewReq(Plain(Plain("Type-checking"), Some(message))),
       ]
+    | InteractionPoints(indices) => [
+        WithState(
+          state => {
+            Js.log(indices);
+            // instance |> Goals.instantiateAll(indices);
+            Promise.resolved([]);
+          },
+        ),
+      ]
     | _ => [];
 };
