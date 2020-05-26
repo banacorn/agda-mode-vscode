@@ -72,6 +72,7 @@ module Impl = (Editor: Sig.Editor) => {
     f->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;
 
   let activate = context => {
+    Js.log("[ states ] activate");
     // when a TextEditor gets closed, destroy the corresponding State
     Editor.onDidCloseEditor(States.destroy)
     ->Editor.addToSubscriptions(context);
@@ -107,6 +108,7 @@ module Impl = (Editor: Sig.Editor) => {
       Editor.registerCommand(
         name,
         editor => {
+          Js.log("[ command ] " ++ name);
           // special treatments on commands like "Load" and "Quit"
           switch (command) {
           | Load =>

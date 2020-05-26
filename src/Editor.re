@@ -153,7 +153,10 @@ module Decoration = {
   let highlightBackground =
       (editor: editor, style: string, range: Guacamole.Vscode.Range.t) => {
     let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
-    let options = DecorationRenderOptions.t(~backgroundColor, ());
+    let rangeBehavior =
+      DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
+    let options =
+      DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ());
     let handle = Window.createTextEditorDecorationType(options);
     editor->TextEditor.setDecorations(handle, [|range|]);
     [|handle|];

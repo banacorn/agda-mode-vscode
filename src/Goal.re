@@ -7,7 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
     decorations: array(Editor.Decoration.t),
   };
 
-  // NOTE: helper function of `makeMany`
+  // NOTE: helper function of `makeMany`, returns a thunk
   let make =
       (editor: Editor.editor, diff: SourceFile.Diff.t)
       : (unit => Promise.t(t)) => {
