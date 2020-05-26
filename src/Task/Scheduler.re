@@ -33,13 +33,18 @@ module Runner = {
   let rec run = (self: t('a)): Promise.t(unit) =>
     switch (self.status) {
     // only one `run` should be running at a time
-    | Busy => Promise.resolved()
+    | Busy =>
+      Js.log("[ run ] Busy");
+      Promise.resolved();
     | Idle =>
       let nextTasks = Js.Array.shift(self.queue);
       (
         switch (nextTasks) {
-        | None => Promise.resolved()
+        | None =>
+          Js.log("[ run ] Idle, no tasks");
+          Promise.resolved();
         | Some(task) =>
+          Js.log("[ run ] Idle");
           self.status = Busy;
           self.execute(task)
           ->Promise.tap(_ => {self.status = Idle})

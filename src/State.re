@@ -77,6 +77,7 @@ module Impl = (Editor: Sig.Editor) => {
     state.view->Editor.View.destroy;
     state.onDestroyEventEmitter.emit();
     state.onDestroyEventEmitter.destroy();
+    state.goals->Array.forEach(Goal.destroy);
     state->disconnect;
   };
 

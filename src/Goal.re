@@ -25,7 +25,8 @@ module Impl = (Editor: Sig.Editor) => {
     () =>
       Editor.setText(editor, originalRange, diff.content)
       ->Promise.map(_ => {
-          let decorations = Decoration.decorateHole(editor, modifiedRange);
+          let decorations =
+            Decoration.decorateHole(editor, modifiedRange, diff.index);
           {index: diff.index, range: modifiedRange, decorations};
         });
   };
@@ -42,5 +43,7 @@ module Impl = (Editor: Sig.Editor) => {
     diffs->Array.map(make(editor))->Util.oneByOne;
   };
 
-  let destroy = self => ();
+  let destroy = self => {
+    self.decorations->Array.forEach(Editor.Decoration.destroy);
+  };
 };
