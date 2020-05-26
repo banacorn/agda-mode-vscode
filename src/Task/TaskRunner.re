@@ -8,8 +8,13 @@ module Runner = {
   type t('a) = {
     mutable queue: array('a),
     mutable status,
+    // the work horse
     execute: 'a => Promise.t(unit),
-    mutable terminator: (Promise.t(unit), unit => unit),
+    // invoke `terminate` to resolve `terminationPromise`
+    terminationPromise: Promise.t(unit),
+    terminate: unit => unit,
+    // this flag is set to True when the runner should be terminated despite that it's still running
+    // transfer the responsibility of invoking `terminate` to the runner
     mutable shouldTerminate: bool,
   };
 
@@ -19,13 +24,15 @@ module Runner = {
       queue: [||],
       status: Idle,
       execute,
-      terminator: (promise, resolve),
+      terminationPromise: promise,
+      terminate: resolve,
       shouldTerminate: false,
     };
   };
 
-  let rec run = (self: t('a)): Promise.t(unit) => {
+  let rec run = (self: t('a)): Promise.t(unit) =>
     switch (self.status) {
+    // only one `run` should be running at a time
     | Busy => Promise.resolved()
     | Idle =>
       let nextTasks = Js.Array.shift(self.queue);
@@ -35,19 +42,18 @@ module Runner = {
         | Some(task) =>
           self.status = Busy;
           self.execute(task)
-          ->Promise.flatMap(() => {run(self)})
-          ->Promise.tap(_ => {self.status = Idle});
+          ->Promise.tap(_ => {self.status = Idle})
+          ->Promise.flatMap(() => {run(self)});
         }
       )
-      // see if the runner need to be terminated after finished executing all tasks in the queue
+      // see if the runner is responsible of invoking `terminate`
+      // after finished executing all tasks in the queue
       ->Promise.tap(() =>
           if (self.shouldTerminate) {
-            let (_, resolve) = self.terminator;
-            resolve();
+            self.terminate();
           }
         );
     };
-  };
 
   let push = (self, x: 'a) => {
     // push a new task to the queue
@@ -63,14 +69,14 @@ module Runner = {
     run(self);
   };
 
-  //
-  let terminate = self => {
-    let (_, resolve) = self.terminator;
+  // If the runner is currently Idle,
+  // then resolve the termination promise immediately
+  // else set `shouldTerminate` and wait for the runner to resolve the termination promise
+  let terminate = self =>
     switch (self.status) {
-    | Idle => resolve()
+    | Idle => self.terminate()
     | Busy => self.shouldTerminate = true
     };
-  };
 };
 
 module Impl = (Editor: Sig.Editor) => {
@@ -81,18 +87,10 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
 
-  // Task Runner
-  type t = {
-    // channel for adding Commands to the back of the queue
-    onAddCommand: Event.t(Command.t),
-    // channel for receiving responses from Agda
-    onResponse: Event.t(option(result(Response.t, Error.t))),
-    // edge triggered Status emitter
-    onChangeStatus: Event.t(Runner.status),
-    mutable status: Runner.status,
-  };
+  type t = Runner.t(Command.t);
 
-  let dispatchCommand = (self, command) => self.onAddCommand.emit(command);
+  // Task Runner
+  let dispatchCommand = (self, command) => Runner.push(self, command);
 
   let rec sendRequest =
           (state, request: Request.t): Promise.t(array(Request.t)) => {
@@ -131,7 +129,7 @@ module Impl = (Editor: Sig.Editor) => {
         }
       | Ok(Stop) => Runner.terminate(runner);
 
-    let (promise, _) = runner.terminator;
+    let promise = runner.terminationPromise;
 
     state
     ->State.sendRequest(request)
@@ -183,64 +181,13 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
   let make = state => {
-    // emitters
-    let onAddCommand = Event.make();
-    let onResponse = Event.make();
-    let onChangeStatus = Event.make();
-    // statess
-    let queue = [||];
-
-    let self = {onAddCommand, onResponse, onChangeStatus, status: Idle};
-
-    let getNextCommand = () => Js.Array.shift(queue);
-
-    let rec runCommandsInQueue = () => {
-      let nextCommand = getNextCommand();
-      switch (nextCommand) {
-      | None =>
-        self.status = Idle;
-        self.onChangeStatus.emit(Idle);
-      | Some(command) =>
-        let tasks = CommandHandler.handle(command);
-        runTasks(state, tasks)->Promise.get(() => {runCommandsInQueue()});
-      };
-    };
-
-    let _ =
-      onAddCommand.on(command => {
-        // add it to the back of the queue
-        Js.Array.push(command, queue)->ignore;
-        // kick start `runCommandsInQueue` if it's not already running
-        if (self.status == Idle) {
-          self.status = Busy;
-          self.onChangeStatus.emit(Busy);
-          runCommandsInQueue();
-        };
-      });
-
-    self;
+    Runner.make(command => {
+      let tasks = CommandHandler.handle(command);
+      runTasks(state, tasks);
+    });
   };
 
   // destroy only after all tasks have been executed
-  let destroy = (self: t): Promise.t(unit) => {
-    let (promise, resolve) = Promise.pending();
-    let destroy' = () => {
-      self.onChangeStatus.destroy();
-      self.onAddCommand.destroy();
-      resolve();
-    };
-
-    switch (self.status) {
-    | Idle => destroy'()
-    | Busy =>
-      let _ =
-        self.onChangeStatus.on(
-          fun
-          | Idle => destroy'()
-          | Busy => (),
-        );
-      ();
-    };
-    promise;
-  };
+  let destroy = (runner: Runner.t(Command.t)): Promise.t(unit) =>
+    runner.terminationPromise;
 };

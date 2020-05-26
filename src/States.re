@@ -127,6 +127,7 @@ module Impl = (Editor: Sig.Editor) => {
                         taskRunner,
                         ViewResponse(response),
                       )
+                      ->ignore
                     })
                   ->Editor.addToSubscriptions(context);
 
@@ -148,7 +149,7 @@ module Impl = (Editor: Sig.Editor) => {
           editor
           ->States.getByEditor
           ->Option.forEach(((_state, runner)) => {
-              TaskRunner.dispatchCommand(runner, command)
+              TaskRunner.dispatchCommand(runner, command)->ignore
             });
         },
       )
