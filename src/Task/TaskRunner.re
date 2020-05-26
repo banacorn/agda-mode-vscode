@@ -1,3 +1,78 @@
+open Belt;
+
+module Runner = {
+  type status =
+    | Busy
+    | Idle;
+
+  type t('a) = {
+    mutable queue: array('a),
+    mutable status,
+    execute: 'a => Promise.t(unit),
+    mutable terminator: (Promise.t(unit), unit => unit),
+    mutable shouldTerminate: bool,
+  };
+
+  let make = execute => {
+    let (promise, resolve) = Promise.pending();
+    {
+      queue: [||],
+      status: Idle,
+      execute,
+      terminator: (promise, resolve),
+      shouldTerminate: false,
+    };
+  };
+
+  let rec run = (self: t('a)): Promise.t(unit) => {
+    switch (self.status) {
+    | Busy => Promise.resolved()
+    | Idle =>
+      let nextTasks = Js.Array.shift(self.queue);
+      (
+        switch (nextTasks) {
+        | None => Promise.resolved()
+        | Some(task) =>
+          self.status = Busy;
+          self.execute(task)
+          ->Promise.flatMap(() => {run(self)})
+          ->Promise.tap(_ => {self.status = Idle});
+        }
+      )
+      // see if the runner need to be terminated after finished executing all tasks in the queue
+      ->Promise.tap(() =>
+          if (self.shouldTerminate) {
+            let (_, resolve) = self.terminator;
+            resolve();
+          }
+        );
+    };
+  };
+
+  let push = (self, x: 'a) => {
+    // push a new task to the queue
+    Js.Array.push(x, self.queue)->ignore;
+    // kick start the runner
+    run(self);
+  };
+
+  let pushMany = (self: t('a), xs: array('a)): Promise.t(unit) => {
+    // concat tasks to the back of the queue
+    self.queue = Js.Array.concat(self.queue, xs);
+    // kick start the runner
+    run(self);
+  };
+
+  //
+  let terminate = self => {
+    let (_, resolve) = self.terminator;
+    switch (self.status) {
+    | Idle => resolve()
+    | Busy => self.shouldTerminate = true
+    };
+  };
+};
+
 module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Task__Error.Impl(Editor);
   module ViewHandler = Task__View.Impl(Editor);
@@ -5,12 +80,6 @@ module Impl = (Editor: Sig.Editor) => {
   module ResponseHandler = Task__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
-  open Belt;
-
-  // Busy if there are Tasks currently being executed, Idle otherwise
-  type status =
-    | Busy
-    | Idle;
 
   // Task Runner
   type t = {
@@ -19,8 +88,8 @@ module Impl = (Editor: Sig.Editor) => {
     // channel for receiving responses from Agda
     onResponse: Event.t(option(result(Response.t, Error.t))),
     // edge triggered Status emitter
-    onChangeStatus: Event.t(status),
-    mutable status,
+    onChangeStatus: Event.t(Runner.status),
+    mutable status: Runner.status,
   };
 
   let dispatchCommand = (self, command) => self.onAddCommand.emit(command);
@@ -29,60 +98,25 @@ module Impl = (Editor: Sig.Editor) => {
           (state, request: Request.t): Promise.t(array(Request.t)) => {
     // Task.SendRequest will be deferred and executed until the current request is handled
     let derivedRequests = ref([||]);
-    // Task queue
-    let queue = ref([||]);
 
-    let (promise, resolve) = Promise.pending();
-    // when Agda has stopped responding, `stoppedResponding` will be set as `Some(resolve)`
-    let stoppedResponding = ref(None);
+    let runner = Runner.make(task => {runTask(state, task)});
 
-    let status = ref(Idle);
-    let rec runTasksInQueue = () => {
-      switch (status^) {
-      | Busy => Promise.resolved()
-      | Idle =>
-        let nextTasks = Js.Array.shift(queue^);
-        (
-          switch (nextTasks) {
-          | None => Promise.resolved()
-          | Some(task) =>
-            status := Busy;
-            runTask(state, task)
-            ->Promise.flatMap(runTasksInQueue)
-            ->Promise.tap(() => {status := Idle});
-          }
-        )
-        // when finished executing all tasks in the queue
-        // see if the Agda has stopped responding
-        ->Promise.tap(() => {
-            (stoppedResponding^)
-            ->Option.forEach(resolve => resolve(derivedRequests^))
-          });
-      };
-    };
-
-    let stop = () =>
-      switch (status^) {
-      | Idle => resolve(derivedRequests^)
-      | Busy => stoppedResponding := Some(resolve)
-      };
     // handle of the connection response listener
     let handle = ref(None);
     let handler =
       fun
       | Error(error) => {
           let tasks = ErrorHandler.handle(Error.Connection(error));
-          queue := Js.Array.concat(queue^, List.toArray(tasks));
-          runTasksInQueue()->ignore;
-          stop();
+          Runner.pushMany(runner, List.toArray(tasks))
+          ->Promise.get(() => {Runner.terminate(runner)});
         }
       | Ok(Parser.Incr.Event.Yield(Error(error))) => {
           let tasks = ErrorHandler.handle(Error.Parser(error));
-          queue := Js.Array.concat(queue^, List.toArray(tasks));
-          runTasksInQueue()->ignore;
-          stop();
+          Runner.pushMany(runner, List.toArray(tasks))
+          ->Promise.get(() => {Runner.terminate(runner)});
         }
       | Ok(Yield(Ok(response))) => {
+          Js.log(Response.toString(response));
           let otherTasks =
             List.toArray(ResponseHandler.handle(response))
             ->Array.keep(
@@ -93,10 +127,11 @@ module Impl = (Editor: Sig.Editor) => {
                   }
                 | _ => true,
               );
-          queue := Js.Array.concat(queue^, otherTasks);
-          runTasksInQueue()->ignore;
+          Runner.pushMany(runner, otherTasks)->ignore;
         }
-      | Ok(Stop) => stop();
+      | Ok(Stop) => Runner.terminate(runner);
+
+    let (promise, _) = runner.terminator;
 
     state
     ->State.sendRequest(request)
@@ -108,10 +143,11 @@ module Impl = (Editor: Sig.Editor) => {
           }
         | Error(error) => {
             let tasks = ErrorHandler.handle(error);
-            resolve([||]);
             runTasks(state, tasks)->Promise.flatMap(() => promise);
           },
-      );
+      )
+    ->Promise.tap(() => (handle^)->Option.forEach(f => f()))
+    ->Promise.map(() => derivedRequests^);
   }
   and sendRequests = (state, requests: list(Request.t)): Promise.t(unit) =>
     switch (requests) {
