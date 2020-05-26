@@ -1,10 +1,10 @@
 open Belt;
 module Impl = (Editor: Sig.Editor) => {
-  // module State = State.Impl(Editor);
+  module Decoration = Decoration.Impl(Editor);
   type t = {
     index: int,
     mutable range: Editor.Range.t,
-    // marker: Editor.Decoration.t,
+    decorations: array(Editor.Decoration.t),
   };
 
   // NOTE: helper function of `makeMany`
@@ -16,16 +16,17 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.pointAtOffset(editor, fst(diff.originalRange)),
         Editor.pointAtOffset(editor, snd(diff.originalRange)),
       );
+    let modifiedRange =
+      Editor.Range.make(
+        Editor.pointAtOffset(editor, fst(diff.modifiedRange)),
+        Editor.pointAtOffset(editor, snd(diff.modifiedRange)),
+      );
     // modify the text buffer base on the Diff
     () =>
       Editor.setText(editor, originalRange, diff.content)
       ->Promise.map(_ => {
-          let modifiedRange =
-            Editor.Range.make(
-              Editor.pointAtOffset(editor, fst(diff.modifiedRange)),
-              Editor.pointAtOffset(editor, snd(diff.modifiedRange)),
-            );
-          {index: diff.index, range: modifiedRange};
+          let decorations = Decoration.decorateHole(editor, modifiedRange);
+          {index: diff.index, range: modifiedRange, decorations};
         });
   };
 
@@ -37,8 +38,7 @@ module Impl = (Editor: Sig.Editor) => {
       Editor.getFileName(editor)->Option.getWithDefault("unnamed.agda");
     let source = Editor.getText(editor);
     let diffs = SourceFile.parse(indices, filePath, source);
-    // scan through the diffs to modify the text buffer
-
+    // scan through the diffs to modify the text buffer one by one
     diffs->Array.map(make(editor))->Util.oneByOne;
   };
 

@@ -76,14 +76,10 @@ module type Editor = {
 
   module Decoration: {
     type t;
-    type kind =
-      | Error
-      | Highlight
-      | Spec;
-
-    let digHole: (editor, Range.t) => unit;
-    let highlightBackground: (editor, kind, Range.t) => array(t);
-    let overlayText: (editor, kind, string, Range.t) => array(t);
+    type style = string;
+    // let digHole: (editor, Range.t) => unit;
+    let highlightBackground: (editor, style, Range.t) => array(t);
+    let overlayText: (editor, style, string, Range.t) => array(t);
     let destroy: t => unit;
   };
 

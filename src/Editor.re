@@ -144,70 +144,39 @@ module View = {
 //
 
 module Decoration = {
+  type style = string;
   type t = TextEditorDecorationType.t;
-
-  type kind =
-    | Error
-    | Highlight
-    | Spec;
-
-  let digHole = (editor: editor, range: Guacamole.Vscode.Range.t) => {
-    let start = Guacamole.Vscode.Range.start(range);
-    // add indentation to the hole
-    let indent =
-      Js.String.repeat(Guacamole.Vscode.Position.character(start), " ");
-    let holeText = "{!\n" ++ indent ++ "\n" ++ indent ++ "!}";
-    let holeRange =
-      Guacamole.Vscode.Range.make(
-        start,
-        Guacamole.Vscode.Position.translate(start, 0, 1),
-      );
-
-    let editCallback = edit => {
-      edit->TextEditorEdit.replaceAtRange(holeRange, holeText);
-    };
-    editor->TextEditor.edit(editCallback, None)->ignore;
-    // set the cursor inside the hole
-
-    let pos = Guacamole.Vscode.Position.translate(start, 1, 0);
-    let selection = Selection.make(pos, pos);
-    editor->TextEditor.setSelection(selection);
-  };
+  // | Error => ThemeColor.make("inputValidation.errorBackground")
+  // | Highlight => ThemeColor.make("editor.symbolHighlightBackground")
+  // | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
 
   let highlightBackground =
-      (editor: editor, kind: kind, range: Guacamole.Vscode.Range.t) => {
-    let backgroundColor =
-      ThemeColor.themeColor(
-        switch (kind) {
-        | Error => ThemeColor.make("inputValidation.errorBackground")
-        | Highlight => ThemeColor.make("editor.symbolHighlightBackground")
-        | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
-        },
-      );
+      (editor: editor, style: string, range: Guacamole.Vscode.Range.t) => {
+    let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
     let options = DecorationRenderOptions.t(~backgroundColor, ());
     let handle = Window.createTextEditorDecorationType(options);
     editor->TextEditor.setDecorations(handle, [|range|]);
     [|handle|];
   };
 
+  // ThemeColor.themeColor(
+  //   switch (kind) {
+  //   | Error => ThemeColor.make("errorForeground")
+  //   | Highlight => ThemeColor.make("descriptionForeground")
+  //   | Spec => ThemeColor.make("descriptionForeground")
+  //   },
+  // ),
   let overlayText =
       (
         editor: editor,
-        kind: kind,
+        style: string,
         text: string,
         range: Guacamole.Vscode.Range.t,
       ) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
         ~contentText=text,
-        ~color=
-          ThemeColor.themeColor(
-            switch (kind) {
-            | Error => ThemeColor.make("errorForeground")
-            | Highlight => ThemeColor.make("descriptionForeground")
-            | Spec => ThemeColor.make("descriptionForeground")
-            },
-          ),
+        ~color=ThemeColor.themeColor(ThemeColor.make(style)),
         (),
       );
 
