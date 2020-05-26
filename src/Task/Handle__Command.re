@@ -5,7 +5,12 @@ module Impl = (Editor: Sig.Editor) => {
   // from Editor Command to Tasks
   let handle =
     fun
-    | Load => [Task.SendRequest(Load)]
+    | Load => [
+        Task.WithState(
+          state => Editor.save(state.editor)->Promise.map(_ => []),
+        ),
+        SendRequest(Load),
+      ]
     | Quit => [Terminate]
     | ViewResponse(response) => [ViewRes(response)];
 };
