@@ -43,13 +43,24 @@ module Impl = (Editor: Sig.Editor) => {
     diffs->Array.map(make(editor))->Util.oneByOne;
   };
 
+  let getInnerRange = self =>
+    Editor.Range.make(
+      Editor.Point.translate(Editor.Range.start(self.range), 0, 2),
+      Editor.Point.translate(Editor.Range.end_(self.range), 0, -2),
+    );
+
   let getContent = (self, editor) => {
-    let range =
-      Editor.Range.make(
-        Editor.Point.translate(Editor.Range.start(self.range), 0, 2),
-        Editor.Point.translate(Editor.Range.end_(self.range), 0, -2),
-      );
-    Editor.getTextInRange(editor, range)->Parser.userInput;
+    let innerRange = getInnerRange(self);
+    Editor.getTextInRange(editor, innerRange)->Parser.userInput;
+  };
+
+  let setContent = (self, editor, text) => {
+    let innerRange = getInnerRange(self);
+
+    // let paddingSpaces =
+    //   Js.String.repeat(String.length(string_of_int(self.index)), " ");
+
+    Editor.setText(editor, innerRange, " " ++ text ++ " ");
   };
 
   let buildHaskellRange = (editor, self, old, filepath: string) => {

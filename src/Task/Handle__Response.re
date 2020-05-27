@@ -38,10 +38,70 @@ module Impl = (Editor: Sig.Editor) => {
 
   let handle =
     fun
+    | Status(displayImplicit, checked) =>
+      if (displayImplicit || checked) {
+        [
+          display(
+            "Status",
+            Some(
+              "Typechecked: "
+              ++ string_of_bool(checked)
+              ++ "\nDisplay implicit arguments: "
+              ++ string_of_bool(displayImplicit),
+            ),
+          ),
+        ];
+      } else {
+        [];
+      }
+    | GiveAction(index, give) => [
+        Goal(
+          GetIndexedOr(
+            index,
+            goal => {
+              let tasks =
+                switch (give) {
+                | Paren => [
+                    Goal(Modify(goal, content => "(" ++ content ++ ")")),
+                  ]
+                | NoParen =>
+                  // do nothing
+                  []
+                | String(content) => [
+                    Goal(
+                      Modify(
+                        goal,
+                        _ =>
+                          Js.String.replaceByRe(
+                            [%re "/\\\\n/g"],
+                            "\n",
+                            content,
+                          ),
+                      ),
+                    ),
+                  ]
+                };
+              Promise.resolved(
+                List.concat([
+                  tasks,
+                  [Goal(RemoveBoundaryAndDestroy(goal))],
+                ]),
+              );
+            },
+            [
+              displayError(
+                "Error: Give failed",
+                Some("Cannot find goal #" ++ string_of_int(index)),
+              ),
+            ],
+          ),
+        ),
+      ]
     | DisplayInfo(info) => DisplayInfo.handle(info)
     | RunningInfo(_verbosity, message) => [
         display("Type-checking", Some(message)),
       ]
     | InteractionPoints(indices) => [Goal(Instantiate(indices))]
-    | others => [Debug(Response.toString(others))];
+    | _ => [];
+  // | others => [Debug(Response.toString(others))];
 };

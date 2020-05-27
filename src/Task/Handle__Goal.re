@@ -103,13 +103,71 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
+    | Modify(goal, f) => [
+        WithState(
+          state => {
+            let content = Goal.getContent(goal, state.editor);
+            Goal.setContent(goal, state.editor, f(content))
+            ->Promise.map(
+                fun
+                | true => []
+                | false => [
+                    displayError(
+                      "Goal-related Error",
+                      Some(
+                        "Failed to modify the content of goal #"
+                        ++ string_of_int(goal.index),
+                      ),
+                    ),
+                  ],
+              );
+          },
+        ),
+      ]
+    | RemoveBoundaryAndDestroy(goal) => [
+        WithState(
+          state => {
+            let innerRange = Goal.getInnerRange(goal);
+            let content =
+              Editor.getTextInRange(state.editor, innerRange)->String.trim;
+            Editor.setText(state.editor, goal.range, content)
+            ->Promise.map(
+                fun
+                | true => {
+                    Goal.destroy(goal);
+                    [];
+                  }
+                | false => [
+                    displayError(
+                      "Goal-related Error",
+                      Some(
+                        "Unable to remove the boundary of goal #"
+                        ++ string_of_int(goal.index),
+                      ),
+                    ),
+                  ],
+              );
+          },
+        ),
+      ]
     | GetPointedOr(callback, alternative) => [
-        Task.WithState(
+        WithState(
           state => {
             switch (pointingAt(state)) {
             | None => Promise.resolved(alternative)
             | Some(goal) => callback(goal)
             }
+          },
+        ),
+      ]
+    | GetIndexedOr(index, callback, alternative) => [
+        WithState(
+          state => {
+            let found = state.goals->Array.keep(goal => goal.index == index);
+            switch (found[0]) {
+            | None => Promise.resolved(alternative)
+            | Some(goal) => callback(goal)
+            };
           },
         ),
       ];

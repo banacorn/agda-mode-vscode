@@ -7,7 +7,11 @@ module Impl = (Editor: Sig.Editor) => {
     | Instantiate(array(int))
     | Next
     | Previous
+    | Modify(Goal.t, string => string)
+    | RemoveBoundaryAndDestroy(Goal.t)
     | GetPointedOr(Goal.t => Promise.t(list(t)), list(t))
+    | GetIndexedOr(int, Goal.t => Promise.t(list(t)), list(t))
+
   and t =
     //
     | Terminate
