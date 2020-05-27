@@ -46,25 +46,23 @@ module Impl = (Editor: Sig.Editor) => {
 
   let sendRequest =
       (state, request): Promise.t(result(Connection.t, Error.t)) => {
-    let version = "2.6.1"; // TODO
-    let filepath =
-      Editor.getFileName(state.editor)->Option.getWithDefault(""); //"Editor.getFileName(state.editor)";
-    let libraryPath = Editor.Config.getLibraryPath();
-    let highlightingMethod = Editor.Config.getHighlightingMethod();
-    let encoded =
-      Request.encode(
-        version,
-        filepath,
-        libraryPath,
-        highlightingMethod,
-        request,
-      );
-    Js.log2("<<<", encoded);
-    // let%Ok connection = state->connect;
-    // ();
     state
     ->connect
     ->Promise.mapOk(connection => {
+        let version = connection.metadata.version;
+        let filepath =
+          Editor.getFileName(state.editor)->Option.getWithDefault("");
+        let libraryPath = Editor.Config.getLibraryPath();
+        let highlightingMethod = Editor.Config.getHighlightingMethod();
+        let encoded =
+          Request.encode(
+            version,
+            filepath,
+            libraryPath,
+            highlightingMethod,
+            request,
+          );
+        Js.log2("<<<", encoded);
         Connection.send(encoded, connection);
         connection;
       });
