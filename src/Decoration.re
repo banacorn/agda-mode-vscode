@@ -1,20 +1,23 @@
 open Belt;
 module Impl = (Editor: Sig.Editor) => {
   let decorateHole =
-      (editor: Editor.editor, range: Editor.Range.t, index: int) => {
+      (editor: Editor.editor, (start, end_): (int, int), index: int) => {
+    let backgroundRange =
+      Editor.Range.make(
+        Editor.pointAtOffset(editor, start),
+        Editor.pointAtOffset(editor, end_),
+      );
     let background =
       Editor.Decoration.highlightBackground(
         editor,
         "editor.selectionHighlightBackground",
-        range,
+        backgroundRange,
       );
     let indexText = string_of_int(index);
-    let start = Editor.Range.start(range);
-    let end_ = Editor.Range.end_(range);
     let indexRange =
       Editor.Range.make(
-        start,
-        Editor.pointAtOffset(editor, Editor.offsetAtPoint(editor, end_) - 2),
+        Editor.pointAtOffset(editor, start),
+        Editor.pointAtOffset(editor, end_ - 2),
       );
 
     let index =

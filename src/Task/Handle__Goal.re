@@ -7,24 +7,26 @@ module Impl = (Editor: Sig.Editor) => {
 
   open! Task;
 
-  // return an array of Positions of Goals
-  let getPositions = (state: State.t): array(Editor.Point.t) => {
-    state.goals
-    ->Array.map(goal => goal.range)
-    ->Array.map(range =>
-        Editor.Point.translate(Editor.Range.start(range), 0, 3)
-      );
+  // return an array of Offsets of Goals
+  let getOffsets = (state: State.t): array(int) => {
+    state.goals->Array.map(goal => fst(goal.range) + 3);
   };
 
   let pointingAt = (~cursor=?, state: State.t): option(Goal.t) => {
-    let cursor' =
+    let cursorOffset =
       switch (cursor) {
-      | None => Editor.getCursorPosition(state.editor)
+      | None =>
+        Editor.offsetAtPoint(
+          state.editor,
+          Editor.getCursorPosition(state.editor),
+        )
       | Some(x) => x
       };
     let pointedGoals =
       state.goals
-      ->Array.keep(goal => Editor.Range.contains(goal.Goal.range, cursor'));
+      ->Array.keep(goal =>
+          fst(goal.range) <= cursorOffset && cursorOffset <= snd(goal.range)
+        );
     // return the first pointed goal
     pointedGoals[0];
   };
@@ -50,26 +52,32 @@ module Impl = (Editor: Sig.Editor) => {
         Task.WithState(
           state => {
             let nextGoal = ref(None);
-            let cursor = Editor.getCursorPosition(state.editor);
-
-            let positions = getPositions(state);
+            let cursorOffset =
+              Editor.offsetAtPoint(
+                state.editor,
+                Editor.getCursorPosition(state.editor),
+              );
+            let offsets = getOffsets(state);
 
             // find the first Goal after the cursor
-            positions->Array.forEach(position =>
-              if (Editor.Point.compare(cursor, position) === Editor.LT
-                  && nextGoal^ === None) {
-                nextGoal := Some(position);
+            offsets->Array.forEach(offset =>
+              if (cursorOffset < offset && nextGoal^ === None) {
+                nextGoal := Some(offset);
               }
             );
 
             // if there's no Goal after the cursor, then loop back and return the first Goal
             if (nextGoal^ === None) {
-              nextGoal := positions[0];
+              nextGoal := offsets[0];
             };
 
             switch (nextGoal^) {
             | None => ()
-            | Some(point) => Editor.setCursorPosition(state.editor, point)
+            | Some(offset) =>
+              Editor.setCursorPosition(
+                state.editor,
+                Editor.pointAtOffset(state.editor, offset),
+              )
             };
             Promise.resolved([]);
           },
@@ -79,25 +87,32 @@ module Impl = (Editor: Sig.Editor) => {
         Task.WithState(
           state => {
             let previousGoal = ref(None);
-            let cursor = Editor.getCursorPosition(state.editor);
-
-            let positions = getPositions(state);
+            let cursorOffset =
+              Editor.offsetAtPoint(
+                state.editor,
+                Editor.getCursorPosition(state.editor),
+              );
+            let offsets = getOffsets(state);
 
             // find the last Goal before the cursor
-            positions->Array.forEach(position =>
-              if (Editor.Point.compare(cursor, position) === Editor.GT) {
-                previousGoal := Some(position);
+            offsets->Array.forEach(offset =>
+              if (cursorOffset > offset) {
+                previousGoal := Some(offset);
               }
             );
 
             // loop back if this is already the first Goal
             if (previousGoal^ === None) {
-              previousGoal := positions[Array.length(positions) - 1];
+              previousGoal := offsets[Array.length(offsets) - 1];
             };
 
             switch (previousGoal^) {
             | None => ()
-            | Some(point) => Editor.setCursorPosition(state.editor, point)
+            | Some(offset) =>
+              Editor.setCursorPosition(
+                state.editor,
+                Editor.pointAtOffset(state.editor, offset),
+              )
             };
             Promise.resolved([]);
           },
@@ -128,9 +143,14 @@ module Impl = (Editor: Sig.Editor) => {
         WithState(
           state => {
             let innerRange = Goal.getInnerRange(goal, state.editor);
+            let outerRange =
+              Editor.Range.make(
+                Editor.pointAtOffset(state.editor, fst(goal.range)),
+                Editor.pointAtOffset(state.editor, snd(goal.range)),
+              );
             let content =
               Editor.getTextInRange(state.editor, innerRange)->String.trim;
-            Editor.setText(state.editor, goal.range, content)
+            Editor.setText(state.editor, outerRange, content)
             ->Promise.map(
                 fun
                 | true => {

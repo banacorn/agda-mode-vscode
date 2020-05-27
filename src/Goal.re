@@ -3,7 +3,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Decoration = Decoration.Impl(Editor);
   type t = {
     index: int,
-    mutable range: Editor.Range.t,
+    mutable range: (int, int),
     decorations: array(Editor.Decoration.t),
   };
 
@@ -20,14 +20,9 @@ module Impl = (Editor: Sig.Editor) => {
         );
       Editor.setText(editor, originalRange, diff.content)
       ->Promise.map(_ => {
-          let modifiedRange =
-            Editor.Range.make(
-              Editor.pointAtOffset(editor, fst(diff.modifiedRange)),
-              Editor.pointAtOffset(editor, snd(diff.modifiedRange)),
-            );
           let decorations =
-            Decoration.decorateHole(editor, modifiedRange, diff.index);
-          {index: diff.index, range: modifiedRange, decorations};
+            Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
+          {index: diff.index, range: diff.modifiedRange, decorations};
         });
     };
   };
@@ -47,11 +42,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   let getInnerRange = (self, editor) =>
     Editor.Range.make(
-      Editor.Point.translate(Editor.Range.start(self.range), 0, 2),
-      Editor.pointAtOffset(
-        editor,
-        Editor.offsetAtPoint(editor, Editor.Range.end_(self.range)) - 2,
-      ),
+      Editor.pointAtOffset(editor, fst(self.range) + 2),
+      Editor.pointAtOffset(editor, snd(self.range) - 2),
     );
 
   let getContent = (self, editor) => {
@@ -61,27 +53,21 @@ module Impl = (Editor: Sig.Editor) => {
 
   let setContent = (self, editor, text) => {
     let innerRange = getInnerRange(self, editor);
-
-    // let paddingSpaces =
-    //   Js.String.repeat(String.length(string_of_int(self.index)), " ");
-
     Editor.setText(editor, innerRange, " " ++ text ++ " ");
   };
 
   let buildHaskellRange = (editor, self, old, filepath: string) => {
-    let start = Editor.Range.start(self.range);
-    let startIndex = Editor.offsetAtPoint(editor, start);
+    let (start, end_) = self.range;
+    let startPoint = Editor.pointAtOffset(editor, start);
+    let endPoint = Editor.pointAtOffset(editor, end_);
 
-    let end_ = Editor.Range.end_(self.range);
-    let endIndex = Editor.offsetAtPoint(editor, end_);
-
-    let startIndex' = string_of_int(startIndex + 3);
-    let startRow = string_of_int(Editor.Point.line(start) + 1);
-    let startColumn = string_of_int(Editor.Point.column(start) + 3);
-    let startPart = {j|$(startIndex') $(startRow) $(startColumn)|j};
-    let endIndex' = string_of_int(endIndex - 3);
-    let endRow = string_of_int(Editor.Point.line(end_) + 1);
-    let endColumn = string_of_int(Editor.Point.column(end_) - 1);
+    let startIndex = string_of_int(start + 3);
+    let startRow = string_of_int(Editor.Point.line(startPoint) + 1);
+    let startColumn = string_of_int(Editor.Point.column(startPoint) + 3);
+    let startPart = {j|$(startIndex) $(startRow) $(startColumn)|j};
+    let endIndex' = string_of_int(end_ - 3);
+    let endRow = string_of_int(Editor.Point.line(endPoint) + 1);
+    let endColumn = string_of_int(Editor.Point.column(endPoint) - 1);
     let endPart = {j|$(endIndex') $(endRow) $(endColumn)|j};
 
     if (old) {
