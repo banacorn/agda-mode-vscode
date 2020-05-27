@@ -15,12 +15,18 @@ module type Editor = {
   type view;
   type fileName = string;
 
+  type ordering =
+    | GT
+    | EQ
+    | LT;
+
   module Point: {
     type t;
     let line: t => int;
     let column: t => int;
     let make: (int, int) => t;
     let translate: (t, int, int) => t;
+    let compare: (t, t) => ordering;
   };
 
   module Range: {
@@ -84,7 +90,7 @@ module type Editor = {
   };
 
   let getCursorPosition: editor => Point.t;
-  // let setCursor: (editor, Point.t) => unit;
+  let setCursorPosition: (editor, Point.t) => unit;
 
   let rangeForLine: (editor, int) => Range.t;
   let pointAtOffset: (editor, int) => Point.t;

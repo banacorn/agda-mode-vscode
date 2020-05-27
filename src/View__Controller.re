@@ -1,4 +1,4 @@
-open Guacamole.Vscode;
+open Guacamole.VSCode;
 
 type status =
   | Initialized

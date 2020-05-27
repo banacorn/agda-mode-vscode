@@ -1,4 +1,4 @@
-open Guacamole.Vscode;
+open Guacamole.VSCode;
 
 type editor = TextEditor.t;
 type context = ExtensionContext.t;
@@ -9,12 +9,23 @@ module Disposable = {
 };
 type view = View__Controller.t;
 
+type ordering =
+  | GT
+  | EQ
+  | LT;
+
 module Point = {
   type t = Position.t;
   let make = Position.make;
   let line = Position.line;
   let column = Position.character;
   let translate = Position.translate;
+  let compare = (x, y) =>
+    switch (Position.compareTo(x, y)) {
+    | (-1) => LT
+    | 1 => GT
+    | _ => EQ
+    };
 };
 
 module Range = {
@@ -151,7 +162,7 @@ module Decoration = {
   // | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
 
   let highlightBackground =
-      (editor: editor, style: string, range: Guacamole.Vscode.Range.t) => {
+      (editor: editor, style: string, range: Guacamole.VSCode.Range.t) => {
     let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
@@ -174,7 +185,7 @@ module Decoration = {
         editor: editor,
         style: string,
         text: string,
-        range: Guacamole.Vscode.Range.t,
+        range: Guacamole.VSCode.Range.t,
       ) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
@@ -193,6 +204,8 @@ module Decoration = {
 };
 
 let getCursorPosition = editor => editor->TextEditor.selection->Selection.end_;
+let setCursorPosition = (editor, point) =>
+  editor->TextEditor.setSelection(Selection.make(point, point));
 
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
@@ -204,8 +217,8 @@ let getTextInRange = (editor, range) =>
 let getText = editor =>
   editor->TextEditor.document->TextDocument.getText(None);
 let selectText = (editor, range) => {
-  let start = Guacamole.Vscode.Range.start(range);
-  let end_ = Guacamole.Vscode.Range.end_(range);
+  let start = Guacamole.VSCode.Range.start(range);
+  let end_ = Guacamole.VSCode.Range.end_(range);
   let selection = Selection.make(start, end_);
   editor->TextEditor.setSelection(selection);
 };

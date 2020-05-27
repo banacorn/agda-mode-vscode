@@ -1,5 +1,6 @@
 module Impl = (Editor: Sig.Editor) => {
   module State = State.Impl(Editor);
+
   type t =
     //
     | Terminate

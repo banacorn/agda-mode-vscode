@@ -1,5 +1,5 @@
 open Belt;
-open Guacamole.Vscode;
+open Guacamole.VSCode;
 
 // a dictionary of FileName-State entries
 module StateDict = {

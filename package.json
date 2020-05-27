@@ -34,6 +34,10 @@
 			{
 				"command": "extension.quit",
 				"title": "Quit"
+			},
+			{
+				"command": "extension.nextGoal",
+				"title": "Next Goal"
 			}
 		],
 		"keybindings": [
@@ -46,6 +50,11 @@
 				"command": "extension.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q"
+			},
+			{
+				"command": "extension.nextGoal",
+				"key": "ctrl+c ctrl+f",
+				"mac": "ctrl+c ctrl+f"
 			}
 		],
 		"configuration": {
@@ -104,6 +113,6 @@
 		"react-dom": "^16.9.0",
 		"reason-react": ">=0.7.0",
 		"reason-react-update": "^0.1.1",
-		"guacamole": "github:scmlab/gcl-vscode#0e56291"
+		"guacamole": "github:scmlab/gcl-vscode#8e37c57"
 	}
 }
