@@ -3,6 +3,8 @@ open Belt;
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
+  module Goal = Goal.Impl(Editor);
+
   open! Task;
 
   // return an array of Positions of Goals
@@ -14,9 +16,23 @@ module Impl = (Editor: Sig.Editor) => {
       );
   };
 
-  // from Goal-related commands to Tasks
+  // from Goal-related action to Tasks
   let handle =
     fun
+    | Instantiate(indices) => [
+        WithState(
+          state => {
+            // destroy all existing goals
+            state.goals->Array.forEach(Goal.destroy);
+            // instantiate new ones
+            Goal.makeMany(state.editor, indices)
+            ->Promise.map(goals => {
+                state.goals = goals;
+                [];
+              });
+          },
+        ),
+      ]
     | Next => [
         Task.WithState(
           state => {

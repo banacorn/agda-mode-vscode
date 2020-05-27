@@ -1,8 +1,6 @@
-open Belt;
 // from Agda Response to Tasks
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
-  module Goal = Goal.Impl(Editor);
   open! Task;
   open Response;
   module DisplayInfo = {
@@ -62,19 +60,6 @@ module Impl = (Editor: Sig.Editor) => {
     | RunningInfo(_verbosity, message) => [
         ViewReq(Plain(Plain("Type-checking"), Some(message))),
       ]
-    | InteractionPoints(indices) => [
-        WithState(
-          state => {
-            // destroy all existing goals
-            state.goals->Array.forEach(Goal.destroy);
-            // instantiate new ones
-            Goal.makeMany(state.editor, indices)
-            ->Promise.map(goals => {
-                state.goals = goals;
-                [];
-              });
-          },
-        ),
-      ]
+    | InteractionPoints(indices) => [Goal(Instantiate(indices))]
     | _ => [];
 };

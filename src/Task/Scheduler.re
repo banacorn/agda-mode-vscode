@@ -169,8 +169,8 @@ module Impl = (Editor: Sig.Editor) => {
       State.destroy(state);
     | WithState(callback) =>
       callback(state)->Promise.flatMap(runTasks(state))
-    | Goal(req) =>
-      let tasks = GoalHandler.handle(req);
+    | Goal(action) =>
+      let tasks = GoalHandler.handle(action);
       runTasks(state, tasks);
     | SendRequest(request) =>
       Js.log("[ task ][ send request ]");
