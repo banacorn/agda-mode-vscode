@@ -94,7 +94,7 @@ let isAgda = (filepath): bool => {
 };
 
 let registerCommand = (name, callback) =>
-  Commands.registerCommand("extension." ++ name, () => {
+  Commands.registerCommand("agda-mode." ++ name, () => {
     Window.activeTextEditor->Option.forEach(editor => {
       editor
       ->getFileName
