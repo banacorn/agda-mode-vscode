@@ -127,7 +127,7 @@ module Impl = (Editor: Sig.Editor) => {
     | RemoveBoundaryAndDestroy(goal) => [
         WithState(
           state => {
-            let innerRange = Goal.getInnerRange(goal);
+            let innerRange = Goal.getInnerRange(goal, state.editor);
             let content =
               Editor.getTextInRange(state.editor, innerRange)->String.trim;
             Editor.setText(state.editor, goal.range, content)

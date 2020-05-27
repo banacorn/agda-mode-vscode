@@ -11,24 +11,25 @@ module Impl = (Editor: Sig.Editor) => {
   let make =
       (editor: Editor.editor, diff: SourceFile.Diff.t)
       : (unit => Promise.t(t)) => {
-    let originalRange =
-      Editor.Range.make(
-        Editor.pointAtOffset(editor, fst(diff.originalRange)),
-        Editor.pointAtOffset(editor, snd(diff.originalRange)),
-      );
-    let modifiedRange =
-      Editor.Range.make(
-        Editor.pointAtOffset(editor, fst(diff.modifiedRange)),
-        Editor.pointAtOffset(editor, snd(diff.modifiedRange)),
-      );
     // modify the text buffer base on the Diff
-    () =>
+    () => {
+      let originalRange =
+        Editor.Range.make(
+          Editor.pointAtOffset(editor, fst(diff.originalRange)),
+          Editor.pointAtOffset(editor, snd(diff.originalRange)),
+        );
       Editor.setText(editor, originalRange, diff.content)
       ->Promise.map(_ => {
+          let modifiedRange =
+            Editor.Range.make(
+              Editor.pointAtOffset(editor, fst(diff.modifiedRange)),
+              Editor.pointAtOffset(editor, snd(diff.modifiedRange)),
+            );
           let decorations =
             Decoration.decorateHole(editor, modifiedRange, diff.index);
           {index: diff.index, range: modifiedRange, decorations};
         });
+    };
   };
 
   // make an array of Goal.t with given goal indices
@@ -40,22 +41,26 @@ module Impl = (Editor: Sig.Editor) => {
     let source = Editor.getText(editor);
     let diffs = SourceFile.parse(indices, filePath, source);
     // scan through the diffs to modify the text buffer one by one
+
     diffs->Array.map(make(editor))->Util.oneByOne;
   };
 
-  let getInnerRange = self =>
+  let getInnerRange = (self, editor) =>
     Editor.Range.make(
       Editor.Point.translate(Editor.Range.start(self.range), 0, 2),
-      Editor.Point.translate(Editor.Range.end_(self.range), 0, -2),
+      Editor.pointAtOffset(
+        editor,
+        Editor.offsetAtPoint(editor, Editor.Range.end_(self.range)) - 2,
+      ),
     );
 
   let getContent = (self, editor) => {
-    let innerRange = getInnerRange(self);
+    let innerRange = getInnerRange(self, editor);
     Editor.getTextInRange(editor, innerRange)->Parser.userInput;
   };
 
   let setContent = (self, editor, text) => {
-    let innerRange = getInnerRange(self);
+    let innerRange = getInnerRange(self, editor);
 
     // let paddingSpaces =
     //   Js.String.repeat(String.length(string_of_int(self.index)), " ");

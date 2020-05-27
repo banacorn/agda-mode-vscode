@@ -163,32 +163,37 @@ module Impl = (Editor: Sig.Editor) => {
           sendRequests(state, List.concat(List.fromArray(xs'), xs))
         )
     }
-  and runTask = (state, task: Task.t): Promise.t(unit) =>
+  and runTask = (state, task: Task.t): Promise.t(unit) => {
     switch (task) {
     | Task.Terminate =>
       Js.log("[ task ][ terminate ] ");
       State.destroy(state);
     | WithState(callback) =>
-      callback(state)->Promise.flatMap(runTasks(state))
+      Js.log("[ task ][ with state ] ");
+      callback(state)->Promise.flatMap(runTasks(state));
     | Goal(action) =>
+      Js.log("[ task ][ goal ] ");
       let tasks = GoalHandler.handle(action);
       runTasks(state, tasks);
     | SendRequest(request) =>
       Js.log("[ task ][ send request ]");
       sendRequests(state, [request]);
     | ViewReq(request) =>
-      Js.log("< >");
+      Js.log("[ task ][ view request ] ");
       state->State.sendRequestToView(request);
     | ViewRes(response) =>
+      Js.log("[ task ][ view response ] ");
       let tasks = ViewHandler.handle(response);
       runTasks(state, tasks);
     | Error(error) =>
+      Js.log("[ task ][ view error ] ");
       let tasks = ErrorHandler.handle(error);
       runTasks(state, tasks);
     | Debug(message) =>
       Js.log("[ debug ] " ++ message);
       runTasks(state, [Task.displayWarning("Debug", Some(message))]);
-    }
+    };
+  }
   and runTasks = (state, tasks: list(Task.t)): Promise.t(unit) =>
     switch (tasks) {
     | [] => Promise.resolved()

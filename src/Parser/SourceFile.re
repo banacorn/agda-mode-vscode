@@ -95,8 +95,7 @@ module Lexer = {
       let result =
         Token.{
           content,
-          range: (start, end_ + lengthDiff),
-          // range: (start + delta^, end_ + delta^ + lengthDiff),
+          range: (start + delta^, end_ + delta^ + lengthDiff),
           kind,
         };
       delta := delta^ + lengthDiff;

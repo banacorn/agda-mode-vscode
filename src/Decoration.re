@@ -12,7 +12,11 @@ module Impl = (Editor: Sig.Editor) => {
     let start = Editor.Range.start(range);
     let end_ = Editor.Range.end_(range);
     let indexRange =
-      Editor.Range.make(start, Editor.Point.translate(end_, 0, -2));
+      Editor.Range.make(
+        start,
+        Editor.pointAtOffset(editor, Editor.offsetAtPoint(editor, end_) - 2),
+      );
+
     let index =
       Editor.Decoration.overlayText(
         editor,
@@ -20,6 +24,7 @@ module Impl = (Editor: Sig.Editor) => {
         indexText,
         indexRange,
       );
+
     Array.concatMany([|background, index|]);
   };
 };
