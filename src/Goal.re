@@ -43,6 +43,31 @@ module Impl = (Editor: Sig.Editor) => {
     diffs->Array.map(make(editor))->Util.oneByOne;
   };
 
+  let buildHaskellRange = (editor, self, old, filepath) => {
+    let start = Editor.Range.start(self.range);
+    let startIndex = Editor.offsetAtPoint(editor, start);
+
+    let end_ = Editor.Range.end_(self.range);
+    let endIndex = Editor.offsetAtPoint(editor, end_);
+
+    let startIndex' = string_of_int(startIndex + 3);
+    let startRow = string_of_int(Editor.Point.line(start) + 1);
+    let startColumn = string_of_int(Editor.Point.column(start) + 3);
+    let startPart = {j|$(startIndex') $(startRow) $(startColumn)|j};
+    let endIndex' = string_of_int(endIndex - 3);
+    let endRow = string_of_int(Editor.Point.line(end_) + 1);
+    let endColumn = string_of_int(Editor.Point.column(end_) - 1);
+    let endPart = {j|$(endIndex') $(endRow) $(endColumn)|j};
+
+    if (old) {
+      {j|(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])|j}
+      // before (not including) 2.5.1
+    } else {
+      {j|(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])|j}
+      // after 2.5.1
+    };
+  };
+
   let destroy = self => {
     self.decorations->Array.forEach(Editor.Decoration.destroy);
   };

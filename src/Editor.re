@@ -211,6 +211,8 @@ let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 let pointAtOffset = (editor, offset) =>
   editor->TextEditor.document->TextDocument.positionAt(offset);
+let offsetAtPoint = (editor, point) =>
+  editor->TextEditor.document->TextDocument.offsetAt(point);
 
 let getTextInRange = (editor, range) =>
   editor->TextEditor.document->TextDocument.getText(Some(range));

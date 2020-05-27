@@ -56,6 +56,7 @@ module Impl = (Editor: Sig.Editor) => {
         let highlightingMethod = Editor.Config.getHighlightingMethod();
         let encoded =
           Request.encode(
+            state.editor,
             version,
             filepath,
             libraryPath,

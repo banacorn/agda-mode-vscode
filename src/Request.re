@@ -16,6 +16,7 @@ module Impl = (Editor: Sig.Editor) => {
   // encode Request.t to String
   let encode =
       (
+        editor: Editor.editor,
         version,
         filepath: string,
         libraryPath: array(string),
@@ -45,12 +46,12 @@ module Impl = (Editor: Sig.Editor) => {
         "IOTCM \"" ++ filepath ++ "\" " ++ level ++ " " ++ highlightingMethod;
       };
 
-    //   let buildRange = goal =>
-    //     if (Util.Version.gte(version, "2.5.1")) {
-    //       Goal.buildHaskellRange(false, filepath, goal);
-    //     } else {
-    //       Goal.buildHaskellRange(true, filepath, goal);
-    //     };
+    let buildRange = goal =>
+      if (Util.Version.gte(version, "2.5.1")) {
+        Goal.buildHaskellRange(editor, goal, false, filepath);
+      } else {
+        Goal.buildHaskellRange(editor, goal, true, filepath);
+      };
 
     // assemble them
     switch (request) {
