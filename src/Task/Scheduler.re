@@ -88,6 +88,7 @@ module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Handle__Error.Impl(Editor);
   module ViewHandler = Handle__View.Impl(Editor);
   module CommandHandler = Handle__Command.Impl(Editor);
+  module GoalHandler = Handle__Goal.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
@@ -168,6 +169,9 @@ module Impl = (Editor: Sig.Editor) => {
       State.destroy(state);
     | WithState(callback) =>
       callback(state)->Promise.flatMap(runTasks(state))
+    | Goal(req) =>
+      let tasks = GoalHandler.handle(req);
+      runTasks(state, tasks);
     | SendRequest(request) =>
       Js.log("[ task ][ send request ]");
       sendRequests(state, [request]);
