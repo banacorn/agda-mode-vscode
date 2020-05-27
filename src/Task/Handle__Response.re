@@ -7,58 +7,40 @@ module Impl = (Editor: Sig.Editor) => {
     let handle =
       fun
       | Response.DisplayInfo.CompilationOk => [
-          ViewReq(Plain(Success("Compilation Done!"), None)),
+          displaySuccess("Compilation Done!", None),
         ]
-      | Constraints(None) => [
-          ViewReq(Plain(Plain("No Constraints"), None)),
-        ]
+      | Constraints(None) => [display("No Constraints", None)]
       | Constraints(Some(payload)) => [
-          ViewReq(Plain(Plain("Constraints"), Some(payload))),
+          display("Constraints", Some(payload)),
         ]
-      | AllGoalsWarnings(header, body) => [
-          ViewReq(Plain(Plain(header), Some(body))),
-        ]
-      | Time(payload) => [ViewReq(Plain(Plain("Time"), Some(payload)))]
-      | Error(payload) => [ViewReq(Plain(Error("Error"), Some(payload)))]
-      | Intro(payload) => [ViewReq(Plain(Plain("Intro"), Some(payload)))]
-      | Auto(payload) => [ViewReq(Plain(Success("Auto"), Some(payload)))]
+      | AllGoalsWarnings(header, body) => [display(header, Some(body))]
+      | Time(payload) => [display("Time", Some(payload))]
+      | Error(payload) => [displayError("Error", Some(payload))]
+      | Intro(payload) => [display("Intro", Some(payload))]
+      | Auto(payload) => [displaySuccess("Auto", Some(payload))]
       | ModuleContents(payload) => [
-          ViewReq(Plain(Plain("Module Contents"), Some(payload))),
+          display("Module Contents", Some(payload)),
         ]
       | SearchAbout(payload) => [
-          ViewReq(Plain(Plain("earching about ..."), Some(payload))),
+          display("Searching about ...", Some(payload)),
         ]
-      | WhyInScope(payload) => [
-          ViewReq(Plain(Plain("Scope info"), Some(payload))),
-        ]
-      | NormalForm(payload) => [
-          ViewReq(Plain(Plain("Normal form"), Some(payload))),
-        ]
-      | GoalType(payload) => [
-          ViewReq(Plain(Plain("Normal form"), Some(payload))),
-        ]
-      | CurrentGoal(payload) => [
-          ViewReq(Plain(Plain("Current goal"), Some(payload))),
-        ]
-      | InferredType(payload) => [
-          ViewReq(Plain(Plain("Inferred type"), Some(payload))),
-        ]
-      | Context(payload) => [
-          ViewReq(Plain(Plain("Context"), Some(payload))),
-        ]
+      | WhyInScope(payload) => [display("Scope info", Some(payload))]
+      | NormalForm(payload) => [display("Normal form", Some(payload))]
+      | GoalType(payload) => [display("Goal Type", Some(payload))]
+      | CurrentGoal(payload) => [display("Current goal", Some(payload))]
+      | InferredType(payload) => [display("Inferred type", Some(payload))]
+      | Context(payload) => [display("Context", Some(payload))]
       | HelperFunction(payload) => [
-          ViewReq(Plain(Plain("Helper function"), Some(payload))),
+          display("Helper function", Some(payload)),
         ]
-      | Version(payload) => [
-          ViewReq(Plain(Plain("Version"), Some(payload))),
-        ];
+      | Version(payload) => [display("Version", Some(payload))];
   };
 
   let handle =
     fun
     | DisplayInfo(info) => DisplayInfo.handle(info)
     | RunningInfo(_verbosity, message) => [
-        ViewReq(Plain(Plain("Type-checking"), Some(message))),
+        display("Type-checking", Some(message)),
       ]
     | InteractionPoints(indices) => [Goal(Instantiate(indices))]
     | _ => [];

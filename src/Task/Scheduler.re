@@ -182,6 +182,9 @@ module Impl = (Editor: Sig.Editor) => {
     | ViewRes(response) =>
       let tasks = ViewHandler.handle(response);
       runTasks(state, tasks);
+    | Error(error) =>
+      let tasks = ErrorHandler.handle(error);
+      runTasks(state, tasks);
     }
   and runTasks = (state, tasks: list(Task.t)): Promise.t(unit) =>
     switch (tasks) {

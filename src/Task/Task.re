@@ -17,6 +17,15 @@ module Impl = (Editor: Sig.Editor) => {
     | ViewReq(View.Request.t)
     | ViewRes(View.Response.t)
     // Misc
+    | Error(Error.t)
     | Goal(goal)
     | WithState(State.t => Promise.t(list(t)));
+
+  // Smart constructors
+  let display = (header, body) => ViewReq(Plain(Plain(header), body));
+  let displayError = (header, body) => ViewReq(Plain(Error(header), body));
+  let displayWarning = (header, body) =>
+    ViewReq(Plain(Warning(header), body));
+  let displaySuccess = (header, body) =>
+    ViewReq(Plain(Warning(header), body));
 };

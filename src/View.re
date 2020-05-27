@@ -40,6 +40,8 @@ module Request = {
     | Hide
     | Plain(Header.t, option(string));
 
+  // JSON encode/decode
+
   open Json.Decode;
   open Util.Decode;
 

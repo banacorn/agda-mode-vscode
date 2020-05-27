@@ -22,14 +22,7 @@ module Impl = (Editor: Sig.Editor) => {
                 Task.SendRequest(GoalType(normalization, goal)),
               ])
             },
-            [
-              ViewReq(
-                Plain(
-                  Error("Out of goal"),
-                  Some("Please place the cursor in a goal"),
-                ),
-              ),
-            ],
+            [Error(Error.OutOfGoal)],
           ),
         ),
       ]
