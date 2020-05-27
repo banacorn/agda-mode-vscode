@@ -278,15 +278,15 @@ let int = s =>
   | exception _ => None
   };
 
-// let userInput = s => {
-//   let trim = s =>
-//     Atom.Config.get("agda-mode.trimSpaces") ? String.trim(s) : s;
-//   s
-//   |> Js.String.replaceByRe([%re "/\\\\/g"], "\\\\")
-//   |> Js.String.replaceByRe([%re "/\\\"/g"], "\\\"")
-//   |> Js.String.replaceByRe([%re "/\\n/g"], "\\n")
-//   |> trim;
-// };
+let userInput = (s: string): string => {
+  // let trim = s =>
+  //   Atom.Config.get("agda-mode.trimSpaces") ? String.trim(s) : s;
+  s
+  |> Js.String.replaceByRe([%re "/\\\\/g"], "\\\\")
+  |> Js.String.replaceByRe([%re "/\\\"/g"], "\\\"")
+  |> Js.String.replaceByRe([%re "/\\n/g"], "\\n")
+  |> Js.String.trim;
+};
 
 let filepath = s => {
   // remove the Windows Bidi control character

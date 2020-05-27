@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t =
     | Load
+    | Auto(Goal.t)
     | GoalType(Command.Normalization.t, Goal.t);
 
   // How much highlighting should be sent to the user interface?
@@ -62,6 +63,20 @@ module Impl = (Editor: Sig.Editor) => {
         commonPart(NonInteractive)
         ++ {j|( Cmd_load "$(filepath)" [$(libraryPath)] )|j};
       }
+
+    | Auto(goal) =>
+      let index: string = string_of_int(goal.index);
+      let content: string = Goal.getContent(goal, editor);
+      let range: string = buildRange(goal);
+      if (Util.Version.gte(version, "2.6.0.1")) {
+        // after 2.6.0.1
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_autoOne $(index) $(range) "$(content)" )|j};
+      } else {
+        // the old way
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_auto $(index) $(range) "$(content)" )|j};
+      };
 
     | GoalType(normalization, goal) =>
       let index = goal.index;

@@ -43,7 +43,16 @@ module Impl = (Editor: Sig.Editor) => {
     diffs->Array.map(make(editor))->Util.oneByOne;
   };
 
-  let buildHaskellRange = (editor, self, old, filepath) => {
+  let getContent = (self, editor) => {
+    let range =
+      Editor.Range.make(
+        Editor.Point.translate(Editor.Range.start(self.range), 0, 2),
+        Editor.Point.translate(Editor.Range.end_(self.range), 0, -2),
+      );
+    Editor.getTextInRange(editor, range)->Parser.userInput;
+  };
+
+  let buildHaskellRange = (editor, self, old, filepath: string) => {
     let start = Editor.Range.start(self.range);
     let startIndex = Editor.offsetAtPoint(editor, start);
 

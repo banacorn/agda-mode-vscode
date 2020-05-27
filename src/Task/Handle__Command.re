@@ -14,7 +14,14 @@ module Impl = (Editor: Sig.Editor) => {
     | Quit => [Terminate]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
-    | Auto => [Debug("auto")]
+    | Auto => [
+        Goal(
+          GetPointedOr(
+            goal => {Promise.resolved([Task.SendRequest(Auto(goal))])},
+            [Debug("TODO: query the user")],
+          ),
+        ),
+      ]
     | GoalType(normalization) => [
         Goal(
           GetPointedOr(

@@ -43,5 +43,5 @@ module Impl = (Editor: Sig.Editor) => {
         display("Type-checking", Some(message)),
       ]
     | InteractionPoints(indices) => [Goal(Instantiate(indices))]
-    | _ => [];
+    | others => [Debug(Response.toString(others))];
 };
