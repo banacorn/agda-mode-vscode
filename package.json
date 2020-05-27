@@ -36,12 +36,24 @@
 				"title": "Quit"
 			},
 			{
-				"command": "agda-mode.nextGoal",
+				"command": "agda-mode.next-goal",
 				"title": "Next Goal"
 			},
 			{
-				"command": "agda-mode.previousGoal",
+				"command": "agda-mode.previous-goal",
 				"title": "Previous Goal"
+			},
+			{
+				"command": "agda-mode.goal-type[Simplified]",
+				"title": "Goal Type (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type[Instantiated]",
+				"title": "Goal Type (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type[Normalised]",
+				"title": "Goal Type (normalised)"
 			}
 		],
 		"keybindings": [
@@ -56,14 +68,29 @@
 				"mac": "ctrl+c ctrl+q"
 			},
 			{
-				"command": "agda-mode.nextGoal",
+				"command": "agda-mode.next-goal",
 				"key": "ctrl+c ctrl+f",
 				"mac": "ctrl+c ctrl+f"
 			},
 			{
-				"command": "agda-mode.previousGoal",
+				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b"
+			},
+			{
+				"command": "agda-mode.goal-type[Simplified]",
+				"key": "ctrl+c ctrl+t",
+				"mac": "ctrl+c ctrl+t"
+			},
+			{
+				"command": "agda-mode.goal-type[Instantiated]",
+				"key": "ctrl+u ctrl+t",
+				"mac": "ctrl+u ctrl+t"
+			},
+			{
+				"command": "agda-mode.goal-type[Normalised]",
+				"key": "ctrl+y ctrl+t",
+				"mac": "ctrl+y ctrl+t"
 			}
 		],
 		"configuration": {

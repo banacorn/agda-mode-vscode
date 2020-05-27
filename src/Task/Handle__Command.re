@@ -14,5 +14,15 @@ module Impl = (Editor: Sig.Editor) => {
     | Quit => [Terminate]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
+    | GoalType(normalization) => [
+        Task.WithState(
+          state => {
+            Js.log(
+              "GOALTYPE " ++ Command.Normalization.toString(normalization),
+            );
+            Promise.resolved([]);
+          },
+        ),
+      ]
     | ViewResponse(response) => [ViewRes(response)];
 };
