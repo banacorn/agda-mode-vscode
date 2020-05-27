@@ -1,12 +1,14 @@
 module Impl = (Editor: Sig.Editor) => {
   module State = State.Impl(Editor);
+  module Goal = Goal.Impl(Editor);
+  module Request = Request.Impl(Editor);
 
   type goal =
     | Instantiate(array(int))
     | Next
-    | Previous;
-
-  type t =
+    | Previous
+    | GetPointedOr(Goal.t => Promise.t(list(t)), list(t))
+  and t =
     //
     | Terminate
     // Connection

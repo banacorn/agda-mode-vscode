@@ -15,13 +15,22 @@ module Impl = (Editor: Sig.Editor) => {
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
     | GoalType(normalization) => [
-        Task.WithState(
-          state => {
-            Js.log(
-              "GOALTYPE " ++ Command.Normalization.toString(normalization),
-            );
-            Promise.resolved([]);
-          },
+        Goal(
+          GetPointedOr(
+            goal => {
+              Promise.resolved([
+                Task.SendRequest(GoalType(normalization, goal)),
+              ])
+            },
+            [
+              ViewReq(
+                Plain(
+                  Error("Out of goal"),
+                  Some("Please place the cursor in a goal"),
+                ),
+              ),
+            ],
+          ),
         ),
       ]
     | ViewResponse(response) => [ViewRes(response)];

@@ -92,6 +92,7 @@ module Impl = (Editor: Sig.Editor) => {
   module ResponseHandler = Handle__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   module State = State.Impl(Editor);
+  module Request = Request.Impl(Editor);
 
   type t = Runner.t(Command.t);
 

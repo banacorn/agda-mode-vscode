@@ -16,6 +16,19 @@ module Impl = (Editor: Sig.Editor) => {
       );
   };
 
+  let pointingAt = (~cursor=?, state: State.t): option(Goal.t) => {
+    let cursor' =
+      switch (cursor) {
+      | None => Editor.getCursorPosition(state.editor)
+      | Some(x) => x
+      };
+    let pointedGoals =
+      state.goals
+      ->Array.keep(goal => Editor.Range.contains(goal.Goal.range, cursor'));
+    // return the first pointed goal
+    pointedGoals[0];
+  };
+
   // from Goal-related action to Tasks
   let handle =
     fun
@@ -87,6 +100,16 @@ module Impl = (Editor: Sig.Editor) => {
             | Some(point) => Editor.setCursorPosition(state.editor, point)
             };
             Promise.resolved([]);
+          },
+        ),
+      ]
+    | GetPointedOr(callback, alternative) => [
+        Task.WithState(
+          state => {
+            switch (pointingAt(state)) {
+            | None => Promise.resolved(alternative)
+            | Some(goal) => callback(goal)
+            }
           },
         ),
       ];

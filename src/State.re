@@ -1,5 +1,6 @@
 module Impl = (Editor: Sig.Editor) => {
   module Goal = Goal.Impl(Editor);
+  module Request = Request.Impl(Editor);
   open Belt;
   type editor = Editor.editor;
   type context = Editor.context;
