@@ -38,6 +38,10 @@
 			{
 				"command": "agda-mode.nextGoal",
 				"title": "Next Goal"
+			},
+			{
+				"command": "agda-mode.previousGoal",
+				"title": "Previous Goal"
 			}
 		],
 		"keybindings": [
@@ -55,6 +59,11 @@
 				"command": "agda-mode.nextGoal",
 				"key": "ctrl+c ctrl+f",
 				"mac": "ctrl+c ctrl+f"
+			},
+			{
+				"command": "agda-mode.previousGoal",
+				"key": "ctrl+c ctrl+b",
+				"mac": "ctrl+c ctrl+b"
 			}
 		],
 		"configuration": {

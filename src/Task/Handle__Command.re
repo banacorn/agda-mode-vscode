@@ -16,35 +16,32 @@ module Impl = (Editor: Sig.Editor) => {
     | NextGoal => [
         Task.WithState(
           state => {
-            let getNextGoalPosition = (): option(Editor.Point.t) => {
-              let nextGoal = ref(None);
-              let cursor = Editor.getCursorPosition(state.editor);
+            let nextGoal = ref(None);
+            let cursor = Editor.getCursorPosition(state.editor);
 
-              let getPositions = (): array(Editor.Point.t) => {
-                state.goals
-                ->Array.map(goal => goal.range)
-                ->Array.map(range =>
-                    Editor.Point.translate(Editor.Range.start(range), 0, 3)
-                  );
-              };
-              let positions = getPositions();
-              // assign the next goal position
-              positions->Array.forEach(position =>
-                if (Editor.Point.compare(cursor, position) === Editor.LT
-                    && nextGoal^ === None) {
-                  nextGoal := Some(position);
-                }
-              );
+            let getPositions = (): array(Editor.Point.t) => {
+              state.goals
+              ->Array.map(goal => goal.range)
+              ->Array.map(range =>
+                  Editor.Point.translate(Editor.Range.start(range), 0, 3)
+                );
+            };
+            let positions = getPositions();
 
-              /* if no goal ahead of cursor, then loop back */
-              if (nextGoal^ === None) {
-                nextGoal := positions[0];
-              };
+            // find the first Goal after the cursor
+            positions->Array.forEach(position =>
+              if (Editor.Point.compare(cursor, position) === Editor.LT
+                  && nextGoal^ === None) {
+                nextGoal := Some(position);
+              }
+            );
 
-              nextGoal^;
+            // if there's no Goal after the cursor, then loop back and return the first Goal
+            if (nextGoal^ === None) {
+              nextGoal := positions[0];
             };
 
-            switch (getNextGoalPosition()) {
+            switch (nextGoal^) {
             | None => ()
             | Some(point) => Editor.setCursorPosition(state.editor, point)
             };
@@ -52,6 +49,40 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | PreviousGoal => []
+    | PreviousGoal => [
+        Task.WithState(
+          state => {
+            let previousGoal = ref(None);
+            let cursor = Editor.getCursorPosition(state.editor);
+
+            let getPositions = (): array(Editor.Point.t) => {
+              state.goals
+              ->Array.map(goal => goal.range)
+              ->Array.map(range =>
+                  Editor.Point.translate(Editor.Range.start(range), 0, 3)
+                );
+            };
+            let positions = getPositions();
+
+            // find the last Goal before the cursor
+            positions->Array.forEach(position =>
+              if (Editor.Point.compare(cursor, position) === Editor.GT) {
+                previousGoal := Some(position);
+              }
+            );
+
+            // loop back if this is already the first Goal
+            if (previousGoal^ === None) {
+              previousGoal := positions[Array.length(positions) - 1];
+            };
+
+            switch (previousGoal^) {
+            | None => ()
+            | Some(point) => Editor.setCursorPosition(state.editor, point)
+            };
+            Promise.resolved([]);
+          },
+        ),
+      ]
     | ViewResponse(response) => [ViewRes(response)];
 };
