@@ -16,6 +16,7 @@ type t =
   | Quit
   | NextGoal
   | PreviousGoal
+  | Auto
   | GoalType(Normalization.t)
   | ViewResponse(View.Response.t);
 
@@ -25,18 +26,21 @@ let names: array((t, string)) = [|
   (Quit, "quit"),
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
+  (Auto, "auto"),
   (GoalType(Simplified), "goal-type[Simplified]"),
   (GoalType(Instantiated), "goal-type[Instantiated]"),
   (GoalType(Normalised), "goal-type[Normalised]"),
 |];
 
+// for human
 let toString =
   fun
   | Load => "Load"
   | Quit => "Quit"
   | NextGoal => "NextGoal"
   | PreviousGoal => "PreviousGoal"
-  | GoalType(Simplified) => "goal-type[Simplified]"
-  | GoalType(Instantiated) => "goal-type[Instantiated]"
-  | GoalType(Normalised) => "goal-type[Normalised]"
+  | Auto => "Auto"
+  | GoalType(Simplified) => "GoalType[Simplified]"
+  | GoalType(Instantiated) => "GoalType[Instantiated]"
+  | GoalType(Normalised) => "GoalType[Normalised]"
   | ViewResponse(_) => "ViewResponse";

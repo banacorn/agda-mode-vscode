@@ -14,6 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Quit => [Terminate]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
+    | Auto => [Debug("auto")]
     | GoalType(normalization) => [
         Goal(
           GetPointedOr(

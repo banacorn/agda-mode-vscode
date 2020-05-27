@@ -44,6 +44,10 @@
 				"title": "Previous Goal"
 			},
 			{
+				"command": "agda-mode.auto",
+				"title": "Auto"
+			},
+			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"title": "Goal Type (simplified)"
 			},
@@ -76,6 +80,11 @@
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b"
+			},
+			{
+				"command": "agda-mode.auto",
+				"key": "ctrl+c ctrl+a",
+				"mac": "ctrl+c ctrl+a"
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",

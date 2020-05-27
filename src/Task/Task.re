@@ -19,7 +19,8 @@ module Impl = (Editor: Sig.Editor) => {
     // Misc
     | Error(Error.t)
     | Goal(goal)
-    | WithState(State.t => Promise.t(list(t)));
+    | WithState(State.t => Promise.t(list(t)))
+    | Debug(string);
 
   // Smart constructors
   let display = (header, body) => ViewReq(Plain(Plain(header), body));

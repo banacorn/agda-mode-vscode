@@ -185,6 +185,9 @@ module Impl = (Editor: Sig.Editor) => {
     | Error(error) =>
       let tasks = ErrorHandler.handle(error);
       runTasks(state, tasks);
+    | Debug(message) =>
+      Js.log("[ debug ] " ++ message);
+      runTasks(state, [Task.displayWarning("Debug", Some(message))]);
     }
   and runTasks = (state, tasks: list(Task.t)): Promise.t(unit) =>
     switch (tasks) {
