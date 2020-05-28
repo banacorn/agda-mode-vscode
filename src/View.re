@@ -113,7 +113,8 @@ module Request = {
 module Response = {
   type t =
     | Initialized
-    | Destroyed;
+    | Destroyed
+    | InquiryResult(option(string));
 
   open Json.Decode;
   open Util.Decode;
@@ -123,6 +124,8 @@ module Response = {
       fun
       | "Initialized" => TagOnly(_ => Initialized)
       | "Destroyed" => TagOnly(_ => Destroyed)
+      | "InquiryResult" =>
+        Contents(optional(string) |> map(result => InquiryResult(result)))
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
 
@@ -130,5 +133,10 @@ module Response = {
   let encode: encoder(t) =
     fun
     | Initialized => object_([("tag", string("Initialized"))])
-    | Destroyed => object_([("tag", string("Destroyed"))]);
+    | Destroyed => object_([("tag", string("Destroyed"))])
+    | InquiryResult(result) =>
+      object_([
+        ("tag", string("InquiryResult")),
+        ("contents", result |> nullable(string)),
+      ]);
 };

@@ -27,8 +27,11 @@ let make =
     }
   );
 
+  let onSubmit = result =>
+    onResponse.emit(View.Response.InquiryResult(result));
+
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
     <Header header />
-    <Body body />
+    <Body body onSubmit />
   </section>;
 };
