@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type goal =
     | Instantiate(array(int))
+    | UpdateRange
     | Next
     | Previous
     | Modify(Goal.t, string => string)

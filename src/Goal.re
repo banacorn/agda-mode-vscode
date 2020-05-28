@@ -27,17 +27,33 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  let generateDiffs =
+      (editor: Editor.editor, indices: array(int)): array(SourceFile.Diff.t) => {
+    let filePath =
+      Editor.getFileName(editor)->Option.getWithDefault("unnamed.agda");
+    let source = Editor.getText(editor);
+    SourceFile.parse(indices, filePath, source);
+  };
+
   // make an array of Goal.t with given goal indices
   // modifies the text buffer along the way
   let makeMany =
       (editor: Editor.editor, indices: array(int)): Promise.t(array(t)) => {
-    let filePath =
-      Editor.getFileName(editor)->Option.getWithDefault("unnamed.agda");
-    let source = Editor.getText(editor);
-    let diffs = SourceFile.parse(indices, filePath, source);
+    let diffs = generateDiffs(editor, indices);
     // scan through the diffs to modify the text buffer one by one
-
     diffs->Array.map(make(editor))->Util.oneByOne;
+  };
+
+  // parse the whole source file and update the ranges of an array of Goal.t
+  let updateRanges = (goals: array(t), editor: Editor.editor) => {
+    let indices = goals->Array.map(goal => goal.index);
+    let diffs = generateDiffs(editor, indices);
+    diffs->Array.forEachWithIndex((i, diff) => {
+      switch (goals[i]) {
+      | None => () // do nothing :|
+      | Some(goal) => goal.range = diff.modifiedRange
+      }
+    });
   };
 
   let getInnerRange = (self, editor) =>

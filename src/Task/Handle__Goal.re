@@ -35,7 +35,7 @@ module Impl = (Editor: Sig.Editor) => {
   let handle =
     fun
     | Instantiate(indices) => [
-        WithState(
+        Task.WithState(
           state => {
             // destroy all existing goals
             state.goals->Array.forEach(Goal.destroy);
@@ -48,9 +48,19 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | Next => [
-        Task.WithState(
+    | UpdateRange => [
+        WithState(
           state => {
+            Goal.updateRanges(state.goals, state.editor);
+            Promise.resolved([]);
+          },
+        ),
+      ]
+    | Next => [
+        Goal(UpdateRange),
+        WithState(
+          state => {
+            Js.log(Editor.getText(state.editor));
             let nextGoal = ref(None);
             let cursorOffset =
               Editor.offsetAtPoint(
@@ -84,7 +94,8 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Previous => [
-        Task.WithState(
+        Goal(UpdateRange),
+        WithState(
           state => {
             let previousGoal = ref(None);
             let cursorOffset =
@@ -119,9 +130,17 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Modify(goal, f) => [
+        Goal(UpdateRange),
         WithState(
           state => {
             let content = Goal.getContent(goal, state.editor);
+            Js.log(
+              "[ goal ][ modify ] \""
+              ++ content
+              ++ "\" => \""
+              ++ f(content)
+              ++ "\"",
+            );
             Goal.setContent(goal, state.editor, f(content))
             ->Promise.map(
                 fun
@@ -140,6 +159,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | RemoveBoundaryAndDestroy(goal) => [
+        Goal(UpdateRange),
         WithState(
           state => {
             let innerRange = Goal.getInnerRange(goal, state.editor);
@@ -171,6 +191,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | GetPointedOr(callback, alternative) => [
+        Goal(UpdateRange),
         WithState(
           state => {
             switch (pointingAt(state)) {
@@ -181,6 +202,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | GetIndexedOr(index, callback, alternative) => [
+        Goal(UpdateRange),
         WithState(
           state => {
             let found = state.goals->Array.keep(goal => goal.index == index);
