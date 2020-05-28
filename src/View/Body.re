@@ -1,9 +1,11 @@
 open ReasonReact;
 
 [@react.component]
-let make = (~body: option(string)) => {
+let make = (~body: View.Request.Body.t) => {
   switch (body) {
-  | None => <> </>
-  | Some(text) => <div className="agda-mode-body"> {string(text)} </div>
+  | Nothing => <> </>
+  | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>
+  | Inquire(placeholder, value) =>
+    <div className="agda-mode-body"> {string("INPUT BOX")} </div>
   };
 };

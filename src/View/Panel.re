@@ -6,7 +6,7 @@ let make =
     ) => {
   let (header, setHeader) =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
-  let (body, setBody) = React.useState(() => None);
+  let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
 
   // response with Initialized on mount
   React.useEffect1(

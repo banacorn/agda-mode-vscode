@@ -58,7 +58,7 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           GetIndexedOr(
             index,
-            goal => {
+            (goal, _) => {
               let tasks =
                 switch (give) {
                 | Paren => [
@@ -81,12 +81,7 @@ module Impl = (Editor: Sig.Editor) => {
                     ),
                   ]
                 };
-              Promise.resolved(
-                List.concat([
-                  tasks,
-                  [Goal(RemoveBoundaryAndDestroy(goal))],
-                ]),
-              );
+              List.concat([tasks, [Goal(RemoveBoundaryAndDestroy(goal))]]);
             },
             [
               displayError(

@@ -17,6 +17,7 @@ type t =
   | NextGoal
   | PreviousGoal
   | Auto
+  | InferType(Normalization.t)
   | GoalType(Normalization.t)
   | ViewResponse(View.Response.t);
 
@@ -27,6 +28,9 @@ let names: array((t, string)) = [|
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
   (Auto, "auto"),
+  (InferType(Simplified), "infer-type[Simplified]"),
+  (InferType(Instantiated), "infer-type[Instantiated]"),
+  (InferType(Normalised), "infer-type[Normalised]"),
   (GoalType(Simplified), "goal-type[Simplified]"),
   (GoalType(Instantiated), "goal-type[Instantiated]"),
   (GoalType(Normalised), "goal-type[Normalised]"),
@@ -37,10 +41,13 @@ let toString =
   fun
   | Load => "Load"
   | Quit => "Quit"
-  | NextGoal => "NextGoal"
-  | PreviousGoal => "PreviousGoal"
+  | NextGoal => "Next Goal"
+  | PreviousGoal => "Previous Goal"
   | Auto => "Auto"
-  | GoalType(Simplified) => "GoalType[Simplified]"
-  | GoalType(Instantiated) => "GoalType[Instantiated]"
-  | GoalType(Normalised) => "GoalType[Normalised]"
-  | ViewResponse(_) => "ViewResponse";
+  | InferType(Simplified) => "Infer Type (simplified)"
+  | InferType(Instantiated) => "Infer Type (instantiated)"
+  | InferType(Normalised) => "Infer Type (normalised)"
+  | GoalType(Simplified) => "Goal Type (simplified)"
+  | GoalType(Instantiated) => "Goal Type (instantiated)"
+  | GoalType(Normalised) => "Goal Type (normalised)"
+  | ViewResponse(_) => "View Response";

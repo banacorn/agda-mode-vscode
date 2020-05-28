@@ -35,10 +35,50 @@ module Request = {
         object_([("tag", string("Error")), ("contents", text |> string)]);
   };
 
+  module Body = {
+    type t =
+      | Nothing
+      | Plain(string)
+      | Inquire(option(string), option(string));
+
+    open Json.Decode;
+    open Util.Decode;
+
+    let decode: decoder(t) =
+      sum(
+        fun
+        | "Nothing" => TagOnly(_ => Nothing)
+        | "Plain" => Contents(string |> map(text => Plain(text)))
+        | "Inquire" =>
+          Contents(
+            pair(optional(string), optional(string))
+            |> map(((placeholder, value)) => Inquire(placeholder, value)),
+          )
+        | tag =>
+          raise(DecodeError("[Request.Body] Unknown constructor: " ++ tag)),
+      );
+
+    open! Json.Encode;
+    let encode: encoder(t) =
+      fun
+      | Nothing => object_([("tag", string("Nothing"))])
+      | Plain(text) =>
+        object_([("tag", string("Plain")), ("contents", text |> string)])
+      | Inquire(placeholder, value) =>
+        object_([
+          ("tag", string("Inquire")),
+          (
+            "contents",
+            (placeholder, value)
+            |> pair(nullable(string), nullable(string)),
+          ),
+        ]);
+  };
+
   type t =
     | Show
     | Hide
-    | Plain(Header.t, option(string));
+    | Plain(Header.t, Body.t);
 
   // JSON encode/decode
 
@@ -52,7 +92,7 @@ module Request = {
       | "Hide" => TagOnly(_ => Hide)
       | "Plain" =>
         Contents(
-          pair(Header.decode, optional(string))
+          pair(Header.decode, Body.decode)
           |> map(((header, body)) => Plain(header, body)),
         )
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
@@ -66,10 +106,7 @@ module Request = {
     | Plain(header, body) =>
       object_([
         ("tag", string("Plain")),
-        (
-          "contents",
-          (header, body) |> pair(Header.encode, nullable(string)),
-        ),
+        ("contents", (header, body) |> pair(Header.encode, Body.encode)),
       ]);
 };
 

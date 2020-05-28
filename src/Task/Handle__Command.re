@@ -2,6 +2,7 @@ open Command;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  open! Task;
   // from Editor Command to Tasks
   let handle =
     fun
@@ -17,18 +18,38 @@ module Impl = (Editor: Sig.Editor) => {
     | Auto => [
         Goal(
           GetPointedOr(
-            goal => {Promise.resolved([Task.SendRequest(Auto(goal))])},
-            [Debug("TODO: query the user")],
+            (goal, _) => {[Task.SendRequest(Auto(goal))]},
+            [Error(Error.OutOfGoal)],
           ),
         ),
       ]
+    | InferType(normalization) => {
+        let header =
+          View.Request.Header.Plain(
+            Command.toString(Command.InferType(normalization)),
+          );
+        let placeholder = Some("expression to infer:");
+        [
+          Goal(
+            GetPointedOr(
+              goal =>
+                (
+                  fun
+                  | None => [inquire(header, placeholder, None)]
+                  | Some(content) => [
+                      SendRequest(InferType(normalization, content, goal)),
+                    ]
+                ),
+              [inquire(header, placeholder, None)],
+            ),
+          ),
+        ];
+      }
     | GoalType(normalization) => [
         Goal(
           GetPointedOr(
-            goal => {
-              Promise.resolved([
-                Task.SendRequest(GoalType(normalization, goal)),
-              ])
+            (goal, _) => {
+              [Task.SendRequest(GoalType(normalization, goal))]
             },
             [Error(Error.OutOfGoal)],
           ),

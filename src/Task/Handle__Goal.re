@@ -196,7 +196,11 @@ module Impl = (Editor: Sig.Editor) => {
           state => {
             switch (pointingAt(state)) {
             | None => Promise.resolved(alternative)
-            | Some(goal) => callback(goal)
+            | Some(goal) =>
+              let content = Goal.getContent(goal, state.editor);
+              Promise.resolved(
+                callback(goal, content == "" ? None : Some(content)),
+              );
             }
           },
         ),
@@ -208,7 +212,11 @@ module Impl = (Editor: Sig.Editor) => {
             let found = state.goals->Array.keep(goal => goal.index == index);
             switch (found[0]) {
             | None => Promise.resolved(alternative)
-            | Some(goal) => callback(goal)
+            | Some(goal) =>
+              let content = Goal.getContent(goal, state.editor);
+              Promise.resolved(
+                callback(goal, content == "" ? None : Some(content)),
+              );
             };
           },
         ),

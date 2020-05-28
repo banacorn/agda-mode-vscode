@@ -48,6 +48,18 @@
 				"title": "Auto"
 			},
 			{
+				"command": "agda-mode.infer-type[Simplified]",
+				"title": "Infer Type (simplified)"
+			},
+			{
+				"command": "agda-mode.infer-type[Instantiated]",
+				"title": "Infer Type (instantiated)"
+			},
+			{
+				"command": "agda-mode.infer-type[Normalised]",
+				"title": "Infer Type (normalised)"
+			},
+			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"title": "Goal Type (simplified)"
 			},
@@ -85,6 +97,21 @@
 				"command": "agda-mode.auto",
 				"key": "ctrl+c ctrl+a",
 				"mac": "ctrl+c ctrl+a"
+			},
+			{
+				"command": "agda-mode.infer-type[Simplified]",
+				"key": "ctrl+c ctrl+d",
+				"mac": "ctrl+c ctrl+d"
+			},
+			{
+				"command": "agda-mode.infer-type[Instantiated]",
+				"key": "ctrl+u ctrl+d",
+				"mac": "ctrl+u ctrl+d"
+			},
+			{
+				"command": "agda-mode.infer-type[Normalised]",
+				"key": "ctrl+y ctrl+d",
+				"mac": "ctrl+y ctrl+d"
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",

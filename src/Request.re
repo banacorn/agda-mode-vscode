@@ -6,6 +6,7 @@ module Impl = (Editor: Sig.Editor) => {
   type t =
     | Load
     | Auto(Goal.t)
+    | InferType(Command.Normalization.t, string, Goal.t)
     | GoalType(Command.Normalization.t, Goal.t);
 
   // How much highlighting should be sent to the user interface?
@@ -78,8 +79,15 @@ module Impl = (Editor: Sig.Editor) => {
         ++ {j|( Cmd_auto $(index) $(range) "$(content)" )|j};
       };
 
+    | InferType(normalization, expr, goal) =>
+      let index = string_of_int(goal.index);
+      let normalization' = Command.Normalization.toString(normalization);
+      let content = Parser.userInput(expr);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_infer $(normalization') $(index) noRange "$(content)" )|j};
+
     | GoalType(normalization, goal) =>
-      let index = goal.index;
+      let index = string_of_int(goal.index);
       let normalization' = Command.Normalization.toString(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type $(normalization') $(index) noRange "" )|j};

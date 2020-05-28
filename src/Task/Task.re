@@ -10,8 +10,8 @@ module Impl = (Editor: Sig.Editor) => {
     | Previous
     | Modify(Goal.t, string => string)
     | RemoveBoundaryAndDestroy(Goal.t)
-    | GetPointedOr(Goal.t => Promise.t(list(t)), list(t))
-    | GetIndexedOr(int, Goal.t => Promise.t(list(t)), list(t))
+    | GetPointedOr((Goal.t, option(string)) => list(t), list(t))
+    | GetIndexedOr(int, (Goal.t, option(string)) => list(t), list(t))
 
   and t =
     //
@@ -28,10 +28,15 @@ module Impl = (Editor: Sig.Editor) => {
     | Debug(string);
 
   // Smart constructors
-  let display = (header, body) => ViewReq(Plain(Plain(header), body));
-  let displayError = (header, body) => ViewReq(Plain(Error(header), body));
-  let displayWarning = (header, body) =>
-    ViewReq(Plain(Warning(header), body));
-  let displaySuccess = (header, body) =>
-    ViewReq(Plain(Warning(header), body));
+  let display' = header =>
+    fun
+    | None => ViewReq(Plain(header, Nothing))
+    | Some(message) => ViewReq(Plain(header, Plain(message)));
+  let display = header => display'(Plain(header));
+  let displayError = header => display'(Error(header));
+  let displayWarning = header => display'(Warning(header));
+  let displaySuccess = header => display'(Success(header));
+
+  let inquire = (header, placeholder, value) =>
+    ViewReq(Plain(header, Inquire(placeholder, value)));
 };
