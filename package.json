@@ -2,6 +2,7 @@
 	"name": "agda-mode",
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
+	"publisher": "banacorn",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.41.0"
