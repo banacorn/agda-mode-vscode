@@ -105,7 +105,7 @@ let make = (getExtensionPath, context, editor) => {
 
     panel
     ->WebviewPanel.webview
-    ->Webview.setHtml(html(distPath, "style.css", "bundled-view.js"));
+    ->Webview.setHtml(html(distPath, "style.css", "view.bundle.js"));
 
     panel;
   };

@@ -160,13 +160,11 @@
 		}
 	},
 	"scripts": {
-		"test": "node ./test/runTest.js",
-		"build": "bsb -make-world && npx webpack --mode=production",
-		"watch-style": "npx less-watch-compiler style/ dist/",
-		"watch-view": "npm run watch-style & npx webpack --mode=production --watch",
-		"watch-code": "npx webpack --mode=production --watch",
-		"watch": "npm run watch-view",
-		"clean": "bsb -clean-world"
+		"build:view": "npx lessc style/style.less dist/style.css",
+		"build": "npx bsb -make-world && npm run build:view && webpack --mode production",
+		"watch": "npm run watch:view & npx webpack --mode=production --watch",
+		"clean": "npx bsb -clean-world",
+		"vscode:prepublish": "npm run build"
 	},
 	"devDependencies": {
 		"less-loader": "^5.0.0",
