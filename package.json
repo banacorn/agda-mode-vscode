@@ -14,6 +14,7 @@
 		"onCommand:agda-mode.load"
 	],
 	"main": "./lib/js/src/Main.bs.js",
+	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"contributes": {
 		"languages": [
 			{
@@ -175,16 +176,16 @@
 		"webpack-cli": "^3.3.11"
 	},
 	"dependencies": {
-		"@glennsl/bs-json": "github:idkjs/bs-json#806779b",
-		"bs-nd": "^0.1.5",
+		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"bs-let": "^0.1.11",
+		"bs-nd": "^0.1.5",
 		"bs-platform": "^7.2",
 		"bs-webapi": "^0.15.3",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": "^4.0.0",
-		"reason-promise": "^1.0.1",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
+		"reason-promise": "^1.0.1",
 		"reason-react": ">=0.7.0",
 		"reason-react-update": "^0.1.1"
 	}

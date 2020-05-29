@@ -2,9 +2,9 @@
 # yarn lockfile v1
 
 
-"@glennsl/bs-json@github:idkjs/bs-json#806779b":
+"@glennsl/bs-json@github:banacorn/bs-json#0c900d3":
   version "5.0.2"
-  resolved "https://codeload.github.com/idkjs/bs-json/tar.gz/806779b980320d606a019ad42d77f4a02bbdb0e4"
+  resolved "https://codeload.github.com/banacorn/bs-json/tar.gz/0c900d3ad5c06eb2e6513a677096f1ec0411d282"
 
 "@webassemblyjs/ast@1.9.0":
   version "1.9.0"
