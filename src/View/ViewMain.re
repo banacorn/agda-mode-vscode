@@ -1,4 +1,4 @@
-open Guacamole.VSCode;
+open VSCode;
 open! Belt;
 
 // As this so called "WebView" is isolated and independent from the Extension

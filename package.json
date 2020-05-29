@@ -176,16 +176,16 @@
 	},
 	"dependencies": {
 		"@glennsl/bs-json": "^5.0.1",
-		"agda-mode": "github:banacorn/agda-mode#dev",
 		"bs-nd": "^0.1.5",
 		"bs-let": "^0.1.11",
 		"bs-platform": "^7.2",
 		"bs-webapi": "^0.15.3",
+		"compare-versions": "^3.5.1",
+		"eventemitter3": "^4.0.0",
 		"reason-promise": "^1.0.1",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-react": ">=0.7.0",
-		"reason-react-update": "^0.1.1",
-		"guacamole": "github:scmlab/gcl-vscode#8e37c57"
+		"reason-react-update": "^0.1.1"
 	}
 }

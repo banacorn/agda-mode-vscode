@@ -1,6 +1,5 @@
 open Belt;
 
-module Process = AgdaMode.Process;
 module Error = {
   type t =
     | PathSearch(Process.PathSearch.Error.t)

@@ -18,14 +18,12 @@
   "suffix": ".bs.js",
   "namespace": true,
   "bs-dependencies": [
-    "agda-mode",
     "@glennsl/bs-json",
     "bs-webapi",
     "bs-nd",
     "reason-promise",
     "reason-react",
-    "reason-react-update",
-    "guacamole"
+    "reason-react-update"
   ],
   "ppx-flags": [
     "bs-let/ppx"

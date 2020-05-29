@@ -1,4 +1,4 @@
-open Guacamole.VSCode;
+open VSCode;
 
 type status =
   | Initialized

@@ -1,4 +1,4 @@
-open Guacamole.VSCode;
+open VSCode;
 
 type editor = TextEditor.t;
 type context = ExtensionContext.t;
@@ -162,7 +162,7 @@ module Decoration = {
   // | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
 
   let highlightBackground =
-      (editor: editor, style: string, range: Guacamole.VSCode.Range.t) => {
+      (editor: editor, style: string, range: VSCode.Range.t) => {
     let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
@@ -185,7 +185,7 @@ module Decoration = {
         editor: editor,
         style: string,
         text: string,
-        range: Guacamole.VSCode.Range.t,
+        range: VSCode.Range.t,
       ) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
@@ -219,8 +219,8 @@ let getTextInRange = (editor, range) =>
 let getText = editor =>
   editor->TextEditor.document->TextDocument.getText(None);
 let selectText = (editor, range) => {
-  let start = Guacamole.VSCode.Range.start(range);
-  let end_ = Guacamole.VSCode.Range.end_(range);
+  let start = VSCode.Range.start(range);
+  let end_ = VSCode.Range.end_(range);
   let selection = Selection.make(start, end_);
   editor->TextEditor.setSelection(selection);
 };
