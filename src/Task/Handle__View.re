@@ -8,5 +8,5 @@ module Impl = (Editor: Sig.Editor) => {
     fun
     | Initialized => []
     | Destroyed => [Terminate]
-    | InquiryResult(_) => [Debug("InquiryResult")];
+    | InquiryResult(_) => [];
 };

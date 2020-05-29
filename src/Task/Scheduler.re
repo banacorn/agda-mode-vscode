@@ -99,8 +99,20 @@ module Impl = (Editor: Sig.Editor) => {
       state->State.sendRequestToView(request);
     | ViewRes(response) =>
       Js.log("[ task ][ view response ] ");
+      switch (response) {
+      | View.Response.InquiryResult(result) =>
+        Js.log("!!!");
+        state.onViewInquiryResponse.emit(result);
+      | _ => ()
+      };
       let tasks = ViewHandler.handle(response);
       runTasks(state, tasks);
+    | ViewListener(callback) =>
+      Js.log("[ task ][ view inquiry result listener ] ");
+      state.onViewInquiryResponse.once()
+      ->Promise.tap(Js.log)
+      ->Promise.flatMap(callback)
+      ->Promise.flatMap(runTasks(state));
     | Error(error) =>
       Js.log("[ task ][ view error ] ");
       let tasks = ErrorHandler.handle(error);

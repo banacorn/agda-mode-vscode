@@ -11,6 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
     onDestroyEventEmitter: Event.t(unit),
+    onViewInquiryResponse: Event.t(option(string)),
   };
 
   //
@@ -92,6 +93,7 @@ module Impl = (Editor: Sig.Editor) => {
       connection: None,
       goals: [||],
       onDestroyEventEmitter: Event.make(),
+      onViewInquiryResponse: Event.make(),
     };
 
     state;

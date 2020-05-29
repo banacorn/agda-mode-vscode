@@ -1,4 +1,5 @@
 open Command;
+open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
@@ -35,12 +36,23 @@ module Impl = (Editor: Sig.Editor) => {
               goal =>
                 (
                   fun
-                  | None => [inquire(header, placeholder, None)]
+                  // | None => [inquire(header, placeholder, None)]
+                  | None => [Debug("1")]
                   | Some(content) => [
                       SendRequest(InferType(normalization, content, goal)),
                     ]
                 ),
-              [inquire(header, placeholder, None)],
+              [
+                inquire(header, placeholder, None),
+                ViewListener(
+                  result => {
+                    Js.log("!!!!!");
+                    Promise.resolved([
+                      Debug(result->Option.getWithDefault("")),
+                    ]);
+                  },
+                ),
+              ],
             ),
           ),
         ];
