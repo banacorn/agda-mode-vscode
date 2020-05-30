@@ -162,8 +162,8 @@
 	"scripts": {
 		"clean": "npx bsb -clean-world",
 		"dev": "webpack --mode development --watch & npx less-watch-compiler style/ dist/",
-		"build:dev": "webpack --mode development",
-		"build:prod": "webpack --mode production && npx lessc style/style.less dist/style.css && npx bsb -make-world",
+		"build:dev": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
+		"build:prod": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"vscode:prepublish": "npm run build:prod"
 	},
 	"devDependencies": {
