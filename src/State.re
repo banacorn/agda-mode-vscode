@@ -45,7 +45,7 @@ module Impl = (Editor: Sig.Editor) => {
       Promise.resolved();
     };
 
-  let sendRequest =
+  let sendRequestToAgda =
       (state, request): Promise.t(result(Connection.t, Error.t)) => {
     state
     ->connect

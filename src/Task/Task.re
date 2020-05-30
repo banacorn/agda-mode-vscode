@@ -28,6 +28,16 @@ module Impl = (Editor: Sig.Editor) => {
     | WithState(State.t => Promise.t(list(t)))
     | Debug(string);
 
+  type request =
+    | Agda(Request.t)
+    | View(View.Request.t);
+
+  let classify =
+    fun
+    | SendRequest(req) => Some(Agda(req))
+    | ViewReq(req) => Some(View(req))
+    | _ => None;
+
   // Smart constructors
   let display' = header =>
     fun

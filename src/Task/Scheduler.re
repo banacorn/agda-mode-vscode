@@ -12,11 +12,13 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t = Runner.t(Command.t);
 
+  // open! Task;
+
   // Task Runner
   let dispatchCommand = (self, command) => Runner.push(self, command);
 
   let rec sendRequest =
-          (state, request: Request.t): Promise.t(array(Request.t)) => {
+          (state, request: Task.request): Promise.t(array(Task.request)) => {
     // Task.SendRequest will be deferred and executed until the current request is handled
     let derivedRequests = ref([||]);
 
@@ -40,13 +42,13 @@ module Impl = (Editor: Sig.Editor) => {
           // Task.SendRequest are filtered out
           let otherTasks =
             List.toArray(ResponseHandler.handle(response))
-            ->Array.keep(
-                fun
-                | Task.SendRequest(req) => {
-                    Js.Array.push(req, derivedRequests^)->ignore;
-                    false;
-                  }
-                | _ => true,
+            ->Array.keep(task =>
+                switch (Task.classify(task)) {
+                | Some(req) =>
+                  Js.Array.push(req, derivedRequests^)->ignore;
+                  false;
+                | None => true
+                }
               );
           Runner.pushMany(runner, otherTasks)->ignore;
         }
@@ -54,23 +56,28 @@ module Impl = (Editor: Sig.Editor) => {
 
     let promise = runner.terminationPromise;
 
-    state
-    ->State.sendRequest(request)
-    ->Promise.flatMap(
-        fun
-        | Ok(connection) => {
-            handle := Some(connection.Connection.emitter.on(handler));
-            promise;
-          }
-        | Error(error) => {
-            let tasks = ErrorHandler.handle(error);
-            runTasks(state, tasks)->Promise.flatMap(() => promise);
-          },
-      )
-    ->Promise.tap(() => (handle^)->Option.forEach(f => f()))
-    ->Promise.map(() => derivedRequests^);
+    switch (request) {
+    | Task.Agda(req) =>
+      state
+      ->State.sendRequestToAgda(req)
+      ->Promise.flatMap(
+          fun
+          | Ok(connection) => {
+              handle := Some(connection.Connection.emitter.on(handler));
+              promise;
+            }
+          | Error(error) => {
+              let tasks = ErrorHandler.handle(error);
+              runTasks(state, tasks)->Promise.flatMap(() => promise);
+            },
+        )
+      ->Promise.tap(() => (handle^)->Option.forEach(f => f()))
+      ->Promise.map(() => derivedRequests^)
+    | View(req) =>
+      state->State.sendRequestToView(req)->Promise.map(() => derivedRequests^)
+    };
   }
-  and sendRequests = (state, requests: list(Request.t)): Promise.t(unit) =>
+  and sendRequests = (state, requests: list(Task.request)): Promise.t(unit) =>
     switch (requests) {
     | [] => Promise.resolved()
     | [x, ...xs] =>
@@ -92,11 +99,11 @@ module Impl = (Editor: Sig.Editor) => {
       let tasks = GoalHandler.handle(action);
       runTasks(state, tasks);
     | SendRequest(request) =>
-      Js.log("[ task ][ send request ]");
-      sendRequests(state, [request]);
+      Js.log("[ task ][ agda request ]");
+      sendRequests(state, [Agda(request)]);
     | ViewReq(request) =>
       Js.log("[ task ][ view request ] ");
-      state->State.sendRequestToView(request);
+      sendRequests(state, [View(request)]);
     | ViewRes(response) =>
       Js.log("[ task ][ view response ] ");
       switch (response) {
