@@ -26,14 +26,7 @@ let make = (~body: View.Request.Body.t, ~onSubmit: string => unit) => {
             ref
             ->Js.Nullable.toOption
             ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
-            ->Option.forEach(element => {
-                Js.log(element);
-                Js.Global.setTimeout(
-                  () => Webapi.Dom.HtmlElement.focus(element),
-                  1000,
-                )
-                ->ignore;
-              })
+            ->Option.forEach(Webapi.Dom.HtmlElement.focus)
           )}
         />
       </form>

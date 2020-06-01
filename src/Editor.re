@@ -181,12 +181,7 @@ module Decoration = {
   //   },
   // ),
   let overlayText =
-      (
-        editor: editor,
-        style: string,
-        text: string,
-        range: VSCode.Range.t,
-      ) => {
+      (editor: editor, style: string, text: string, range: VSCode.Range.t) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
         ~contentText=text,
@@ -201,6 +196,15 @@ module Decoration = {
   };
 
   let destroy = TextEditorDecorationType.dispose;
+};
+
+let focus = editor => {
+  Window.showTextDocument(
+    editor->TextEditor.document,
+    ~column=ViewColumn.Beside,
+    (),
+  )
+  ->ignore;
 };
 
 let getCursorPosition = editor => editor->TextEditor.selection->Selection.end_;

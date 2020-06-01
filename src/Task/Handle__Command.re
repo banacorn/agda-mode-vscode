@@ -43,6 +43,7 @@ module Impl = (Editor: Sig.Editor) => {
                     ]
                 ),
               [
+                focus(),
                 inquire(
                   header,
                   placeholder,
@@ -54,6 +55,12 @@ module Impl = (Editor: Sig.Editor) => {
                       ]);
                     }
                   | _ => Promise.resolved([]),
+                ),
+                WithState(
+                  state => {
+                    state.editor->Editor.focus;
+                    Promise.resolved([]);
+                  },
                 ),
               ],
             ),

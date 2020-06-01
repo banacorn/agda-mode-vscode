@@ -18,6 +18,13 @@ let send = (view, req) =>
     Js.Array.push((req, resolve), queued)->ignore;
     promise;
   | Initialized =>
+    switch (req) {
+    | Focus =>
+      Js.log("FOCUS");
+      view.panel->WebviewPanel.reveal();
+    | _ => ()
+    };
+
     let stringified = Js.Json.stringify(View.Request.encode(req));
     let promise = view.onResponse.once();
     view.panel

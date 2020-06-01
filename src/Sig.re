@@ -89,6 +89,8 @@ module type Editor = {
     let destroy: t => unit;
   };
 
+  let focus: editor => unit;
+
   let getCursorPosition: editor => Point.t;
   let setCursorPosition: (editor, Point.t) => unit;
 

@@ -51,4 +51,6 @@ module Impl = (Editor: Sig.Editor) => {
 
   let inquire = (header, placeholder, value, callback) =>
     ViewReq(Plain(header, Inquire(placeholder, value)), callback);
+
+  let focus = () => ViewReq(Focus, _ => Promise.resolved([]));
 };
