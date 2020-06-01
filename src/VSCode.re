@@ -1061,6 +1061,24 @@ module Progress = {
   type t('a);
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#TextDocumentShowOptions;
+module TextDocumentShowOptions = {
+  type t = {
+    preserveFocus: option(bool),
+    preview: option(bool),
+    selection: option(Range.t),
+    viewColumn: option(ViewColumn.t),
+  };
+
+  let make =
+      (~preserveFocus=?, ~preview=?, ~selection=?, ~viewColumn=?, ()): t => {
+    preserveFocus,
+    preview,
+    selection,
+    viewColumn,
+  };
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#window
 module Window = {
   // variables
@@ -1233,7 +1251,16 @@ module Window = {
   [@bs.module "vscode"] [@bs.scope "window"]
   external showTextDocument:
     (TextDocument.t, ~column: ViewColumn.t=?, ~preserveFocus: bool=?, unit) =>
-    Promise.t(option(Uri.t)) =
+    Promise.t(TextEditor.t) =
+    "showTextDocument";
+  [@bs.module "vscode"] [@bs.scope "window"]
+  external showTextDocumentWithShowOptions:
+    (TextDocument.t, option(TextDocumentShowOptions.t)) =>
+    Promise.t(TextEditor.t) =
+    "showTextDocument";
+  [@bs.module "vscode"] [@bs.scope "window"]
+  external showTextDocumentWithUri:
+    (Uri.t, option(TextDocumentShowOptions.t)) => Promise.t(TextEditor.t) =
     "showTextDocument";
   [@bs.module "vscode"] [@bs.scope "window"] [@bs.variadic]
   external showWarningMessage:
