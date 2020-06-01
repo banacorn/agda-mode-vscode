@@ -24,4 +24,4 @@ A to-do checklist in disguise.
 | ✓      | goal type (simplified)            | <kbd>C-c</kbd> <kbd>C-t</kbd> |
 | ✓      | goal type (instantiaed)           | <kbd>C-u</kbd> <kbd>C-t</kbd> |
 | ✓      | goal type (normalized)            | <kbd>C-y</kbd> <kbd>C-t</kbd> |
-| 🚧     | auto                              | <kbd>C-y</kbd> <kbd>C-a</kbd> |
+| ✓      | auto                              | <kbd>C-y</kbd> <kbd>C-a</kbd> |

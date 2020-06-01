@@ -36,10 +36,23 @@ module Impl = (Editor: Sig.Editor) => {
               goal =>
                 (
                   fun
-                  // | None => [inquire(header, placeholder, None)]
-                  | None => [Debug("1")]
-                  | Some(content) => [
-                      SendRequest(InferType(normalization, content, goal)),
+                  | None =>
+                    inquire(
+                      header,
+                      placeholder,
+                      None,
+                      fun
+                      | View.Response.QuerySuccess(expr) => {
+                          Promise.resolved([
+                            SendRequest(
+                              InferType(normalization, expr, goal),
+                            ),
+                          ]);
+                        }
+                      | _ => Promise.resolved([]),
+                    )
+                  | Some(expr) => [
+                      SendRequest(InferType(normalization, expr, goal)),
                     ]
                 ),
               inquire(
