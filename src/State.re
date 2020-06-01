@@ -11,7 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
     onDestroyEventEmitter: Event.t(unit),
-    onViewInquiryResponse: Event.t(option(string)),
+    // onViewInquiryResponse: Event.t(option(string)),
   };
 
   //
@@ -93,7 +93,6 @@ module Impl = (Editor: Sig.Editor) => {
       connection: None,
       goals: [||],
       onDestroyEventEmitter: Event.make(),
-      onViewInquiryResponse: Event.make(),
     };
 
     state;
@@ -105,5 +104,5 @@ module Impl = (Editor: Sig.Editor) => {
   let show = state => state.view->Editor.View.show;
   let hide = state => state.view->Editor.View.hide;
   let sendRequestToView = (state, request) =>
-    Editor.View.send(state.view, request)->Promise.map(_ => ());
+    Editor.View.send(state.view, request);
 };

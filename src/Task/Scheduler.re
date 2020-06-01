@@ -74,7 +74,13 @@ module Impl = (Editor: Sig.Editor) => {
       ->Promise.tap(() => (handle^)->Option.forEach(f => f()))
       ->Promise.map(() => derivedRequests^)
     | View(req) =>
-      state->State.sendRequestToView(req)->Promise.map(() => derivedRequests^)
+      state
+      ->State.sendRequestToView(req)
+      ->Promise.flatMap(response => {
+          let tasks = ViewHandler.handle(response);
+          runTasks(state, tasks);
+        })
+      ->Promise.map(() => derivedRequests^)
     };
   }
   and sendRequests = (state, requests: list(Task.request)): Promise.t(unit) =>
@@ -108,18 +114,26 @@ module Impl = (Editor: Sig.Editor) => {
       Js.log("[ task ][ view response ] ");
       switch (response) {
       | View.Response.InquiryResult(result) =>
-        Js.log("!!!");
-        state.onViewInquiryResponse.emit(result);
+        Js.log("result: " ++ result->Option.getWithDefault("None"))
+      | Success => Js.log("Success")
       | _ => ()
       };
       let tasks = ViewHandler.handle(response);
       runTasks(state, tasks);
-    | ViewListener(callback) =>
-      Js.log("[ task ][ view inquiry result listener ] ");
-      state.onViewInquiryResponse.once()
-      ->Promise.tap(Js.log)
-      ->Promise.flatMap(callback)
-      ->Promise.flatMap(runTasks(state));
+    | ViewEvent(event) =>
+      Js.log("[ task ][ view event ] ");
+      let tasks =
+        switch (event) {
+        | Initialized => []
+        | Destroyed => [Task.Terminate]
+        };
+      runTasks(state, tasks);
+    // | ViewListener(callback) =>
+    //   Js.log("[ task ][ view inquiry result listener ] ");
+    //   state.onViewInquiryResponse.once()
+    //   ->Promise.tap(Js.log)
+    //   ->Promise.flatMap(callback)
+    //   ->Promise.flatMap(runTasks(state));
     | Error(error) =>
       Js.log("[ task ][ view error ] ");
       let tasks = ErrorHandler.handle(error);

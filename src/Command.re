@@ -19,7 +19,7 @@ type t =
   | Auto
   | InferType(Normalization.t)
   | GoalType(Normalization.t)
-  | ViewResponse(View.Response.t);
+  | ViewEvent(View.Event.t);
 
 // for registering Keybindings
 let names: array((t, string)) = [|
@@ -50,4 +50,4 @@ let toString =
   | GoalType(Simplified) => "Goal Type (simplified)"
   | GoalType(Instantiated) => "Goal Type (instantiated)"
   | GoalType(Normalised) => "Goal Type (normalised)"
-  | ViewResponse(_) => "View Response";
+  | ViewEvent(_) => "View Event";

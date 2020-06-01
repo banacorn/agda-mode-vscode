@@ -6,7 +6,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   let handle =
     fun
-    | Initialized => []
-    | Destroyed => [Terminate]
-    | InquiryResult(_) => [];
+    | Success => []
+    | InquiryResult(_) => []
+    | Event(Initialized) => []
+    | Event(Destroyed) => [Terminate];
 };

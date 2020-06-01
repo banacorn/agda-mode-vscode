@@ -8,27 +8,42 @@ let make =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
 
-  // response with Initialized on mount
+  // emit event Initialized on mount
   React.useEffect1(
     () => {
-      onResponse.emit(View.Response.Initialized);
+      onResponse.emit(View.Response.Event(Initialized));
       None;
     },
     [||],
   );
 
+  let resolver = React.useRef(None);
+
   // receiving View Requests
   Hook.on(onRequest, msg =>
     switch (msg) {
+    | Plain(header, Inquire(placeholder, value)) =>
+      let (promise, resolve) = Promise.pending();
+      resolver.current = Some(resolve);
+      setHeader(_ => header);
+      setBody(_ => Inquire(placeholder, value));
+      promise->Promise.get(result =>
+        onResponse.emit(View.Response.InquiryResult(result))
+      );
+    // View.Response.InquiryResult();
     | Plain(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
-    | _ => ()
+      onResponse.emit(View.Response.Success);
+    | _ => onResponse.emit(View.Response.Success)
     }
   );
 
   let onSubmit = result =>
-    onResponse.emit(View.Response.InquiryResult(result));
+    switch (resolver.current) {
+    | None => ()
+    | Some(resolve) => resolve(result)
+    };
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
     <Header header />

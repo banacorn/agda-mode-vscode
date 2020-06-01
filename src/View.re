@@ -110,11 +110,10 @@ module Request = {
       ]);
 };
 
-module Response = {
+module Event = {
   type t =
     | Initialized
-    | Destroyed
-    | InquiryResult(option(string));
+    | Destroyed;
 
   open Json.Decode;
   open Util.Decode;
@@ -124,8 +123,6 @@ module Response = {
       fun
       | "Initialized" => TagOnly(_ => Initialized)
       | "Destroyed" => TagOnly(_ => Destroyed)
-      | "InquiryResult" =>
-        Contents(optional(string) |> map(result => InquiryResult(result)))
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
 
@@ -133,10 +130,40 @@ module Response = {
   let encode: encoder(t) =
     fun
     | Initialized => object_([("tag", string("Initialized"))])
-    | Destroyed => object_([("tag", string("Destroyed"))])
+    | Destroyed => object_([("tag", string("Destroyed"))]);
+};
+
+module Response = {
+  type t =
+    | Success
+    | InquiryResult(option(string))
+    | Event(Event.t);
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Success" => TagOnly(_ => Success)
+      | "InquiryResult" =>
+        Contents(optional(string) |> map(result => InquiryResult(result)))
+      | "Event" => Contents(Event.decode |> map(event => Event(event)))
+      | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Success => object_([("tag", string("Success"))])
     | InquiryResult(result) =>
       object_([
         ("tag", string("InquiryResult")),
         ("contents", result |> nullable(string)),
+      ])
+    | Event(event) =>
+      object_([
+        ("tag", string("Event")),
+        ("contents", event |> Event.encode),
       ]);
 };

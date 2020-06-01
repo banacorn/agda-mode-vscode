@@ -121,12 +121,12 @@ module Impl = (Editor: Sig.Editor) => {
                   let state = State.make(context, editor);
                   let taskRunner = TaskRunner.make(state);
 
-                  // listens to responses from the view
+                  // listens to events from the view
                   state.view
-                  ->Editor.View.recv(response => {
+                  ->Editor.View.on(event => {
                       TaskRunner.dispatchCommand(
                         taskRunner,
-                        ViewResponse(response),
+                        ViewEvent(event),
                       )
                       ->ignore
                     })

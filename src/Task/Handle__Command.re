@@ -44,14 +44,14 @@ module Impl = (Editor: Sig.Editor) => {
                 ),
               [
                 inquire(header, placeholder, None),
-                ViewListener(
-                  result => {
-                    Js.log("!!!!!");
-                    Promise.resolved([
-                      Debug(result->Option.getWithDefault("")),
-                    ]);
-                  },
-                ),
+                // ViewListener(
+                //   result => {
+                //     Js.log("!!!!!");
+                //     Promise.resolved([
+                //       Debug(result->Option.getWithDefault("")),
+                //     ]);
+                //   },
+                // ),
               ],
             ),
           ),
@@ -67,5 +67,5 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | ViewResponse(response) => [ViewRes(response)];
+    | ViewEvent(event) => [ViewEvent(event)];
 };

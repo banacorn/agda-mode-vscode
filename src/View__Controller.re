@@ -2,7 +2,7 @@ open VSCode;
 
 type status =
   | Initialized
-  | Uninitialized(array(View.Request.t));
+  | Uninitialized(array((View.Request.t, View.Response.t => unit)));
 
 type t = {
   panel: WebviewPanel.t,
@@ -14,16 +14,25 @@ type t = {
 let send = (view, req) =>
   switch (view.status) {
   | Uninitialized(queued) =>
-    Js.Array.push(req, queued)->ignore;
-    Promise.resolved(false);
+    let (promise, resolve) = Promise.pending();
+    Js.Array.push((req, resolve), queued)->ignore;
+    promise;
   | Initialized =>
     let stringified = Js.Json.stringify(View.Request.encode(req));
-    view.panel->WebviewPanel.webview->Webview.postMessage(stringified);
+    let promise = view.onResponse.once();
+    view.panel
+    ->WebviewPanel.webview
+    ->Webview.postMessage(stringified)
+    ->Promise.flatMap(_ => promise);
   };
 
-let recv = (view, callback) => {
-  // Handle messages from the webview
-  view.onResponse.on(callback)
+let on = (view, callback) => {
+  // Handle events from the webview
+  view.onResponse.on(
+    fun
+    | Event(event) => callback(event)
+    | _ => (),
+  )
   ->Disposable.make;
 };
 
@@ -151,20 +160,24 @@ let make = (getExtensionPath, context, editor) => {
 
   // on destroy
   panel
-  ->WebviewPanel.onDidDispose(() => onResponse.emit(View.Response.Destroyed))
+  ->WebviewPanel.onDidDispose(() =>
+      onResponse.emit(View.Response.Event(Destroyed))
+    )
   ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
 
   let view = {panel, onResponse, status: Uninitialized([||])};
 
-  // on initizlied
+  // on initizlied, send the queued View Requests
   view.onResponse.on(
     fun
-    | Initialized => {
+    | Event(Initialized) => {
         switch (view.status) {
         | Uninitialized(queued) =>
           view.status = Initialized;
-          queued->Belt.Array.forEach(req => send(view, req)->ignore);
+          queued->Belt.Array.forEach(((req, resolve)) =>
+            send(view, req)->Promise.get(resolve)
+          );
         | Initialized => ()
         };
       }

@@ -21,7 +21,7 @@ module Impl = (Editor: Sig.Editor) => {
     // View
     | ViewReq(View.Request.t)
     | ViewRes(View.Response.t)
-    | ViewListener(option(string) => Promise.t(list(t)))
+    | ViewEvent(View.Event.t)
     // Misc
     | Error(Error.t)
     | Goal(goal)

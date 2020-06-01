@@ -76,8 +76,8 @@ module type Editor = {
     let show: view => unit;
     let hide: view => unit;
     // messaging
-    let send: (view, View.Request.t) => Promise.t(bool);
-    let recv: (view, View.Response.t => unit) => Disposable.t;
+    let send: (view, View.Request.t) => Promise.t(View.Response.t);
+    let on: (view, View.Event.t => unit) => Disposable.t;
   };
 
   module Decoration: {
