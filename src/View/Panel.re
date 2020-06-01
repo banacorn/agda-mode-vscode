@@ -28,7 +28,7 @@ let make =
       setHeader(_ => header);
       setBody(_ => Inquire(placeholder, value));
       promise->Promise.get(result =>
-        onResponse.emit(View.Response.InquiryResult(Some(result)))
+        onResponse.emit(View.Response.QuerySuccess(result))
       );
     // View.Response.InquiryResult();
     | Plain(header, body) =>

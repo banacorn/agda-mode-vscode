@@ -136,7 +136,7 @@ module Event = {
 module Response = {
   type t =
     | Success
-    | InquiryResult(option(string))
+    | QuerySuccess(string)
     | Event(Event.t);
 
   open Json.Decode;
@@ -146,8 +146,8 @@ module Response = {
     sum(
       fun
       | "Success" => TagOnly(_ => Success)
-      | "InquiryResult" =>
-        Contents(optional(string) |> map(result => InquiryResult(result)))
+      | "QuerySuccess" =>
+        Contents(string |> map(result => QuerySuccess(result)))
       | "Event" => Contents(Event.decode |> map(event => Event(event)))
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
@@ -156,10 +156,10 @@ module Response = {
   let encode: encoder(t) =
     fun
     | Success => object_([("tag", string("Success"))])
-    | InquiryResult(result) =>
+    | QuerySuccess(result) =>
       object_([
-        ("tag", string("InquiryResult")),
-        ("contents", result |> nullable(string)),
+        ("tag", string("QuerySuccess")),
+        ("contents", result |> string),
       ])
     | Event(event) =>
       object_([

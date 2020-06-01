@@ -7,6 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Load
     | Auto(Goal.t)
     | InferType(Command.Normalization.t, string, Goal.t)
+    | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t);
 
   // How much highlighting should be sent to the user interface?
@@ -81,16 +82,23 @@ module Impl = (Editor: Sig.Editor) => {
 
     | InferType(normalization, expr, goal) =>
       let index = string_of_int(goal.index);
-      let normalization' = Command.Normalization.toString(normalization);
+      let normalization = Command.Normalization.toString(normalization);
       let content = Parser.userInput(expr);
       commonPart(NonInteractive)
-      ++ {j|( Cmd_infer $(normalization') $(index) noRange "$(content)" )|j};
+      ++ {j|( Cmd_infer $(normalization) $(index) noRange "$(content)" )|j};
+
+    | InferTypeGlobal(normalization, expr) =>
+      let normalization = Command.Normalization.toString(normalization);
+      let content = Parser.userInput(expr);
+
+      commonPart(None)
+      ++ {j|( Cmd_infer_toplevel $(normalization) "$(content)" )|j};
 
     | GoalType(normalization, goal) =>
       let index = string_of_int(goal.index);
-      let normalization' = Command.Normalization.toString(normalization);
+      let normalization = Command.Normalization.toString(normalization);
       commonPart(NonInteractive)
-      ++ {j|( Cmd_goal_type $(normalization') $(index) noRange "" )|j};
+      ++ {j|( Cmd_goal_type $(normalization) $(index) noRange "" )|j};
     };
   };
 };

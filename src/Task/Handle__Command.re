@@ -47,9 +47,9 @@ module Impl = (Editor: Sig.Editor) => {
                 placeholder,
                 None,
                 fun
-                | View.Response.InquiryResult(result) => {
+                | View.Response.QuerySuccess(expr) => {
                     Promise.resolved([
-                      Debug(result->Option.getWithDefault("")),
+                      SendRequest(InferTypeGlobal(normalization, expr)),
                     ]);
                   }
                 | _ => Promise.resolved([]),
