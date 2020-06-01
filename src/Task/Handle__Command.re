@@ -43,15 +43,18 @@ module Impl = (Editor: Sig.Editor) => {
                     ]
                 ),
               [
-                inquire(header, placeholder, None),
-                // ViewListener(
-                //   result => {
-                //     Js.log("!!!!!");
-                //     Promise.resolved([
-                //       Debug(result->Option.getWithDefault("")),
-                //     ]);
-                //   },
-                // ),
+                inquire(
+                  header,
+                  placeholder,
+                  None,
+                  fun
+                  | View.Response.InquiryResult(result) => {
+                      Promise.resolved([
+                        Debug(result->Option.getWithDefault(""))
+                      ]);
+                    }
+                  | _ => Promise.resolved([]),
+                ),
               ],
             ),
           ),

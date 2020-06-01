@@ -19,8 +19,8 @@ module Impl = (Editor: Sig.Editor) => {
     // Connection
     | SendRequest(Request.t)
     // View
-    | ViewReq(View.Request.t)
-    | ViewRes(View.Response.t)
+    | ViewReq(View.Request.t, View.Response.t => Promise.t(list(t)))
+    // | ViewRes(View.Response.t)
     | ViewEvent(View.Event.t)
     // Misc
     | Error(Error.t)
@@ -30,24 +30,25 @@ module Impl = (Editor: Sig.Editor) => {
 
   type request =
     | Agda(Request.t)
-    | View(View.Request.t);
+    | View(View.Request.t, View.Response.t => Promise.t(list(t)));
 
   let classify =
     fun
     | SendRequest(req) => Some(Agda(req))
-    | ViewReq(req) => Some(View(req))
+    | ViewReq(req, callback) => Some(View(req, callback))
     | _ => None;
 
   // Smart constructors
   let display' = header =>
     fun
-    | None => ViewReq(Plain(header, Nothing))
-    | Some(message) => ViewReq(Plain(header, Plain(message)));
+    | None => ViewReq(Plain(header, Nothing), _ => Promise.resolved([]))
+    | Some(message) =>
+      ViewReq(Plain(header, Plain(message)), _ => Promise.resolved([]));
   let display = header => display'(Plain(header));
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let inquire = (header, placeholder, value) =>
-    ViewReq(Plain(header, Inquire(placeholder, value)));
+  let inquire = (header, placeholder, value, callback) =>
+    ViewReq(Plain(header, Inquire(placeholder, value)), callback);
 };

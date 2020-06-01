@@ -24,6 +24,16 @@ module Impl = (Editor: Sig.Editor) => {
 
     let runner = Runner.make(task => {runTask(state, task)});
 
+    let filterReqeusts = tasks =>
+      tasks->Array.keep(task =>
+        switch (Task.classify(task)) {
+        | Some(req) =>
+          Js.Array.push(req, derivedRequests^)->ignore;
+          false;
+        | None => true
+        }
+      );
+
     // handle of the connection response listener
     let handle = ref(None);
     let handler =
@@ -41,15 +51,7 @@ module Impl = (Editor: Sig.Editor) => {
       | Ok(Yield(Ok(response))) => {
           // Task.SendRequest are filtered out
           let otherTasks =
-            List.toArray(ResponseHandler.handle(response))
-            ->Array.keep(task =>
-                switch (Task.classify(task)) {
-                | Some(req) =>
-                  Js.Array.push(req, derivedRequests^)->ignore;
-                  false;
-                | None => true
-                }
-              );
+            List.toArray(ResponseHandler.handle(response))->filterReqeusts;
           Runner.pushMany(runner, otherTasks)->ignore;
         }
       | Ok(Stop) => Runner.terminate(runner);
@@ -73,12 +75,14 @@ module Impl = (Editor: Sig.Editor) => {
         )
       ->Promise.tap(() => (handle^)->Option.forEach(f => f()))
       ->Promise.map(() => derivedRequests^)
-    | View(req) =>
+    | View(req, callback) =>
       state
       ->State.sendRequestToView(req)
       ->Promise.flatMap(response => {
-          let tasks = ViewHandler.handle(response);
-          runTasks(state, tasks);
+          callback(response)
+          ->Promise.map(List.toArray)
+          ->Promise.map(filterReqeusts)
+          ->Promise.flatMap(Runner.pushMany(runner))
         })
       ->Promise.map(() => derivedRequests^)
     };
@@ -107,19 +111,19 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(request) =>
       Js.log("[ task ][ agda request ]");
       sendRequests(state, [Agda(request)]);
-    | ViewReq(request) =>
+    | ViewReq(request, callback) =>
       Js.log("[ task ][ view request ] ");
-      sendRequests(state, [View(request)]);
-    | ViewRes(response) =>
-      Js.log("[ task ][ view response ] ");
-      switch (response) {
-      | View.Response.InquiryResult(result) =>
-        Js.log("result: " ++ result->Option.getWithDefault("None"))
-      | Success => Js.log("Success")
-      | _ => ()
-      };
-      let tasks = ViewHandler.handle(response);
-      runTasks(state, tasks);
+      sendRequests(state, [View(request, callback)]);
+    // | ViewRes(response) =>
+    //   Js.log("[ task ][ view response ] ");
+    //   switch (response) {
+    //   | View.Response.InquiryResult(result) =>
+    //     Js.log("result: " ++ result->Option.getWithDefault("None"))
+    //   | Success => Js.log("Success")
+    //   | _ => ()
+    //   };
+    //   let tasks = ViewHandler.handle(response);
+    //   runTasks(state, tasks);
     | ViewEvent(event) =>
       Js.log("[ task ][ view event ] ");
       let tasks =
