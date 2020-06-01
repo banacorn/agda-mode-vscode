@@ -50,7 +50,7 @@ module Impl = (Editor: Sig.Editor) => {
                   fun
                   | View.Response.InquiryResult(result) => {
                       Promise.resolved([
-                        Debug(result->Option.getWithDefault(""))
+                        Debug(result->Option.getWithDefault("")),
                       ]);
                     }
                   | _ => Promise.resolved([]),
