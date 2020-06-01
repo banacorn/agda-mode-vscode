@@ -18,13 +18,6 @@ let send = (view, req) =>
     Js.Array.push((req, resolve), queued)->ignore;
     promise;
   | Initialized =>
-    switch (req) {
-    | Focus =>
-      Js.log("FOCUS");
-      view.panel->WebviewPanel.reveal();
-    | _ => ()
-    };
-
     let stringified = Js.Json.stringify(View.Request.encode(req));
     let promise = view.onResponse.once();
     view.panel
@@ -181,6 +174,7 @@ let make = (getExtensionPath, context, editor) => {
     | Event(Initialized) => {
         switch (view.status) {
         | Uninitialized(queued) =>
+          Js.log("[ view ] [ initialized ]");
           view.status = Initialized;
           queued->Belt.Array.forEach(((req, resolve)) =>
             send(view, req)->Promise.get(resolve)
@@ -204,4 +198,5 @@ let destroy = view => {
 
 // show/hide
 let show = view => view.panel->WebviewPanel.reveal(~preserveFocus=true, ());
+let focus = view => view.panel->WebviewPanel.reveal();
 let hide = _view => ();

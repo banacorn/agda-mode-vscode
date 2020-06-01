@@ -20,7 +20,6 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(Request.t)
     // View
     | ViewReq(View.Request.t, View.Response.t => Promise.t(list(t)))
-    // | ViewRes(View.Response.t)
     | ViewEvent(View.Event.t)
     // Misc
     | Error(Error.t)
@@ -49,8 +48,21 @@ module Impl = (Editor: Sig.Editor) => {
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let inquire = (header, placeholder, value, callback) =>
-    ViewReq(Plain(header, Inquire(placeholder, value)), callback);
-
-  let focus = () => ViewReq(Focus, _ => Promise.resolved([]));
+  let inquire = (header, placeholder, value, callback) => [
+    // focus on the panel before inquiring
+    WithState(
+      state => {
+        state.view->Editor.View.focus;
+        Promise.resolved([]);
+      },
+    ),
+    ViewReq(Plain(header, Inquire(placeholder, value)), callback),
+    // put the focus back to the editor after inquiring
+    WithState(
+      state => {
+        state.editor->Editor.focus;
+        Promise.resolved([]);
+      },
+    ),
+  ];
 };

@@ -114,16 +114,6 @@ module Impl = (Editor: Sig.Editor) => {
     | ViewReq(request, callback) =>
       Js.log("[ task ][ view request ] ");
       sendRequests(state, [View(request, callback)]);
-    // | ViewRes(response) =>
-    //   Js.log("[ task ][ view response ] ");
-    //   switch (response) {
-    //   | View.Response.InquiryResult(result) =>
-    //     Js.log("result: " ++ result->Option.getWithDefault("None"))
-    //   | Success => Js.log("Success")
-    //   | _ => ()
-    //   };
-    //   let tasks = ViewHandler.handle(response);
-    //   runTasks(state, tasks);
     | ViewEvent(event) =>
       Js.log("[ task ][ view event ] ");
       let tasks =
@@ -132,12 +122,6 @@ module Impl = (Editor: Sig.Editor) => {
         | Destroyed => [Task.Terminate]
         };
       runTasks(state, tasks);
-    // | ViewListener(callback) =>
-    //   Js.log("[ task ][ view inquiry result listener ] ");
-    //   state.onViewInquiryResponse.once()
-    //   ->Promise.tap(Js.log)
-    //   ->Promise.flatMap(callback)
-    //   ->Promise.flatMap(runTasks(state));
     | Error(error) =>
       Js.log("[ task ][ view error ] ");
       let tasks = ErrorHandler.handle(error);

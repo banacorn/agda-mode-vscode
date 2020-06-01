@@ -75,6 +75,7 @@ module type Editor = {
     // show/hide
     let show: view => unit;
     let hide: view => unit;
+    let focus: view => unit;
     // messaging
     let send: (view, View.Request.t) => Promise.t(View.Response.t);
     let on: (view, View.Event.t => unit) => Disposable.t;

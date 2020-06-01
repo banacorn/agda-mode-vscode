@@ -42,27 +42,18 @@ module Impl = (Editor: Sig.Editor) => {
                       SendRequest(InferType(normalization, content, goal)),
                     ]
                 ),
-              [
-                focus(),
-                inquire(
-                  header,
-                  placeholder,
-                  None,
-                  fun
-                  | View.Response.InquiryResult(result) => {
-                      Promise.resolved([
-                        Debug(result->Option.getWithDefault("")),
-                      ]);
-                    }
-                  | _ => Promise.resolved([]),
-                ),
-                WithState(
-                  state => {
-                    state.editor->Editor.focus;
-                    Promise.resolved([]);
-                  },
-                ),
-              ],
+              inquire(
+                header,
+                placeholder,
+                None,
+                fun
+                | View.Response.InquiryResult(result) => {
+                    Promise.resolved([
+                      Debug(result->Option.getWithDefault("")),
+                    ]);
+                  }
+                | _ => Promise.resolved([]),
+              ),
             ),
           ),
         ];

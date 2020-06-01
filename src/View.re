@@ -78,7 +78,6 @@ module Request = {
   type t =
     | Show
     | Hide
-    | Focus
     | Plain(Header.t, Body.t);
 
   // JSON encode/decode
@@ -91,7 +90,6 @@ module Request = {
       fun
       | "Show" => TagOnly(_ => Show)
       | "Hide" => TagOnly(_ => Hide)
-      | "Focus" => TagOnly(_ => Focus)
       | "Plain" =>
         Contents(
           pair(Header.decode, Body.decode)
@@ -105,7 +103,6 @@ module Request = {
     fun
     | Show => object_([("tag", string("Show"))])
     | Hide => object_([("tag", string("Hide"))])
-    | Focus => object_([("tag", string("Focus"))])
     | Plain(header, body) =>
       object_([
         ("tag", string("Plain")),
