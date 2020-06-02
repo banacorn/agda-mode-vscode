@@ -22,15 +22,14 @@ let make =
   // receiving View Requests
   Hook.on(onRequest, msg =>
     switch (msg) {
-    | Plain(header, Inquire(placeholder, value)) =>
+    | Plain(header, Query(placeholder, value)) =>
       let (promise, resolve) = Promise.pending();
       resolver.current = Some(resolve);
       setHeader(_ => header);
-      setBody(_ => Inquire(placeholder, value));
+      setBody(_ => Query(placeholder, value));
       promise->Promise.get(result =>
         onResponse.emit(View.Response.QuerySuccess(result))
       );
-    // View.Response.InquiryResult();
     | Plain(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);

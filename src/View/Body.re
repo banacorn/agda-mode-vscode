@@ -5,7 +5,7 @@ let make = (~body: View.Request.Body.t, ~onSubmit: string => unit) => {
   switch (body) {
   | Nothing => <> </>
   | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>
-  | Inquire(placeholder, value) =>
+  | Query(placeholder, value) =>
     let placeholder = placeholder->Option.getWithDefault("");
     let (value, setValue) =
       React.useState(_ => value->Option.getWithDefault(""));

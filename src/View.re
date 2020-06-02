@@ -39,7 +39,7 @@ module Request = {
     type t =
       | Nothing
       | Plain(string)
-      | Inquire(option(string), option(string));
+      | Query(option(string), option(string));
 
     open Json.Decode;
     open Util.Decode;
@@ -49,10 +49,10 @@ module Request = {
         fun
         | "Nothing" => TagOnly(_ => Nothing)
         | "Plain" => Contents(string |> map(text => Plain(text)))
-        | "Inquire" =>
+        | "Query" =>
           Contents(
             pair(optional(string), optional(string))
-            |> map(((placeholder, value)) => Inquire(placeholder, value)),
+            |> map(((placeholder, value)) => Query(placeholder, value)),
           )
         | tag =>
           raise(DecodeError("[Request.Body] Unknown constructor: " ++ tag)),
@@ -64,9 +64,9 @@ module Request = {
       | Nothing => object_([("tag", string("Nothing"))])
       | Plain(text) =>
         object_([("tag", string("Plain")), ("contents", text |> string)])
-      | Inquire(placeholder, value) =>
+      | Query(placeholder, value) =>
         object_([
-          ("tag", string("Inquire")),
+          ("tag", string("Query")),
           (
             "contents",
             (placeholder, value)

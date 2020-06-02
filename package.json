@@ -148,7 +148,7 @@
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",
-				"when": "agdaMode"
+				"when": "agdaMode && agdaModeQuerying"
 			}
 		],
 		"configuration": {

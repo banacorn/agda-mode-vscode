@@ -48,18 +48,20 @@ module Impl = (Editor: Sig.Editor) => {
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let inquire = (header, placeholder, value, callback) => [
+  let query = (header, placeholder, value, callback) => [
     // focus on the panel before inquiring
     WithState(
       state => {
+        Editor.setContext("agdaModeQuerying", true)->ignore;
         state.view->Editor.View.focus;
         Promise.resolved([]);
       },
     ),
-    ViewReq(Plain(header, Inquire(placeholder, value)), callback),
+    ViewReq(Plain(header, Query(placeholder, value)), callback),
     // put the focus back to the editor after inquiring
     WithState(
       state => {
+        Editor.setContext("agdaModeQuerying", false)->ignore;
         state.editor->Editor.focus;
         Promise.resolved([]);
       },

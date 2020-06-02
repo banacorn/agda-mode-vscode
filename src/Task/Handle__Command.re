@@ -36,7 +36,7 @@ module Impl = (Editor: Sig.Editor) => {
                 (
                   fun
                   | None =>
-                    inquire(
+                    query(
                       header,
                       placeholder,
                       None,
@@ -54,7 +54,7 @@ module Impl = (Editor: Sig.Editor) => {
                       SendRequest(InferType(normalization, expr, goal)),
                     ]
                 ),
-              inquire(
+              query(
                 header,
                 placeholder,
                 None,
