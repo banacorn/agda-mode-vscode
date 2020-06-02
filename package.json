@@ -87,52 +87,62 @@
 			{
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
-				"mac": "ctrl+c ctrl+q"
+				"mac": "ctrl+c ctrl+q",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.next-goal",
 				"key": "ctrl+c ctrl+f",
-				"mac": "ctrl+c ctrl+f"
+				"mac": "ctrl+c ctrl+f",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
-				"mac": "ctrl+c ctrl+b"
+				"mac": "ctrl+c ctrl+b",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.auto",
 				"key": "ctrl+c ctrl+a",
-				"mac": "ctrl+c ctrl+a"
+				"mac": "ctrl+c ctrl+a",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.infer-type[Simplified]",
 				"key": "ctrl+c ctrl+d",
-				"mac": "ctrl+c ctrl+d"
+				"mac": "ctrl+c ctrl+d",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.infer-type[Instantiated]",
 				"key": "ctrl+u ctrl+d",
-				"mac": "ctrl+u ctrl+d"
+				"mac": "ctrl+u ctrl+d",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.infer-type[Normalised]",
 				"key": "ctrl+y ctrl+d",
-				"mac": "ctrl+y ctrl+d"
+				"mac": "ctrl+y ctrl+d",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"key": "ctrl+c ctrl+t",
-				"mac": "ctrl+c ctrl+t"
+				"mac": "ctrl+c ctrl+t",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type[Instantiated]",
 				"key": "ctrl+u ctrl+t",
-				"mac": "ctrl+u ctrl+t"
+				"mac": "ctrl+u ctrl+t",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type[Normalised]",
 				"key": "ctrl+y ctrl+t",
-				"mac": "ctrl+y ctrl+t"
+				"mac": "ctrl+y ctrl+t",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.escape",

@@ -121,10 +121,6 @@ module Impl = (Editor: Sig.Editor) => {
                   let state = State.make(context, editor);
                   let taskRunner = TaskRunner.make(state);
 
-                  Js.log("LOAD");
-                  Editor.setContext("agdaMode", true)
-                  ->Promise.get(() => Js.log("SET "));
-
                   // listens to events from the view
                   state.view
                   ->Editor.View.on(event => {

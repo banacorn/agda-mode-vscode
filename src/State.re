@@ -74,15 +74,21 @@ module Impl = (Editor: Sig.Editor) => {
   // construction/destruction
   //
 
+  // set context so that only certain key bindings only work
+  // when there's a active text editor
+  let setLoaded = value => Editor.setContext("agdaMode", value)->ignore;
+
   let destroy = state => {
     state.view->Editor.View.destroy;
     state.onDestroyEventEmitter.emit();
     state.onDestroyEventEmitter.destroy();
     state.goals->Array.forEach(Goal.destroy);
+    setLoaded(false);
     state->disconnect;
   };
 
   let make = (context, editor) => {
+    setLoaded(true);
     // view initialization
     let view = Editor.View.make(context, editor);
 
@@ -97,12 +103,19 @@ module Impl = (Editor: Sig.Editor) => {
 
     state;
   };
+
   //
   // View-related
   //
 
-  let show = state => state.view->Editor.View.show;
-  let hide = state => state.view->Editor.View.hide;
+  let show = state => {
+    state.view->Editor.View.show;
+    setLoaded(true);
+  };
+  let hide = state => {
+    state.view->Editor.View.hide;
+    setLoaded(false);
+  };
   let sendRequestToView = (state, request) =>
     Editor.View.send(state.view, request);
 };
