@@ -2,6 +2,7 @@ open Command;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  module ViewHandler = Handle__View.Impl(Editor);
   open! Task;
   // from Editor Command to Tasks
   let handle =
@@ -64,7 +65,10 @@ module Impl = (Editor: Sig.Editor) => {
                       SendRequest(InferTypeGlobal(normalization, expr)),
                     ]);
                   }
-                | _ => Promise.resolved([]),
+                | response => {
+                    let tasks = ViewHandler.handle(response);
+                    Promise.resolved(tasks);
+                  },
               ),
             ),
           ),

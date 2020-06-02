@@ -140,6 +140,7 @@ module Response = {
   type t =
     | Success
     | QuerySuccess(string)
+    | QueryInterrupted
     | Event(Event.t);
 
   open Json.Decode;
@@ -151,6 +152,7 @@ module Response = {
       | "Success" => TagOnly(_ => Success)
       | "QuerySuccess" =>
         Contents(string |> map(result => QuerySuccess(result)))
+      | "QueryInterrupted" => TagOnly(_ => QueryInterrupted)
       | "Event" => Contents(Event.decode |> map(event => Event(event)))
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
@@ -164,6 +166,7 @@ module Response = {
         ("tag", string("QuerySuccess")),
         ("contents", result |> string),
       ])
+    | QueryInterrupted => object_([("tag", string("QueryInterrupted"))])
     | Event(event) =>
       object_([
         ("tag", string("Event")),

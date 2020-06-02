@@ -35,18 +35,24 @@ let make =
       resolver.current = Some(resolve);
       setHeader(_ => header);
       setBody(_ => Query(placeholder, value));
-      promise->Promise.get(result => {
-        Js.log("[ view ] <<< QuerySuccess");
-        onResponse.emit(View.Response.QuerySuccess(result));
-      });
+      promise->Promise.get(
+        fun
+        | None => {
+            Js.log("[ view ] <<< Query Interrupted");
+            onResponse.emit(View.Response.QueryInterrupted);
+          }
+        | Some(result) => {
+            Js.log("[ view ] <<< QuerySuccess");
+            onResponse.emit(View.Response.QuerySuccess(result));
+          },
+      );
     | Plain(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
       onResponse.emit(View.Response.Success);
     | InterruptQuery =>
       Js.log("[ view ] >>> Interrupt Query");
-      Js.log("[ view ] <<< Query Interrupted");
-      onSubmit("yo");
+      onSubmit(None);
     | _ => onResponse.emit(View.Response.Success)
     }
   );

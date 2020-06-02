@@ -8,6 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
     fun
     | Success => []
     | QuerySuccess(_) => []
+    | QueryInterrupted => [displayError("Query Cancelled", None)]
     | Event(Initialized) => []
     | Event(Destroyed) => [Terminate];
 };
