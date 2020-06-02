@@ -10,6 +10,7 @@ module Impl = (Editor: Sig.Editor) => {
     view: Editor.view,
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
+    mutable cursor: option(int),
     onDestroyEventEmitter: Event.t(unit),
     // onViewInquiryResponse: Event.t(option(string)),
   };
@@ -98,6 +99,7 @@ module Impl = (Editor: Sig.Editor) => {
       view,
       connection: None,
       goals: [||],
+      cursor: None,
       onDestroyEventEmitter: Event.make(),
     };
 

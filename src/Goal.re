@@ -72,6 +72,12 @@ module Impl = (Editor: Sig.Editor) => {
     Editor.setText(editor, innerRange, " " ++ text ++ " ");
   };
 
+  let setCursor = (self, editor) => {
+    let (start, _) = self.range;
+    let point = Editor.pointAtOffset(editor, start + 3);
+    Editor.setCursorPosition(editor, point);
+  };
+
   let buildHaskellRange = (editor, self, old, filepath: string) => {
     let (start, end_) = self.range;
     let startPoint = Editor.pointAtOffset(editor, start);

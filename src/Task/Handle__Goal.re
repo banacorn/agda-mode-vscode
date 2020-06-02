@@ -31,6 +31,30 @@ module Impl = (Editor: Sig.Editor) => {
     pointedGoals[0];
   };
 
+  // after executing the callback
+  //  if the cursor is pointing at some empty hole
+  //    then move the cursor inside the empty hole
+  //    else restore the cursor to its original position
+  let restoreCursorPosition = (state: State.t, callback) => {
+    let originalPosition = Editor.getCursorPosition(state.editor);
+    let originalOffset = Editor.offsetAtPoint(state.editor, originalPosition);
+
+    callback()
+    ->Promise.map(result => {
+        let pointed = pointingAt(~cursor=originalOffset, state);
+        switch (pointed) {
+        | Some(goal) =>
+          if (Goal.getContent(goal, state.editor) == "") {
+            Goal.setCursor(goal, state.editor);
+          } else {
+            Editor.setCursorPosition(state.editor, originalPosition);
+          }
+        | None => Editor.setCursorPosition(state.editor, originalPosition)
+        };
+        result;
+      });
+  };
+
   // from Goal-related action to Tasks
   let handle =
     fun
@@ -155,6 +179,43 @@ module Impl = (Editor: Sig.Editor) => {
                     ),
                   ],
               );
+          },
+        ),
+      ]
+
+    | SaveCursor => [
+        WithState(
+          state => {
+            let position = Editor.getCursorPosition(state.editor);
+            let offset = Editor.offsetAtPoint(state.editor, position);
+            state.cursor = Some(offset);
+            Promise.resolved([]);
+          },
+        ),
+      ]
+    //  if the cursor is pointing at some empty hole
+    //    then move the cursor inside the empty hole
+    //    else restore the cursor to its original position (if there's any)
+    | RestoreCursor => [
+        WithState(
+          state => {
+            switch (state.cursor) {
+            | None => ()
+            | Some(offset) =>
+              let position = Editor.pointAtOffset(state.editor, offset);
+
+              let pointedGoal = pointingAt(~cursor=offset, state);
+              switch (pointedGoal) {
+              | Some(goal) =>
+                if (Goal.getContent(goal, state.editor) == "") {
+                  Goal.setCursor(goal, state.editor);
+                } else {
+                  Editor.setCursorPosition(state.editor, position);
+                }
+              | None => Editor.setCursorPosition(state.editor, position)
+              };
+            };
+            Promise.resolved([]);
           },
         ),
       ]

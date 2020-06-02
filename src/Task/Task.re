@@ -10,6 +10,9 @@ module Impl = (Editor: Sig.Editor) => {
     | Next
     | Previous
     | Modify(Goal.t, string => string)
+    // | RestoreCursor(unit => Promise.t(list(t)))
+    | SaveCursor
+    | RestoreCursor
     | RemoveBoundaryAndDestroy(Goal.t)
     | GetPointedOr((Goal.t, option(string)) => list(t), list(t))
     | GetIndexedOr(int, (Goal.t, option(string)) => list(t), list(t))
@@ -48,14 +51,6 @@ module Impl = (Editor: Sig.Editor) => {
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let handleViewResponse = callbackOnQuerySuccess =>
-    fun
-    | View.Response.Success => []
-    | QuerySuccess(result) => callbackOnQuerySuccess(result)
-    | QueryInterrupted => [displayError("Query Cancelled", None)]
-    | Event(Initialized) => []
-    | Event(Destroyed) => [Terminate];
-
   let query = (header, placeholder, value, callbackOnQuerySuccess) => [
     // focus on the panel before inquiring
     WithState(
@@ -67,7 +62,12 @@ module Impl = (Editor: Sig.Editor) => {
     ),
     ViewReq(
       Plain(header, Query(placeholder, value)),
-      handleViewResponse(callbackOnQuerySuccess),
+      fun
+      | View.Response.Success => []
+      | QuerySuccess(result) => callbackOnQuerySuccess(result)
+      | QueryInterrupted => [displayError("Query Cancelled", None)]
+      | Event(Initialized) => []
+      | Event(Destroyed) => [Terminate],
     ),
     // put the focus back to the editor after inquiring
     WithState(

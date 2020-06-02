@@ -11,7 +11,9 @@ module Impl = (Editor: Sig.Editor) => {
         Task.WithState(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
+        Goal(SaveCursor),
         SendRequest(Load),
+        Goal(RestoreCursor),
       ]
     | Quit => [Terminate]
     | NextGoal => [Goal(Next)]
@@ -38,7 +40,12 @@ module Impl = (Editor: Sig.Editor) => {
     | Refine => [
         Goal(
           GetPointedOr(
-            (goal, _) => [SendRequest(Refine(goal))],
+            (goal, _) =>
+              [
+                Goal(SaveCursor),
+                SendRequest(Refine(goal)),
+                Goal(RestoreCursor),
+              ],
             [Error(OutOfGoal)],
           ),
         ),
