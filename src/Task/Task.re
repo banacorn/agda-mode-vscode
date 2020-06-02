@@ -2,6 +2,7 @@ module Impl = (Editor: Sig.Editor) => {
   module State = State.Impl(Editor);
   module Goal = Goal.Impl(Editor);
   module Request = Request.Impl(Editor);
+  // module ViewHandler = Handle__View.Impl(Editor);
 
   type goal =
     | Instantiate(array(int))
@@ -19,7 +20,7 @@ module Impl = (Editor: Sig.Editor) => {
     // Connection
     | SendRequest(Request.t)
     // View
-    | ViewReq(View.Request.t, View.Response.t => Promise.t(list(t)))
+    | ViewReq(View.Request.t, View.Response.t => list(t))
     | ViewEvent(View.Event.t)
     // Misc
     | Error(Error.t)
@@ -29,7 +30,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type request =
     | Agda(Request.t)
-    | View(View.Request.t, View.Response.t => Promise.t(list(t)));
+    | View(View.Request.t, View.Response.t => list(t));
 
   let classify =
     fun
@@ -40,15 +41,22 @@ module Impl = (Editor: Sig.Editor) => {
   // Smart constructors
   let display' = header =>
     fun
-    | None => ViewReq(Plain(header, Nothing), _ => Promise.resolved([]))
-    | Some(message) =>
-      ViewReq(Plain(header, Plain(message)), _ => Promise.resolved([]));
+    | None => ViewReq(Plain(header, Nothing), _ => [])
+    | Some(message) => ViewReq(Plain(header, Plain(message)), _ => []);
   let display = header => display'(Plain(header));
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let query = (header, placeholder, value, callback) => [
+  let handleViewResponse = callbackOnQuerySuccess =>
+    fun
+    | View.Response.Success => []
+    | QuerySuccess(result) => callbackOnQuerySuccess(result)
+    | QueryInterrupted => [displayError("Query Cancelled", None)]
+    | Event(Initialized) => []
+    | Event(Destroyed) => [Terminate];
+
+  let query = (header, placeholder, value, callbackOnQuerySuccess) => [
     // focus on the panel before inquiring
     WithState(
       state => {
@@ -57,7 +65,10 @@ module Impl = (Editor: Sig.Editor) => {
         Promise.resolved([]);
       },
     ),
-    ViewReq(Plain(header, Query(placeholder, value)), callback),
+    ViewReq(
+      Plain(header, Query(placeholder, value)),
+      handleViewResponse(callbackOnQuerySuccess),
+    ),
     // put the focus back to the editor after inquiring
     WithState(
       state => {

@@ -16,6 +16,7 @@ type t =
   | Quit
   | NextGoal
   | PreviousGoal
+  | Give
   | Auto
   | InferType(Normalization.t)
   | GoalType(Normalization.t)
@@ -28,6 +29,7 @@ let names: array((t, string)) = [|
   (Quit, "quit"),
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
+  (Give, "give"),
   (Auto, "auto"),
   (InferType(Simplified), "infer-type[Simplified]"),
   (InferType(Instantiated), "infer-type[Instantiated]"),
@@ -45,6 +47,7 @@ let toString =
   | Quit => "Quit"
   | NextGoal => "Next Goal"
   | PreviousGoal => "Previous Goal"
+  | Give => "Give"
   | Auto => "Auto"
   | InferType(Simplified) => "Infer Type (simplified)"
   | InferType(Instantiated) => "Infer Type (instantiated)"

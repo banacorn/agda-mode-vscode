@@ -83,10 +83,10 @@ module Impl = (Editor: Sig.Editor) => {
       state
       ->State.sendRequestToView(req)
       ->Promise.flatMap(response => {
-          callback(response)
-          ->Promise.map(List.toArray)
-          ->Promise.map(filterReqeusts)
-          ->Promise.flatMap(Runner.pushMany(runner))
+          Runner.pushMany(
+            runner,
+            filterReqeusts(List.toArray(callback(response))),
+          )
         })
       ->Promise.map(() => derivedRequests^)
     };

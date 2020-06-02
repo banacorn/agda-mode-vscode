@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t =
     | Load
+    | Give(Goal.t)
     | Auto(Goal.t)
     | InferType(Command.Normalization.t, string, Goal.t)
     | InferTypeGlobal(Command.Normalization.t, string)
@@ -65,6 +66,21 @@ module Impl = (Editor: Sig.Editor) => {
         commonPart(NonInteractive)
         ++ {j|( Cmd_load "$(filepath)" [$(libraryPath)] )|j};
       }
+
+    // Related issue and commit of agda/agda
+    // https://github.com/agda/agda/issues/2730
+    // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
+    | Give(goal) =>
+      let index: string = string_of_int(goal.index);
+      let content: string = Goal.getContent(goal, editor);
+      let range: string = buildRange(goal);
+      if (Util.Version.gte(version, "2.5.3")) {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_give WithoutForce $(index) $(range) "$(content)" )|j};
+      } else {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_give $(index) $(range) "$(content)" )|j};
+      };
 
     | Auto(goal) =>
       let index: string = string_of_int(goal.index);

@@ -2,7 +2,7 @@ open Command;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
-  module ViewHandler = Handle__View.Impl(Editor);
+
   open! Task;
   // from Editor Command to Tasks
   let handle =
@@ -19,8 +19,27 @@ module Impl = (Editor: Sig.Editor) => {
     | Auto => [
         Goal(
           GetPointedOr(
-            (goal, _) => {[Task.SendRequest(Auto(goal))]},
-            [Error(Error.OutOfGoal)],
+            (goal, _) => {[SendRequest(Auto(goal))]},
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ]
+    | Give => [
+        Goal(
+          GetPointedOr(
+            (goal, content) =>
+              switch (content) {
+              | None =>
+                query(
+                  View.Request.Header.Plain(Command.toString(Command.Give)),
+                  Some("expression to give:"),
+                  None,
+                  expr =>
+                  [Goal(Modify(goal, _ => expr)), SendRequest(Give(goal))]
+                )
+              | Some(_) => [SendRequest(Give(goal))]
+              },
+            [Error(OutOfGoal)],
           ),
         ),
       ]
@@ -37,38 +56,15 @@ module Impl = (Editor: Sig.Editor) => {
                 (
                   fun
                   | None =>
-                    query(
-                      header,
-                      placeholder,
-                      None,
-                      fun
-                      | View.Response.QuerySuccess(expr) => {
-                          Promise.resolved([
-                            SendRequest(
-                              InferType(normalization, expr, goal),
-                            ),
-                          ]);
-                        }
-                      | _ => Promise.resolved([]),
+                    query(header, placeholder, None, expr =>
+                      [SendRequest(InferType(normalization, expr, goal))]
                     )
                   | Some(expr) => [
                       SendRequest(InferType(normalization, expr, goal)),
                     ]
                 ),
-              query(
-                header,
-                placeholder,
-                None,
-                fun
-                | View.Response.QuerySuccess(expr) => {
-                    Promise.resolved([
-                      SendRequest(InferTypeGlobal(normalization, expr)),
-                    ]);
-                  }
-                | response => {
-                    let tasks = ViewHandler.handle(response);
-                    Promise.resolved(tasks);
-                  },
+              query(header, placeholder, None, expr =>
+                [SendRequest(InferTypeGlobal(normalization, expr))]
               ),
             ),
           ),
@@ -85,5 +81,5 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | ViewEvent(event) => [ViewEvent(event)]
-    | Escape => [ViewReq(InterruptQuery, _ => Promise.resolved([]))];
+    | Escape => [ViewReq(InterruptQuery, _ => [])];
 };

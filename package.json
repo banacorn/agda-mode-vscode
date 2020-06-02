@@ -46,6 +46,10 @@
 				"title": "Previous Goal"
 			},
 			{
+				"command": "agda-mode.give",
+				"title": "Give"
+			},
+			{
 				"command": "agda-mode.auto",
 				"title": "Auto"
 			},
@@ -100,6 +104,12 @@
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.give",
+				"key": "ctrl+c ctrl+[Space]",
+				"mac": "ctrl+c ctrl+[Space]",
 				"when": "agdaMode"
 			},
 			{
