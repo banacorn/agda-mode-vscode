@@ -66,6 +66,11 @@ let pushMany = (self: t('a), xs: array('a)): Promise.t(unit) => {
   run(self);
 };
 
+// NOTE: hacky ...
+let interrupt = (self, task: 'a) => {
+  self.execute(task);
+};
+
 // If the runner is currently Idle,
 // then resolve the termination promise immediately
 // else set `shouldTerminate` and wait for the runner to resolve the termination promise

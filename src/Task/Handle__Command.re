@@ -81,5 +81,5 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | ViewEvent(event) => [ViewEvent(event)]
-    | Escape => [Debug("Escape")];
+    | Escape => [ViewReq(InterruptQuery, _ => Promise.resolved([]))];
 };

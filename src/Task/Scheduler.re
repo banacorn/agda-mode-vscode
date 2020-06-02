@@ -16,6 +16,10 @@ module Impl = (Editor: Sig.Editor) => {
 
   // Task Runner
   let dispatchCommand = (self, command) => Runner.push(self, command);
+  let interrupt = (self, command) => {
+    Js.log("[ scheduler ][ interrupt! ] " ++ Command.toString(command));
+    Runner.interrupt(self, command);
+  };
 
   let rec sendRequest =
           (state, request: Task.request): Promise.t(array(Task.request)) => {

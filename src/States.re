@@ -150,7 +150,10 @@ module Impl = (Editor: Sig.Editor) => {
           editor
           ->States.getByEditor
           ->Option.forEach(((_state, runner)) => {
-              TaskRunner.dispatchCommand(runner, command)->ignore
+              switch (command) {
+              | Escape => TaskRunner.interrupt(runner, Escape)->ignore
+              | others => TaskRunner.dispatchCommand(runner, others)->ignore
+              }
             });
         },
       )

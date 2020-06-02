@@ -18,31 +18,38 @@ let make =
   );
 
   let resolver = React.useRef(None);
+  let onSubmit = result =>
+    switch (resolver.current) {
+    | None => ()
+    | Some(resolve) =>
+      resolve(result);
+      resolver.current = None;
+    };
 
   // receiving View Requests
   Hook.on(onRequest, msg =>
     switch (msg) {
     | Plain(header, Query(placeholder, value)) =>
+      Js.log("[ view ] >>> Query");
       let (promise, resolve) = Promise.pending();
       resolver.current = Some(resolve);
       setHeader(_ => header);
       setBody(_ => Query(placeholder, value));
-      promise->Promise.get(result =>
-        onResponse.emit(View.Response.QuerySuccess(result))
-      );
+      promise->Promise.get(result => {
+        Js.log("[ view ] <<< QuerySuccess");
+        onResponse.emit(View.Response.QuerySuccess(result));
+      });
     | Plain(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
       onResponse.emit(View.Response.Success);
+    | InterruptQuery =>
+      Js.log("[ view ] >>> Interrupt Query");
+      Js.log("[ view ] <<< Query Interrupted");
+      onSubmit("yo");
     | _ => onResponse.emit(View.Response.Success)
     }
   );
-
-  let onSubmit = result =>
-    switch (resolver.current) {
-    | None => ()
-    | Some(resolve) => resolve(result)
-    };
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
     <Header header />
