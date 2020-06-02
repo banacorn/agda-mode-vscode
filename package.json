@@ -50,6 +50,10 @@
 				"title": "Give"
 			},
 			{
+				"command": "agda-mode.refine",
+				"title": "Refine"
+			},
+			{
 				"command": "agda-mode.auto",
 				"title": "Auto"
 			},
@@ -110,6 +114,12 @@
 				"command": "agda-mode.give",
 				"key": "ctrl+c ctrl+[Space]",
 				"mac": "ctrl+c ctrl+[Space]",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.refine",
+				"key": "ctrl+c ctrl+r",
+				"mac": "ctrl+c ctrl+r",
 				"when": "agdaMode"
 			},
 			{

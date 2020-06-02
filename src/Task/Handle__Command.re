@@ -16,14 +16,6 @@ module Impl = (Editor: Sig.Editor) => {
     | Quit => [Terminate]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
-    | Auto => [
-        Goal(
-          GetPointedOr(
-            (goal, _) => {[SendRequest(Auto(goal))]},
-            [Error(OutOfGoal)],
-          ),
-        ),
-      ]
     | Give => [
         Goal(
           GetPointedOr(
@@ -39,6 +31,22 @@ module Impl = (Editor: Sig.Editor) => {
                 )
               | Some(_) => [SendRequest(Give(goal))]
               },
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ]
+    | Refine => [
+        Goal(
+          GetPointedOr(
+            (goal, _) => [SendRequest(Refine(goal))],
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ]
+    | Auto => [
+        Goal(
+          GetPointedOr(
+            (goal, _) => {[SendRequest(Auto(goal))]},
             [Error(OutOfGoal)],
           ),
         ),

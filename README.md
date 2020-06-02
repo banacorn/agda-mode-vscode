@@ -18,7 +18,8 @@ A to-do checklist in disguise.
 |:------:|:----------------------------------|:-------------------------------:|
 | ✓      | load                              | <kbd>C-c</kbd> <kbd>C-l</kbd>   |
 | ✓      | quit                              | <kbd>C-c</kbd> <kbd>C-q</kbd>   |
-| ✓     | give                              | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
+| ✓      | give                              | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
+| ✓      | refine                            | <kbd>C-c</kbd> <kbd>C-r</kbd>   |
 | ✓      | auto                              | <kbd>C-y</kbd> <kbd>C-a</kbd>   |
 | ✓      | infer type (simplified)           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
 | ✓      | infer type (instantiaed)          | <kbd>C-u</kbd> <kbd>C-d</kbd>   |
