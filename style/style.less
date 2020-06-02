@@ -3,10 +3,15 @@
 @warning : var(--vscode-editorWarning-foreground);
 @success : var(--vscode-editorInfo-foreground);
 
+@inputBackground  : var(--vscode-input-background);
+@input            : var(--vscode-input-foreground);
+@inputBorder      : var(--vscode-input-border);
+@inputPlaceholder : var(--vscode-input-placeholderForeground);
+
 // dimensions
-@header-height  : 60px;
-@header-padding : 10px;
-@body-padding   : 10px;
+@header-height  : 4rem;
+@header-padding : 1rem;
+@body-padding   : 1rem;
 
 // vscode: removes focus outline  
 *:focus {
@@ -23,6 +28,7 @@
 
     line-height: @header-height;
     font-size  : 150%;
+    font-weight: bold;
 
     &.success {
         color: @success
@@ -41,7 +47,22 @@
     white-space: pre;
     background : var(--vscode-sideBar-background);
 
-    font-size: 125%;
+    font-size  : 125%;
+    line-height: 1.5rem;
 
     padding: @body-padding;
+
+    input {
+        font-size     : 125%;
+        padding       : @body-padding;
+        // line-height: 50px;
+
+        background-color: @inputBackground;
+        border          : none;
+        color           : @input;
+    }
+
+    input::-webkit-input-placeholder {
+        color: @inputPlaceholder;
+    }
 }
