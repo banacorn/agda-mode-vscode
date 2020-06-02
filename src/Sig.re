@@ -54,6 +54,7 @@ module type Editor = {
     ((option(fileName), option(fileName)) => unit) => Disposable.t;
   let onDidCloseEditor: (fileName => unit) => Disposable.t;
   let registerCommand: (string, editor => unit) => Disposable.t;
+  let setContext: (string, bool) => Promise.t(unit);
 
   // Subscriptions
   let addToSubscriptions: (Disposable.t, context) => unit;

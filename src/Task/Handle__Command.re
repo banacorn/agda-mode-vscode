@@ -1,5 +1,4 @@
 open Command;
-open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
@@ -81,5 +80,6 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | ViewEvent(event) => [ViewEvent(event)];
+    | ViewEvent(event) => [ViewEvent(event)]
+    | Escape => [Debug("Escape")];
 };

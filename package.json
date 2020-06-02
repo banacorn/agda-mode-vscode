@@ -72,6 +72,10 @@
 			{
 				"command": "agda-mode.goal-type[Normalised]",
 				"title": "Goal Type (normalised)"
+			},
+			{
+				"command": "agda-mode.escape",
+				"title": "Escape"
 			}
 		],
 		"keybindings": [
@@ -129,6 +133,12 @@
 				"command": "agda-mode.goal-type[Normalised]",
 				"key": "ctrl+y ctrl+t",
 				"mac": "ctrl+y ctrl+t"
+			},
+			{
+				"command": "agda-mode.escape",
+				"key": "escape",
+				"mac": "escape",
+				"when": "agdaMode"
 			}
 		],
 		"configuration": {

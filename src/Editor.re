@@ -106,6 +106,8 @@ let registerCommand = (name, callback) =>
     })
   });
 
+let setContext = Commands.setContext;
+
 //
 // Configuration
 //

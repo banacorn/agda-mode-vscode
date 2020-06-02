@@ -115,9 +115,16 @@ module Commands = {
   external executeCommand:
     (
     [@bs.string]
-    [ | [@bs.as "vscode.setEditorLayout"] `setEditorLayout(Layout.t)]
+    [
+      | [@bs.as "vscode.setEditorLayout"] `setEditorLayout(Layout.t)
+      | [@bs.as "setContext"] `setContext(string, bool)
+    ]
     ) =>
     Promise.t('a) =
+    "executeCommand";
+  [@bs.module "vscode"] [@bs.scope "commands"]
+  external setContext:
+    ([@bs.as "setContext"] _, string, bool) => Promise.t(unit) =
     "executeCommand";
 
   [@bs.module "vscode"] [@bs.scope "commands"]

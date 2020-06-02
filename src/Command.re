@@ -19,7 +19,8 @@ type t =
   | Auto
   | InferType(Normalization.t)
   | GoalType(Normalization.t)
-  | ViewEvent(View.Event.t);
+  | ViewEvent(View.Event.t)
+  | Escape;
 
 // for registering Keybindings
 let names: array((t, string)) = [|
@@ -34,6 +35,7 @@ let names: array((t, string)) = [|
   (GoalType(Simplified), "goal-type[Simplified]"),
   (GoalType(Instantiated), "goal-type[Instantiated]"),
   (GoalType(Normalised), "goal-type[Normalised]"),
+  (Escape, "escape"),
 |];
 
 // for human
@@ -50,4 +52,5 @@ let toString =
   | GoalType(Simplified) => "Goal Type (simplified)"
   | GoalType(Instantiated) => "Goal Type (instantiated)"
   | GoalType(Normalised) => "Goal Type (normalised)"
-  | ViewEvent(_) => "View Event";
+  | ViewEvent(_) => "View Event"
+  | Escape => "Escape";
