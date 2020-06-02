@@ -251,6 +251,74 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
+    // replace and insert one or more lines of content at the goal
+    // usage: case split
+    | ReplaceWithLines(goal, lines) => [
+        WithState(
+          state => {
+            // get the width of indentation from the first line of the goal
+            let start = Editor.pointAtOffset(state.editor, fst(goal.range));
+            let startLineNo = Editor.Point.line(start);
+            let startLineRange =
+              Editor.rangeForLine(state.editor, startLineNo);
+            let startLineText =
+              Editor.getTextInRange(state.editor, startLineRange);
+            // tally the number of blank characters
+            // ' ', '\012', '\n', '\r', and '\t'
+            let indentedBy = s => {
+              let n = ref(0);
+              for (i in 0 to Js.String.length(s) - 1) {
+                switch (Js.String.charAt(i, s)) {
+                | " "
+                | "\012"
+                | "\n"
+                | "\r"
+                | "\t" =>
+                  if (i == n^) {
+                    n := n^ + 1;
+                  }
+                | _ => ()
+                };
+              };
+              n^;
+            };
+            let indentation =
+              Js.String.repeat(indentedBy(startLineText), " ");
+            let indentedLines =
+              lines
+              ->Array.map(line => indentation ++ line ++ "\n")
+              ->Js.String.concatMany("");
+            // indentation ++ Js.String.concatMany(lines, "\n" ++ indentation);
+            // the rows spanned by the goal (including the text outside the goal)
+            // will be replaced by the `indentedLines`
+            let start = Editor.Range.start(startLineRange);
+            let end_ = Editor.pointAtOffset(state.editor, snd(goal.range));
+            let endLineNo = Editor.Point.line(end_);
+            let endLineRange = Editor.rangeForLine(state.editor, startLineNo);
+            let end_ = Editor.Range.end_(endLineRange);
+            let rangeToBeReplaced = Editor.Range.make(start, end_);
+
+            Editor.setText(state.editor, rangeToBeReplaced, indentedLines)
+            ->Promise.map(
+                fun
+                | true => {
+                    Goal.destroy(goal);
+                    [];
+                  }
+                | false => [
+                    displayError(
+                      "Goal-related Error",
+                      Some(
+                        "Unable to replace the lines of goal #"
+                        ++ string_of_int(goal.index),
+                      ),
+                    ),
+                  ],
+              );
+          },
+        ),
+      ]
+    | ReplaceWithLambda(goal, lines) => [Debug("ReplaceWithLambda")]
     | GetPointedOr(callback, alternative) => [
         Goal(UpdateRange),
         WithState(

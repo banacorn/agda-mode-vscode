@@ -10,10 +10,11 @@ module Impl = (Editor: Sig.Editor) => {
     | Next
     | Previous
     | Modify(Goal.t, string => string)
-    // | RestoreCursor(unit => Promise.t(list(t)))
     | SaveCursor
     | RestoreCursor
     | RemoveBoundaryAndDestroy(Goal.t)
+    | ReplaceWithLines(Goal.t, array(string))
+    | ReplaceWithLambda(Goal.t, array(string))
     | GetPointedOr((Goal.t, option(string)) => list(t), list(t))
     | GetIndexedOr(int, (Goal.t, option(string)) => list(t), list(t))
 

@@ -1,6 +1,7 @@
 // from Agda Response to Tasks
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  module CommandHandler = Handle__Command.Impl(Editor);
   open! Task;
   open Response;
   module DisplayInfo = {
@@ -54,6 +55,7 @@ module Impl = (Editor: Sig.Editor) => {
       } else {
         [];
       }
+    | InteractionPoints(indices) => [Goal(Instantiate(indices))]
     | GiveAction(index, give) => [
         Goal(
           GetIndexedOr(
@@ -92,11 +94,28 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | MakeCase(makeCaseType, lines) => [
+        Goal(
+          GetPointedOr(
+            (goal, _) => {
+              let tasks = CommandHandler.handle(Load);
+              switch (makeCaseType) {
+              | Function => [Goal(ReplaceWithLines(goal, lines)), ...tasks]
+              // Goal.writeLines(goal, editor, lines);
+              | ExtendedLambda => [
+                  Goal(ReplaceWithLambda(goal, lines)),
+                  ...tasks,
+                ]
+              };
+            },
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ]
     | DisplayInfo(info) => DisplayInfo.handle(info)
     | RunningInfo(_verbosity, message) => [
         display("Type-checking", Some(message)),
       ]
-    | InteractionPoints(indices) => [Goal(Instantiate(indices))]
     | _ => [];
   // | others => [Debug(Response.toString(others))];
 };
