@@ -58,6 +58,10 @@
 				"title": "Auto"
 			},
 			{
+				"command": "agda-mode.case",
+				"title": "Case"
+			},
+			{
 				"command": "agda-mode.infer-type[Simplified]",
 				"title": "Infer Type (simplified)"
 			},
@@ -126,6 +130,12 @@
 				"command": "agda-mode.auto",
 				"key": "ctrl+c ctrl+a",
 				"mac": "ctrl+c ctrl+a",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.case",
+				"key": "ctrl+c ctrl+c",
+				"mac": "ctrl+c ctrl+c",
 				"when": "agdaMode"
 			},
 			{

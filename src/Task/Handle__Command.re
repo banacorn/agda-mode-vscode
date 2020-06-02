@@ -58,6 +58,30 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | Case => {
+        let header =
+          View.Request.Header.Plain(Command.toString(Command.Case));
+        let placeholder = Some("expression to case:");
+        [
+          Goal(
+            GetPointedOr(
+              goal =>
+                (
+                  fun
+                  | None =>
+                    query(header, placeholder, None, expr =>
+                      [
+                        Goal(Modify(goal, _ => expr)),
+                        SendRequest(Case(goal)),
+                      ]
+                    )
+                  | Some(_) => [SendRequest(Case(goal))]
+                ),
+              [Error(OutOfGoal)],
+            ),
+          ),
+        ];
+      }
     | InferType(normalization) => {
         let header =
           View.Request.Header.Plain(

@@ -19,6 +19,7 @@ type t =
   | Give
   | Refine
   | Auto
+  | Case
   | InferType(Normalization.t)
   | GoalType(Normalization.t)
   | ViewEvent(View.Event.t)
@@ -33,6 +34,7 @@ let names: array((t, string)) = [|
   (Give, "give"),
   (Refine, "refine"),
   (Auto, "auto"),
+  (Case, "case"),
   (InferType(Simplified), "infer-type[Simplified]"),
   (InferType(Instantiated), "infer-type[Instantiated]"),
   (InferType(Normalised), "infer-type[Normalised]"),
@@ -52,6 +54,7 @@ let toString =
   | Give => "Give"
   | Refine => "Refine"
   | Auto => "Auto"
+  | Case => "Case"
   | InferType(Simplified) => "Infer Type (simplified)"
   | InferType(Instantiated) => "Infer Type (instantiated)"
   | InferType(Normalised) => "Infer Type (normalised)"

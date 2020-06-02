@@ -8,6 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Give(Goal.t)
     | Refine(Goal.t)
     | Auto(Goal.t)
+    | Case(Goal.t)
     | InferType(Command.Normalization.t, string, Goal.t)
     | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t);
@@ -103,6 +104,13 @@ module Impl = (Editor: Sig.Editor) => {
         commonPart(NonInteractive)
         ++ {j|( Cmd_auto $(index) $(range) "$(content)" )|j};
       };
+
+    | Case(goal) =>
+      let index: string = string_of_int(goal.index);
+      let content: string = Goal.getContent(goal, editor);
+      let range: string = buildRange(goal);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_make_case $(index) $(range) "$(content)" )|j};
 
     | InferType(normalization, expr, goal) =>
       let index = string_of_int(goal.index);
