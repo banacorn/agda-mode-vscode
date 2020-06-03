@@ -52,10 +52,18 @@ module Impl = (Editor: Sig.Editor) => {
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
+  let afterQuery = callbackOnQuerySuccess =>
+    fun
+    | View.Response.Success => []
+    | QuerySuccess(result) => callbackOnQuerySuccess(result)
+    | QueryInterrupted => [displayError("Query Cancelled", None)]
+    | Event(Initialized) => []
+    | Event(Destroyed) => [Terminate];
+
   let query = (header, placeholder, value, callbackOnQuerySuccess) => [
-    // focus on the panel before inquiring
     WithState(
       state => {
+        // focus on the panel before inquiring
         Editor.setContext("agdaModeQuerying", true)->ignore;
         state.view->Editor.View.focus;
         Promise.resolved([]);
@@ -63,19 +71,28 @@ module Impl = (Editor: Sig.Editor) => {
     ),
     ViewReq(
       Plain(header, Query(placeholder, value)),
-      fun
-      | View.Response.Success => []
-      | QuerySuccess(result) => callbackOnQuerySuccess(result)
-      | QueryInterrupted => [displayError("Query Cancelled", None)]
-      | Event(Initialized) => []
-      | Event(Destroyed) => [Terminate],
-    ),
-    // put the focus back to the editor after inquiring
-    WithState(
-      state => {
-        Editor.setContext("agdaModeQuerying", false)->ignore;
-        state.editor->Editor.focus;
-        Promise.resolved([]);
+      response => {
+        let tasks =
+          switch (response) {
+          | View.Response.Success => []
+          | QuerySuccess(result) => callbackOnQuerySuccess(result)
+          | QueryInterrupted => [displayError("Query Cancelled", None)]
+          | Event(Initialized) => []
+          | Event(Destroyed) => [Terminate]
+          };
+        Belt.List.concat(
+          tasks,
+          [
+            WithState(
+              state => {
+                // put the focus back to the editor after inquiring
+                Editor.setContext("agdaModeQuerying", false)->ignore;
+                state.editor->Editor.focus;
+                Promise.resolved([]);
+              },
+            ),
+          ],
+        );
       },
     ),
   ];

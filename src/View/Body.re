@@ -22,12 +22,12 @@ let make = (~body: View.Request.Body.t, ~onSubmit: option(string) => unit) => {
           placeholder
           onChange
           value
-          ref={ReactDOMRe.Ref.callbackDomRef(ref =>
+          ref={ReactDOMRe.Ref.callbackDomRef(ref => {
             ref
             ->Js.Nullable.toOption
             ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
             ->Option.forEach(Webapi.Dom.HtmlElement.focus)
-          )}
+          })}
         />
       </form>
     </div>;
