@@ -47,7 +47,7 @@ let editorType = Sig.VsCode;
 let getExtensionPath = context => context->ExtensionContext.extensionPath;
 
 let getFileName = editor =>
-  Some(editor->TextEditor.document->TextDocument.fileName);
+  Some(editor->TextEditor.document->TextDocument.fileName->Parser.filepath);
 
 let save = editor => editor->TextEditor.document->TextDocument.save;
 
