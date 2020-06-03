@@ -55,7 +55,10 @@ module Impl = (Editor: Sig.Editor) => {
       } else {
         [];
       }
-    | InteractionPoints(indices) => [Goal(Instantiate(indices))]
+    | InteractionPoints(indices) => [
+        Goal(Instantiate(indices)),
+        Goal(RestoreCursor),
+      ]
     | GiveAction(index, give) => [
         Goal(
           GetIndexedOr(

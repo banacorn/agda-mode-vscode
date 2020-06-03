@@ -13,7 +13,6 @@ module Impl = (Editor: Sig.Editor) => {
         ),
         Goal(SaveCursor),
         SendRequest(Load),
-        Goal(RestoreCursor),
       ]
     | Quit => [Terminate]
     | NextGoal => [Goal(Next)]
@@ -40,12 +39,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Refine => [
         Goal(
           GetPointedOr(
-            (goal, _) =>
-              [
-                Goal(SaveCursor),
-                SendRequest(Refine(goal)),
-                Goal(RestoreCursor),
-              ],
+            (goal, _) => [Goal(SaveCursor), SendRequest(Refine(goal))],
             [Error(OutOfGoal)],
           ),
         ),
