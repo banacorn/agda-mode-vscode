@@ -31,30 +31,6 @@ module Impl = (Editor: Sig.Editor) => {
     pointedGoals[0];
   };
 
-  // after executing the callback
-  //  if the cursor is pointing at some empty hole
-  //    then move the cursor inside the empty hole
-  //    else restore the cursor to its original position
-  let restoreCursorPosition = (state: State.t, callback) => {
-    let originalPosition = Editor.getCursorPosition(state.editor);
-    let originalOffset = Editor.offsetAtPoint(state.editor, originalPosition);
-
-    callback()
-    ->Promise.map(result => {
-        let pointed = pointingAt(~cursor=originalOffset, state);
-        switch (pointed) {
-        | Some(goal) =>
-          if (Goal.getContent(goal, state.editor) == "") {
-            Goal.setCursor(goal, state.editor);
-          } else {
-            Editor.setCursorPosition(state.editor, originalPosition);
-          }
-        | None => Editor.setCursorPosition(state.editor, originalPosition)
-        };
-        result;
-      });
-  };
-
   // from Goal-related action to Tasks
   let handle =
     fun
@@ -285,16 +261,13 @@ module Impl = (Editor: Sig.Editor) => {
             let indentation =
               Js.String.repeat(indentedBy(startLineText), " ");
             let indentedLines =
-              lines
-              ->Array.map(line => indentation ++ line ++ "\n")
-              ->Js.String.concatMany("");
-            // indentation ++ Js.String.concatMany(lines, "\n" ++ indentation);
+              indentation ++ Js.Array.joinWith("\n" ++ indentation, lines);
             // the rows spanned by the goal (including the text outside the goal)
             // will be replaced by the `indentedLines`
             let start = Editor.Range.start(startLineRange);
             let end_ = Editor.pointAtOffset(state.editor, snd(goal.range));
             let endLineNo = Editor.Point.line(end_);
-            let endLineRange = Editor.rangeForLine(state.editor, startLineNo);
+            let endLineRange = Editor.rangeForLine(state.editor, endLineNo);
             let end_ = Editor.Range.end_(endLineRange);
             let rangeToBeReplaced = Editor.Range.make(start, end_);
 
