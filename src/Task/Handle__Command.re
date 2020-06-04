@@ -122,5 +122,6 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | ViewEvent(event) => [ViewEvent(event)]
-    | Escape => [ViewReq(InterruptQuery, _ => [])];
+    | Escape => [ViewReq(InterruptQuery, _ => [])]
+    | InputSymbol => [Debug("InputSymbol")];
 };

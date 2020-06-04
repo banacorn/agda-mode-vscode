@@ -24,7 +24,8 @@ type t =
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | ViewEvent(View.Event.t)
-  | Escape;
+  | Escape
+  | InputSymbol;
 
 // for registering Keybindings
 let names: array((t, string)) = [|
@@ -46,6 +47,7 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
   (Escape, "escape"),
+  (InputSymbol, "input-symbol"),
 |];
 
 // for human
@@ -69,4 +71,5 @@ let toString =
   | GoalTypeAndContext(Instantiated) => "Goal type and context (instantiated)"
   | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
   | ViewEvent(_) => "View event"
-  | Escape => "Escape";
+  | Escape => "Escape"
+  | InputSymbol => "InputSymbol";

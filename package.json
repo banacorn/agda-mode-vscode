@@ -100,6 +100,10 @@
 			{
 				"command": "agda-mode.escape",
 				"title": "Escape"
+			},
+			{
+				"command": "agda-mode.input-symbol",
+				"title": "Input symbol"
 			}
 		],
 		"keybindings": [
@@ -209,6 +213,16 @@
 				"key": "escape",
 				"mac": "escape",
 				"when": "agdaMode && agdaModeQuerying"
+			},
+			{
+				"command": "agda-mode.input-symbol",
+				"key": "\\",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.input-symbol",
+				"key": "[Backslash]",
+				"when": "agdaMode"
 			}
 		],
 		"configuration": {
