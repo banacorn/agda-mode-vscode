@@ -31,6 +31,34 @@ module Impl = (Editor: Sig.Editor) => {
     pointedGoals[0];
   };
 
+  // get the width of indentation from the first line of a goal
+  let indentationWidth = (goal: Goal.t, editor) => {
+    let start = Editor.pointAtOffset(editor, fst(goal.range));
+    let startLineNo = Editor.Point.line(start);
+    let startLineRange = Editor.rangeForLine(editor, startLineNo);
+    let startLineText = Editor.getTextInRange(editor, startLineRange);
+    // tally the number of blank characters
+    // ' ', '\012', '\n', '\r', and '\t'
+    let indentedBy = s => {
+      let n = ref(0);
+      for (i in 0 to Js.String.length(s) - 1) {
+        switch (Js.String.charAt(i, s)) {
+        | " "
+        | "\012"
+        | "\n"
+        | "\r"
+        | "\t" =>
+          if (i == n^) {
+            n := n^ + 1;
+          }
+        | _ => ()
+        };
+      };
+      n^;
+    };
+    indentedBy(startLineText);
+  };
+
   // from Goal-related action to Tasks
   let handle =
     fun
@@ -233,38 +261,18 @@ module Impl = (Editor: Sig.Editor) => {
         WithState(
           state => {
             // get the width of indentation from the first line of the goal
-            let start = Editor.pointAtOffset(state.editor, fst(goal.range));
-            let startLineNo = Editor.Point.line(start);
-            let startLineRange =
-              Editor.rangeForLine(state.editor, startLineNo);
-            let startLineText =
-              Editor.getTextInRange(state.editor, startLineRange);
-            // tally the number of blank characters
-            // ' ', '\012', '\n', '\r', and '\t'
-            let indentedBy = s => {
-              let n = ref(0);
-              for (i in 0 to Js.String.length(s) - 1) {
-                switch (Js.String.charAt(i, s)) {
-                | " "
-                | "\012"
-                | "\n"
-                | "\r"
-                | "\t" =>
-                  if (i == n^) {
-                    n := n^ + 1;
-                  }
-                | _ => ()
-                };
-              };
-              n^;
-            };
-            let indentation =
-              Js.String.repeat(indentedBy(startLineText), " ");
+            let indentWidth = indentationWidth(goal, state.editor);
+            let indentation = Js.String.repeat(indentWidth, " ");
             let indentedLines =
               indentation ++ Js.Array.joinWith("\n" ++ indentation, lines);
             // the rows spanned by the goal (including the text outside the goal)
             // will be replaced by the `indentedLines`
+            let start = Editor.pointAtOffset(state.editor, fst(goal.range));
+            let startLineNo = Editor.Point.line(start);
+            let startLineRange =
+              Editor.rangeForLine(state.editor, startLineNo);
             let start = Editor.Range.start(startLineRange);
+
             let end_ = Editor.pointAtOffset(state.editor, snd(goal.range));
             let endLineNo = Editor.Point.line(end_);
             let endLineRange = Editor.rangeForLine(state.editor, endLineNo);
@@ -291,7 +299,95 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | ReplaceWithLambda(goal, lines) => [Debug("ReplaceWithLambda")]
+
+    // Replace definition of extended lambda with new clauses
+    // aside from the goal itself, its clauses also need to be rewritten
+    // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
+    | ReplaceWithLambda(goal, lines) => [
+        WithState(
+          state => {
+            Js.log(lines);
+            // range to scan
+            let goalStart =
+              Editor.pointAtOffset(state.editor, fst(goal.range));
+            let goalEnd =
+              Editor.pointAtOffset(state.editor, snd(goal.range));
+            let lineBeforeGoal =
+              Editor.getTextInRange(
+                state.editor,
+                Editor.Range.make(
+                  Editor.Point.make(Editor.Point.line(goalStart), 0),
+                  goalStart,
+                ),
+              );
+            let indentWidth = indentationWidth(goal, state.editor);
+            // start at the last ";", or the first non-blank character
+            let scanRow = Editor.Point.line(goalStart);
+            let scanColStart =
+              switch (Js.String.lastIndexOf(";", lineBeforeGoal)) {
+              | (-1) => indentWidth
+              | n => n + 1
+              };
+            let scanColEnd = Editor.Point.column(goalStart);
+
+            // determine the position of "{"
+            // iterate from the end to the start
+            let bracketCount = ref(0);
+            let i = ref(scanColEnd - 1);
+            while (i^ >= scanColStart && bracketCount^ >= 0) {
+              switch (i^) {
+              // no preceding character
+              | 0 => ()
+              // has preceding character
+              | i' =>
+                switch (Js.String.charAt(i' - 1, lineBeforeGoal)) {
+                | "}" => bracketCount := bracketCount^ + 1
+                | "{" => bracketCount := bracketCount^ - 1
+                | _ => ()
+                }
+              };
+              i := i^ - 1;
+            };
+            let rewriteRange =
+              Editor.Range.make(Editor.Point.make(scanRow, i^ + 1), goalEnd);
+            let isLambdaWhere = i^ + 1 == indentWidth;
+            (
+              if (isLambdaWhere) {
+                Editor.setText(
+                  state.editor,
+                  rewriteRange,
+                  Js.Array.joinWith(
+                    "\n" ++ Js.String.repeat(indentWidth, " "),
+                    lines,
+                  ),
+                );
+              } else {
+                Editor.setText(
+                  state.editor,
+                  rewriteRange,
+                  " " ++ Js.Array.joinWith(" ; ", lines),
+                );
+              }
+            )
+            ->Promise.map(
+                fun
+                | true => {
+                    Goal.destroy(goal);
+                    [];
+                  }
+                | false => [
+                    displayError(
+                      "Goal-related Error",
+                      Some(
+                        "Unable to replace the lines of goal #"
+                        ++ string_of_int(goal.index),
+                      ),
+                    ),
+                  ],
+              );
+          },
+        ),
+      ]
     | GetPointedOr(callback, alternative) => [
         Goal(UpdateRange),
         WithState(

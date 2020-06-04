@@ -104,7 +104,6 @@ module Impl = (Editor: Sig.Editor) => {
               let tasks = CommandHandler.handle(Load);
               switch (makeCaseType) {
               | Function => [Goal(ReplaceWithLines(goal, lines)), ...tasks]
-              // Goal.writeLines(goal, editor, lines);
               | ExtendedLambda => [
                   Goal(ReplaceWithLambda(goal, lines)),
                   ...tasks,
