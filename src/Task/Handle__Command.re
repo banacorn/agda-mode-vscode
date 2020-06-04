@@ -106,8 +106,16 @@ module Impl = (Editor: Sig.Editor) => {
     | GoalType(normalization) => [
         Goal(
           GetPointedOr(
+            (goal, _) => {[SendRequest(GoalType(normalization, goal))]},
+            [Error(Error.OutOfGoal)],
+          ),
+        ),
+      ]
+    | GoalTypeAndContext(normalization) => [
+        Goal(
+          GetPointedOr(
             (goal, _) => {
-              [Task.SendRequest(GoalType(normalization, goal))]
+              [SendRequest(GoalTypeAndContext(normalization, goal))]
             },
             [Error(Error.OutOfGoal)],
           ),

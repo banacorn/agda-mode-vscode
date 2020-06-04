@@ -75,15 +75,27 @@
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",
-				"title": "Goal Type (simplified)"
+				"title": "Goal type (simplified)"
 			},
 			{
 				"command": "agda-mode.goal-type[Instantiated]",
-				"title": "Goal Type (instantiated)"
+				"title": "Goal type (instantiated)"
 			},
 			{
 				"command": "agda-mode.goal-type[Normalised]",
-				"title": "Goal Type (normalised)"
+				"title": "Goal type (normalised)"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Simplified]",
+				"title": "Goal type and context (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Instantiated]",
+				"title": "Goal type and context (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Normalised]",
+				"title": "Goal type and context (normalised)"
 			},
 			{
 				"command": "agda-mode.escape",
@@ -172,6 +184,24 @@
 				"command": "agda-mode.goal-type[Normalised]",
 				"key": "ctrl+y ctrl+t",
 				"mac": "ctrl+y ctrl+t",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Simplified]",
+				"key": "ctrl+c ctrl+,",
+				"mac": "ctrl+c ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Instantiated]",
+				"key": "ctrl+u ctrl+,",
+				"mac": "ctrl+u ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Normalised]",
+				"key": "ctrl+y ctrl+,",
+				"mac": "ctrl+y ctrl+,",
 				"when": "agdaMode"
 			},
 			{

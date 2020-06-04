@@ -90,7 +90,6 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(UpdateRange),
         WithState(
           state => {
-            Js.log(Editor.getText(state.editor));
             let nextGoal = ref(None);
             let cursorOffset =
               Editor.offsetAtPoint(

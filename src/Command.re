@@ -22,6 +22,7 @@ type t =
   | Case
   | InferType(Normalization.t)
   | GoalType(Normalization.t)
+  | GoalTypeAndContext(Normalization.t)
   | ViewEvent(View.Event.t)
   | Escape;
 
@@ -41,6 +42,9 @@ let names: array((t, string)) = [|
   (GoalType(Simplified), "goal-type[Simplified]"),
   (GoalType(Instantiated), "goal-type[Instantiated]"),
   (GoalType(Normalised), "goal-type[Normalised]"),
+  (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
+  (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
+  (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
   (Escape, "escape"),
 |];
 
@@ -49,17 +53,20 @@ let toString =
   fun
   | Load => "Load"
   | Quit => "Quit"
-  | NextGoal => "Next Goal"
-  | PreviousGoal => "Previous Goal"
+  | NextGoal => "Next goal"
+  | PreviousGoal => "Previous goal"
   | Give => "Give"
   | Refine => "Refine"
   | Auto => "Auto"
   | Case => "Case"
-  | InferType(Simplified) => "Infer Type (simplified)"
-  | InferType(Instantiated) => "Infer Type (instantiated)"
-  | InferType(Normalised) => "Infer Type (normalised)"
-  | GoalType(Simplified) => "Goal Type (simplified)"
-  | GoalType(Instantiated) => "Goal Type (instantiated)"
-  | GoalType(Normalised) => "Goal Type (normalised)"
-  | ViewEvent(_) => "View Event"
+  | InferType(Simplified) => "Infer type (simplified)"
+  | InferType(Instantiated) => "Infer type (instantiated)"
+  | InferType(Normalised) => "Infer type (normalised)"
+  | GoalType(Simplified) => "Goal type (simplified)"
+  | GoalType(Instantiated) => "Goal type (instantiated)"
+  | GoalType(Normalised) => "Goal type (normalised)"
+  | GoalTypeAndContext(Simplified) => "Goal type and context (simplified)"
+  | GoalTypeAndContext(Instantiated) => "Goal type and context (instantiated)"
+  | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
+  | ViewEvent(_) => "View event"
   | Escape => "Escape";

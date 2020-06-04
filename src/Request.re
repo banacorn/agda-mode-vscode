@@ -11,7 +11,8 @@ module Impl = (Editor: Sig.Editor) => {
     | Case(Goal.t)
     | InferType(Command.Normalization.t, string, Goal.t)
     | InferTypeGlobal(Command.Normalization.t, string)
-    | GoalType(Command.Normalization.t, Goal.t);
+    | GoalType(Command.Normalization.t, Goal.t)
+    | GoalTypeAndContext(Command.Normalization.t, Goal.t);
 
   // How much highlighting should be sent to the user interface?
   type highlightingLevel =
@@ -131,6 +132,13 @@ module Impl = (Editor: Sig.Editor) => {
       let normalization = Command.Normalization.toString(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type $(normalization) $(index) noRange "" )|j};
+
+    | GoalTypeAndContext(normalization, goal) =>
+      let index: string = string_of_int(goal.index);
+      let normalization: string =
+        Command.Normalization.toString(normalization);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_goal_type_context $(normalization) $(index) noRange "" )|j};
     };
   };
 };
