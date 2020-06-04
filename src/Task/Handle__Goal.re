@@ -31,12 +31,14 @@ module Impl = (Editor: Sig.Editor) => {
     pointedGoals[0];
   };
 
-  // get the width of indentation from the first line of a goal
-  let indentationWidth = (goal: Goal.t, editor) => {
-    let start = Editor.pointAtOffset(editor, fst(goal.range));
-    let startLineNo = Editor.Point.line(start);
-    let startLineRange = Editor.rangeForLine(editor, startLineNo);
-    let startLineText = Editor.getTextInRange(editor, startLineRange);
+  // returns the width of indentation of the first line of a goal
+  // along with the text and the range before the goal
+  let indentationWidth =
+      (goal: Goal.t, editor): (int, string, Editor.Range.t) => {
+    let goalStart = Editor.pointAtOffset(editor, fst(goal.range));
+    let lineNo = Editor.Point.line(goalStart);
+    let range = Editor.Range.make(Editor.Point.make(lineNo, 0), goalStart);
+    let textBeforeGoal = Editor.getTextInRange(editor, range);
     // tally the number of blank characters
     // ' ', '\012', '\n', '\r', and '\t'
     let indentedBy = s => {
@@ -56,7 +58,7 @@ module Impl = (Editor: Sig.Editor) => {
       };
       n^;
     };
-    indentedBy(startLineText);
+    (indentedBy(textBeforeGoal), textBeforeGoal, range);
   };
 
   // from Goal-related action to Tasks
@@ -261,7 +263,7 @@ module Impl = (Editor: Sig.Editor) => {
         WithState(
           state => {
             // get the width of indentation from the first line of the goal
-            let indentWidth = indentationWidth(goal, state.editor);
+            let (indentWidth, _, _) = indentationWidth(goal, state.editor);
             let indentation = Js.String.repeat(indentWidth, " ");
             let indentedLines =
               indentation ++ Js.Array.joinWith("\n" ++ indentation, lines);
@@ -301,34 +303,35 @@ module Impl = (Editor: Sig.Editor) => {
       ]
 
     // Replace definition of extended lambda with new clauses
-    // aside from the goal itself, its clauses also need to be rewritten
+    //
+    // We are asked to replace a clause like "x → ?" with multiple clauese
+    // However, there are two kinds of syntax
+    //  1.  λ { x → ?
+    //        ; y → ?
+    //        }
+    //  2.  λ where
+    //          x → ?
+    //          y → ?
+    // We will need to determine whether semicolons ";"
+    // should to be inserted in between the given clauses
+    // We employ the strategy implemented by the Emacs mode
     // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
+    // which searches backward (starting from the goal) and look for the presence of "{"
     | ReplaceWithLambda(goal, lines) => [
         WithState(
           state => {
-            Js.log(lines);
-            // range to scan
-            let goalStart =
-              Editor.pointAtOffset(state.editor, fst(goal.range));
             let goalEnd =
               Editor.pointAtOffset(state.editor, snd(goal.range));
-            let lineBeforeGoal =
-              Editor.getTextInRange(
-                state.editor,
-                Editor.Range.make(
-                  Editor.Point.make(Editor.Point.line(goalStart), 0),
-                  goalStart,
-                ),
-              );
-            let indentWidth = indentationWidth(goal, state.editor);
+            let (indentWidth, textBeforeGoal, range) =
+              indentationWidth(goal, state.editor);
             // start at the last ";", or the first non-blank character
-            let scanRow = Editor.Point.line(goalStart);
+            let scanRow = Editor.Point.line(Editor.Range.start(range));
             let scanColStart =
-              switch (Js.String.lastIndexOf(";", lineBeforeGoal)) {
+              switch (Js.String.lastIndexOf(";", textBeforeGoal)) {
               | (-1) => indentWidth
               | n => n + 1
               };
-            let scanColEnd = Editor.Point.column(goalStart);
+            let scanColEnd = Editor.Point.column(Editor.Range.end_(range));
 
             // determine the position of "{"
             // iterate from the end to the start
@@ -340,7 +343,7 @@ module Impl = (Editor: Sig.Editor) => {
               | 0 => ()
               // has preceding character
               | i' =>
-                switch (Js.String.charAt(i' - 1, lineBeforeGoal)) {
+                switch (Js.String.charAt(i' - 1, textBeforeGoal)) {
                 | "}" => bracketCount := bracketCount^ + 1
                 | "{" => bracketCount := bracketCount^ - 1
                 | _ => ()
@@ -348,27 +351,24 @@ module Impl = (Editor: Sig.Editor) => {
               };
               i := i^ - 1;
             };
+            Js.log((textBeforeGoal, i^ + 1, indentWidth));
             let rewriteRange =
               Editor.Range.make(Editor.Point.make(scanRow, i^ + 1), goalEnd);
             let isLambdaWhere = i^ + 1 == indentWidth;
-            (
+            let rewriteText =
               if (isLambdaWhere) {
-                Editor.setText(
-                  state.editor,
-                  rewriteRange,
-                  Js.Array.joinWith(
-                    "\n" ++ Js.String.repeat(indentWidth, " "),
-                    lines,
-                  ),
+                Js.Array.joinWith(
+                  "\n" ++ Js.String.repeat(indentWidth, " "),
+                  lines,
                 );
               } else {
-                Editor.setText(
-                  state.editor,
-                  rewriteRange,
-                  " " ++ Js.Array.joinWith(" ; ", lines),
-                );
-              }
-            )
+                " "
+                ++ Js.Array.joinWith(
+                     "\n" ++ Js.String.repeat(indentWidth, " ") ++ "; ",
+                     lines,
+                   );
+              };
+            Editor.setText(state.editor, rewriteRange, rewriteText)
             ->Promise.map(
                 fun
                 | true => {

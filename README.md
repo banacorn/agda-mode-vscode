@@ -21,7 +21,7 @@ A to-do checklist in disguise.
 | ✓      | give                              | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
 | ✓      | refine                            | <kbd>C-c</kbd> <kbd>C-r</kbd>   |
 | ✓      | auto                              | <kbd>C-y</kbd> <kbd>C-a</kbd>   |
-| 🚧     | case                              | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
+| ✓      | case                              | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
 | ✓      | infer type (simplified)           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
 | ✓      | infer type (instantiaed)          | <kbd>C-u</kbd> <kbd>C-d</kbd>   |
 | ✓      | infer type (normalized)           | <kbd>C-y</kbd> <kbd>C-d</kbd>   |
