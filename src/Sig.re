@@ -84,10 +84,13 @@ module type Editor = {
 
   module Decoration: {
     type t;
-    type style = string;
+    type backgroundStyle =
+      | Hole;
+    type foregroundStyle =
+      | HoleIndex;
     // let digHole: (editor, Range.t) => unit;
-    let highlightBackground: (editor, style, Range.t) => array(t);
-    let overlayText: (editor, style, string, Range.t) => array(t);
+    let highlightBackground: (editor, backgroundStyle, Range.t) => array(t);
+    let overlayText: (editor, foregroundStyle, string, Range.t) => array(t);
     let destroy: t => unit;
   };
 

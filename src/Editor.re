@@ -157,15 +157,25 @@ module View = {
 //
 
 module Decoration = {
-  type style = string;
   type t = TextEditorDecorationType.t;
+  type backgroundStyle =
+    | Hole;
+  type foregroundStyle =
+    | HoleIndex;
   // | Error => ThemeColor.make("inputValidation.errorBackground")
   // | Highlight => ThemeColor.make("editor.symbolHighlightBackground")
   // | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
-
+  // "editor.selectionHighlightBackground";
   let highlightBackground =
-      (editor: editor, style: string, range: VSCode.Range.t) => {
-    let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
+      (editor: editor, style: backgroundStyle, range: VSCode.Range.t) => {
+    let backgroundColor =
+      ThemeColor.themeColor(
+        ThemeColor.make(
+          switch (style) {
+          | Hole => "editor.selectionHighlightBackground"
+          },
+        ),
+      );
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options =
@@ -183,11 +193,23 @@ module Decoration = {
   //   },
   // ),
   let overlayText =
-      (editor: editor, style: string, text: string, range: VSCode.Range.t) => {
+      (
+        editor: editor,
+        style: foregroundStyle,
+        text: string,
+        range: VSCode.Range.t,
+      ) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
         ~contentText=text,
-        ~color=ThemeColor.themeColor(ThemeColor.make(style)),
+        ~color=
+          ThemeColor.themeColor(
+            ThemeColor.make(
+              switch (style) {
+              | HoleIndex => "editorLightBulb.foreground"
+              },
+            ),
+          ),
         (),
       );
 

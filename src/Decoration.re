@@ -8,11 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.pointAtOffset(editor, end_),
       );
     let background =
-      Editor.Decoration.highlightBackground(
-        editor,
-        "editor.selectionHighlightBackground",
-        backgroundRange,
-      );
+      Editor.Decoration.highlightBackground(editor, Hole, backgroundRange);
     let indexText = string_of_int(index);
     let indexRange =
       Editor.Range.make(
@@ -21,12 +17,7 @@ module Impl = (Editor: Sig.Editor) => {
       );
 
     let index =
-      Editor.Decoration.overlayText(
-        editor,
-        "editorLightBulb.foreground",
-        indexText,
-        indexRange,
-      );
+      Editor.Decoration.overlayText(editor, HoleIndex, indexText, indexRange);
 
     Array.concatMany([|background, index|]);
   };
