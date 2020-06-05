@@ -1,17 +1,4 @@
-// colors
-@error   : var(--vscode-editorError-foreground);
-@warning : var(--vscode-editorWarning-foreground);
-@success : var(--vscode-editorInfo-foreground);
-
-@inputBackground  : var(--vscode-input-background);
-@input            : var(--vscode-input-foreground);
-@inputBorder      : var(--vscode-input-border);
-@inputPlaceholder : var(--vscode-input-placeholderForeground);
-
-// dimensions
-@header-height  : 4rem;
-@header-padding : 1rem;
-@body-padding   : 1rem;
+@import "variables";
 
 // vscode: removes focus outline  
 *:focus {
@@ -53,9 +40,8 @@
     padding: @body-padding;
 
     input {
-        font-size     : 125%;
-        padding       : @body-padding;
-        // line-height: 50px;
+        font-size: 125%;
+        padding  : @body-padding;
 
         background-color: @inputBackground;
         border          : none;
