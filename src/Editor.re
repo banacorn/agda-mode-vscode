@@ -184,6 +184,16 @@ module Decoration = {
     editor->TextEditor.setDecorations(handle, [|range|]);
     [|handle|];
   };
+  let underlineText = (editor: editor, range: VSCode.Range.t) => {
+    let rangeBehavior =
+      DecorationRangeBehavior.toEnum(DecorationRangeBehavior.OpenOpen);
+    let textDecoration = "underline dotted";
+    let options =
+      DecorationRenderOptions.t(~rangeBehavior, ~textDecoration, ());
+    let handle = Window.createTextEditorDecorationType(options);
+    editor->TextEditor.setDecorations(handle, [|range|]);
+    [|handle|];
+  };
 
   // ThemeColor.themeColor(
   //   switch (kind) {

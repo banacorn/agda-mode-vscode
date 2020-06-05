@@ -90,6 +90,7 @@ module type Editor = {
       | HoleIndex;
     // let digHole: (editor, Range.t) => unit;
     let highlightBackground: (editor, backgroundStyle, Range.t) => array(t);
+    let underlineText: (editor, Range.t) => array(t);
     let overlayText: (editor, foregroundStyle, string, Range.t) => array(t);
     let destroy: t => unit;
   };

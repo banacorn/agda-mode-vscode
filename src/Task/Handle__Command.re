@@ -135,7 +135,6 @@ module Impl = (Editor: Sig.Editor) => {
 
             InputMethod.activate(state.editor, startingOffsets);
 
-            Editor.onChangeCursorPosition(points => {Js.log(points)});
             // Js.log(
             //   "start listening "
             //   ++ startingOffsets->Array.map(string_of_int)->Util.Pretty.array,
