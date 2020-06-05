@@ -120,7 +120,7 @@ module Version = {
 
 module Pretty = {
   let array = xs => {
-    "[" ++ Js.String.concatMany(xs, ", ") ++ "]";
+    "[" ++ Js.Array.joinWith(", ", xs) ++ "]";
   };
 };
 

@@ -1,7 +1,9 @@
 open Command;
+open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  module InputMethod = InputMethod.Impl(Editor);
 
   open! Task;
   // from Editor Command to Tasks
@@ -123,5 +125,33 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | ViewEvent(event) => [ViewEvent(event)]
     | Escape => [ViewReq(InterruptQuery, _ => [])]
-    | InputSymbol => [Debug("InputSymbol")];
+    | InputSymbol => [
+        WithState(
+          state => {
+            // the places where the input method is activated
+            let startingOffsets: array(int) =
+              Editor.getCursorPositions(state.editor)
+              ->Array.map(Editor.offsetAtPoint(state.editor));
+
+            InputMethod.activate(state.editor, startingOffsets);
+
+            Editor.onChangeCursorPosition(points => {Js.log(points)});
+            // Js.log(
+            //   "start listening "
+            //   ++ startingOffsets->Array.map(string_of_int)->Util.Pretty.array,
+            // );
+            // // let cursor = ref(startingOffset);
+            // let handle = ref(None);
+            // let listener = change => {
+            //   change->Js.log;
+            // };
+
+            // handle :=
+            //   Some(
+            //     Editor.onChange(changes => changes->Array.forEach(listener)),
+            //   );
+            Promise.resolved([]);
+          },
+        ),
+      ];
 };

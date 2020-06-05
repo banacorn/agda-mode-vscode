@@ -34,9 +34,10 @@ module Impl = (Editor: Sig.Editor) => {
       // add the current directory to the front
       Js.Array.unshift(".", libraryPath)->ignore;
       // add quotes and then concatenate the paths with commas
-      libraryPath
-      ->Array.map(x => "\"" ++ Parser.filepath(x) ++ "\"")
-      ->Js.String.concatMany(", ");
+      Js.Array.joinWith(
+        ", ",
+        Array.map(libraryPath, x => "\"" ++ Parser.filepath(x) ++ "\""),
+      );
     };
 
     let highlightingMethod = highlightingMethod ? "Direct" : "Indirect";
