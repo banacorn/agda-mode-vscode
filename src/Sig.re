@@ -97,7 +97,9 @@ module type Editor = {
   let focus: editor => unit;
 
   let getCursorPosition: editor => Point.t;
+  let getCursorPositions: editor => array(Point.t);
   let setCursorPosition: (editor, Point.t) => unit;
+  let onChangeCursorPosition: (array(Point.t) => unit) => Disposable.t;
 
   let rangeForLine: (editor, int) => Range.t;
   let pointAtOffset: (editor, int) => Point.t;
@@ -109,4 +111,11 @@ module type Editor = {
   let setText: (editor, Range.t, string) => Promise.t(bool);
   let insertText: (editor, Point.t, string) => Promise.t(bool);
   let deleteText: (editor, Range.t) => Promise.t(bool);
+
+  type changeEvent = {
+    offset: int,
+    insertText: string,
+    replaceLength: int,
+  };
+  let onChange: (array(changeEvent) => unit) => Disposable.t;
 };

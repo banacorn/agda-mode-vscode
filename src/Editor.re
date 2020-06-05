@@ -232,8 +232,18 @@ let focus = editor => {
 };
 
 let getCursorPosition = editor => editor->TextEditor.selection->Selection.end_;
+let getCursorPositions = editor =>
+  editor->TextEditor.selections->Array.map(Selection.end_);
 let setCursorPosition = (editor, point) =>
   editor->TextEditor.setSelection(Selection.make(point, point));
+let onChangeCursorPosition = callback =>
+  Window.onDidChangeTextEditorSelection(event =>
+    callback(
+      event
+      ->TextEditorSelectionChangeEvent.selections
+      ->Array.map(Selection.end_),
+    )
+  );
 
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
@@ -269,4 +279,31 @@ let deleteText = (editor, range) => {
     edit->TextEditorEdit.delete(range);
   };
   editor->TextEditor.edit(editCallback, None);
+};
+
+type changeEvent = {
+  offset: int,
+  insertText: string,
+  replaceLength: int,
+};
+// TextDocumentContentChangeEvent.t;
+
+let onChange = callback => {
+  Workspace.onDidChangeTextDocument(
+    fun
+    | None => ()
+    | Some(event) => {
+        event
+        ->TextDocumentChangeEvent.contentChanges
+        ->Array.map(change =>
+            {
+              offset: change->TextDocumentContentChangeEvent.rangeOffset,
+              insertText: change->TextDocumentContentChangeEvent.text,
+              replaceLength:
+                change->TextDocumentContentChangeEvent.rangeLength,
+            }
+          )
+        ->callback;
+      },
+  );
 };

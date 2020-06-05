@@ -602,7 +602,25 @@ module SnippetString = {
 
 // https://code.visualstudio.com/api/references/vscode-api#TextEditorRevealType
 module TextEditorRevealType = {
-  type t;
+  type raw = int;
+  type t =
+    | AtTop
+    | Default
+    | InCenter
+    | InCenterIfOutsideViewport;
+
+  let toEnum =
+    fun
+    | AtTop => 3
+    | Default => 0
+    | InCenter => 1
+    | InCenterIfOutsideViewport => 2;
+  let fromEnum =
+    fun
+    | 1 => InCenter
+    | 2 => InCenterIfOutsideViewport
+    | 3 => AtTop
+    | _ => Default;
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#TextEditorDecorationType
@@ -811,13 +829,41 @@ module WindowState = {
 module TextEditorOptionsChangeEvent = {
   type t;
 };
+
+// https://code.visualstudio.com/api/references/vscode-api#TextEditorSelectionChangeKind
+module TextEditorSelectionChangeKind = {
+  type raw = int;
+  type t =
+    | Keyboard
+    | Mouse
+    | Command;
+
+  let toEnum =
+    fun
+    | Keyboard => 1
+    | Mouse => 2
+    | Command => 3;
+  let fromEnum =
+    fun
+    | 1 => Keyboard
+    | 2 => Mouse
+    | _ => Command;
+};
 // https://code.visualstudio.com/api/references/vscode-api#TextEditorSelectionChangeEvent
 module TextEditorSelectionChangeEvent = {
   type t;
-};
-// https://code.visualstudio.com/api/references/vscode-api#TextEditorSelectionChangeKind
-module TextEditorSelectionChangeKind = {
-  type t;
+  // properties
+  [@bs.get]
+  external kind_raw: t => option(TextEditorSelectionChangeKind.raw) = "kind";
+  let kind: t => option(TextEditorSelectionChangeKind.t) =
+    self => {
+      switch (kind_raw(self)) {
+      | None => None
+      | Some(n) => Some(TextEditorSelectionChangeKind.fromEnum(n))
+      };
+    };
+  [@bs.get] external selections: t => array(Selection.t) = "selections";
+  [@bs.get] external textEditor: t => TextEditor.t = "textEditor";
 };
 // https://code.visualstudio.com/api/references/vscode-api#TextEditorViewColumnChangeEvent
 module TextEditorViewColumnChangeEvent = {
@@ -1110,33 +1156,32 @@ module Window = {
     "onDidChangeActiveTextEditor";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorOptions:
-    (option(TextEditorOptionsChangeEvent.t) => unit) => Disposable.t =
+    (TextEditorOptionsChangeEvent.t => unit) => Disposable.t =
     "onDidChangeTextEditorOptions";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorSelection:
-    (option(TextEditorSelectionChangeEvent.t) => unit) => Disposable.t =
+    (TextEditorSelectionChangeEvent.t => unit) => Disposable.t =
     "onDidChangeTextEditorSelection";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorViewColumn:
-    (option(TextEditorViewColumnChangeEvent.t) => unit) => Disposable.t =
+    (TextEditorViewColumnChangeEvent.t => unit) => Disposable.t =
     "onDidChangeTextEditorViewColumn";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeTextEditorVisibleRanges:
-    (option(TextEditorVisibleRangesChangeEvent.t) => unit) => Disposable.t =
+    (TextEditorVisibleRangesChangeEvent.t => unit) => Disposable.t =
     "onDidChangeTextEditorVisibleRanges";
   [@bs.module "vscode"] [@bs.scope "window"]
   external onDidChangeVisibleTextEditors:
-    (option(TextEditor.t) => unit) => Disposable.t =
+    (array(TextEditor.t) => unit) => Disposable.t =
     "onDidChangeVisibleTextEditors";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidChangeWindowState:
-    (option(WindowState.t) => unit) => Disposable.t =
+  external onDidChangeWindowState: (WindowState.t => unit) => Disposable.t =
     "onDidChangeWindowState";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidCloseTerminal: (option(Terminal.t) => unit) => Disposable.t =
+  external onDidCloseTerminal: (Terminal.t => unit) => Disposable.t =
     "onDidCloseTerminal";
   [@bs.module "vscode"] [@bs.scope "window"]
-  external onDidOpenTerminal: (option(Terminal.t) => unit) => Disposable.t =
+  external onDidOpenTerminal: (Terminal.t => unit) => Disposable.t =
     "onDidOpenTerminal";
   // functions
   [@bs.module "vscode"] [@bs.scope "window"]
