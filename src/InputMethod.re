@@ -2,21 +2,6 @@ open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
-  //   // the places where the input method is activated
-  //   let startingOffsets: array(int) =
-  //     Editor.getCursorPositions(state.editor)
-  //     ->Array.map(Editor.offsetAtPoint(state.editor));
-  //   Js.log(
-  //     "start listening "
-  //     ++ startingOffsets->Array.map(string_of_int)->Util.Pretty.array,
-  //   );
-  //   // let cursor = ref(startingOffset);
-  //   let handle = ref(None);
-  //   let listener = change => {
-  //     change->Js.log;
-  //   };
-  //   handle :=
-  //     Some(Editor.onChange(changes => changes->Array.forEach(listener)));
 
   module Instance = {
     type t = {
@@ -52,21 +37,14 @@ module Impl = (Editor: Sig.Editor) => {
   let activate = (editor, offsets: array(int)) => {
     // instantiate from an array of offsets
     let instances: ref(array(Instance.t)) =
-      ref(offsets->Array.map(Instance.make(editor)));
-
-    let find = (instances, offset) =>
-      instances->Array.keep((instance: Instance.t) => {
-        let (_start, end_) = instance.range;
-        // start <= offset && offset <= end_;
-        offset == end_;
-      });
+      ref(offsets->Js.Array.sortInPlace->Array.map(Instance.make(editor)));
 
     // handles of listeners
     let editorChangeHandle = ref(None);
     let cursorChangeHandle = ref(None);
 
     // destroy the handles if all Instances are destroyed
-    let checkIfEveryonesAlive = () =>
+    let checkIfEveryoneIsStillAlive = () =>
       if (Array.length(instances^) == 0) {
         Js.log("ALL DEAD");
         (editorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
@@ -74,28 +52,71 @@ module Impl = (Editor: Sig.Editor) => {
       };
 
     // listeners
-    let editorChangelistener = (change: Editor.changeEvent) => {
+    let editorChangelistener = (changes: array(Editor.changeEvent)) => {
+      // sort the changes base on their offsets, from small to big
+      let changes =
+        Js.Array.sortInPlaceWith(
+          (x: Editor.changeEvent, y: Editor.changeEvent) =>
+            compare(x.offset, y.offset),
+          changes,
+        );
+      let rec scan:
+        (int, (list(Editor.changeEvent), list(Instance.t))) =>
+        list(Instance.t) =
+        accum =>
+          fun
+          | ([change, ...cs], [instance, ...is]) => {
+              let (start, end_) = instance.range;
+              let delta =
+                String.length(change.insertText) - change.replaceLength;
+
+              if (Instance.withIn(instance, change.offset)) {
+                // `change` appears inside the `instance`
+                instance.range = (accum + start, accum + end_ + delta);
+                [instance, ...scan(accum + delta, (cs, is))];
+              } else if (change.offset < fst(instance.range)) {
+                // `change` appears before the `instance`
+                scan(
+                  accum + delta, // update only `accum`
+                  (cs, [instance, ...is]),
+                );
+              } else {
+                // `change` appears after the `instance`
+                instance.range = (accum + start, accum + end_);
+                [instance, ...scan(accum, ([change, ...cs], is))];
+              };
+            }
+          | ([], [instance, ...is]) => [instance, ...is]
+          | (_, []) => [];
+
+      // Js.log("CHANGES");
+      // changes
+      // ->Array.map(x => string_of_int(x.offset))
+      // ->Util.Pretty.array
+      // ->Js.log;
+      // Js.log("INSTANCES");
+      // (instances^)
+      // ->Array.map(i =>
+      //     "("
+      //     ++ string_of_int(fst(i.range))
+      //     ++ ", "
+      //     ++ string_of_int(snd(i.range))
+      //     ++ ")"
+      //   )
+      // ->Util.Pretty.array
+      // ->Js.log;
+
       instances :=
-        (instances^)
-        ->Array.map((instance: Instance.t) => {
-            let (start, end_) = instance.range;
-            if (Instance.withIn(instance, change.offset)) {
-              Js.log(change);
-              // update the range
-              instance.range = (
-                start,
-                end_ + String.length(change.insertText) - change.replaceLength,
-              );
-            };
-            instance;
-          });
+        scan(0, (List.fromArray(changes), List.fromArray(instances^)))
+        ->List.toArray;
     };
 
     // kill the Instances that are not are not pointed by cursors
     let cursorChangelistener = (points: array(Editor.Point.t)) => {
-      checkIfEveryonesAlive();
+      checkIfEveryoneIsStillAlive();
       let offsets = points->Array.map(Editor.offsetAtPoint(editor));
-      offsets->Array.map(string_of_int)->Util.Pretty.array->Js.log;
+      // Js.log("CURSORS");
+      // offsets->Array.map(string_of_int)->Util.Pretty.array->Js.log;
       instances :=
         (instances^)
         ->Array.keep((instance: Instance.t) => {
@@ -113,8 +134,8 @@ module Impl = (Editor: Sig.Editor) => {
     editorChangeHandle :=
       Some(
         Editor.onChange(changes => {
-          checkIfEveryonesAlive();
-          changes->Array.forEach(editorChangelistener);
+          checkIfEveryoneIsStillAlive();
+          editorChangelistener(changes);
         }),
       );
     cursorChangeHandle :=

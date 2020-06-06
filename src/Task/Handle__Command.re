@@ -134,21 +134,6 @@ module Impl = (Editor: Sig.Editor) => {
               ->Array.map(Editor.offsetAtPoint(state.editor));
 
             InputMethod.activate(state.editor, startingOffsets);
-
-            // Js.log(
-            //   "start listening "
-            //   ++ startingOffsets->Array.map(string_of_int)->Util.Pretty.array,
-            // );
-            // // let cursor = ref(startingOffset);
-            // let handle = ref(None);
-            // let listener = change => {
-            //   change->Js.log;
-            // };
-
-            // handle :=
-            //   Some(
-            //     Editor.onChange(changes => changes->Array.forEach(listener)),
-            //   );
             Promise.resolved([]);
           },
         ),
