@@ -13,7 +13,7 @@ module Impl = (Editor: Sig.Editor) => {
           state =>
             if (state.inputMethod.activated) {
               InputMethod.insertBackslash(state.editor);
-              Promise.resolved([Debug("InputMethod already activated")]);
+              Promise.resolved([]);
             } else {
               state.inputMethod.activated = true;
               // the places where the input method is activated
@@ -35,9 +35,9 @@ module Impl = (Editor: Sig.Editor) => {
           state =>
             if (state.inputMethod.activated) {
               state.inputMethod.activated = false;
-              Promise.resolved([Debug("InputMethod(Activated)")]);
+              Promise.resolved([Debug("InputMethod(Deactivated)")]);
             } else {
-              Promise.resolved([Debug("InputMethod already deactivated")]);
+              Promise.resolved([]);
             },
         ),
       ];
