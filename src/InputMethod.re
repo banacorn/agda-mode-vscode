@@ -34,13 +34,21 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t = {
     onAction: Event.t(Command.InputMethodAction.t),
+    mutable instances: array(Instance.t),
     mutable activated: bool,
+  };
+
+  let insertBackslash = editor => {
+    Editor.getCursorPositions(editor)
+    ->Array.forEach(point => {
+        Editor.insertText(editor, point, "\\")->ignore
+      });
   };
 
   let activate = (self, editor, offsets: array(int)) => {
     // instantiate from an array of offsets
-    let instances: ref(array(Instance.t)) =
-      ref(offsets->Js.Array.sortInPlace->Array.map(Instance.make(editor)));
+    self.instances =
+      offsets->Js.Array.sortInPlace->Array.map(Instance.make(editor));
 
     // handles of listeners
     let editorChangeHandle = ref(None);
@@ -48,7 +56,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     // destroy the handles if all Instances are destroyed
     let checkIfEveryoneIsStillAlive = () =>
-      if (Array.length(instances^) == 0) {
+      if (Array.length(self.instances) == 0) {
         Js.log("ALL DEAD");
         self.onAction.emit(Deactivate);
         (editorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
@@ -92,18 +100,16 @@ module Impl = (Editor: Sig.Editor) => {
             }
           | ([], [instance, ...is]) => [instance, ...is]
           | (_, []) => [];
-      instances :=
-        scan(0, (List.fromArray(changes), List.fromArray(instances^)))
+      self.instances =
+        scan(0, (List.fromArray(changes), List.fromArray(self.instances)))
         ->List.toArray;
     };
 
     // kill the Instances that are not are not pointed by cursors
     let cursorChangelistener = (points: array(Editor.Point.t)) => {
       let offsets = points->Array.map(Editor.offsetAtPoint(editor));
-      // Js.log("CURSORS");
-      // offsets->Array.map(string_of_int)->Util.Pretty.array->Js.log;
-      instances :=
-        (instances^)
+      self.instances =
+        self.instances
         ->Array.keep((instance: Instance.t) => {
             // if any cursor falls into the range of the instance, the instance survives
             let survived =
@@ -130,6 +136,6 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let make = () => {
-    {onAction: Event.make(), activated: false};
+    {onAction: Event.make(), instances: [||], activated: false};
   };
 };

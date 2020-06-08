@@ -15,6 +15,7 @@ module InputMethodAction = {
   type t =
     | Activate
     | Deactivate;
+  // | InsertBackslash;
 };
 
 type t =

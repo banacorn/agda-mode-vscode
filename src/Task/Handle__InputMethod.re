@@ -12,6 +12,7 @@ module Impl = (Editor: Sig.Editor) => {
         WithState(
           state =>
             if (state.inputMethod.activated) {
+              InputMethod.insertBackslash(state.editor);
               Promise.resolved([Debug("InputMethod already activated")]);
             } else {
               state.inputMethod.activated = true;
