@@ -1,4 +1,5 @@
 open Command;
+open Command.InputMethodAction;
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
@@ -125,7 +126,7 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | ViewEvent(event) => [ViewEvent(event)]
     | Escape => [ViewReq(InterruptQuery, _ => [])]
-    | InputSymbol => [
+    | InputSymbol(Activate) => [
         WithState(
           state => {
             // the places where the input method is activated
@@ -137,5 +138,6 @@ module Impl = (Editor: Sig.Editor) => {
             Promise.resolved([]);
           },
         ),
-      ];
+      ]
+    | InputSymbol(Deactivate) => [Debug("InputSymbol(Deactivate)")];
 };
