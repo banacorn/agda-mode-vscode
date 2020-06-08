@@ -15,7 +15,7 @@ type t = {
 let init = string =>
   Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
 
-let initial = {symbol: None, tail: ""};
+let make = () => {symbol: None, tail: ""};
 
 let isEmpty = self => {
   self.symbol == None && self.tail == "";

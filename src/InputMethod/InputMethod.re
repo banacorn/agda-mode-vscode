@@ -2,11 +2,13 @@ open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   open Command.InputMethodAction;
+  module Buffer2 = Buffer2.Impl(Editor);
 
   module Instance = {
     type t = {
       mutable range: (int, int),
       decoration: array(Editor.Decoration.t),
+      mutable buffer: Buffer2.t,
     };
 
     let make = (editor, offset) => {
@@ -18,6 +20,7 @@ module Impl = (Editor: Sig.Editor) => {
             editor,
             Editor.Range.make(point, point),
           ),
+        buffer: Buffer2.make(),
       };
     };
 
@@ -72,7 +75,8 @@ module Impl = (Editor: Sig.Editor) => {
             compare(x.offset, y.offset),
           changes,
         );
-      let rec scan:
+
+      let rec scanAndUpdate:
         (int, (list(Editor.changeEvent), list(Instance.t))) =>
         list(Instance.t) =
         accum =>
@@ -82,26 +86,90 @@ module Impl = (Editor: Sig.Editor) => {
               let delta =
                 String.length(change.insertText) - change.replaceLength;
 
+              let originalRange =
+                Editor.Range.make(
+                  Editor.pointAtOffset(editor, accum + start),
+                  Editor.pointAtOffset(editor, accum + end_ + delta),
+                );
+
               if (Instance.withIn(instance, change.offset)) {
+                Js.log(instance.range);
+                let next =
+                  Buffer2.update(instance.range, instance.buffer, change);
+                switch (next) {
+                | Noop => ()
+                | Update(buffer, range) =>
+                  instance.buffer = buffer;
+                  instance.range = range;
+                | UpdateAndReplaceText(buffer, range, text) =>
+                  instance.buffer = buffer;
+                  instance.range = range;
+                  Editor.setText(editor, originalRange, text)->ignore;
+                  ();
+                };
+
+                // if (change.insertText != "" && change.replaceLength == 0) {
+                //   Js.log("INSERT [" ++ change.insertText ++ "]");
+                //   let translation = Translator.translate(change.insertText);
+                //   switch (translation.symbol) {
+                //   | None => ()
+                //   | Some(symbol) =>
+                //     let range =
+                //       Editor.Range.make(
+                //         Editor.pointAtOffset(editor, accum + start),
+                //         Editor.pointAtOffset(editor, accum + end_ + delta),
+                //       );
+                //     Editor.setText(editor, range, symbol)->ignore;
+                //   };
+                //   Js.log(translation);
+                //   ();
+                // };
+
                 // `change` appears inside the `instance`
                 instance.range = (accum + start, accum + end_ + delta);
-                [instance, ...scan(accum + delta, (cs, is))];
+
+                // let range =
+                //   Editor.Range.make(
+                //     Editor.pointAtOffset(editor, accum + start),
+                //     Editor.pointAtOffset(editor, accum + end_ + delta),
+                //   );
+                // let reality = Editor.getTextInRange(editor, range);
+                // Js.log(Buffer.toString(instance.buffer));
+                // switch (Buffer.next(instance.buffer, reality)) {
+                // | Noop => ()
+                // | Insert(buffer) =>
+                //   instance.buffer = buffer;
+                //   Js.log("INSERT! " ++ Buffer.toString(buffer));
+                // | Backspace(buffer) =>
+                //   instance.buffer = buffer;
+                //   Js.log(Buffer.toString(buffer));
+                // | Rewrite(buffer) =>
+                //   instance.buffer = buffer;
+                //   Js.log("Rewrite! " ++ Buffer.toString(buffer));
+                // | Complete => ()
+                // | Stuck(n) => ()
+                // };
+
+                [instance, ...scanAndUpdate(accum + delta, (cs, is))];
               } else if (change.offset < fst(instance.range)) {
                 // `change` appears before the `instance`
-                scan(
+                scanAndUpdate(
                   accum + delta, // update only `accum`
                   (cs, [instance, ...is]),
                 );
               } else {
                 // `change` appears after the `instance`
                 instance.range = (accum + start, accum + end_);
-                [instance, ...scan(accum, ([change, ...cs], is))];
+                [instance, ...scanAndUpdate(accum, ([change, ...cs], is))];
               };
             }
           | ([], [instance, ...is]) => [instance, ...is]
           | (_, []) => [];
       self.instances =
-        scan(0, (List.fromArray(changes), List.fromArray(self.instances)))
+        scanAndUpdate(
+          0,
+          (List.fromArray(changes), List.fromArray(self.instances)),
+        )
         ->List.toArray;
     };
 

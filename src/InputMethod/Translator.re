@@ -1,5 +1,5 @@
 // key - symbols mapping
-[@bs.module "./../../../../../../asset/query.js"]
+[@bs.module "./../../../../asset/query.js"]
 external rawTable: Js.Dict.t(array(string)) = "default";
 
 // trie
@@ -8,7 +8,7 @@ type trie = {
   symbol: array(string),
   subTrie: Js.Dict.t(trie),
 };
-[@bs.module "./../../../../../../asset/keymap.js"]
+[@bs.module "./../../../../asset/keymap.js"]
 external rawKeymapObject: Js.t({.}) = "default";
 
 open Belt;
