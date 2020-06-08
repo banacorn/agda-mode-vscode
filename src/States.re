@@ -132,6 +132,17 @@ module Impl = (Editor: Sig.Editor) => {
                     })
                   ->Editor.addToSubscriptions(context);
 
+                  // listens to events from the input method
+                  state.onInputMethodAction.on(action => {
+                    TaskRunner.dispatchCommand(
+                      taskRunner,
+                      Command.InputSymbol(action),
+                    )
+                    ->ignore
+                  })
+                  ->Editor.Disposable.make
+                  ->Editor.addToSubscriptions(context);
+
                   // remove it from the States dict if it got destroyed
                   state
                   ->State.onceDestroyed

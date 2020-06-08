@@ -1,10 +1,9 @@
 open Command;
-open Command.InputMethodAction;
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
-  module InputMethod = InputMethod.Impl(Editor);
+  module InputMethodHandler = Handle__InputMethod.Impl(Editor);
 
   open! Task;
   // from Editor Command to Tasks
@@ -126,18 +125,5 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | ViewEvent(event) => [ViewEvent(event)]
     | Escape => [ViewReq(InterruptQuery, _ => [])]
-    | InputSymbol(Activate) => [
-        WithState(
-          state => {
-            // the places where the input method is activated
-            let startingOffsets: array(int) =
-              Editor.getCursorPositions(state.editor)
-              ->Array.map(Editor.offsetAtPoint(state.editor));
-
-            InputMethod.activate(state.editor, startingOffsets);
-            Promise.resolved([]);
-          },
-        ),
-      ]
-    | InputSymbol(Deactivate) => [Debug("InputSymbol(Deactivate)")];
+    | InputSymbol(action) => InputMethodHandler.handle(action);
 };

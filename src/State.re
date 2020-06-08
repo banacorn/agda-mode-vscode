@@ -12,6 +12,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable goals: array(Goal.t),
     mutable cursor: option(int),
     onDestroyEventEmitter: Event.t(unit),
+    onInputMethodAction: Event.t(Command.InputMethodAction.t),
     // onViewInquiryResponse: Event.t(option(string)),
   };
 
@@ -101,6 +102,7 @@ module Impl = (Editor: Sig.Editor) => {
       goals: [||],
       cursor: None,
       onDestroyEventEmitter: Event.make(),
+      onInputMethodAction: Event.make(),
     };
 
     state;

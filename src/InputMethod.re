@@ -2,6 +2,7 @@ open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  open Command.InputMethodAction;
 
   module Instance = {
     type t = {
@@ -27,14 +28,17 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
     let destroy = instance => {
-      Js.log("KILL");
+      Js.log("KILLED");
       instance.decoration->Array.forEach(Editor.Decoration.destroy);
     };
   };
 
-  //   type t = array(Instance.t);
-
-  let activate = (editor, offsets: array(int)) => {
+  let activate =
+      (
+        editor,
+        offsets: array(int),
+        onAction: Event.t(Command.InputMethodAction.t),
+      ) => {
     // instantiate from an array of offsets
     let instances: ref(array(Instance.t)) =
       ref(offsets->Js.Array.sortInPlace->Array.map(Instance.make(editor)));
@@ -47,6 +51,7 @@ module Impl = (Editor: Sig.Editor) => {
     let checkIfEveryoneIsStillAlive = () =>
       if (Array.length(instances^) == 0) {
         Js.log("ALL DEAD");
+        onAction.emit(Deactivate);
         (editorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
         (cursorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
       };
@@ -88,24 +93,6 @@ module Impl = (Editor: Sig.Editor) => {
             }
           | ([], [instance, ...is]) => [instance, ...is]
           | (_, []) => [];
-
-      // Js.log("CHANGES");
-      // changes
-      // ->Array.map(x => string_of_int(x.offset))
-      // ->Util.Pretty.array
-      // ->Js.log;
-      // Js.log("INSTANCES");
-      // (instances^)
-      // ->Array.map(i =>
-      //     "("
-      //     ++ string_of_int(fst(i.range))
-      //     ++ ", "
-      //     ++ string_of_int(snd(i.range))
-      //     ++ ")"
-      //   )
-      // ->Util.Pretty.array
-      // ->Js.log;
-
       instances :=
         scan(0, (List.fromArray(changes), List.fromArray(instances^)))
         ->List.toArray;
@@ -113,7 +100,6 @@ module Impl = (Editor: Sig.Editor) => {
 
     // kill the Instances that are not are not pointed by cursors
     let cursorChangelistener = (points: array(Editor.Point.t)) => {
-      checkIfEveryoneIsStillAlive();
       let offsets = points->Array.map(Editor.offsetAtPoint(editor));
       // Js.log("CURSORS");
       // offsets->Array.map(string_of_int)->Util.Pretty.array->Js.log;
@@ -129,6 +115,8 @@ module Impl = (Editor: Sig.Editor) => {
             };
             survived;
           });
+
+      checkIfEveryoneIsStillAlive();
     };
     // initiate listeners
     editorChangeHandle :=
