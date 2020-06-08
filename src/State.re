@@ -1,5 +1,6 @@
 module Impl = (Editor: Sig.Editor) => {
   module Goal = Goal.Impl(Editor);
+  module InputMethod = InputMethod.Impl(Editor);
   module Request = Request.Impl(Editor);
   open Belt;
   type editor = Editor.editor;
@@ -12,7 +13,9 @@ module Impl = (Editor: Sig.Editor) => {
     mutable goals: array(Goal.t),
     mutable cursor: option(int),
     onDestroyEventEmitter: Event.t(unit),
-    onInputMethodAction: Event.t(Command.InputMethodAction.t),
+    inputMethod: InputMethod.t,
+    // onInputMethodAction: Event.t(Command.InputMethodAction.t),
+    // mutable inputMethodActivated: bool,
     // onViewInquiryResponse: Event.t(option(string)),
   };
 
@@ -102,7 +105,7 @@ module Impl = (Editor: Sig.Editor) => {
       goals: [||],
       cursor: None,
       onDestroyEventEmitter: Event.make(),
-      onInputMethodAction: Event.make(),
+      inputMethod: InputMethod.make(),
     };
 
     state;

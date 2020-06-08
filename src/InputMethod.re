@@ -1,7 +1,6 @@
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
-  module Task = Task.Impl(Editor);
   open Command.InputMethodAction;
 
   module Instance = {
@@ -33,12 +32,12 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
-  let activate =
-      (
-        editor,
-        offsets: array(int),
-        onAction: Event.t(Command.InputMethodAction.t),
-      ) => {
+  type t = {
+    onAction: Event.t(Command.InputMethodAction.t),
+    mutable activated: bool,
+  };
+
+  let activate = (self, editor, offsets: array(int)) => {
     // instantiate from an array of offsets
     let instances: ref(array(Instance.t)) =
       ref(offsets->Js.Array.sortInPlace->Array.map(Instance.make(editor)));
@@ -51,7 +50,7 @@ module Impl = (Editor: Sig.Editor) => {
     let checkIfEveryoneIsStillAlive = () =>
       if (Array.length(instances^) == 0) {
         Js.log("ALL DEAD");
-        onAction.emit(Deactivate);
+        self.onAction.emit(Deactivate);
         (editorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
         (cursorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
       };
@@ -128,5 +127,9 @@ module Impl = (Editor: Sig.Editor) => {
       );
     cursorChangeHandle :=
       Some(Editor.onChangeCursorPosition(cursorChangelistener));
+  };
+
+  let make = () => {
+    {onAction: Event.make(), activated: false};
   };
 };

@@ -133,7 +133,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ->Editor.addToSubscriptions(context);
 
                   // listens to events from the input method
-                  state.onInputMethodAction.on(action => {
+                  state.inputMethod.onAction.on(action => {
                     TaskRunner.dispatchCommand(
                       taskRunner,
                       Command.InputSymbol(action),

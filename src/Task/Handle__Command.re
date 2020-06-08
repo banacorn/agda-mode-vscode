@@ -1,5 +1,4 @@
 open Command;
-open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
