@@ -51,7 +51,8 @@ module Impl = (Editor: Sig.Editor) => {
   let activate = (self, editor, offsets: array(int)) => {
     // instantiate from an array of offsets
     self.instances =
-      offsets->Js.Array.sortInPlace->Array.map(Instance.make(editor));
+      Js.Array.sortInPlaceWith(compare, offsets)
+      ->Array.map(Instance.make(editor));
 
     // handles of listeners
     let editorChangeHandle = ref(None);
@@ -85,72 +86,42 @@ module Impl = (Editor: Sig.Editor) => {
               let (start, end_) = instance.range;
               let delta =
                 String.length(change.insertText) - change.replaceLength;
-
-              let originalRange =
-                Editor.Range.make(
-                  Editor.pointAtOffset(editor, accum + start),
-                  Editor.pointAtOffset(editor, accum + end_ + delta),
-                );
-
+              Js.log((
+                delta,
+                "("
+                ++ string_of_int(fst(instance.range))
+                ++ ", "
+                ++ string_of_int(snd(instance.range))
+                ++ ")",
+                change.offset,
+              ));
+              // `change.offset` is the untouched offset before any modifications happened
+              // so it's okay to compare it with the also untouched `instance.range`
               if (Instance.withIn(instance, change.offset)) {
-                Js.log(instance.range);
+                // `change` appears inside the `instance`
                 let next =
                   Buffer2.update(instance.range, instance.buffer, change);
                 switch (next) {
-                | Noop => ()
-                | Update(buffer, range) =>
+                | Noop =>
+                  instance.range = (accum + start, accum + end_ + delta);
+                  [instance, ...scanAndUpdate(accum + delta, (cs, is))];
+                | Update(buffer) =>
                   instance.buffer = buffer;
-                  instance.range = range;
-                | UpdateAndReplaceText(buffer, range, text) =>
+                  instance.range = (accum + start, accum + end_ + delta);
+                  [instance, ...scanAndUpdate(accum + delta, (cs, is))];
+                | UpdateAndReplaceText(buffer, delta', text) =>
                   instance.buffer = buffer;
-                  instance.range = range;
-                  Editor.setText(editor, originalRange, text)->ignore;
-                  ();
+                  // update the buffer
+                  // let originalRange =
+                  //   Editor.Range.make(
+                  //     Editor.pointAtOffset(editor, accum + start),
+                  //     Editor.pointAtOffset(editor, accum + end_ + delta),
+                  //   );
+                  // Editor.setText(editor, originalRange, text)->ignore;
+
+                  instance.range = (accum + start, accum + end_ + delta);
+                  [instance, ...scanAndUpdate(accum + delta, (cs, is))];
                 };
-
-                // if (change.insertText != "" && change.replaceLength == 0) {
-                //   Js.log("INSERT [" ++ change.insertText ++ "]");
-                //   let translation = Translator.translate(change.insertText);
-                //   switch (translation.symbol) {
-                //   | None => ()
-                //   | Some(symbol) =>
-                //     let range =
-                //       Editor.Range.make(
-                //         Editor.pointAtOffset(editor, accum + start),
-                //         Editor.pointAtOffset(editor, accum + end_ + delta),
-                //       );
-                //     Editor.setText(editor, range, symbol)->ignore;
-                //   };
-                //   Js.log(translation);
-                //   ();
-                // };
-
-                // `change` appears inside the `instance`
-                instance.range = (accum + start, accum + end_ + delta);
-
-                // let range =
-                //   Editor.Range.make(
-                //     Editor.pointAtOffset(editor, accum + start),
-                //     Editor.pointAtOffset(editor, accum + end_ + delta),
-                //   );
-                // let reality = Editor.getTextInRange(editor, range);
-                // Js.log(Buffer.toString(instance.buffer));
-                // switch (Buffer.next(instance.buffer, reality)) {
-                // | Noop => ()
-                // | Insert(buffer) =>
-                //   instance.buffer = buffer;
-                //   Js.log("INSERT! " ++ Buffer.toString(buffer));
-                // | Backspace(buffer) =>
-                //   instance.buffer = buffer;
-                //   Js.log(Buffer.toString(buffer));
-                // | Rewrite(buffer) =>
-                //   instance.buffer = buffer;
-                //   Js.log("Rewrite! " ++ Buffer.toString(buffer));
-                // | Complete => ()
-                // | Stuck(n) => ()
-                // };
-
-                [instance, ...scanAndUpdate(accum + delta, (cs, is))];
               } else if (change.offset < fst(instance.range)) {
                 // `change` appears before the `instance`
                 scanAndUpdate(
@@ -158,6 +129,7 @@ module Impl = (Editor: Sig.Editor) => {
                   (cs, [instance, ...is]),
                 );
               } else {
+                Js.log("change.offset > fst(instance.range)");
                 // `change` appears after the `instance`
                 instance.range = (accum + start, accum + end_);
                 [instance, ...scanAndUpdate(accum, ([change, ...cs], is))];
@@ -165,6 +137,7 @@ module Impl = (Editor: Sig.Editor) => {
             }
           | ([], [instance, ...is]) => [instance, ...is]
           | (_, []) => [];
+
       self.instances =
         scanAndUpdate(
           0,

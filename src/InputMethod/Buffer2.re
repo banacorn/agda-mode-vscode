@@ -99,8 +99,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   type action =
     | Noop
-    | Update(t, (int, int))
-    | UpdateAndReplaceText(t, (int, int), string);
+    | Update(t)
+    | UpdateAndReplaceText(t, int, string);
 
   let update = ((start, end_), self, change: Editor.changeEvent) => {
     let sequence = toSequence(self);
@@ -109,14 +109,15 @@ module Impl = (Editor: Sig.Editor) => {
       let translation = Translator.translate(newSequence);
       switch (translation.symbol) {
       | None =>
-        Update(
-          {symbol: self.symbol, tail: self.tail ++ change.insertText},
-          (start, end_ + String.length(change.insertText)),
-        )
+        Update({
+          symbol: self.symbol,
+          tail: self.tail ++ change.insertText,
+          // (start, end_ + String.length(change.insertText)),
+        })
       | Some(symbol) =>
         UpdateAndReplaceText(
           {symbol: Some((symbol, newSequence)), tail: ""},
-          (start, start + String.length(symbol)),
+          - String.length(newSequence) + String.length(symbol),
           symbol,
         )
       };
