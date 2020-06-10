@@ -1,4 +1,4 @@
-open Belt;
+// open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   type t = {
@@ -100,7 +100,7 @@ module Impl = (Editor: Sig.Editor) => {
   type action =
     | Noop
     | Update(t)
-    | UpdateAndReplaceText(t, int, string);
+    | UpdateAndReplaceText(t, string);
 
   let update = ((start, end_), self, change: Editor.changeEvent) => {
     let sequence = toSequence(self);
@@ -117,7 +117,6 @@ module Impl = (Editor: Sig.Editor) => {
       | Some(symbol) =>
         UpdateAndReplaceText(
           {symbol: Some((symbol, newSequence)), tail: ""},
-          - String.length(newSequence) + String.length(symbol),
           symbol,
         )
       };

@@ -86,15 +86,17 @@ module Impl = (Editor: Sig.Editor) => {
               let (start, end_) = instance.range;
               let delta =
                 String.length(change.insertText) - change.replaceLength;
-              Js.log((
-                delta,
-                "("
-                ++ string_of_int(fst(instance.range))
-                ++ ", "
-                ++ string_of_int(snd(instance.range))
-                ++ ")",
-                change.offset,
-              ));
+              Js.log("delta " ++ string_of_int(delta));
+
+              // Js.log((
+              //   delta,
+              //   "("
+              //   ++ string_of_int(fst(instance.range))
+              //   ++ ", "
+              //   ++ string_of_int(snd(instance.range))
+              //   ++ ")",
+              //   change.offset,
+              // ));
               // `change.offset` is the untouched offset before any modifications happened
               // so it's okay to compare it with the also untouched `instance.range`
               if (Instance.withIn(instance, change.offset)) {
@@ -109,15 +111,28 @@ module Impl = (Editor: Sig.Editor) => {
                   instance.buffer = buffer;
                   instance.range = (accum + start, accum + end_ + delta);
                   [instance, ...scanAndUpdate(accum + delta, (cs, is))];
-                | UpdateAndReplaceText(buffer, delta', text) =>
+                | UpdateAndReplaceText(buffer, text) =>
                   instance.buffer = buffer;
+                  // Js.log("DELTA' " ++ string_of_int(delta'));
                   // update the buffer
-                  // let originalRange =
-                  //   Editor.Range.make(
-                  //     Editor.pointAtOffset(editor, accum + start),
-                  //     Editor.pointAtOffset(editor, accum + end_ + delta),
-                  //   );
-                  // Editor.setText(editor, originalRange, text)->ignore;
+                  let originalRange =
+                    Editor.Range.make(
+                      Editor.pointAtOffset(editor, accum + start),
+                      Editor.pointAtOffset(editor, accum + end_ + delta),
+                    );
+                  Editor.setText(editor, originalRange, text)->ignore;
+
+                  // Js.log(
+                  //   "("
+                  //   ++ string_of_int(accum + start)
+                  //   ++ ", "
+                  //   ++ string_of_int(accum + end_ + delta)
+                  //   ++ ") => ("
+                  //   ++ string_of_int(accum + start)
+                  //   ++ ", "
+                  //   ++ string_of_int(accum + end_ + delta + delta')
+                  //   ++ ")",
+                  // );
 
                   instance.range = (accum + start, accum + end_ + delta);
                   [instance, ...scanAndUpdate(accum + delta, (cs, is))];
@@ -129,7 +144,6 @@ module Impl = (Editor: Sig.Editor) => {
                   (cs, [instance, ...is]),
                 );
               } else {
-                Js.log("change.offset > fst(instance.range)");
                 // `change` appears after the `instance`
                 instance.range = (accum + start, accum + end_);
                 [instance, ...scanAndUpdate(accum, ([change, ...cs], is))];
@@ -149,6 +163,9 @@ module Impl = (Editor: Sig.Editor) => {
     // kill the Instances that are not are not pointed by cursors
     let cursorChangelistener = (points: array(Editor.Point.t)) => {
       let offsets = points->Array.map(Editor.offsetAtPoint(editor));
+      Js.log(
+        "CURSORS: " ++ offsets->Array.map(string_of_int)->Util.Pretty.array,
+      );
       self.instances =
         self.instances
         ->Array.keep((instance: Instance.t) => {
@@ -156,15 +173,25 @@ module Impl = (Editor: Sig.Editor) => {
             let survived =
               offsets->Belt.Array.some(Instance.withIn(instance));
             // if not, the instance gets destroyed
+            Js.log(
+              "CURSORS Instance ("
+              ++ string_of_int(fst(instance.range))
+              ++ ", "
+              ++ string_of_int(snd(instance.range))
+              ++ ")",
+            );
             if (!survived) {
               Instance.destroy(instance);
             };
-            survived;
+            // survived;
+            true;
           });
 
       checkIfEveryoneIsStillAlive();
     };
     // initiate listeners
+    cursorChangeHandle :=
+      Some(Editor.onChangeCursorPosition(cursorChangelistener));
     editorChangeHandle :=
       Some(
         Editor.onChange(changes => {
@@ -172,8 +199,6 @@ module Impl = (Editor: Sig.Editor) => {
           editorChangelistener(changes);
         }),
       );
-    cursorChangeHandle :=
-      Some(Editor.onChangeCursorPosition(cursorChangelistener));
   };
 
   let make = () => {

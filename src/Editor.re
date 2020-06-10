@@ -251,7 +251,7 @@ let onChangeCursorPosition = callback =>
     callback(
       event
       ->TextEditorSelectionChangeEvent.selections
-      ->Array.map(Selection.end_),
+      ->Array.map(Selection.anchor),
     )
   );
 
