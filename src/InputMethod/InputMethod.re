@@ -100,17 +100,41 @@ module Impl = (Editor: Sig.Editor) => {
               if (Instance.withIn(instance, change.offset)) {
                 // `change` appears inside the `instance`
                 let next =
-                  Buffer2.update(instance.range, instance.buffer, change);
+                  Buffer2.update(
+                    fst(instance.range),
+                    instance.buffer,
+                    change,
+                  );
                 switch (next) {
                 | Noop => ()
-                | Update(buffer) => instance.buffer = buffer
                 | UpdateAndReplaceText(buffer, text) =>
+                  Js.log(
+                    "UPDATE "
+                    ++ text
+                    ++ " ("
+                    ++ string_of_int(accum + start)
+                    ++ ","
+                    ++ string_of_int(accum + end_ + delta)
+                    ++ ")",
+                  );
                   let originalRange =
                     Editor.Range.make(
                       Editor.pointAtOffset(editor, accum + start),
                       Editor.pointAtOffset(editor, accum + end_ + delta),
                     );
-                  Editor.setText(editor, originalRange, text)->ignore;
+                  // update the text buffer
+                  Editor.setText(editor, originalRange, text)
+                  ->Promise.get(b => Js.log("result " ++ string_of_bool(b)));
+                  // ->Promise.get(_ => {
+                  //     // place the cursor at the end of the sequence
+                  //     Editor.setCursorPosition(
+                  //       editor,
+                  //       Editor.pointAtOffset(
+                  //         editor,
+                  //         accum + start + String.length(text),
+                  //       ),
+                  //     )
+                  //   });
                   instance.buffer = buffer;
                 };
 
@@ -145,6 +169,18 @@ module Impl = (Editor: Sig.Editor) => {
       Js.log(
         "CURSORS: " ++ offsets->Array.map(string_of_int)->Util.Pretty.array,
       );
+      Js.log(
+        "instances: "
+        ++ self.instances
+           ->Array.map(i =>
+               "("
+               ++ string_of_int(fst(i.range))
+               ++ ", "
+               ++ string_of_int(snd(i.range))
+               ++ ")"
+             )
+           ->Util.Pretty.array,
+      );
       self.instances =
         self.instances
         ->Array.keep((instance: Instance.t) => {
@@ -152,18 +188,10 @@ module Impl = (Editor: Sig.Editor) => {
             let survived =
               offsets->Belt.Array.some(Instance.withIn(instance));
             // if not, the instance gets destroyed
-            Js.log(
-              "CURSORS Instance ("
-              ++ string_of_int(fst(instance.range))
-              ++ ", "
-              ++ string_of_int(snd(instance.range))
-              ++ ")",
-            );
             if (!survived) {
               Instance.destroy(instance);
             };
-            // survived;
-            true;
+            survived;
           });
 
       checkIfEveryoneIsStillAlive();

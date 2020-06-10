@@ -13,9 +13,6 @@ module Impl = (Editor: Sig.Editor) => {
   //    user typed: lambd   => { symbol: Some("←", "l"), tail: "ambd" }
   //    user typed: lambda   => { symbol: Some("λ", "lambda"), tail: "" }
 
-  let init = string =>
-    Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
-
   let make = () => {symbol: None, tail: ""};
 
   let isEmpty = self => {
@@ -99,49 +96,58 @@ module Impl = (Editor: Sig.Editor) => {
 
   type action =
     | Noop
-    | Update(t)
     | UpdateAndReplaceText(t, string);
 
   let init = string =>
     Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
 
-  let update = ((start, end_), self, change: Editor.changeEvent) => {
+  let update = (start, self, change: Editor.changeEvent) => {
     let sequence = toSequence(self);
-    if (change.insertText != "" && change.replaceLength == 0) {
-      let newSequence = sequence ++ change.insertText;
+    Js.log(
+      "REPLACE "
+      ++ string_of_int(change.offset)
+      ++ " "
+      ++ change.insertText
+      ++ " "
+      ++ string_of_int(change.replaceLength)
+      ++ " "
+      ++ toSurface(self),
+    );
+    if (toSurface(self) == change.insertText) {
+      Noop;
+    } else {
+      // some modification has been made to the sequence
+      // devise the new sequence
+      let newSequence = {
+        // calculate where the replacement started
+        let insertStartInTextEditor = change.offset - start;
+        // since the actual replaced text may contain a symbol
+        // we need `+ String.length(symbolSequence) - String.length(symbol)`
+        // to get the actual offset in the sequence
+        let insertStart =
+          switch (self.symbol) {
+          | Some((symbol, symbolSequence)) =>
+            insertStartInTextEditor
+            + String.length(symbolSequence)
+            - String.length(symbol)
+          | None => insertStartInTextEditor
+          };
+        let insertEnd = insertStart + change.replaceLength;
+
+        let beforeInsertedText =
+          Js.String.substring(~from=0, ~to_=insertStart, sequence);
+        let afterInsertedText =
+          Js.String.substringToEnd(~from=insertEnd, sequence);
+        beforeInsertedText ++ change.insertText ++ afterInsertedText;
+      };
       let translation = Translator.translate(newSequence);
       let newBuffer =
         switch (translation.symbol) {
-        | None => {symbol: self.symbol, tail: self.tail ++ change.insertText}
+        | None => {symbol: None, tail: newSequence}
         | Some(symbol) => {symbol: Some((symbol, newSequence)), tail: ""}
         };
       let newSurface = toSurface(newBuffer);
       UpdateAndReplaceText(newBuffer, newSurface);
-      // INSERT
-    } else if (change.insertText == "" && change.replaceLength > 0) {
-      Js.log("DELETE " ++ string_of_int(change.replaceLength));
-      // let newSequence = init(sequence);
-
-      // let translation = Translator.translate(newSequence);
-      // let newBuffer =
-      //   switch (translation.symbol) {
-      //   | None => {symbol: None, tail: newSequence}
-      //   | Some(symbol) => {symbol: Some((symbol, newSequence)), tail: ""}
-      //   };
-      // let newSurface = toSurface(newBuffer);
-      // UpdateAndReplaceText(newBuffer, newSurface);
-
-      Noop;
-      // DELETE
-    } else {
-      Js.log(
-        "REPLACE "
-        ++ change.insertText
-        ++ " "
-        ++ string_of_int(change.replaceLength),
-      );
-      Noop;
-      // OTHERS
     };
   };
 };
