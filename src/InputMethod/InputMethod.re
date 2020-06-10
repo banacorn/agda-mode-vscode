@@ -86,8 +86,6 @@ module Impl = (Editor: Sig.Editor) => {
               let (start, end_) = instance.range;
               let delta =
                 String.length(change.insertText) - change.replaceLength;
-              Js.log("delta " ++ string_of_int(delta));
-
               // Js.log((
               //   delta,
               //   "("
@@ -104,39 +102,20 @@ module Impl = (Editor: Sig.Editor) => {
                 let next =
                   Buffer2.update(instance.range, instance.buffer, change);
                 switch (next) {
-                | Noop =>
-                  instance.range = (accum + start, accum + end_ + delta);
-                  [instance, ...scanAndUpdate(accum + delta, (cs, is))];
-                | Update(buffer) =>
-                  instance.buffer = buffer;
-                  instance.range = (accum + start, accum + end_ + delta);
-                  [instance, ...scanAndUpdate(accum + delta, (cs, is))];
+                | Noop => ()
+                | Update(buffer) => instance.buffer = buffer
                 | UpdateAndReplaceText(buffer, text) =>
-                  instance.buffer = buffer;
-                  // Js.log("DELTA' " ++ string_of_int(delta'));
-                  // update the buffer
                   let originalRange =
                     Editor.Range.make(
                       Editor.pointAtOffset(editor, accum + start),
                       Editor.pointAtOffset(editor, accum + end_ + delta),
                     );
                   Editor.setText(editor, originalRange, text)->ignore;
-
-                  // Js.log(
-                  //   "("
-                  //   ++ string_of_int(accum + start)
-                  //   ++ ", "
-                  //   ++ string_of_int(accum + end_ + delta)
-                  //   ++ ") => ("
-                  //   ++ string_of_int(accum + start)
-                  //   ++ ", "
-                  //   ++ string_of_int(accum + end_ + delta + delta')
-                  //   ++ ")",
-                  // );
-
-                  instance.range = (accum + start, accum + end_ + delta);
-                  [instance, ...scanAndUpdate(accum + delta, (cs, is))];
+                  instance.buffer = buffer;
                 };
+
+                instance.range = (accum + start, accum + end_ + delta);
+                [instance, ...scanAndUpdate(accum + delta, (cs, is))];
               } else if (change.offset < fst(instance.range)) {
                 // `change` appears before the `instance`
                 scanAndUpdate(

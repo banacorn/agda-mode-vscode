@@ -102,31 +102,46 @@ module Impl = (Editor: Sig.Editor) => {
     | Update(t)
     | UpdateAndReplaceText(t, string);
 
+  let init = string =>
+    Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
+
   let update = ((start, end_), self, change: Editor.changeEvent) => {
     let sequence = toSequence(self);
     if (change.insertText != "" && change.replaceLength == 0) {
       let newSequence = sequence ++ change.insertText;
       let translation = Translator.translate(newSequence);
-      switch (translation.symbol) {
-      | None =>
-        Update({
-          symbol: self.symbol,
-          tail: self.tail ++ change.insertText,
-          // (start, end_ + String.length(change.insertText)),
-        })
-      | Some(symbol) =>
-        UpdateAndReplaceText(
-          {symbol: Some((symbol, newSequence)), tail: ""},
-          symbol,
-        )
-      };
+      let newBuffer =
+        switch (translation.symbol) {
+        | None => {symbol: self.symbol, tail: self.tail ++ change.insertText}
+        | Some(symbol) => {symbol: Some((symbol, newSequence)), tail: ""}
+        };
+      let newSurface = toSurface(newBuffer);
+      UpdateAndReplaceText(newBuffer, newSurface);
       // INSERT
     } else if (change.insertText == "" && change.replaceLength > 0) {
+      Js.log("DELETE " ++ string_of_int(change.replaceLength));
+      // let newSequence = init(sequence);
+
+      // let translation = Translator.translate(newSequence);
+      // let newBuffer =
+      //   switch (translation.symbol) {
+      //   | None => {symbol: None, tail: newSequence}
+      //   | Some(symbol) => {symbol: Some((symbol, newSequence)), tail: ""}
+      //   };
+      // let newSurface = toSurface(newBuffer);
+      // UpdateAndReplaceText(newBuffer, newSurface);
+
       Noop;
-          // DELETE
+      // DELETE
     } else {
+      Js.log(
+        "REPLACE "
+        ++ change.insertText
+        ++ " "
+        ++ string_of_int(change.replaceLength),
+      );
       Noop;
-          // OTHERS
+      // OTHERS
     };
   };
 };
