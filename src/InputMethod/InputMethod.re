@@ -77,6 +77,8 @@ module Impl = (Editor: Sig.Editor) => {
           changes,
         );
 
+      let updates = [||];
+
       let rec scanAndUpdate:
         (int, (list(Editor.changeEvent), list(Instance.t))) =>
         list(Instance.t) =
@@ -117,24 +119,35 @@ module Impl = (Editor: Sig.Editor) => {
                     ++ string_of_int(accum + end_ + delta)
                     ++ ")",
                   );
-                  let originalRange =
-                    Editor.Range.make(
-                      Editor.pointAtOffset(editor, accum + start),
-                      Editor.pointAtOffset(editor, accum + end_ + delta),
-                    );
-                  // update the text buffer
-                  Editor.setText(editor, originalRange, text)
-                  ->Promise.get(b => Js.log("result " ++ string_of_bool(b)));
-                  // ->Promise.get(_ => {
-                  //     // place the cursor at the end of the sequence
-                  //     Editor.setCursorPosition(
-                  //       editor,
-                  //       Editor.pointAtOffset(
-                  //         editor,
-                  //         accum + start + String.length(text),
-                  //       ),
-                  //     )
-                  //   });
+                  let update = () => {
+                    let originalRange =
+                      Editor.Range.make(
+                        Editor.pointAtOffset(editor, accum + start),
+                        Editor.pointAtOffset(editor, accum + end_ + delta),
+                      );
+                    Editor.setText(editor, originalRange, text);
+                  };
+
+                  Js.Array.push(update, updates)->ignore;
+
+                  // let originalRange =
+                  //   Editor.Range.make(
+                  //     Editor.pointAtOffset(editor, accum + start),
+                  //     Editor.pointAtOffset(editor, accum + end_ + delta),
+                  //   );
+                  // // update the text buffer
+                  // Editor.setText(editor, originalRange, text)
+                  // ->Promise.get(b => Js.log("result " ++ string_of_bool(b)));
+                  // // ->Promise.get(_ => {
+                  // //     // place the cursor at the end of the sequence
+                  // //     Editor.setCursorPosition(
+                  // //       editor,
+                  // //       Editor.pointAtOffset(
+                  // //         editor,
+                  // //         accum + start + String.length(text),
+                  // //       ),
+                  // //     )
+                  // //   });
                   instance.buffer = buffer;
                 };
 
@@ -161,6 +174,8 @@ module Impl = (Editor: Sig.Editor) => {
           (List.fromArray(changes), List.fromArray(self.instances)),
         )
         ->List.toArray;
+
+      Util.oneByOne(updates)->Promise.get(Js.log);
     };
 
     // kill the Instances that are not are not pointed by cursors
