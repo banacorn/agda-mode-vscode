@@ -39,9 +39,16 @@ module Impl = (Editor: Sig.Editor) => {
     onAction: Event.t(Command.InputMethodAction.t),
     mutable instances: array(Instance.t),
     mutable activated: bool,
-    // mutable updates: array((int, int, string, Instance.t)),
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
-    mutable lock: bool,
+    mutable busy: bool,
+  };
+
+  // datatype for representing a rewrite to be made to the text editor
+  type rewrite = {
+    start: int,
+    end_: int,
+    rewriteWith: string,
+    instance: Instance.t,
   };
 
   let insertBackslash = editor => {
@@ -52,7 +59,6 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let activate = (self, editor, offsets: array(int)) => {
-    Js.log("locked: " ++ string_of_bool(self.lock));
     // instantiate from an array of offsets
     self.instances =
       Js.Array.sortInPlaceWith(compare, offsets)
@@ -72,7 +78,7 @@ module Impl = (Editor: Sig.Editor) => {
       };
 
     // kill the Instances that are not are not pointed by cursors
-    let cursorChangelistener = (points: array(Editor.Point.t)) => {
+    let validate = (points: array(Editor.Point.t)) => {
       let offsets = points->Array.map(Editor.offsetAtPoint(editor));
       Js.log(
         "\n### Cursors  : "
@@ -104,17 +110,16 @@ module Impl = (Editor: Sig.Editor) => {
           });
 
       self.cursorsToBeChecked = None;
-
       checkIfEveryoneIsStillAlive();
     };
 
-    let iterateThroughUpdates = updates => {
-      let rec go:
-        (int, list((int, int, string, Instance.t))) => Promise.t(unit) =
+    // iterate through a list of rewrites and apply them to the text editor
+    let applyRewrite = rewrites => {
+      let rec go: (int, list(rewrite)) => Promise.t(unit) =
         accum =>
           fun
           | [] => Promise.resolved()
-          | [(start, end_, text, instance), ...updates] => {
+          | [{start, end_, rewriteWith, instance}, ...rewrites] => {
               let range =
                 Editor.Range.make(
                   Editor.pointAtOffset(editor, start + accum),
@@ -123,11 +128,11 @@ module Impl = (Editor: Sig.Editor) => {
 
               // this value represents the offset change made by this update
               // e.g. "lambda" => "λ" would result in `-5`
-              let delta = String.length(text) - (end_ - start);
+              let delta = String.length(rewriteWith) - (end_ - start);
 
               Js.log(
                 "!!! "
-                ++ text
+                ++ rewriteWith
                 ++ " ("
                 ++ string_of_int(accum + start)
                 ++ ","
@@ -146,23 +151,15 @@ module Impl = (Editor: Sig.Editor) => {
               let accum = accum + delta;
 
               // update the text buffer
-              Editor.setText(editor, range, text)
-              ->Promise.flatMap(_ => go(accum, updates));
+              Editor.setText(editor, range, rewriteWith)
+              ->Promise.flatMap(_ => go(accum, rewrites));
             };
 
-      Js.log("!!! UPDATES start " ++ string_of_int(Array.length(updates)));
-
-      go(0, List.fromArray(updates))
-      ->Promise.tap(() => {
-          Js.log(
-            "!!! UPDATES finish " ++ string_of_int(Array.length(updates)),
-          )
-        });
+      go(0, List.fromArray(rewrites));
     };
 
     // update offsets of Instances base on changeEvents
     let updateOffsets = (changes: array(Editor.changeEvent)) => {
-      Js.log("~~~ offset start");
       // sort the changes base on their offsets in the ascending order
       let changes =
         Js.Array.sortInPlaceWith(
@@ -171,11 +168,11 @@ module Impl = (Editor: Sig.Editor) => {
           changes,
         );
 
-      let updates = [||];
+      let rewrites = [||];
 
       // iterate through changeEvents
-      // and push updates to the queue
-      let rec scanAndUpdate:
+      // and push rewrites to the queue
+      let rec go:
         (int, (list(Editor.changeEvent), list(Instance.t))) =>
         list(Instance.t) =
         accum =>
@@ -198,54 +195,55 @@ module Impl = (Editor: Sig.Editor) => {
                 | Noop => ()
                 | UpdateAndReplaceText(buffer, text) =>
                   Js.Array.push(
-                    (accum + start, accum + end_ + delta, text, instance),
-                    updates,
+                    {
+                      start: accum + start,
+                      end_: accum + end_ + delta,
+                      rewriteWith: text,
+                      instance,
+                    },
+                    rewrites,
                   )
                   ->ignore;
                   instance.buffer = buffer;
                 };
 
                 instance.range = (accum + start, accum + end_ + delta);
-                [instance, ...scanAndUpdate(accum + delta, (cs, is))];
+                [instance, ...go(accum + delta, (cs, is))];
               } else if (change.offset < fst(instance.range)) {
                 // `change` appears before the `instance`
-                scanAndUpdate(
+                go(
                   accum + delta, // update only `accum`
                   (cs, [instance, ...is]),
                 );
               } else {
                 // `change` appears after the `instance`
                 instance.range = (accum + start, accum + end_);
-                [instance, ...scanAndUpdate(accum, ([change, ...cs], is))];
+                [instance, ...go(accum, ([change, ...cs], is))];
               };
             }
           | ([], [instance, ...is]) => [instance, ...is]
           | (_, []) => [];
 
+      // store the updated instances
       self.instances =
-        scanAndUpdate(
-          0,
-          (List.fromArray(changes), List.fromArray(self.instances)),
-        )
+        go(0, (List.fromArray(changes), List.fromArray(self.instances)))
         ->List.toArray;
 
-      Js.log("~~~ offset finish");
-
+      // see if there are any rewrites to be done
       (
-        if (Array.length(updates) > 0) {
-          iterateThroughUpdates(updates);
+        if (Array.length(rewrites) > 0) {
+          applyRewrite(rewrites);
         } else {
           Promise.resolved();
         }
       )
       ->Promise.get(() => {
-          self.lock = false;
-          Js.log(">>>>>>>>>>>>>>>>> UNLOCK");
+          // all offsets updated and rewrites applied, reset the semaphore
+          self.busy = false;
+          // see if there are any pending validations
           switch (self.cursorsToBeChecked) {
           | None => ()
-          | Some(points) =>
-            self.cursorsToBeChecked = None;
-            cursorChangelistener(points);
+          | Some(points) => validate(points)
           };
         });
     };
@@ -253,28 +251,27 @@ module Impl = (Editor: Sig.Editor) => {
     // initiate listeners
     cursorChangeHandle :=
       Some(
-        Editor.onChangeCursorPosition(points => {
-          self.cursorsToBeChecked = Some(points);
-          Js.log("locked2: " ++ string_of_bool(self.lock));
-          if (self.lock) {
-            Js.log("### wait");
+        Editor.onChangeCursorPosition(points =>
+          if (self.busy) {
+            // cannot validate cursors at this moment
+            // store the positions and wait until the system is not busy
+            self.cursorsToBeChecked =
+              Some(points);
           } else {
-            cursorChangelistener(points);
-          };
-        }),
+            validate(points);
+          }
+        ),
       );
     editorChangeHandle :=
       Some(
-        Editor.onChange(changes
-          // editing happened
-          =>
-            if (!self.lock && Array.length(changes) > 0) {
-              self.lock = true;
-              checkIfEveryoneIsStillAlive();
-              Js.log(">>>>>>>>>>>>>>>>> LOCK");
-              updateOffsets(changes);
-            }
-          ),
+        Editor.onChange(changes =>
+          if (!self.busy && Array.length(changes) > 0) {
+            // if any changes occured to the editor and the system is not busy
+            self.busy = true;
+            // update the offsets to reflect the changes
+            updateOffsets(changes);
+          }
+        ),
       );
   };
 
@@ -283,6 +280,6 @@ module Impl = (Editor: Sig.Editor) => {
     instances: [||],
     activated: false,
     cursorsToBeChecked: None,
-    lock: false,
+    busy: false,
   };
 };

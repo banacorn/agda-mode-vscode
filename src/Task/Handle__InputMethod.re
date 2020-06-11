@@ -20,7 +20,6 @@ module Impl = (Editor: Sig.Editor) => {
               let startingOffsets: array(int) =
                 Editor.getCursorPositions(state.editor)
                 ->Array.map(Editor.offsetAtPoint(state.editor));
-              state.inputMethod.lock = false;
               InputMethod.activate(
                 state.inputMethod,
                 state.editor,
