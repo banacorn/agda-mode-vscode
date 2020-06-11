@@ -4,10 +4,18 @@ module Impl = (Editor: Sig.Editor) => {
   open Command.InputMethodAction;
   module Buffer2 = Buffer2.Impl(Editor);
 
+  let printLog = false;
+  let log =
+    if (printLog) {
+      Js.log;
+    } else {
+      _ => ();
+    };
+
   module Instance = {
     type t = {
       mutable range: (int, int),
-      decoration: array(Editor.Decoration.t),
+      mutable decoration: array(Editor.Decoration.t),
       mutable buffer: Buffer2.t,
     };
 
@@ -29,8 +37,20 @@ module Impl = (Editor: Sig.Editor) => {
       start <= offset && offset <= end_;
     };
 
+    let redocorate = (instance, editor) => {
+      instance.decoration->Array.forEach(Editor.Decoration.destroy);
+      let (start, end_) = instance.range;
+      let start = Editor.pointAtOffset(editor, start);
+      let end_ = Editor.pointAtOffset(editor, end_);
+      instance.decoration =
+        Editor.Decoration.underlineText(
+          editor,
+          Editor.Range.make(start, end_),
+        );
+    };
+
     let destroy = instance => {
-      Js.log("KILLED");
+      log("KILLED");
       instance.decoration->Array.forEach(Editor.Decoration.destroy);
     };
   };
@@ -71,7 +91,7 @@ module Impl = (Editor: Sig.Editor) => {
     // destroy the handles if all Instances are destroyed
     let checkIfEveryoneIsStillAlive = () =>
       if (Array.length(self.instances) == 0) {
-        Js.log("ALL DEAD");
+        log("ALL DEAD");
         self.onAction.emit(Deactivate);
         (editorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
         (cursorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
@@ -80,7 +100,7 @@ module Impl = (Editor: Sig.Editor) => {
     // kill the Instances that are not are not pointed by cursors
     let validate = (points: array(Editor.Point.t)) => {
       let offsets = points->Array.map(Editor.offsetAtPoint(editor));
-      Js.log(
+      log(
         "\n### Cursors  : "
         ++ Js.Array.sortInPlaceWith(compare, offsets)
            ->Array.map(string_of_int)
@@ -130,7 +150,7 @@ module Impl = (Editor: Sig.Editor) => {
               // e.g. "lambda" => "λ" would result in `-5`
               let delta = String.length(rewriteWith) - (end_ - start);
 
-              Js.log(
+              log(
                 "!!! "
                 ++ rewriteWith
                 ++ " ("
@@ -145,14 +165,23 @@ module Impl = (Editor: Sig.Editor) => {
                 ++ string_of_int(accum),
               );
 
-              // Js.log(instance.range);
               instance.range = (accum + start, accum + end_ + delta);
               // pass this change down
               let accum = accum + delta;
 
               // update the text buffer
-              Editor.setText(editor, range, rewriteWith)
-              ->Promise.flatMap(_ => go(accum, rewrites));
+              Editor.deleteText(editor, range)
+              ->Promise.flatMap(_ => {
+                  Editor.insertText(
+                    editor,
+                    Editor.Range.start(range),
+                    rewriteWith,
+                  )
+                })
+              ->Promise.flatMap(_ => {
+                  Instance.redocorate(instance, editor);
+                  go(accum, rewrites);
+                });
             };
 
       go(0, List.fromArray(rewrites));
@@ -193,6 +222,10 @@ module Impl = (Editor: Sig.Editor) => {
                   );
                 switch (next) {
                 | Noop =>
+                  instance.range = (accum + start, accum + end_ + delta);
+                  [instance, ...go(accum + delta, (cs, is))];
+                | Update(buffer) =>
+                  instance.buffer = buffer;
                   instance.range = (accum + start, accum + end_ + delta);
                   [instance, ...go(accum + delta, (cs, is))];
                 | Rewrite(buffer, text) =>

@@ -13,6 +13,9 @@ module Impl = (Editor: Sig.Editor) => {
   //    user typed: lambd   => { symbol: Some("←", "l"), tail: "ambd" }
   //    user typed: lambda   => { symbol: Some("λ", "lambda"), tail: "" }
 
+  let init = string =>
+    Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
+
   let make = () => {symbol: None, tail: ""};
 
   let isEmpty = self => {
@@ -45,6 +48,7 @@ module Impl = (Editor: Sig.Editor) => {
   type action =
     | Noop
     | Stuck
+    | Update(t)
     | Rewrite(t, string);
 
   let init = string =>
@@ -89,16 +93,44 @@ module Impl = (Editor: Sig.Editor) => {
           Js.String.substring(~from=0, ~to_=insertStart, sequence);
         let afterInsertedText =
           Js.String.substringToEnd(~from=insertEnd, sequence);
+        // Js.log(
+        //   beforeInsertedText
+        //   ++ "["
+        //   ++ change.insertText
+        //   ++ "]"
+        //   ++ afterInsertedText,
+        // );
         beforeInsertedText ++ change.insertText ++ afterInsertedText;
       };
-      let translation = Translator.translate(newSequence);
-      let newBuffer =
+
+      if (Js.String.includes(sequence, newSequence)) {
+        // INSERTION
+        let diff =
+          Js.String.substringToEnd(
+            ~from=String.length(sequence),
+            newSequence,
+          );
+        let translation = Translator.translate(newSequence);
         switch (translation.symbol) {
-        | None => {symbol: None, tail: newSequence}
-        | Some(symbol) => {symbol: Some((symbol, newSequence)), tail: ""}
+        | None =>
+          // Special case of INSERTION
+          let buffer = {symbol: self.symbol, tail: self.tail ++ diff};
+          Update(buffer);
+        | Some(symbol) =>
+          let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
+          Rewrite(buffer, toSurface(buffer));
         };
-      let newSurface = toSurface(newBuffer);
-      Rewrite(newBuffer, newSurface);
+      } else {
+        let translation = Translator.translate(newSequence);
+        switch (translation.symbol) {
+        | None =>
+          let buffer = {symbol: None, tail: newSequence};
+          Rewrite(buffer, toSurface(buffer));
+        | Some(symbol) =>
+          let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
+          Rewrite(buffer, toSurface(buffer));
+        };
+      };
     };
   };
 };
