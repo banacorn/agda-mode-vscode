@@ -119,16 +119,19 @@ module Impl = (Editor: Sig.Editor) => {
                     ++ string_of_int(accum + end_ + delta)
                     ++ ")",
                   );
-                  let update = () => {
-                    let originalRange =
-                      Editor.Range.make(
-                        Editor.pointAtOffset(editor, accum + start),
-                        Editor.pointAtOffset(editor, accum + end_ + delta),
-                      );
-                    Editor.setText(editor, originalRange, text);
-                  };
+                  //   let originalRange =
+                  //     Editor.Range.make(
+                  //       Editor.pointAtOffset(editor, accum + start),
+                  //       Editor.pointAtOffset(editor, accum + end_ + delta),
+                  //     );
+                  //   Editor.setText(editor, originalRange, text);
+                  // };
 
-                  Js.Array.push(update, updates)->ignore;
+                  Js.Array.push(
+                    (accum + start, accum + end_ + delta, text),
+                    updates,
+                  )
+                  ->ignore;
 
                   // let originalRange =
                   //   Editor.Range.make(
@@ -175,7 +178,30 @@ module Impl = (Editor: Sig.Editor) => {
         )
         ->List.toArray;
 
-      Util.oneByOne(updates)->Promise.get(Js.log);
+      Js.log("number of updates " ++ string_of_int(Array.length(updates)));
+      let rec iterateThroughUpdates:
+        (int, list((int, int, string))) => Promise.t(unit) =
+        accum =>
+          fun
+          | [] => Promise.resolved()
+          | [(start, end_, text), ...updates] => {
+              let range =
+                Editor.Range.make(
+                  Editor.pointAtOffset(editor, start + accum),
+                  Editor.pointAtOffset(editor, end_ + accum),
+                );
+
+              // this value represents the offset change made by this update
+              // e.g. "lambda" => "λ" would result in `-5`
+              let delta = String.length(text) - (end_ - start);
+              // pass this change down
+              let accum = accum + delta;
+              // update the text buffer
+              Editor.setText(editor, range, text)
+              ->Promise.flatMap(_ => iterateThroughUpdates(accum, updates));
+            };
+
+      iterateThroughUpdates(0, List.fromArray(updates))->ignore;
     };
 
     // kill the Instances that are not are not pointed by cursors
