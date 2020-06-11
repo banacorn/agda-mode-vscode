@@ -25,7 +25,8 @@ module Impl = (Editor: Sig.Editor) => {
                 state.editor,
                 startingOffsets,
               );
-              Promise.resolved([Debug("InputMethod(Activated)")]);
+              // Promise.resolved([Debug("InputMethod(Activated)")]);
+              Promise.resolved([]);
             },
         ),
       ]
@@ -34,7 +35,8 @@ module Impl = (Editor: Sig.Editor) => {
           state =>
             if (state.inputMethod.activated) {
               state.inputMethod.activated = false;
-              Promise.resolved([Debug("InputMethod(Deactivated)")]);
+              // Promise.resolved([Debug("InputMethod(Deactivated)")]);
+              Promise.resolved([]);
             } else {
               Promise.resolved([]);
             },

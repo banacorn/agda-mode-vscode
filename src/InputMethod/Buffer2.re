@@ -68,8 +68,6 @@ module Impl = (Editor: Sig.Editor) => {
     // );
     if (toSurface(self) == change.insertText) {
       Noop;
-    } else if (change.insertText == " ") {
-      Stuck;
     } else {
       // some modification has been made to the sequence
       // devise the new sequence
@@ -93,43 +91,41 @@ module Impl = (Editor: Sig.Editor) => {
           Js.String.substring(~from=0, ~to_=insertStart, sequence);
         let afterInsertedText =
           Js.String.substringToEnd(~from=insertEnd, sequence);
-        // Js.log(
-        //   beforeInsertedText
-        //   ++ "["
-        //   ++ change.insertText
-        //   ++ "]"
-        //   ++ afterInsertedText,
-        // );
+        Js.log(
+          beforeInsertedText
+          ++ "["
+          ++ change.insertText
+          ++ "]"
+          ++ afterInsertedText,
+        );
         beforeInsertedText ++ change.insertText ++ afterInsertedText;
       };
 
-      if (Js.String.includes(sequence, newSequence)) {
-        // INSERTION
-        let diff =
-          Js.String.substringToEnd(
-            ~from=String.length(sequence),
-            newSequence,
-          );
-        let translation = Translator.translate(newSequence);
-        switch (translation.symbol) {
-        | None =>
+      let translation = Translator.translate(newSequence);
+      switch (translation.symbol) {
+      | None =>
+        if (translation.further) {
           // Special case of INSERTION
-          let buffer = {symbol: self.symbol, tail: self.tail ++ diff};
-          Update(buffer);
-        | Some(symbol) =>
-          let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
-          Rewrite(buffer, toSurface(buffer));
-        };
-      } else {
-        let translation = Translator.translate(newSequence);
-        switch (translation.symbol) {
-        | None =>
-          let buffer = {symbol: None, tail: newSequence};
-          Rewrite(buffer, toSurface(buffer));
-        | Some(symbol) =>
-          let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
-          Rewrite(buffer, toSurface(buffer));
-        };
+          // Issue `Update` instead of `Rewrite` to reducing unnecessary rewriting
+          if (Js.String.includes(sequence, newSequence)) {
+            let diff =
+              Js.String.substringToEnd(
+                ~from=String.length(sequence),
+                newSequence,
+              );
+            let buffer = {symbol: self.symbol, tail: self.tail ++ diff};
+            Update(buffer);
+          } else {
+            let buffer = {symbol: None, tail: newSequence};
+            Rewrite(buffer, toSurface(buffer));
+          };
+        } else {
+          Stuck;
+        }
+
+      | Some(symbol) =>
+        let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
+        Rewrite(buffer, toSurface(buffer));
       };
     };
   };
