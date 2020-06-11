@@ -42,61 +42,10 @@ module Impl = (Editor: Sig.Editor) => {
   //   | Complete // should deactivate
   //   | Stuck(int); // should deactivate, too
 
-  // // devise the next state
-  // let next = (self, reality) => {
-  //   let surface = toSurface(self);
-  //   let sequence = toSequence(self);
-  //   if (reality == surface) {
-  //     if (Translator.translate(sequence).further && reality != "\\") {
-  //       Noop;
-  //     } else {
-  //       Complete;
-  //     };
-  //   } else if (init(reality) == surface) {
-  //     // insertion
-  //     let insertedChar = Js.String.substr(~from=-1, reality);
-  //     let sequence' = sequence ++ insertedChar;
-  //     let translation = Translator.translate(sequence');
-  //     switch (translation.symbol) {
-  //     | Some(symbol) =>
-  //       if (insertedChar == symbol && insertedChar == "\\") {
-  //         Stuck(0);
-  //       } else {
-  //         Rewrite({symbol: Some((symbol, sequence')), tail: ""});
-  //       }
-  //     | None =>
-  //       if (translation.further) {
-  //         Insert({...self, tail: self.tail ++ insertedChar});
-  //       } else {
-  //         Stuck(1);
-  //       }
-  //     };
-  //   } else if (reality == init(surface) || reality == init(sequence)) {
-  //     // backspace deletion
-  //     if (reality == "") {
-  //       // if the symbol is gone
-  //       if (Option.isSome(self.symbol)) {
-  //         // A symbol has just been backspaced and gone
-  //         // replace it with the underlying sequence (backspaced)
-  //         Rewrite({
-  //           symbol: None,
-  //           tail: init(sequence),
-  //         });
-  //       } else {
-  //         Stuck(2);
-  //       };
-  //     } else {
-  //       // normal backspace
-  //       Backspace({...self, tail: init(self.tail)});
-  //     };
-  //   } else {
-  //     Stuck(3);
-  //   };
-  // };
-
   type action =
     | Noop
-    | UpdateAndReplaceText(t, string);
+    | Stuck
+    | Rewrite(t, string);
 
   let init = string =>
     Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
@@ -115,6 +64,8 @@ module Impl = (Editor: Sig.Editor) => {
     // );
     if (toSurface(self) == change.insertText) {
       Noop;
+    } else if (change.insertText == " ") {
+      Stuck;
     } else {
       // some modification has been made to the sequence
       // devise the new sequence
@@ -147,7 +98,7 @@ module Impl = (Editor: Sig.Editor) => {
         | Some(symbol) => {symbol: Some((symbol, newSequence)), tail: ""}
         };
       let newSurface = toSurface(newBuffer);
-      UpdateAndReplaceText(newBuffer, newSurface);
+      Rewrite(newBuffer, newSurface);
     };
   };
 };

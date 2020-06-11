@@ -192,8 +192,10 @@ module Impl = (Editor: Sig.Editor) => {
                     change,
                   );
                 switch (next) {
-                | Noop => ()
-                | UpdateAndReplaceText(buffer, text) =>
+                | Noop =>
+                  instance.range = (accum + start, accum + end_ + delta);
+                  [instance, ...go(accum + delta, (cs, is))];
+                | Rewrite(buffer, text) =>
                   Js.Array.push(
                     {
                       start: accum + start,
@@ -205,10 +207,13 @@ module Impl = (Editor: Sig.Editor) => {
                   )
                   ->ignore;
                   instance.buffer = buffer;
-                };
 
-                instance.range = (accum + start, accum + end_ + delta);
-                [instance, ...go(accum + delta, (cs, is))];
+                  instance.range = (accum + start, accum + end_ + delta);
+                  [instance, ...go(accum + delta, (cs, is))];
+                | Stuck =>
+                  Instance.destroy(instance);
+                  go(accum + delta, (cs, is));
+                };
               } else if (change.offset < fst(instance.range)) {
                 // `change` appears before the `instance`
                 go(
