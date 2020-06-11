@@ -103,16 +103,16 @@ module Impl = (Editor: Sig.Editor) => {
 
   let update = (start, self, change: Editor.changeEvent) => {
     let sequence = toSequence(self);
-    Js.log(
-      "REPLACE "
-      ++ string_of_int(change.offset)
-      ++ " "
-      ++ change.insertText
-      ++ " "
-      ++ string_of_int(change.replaceLength)
-      ++ " "
-      ++ toSurface(self),
-    );
+    // Js.log(
+    //   "REPLACE "
+    //   ++ string_of_int(change.offset)
+    //   ++ " "
+    //   ++ change.insertText
+    //   ++ " "
+    //   ++ string_of_int(change.replaceLength)
+    //   ++ " "
+    //   ++ toSurface(self),
+    // );
     if (toSurface(self) == change.insertText) {
       Noop;
     } else {
