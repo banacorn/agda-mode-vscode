@@ -26,8 +26,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   let dispatchCommand = (self, command) => {
     module CommandHandler = Handle__Command.Impl(Editor);
-    let tasks = CommandHandler.handle(command)->List.toArray;
-    self.otherTaskRunner->Runner2.pushMany(tasks);
+    let tasks = CommandHandler.handle(command);
+    self.otherTaskRunner->Runner2.pushToBackAndRun(tasks);
   };
 
   let sendAgdaRequest = (runTasks, state, req) => {
@@ -37,16 +37,15 @@ module Impl = (Editor: Sig.Editor) => {
     let handler: result(Connection.response, Connection.Error.t) => unit =
       fun
       | Error(error) => {
-          let tasks =
-            ErrorHandler.handle(Error.Connection(error))->List.toArray;
+          let tasks = ErrorHandler.handle(Error.Connection(error));
           runTasks(tasks)->Promise.get(resolve);
         }
       | Ok(Parser.Incr.Event.Yield(Error(error))) => {
-          let tasks = ErrorHandler.handle(Error.Parser(error))->List.toArray;
+          let tasks = ErrorHandler.handle(Error.Parser(error));
           runTasks(tasks)->Promise.get(resolve);
         }
       | Ok(Yield(Ok(response))) => {
-          let tasks = ResponseHandler.handle(response)->List.toArray;
+          let tasks = ResponseHandler.handle(response);
           runTasks(tasks)->ignore;
         }
       | Ok(Stop) => resolve();
@@ -60,7 +59,7 @@ module Impl = (Editor: Sig.Editor) => {
             promise;
           }
         | Error(error) => {
-            let tasks = ErrorHandler.handle(error)->List.toArray;
+            let tasks = ErrorHandler.handle(error);
             runTasks(tasks)->Promise.get(resolve);
             promise;
           },
@@ -82,7 +81,7 @@ module Impl = (Editor: Sig.Editor) => {
         switch (task) {
         | SendRequest(req) =>
           let runTasks = tasks => {
-            self.otherTaskRunner->Runner2.pushMany(tasks);
+            self.otherTaskRunner->Runner2.pushToBackAndRun(tasks);
           };
           switch (self.agdaRequestStatus) {
           | Occupied(reqs) =>
@@ -94,11 +93,11 @@ module Impl = (Editor: Sig.Editor) => {
             ->Promise.flatMap(() => {
                 let reqs =
                   switch (self.agdaRequestStatus) {
-                  | Occupied(reqs) => reqs
-                  | Available => [||]
+                  | Occupied(reqs) => reqs->List.fromArray
+                  | Available => []
                   };
                 self.agdaRequestStatus = Available;
-                self.agdaRequestRunner->Runner2.pushManyToFront(reqs);
+                self.agdaRequestRunner->Runner2.pushToFrontAndRun(reqs);
               });
           };
         | others => Promise.resolved()
