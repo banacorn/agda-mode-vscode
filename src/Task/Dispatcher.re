@@ -20,14 +20,14 @@ module Impl = (Editor: Sig.Editor) => {
     agdaRequestRunner: Runner2.t(Request.t),
     mutable agdaRequestStatus: status(Request.t),
     viewRequestRunner: Runner2.t(View.Request.t),
-    mutable viewRequestStatus: status(Request.t),
-    otherTaskRunner: Runner2.t(Task.t),
+    mutable viewRequestStatus: status(View.Request.t),
+    generalTaskRunner: Runner2.t(Task.t),
   };
 
   let dispatchCommand = (self, command) => {
     module CommandHandler = Handle__Command.Impl(Editor);
     let tasks = CommandHandler.handle(command);
-    self.otherTaskRunner->Runner2.pushToBackAndRun(tasks);
+    self.generalTaskRunner->Runner2.pushToBackAndRun(tasks);
   };
 
   let sendAgdaRequest = (runTasks, state, req) => {
@@ -73,15 +73,15 @@ module Impl = (Editor: Sig.Editor) => {
       agdaRequestStatus: Available,
       viewRequestRunner: Runner2.make(),
       viewRequestStatus: Available,
-      otherTaskRunner: Runner2.make(),
+      generalTaskRunner: Runner2.make(),
     };
 
-    self.otherTaskRunner
+    self.generalTaskRunner
     ->Runner2.setup(task => {
         switch (task) {
         | SendRequest(req) =>
           let runTasks = tasks => {
-            self.otherTaskRunner->Runner2.pushToBackAndRun(tasks);
+            self.generalTaskRunner->Runner2.pushToBackAndRun(tasks);
           };
           switch (self.agdaRequestStatus) {
           | Occupied(reqs) =>
@@ -100,6 +100,30 @@ module Impl = (Editor: Sig.Editor) => {
                 self.agdaRequestRunner->Runner2.pushToFrontAndRun(reqs);
               });
           };
+        | ViewReq(req, callback) =>
+          switch (self.viewRequestStatus) {
+          | Occupied(reqs) =>
+            Js.Array.push(req, reqs)->ignore;
+            Promise.resolved();
+          | Available =>
+            self.viewRequestStatus = Occupied([||]);
+            state
+            ->State.sendRequestToView(req)
+            ->Promise.flatMap(response => {
+                let tasks = callback(response);
+                self.generalTaskRunner->Runner2.pushToBackAndRun(tasks);
+              })
+            ->Promise.flatMap(() => {
+                let reqs =
+                  switch (self.viewRequestStatus) {
+                  | Occupied(reqs) => reqs->List.fromArray
+                  | Available => []
+                  };
+                self.viewRequestStatus = Available;
+                self.viewRequestRunner->Runner2.pushToFrontAndRun(reqs);
+              });
+          }
+
         | others => Promise.resolved()
         }
       });
