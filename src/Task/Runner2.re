@@ -74,6 +74,13 @@ let pushMany = (self: t('a), xs: array('a)): Promise.t(unit) => {
   run(self);
 };
 
+let pushManyToFront = (self: t('a), xs: array('a)): Promise.t(unit) => {
+  // concat tasks to the from of the queue
+  self.queue = Js.Array.concat(xs, self.queue);
+  // kick start the runner
+  run(self);
+};
+
 // NOTE: hacky ...
 let interrupt = (self, task: 'a) => {
   switch (self.execute) {
