@@ -26,7 +26,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Task.Terminate =>
       Js.log("[ task ][ terminate ] ");
       State.destroy(state)->Promise.map(() => []);
-    | DispatchCommand(_) => Promise.resolved([])
+    // | DispatchCommand(_) => Promise.resolved([])
     | WithState(callback) =>
       callback(state)->Promise.flatMap(runTasks(state))
     | Goal(action) =>

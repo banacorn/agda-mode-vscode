@@ -50,7 +50,10 @@ module Impl = (Editor: Sig.Editor) => {
           let tasks = ResponseHandler.handle(response);
           runTasks(tasks)->ignore;
         }
-      | Ok(Stop) => resolve();
+      | Ok(Stop) => {
+          Js.log(">>| ");
+          resolve();
+        };
 
     state
     ->State.sendRequestToAgda(req)
@@ -82,7 +85,7 @@ module Impl = (Editor: Sig.Editor) => {
     ->Runner2.setup(task => {
         Js.log("general " ++ Task.toString(task));
         switch (task) {
-        | DispatchCommand(_) => Promise.resolved([])
+        // | DispatchCommand(_) => Promise.resolved([])
         | SendRequest(req) =>
           self.agdaRequestRunner
           ->Runner2.pushAndRun([req])

@@ -122,6 +122,7 @@ module Pretty = {
   let array = xs => {
     "[" ++ Js.Array.joinWith(", ", xs) ++ "]";
   };
+  let list = xs => xs->List.toArray->array;
 };
 
 let rec oneByOne' =

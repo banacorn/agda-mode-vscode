@@ -19,7 +19,7 @@ module Impl = (Editor: Sig.Editor) => {
     | GetIndexedOr(int, (Goal.t, option(string)) => list(t), list(t))
 
   and t =
-    | DispatchCommand(Command.t)
+    // | DispatchCommand(Command.t)
     //
     | Terminate
     // Connection
@@ -35,7 +35,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let toString =
     fun
-    | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
+    // | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
     | Terminate => "Terminate"
     | SendRequest(_req) => "SendRequest"
     | ViewReq(_, _) => "ViewReq"
