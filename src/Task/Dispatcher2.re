@@ -2,25 +2,20 @@ open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Handle__Error.Impl(Editor);
-  // module ViewHandler = Handle__View.Impl(Editor);
-
   module GoalHandler = Handle__Goal.Impl(Editor);
   module CommandHandler = Handle__Command.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
   module Dispatcher = Dispatcher.Impl(Editor);
   module Task = Task.Impl(Editor);
-  // module State = State.Impl(Editor);
-  // module Request = Request.Impl(Editor);
-  // type t = Runner.t(Command.t);
   open! Task;
 
-  type blockedQueue =
-    | BlockedByAgda(list(Task.t))
-    | BlockedByView(list(Task.t));
+  type blockedBy =
+    | Agda
+    | View;
 
   type t = {
     runner: Runner3.t(Task.t),
-    mutable blockedQueues: list(blockedQueue),
+    mutable blockedQueues: list((blockedBy, list(Task.t))),
   };
 
   let dispatchCommand = (self, state, command) => {
@@ -31,49 +26,29 @@ module Impl = (Editor: Sig.Editor) => {
   let make = state => {
     let blockedQueues = ref([]);
 
-    let agdaIsOccupied = queues =>
+    // scan through a list of Queues and see if it's blocked by some resource
+    let blockedBy = (kind, queues) =>
       List.length(queues) != 0
-      && queues->List.some(
-           fun
-           | BlockedByAgda(_) => true
-           | _ => false,
-         );
+      && queues->List.some(((kind', _)) => kind == kind');
 
-    let viewIsOccupied = queues =>
-      List.length(queues) != 0
-      && queues->List.some(
-           fun
-           | BlockedByView(_) => true
-           | _ => false,
-         );
-
-    let rec releaseAgda =
+    // scan through a list of Queues and if there's a queue blocked by some resource
+    // if that blocked queue has the highest priority (placed as the first queue)
+    //    then return the queue, and delete it from the queues
+    //    else return nothing, merge the blocked queue with the queue before it
+    let rec unblock = kind =>
       fun
       | [] => (None, [])
-      | [BlockedByAgda(queue), ...others] => (Some(queue), others)
-      | [BlockedByView(other), ...others] => {
-          let (queue, others) = releaseAgda(others);
+      | [(kind', x), ...xs] =>
+        if (kind == kind') {
+          (Some(x), xs);
+        } else {
+          let (queue, others) = unblock(kind, xs);
           switch (queue) {
           | Some(queue) => (
               None,
-              [BlockedByView(List.concat(other, queue)), ...others],
+              [(kind', List.concat(x, queue)), ...others],
             )
-          | None => (None, [BlockedByView(other), ...others])
-          };
-        };
-
-    let rec releaseView =
-      fun
-      | [] => (None, [])
-      | [BlockedByView(queue), ...others] => (Some(queue), others)
-      | [BlockedByAgda(other), ...others] => {
-          let (queue, others) = releaseView(others);
-          switch (queue) {
-          | Some(queue) => (
-              None,
-              [BlockedByAgda(List.concat(other, queue)), ...others],
-            )
-          | None => (None, [BlockedByAgda(other), ...others])
+          | None => (None, [(kind', x), ...others])
           };
         };
 
@@ -90,11 +65,11 @@ module Impl = (Editor: Sig.Editor) => {
 
       queues->List.forEach(
         fun
-        | BlockedByAgda(queue) =>
+        | (Agda, queue) =>
           Js.log(
             "Agda " ++ Util.Pretty.list(List.map(queue, Task.toString)),
           )
-        | BlockedByView(queue) =>
+        | (View, queue) =>
           Js.log(
             "View " ++ Util.Pretty.list(List.map(queue, Task.toString)),
           ),
@@ -105,7 +80,7 @@ module Impl = (Editor: Sig.Editor) => {
       printStatus(task, runner, blockedQueues^);
       switch (task) {
       | ViewReq(request, callback) =>
-        if (viewIsOccupied(blockedQueues^)) {
+        if (blockedBy(View, blockedQueues^)) {
           Js.log("View blocked");
           Promise.resolved();
         } else {
@@ -115,13 +90,13 @@ module Impl = (Editor: Sig.Editor) => {
           ->Promise.map(response => {
               // empty the current Runner and move the content to `blockedQueues`
               let queue = Runner3.empty(runner)->List.fromArray;
-              blockedQueues := [BlockedByView(queue), ...blockedQueues^];
+              blockedQueues := [(View, queue), ...blockedQueues^];
 
               printStatus(task, runner, blockedQueues^);
               let tasks = callback(response);
               runner->Runner3.pushAndRun(tasks);
               Js.log("View unblocked");
-              let (queue, queues) = releaseView(blockedQueues^);
+              let (queue, queues) = unblock(View, blockedQueues^);
               blockedQueues := queues;
               switch (queue) {
               | None => ()
@@ -130,14 +105,14 @@ module Impl = (Editor: Sig.Editor) => {
             });
         }
       | SendRequest(request) =>
-        if (agdaIsOccupied(blockedQueues^)) {
+        if (blockedBy(Agda, blockedQueues^)) {
           Js.log("Agda blocked");
           Promise.resolved();
         } else {
           Js.log("Agda not blocked");
           // empty the current Runner and move the content to `blockedQueues`
           let queue = Runner3.empty(runner)->List.fromArray;
-          blockedQueues := [BlockedByAgda(queue), ...blockedQueues^];
+          blockedQueues := [(Agda, queue), ...blockedQueues^];
           // issue request
           Dispatcher.sendAgdaRequest(
             tasks => {
@@ -150,7 +125,7 @@ module Impl = (Editor: Sig.Editor) => {
           )
           ->Promise.tap(() => {
               Js.log("Agda unblocked");
-              let (queue, queues) = releaseAgda(blockedQueues^);
+              let (queue, queues) = unblock(Agda, blockedQueues^);
               blockedQueues := queues;
               switch (queue) {
               | None => ()
