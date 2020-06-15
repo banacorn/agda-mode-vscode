@@ -121,8 +121,31 @@ module Impl = (Editor: Sig.Editor) => {
       );
 
     let runner = Runner3.make();
+
+    let printStatus = (task, runner: Runner3.t(Task.t), queues) => {
+      Js.log(
+        "\nTask: "
+        ++ Task.toString(task)
+        ++ "\nRunner: "
+        ++ Util.Pretty.array(Array.map(runner.queue, Task.toString))
+        ++ "\n===============================",
+      );
+
+      queues->Array.forEach(
+        fun
+        | BlockedByAgda(queue) =>
+          Js.log(
+            "Agda " ++ Util.Pretty.array(Array.map(queue, Task.toString)),
+          )
+        | BlockedByView(queue) =>
+          Js.log(
+            "View " ++ Util.Pretty.array(Array.map(queue, Task.toString)),
+          ),
+      );
+    };
+
     let classifyTask = task => {
-      Js.log("Task: " ++ Task.toString(task));
+      printStatus(task, runner, blockedQueues^);
       switch (task) {
       | SendRequest(request) =>
         if (agdaIsOccupied(blockedQueues^)) {
