@@ -4,9 +4,9 @@ open VSCode;
 // a dictionary of FileName-State entries
 module StateDict = {
   module Impl = (Editor: Sig.Editor) => {
-    module Scheduler = Scheduler.Impl(Editor);
+    module Dispatcher = Dispatcher.Impl(Editor);
     module State = State.Impl(Editor);
-    let dict: Js.Dict.t((State.t, Scheduler.t)) = Js.Dict.empty();
+    let dict: Js.Dict.t((State.t, Dispatcher.t)) = Js.Dict.empty();
 
     let get = fileName => dict->Js.Dict.get(fileName);
 
@@ -45,7 +45,7 @@ module StateDict = {
       ->Option.forEach(((state, runner)) => {
           Js.log("[ states ][ destroy ]");
           State.destroy(state) |> ignore;
-          Scheduler.destroy(runner) |> ignore;
+          Dispatcher.destroy(runner) |> ignore;
         });
       remove(fileName);
     };
@@ -57,7 +57,7 @@ module StateDict = {
       ->Js.Dict.entries
       ->Array.forEach(((_, (state, runner))) => {
           State.destroy(state) |> ignore;
-          Scheduler.destroy(runner) |> ignore;
+          Dispatcher.destroy(runner) |> ignore;
         });
     };
   };
@@ -66,7 +66,7 @@ module StateDict = {
 module Impl = (Editor: Sig.Editor) => {
   module States = StateDict.Impl(Editor);
   module State = State.Impl(Editor);
-  module TaskRunner = Scheduler.Impl(Editor);
+  module Dispatcher = Dispatcher.Impl(Editor);
 
   let addToSubscriptions = (f, context) =>
     f->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;
@@ -119,12 +119,12 @@ module Impl = (Editor: Sig.Editor) => {
                 | None =>
                   // not in the States dict, instantiate one new
                   let state = State.make(context, editor);
-                  let taskRunner = TaskRunner.make(state);
+                  let taskRunner = Dispatcher.make(state);
 
                   // listens to events from the view
                   state.view
                   ->Editor.View.on(event => {
-                      TaskRunner.dispatchCommand(
+                      Dispatcher.dispatchCommand(
                         taskRunner,
                         ViewEvent(event),
                       )
@@ -134,7 +134,7 @@ module Impl = (Editor: Sig.Editor) => {
 
                   // listens to events from the input method
                   state.inputMethod.onAction.on(action => {
-                    TaskRunner.dispatchCommand(
+                    Dispatcher.dispatchCommand(
                       taskRunner,
                       Command.InputSymbol(action),
                     )
@@ -148,7 +148,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ->State.onceDestroyed
                   ->Promise.get(() => {States.destroy(fileName)});
 
-                  // add this new constructed State and TaskRunner to the dict
+                  // add this new constructed State and Dispatcher to the dict
                   States.add(fileName, (state, taskRunner));
                 | Some(_state) =>
                   // already in the States dict, do nothing
@@ -162,8 +162,8 @@ module Impl = (Editor: Sig.Editor) => {
           ->States.getByEditor
           ->Option.forEach(((_state, runner)) => {
               switch (command) {
-              | Escape => TaskRunner.interrupt(runner, Escape)->ignore
-              | others => TaskRunner.dispatchCommand(runner, others)->ignore
+              | Escape => Dispatcher.interrupt(runner, Escape)->ignore
+              | others => Dispatcher.dispatchCommand(runner, others)->ignore
               }
             });
         },

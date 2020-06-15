@@ -4,7 +4,7 @@ module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Handle__Error.Impl(Editor);
   // module ViewHandler = Handle__View.Impl(Editor);
 
-  // module GoalHandler = Handle__Goal.Impl(Editor);
+  module GoalHandler = Handle__Goal.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
   // module State = State.Impl(Editor);
@@ -12,22 +12,23 @@ module Impl = (Editor: Sig.Editor) => {
   // type t = Runner.t(Command.t);
   open! Task;
 
-  type status('a) =
-    | Occupied(array('a))
-    | Available;
-
   type t = {
     agdaRequestRunner: Runner2.t(Request.t),
-    mutable agdaRequestStatus: status(Request.t),
+    // mutable agdaRequestStatus: status(Request.t),
     viewRequestRunner: Runner2.t(View.Request.t),
-    mutable viewRequestStatus: status(View.Request.t),
+    // mutable viewRequestStatus: status(View.Request.t),
     generalTaskRunner: Runner2.t(Task.t),
   };
 
   let dispatchCommand = (self, command) => {
     module CommandHandler = Handle__Command.Impl(Editor);
     let tasks = CommandHandler.handle(command);
-    self.generalTaskRunner->Runner2.pushToBackAndRun(tasks);
+    self.generalTaskRunner
+    ->Runner2.pushAndRun(tasks)
+    ->Promise.tap(() => {
+        Js.log(Command.toString(command) ++ " completed");
+        Js.log(self);
+      });
   };
 
   let sendAgdaRequest = (runTasks, state, req) => {
@@ -45,6 +46,7 @@ module Impl = (Editor: Sig.Editor) => {
           runTasks(tasks)->Promise.get(resolve);
         }
       | Ok(Yield(Ok(response))) => {
+          Js.log(">>> " ++ Response.toString(response));
           let tasks = ResponseHandler.handle(response);
           runTasks(tasks)->ignore;
         }
@@ -70,64 +72,88 @@ module Impl = (Editor: Sig.Editor) => {
   let make = state => {
     let self = {
       agdaRequestRunner: Runner2.make(),
-      agdaRequestStatus: Available,
+      // agdaRequestStatus: Available,
       viewRequestRunner: Runner2.make(),
-      viewRequestStatus: Available,
+      // viewRequestStatus: Available,
       generalTaskRunner: Runner2.make(),
     };
 
     self.generalTaskRunner
     ->Runner2.setup(task => {
+        Js.log("general " ++ Task.toString(task));
         switch (task) {
         | SendRequest(req) =>
-          let runTasks = tasks => {
-            self.generalTaskRunner->Runner2.pushToBackAndRun(tasks);
-          };
-          switch (self.agdaRequestStatus) {
-          | Occupied(reqs) =>
-            Js.Array.push(req, reqs)->ignore;
-            Promise.resolved();
-          | Available =>
-            self.agdaRequestStatus = Occupied([||]);
-            sendAgdaRequest(runTasks, state, req)
-            ->Promise.flatMap(() => {
-                let reqs =
-                  switch (self.agdaRequestStatus) {
-                  | Occupied(reqs) => reqs->List.fromArray
-                  | Available => []
-                  };
-                self.agdaRequestStatus = Available;
-                self.agdaRequestRunner->Runner2.pushToFrontAndRun(reqs);
-              });
-          };
+          self.agdaRequestRunner
+          ->Runner2.pushAndRun([req])
+          ->Promise.map(() => [])
+        // ->Runner2.pushAndRun([req])
+        // let runTasks = tasks => {
+        //   self.generalTaskRunner->Runner2.pushInternal(tasks);
+        //   Promise.resolved();
+        // };
+        // sendAgdaRequest(runTasks, state, req)->Promise.map(() => []);
         | ViewReq(req, callback) =>
-          switch (self.viewRequestStatus) {
-          | Occupied(reqs) =>
-            Js.Array.push(req, reqs)->ignore;
-            Promise.resolved();
-          | Available =>
-            self.viewRequestStatus = Occupied([||]);
-            state
-            ->State.sendRequestToView(req)
-            ->Promise.flatMap(response => {
-                let tasks = callback(response);
-                self.generalTaskRunner->Runner2.pushToBackAndRun(tasks);
-              })
-            ->Promise.flatMap(() => {
-                let reqs =
-                  switch (self.viewRequestStatus) {
-                  | Occupied(reqs) => reqs->List.fromArray
-                  | Available => []
-                  };
-                self.viewRequestStatus = Available;
-                self.viewRequestRunner->Runner2.pushToFrontAndRun(reqs);
-              });
+          state
+          ->State.sendRequestToView(req)
+          ->Promise.map(response => {
+              let tasks = callback(response);
+              Js.log(
+                "View Response: "
+                ++ Util.Pretty.array(
+                     List.toArray(List.map(tasks, Task.toString)),
+                   ),
+              );
+              self.generalTaskRunner->Runner2.pushInternal(tasks);
+              [];
+            })
+        | Terminate => State.destroy(state)->Promise.map(() => [])
+        | WithState(callback) => callback(state)
+        | Goal(action) => GoalHandler.handle(action)->Promise.resolved
+        | ViewEvent(event) =>
+          switch (event) {
+          | Initialized => Promise.resolved([])
+          | Destroyed => Promise.resolved([Task.Terminate])
           }
+        | Error(error) => ErrorHandler.handle(error)->Promise.resolved
+        | Debug(message) =>
+          Promise.resolved([Task.displayWarning("Debug", Some(message))])
+        };
+      });
 
-        | others => Promise.resolved()
-        }
+    self.agdaRequestRunner
+    ->Runner2.setup(req => {
+        Js.log("agdaRequestRunner");
+        sendAgdaRequest(
+          tasks => {
+            Js.log("push");
+            self.generalTaskRunner->Runner2.pushInternal(tasks);
+            Promise.resolved();
+          },
+          state,
+          req,
+        )
+        ->Promise.map(() => []);
+      });
+
+    self.viewRequestRunner
+    ->Runner2.setup(req => {
+        Js.log("viewRequestRunner");
+        Js.log(req);
+        Promise.resolved([]);
       });
 
     self;
+  };
+
+  let interrupt = (self, command) => {
+    module CommandHandler = Handle__Command.Impl(Editor);
+    let tasks = CommandHandler.handle(command);
+    self.generalTaskRunner->Runner2.pushAndRun(tasks);
+  };
+
+  let destroy = self => {
+    self.agdaRequestRunner->Runner2.terminate;
+    self.viewRequestRunner->Runner2.terminate;
+    self.generalTaskRunner->Runner2.terminate;
   };
 };

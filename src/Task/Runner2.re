@@ -3,6 +3,10 @@ type status =
   | Busy
   | Idle;
 
+// type status('a) =
+//   | Occupied(array('a))
+//   | Available;
+
 type packet('a) =
   | Wrapped('a)
   | Pending(unit => unit);
@@ -12,7 +16,7 @@ type t('a) = {
   mutable internalQueue: array(packet('a)),
   mutable status,
   // the work horse
-  mutable execute: option('a => Promise.t(unit)),
+  mutable execute: option('a => Promise.t(list('a))),
   // invoke `terminate` to resolve `terminationPromise`
   terminationPromise: Promise.t(unit),
   terminate: unit => unit,
@@ -36,6 +40,13 @@ let make = () => {
 
 let setup = (self, execute) => self.execute = Some(execute);
 
+let pushInternal = (self: t('a), xs: list('a)) => {
+  // wrap them up
+  let xs = List.map(xs, x => Wrapped(x))->List.toArray;
+  // concat to the internal queue
+  self.internalQueue = Js.Array.concat(xs, self.internalQueue);
+};
+
 let rec run = (self: t('a)): unit => {
   let getNext = self =>
     switch (Js.Array.shift(self.internalQueue)) {
@@ -57,9 +68,16 @@ let rec run = (self: t('a)): unit => {
         run(self);
       | Some(execute) =>
         switch (packet) {
-        | Wrapped(task) => execute(task)->Promise.get(() => {run(self)})
+        | Wrapped(task) =>
+          execute(task)
+          ->Promise.get(derivedTasks => {
+              pushInternal(self, derivedTasks);
+              self.status = Idle;
+              run(self);
+            })
         | Pending(resolve) =>
           resolve();
+          self.status = Idle;
           run(self);
         }
       };
@@ -72,7 +90,7 @@ let rec run = (self: t('a)): unit => {
   };
 };
 
-let pushToBackAndRun = (self: t('a), xs: list('a)): Promise.t(unit) => {
+let pushAndRun = (self: t('a), xs: list('a)): Promise.t(unit) => {
   // wrap them up
   let xs = List.map(xs, x => Wrapped(x))->List.toArray;
   // add a pending resolve to the back
@@ -80,19 +98,6 @@ let pushToBackAndRun = (self: t('a), xs: list('a)): Promise.t(unit) => {
   Js.Array.push(Pending(resolve), xs)->ignore;
   // concat to the back of the queue
   self.externalQueue = Js.Array.concat(self.externalQueue, xs);
-  // kick start the runner, and wait until the promise resolves
-  run(self);
-  promise;
-};
-
-let pushToFrontAndRun = (self: t('a), xs: list('a)): Promise.t(unit) => {
-  // wrap them up
-  let xs = List.map(xs, x => Wrapped(x))->List.toArray;
-  // add a pending resolve to the back
-  let (promise, resolve) = Promise.pending();
-  Js.Array.push(Pending(resolve), xs)->ignore;
-  // concat to the front of the queue
-  self.internalQueue = Js.Array.concat(xs, self.internalQueue);
   // kick start the runner, and wait until the promise resolves
   run(self);
   promise;

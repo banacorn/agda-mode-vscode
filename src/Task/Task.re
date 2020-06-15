@@ -32,6 +32,28 @@ module Impl = (Editor: Sig.Editor) => {
     | WithState(State.t => Promise.t(list(t)))
     | Debug(string);
 
+  let toString =
+    fun
+    | Terminate => "Terminate"
+    | SendRequest(_req) => "SendRequest"
+    | ViewReq(_, _) => "ViewReq"
+    | ViewEvent(_) => "ViewEvent"
+    | Error(_) => "Error"
+    | Goal(Instantiate(_)) => "Goal[Instantiate]"
+    | Goal(UpdateRange) => "Goal[UpdateRange]"
+    | Goal(Next) => "Goal[Next]"
+    | Goal(Previous) => "Goal[Previous]"
+    | Goal(Modify(_, _)) => "Goal[Modify]"
+    | Goal(SaveCursor) => "Goal[SaveCursor]"
+    | Goal(RestoreCursor) => "Goal[RestoreCursor]"
+    | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
+    | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
+    | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
+    | Goal(GetPointedOr(_, _)) => "Goal[GetPointedOr]"
+    | Goal(GetIndexedOr(_)) => "Goal[GetIndexedOr]"
+    | WithState(_) => "WithState"
+    | Debug(msg) => "Debug[" ++ msg ++ "]";
+
   type request =
     | Agda(Request.t)
     | View(View.Request.t, View.Response.t => list(t));
