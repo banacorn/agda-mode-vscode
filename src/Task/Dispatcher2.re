@@ -19,7 +19,7 @@ module Impl = (Editor: Sig.Editor) => {
     | BlockedByView(array(Task.t));
 
   type t = {
-    runner: Runner2.t(Task.t),
+    runner: Runner3.t(Task.t),
     mutable blockedQueues: array(blockedQueue),
   };
 
@@ -108,22 +108,42 @@ module Impl = (Editor: Sig.Editor) => {
   let dispatchCommand = (self, state, command) => {
     module CommandHandler = Handle__Command.Impl(Editor);
     let tasks = CommandHandler.handle(command);
-    self.runner->Runner2.pushAndRun(tasks);
+    self.runner->Runner3.pushAndRun(tasks);
   };
   let make = state => {
-    let runner = Runner2.make();
+    let blockedQueues = ref([||]);
+
+    let agdaIsOccupied = queues =>
+      queues->Array.some(
+        fun
+        | BlockedByAgda(_) => true
+        | BlockedByView(_) => false,
+      );
+
+    let runner = Runner3.make();
     let classifyTask = task => {
       Js.log("Task: " ++ Task.toString(task));
       switch (task) {
-      | WithState(callback) =>
-        callback(state)
-        ->Promise.flatMap(tasks => {runner->Runner2.pushAndRun(tasks)})
-        ->Promise.map(() => [])
-      | others => Promise.resolved([])
+      | SendRequest(request) =>
+        if (agdaIsOccupied(blockedQueues^)) {
+          Js.log("Agda blocked");
+          Promise.resolved();
+        } else {
+          Js.log("Agda not blocked");
+          // empty the current Runner
+          let queue = Runner3.empty(runner);
+          Js.Array.unshift(BlockedByAgda(queue), blockedQueues^)->ignore;
+          Promise.resolved();
+        }
+      // | WithState(callback) =>
+      //   callback(state)
+      //   ->Promise.flatMap(tasks => {runner->Runner3.pushAndRun(tasks)})
+      //   ->Promise.map(() => [])
+      | others => Promise.resolved()
       };
     };
 
-    Runner2.setup(runner, classifyTask);
+    Runner3.setup(runner, classifyTask);
     {runner, blockedQueues: [||]};
   };
 
