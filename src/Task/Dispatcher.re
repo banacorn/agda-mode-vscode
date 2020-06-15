@@ -82,6 +82,7 @@ module Impl = (Editor: Sig.Editor) => {
     ->Runner2.setup(task => {
         Js.log("general " ++ Task.toString(task));
         switch (task) {
+        | DispatchCommand(_) => Promise.resolved([])
         | SendRequest(req) =>
           self.agdaRequestRunner
           ->Runner2.pushAndRun([req])
