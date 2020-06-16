@@ -212,7 +212,7 @@
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",
-				"when": "agdaMode && agdaModeQuerying"
+				"when": "agdaMode && agdaModeQuerying || agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol",

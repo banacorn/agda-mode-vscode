@@ -228,15 +228,22 @@ module Impl = (Editor: Sig.Editor) => {
     self;
   };
 
-  let dispatchCommand = (self: t, state, command) => {
+  let dispatchCommand = (self: t, state: State.t, command) => {
     open Command;
     module CommandHandler = Handle__Command.Impl(Editor);
     switch (command) {
     // HACKY interrupt
     | Escape =>
-      state
-      ->State.sendRequestToView(View.Request.InterruptQuery)
-      ->Promise.get(_ => ())
+      if (state.inputMethod.activated) {
+        Js.log("escape");
+
+        let tasks = CommandHandler.handle(InputSymbol(Deactivate));
+        self.runner->Runner.pushAndRun(tasks);
+      } else {
+        state
+        ->State.sendRequestToView(View.Request.InterruptQuery)
+        ->Promise.get(_ => ());
+      }
     | _ =>
       let tasks = CommandHandler.handle(command);
       self.runner->Runner.pushAndRun(tasks);

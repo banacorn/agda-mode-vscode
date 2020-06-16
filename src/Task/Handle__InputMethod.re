@@ -15,6 +15,9 @@ module Impl = (Editor: Sig.Editor) => {
               InputMethod.insertBackslash(state.editor);
               Promise.resolved([]);
             } else {
+              // setContext
+              Editor.setContext("agdaModeTyping", true)->ignore;
+
               state.inputMethod.activated = true;
               // the places where the input method is activated
               let startingOffsets: array(int) =
@@ -34,7 +37,11 @@ module Impl = (Editor: Sig.Editor) => {
         WithState(
           state =>
             if (state.inputMethod.activated) {
+              // setContext
+              Editor.setContext("agdaModeTyping", false)->ignore;
+
               state.inputMethod.activated = false;
+              InputMethod.deactivate(state.inputMethod);
               // Promise.resolved([Debug("InputMethod(Deactivated)")]);
               Promise.resolved([]);
             } else {

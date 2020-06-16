@@ -61,6 +61,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable activated: bool,
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
     mutable busy: bool,
+    mutable handles: array(Editor.Disposable.t),
   };
 
   // datatype for representing a rewrite to be made to the text editor
@@ -84,17 +85,11 @@ module Impl = (Editor: Sig.Editor) => {
       Js.Array.sortInPlaceWith(compare, offsets)
       ->Array.map(Instance.make(editor));
 
-    // handles of listeners
-    let editorChangeHandle = ref(None);
-    let cursorChangeHandle = ref(None);
-
     // destroy the handles if all Instances are destroyed
     let checkIfEveryoneIsStillAlive = () =>
       if (Array.length(self.instances) == 0) {
         log("ALL DEAD");
         self.onAction.emit(Deactivate);
-        (editorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
-        (cursorChangeHandle^)->Option.forEach(Editor.Disposable.dispose);
       };
 
     // kill the Instances that are not are not pointed by cursors
@@ -287,30 +282,38 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
     // initiate listeners
-    cursorChangeHandle :=
-      Some(
-        Editor.onChangeCursorPosition(points =>
-          if (self.busy) {
-            // cannot validate cursors at this moment
-            // store the positions and wait until the system is not busy
-            self.cursorsToBeChecked =
-              Some(points);
-          } else {
-            validate(points);
-          }
-        ),
-      );
-    editorChangeHandle :=
-      Some(
-        Editor.onChange(changes =>
-          if (!self.busy && Array.length(changes) > 0) {
-            // if any changes occured to the editor and the system is not busy
-            self.busy = true;
-            // update the offsets to reflect the changes
-            updateOffsets(changes);
-          }
-        ),
-      );
+    Editor.onChangeCursorPosition(points =>
+      if (self.busy) {
+        // cannot validate cursors at this moment
+        // store the positions and wait until the system is not busy
+        self.cursorsToBeChecked =
+          Some(points);
+      } else {
+        validate(points);
+      }
+    )
+    ->Js.Array.push(self.handles)
+    ->ignore;
+    Editor.onChange(changes =>
+      if (!self.busy && Array.length(changes) > 0) {
+        // if any changes occured to the editor and the system is not busy
+        self.busy = true;
+        // update the offsets to reflect the changes
+        updateOffsets(changes);
+      }
+    )
+    ->Js.Array.push(self.handles)
+    ->ignore;
+  };
+
+  let deactivate = self => {
+    self.instances->Array.forEach(Instance.destroy);
+    self.instances = [||];
+    self.activated = false;
+    self.cursorsToBeChecked = None;
+    self.busy = false;
+    self.handles->Array.forEach(Editor.Disposable.dispose);
+    self.handles = [||];
   };
 
   let make = () => {
@@ -319,5 +322,6 @@ module Impl = (Editor: Sig.Editor) => {
     activated: false,
     cursorsToBeChecked: None,
     busy: false,
+    handles: [||],
   };
 };
