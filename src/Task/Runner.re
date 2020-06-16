@@ -7,8 +7,8 @@ type status =
 type t('a) = {
   mutable queue: list('a),
   mutable status,
-  // the work horse
-  mutable execute: option('a => Promise.t(unit)),
+  // the work horse, stops when the promise resolves to false
+  mutable execute: option('a => Promise.t(bool)),
   // invoke `terminate` to resolve `terminationPromise`
   terminationPromise: Promise.t(unit),
   terminate: unit => unit,
@@ -56,10 +56,13 @@ let rec run = (self: t('a)): unit => {
         run(self);
       | Some(execute) =>
         execute(task)
-        ->Promise.get(() => {
-            // pushInternal(self, derivedTasks);
+        ->Promise.get(keepRunning => {
             self.status = Idle;
-            run(self);
+            if (keepRunning) {
+              run(self);
+            } else {
+              Js.log("RUNNER STOPED");
+            };
           })
       };
     }

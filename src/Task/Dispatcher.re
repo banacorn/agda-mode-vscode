@@ -69,17 +69,31 @@ module Impl = (Editor: Sig.Editor) => {
     // and concat tasks after that queue
     let rec go =
       fun
-      | [] => []
-      | [(kind, queue), ...queues] =>
-        if (kind == resource) {
-          [(kind, List.concat(queue, tasks)), ...queues];
+      | [] => (false, [])
+      | [(kind0, queue0)] =>
+        if (kind0 == resource) {
+          (true, [(kind0, queue0)]);
         } else {
-          [(kind, queue), ...go(queues)];
+          (false, [(kind0, queue0)]);
+        }
+      | [(kind0, queue0), ...queues] =>
+        if (kind0 == resource) {
+          (true, [(kind0, queue0), ...queues]);
+        } else {
+          let (shouldConcat, queues) = go(queues);
+          if (shouldConcat) {
+            (false, [(kind0, List.concat(queue0, tasks)), ...queues]);
+          } else {
+            (false, [(kind0, queue0), ...queues]);
+          };
         };
 
-    switch (self.blockedQueues) {
-    | [] => Runner.pushAndRun(self.runner, tasks)
-    | queues => self.blockedQueues = go(queues)
+    let (shouldConcatToRunner, queues) = go(self.blockedQueues);
+
+    if (shouldConcatToRunner) {
+      Runner.pushAndRun(self.runner, tasks);
+    } else {
+      self.blockedQueues = queues;
     };
   };
 
@@ -108,7 +122,7 @@ module Impl = (Editor: Sig.Editor) => {
     let (queue, queues) = unblock(resource, self.blockedQueues);
     self.blockedQueues = queues;
     switch (queue) {
-    | None => ()
+    | None => self.runner->Runner.run
     | Some(queue) => self.runner->Runner.pushAndRun(queue)
     };
   };
@@ -148,7 +162,9 @@ module Impl = (Editor: Sig.Editor) => {
       switch (task) {
       | ViewReq(request, callback) =>
         if (blockedBy(self, View)) {
-          Promise.resolved();
+          Js.log("BLOCKED BY VIEW");
+
+          Promise.resolved(false);
         } else {
           acquire(self, View);
           state
@@ -156,28 +172,39 @@ module Impl = (Editor: Sig.Editor) => {
           ->Promise.map(response => {
               addTasks(self, View, callback(response));
               release(self, View);
+              true;
             });
         }
       | SendRequest(request) =>
         if (blockedBy(self, Agda)) {
-          Promise.resolved();
+          Promise.resolved(false);
         } else {
           acquire(self, Agda);
           // issue request
-          sendAgdaRequest(addTasks(self, Agda), state, request)
+          sendAgdaRequest(
+            tasks => {
+              toString(self, task);
+              addTasks(self, Agda, tasks);
+            },
+            state,
+            request,
+          )
           ->Promise.get(() => {release(self, Agda)});
           // NOTE: early return before `sendAgdaRequest` resolved
-          Promise.resolved();
+          Promise.resolved(true);
         }
       | WithState(callback) =>
         callback(state)
-        ->Promise.map(tasks => {self.runner->Runner.pushAndRun(tasks)})
+        ->Promise.map(tasks => {
+            self.runner->Runner.pushAndRun(tasks);
+            true;
+          })
 
-      | Terminate => State.destroy(state)
+      | Terminate => State.destroy(state)->Promise.map(() => false)
       | Goal(action) =>
         let tasks = GoalHandler.handle(action);
         self.runner->Runner.pushAndRun(tasks);
-        Promise.resolved();
+        Promise.resolved(true);
       | ViewEvent(event) =>
         let tasks =
           switch (event) {
@@ -185,15 +212,15 @@ module Impl = (Editor: Sig.Editor) => {
           | Destroyed => [Task.Terminate]
           };
         self.runner->Runner.pushAndRun(tasks);
-        Promise.resolved();
+        Promise.resolved(true);
       | Error(error) =>
         let tasks = ErrorHandler.handle(error);
         self.runner->Runner.pushAndRun(tasks);
-        Promise.resolved();
+        Promise.resolved(true);
       | Debug(message) =>
         let tasks = [Task.displayWarning("Debug", Some(message))];
         self.runner->Runner.pushAndRun(tasks);
-        Promise.resolved();
+        Promise.resolved(true);
       };
     };
     Runner.setup(self.runner, classifyTask);
