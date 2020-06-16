@@ -60,12 +60,27 @@ module Impl = (Editor: Sig.Editor) => {
 
   // empty the current Runner and move the content to `blockedQueues`
   let acquire = (self, resource) => {
-    let queue = Runner.empty(self.runner)->List.fromArray;
+    let queue = Runner.empty(self.runner);
     self.blockedQueues = [(resource, queue), ...self.blockedQueues];
   };
 
-  let onResponse = (self, tasks) => {
-    self.runner->Runner.pushAndRun(tasks);
+  let addTasks = (self, resource, tasks) => {
+    // find the queue that the resource uses (before the queue it blocks)
+    // and concat tasks after that queue
+    let rec go =
+      fun
+      | [] => []
+      | [(kind, queue), ...queues] =>
+        if (kind == resource) {
+          [(kind, List.concat(queue, tasks)), ...queues];
+        } else {
+          [(kind, queue), ...go(queues)];
+        };
+
+    switch (self.blockedQueues) {
+    | [] => Runner.pushAndRun(self.runner, tasks)
+    | queues => self.blockedQueues = go(queues)
+    };
   };
 
   let release = (self, resource) => {
@@ -102,7 +117,7 @@ module Impl = (Editor: Sig.Editor) => {
       "\nTask: "
       ++ Task.toString(task)
       ++ "\nRunner: "
-      ++ Util.Pretty.array(Array.map(self.runner.queue, Task.toString))
+      ++ Util.Pretty.list(List.map(self.runner.queue, Task.toString))
       ++ "\n===============================",
     );
 
@@ -139,7 +154,7 @@ module Impl = (Editor: Sig.Editor) => {
           state
           ->State.sendRequestToView(request)
           ->Promise.map(response => {
-              onResponse(self, callback(response));
+              addTasks(self, View, callback(response));
               release(self, View);
             });
         }
@@ -149,7 +164,7 @@ module Impl = (Editor: Sig.Editor) => {
         } else {
           acquire(self, Agda);
           // issue request
-          sendAgdaRequest(onResponse(self), state, request)
+          sendAgdaRequest(addTasks(self, Agda), state, request)
           ->Promise.get(() => {release(self, Agda)});
           // NOTE: early return before `sendAgdaRequest` resolved
           Promise.resolved();

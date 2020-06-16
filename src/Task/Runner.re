@@ -5,7 +5,7 @@ type status =
   | Idle;
 
 type t('a) = {
-  mutable queue: array('a),
+  mutable queue: list('a),
   mutable status,
   // the work horse
   mutable execute: option('a => Promise.t(unit)),
@@ -19,14 +19,14 @@ type t('a) = {
 
 let empty = self => {
   let queue = self.queue;
-  self.queue = [||];
+  self.queue = [];
   queue;
 };
 
 let make = () => {
   let (promise, resolve) = Promise.pending();
   {
-    queue: [||],
+    queue: [],
     status: Idle,
     execute: None,
     terminationPromise: promise,
@@ -45,10 +45,11 @@ let rec run = (self: t('a)): unit => {
   // only one `run` should be running at a time
   | Busy => ()
   | Idle =>
-    switch (Js.Array.shift(self.queue)) {
-    | None => ()
-    | Some(task) =>
+    switch (self.queue) {
+    | [] => ()
+    | [task, ...queue] =>
       self.status = Busy;
+      self.queue = queue;
       switch (self.execute) {
       | None =>
         self.status = Idle;
@@ -72,7 +73,7 @@ let rec run = (self: t('a)): unit => {
 
 let pushAndRun = (self: t('a), xs: list('a)): unit => {
   // concat to the back of the queue
-  self.queue = Js.Array.concat(self.queue, List.toArray(xs));
+  self.queue = List.concat(self.queue, xs);
   // kick start the runner
   run(self);
 };
