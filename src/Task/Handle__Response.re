@@ -1,7 +1,6 @@
 // from Agda Response to Tasks
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
-  module CommandHandler = Handle__Command.Impl(Editor);
   open! Task;
   open Response;
   module DisplayInfo = {
@@ -101,14 +100,16 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           GetPointedOr(
             (goal, _) => {
-              let tasks = CommandHandler.handle(Load);
               switch (makeCaseType) {
-              | Function => [Goal(ReplaceWithLines(goal, lines)), ...tasks]
+              | Function => [
+                  Goal(ReplaceWithLines(goal, lines)),
+                  DispatchCommand(Load),
+                ]
               | ExtendedLambda => [
                   Goal(ReplaceWithLambda(goal, lines)),
-                  ...tasks,
+                  DispatchCommand(Load),
                 ]
-              };
+              }
             },
             [Error(OutOfGoal)],
           ),

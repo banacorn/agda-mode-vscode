@@ -187,6 +187,10 @@ module Impl = (Editor: Sig.Editor) => {
     let classifyTask = task => {
       logStatus(self, Some(task));
       switch (task) {
+      | DispatchCommand(command) =>
+        let tasks = CommandHandler.handle(command);
+        addTasks(self, tasks);
+        Promise.resolved(true);
       | ViewReq(request, callback) =>
         if (blockedBy(self, View)) {
           Js.log("BLOCKED BY VIEW");
@@ -257,23 +261,20 @@ module Impl = (Editor: Sig.Editor) => {
 
   let dispatchCommand = (self: t, state: State.t, command) => {
     logStatus(self, None);
-    open Command;
-    module CommandHandler = Handle__Command.Impl(Editor);
-    switch (command) {
-    // HACKY interrupt
-    | Escape =>
-      if (state.inputMethod.activated) {
-        let tasks = CommandHandler.handle(InputSymbol(Deactivate));
-        addTasks(self, tasks);
-      } else {
-        state
-        ->State.sendRequestToView(View.Request.InterruptQuery)
-        ->Promise.get(_ => ());
+    Command.(
+      switch (command) {
+      // HACKY interrupt
+      | Escape =>
+        if (state.inputMethod.activated) {
+          addTasks(self, [DispatchCommand(InputSymbol(Deactivate))]);
+        } else {
+          state
+          ->State.sendRequestToView(View.Request.InterruptQuery)
+          ->Promise.get(_ => ());
+        }
+      | _ => addTasks(self, [DispatchCommand(command)])
       }
-    | _ =>
-      let tasks = CommandHandler.handle(command);
-      addTasks(self, tasks);
-    };
+    );
   };
 
   let destroy = self => {
