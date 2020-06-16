@@ -64,7 +64,7 @@ module Impl = (Editor: Sig.Editor) => {
     self.blockedQueues = [(resource, queue), ...self.blockedQueues];
   };
 
-  let addTasks = (self, resource, tasks) => {
+  let addTasksBy = (self, resource, tasks) => {
     // find the queue that the resource uses (before the queue it blocks)
     // and concat tasks after that queue
     let rec go =
@@ -86,6 +86,25 @@ module Impl = (Editor: Sig.Editor) => {
           } else {
             (false, [(kind0, queue0), ...queues]);
           };
+        };
+
+    let (shouldConcatToRunner, queues) = go(self.blockedQueues);
+
+    if (shouldConcatToRunner) {
+      Runner.pushAndRun(self.runner, tasks);
+    } else {
+      self.blockedQueues = queues;
+    };
+  };
+
+  let addTasks = (self, tasks) => {
+    let rec go =
+      fun
+      | [] => (true, [])
+      | [(kind, queue)] => (false, [(kind, List.concat(queue, tasks))])
+      | [(kind, queue), ...queues] => {
+          let (_, queues) = go(queues);
+          (false, [(kind, queue), ...queues]);
         };
 
     let (shouldConcatToRunner, queues) = go(self.blockedQueues);
@@ -126,15 +145,23 @@ module Impl = (Editor: Sig.Editor) => {
     | Some(queue) => self.runner->Runner.pushAndRun(queue)
     };
   };
-  let toString = (self, task) => {
-    Js.log(
-      "\nTask: "
-      ++ Task.toString(task)
-      ++ "\nRunner: "
-      ++ Util.Pretty.list(List.map(self.runner.queue, Task.toString))
-      ++ "\n===============================",
-    );
-
+  let logStatus = (self, task) => {
+    switch (task) {
+    | Some(task) =>
+      Js.log(
+        "\nTask: "
+        ++ Task.toString(task)
+        ++ "\nRunner: "
+        ++ Util.Pretty.list(List.map(self.runner.queue, Task.toString))
+        ++ "\n===============================",
+      )
+    | None =>
+      Js.log(
+        "\nRunner: "
+        ++ Util.Pretty.list(List.map(self.runner.queue, Task.toString))
+        ++ "\n===============================",
+      )
+    };
     self.blockedQueues
     ->List.forEach(
         fun
@@ -158,7 +185,7 @@ module Impl = (Editor: Sig.Editor) => {
     let self = {runner: Runner.make(), blockedQueues: []};
 
     let classifyTask = task => {
-      toString(self, task);
+      logStatus(self, Some(task));
       switch (task) {
       | ViewReq(request, callback) =>
         if (blockedBy(self, View)) {
@@ -170,7 +197,7 @@ module Impl = (Editor: Sig.Editor) => {
           state
           ->State.sendRequestToView(request)
           ->Promise.map(response => {
-              addTasks(self, View, callback(response));
+              addTasksBy(self, View, callback(response));
               release(self, View);
               true;
             });
@@ -183,8 +210,8 @@ module Impl = (Editor: Sig.Editor) => {
           // issue request
           sendAgdaRequest(
             tasks => {
-              toString(self, task);
-              addTasks(self, Agda, tasks);
+              logStatus(self, Some(task));
+              addTasksBy(self, Agda, tasks);
             },
             state,
             request,
@@ -229,16 +256,15 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let dispatchCommand = (self: t, state: State.t, command) => {
+    logStatus(self, None);
     open Command;
     module CommandHandler = Handle__Command.Impl(Editor);
     switch (command) {
     // HACKY interrupt
     | Escape =>
       if (state.inputMethod.activated) {
-        Js.log("escape");
-
         let tasks = CommandHandler.handle(InputSymbol(Deactivate));
-        self.runner->Runner.pushAndRun(tasks);
+        addTasks(self, tasks);
       } else {
         state
         ->State.sendRequestToView(View.Request.InterruptQuery)
@@ -246,7 +272,7 @@ module Impl = (Editor: Sig.Editor) => {
       }
     | _ =>
       let tasks = CommandHandler.handle(command);
-      self.runner->Runner.pushAndRun(tasks);
+      addTasks(self, tasks);
     };
   };
 
