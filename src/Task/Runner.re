@@ -1,3 +1,5 @@
+open Belt;
+
 type status =
   | Busy
   | Idle;
@@ -6,7 +8,7 @@ type t('a) = {
   mutable queue: array('a),
   mutable status,
   // the work horse
-  execute: 'a => Promise.t(unit),
+  mutable execute: option('a => Promise.t(unit)),
   // invoke `terminate` to resolve `terminationPromise`
   terminationPromise: Promise.t(unit),
   terminate: unit => unit,
@@ -15,60 +17,64 @@ type t('a) = {
   mutable shouldTerminate: bool,
 };
 
-let make = execute => {
+let empty = self => {
+  let queue = self.queue;
+  self.queue = [||];
+  queue;
+};
+
+let make = () => {
   let (promise, resolve) = Promise.pending();
   {
     queue: [||],
     status: Idle,
-    execute,
+    execute: None,
     terminationPromise: promise,
     terminate: resolve,
     shouldTerminate: false,
   };
 };
 
-let rec run = (self: t('a)): Promise.t(unit) =>
+// late-binding `Runner.execute`
+// `Runner.execute` may refer to the `Runner` itself,
+// making it impossible to define `Runner.execute` whilst defining `Runner.make`
+let setup = (self, execute) => self.execute = Some(execute);
+
+let rec run = (self: t('a)): unit => {
   switch (self.status) {
   // only one `run` should be running at a time
-  | Busy => Promise.resolved()
+  | Busy => ()
   | Idle =>
-    let nextTasks = Js.Array.shift(self.queue);
-    (
-      switch (nextTasks) {
-      | None => Promise.resolved()
-      | Some(task) =>
-        self.status = Busy;
-        self.execute(task)
-        ->Promise.tap(_ => {self.status = Idle})
-        ->Promise.flatMap(() => {run(self)});
-      }
-    )
-    // see if the runner is responsible of invoking `terminate`
-    // after finished executing all tasks in the queue
-    ->Promise.tap(() =>
-        if (self.shouldTerminate) {
-          self.terminate();
-        }
-      );
+    switch (Js.Array.shift(self.queue)) {
+    | None => ()
+    | Some(task) =>
+      self.status = Busy;
+      switch (self.execute) {
+      | None =>
+        self.status = Idle;
+        run(self);
+      | Some(execute) =>
+        execute(task)
+        ->Promise.get(() => {
+            // pushInternal(self, derivedTasks);
+            self.status = Idle;
+            run(self);
+          })
+      };
+    }
   };
-
-let push = (self, x: 'a) => {
-  // push a new task to the queue
-  Js.Array.push(x, self.queue)->ignore;
-  // kick start the runner
-  run(self);
+  // see if the runner is responsible of invoking `terminate`
+  // after finished executing all tasks in the queue
+  if (self.shouldTerminate) {
+    self.terminate();
+  };
 };
 
-let pushMany = (self: t('a), xs: array('a)): Promise.t(unit) => {
-  // concat tasks to the back of the queue
-  self.queue = Js.Array.concat(self.queue, xs);
+let pushAndRun = (self: t('a), xs: list('a)): unit => {
+  // concat to the back of the queue
+  self.queue = Js.Array.concat(self.queue, List.toArray(xs));
   // kick start the runner
   run(self);
-};
-
-// NOTE: hacky ...
-let interrupt = (self, task: 'a) => {
-  self.execute(task);
 };
 
 // If the runner is currently Idle,

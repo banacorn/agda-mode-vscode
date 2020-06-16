@@ -4,9 +4,9 @@ open VSCode;
 // a dictionary of FileName-State entries
 module StateDict = {
   module Impl = (Editor: Sig.Editor) => {
-    module Dispatcher2 = Dispatcher2.Impl(Editor);
+    module Dispatcher = Dispatcher.Impl(Editor);
     module State = State.Impl(Editor);
-    let dict: Js.Dict.t((State.t, Dispatcher2.t)) = Js.Dict.empty();
+    let dict: Js.Dict.t((State.t, Dispatcher.t)) = Js.Dict.empty();
 
     let get = fileName => dict->Js.Dict.get(fileName);
 
@@ -42,10 +42,10 @@ module StateDict = {
     };
     let destroy = fileName => {
       get(fileName)
-      ->Option.forEach(((state, runner)) => {
+      ->Option.forEach(((state, dispatcher)) => {
           Js.log("[ states ][ destroy ]");
           State.destroy(state) |> ignore;
-          Dispatcher2.destroy(runner) |> ignore;
+          Dispatcher.destroy(dispatcher) |> ignore;
         });
       remove(fileName);
     };
@@ -55,9 +55,9 @@ module StateDict = {
     let destroyAll = () => {
       dict
       ->Js.Dict.entries
-      ->Array.forEach(((_, (state, runner))) => {
+      ->Array.forEach(((_, (state, dispatcher))) => {
           State.destroy(state) |> ignore;
-          Dispatcher2.destroy(runner) |> ignore;
+          Dispatcher.destroy(dispatcher) |> ignore;
         });
     };
   };
@@ -66,7 +66,7 @@ module StateDict = {
 module Impl = (Editor: Sig.Editor) => {
   module States = StateDict.Impl(Editor);
   module State = State.Impl(Editor);
-  module Dispatcher2 = Dispatcher2.Impl(Editor);
+  module Dispatcher = Dispatcher.Impl(Editor);
 
   let addToSubscriptions = (f, context) =>
     f->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;
@@ -119,14 +119,13 @@ module Impl = (Editor: Sig.Editor) => {
                 | None =>
                   // not in the States dict, instantiate one new
                   let state = State.make(context, editor);
-                  let taskRunner = Dispatcher2.make(state);
+                  let dispatcher = Dispatcher.make(state);
 
                   // listens to events from the view
                   state.view
                   ->Editor.View.on(event => {
-                      Dispatcher2.dispatchCommand(
-                        taskRunner,
-                        state,
+                      Dispatcher.dispatchCommand(
+                        dispatcher,
                         ViewEvent(event),
                       )
                       ->ignore
@@ -135,9 +134,8 @@ module Impl = (Editor: Sig.Editor) => {
 
                   // listens to events from the input method
                   state.inputMethod.onAction.on(action => {
-                    Dispatcher2.dispatchCommand(
-                      taskRunner,
-                      state,
+                    Dispatcher.dispatchCommand(
+                      dispatcher,
                       Command.InputSymbol(action),
                     )
                     ->ignore
@@ -150,8 +148,8 @@ module Impl = (Editor: Sig.Editor) => {
                   ->State.onceDestroyed
                   ->Promise.get(() => {States.destroy(fileName)});
 
-                  // add this new constructed State and Dispatcher2 to the dict
-                  States.add(fileName, (state, taskRunner));
+                  // add this new constructed State and Dispatcher to the dict
+                  States.add(fileName, (state, dispatcher));
                 | Some(_state) =>
                   // already in the States dict, do nothing
                   ()
@@ -162,12 +160,12 @@ module Impl = (Editor: Sig.Editor) => {
           // dispatch Tasks
           editor
           ->States.getByEditor
-          ->Option.forEach(((state, runner)) => {
+          ->Option.forEach(((_state, dispatcher)) => {
               switch (command) {
               | Escape =>
-                Dispatcher2.interrupt(runner, Command.Escape)->ignore
+                Dispatcher.interrupt(dispatcher, Command.Escape)->ignore
               | others =>
-                Dispatcher2.dispatchCommand(runner, state, others)->ignore
+                Dispatcher.dispatchCommand(dispatcher, others)->ignore
               }
             });
         },

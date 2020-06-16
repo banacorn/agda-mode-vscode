@@ -13,9 +13,6 @@ module Impl = (Editor: Sig.Editor) => {
   //    user typed: lambd   => { symbol: Some("←", "l"), tail: "ambd" }
   //    user typed: lambda   => { symbol: Some("λ", "lambda"), tail: "" }
 
-  let init = string =>
-    Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
-
   let make = () => {symbol: None, tail: ""};
 
   let isEmpty = self => {

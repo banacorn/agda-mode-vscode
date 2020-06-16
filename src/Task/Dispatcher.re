@@ -2,34 +2,15 @@ open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   module ErrorHandler = Handle__Error.Impl(Editor);
-  // module ViewHandler = Handle__View.Impl(Editor);
-
   module GoalHandler = Handle__Goal.Impl(Editor);
+  module CommandHandler = Handle__Command.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
   module Task = Task.Impl(Editor);
-  // module State = State.Impl(Editor);
-  // module Request = Request.Impl(Editor);
-  // type t = Runner.t(Command.t);
   open! Task;
 
-  type t = {
-    agdaRequestRunner: Runner2.t(Request.t),
-    // mutable agdaRequestStatus: status(Request.t),
-    viewRequestRunner: Runner2.t(View.Request.t),
-    // mutable viewRequestStatus: status(View.Request.t),
-    generalTaskRunner: Runner2.t(Task.t),
-  };
-
-  let dispatchCommand = (self, command) => {
-    module CommandHandler = Handle__Command.Impl(Editor);
-    let tasks = CommandHandler.handle(command);
-    self.generalTaskRunner
-    ->Runner2.pushAndRun(tasks)
-    ->Promise.tap(() => {
-        Js.log(Command.toString(command) ++ " completed");
-        Js.log(self);
-      });
-  };
+  type blockedBy =
+    | Agda
+    | View;
 
   let sendAgdaRequest = (runTasks, state, req) => {
     // this promise get resolved after the request to Agda is completed
@@ -39,16 +20,16 @@ module Impl = (Editor: Sig.Editor) => {
       fun
       | Error(error) => {
           let tasks = ErrorHandler.handle(Error.Connection(error));
-          runTasks(tasks)->Promise.get(resolve);
+          runTasks(tasks);
         }
       | Ok(Parser.Incr.Event.Yield(Error(error))) => {
           let tasks = ErrorHandler.handle(Error.Parser(error));
-          runTasks(tasks)->Promise.get(resolve);
+          runTasks(tasks);
         }
       | Ok(Yield(Ok(response))) => {
           Js.log(">>> " ++ Response.toString(response));
           let tasks = ResponseHandler.handle(response);
-          runTasks(tasks)->ignore;
+          runTasks(tasks);
         }
       | Ok(Stop) => {
           Js.log(">>| ");
@@ -65,99 +46,155 @@ module Impl = (Editor: Sig.Editor) => {
           }
         | Error(error) => {
             let tasks = ErrorHandler.handle(error);
-            runTasks(tasks)->Promise.get(resolve);
+            runTasks(tasks);
             promise;
           },
       )
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let make = state => {
-    let self = {
-      agdaRequestRunner: Runner2.make(),
-      // agdaRequestStatus: Available,
-      viewRequestRunner: Runner2.make(),
-      // viewRequestStatus: Available,
-      generalTaskRunner: Runner2.make(),
-    };
+  type t = {
+    runner: Runner.t(Task.t),
+    mutable blockedQueues: list((blockedBy, list(Task.t))),
+  };
 
-    self.generalTaskRunner
-    ->Runner2.setup(task => {
-        Js.log("general " ++ Task.toString(task));
-        switch (task) {
-        // | DispatchCommand(_) => Promise.resolved([])
-        | SendRequest(req) =>
-          self.agdaRequestRunner
-          ->Runner2.pushAndRun([req])
-          ->Promise.map(() => [])
-        // ->Runner2.pushAndRun([req])
-        // let runTasks = tasks => {
-        //   self.generalTaskRunner->Runner2.pushInternal(tasks);
-        //   Promise.resolved();
-        // };
-        // sendAgdaRequest(runTasks, state, req)->Promise.map(() => []);
-        | ViewReq(req, callback) =>
-          state
-          ->State.sendRequestToView(req)
-          ->Promise.map(response => {
-              let tasks = callback(response);
-              Js.log(
-                "View Response: "
-                ++ Util.Pretty.array(
-                     List.toArray(List.map(tasks, Task.toString)),
-                   ),
-              );
-              self.generalTaskRunner->Runner2.pushInternal(tasks);
-              [];
-            })
-        | Terminate => State.destroy(state)->Promise.map(() => [])
-        | WithState(callback) => callback(state)
-        | Goal(action) => GoalHandler.handle(action)->Promise.resolved
-        | ViewEvent(event) =>
-          switch (event) {
-          | Initialized => Promise.resolved([])
-          | Destroyed => Promise.resolved([Task.Terminate])
-          }
-        | Error(error) => ErrorHandler.handle(error)->Promise.resolved
-        | Debug(message) =>
-          Promise.resolved([Task.displayWarning("Debug", Some(message))])
+  // empty the current Runner and move the content to `blockedQueues`
+  let acquire = (self, resource) => {
+    let queue = Runner.empty(self.runner)->List.fromArray;
+    self.blockedQueues = [(resource, queue), ...self.blockedQueues];
+  };
+
+  let onResponse = (self, tasks) => {
+    self.runner->Runner.pushAndRun(tasks);
+  };
+
+  let release = (self, resource) => {
+    // scan through a list of Queues and if there's a queue blocked by some resource
+    // if that blocked queue has the highest priority (placed as the first queue)
+    //    then return the queue, and delete it from the queues
+    //    else return nothing, merge the blocked queue with the queue before it
+    let rec unblock = kind =>
+      fun
+      | [] => (None, [])
+      | [(kind', x), ...xs] =>
+        if (kind == kind') {
+          (Some(x), xs);
+        } else {
+          let (queue, others) = unblock(kind, xs);
+          switch (queue) {
+          | Some(queue) => (
+              None,
+              [(kind', List.concat(x, queue)), ...others],
+            )
+          | None => (None, [(kind', x), ...others])
+          };
         };
-      });
 
-    self.agdaRequestRunner
-    ->Runner2.setup(req => {
-        Js.log("agdaRequestRunner");
-        sendAgdaRequest(
-          tasks => {
-            Js.log("push");
-            self.generalTaskRunner->Runner2.pushInternal(tasks);
-            Promise.resolved();
-          },
-          state,
-          req,
-        )
-        ->Promise.map(() => []);
-      });
+    let (queue, queues) = unblock(resource, self.blockedQueues);
+    self.blockedQueues = queues;
+    switch (queue) {
+    | None => ()
+    | Some(queue) => self.runner->Runner.pushAndRun(queue)
+    };
+  };
+  let toString = (self, task) => {
+    Js.log(
+      "\nTask: "
+      ++ Task.toString(task)
+      ++ "\nRunner: "
+      ++ Util.Pretty.array(Array.map(self.runner.queue, Task.toString))
+      ++ "\n===============================",
+    );
 
-    self.viewRequestRunner
-    ->Runner2.setup(req => {
-        Js.log("viewRequestRunner");
-        Js.log(req);
-        Promise.resolved([]);
-      });
+    self.blockedQueues
+    ->List.forEach(
+        fun
+        | (Agda, queue) =>
+          Js.log(
+            "Agda " ++ Util.Pretty.list(List.map(queue, Task.toString)),
+          )
+        | (View, queue) =>
+          Js.log(
+            "View " ++ Util.Pretty.list(List.map(queue, Task.toString)),
+          ),
+      );
+  };
+  // scan through a list of Queues and see if it's blocked by some resource
+  let blockedBy = (self, resource) =>
+    List.length(self.blockedQueues) != 0
+    && self.blockedQueues
+       ->List.some(((resource', _)) => resource == resource');
+
+  let make = state => {
+    let self = {runner: Runner.make(), blockedQueues: []};
+
+    let classifyTask = task => {
+      toString(self, task);
+      switch (task) {
+      | ViewReq(request, callback) =>
+        if (blockedBy(self, View)) {
+          Promise.resolved();
+        } else {
+          acquire(self, View);
+          state
+          ->State.sendRequestToView(request)
+          ->Promise.map(response => {
+              onResponse(self, callback(response));
+              release(self, View);
+            });
+        }
+      | SendRequest(request) =>
+        if (blockedBy(self, Agda)) {
+          Promise.resolved();
+        } else {
+          acquire(self, Agda);
+          // issue request
+          sendAgdaRequest(onResponse(self), state, request)
+          ->Promise.get(() => {release(self, Agda)});
+          // NOTE: early return before `sendAgdaRequest` resolved
+          Promise.resolved();
+        }
+      | WithState(callback) =>
+        callback(state)
+        ->Promise.map(tasks => {self.runner->Runner.pushAndRun(tasks)})
+
+      | Terminate => State.destroy(state)
+      | Goal(action) =>
+        let tasks = GoalHandler.handle(action);
+        self.runner->Runner.pushAndRun(tasks);
+        Promise.resolved();
+      | ViewEvent(event) =>
+        let tasks =
+          switch (event) {
+          | Initialized => []
+          | Destroyed => [Task.Terminate]
+          };
+        self.runner->Runner.pushAndRun(tasks);
+        Promise.resolved();
+      | Error(error) =>
+        let tasks = ErrorHandler.handle(error);
+        self.runner->Runner.pushAndRun(tasks);
+        Promise.resolved();
+      | Debug(message) =>
+        let tasks = [Task.displayWarning("Debug", Some(message))];
+        self.runner->Runner.pushAndRun(tasks);
+        Promise.resolved();
+      };
+    };
+    Runner.setup(self.runner, classifyTask);
 
     self;
   };
 
-  let interrupt = (self, command) => {
+  let dispatchCommand = (self: t, command) => {
     module CommandHandler = Handle__Command.Impl(Editor);
     let tasks = CommandHandler.handle(command);
-    self.generalTaskRunner->Runner2.pushAndRun(tasks);
+    self.runner->Runner.pushAndRun(tasks);
   };
 
+  let interrupt = (self, command) => Promise.resolved();
+
   let destroy = self => {
-    self.agdaRequestRunner->Runner2.terminate;
-    self.viewRequestRunner->Runner2.terminate;
-    self.generalTaskRunner->Runner2.terminate;
+    Runner.terminate(self.runner);
   };
 };
