@@ -18,8 +18,8 @@ module Impl = (Editor: Sig.Editor) => {
     | Busy
     | Idle;
 
-  type t = {
-    //  `queues` represents a list of Task queues, tagged by some `source`,
+  module MultiQueue = {
+    //  This module represents a list of Task queues, tagged by some `source`,
     //  which is responsible for generating and pushing Tasks into its Task queue
     //
     //  For example, the initial queues should look something like this,
@@ -110,7 +110,79 @@ module Impl = (Editor: Sig.Editor) => {
     //    , Command : [ Task4, Task1, Task2, Task3 ]
     //    ]
     //
-    mutable queues: list((source, list(Task.t))),
+    type t = list((source, list(Task.t)));
+
+    let add = (queues, source) => {
+      [(source, []), ...queues];
+    };
+
+    let remove = (queues, target) => {
+      // walk through and remove the first matched queue (while leaving the rest)
+      let lastQueueMatched = ref(None);
+      queues->List.keepMap(((source, queue)) =>
+        if (source == target && Option.isNone(lastQueueMatched^)) {
+          lastQueueMatched := Some(queue);
+          None; // this queue is to be removed
+        } else {
+          switch (lastQueueMatched^) {
+          | Some(queue') =>
+            // the previous queue was removed
+            // should prepend to this queue
+            lastQueueMatched := None;
+            Some((source, List.concat(queue', queue)));
+          | None => Some((source, queue)) // the boring case
+          };
+        }
+      );
+    };
+
+    let concatTasks = (queues, target, tasks) => {
+      // walk through and concatenate the Tasks to the first matching queue
+      let concatenated = ref(false);
+      queues->List.keepMap(((source, queue)) =>
+        if (source == target && ! concatenated^) {
+          concatenated := true;
+          Some((source, List.concat(queue, tasks)));
+        } else {
+          Some((source, queue));
+        }
+      );
+    };
+
+    let countBySource = (queues, target) =>
+      queues->List.reduce(0, (accum, (source, _queue)) =>
+        if (source == target) {
+          accum + 1;
+        } else {
+          accum;
+        }
+      );
+
+    let log = queues => {
+      let strings =
+        queues
+        ->List.map(
+            fun
+            | (Agda, queue) =>
+              "Agda " ++ Util.Pretty.list(List.map(queue, Task.toString))
+            | (View, queue) =>
+              "View " ++ Util.Pretty.list(List.map(queue, Task.toString))
+            | (Command, queue) =>
+              "Comm " ++ Util.Pretty.list(List.map(queue, Task.toString))
+            | (Misc, queue) =>
+              "Misc " ++ Util.Pretty.list(List.map(queue, Task.toString)),
+          )
+        ->List.toArray;
+
+      Js.log(
+        "\n===============================\n"
+        ++ Js.Array.joinWith("\n", strings),
+      );
+    };
+  };
+
+  type t = {
+    mutable queues: MultiQueue.t,
     // status will be set to `Busy` if there are Tasks being executed
     // A semaphore to make sure that only one `kickStart` is running at a time
     mutable status,
@@ -126,78 +198,19 @@ module Impl = (Editor: Sig.Editor) => {
       Some((task, [(source, queue), ...queues]))
     };
 
-  let spawnQueue = (self, source) => {
-    self.queues = [(source, []), ...self.queues];
-  };
+  let spawnQueue = (self, source) =>
+    self.queues = MultiQueue.add(self.queues, source);
 
-  let removeQueue = (self, target) => {
-    // walk through and remove the first matched queue (while leaving the rest)
-    let lastQueueMatched = ref(None);
-    self.queues =
-      self.queues
-      ->List.keepMap(((source, queue)) =>
-          if (source == target && Option.isNone(lastQueueMatched^)) {
-            lastQueueMatched := Some(queue);
-            None; // this queue is to be removed
-          } else {
-            switch (lastQueueMatched^) {
-            | Some(queue') =>
-              // the previous queue was removed
-              // should prepend to this queue
-              lastQueueMatched := None;
-              Some((source, List.concat(queue', queue)));
-            | None => Some((source, queue)) // the boring case
-            };
-          }
-        );
-  };
+  let removeQueue = (self, target) =>
+    self.queues = MultiQueue.remove(self.queues, target);
 
-  let addTasksToQueue = (self, target, tasks) => {
-    // walk through and concatenate the Tasks to the first matching queue
-    let concatenated = ref(false);
-    self.queues =
-      self.queues
-      ->List.keepMap(((source, queue)) =>
-          if (source == target && ! concatenated^) {
-            concatenated := true;
-            Some((source, List.concat(queue, tasks)));
-          } else {
-            Some((source, queue));
-          }
-        );
-  };
+  let addTasksToQueue = (self, target, tasks) =>
+    self.queues = MultiQueue.concatTasks(self.queues, target, tasks);
 
-  let countSource = (self, target) => {
-    self.queues
-    ->List.reduce(0, (accum, (source, _queue)) =>
-        if (source == target) {
-          accum + 1;
-        } else {
-          accum;
-        }
-      );
-  };
+  let countBySource = (self, target) =>
+    MultiQueue.countBySource(self.queues, target);
 
-  let logQueues = self => {
-    let queues =
-      self.queues
-      ->List.map(
-          fun
-          | (Agda, queue) =>
-            "Agda " ++ Util.Pretty.list(List.map(queue, Task.toString))
-          | (View, queue) =>
-            "View " ++ Util.Pretty.list(List.map(queue, Task.toString))
-          | (Command, queue) =>
-            "Comm " ++ Util.Pretty.list(List.map(queue, Task.toString))
-          | (Misc, queue) =>
-            "Misc " ++ Util.Pretty.list(List.map(queue, Task.toString)),
-        )
-      ->List.toArray;
-
-    Js.log(
-      "\n===============================\n" ++ Js.Array.joinWith("\n", queues),
-    );
-  };
+  let logQueues = self => MultiQueue.log(self.queues);
 
   let addMiscTasks = (self, tasks) => {
     spawnQueue(self, Misc);
@@ -255,7 +268,7 @@ module Impl = (Editor: Sig.Editor) => {
       addTasksToQueue(self, Command, tasks);
       Promise.resolved(true);
     | SendRequest(request) =>
-      if (countSource(self, Agda) > 0) {
+      if (countBySource(self, Agda) > 0) {
         // there can only be 1 Agda request at a time
         Promise.resolved(false);
       } else {
@@ -278,7 +291,7 @@ module Impl = (Editor: Sig.Editor) => {
       }
 
     | ViewReq(request, callback) =>
-      if (countSource(self, View) > 0) {
+      if (countBySource(self, View) > 0) {
         // there can only be 1 View request at a time (NOTE, revise this)
         Promise.resolved(
           false,
