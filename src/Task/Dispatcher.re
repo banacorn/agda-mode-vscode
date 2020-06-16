@@ -343,32 +343,27 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
-  let dispatchCommand = (self, state, command) => {
-    module CommandHandler = Handle__Command.Impl(Editor);
-    let tasks = CommandHandler.handle(command);
-    // walk through and concatenate
-    addTasksToQueue(self, Command, tasks);
-    // kick start
-    kickStart(self, state);
+  let dispatchCommand = (self, state: State.t, command) => {
+    switch (command) {
+    // HACKY interrupt!!
+    | Command.Escape =>
+      if (state.inputMethod.activated) {
+        addTasksToQueue(
+          self,
+          Command,
+          [DispatchCommand(InputSymbol(Deactivate))],
+        );
+        kickStart(self, state);
+      } else {
+        state
+        ->State.sendRequestToView(View.Request.InterruptQuery)
+        ->Promise.get(_ => ());
+      }
+    | _ =>
+      addTasksToQueue(self, Command, [DispatchCommand(command)]);
+      kickStart(self, state);
+    };
   };
-
-  // let dispatchCommand = (self: t, state: State.t, command) => {
-  //   logStatus(self, None);
-  //   Command.(
-  //     switch (command) {
-  //     // HACKY interrupt
-  //     | Escape =>
-  //       if (state.inputMethod.activated) {
-  //         addTasks(self, [DispatchCommand(InputSymbol(Deactivate))]);
-  //       } else {
-  //         state
-  //         ->State.sendRequestToView(View.Request.InterruptQuery)
-  //         ->Promise.get(_ => ());
-  //       }
-  //     | _ => addTasks(self, [DispatchCommand(command)])
-  //     }
-  //   );
-  // };
 
   let destroy = _ => ();
 };
