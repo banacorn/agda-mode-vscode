@@ -126,6 +126,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ->Editor.View.on(event => {
                       Dispatcher.dispatchCommand(
                         dispatcher,
+                        state,
                         ViewEvent(event),
                       )
                       ->ignore
@@ -136,6 +137,7 @@ module Impl = (Editor: Sig.Editor) => {
                   state.inputMethod.onAction.on(action => {
                     Dispatcher.dispatchCommand(
                       dispatcher,
+                      state,
                       Command.InputSymbol(action),
                     )
                     ->ignore
@@ -160,13 +162,8 @@ module Impl = (Editor: Sig.Editor) => {
           // dispatch Tasks
           editor
           ->States.getByEditor
-          ->Option.forEach(((_state, dispatcher)) => {
-              switch (command) {
-              | Escape =>
-                Dispatcher.interrupt(dispatcher, Command.Escape)->ignore
-              | others =>
-                Dispatcher.dispatchCommand(dispatcher, others)->ignore
-              }
+          ->Option.forEach(((state, dispatcher)) => {
+              Dispatcher.dispatchCommand(dispatcher, state, command)->ignore
             });
         },
       )

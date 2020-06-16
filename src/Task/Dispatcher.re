@@ -228,13 +228,20 @@ module Impl = (Editor: Sig.Editor) => {
     self;
   };
 
-  let dispatchCommand = (self: t, command) => {
+  let dispatchCommand = (self: t, state, command) => {
+    open Command;
     module CommandHandler = Handle__Command.Impl(Editor);
-    let tasks = CommandHandler.handle(command);
-    self.runner->Runner.pushAndRun(tasks);
+    switch (command) {
+    // HACKY interrupt
+    | Escape =>
+      state
+      ->State.sendRequestToView(View.Request.InterruptQuery)
+      ->Promise.get(_ => ())
+    | _ =>
+      let tasks = CommandHandler.handle(command);
+      self.runner->Runner.pushAndRun(tasks);
+    };
   };
-
-  let interrupt = (self, command) => Promise.resolved();
 
   let destroy = self => {
     Runner.terminate(self.runner);
