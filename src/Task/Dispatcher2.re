@@ -13,6 +13,10 @@ module Impl = (Editor: Sig.Editor) => {
     | View
     | Command;
 
+  type status =
+    | Busy
+    | Idle;
+
   type t = {
     //  `queues` represents a list of Task queues, tagged by some `source`,
     //  which is responsible for generating and pushing Tasks into its Task queue
@@ -106,5 +110,37 @@ module Impl = (Editor: Sig.Editor) => {
     //    ]
     //
     mutable queues: list((source, list(Task.t))),
+    // status will be set to `Busy` if there are Tasks being executed
+    // A semaphore to make sure that only one `kickStart` is running at a time
+    mutable status,
+  };
+
+  let getNextTask = self =>
+    switch (self.queues) {
+    | [] => None
+    | [(_source, []), ..._queues] => None // stuck waiting for the `_source`
+    | [(source, [task, ...queue]), ...queues] =>
+      Some((task, [(source, queue), ...queues]))
+    };
+
+  let executeTask = (self, task) => Promise.resolved();
+
+  // consuming Tasks in the `queues`
+  let rec kickStart = self => {
+    switch (self.status) {
+    | Busy => () // `kickStart` is already invoked and running
+    | Idle =>
+      switch (getNextTask(self)) {
+      | None => ()
+      | Some((task, queues)) =>
+        self.status = Busy; // flip the semaphore
+        self.queues = queues;
+        executeTask(self, task) // and start executing tasks
+        ->Promise.get(() => {
+            self.status = Idle; // flip the semaphore back
+            kickStart(self); // and keep running
+          });
+      }
+    };
   };
 };
