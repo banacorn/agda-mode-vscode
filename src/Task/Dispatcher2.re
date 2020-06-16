@@ -5,12 +5,14 @@ module Impl = (Editor: Sig.Editor) => {
   module GoalHandler = Handle__Goal.Impl(Editor);
   module CommandHandler = Handle__Command.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
+  module Dispatcher = Dispatcher.Impl(Editor);
   module Task = Task.Impl(Editor);
   open! Task;
 
   type source =
     | Agda
     | View
+    | WithState
     | Command;
 
   type status =
@@ -73,7 +75,7 @@ module Impl = (Editor: Sig.Editor) => {
     //    , Command : [ Task1, Task2, Task3 ]
     //    ]
     //
-    //  The remaining Tasks should be concatenated to the next queue with lower priority
+    //  The remaining Tasks should be prepended to the next queue with lower priority
     //  (in this case, the "Command" queue)
     //
     //    [ Command : [ Task5, Task6, Task7, Task1, Task2, Task3 ]
@@ -115,18 +117,127 @@ module Impl = (Editor: Sig.Editor) => {
     mutable status,
   };
 
+  let make = state => {queues: [(Command, [])], status: Idle};
+
   let getNextTask = self =>
     switch (self.queues) {
-    | [] => None
+    | [] => None // should not happen, the "Command" queue is gone
     | [(_source, []), ..._queues] => None // stuck waiting for the `_source`
     | [(source, [task, ...queue]), ...queues] =>
       Some((task, [(source, queue), ...queues]))
     };
 
-  let executeTask = (self, task) => Promise.resolved();
+  let spawnQueue = (self, source) => {
+    self.queues = [(source, []), ...self.queues];
+  };
 
+  let removeQueue = (self, target) => {
+    // walk through and remove the first matched queue (while leaving the rest)
+    let lastQueueMatched = ref(None);
+    self.queues =
+      self.queues
+      ->List.keepMap(((source, queue)) =>
+          if (source == target && Option.isNone(lastQueueMatched^)) {
+            lastQueueMatched := Some(queue);
+            None; // this queue is to be removed
+          } else {
+            switch (lastQueueMatched^) {
+            | Some(queue') =>
+              // the previous queue was removed
+              // should prepend to this queue
+              lastQueueMatched := None;
+              Some((source, List.concat(queue', queue)));
+            | None => Some((source, queue)) // the boring case
+            };
+          }
+        );
+  };
+
+  let addTasksToQueue = (self, target, tasks) => {
+    // walk through and concatenate the Tasks to the first matching queue
+    let concatenated = ref(false);
+    self.queues =
+      self.queues
+      ->List.keepMap(((source, queue)) =>
+          if (source == target && ! concatenated^) {
+            concatenated := true;
+            Some((source, List.concat(queue, tasks)));
+          } else {
+            Some((source, queue));
+          }
+        );
+  };
+
+  let countSource = (self, target) => {
+    self.queues
+    ->List.reduce(0, (accum, (source, _queue)) =>
+        if (source == target) {
+          accum + 1;
+        } else {
+          accum;
+        }
+      );
+  };
+
+  let logQueues = self => {
+    let queues =
+      self.queues
+      ->List.map(
+          fun
+          | (Agda, queue) =>
+            "Agda " ++ Util.Pretty.list(List.map(queue, Task.toString))
+          | (View, queue) =>
+            "View " ++ Util.Pretty.list(List.map(queue, Task.toString))
+          | (Command, queue) =>
+            "Comm " ++ Util.Pretty.list(List.map(queue, Task.toString))
+          | (WithState, queue) =>
+            "With " ++ Util.Pretty.list(List.map(queue, Task.toString)),
+        )
+      ->List.toArray;
+
+    Js.log(
+      "\n===============================\n" ++ Js.Array.joinWith("\n", queues),
+    );
+  };
+  let executeTask = (self, state, task) => {
+    Js.log("Task: " ++ Task.toString(task));
+    switch (task) {
+    | SendRequest(request) =>
+      if (countSource(self, Agda) > 0) {
+        // there can only be 1 Agda request at a time
+        Promise.resolved(false);
+      } else {
+        spawnQueue(self, Agda);
+        Dispatcher.sendAgdaRequest(
+          tasks => {
+            logQueues(self);
+            addTasksToQueue(self, Agda, tasks);
+          },
+          state,
+          request,
+        )
+        ->Promise.get(() => {
+            logQueues(self);
+            removeQueue(self, Agda);
+          });
+        // NOTE: return early before `sendAgdaRequest` resolved
+        Promise.resolved(true);
+      }
+    | WithState(callback) =>
+      spawnQueue(self, WithState);
+      callback(state)
+      ->Promise.map(tasks => {addTasksToQueue(self, WithState, tasks)})
+      ->Promise.tap(() => {removeQueue(self, WithState)})
+      ->Promise.map(() => true);
+    | Debug(message) =>
+      Js.log("DEBUG " ++ message);
+      Promise.resolved(true);
+    | others => Promise.resolved(true)
+    };
+  };
   // consuming Tasks in the `queues`
-  let rec kickStart = self => {
+  let rec kickStart = (self, state) => {
+    logQueues(self);
     switch (self.status) {
     | Busy => () // `kickStart` is already invoked and running
     | Idle =>
@@ -135,12 +246,34 @@ module Impl = (Editor: Sig.Editor) => {
       | Some((task, queues)) =>
         self.status = Busy; // flip the semaphore
         self.queues = queues;
-        executeTask(self, task) // and start executing tasks
-        ->Promise.get(() => {
+        executeTask(self, state, task) // and start executing tasks
+        ->Promise.get(keepRunning => {
             self.status = Idle; // flip the semaphore back
-            kickStart(self); // and keep running
+            if (keepRunning) {
+              // and keep running
+              kickStart(self, state);
+            };
           });
       }
     };
   };
+
+  let dispatchCommand = (self, state, command) => {
+    module CommandHandler = Handle__Command.Impl(Editor);
+    let tasks = CommandHandler.handle(command);
+    // walk through and concatenate
+    self.queues =
+      self.queues
+      ->List.map(((source, queue)) =>
+          if (source == Command) {
+            (source, List.concat(queue, tasks));
+          } else {
+            (source, queue);
+          }
+        );
+    // kick start
+    kickStart(self, state);
+  };
+
+  let destroy = _ => ();
 };
