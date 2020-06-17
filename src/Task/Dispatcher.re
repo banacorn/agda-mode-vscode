@@ -175,17 +175,21 @@ module Impl = (Editor: Sig.Editor) => {
               "Misc " ++ Util.Pretty.list(List.map(queue, Task.toString)),
           )
         ->List.toArray;
-
-      Js.log(
-        "\n===============================\n"
-        ++ Js.Array.joinWith("\n", strings),
-      );
+      Js.log(Js.Array.joinWith("\n", strings));
     };
 
-    let getNextTask = queues =>
+    let rec getNextTask = (blocking, queues) =>
       switch (queues) {
       | [] => None // should not happen, the "Command" queue is gone
-      | [(_source, []), ..._queues] => None // stuck waiting for the `_source`
+      | [(_source, []), ...queues] =>
+        if (blocking) {
+          None; // stuck waiting for the `_source`
+        } else {
+          getNextTask(blocking, queues)
+          ->Option.map(((task, queues)) =>
+              (task, [(_source, []), ...queues])
+            );
+        }
       | [(source, [task, ...queue]), ...queues] =>
         Some((task, [(source, queue), ...queues]))
       };
@@ -197,29 +201,32 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   type t = {
-    mutable ordinary: MultiQueue.t,
+    mutable blocking: MultiQueue.t,
     mutable critical: MultiQueue.t,
     // status will be set to `Busy` if there are Tasks being executed
     // A semaphore to make sure that only one `kickStart` is running at a time
-    mutable status,
+    mutable statusBlocking: status,
+    mutable statusCritical: status,
   };
 
   let make = () => {
-    ordinary: MultiQueue.make(),
+    blocking: MultiQueue.make(),
     critical: MultiQueue.make(),
-    status: Idle,
+    statusBlocking: Idle,
+    statusCritical: Idle,
   };
 
-  module Ordinary = {
+  module Blocking = {
     let spawn = (self, target) =>
-      self.ordinary = MultiQueue.spawn(self.ordinary, target);
+      self.blocking = MultiQueue.spawn(self.blocking, target);
     let remove = (self, target) =>
-      self.ordinary = MultiQueue.remove(self.ordinary, target);
+      self.blocking = MultiQueue.remove(self.blocking, target);
     let addTasks = (self, target, tasks) =>
-      self.ordinary = MultiQueue.addTasks(self.ordinary, target, tasks);
+      self.blocking = MultiQueue.addTasks(self.blocking, target, tasks);
     let countBySource = (self, target) =>
-      MultiQueue.countBySource(self.ordinary, target);
-    let logQueues = self => MultiQueue.log(self.ordinary);
+      MultiQueue.countBySource(self.blocking, target);
+    let logQueues = self => MultiQueue.log(self.blocking);
+    let getNextTask = self => MultiQueue.getNextTask(true, self.blocking);
 
     let addMiscTasks = (self, tasks) => {
       spawn(self, Misc);
@@ -239,6 +246,7 @@ module Impl = (Editor: Sig.Editor) => {
     let countBySource = (self, target) =>
       MultiQueue.countBySource(self.critical, target);
     let logQueues = self => MultiQueue.log(self.critical);
+    let getNextTask = self => MultiQueue.getNextTask(false, self.critical);
 
     let addMiscTasks = (self, tasks) => {
       spawn(self, Misc);
@@ -289,95 +297,91 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
+  let isCritical =
+    fun
+    | Command.Escape => true
+    | InputSymbol(_) => true
+    | _ => false;
+
   let rec executeTask = (self, state: State.t, task) => {
-    Js.log("Task: " ++ Task.toString(task));
+    Js.log("\n\nTask: " ++ Task.toString(task));
     Critical.logQueues(self);
-    Ordinary.logQueues(self);
+    Js.log("-------------------------------");
+    Blocking.logQueues(self);
     switch (task) {
     | DispatchCommand(command) =>
-      switch (command) {
-      // HACKY interrupt!!
-      | Command.Escape =>
-        Js.log("CRITICAL " ++ Command.toString(command));
-        if (state.inputMethod.activated) {
-          let tasks = CommandHandler.handle(command);
-          Critical.addTasks(self, Command, tasks);
-          // kickStart(self, state);
-        } else {
-          Critical.spawn(self, View);
-          state
-          ->State.sendRequestToView(View.Request.InterruptQuery)
-          ->Promise.get(_ => {
-              Critical.remove(
-                self,
-                View,
-                // kickStart(self, state);
-              )
-            });
-        };
-      | _ =>
-        let tasks = CommandHandler.handle(command);
-        Ordinary.addTasks(self, Command, tasks);
-      };
+      let tasks = CommandHandler.handle(command);
+      Critical.addTasks(self, Command, tasks);
       Promise.resolved(true);
     | SendRequest(request) =>
-      if (Ordinary.countBySource(self, Agda) > 0) {
+      if (Blocking.countBySource(self, Agda) > 0) {
         // there can only be 1 Agda request at a time
         Promise.resolved(false);
       } else {
-        Ordinary.spawn(self, Agda);
+        Blocking.spawn(self, Agda);
         sendAgdaRequest(
           tasks => {
-            Ordinary.logQueues(self);
-            Ordinary.addTasks(self, Agda, tasks);
+            Blocking.logQueues(self);
+            Blocking.addTasks(self, Agda, tasks);
             kickStart(self, state);
           },
           state,
           request,
         )
-        ->Promise.get(() => {Ordinary.remove(self, Agda)});
+        ->Promise.get(() => {Blocking.remove(self, Agda)});
         // NOTE: return early before `sendAgdaRequest` resolved
         Promise.resolved(true);
       }
-
-    | ViewReq(request, callback) =>
-      if (Ordinary.countBySource(self, View) > 0) {
+    | ViewReq(View.Request.Plain(header, Query(x, y)), callback) =>
+      let request = View.Request.Plain(header, Query(x, y));
+      if (Blocking.countBySource(self, View) > 0) {
         // there can only be 1 View request at a time (NOTE, revise this)
         Promise.resolved(
           false,
         );
       } else {
-        Ordinary.spawn(self, View);
+        Blocking.spawn(self, View);
         state
         ->State.sendRequestToView(request)
         ->Promise.map(response => {
-            Ordinary.addTasks(self, View, callback(response))
+            Blocking.addTasks(self, View, callback(response))
           })
         ->Promise.map(() => {
-            Ordinary.remove(self, View);
+            Blocking.remove(self, View);
             true;
           });
-      }
+      };
+    | ViewReq(request, callback) =>
+      Critical.spawn(self, View);
+      state
+      ->State.sendRequestToView(request)
+      ->Promise.map(response => {
+          Critical.addTasks(self, View, callback(response))
+        })
+      ->Promise.map(() => {
+          Critical.remove(self, View);
+          true;
+        });
     | WithState(callback) =>
-      Ordinary.spawn(self, Misc);
+      Blocking.spawn(self, Misc);
       callback(state)
-      ->Promise.map(Ordinary.addTasks(self, Misc))
-      ->Promise.tap(() => {Ordinary.remove(self, Misc)})
+      ->Promise.map(Blocking.addTasks(self, Misc))
+      ->Promise.tap(() => {Blocking.remove(self, Misc)})
       ->Promise.map(() => true);
     | Terminate => State.destroy(state)->Promise.map(() => false)
     | Goal(action) =>
       let tasks = GoalHandler.handle(action);
-      Ordinary.addMiscTasks(self, tasks);
+      Blocking.addMiscTasks(self, tasks);
     | ViewEvent(event) =>
       let tasks =
         switch (event) {
         | Initialized => []
         | Destroyed => [Task.Terminate]
         };
-      Ordinary.addMiscTasks(self, tasks);
+      Critical.addMiscTasks(self, tasks);
     | Error(error) =>
       let tasks = ErrorHandler.handle(error);
-      Ordinary.addMiscTasks(self, tasks);
+      Critical.addMiscTasks(self, tasks);
     | Debug(message) =>
       Js.log("DEBUG " ++ message);
       Promise.resolved(true);
@@ -385,39 +389,42 @@ module Impl = (Editor: Sig.Editor) => {
   }
   // consuming Tasks in the `queues`
   and kickStart = (self, state) => {
-    switch (self.status) {
-    | Busy => () // `kickStart` is already invoked and running
+    switch (self.statusCritical) {
+    | Busy => ()
     | Idle =>
-      let getNextTask = () =>
-        if (MultiQueue.taskSize(self.critical) == 0) {
-          switch (MultiQueue.getNextTask(self.ordinary)) {
-          | Some((task, queues)) => Some((task, queues, false))
-          | None => None
-          };
-        } else {
-          switch (MultiQueue.getNextTask(self.critical)) {
-          | Some((task, queues)) => Some((task, queues, true))
-          | None => None
-          };
-        };
-      switch (getNextTask()) {
+      switch (Critical.getNextTask(self)) {
       | None => ()
-      | Some((task, queues, isCritical)) =>
-        self.status = Busy; // flip the semaphore
-        if (isCritical) {
-          self.critical = queues;
-        } else {
-          self.ordinary = queues;
-        };
+      | Some((task, queues)) =>
+        self.critical = queues;
+        self.statusCritical = Busy;
         executeTask(self, state, task) // and start executing tasks
         ->Promise.get(keepRunning => {
-            self.status = Idle; // flip the semaphore back
+            self.statusCritical = Idle; // flip the semaphore back
             if (keepRunning) {
               // and keep running
               kickStart(self, state);
             };
           });
-      };
+      }
+    };
+
+    switch (self.statusBlocking) {
+    | Busy => ()
+    | Idle =>
+      switch (Blocking.getNextTask(self)) {
+      | None => ()
+      | Some((task, queues)) =>
+        self.blocking = queues;
+        self.statusBlocking = Busy;
+        executeTask(self, state, task) // and start executing tasks
+        ->Promise.get(keepRunning => {
+            self.statusBlocking = Idle; // flip the semaphore back
+            if (keepRunning) {
+              // and keep running
+              kickStart(self, state);
+            };
+          });
+      }
     };
   };
 
