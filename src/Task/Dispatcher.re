@@ -226,7 +226,12 @@ module Impl = (Editor: Sig.Editor) => {
     let countBySource = (self, target) =>
       MultiQueue.countBySource(self.blocking, target);
     let logQueues = self => MultiQueue.log(self.blocking);
-    let getNextTask = self => MultiQueue.getNextTask(true, self.blocking);
+    let getNextTask = self =>
+      MultiQueue.getNextTask(true, self.blocking)
+      ->Option.map(((task, queue)) => {
+          self.blocking = queue;
+          task;
+        });
 
     let addMiscTasks = (self, tasks) => {
       spawn(self, Misc);
@@ -246,7 +251,12 @@ module Impl = (Editor: Sig.Editor) => {
     let countBySource = (self, target) =>
       MultiQueue.countBySource(self.critical, target);
     let logQueues = self => MultiQueue.log(self.critical);
-    let getNextTask = self => MultiQueue.getNextTask(false, self.critical);
+    let getNextTask = self =>
+      MultiQueue.getNextTask(false, self.critical)
+      ->Option.map(((task, queue)) => {
+          self.critical = queue;
+          task;
+        });
 
     let addMiscTasks = (self, tasks) => {
       spawn(self, Misc);
@@ -394,8 +404,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Idle =>
       switch (Critical.getNextTask(self)) {
       | None => ()
-      | Some((task, queues)) =>
-        self.critical = queues;
+      | Some(task) =>
         self.statusCritical = Busy;
         executeTask(self, state, task) // and start executing tasks
         ->Promise.get(keepRunning => {
@@ -413,8 +422,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Idle =>
       switch (Blocking.getNextTask(self)) {
       | None => ()
-      | Some((task, queues)) =>
-        self.blocking = queues;
+      | Some(task) =>
         self.statusBlocking = Busy;
         executeTask(self, state, task) // and start executing tasks
         ->Promise.get(keepRunning => {

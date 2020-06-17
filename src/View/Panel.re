@@ -53,6 +53,7 @@ let make =
     | InterruptQuery =>
       Js.log("[ view ] >>> Interrupt Query");
       onSubmit(None);
+    | InputMethod(_) => Js.log("[ view ] >>> InputMethod")
     | _ => onResponse.emit(View.Response.Success)
     }
   );

@@ -32,6 +32,7 @@ module Impl = (Editor: Sig.Editor) => {
               Promise.resolved([]);
             },
         ),
+        ViewReq(InputMethod(Activate), _ => []),
       ]
     | Deactivate => [
         WithState(
@@ -48,5 +49,7 @@ module Impl = (Editor: Sig.Editor) => {
               Promise.resolved([]);
             },
         ),
+        Debug("DEACTIVATE"),
+        ViewReq(InputMethod(Deactivate), _ => []),
       ];
 };

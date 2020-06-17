@@ -75,11 +75,38 @@ module Request = {
         ]);
   };
 
+  module InputMethod = {
+    type t =
+      | Activate
+      | Deactivate;
+
+    open Json.Decode;
+    open Util.Decode;
+
+    let decode: decoder(t) =
+      sum(
+        fun
+        | "Activate" => TagOnly(_ => Activate)
+        | "Deactivate" => TagOnly(_ => Deactivate)
+        | tag =>
+          raise(
+            DecodeError("[Request.InputMethod] Unknown constructor: " ++ tag),
+          ),
+      );
+
+    open! Json.Encode;
+    let encode: encoder(t) =
+      fun
+      | Activate => object_([("tag", string("Activate"))])
+      | Deactivate => object_([("tag", string("Deactivate"))]);
+  };
+
   type t =
     | Show
     | Hide
     | InterruptQuery
-    | Plain(Header.t, Body.t);
+    | Plain(Header.t, Body.t)
+    | InputMethod(InputMethod.t);
 
   // JSON encode/decode
 
@@ -97,6 +124,8 @@ module Request = {
           pair(Header.decode, Body.decode)
           |> map(((header, body)) => Plain(header, body)),
         )
+      | "InputMethod" =>
+        Contents(InputMethod.decode |> map(x => InputMethod(x)))
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
     );
 
@@ -110,6 +139,11 @@ module Request = {
       object_([
         ("tag", string("Plain")),
         ("contents", (header, body) |> pair(Header.encode, Body.encode)),
+      ])
+    | InputMethod(payload) =>
+      object_([
+        ("tag", string("InputMethod")),
+        ("contents", payload |> InputMethod.encode),
       ]);
 };
 
