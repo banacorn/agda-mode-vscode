@@ -112,7 +112,9 @@ module Impl = (Editor: Sig.Editor) => {
     //
     type t = list((source, list(Task.t)));
 
-    let add = (queues, source) => {
+    let make = () => [(Command, [])];
+
+    let spawn = (queues, source) => {
       [(source, []), ...queues];
     };
 
@@ -136,7 +138,7 @@ module Impl = (Editor: Sig.Editor) => {
       );
     };
 
-    let concatTasks = (queues, target, tasks) => {
+    let addTasks = (queues, target, tasks) => {
       // walk through and concatenate the Tasks to the first matching queue
       let concatenated = ref(false);
       queues->List.keepMap(((source, queue)) =>
@@ -179,44 +181,71 @@ module Impl = (Editor: Sig.Editor) => {
         ++ Js.Array.joinWith("\n", strings),
       );
     };
+
+    let getNextTask = queues =>
+      switch (queues) {
+      | [] => None // should not happen, the "Command" queue is gone
+      | [(_source, []), ..._queues] => None // stuck waiting for the `_source`
+      | [(source, [task, ...queue]), ...queues] =>
+        Some((task, [(source, queue), ...queues]))
+      };
+
+    let taskSize = queues =>
+      queues->List.reduce(0, (accum, (_, queue)) =>
+        accum + List.length(queue)
+      );
   };
 
   type t = {
-    mutable queues: MultiQueue.t,
+    mutable ordinary: MultiQueue.t,
+    mutable critical: MultiQueue.t,
     // status will be set to `Busy` if there are Tasks being executed
     // A semaphore to make sure that only one `kickStart` is running at a time
     mutable status,
   };
 
-  let make = () => {queues: [(Command, [])], status: Idle};
+  let make = () => {
+    ordinary: MultiQueue.make(),
+    critical: MultiQueue.make(),
+    status: Idle,
+  };
 
-  let getNextTask = self =>
-    switch (self.queues) {
-    | [] => None // should not happen, the "Command" queue is gone
-    | [(_source, []), ..._queues] => None // stuck waiting for the `_source`
-    | [(source, [task, ...queue]), ...queues] =>
-      Some((task, [(source, queue), ...queues]))
+  module Ordinary = {
+    let spawn = (self, target) =>
+      self.ordinary = MultiQueue.spawn(self.ordinary, target);
+    let remove = (self, target) =>
+      self.ordinary = MultiQueue.remove(self.ordinary, target);
+    let addTasks = (self, target, tasks) =>
+      self.ordinary = MultiQueue.addTasks(self.ordinary, target, tasks);
+    let countBySource = (self, target) =>
+      MultiQueue.countBySource(self.ordinary, target);
+    let logQueues = self => MultiQueue.log(self.ordinary);
+
+    let addMiscTasks = (self, tasks) => {
+      spawn(self, Misc);
+      addTasks(self, Misc, tasks);
+      remove(self, Misc);
+      Promise.resolved(true);
     };
+  };
 
-  let spawnQueue = (self, source) =>
-    self.queues = MultiQueue.add(self.queues, source);
+  module Critical = {
+    let spawn = (self, target) =>
+      self.critical = MultiQueue.spawn(self.critical, target);
+    let remove = (self, target) =>
+      self.critical = MultiQueue.remove(self.critical, target);
+    let addTasks = (self, target, tasks) =>
+      self.critical = MultiQueue.addTasks(self.critical, target, tasks);
+    let countBySource = (self, target) =>
+      MultiQueue.countBySource(self.critical, target);
+    let logQueues = self => MultiQueue.log(self.critical);
 
-  let removeQueue = (self, target) =>
-    self.queues = MultiQueue.remove(self.queues, target);
-
-  let addTasksToQueue = (self, target, tasks) =>
-    self.queues = MultiQueue.concatTasks(self.queues, target, tasks);
-
-  let countBySource = (self, target) =>
-    MultiQueue.countBySource(self.queues, target);
-
-  let logQueues = self => MultiQueue.log(self.queues);
-
-  let addMiscTasks = (self, tasks) => {
-    spawnQueue(self, Misc);
-    addTasksToQueue(self, Misc, tasks);
-    removeQueue(self, Misc);
-    Promise.resolved(true);
+    let addMiscTasks = (self, tasks) => {
+      spawn(self, Misc);
+      addTasks(self, Misc, tasks);
+      remove(self, Misc);
+      Promise.resolved(true);
+    };
   };
 
   let sendAgdaRequest = (runTasks, state, req) => {
@@ -260,74 +289,95 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let rec executeTask = (self, state, task) => {
+  let rec executeTask = (self, state: State.t, task) => {
     Js.log("Task: " ++ Task.toString(task));
+    Critical.logQueues(self);
+    Ordinary.logQueues(self);
     switch (task) {
     | DispatchCommand(command) =>
-      let tasks = CommandHandler.handle(command);
-      addTasksToQueue(self, Command, tasks);
+      switch (command) {
+      // HACKY interrupt!!
+      | Command.Escape =>
+        Js.log("CRITICAL " ++ Command.toString(command));
+        if (state.inputMethod.activated) {
+          let tasks = CommandHandler.handle(command);
+          Critical.addTasks(self, Command, tasks);
+          // kickStart(self, state);
+        } else {
+          Critical.spawn(self, View);
+          state
+          ->State.sendRequestToView(View.Request.InterruptQuery)
+          ->Promise.get(_ => {
+              Critical.remove(
+                self,
+                View,
+                // kickStart(self, state);
+              )
+            });
+        };
+      | _ =>
+        let tasks = CommandHandler.handle(command);
+        Ordinary.addTasks(self, Command, tasks);
+      };
       Promise.resolved(true);
     | SendRequest(request) =>
-      if (countBySource(self, Agda) > 0) {
+      if (Ordinary.countBySource(self, Agda) > 0) {
         // there can only be 1 Agda request at a time
         Promise.resolved(false);
       } else {
-        spawnQueue(self, Agda);
+        Ordinary.spawn(self, Agda);
         sendAgdaRequest(
           tasks => {
-            logQueues(self);
-            addTasksToQueue(self, Agda, tasks);
+            Ordinary.logQueues(self);
+            Ordinary.addTasks(self, Agda, tasks);
             kickStart(self, state);
           },
           state,
           request,
         )
-        ->Promise.get(() => {
-            logQueues(self);
-            removeQueue(self, Agda);
-          });
+        ->Promise.get(() => {Ordinary.remove(self, Agda)});
         // NOTE: return early before `sendAgdaRequest` resolved
         Promise.resolved(true);
       }
 
     | ViewReq(request, callback) =>
-      if (countBySource(self, View) > 0) {
+      if (Ordinary.countBySource(self, View) > 0) {
         // there can only be 1 View request at a time (NOTE, revise this)
         Promise.resolved(
           false,
         );
       } else {
-        spawnQueue(self, View);
+        Ordinary.spawn(self, View);
         state
         ->State.sendRequestToView(request)
         ->Promise.map(response => {
-            addTasksToQueue(self, View, callback(response))
+            Ordinary.addTasks(self, View, callback(response))
           })
         ->Promise.map(() => {
-            removeQueue(self, View);
+            Ordinary.remove(self, View);
             true;
           });
       }
     | WithState(callback) =>
-      spawnQueue(self, Misc);
+      Ordinary.spawn(self, Misc);
       callback(state)
-      ->Promise.map(tasks => {addTasksToQueue(self, Misc, tasks)})
-      ->Promise.tap(() => {removeQueue(self, Misc)})
+      ->Promise.map(Ordinary.addTasks(self, Misc))
+      ->Promise.tap(() => {Ordinary.remove(self, Misc)})
       ->Promise.map(() => true);
     | Terminate => State.destroy(state)->Promise.map(() => false)
     | Goal(action) =>
       let tasks = GoalHandler.handle(action);
-      addMiscTasks(self, tasks);
+      Ordinary.addMiscTasks(self, tasks);
     | ViewEvent(event) =>
       let tasks =
         switch (event) {
         | Initialized => []
         | Destroyed => [Task.Terminate]
         };
-      addMiscTasks(self, tasks);
+      Ordinary.addMiscTasks(self, tasks);
     | Error(error) =>
       let tasks = ErrorHandler.handle(error);
-      addMiscTasks(self, tasks);
+      Ordinary.addMiscTasks(self, tasks);
     | Debug(message) =>
       Js.log("DEBUG " ++ message);
       Promise.resolved(true);
@@ -335,15 +385,30 @@ module Impl = (Editor: Sig.Editor) => {
   }
   // consuming Tasks in the `queues`
   and kickStart = (self, state) => {
-    logQueues(self);
     switch (self.status) {
     | Busy => () // `kickStart` is already invoked and running
     | Idle =>
-      switch (getNextTask(self)) {
+      let getNextTask = () =>
+        if (MultiQueue.taskSize(self.critical) == 0) {
+          switch (MultiQueue.getNextTask(self.ordinary)) {
+          | Some((task, queues)) => Some((task, queues, false))
+          | None => None
+          };
+        } else {
+          switch (MultiQueue.getNextTask(self.critical)) {
+          | Some((task, queues)) => Some((task, queues, true))
+          | None => None
+          };
+        };
+      switch (getNextTask()) {
       | None => ()
-      | Some((task, queues)) =>
+      | Some((task, queues, isCritical)) =>
         self.status = Busy; // flip the semaphore
-        self.queues = queues;
+        if (isCritical) {
+          self.critical = queues;
+        } else {
+          self.ordinary = queues;
+        };
         executeTask(self, state, task) // and start executing tasks
         ->Promise.get(keepRunning => {
             self.status = Idle; // flip the semaphore back
@@ -352,30 +417,13 @@ module Impl = (Editor: Sig.Editor) => {
               kickStart(self, state);
             };
           });
-      }
+      };
     };
   };
 
   let dispatchCommand = (self, state: State.t, command) => {
-    switch (command) {
-    // HACKY interrupt!!
-    | Command.Escape =>
-      if (state.inputMethod.activated) {
-        addTasksToQueue(
-          self,
-          Command,
-          [DispatchCommand(InputSymbol(Deactivate))],
-        );
-        kickStart(self, state);
-      } else {
-        state
-        ->State.sendRequestToView(View.Request.InterruptQuery)
-        ->Promise.get(_ => ());
-      }
-    | _ =>
-      addTasksToQueue(self, Command, [DispatchCommand(command)]);
-      kickStart(self, state);
-    };
+    Critical.addTasks(self, Command, [DispatchCommand(command)]);
+    kickStart(self, state);
   };
 
   let destroy = _ => ();
