@@ -14,10 +14,6 @@ module Impl = (Editor: Sig.Editor) => {
     | Command
     | Misc;
 
-  type status =
-    | Busy
-    | Idle;
-
   module MultiQueue = {
     //  This module represents a list of Task queues, tagged by some `source`,
     //  which is responsible for generating and pushing Tasks into its Task queue
@@ -193,27 +189,22 @@ module Impl = (Editor: Sig.Editor) => {
       | [(source, [task, ...queue]), ...queues] =>
         Some((task, [(source, queue), ...queues]))
       };
-
-    let taskSize = queues =>
-      queues->List.reduce(0, (accum, (_, queue)) =>
-        accum + List.length(queue)
-      );
   };
 
   type t = {
     mutable blocking: MultiQueue.t,
     mutable critical: MultiQueue.t,
-    // status will be set to `Busy` if there are Tasks being executed
+    // status will be set to `true` if there are Tasks being executed
     // A semaphore to make sure that only one `kickStart` is running at a time
-    mutable statusBlocking: status,
-    mutable statusCritical: status,
+    mutable busyBlocking: bool,
+    mutable busyCritical: bool,
   };
 
   let make = () => {
     blocking: MultiQueue.make(),
     critical: MultiQueue.make(),
-    statusBlocking: Idle,
-    statusCritical: Idle,
+    busyBlocking: false,
+    busyCritical: false,
   };
 
   module Blocking = {
@@ -399,40 +390,35 @@ module Impl = (Editor: Sig.Editor) => {
   }
   // consuming Tasks in the `queues`
   and kickStart = (self, state) => {
-    switch (self.statusCritical) {
-    | Busy => ()
-    | Idle =>
+    if (!self.busyCritical) {
       switch (Critical.getNextTask(self)) {
       | None => ()
       | Some(task) =>
-        self.statusCritical = Busy;
+        self.busyCritical = true;
         executeTask(self, state, task) // and start executing tasks
         ->Promise.get(keepRunning => {
-            self.statusCritical = Idle; // flip the semaphore back
+            self.busyCritical = false; // flip the semaphore back
             if (keepRunning) {
               // and keep running
               kickStart(self, state);
             };
           });
-      }
+      };
     };
 
-    switch (self.statusBlocking) {
-    | Busy => ()
-    | Idle =>
-      switch (Blocking.getNextTask(self)) {
-      | None => ()
-      | Some(task) =>
-        self.statusBlocking = Busy;
-        executeTask(self, state, task) // and start executing tasks
-        ->Promise.get(keepRunning => {
-            self.statusBlocking = Idle; // flip the semaphore back
-            if (keepRunning) {
-              // and keep running
-              kickStart(self, state);
-            };
-          });
-      }
+    if (!self.busyCritical) {
+      Blocking.getNextTask(self)
+      ->Option.forEach(task => {
+          self.busyBlocking = true;
+          executeTask(self, state, task) // and start executing tasks
+          ->Promise.get(keepRunning => {
+              self.busyBlocking = false; // flip the semaphore back
+              if (keepRunning) {
+                // and keep running
+                kickStart(self, state);
+              };
+            });
+        });
     };
   };
 
@@ -441,5 +427,6 @@ module Impl = (Editor: Sig.Editor) => {
     kickStart(self, state);
   };
 
+  // do nothing
   let destroy = _ => ();
 };
