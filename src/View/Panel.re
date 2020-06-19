@@ -9,6 +9,8 @@ let make =
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
   let (inputMethodActivated, setInputMethodActivation) =
     React.useState(() => false);
+  let (inputMethodSequence, setInputMethodSequence) =
+    React.useState(() => "");
 
   // emit event Initialized on mount
   React.useEffect1(
@@ -58,12 +60,15 @@ let make =
     | InputMethod(Deactivate) =>
       setInputMethodActivation(_ => false);
       Promise.resolved(View.Response.Success);
+    | InputMethod(Update(sequence)) =>
+      setInputMethodSequence(_ => sequence);
+      Promise.resolved(View.Response.Success);
     | _ => Promise.resolved(View.Response.Success)
     }
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <Keyboard activated=inputMethodActivated />
+    <Keyboard activated=inputMethodActivated sequence=inputMethodSequence />
     <Header header />
     <Body body onSubmit />
   </section>;

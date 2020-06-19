@@ -138,7 +138,7 @@ module Impl = (Editor: Sig.Editor) => {
                     Dispatcher.dispatchCommand(
                       dispatcher,
                       state,
-                      Command.InputSymbol(action),
+                      Command.InputMethod(action),
                     )
                     ->ignore
                   })

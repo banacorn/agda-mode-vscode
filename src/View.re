@@ -78,7 +78,8 @@ module Request = {
   module InputMethod = {
     type t =
       | Activate
-      | Deactivate;
+      | Deactivate
+      | Update(string);
 
     open Json.Decode;
     open Util.Decode;
@@ -88,6 +89,7 @@ module Request = {
         fun
         | "Activate" => TagOnly(_ => Activate)
         | "Deactivate" => TagOnly(_ => Deactivate)
+        | "Update" => Contents(string |> map(sequence => Update(sequence)))
         | tag =>
           raise(
             DecodeError("[Request.InputMethod] Unknown constructor: " ++ tag),
@@ -98,7 +100,12 @@ module Request = {
     let encode: encoder(t) =
       fun
       | Activate => object_([("tag", string("Activate"))])
-      | Deactivate => object_([("tag", string("Deactivate"))]);
+      | Deactivate => object_([("tag", string("Deactivate"))])
+      | Update(sequence) =>
+        object_([
+          ("tag", string("Update")),
+          ("contents", sequence |> string),
+        ]);
   };
 
   type t =

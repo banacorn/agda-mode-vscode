@@ -124,5 +124,5 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | ViewEvent(event) => [ViewEvent(event)]
     | Escape => [ViewReq(InterruptQuery, _ => [])]
-    | InputSymbol(action) => InputMethodHandler.handle(action);
+    | InputMethod(action) => InputMethodHandler.handle(action);
 };

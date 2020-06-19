@@ -306,12 +306,6 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let isCritical =
-    fun
-    | Command.Escape => true
-    | InputSymbol(_) => true
-    | _ => false;
-
   let rec executeTask = (self, state: State.t, task) => {
     log("\n\nTask: " ++ Task.toString(task));
     Critical.logQueues(self);

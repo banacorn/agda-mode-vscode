@@ -195,7 +195,7 @@ module Impl = (Editor: Sig.Editor) => {
       let rewrites = [||];
 
       // iterate through changeEvents
-      // and push rewrites to the queue
+      // and push rewrites to the `rewrites` queue
       let rec go:
         (int, (list(Editor.changeEvent), list(Instance.t))) =>
         list(Instance.t) =

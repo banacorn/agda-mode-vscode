@@ -50,5 +50,9 @@ module Impl = (Editor: Sig.Editor) => {
             },
         ),
         ViewReq(InputMethod(Deactivate), _ => []),
+      ]
+
+    | Update(sequence) => [
+        ViewReq(InputMethod(Update(sequence)), _ => []),
       ];
 };

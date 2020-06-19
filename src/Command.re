@@ -14,8 +14,8 @@ module Normalization = {
 module InputMethodAction = {
   type t =
     | Activate
-    | Deactivate;
-  // | InsertBackslash;
+    | Deactivate
+    | Update(string);
 };
 
 type t =
@@ -32,7 +32,7 @@ type t =
   | GoalTypeAndContext(Normalization.t)
   | ViewEvent(View.Event.t)
   | Escape
-  | InputSymbol(InputMethodAction.t);
+  | InputMethod(InputMethodAction.t);
 
 // for registering Keybindings
 let names: array((t, string)) = [|
@@ -54,7 +54,7 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
   (Escape, "escape"),
-  (InputSymbol(Activate), "input-symbol"),
+  (InputMethod(Activate), "input-symbol"),
 |];
 
 // for human
@@ -79,5 +79,6 @@ let toString =
   | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
   | ViewEvent(_) => "View event"
   | Escape => "Escape"
-  | InputSymbol(Activate) => "Input symbol (activate)"
-  | InputSymbol(Deactivate) => "Input symbol (deactivate)";
+  | InputMethod(Activate) => "Input symbol (activate)"
+  | InputMethod(Deactivate) => "Input symbol (deactivate)"
+  | InputMethod(Update(_)) => "Input symbol (update)";
