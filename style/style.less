@@ -15,12 +15,30 @@
     // dimension
     width     : 100%;
     min-height: @header-height;
-    // color
-    color     : red;
-    background: @headerBackground;
+
+    // display
+    display: flex;
 
     &.deactivated {
-        display: none;
+        display: none
+    }
+
+    // color
+    background: @headerBackground;
+
+    .agda-mode-keyboard-sequence-container {
+        @padding: 1rem;
+
+        padding    : @padding 0rem;
+        line-height: calc(@header-height - @padding - @padding);
+
+        .agda-mode-keyboard-sequence {
+            @padding     : 0.5rem;
+            padding      : 0rem @padding;
+            background   : @keyboardBackground;
+            font-weight  : bold;
+            border-radius: @padding;
+        }
     }
 }
 

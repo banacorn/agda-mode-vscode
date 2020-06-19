@@ -221,6 +221,7 @@ module Impl = (Editor: Sig.Editor) => {
                   [instance, ...go(accum + delta, (cs, is))];
                 | Update(buffer) =>
                   instance.buffer = buffer;
+                  self.onAction.emit(Update(Buffer.toSequence(buffer)));
                   instance.range = (accum + start, accum + end_ + delta);
                   [instance, ...go(accum + delta, (cs, is))];
                 | Rewrite(buffer, text) =>
@@ -235,7 +236,7 @@ module Impl = (Editor: Sig.Editor) => {
                   )
                   ->ignore;
                   instance.buffer = buffer;
-
+                  self.onAction.emit(Update(Buffer.toSequence(buffer)));
                   instance.range = (accum + start, accum + end_ + delta);
                   [instance, ...go(accum + delta, (cs, is))];
                 | Stuck =>
