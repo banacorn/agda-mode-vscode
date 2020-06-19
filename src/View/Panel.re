@@ -27,34 +27,31 @@ let make =
     };
 
   // receiving View Requests
-  Hook.on(onRequest, msg =>
+  Hook.on(onRequest, onResponse, msg =>
     switch (msg) {
     | Plain(header, Query(placeholder, value)) =>
-      Js.log("[ view ] >>> Query");
       let (promise, resolve) = Promise.pending();
       resolver.current = Some(resolve);
       setHeader(_ => header);
       setBody(_ => Query(placeholder, value));
-      promise->Promise.get(
+      promise->Promise.map(
         fun
         | None => {
-            Js.log("[ view ] <<< Query Interrupted");
-            onResponse.emit(View.Response.QueryInterrupted);
+            View.Response.QueryInterrupted;
           }
         | Some(result) => {
-            Js.log("[ view ] <<< QuerySuccess");
-            onResponse.emit(View.Response.QuerySuccess(result));
+            View.Response.QuerySuccess(result);
           },
       );
     | Plain(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
-      onResponse.emit(View.Response.Success);
+      Promise.resolved(View.Response.Success);
     | InterruptQuery =>
-      Js.log("[ view ] >>> Interrupt Query");
       onSubmit(None);
-    | InputMethod(_) => Js.log("[ view ] >>> InputMethod")
-    | _ => onResponse.emit(View.Response.Success)
+      Promise.resolved(View.Response.QueryInterrupted);
+    | InputMethod(_) => Promise.resolved(View.Response.Success)
+    | _ => Promise.resolved(View.Response.Success)
     }
   );
 

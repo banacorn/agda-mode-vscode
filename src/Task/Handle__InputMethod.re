@@ -49,7 +49,6 @@ module Impl = (Editor: Sig.Editor) => {
               Promise.resolved([]);
             },
         ),
-        Debug("DEACTIVATE"),
         ViewReq(InputMethod(Deactivate), _ => []),
       ];
 };

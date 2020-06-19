@@ -8,6 +8,14 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   open! Task;
 
+  let printLog = false;
+  let log =
+    if (printLog) {
+      Js.log;
+    } else {
+      _ => ();
+    };
+
   type source =
     | Agda
     | View
@@ -171,7 +179,7 @@ module Impl = (Editor: Sig.Editor) => {
               "Misc " ++ Util.Pretty.list(List.map(queue, Task.toString)),
           )
         ->List.toArray;
-      Js.log(Js.Array.joinWith("\n", strings));
+      log(Js.Array.joinWith("\n", strings));
     };
 
     let rec getNextTask = (blocking, queues) =>
@@ -305,9 +313,9 @@ module Impl = (Editor: Sig.Editor) => {
     | _ => false;
 
   let rec executeTask = (self, state: State.t, task) => {
-    Js.log("\n\nTask: " ++ Task.toString(task));
+    log("\n\nTask: " ++ Task.toString(task));
     Critical.logQueues(self);
-    Js.log("-------------------------------");
+    log("-------------------------------");
     Blocking.logQueues(self);
     switch (task) {
     | DispatchCommand(command) =>

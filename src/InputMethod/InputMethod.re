@@ -4,7 +4,7 @@ module Impl = (Editor: Sig.Editor) => {
   open Command.InputMethodAction;
   module Buffer2 = Buffer2.Impl(Editor);
 
-  let printLog = false;
+  let printLog = true;
   let log =
     if (printLog) {
       Js.log;
@@ -239,6 +239,7 @@ module Impl = (Editor: Sig.Editor) => {
                   instance.range = (accum + start, accum + end_ + delta);
                   [instance, ...go(accum + delta, (cs, is))];
                 | Stuck =>
+                  Js.log("STUCK");
                   Instance.destroy(instance);
                   go(accum + delta, (cs, is));
                 };
