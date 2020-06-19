@@ -11,9 +11,10 @@ let make =
     React.useReducer(
       _ =>
         fun
-        | View.Request.InputMethod.Activate => Keyboard.Activated("")
+        | View.Request.InputMethod.Activate =>
+          Keyboard.Activated("", Translator.translate("").keySuggestions)
         | Deactivate => Deactivated
-        | Update(sequence) => Activated(sequence),
+        | Update(sequence, suggestions) => Activated(sequence, suggestions),
       Deactivated,
     );
 

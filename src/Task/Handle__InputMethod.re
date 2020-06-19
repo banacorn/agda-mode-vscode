@@ -1,4 +1,3 @@
-open Command.InputMethodAction;
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
@@ -8,7 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
   // from Editor Command to Tasks
   let handle =
     fun
-    | Activate => [
+    | View.Request.InputMethod.Activate => [
         WithState(
           state =>
             if (state.inputMethod.activated) {
@@ -52,7 +51,7 @@ module Impl = (Editor: Sig.Editor) => {
         ViewReq(InputMethod(Deactivate), _ => []),
       ]
 
-    | Update(sequence) => [
-        ViewReq(InputMethod(Update(sequence)), _ => []),
+    | Update(sequence, suggestions) => [
+        ViewReq(InputMethod(Update(sequence, suggestions)), _ => []),
       ];
 };

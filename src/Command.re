@@ -11,12 +11,12 @@ module Normalization = {
     | Normalised => "Normalised";
 };
 
-module InputMethodAction = {
-  type t =
-    | Activate
-    | Deactivate
-    | Update(string);
-};
+// module InputMethodAction = {
+//   type t =
+//     | Activate
+//     | Deactivate
+//     | Update(string, array(string));
+// };
 
 type t =
   | Load
@@ -32,7 +32,7 @@ type t =
   | GoalTypeAndContext(Normalization.t)
   | ViewEvent(View.Event.t)
   | Escape
-  | InputMethod(InputMethodAction.t);
+  | InputMethod(View.Request.InputMethod.t);
 
 // for registering Keybindings
 let names: array((t, string)) = [|

@@ -1,7 +1,7 @@
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
-  open Command.InputMethodAction;
+  // open Command.InputMethodAction;
   module Buffer = Buffer.Impl(Editor);
 
   let printLog = true;
@@ -56,7 +56,7 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   type t = {
-    onAction: Event.t(Command.InputMethodAction.t),
+    onAction: Event.t(View.Request.InputMethod.t),
     mutable instances: array(Instance.t),
     mutable activated: bool,
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
@@ -249,11 +249,13 @@ module Impl = (Editor: Sig.Editor) => {
               Buffer.update(fst(instance.range), instance.buffer, change);
             switch (next) {
             | Noop => Some(instance)
-            | Update(buffer) =>
+            | Update(buffer, suggestions) =>
               instance.buffer = buffer;
-              self.onAction.emit(Update(Buffer.toSequence(buffer)));
+              self.onAction.emit(
+                Update(Buffer.toSequence(buffer), suggestions),
+              );
               Some(instance);
-            | Rewrite(buffer, text) =>
+            | Rewrite(buffer, suggestions, text) =>
               Js.Array.push(
                 {
                   start: fst(instance.range),
@@ -265,7 +267,9 @@ module Impl = (Editor: Sig.Editor) => {
               )
               ->ignore;
               instance.buffer = buffer;
-              self.onAction.emit(Update(Buffer.toSequence(buffer)));
+              self.onAction.emit(
+                Update(Buffer.toSequence(buffer), suggestions),
+              );
               Some(instance);
             | Stuck =>
               Js.log("STUCK");
