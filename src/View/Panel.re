@@ -7,10 +7,15 @@ let make =
   let (header, setHeader) =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
-  let (inputMethodActivated, setInputMethodActivation) =
-    React.useState(() => false);
-  let (inputMethodSequence, setInputMethodSequence) =
-    React.useState(() => "");
+  let (inputMethodState, runInputMethodAction) =
+    React.useReducer(
+      _ =>
+        fun
+        | View.Request.InputMethod.Activate => Keyboard.Activated("")
+        | Deactivate => Deactivated
+        | Update(sequence) => Activated(sequence),
+      Deactivated,
+    );
 
   // emit event Initialized on mount
   React.useEffect1(
@@ -54,21 +59,15 @@ let make =
     | InterruptQuery =>
       onSubmit(None);
       Promise.resolved(View.Response.QueryInterrupted);
-    | InputMethod(Activate) =>
-      setInputMethodActivation(_ => true);
-      Promise.resolved(View.Response.Success);
-    | InputMethod(Deactivate) =>
-      setInputMethodActivation(_ => false);
-      Promise.resolved(View.Response.Success);
-    | InputMethod(Update(sequence)) =>
-      setInputMethodSequence(_ => sequence);
+    | InputMethod(action) =>
+      runInputMethodAction(action);
       Promise.resolved(View.Response.Success);
     | _ => Promise.resolved(View.Response.Success)
     }
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <Keyboard activated=inputMethodActivated sequence=inputMethodSequence />
+    <Keyboard state=inputMethodState />
     <Header header />
     <Body body onSubmit />
   </section>;
