@@ -9,9 +9,26 @@
     height: 100%;
 }
 
+.agda-mode-keyboard {
+    // position
+    position  : absolute;
+    // dimension
+    width     : 100%;
+    min-height: @header-height;
+    // color
+    color     : red;
+    background: @headerBackground;
+
+    &.deactivated {
+        display: none;
+    }
+}
+
 .agda-mode-header {
     height : @header-height;
     padding: 0 @header-padding;
+
+    background: @headerBackground;
 
     line-height: @header-height;
     font-size  : 150%;
@@ -32,7 +49,7 @@
 
 .agda-mode-body {
     white-space: pre;
-    background : var(--vscode-sideBar-background);
+    background : @bodyBackground;
 
     font-size  : 125%;
     line-height: 1.5rem;

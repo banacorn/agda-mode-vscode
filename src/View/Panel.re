@@ -7,6 +7,8 @@ let make =
   let (header, setHeader) =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
+  let (inputMethodActivated, setInputMethodActivation) =
+    React.useState(() => false);
 
   // emit event Initialized on mount
   React.useEffect1(
@@ -50,12 +52,18 @@ let make =
     | InterruptQuery =>
       onSubmit(None);
       Promise.resolved(View.Response.QueryInterrupted);
-    | InputMethod(_) => Promise.resolved(View.Response.Success)
+    | InputMethod(Activate) =>
+      setInputMethodActivation(_ => true);
+      Promise.resolved(View.Response.Success);
+    | InputMethod(Deactivate) =>
+      setInputMethodActivation(_ => false);
+      Promise.resolved(View.Response.Success);
     | _ => Promise.resolved(View.Response.Success)
     }
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
+    <Keyboard activated=inputMethodActivated />
     <Header header />
     <Body body onSubmit />
   </section>;
