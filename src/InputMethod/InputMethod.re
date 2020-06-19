@@ -2,7 +2,7 @@ open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
   open Command.InputMethodAction;
-  module Buffer2 = Buffer2.Impl(Editor);
+  module Buffer = Buffer.Impl(Editor);
 
   let printLog = true;
   let log =
@@ -16,7 +16,7 @@ module Impl = (Editor: Sig.Editor) => {
     type t = {
       mutable range: (int, int),
       mutable decoration: array(Editor.Decoration.t),
-      mutable buffer: Buffer2.t,
+      mutable buffer: Buffer.t,
     };
 
     let make = (editor, offset) => {
@@ -28,7 +28,7 @@ module Impl = (Editor: Sig.Editor) => {
             editor,
             Editor.Range.make(point, point),
           ),
-        buffer: Buffer2.make(),
+        buffer: Buffer.make(),
       };
     };
 
@@ -210,7 +210,7 @@ module Impl = (Editor: Sig.Editor) => {
               if (Instance.withIn(instance, change.offset)) {
                 // `change` appears inside the `instance`
                 let next =
-                  Buffer2.update(
+                  Buffer.update(
                     fst(instance.range),
                     instance.buffer,
                     change,
