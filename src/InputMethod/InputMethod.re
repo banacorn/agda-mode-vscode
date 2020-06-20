@@ -68,7 +68,7 @@ module Impl = (Editor: Sig.Editor) => {
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
     range: (int, int),
-    rewriteWith: string,
+    text: string,
     instance: option(Instance.t) // update range offsets after rewrite
   };
 
@@ -92,15 +92,15 @@ module Impl = (Editor: Sig.Editor) => {
       accum =>
         fun
         | [] => Promise.resolved()
-        | [{range, rewriteWith, instance}, ...rewrites] => {
+        | [{range, text, instance}, ...rewrites] => {
             let (start, end_) = range;
             // this value represents the offset change made by this update
             // e.g. "lambda" => "λ" would result in `-5`
-            let delta = String.length(rewriteWith) - (end_ - start);
+            let delta = String.length(text) - (end_ - start);
 
             log(
               "!!! "
-              ++ rewriteWith
+              ++ text
               ++ " ("
               ++ string_of_int(accum + start)
               ++ ","
@@ -124,7 +124,7 @@ module Impl = (Editor: Sig.Editor) => {
                 Editor.insertText(
                   editor,
                   Editor.Range.start(editorRange),
-                  rewriteWith,
+                  text,
                 )
               })
             ->Promise.flatMap(_ => {
@@ -189,11 +189,7 @@ module Impl = (Editor: Sig.Editor) => {
     let rewrites =
       self.instances
       ->Array.map(instance => {
-          {
-            range: instance.range,
-            rewriteWith: symbol,
-            instance: Some(instance),
-          }
+          {range: instance.range, text: symbol, instance: Some(instance)}
         });
     // apply rewrites onto the text editor
     applyRewrites(editor, rewrites)
@@ -278,48 +274,35 @@ module Impl = (Editor: Sig.Editor) => {
           | None => Some(instance)
           | Some(change) =>
             let next =
-              Buffer.update(fst(instance.range), instance.buffer, change);
-            switch (next) {
-            | Noop => Some(instance)
-            | Update(buffer, suggestions, candidates) =>
-              instance.buffer = buffer;
+              Buffer.reflectEditorChange(
+                instance.buffer,
+                fst(instance.range),
+                change,
+              );
+            // issue rewrites
+            next.shouldRewrite
+            ->Option.forEach(text => {
+                Js.Array.push(
+                  {
+                    range: instance.range,
+                    text,
+                    instance:
+                      next.translation.further ? Some(instance) : None,
+                  },
+                  rewrites,
+                )
+                ->ignore
+              });
+
+            // destroy the instance if there's no further possible transition
+            if (next.translation.further) {
+              instance.buffer = next.buffer;
+              // update the view
               self.onAction.emit(
-                Update(Buffer.toSequence(buffer), suggestions, candidates),
+                Update(Buffer.toSequence(next.buffer), next.translation),
               );
               Some(instance);
-            | Rewrite(buffer, suggestions, candidates, text) =>
-              Js.Array.push(
-                {
-                  range: instance.range,
-                  rewriteWith: text,
-                  instance: Some(instance),
-                },
-                rewrites,
-              )
-              ->ignore;
-              instance.buffer = buffer;
-              self.onAction.emit(
-                Update(Buffer.toSequence(buffer), suggestions, candidates),
-              );
-              Some(instance);
-            | RewriteAndStuck(buffer, suggestions, candidates, text) =>
-              Js.Array.push(
-                {
-                  range: instance.range,
-                  rewriteWith: text,
-                  instance: None // got destroyed
-                },
-                rewrites,
-              )
-              ->ignore;
-              instance.buffer = buffer;
-              self.onAction.emit(
-                Update(Buffer.toSequence(buffer), suggestions, candidates),
-              );
-              Instance.destroy(instance);
-              None;
-            | Stuck =>
-              Js.log("STUCK");
+            } else {
               Instance.destroy(instance);
               None;
             };

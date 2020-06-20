@@ -15,7 +15,7 @@ module InputMethod = {
   type t =
     | Activate
     | Deactivate
-    | Update(string, array(string), array(string))
+    | Update(string, Translator.translation)
     | InsertChar(string)
     | ChooseSymbol(string)
     | MoveUp
@@ -27,7 +27,7 @@ module InputMethod = {
     fun
     | Activate => "Activate"
     | Deactivate => "Deactivate"
-    | Update(_, _, _) => "Update"
+    | Update(_, _) => "Update"
     | InsertChar(char) => "InsertChar '" ++ char ++ "'"
     | ChooseSymbol(symbol) => "ChooseSymbol '" ++ symbol ++ "'"
     | MoveUp => "MoveUp"

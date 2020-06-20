@@ -62,6 +62,26 @@ type translation = {
   candidateSymbols: array(string),
 };
 
+let decode: Json.Decode.decoder(translation) =
+  json =>
+    Json.Decode.{
+      symbol: json |> field("symbol", optional(string)),
+      further: json |> field("further", bool),
+      keySuggestions: json |> field("keySuggestions", array(string)),
+      candidateSymbols: json |> field("candidateSymbols", array(string)),
+    };
+
+let encode: Json.Encode.encoder(translation) =
+  translation =>
+    Json.Encode.(
+      object_([
+        ("symbol", translation.symbol |> nullable(string)),
+        ("further", translation.further |> bool),
+        ("keySuggestions", translation.keySuggestions |> array(string)),
+        ("candidateSymbols", translation.candidateSymbols |> array(string)),
+      ])
+    );
+
 /* converts characters to symbol, and tells if there's any further possible combinations */
 let translate = (input: string): translation => {
   let trie = isInKeymap(input);
