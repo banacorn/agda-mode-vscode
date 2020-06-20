@@ -47,7 +47,7 @@ module Request = {
     let decode: decoder(t) =
       sum(
         fun
-        | "Nothing" => TagOnly(_ => Nothing)
+        | "Nothing" => TagOnly(Nothing)
         | "Plain" => Contents(string |> map(text => Plain(text)))
         | "Query" =>
           Contents(
@@ -87,8 +87,8 @@ module Request = {
     let decode: decoder(t) =
       sum(
         fun
-        | "Activate" => TagOnly(_ => Activate)
-        | "Deactivate" => TagOnly(_ => Deactivate)
+        | "Activate" => TagOnly(Activate)
+        | "Deactivate" => TagOnly(Deactivate)
         | "Update" =>
           Contents(
             pair(string, array(string))
@@ -132,9 +132,9 @@ module Request = {
   let decode: decoder(t) =
     sum(
       fun
-      | "Show" => TagOnly(_ => Show)
-      | "Hide" => TagOnly(_ => Hide)
-      | "InterruptQuery" => TagOnly(_ => InterruptQuery)
+      | "Show" => TagOnly(Show)
+      | "Hide" => TagOnly(Hide)
+      | "InterruptQuery" => TagOnly(InterruptQuery)
       | "Plain" =>
         Contents(
           pair(Header.decode, Body.decode)
@@ -202,8 +202,8 @@ module Event = {
   let decode: decoder(t) =
     sum(
       fun
-      | "Initialized" => TagOnly(_ => Initialized)
-      | "Destroyed" => TagOnly(_ => Destroyed)
+      | "Initialized" => TagOnly(Initialized)
+      | "Destroyed" => TagOnly(Destroyed)
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(action => InputMethod(action)))
       | tag =>
@@ -237,10 +237,10 @@ module Response = {
       fun
       | "EventPiggyBack" =>
         Contents(Event.decode |> map(event => EventPiggyBack(event)))
-      | "Success" => TagOnly(_ => Success)
+      | "Success" => TagOnly(Success)
       | "QuerySuccess" =>
         Contents(string |> map(result => QuerySuccess(result)))
-      | "QueryInterrupted" => TagOnly(_ => QueryInterrupted)
+      | "QueryInterrupted" => TagOnly(QueryInterrupted)
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
 
