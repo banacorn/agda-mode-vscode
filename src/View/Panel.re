@@ -9,20 +9,71 @@ let make =
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
   let (inputMethodState, runInputMethodAction) =
     React.useReducer(
-      _state =>
-        fun
-        | View.Request.InputMethod.Activate => {
-            let initTranslation = Translator.translate("");
-            Keyboard.Activated(
-              "",
-              initTranslation.keySuggestions,
-              initTranslation.candidateSymbols,
-            );
-          }
-        | Deactivate => Deactivated
-        | Update(sequence, suggestions, candidates) =>
-          Activated(sequence, suggestions, candidates),
-      Deactivated,
+      (state, action) =>
+        switch (state, action) {
+        | (_, View.Request.InputMethod.Activate) =>
+          let initTranslation = Translator.translate("");
+          Some(
+            Keyboard.{
+              sequence: "",
+              suggestions: initTranslation.keySuggestions,
+              candidates: initTranslation.candidateSymbols,
+              candidateIndex: 0,
+            },
+          );
+        | (_, Deactivate) => None
+        | (None, _) => None
+        | (Some(state), Update(sequence, suggestions, candidates)) =>
+          Some({
+            sequence,
+            suggestions,
+            candidates,
+            candidateIndex: state.candidateIndex,
+          })
+        | (
+            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
+            MoveUp,
+          ) =>
+          Some({
+            sequence,
+            suggestions,
+            candidates,
+            candidateIndex: max(0, candidateIndex - 10),
+          })
+        | (
+            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
+            MoveRight,
+          ) =>
+          Some({
+            sequence,
+            suggestions,
+            candidates,
+            candidateIndex:
+              min(Array.length(candidates) - 1, candidateIndex + 1),
+          })
+        | (
+            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
+            MoveDown,
+          ) =>
+          Some({
+            sequence,
+            suggestions,
+            candidates,
+            candidateIndex:
+              min(Array.length(candidates) - 1, candidateIndex + 10),
+          })
+        | (
+            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
+            MoveLeft,
+          ) =>
+          Some({
+            sequence,
+            suggestions,
+            candidates,
+            candidateIndex: max(0, candidateIndex - 1),
+          })
+        },
+      None,
     );
 
   // emit event Initialized on mount

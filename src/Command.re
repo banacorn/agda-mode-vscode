@@ -16,7 +16,22 @@ module InputMethod = {
     | Activate
     | Deactivate
     | Update(string, array(string), array(string))
-    | InsertChar(string);
+    | InsertChar(string)
+    | MoveUp
+    | MoveRight
+    | MoveDown
+    | MoveLeft;
+
+  let toString =
+    fun
+    | Activate => "Activate"
+    | Deactivate => "Deactivate"
+    | Update(_, _, _) => "Update"
+    | InsertChar(char) => "InsertChar '" ++ char ++ "'"
+    | MoveUp => "MoveUp"
+    | MoveRight => "MoveRight"
+    | MoveDown => "MoveDown"
+    | MoveLeft => "MoveLeft";
 };
 
 type t =
@@ -55,7 +70,11 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
   (Escape, "escape"),
-  (InputMethod(Activate), "input-symbol"),
+  (InputMethod(Activate), "input-symbol[Activate]"),
+  (InputMethod(MoveUp), "input-symbol[MoveUp]"),
+  (InputMethod(MoveRight), "input-symbol[MoveRight]"),
+  (InputMethod(MoveDown), "input-symbol[MoveDown]"),
+  (InputMethod(MoveLeft), "input-symbol[MoveLeft]"),
 |];
 
 // for human
@@ -80,8 +99,4 @@ let toString =
   | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
   | ViewEvent(_) => "View event"
   | Escape => "Escape"
-  | InputMethod(Activate) => "Input symbol (activate)"
-  | InputMethod(Deactivate) => "Input symbol (deactivate)"
-  | InputMethod(Update(_)) => "Input symbol (update)"
-  | InputMethod(InsertChar(char)) =>
-    "Input symbol (insert character \"" ++ char ++ "\")";
+  | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action);

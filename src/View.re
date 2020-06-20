@@ -79,7 +79,11 @@ module Request = {
     type t =
       | Activate
       | Deactivate
-      | Update(string, array(string), array(string));
+      | Update(string, array(string), array(string))
+      | MoveUp
+      | MoveRight
+      | MoveDown
+      | MoveLeft;
 
     open Json.Decode;
     open Util.Decode;
@@ -96,6 +100,10 @@ module Request = {
                  Update(sequence, suggestions, candidates)
                ),
           )
+        | "MoveUp" => TagOnly(MoveUp)
+        | "MoveRight" => TagOnly(MoveRight)
+        | "MoveDown" => TagOnly(MoveDown)
+        | "MoveLeft" => TagOnly(MoveLeft)
         | tag =>
           raise(
             DecodeError("[Request.InputMethod] Unknown constructor: " ++ tag),
@@ -115,7 +123,11 @@ module Request = {
             (sequence, suggestions, candidates)
             |> tuple3(string, array(string), array(string)),
           ),
-        ]);
+        ])
+      | MoveUp => object_([("tag", string("MoveUp"))])
+      | MoveRight => object_([("tag", string("MoveRight"))])
+      | MoveDown => object_([("tag", string("MoveDown"))])
+      | MoveLeft => object_([("tag", string("MoveLeft"))]);
   };
 
   type t =

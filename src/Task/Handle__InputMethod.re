@@ -61,5 +61,9 @@ module Impl = (Editor: Sig.Editor) => {
             Promise.resolved([]);
           },
         ),
-      ];
+      ]
+    | MoveUp => [ViewReq(InputMethod(MoveUp), _ => [])]
+    | MoveRight => [ViewReq(InputMethod(MoveRight), _ => [])]
+    | MoveDown => [ViewReq(InputMethod(MoveDown), _ => [])]
+    | MoveLeft => [ViewReq(InputMethod(MoveLeft), _ => [])];
 };

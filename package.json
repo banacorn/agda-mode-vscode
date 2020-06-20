@@ -215,12 +215,32 @@
 				"when": "agdaMode && agdaModeQuerying || agdaModeTyping"
 			},
 			{
-				"command": "agda-mode.input-symbol",
+				"command": "agda-mode.input-symbol[MoveUp]",
+				"key": "up",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveRight]",
+				"key": "right",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveDown]",
+				"key": "down",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveLeft]",
+				"key": "left",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
 				"when": "agdaMode"
 			},
 			{
-				"command": "agda-mode.input-symbol",
+				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
 				"when": "agdaMode"
 			}
