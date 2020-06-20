@@ -6,6 +6,10 @@ module Impl = (Editor: Sig.Editor) => {
     symbol: option((string, string)),
     // the sequence following the symbol we see on the text editor
     tail: string,
+    // current translation of the underlying sequence
+    translation: Translator.translation,
+    // index of the candidateSymbol of translation
+    candidateIndex: int,
   };
 
   // examples of Buffer.t:
@@ -13,7 +17,12 @@ module Impl = (Editor: Sig.Editor) => {
   //    user typed: lambd   => { symbol: Some("←", "l"), tail: "ambd" }
   //    user typed: lambda   => { symbol: Some("λ", "lambda"), tail: "" }
 
-  let make = () => {symbol: None, tail: ""};
+  let make = () => {
+    symbol: None,
+    tail: "",
+    translation: Translator.translate(""),
+    candidateIndex: 0,
+  };
 
   let isEmpty = self => {
     self.symbol == None && self.tail == "";
@@ -34,16 +43,11 @@ module Impl = (Editor: Sig.Editor) => {
   let toString = self =>
     "\"" ++ toSurface(self) ++ "\"[" ++ toSequence(self) ++ "]";
 
-  type state = {
-    buffer: t,
-    translation: Translator.translation,
-    shouldRewrite: option(string),
-  };
-
   let init = string =>
     Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
 
-  let reflectEditorChange = (self, start, change: Editor.changeEvent) => {
+  let reflectEditorChange =
+      (self, start, change: Editor.changeEvent): (t, option(string)) => {
     let sequence = toSequence(self);
     // some modification has been made to the sequence
     // devise the new sequence
@@ -89,18 +93,29 @@ module Impl = (Editor: Sig.Editor) => {
               ~from=String.length(sequence),
               newSequence,
             );
-          let buffer = {symbol: self.symbol, tail: self.tail ++ diff};
-          {buffer, translation, shouldRewrite: None};
+          let buffer = {...self, tail: self.tail ++ diff, translation};
+          (buffer, None);
         } else {
-          let buffer = {symbol: None, tail: newSequence};
-          {buffer, translation, shouldRewrite: Some(toSurface(buffer))};
+          let buffer = {
+            symbol: None,
+            tail: newSequence,
+            translation,
+            candidateIndex: self.candidateIndex,
+          };
+          (buffer, Some(toSurface(buffer)));
         };
       } else {
-        {buffer: self, translation, shouldRewrite: None};
+        let buffer = {...self, translation};
+        (buffer, None);
       }
     | Some(symbol) =>
-      let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
-      {buffer, translation, shouldRewrite: Some(toSurface(buffer))};
+      let buffer = {
+        symbol: Some((symbol, newSequence)),
+        tail: "",
+        translation,
+        candidateIndex: self.candidateIndex,
+      };
+      (buffer, Some(toSurface(buffer)));
     };
   };
 };

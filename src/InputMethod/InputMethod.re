@@ -273,33 +273,32 @@ module Impl = (Editor: Sig.Editor) => {
           switch (change) {
           | None => Some(instance)
           | Some(change) =>
-            let next =
+            let (buffer, shouldRewrite) =
               Buffer.reflectEditorChange(
                 instance.buffer,
                 fst(instance.range),
                 change,
               );
             // issue rewrites
-            next.shouldRewrite
-            ->Option.forEach(text => {
-                Js.Array.push(
-                  {
-                    range: instance.range,
-                    text,
-                    instance:
-                      next.translation.further ? Some(instance) : None,
-                  },
-                  rewrites,
-                )
-                ->ignore
-              });
+            shouldRewrite->Option.forEach(text => {
+              Js.Array.push(
+                {
+                  range: instance.range,
+                  text,
+                  instance:
+                    buffer.translation.further ? Some(instance) : None,
+                },
+                rewrites,
+              )
+              ->ignore
+            });
 
             // destroy the instance if there's no further possible transition
-            if (next.translation.further) {
-              instance.buffer = next.buffer;
+            if (buffer.translation.further) {
+              instance.buffer = buffer;
               // update the view
               self.onAction.emit(
-                Update(Buffer.toSequence(next.buffer), next.translation),
+                Update(Buffer.toSequence(buffer), buffer.translation),
               );
               Some(instance);
             } else {
