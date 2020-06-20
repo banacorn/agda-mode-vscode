@@ -11,10 +11,17 @@ let make =
     React.useReducer(
       _state =>
         fun
-        | View.Request.InputMethod.Activate =>
-          Keyboard.Activated("", Translator.translate("").keySuggestions)
+        | View.Request.InputMethod.Activate => {
+            let initTranslation = Translator.translate("");
+            Keyboard.Activated(
+              "",
+              initTranslation.keySuggestions,
+              initTranslation.candidateSymbols,
+            );
+          }
         | Deactivate => Deactivated
-        | Update(sequence, suggestions) => Activated(sequence, suggestions),
+        | Update(sequence, suggestions, candidates) =>
+          Activated(sequence, suggestions, candidates),
       Deactivated,
     );
 

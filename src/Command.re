@@ -15,7 +15,7 @@ module InputMethod = {
   type t =
     | Activate
     | Deactivate
-    | Update(string, array(string))
+    | Update(string, array(string), array(string))
     | InsertChar(string);
 };
 

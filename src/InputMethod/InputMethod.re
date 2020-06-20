@@ -261,13 +261,13 @@ module Impl = (Editor: Sig.Editor) => {
               Buffer.update(fst(instance.range), instance.buffer, change);
             switch (next) {
             | Noop => Some(instance)
-            | Update(buffer, suggestions) =>
+            | Update(buffer, suggestions, candidates) =>
               instance.buffer = buffer;
               self.onAction.emit(
-                Update(Buffer.toSequence(buffer), suggestions),
+                Update(Buffer.toSequence(buffer), suggestions, candidates),
               );
               Some(instance);
-            | Rewrite(buffer, suggestions, text) =>
+            | Rewrite(buffer, suggestions, candidates, text) =>
               Js.Array.push(
                 {
                   range: instance.range,
@@ -279,10 +279,10 @@ module Impl = (Editor: Sig.Editor) => {
               ->ignore;
               instance.buffer = buffer;
               self.onAction.emit(
-                Update(Buffer.toSequence(buffer), suggestions),
+                Update(Buffer.toSequence(buffer), suggestions, candidates),
               );
               Some(instance);
-            | RewriteAndStuck(buffer, suggestions, text) =>
+            | RewriteAndStuck(buffer, suggestions, candidates, text) =>
               Js.Array.push(
                 {
                   range: instance.range,
@@ -294,7 +294,7 @@ module Impl = (Editor: Sig.Editor) => {
               ->ignore;
               instance.buffer = buffer;
               self.onAction.emit(
-                Update(Buffer.toSequence(buffer), suggestions),
+                Update(Buffer.toSequence(buffer), suggestions, candidates),
               );
               Instance.destroy(instance);
               None;

@@ -45,9 +45,9 @@ module Impl = (Editor: Sig.Editor) => {
   type action =
     | Noop
     | Stuck
-    | Update(t, array(string))
-    | Rewrite(t, array(string), string)
-    | RewriteAndStuck(t, array(string), string);
+    | Update(t, array(string), array(string))
+    | Rewrite(t, array(string), array(string), string)
+    | RewriteAndStuck(t, array(string), array(string), string);
 
   let init = string =>
     Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
@@ -99,10 +99,19 @@ module Impl = (Editor: Sig.Editor) => {
               newSequence,
             );
           let buffer = {symbol: self.symbol, tail: self.tail ++ diff};
-          Update(buffer, translation.keySuggestions);
+          Update(
+            buffer,
+            translation.keySuggestions,
+            translation.candidateSymbols,
+          );
         } else {
           let buffer = {symbol: None, tail: newSequence};
-          Rewrite(buffer, translation.keySuggestions, toSurface(buffer));
+          Rewrite(
+            buffer,
+            translation.keySuggestions,
+            translation.candidateSymbols,
+            toSurface(buffer),
+          );
         };
       } else {
         Stuck;
@@ -110,12 +119,18 @@ module Impl = (Editor: Sig.Editor) => {
     | Some(symbol) =>
       if (translation.further) {
         let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
-        Rewrite(buffer, translation.keySuggestions, toSurface(buffer));
+        Rewrite(
+          buffer,
+          translation.keySuggestions,
+          translation.candidateSymbols,
+          toSurface(buffer),
+        );
       } else {
         let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
         RewriteAndStuck(
           buffer,
           translation.keySuggestions,
+          translation.candidateSymbols,
           toSurface(buffer),
         );
       }

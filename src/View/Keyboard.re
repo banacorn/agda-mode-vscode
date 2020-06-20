@@ -2,24 +2,28 @@ open ReasonReact;
 open Belt;
 
 type state =
-  | Activated(string, array(string))
+  | Activated(string, array(string), array(string))
   | Deactivated;
 
 [@react.component]
 let make = (~state: state, ~onInsertChar: string => unit) => {
-  let (activated, sequence, suggestions) =
+  let (activated, sequence, suggestions, candidates) =
     switch (state) {
-    | Activated(sequence, suggestions) => (
+    | Activated(sequence, suggestions, candidates) => (
         " activated",
         sequence,
         suggestions,
+        candidates,
       )
-    | Deactivated => (" deactivated", "", [||])
+    | Deactivated => (" deactivated", "", [||], [||])
     };
 
   <div className={"agda-mode-keyboard" ++ activated}>
-    <div className="agda-mode-keyboard-sequence-container">
+    <div className="agda-mode-keyboard-sequence-and-candidates">
       <div className="agda-mode-keyboard-sequence"> {string(sequence)} </div>
+      <div className="agda-mode-keyboard-candidates">
+        {string(Util.Pretty.array(candidates))}
+      </div>
     </div>
     <div className="agda-mode-keyboard-suggestions">
       {suggestions

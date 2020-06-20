@@ -79,7 +79,7 @@ module Request = {
     type t =
       | Activate
       | Deactivate
-      | Update(string, array(string));
+      | Update(string, array(string), array(string));
 
     open Json.Decode;
     open Util.Decode;
@@ -91,9 +91,9 @@ module Request = {
         | "Deactivate" => TagOnly(Deactivate)
         | "Update" =>
           Contents(
-            pair(string, array(string))
-            |> map(((sequence, suggestions)) =>
-                 Update(sequence, suggestions)
+            tuple3(string, array(string), array(string))
+            |> map(((sequence, suggestions, candidates)) =>
+                 Update(sequence, suggestions, candidates)
                ),
           )
         | tag =>
@@ -107,12 +107,13 @@ module Request = {
       fun
       | Activate => object_([("tag", string("Activate"))])
       | Deactivate => object_([("tag", string("Deactivate"))])
-      | Update(sequence, suggestions) =>
+      | Update(sequence, suggestions, candidates) =>
         object_([
           ("tag", string("Update")),
           (
             "contents",
-            (sequence, suggestions) |> pair(string, array(string)),
+            (sequence, suggestions, candidates)
+            |> tuple3(string, array(string), array(string)),
           ),
         ]);
   };

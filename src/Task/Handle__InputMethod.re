@@ -48,8 +48,11 @@ module Impl = (Editor: Sig.Editor) => {
         ViewReq(InputMethod(Deactivate), _ => []),
       ]
 
-    | Update(sequence, suggestions) => [
-        ViewReq(InputMethod(Update(sequence, suggestions)), _ => []),
+    | Update(sequence, suggestions, candidates) => [
+        ViewReq(
+          InputMethod(Update(sequence, suggestions, candidates)),
+          _ => [],
+        ),
       ]
     | InsertChar(char) => [
         WithState(
