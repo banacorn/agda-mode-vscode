@@ -35,18 +35,15 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | Deactivate => [
         WithState(
-          state =>
-            if (state.inputMethod.activated) {
-              // setContext
-              Editor.setContext("agdaModeTyping", false)->ignore;
+          state => {
+            // setContext
+            Editor.setContext("agdaModeTyping", false)->ignore;
 
-              state.inputMethod.activated = false;
-              InputMethod.deactivate(state.inputMethod);
-              // Promise.resolved([Debug("InputMethod(Deactivated)")]);
-              Promise.resolved([]);
-            } else {
-              Promise.resolved([]);
-            },
+            state.inputMethod.activated = false;
+            InputMethod.deactivate(state.inputMethod);
+            // Promise.resolved([Debug("InputMethod(Deactivated)")]);
+            Promise.resolved([]);
+          },
         ),
         ViewReq(InputMethod(Deactivate), _ => []),
       ]

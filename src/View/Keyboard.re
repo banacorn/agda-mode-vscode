@@ -1,4 +1,5 @@
 open ReasonReact;
+open Belt;
 
 type state =
   | Activated(string, array(string))
@@ -16,12 +17,21 @@ let make = (~state: state) => {
     | Deactivated => (" deactivated", "", [||])
     };
 
+  Js.log(suggestions);
+
   <div className={"agda-mode-keyboard" ++ activated}>
     <div className="agda-mode-keyboard-sequence-container">
       <div className="agda-mode-keyboard-sequence"> {string(sequence)} </div>
     </div>
     <div className="agda-mode-keyboard-suggestions">
-      {string(Util.Pretty.array(suggestions))}
+      {suggestions
+       ->Array.map(key => {
+           <button className="agda-mode-key" onClick={_ => Js.log(key)} key>
+             {string(key)}
+           </button>
+         })
+       ->array}
     </div>
   </div>;
+  // {string(Util.Pretty.array(suggestions))}
 };

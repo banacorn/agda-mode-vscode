@@ -10,35 +10,68 @@
 }
 
 .agda-mode-keyboard {
+    @padding : 1rem;
+
     // position
     position  : absolute;
     // dimension
-    width     : 100%;
+    width     : calc(100% - 2.5rem); // why 2.5 ???
     min-height: @header-height;
 
     // display
-    display: flex;
+    // display: flex;
 
     &.deactivated {
         display: none
     }
 
     // color
-    background: @headerBackground;
+    background: @header-background;
 
     .agda-mode-keyboard-sequence-container {
-        @padding: 1rem;
-
-        padding    : @padding 0rem;
-        line-height: calc(@header-height - @padding - @padding);
+        padding       : @padding;
+        // width      : calc(100% - @padding * 2);
+        min-height    : calc(@header-height - @padding * 2);
+        line-height   : calc(@header-height - @padding * 2);
 
         .agda-mode-keyboard-sequence {
             @padding     : 0.5rem;
             padding      : 0rem @padding;
-            background   : @keyboardBackground;
+            background   : @body-background;
             font-weight  : bold;
             border-radius: @padding;
         }
+    }
+
+    .agda-mode-keyboard-suggestions {
+        max-width: 100%;
+        display  : flex;
+        flex-wrap: wrap;
+        padding  : 0 @padding @padding;
+    }
+
+    .agda-mode-key {
+        align-self: center;
+
+        @button-height: 1.5rem;
+
+        background: @input-background;
+        color     : @foreground;
+
+        top           : 0;
+        width         : @button-height;
+        height        : @button-height;
+        line-height   : @button-height;
+        margin        : 0.2rem;
+        padding       : 0;
+        border        : 0;
+        // border     : 1px solid @foreground;
+        text-align    : center;
+
+        border-radius   : 0.2rem;
+        // box-shadow   : 0.1rem 0.1rem 0.2rem @buttonShadow;
+        // outline   : 0;
+
     }
 }
 
@@ -46,7 +79,7 @@
     height : @header-height;
     padding: 0 @header-padding;
 
-    background: @headerBackground;
+    background: @header-background;
 
     line-height: @header-height;
     font-size  : 150%;
@@ -67,7 +100,7 @@
 
 .agda-mode-body {
     white-space: pre;
-    background : @bodyBackground;
+    background : @body-background;
 
     font-size  : 125%;
     line-height: 1.5rem;
@@ -78,7 +111,7 @@
         font-size: 125%;
         padding  : @body-padding;
 
-        background-color: @inputBackground;
+        background-color: @input-background;
         border          : none;
         color           : @input;
     }
