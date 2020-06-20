@@ -50,7 +50,6 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
     let destroy = instance => {
-      log("KILLED");
       instance.decoration->Array.forEach(Editor.Decoration.destroy);
     };
   };
