@@ -164,9 +164,37 @@ module Request = {
 };
 
 module Event = {
+  module InputMethod = {
+    type t =
+      | InsertChar(string);
+
+    open Json.Decode;
+    open Util.Decode;
+
+    let decode: decoder(t) =
+      sum(
+        fun
+        | "InsertChar" => Contents(string |> map(char => InsertChar(char)))
+        | tag =>
+          raise(
+            DecodeError("[Request.InputMethod] Unknown constructor: " ++ tag),
+          ),
+      );
+
+    open! Json.Encode;
+    let encode: encoder(t) =
+      fun
+      | InsertChar(char) =>
+        object_([
+          ("tag", string("InsertChar")),
+          ("contents", char |> string),
+        ]);
+  };
+
   type t =
     | Initialized
-    | Destroyed;
+    | Destroyed
+    | InputMethod(InputMethod.t);
 
   open Json.Decode;
   open Util.Decode;
@@ -176,22 +204,30 @@ module Event = {
       fun
       | "Initialized" => TagOnly(_ => Initialized)
       | "Destroyed" => TagOnly(_ => Destroyed)
-      | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
+      | "InputMethod" =>
+        Contents(InputMethod.decode |> map(action => InputMethod(action)))
+      | tag =>
+        raise(DecodeError("[Response.EVent] Unknown constructor: " ++ tag)),
     );
 
   open! Json.Encode;
   let encode: encoder(t) =
     fun
     | Initialized => object_([("tag", string("Initialized"))])
-    | Destroyed => object_([("tag", string("Destroyed"))]);
+    | Destroyed => object_([("tag", string("Destroyed"))])
+    | InputMethod(action) =>
+      object_([
+        ("tag", string("InputMethod")),
+        ("contents", action |> InputMethod.encode),
+      ]);
 };
 
 module Response = {
   type t =
+    | EventPiggyBack(Event.t) // piggy-back Events from View on Response.t
     | Success
     | QuerySuccess(string)
-    | QueryInterrupted
-    | Event(Event.t);
+    | QueryInterrupted;
 
   open Json.Decode;
   open Util.Decode;
@@ -199,11 +235,12 @@ module Response = {
   let decode: decoder(t) =
     sum(
       fun
+      | "EventPiggyBack" =>
+        Contents(Event.decode |> map(event => EventPiggyBack(event)))
       | "Success" => TagOnly(_ => Success)
       | "QuerySuccess" =>
         Contents(string |> map(result => QuerySuccess(result)))
       | "QueryInterrupted" => TagOnly(_ => QueryInterrupted)
-      | "Event" => Contents(Event.decode |> map(event => Event(event)))
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
 
@@ -217,9 +254,9 @@ module Response = {
         ("contents", result |> string),
       ])
     | QueryInterrupted => object_([("tag", string("QueryInterrupted"))])
-    | Event(event) =>
+    | EventPiggyBack(event) =>
       object_([
-        ("tag", string("Event")),
+        ("tag", string("EventPiggyBack")),
         ("contents", event |> Event.encode),
       ]);
 };

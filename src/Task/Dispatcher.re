@@ -380,6 +380,9 @@ module Impl = (Editor: Sig.Editor) => {
         switch (event) {
         | Initialized => []
         | Destroyed => [Task.Terminate]
+        | InputMethod(InsertChar(char)) => [
+            DispatchCommand(InputMethod(InsertChar(char))),
+          ]
         };
       Critical.addMiscTasks(self, tasks);
     | Error(error) =>

@@ -30,7 +30,7 @@ let on = (view, callback) => {
   // Handle events from the webview
   view.onResponse.on(
     fun
-    | Event(event) => callback(event)
+    | EventPiggyBack(event) => callback(event)
     | _ => (),
   )
   ->Disposable.make;
@@ -161,7 +161,7 @@ let make = (getExtensionPath, context, editor) => {
   // on destroy
   panel
   ->WebviewPanel.onDidDispose(() =>
-      onResponse.emit(View.Response.Event(Destroyed))
+      onResponse.emit(View.Response.EventPiggyBack(Destroyed))
     )
   ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
@@ -171,7 +171,7 @@ let make = (getExtensionPath, context, editor) => {
   // on initizlied, send the queued View Requests
   view.onResponse.on(
     fun
-    | Event(Initialized) => {
+    | EventPiggyBack(Initialized) => {
         switch (view.status) {
         | Uninitialized(queued) =>
           Js.log("[ view ] [ initialized ]");

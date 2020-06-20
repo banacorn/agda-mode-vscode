@@ -6,7 +6,7 @@ type state =
   | Deactivated;
 
 [@react.component]
-let make = (~state: state) => {
+let make = (~state: state, ~onInsertChar: string => unit) => {
   let (activated, sequence, suggestions) =
     switch (state) {
     | Activated(sequence, suggestions) => (
@@ -17,8 +17,6 @@ let make = (~state: state) => {
     | Deactivated => (" deactivated", "", [||])
     };
 
-  Js.log(suggestions);
-
   <div className={"agda-mode-keyboard" ++ activated}>
     <div className="agda-mode-keyboard-sequence-container">
       <div className="agda-mode-keyboard-sequence"> {string(sequence)} </div>
@@ -26,7 +24,8 @@ let make = (~state: state) => {
     <div className="agda-mode-keyboard-suggestions">
       {suggestions
        ->Array.map(key => {
-           <button className="agda-mode-key" onClick={_ => Js.log(key)} key>
+           <button
+             className="agda-mode-key" onClick={_ => onInsertChar(key)} key>
              {string(key)}
            </button>
          })

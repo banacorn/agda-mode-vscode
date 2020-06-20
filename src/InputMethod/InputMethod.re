@@ -56,7 +56,7 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   type t = {
-    onAction: Event.t(View.Request.InputMethod.t),
+    onAction: Event.t(Command.InputMethod.t),
     mutable instances: array(Instance.t),
     mutable activated: bool,
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
@@ -76,6 +76,14 @@ module Impl = (Editor: Sig.Editor) => {
     Editor.getCursorPositions(editor)
     ->Array.forEach(point => {
         Editor.insertText(editor, point, "\\")->ignore
+      });
+  };
+  let insertChar = (editor, char) => {
+    let char = Js.String.charAt(0, char);
+
+    Editor.getCursorPositions(editor)
+    ->Array.forEach(point => {
+        Editor.insertText(editor, point, char)->ignore
       });
   };
 

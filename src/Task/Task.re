@@ -2,7 +2,6 @@ module Impl = (Editor: Sig.Editor) => {
   module State = State.Impl(Editor);
   module Goal = Goal.Impl(Editor);
   module Request = Request.Impl(Editor);
-  // module ViewHandler = Handle__View.Impl(Editor);
 
   type goal =
     | Instantiate(array(int))
@@ -56,16 +55,6 @@ module Impl = (Editor: Sig.Editor) => {
     | WithState(_) => "WithState"
     | Debug(msg) => "Debug[" ++ msg ++ "]";
 
-  type request =
-    | Agda(Request.t)
-    | View(View.Request.t, View.Response.t => list(t));
-
-  let classify =
-    fun
-    | SendRequest(req) => Some(Agda(req))
-    | ViewReq(req, callback) => Some(View(req, callback))
-    | _ => None;
-
   // Smart constructors
   let display' = header =>
     fun
@@ -76,15 +65,7 @@ module Impl = (Editor: Sig.Editor) => {
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let afterQuery = callbackOnQuerySuccess =>
-    fun
-    | View.Response.Success => []
-    | QuerySuccess(result) => callbackOnQuerySuccess(result)
-    | QueryInterrupted => [displayError("Query Cancelled", None)]
-    | Event(Initialized) => []
-    | Event(Destroyed) => [Terminate];
-
-  let query = (header, placeholder, value, callbackOnQuerySuccess) => [
+  let query = (header, placeholder, value, _callbackOnQuerySuccess) => [
     WithState(
       state => {
         // focus on the panel before inquiring
@@ -99,10 +80,9 @@ module Impl = (Editor: Sig.Editor) => {
         let tasks =
           switch (response) {
           | View.Response.Success => []
-          | QuerySuccess(result) => callbackOnQuerySuccess(result)
+          | QuerySuccess(_) => []
           | QueryInterrupted => [displayError("Query Cancelled", None)]
-          | Event(Initialized) => []
-          | Event(Destroyed) => [Terminate]
+          | EventPiggyBack(_) => []
           };
         Belt.List.concat(
           tasks,

@@ -9,7 +9,7 @@ let make =
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
   let (inputMethodState, runInputMethodAction) =
     React.useReducer(
-      _ =>
+      _state =>
         fun
         | View.Request.InputMethod.Activate =>
           Keyboard.Activated("", Translator.translate("").keySuggestions)
@@ -21,7 +21,7 @@ let make =
   // emit event Initialized on mount
   React.useEffect1(
     () => {
-      onResponse.emit(View.Response.Event(Initialized));
+      onResponse.emit(View.Response.EventPiggyBack(Initialized));
       None;
     },
     [||],
@@ -68,7 +68,15 @@ let make =
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <Keyboard state=inputMethodState />
+    <Keyboard
+      state=inputMethodState
+      onInsertChar={char => {
+        Js.log("onInsertChar " ++ char);
+        onResponse.emit(
+          View.Response.EventPiggyBack(InputMethod(InsertChar(char))),
+        );
+      }}
+    />
     <Header header />
     <Body body onSubmit />
   </section>;

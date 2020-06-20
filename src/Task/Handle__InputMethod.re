@@ -7,7 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
   // from Editor Command to Tasks
   let handle =
     fun
-    | View.Request.InputMethod.Activate => [
+    | Command.InputMethod.Activate => [
         WithState(
           state =>
             if (state.inputMethod.activated) {
@@ -50,5 +50,13 @@ module Impl = (Editor: Sig.Editor) => {
 
     | Update(sequence, suggestions) => [
         ViewReq(InputMethod(Update(sequence, suggestions)), _ => []),
+      ]
+    | InsertChar(char) => [
+        WithState(
+          state => {
+            InputMethod.insertChar(state.editor, char);
+            Promise.resolved([]);
+          },
+        ),
       ];
 };

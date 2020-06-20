@@ -11,12 +11,13 @@ module Normalization = {
     | Normalised => "Normalised";
 };
 
-// module InputMethodAction = {
-//   type t =
-//     | Activate
-//     | Deactivate
-//     | Update(string, array(string));
-// };
+module InputMethod = {
+  type t =
+    | Activate
+    | Deactivate
+    | Update(string, array(string))
+    | InsertChar(string);
+};
 
 type t =
   | Load
@@ -32,7 +33,7 @@ type t =
   | GoalTypeAndContext(Normalization.t)
   | ViewEvent(View.Event.t)
   | Escape
-  | InputMethod(View.Request.InputMethod.t);
+  | InputMethod(InputMethod.t);
 
 // for registering Keybindings
 let names: array((t, string)) = [|
@@ -81,4 +82,6 @@ let toString =
   | Escape => "Escape"
   | InputMethod(Activate) => "Input symbol (activate)"
   | InputMethod(Deactivate) => "Input symbol (deactivate)"
-  | InputMethod(Update(_)) => "Input symbol (update)";
+  | InputMethod(Update(_)) => "Input symbol (update)"
+  | InputMethod(InsertChar(char)) =>
+    "Input symbol (insert character \"" ++ char ++ "\")";
