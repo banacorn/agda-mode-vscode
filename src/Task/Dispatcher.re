@@ -383,6 +383,9 @@ module Impl = (Editor: Sig.Editor) => {
         | InputMethod(InsertChar(char)) => [
             DispatchCommand(InputMethod(InsertChar(char))),
           ]
+        | InputMethod(ChooseSymbol(symbol)) => [
+            DispatchCommand(InputMethod(ChooseSymbol(symbol))),
+          ]
         };
       Critical.addMiscTasks(self, tasks);
     | Error(error) =>

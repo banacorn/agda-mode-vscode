@@ -15,16 +15,50 @@ type action =
   | Right
   | Left;
 
-let reducer = (totalSize, index, action) =>
-  switch (action) {
-  | Up => max(0, index - 10)
-  | Right => min(totalSize - 1, index + 1)
-  | Down => min(totalSize - 1, index + 10)
-  | Left => max(0, index - 1)
+let reducer = (state, action) =>
+  switch (state, action) {
+  | (_, View.Request.InputMethod.Activate) =>
+    let initTranslation = Translator.translate("");
+    Some({
+      sequence: "",
+      suggestions: initTranslation.keySuggestions,
+      candidates: initTranslation.candidateSymbols,
+      candidateIndex: 0,
+    });
+  | (_, Deactivate) => None
+  | (None, _) => None
+  | (Some(state), Update(sequence, suggestions, candidates)) =>
+    Some({
+      sequence,
+      suggestions,
+      candidates,
+      candidateIndex: state.candidateIndex,
+    })
+  | (Some(state), MoveUp) =>
+    Some({...state, candidateIndex: max(0, state.candidateIndex - 10)})
+  | (Some(state), MoveRight) =>
+    Some({
+      ...state,
+      candidateIndex:
+        min(Array.length(state.candidates) - 1, state.candidateIndex + 1),
+    })
+  | (Some(state), MoveDown) =>
+    Some({
+      ...state,
+      candidateIndex:
+        min(Array.length(state.candidates) - 1, state.candidateIndex + 10),
+    })
+  | (Some(state), MoveLeft) =>
+    Some({...state, candidateIndex: max(0, state.candidateIndex - 1)})
   };
 
 [@react.component]
-let make = (~state: option(state), ~onInsertChar: string => unit) => {
+let make =
+    (
+      ~state: option(state),
+      ~onInsertChar: string => unit,
+      ~onChooseSymbol: string => unit,
+    ) => {
   switch (state) {
   | None => <div className="agda-mode-keyboard deactivated" />
   | Some({sequence, suggestions, candidates, candidateIndex}) =>
@@ -33,7 +67,7 @@ let make = (~state: option(state), ~onInsertChar: string => unit) => {
         <div className="agda-mode-keyboard-sequence">
           {string(sequence)}
         </div>
-        <CandidateSymbols candidates index=candidateIndex />
+        <CandidateSymbols candidates index=candidateIndex onChooseSymbol />
       </div>
       <div className="agda-mode-keyboard-suggestions">
         {suggestions

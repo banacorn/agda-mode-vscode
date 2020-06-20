@@ -17,6 +17,7 @@ module InputMethod = {
     | Deactivate
     | Update(string, array(string), array(string))
     | InsertChar(string)
+    | ChooseSymbol(string)
     | MoveUp
     | MoveRight
     | MoveDown
@@ -28,6 +29,7 @@ module InputMethod = {
     | Deactivate => "Deactivate"
     | Update(_, _, _) => "Update"
     | InsertChar(char) => "InsertChar '" ++ char ++ "'"
+    | ChooseSymbol(symbol) => "ChooseSymbol '" ++ symbol ++ "'"
     | MoveUp => "MoveUp"
     | MoveRight => "MoveRight"
     | MoveDown => "MoveDown"

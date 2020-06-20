@@ -62,6 +62,14 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
+    | ChooseSymbol(symbol) => [
+        WithState(
+          state => {
+            InputMethod.chooseSymbol(state.inputMethod, state.editor, symbol);
+            Promise.resolved([]);
+          },
+        ),
+      ]
     | MoveUp => [ViewReq(InputMethod(MoveUp), _ => [])]
     | MoveRight => [ViewReq(InputMethod(MoveRight), _ => [])]
     | MoveDown => [ViewReq(InputMethod(MoveDown), _ => [])]

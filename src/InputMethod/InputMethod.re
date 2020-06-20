@@ -80,10 +80,131 @@ module Impl = (Editor: Sig.Editor) => {
   };
   let insertChar = (editor, char) => {
     let char = Js.String.charAt(0, char);
-
     Editor.getCursorPositions(editor)
     ->Array.forEach(point => {
         Editor.insertText(editor, point, char)->ignore
+      });
+  };
+
+  // iterate through a list of rewrites and apply them to the text editor
+  let applyRewrites = (editor, rewrites) => {
+    let rec go: (int, list(rewrite)) => Promise.t(unit) =
+      accum =>
+        fun
+        | [] => Promise.resolved()
+        | [{range, rewriteWith, instance}, ...rewrites] => {
+            let (start, end_) = range;
+            // this value represents the offset change made by this update
+            // e.g. "lambda" => "λ" would result in `-5`
+            let delta = String.length(rewriteWith) - (end_ - start);
+
+            log(
+              "!!! "
+              ++ rewriteWith
+              ++ " ("
+              ++ string_of_int(accum + start)
+              ++ ","
+              ++ string_of_int(accum + end_)
+              ++ ") => ("
+              ++ string_of_int(accum + start)
+              ++ ","
+              ++ string_of_int(accum + end_ + delta)
+              ++ ") "
+              ++ string_of_int(accum),
+            );
+
+            let editorRange =
+              Editor.Range.make(
+                Editor.pointAtOffset(editor, start + accum),
+                Editor.pointAtOffset(editor, end_ + accum),
+              );
+            // update the text buffer
+            Editor.deleteText(editor, editorRange)
+            ->Promise.flatMap(_ => {
+                Editor.insertText(
+                  editor,
+                  Editor.Range.start(editorRange),
+                  rewriteWith,
+                )
+              })
+            ->Promise.flatMap(_ => {
+                // update range offsets and redecorate the Instance
+                // if it still exist after this rewrite
+                switch (instance) {
+                | None => ()
+                | Some(instance) =>
+                  instance.range = (accum + start, accum + end_ + delta);
+                  Instance.redocorate(instance, editor);
+                };
+                // pass this change down
+                go(accum + delta, rewrites);
+              });
+          };
+
+    go(0, List.fromArray(rewrites));
+  };
+
+  // kill the Instances that are not are not pointed by cursors
+  let checkCursorPositions = (self, editor, points: array(Editor.Point.t)) => {
+    let offsets = points->Array.map(Editor.offsetAtPoint(editor));
+    log(
+      "\n### Cursors  : "
+      ++ Js.Array.sortInPlaceWith(compare, offsets)
+         ->Array.map(string_of_int)
+         ->Util.Pretty.array
+      ++ "\n### Instances: "
+      ++ self.instances
+         ->Array.map(i =>
+             "("
+             ++ string_of_int(fst(i.range))
+             ++ ", "
+             ++ string_of_int(snd(i.range))
+             ++ ")"
+           )
+         ->Util.Pretty.array,
+    );
+
+    // store the surviving instances
+    self.instances =
+      self.instances
+      ->Array.keep((instance: Instance.t) => {
+          // if any cursor falls into the range of the instance, the instance survives
+          let survived = offsets->Belt.Array.some(Instance.withIn(instance));
+          // if not, the instance gets destroyed
+          if (!survived) {
+            Instance.destroy(instance);
+          };
+          survived;
+        });
+
+    self.cursorsToBeChecked = None;
+
+    // emit "Deactivate" if all instances have been destroyed
+    if (Array.length(self.instances) == 0) {
+      self.onAction.emit(Deactivate);
+    };
+  };
+
+  let chooseSymbol = (self, editor, symbol) => {
+    let rewrites =
+      self.instances
+      ->Array.map(instance => {
+          {
+            range: instance.range,
+            rewriteWith: symbol,
+            instance: Some(instance),
+          }
+        });
+    // apply rewrites onto the text editor
+    applyRewrites(editor, rewrites)
+    ->Promise.get(() => {
+        // all offsets updated and rewrites applied, reset the semaphore
+        self.busy = false;
+        // see if there are any pending cursor positions to be checked
+        switch (self.cursorsToBeChecked) {
+        | None => ()
+        | Some(points) => checkCursorPositions(self, editor, points)
+        };
       });
   };
 
@@ -92,107 +213,6 @@ module Impl = (Editor: Sig.Editor) => {
     self.instances =
       Js.Array.sortInPlaceWith(compare, offsets)
       ->Array.map(Instance.make(editor));
-
-    // kill the Instances that are not are not pointed by cursors
-    let checkCursorPositions = (points: array(Editor.Point.t)) => {
-      let offsets = points->Array.map(Editor.offsetAtPoint(editor));
-      log(
-        "\n### Cursors  : "
-        ++ Js.Array.sortInPlaceWith(compare, offsets)
-           ->Array.map(string_of_int)
-           ->Util.Pretty.array
-        ++ "\n### Instances: "
-        ++ self.instances
-           ->Array.map(i =>
-               "("
-               ++ string_of_int(fst(i.range))
-               ++ ", "
-               ++ string_of_int(snd(i.range))
-               ++ ")"
-             )
-           ->Util.Pretty.array,
-      );
-
-      // store the surviving instances
-      self.instances =
-        self.instances
-        ->Array.keep((instance: Instance.t) => {
-            // if any cursor falls into the range of the instance, the instance survives
-            let survived =
-              offsets->Belt.Array.some(Instance.withIn(instance));
-            // if not, the instance gets destroyed
-            if (!survived) {
-              Instance.destroy(instance);
-            };
-            survived;
-          });
-
-      self.cursorsToBeChecked = None;
-
-      // emit "Deactivate" if all instances have been destroyed
-      //
-      if (Array.length(self.instances) == 0) {
-        self.onAction.emit(Deactivate);
-      };
-    };
-
-    // iterate through a list of rewrites and apply them to the text editor
-    let applyRewrites = rewrites => {
-      let rec go: (int, list(rewrite)) => Promise.t(unit) =
-        accum =>
-          fun
-          | [] => Promise.resolved()
-          | [{range, rewriteWith, instance}, ...rewrites] => {
-              let (start, end_) = range;
-              // this value represents the offset change made by this update
-              // e.g. "lambda" => "λ" would result in `-5`
-              let delta = String.length(rewriteWith) - (end_ - start);
-
-              log(
-                "!!! "
-                ++ rewriteWith
-                ++ " ("
-                ++ string_of_int(accum + start)
-                ++ ","
-                ++ string_of_int(accum + end_)
-                ++ ") => ("
-                ++ string_of_int(accum + start)
-                ++ ","
-                ++ string_of_int(accum + end_ + delta)
-                ++ ") "
-                ++ string_of_int(accum),
-              );
-
-              let editorRange =
-                Editor.Range.make(
-                  Editor.pointAtOffset(editor, start + accum),
-                  Editor.pointAtOffset(editor, end_ + accum),
-                );
-              // update the text buffer
-              Editor.deleteText(editor, editorRange)
-              ->Promise.flatMap(_ => {
-                  Editor.insertText(
-                    editor,
-                    Editor.Range.start(editorRange),
-                    rewriteWith,
-                  )
-                })
-              ->Promise.flatMap(_ => {
-                  // update range offsets and redecorate the Instance
-                  // if it still exist after this rewrite
-                  switch (instance) {
-                  | None => ()
-                  | Some(instance) =>
-                    instance.range = (accum + start, accum + end_ + delta);
-                    Instance.redocorate(instance, editor);
-                  };
-                  // pass this change down
-                  go(accum + delta, rewrites);
-                });
-            };
-
-      go(0, List.fromArray(rewrites));
-    };
 
     // update offsets of Instances base on changeEvents
     let updateInstanceOffsets = (changes: array(Editor.changeEvent)) => {
@@ -316,7 +336,7 @@ module Impl = (Editor: Sig.Editor) => {
         self.cursorsToBeChecked =
           Some(points);
       } else {
-        checkCursorPositions(points);
+        checkCursorPositions(self, editor, points);
       }
     )
     ->Js.Array.push(self.handles)
@@ -328,14 +348,14 @@ module Impl = (Editor: Sig.Editor) => {
         // update the offsets to reflect the changes
         let rewrites = updateInstanceOffsets(changes);
         // apply rewrites onto the text editor
-        applyRewrites(rewrites)
+        applyRewrites(editor, rewrites)
         ->Promise.get(() => {
             // all offsets updated and rewrites applied, reset the semaphore
             self.busy = false;
             // see if there are any pending cursor positions to be checked
             switch (self.cursorsToBeChecked) {
             | None => ()
-            | Some(points) => checkCursorPositions(points)
+            | Some(points) => checkCursorPositions(self, editor, points)
             };
           });
       }

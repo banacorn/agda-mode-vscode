@@ -179,7 +179,8 @@ module Request = {
 module Event = {
   module InputMethod = {
     type t =
-      | InsertChar(string);
+      | InsertChar(string)
+      | ChooseSymbol(string);
 
     open Json.Decode;
     open Util.Decode;
@@ -188,9 +189,11 @@ module Event = {
       sum(
         fun
         | "InsertChar" => Contents(string |> map(char => InsertChar(char)))
+        | "ChooseSymbol" =>
+          Contents(string |> map(char => ChooseSymbol(char)))
         | tag =>
           raise(
-            DecodeError("[Request.InputMethod] Unknown constructor: " ++ tag),
+            DecodeError("[Event.InputMethod] Unknown constructor: " ++ tag),
           ),
       );
 
@@ -201,6 +204,11 @@ module Event = {
         object_([
           ("tag", string("InsertChar")),
           ("contents", char |> string),
+        ])
+      | ChooseSymbol(symbol) =>
+        object_([
+          ("tag", string("ChooseSymbol")),
+          ("contents", symbol |> string),
         ]);
   };
 

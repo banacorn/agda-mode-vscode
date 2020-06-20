@@ -2,7 +2,12 @@ open ReasonReact;
 open Belt;
 
 [@react.component]
-let make = (~candidates: array(string), ~index: int) => {
+let make =
+    (
+      ~candidates: array(string),
+      ~index: int,
+      ~onChooseSymbol: string => unit,
+    ) => {
   let rowStart = index / 10 * 10;
   let row = candidates->Array.slice(~offset=rowStart, ~len=10);
 
@@ -15,7 +20,7 @@ let make = (~candidates: array(string), ~index: int) => {
            let isSelected = rowStart + i === index;
            <button
              className={"agda-mode-key " ++ (isSelected ? "selected" : "")}
-             onClick={_ => Js.log(key)}
+             onClick={_ => onChooseSymbol(key)}
              key>
              {string(key)}
            </button>;

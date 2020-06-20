@@ -8,73 +8,7 @@ let make =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
   let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
   let (inputMethodState, runInputMethodAction) =
-    React.useReducer(
-      (state, action) =>
-        switch (state, action) {
-        | (_, View.Request.InputMethod.Activate) =>
-          let initTranslation = Translator.translate("");
-          Some(
-            Keyboard.{
-              sequence: "",
-              suggestions: initTranslation.keySuggestions,
-              candidates: initTranslation.candidateSymbols,
-              candidateIndex: 0,
-            },
-          );
-        | (_, Deactivate) => None
-        | (None, _) => None
-        | (Some(state), Update(sequence, suggestions, candidates)) =>
-          Some({
-            sequence,
-            suggestions,
-            candidates,
-            candidateIndex: state.candidateIndex,
-          })
-        | (
-            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
-            MoveUp,
-          ) =>
-          Some({
-            sequence,
-            suggestions,
-            candidates,
-            candidateIndex: max(0, candidateIndex - 10),
-          })
-        | (
-            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
-            MoveRight,
-          ) =>
-          Some({
-            sequence,
-            suggestions,
-            candidates,
-            candidateIndex:
-              min(Array.length(candidates) - 1, candidateIndex + 1),
-          })
-        | (
-            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
-            MoveDown,
-          ) =>
-          Some({
-            sequence,
-            suggestions,
-            candidates,
-            candidateIndex:
-              min(Array.length(candidates) - 1, candidateIndex + 10),
-          })
-        | (
-            Some({Keyboard.sequence, suggestions, candidates, candidateIndex}),
-            MoveLeft,
-          ) =>
-          Some({
-            sequence,
-            suggestions,
-            candidates,
-            candidateIndex: max(0, candidateIndex - 1),
-          })
-        },
-      None,
-    );
+    React.useReducer(Keyboard.reducer, None);
 
   // emit event Initialized on mount
   React.useEffect1(
@@ -132,6 +66,12 @@ let make =
         Js.log("onInsertChar " ++ char);
         onResponse.emit(
           View.Response.EventPiggyBack(InputMethod(InsertChar(char))),
+        );
+      }}
+      onChooseSymbol={symbol => {
+        Js.log("onChooseSymbol " ++ symbol);
+        onResponse.emit(
+          View.Response.EventPiggyBack(InputMethod(ChooseSymbol(symbol))),
         );
       }}
     />
