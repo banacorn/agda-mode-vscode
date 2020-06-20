@@ -39,6 +39,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     let redocorate = (instance, editor) => {
       instance.decoration->Array.forEach(Editor.Decoration.destroy);
+      instance.decoration = [||];
       let (start, end_) = instance.range;
       let start = Editor.pointAtOffset(editor, start);
       let end_ = Editor.pointAtOffset(editor, end_);
@@ -51,6 +52,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     let destroy = instance => {
       instance.decoration->Array.forEach(Editor.Decoration.destroy);
+      instance.decoration = [||];
     };
   };
 
@@ -65,10 +67,9 @@ module Impl = (Editor: Sig.Editor) => {
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
-    start: int,
-    end_: int,
+    range: (int, int),
     rewriteWith: string,
-    instance: Instance.t,
+    instance: option(Instance.t) // update range offsets after rewrite
   };
 
   let insertBackslash = editor => {
@@ -141,13 +142,8 @@ module Impl = (Editor: Sig.Editor) => {
         accum =>
           fun
           | [] => Promise.resolved()
-          | [{start, end_, rewriteWith, instance}, ...rewrites] => {
-              let range =
-                Editor.Range.make(
-                  Editor.pointAtOffset(editor, start + accum),
-                  Editor.pointAtOffset(editor, end_ + accum),
-                );
-
+          | [{range, rewriteWith, instance}, ...rewrites] => {
+              let (start, end_) = range;
               // this value represents the offset change made by this update
               // e.g. "lambda" => "λ" would result in `-5`
               let delta = String.length(rewriteWith) - (end_ - start);
@@ -167,22 +163,31 @@ module Impl = (Editor: Sig.Editor) => {
                 ++ string_of_int(accum),
               );
 
-              instance.range = (accum + start, accum + end_ + delta);
-              // pass this change down
-              let accum = accum + delta;
-
+              let editorRange =
+                Editor.Range.make(
+                  Editor.pointAtOffset(editor, start + accum),
+                  Editor.pointAtOffset(editor, end_ + accum),
+                );
               // update the text buffer
-              Editor.deleteText(editor, range)
+              Editor.deleteText(editor, editorRange)
               ->Promise.flatMap(_ => {
                   Editor.insertText(
                     editor,
-                    Editor.Range.start(range),
+                    Editor.Range.start(editorRange),
                     rewriteWith,
                   )
                 })
               ->Promise.flatMap(_ => {
-                  Instance.redocorate(instance, editor);
-                  go(accum, rewrites);
+                  // update range offsets and redecorate the Instance
+                  // if it still exist after this rewrite
+                  switch (instance) {
+                  | None => ()
+                  | Some(instance) =>
+                    instance.range = (accum + start, accum + end_ + delta);
+                    Instance.redocorate(instance, editor);
+                  };
+                  // pass this change down
+                  go(accum + delta, rewrites);
                 });
             };
 
@@ -265,10 +270,9 @@ module Impl = (Editor: Sig.Editor) => {
             | Rewrite(buffer, suggestions, text) =>
               Js.Array.push(
                 {
-                  start: fst(instance.range),
-                  end_: snd(instance.range),
+                  range: instance.range,
                   rewriteWith: text,
-                  instance,
+                  instance: Some(instance),
                 },
                 rewrites,
               )
@@ -278,6 +282,22 @@ module Impl = (Editor: Sig.Editor) => {
                 Update(Buffer.toSequence(buffer), suggestions),
               );
               Some(instance);
+            | RewriteAndStuck(buffer, suggestions, text) =>
+              Js.Array.push(
+                {
+                  range: instance.range,
+                  rewriteWith: text,
+                  instance: None // got destroyed
+                },
+                rewrites,
+              )
+              ->ignore;
+              instance.buffer = buffer;
+              self.onAction.emit(
+                Update(Buffer.toSequence(buffer), suggestions),
+              );
+              Instance.destroy(instance);
+              None;
             | Stuck =>
               Js.log("STUCK");
               Instance.destroy(instance);

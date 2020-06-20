@@ -46,7 +46,8 @@ module Impl = (Editor: Sig.Editor) => {
     | Noop
     | Stuck
     | Update(t, array(string))
-    | Rewrite(t, array(string), string);
+    | Rewrite(t, array(string), string)
+    | RewriteAndStuck(t, array(string), string);
 
   let init = string =>
     Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
@@ -119,10 +120,18 @@ module Impl = (Editor: Sig.Editor) => {
         } else {
           Stuck;
         }
-
       | Some(symbol) =>
-        let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
-        Rewrite(buffer, translation.keySuggestions, toSurface(buffer));
+        if (translation.further) {
+          let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
+          Rewrite(buffer, translation.keySuggestions, toSurface(buffer));
+        } else {
+          let buffer = {symbol: Some((symbol, newSequence)), tail: ""};
+          RewriteAndStuck(
+            buffer,
+            translation.keySuggestions,
+            toSurface(buffer),
+          );
+        }
       };
     };
   };
