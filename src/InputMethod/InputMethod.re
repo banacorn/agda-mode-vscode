@@ -185,7 +185,33 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  let moveRight = (self, editor) => {
+    self.busy = true;
+    let rewrites =
+      self.instances
+      ->Array.keepMap(instance => {
+          instance.buffer = Buffer.moveRight(instance.buffer);
+          instance.buffer.translation.candidateSymbols[instance.buffer.
+                                                         candidateIndex]
+          ->Option.map(symbol => {
+              {range: instance.range, text: symbol, instance: Some(instance)}
+            });
+        });
+    // apply rewrites onto the text editor
+    applyRewrites(editor, rewrites)
+    ->Promise.get(() => {
+        // all offsets updated and rewrites applied, reset the semaphore
+        self.busy = false;
+        // see if there are any pending cursor positions to be checked
+        switch (self.cursorsToBeChecked) {
+        | None => ()
+        | Some(points) => checkCursorPositions(self, editor, points)
+        };
+      });
+  };
+
   let chooseSymbol = (self, editor, symbol) => {
+    self.busy = true;
     let rewrites =
       self.instances
       ->Array.map(instance => {

@@ -28,7 +28,6 @@ module Impl = (Editor: Sig.Editor) => {
                 state.editor,
                 startingOffsets,
               );
-              // Promise.resolved([Debug("InputMethod(Activated)")]);
               Promise.resolved([ViewReq(InputMethod(Activate), _ => [])]);
             },
         ),
@@ -68,7 +67,14 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | MoveUp => [ViewReq(InputMethod(MoveUp), _ => [])]
-    | MoveRight => [ViewReq(InputMethod(MoveRight), _ => [])]
+    | MoveRight => [
+        WithState(
+          state => {
+            InputMethod.moveRight(state.inputMethod, state.editor);
+            Promise.resolved([]);
+          },
+        ),
+      ]
     | MoveDown => [ViewReq(InputMethod(MoveDown), _ => [])]
     | MoveLeft => [ViewReq(InputMethod(MoveLeft), _ => [])];
 };

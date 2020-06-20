@@ -43,8 +43,33 @@ module Impl = (Editor: Sig.Editor) => {
   let toString = self =>
     "\"" ++ toSurface(self) ++ "\"[" ++ toSequence(self) ++ "]";
 
-  let init = string =>
-    Js.String.substring(~from=0, ~to_=String.length(string) - 1, string);
+  let moveUp = self => {
+    ...self,
+    candidateIndex: max(0, self.candidateIndex - 10),
+  };
+
+  let moveRight = self => {
+    ...self,
+    candidateIndex:
+      min(
+        Array.length(self.translation.candidateSymbols) - 1,
+        self.candidateIndex + 1,
+      ),
+  };
+
+  let moveDown = self => {
+    ...self,
+    candidateIndex:
+      min(
+        Array.length(self.translation.candidateSymbols) - 1,
+        self.candidateIndex + 10,
+      ),
+  };
+
+  let moveLeft = self => {
+    ...self,
+    candidateIndex: max(0, self.candidateIndex - 1),
+  };
 
   let reflectEditorChange =
       (self, start, change: Editor.changeEvent): (t, option(string)) => {
