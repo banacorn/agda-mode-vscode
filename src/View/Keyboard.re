@@ -14,8 +14,8 @@ let reducer = (state, action) =>
     Some({sequence: "", translation, candidateIndex: 0});
   | (_, Deactivate) => None
   | (None, _) => None
-  | (Some(state), Update(sequence, translation)) =>
-    Some({sequence, translation, candidateIndex: state.candidateIndex})
+  | (Some(_), Update(sequence, translation, candidateIndex)) =>
+    Some({sequence, translation, candidateIndex})
   | (Some(state), MoveUp) =>
     Some({...state, candidateIndex: max(0, state.candidateIndex - 10)})
   | (Some(state), MoveRight) =>

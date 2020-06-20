@@ -79,7 +79,7 @@ module Request = {
     type t =
       | Activate
       | Deactivate
-      | Update(string, Translator.translation)
+      | Update(string, Translator.translation, int)
       | MoveUp
       | MoveRight
       | MoveDown
@@ -95,9 +95,9 @@ module Request = {
         | "Deactivate" => TagOnly(Deactivate)
         | "Update" =>
           Contents(
-            pair(string, Translator.decode)
-            |> map(((sequence, translation)) =>
-                 Update(sequence, translation)
+            tuple3(string, Translator.decode, int)
+            |> map(((sequence, translation, index)) =>
+                 Update(sequence, translation, index)
                ),
           )
         | "MoveUp" => TagOnly(MoveUp)
@@ -115,12 +115,13 @@ module Request = {
       fun
       | Activate => object_([("tag", string("Activate"))])
       | Deactivate => object_([("tag", string("Deactivate"))])
-      | Update(sequence, translation) =>
+      | Update(sequence, translation, index) =>
         object_([
           ("tag", string("Update")),
           (
             "contents",
-            (sequence, translation) |> pair(string, Translator.encode),
+            (sequence, translation, index)
+            |> tuple3(string, Translator.encode, int),
           ),
         ])
       | MoveUp => object_([("tag", string("MoveUp"))])

@@ -127,6 +127,20 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  let updateView = self => {
+    // update the view
+    self.instances[0]
+    ->Option.forEach(instance => {
+        self.onAction.emit(
+          Update(
+            Buffer.toSequence(instance.buffer),
+            instance.buffer.translation,
+            instance.buffer.candidateIndex,
+          ),
+        )
+      });
+  };
+
   // iterate through a list of rewrites and apply them to the text editor
   let applyRewrites = (self, editor, rewrites) => {
     let rec go: (int, list(rewrite)) => Promise.t(unit) =
@@ -197,6 +211,24 @@ module Impl = (Editor: Sig.Editor) => {
       });
   };
 
+  let moveUp = (self, editor) => {
+    let rewrites =
+      self.instances
+      ->Array.keepMap(instance => {
+          instance.buffer = Buffer.moveUp(instance.buffer);
+          instance.buffer.translation.candidateSymbols[instance.buffer.
+                                                         candidateIndex]
+          ->Option.map(symbol => {
+              {range: instance.range, text: symbol, instance: Some(instance)}
+            });
+        });
+    // apply rewrites onto the text editor
+    applyRewrites(self, editor, rewrites);
+
+    // update the view
+    updateView(self);
+  };
+
   let moveRight = (self, editor) => {
     let rewrites =
       self.instances
@@ -210,6 +242,42 @@ module Impl = (Editor: Sig.Editor) => {
         });
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites);
+    // update the view
+    updateView(self);
+  };
+
+  let moveDown = (self, editor) => {
+    let rewrites =
+      self.instances
+      ->Array.keepMap(instance => {
+          instance.buffer = Buffer.moveDown(instance.buffer);
+          instance.buffer.translation.candidateSymbols[instance.buffer.
+                                                         candidateIndex]
+          ->Option.map(symbol => {
+              {range: instance.range, text: symbol, instance: Some(instance)}
+            });
+        });
+    // apply rewrites onto the text editor
+    applyRewrites(self, editor, rewrites);
+    // update the view
+    updateView(self);
+  };
+
+  let moveLeft = (self, editor) => {
+    let rewrites =
+      self.instances
+      ->Array.keepMap(instance => {
+          instance.buffer = Buffer.moveLeft(instance.buffer);
+          instance.buffer.translation.candidateSymbols[instance.buffer.
+                                                         candidateIndex]
+          ->Option.map(symbol => {
+              {range: instance.range, text: symbol, instance: Some(instance)}
+            });
+        });
+    // apply rewrites onto the text editor
+    applyRewrites(self, editor, rewrites);
+    // update the view
+    updateView(self);
   };
 
   let chooseSymbol = (self, editor, symbol) => {
@@ -314,10 +382,6 @@ module Impl = (Editor: Sig.Editor) => {
             // destroy the instance if there's no further possible transition
             if (buffer.translation.further) {
               instance.buffer = buffer;
-              // update the view
-              self.onAction.emit(
-                Update(Buffer.toSequence(buffer), buffer.translation),
-              );
               Some(instance);
             } else {
               Instance.destroy(instance);
@@ -347,6 +411,8 @@ module Impl = (Editor: Sig.Editor) => {
         let rewrites = updateInstanceOffsets(changes);
         // apply rewrites onto the text editor
         applyRewrites(self, editor, rewrites);
+        // update the view
+        updateView(self);
       }
     )
     ->Js.Array.push(self.handles)

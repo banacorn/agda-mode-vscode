@@ -47,8 +47,8 @@ module Impl = (Editor: Sig.Editor) => {
         ViewReq(InputMethod(Deactivate), _ => []),
       ]
 
-    | Update(sequence, translation) => [
-        ViewReq(InputMethod(Update(sequence, translation)), _ => []),
+    | Update(sequence, translation, index) => [
+        ViewReq(InputMethod(Update(sequence, translation, index)), _ => []),
       ]
     | InsertChar(char) => [
         WithState(
@@ -66,7 +66,14 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | MoveUp => [ViewReq(InputMethod(MoveUp), _ => [])]
+    | MoveUp => [
+        WithState(
+          state => {
+            InputMethod.moveUp(state.inputMethod, state.editor);
+            Promise.resolved([]);
+          },
+        ),
+      ]
     | MoveRight => [
         WithState(
           state => {
@@ -75,6 +82,20 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | MoveDown => [ViewReq(InputMethod(MoveDown), _ => [])]
-    | MoveLeft => [ViewReq(InputMethod(MoveLeft), _ => [])];
+    | MoveDown => [
+        WithState(
+          state => {
+            InputMethod.moveDown(state.inputMethod, state.editor);
+            Promise.resolved([]);
+          },
+        ),
+      ]
+    | MoveLeft => [
+        WithState(
+          state => {
+            InputMethod.moveLeft(state.inputMethod, state.editor);
+            Promise.resolved([]);
+          },
+        ),
+      ];
 };
