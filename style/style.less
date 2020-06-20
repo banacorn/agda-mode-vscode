@@ -10,7 +10,10 @@
 }
 
 .agda-mode-keyboard {
-    @padding : 1rem;
+    @padding      : 1rem;
+    @button-height: 1.5rem;
+    @button-margin: 0.2rem;
+
 
     // position
     position  : absolute;
@@ -28,18 +31,29 @@
     // color
     background: @header-background;
 
-    .agda-mode-keyboard-sequence-container {
-        padding       : @padding;
-        // width      : calc(100% - @padding * 2);
-        min-height    : calc(@header-height - @padding * 2);
-        line-height   : calc(@header-height - @padding * 2);
+    .agda-mode-keyboard-sequence-and-candidates {
+        display    : flex;
+        // dimensions
+        padding    : @padding;
+        min-height : calc(@header-height - @padding * 2);
+        line-height: calc(@header-height - @padding * 2);
 
         .agda-mode-keyboard-sequence {
             @padding     : 0.5rem;
             padding      : 0rem @padding;
+            flex-grow    : 100;
             background   : @body-background;
             font-weight  : bold;
             border-radius: @padding;
+        }
+
+        .agda-mode-keyboard-candidates {
+            @padding   : 0.5rem;
+            padding    : 0rem @padding;
+            margin-left: 1rem;
+            width      : calc(@button-height * 10 + @button-margin * 20);
+            flex-grow  : 0;
+            font-weight: bold;
         }
     }
 
@@ -53,25 +67,28 @@
     .agda-mode-key {
         align-self: center;
 
-        @button-height: 1.5rem;
 
         background: @input-background;
         color     : @foreground;
 
-        top           : 0;
-        width         : @button-height;
-        height        : @button-height;
-        line-height   : @button-height;
-        margin        : 0.2rem;
-        padding       : 0;
-        border        : 0;
-        // border     : 1px solid @foreground;
-        text-align    : center;
+        top          : 0;
+        width        : @button-height;
+        height       : @button-height;
+        line-height  : @button-height;
+        margin       : @button-margin;
+        padding      : 0;
+        border       : 0;
+        border-radius: @button-margin;
+        text-align   : center;
 
-        border-radius   : 0.2rem;
-        // box-shadow   : 0.1rem 0.1rem 0.2rem @buttonShadow;
-        // outline   : 0;
+        &:hover {
+            background: @selection;
+            cursor    : pointer;
+        }
 
+        &.selected {
+            background: @selection;
+        }
     }
 }
 

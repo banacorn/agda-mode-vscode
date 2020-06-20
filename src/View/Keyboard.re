@@ -21,9 +21,7 @@ let make = (~state: state, ~onInsertChar: string => unit) => {
   <div className={"agda-mode-keyboard" ++ activated}>
     <div className="agda-mode-keyboard-sequence-and-candidates">
       <div className="agda-mode-keyboard-sequence"> {string(sequence)} </div>
-      <div className="agda-mode-keyboard-candidates">
-        {string(Util.Pretty.array(candidates))}
-      </div>
+      <CandidateSymbols candidates />
     </div>
     <div className="agda-mode-keyboard-suggestions">
       {suggestions
