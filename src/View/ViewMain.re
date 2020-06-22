@@ -5,11 +5,17 @@ open! Belt;
 // this is the only way to send messages back to the extension
 let vscode = Api.acquireVsCodeApi();
 
-// relay VSCode.Api.onMessage => onRequest;
+// relay VSCode.Api.onMessage => onRequest or onEvent;
 let onRequest = Event.make();
+let onEventToView = Event.make();
 Api.onMessage(stringifiedJSON => {
-  let request = stringifiedJSON->Js.Json.parseExn->View.Request.decode;
-  onRequest.emit(request);
+  let requestOrEvent =
+    stringifiedJSON->Js.Json.parseExn->View.RequestOrEventToView.decode;
+
+  switch (requestOrEvent) {
+  | Event(event) => onEventToView.emit(event)
+  | Request(req) => onRequest.emit(req)
+  };
 });
 
 // relay onResponse => VSCode.Api.postMessage
@@ -31,5 +37,8 @@ onEventFromView.on(event => {
 // mount the view at the "root" element
 Webapi.Dom.Document.getElementById("root", Webapi.Dom.document)
 ->Option.forEach(element => {
-    ReactDOMRe.render(<Panel onRequest onResponse onEventFromView />, element)
+    ReactDOMRe.render(
+      <Panel onRequest onEventToView onResponse onEventFromView />,
+      element,
+    )
   });

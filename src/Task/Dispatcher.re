@@ -8,7 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   open! Task;
 
-  let printLog = false;
+  let printLog = true;
   let log =
     if (printLog) {
       Js.log;
@@ -335,8 +335,15 @@ module Impl = (Editor: Sig.Editor) => {
         // NOTE: return early before `sendAgdaRequest` resolved
         Promise.resolved(true);
       }
-    | ViewReq(View.Request.Plain(header, Query(x, y)), callback) =>
-      let request = View.Request.Plain(header, Query(x, y));
+    | SendEventToView(event) =>
+      Critical.spawn(self, View);
+      state
+      ->State.sendEventToView(event)
+      ->Promise.map(_ => {
+          Critical.remove(self, View);
+          true;
+        });
+    | SendRequestToView(request, callback) =>
       if (Blocking.countBySource(self, View) > 0) {
         // there can only be 1 View request at a time (NOTE, revise this)
         Promise.resolved(
@@ -348,8 +355,8 @@ module Impl = (Editor: Sig.Editor) => {
         ->State.sendRequestToView(request)
         ->Promise.map(
             fun
-            | Event(_) => ()
-            | Response(response) => {
+            | None => ()
+            | Some(response) => {
                 Blocking.addTasks(self, View, callback(response));
               },
           )
@@ -357,22 +364,7 @@ module Impl = (Editor: Sig.Editor) => {
             Blocking.remove(self, View);
             true;
           });
-      };
-    | ViewReq(request, callback) =>
-      Critical.spawn(self, View);
-      state
-      ->State.sendRequestToView(request)
-      ->Promise.map(
-          fun
-          | Event(_) => ()
-          | Response(response) => {
-              Blocking.addTasks(self, View, callback(response));
-            },
-        )
-      ->Promise.map(() => {
-          Critical.remove(self, View);
-          true;
-        });
+      }
     | WithState(callback) =>
       Blocking.spawn(self, Misc);
       callback(state)
@@ -383,7 +375,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(action) =>
       let tasks = GoalHandler.handle(action);
       Blocking.addMiscTasks(self, tasks);
-    | ViewEvent(event) =>
+    | EventFromView(event) =>
       let tasks =
         switch (event) {
         | Initialized => []

@@ -4,7 +4,7 @@ module Impl = (Editor: Sig.Editor) => {
   // open Command.InputMethodAction;
   module Buffer = Buffer.Impl(Editor);
 
-  let printLog = true;
+  let printLog = false;
   let log =
     if (printLog) {
       Js.log;

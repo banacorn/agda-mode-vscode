@@ -79,7 +79,8 @@ module type Editor = {
     let focus: view => unit;
     // messaging
     let send:
-      (view, View.Request.t) => Promise.t(View.ResponseOrEventFromView.t);
+      (view, View.RequestOrEventToView.t) =>
+      Promise.t(option(View.Response.t));
     let on: (view, View.ResponseOrEventFromView.t => unit) => Disposable.t;
   };
 

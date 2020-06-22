@@ -24,8 +24,9 @@ module Impl = (Editor: Sig.Editor) => {
     // Connection
     | SendRequest(Request.t)
     // View
-    | ViewReq(View.Request.t, View.Response.t => list(t))
-    | ViewEvent(View.EventFromView.t)
+    | SendEventToView(View.EventToView.t)
+    | SendRequestToView(View.Request.t, View.Response.t => list(t))
+    | EventFromView(View.EventFromView.t)
     // Misc
     | Error(Error.t)
     | Goal(goal)
@@ -37,8 +38,9 @@ module Impl = (Editor: Sig.Editor) => {
     | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
     | Terminate => "Terminate"
     | SendRequest(_req) => "SendRequest"
-    | ViewReq(_, _) => "ViewReq"
-    | ViewEvent(_) => "ViewEvent"
+    | SendEventToView(_) => "SendEventToView"
+    | SendRequestToView(_, _) => "SendRequestToView"
+    | EventFromView(_) => "EventFromView"
     | Error(_) => "Error"
     | Goal(Instantiate(_)) => "Goal[Instantiate]"
     | Goal(UpdateRange) => "Goal[UpdateRange]"
@@ -58,8 +60,8 @@ module Impl = (Editor: Sig.Editor) => {
   // Smart constructors
   let display' = header =>
     fun
-    | None => ViewReq(Plain(header, Nothing), _ => [])
-    | Some(message) => ViewReq(Plain(header, Plain(message)), _ => []);
+    | None => SendEventToView(Display(header, Nothing))
+    | Some(message) => SendEventToView(Display(header, Plain(message)));
   let display = header => display'(Plain(header));
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
@@ -74,8 +76,8 @@ module Impl = (Editor: Sig.Editor) => {
         Promise.resolved([]);
       },
     ),
-    ViewReq(
-      Plain(header, Query(placeholder, value)),
+    SendRequestToView(
+      Query(header, placeholder, value),
       response => {
         let tasks =
           switch (response) {

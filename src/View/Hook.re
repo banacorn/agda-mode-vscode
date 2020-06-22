@@ -1,5 +1,5 @@
 // React Hook for request-response handling
-let on =
+let recv =
     (
       reqEmitter: Event.t('req),
       resEmitter: Event.t('res),
@@ -13,3 +13,7 @@ let on =
     },
     [||],
   );
+
+// React Hook for receiving events
+let on = (emitter: Event.t('a), handler: 'a => unit) =>
+  React.useEffect1(() => {Some(emitter.on(handler))}, [||]);

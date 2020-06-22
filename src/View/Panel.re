@@ -2,12 +2,13 @@
 let make =
     (
       ~onRequest: Event.t(View.Request.t),
+      ~onEventToView: Event.t(View.EventToView.t),
       ~onResponse: Event.t(View.Response.t),
       ~onEventFromView: Event.t(View.EventFromView.t),
     ) => {
   let (header, setHeader) =
-    React.useState(() => View.Request.Header.Plain("Loading ..."));
-  let (body, setBody) = React.useState(() => View.Request.Body.Nothing);
+    React.useState(() => View.Header.Plain("Loading ..."));
+  let (body, setBody) = React.useState(() => View.Body.Nothing);
   let (inputMethodState, runInputMethodAction) =
     React.useReducer(Keyboard.reducer, None);
 
@@ -29,13 +30,13 @@ let make =
       resolver.current = None;
     };
 
-  // receiving View Requests
-  Hook.on(onRequest, onResponse, msg =>
+  // on receiving View Requests
+  Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
-    | Plain(header, Query(placeholder, value)) =>
+    | Query(header, placeholder, value) =>
       let (promise, resolve) = Promise.pending();
       resolver.current = Some(resolve);
-      setHeader(_ => header);
+      setHeader(_ => Plain(header));
       setBody(_ => Query(placeholder, value));
       promise->Promise.map(
         fun
@@ -46,17 +47,19 @@ let make =
             View.Response.QuerySuccess(result);
           },
       );
-    | Plain(header, body) =>
+    }
+  );
+
+  // on receiving Events to View
+  Hook.on(onEventToView, event =>
+    switch (event) {
+    | InputMethod(action) => runInputMethodAction(action)
+    | InterruptQuery => onSubmit(None)
+    | Display(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
-      Promise.resolved(View.Response.Success);
-    | InterruptQuery =>
-      onSubmit(None);
-      Promise.resolved(View.Response.QueryInterrupted);
-    | InputMethod(action) =>
-      runInputMethodAction(action);
-      Promise.resolved(View.Response.Success);
-    | _ => Promise.resolved(View.Response.Success)
+    | Show => ()
+    | Hide => ()
     }
   );
 

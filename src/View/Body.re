@@ -1,7 +1,7 @@
 open ReasonReact;
 open Belt;
 [@react.component]
-let make = (~body: View.Request.Body.t, ~onSubmit: option(string) => unit) => {
+let make = (~body: View.Body.t, ~onSubmit: option(string) => unit) => {
   switch (body) {
   | Nothing => <> </>
   | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>

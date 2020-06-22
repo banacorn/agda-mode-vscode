@@ -124,5 +124,7 @@ module Impl = (Editor: Sig.Editor) => {
     setLoaded(false);
   };
   let sendRequestToView = (state, request) =>
-    Editor.View.send(state.view, request);
+    Editor.View.send(state.view, View.RequestOrEventToView.Request(request));
+  let sendEventToView = (state, event) =>
+    Editor.View.send(state.view, View.RequestOrEventToView.Event(event));
 };

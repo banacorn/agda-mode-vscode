@@ -1,7 +1,7 @@
 open ReasonReact;
 
 [@react.component]
-let make = (~header: View.Request.Header.t) => {
+let make = (~header: View.Header.t) => {
   switch (header) {
   | Plain(text) => <div className="agda-mode-header"> {string(text)} </div>
   | Success(text) =>

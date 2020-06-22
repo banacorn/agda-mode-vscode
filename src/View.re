@@ -1,80 +1,75 @@
-module Request = {
-  module Header = {
-    type t =
-      | Plain(string)
-      | Success(string)
-      | Warning(string)
-      | Error(string);
+module Header = {
+  type t =
+    | Plain(string)
+    | Success(string)
+    | Warning(string)
+    | Error(string);
 
-    open Json.Decode;
-    open Util.Decode;
+  open Json.Decode;
+  open Util.Decode;
 
-    let decode: decoder(t) =
-      sum(
-        fun
-        | "Plain" => Contents(string |> map(text => Plain(text)))
-        | "Success" => Contents(string |> map(text => Success(text)))
-        | "Warning" => Contents(string |> map(text => Warning(text)))
-        | "Error" => Contents(string |> map(text => Error(text)))
-        | tag =>
-          raise(
-            DecodeError("[Request.Header] Unknown constructor: " ++ tag),
-          ),
-      );
-
-    open! Json.Encode;
-    let encode: encoder(t) =
+  let decode: decoder(t) =
+    sum(
       fun
-      | Plain(text) =>
-        object_([("tag", string("Plain")), ("contents", text |> string)])
-      | Success(text) =>
-        object_([("tag", string("Success")), ("contents", text |> string)])
-      | Warning(text) =>
-        object_([("tag", string("Warning")), ("contents", text |> string)])
-      | Error(text) =>
-        object_([("tag", string("Error")), ("contents", text |> string)]);
-  };
+      | "Plain" => Contents(string |> map(text => Plain(text)))
+      | "Success" => Contents(string |> map(text => Success(text)))
+      | "Warning" => Contents(string |> map(text => Warning(text)))
+      | "Error" => Contents(string |> map(text => Error(text)))
+      | tag => raise(DecodeError("[Header] Unknown constructor: " ++ tag)),
+    );
 
-  module Body = {
-    type t =
-      | Nothing
-      | Plain(string)
-      | Query(option(string), option(string));
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Plain(text) =>
+      object_([("tag", string("Plain")), ("contents", text |> string)])
+    | Success(text) =>
+      object_([("tag", string("Success")), ("contents", text |> string)])
+    | Warning(text) =>
+      object_([("tag", string("Warning")), ("contents", text |> string)])
+    | Error(text) =>
+      object_([("tag", string("Error")), ("contents", text |> string)]);
+};
 
-    open Json.Decode;
-    open Util.Decode;
+module Body = {
+  type t =
+    | Nothing
+    | Plain(string)
+    | Query(option(string), option(string));
 
-    let decode: decoder(t) =
-      sum(
-        fun
-        | "Nothing" => TagOnly(Nothing)
-        | "Plain" => Contents(string |> map(text => Plain(text)))
-        | "Query" =>
-          Contents(
-            pair(optional(string), optional(string))
-            |> map(((placeholder, value)) => Query(placeholder, value)),
-          )
-        | tag =>
-          raise(DecodeError("[Request.Body] Unknown constructor: " ++ tag)),
-      );
+  open Json.Decode;
+  open Util.Decode;
 
-    open! Json.Encode;
-    let encode: encoder(t) =
+  let decode: decoder(t) =
+    sum(
       fun
-      | Nothing => object_([("tag", string("Nothing"))])
-      | Plain(text) =>
-        object_([("tag", string("Plain")), ("contents", text |> string)])
-      | Query(placeholder, value) =>
-        object_([
-          ("tag", string("Query")),
-          (
-            "contents",
-            (placeholder, value)
-            |> pair(nullable(string), nullable(string)),
-          ),
-        ]);
-  };
+      | "Nothing" => TagOnly(Nothing)
+      | "Plain" => Contents(string |> map(text => Plain(text)))
+      | "Query" =>
+        Contents(
+          pair(optional(string), optional(string))
+          |> map(((placeholder, value)) => Query(placeholder, value)),
+        )
+      | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag)),
+    );
 
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Nothing => object_([("tag", string("Nothing"))])
+    | Plain(text) =>
+      object_([("tag", string("Plain")), ("contents", text |> string)])
+    | Query(placeholder, value) =>
+      object_([
+        ("tag", string("Query")),
+        (
+          "contents",
+          (placeholder, value) |> pair(nullable(string), nullable(string)),
+        ),
+      ]);
+};
+
+module EventToView = {
   module InputMethod = {
     type t =
       | Activate
@@ -106,7 +101,9 @@ module Request = {
         | "MoveLeft" => TagOnly(MoveLeft)
         | tag =>
           raise(
-            DecodeError("[Request.InputMethod] Unknown constructor: " ++ tag),
+            DecodeError(
+              "[EventToView.InputMethod] Unknown constructor: " ++ tag,
+            ),
           ),
       );
 
@@ -133,8 +130,8 @@ module Request = {
   type t =
     | Show
     | Hide
+    | Display(Header.t, Body.t)
     | InterruptQuery
-    | Plain(Header.t, Body.t)
     | InputMethod(InputMethod.t);
 
   // JSON encode/decode
@@ -147,15 +144,16 @@ module Request = {
       fun
       | "Show" => TagOnly(Show)
       | "Hide" => TagOnly(Hide)
-      | "InterruptQuery" => TagOnly(InterruptQuery)
-      | "Plain" =>
+      | "Display" =>
         Contents(
           pair(Header.decode, Body.decode)
-          |> map(((header, body)) => Plain(header, body)),
+          |> map(((header, body)) => Display(header, body)),
         )
+      | "InterruptQuery" => TagOnly(InterruptQuery)
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(x => InputMethod(x)))
-      | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
+      | tag =>
+        raise(DecodeError("[EventToView] Unknown constructor: " ++ tag)),
     );
 
   open! Json.Encode;
@@ -163,16 +161,88 @@ module Request = {
     fun
     | Show => object_([("tag", string("Show"))])
     | Hide => object_([("tag", string("Hide"))])
-    | InterruptQuery => object_([("tag", string("InterruptQuery"))])
-    | Plain(header, body) =>
+    | Display(header, body) =>
       object_([
-        ("tag", string("Plain")),
+        ("tag", string("Display")),
         ("contents", (header, body) |> pair(Header.encode, Body.encode)),
       ])
+    | InterruptQuery => object_([("tag", string("InterruptQuery"))])
     | InputMethod(payload) =>
       object_([
         ("tag", string("InputMethod")),
         ("contents", payload |> InputMethod.encode),
+      ]);
+};
+
+module Request = {
+  type t =
+    | Query(string, option(string), option(string));
+
+  // JSON encode/decode
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Query" =>
+        Contents(
+          tuple3(string, optional(string), optional(string))
+          |> map(((header, placeholder, value)) =>
+               Query(header, placeholder, value)
+             ),
+        )
+      | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Query(header, placeholder, value) =>
+      object_([
+        ("tag", string("Query")),
+        (
+          "contents",
+          (header, placeholder, value)
+          |> tuple3(string, nullable(string), nullable(string)),
+        ),
+      ]);
+};
+
+module RequestOrEventToView = {
+  type t =
+    | Request(Request.t)
+    | Event(EventToView.t);
+
+  // JSON encode/decode
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Request" => Contents(Request.decode |> map(x => Request(x)))
+      | "Event" => Contents(EventToView.decode |> map(x => Event(x)))
+      | tag =>
+        raise(
+          DecodeError("[RequestOrEventToView] Unknown constructor: " ++ tag),
+        ),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Request(payload) =>
+      object_([
+        ("tag", string("Request")),
+        ("contents", payload |> Request.encode),
+      ])
+    | Event(payload) =>
+      object_([
+        ("tag", string("Event")),
+        ("contents", payload |> EventToView.encode),
       ]);
 };
 

@@ -13,7 +13,7 @@ module Impl = (Editor: Sig.Editor) => {
             if (state.inputMethod.activated) {
               InputMethod.insertBackslash(state.editor);
               InputMethod.deactivate(state.inputMethod);
-              Promise.resolved([ViewReq(InputMethod(Deactivate), _ => [])]);
+              Promise.resolved([SendEventToView(InputMethod(Deactivate))]);
             } else {
               // setContext
               Editor.setContext("agdaModeTyping", true)->ignore;
@@ -28,7 +28,7 @@ module Impl = (Editor: Sig.Editor) => {
                 state.editor,
                 startingOffsets,
               );
-              Promise.resolved([ViewReq(InputMethod(Activate), _ => [])]);
+              Promise.resolved([SendEventToView(InputMethod(Activate))]);
             },
         ),
       ]
@@ -44,11 +44,11 @@ module Impl = (Editor: Sig.Editor) => {
             Promise.resolved([]);
           },
         ),
-        ViewReq(InputMethod(Deactivate), _ => []),
+        SendEventToView(InputMethod(Deactivate)),
       ]
 
     | Update(sequence, translation, index) => [
-        ViewReq(InputMethod(Update(sequence, translation, index)), _ => []),
+        SendEventToView(InputMethod(Update(sequence, translation, index))),
       ]
     | InsertChar(char) => [
         WithState(

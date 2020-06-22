@@ -4,6 +4,7 @@ type status =
   | Initialized
   | Uninitialized(
       array((View.Request.t, View.ResponseOrEventFromView.t => unit)),
+      array(View.EventToView.t),
     );
 
 type t = {
@@ -13,19 +14,51 @@ type t = {
 };
 
 // messaging
-let send = (view, req) =>
+let send = (view, requestOrEvent) =>
   switch (view.status) {
-  | Uninitialized(queued) =>
-    let (promise, resolve) = Promise.pending();
-    Js.Array.push((req, resolve), queued)->ignore;
-    promise;
+  | Uninitialized(queuedRequests, queuedEvents) =>
+    View.RequestOrEventToView.(
+      switch (requestOrEvent) {
+      | Request(req) =>
+        let (promise, resolve) = Promise.pending();
+        Js.Array.push(
+          (
+            req,
+            fun
+            | View.ResponseOrEventFromView.Event(_) => resolve(None)
+            | Response(res) => resolve(Some(res)),
+          ),
+          queuedRequests,
+        )
+        ->ignore;
+        promise;
+      | Event(event) =>
+        Js.Array.push(event, queuedEvents)->ignore;
+        Promise.resolved(None);
+      }
+    )
   | Initialized =>
-    let stringified = Js.Json.stringify(View.Request.encode(req));
-    let promise = view.onResponseOrEventFromView.once();
-    view.panel
-    ->WebviewPanel.webview
-    ->Webview.postMessage(stringified)
-    ->Promise.flatMap(_ => promise);
+    open View.RequestOrEventToView;
+    let stringified =
+      Js.Json.stringify(View.RequestOrEventToView.encode(requestOrEvent));
+    switch (requestOrEvent) {
+    | Request(_) =>
+      let promise = view.onResponseOrEventFromView.once();
+      view.panel
+      ->WebviewPanel.webview
+      ->Webview.postMessage(stringified)
+      ->Promise.flatMap(_ => promise)
+      ->Promise.map(
+          fun
+          | Event(_) => None
+          | Response(res) => Some(res),
+        );
+    | Event(_) =>
+      view.panel
+      ->WebviewPanel.webview
+      ->Webview.postMessage(stringified)
+      ->Promise.map(_ => None)
+    };
   };
 
 let on = (view, callback) => {
@@ -166,18 +199,31 @@ let make = (getExtensionPath, context, editor) => {
   ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
 
-  let view = {panel, onResponseOrEventFromView, status: Uninitialized([||])};
+  let view = {
+    panel,
+    onResponseOrEventFromView,
+    status: Uninitialized([||], [||]),
+  };
 
-  // on initizlied, send the queued View Requests
+  // when initialized, send the queued Requests & Events
   view.onResponseOrEventFromView.on(
     fun
     | Event(Initialized) => {
         switch (view.status) {
-        | Uninitialized(queued) =>
+        | Uninitialized(queuedRequests, queuedEvents) =>
           Js.log("[ view ] [ initialized ]");
           view.status = Initialized;
-          queued->Belt.Array.forEach(((req, resolve)) =>
-            send(view, req)->Promise.get(resolve)
+          queuedRequests->Belt.Array.forEach(((req, resolve)) =>
+            send(view, View.RequestOrEventToView.Request(req))
+            ->Promise.get(
+                fun
+                | None => ()
+                | Some(res) =>
+                  resolve(View.ResponseOrEventFromView.Response(res)),
+              )
+          );
+          queuedEvents->Belt.Array.forEach(event =>
+            send(view, View.RequestOrEventToView.Event(event))->ignore
           );
         | Initialized => ()
         };

@@ -25,7 +25,7 @@ module Impl = (Editor: Sig.Editor) => {
               switch (content) {
               | None =>
                 query(
-                  View.Request.Header.Plain(Command.toString(Command.Give)),
+                  Command.toString(Command.Give),
                   Some("expression to give:"),
                   None,
                   expr =>
@@ -54,8 +54,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Case => {
-        let header =
-          View.Request.Header.Plain(Command.toString(Command.Case));
+        let header = Command.toString(Command.Case);
         let placeholder = Some("expression to case:");
         [
           Goal(
@@ -78,10 +77,7 @@ module Impl = (Editor: Sig.Editor) => {
         ];
       }
     | InferType(normalization) => {
-        let header =
-          View.Request.Header.Plain(
-            Command.toString(Command.InferType(normalization)),
-          );
+        let header = Command.toString(Command.InferType(normalization));
         let placeholder = Some("expression to infer:");
         [
           Goal(
@@ -122,7 +118,7 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | EventFromView(event) => [ViewEvent(event)]
-    | Escape => [ViewReq(InterruptQuery, _ => [])]
+    | EventFromView(event) => [EventFromView(event)]
+    | Escape => [SendEventToView(InterruptQuery)]
     | InputMethod(action) => InputMethodHandler.handle(action);
 };
