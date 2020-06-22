@@ -66,10 +66,11 @@ module Impl = (Editor: Sig.Editor) => {
                     query(header, placeholder, None, expr =>
                       [
                         Goal(Modify(goal, _ => expr)),
+                        Goal(SaveCursor),
                         SendRequest(Case(goal)),
                       ]
                     )
-                  | Some(_) => [SendRequest(Case(goal))]
+                  | Some(_) => [Goal(SaveCursor), SendRequest(Case(goal))]
                 ),
               [Error(OutOfGoal)],
             ),
