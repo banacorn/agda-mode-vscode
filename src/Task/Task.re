@@ -25,7 +25,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(Request.t)
     // View
     | ViewReq(View.Request.t, View.Response.t => list(t))
-    | ViewEvent(View.Event.t)
+    | ViewEvent(View.EventFromView.t)
     // Misc
     | Error(Error.t)
     | Goal(goal)
@@ -82,7 +82,6 @@ module Impl = (Editor: Sig.Editor) => {
           | View.Response.Success => []
           | QuerySuccess(_) => []
           | QueryInterrupted => [displayError("Query Cancelled", None)]
-          | EventPiggyBack(_) => []
           };
         Belt.List.concat(
           tasks,

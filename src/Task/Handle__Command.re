@@ -122,7 +122,7 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | ViewEvent(event) => [ViewEvent(event)]
+    | EventFromView(event) => [ViewEvent(event)]
     | Escape => [ViewReq(InterruptQuery, _ => [])]
     | InputMethod(action) => InputMethodHandler.handle(action);
 };

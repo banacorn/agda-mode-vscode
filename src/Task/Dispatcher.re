@@ -346,9 +346,13 @@ module Impl = (Editor: Sig.Editor) => {
         Blocking.spawn(self, View);
         state
         ->State.sendRequestToView(request)
-        ->Promise.map(response => {
-            Blocking.addTasks(self, View, callback(response))
-          })
+        ->Promise.map(
+            fun
+            | Event(_) => ()
+            | Response(response) => {
+                Blocking.addTasks(self, View, callback(response));
+              },
+          )
         ->Promise.map(() => {
             Blocking.remove(self, View);
             true;
@@ -358,9 +362,13 @@ module Impl = (Editor: Sig.Editor) => {
       Critical.spawn(self, View);
       state
       ->State.sendRequestToView(request)
-      ->Promise.map(response => {
-          Critical.addTasks(self, View, callback(response))
-        })
+      ->Promise.map(
+          fun
+          | Event(_) => ()
+          | Response(response) => {
+              Blocking.addTasks(self, View, callback(response));
+            },
+        )
       ->Promise.map(() => {
           Critical.remove(self, View);
           true;

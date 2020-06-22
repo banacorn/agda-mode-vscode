@@ -48,7 +48,7 @@ type t =
   | InferType(Normalization.t)
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
-  | ViewEvent(View.Event.t)
+  | EventFromView(View.EventFromView.t)
   | Escape
   | InputMethod(InputMethod.t);
 
@@ -99,6 +99,6 @@ let toString =
   | GoalTypeAndContext(Simplified) => "Goal type and context (simplified)"
   | GoalTypeAndContext(Instantiated) => "Goal type and context (instantiated)"
   | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
-  | ViewEvent(_) => "View event"
+  | EventFromView(_) => "Event from the view"
   | Escape => "Escape"
   | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action);

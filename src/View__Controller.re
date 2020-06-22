@@ -2,11 +2,13 @@ open VSCode;
 
 type status =
   | Initialized
-  | Uninitialized(array((View.Request.t, View.Response.t => unit)));
+  | Uninitialized(
+      array((View.Request.t, View.ResponseOrEventFromView.t => unit)),
+    );
 
 type t = {
   panel: WebviewPanel.t,
-  onResponse: Event.t(View.Response.t),
+  onResponseOrEventFromView: Event.t(View.ResponseOrEventFromView.t),
   mutable status,
 };
 
@@ -19,7 +21,7 @@ let send = (view, req) =>
     promise;
   | Initialized =>
     let stringified = Js.Json.stringify(View.Request.encode(req));
-    let promise = view.onResponse.once();
+    let promise = view.onResponseOrEventFromView.once();
     view.panel
     ->WebviewPanel.webview
     ->Webview.postMessage(stringified)
@@ -28,11 +30,7 @@ let send = (view, req) =>
 
 let on = (view, callback) => {
   // Handle events from the webview
-  view.onResponse.on(
-    fun
-    | EventPiggyBack(event) => callback(event)
-    | _ => (),
-  )
+  view.onResponseOrEventFromView.on(callback)
   ->Disposable.make;
 };
 
@@ -141,13 +139,13 @@ let make = (getExtensionPath, context, editor) => {
   moveToBottom() |> ignore;
 
   // on message
-  // relay Webview.onDidReceiveMessage => onResponse
-  let onResponse = Event.make();
+  // relay Webview.onDidReceiveMessage => onResponseOrEventFromView;
+  let onResponseOrEventFromView = Event.make();
   panel
   ->WebviewPanel.webview
   ->Webview.onDidReceiveMessage(json => {
-      switch (View.Response.decode(json)) {
-      | result => onResponse.emit(result)
+      switch (View.ResponseOrEventFromView.decode(json)) {
+      | result => onResponseOrEventFromView.emit(result)
       | exception e =>
         Js.log2(
           "[ panic ][ Webview.onDidReceiveMessage JSON decode error ]",
@@ -161,17 +159,19 @@ let make = (getExtensionPath, context, editor) => {
   // on destroy
   panel
   ->WebviewPanel.onDidDispose(() =>
-      onResponse.emit(View.Response.EventPiggyBack(Destroyed))
+      onResponseOrEventFromView.emit(
+        View.ResponseOrEventFromView.Event(Destroyed),
+      )
     )
   ->Js.Array.push(context->ExtensionContext.subscriptions)
   ->ignore;
 
-  let view = {panel, onResponse, status: Uninitialized([||])};
+  let view = {panel, onResponseOrEventFromView, status: Uninitialized([||])};
 
   // on initizlied, send the queued View Requests
-  view.onResponse.on(
+  view.onResponseOrEventFromView.on(
     fun
-    | EventPiggyBack(Initialized) => {
+    | Event(Initialized) => {
         switch (view.status) {
         | Uninitialized(queued) =>
           Js.log("[ view ] [ initialized ]");
@@ -193,7 +193,7 @@ let make = (getExtensionPath, context, editor) => {
 
 let destroy = view => {
   view.panel->WebviewPanel.dispose;
-  view.onResponse.destroy();
+  view.onResponseOrEventFromView.destroy();
 };
 
 // show/hide

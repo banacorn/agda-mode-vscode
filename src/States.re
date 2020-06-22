@@ -123,14 +123,18 @@ module Impl = (Editor: Sig.Editor) => {
 
                   // listens to events from the view
                   state.view
-                  ->Editor.View.on(event => {
-                      Dispatcher.dispatchCommand(
-                        dispatcher,
-                        state,
-                        ViewEvent(event),
-                      )
-                      ->ignore
-                    })
+                  ->Editor.View.on(
+                      fun
+                      | Event(event) => {
+                          Dispatcher.dispatchCommand(
+                            dispatcher,
+                            state,
+                            EventFromView(event),
+                          )
+                          ->ignore;
+                        }
+                      | Response(_) => (),
+                    )
                   ->Editor.addToSubscriptions(context);
 
                   // listens to events from the input method

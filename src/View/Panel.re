@@ -3,6 +3,7 @@ let make =
     (
       ~onRequest: Event.t(View.Request.t),
       ~onResponse: Event.t(View.Response.t),
+      ~onEventFromView: Event.t(View.EventFromView.t),
     ) => {
   let (header, setHeader) =
     React.useState(() => View.Request.Header.Plain("Loading ..."));
@@ -13,7 +14,7 @@ let make =
   // emit event Initialized on mount
   React.useEffect1(
     () => {
-      onResponse.emit(View.Response.EventPiggyBack(Initialized));
+      onEventFromView.emit(Initialized);
       None;
     },
     [||],
@@ -64,15 +65,11 @@ let make =
       state=inputMethodState
       onInsertChar={char => {
         Js.log("onInsertChar " ++ char);
-        onResponse.emit(
-          View.Response.EventPiggyBack(InputMethod(InsertChar(char))),
-        );
+        onEventFromView.emit(InputMethod(InsertChar(char)));
       }}
       onChooseSymbol={symbol => {
         Js.log("onChooseSymbol " ++ symbol);
-        onResponse.emit(
-          View.Response.EventPiggyBack(InputMethod(ChooseSymbol(symbol))),
-        );
+        onEventFromView.emit(InputMethod(ChooseSymbol(symbol)));
       }}
     />
     <Header header />

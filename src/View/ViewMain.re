@@ -15,11 +15,21 @@ Api.onMessage(stringifiedJSON => {
 // relay onResponse => VSCode.Api.postMessage
 let onResponse = Event.make();
 onResponse.on(response => {
-  vscode->Api.postMessage(View.Response.encode(response))
+  View.ResponseOrEventFromView.(
+    vscode->Api.postMessage(encode(Response(response)))
+  )
+});
+
+// relay onEventFromView => VSCode.Api.postMessage
+let onEventFromView = Event.make();
+onEventFromView.on(event => {
+  View.ResponseOrEventFromView.(
+    vscode->Api.postMessage(encode(Event(event)))
+  )
 });
 
 // mount the view at the "root" element
 Webapi.Dom.Document.getElementById("root", Webapi.Dom.document)
 ->Option.forEach(element => {
-    ReactDOMRe.render(<Panel onRequest onResponse />, element)
+    ReactDOMRe.render(<Panel onRequest onResponse onEventFromView />, element)
   });

@@ -176,7 +176,38 @@ module Request = {
       ]);
 };
 
-module Event = {
+module Response = {
+  type t =
+    | Success
+    | QuerySuccess(string)
+    | QueryInterrupted;
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Success" => TagOnly(Success)
+      | "QuerySuccess" =>
+        Contents(string |> map(result => QuerySuccess(result)))
+      | "QueryInterrupted" => TagOnly(QueryInterrupted)
+      | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Success => object_([("tag", string("Success"))])
+    | QuerySuccess(result) =>
+      object_([
+        ("tag", string("QuerySuccess")),
+        ("contents", result |> string),
+      ])
+    | QueryInterrupted => object_([("tag", string("QueryInterrupted"))]);
+};
+
+module EventFromView = {
   module InputMethod = {
     type t =
       | InsertChar(string)
@@ -243,12 +274,12 @@ module Event = {
       ]);
 };
 
-module Response = {
+module ResponseOrEventFromView = {
   type t =
-    | EventPiggyBack(Event.t) // piggy-back Events from View on Response.t
-    | Success
-    | QuerySuccess(string)
-    | QueryInterrupted;
+    | Response(Response.t)
+    | Event(EventFromView.t);
+
+  // JSON encode/decode
 
   open Json.Decode;
   open Util.Decode;
@@ -256,28 +287,27 @@ module Response = {
   let decode: decoder(t) =
     sum(
       fun
-      | "EventPiggyBack" =>
-        Contents(Event.decode |> map(event => EventPiggyBack(event)))
-      | "Success" => TagOnly(Success)
-      | "QuerySuccess" =>
-        Contents(string |> map(result => QuerySuccess(result)))
-      | "QueryInterrupted" => TagOnly(QueryInterrupted)
-      | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
+      | "Response" => Contents(Response.decode |> map(x => Response(x)))
+      | "Event" => Contents(EventFromView.decode |> map(x => Event(x)))
+      | tag =>
+        raise(
+          DecodeError(
+            "[ResponseOrEventFromView] Unknown constructor: " ++ tag,
+          ),
+        ),
     );
 
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Success => object_([("tag", string("Success"))])
-    | QuerySuccess(result) =>
+    | Response(payload) =>
       object_([
-        ("tag", string("QuerySuccess")),
-        ("contents", result |> string),
+        ("tag", string("Response")),
+        ("contents", payload |> Response.encode),
       ])
-    | QueryInterrupted => object_([("tag", string("QueryInterrupted"))])
-    | EventPiggyBack(event) =>
+    | Event(payload) =>
       object_([
-        ("tag", string("EventPiggyBack")),
-        ("contents", event |> Event.encode),
+        ("tag", string("Event")),
+        ("contents", payload |> EventFromView.encode),
       ]);
 };
