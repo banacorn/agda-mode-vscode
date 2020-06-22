@@ -4,7 +4,7 @@ This repo is now under heavy development, **issues not welcomed** (yet)
 
 ## TODO 
 
-- [ ] Unicode symbol input method
+- [x] Unicode symbol input method
 - [ ] Atomic task scheduler (abort/undo/redo)
 - [ ] Goals/Warnings/Errors display overhaul
 - [ ] Dynamic syntax highlighting 
