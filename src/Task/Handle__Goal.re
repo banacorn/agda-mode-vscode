@@ -209,7 +209,10 @@ module Impl = (Editor: Sig.Editor) => {
                 } else {
                   Editor.setCursorPosition(state.editor, position);
                 }
-              | None => Editor.setCursorPosition(state.editor, position)
+              | None =>
+                Editor.setCursorPosition(state.editor, position);
+                // put the focus back on the editor
+                state.editor->Editor.focus;
               };
             }
           },

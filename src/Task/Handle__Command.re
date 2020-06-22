@@ -124,10 +124,14 @@ module Impl = (Editor: Sig.Editor) => {
       | Initialized => []
       | Destroyed => [Terminate]
       | InputMethod(InsertChar(char)) => [
+          Goal(SaveCursor),
           DispatchCommand(InputMethod(InsertChar(char))),
+          Goal(RestoreCursor),
         ]
       | InputMethod(ChooseSymbol(symbol)) => [
+          Goal(SaveCursor),
           DispatchCommand(InputMethod(ChooseSymbol(symbol))),
+          Goal(RestoreCursor),
         ]
       }
     | Escape => [SendEventToView(InterruptQuery)]
