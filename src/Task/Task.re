@@ -65,7 +65,8 @@ module Impl = (Editor: Sig.Editor) => {
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
 
-  let query = (header, placeholder, value, _callbackOnQuerySuccess) => [
+  let query =
+      (header, placeholder, value, callbackOnQuerySuccess: string => list(t)) => [
     WithState(
       state => {
         // focus on the panel before inquiring
@@ -80,7 +81,7 @@ module Impl = (Editor: Sig.Editor) => {
         let tasks =
           switch (response) {
           | View.Response.Success => []
-          | QuerySuccess(_) => []
+          | QuerySuccess(result) => callbackOnQuerySuccess(result)
           | QueryInterrupted => [displayError("Query Cancelled", None)]
           };
         Belt.List.concat(
