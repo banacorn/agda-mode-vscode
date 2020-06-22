@@ -164,7 +164,7 @@ module Impl = (Editor: Sig.Editor) => {
         }
       );
 
-    let log = queues => {
+    let toString = queues => {
       let strings =
         queues
         ->List.map(
@@ -179,7 +179,7 @@ module Impl = (Editor: Sig.Editor) => {
               "Misc " ++ Util.Pretty.list(List.map(queue, Task.toString)),
           )
         ->List.toArray;
-      log(Js.Array.joinWith("\n", strings));
+      Js.Array.joinWith("\n", strings);
     };
 
     let rec getNextTask = (blocking, queues) =>
@@ -224,7 +224,6 @@ module Impl = (Editor: Sig.Editor) => {
       self.blocking = MultiQueue.addTasks(self.blocking, target, tasks);
     let countBySource = (self, target) =>
       MultiQueue.countBySource(self.blocking, target);
-    let logQueues = self => MultiQueue.log(self.blocking);
     let getNextTask = self =>
       MultiQueue.getNextTask(true, self.blocking)
       ->Option.map(((task, queue)) => {
@@ -249,7 +248,6 @@ module Impl = (Editor: Sig.Editor) => {
       self.critical = MultiQueue.addTasks(self.critical, target, tasks);
     let countBySource = (self, target) =>
       MultiQueue.countBySource(self.critical, target);
-    let logQueues = self => MultiQueue.log(self.critical);
     let getNextTask = self =>
       MultiQueue.getNextTask(false, self.critical)
       ->Option.map(((task, queue)) => {
@@ -307,10 +305,14 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let rec executeTask = (self, state: State.t, task) => {
-    log("\n\nTask: " ++ Task.toString(task));
-    Critical.logQueues(self);
-    log("-------------------------------");
-    Blocking.logQueues(self);
+    log(
+      "\n\nTask: "
+      ++ Task.toString(task)
+      ++ "\n"
+      ++ MultiQueue.toString(self.critical)
+      ++ "\n-------------------------------\n"
+      ++ MultiQueue.toString(self.blocking),
+    );
     switch (task) {
     | DispatchCommand(command) =>
       let tasks = CommandHandler.handle(command);
@@ -324,7 +326,6 @@ module Impl = (Editor: Sig.Editor) => {
         Blocking.spawn(self, Agda);
         sendAgdaRequest(
           tasks => {
-            Blocking.logQueues(self);
             Blocking.addTasks(self, Agda, tasks);
             kickStart(self, state);
           },
