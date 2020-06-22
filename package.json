@@ -98,6 +98,18 @@
 				"title": "Goal type and context (normalised)"
 			},
 			{
+				"command": "agda-mode.compute-normal-form[DefaultCompute]",
+				"title": "Compute normal form"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
+				"title": "Compute normal form ignoring abstract"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[UseShowInstance]",
+				"title": "Compute normal form using show instance"
+			},
+			{
 				"command": "agda-mode.why-in-scope",
 				"title": "Why in scope"
 			},
@@ -210,6 +222,24 @@
 				"command": "agda-mode.goal-type-and-context[Normalised]",
 				"key": "ctrl+y ctrl+,",
 				"mac": "ctrl+y ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[DefaultCompute]",
+				"key": "ctrl+c ctrl+n",
+				"mac": "ctrl+c ctrl+n",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
+				"key": "ctrl+u ctrl+n",
+				"mac": "ctrl+u ctrl+n",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[UseShowInstance]",
+				"key": "ctrl+y ctrl+n",
+				"mac": "ctrl+y ctrl+n",
 				"when": "agdaMode"
 			},
 			{

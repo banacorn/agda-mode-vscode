@@ -6,8 +6,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   open! Task;
   // from Editor Command to Tasks
-  let handle =
-    fun
+  let handle = command =>
+    switch (command) {
     | Load => [
         Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
@@ -53,54 +53,52 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | Case => {
-        let header = Command.toString(Command.Case);
-        let placeholder = Some("expression to case:");
-        [
-          Goal(
-            GetPointedOr(
-              goal =>
-                (
-                  fun
-                  | None =>
-                    query(header, placeholder, None, expr =>
-                      [
-                        Goal(Modify(goal, _ => expr)),
-                        Goal(SaveCursor),
-                        SendRequest(Case(goal)),
-                      ]
-                    )
-                  | Some(_) => [Goal(SaveCursor), SendRequest(Case(goal))]
-                ),
-              [Error(OutOfGoal)],
-            ),
-          ),
-        ];
-      }
-    | InferType(normalization) => {
-        let header = Command.toString(Command.InferType(normalization));
-        let placeholder = Some("expression to infer:");
-        [
-          Goal(
-            GetPointedOr(
-              goal =>
-                (
-                  fun
-                  | None =>
-                    query(header, placeholder, None, expr =>
-                      [SendRequest(InferType(normalization, expr, goal))]
-                    )
-                  | Some(expr) => [
-                      SendRequest(InferType(normalization, expr, goal)),
+    | Case =>
+      let header = Command.toString(Command.Case);
+      let placeholder = Some("expression to case:");
+      [
+        Goal(
+          GetPointedOr(
+            goal =>
+              (
+                fun
+                | None =>
+                  query(header, placeholder, None, expr =>
+                    [
+                      Goal(Modify(goal, _ => expr)),
+                      Goal(SaveCursor),
+                      SendRequest(Case(goal)),
                     ]
-                ),
-              query(header, placeholder, None, expr =>
-                [SendRequest(InferTypeGlobal(normalization, expr))]
+                  )
+                | Some(_) => [Goal(SaveCursor), SendRequest(Case(goal))]
               ),
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ];
+    | InferType(normalization) =>
+      let header = Command.toString(Command.InferType(normalization));
+      let placeholder = Some("expression to infer:");
+      [
+        Goal(
+          GetPointedOr(
+            goal =>
+              (
+                fun
+                | None =>
+                  query(header, placeholder, None, expr =>
+                    [SendRequest(InferType(normalization, expr, goal))]
+                  )
+                | Some(expr) => [
+                    SendRequest(InferType(normalization, expr, goal)),
+                  ]
+              ),
+            query(header, placeholder, None, expr =>
+              [SendRequest(InferTypeGlobal(normalization, expr))]
             ),
           ),
-        ];
-      }
+        ),
+      ];
     | GoalType(normalization) => [
         Goal(
           GetPointedOr(
@@ -119,6 +117,30 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | ComputeNormalForm(computeMode) =>
+      let header = "Compute normal form";
+      let placeholder = Some("expression to normalize:");
+      let query =
+        query(header, placeholder, None, expr =>
+          [Debug("ComputeNormalForm " ++ expr)]
+        );
+      [
+        Goal(
+          GetPointedOr(
+            goal =>
+              (
+                fun
+                | None => query
+                | Some(expr) => [Debug("ComputeNormalForm " ++ expr)]
+              ),
+            query,
+          ),
+        ),
+        Debug(
+          "ComputeNormalFormGlobal "
+          ++ Command.ComputeMode.toString(computeMode),
+        ),
+      ];
     | WhyInScope => [
         WithStateP(
           state => {
@@ -165,5 +187,6 @@ module Impl = (Editor: Sig.Editor) => {
         ]
       }
     | Escape => [SendEventToView(InterruptQuery)]
-    | InputMethod(action) => InputMethodHandler.handle(action);
+    | InputMethod(action) => InputMethodHandler.handle(action)
+    };
 };

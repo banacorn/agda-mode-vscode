@@ -11,6 +11,25 @@ module Normalization = {
     | Normalised => "Normalised";
 };
 
+module ComputeMode = {
+  type t =
+    | DefaultCompute
+    | IgnoreAbstract
+    | UseShowInstance;
+
+  let toString =
+    fun
+    | DefaultCompute => "DefaultCompute"
+    | IgnoreAbstract => "IgnoreAbstract"
+    | UseShowInstance => "UseShowInstance";
+
+  let ignoreAbstract =
+    fun
+    | DefaultCompute => false
+    | IgnoreAbstract => true
+    | UseShowInstance => true;
+};
+
 module InputMethod = {
   type t =
     | Activate
@@ -49,6 +68,7 @@ type t =
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | EventFromView(View.EventFromView.t)
+  | ComputeNormalForm(ComputeMode.t)
   | WhyInScope
   | Escape
   | InputMethod(InputMethod.t);
@@ -72,6 +92,12 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
+  (ComputeNormalForm(DefaultCompute), "compute-normal-form[DefaultCompute]"),
+  (ComputeNormalForm(IgnoreAbstract), "compute-normal-form[IgnoreAbstract]"),
+  (
+    ComputeNormalForm(UseShowInstance),
+    "compute-normal-form[UseShowInstance]",
+  ),
   (WhyInScope, "why-in-scope"),
   (Escape, "escape"),
   (InputMethod(Activate), "input-symbol[Activate]"),
@@ -101,6 +127,9 @@ let toString =
   | GoalTypeAndContext(Simplified) => "Goal type and context (simplified)"
   | GoalTypeAndContext(Instantiated) => "Goal type and context (instantiated)"
   | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
+  | ComputeNormalForm(DefaultCompute) => "Compute normal form (DefaultCompute)"
+  | ComputeNormalForm(IgnoreAbstract) => "Compute normal form (IgnoreAbstract)"
+  | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"
   | WhyInScope => "Why in scope"
   | EventFromView(_) => "Event from the view"
   | Escape => "Escape"
