@@ -65,7 +65,7 @@ module Impl = (Editor: Sig.Editor) => {
   let handle =
     fun
     | Instantiate(indices) => [
-        Task.WithState(
+        Task.WithStateP(
           state => {
             // destroy all existing goals
             state.goals->Array.forEach(Goal.destroy);
@@ -79,12 +79,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | UpdateRange => [
-        WithState(
-          state => {
-            Goal.updateRanges(state.goals, state.editor);
-            Promise.resolved([]);
-          },
-        ),
+        WithState(state => {Goal.updateRanges(state.goals, state.editor)}),
       ]
     | Next => [
         Goal(UpdateRange),
@@ -118,7 +113,6 @@ module Impl = (Editor: Sig.Editor) => {
                 Editor.pointAtOffset(state.editor, offset),
               )
             };
-            Promise.resolved([]);
           },
         ),
       ]
@@ -154,13 +148,12 @@ module Impl = (Editor: Sig.Editor) => {
                 Editor.pointAtOffset(state.editor, offset),
               )
             };
-            Promise.resolved([]);
           },
         ),
       ]
     | Modify(goal, f) => [
         Goal(UpdateRange),
-        WithState(
+        WithStateP(
           state => {
             let content = Goal.getContent(goal, state.editor);
             Js.log(
@@ -194,7 +187,6 @@ module Impl = (Editor: Sig.Editor) => {
             let position = Editor.getCursorPosition(state.editor);
             let offset = Editor.offsetAtPoint(state.editor, position);
             state.cursor = Some(offset);
-            Promise.resolved([]);
           },
         ),
       ]
@@ -219,14 +211,13 @@ module Impl = (Editor: Sig.Editor) => {
                 }
               | None => Editor.setCursorPosition(state.editor, position)
               };
-            };
-            Promise.resolved([]);
+            }
           },
         ),
       ]
     | RemoveBoundaryAndDestroy(goal) => [
         Goal(UpdateRange),
-        WithState(
+        WithStateP(
           state => {
             let innerRange = Goal.getInnerRange(goal, state.editor);
             let outerRange =
@@ -259,7 +250,7 @@ module Impl = (Editor: Sig.Editor) => {
     // replace and insert one or more lines of content at the goal
     // usage: case split
     | ReplaceWithLines(goal, lines) => [
-        WithState(
+        WithStateP(
           state => {
             // get the width of indentation from the first line of the goal
             let (indentWidth, _, _) = indentationWidth(goal, state.editor);
@@ -319,7 +310,7 @@ module Impl = (Editor: Sig.Editor) => {
     // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
     // which searches backward (starting from the goal) and look for the presence of "{"
     | ReplaceWithLambda(goal, lines) => [
-        WithState(
+        WithStateP(
           state => {
             let goalEnd =
               Editor.pointAtOffset(state.editor, snd(goal.range));
@@ -391,7 +382,7 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | GetPointedOr(callback, alternative) => [
         Goal(UpdateRange),
-        WithState(
+        WithStateP(
           state => {
             switch (pointingAt(state)) {
             | None => Promise.resolved(alternative)
@@ -406,7 +397,7 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | GetIndexedOr(index, callback, alternative) => [
         Goal(UpdateRange),
-        WithState(
+        WithStateP(
           state => {
             let found = state.goals->Array.keep(goal => goal.index == index);
             switch (found[0]) {

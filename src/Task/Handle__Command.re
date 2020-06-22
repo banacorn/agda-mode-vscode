@@ -9,7 +9,7 @@ module Impl = (Editor: Sig.Editor) => {
   let handle =
     fun
     | Load => [
-        Task.WithState(
+        Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
         Goal(SaveCursor),

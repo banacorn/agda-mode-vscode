@@ -331,6 +331,9 @@ module Impl = (Editor: Sig.Editor) => {
             });
         }
       | WithState(callback) =>
+        callback(state);
+        Promise.resolved(true);
+      | WithStateP(callback) =>
         Queues.spawn(self, Misc);
         callback(state)
         ->Promise.map(Queues.addTasks(self, Misc))

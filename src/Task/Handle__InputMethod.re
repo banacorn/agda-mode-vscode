@@ -8,7 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
   let handle =
     fun
     | Command.InputMethod.Activate => [
-        WithState(
+        WithStateP(
           state =>
             if (state.inputMethod.activated) {
               InputMethod.insertBackslash(state.editor);
@@ -40,8 +40,6 @@ module Impl = (Editor: Sig.Editor) => {
 
             state.inputMethod.activated = false;
             InputMethod.deactivate(state.inputMethod);
-            // Promise.resolved([Debug("InputMethod(Deactivated)")]);
-            Promise.resolved([]);
           },
         ),
         SendEventToView(InputMethod(Deactivate)),
@@ -51,51 +49,33 @@ module Impl = (Editor: Sig.Editor) => {
         SendEventToView(InputMethod(Update(sequence, translation, index))),
       ]
     | InsertChar(char) => [
-        WithState(
-          state => {
-            InputMethod.insertChar(state.editor, char);
-            Promise.resolved([]);
-          },
-        ),
+        WithState(state => {InputMethod.insertChar(state.editor, char)}),
       ]
     | ChooseSymbol(symbol) => [
         WithState(
           state => {
-            InputMethod.chooseSymbol(state.inputMethod, state.editor, symbol);
-            Promise.resolved([]);
+            InputMethod.chooseSymbol(state.inputMethod, state.editor, symbol)
           },
         ),
       ]
     | MoveUp => [
         WithState(
-          state => {
-            InputMethod.moveUp(state.inputMethod, state.editor);
-            Promise.resolved([]);
-          },
+          state => {InputMethod.moveUp(state.inputMethod, state.editor)},
         ),
       ]
     | MoveRight => [
         WithState(
-          state => {
-            InputMethod.moveRight(state.inputMethod, state.editor);
-            Promise.resolved([]);
-          },
+          state => {InputMethod.moveRight(state.inputMethod, state.editor)},
         ),
       ]
     | MoveDown => [
         WithState(
-          state => {
-            InputMethod.moveDown(state.inputMethod, state.editor);
-            Promise.resolved([]);
-          },
+          state => {InputMethod.moveDown(state.inputMethod, state.editor)},
         ),
       ]
     | MoveLeft => [
         WithState(
-          state => {
-            InputMethod.moveLeft(state.inputMethod, state.editor);
-            Promise.resolved([]);
-          },
+          state => {InputMethod.moveLeft(state.inputMethod, state.editor)},
         ),
       ];
 };

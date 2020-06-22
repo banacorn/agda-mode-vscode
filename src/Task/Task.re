@@ -29,7 +29,8 @@ module Impl = (Editor: Sig.Editor) => {
     // Misc
     | Error(Error.t)
     | Goal(goal)
-    | WithState(State.t => Promise.t(list(t)))
+    | WithState(State.t => unit)
+    | WithStateP(State.t => Promise.t(list(t)))
     | Debug(string);
 
   let toString =
@@ -53,6 +54,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(GetPointedOr(_, _)) => "Goal[GetPointedOr]"
     | Goal(GetIndexedOr(_)) => "Goal[GetIndexedOr]"
     | WithState(_) => "WithState"
+    | WithStateP(_) => "WithStateP"
     | Debug(msg) => "Debug[" ++ msg ++ "]";
 
   // Smart constructors
@@ -72,7 +74,6 @@ module Impl = (Editor: Sig.Editor) => {
         // focus on the panel before inquiring
         Editor.setContext("agdaModeQuerying", true)->ignore;
         state.view->Editor.View.focus;
-        Promise.resolved([]);
       },
     ),
     SendRequestToView(
@@ -92,7 +93,6 @@ module Impl = (Editor: Sig.Editor) => {
                 // put the focus back to the editor after inquiring
                 Editor.setContext("agdaModeQuerying", false)->ignore;
                 state.editor->Editor.focus;
-                Promise.resolved([]);
               },
             ),
           ],
