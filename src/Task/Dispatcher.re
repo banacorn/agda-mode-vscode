@@ -8,6 +8,47 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   open! Task;
 
+  let sendAgdaRequest = (runTasks, state, req) => {
+    // this promise get resolved after the request to Agda is completed
+    let (promise, resolve) = Promise.pending();
+    let handle = ref(None);
+    let handler: result(Connection.response, Connection.Error.t) => unit =
+      fun
+      | Error(error) => {
+          let tasks = ErrorHandler.handle(Error.Connection(error));
+          runTasks(tasks);
+        }
+      | Ok(Parser.Incr.Event.Yield(Error(error))) => {
+          let tasks = ErrorHandler.handle(Error.Parser(error));
+          runTasks(tasks);
+        }
+      | Ok(Yield(Ok(response))) => {
+          Js.log(">>> " ++ Response.toString(response));
+          let tasks = ResponseHandler.handle(response);
+          runTasks(tasks);
+        }
+      | Ok(Stop) => {
+          Js.log(">>| ");
+          resolve();
+        };
+
+    state
+    ->State.sendRequestToAgda(req)
+    ->Promise.flatMap(
+        fun
+        | Ok(connection) => {
+            handle := Some(connection.Connection.emitter.on(handler));
+            promise;
+          }
+        | Error(error) => {
+            let tasks = ErrorHandler.handle(error);
+            runTasks(tasks);
+            promise;
+          },
+      )
+    ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
+  };
+
   let printLog = true;
   let log =
     if (printLog) {
@@ -199,6 +240,150 @@ module Impl = (Editor: Sig.Editor) => {
       };
   };
 
+  module Runner = {
+    type t = {
+      mutable queues: MultiQueue.t,
+      // `busy` will be set to `true` if there are Tasks being executed
+      // A semaphore to make sure that only one `kickStart` is running at a time
+      mutable busy: bool,
+    };
+
+    module Queues = {
+      let spawn = (self, target) =>
+        self.queues = MultiQueue.spawn(self.queues, target);
+      let remove = (self, target) =>
+        self.queues = MultiQueue.remove(self.queues, target);
+      let addTasks = (self, target, tasks) =>
+        self.queues = MultiQueue.addTasks(self.queues, target, tasks);
+      let countBySource = (self, target) =>
+        MultiQueue.countBySource(self.queues, target);
+      let getNextTask = self =>
+        MultiQueue.getNextTask(true, self.queues)
+        ->Option.map(((task, queue)) => {
+            self.queues = queue;
+            task;
+          });
+
+      let addMiscTasks = (self, tasks) => {
+        spawn(self, Misc);
+        addTasks(self, Misc, tasks);
+        remove(self, Misc);
+        Promise.resolved(true);
+      };
+    };
+
+    let rec executeTask = (self, state: State.t, task) => {
+      log(
+        "\n\nTask: "
+        ++ Task.toString(task)
+        ++ "\n"
+        ++ MultiQueue.toString(self.queues),
+      );
+      switch (task) {
+      | DispatchCommand(command) =>
+        let tasks = CommandHandler.handle(command);
+        Queues.addTasks(self, Command, tasks);
+        Promise.resolved(true);
+      | SendRequest(request) =>
+        if (Queues.countBySource(self, Agda) > 0) {
+          // there can only be 1 Agda request at a time
+          Promise.resolved(
+            false,
+          );
+        } else {
+          Queues.spawn(self, Agda);
+          sendAgdaRequest(
+            tasks => {
+              Queues.addTasks(self, Agda, tasks);
+              kickStart(self, state);
+            },
+            state,
+            request,
+          )
+          ->Promise.get(() => {Queues.remove(self, Agda)});
+          // NOTE: return early before `sendAgdaRequest` resolved
+          Promise.resolved(true);
+        }
+      | SendEventToView(event) =>
+        Queues.spawn(self, View);
+        state
+        ->State.sendEventToView(event)
+        ->Promise.map(_ => {
+            Queues.remove(self, View);
+            true;
+          });
+      | SendRequestToView(request, callback) =>
+        if (Queues.countBySource(self, View) > 0) {
+          // there can only be 1 View request at a time (NOTE, revise this)
+          Promise.resolved(
+            false,
+          );
+        } else {
+          Queues.spawn(self, View);
+          state
+          ->State.sendRequestToView(request)
+          ->Promise.map(
+              fun
+              | None => ()
+              | Some(response) => {
+                  Queues.addTasks(self, View, callback(response));
+                },
+            )
+          ->Promise.map(() => {
+              Queues.remove(self, View);
+              true;
+            });
+        }
+      | WithState(callback) =>
+        Queues.spawn(self, Misc);
+        callback(state)
+        ->Promise.map(Queues.addTasks(self, Misc))
+        ->Promise.tap(() => {Queues.remove(self, Misc)})
+        ->Promise.map(() => true);
+      | Terminate => State.destroy(state)->Promise.map(() => false)
+      | Goal(action) =>
+        let tasks = GoalHandler.handle(action);
+        Queues.addMiscTasks(self, tasks);
+      | EventFromView(event) =>
+        let tasks =
+          switch (event) {
+          | Initialized => []
+          | Destroyed => [Task.Terminate]
+          | InputMethod(InsertChar(char)) => [
+              DispatchCommand(InputMethod(InsertChar(char))),
+            ]
+          | InputMethod(ChooseSymbol(symbol)) => [
+              DispatchCommand(InputMethod(ChooseSymbol(symbol))),
+            ]
+          };
+        Queues.addMiscTasks(self, tasks);
+      | Error(error) =>
+        let tasks = ErrorHandler.handle(error);
+        Queues.addMiscTasks(self, tasks);
+      | Debug(message) =>
+        Js.log("DEBUG " ++ message);
+        Promise.resolved(true);
+      };
+    }
+    // consuming Tasks in the `queues`
+    and kickStart = (self, state) =>
+      if (!self.busy) {
+        switch (Queues.getNextTask(self)) {
+        | None => ()
+        | Some(task) =>
+          self.busy = true;
+          executeTask(self, state, task) // and start executing tasks
+          ->Promise.get(keepRunning => {
+              self.busy = false; // flip the semaphore back
+              if (keepRunning) {
+                // and keep running
+                kickStart(self, state);
+              };
+            });
+        };
+      };
+  };
+
   type t = {
     mutable blocking: MultiQueue.t,
     mutable critical: MultiQueue.t,
@@ -261,47 +446,6 @@ module Impl = (Editor: Sig.Editor) => {
       remove(self, Misc);
       Promise.resolved(true);
     };
-  };
-
-  let sendAgdaRequest = (runTasks, state, req) => {
-    // this promise get resolved after the request to Agda is completed
-    let (promise, resolve) = Promise.pending();
-    let handle = ref(None);
-    let handler: result(Connection.response, Connection.Error.t) => unit =
-      fun
-      | Error(error) => {
-          let tasks = ErrorHandler.handle(Error.Connection(error));
-          runTasks(tasks);
-        }
-      | Ok(Parser.Incr.Event.Yield(Error(error))) => {
-          let tasks = ErrorHandler.handle(Error.Parser(error));
-          runTasks(tasks);
-        }
-      | Ok(Yield(Ok(response))) => {
-          Js.log(">>> " ++ Response.toString(response));
-          let tasks = ResponseHandler.handle(response);
-          runTasks(tasks);
-        }
-      | Ok(Stop) => {
-          Js.log(">>| ");
-          resolve();
-        };
-
-    state
-    ->State.sendRequestToAgda(req)
-    ->Promise.flatMap(
-        fun
-        | Ok(connection) => {
-            handle := Some(connection.Connection.emitter.on(handler));
-            promise;
-          }
-        | Error(error) => {
-            let tasks = ErrorHandler.handle(error);
-            runTasks(tasks);
-            promise;
-          },
-      )
-    ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
   let rec executeTask = (self, state: State.t, task) => {
