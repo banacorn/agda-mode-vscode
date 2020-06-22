@@ -120,25 +120,26 @@ module Impl = (Editor: Sig.Editor) => {
     | ComputeNormalForm(computeMode) =>
       let header = "Compute normal form";
       let placeholder = Some("expression to normalize:");
-      let query =
-        query(header, placeholder, None, expr =>
-          [Debug("ComputeNormalForm " ++ expr)]
-        );
       [
         Goal(
           GetPointedOr(
             goal =>
               (
                 fun
-                | None => query
-                | Some(expr) => [Debug("ComputeNormalForm " ++ expr)]
+                | None =>
+                  query(header, placeholder, None, expr =>
+                    [
+                      SendRequest(ComputeNormalForm(computeMode, expr, goal)),
+                    ]
+                  )
+                | Some(expr) => [
+                    SendRequest(ComputeNormalForm(computeMode, expr, goal)),
+                  ]
               ),
-            query,
+            query(header, placeholder, None, expr =>
+              [SendRequest(ComputeNormalFormGlobal(computeMode, expr))]
+            ),
           ),
-        ),
-        Debug(
-          "ComputeNormalFormGlobal "
-          ++ Command.ComputeMode.toString(computeMode),
         ),
       ];
     | WhyInScope => [

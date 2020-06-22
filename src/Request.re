@@ -13,6 +13,8 @@ module Impl = (Editor: Sig.Editor) => {
     | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t)
     | GoalTypeAndContext(Command.Normalization.t, Goal.t)
+    | ComputeNormalForm(Command.ComputeMode.t, string, Goal.t)
+    | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
     | WhyInScope(string, Goal.t)
     | WhyInScopeGlobal(string);
 
@@ -142,6 +144,35 @@ module Impl = (Editor: Sig.Editor) => {
         Command.Normalization.toString(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type_context $(normalization) $(index) noRange "" )|j};
+
+    | ComputeNormalForm(computeMode, expr, goal) =>
+      let index: string = string_of_int(goal.index);
+      let ignoreAbstract: string =
+        string_of_bool(Command.ComputeMode.ignoreAbstract(computeMode));
+      let computeMode: string = Command.ComputeMode.toString(computeMode);
+      let content: string = Parser.userInput(expr);
+
+      if (Util.Version.gte(version, "2.5.2")) {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_compute $(computeMode) $(index) noRange "$(content)" )|j};
+      } else {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_compute $(ignoreAbstract) $(index) noRange "$(content)" )|j};
+      };
+
+    | ComputeNormalFormGlobal(computeMode, expr) =>
+      let ignoreAbstract: string =
+        string_of_bool(Command.ComputeMode.ignoreAbstract(computeMode));
+      let computeMode: string = Command.ComputeMode.toString(computeMode);
+      let content = Parser.userInput(expr);
+
+      if (Util.Version.gte(version, "2.5.2")) {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_compute_toplevel $(computeMode) "$(content)" )|j};
+      } else {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_compute_toplevel $(ignoreAbstract) "$(content)" )|j};
+      };
 
     | WhyInScope(expr, goal) =>
       let index: string = string_of_int(goal.index);
