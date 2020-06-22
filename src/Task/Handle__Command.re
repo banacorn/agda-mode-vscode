@@ -118,7 +118,17 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | EventFromView(event) => [EventFromView(event)]
+    | EventFromView(event) =>
+      switch (event) {
+      | Initialized => []
+      | Destroyed => [Terminate]
+      | InputMethod(InsertChar(char)) => [
+          DispatchCommand(InputMethod(InsertChar(char))),
+        ]
+      | InputMethod(ChooseSymbol(symbol)) => [
+          DispatchCommand(InputMethod(ChooseSymbol(symbol))),
+        ]
+      }
     | Escape => [SendEventToView(InterruptQuery)]
     | InputMethod(action) => InputMethodHandler.handle(action);
 };

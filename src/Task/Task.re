@@ -26,7 +26,6 @@ module Impl = (Editor: Sig.Editor) => {
     // View
     | SendEventToView(View.EventToView.t)
     | SendRequestToView(View.Request.t, View.Response.t => list(t))
-    | EventFromView(View.EventFromView.t)
     // Misc
     | Error(Error.t)
     | Goal(goal)
@@ -40,7 +39,6 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(_req) => "SendRequest"
     | SendEventToView(_) => "SendEventToView"
     | SendRequestToView(_, _) => "SendRequestToView"
-    | EventFromView(_) => "EventFromView"
     | Error(_) => "Error"
     | Goal(Instantiate(_)) => "Goal[Instantiate]"
     | Goal(UpdateRange) => "Goal[UpdateRange]"

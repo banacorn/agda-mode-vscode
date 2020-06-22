@@ -340,19 +340,6 @@ module Impl = (Editor: Sig.Editor) => {
       | Goal(action) =>
         let tasks = GoalHandler.handle(action);
         Queues.addMiscTasks(self, tasks);
-      | EventFromView(event) =>
-        let tasks =
-          switch (event) {
-          | Initialized => []
-          | Destroyed => [Task.Terminate]
-          | InputMethod(InsertChar(char)) => [
-              DispatchCommand(InputMethod(InsertChar(char))),
-            ]
-          | InputMethod(ChooseSymbol(symbol)) => [
-              DispatchCommand(InputMethod(ChooseSymbol(symbol))),
-            ]
-          };
-        Queues.addMiscTasks(self, tasks);
       | Error(error) =>
         let tasks = ErrorHandler.handle(error);
         Queues.addMiscTasks(self, tasks);
