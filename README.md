@@ -1,6 +1,6 @@
 # 🚧 agda-mode on VS Code 🚧
 
-This repo is now under heavy development, **issues not welcomed** (yet)
+This repo is now under heavy development. 
 
 ## TODO 
 
