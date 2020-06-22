@@ -20,5 +20,11 @@ module Impl = (Editor: Sig.Editor) => {
           "Out of goal",
           Some("Please place the cursor in a goal"),
         ),
+      ]
+    | NoTextSelectedAndOutOfGoal => [
+        displayError(
+          "No text selected and cursor out of goal",
+          Some("Please select some text or place the cursor in a goal"),
+        ),
       ];
 };

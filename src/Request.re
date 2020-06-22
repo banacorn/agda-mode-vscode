@@ -12,7 +12,9 @@ module Impl = (Editor: Sig.Editor) => {
     | InferType(Command.Normalization.t, string, Goal.t)
     | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t)
-    | GoalTypeAndContext(Command.Normalization.t, Goal.t);
+    | GoalTypeAndContext(Command.Normalization.t, Goal.t)
+    | WhyInScope(string, Goal.t)
+    | WhyInScopeGlobal(string);
 
   // How much highlighting should be sent to the user interface?
   type highlightingLevel =
@@ -140,6 +142,17 @@ module Impl = (Editor: Sig.Editor) => {
         Command.Normalization.toString(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type_context $(normalization) $(index) noRange "" )|j};
+
+    | WhyInScope(expr, goal) =>
+      let index: string = string_of_int(goal.index);
+      let content: string = Parser.userInput(expr);
+
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_why_in_scope $(index) noRange "$(content)" )|j};
+
+    | WhyInScopeGlobal(expr) =>
+      let content = Parser.userInput(expr);
+      commonPart(None) ++ {j|( Cmd_why_in_scope_toplevel "$(content)" )|j};
     };
   };
 };

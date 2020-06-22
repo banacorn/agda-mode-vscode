@@ -31,3 +31,4 @@ A to-do checklist in disguise.
 | ✓      | goal type and context (simplified)  | <kbd>C-c</kbd> <kbd>C-,</kbd>   |
 | ✓      | goal type and context (instantiaed) | <kbd>C-u</kbd> <kbd>C-,</kbd>   |
 | ✓      | goal type and context (normalized)  | <kbd>C-y</kbd> <kbd>C-,</kbd>   |
+| ✓      | why in scope                        | <kbd>C-c</kbd> <kbd>C-w</kbd>   |

@@ -98,6 +98,10 @@
 				"title": "Goal type and context (normalised)"
 			},
 			{
+				"command": "agda-mode.why-in-scope",
+				"title": "Why in scope"
+			},
+			{
 				"command": "agda-mode.escape",
 				"title": "Escape"
 			},
@@ -206,6 +210,12 @@
 				"command": "agda-mode.goal-type-and-context[Normalised]",
 				"key": "ctrl+y ctrl+,",
 				"mac": "ctrl+y ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.why-in-scope",
+				"key": "ctrl+c ctrl+w",
+				"mac": "ctrl+c ctrl+w",
 				"when": "agdaMode"
 			},
 			{

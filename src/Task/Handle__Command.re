@@ -119,6 +119,36 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | WhyInScope => [
+        WithStateP(
+          state => {
+            let range = Editor.getSelectionRange(state.editor);
+            let selectedText = Editor.getTextInRange(state.editor, range);
+            if (selectedText == "") {
+              Promise.resolved([
+                Goal(
+                  GetPointedOr(
+                    goal =>
+                      fun
+                      | None =>
+                        query("Scope info", Some("name:"), None, expr =>
+                          [SendRequest(WhyInScope(expr, goal))]
+                        )
+                      | Some(expr) => [
+                          SendRequest(WhyInScope(expr, goal)),
+                        ],
+                    [Error(NoTextSelectedAndOutOfGoal)],
+                  ),
+                ),
+              ]);
+            } else {
+              Promise.resolved([
+                SendRequest(WhyInScopeGlobal(selectedText)),
+              ]);
+            };
+          },
+        ),
+      ]
     | EventFromView(event) =>
       switch (event) {
       | Initialized => []

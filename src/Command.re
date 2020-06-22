@@ -49,6 +49,7 @@ type t =
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | EventFromView(View.EventFromView.t)
+  | WhyInScope
   | Escape
   | InputMethod(InputMethod.t);
 
@@ -71,6 +72,7 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
+  (WhyInScope, "why-in-scope"),
   (Escape, "escape"),
   (InputMethod(Activate), "input-symbol[Activate]"),
   (InputMethod(MoveUp), "input-symbol[MoveUp]"),
@@ -99,6 +101,7 @@ let toString =
   | GoalTypeAndContext(Simplified) => "Goal type and context (simplified)"
   | GoalTypeAndContext(Instantiated) => "Goal type and context (instantiated)"
   | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
+  | WhyInScope => "Why in scope"
   | EventFromView(_) => "Event from the view"
   | Escape => "Escape"
   | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action);
