@@ -119,16 +119,16 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | ModuleContents(normalization) => [
         Goal(
-          GetPointedOr(
-            (goal, _) => {
-              [
-                Debug(
-                  "ModuleContents "
-                  ++ Command.Normalization.toString(normalization),
-                ),
-              ]
-            },
-            [Error(Error.OutOfGoal)],
+          LocalOrGlobal(
+            (goal, content) =>
+              [SendRequest(ModuleContents(normalization, content, goal))],
+            goal =>
+              query("Module contents", Some("Module name"), None, content =>
+                [SendRequest(ModuleContents(normalization, content, goal))]
+              ),
+            query("Module contents", Some("Module name"), None, expr =>
+              [SendRequest(ModuleContentsGlobal(normalization, expr))]
+            ),
           ),
         ),
       ]

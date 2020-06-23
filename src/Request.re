@@ -13,6 +13,8 @@ module Impl = (Editor: Sig.Editor) => {
     | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t)
     | GoalTypeAndContext(Command.Normalization.t, Goal.t)
+    | ModuleContents(Command.Normalization.t, string, Goal.t)
+    | ModuleContentsGlobal(Command.Normalization.t, string)
     | ComputeNormalForm(Command.ComputeMode.t, string, Goal.t)
     | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
     | WhyInScope(string, Goal.t)
@@ -144,6 +146,23 @@ module Impl = (Editor: Sig.Editor) => {
         Command.Normalization.toString(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type_context $(normalization) $(index) noRange "" )|j};
+
+    | ModuleContents(normalization, expr, goal) =>
+      let index: string = string_of_int(goal.index);
+      let normalization: string =
+        Command.Normalization.toString(normalization);
+      let content = Parser.userInput(expr);
+
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_show_module_contents $(normalization) $(index) noRange "$(content)" )|j};
+
+    | ModuleContentsGlobal(normalization, expr) =>
+      let normalization: string =
+        Command.Normalization.toString(normalization);
+      let content = Parser.userInput(expr);
+
+      commonPart(None)
+      ++ {j|( Cmd_show_module_contents_toplevel $(normalization) "$(content)" )|j};
 
     | ComputeNormalForm(computeMode, expr, goal) =>
       let index: string = string_of_int(goal.index);

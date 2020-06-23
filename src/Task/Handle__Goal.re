@@ -383,6 +383,23 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
+    | LocalOrGlobal(local, localEmpty, global) => [
+        Goal(UpdateRange),
+        WithStateP(
+          state => {
+            switch (pointingAt(state)) {
+            | None => Promise.resolved(global)
+            | Some(goal) =>
+              let content = Goal.getContent(goal, state.editor);
+              if (content == "") {
+                Promise.resolved(localEmpty(goal));
+              } else {
+                Promise.resolved(local(goal, content));
+              };
+            }
+          },
+        ),
+      ]
     | GetPointedOr(callback, alternative) => [
         Goal(UpdateRange),
         WithStateP(
