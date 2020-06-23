@@ -1,7 +1,5 @@
 open Belt;
 
-/* https://github.com/agda/agda/blob/master/src/full/Agda/Interaction/Response.hs */
-
 type filepath = string;
 type index = int;
 
@@ -93,43 +91,152 @@ module DisplayInfo = {
   };
 };
 
+module Highlighting = {
+  module Token = Parser.SExpression;
+  module Annotation = {
+    open Token;
+    type t = {
+      start: int,
+      end_: int,
+      types: array(string),
+      source: option((filepath, int)),
+    };
+    let toString = self =>
+      "Annotation "
+      ++ string_of_int(self.start)
+      ++ " "
+      ++ string_of_int(self.end_)
+      ++ " "
+      ++ Util.Pretty.list(List.fromArray(self.types))
+      ++ (
+        switch (self.source) {
+        | None => ""
+        | Some((s, i)) => s ++ " " ++ string_of_int(i)
+        }
+      );
+    let parse: Token.t => option(t) =
+      fun
+      | A(_) => None
+      | L(xs) =>
+        switch (xs) {
+        | [|
+            A(start'),
+            A(end_'),
+            types,
+            _,
+            _,
+            L([|A(filepath), _, A(index')|]),
+          |] =>
+          Parser.int(start')
+          ->Option.flatMap(start =>
+              Parser.int(end_')
+              ->Option.flatMap(end_ =>
+                  Parser.int(index')
+                  ->Option.map(index =>
+                      {
+                        start,
+                        end_,
+                        types: flatten(types),
+                        source: Some((filepath, index)),
+                      }
+                    )
+                )
+            )
+
+        | [|A(start'), A(end_'), types|] =>
+          Parser.int(start')
+          ->Option.flatMap(start =>
+              Parser.int(end_')
+              ->Option.map(end_ =>
+                  {start, end_, types: flatten(types), source: None}
+                )
+            )
+        | [|A(start'), A(end_'), types, _|] =>
+          Parser.int(start')
+          ->Option.flatMap(start =>
+              Parser.int(end_')
+              ->Option.map(end_ =>
+                  {start, end_, types: flatten(types), source: None}
+                )
+            )
+        | _ => None
+        };
+
+    let parseDirectHighlightings: array(Token.t) => array(t) =
+      tokens => {
+        tokens
+        ->Js.Array.sliceFrom(2, _)
+        ->Array.map(parse)
+        ->Array.keepMap(x => x);
+      };
+    let parseIndirectHighlightings: array(Token.t) => array(t) =
+      tokens =>
+        tokens
+        ->Js.Array.sliceFrom(1, _)
+        ->Array.map(parse)
+        ->Array.keepMap(x => x);
+    // the type of annotations that we want to highlight
+    let shouldHighlight: t => bool =
+      annotation => {
+        annotation.types
+        |> Js.Array.includes("unsolvedmeta")
+        || annotation.types
+        |> Js.Array.includes("unsolvedconstraint")
+        || annotation.types
+        |> Js.Array.includes("terminationproblem")
+        || annotation.types
+        |> Js.Array.includes("coverageproblem");
+      };
+  };
+};
+
+// Here's the corresponding datatype in Haskell:
+// https://github.com/agda/agda/blob/master/src/full/Agda/Interaction/Response.hs
+// Note that, we are not trying to replicate that datatype,
+// just the portion conveyed by the Emacs Lisp protocol
+
 type t =
-  /* agda2-highlight-add-annotations */
-  | HighlightingInfoDirect
-  /* agda2-highlight-load-and-delete-action */
+  // agda2-highlight-add-annotations
+  | HighlightingInfoDirect(bool, array(Highlighting.Annotation.t))
+  // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
-  /* agda2-status-action */
+  // agda2-status-action
   | NoStatus
   | Status(
-      bool, /*  Are implicit arguments displayed? */
-      /* Has the module been successfully type checked? */
+      bool, // Are implicit arguments displayed?
+      // Has the module been successfully type checked?
       bool,
     )
-  /* agda2-maybe-goto */
+  // agda2-maybe-goto
   | JumpToError(filepath, int)
-  /* agda2-goals-action */
+  // agda2-goals-action
   | InteractionPoints(array(index))
-  /* agda2-give-action */
+  // agda2-give-action
   | GiveAction(index, giveResult)
-  /* agda2-make-case-action */
-  /* agda2-make-case-action-extendlam */
+  // agda2-make-case-action
+  // agda2-make-case-action-extendlam
   | MakeCase(makeCaseType, array(string))
-  /* agda2-solveAll-action */
+  // agda2-solveAll-action
   | SolveAll(array((index, string)))
-  /* agda2-info-action */
-  /* agda2-info-action-and-copy */
+  // agda2-info-action
+  // agda2-info-action-and-copy
   | DisplayInfo(DisplayInfo.t)
   | ClearRunningInfo
-  /* agda2-verbose */
+  // agda2-verbose
   | RunningInfo(int, string)
-  /* agda2-highlight-clear */
+  // agda2-highlight-clear
   | ClearHighlighting
-  /* agda2-abort-done */
+  // agda2-abort-done
   | DoneAborting;
 
 let toString =
   fun
-  | HighlightingInfoDirect => "HighlightingInfoDirect "
+  | HighlightingInfoDirect(keepHighlighting, annotations) =>
+    "HighlightingInfoDirect "
+    ++ (keepHighlighting ? "Keep " : "Remove ")
+    ++ annotations
+       ->Array.map(Highlighting.Annotation.toString)
+       ->Util.Pretty.array
   | HighlightingInfoIndirect(filepath) =>
     "HighlightingInfoIndirect " ++ filepath
   | NoStatus => "NoStatus"
@@ -174,11 +281,12 @@ let parseWithPriority =
   | L(xs) =>
     switch (xs[0]) {
     | Some(A("agda2-highlight-add-annotations")) =>
+      let annotations = Highlighting.Annotation.parseDirectHighlightings(xs);
       switch (xs[1]) {
-      | Some(A("remove")) => Ok(HighlightingInfoDirect)
-      | Some(A("nil")) => Ok(HighlightingInfoDirect)
-      | _ => Ok(HighlightingInfoDirect)
-      }
+      | Some(A("remove")) => Ok(HighlightingInfoDirect(false, annotations))
+      | Some(A("nil")) => Ok(HighlightingInfoDirect(true, annotations))
+      | _ => Ok(HighlightingInfoDirect(true, [||]))
+      };
     | Some(A("agda2-highlight-load-and-delete-action")) =>
       switch (xs[1]) {
       | Some(A(filepath)) => Ok(HighlightingInfoIndirect(filepath))
@@ -256,9 +364,9 @@ let parseWithPriority =
               } else {
                 None;
               };
-            /* loop index */
+            // loop index
             i := i^ + 1;
-            /* return the solution */
+            // return the solution
             solution;
           });
         Ok(SolveAll(solutions));
@@ -268,9 +376,9 @@ let parseWithPriority =
     | Some(A("agda2-info-action-and-copy")) =>
       switch (xs[1]) {
       | Some(A("*Type-checking*")) =>
-        /* Resp_ClearRunningInfo & Resp_RunningInfo may run into this case */
+        // Resp_ClearRunningInfo & Resp_RunningInfo may run into this case
         switch (xs[3]) {
-        /* t: append */
+        // t: append
         | Some(A("t")) =>
           switch (xs[2]) {
           | Some(A(message)) => Ok(RunningInfo(1, message))
