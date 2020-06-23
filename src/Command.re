@@ -77,6 +77,7 @@ type t =
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | EventFromView(View.EventFromView.t)
+  | GoalTypeContextAndInferredType(Normalization.t)
   | GoalTypeContextAndCheckedType(Normalization.t)
   | ModuleContents(Normalization.t)
   | ComputeNormalForm(ComputeMode.t)
@@ -103,6 +104,18 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
+  (
+    GoalTypeContextAndInferredType(Simplified),
+    "goal-type-context-and-inferred-type[Simplified]",
+  ),
+  (
+    GoalTypeContextAndInferredType(Instantiated),
+    "goal-type-context-and-inferred-type[Instantiated]",
+  ),
+  (
+    GoalTypeContextAndInferredType(Normalised),
+    "goal-type-context-and-inferred-type[Normalised]",
+  ),
   (
     GoalTypeContextAndCheckedType(Simplified),
     "goal-type-context-and-checked-type[Simplified]",
@@ -150,6 +163,9 @@ let toString =
     "Goal type " ++ Normalization.toString(normalization)
   | GoalTypeAndContext(normalization) =>
     "Goal type and context " ++ Normalization.toString(normalization)
+  | GoalTypeContextAndInferredType(normalization) =>
+    "Goal type, context and inferred type "
+    ++ Normalization.toString(normalization)
   | GoalTypeContextAndCheckedType(normalization) =>
     "Goal type, context and checked type "
     ++ Normalization.toString(normalization)

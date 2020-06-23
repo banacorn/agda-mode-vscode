@@ -13,6 +13,7 @@ module Impl = (Editor: Sig.Editor) => {
     | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t)
     | GoalTypeAndContext(Command.Normalization.t, Goal.t)
+    | GoalTypeContextAndInferredType(Command.Normalization.t, string, Goal.t)
     | GoalTypeContextAndCheckedType(Command.Normalization.t, string, Goal.t)
     | ModuleContents(Command.Normalization.t, string, Goal.t)
     | ModuleContentsGlobal(Command.Normalization.t, string)
@@ -146,6 +147,13 @@ module Impl = (Editor: Sig.Editor) => {
       let normalization: string = Command.Normalization.encode(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type_context $(normalization) $(index) noRange "" )|j};
+
+    | GoalTypeContextAndInferredType(normalization, expr, goal) =>
+      let index: string = string_of_int(goal.index);
+      let normalization: string = Command.Normalization.encode(normalization);
+      let content = Parser.userInput(expr);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_goal_type_context_infer $(normalization) $(index) noRange "$(content)" )|j};
 
     | GoalTypeContextAndCheckedType(normalization, expr, goal) =>
       let index: string = string_of_int(goal.index);

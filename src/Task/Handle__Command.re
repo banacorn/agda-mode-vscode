@@ -98,6 +98,29 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | GoalTypeContextAndInferredType(normalization) =>
+      let placeholder = Some("expression to type:");
+      [
+        Goal(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [
+                SendRequest(
+                  GoalTypeContextAndInferredType(normalization, expr, goal),
+                ),
+              ],
+            goal =>
+              query(header, placeholder, None, expr =>
+                [
+                  SendRequest(
+                    GoalTypeContextAndInferredType(normalization, expr, goal),
+                  ),
+                ]
+              ),
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ];
     | GoalTypeContextAndCheckedType(normalization) =>
       let placeholder = Some("expression to type:");
       [
