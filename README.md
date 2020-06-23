@@ -13,6 +13,10 @@ This repo is now under heavy development.
 
 ## Commands
 
+* <kbd>C-c</kbd> stands for "press <kbd>Ctrl</kbd> and <kbd>c</kbd> at the same time"
+* When it comes to combos like <kbd>C-c</kbd> <kbd>C-l</kbd>, you can often slur
+them into "hold <kbd>Ctrl</kbd> while pressing <kbd>c</kbd> and then <kbd>l</kbd>"
+
 Commands working with types (marked with the 🎚 emoji below) can have different levels of normalization. However, due to some [technical limitations](https://github.com/microsoft/vscode/issues/6966), we cannot prefix commands with `C-u` or ` C-u C-u` like in Emacs. Instead, we replace the `C-u C-c` prefix with `C-u` and the `C-u C-u C-c` prefix with `C-y`.
 
 Take *infer type* for example:
@@ -52,15 +56,19 @@ Take *infer type* for example:
 
 | Status | Command                                 | Keymap                          |
 |:------:|:----------------------------------------|:-------------------------------:|
-| ✔      | quit                                    | <kbd>C-c</kbd> <kbd>C-q</kbd>   |
-| ✔      | give                                    | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
+| ✔      | give (fill goal)                        | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
 | ✔      | refine                                  | <kbd>C-c</kbd> <kbd>C-r</kbd>   |
-| ✔      | auto                                    | <kbd>C-y</kbd> <kbd>C-a</kbd>   |
-| ✔      | case                                    | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
+|        | elaborate and give 🎚                   | <kbd>C-c</kbd> <kbd>C-m</kbd>   |
+| ✔      | auto                                    | <kbd>C-c</kbd> <kbd>C-a</kbd>   |
+| ✔      | case split                              | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
+|        | compute helper function type  and copy  | <kbd>C-y</kbd> <kbd>C-h</kbd>   |
 | ✔      | goal type 🎚                            | <kbd>C-c</kbd> <kbd>C-t</kbd>   |
+|        | context (environment) 🎚                | <kbd>C-c</kbd> <kbd>C-e</kbd>   |
+| ✔      | infer type 🎚                           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
 | ✔      | goal type and context 🎚                | <kbd>C-c</kbd> <kbd>C-,</kbd>   |
 |        | goal type, context and inferred term 🎚 | <kbd>C-c</kbd> <kbd>C-.</kbd>   |
 |        | goal type, context and checked term  🎚 | <kbd>C-c</kbd> <kbd>C-;</kbd>   |
+|        | module contents 🎚                      | <kbd>C-c</kbd> <kbd>C-o</kbd>   |
 | ✔      | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |

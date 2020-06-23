@@ -98,6 +98,18 @@
 				"title": "Goal type and context (normalised)"
 			},
 			{
+				"command": "agda-mode.module-contents[Simplified]",
+				"title": "Module contents (simplified)"
+			},
+			{
+				"command": "agda-mode.module-contents[Instantiated]",
+				"title": "Module contents (instantiated)"
+			},
+			{
+				"command": "agda-mode.module-contents[Normalised]",
+				"title": "Module contents (normalised)"
+			},
+			{
 				"command": "agda-mode.compute-normal-form[DefaultCompute]",
 				"title": "Compute normal form"
 			},
@@ -222,6 +234,24 @@
 				"command": "agda-mode.goal-type-and-context[Normalised]",
 				"key": "ctrl+y ctrl+,",
 				"mac": "ctrl+y ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Simplified]",
+				"key": "ctrl+c ctrl+o",
+				"mac": "ctrl+c ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Instantiated]",
+				"key": "ctrl+u ctrl+o",
+				"mac": "ctrl+u ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Normalised]",
+				"key": "ctrl+y ctrl+o",
+				"mac": "ctrl+y ctrl+o",
 				"when": "agdaMode"
 			},
 			{

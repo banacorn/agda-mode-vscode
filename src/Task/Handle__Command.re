@@ -117,6 +117,21 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | ModuleContents(normalization) => [
+        Goal(
+          GetPointedOr(
+            (goal, _) => {
+              [
+                Debug(
+                  "ModuleContents "
+                  ++ Command.Normalization.toString(normalization),
+                ),
+              ]
+            },
+            [Error(Error.OutOfGoal)],
+          ),
+        ),
+      ]
     | ComputeNormalForm(computeMode) =>
       let header = "Compute normal form";
       let placeholder = Some("expression to normalize:");

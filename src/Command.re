@@ -68,6 +68,7 @@ type t =
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | EventFromView(View.EventFromView.t)
+  | ModuleContents(Normalization.t)
   | ComputeNormalForm(ComputeMode.t)
   | WhyInScope
   | Escape
@@ -92,6 +93,9 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
+  (ModuleContents(Simplified), "module-contents[Simplified]"),
+  (ModuleContents(Instantiated), "module-contents[Instantiated]"),
+  (ModuleContents(Normalised), "module-contents[Normalised]"),
   (ComputeNormalForm(DefaultCompute), "compute-normal-form[DefaultCompute]"),
   (ComputeNormalForm(IgnoreAbstract), "compute-normal-form[IgnoreAbstract]"),
   (
@@ -118,15 +122,14 @@ let toString =
   | Refine => "Refine"
   | Auto => "Auto"
   | Case => "Case"
-  | InferType(Simplified) => "Infer type (simplified)"
-  | InferType(Instantiated) => "Infer type (instantiated)"
-  | InferType(Normalised) => "Infer type (normalised)"
-  | GoalType(Simplified) => "Goal type (simplified)"
-  | GoalType(Instantiated) => "Goal type (instantiated)"
-  | GoalType(Normalised) => "Goal type (normalised)"
-  | GoalTypeAndContext(Simplified) => "Goal type and context (simplified)"
-  | GoalTypeAndContext(Instantiated) => "Goal type and context (instantiated)"
-  | GoalTypeAndContext(Normalised) => "Goal type and context (normalised)"
+  | InferType(normalization) =>
+    "Infer type (" ++ Normalization.toString(normalization) ++ ")"
+  | GoalType(normalization) =>
+    "Goal type (" ++ Normalization.toString(normalization) ++ ")"
+  | GoalTypeAndContext(normalization) =>
+    "Goal type and context (" ++ Normalization.toString(normalization) ++ ")"
+  | ModuleContents(normalization) =>
+    "Module contents (" ++ Normalization.toString(normalization) ++ ")"
   | ComputeNormalForm(DefaultCompute) => "Compute normal form (DefaultCompute)"
   | ComputeNormalForm(IgnoreAbstract) => "Compute normal form (IgnoreAbstract)"
   | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"
