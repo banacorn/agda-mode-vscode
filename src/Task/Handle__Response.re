@@ -98,8 +98,8 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | MakeCase(makeCaseType, lines) => [
         Goal(
-          GetPointedOr(
-            (goal, _) => {
+          LocalOrGlobal(
+            goal => {
               switch (makeCaseType) {
               | Function => [
                   Goal(ReplaceWithLines(goal, lines)),

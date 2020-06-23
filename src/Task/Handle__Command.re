@@ -20,35 +20,32 @@ module Impl = (Editor: Sig.Editor) => {
     | PreviousGoal => [Goal(Previous)]
     | Give => [
         Goal(
-          GetPointedOr(
-            (goal, content) =>
-              switch (content) {
-              | None =>
-                query(
-                  Command.toString(Command.Give),
-                  Some("expression to give:"),
-                  None,
-                  expr =>
-                  [Goal(Modify(goal, _ => expr)), SendRequest(Give(goal))]
-                )
-              | Some(_) => [SendRequest(Give(goal))]
-              },
+          LocalOrGlobal2(
+            (goal, _) => [SendRequest(Give(goal))],
+            goal =>
+              query(
+                Command.toString(Command.Give),
+                Some("expression to give:"),
+                None,
+                expr =>
+                [Goal(Modify(goal, _ => expr)), SendRequest(Give(goal))]
+              ),
             [Error(OutOfGoal)],
           ),
         ),
       ]
     | Refine => [
         Goal(
-          GetPointedOr(
-            (goal, _) => [Goal(SaveCursor), SendRequest(Refine(goal))],
+          LocalOrGlobal(
+            goal => [Goal(SaveCursor), SendRequest(Refine(goal))],
             [Error(OutOfGoal)],
           ),
         ),
       ]
     | Auto => [
         Goal(
-          GetPointedOr(
-            (goal, _) => {[SendRequest(Auto(goal))]},
+          LocalOrGlobal(
+            goal => {[SendRequest(Auto(goal))]},
             [Error(OutOfGoal)],
           ),
         ),
@@ -58,19 +55,15 @@ module Impl = (Editor: Sig.Editor) => {
       let placeholder = Some("expression to case:");
       [
         Goal(
-          GetPointedOr(
+          LocalOrGlobal2(
+            (goal, _) => [Goal(SaveCursor), SendRequest(Case(goal))],
             goal =>
-              (
-                fun
-                | None =>
-                  query(header, placeholder, None, expr =>
-                    [
-                      Goal(Modify(goal, _ => expr)),
-                      Goal(SaveCursor),
-                      SendRequest(Case(goal)),
-                    ]
-                  )
-                | Some(_) => [Goal(SaveCursor), SendRequest(Case(goal))]
+              query(header, placeholder, None, expr =>
+                [
+                  Goal(Modify(goal, _ => expr)), // place the queried expression in the goal
+                  Goal(SaveCursor),
+                  SendRequest(Case(goal)),
+                ]
               ),
             [Error(OutOfGoal)],
           ),
@@ -81,17 +74,12 @@ module Impl = (Editor: Sig.Editor) => {
       let placeholder = Some("expression to infer:");
       [
         Goal(
-          GetPointedOr(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [SendRequest(InferType(normalization, expr, goal))],
             goal =>
-              (
-                fun
-                | None =>
-                  query(header, placeholder, None, expr =>
-                    [SendRequest(InferType(normalization, expr, goal))]
-                  )
-                | Some(expr) => [
-                    SendRequest(InferType(normalization, expr, goal)),
-                  ]
+              query(header, placeholder, None, expr =>
+                [SendRequest(InferType(normalization, expr, goal))]
               ),
             query(header, placeholder, None, expr =>
               [SendRequest(InferTypeGlobal(normalization, expr))]
@@ -101,55 +89,49 @@ module Impl = (Editor: Sig.Editor) => {
       ];
     | GoalType(normalization) => [
         Goal(
-          GetPointedOr(
-            (goal, _) => {[SendRequest(GoalType(normalization, goal))]},
-            [Error(Error.OutOfGoal)],
+          LocalOrGlobal(
+            goal => [SendRequest(GoalType(normalization, goal))],
+            [Error(OutOfGoal)],
           ),
         ),
       ]
     | GoalTypeAndContext(normalization) => [
         Goal(
-          GetPointedOr(
-            (goal, _) => {
-              [SendRequest(GoalTypeAndContext(normalization, goal))]
-            },
-            [Error(Error.OutOfGoal)],
+          LocalOrGlobal(
+            goal => [SendRequest(GoalTypeAndContext(normalization, goal))],
+            [Error(OutOfGoal)],
           ),
         ),
       ]
-    | ModuleContents(normalization) => [
+    | ModuleContents(normalization) =>
+      let header = "Module contents";
+      let placeholder = Some("module name:");
+      [
         Goal(
-          LocalOrGlobal(
-            (goal, content) =>
-              [SendRequest(ModuleContents(normalization, content, goal))],
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [SendRequest(ModuleContents(normalization, expr, goal))],
             goal =>
-              query("Module contents", Some("Module name"), None, content =>
-                [SendRequest(ModuleContents(normalization, content, goal))]
+              query(header, placeholder, None, expr =>
+                [SendRequest(ModuleContents(normalization, expr, goal))]
               ),
-            query("Module contents", Some("Module name"), None, expr =>
+            query(header, placeholder, None, expr =>
               [SendRequest(ModuleContentsGlobal(normalization, expr))]
             ),
           ),
         ),
-      ]
+      ];
     | ComputeNormalForm(computeMode) =>
-      let header = "Compute normal form";
+      let header = "Evaluate term to normal form";
       let placeholder = Some("expression to normalize:");
       [
         Goal(
-          GetPointedOr(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [SendRequest(ComputeNormalForm(computeMode, expr, goal))],
             goal =>
-              (
-                fun
-                | None =>
-                  query(header, placeholder, None, expr =>
-                    [
-                      SendRequest(ComputeNormalForm(computeMode, expr, goal)),
-                    ]
-                  )
-                | Some(expr) => [
-                    SendRequest(ComputeNormalForm(computeMode, expr, goal)),
-                  ]
+              query(header, placeholder, None, expr =>
+                [SendRequest(ComputeNormalForm(computeMode, expr, goal))]
               ),
             query(header, placeholder, None, expr =>
               [SendRequest(ComputeNormalFormGlobal(computeMode, expr))]
@@ -157,36 +139,23 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ];
-    | WhyInScope => [
-        WithStateP(
-          state => {
-            let range = Editor.getSelectionRange(state.editor);
-            let selectedText = Editor.getTextInRange(state.editor, range);
-            if (selectedText == "") {
-              Promise.resolved([
-                Goal(
-                  GetPointedOr(
-                    goal =>
-                      fun
-                      | None =>
-                        query("Scope info", Some("name:"), None, expr =>
-                          [SendRequest(WhyInScope(expr, goal))]
-                        )
-                      | Some(expr) => [
-                          SendRequest(WhyInScope(expr, goal)),
-                        ],
-                    [Error(NoTextSelectedAndOutOfGoal)],
-                  ),
-                ),
-              ]);
-            } else {
-              Promise.resolved([
-                SendRequest(WhyInScopeGlobal(selectedText)),
-              ]);
-            };
-          },
+    | WhyInScope =>
+      let header = "Scope info";
+      let placeholder = Some("name:");
+      [
+        Goal(
+          LocalOrGlobal2(
+            (goal, expr) => [SendRequest(WhyInScope(expr, goal))],
+            goal =>
+              query(header, placeholder, None, expr =>
+                [SendRequest(WhyInScope(expr, goal))]
+              ),
+            query(header, placeholder, None, expr =>
+              [SendRequest(WhyInScopeGlobal(expr))]
+            ),
+          ),
         ),
-      ]
+      ];
     | EventFromView(event) =>
       switch (event) {
       | Initialized => []

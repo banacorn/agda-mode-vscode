@@ -15,12 +15,12 @@ module Impl = (Editor: Sig.Editor) => {
     | ReplaceWithLines(Goal.t, array(string))
     | ReplaceWithLambda(Goal.t, array(string))
     // for commands that have both the local (goal-specific) and global (top-level) version
-    | LocalOrGlobal(
+    | LocalOrGlobal(Goal.t => list(t), list(t))
+    | LocalOrGlobal2(
         (Goal.t, string) => list(t),
         Goal.t => list(t),
         list(t),
       )
-    | GetPointedOr((Goal.t, option(string)) => list(t), list(t))
     | GetIndexedOr(int, (Goal.t, option(string)) => list(t), list(t))
 
   and t =
@@ -57,8 +57,8 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
     | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
     | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
-    | Goal(LocalOrGlobal(_, _, _)) => "Goal[LocalOrGlobal]"
-    | Goal(GetPointedOr(_, _)) => "Goal[GetPointedOr]"
+    | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
+    | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
     | Goal(GetIndexedOr(_)) => "Goal[GetIndexedOr]"
     | WithState(_) => "WithState"
     | WithStateP(_) => "WithStateP"
