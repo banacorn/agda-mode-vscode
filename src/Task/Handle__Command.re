@@ -39,6 +39,21 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | ElaborateAndGive(normalization) =>
+      let placeholder = Some("expression to elaborate and give:");
+      [
+        Goal(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [SendRequest(ElaborateAndGive(normalization, expr, goal))],
+            goal =>
+              query(header, placeholder, None, expr =>
+                [SendRequest(ElaborateAndGive(normalization, expr, goal))]
+              ),
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ];
     | Auto => [
         Goal(
           LocalOrGlobal(

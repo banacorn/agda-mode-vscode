@@ -54,6 +54,18 @@
 				"title": "Refine"
 			},
 			{
+				"command": "agda-mode.elaborate-and-give[Simplified]",
+				"title": "Elaborate and give (simplified)"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Instantiated]",
+				"title": "Elaborate and give (instantiated)"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Normalised]",
+				"title": "Elaborate and give (normalised)"
+			},
+			{
 				"command": "agda-mode.auto",
 				"title": "Auto"
 			},
@@ -216,6 +228,24 @@
 				"command": "agda-mode.refine",
 				"key": "ctrl+c ctrl+r",
 				"mac": "ctrl+c ctrl+r",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Simplified]",
+				"key": "ctrl+c ctrl+m",
+				"mac": "ctrl+c ctrl+m",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Instantiated]",
+				"key": "ctrl+u ctrl+m",
+				"mac": "ctrl+u ctrl+m",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Normalised]",
+				"key": "ctrl+y ctrl+m",
+				"mac": "ctrl+y ctrl+m",
 				"when": "agdaMode"
 			},
 			{

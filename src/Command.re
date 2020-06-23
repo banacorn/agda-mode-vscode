@@ -71,6 +71,7 @@ type t =
   | PreviousGoal
   | Give
   | Refine
+  | ElaborateAndGive(Normalization.t)
   | Auto
   | Case
   | HelperFunctionType(Normalization.t)
@@ -95,6 +96,9 @@ let names: array((t, string)) = [|
   (PreviousGoal, "previous-goal"),
   (Give, "give"),
   (Refine, "refine"),
+  (ElaborateAndGive(Simplified), "elaborate-and-give[Simplified]"),
+  (ElaborateAndGive(Instantiated), "elaborate-and-give[Instantiated]"),
+  (ElaborateAndGive(Normalised), "elaborate-and-give[Normalised]"),
   (Auto, "auto"),
   (Case, "case"),
   (HelperFunctionType(Simplified), "helper-function-type[Simplified]"),
@@ -163,6 +167,8 @@ let toString =
   | PreviousGoal => "Previous goal"
   | Give => "Give"
   | Refine => "Refine"
+  | ElaborateAndGive(normalization) =>
+    "Elaborate and give " ++ Normalization.toString(normalization)
   | Auto => "Auto"
   | Case => "Case"
   | HelperFunctionType(normalization) =>

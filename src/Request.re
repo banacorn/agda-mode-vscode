@@ -7,6 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Load
     | Give(Goal.t)
     | Refine(Goal.t)
+    | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
     | Auto(Goal.t)
     | Case(Goal.t)
     | HelperFunctionType(Command.Normalization.t, string, Goal.t)
@@ -102,6 +103,13 @@ module Impl = (Editor: Sig.Editor) => {
       let range: string = buildRange(goal);
       commonPart(NonInteractive)
       ++ {j|( Cmd_refine_or_intro False $(index) $(range) "$(content)" )|j};
+
+    | ElaborateAndGive(normalization, expr, goal) =>
+      let index = string_of_int(goal.index);
+      let normalization = Command.Normalization.encode(normalization);
+      let content = Parser.userInput(expr);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_elaborate_give $(normalization) $(index) noRange "$(content)" )|j};
 
     | Auto(goal) =>
       let index: string = string_of_int(goal.index);
