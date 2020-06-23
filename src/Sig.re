@@ -123,4 +123,6 @@ module type Editor = {
     replaceLength: int,
   };
   let onChange: (array(changeEvent) => unit) => Disposable.t;
+
+  let copyToClipboard: string => Promise.t(unit);
 };

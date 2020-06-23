@@ -206,6 +206,42 @@ module Uri = {
   type stringOrUri = StringOrUri.t;
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#Clipboard
+module Clipboard = {
+  type t;
+  // methods
+  [@bs.send] external readText: (t, unit) => Promise.t(string) = "readText";
+  [@bs.send] external writeText: (t, string) => Promise.t(unit) = "writeText";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#UIKind;
+module UIKind = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#env
+module Env = {
+  type t;
+
+  // variables
+  [@bs.module "vscode"] [@bs.scope "env"] external appName: string = "appName";
+  [@bs.module "vscode"] [@bs.scope "env"] external appRoot: string = "appRoot";
+  [@bs.module "vscode"] [@bs.scope "env"]
+  external clipboard: Clipboard.t = "clipboard";
+  [@bs.module "vscode"] [@bs.scope "env"]
+  external language: string = "language";
+  [@bs.module "vscode"] [@bs.scope "env"]
+  external machineId: string = "machineId";
+  [@bs.module "vscode"] [@bs.scope "env"]
+  external remoteName: option(string) = "remoteName";
+  [@bs.module "vscode"] [@bs.scope "env"]
+  external sessionId: string = "sessionId";
+  [@bs.module "vscode"] [@bs.scope "env"] external shell: string = "shell";
+  [@bs.module "vscode"] [@bs.scope "env"] external uiKind: UIKind.t = "uiKind";
+  [@bs.module "vscode"] [@bs.scope "env"]
+  external uriScheme: string = "uriScheme";
+};
+
 module ViewColumn = {
   type t =
     | Active

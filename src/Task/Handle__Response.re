@@ -31,13 +31,16 @@ module Impl = (Editor: Sig.Editor) => {
       | InferredType(payload) => [display("Inferred type", Some(payload))]
       | Context(payload) => [display("Context", Some(payload))]
       | HelperFunction(payload) => [
-          display("Helper function", Some(payload)),
+          WithStateP(
+            _ => Editor.copyToClipboard(payload)->Promise.map(() => []),
+          ),
+          display("Helper function (copied to clipboard)", Some(payload)),
         ]
       | Version(payload) => [display("Version", Some(payload))];
   };
 
-  let handle =
-    fun
+  let handle = response => {
+    switch (response) {
     | Status(displayImplicit, checked) =>
       if (displayImplicit || checked) {
         [
@@ -119,6 +122,8 @@ module Impl = (Editor: Sig.Editor) => {
     | RunningInfo(_verbosity, message) => [
         display("Type-checking", Some(message)),
       ]
-    | _ => [];
-  // | others => [Debug(Response.toString(others))];
+    | _ => []
+    // | others => [Debug(Response.toString(others))];
+    };
+  };
 };

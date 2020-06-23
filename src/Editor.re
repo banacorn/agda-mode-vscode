@@ -322,3 +322,5 @@ let onChange = callback => {
       },
   );
 };
+
+let copyToClipboard = text => Env.clipboard->Clipboard.writeText(text);
