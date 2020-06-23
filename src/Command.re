@@ -73,6 +73,7 @@ type t =
   | Refine
   | Auto
   | Case
+  | HelperFunctionType(Normalization.t)
   | InferType(Normalization.t)
   | Context(Normalization.t)
   | GoalType(Normalization.t)
@@ -96,6 +97,9 @@ let names: array((t, string)) = [|
   (Refine, "refine"),
   (Auto, "auto"),
   (Case, "case"),
+  (HelperFunctionType(Simplified), "helper-function-type[Simplified]"),
+  (HelperFunctionType(Instantiated), "helper-function-type[Instantiated]"),
+  (HelperFunctionType(Normalised), "helper-function-type[Normalised]"),
   (InferType(Simplified), "infer-type[Simplified]"),
   (InferType(Instantiated), "infer-type[Instantiated]"),
   (InferType(Normalised), "infer-type[Normalised]"),
@@ -161,6 +165,8 @@ let toString =
   | Refine => "Refine"
   | Auto => "Auto"
   | Case => "Case"
+  | HelperFunctionType(normalization) =>
+    "Helper function type " ++ Normalization.toString(normalization)
   | InferType(normalization) =>
     "Infer type " ++ Normalization.toString(normalization)
   | Context(normalization) =>

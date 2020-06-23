@@ -45,7 +45,7 @@ Take *infer type* for example:
 | ✔      | move to previous goal (backwards)       | <kbd>C-c</kbd> <kbd>C-b</kbd>   |
 | ✔      | infer type 🎚                           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
 |        | module contents 🎚                      | <kbd>C-c</kbd> <kbd>C-o</kbd>   |
-|        | search Definitions in scope 🎚          | <kbd>C-c</kbd> <kbd>C-z</kbd>   |
+|        | search definitions in scope 🎚          | <kbd>C-c</kbd> <kbd>C-z</kbd>   |
 | ✔      | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |
@@ -61,7 +61,7 @@ Take *infer type* for example:
 |        | elaborate and give 🎚                   | <kbd>C-c</kbd> <kbd>C-m</kbd>   |
 | ✔      | auto                                    | <kbd>C-c</kbd> <kbd>C-a</kbd>   |
 | ✔      | case split                              | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
-|        | compute helper function type  and copy  | <kbd>C-y</kbd> <kbd>C-h</kbd>   |
+| ✔      | compute helper function type and copy 🎚| <kbd>C-y</kbd> <kbd>C-h</kbd>   |
 | ✔      | goal type 🎚                            | <kbd>C-c</kbd> <kbd>C-t</kbd>   |
 | ✔      | context (environment) 🎚                | <kbd>C-c</kbd> <kbd>C-e</kbd>   |
 | ✔      | infer type 🎚                           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |

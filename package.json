@@ -62,6 +62,18 @@
 				"title": "Case"
 			},
 			{
+				"command": "agda-mode.helper-function-type[Simplified]",
+				"title": "Helper function type (simplified)"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Instantiated]",
+				"title": "Helper function type (instantiated)"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Normalised]",
+				"title": "Helper function type (normalised)"
+			},
+			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"title": "Goal type (simplified)"
 			},
@@ -216,6 +228,24 @@
 				"command": "agda-mode.case",
 				"key": "ctrl+c ctrl+c",
 				"mac": "ctrl+c ctrl+c",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Simplified]",
+				"key": "ctrl+c ctrl+h",
+				"mac": "ctrl+c ctrl+h",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Instantiated]",
+				"key": "ctrl+u ctrl+h",
+				"mac": "ctrl+u ctrl+h",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Normalised]",
+				"key": "ctrl+y ctrl+h",
+				"mac": "ctrl+y ctrl+h",
 				"when": "agdaMode"
 			},
 			{

@@ -65,6 +65,21 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ];
+    | HelperFunctionType(normalization) =>
+      let placeholder = Some("expression:");
+      [
+        Goal(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [SendRequest(HelperFunctionType(normalization, expr, goal))],
+            goal =>
+              query(header, placeholder, None, expr =>
+                [SendRequest(HelperFunctionType(normalization, expr, goal))]
+              ),
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ];
     | InferType(normalization) =>
       let placeholder = Some("expression to infer:");
       [

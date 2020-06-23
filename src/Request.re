@@ -9,6 +9,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Refine(Goal.t)
     | Auto(Goal.t)
     | Case(Goal.t)
+    | HelperFunctionType(Command.Normalization.t, string, Goal.t)
     | InferType(Command.Normalization.t, string, Goal.t)
     | InferTypeGlobal(Command.Normalization.t, string)
     | Context(Command.Normalization.t, Goal.t)
@@ -122,6 +123,13 @@ module Impl = (Editor: Sig.Editor) => {
       let range: string = buildRange(goal);
       commonPart(NonInteractive)
       ++ {j|( Cmd_make_case $(index) $(range) "$(content)" )|j};
+
+    | HelperFunctionType(normalization, expr, goal) =>
+      let index = string_of_int(goal.index);
+      let normalization = Command.Normalization.encode(normalization);
+      let content = Parser.userInput(expr);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_helper_function $(normalization) $(index) noRange "$(content)" )|j};
 
     | InferType(normalization, expr, goal) =>
       let index = string_of_int(goal.index);
