@@ -153,6 +153,9 @@ module Impl = (Editor: Sig.Editor) => {
               true;
             });
         }
+      | AddHighlightings(annotations) =>
+        Js.log(annotations);
+        Promise.resolved(true);
       | WithState(callback) =>
         callback(state);
         Promise.resolved(true);

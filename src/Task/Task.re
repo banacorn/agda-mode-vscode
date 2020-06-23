@@ -33,6 +33,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SendEventToView(View.EventToView.t)
     | SendRequestToView(View.Request.t, View.Response.t => list(t))
     // Misc
+    | AddHighlightings(array(Response.Highlighting.Annotation.t))
     | Error(Error.t)
     | Goal(goal)
     | WithState(State.t => unit)
@@ -46,6 +47,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(_req) => "SendRequest"
     | SendEventToView(_) => "SendEventToView"
     | SendRequestToView(_, _) => "SendRequestToView"
+    | AddHighlightings(_) => "AddHighlightings"
     | Error(_) => "Error"
     | Goal(Instantiate(_)) => "Goal[Instantiate]"
     | Goal(UpdateRange) => "Goal[UpdateRange]"

@@ -1,6 +1,7 @@
 // from Agda Response to Tasks
 module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
+  open Belt;
   open! Task;
   open Response;
   module DisplayInfo = {
@@ -41,6 +42,55 @@ module Impl = (Editor: Sig.Editor) => {
 
   let handle = response => {
     switch (response) {
+    | HighlightingInfoDirect(_remove, annotations) => [
+        AddHighlightings(annotations),
+      ]
+    // Highlighting(AddDirectly(annotations)),
+    | HighlightingInfoIndirect(filepath) => [
+        WithStateP(
+          _ => {
+            let readFile = N.Util.promisify(N.Fs.readFile);
+            readFile(. filepath)
+            ->Promise.Js.fromBsPromise
+            ->Promise.Js.toResult
+            ->Promise.map(
+                fun
+                | Ok(content) => {
+                    open! Parser.SExpression;
+                    let expressions =
+                      content->Node.Buffer.toString->Parser.SExpression.parse;
+
+                    // TODO: we should do something about these parse errors
+                    let _parseErrors: array((int, string)) =
+                      expressions->Array.keepMap(
+                        fun
+                        | Error(error) => Some(error)
+                        | Ok(_) => None,
+                      );
+
+                    let annotations: array(Response.Highlighting.Annotation.t) =
+                      expressions
+                      ->Array.keepMap(
+                          fun
+                          | Error(_) => None // filter errors out
+                          | Ok(L(xs)) =>
+                            Some(
+                              Response.Highlighting.Annotation.parseIndirectHighlightings(
+                                xs,
+                              ),
+                            )
+                          | Ok(_) => Some([||]),
+                        )
+                      ->Array.concatMany;
+
+                    [AddHighlightings(annotations)];
+                  }
+                // TODO: we should do something about these parse errors
+                | Error(_err) => [],
+              );
+          },
+        ),
+      ]
     | Status(displayImplicit, checked) =>
       if (displayImplicit || checked) {
         [
@@ -88,7 +138,10 @@ module Impl = (Editor: Sig.Editor) => {
                     ),
                   ]
                 };
-              List.concat([tasks, [Goal(RemoveBoundaryAndDestroy(goal))]]);
+              List.concatMany([|
+                tasks,
+                [Goal(RemoveBoundaryAndDestroy(goal))],
+              |]);
             },
             [
               displayError(

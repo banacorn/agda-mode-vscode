@@ -175,6 +175,7 @@ module Highlighting = {
         ->Js.Array.sliceFrom(1, _)
         ->Array.map(parse)
         ->Array.keepMap(x => x);
+
     // the type of annotations that we want to highlight
     let shouldHighlight: t => bool =
       annotation => {
