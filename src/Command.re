@@ -74,6 +74,7 @@ type t =
   | Auto
   | Case
   | InferType(Normalization.t)
+  | Context(Normalization.t)
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | EventFromView(View.EventFromView.t)
@@ -98,6 +99,9 @@ let names: array((t, string)) = [|
   (InferType(Simplified), "infer-type[Simplified]"),
   (InferType(Instantiated), "infer-type[Instantiated]"),
   (InferType(Normalised), "infer-type[Normalised]"),
+  (Context(Simplified), "context[Simplified]"),
+  (Context(Instantiated), "context[Instantiated]"),
+  (Context(Normalised), "context[Normalised]"),
   (GoalType(Simplified), "goal-type[Simplified]"),
   (GoalType(Instantiated), "goal-type[Instantiated]"),
   (GoalType(Normalised), "goal-type[Normalised]"),
@@ -159,6 +163,8 @@ let toString =
   | Case => "Case"
   | InferType(normalization) =>
     "Infer type " ++ Normalization.toString(normalization)
+  | Context(normalization) =>
+    "Context " ++ Normalization.toString(normalization)
   | GoalType(normalization) =>
     "Goal type " ++ Normalization.toString(normalization)
   | GoalTypeAndContext(normalization) =>

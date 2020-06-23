@@ -62,18 +62,6 @@
 				"title": "Case"
 			},
 			{
-				"command": "agda-mode.infer-type[Simplified]",
-				"title": "Infer Type (simplified)"
-			},
-			{
-				"command": "agda-mode.infer-type[Instantiated]",
-				"title": "Infer Type (instantiated)"
-			},
-			{
-				"command": "agda-mode.infer-type[Normalised]",
-				"title": "Infer Type (normalised)"
-			},
-			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"title": "Goal type (simplified)"
 			},
@@ -84,6 +72,30 @@
 			{
 				"command": "agda-mode.goal-type[Normalised]",
 				"title": "Goal type (normalised)"
+			},
+			{
+				"command": "agda-mode.context[Simplified]",
+				"title": "Context (simplified)"
+			},
+			{
+				"command": "agda-mode.context[Instantiated]",
+				"title": "Context (instantiated)"
+			},
+			{
+				"command": "agda-mode.context[Normalised]",
+				"title": "Context (normalised)"
+			},
+			{
+				"command": "agda-mode.infer-type[Simplified]",
+				"title": "Infer Type (simplified)"
+			},
+			{
+				"command": "agda-mode.infer-type[Instantiated]",
+				"title": "Infer Type (instantiated)"
+			},
+			{
+				"command": "agda-mode.infer-type[Normalised]",
+				"title": "Infer Type (normalised)"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Simplified]",
@@ -207,24 +219,6 @@
 				"when": "agdaMode"
 			},
 			{
-				"command": "agda-mode.infer-type[Simplified]",
-				"key": "ctrl+c ctrl+d",
-				"mac": "ctrl+c ctrl+d",
-				"when": "agdaMode"
-			},
-			{
-				"command": "agda-mode.infer-type[Instantiated]",
-				"key": "ctrl+u ctrl+d",
-				"mac": "ctrl+u ctrl+d",
-				"when": "agdaMode"
-			},
-			{
-				"command": "agda-mode.infer-type[Normalised]",
-				"key": "ctrl+y ctrl+d",
-				"mac": "ctrl+y ctrl+d",
-				"when": "agdaMode"
-			},
-			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"key": "ctrl+c ctrl+t",
 				"mac": "ctrl+c ctrl+t",
@@ -243,6 +237,42 @@
 				"when": "agdaMode"
 			},
 			{
+				"command": "agda-mode.context[Simplified]",
+				"key": "ctrl+c ctrl+e",
+				"mac": "ctrl+c ctrl+e",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.context[Instantiated]",
+				"key": "ctrl+u ctrl+e",
+				"mac": "ctrl+u ctrl+e",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.context[Normalised]",
+				"key": "ctrl+y ctrl+e",
+				"mac": "ctrl+y ctrl+e",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.infer-type[Simplified]",
+				"key": "ctrl+c ctrl+d",
+				"mac": "ctrl+c ctrl+d",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.infer-type[Instantiated]",
+				"key": "ctrl+u ctrl+d",
+				"mac": "ctrl+u ctrl+d",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.infer-type[Normalised]",
+				"key": "ctrl+y ctrl+d",
+				"mac": "ctrl+y ctrl+d",
+				"when": "agdaMode"
+			},
+			{
 				"command": "agda-mode.goal-type-and-context[Simplified]",
 				"key": "ctrl+c ctrl+,",
 				"mac": "ctrl+c ctrl+,",
@@ -258,24 +288,6 @@
 				"command": "agda-mode.goal-type-and-context[Normalised]",
 				"key": "ctrl+y ctrl+,",
 				"mac": "ctrl+y ctrl+,",
-				"when": "agdaMode"
-			},
-			{
-				"command": "agda-mode.module-contents[Simplified]",
-				"key": "ctrl+c ctrl+o",
-				"mac": "ctrl+c ctrl+o",
-				"when": "agdaMode"
-			},
-			{
-				"command": "agda-mode.module-contents[Instantiated]",
-				"key": "ctrl+u ctrl+o",
-				"mac": "ctrl+u ctrl+o",
-				"when": "agdaMode"
-			},
-			{
-				"command": "agda-mode.module-contents[Normalised]",
-				"key": "ctrl+y ctrl+o",
-				"mac": "ctrl+y ctrl+o",
 				"when": "agdaMode"
 			},
 			{
@@ -312,6 +324,24 @@
 				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
 				"key": "ctrl+y ctrl+;",
 				"mac": "ctrl+y ctrl+;",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Simplified]",
+				"key": "ctrl+c ctrl+o",
+				"mac": "ctrl+c ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Instantiated]",
+				"key": "ctrl+u ctrl+o",
+				"mac": "ctrl+u ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Normalised]",
+				"key": "ctrl+y ctrl+o",
+				"mac": "ctrl+y ctrl+o",
 				"when": "agdaMode"
 			},
 			{

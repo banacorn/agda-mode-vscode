@@ -11,6 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Case(Goal.t)
     | InferType(Command.Normalization.t, string, Goal.t)
     | InferTypeGlobal(Command.Normalization.t, string)
+    | Context(Command.Normalization.t, Goal.t)
     | GoalType(Command.Normalization.t, Goal.t)
     | GoalTypeAndContext(Command.Normalization.t, Goal.t)
     | GoalTypeContextAndInferredType(Command.Normalization.t, string, Goal.t)
@@ -135,6 +136,12 @@ module Impl = (Editor: Sig.Editor) => {
 
       commonPart(None)
       ++ {j|( Cmd_infer_toplevel $(normalization) "$(content)" )|j};
+
+    | Context(normalization, goal) =>
+      let index = string_of_int(goal.index);
+      let normalization = Command.Normalization.encode(normalization);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_context $(normalization) $(index) noRange "" )|j};
 
     | GoalType(normalization, goal) =>
       let index = string_of_int(goal.index);

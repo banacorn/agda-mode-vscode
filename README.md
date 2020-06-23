@@ -63,7 +63,7 @@ Take *infer type* for example:
 | ✔      | case split                              | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
 |        | compute helper function type  and copy  | <kbd>C-y</kbd> <kbd>C-h</kbd>   |
 | ✔      | goal type 🎚                            | <kbd>C-c</kbd> <kbd>C-t</kbd>   |
-|        | context (environment) 🎚                | <kbd>C-c</kbd> <kbd>C-e</kbd>   |
+| ✔      | context (environment) 🎚                | <kbd>C-c</kbd> <kbd>C-e</kbd>   |
 | ✔      | infer type 🎚                           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
 | ✔      | goal type and context 🎚                | <kbd>C-c</kbd> <kbd>C-,</kbd>   |
 | ✔      | goal type, context and inferred term 🎚 | <kbd>C-c</kbd> <kbd>C-.</kbd>   |

@@ -82,6 +82,14 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ];
+    | Context(normalization) => [
+        Goal(
+          LocalOrGlobal(
+            goal => [SendRequest(Context(normalization, goal))],
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ]
     | GoalType(normalization) => [
         Goal(
           LocalOrGlobal(
