@@ -98,6 +98,18 @@
 				"title": "Goal type and context (normalised)"
 			},
 			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
+				"title": "Goal type, context and checked type (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
+				"title": "Goal type, context and checked type (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
+				"title": "Goal type, context and checked type (normalised)"
+			},
+			{
 				"command": "agda-mode.module-contents[Simplified]",
 				"title": "Module contents (simplified)"
 			},
@@ -252,6 +264,24 @@
 				"command": "agda-mode.module-contents[Normalised]",
 				"key": "ctrl+y ctrl+o",
 				"mac": "ctrl+y ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
+				"key": "ctrl+c ctrl+;",
+				"mac": "ctrl+c ctrl+;",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
+				"key": "ctrl+u ctrl+;",
+				"mac": "ctrl+u ctrl+;",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
+				"key": "ctrl+y ctrl+;",
+				"mac": "ctrl+y ctrl+;",
 				"when": "agdaMode"
 			},
 			{

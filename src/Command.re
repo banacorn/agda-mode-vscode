@@ -4,11 +4,19 @@ module Normalization = {
     | Instantiated
     | Normalised;
 
-  let toString =
+  // for Agda
+  let encode =
     fun
     | Simplified => "Simplified"
     | Instantiated => "Instantiated"
     | Normalised => "Normalised";
+
+  // for human
+  let toString =
+    fun
+    | Simplified => "(simplified)"
+    | Instantiated => "(instantiated)"
+    | Normalised => "(normalised)";
 };
 
 module ComputeMode = {
@@ -17,7 +25,8 @@ module ComputeMode = {
     | IgnoreAbstract
     | UseShowInstance;
 
-  let toString =
+  // for Agda
+  let encode =
     fun
     | DefaultCompute => "DefaultCompute"
     | IgnoreAbstract => "IgnoreAbstract"
@@ -68,6 +77,7 @@ type t =
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
   | EventFromView(View.EventFromView.t)
+  | GoalTypeContextAndCheckedType(Normalization.t)
   | ModuleContents(Normalization.t)
   | ComputeNormalForm(ComputeMode.t)
   | WhyInScope
@@ -93,6 +103,18 @@ let names: array((t, string)) = [|
   (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
+  (
+    GoalTypeContextAndCheckedType(Simplified),
+    "goal-type-context-and-checked-type[Simplified]",
+  ),
+  (
+    GoalTypeContextAndCheckedType(Instantiated),
+    "goal-type-context-and-checked-type[Instantiated]",
+  ),
+  (
+    GoalTypeContextAndCheckedType(Normalised),
+    "goal-type-context-and-checked-type[Normalised]",
+  ),
   (ModuleContents(Simplified), "module-contents[Simplified]"),
   (ModuleContents(Instantiated), "module-contents[Instantiated]"),
   (ModuleContents(Normalised), "module-contents[Normalised]"),
@@ -123,13 +145,16 @@ let toString =
   | Auto => "Auto"
   | Case => "Case"
   | InferType(normalization) =>
-    "Infer type (" ++ Normalization.toString(normalization) ++ ")"
+    "Infer type " ++ Normalization.toString(normalization)
   | GoalType(normalization) =>
-    "Goal type (" ++ Normalization.toString(normalization) ++ ")"
+    "Goal type " ++ Normalization.toString(normalization)
   | GoalTypeAndContext(normalization) =>
-    "Goal type and context (" ++ Normalization.toString(normalization) ++ ")"
+    "Goal type and context " ++ Normalization.toString(normalization)
+  | GoalTypeContextAndCheckedType(normalization) =>
+    "Goal type, context and checked type "
+    ++ Normalization.toString(normalization)
   | ModuleContents(normalization) =>
-    "Module contents (" ++ Normalization.toString(normalization) ++ ")"
+    "Module contents " ++ Normalization.toString(normalization)
   | ComputeNormalForm(DefaultCompute) => "Compute normal form (DefaultCompute)"
   | ComputeNormalForm(IgnoreAbstract) => "Compute normal form (IgnoreAbstract)"
   | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"

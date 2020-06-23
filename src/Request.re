@@ -13,6 +13,7 @@ module Impl = (Editor: Sig.Editor) => {
     | InferTypeGlobal(Command.Normalization.t, string)
     | GoalType(Command.Normalization.t, Goal.t)
     | GoalTypeAndContext(Command.Normalization.t, Goal.t)
+    | GoalTypeContextAndCheckedType(Command.Normalization.t, string, Goal.t)
     | ModuleContents(Command.Normalization.t, string, Goal.t)
     | ModuleContentsGlobal(Command.Normalization.t, string)
     | ComputeNormalForm(Command.ComputeMode.t, string, Goal.t)
@@ -122,13 +123,13 @@ module Impl = (Editor: Sig.Editor) => {
 
     | InferType(normalization, expr, goal) =>
       let index = string_of_int(goal.index);
-      let normalization = Command.Normalization.toString(normalization);
+      let normalization = Command.Normalization.encode(normalization);
       let content = Parser.userInput(expr);
       commonPart(NonInteractive)
       ++ {j|( Cmd_infer $(normalization) $(index) noRange "$(content)" )|j};
 
     | InferTypeGlobal(normalization, expr) =>
-      let normalization = Command.Normalization.toString(normalization);
+      let normalization = Command.Normalization.encode(normalization);
       let content = Parser.userInput(expr);
 
       commonPart(None)
@@ -136,29 +137,33 @@ module Impl = (Editor: Sig.Editor) => {
 
     | GoalType(normalization, goal) =>
       let index = string_of_int(goal.index);
-      let normalization = Command.Normalization.toString(normalization);
+      let normalization = Command.Normalization.encode(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type $(normalization) $(index) noRange "" )|j};
 
     | GoalTypeAndContext(normalization, goal) =>
       let index: string = string_of_int(goal.index);
-      let normalization: string =
-        Command.Normalization.toString(normalization);
+      let normalization: string = Command.Normalization.encode(normalization);
       commonPart(NonInteractive)
       ++ {j|( Cmd_goal_type_context $(normalization) $(index) noRange "" )|j};
 
+    | GoalTypeContextAndCheckedType(normalization, expr, goal) =>
+      let index: string = string_of_int(goal.index);
+      let normalization: string = Command.Normalization.encode(normalization);
+      let content = Parser.userInput(expr);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_goal_type_context_check $(normalization) $(index) noRange "$(content)" )|j};
+
     | ModuleContents(normalization, expr, goal) =>
       let index: string = string_of_int(goal.index);
-      let normalization: string =
-        Command.Normalization.toString(normalization);
+      let normalization: string = Command.Normalization.encode(normalization);
       let content = Parser.userInput(expr);
 
       commonPart(NonInteractive)
       ++ {j|( Cmd_show_module_contents $(normalization) $(index) noRange "$(content)" )|j};
 
     | ModuleContentsGlobal(normalization, expr) =>
-      let normalization: string =
-        Command.Normalization.toString(normalization);
+      let normalization: string = Command.Normalization.encode(normalization);
       let content = Parser.userInput(expr);
 
       commonPart(None)
@@ -168,7 +173,7 @@ module Impl = (Editor: Sig.Editor) => {
       let index: string = string_of_int(goal.index);
       let ignoreAbstract: string =
         string_of_bool(Command.ComputeMode.ignoreAbstract(computeMode));
-      let computeMode: string = Command.ComputeMode.toString(computeMode);
+      let computeMode: string = Command.ComputeMode.encode(computeMode);
       let content: string = Parser.userInput(expr);
 
       if (Util.Version.gte(version, "2.5.2")) {
@@ -182,7 +187,7 @@ module Impl = (Editor: Sig.Editor) => {
     | ComputeNormalFormGlobal(computeMode, expr) =>
       let ignoreAbstract: string =
         string_of_bool(Command.ComputeMode.ignoreAbstract(computeMode));
-      let computeMode: string = Command.ComputeMode.toString(computeMode);
+      let computeMode: string = Command.ComputeMode.encode(computeMode);
       let content = Parser.userInput(expr);
 
       if (Util.Version.gte(version, "2.5.2")) {

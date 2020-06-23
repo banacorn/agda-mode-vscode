@@ -68,7 +68,7 @@ Take *infer type* for example:
 | ✔      | goal type and context 🎚                | <kbd>C-c</kbd> <kbd>C-,</kbd>   |
 |        | goal type, context and inferred term 🎚 | <kbd>C-c</kbd> <kbd>C-.</kbd>   |
 |        | goal type, context and checked term  🎚 | <kbd>C-c</kbd> <kbd>C-;</kbd>   |
-|        | module contents 🎚                      | <kbd>C-c</kbd> <kbd>C-o</kbd>   |
+| ✔      | module contents 🎚                      | <kbd>C-c</kbd> <kbd>C-o</kbd>   |
 | ✔      | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |

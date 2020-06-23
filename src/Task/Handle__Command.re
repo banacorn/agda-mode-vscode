@@ -6,7 +6,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   open! Task;
   // from Editor Command to Tasks
-  let handle = command =>
+  let handle = command => {
+    let header = Command.toString(command);
     switch (command) {
     | Load => [
         Task.WithStateP(
@@ -23,11 +24,7 @@ module Impl = (Editor: Sig.Editor) => {
           LocalOrGlobal2(
             (goal, _) => [SendRequest(Give(goal))],
             goal =>
-              query(
-                Command.toString(Command.Give),
-                Some("expression to give:"),
-                None,
-                expr =>
+              query(header, Some("expression to give:"), None, expr =>
                 [Goal(Modify(goal, _ => expr)), SendRequest(Give(goal))]
               ),
             [Error(OutOfGoal)],
@@ -51,7 +48,6 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Case =>
-      let header = Command.toString(Command.Case);
       let placeholder = Some("expression to case:");
       [
         Goal(
@@ -70,7 +66,6 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ];
     | InferType(normalization) =>
-      let header = Command.toString(Command.InferType(normalization));
       let placeholder = Some("expression to infer:");
       [
         Goal(
@@ -103,8 +98,30 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | GoalTypeContextAndCheckedType(normalization) =>
+      let placeholder = Some("expression to type:");
+      [
+        Goal(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [
+                SendRequest(
+                  GoalTypeContextAndCheckedType(normalization, expr, goal),
+                ),
+              ],
+            goal =>
+              query(header, placeholder, None, expr =>
+                [
+                  SendRequest(
+                    GoalTypeContextAndCheckedType(normalization, expr, goal),
+                  ),
+                ]
+              ),
+            [Error(OutOfGoal)],
+          ),
+        ),
+      ];
     | ModuleContents(normalization) =>
-      let header = "Module contents";
       let placeholder = Some("module name:");
       [
         Goal(
@@ -122,7 +139,6 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ];
     | ComputeNormalForm(computeMode) =>
-      let header = "Evaluate term to normal form";
       let placeholder = Some("expression to normalize:");
       [
         Goal(
@@ -140,7 +156,6 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ];
     | WhyInScope =>
-      let header = "Scope info";
       let placeholder = Some("name:");
       [
         Goal(
@@ -174,4 +189,5 @@ module Impl = (Editor: Sig.Editor) => {
     | Escape => [SendEventToView(InterruptQuery)]
     | InputMethod(action) => InputMethodHandler.handle(action)
     };
+  };
 };
