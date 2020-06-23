@@ -227,7 +227,9 @@ type t =
   // agda2-highlight-clear
   | ClearHighlighting
   // agda2-abort-done
-  | DoneAborting;
+  | DoneAborting
+  // agda2-exit-done
+  | DoneExiting;
 
 let toString =
   fun
@@ -270,7 +272,8 @@ let toString =
   | RunningInfo(int, string) =>
     "RunningInfo " ++ string_of_int(int) ++ " " ++ string
   | ClearHighlighting => "ClearHighlighting"
-  | DoneAborting => "DoneAborting";
+  | DoneAborting => "DoneAborting"
+  | DoneExiting => "DoneExiting";
 
 // TODO: execute responses with priority
 let parseWithPriority =
@@ -399,6 +402,7 @@ let parseWithPriority =
       }
     | Some(A("agda2-highlight-clear")) => Ok(ClearHighlighting)
     | Some(A("agda2-abort-done")) => Ok(DoneAborting)
+    | Some(A("agda2-exit-done")) => Ok(DoneExiting)
     | _ => err(14)
     }
   };
