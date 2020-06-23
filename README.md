@@ -5,30 +5,63 @@ This repo is now under heavy development.
 ## TODO 
 
 - [x] Unicode symbol input method
+- [ ] Complete the commands
 - [ ] Atomic task scheduler (abort/undo/redo)
 - [ ] Goals/Warnings/Errors display overhaul
 - [ ] Dynamic syntax highlighting 
 - [ ] Settings and whatnot
 
-## Implemented Commands
+## Commands
 
-A to-do checklist in disguise.
+Commands working with types (marked with the 🎚 emoji below) can have different levels of normalization. However, due to some [technical limitations](https://github.com/microsoft/vscode/issues/6966), we cannot prefix commands with `C-u` or ` C-u C-u` like in Emacs. Instead, we replace the `C-u C-c` prefix with `C-u` and the `C-u C-u C-c` prefix with `C-y`.
 
-| Status | Command                             | Keymap                          |
-|:------:|:------------------------------------|:-------------------------------:|
-| ✓      | load                                | <kbd>C-c</kbd> <kbd>C-l</kbd>   |
-| ✓      | quit                                | <kbd>C-c</kbd> <kbd>C-q</kbd>   |
-| ✓      | give                                | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
-| ✓      | refine                              | <kbd>C-c</kbd> <kbd>C-r</kbd>   |
-| ✓      | auto                                | <kbd>C-y</kbd> <kbd>C-a</kbd>   |
-| ✓      | case                                | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
-| ✓      | infer type (simplified)             | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
-| ✓      | infer type (instantiaed)            | <kbd>C-u</kbd> <kbd>C-d</kbd>   |
-| ✓      | infer type (normalized)             | <kbd>C-y</kbd> <kbd>C-d</kbd>   |
-| ✓      | goal type (simplified)              | <kbd>C-c</kbd> <kbd>C-t</kbd>   |
-| ✓      | goal type (instantiaed)             | <kbd>C-u</kbd> <kbd>C-t</kbd>   |
-| ✓      | goal type (normalized)              | <kbd>C-y</kbd> <kbd>C-t</kbd>   |
-| ✓      | goal type and context (simplified)  | <kbd>C-c</kbd> <kbd>C-,</kbd>   |
-| ✓      | goal type and context (instantiaed) | <kbd>C-u</kbd> <kbd>C-,</kbd>   |
-| ✓      | goal type and context (normalized)  | <kbd>C-y</kbd> <kbd>C-,</kbd>   |
-| ✓      | why in scope                        | <kbd>C-c</kbd> <kbd>C-w</kbd>   |
+Take *infer type* for example:
+
+| Level of normalization                            | Keymap in VS Code               | Keymap in Emacs |
+|:--------------------------------------------------|:-------------------------------:|:-------------------------------:|
+| "simplified"   (default)                          | <kbd>C-c</kbd> <kbd>C-d</kbd>   | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
+| "instantiated" (without further normalisation)    | <kbd>C-u</kbd> <kbd>C-d</kbd>   | <kbd>C-u</kbd> <kbd>C-c</kbd> <kbd>C-d</kbd>   |
+| "normalized"   (fully normalized)                 | <kbd>C-y</kbd> <kbd>C-d</kbd>   | <kbd>C-u</kbd> <kbd>C-u</kbd> <kbd>C-c</kbd>  <kbd>C-d</kbd>   |
+
+### Global commands
+
+| Status | Command                                 | Keymap                          |
+|:------:|:----------------------------------------|:-------------------------------:|
+| ✔      | load                                    | <kbd>C-c</kbd> <kbd>C-l</kbd>   |
+|        | compile                                 | <kbd>C-x</kbd> <kbd>C-c</kbd>   |
+| ✔      | quit                                    | <kbd>C-c</kbd> <kbd>C-q</kbd>   |
+|        | quit and restart                        | <kbd>C-x</kbd> <kbd>C-r</kbd>   |
+|        | abort a command                         | <kbd>C-x</kbd> <kbd>C-a</kbd>   |
+|        | remove goals and highlighting           | <kbd>C-x</kbd> <kbd>C-d</kbd>   |
+|        | toggle display of hidden arguments      | <kbd>C-x</kbd> <kbd>C-h</kbd>   |
+|        | show constraints                        | <kbd>C-c</kbd> <kbd>C-=</kbd>   |
+|        | solve constraints 🎚                    | <kbd>C-c</kbd> <kbd>C-s</kbd>   |
+|        | show all goals                          | <kbd>C-c</kbd> <kbd>C-?</kbd>   |
+| ✔      | move to next goal (forward)             | <kbd>C-c</kbd> <kbd>C-f</kbd>   |
+| ✔      | move to previous goal (backwards)       | <kbd>C-c</kbd> <kbd>C-b</kbd>   |
+| ✔      | infer type 🎚                           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
+|        | module contents 🎚                      | <kbd>C-c</kbd> <kbd>C-o</kbd>   |
+|        | search Definitions in scope 🎚          | <kbd>C-c</kbd> <kbd>C-z</kbd>   |
+| ✔      | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
+| ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
+| ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |
+| ✘      | comment/uncomment rest of buffer        |                                 |
+| ✘      | switch to a different Agda version      |                                 |
+
+### Commands in context of a goal
+
+| Status | Command                                 | Keymap                          |
+|:------:|:----------------------------------------|:-------------------------------:|
+| ✔      | quit                                    | <kbd>C-c</kbd> <kbd>C-q</kbd>   |
+| ✔      | give                                    | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
+| ✔      | refine                                  | <kbd>C-c</kbd> <kbd>C-r</kbd>   |
+| ✔      | auto                                    | <kbd>C-y</kbd> <kbd>C-a</kbd>   |
+| ✔      | case                                    | <kbd>C-y</kbd> <kbd>C-c</kbd>   |
+| ✔      | goal type 🎚                            | <kbd>C-c</kbd> <kbd>C-t</kbd>   |
+| ✔      | goal type and context 🎚                | <kbd>C-c</kbd> <kbd>C-,</kbd>   |
+|        | goal type, context and inferred term 🎚 | <kbd>C-c</kbd> <kbd>C-.</kbd>   |
+|        | goal type, context and checked term  🎚 | <kbd>C-c</kbd> <kbd>C-;</kbd>   |
+| ✔      | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
+| ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
+| ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |
+| ✔      | why in scope                            | <kbd>C-c</kbd> <kbd>C-w</kbd>   |
