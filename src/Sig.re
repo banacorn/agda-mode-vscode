@@ -88,8 +88,11 @@ module type Editor = {
     type t;
     type backgroundStyle = string;
     type foregroundStyle = string;
+    type color = string;
     let highlightBackground: (editor, backgroundStyle, Range.t) => array(t);
+    let highlightBackgroundWithColor: (editor, color, Range.t) => array(t);
     let overlayText: (editor, foregroundStyle, string, Range.t) => array(t);
+    let overlayTextWithColor: (editor, color, string, Range.t) => array(t);
     let underlineText: (editor, Range.t) => array(t);
     let destroy: t => unit;
   };

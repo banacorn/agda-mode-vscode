@@ -160,13 +160,14 @@ module Decoration = {
   type t = TextEditorDecorationType.t;
   type backgroundStyle = string;
   type foregroundStyle = string;
-  // | Error => ThemeColor.make("inputValidation.errorBackground")
-  // | Highlight => ThemeColor.make("editor.symbolHighlightBackground")
-  // | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
-  // "editor.selectionHighlightBackground";
-  let highlightBackground =
-      (editor: editor, style: backgroundStyle, range: VSCode.Range.t) => {
-    let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
+  type color = string;
+  //
+  let highlightBackgroundPrim =
+      (
+        editor: editor,
+        backgroundColor: ThemeColor.stringOrThemeColor,
+        range: VSCode.Range.t,
+      ) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options =
@@ -175,17 +176,29 @@ module Decoration = {
     editor->TextEditor.setDecorations(handle, [|range|]);
     [|handle|];
   };
-  let overlayText =
+  let highlightBackground =
+      (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
+    highlightBackgroundPrim(
+      editor,
+      ThemeColor.themeColor(ThemeColor.make(style)),
+      range,
+    );
+
+  let highlightBackgroundWithColor =
+      (editor: editor, color: color, range: VSCode.Range.t) =>
+    highlightBackgroundPrim(editor, ThemeColor.string(color), range);
+
+  let overlayTextPrim =
       (
         editor: editor,
-        style: foregroundStyle,
+        color: ThemeColor.stringOrThemeColor,
         text: string,
         range: VSCode.Range.t,
       ) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
         ~contentText=text,
-        ~color=ThemeColor.themeColor(ThemeColor.make(style)),
+        ~color,
         (),
       );
 
@@ -194,6 +207,24 @@ module Decoration = {
     editor->TextEditor.setDecorations(handle, [|range|]);
     [|handle|];
   };
+
+  let overlayText =
+      (
+        editor: editor,
+        style: foregroundStyle,
+        text: string,
+        range: VSCode.Range.t,
+      ) =>
+    overlayTextPrim(
+      editor,
+      ThemeColor.themeColor(ThemeColor.make(style)),
+      text,
+      range,
+    );
+
+  let overlayTextWithColor =
+      (editor: editor, color: color, text: string, range: VSCode.Range.t) =>
+    overlayTextPrim(editor, ThemeColor.string(color), text, range);
 
   let underlineText = (editor: editor, range: VSCode.Range.t) => {
     let rangeBehavior =

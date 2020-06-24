@@ -155,7 +155,9 @@ module Impl = (Editor: Sig.Editor) => {
         }
       | AddHighlightings(annotations) =>
         annotations
-        ->Array.keep(Response.Highlighting.shouldHighlight)
+        ->Array.keep(annotation =>
+            annotation.aspects->Array.some(Response.Aspect.shouldHighlight)
+          )
         ->Array.forEach(annotation =>
             Js.log(Response.Highlighting.toString(annotation))
           );

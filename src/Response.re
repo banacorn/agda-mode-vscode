@@ -176,6 +176,15 @@ module Aspect = {
 
     | "operator" => Operator
     | _ => Operator;
+
+  // the type of annotations that we want to highlight (in the moment)
+  let shouldHighlight: t => bool =
+    fun
+    | UnsolvedMeta
+    | UnsolvedConstraint
+    | TerminationProblem
+    | CoverageProblem => true
+    | _ => false;
 };
 
 module Highlighting = {
@@ -184,7 +193,7 @@ module Highlighting = {
   type t = {
     start: int,
     end_: int,
-    types: array(string), // a list of names of aspects
+    aspects: array(Aspect.t), // a list of names of aspects
     source: option((filepath, int)) // The defining module and the position in that module
   };
   let toString = self =>
@@ -193,7 +202,7 @@ module Highlighting = {
     ++ " "
     ++ string_of_int(self.end_)
     ++ " "
-    ++ Util.Pretty.list(List.fromArray(self.types))
+    ++ Util.Pretty.list(List.fromArray(self.aspects))
     ++ (
       switch (self.source) {
       | None => ""
@@ -208,7 +217,7 @@ module Highlighting = {
       | [|
           A(start'),
           A(end_'),
-          types,
+          aspects,
           _,
           _,
           L([|A(filepath), _, A(index')|]),
@@ -222,27 +231,37 @@ module Highlighting = {
                     {
                       start,
                       end_,
-                      types: flatten(types),
+                      aspects: flatten(aspects)->Array.map(Aspect.parse),
                       source: Some((filepath, index)),
                     }
                   )
               )
           )
 
-      | [|A(start'), A(end_'), types|] =>
+      | [|A(start'), A(end_'), aspects|] =>
         Parser.int(start')
         ->Option.flatMap(start =>
             Parser.int(end_')
             ->Option.map(end_ =>
-                {start, end_, types: flatten(types), source: None}
+                {
+                  start,
+                  end_,
+                  aspects: flatten(aspects)->Array.map(Aspect.parse),
+                  source: None,
+                }
               )
           )
-      | [|A(start'), A(end_'), types, _|] =>
+      | [|A(start'), A(end_'), aspects, _|] =>
         Parser.int(start')
         ->Option.flatMap(start =>
             Parser.int(end_')
             ->Option.map(end_ =>
-                {start, end_, types: flatten(types), source: None}
+                {
+                  start,
+                  end_,
+                  aspects: flatten(aspects)->Array.map(Aspect.parse),
+                  source: None,
+                }
               )
           )
       | _ => None
@@ -261,19 +280,6 @@ module Highlighting = {
       ->Js.Array.sliceFrom(1, _)
       ->Array.map(parse)
       ->Array.keepMap(x => x);
-
-  // the type of annotations that we want to highlight
-  let shouldHighlight: t => bool =
-    annotation => {
-      annotation.types
-      |> Js.Array.includes("unsolvedmeta")
-      || annotation.types
-      |> Js.Array.includes("unsolvedconstraint")
-      || annotation.types
-      |> Js.Array.includes("terminationproblem")
-      || annotation.types
-      |> Js.Array.includes("coverageproblem");
-    };
 };
 
 // Here's the corresponding datatype in Haskell:
