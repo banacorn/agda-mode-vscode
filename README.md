@@ -8,7 +8,7 @@ This repo is now under heavy development.
 - [ ] Complete the commands
 - [ ] Atomic task scheduler (abort/undo/redo)
 - [ ] Goals/Warnings/Errors display overhaul
-- [ ] Dynamic syntax highlighting 
+- [x] Dynamic syntax highlighting 
 - [ ] Settings and whatnot
 
 ## Commands
