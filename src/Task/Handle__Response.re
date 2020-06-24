@@ -183,6 +183,39 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | SolveAll(solutions) => [
+        WithStateP(
+          state => {
+            let solveOne = ((index, solution)) => {
+              let goals = state.goals->Array.keep(goal => goal.index == index);
+              switch (goals[0]) {
+              | None => []
+              | Some(goal) => [
+                  Goal(Modify(goal, _ => solution)),
+                  Goal(SetCursor(fst(goal.range))),
+                  DispatchCommand(Give),
+                ]
+              };
+            };
+
+            // solve them one by one
+            let tasks = solutions->Array.map(solveOne)->List.concatMany;
+            let size = Array.length(solutions);
+            let after =
+              if (size == 0) {
+                [displayError("No solutions found", None)];
+              } else {
+                [
+                  displaySuccess(
+                    string_of_int(size) ++ " goals solved",
+                    None,
+                  ),
+                ];
+              };
+            Promise.resolved(List.concat(tasks, after));
+          },
+        ),
+      ]
     | DisplayInfo(info) => DisplayInfo.handle(info)
     | RunningInfo(_verbosity, message) => [
         display("Type-checking", Some(message)),
