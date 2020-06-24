@@ -67,17 +67,13 @@ module Impl = (Editor: Sig.Editor) => {
                         | Ok(_) => None,
                       );
 
-                    let annotations: array(Response.Highlighting.t) =
+                    let annotations: array(Highlighting.t) =
                       expressions
                       ->Array.keepMap(
                           fun
                           | Error(_) => None // filter errors out
                           | Ok(L(xs)) =>
-                            Some(
-                              Response.Highlighting.parseIndirectHighlightings(
-                                xs,
-                              ),
-                            )
+                            Some(Highlighting.parseIndirectHighlightings(xs))
                           | Ok(_) => Some([||]),
                         )
                       ->Array.concatMany;

@@ -35,11 +35,11 @@ module Impl = (Editor: Sig.Editor) => {
       (
         editor: Editor.editor,
         range: Editor.Range.t,
-        aspect: Response.Aspect.t,
+        aspect: Highlighting.Aspect.t,
       ) => {};
 
   let decorateHighlighting =
-      (editor: Editor.editor, highlighting: Response.Highlighting.t) => {
+      (editor: Editor.editor, highlighting: Highlighting.t) => {
     let backgroundRange =
       Editor.Range.make(
         Editor.pointAtOffset(editor, highlighting.start),
