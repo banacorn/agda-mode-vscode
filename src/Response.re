@@ -102,7 +102,6 @@ type t =
   // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
   // agda2-status-action
-  | NoStatus
   | Status(
       bool, // Are implicit arguments displayed?
       // Has the module been successfully type checked?
@@ -140,7 +139,6 @@ let toString =
     ++ annotations->Array.map(Highlighting.toString)->Util.Pretty.array
   | HighlightingInfoIndirect(filepath) =>
     "HighlightingInfoIndirect " ++ filepath
-  | NoStatus => "NoStatus"
   | Status(displayed, checked) =>
     "Status: implicit arguments "
     ++ (displayed ? "displayed, " : "not displayed, ")
@@ -204,7 +202,7 @@ let parseWithPriority =
             pulp |> Js.Array.includes("Checked"),
           ),
         );
-      | _ => Ok(NoStatus)
+      | _ => Ok(Status(false, false))
       }
     | Some(A("agda2-maybe-goto")) =>
       switch (xs[1]) {

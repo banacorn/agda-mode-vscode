@@ -170,7 +170,7 @@ module Impl = (Editor: Sig.Editor) => {
     | RunningInfo(_verbosity, message) => [
         display("Type-checking", Some(message)),
       ]
-    | _ => []
+    // | _ => []
     // | others => [Debug(Response.toString(others))];
     };
   };
