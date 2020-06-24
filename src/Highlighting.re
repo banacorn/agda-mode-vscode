@@ -184,8 +184,8 @@ let parse: Token.t => option(t) =
               Parser.int(index')
               ->Option.map(index =>
                   {
-                    start,
-                    end_,
+                    start: start - 1,
+                    end_: end_ - 1,
                     aspects: flatten(aspects)->Array.map(Aspect.parse),
                     source: Some((filepath, index)),
                   }
@@ -199,8 +199,8 @@ let parse: Token.t => option(t) =
           Parser.int(end_')
           ->Option.map(end_ =>
               {
-                start,
-                end_,
+                start: start - 1,
+                end_: end_ - 1,
                 aspects: flatten(aspects)->Array.map(Aspect.parse),
                 source: None,
               }
@@ -212,8 +212,8 @@ let parse: Token.t => option(t) =
           Parser.int(end_')
           ->Option.map(end_ =>
               {
-                start,
-                end_,
+                start: start - 1,
+                end_: end_ - 1,
                 aspects: flatten(aspects)->Array.map(Aspect.parse),
                 source: None,
               }

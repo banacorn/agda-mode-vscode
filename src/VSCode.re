@@ -1168,9 +1168,40 @@ module TextDocumentShowOptions = {
   };
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#ColorThemeKind;
+module ColorThemeKind = {
+  type raw = int;
+  type t =
+    | Light
+    | Dark
+    | HighContrast;
+
+  let toEnum =
+    fun
+    | Light => 1
+    | Dark => 2
+    | HighContrast => 3;
+  let fromEnum =
+    fun
+    | 1 => Light
+    | 2 => Dark
+    | _ => HighContrast;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#ColorTheme;
+module ColorTheme = {
+  type t;
+  // properties
+  [@bs.get] external kind_raw: t => int = "kind";
+  let kind: t => ColorThemeKind.t =
+    self => ColorThemeKind.fromEnum(self->kind_raw);
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#window
 module Window = {
   // variables
+  [@bs.module "vscode"] [@bs.scope "window"]
+  external activeColorTheme: ColorTheme.t = "activeColorTheme";
   [@bs.module "vscode"] [@bs.scope "window"]
   external activeTerminal: option(Terminal.t) = "activeTerminal";
   [@bs.module "vscode"] [@bs.scope "window"]

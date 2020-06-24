@@ -188,6 +188,31 @@ module Decoration = {
       (editor: editor, color: color, range: VSCode.Range.t) =>
     highlightBackgroundPrim(editor, ThemeColor.string(color), range);
 
+  let decorateTextPrim =
+      (
+        editor: editor,
+        color: ThemeColor.stringOrThemeColor,
+        range: VSCode.Range.t,
+      ) => {
+    let rangeBehavior =
+      DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
+    let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ());
+    let handle = Window.createTextEditorDecorationType(options);
+    editor->TextEditor.setDecorations(handle, [|range|]);
+    [|handle|];
+  };
+  let decorateText =
+      (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
+    highlightBackgroundPrim(
+      editor,
+      ThemeColor.themeColor(ThemeColor.make(style)),
+      range,
+    );
+
+  let decorateTextWithColor =
+      (editor: editor, color: color, range: VSCode.Range.t) =>
+    highlightBackgroundPrim(editor, ThemeColor.string(color), range);
+
   let overlayTextPrim =
       (
         editor: editor,
@@ -339,3 +364,6 @@ let onChange = callback => {
 };
 
 let copyToClipboard = text => Env.clipboard->Clipboard.writeText(text);
+
+let colorThemeIsDark = () =>
+  Window.activeColorTheme->ColorTheme.kind == ColorThemeKind.Dark;

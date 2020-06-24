@@ -91,6 +91,9 @@ module type Editor = {
     type color = string;
     let highlightBackground: (editor, backgroundStyle, Range.t) => array(t);
     let highlightBackgroundWithColor: (editor, color, Range.t) => array(t);
+    let decorateText: (editor, foregroundStyle, Range.t) => array(t);
+    let decorateTextWithColor: (editor, color, Range.t) => array(t);
+    // for hole indices
     let overlayText: (editor, foregroundStyle, string, Range.t) => array(t);
     let overlayTextWithColor: (editor, color, string, Range.t) => array(t);
     let underlineText: (editor, Range.t) => array(t);
@@ -125,4 +128,5 @@ module type Editor = {
   let onChange: (array(changeEvent) => unit) => Disposable.t;
 
   let copyToClipboard: string => Promise.t(unit);
+  let colorThemeIsDark: unit => bool;
 };
