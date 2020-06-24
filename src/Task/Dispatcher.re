@@ -154,14 +154,9 @@ module Impl = (Editor: Sig.Editor) => {
             });
         }
       | AddHighlightings(annotations) =>
-        annotations
-        ->Array.keep(annotation =>
-            annotation.aspects
-            ->Array.some(Highlighting.Aspect.shouldHighlight)
-          )
-        ->Array.forEach(annotation =>
-            Js.log(Highlighting.toString(annotation))
-          );
+        annotations->Array.forEach(annotation =>
+          Js.log(Highlighting.toString(annotation))
+        );
         Promise.resolved(true);
       | WithState(callback) =>
         callback(state);
