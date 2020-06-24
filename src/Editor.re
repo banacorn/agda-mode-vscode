@@ -203,7 +203,7 @@ module Decoration = {
   };
   let decorateText =
       (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
-    highlightBackgroundPrim(
+    decorateTextPrim(
       editor,
       ThemeColor.themeColor(ThemeColor.make(style)),
       range,
@@ -211,7 +211,7 @@ module Decoration = {
 
   let decorateTextWithColor =
       (editor: editor, color: color, range: VSCode.Range.t) =>
-    highlightBackgroundPrim(editor, ThemeColor.string(color), range);
+    decorateTextPrim(editor, ThemeColor.string(color), range);
 
   let overlayTextPrim =
       (

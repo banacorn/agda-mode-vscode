@@ -14,9 +14,10 @@ module Impl = (Editor: Sig.Editor) => {
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
         Goal(SaveCursor),
+        RemoveAllHighlightings,
         SendRequest(Load),
       ]
-    | Quit => [Terminate]
+    | Quit => [RemoveAllHighlightings, Terminate]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
     | Give => [

@@ -161,6 +161,10 @@ module Impl = (Editor: Sig.Editor) => {
           state.decorations = Array.concat(state.decorations, decorations);
         });
         Promise.resolved(true);
+      | RemoveAllHighlightings =>
+        state.decorations->Array.forEach(Editor.Decoration.destroy);
+        state.decorations = [||];
+        Promise.resolved(true);
       | WithState(callback) =>
         callback(state);
         Promise.resolved(true);

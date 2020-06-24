@@ -65,10 +65,6 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.pointAtOffset(editor, highlighting.end_),
       );
 
-    if (Js.Array.includes(Highlighting.Aspect.Datatype, highlighting.aspects)) {
-      Js.log(Highlighting.Aspect.toStyle(Highlighting.Aspect.Datatype));
-      Js.log(range);
-    };
     highlighting.aspects
     ->Array.map(decorateAspect(editor, range))
     ->Array.concatMany;
