@@ -23,10 +23,21 @@ let make = (~body: View.Body.t, ~onSubmit: option(string) => unit) => {
           onChange
           value
           ref={ReactDOMRe.Ref.callbackDomRef(ref => {
-            ref
-            ->Js.Nullable.toOption
-            ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
-            ->Option.forEach(Webapi.Dom.HtmlElement.focus)
+            // HACK
+            // somehow focus() won't work on some machines (?)
+            // delay focus() 100ms to regain focus
+            Js.Global.setTimeout(
+              () => {
+                ref
+                ->Js.Nullable.toOption
+                ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
+                ->Option.forEach(Webapi.Dom.HtmlElement.focus);
+                ();
+              },
+              100,
+            )
+            ->ignore;
+            ();
           })}
         />
       </form>
