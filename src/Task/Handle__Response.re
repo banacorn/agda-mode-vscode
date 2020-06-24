@@ -102,6 +102,23 @@ module Impl = (Editor: Sig.Editor) => {
       } else {
         [];
       }
+    | JumpToError(filepath, offset) => [
+        WithStateP(
+          state => {
+            // only jump to site of error
+            // when it's on the same file
+            switch (Editor.getFileName(state.editor)) {
+            | None => Promise.resolved([])
+            | Some(path) =>
+              if (path == filepath) {
+                Promise.resolved([Goal(SetCursor(offset - 1))]);
+              } else {
+                Promise.resolved([]);
+              }
+            }
+          },
+        ),
+      ]
     | InteractionPoints(indices) => [
         Goal(Instantiate(indices)),
         Goal(RestoreCursor),
@@ -170,7 +187,7 @@ module Impl = (Editor: Sig.Editor) => {
     | RunningInfo(_verbosity, message) => [
         display("Type-checking", Some(message)),
       ]
-    // | _ => []
+    | _ => []
     // | others => [Debug(Response.toString(others))];
     };
   };

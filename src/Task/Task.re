@@ -11,6 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Modify(Goal.t, string => string)
     | SaveCursor
     | RestoreCursor
+    | SetCursor(int)
     | RemoveBoundaryAndDestroy(Goal.t)
     | ReplaceWithLines(Goal.t, array(string))
     | ReplaceWithLambda(Goal.t, array(string))
@@ -58,6 +59,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(Modify(_, _)) => "Goal[Modify]"
     | Goal(SaveCursor) => "Goal[SaveCursor]"
     | Goal(RestoreCursor) => "Goal[RestoreCursor]"
+    | Goal(SetCursor(_)) => "Goal[SetCursor]"
     | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
     | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
     | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"

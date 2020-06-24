@@ -218,6 +218,14 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
+    | SetCursor(offset) => [
+        WithState(
+          state => {
+            let point = Editor.pointAtOffset(state.editor, offset);
+            Editor.setCursorPosition(state.editor, point);
+          },
+        ),
+      ]
     | RemoveBoundaryAndDestroy(goal) => [
         Goal(UpdateRange),
         WithStateP(
