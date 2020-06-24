@@ -91,104 +91,189 @@ module DisplayInfo = {
   };
 };
 
+// https://github.com/agda/agda/blob/master/src/full/Agda/Interaction/Highlighting/Precise.hs
+module Aspect = {
+  // a mix of Aspect, OtherAspect and NameKind
+  type t =
+    // the Aspect part
+    | Comment
+    | Keyword
+    | String
+    | Number
+    | Symbol
+    | PrimitiveType
+    | Pragma
+    | Background
+    | Markup
+    // the OtherAspect part
+    | Error
+    | DottedPattern
+    | UnsolvedMeta
+    | UnsolvedConstraint
+    | TerminationProblem
+    | PositivityProblem
+    | Deadcode
+    | CoverageProblem
+    | IncompletePattern
+    | TypeChecks
+    | CatchallClause
+    | ConfluenceProblem
+    // the NameKind part
+    | Bound
+    | Generalizable
+    | ConstructorInductive
+    | ConstructorCoInductive
+    | Datatype
+    | Field
+    | Function
+    | Module
+    | Postulate
+    | Primitive
+    | Record
+    | Argument
+    | Macro
+    // when the second field of Aspect.Name is True
+    | Operator;
+
+  let parse =
+    fun
+    | "comment" => Comment
+    | "keyword" => Keyword
+    | "string" => String
+    | "number" => Number
+    | "symbol" => Symbol
+    | "primitivetype" => PrimitiveType
+    | "pragma" => Pragma
+    | "background" => Background
+    | "markup" => Markup
+
+    | "error" => Error
+    | "dottedpattern" => DottedPattern
+    | "unsolpedmeta" => UnsolvedMeta
+    | "unsolvedconstraint" => UnsolvedConstraint
+    | "terminationproblem" => TerminationProblem
+    | "positivityproblem" => PositivityProblem
+    | "deadcode" => Deadcode
+    | "coverageproblem" => CoverageProblem
+    | "incompletepattern" => IncompletePattern
+    | "typechecks" => TypeChecks
+    | "catchallclause" => CatchallClause
+    | "confluenceproblem" => ConfluenceProblem
+
+    | "bound" => Bound
+    | "generalizable" => Generalizable
+    | "inductiveconstructor" => ConstructorInductive
+    | "coinductiveconstructor" => ConstructorCoInductive
+    | "datatype" => Datatype
+    | "field" => Field
+    | "function" => Function
+    | "module" => Module
+    | "postulate" => Postulate
+    | "primitive" => Primitive
+    | "record" => Record
+    | "argument" => Argument
+    | "macro" => Macro
+
+    | "operator" => Operator
+    | _ => Operator;
+};
+
 module Highlighting = {
   module Token = Parser.SExpression;
-  module Annotation = {
-    open Token;
-    type t = {
-      start: int,
-      end_: int,
-      types: array(string),
-      source: option((filepath, int)),
-    };
-    let toString = self =>
-      "Annotation "
-      ++ string_of_int(self.start)
-      ++ " "
-      ++ string_of_int(self.end_)
-      ++ " "
-      ++ Util.Pretty.list(List.fromArray(self.types))
-      ++ (
-        switch (self.source) {
-        | None => ""
-        | Some((s, i)) => s ++ " " ++ string_of_int(i)
-        }
-      );
-    let parse: Token.t => option(t) =
-      fun
-      | A(_) => None
-      | L(xs) =>
-        switch (xs) {
-        | [|
-            A(start'),
-            A(end_'),
-            types,
-            _,
-            _,
-            L([|A(filepath), _, A(index')|]),
-          |] =>
-          Parser.int(start')
-          ->Option.flatMap(start =>
-              Parser.int(end_')
-              ->Option.flatMap(end_ =>
-                  Parser.int(index')
-                  ->Option.map(index =>
-                      {
-                        start,
-                        end_,
-                        types: flatten(types),
-                        source: Some((filepath, index)),
-                      }
-                    )
-                )
-            )
-
-        | [|A(start'), A(end_'), types|] =>
-          Parser.int(start')
-          ->Option.flatMap(start =>
-              Parser.int(end_')
-              ->Option.map(end_ =>
-                  {start, end_, types: flatten(types), source: None}
-                )
-            )
-        | [|A(start'), A(end_'), types, _|] =>
-          Parser.int(start')
-          ->Option.flatMap(start =>
-              Parser.int(end_')
-              ->Option.map(end_ =>
-                  {start, end_, types: flatten(types), source: None}
-                )
-            )
-        | _ => None
-        };
-
-    let parseDirectHighlightings: array(Token.t) => array(t) =
-      tokens => {
-        tokens
-        ->Js.Array.sliceFrom(2, _)
-        ->Array.map(parse)
-        ->Array.keepMap(x => x);
-      };
-    let parseIndirectHighlightings: array(Token.t) => array(t) =
-      tokens =>
-        tokens
-        ->Js.Array.sliceFrom(1, _)
-        ->Array.map(parse)
-        ->Array.keepMap(x => x);
-
-    // the type of annotations that we want to highlight
-    let shouldHighlight: t => bool =
-      annotation => {
-        annotation.types
-        |> Js.Array.includes("unsolvedmeta")
-        || annotation.types
-        |> Js.Array.includes("unsolvedconstraint")
-        || annotation.types
-        |> Js.Array.includes("terminationproblem")
-        || annotation.types
-        |> Js.Array.includes("coverageproblem");
-      };
+  open Token;
+  type t = {
+    start: int,
+    end_: int,
+    types: array(string), // a list of names of aspects
+    source: option((filepath, int)) // The defining module and the position in that module
   };
+  let toString = self =>
+    "Annotation "
+    ++ string_of_int(self.start)
+    ++ " "
+    ++ string_of_int(self.end_)
+    ++ " "
+    ++ Util.Pretty.list(List.fromArray(self.types))
+    ++ (
+      switch (self.source) {
+      | None => ""
+      | Some((s, i)) => s ++ " " ++ string_of_int(i)
+      }
+    );
+  let parse: Token.t => option(t) =
+    fun
+    | A(_) => None
+    | L(xs) =>
+      switch (xs) {
+      | [|
+          A(start'),
+          A(end_'),
+          types,
+          _,
+          _,
+          L([|A(filepath), _, A(index')|]),
+        |] =>
+        Parser.int(start')
+        ->Option.flatMap(start =>
+            Parser.int(end_')
+            ->Option.flatMap(end_ =>
+                Parser.int(index')
+                ->Option.map(index =>
+                    {
+                      start,
+                      end_,
+                      types: flatten(types),
+                      source: Some((filepath, index)),
+                    }
+                  )
+              )
+          )
+
+      | [|A(start'), A(end_'), types|] =>
+        Parser.int(start')
+        ->Option.flatMap(start =>
+            Parser.int(end_')
+            ->Option.map(end_ =>
+                {start, end_, types: flatten(types), source: None}
+              )
+          )
+      | [|A(start'), A(end_'), types, _|] =>
+        Parser.int(start')
+        ->Option.flatMap(start =>
+            Parser.int(end_')
+            ->Option.map(end_ =>
+                {start, end_, types: flatten(types), source: None}
+              )
+          )
+      | _ => None
+      };
+
+  let parseDirectHighlightings: array(Token.t) => array(t) =
+    tokens => {
+      tokens
+      ->Js.Array.sliceFrom(2, _)
+      ->Array.map(parse)
+      ->Array.keepMap(x => x);
+    };
+  let parseIndirectHighlightings: array(Token.t) => array(t) =
+    tokens =>
+      tokens
+      ->Js.Array.sliceFrom(1, _)
+      ->Array.map(parse)
+      ->Array.keepMap(x => x);
+
+  // the type of annotations that we want to highlight
+  let shouldHighlight: t => bool =
+    annotation => {
+      annotation.types
+      |> Js.Array.includes("unsolvedmeta")
+      || annotation.types
+      |> Js.Array.includes("unsolvedconstraint")
+      || annotation.types
+      |> Js.Array.includes("terminationproblem")
+      || annotation.types
+      |> Js.Array.includes("coverageproblem");
+    };
 };
 
 // Here's the corresponding datatype in Haskell:
@@ -198,7 +283,7 @@ module Highlighting = {
 
 type t =
   // agda2-highlight-add-annotations
-  | HighlightingInfoDirect(bool, array(Highlighting.Annotation.t))
+  | HighlightingInfoDirect(bool, array(Highlighting.t))
   // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
   // agda2-status-action
@@ -237,9 +322,7 @@ let toString =
   | HighlightingInfoDirect(keepHighlighting, annotations) =>
     "HighlightingInfoDirect "
     ++ (keepHighlighting ? "Keep " : "Remove ")
-    ++ annotations
-       ->Array.map(Highlighting.Annotation.toString)
-       ->Util.Pretty.array
+    ++ annotations->Array.map(Highlighting.toString)->Util.Pretty.array
   | HighlightingInfoIndirect(filepath) =>
     "HighlightingInfoIndirect " ++ filepath
   | NoStatus => "NoStatus"
@@ -285,7 +368,7 @@ let parseWithPriority =
   | L(xs) =>
     switch (xs[0]) {
     | Some(A("agda2-highlight-add-annotations")) =>
-      let annotations = Highlighting.Annotation.parseDirectHighlightings(xs);
+      let annotations = Highlighting.parseDirectHighlightings(xs);
       switch (xs[1]) {
       | Some(A("remove")) => Ok(HighlightingInfoDirect(false, annotations))
       | Some(A("nil")) => Ok(HighlightingInfoDirect(true, annotations))

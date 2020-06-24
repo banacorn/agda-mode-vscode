@@ -45,7 +45,6 @@ module Impl = (Editor: Sig.Editor) => {
     | HighlightingInfoDirect(_remove, annotations) => [
         AddHighlightings(annotations),
       ]
-    // Highlighting(AddDirectly(annotations)),
     | HighlightingInfoIndirect(filepath) => [
         WithStateP(
           _ => {
@@ -68,14 +67,14 @@ module Impl = (Editor: Sig.Editor) => {
                         | Ok(_) => None,
                       );
 
-                    let annotations: array(Response.Highlighting.Annotation.t) =
+                    let annotations: array(Response.Highlighting.t) =
                       expressions
                       ->Array.keepMap(
                           fun
                           | Error(_) => None // filter errors out
                           | Ok(L(xs)) =>
                             Some(
-                              Response.Highlighting.Annotation.parseIndirectHighlightings(
+                              Response.Highlighting.parseIndirectHighlightings(
                                 xs,
                               ),
                             )

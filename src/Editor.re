@@ -158,24 +158,15 @@ module View = {
 
 module Decoration = {
   type t = TextEditorDecorationType.t;
-  type backgroundStyle =
-    | Hole;
-  type foregroundStyle =
-    | HoleIndex;
+  type backgroundStyle = string;
+  type foregroundStyle = string;
   // | Error => ThemeColor.make("inputValidation.errorBackground")
   // | Highlight => ThemeColor.make("editor.symbolHighlightBackground")
   // | Spec => ThemeColor.make("editor.wordHighlightStrongBackground")
   // "editor.selectionHighlightBackground";
   let highlightBackground =
       (editor: editor, style: backgroundStyle, range: VSCode.Range.t) => {
-    let backgroundColor =
-      ThemeColor.themeColor(
-        ThemeColor.make(
-          switch (style) {
-          | Hole => "editor.selectionHighlightBackground"
-          },
-        ),
-      );
+    let backgroundColor = ThemeColor.themeColor(ThemeColor.make(style));
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options =
@@ -184,6 +175,26 @@ module Decoration = {
     editor->TextEditor.setDecorations(handle, [|range|]);
     [|handle|];
   };
+  let overlayText =
+      (
+        editor: editor,
+        style: foregroundStyle,
+        text: string,
+        range: VSCode.Range.t,
+      ) => {
+    let after =
+      ThemableDecorationAttachmentRenderOptions.t(
+        ~contentText=text,
+        ~color=ThemeColor.themeColor(ThemeColor.make(style)),
+        (),
+      );
+
+    let options = DecorationRenderOptions.t(~after, ());
+    let handle = Window.createTextEditorDecorationType(options);
+    editor->TextEditor.setDecorations(handle, [|range|]);
+    [|handle|];
+  };
+
   let underlineText = (editor: editor, range: VSCode.Range.t) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.OpenOpen);
@@ -202,33 +213,6 @@ module Decoration = {
   //   | Spec => ThemeColor.make("descriptionForeground")
   //   },
   // ),
-  let overlayText =
-      (
-        editor: editor,
-        style: foregroundStyle,
-        text: string,
-        range: VSCode.Range.t,
-      ) => {
-    let after =
-      ThemableDecorationAttachmentRenderOptions.t(
-        ~contentText=text,
-        ~color=
-          ThemeColor.themeColor(
-            ThemeColor.make(
-              switch (style) {
-              | HoleIndex => "editorLightBulb.foreground"
-              },
-            ),
-          ),
-        (),
-      );
-
-    let options = DecorationRenderOptions.t(~after, ());
-    let handle = Window.createTextEditorDecorationType(options);
-    editor->TextEditor.setDecorations(handle, [|range|]);
-    [|handle|];
-  };
-
   let destroy = TextEditorDecorationType.dispose;
 };
 
