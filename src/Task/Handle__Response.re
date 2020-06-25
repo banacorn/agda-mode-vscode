@@ -192,8 +192,7 @@ module Impl = (Editor: Sig.Editor) => {
               | None => []
               | Some(goal) => [
                   Goal(Modify(goal, _ => solution)),
-                  Goal(SetCursor(fst(goal.range))),
-                  DispatchCommand(Give),
+                  SendRequest(Give(goal)),
                 ]
               };
             };
