@@ -38,6 +38,10 @@
 				"title": "Quit"
 			},
 			{
+				"command": "agda-mode.show-constraints",
+				"title": "Show constraints"
+			},
+			{
 				"command": "agda-mode.solve-constraints[Simplified]",
 				"title": "Solve constraints (simplified)"
 			},
@@ -216,6 +220,12 @@
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.show-constraints",
+				"key": "ctrl+c ctrl+=",
+				"mac": "ctrl+c ctrl+=",
 				"when": "agdaMode"
 			},
 			{

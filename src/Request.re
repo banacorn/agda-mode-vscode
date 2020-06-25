@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t =
     | Load
+    | ShowConstraints
     | SolveConstraints(Command.Normalization.t, Goal.t)
     | SolveConstraintsGlobal(Command.Normalization.t)
     | Give(Goal.t)
@@ -83,6 +84,9 @@ module Impl = (Editor: Sig.Editor) => {
         commonPart(NonInteractive)
         ++ {j|( Cmd_load "$(filepath)" [$(libraryPath)] )|j};
       }
+
+    | ShowConstraints =>
+      commonPart(NonInteractive) ++ {j|( Cmd_constraints )|j}
 
     | SolveConstraints(normalization, goal) =>
       let normalization = Command.Normalization.encode(normalization);

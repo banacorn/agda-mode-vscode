@@ -18,6 +18,7 @@ module Impl = (Editor: Sig.Editor) => {
         SendRequest(Load),
       ]
     | Quit => [RemoveAllHighlightings, Terminate]
+    | ShowConstraints => [SendRequest(ShowConstraints)]
     | SolveConstraints(normalization) => [
         Goal(
           LocalOrGlobal(
