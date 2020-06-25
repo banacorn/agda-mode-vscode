@@ -54,6 +54,10 @@
 				"title": "Solve constraints (normalised)"
 			},
 			{
+				"command": "agda-mode.show-goals",
+				"title": "Show goals"
+			},
+			{
 				"command": "agda-mode.next-goal",
 				"title": "Next goal"
 			},
@@ -244,6 +248,18 @@
 				"command": "agda-mode.solve-constraints[Normalised]",
 				"key": "ctrl+y ctrl+s",
 				"mac": "ctrl+y ctrl+s",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.show-goals",
+				"key": "ctrl+c ctrl+?",
+				"mac": "ctrl+c ctrl+?",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.show-goals",
+				"key": "ctrl+c ctrl+shift+/",
+				"mac": "ctrl+c ctrl+shift+/",
 				"when": "agdaMode"
 			},
 			{

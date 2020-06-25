@@ -27,6 +27,7 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
+    | ShowGoals => [SendRequest(ShowGoals)]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
     | Give => [

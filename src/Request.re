@@ -8,6 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
     | ShowConstraints
     | SolveConstraints(Command.Normalization.t, Goal.t)
     | SolveConstraintsGlobal(Command.Normalization.t)
+    | ShowGoals
     | Give(Goal.t)
     | Refine(Goal.t)
     | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
@@ -98,6 +99,8 @@ module Impl = (Editor: Sig.Editor) => {
     | SolveConstraintsGlobal(normalization) =>
       let normalization = Command.Normalization.encode(normalization);
       commonPart(NonInteractive) ++ {j|( Cmd_solveAll $(normalization) )|j};
+
+    | ShowGoals => commonPart(NonInteractive) ++ {j|( Cmd_metas )|j}
 
     // Related issue and commit of agda/agda
     // https://github.com/agda/agda/issues/2730
