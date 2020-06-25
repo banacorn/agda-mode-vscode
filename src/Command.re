@@ -67,6 +67,7 @@ module InputMethod = {
 type t =
   | Load
   | Quit
+  | SolveConstraints(Normalization.t)
   | NextGoal
   | PreviousGoal
   | Give
@@ -92,6 +93,9 @@ type t =
 let names: array((t, string)) = [|
   (Load, "load"),
   (Quit, "quit"),
+  (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
+  (SolveConstraints(Instantiated), "solve-constraints[Instantiated]"),
+  (SolveConstraints(Normalised), "solve-constraints[Normalised]"),
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
   (Give, "give"),
@@ -163,6 +167,8 @@ let toString =
   fun
   | Load => "Load"
   | Quit => "Quit"
+  | SolveConstraints(normalization) =>
+    "Solve constraints " ++ Normalization.toString(normalization)
   | NextGoal => "Next goal"
   | PreviousGoal => "Previous goal"
   | Give => "Give"

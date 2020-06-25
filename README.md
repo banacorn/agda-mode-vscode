@@ -39,7 +39,7 @@ Take *infer type* for example:
 |        | remove goals and highlighting           | <kbd>C-x</kbd> <kbd>C-d</kbd>   |
 |        | toggle display of hidden arguments      | <kbd>C-x</kbd> <kbd>C-h</kbd>   |
 |        | show constraints                        | <kbd>C-c</kbd> <kbd>C-=</kbd>   |
-|        | solve constraints 🎚                    | <kbd>C-c</kbd> <kbd>C-s</kbd>   |
+| ✔      | solve constraints 🎚                    | <kbd>C-c</kbd> <kbd>C-s</kbd>   |
 |        | show all goals                          | <kbd>C-c</kbd> <kbd>C-?</kbd>   |
 | ✔      | move to next goal (forward)             | <kbd>C-c</kbd> <kbd>C-f</kbd>   |
 | ✔      | move to previous goal (backwards)       | <kbd>C-c</kbd> <kbd>C-b</kbd>   |

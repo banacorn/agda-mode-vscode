@@ -38,12 +38,24 @@
 				"title": "Quit"
 			},
 			{
+				"command": "agda-mode.solve-constraints[Simplified]",
+				"title": "Solve constraints (simplified)"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Instantiated]",
+				"title": "Solve constraints (instantiated)"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Normalised]",
+				"title": "Solve constraints (normalised)"
+			},
+			{
 				"command": "agda-mode.next-goal",
-				"title": "Next Goal"
+				"title": "Next goal"
 			},
 			{
 				"command": "agda-mode.previous-goal",
-				"title": "Previous Goal"
+				"title": "Previous goal"
 			},
 			{
 				"command": "agda-mode.give",
@@ -204,6 +216,24 @@
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Simplified]",
+				"key": "ctrl+c ctrl+s",
+				"mac": "ctrl+c ctrl+s",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Instantiated]",
+				"key": "ctrl+u ctrl+s",
+				"mac": "ctrl+u ctrl+s",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Normalised]",
+				"key": "ctrl+y ctrl+s",
+				"mac": "ctrl+y ctrl+s",
 				"when": "agdaMode"
 			},
 			{

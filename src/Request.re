@@ -5,6 +5,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t =
     | Load
+    | SolveConstraints(Command.Normalization.t, Goal.t)
+    | SolveConstraintsGlobal(Command.Normalization.t)
     | Give(Goal.t)
     | Refine(Goal.t)
     | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
@@ -81,6 +83,17 @@ module Impl = (Editor: Sig.Editor) => {
         commonPart(NonInteractive)
         ++ {j|( Cmd_load "$(filepath)" [$(libraryPath)] )|j};
       }
+
+    | SolveConstraints(normalization, goal) =>
+      let normalization = Command.Normalization.encode(normalization);
+      let index = string_of_int(goal.index);
+
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_solveOne $(normalization) $(index) noRange "" )|j};
+
+    | SolveConstraintsGlobal(normalization) =>
+      let normalization = Command.Normalization.encode(normalization);
+      commonPart(NonInteractive) ++ {j|( Cmd_solveAll $(normalization) )|j};
 
     // Related issue and commit of agda/agda
     // https://github.com/agda/agda/issues/2730
