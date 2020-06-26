@@ -561,6 +561,16 @@
 				"when": "agdaMode && agdaModeTyping"
 			},
 			{
+				"command": "agda-mode.input-symbol[InsertOpenCurlyBraces]",
+				"key": "shift+[",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[InsertOpenParenthesis]",
+				"key": "shift+9",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
 				"when": "agdaMode"

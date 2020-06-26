@@ -172,6 +172,8 @@ let names: array((t, string)) = [|
   (InputMethod(MoveRight), "input-symbol[MoveRight]"),
   (InputMethod(MoveDown), "input-symbol[MoveDown]"),
   (InputMethod(MoveLeft), "input-symbol[MoveLeft]"),
+  (InputMethod(InsertChar("{")), "input-symbol[InsertOpenCurlyBraces]"),
+  (InputMethod(InsertChar("(")), "input-symbol[InsertOpenParenthesis]"),
 |];
 
 // for human
