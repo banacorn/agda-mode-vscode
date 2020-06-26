@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t =
     | Load
+    | ToggleDisplayOfImplicitArguments
     | ShowConstraints
     | SolveConstraints(Command.Normalization.t, Goal.t)
     | SolveConstraintsGlobal(Command.Normalization.t)
@@ -86,6 +87,9 @@ module Impl = (Editor: Sig.Editor) => {
         commonPart(NonInteractive)
         ++ {j|( Cmd_load "$(filepath)" [$(libraryPath)] )|j};
       }
+
+    | ToggleDisplayOfImplicitArguments =>
+      commonPart(NonInteractive) ++ {j|( ToggleImplicitArgs )|j}
 
     | ShowConstraints =>
       commonPart(NonInteractive) ++ {j|( Cmd_constraints )|j}

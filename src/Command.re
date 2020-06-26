@@ -67,6 +67,7 @@ module InputMethod = {
 type t =
   | Load
   | Quit
+  | ToggleDisplayOfImplicitArguments
   | ShowConstraints
   | SolveConstraints(Normalization.t)
   | ShowGoals
@@ -96,6 +97,7 @@ type t =
 let names: array((t, string)) = [|
   (Load, "load"),
   (Quit, "quit"),
+  (ToggleDisplayOfImplicitArguments, "toggle-display-of-implicit-arguments"),
   (ShowConstraints, "show-constraints"),
   (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
   (SolveConstraints(Instantiated), "solve-constraints[Instantiated]"),
@@ -175,6 +177,7 @@ let toString =
   fun
   | Load => "Load"
   | Quit => "Quit"
+  | ToggleDisplayOfImplicitArguments => "Toggle display of hidden arguments"
   | ShowConstraints => "Show constraints"
   | SolveConstraints(normalization) =>
     "Solve constraints " ++ Normalization.toString(normalization)

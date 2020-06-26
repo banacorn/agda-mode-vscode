@@ -18,6 +18,9 @@ module Impl = (Editor: Sig.Editor) => {
         SendRequest(Load),
       ]
     | Quit => [RemoveAllHighlightings, Terminate]
+    | ToggleDisplayOfImplicitArguments => [
+        SendRequest(ToggleDisplayOfImplicitArguments),
+      ]
     | ShowConstraints => [SendRequest(ShowConstraints)]
     | SolveConstraints(normalization) => [
         Goal(

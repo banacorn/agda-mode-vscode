@@ -38,6 +38,10 @@
 				"title": "Quit"
 			},
 			{
+				"command": "agda-mode.toggle-display-of-implicit-arguments",
+				"title": "Toggle display of hidden arguments"
+			},
+			{
 				"command": "agda-mode.show-constraints",
 				"title": "Show constraints"
 			},
@@ -236,6 +240,12 @@
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.toggle-display-of-implicit-arguments",
+				"key": "ctrl+x ctrl+h",
+				"mac": "ctrl+x ctrl+h",
 				"when": "agdaMode"
 			},
 			{
