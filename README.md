@@ -2,17 +2,18 @@
 
 Please open an issue if you are experiencing any problems.
 
-## TODO 
+## TODO & Known Issues
 
 - [ ] Atomic task scheduler (abort/undo/redo)
 - [ ] Goals/Warnings/Errors display overhaul
 - [ ] Themeable syntax highlighting
 - [ ] Settings and whatnot
+- [ ] [Unicode input not working in the input prompt](https://github.com/banacorn/agda-mode-vscode/issues/2)
 
 ## Unicode Input
 
 Pretty much the same like on Emacs. 
-Press backslash "\" (after loaded the file) and you should see a keyboard in the panel, with key suggestions and symbol candidates.
+Press backslash "\\" (after loaded the file) and you should see a keyboard in the panel, with key suggestions and symbol candidates.
 
 ## Commands
 
