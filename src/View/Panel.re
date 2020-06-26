@@ -11,6 +11,11 @@ let make =
   let (body, setBody) = React.useState(() => View.Body.Nothing);
   let (inputMethodState, runInputMethodAction) =
     React.useReducer(Keyboard.reducer, None);
+  let querying =
+    switch (body) {
+    | Query(_, _) => true
+    | _ => false
+    };
 
   // emit event Initialized on mount
   React.useEffect1(
@@ -74,6 +79,7 @@ let make =
         Js.log("onChooseSymbol " ++ symbol);
         onEventFromView.emit(InputMethod(ChooseSymbol(symbol)));
       }}
+      querying
     />
     <Header header />
     <Body body onSubmit />

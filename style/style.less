@@ -1,5 +1,9 @@
 @import "variables";
 
+// dimensions
+@padding   : 1rem;
+@header-height  : 4rem;
+
 // vscode: removes focus outline  
 *:focus {
     outline: none;
@@ -10,19 +14,20 @@
 }
 
 .agda-mode-keyboard {
-    @padding      : 0.5rem;
     @button-height: 1.5rem;
     @button-margin: 0.2rem;
 
 
     // position
     position  : absolute;
+
+    &.querying {
+        top: @header-height*2;
+    }
+
     // dimension
     width     : calc(100% - 2.5rem); // why 2.5 ???
     min-height: @header-height;
-
-    // display
-    // display: flex;
 
     &.deactivated {
         display: none
@@ -39,17 +44,15 @@
         // calc(@header-height - @padding * 2);
         line-height: 2rem;
         .agda-mode-keyboard-sequence {
-            @padding     : 0.5rem;
             padding      : 0rem @padding;
             flex-grow    : 100;
             background   : @body-background;
             font-weight  : bold;
-            border-radius: @padding;
+            // border-radius: @padding;
         }
 
         .agda-mode-keyboard-candidates {
-            @padding   : 0.5rem;
-            margin-left: 1rem;
+            margin-left: @padding;
 
             width      : calc(@button-height * 10 + @button-margin * 20);
             flex-grow  : 0;
@@ -94,7 +97,7 @@
 
 .agda-mode-header {
     height : @header-height;
-    padding: 0 @header-padding;
+    padding: 0 @padding;
 
     background: @header-background;
 
@@ -118,15 +121,20 @@
 .agda-mode-body {
     white-space: pre;
     background : @body-background;
-
     font-size  : 125%;
     line-height: 1.5rem;
+    padding: @padding;
+}
 
-    padding: @body-padding;
-
+// the total height of .agda-mode-query should be the same as @header-height
+.agda-mode-query {
+    white-space: pre;
+    padding: 0 @padding @padding @padding;
+    
     input {
-        font-size: 125%;
-        padding  : @body-padding;
+        font-size  : 150%;
+        padding: @padding;
+        height: 1rem;
 
         background-color: @input-background;
         border          : none;

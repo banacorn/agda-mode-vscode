@@ -46,11 +46,12 @@ let make =
       ~state: option(state),
       ~onInsertChar: string => unit,
       ~onChooseSymbol: string => unit,
+      ~querying: bool,
     ) => {
   switch (state) {
   | None => <div className="agda-mode-keyboard deactivated" />
   | Some({sequence, translation, candidateIndex}) =>
-    <div className="agda-mode-keyboard">
+    <div className={"agda-mode-keyboard" ++ (querying ? " querying" : "")}>
       <div className="agda-mode-keyboard-sequence-and-candidates">
         <div className="agda-mode-keyboard-sequence">
           {string(sequence)}

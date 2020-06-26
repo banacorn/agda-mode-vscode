@@ -15,7 +15,7 @@ let make = (~body: View.Body.t, ~onSubmit: option(string) => unit) => {
     };
     let onSubmit = _ => onSubmit(Some(value));
 
-    <div className="agda-mode-body">
+    <div className="agda-mode-query">
       <form onSubmit>
         <input
           type_="text"
