@@ -22,9 +22,7 @@ module Impl = (Editor: Sig.Editor) => {
       | ModuleContents(payload) => [
           display("Module Contents", Some(payload)),
         ]
-      | SearchAbout(payload) => [
-          display("Searching about ...", Some(payload)),
-        ]
+      | SearchAbout(payload) => [display("Search About", Some(payload))]
       | WhyInScope(payload) => [display("Scope info", Some(payload))]
       | NormalForm(payload) => [display("Normal form", Some(payload))]
       | GoalType(payload) => [display("Goal Type", Some(payload))]

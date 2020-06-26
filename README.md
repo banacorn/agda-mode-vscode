@@ -45,7 +45,7 @@ Take *infer type* for example:
 | ✔      | move to previous goal (backwards)       | <kbd>C-c</kbd> <kbd>C-b</kbd>   |
 | ✔      | infer type 🎚                           | <kbd>C-c</kbd> <kbd>C-d</kbd>   |
 | ✔      | module contents 🎚                      | <kbd>C-c</kbd> <kbd>C-o</kbd>   |
-|        | search definitions in scope 🎚          | <kbd>C-c</kbd> <kbd>C-z</kbd>   |
+| ✔      | search definitions in scope 🎚          | <kbd>C-c</kbd> <kbd>C-z</kbd>   |
 | ✔      | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |

@@ -72,6 +72,7 @@ type t =
   | ShowGoals
   | NextGoal
   | PreviousGoal
+  | SearchAbout(Normalization.t)
   | Give
   | Refine
   | ElaborateAndGive(Normalization.t)
@@ -102,6 +103,9 @@ let names: array((t, string)) = [|
   (ShowGoals, "show-goals"),
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
+  (SearchAbout(Simplified), "search-about[Simplified]"),
+  (SearchAbout(Instantiated), "search-about[Instantiated]"),
+  (SearchAbout(Normalised), "search-about[Normalised]"),
   (Give, "give"),
   (Refine, "refine"),
   (ElaborateAndGive(Simplified), "elaborate-and-give[Simplified]"),
@@ -177,6 +181,8 @@ let toString =
   | ShowGoals => "Show goals"
   | NextGoal => "Next goal"
   | PreviousGoal => "Previous goal"
+  | SearchAbout(normalization) =>
+    "Search about " ++ Normalization.toString(normalization)
   | Give => "Give"
   | Refine => "Refine"
   | ElaborateAndGive(normalization) =>

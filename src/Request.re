@@ -9,6 +9,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SolveConstraints(Command.Normalization.t, Goal.t)
     | SolveConstraintsGlobal(Command.Normalization.t)
     | ShowGoals
+    | SearchAbout(Command.Normalization.t, string)
     | Give(Goal.t)
     | Refine(Goal.t)
     | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
@@ -101,6 +102,12 @@ module Impl = (Editor: Sig.Editor) => {
       commonPart(NonInteractive) ++ {j|( Cmd_solveAll $(normalization) )|j};
 
     | ShowGoals => commonPart(NonInteractive) ++ {j|( Cmd_metas )|j}
+
+    | SearchAbout(normalization, expr) =>
+      let normalization = Command.Normalization.encode(normalization);
+      let content = Parser.userInput(expr);
+      commonPart(NonInteractive)
+      ++ {j|( Cmd_search_about_toplevel $(normalization) "$(content)" )|j};
 
     // Related issue and commit of agda/agda
     // https://github.com/agda/agda/issues/2730

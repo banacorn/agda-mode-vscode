@@ -66,6 +66,18 @@
 				"title": "Previous goal"
 			},
 			{
+				"command": "agda-mode.search-about[Simplified]",
+				"title": "Search about (simplified)"
+			},
+			{
+				"command": "agda-mode.search-about[Instantiated]",
+				"title": "Search about (instantiated)"
+			},
+			{
+				"command": "agda-mode.search-about[Normalised]",
+				"title": "Search about (normalised)"
+			},
+			{
 				"command": "agda-mode.give",
 				"title": "Give"
 			},
@@ -272,6 +284,24 @@
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.search-about[Simplified]",
+				"key": "ctrl+c ctrl+z",
+				"mac": "ctrl+c ctrl+z",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.search-about[Instantiated]",
+				"key": "ctrl+u ctrl+z",
+				"mac": "ctrl+u ctrl+z",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.search-about[Normalised]",
+				"key": "ctrl+y ctrl+z",
+				"mac": "ctrl+y ctrl+z",
 				"when": "agdaMode"
 			},
 			{
