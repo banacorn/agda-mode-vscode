@@ -84,22 +84,32 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | Status(displayImplicit, checked) =>
-      if (displayImplicit || checked) {
-        [
-          display(
-            "Status",
-            Some(
-              "Typechecked: "
-              ++ string_of_bool(checked)
-              ++ "\nDisplay implicit arguments: "
-              ++ string_of_bool(displayImplicit),
-            ),
+    | Status(displayImplicit, checked) => [
+        display(
+          "Status",
+          Some(
+            "Typechecked: "
+            ++ string_of_bool(checked)
+            ++ "\nDisplay implicit arguments: "
+            ++ string_of_bool(displayImplicit),
           ),
-        ];
-      } else {
-        [];
-      }
+        ),
+      ]
+    // if (displayImplicit || checked) {
+    //   [
+    //     display(
+    //       "Status",
+    //       Some(
+    //         "Typechecked: "
+    //         ++ string_of_bool(checked)
+    //         ++ "\nDisplay implicit arguments: "
+    //         ++ string_of_bool(displayImplicit),
+    //       ),
+    //     ),
+    //   ];
+    // } else {
+    //   [];
+    // }
     | JumpToError(filepath, offset) => [
         WithStateP(
           state => {
