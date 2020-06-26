@@ -1,15 +1,18 @@
-# 🚧 agda-mode on VS Code 🚧
+# agda-mode on VS Code
 
-This repo is now under heavy development. 
+Please open an issue if you are experiencing any problems.
 
 ## TODO 
 
-- [x] Unicode symbol input method
-- [ ] Complete the commands
 - [ ] Atomic task scheduler (abort/undo/redo)
 - [ ] Goals/Warnings/Errors display overhaul
-- [x] Dynamic syntax highlighting 
+- [ ] Themeable syntax highlighting
 - [ ] Settings and whatnot
+
+## Unicode Input
+
+Pretty much the same like on Emacs. 
+Press backslash "\" (after loaded the file) and you should see a keyboard in the panel, with key suggestions and symbol candidates.
 
 ## Commands
 
