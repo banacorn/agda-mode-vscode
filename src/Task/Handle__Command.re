@@ -18,6 +18,7 @@ module Impl = (Editor: Sig.Editor) => {
         SendRequest(Load),
       ]
     | Quit => [RemoveAllHighlightings, Terminate]
+    | Compile => [SendRequest(Compile)]
     | ToggleDisplayOfImplicitArguments => [
         SendRequest(ToggleDisplayOfImplicitArguments),
       ]

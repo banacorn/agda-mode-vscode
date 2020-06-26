@@ -38,6 +38,10 @@
 				"title": "Quit"
 			},
 			{
+				"command": "agda-mode.compile",
+				"title": "Compile"
+			},
+			{
 				"command": "agda-mode.toggle-display-of-implicit-arguments",
 				"title": "Toggle display of hidden arguments"
 			},
@@ -240,6 +244,12 @@
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compile",
+				"key": "ctrl+x ctrl+c",
+				"mac": "ctrl+x ctrl+c",
 				"when": "agdaMode"
 			},
 			{
@@ -585,6 +595,17 @@
 					],
 					"scope": "machine-overridable",
 					"description": "Receive highlighting information from Agda, directly via stdio, or indirectly via temporary files (which mwy require frequent disk access)."
+				},
+				"agdaMode.backend": {
+					"type": "string",
+					"default": "GHC",
+					"enum": [
+						"GHC",
+						"LaTeX",
+						"QuickLaTeX"
+					],
+					"scope": "machine-overridable",
+					"description": "Backend target"
 				}
 			}
 		}

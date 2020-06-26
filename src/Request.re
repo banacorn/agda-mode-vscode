@@ -5,6 +5,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t =
     | Load
+    | Compile
     | ToggleDisplayOfImplicitArguments
     | ShowConstraints
     | SolveConstraints(Command.Normalization.t, Goal.t)
@@ -43,6 +44,7 @@ module Impl = (Editor: Sig.Editor) => {
         editor: Editor.editor,
         version,
         filepath: string,
+        backend: string,
         libraryPath: array(string),
         highlightingMethod: bool,
         request,
@@ -86,6 +88,15 @@ module Impl = (Editor: Sig.Editor) => {
       } else {
         commonPart(NonInteractive)
         ++ {j|( Cmd_load "$(filepath)" [$(libraryPath)] )|j};
+      }
+
+    | Compile =>
+      if (Util.Version.gte(version, "2.5.0")) {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_compile $(backend) "$(filepath)" [] )|j};
+      } else {
+        commonPart(NonInteractive)
+        ++ {j|( Cmd_compile $(backend) "$(filepath)" [$(libraryPath)] )|j};
       }
 
     | ToggleDisplayOfImplicitArguments =>

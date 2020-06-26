@@ -61,11 +61,13 @@ module Impl = (Editor: Sig.Editor) => {
           Editor.getFileName(state.editor)->Option.getWithDefault("");
         let libraryPath = Editor.Config.getLibraryPath();
         let highlightingMethod = Editor.Config.getHighlightingMethod();
+        let backend = Editor.Config.getBackend();
         let encoded =
           Request.encode(
             state.editor,
             version,
             filepath,
+            backend,
             libraryPath,
             highlightingMethod,
             request,

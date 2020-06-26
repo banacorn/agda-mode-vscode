@@ -141,6 +141,18 @@ module Config = {
     | _ => false
     };
   };
+  // Backend
+  let getBackend = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("backend");
+    switch (raw) {
+    | Some("GHC") => "GHCNoMain"
+    | Some("LaTeX") => "LaTeX"
+    | Some("QuickLaTeX") => "QuickLaTeX"
+    | _ => "GHCNoMain"
+    };
+  };
 };
 
 //
