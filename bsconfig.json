@@ -25,9 +25,7 @@
     "reason-react",
     "reason-react-update"
   ],
-  "ppx-flags": [
-    "bs-let/ppx"
-  ],
+  "ppx-flags": [],
   "bsc-flags": [
     "-bs-g"
   ],
