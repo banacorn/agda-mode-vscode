@@ -77,3 +77,20 @@ Take *infer type* for example:
 | ✔      | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
 | ✔      | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |
 | ✔      | why in scope                            | <kbd>C-c</kbd> <kbd>C-w</kbd>   |
+
+## Developing
+
+After cloning the files, download dependencies and build files with:
+
+```bash
+npm install 
+npm run build:dev
+```
+
+Fire up this command to enter the "watch mode" so that you don't have to rebuild stuff manually:
+
+```bash 
+npm run dev
+```
+
+Press <kbd>F5</kbd> in VS Code and you should have a extension development host with agda-mode running!
