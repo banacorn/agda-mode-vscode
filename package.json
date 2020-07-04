@@ -636,7 +636,6 @@
   },
   "dependencies": {
     "@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
-    "bs-let": "^0.1.11",
     "bs-nd": "^0.1.5",
     "bs-platform": "^7.2",
     "bs-webapi": "^0.15.3",
