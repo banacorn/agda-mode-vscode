@@ -20,7 +20,7 @@ type source =
 //    [ Command : [ Task0, Task1, Task2, Task3 ]
 //    ]
 //
-//  On the other hand, Tasks are comsumed from the other end (that's how queue works, right?)
+//  On the other hand, Tasks are comsumed from the other end (that's how queues work, right?)
 //
 //    [ Command : [ Task1, Task2, Task3 ]
 //    ]

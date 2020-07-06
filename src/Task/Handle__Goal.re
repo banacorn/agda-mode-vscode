@@ -418,21 +418,5 @@ module Impl = (Editor: Sig.Editor) => {
             }
           },
         ),
-      ]
-    | GetIndexedOr(index, callback, alternative) => [
-        Goal(UpdateRange),
-        WithStateP(
-          state => {
-            let found = state.goals->Array.keep(goal => goal.index == index);
-            switch (found[0]) {
-            | None => Promise.resolved(alternative)
-            | Some(goal) =>
-              let content = Goal.getContent(goal, state.editor);
-              Promise.resolved(
-                callback(goal, content == "" ? None : Some(content)),
-              );
-            };
-          },
-        ),
       ];
 };

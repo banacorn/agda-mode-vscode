@@ -132,10 +132,18 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(RestoreCursor),
       ]
     | GiveAction(index, give) => [
-        Goal(
-          GetIndexedOr(
-            index,
-            (goal, _) => {
+        WithStateP(
+          state => {
+            let found = state.goals->Array.keep(goal => goal.index == index);
+            switch (found[0]) {
+            | None =>
+              Promise.resolved([
+                displayError(
+                  "Error: Give failed",
+                  Some("Cannot find goal #" ++ string_of_int(index)),
+                ),
+              ])
+            | Some(goal) =>
               let tasks =
                 switch (give) {
                 | Paren => [
@@ -158,18 +166,14 @@ module Impl = (Editor: Sig.Editor) => {
                     ),
                   ]
                 };
-              List.concatMany([|
-                tasks,
-                [Goal(RemoveBoundaryAndDestroy(goal))],
-              |]);
-            },
-            [
-              displayError(
-                "Error: Give failed",
-                Some("Cannot find goal #" ++ string_of_int(index)),
-              ),
-            ],
-          ),
+              Promise.resolved(
+                List.concatMany([|
+                  tasks,
+                  [Goal(RemoveBoundaryAndDestroy(goal))],
+                |]),
+              );
+            };
+          },
         ),
       ]
     | MakeCase(makeCaseType, lines) => [
