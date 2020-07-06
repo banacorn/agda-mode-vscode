@@ -50,7 +50,7 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let printLog = true;
+  let printLog = false;
   let log =
     if (printLog) {
       Js.log;

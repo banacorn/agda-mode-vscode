@@ -19,14 +19,33 @@ module Impl = (Editor: Sig.Editor) => {
               Editor.setContext("agdaModeTyping", true)->ignore;
 
               state.inputMethod.activated = true;
-              // the places where the input method is activated
-              let startingOffsets: array(int) =
-                Editor.getCursorPositions(state.editor)
-                ->Array.map(Editor.offsetAtPoint(state.editor));
+              // // collect of cursor positions and remove all selected texts
+              // let offsets =
+              //   Editor.getSelectionRanges(state.editor)
+              //   ->Array.map(range => {
+              //       let _ = Editor.setText(state.editor, range, "");
+              //       ();
+              //     });
+
+              // activated the input method with positions of cursors
+              let startingRanges: array((int, int)) =
+                Editor.getSelectionRanges(state.editor)
+                ->Array.map(range =>
+                    (
+                      Editor.offsetAtPoint(
+                        state.editor,
+                        Editor.Range.start(range),
+                      ),
+                      Editor.offsetAtPoint(
+                        state.editor,
+                        Editor.Range.end_(range),
+                      ),
+                    )
+                  );
               InputMethod.activate(
                 state.inputMethod,
                 state.editor,
-                startingOffsets,
+                startingRanges,
               );
               Promise.resolved([SendEventToView(InputMethod(Activate))]);
             },
