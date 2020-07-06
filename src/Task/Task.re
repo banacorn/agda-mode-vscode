@@ -22,7 +22,6 @@ module Impl = (Editor: Sig.Editor) => {
         Goal.t => list(t),
         list(t),
       )
-    | GetIndexedOr(int, (Goal.t, option(string)) => list(t), list(t))
 
   and t =
     | DispatchCommand(Command.t)
@@ -65,7 +64,6 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
     | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
     | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
-    | Goal(GetIndexedOr(_)) => "Goal[GetIndexedOr]"
     | WithState(_) => "WithState"
     | WithStateP(_) => "WithStateP"
     | Debug(msg) => "Debug[" ++ msg ++ "]";

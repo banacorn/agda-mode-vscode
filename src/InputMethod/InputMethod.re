@@ -19,14 +19,15 @@ module Impl = (Editor: Sig.Editor) => {
       mutable buffer: Buffer.t,
     };
 
-    let make = (editor, offset) => {
-      let point = Editor.pointAtOffset(editor, offset);
+    let make = (editor, range) => {
+      let start = Editor.pointAtOffset(editor, fst(range));
+      let end_ = Editor.pointAtOffset(editor, snd(range));
       {
-        range: (offset, offset),
+        range,
         decoration:
           Editor.Decoration.underlineText(
             editor,
-            Editor.Range.make(point, point),
+            Editor.Range.make(start, end_),
           ),
         buffer: Buffer.make(),
       };
@@ -290,10 +291,10 @@ module Impl = (Editor: Sig.Editor) => {
     applyRewrites(self, editor, rewrites);
   };
 
-  let activate = (self, editor, offsets: array(int)) => {
+  let activate = (self, editor, ranges: array((int, int))) => {
     // instantiate from an array of offsets
     self.instances =
-      Js.Array.sortInPlaceWith(compare, offsets)
+      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), ranges)
       ->Array.map(Instance.make(editor));
 
     // update offsets of Instances base on changeEvents

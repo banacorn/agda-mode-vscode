@@ -14,6 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
       | Constraints(Some(payload)) => [
           display("Constraints", Some(payload)),
         ]
+      | AllGoalsWarnings(header, "nil") => [displaySuccess(header, None)]
       | AllGoalsWarnings(header, body) => [display(header, Some(body))]
       | Time(payload) => [display("Time", Some(payload))]
       | Error(payload) => [displayError("Error", Some(payload))]
@@ -84,17 +85,17 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | Status(displayImplicit, checked) => [
-        display(
-          "Status",
-          Some(
-            "Typechecked: "
-            ++ string_of_bool(checked)
-            ++ "\nDisplay implicit arguments: "
-            ++ string_of_bool(displayImplicit),
-          ),
-        ),
-      ]
+    | Status(_displayImplicit, _checked) =>
+      // display(
+      //   "Status",
+      //   Some(
+      //     "Typechecked: "
+      //     ++ string_of_bool(checked)
+      //     ++ "\nDisplay implicit arguments: "
+      //     ++ string_of_bool(displayImplicit),
+      //   ),
+      // ),
+      []
     // if (displayImplicit || checked) {
     //   [
     //     display(
@@ -132,10 +133,18 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(RestoreCursor),
       ]
     | GiveAction(index, give) => [
-        Goal(
-          GetIndexedOr(
-            index,
-            (goal, _) => {
+        WithStateP(
+          state => {
+            let found = state.goals->Array.keep(goal => goal.index == index);
+            switch (found[0]) {
+            | None =>
+              Promise.resolved([
+                displayError(
+                  "Error: Give failed",
+                  Some("Cannot find goal #" ++ string_of_int(index)),
+                ),
+              ])
+            | Some(goal) =>
               let tasks =
                 switch (give) {
                 | Paren => [
@@ -158,18 +167,14 @@ module Impl = (Editor: Sig.Editor) => {
                     ),
                   ]
                 };
-              List.concatMany([|
-                tasks,
-                [Goal(RemoveBoundaryAndDestroy(goal))],
-              |]);
-            },
-            [
-              displayError(
-                "Error: Give failed",
-                Some("Cannot find goal #" ++ string_of_int(index)),
-              ),
-            ],
-          ),
+              Promise.resolved(
+                List.concatMany([|
+                  tasks,
+                  [Goal(RemoveBoundaryAndDestroy(goal))],
+                |]),
+              );
+            };
+          },
         ),
       ]
     | MakeCase(makeCaseType, lines) => [

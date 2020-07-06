@@ -105,6 +105,7 @@ module type Editor = {
   let focus: editor => unit;
 
   let getSelectionRange: editor => Range.t;
+  let getSelectionRanges: editor => array(Range.t);
 
   let getCursorPosition: editor => Point.t;
   let getCursorPositions: editor => array(Point.t);
@@ -131,4 +132,5 @@ module type Editor = {
 
   let copyToClipboard: string => Promise.t(unit);
   let colorThemeIsDark: unit => bool;
+  let lineEndingIsCRLF: editor => bool;
 };

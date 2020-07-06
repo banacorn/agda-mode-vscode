@@ -66,12 +66,8 @@ module Impl = (Editor: Sig.Editor) => {
     // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
     // We need to count how many `CR`s are skipped and add them back to the offsets
     let normalize = point => {
-      let isWindows =
-        switch (N.OS.type_()) {
-        | "Windows_NT" => true
-        | _ => false
-        };
-      if (isWindows) {
+      let useCRLF = Editor.lineEndingIsCRLF(editor);
+      if (useCRLF) {
         let skippedCRLF = Editor.Point.line(point);
         Editor.Point.translate(point, 0, skippedCRLF);
       } else {

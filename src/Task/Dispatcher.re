@@ -9,7 +9,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   open! Task;
 
-  let sendAgdaRequest = (runTasks, state, req) => {
+  let sendAgdaRequest = (runTasks, runTasksLater, state, req) => {
     // this promise get resolved after the request to Agda is completed
     let (promise, resolve) = Promise.pending();
     let handle = ref(None);
@@ -23,10 +23,20 @@ module Impl = (Editor: Sig.Editor) => {
           let tasks = ErrorHandler.handle(Error.Parser(error));
           runTasks(tasks);
         }
-      | Ok(Yield(Ok(response))) => {
+      | Ok(Yield(Ok(NonLast(response)))) => {
           Js.log(">>> " ++ Response.toString(response));
           let tasks = ResponseHandler.handle(response);
           runTasks(tasks);
+        }
+      | Ok(Yield(Ok(Last(priority, response)))) => {
+          Js.log(
+            ">>> "
+            ++ string_of_int(priority)
+            ++ " "
+            ++ Response.toString(response),
+          );
+          let tasks = ResponseHandler.handle(response);
+          runTasksLater(priority, tasks);
         }
       | Ok(Stop) => {
           Js.log(">>| ");
@@ -50,7 +60,7 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let printLog = true;
+  let printLog = false;
   let log =
     if (printLog) {
       Js.log;
@@ -112,14 +122,41 @@ module Impl = (Editor: Sig.Editor) => {
           );
         } else {
           Queues.spawn(self, Agda);
+
+          let lastTasks = [||];
+
           sendAgdaRequest(
             tasks => {
               Queues.addTasks(self, Agda, tasks);
               kickStart(self, state);
             },
+            (priority, tasks) => {
+              Js.Array.push((priority, tasks), lastTasks)->ignore
+            },
             state,
             request,
           )
+          ->Promise.map(() => {
+              // lastTasks
+              // ->Array.map(((priority, tasks)) =>
+              //     string_of_int(priority)
+              //     ++ " "
+              //     ++ tasks->List.map(Task.toString)->Util.Pretty.list
+              //   )
+              // ->Util.Pretty.array
+              // ->Js.log;
+
+              let tasks =
+                Js.Array.sortInPlaceWith(
+                  (x, y) => compare(fst(x), fst(y)),
+                  lastTasks,
+                )
+                ->Array.map(snd)
+                ->List.concatMany;
+
+              Queues.addTasks(self, Agda, tasks);
+              kickStart(self, state);
+            })
           ->Promise.get(() => {Queues.remove(self, Agda)});
           // NOTE: return early before `sendAgdaRequest` resolved
           Promise.resolved(true);

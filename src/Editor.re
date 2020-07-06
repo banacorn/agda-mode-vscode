@@ -298,6 +298,17 @@ let getSelectionRange = editor => {
   VSCode.Range.make(Selection.start(selection), Selection.end_(selection));
 };
 
+let getSelectionRanges = editor => {
+  editor
+  ->TextEditor.selections
+  ->Array.map(selection => {
+      VSCode.Range.make(
+        Selection.start(selection),
+        Selection.end_(selection),
+      )
+    });
+};
+
 let getCursorPosition = editor => editor->TextEditor.selection->Selection.end_;
 let getCursorPositions = editor =>
   editor->TextEditor.selections->Array.map(Selection.end_);
@@ -379,3 +390,9 @@ let copyToClipboard = text => Env.clipboard->Clipboard.writeText(text);
 
 let colorThemeIsDark = () =>
   Window.activeColorTheme->ColorTheme.kind == ColorThemeKind.Dark;
+
+let lineEndingIsCRLF = editor =>
+  switch (editor->TextEditor.document->TextDocument.eol) {
+  | EndOfLine.CRLF => true
+  | _ => false
+  };

@@ -40,8 +40,6 @@ module DisplayInfo = {
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
     | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title
-    // | AllGoalsWarnings(warnings) =>
-    //   "AllGoalsWarnings " ++ Emacs.AllGoalsWarnings.toString(warnings)
     | Time(string) => "Time " ++ string
     | Error(string) => "Error " ++ string
     | Intro(string) => "Intro " ++ string
@@ -172,9 +170,7 @@ let toString =
   | DoneAborting => "DoneAborting"
   | DoneExiting => "DoneExiting";
 
-// TODO: execute responses with priority
-let parseWithPriority =
-    (_priority: int, tokens: Token.t): result(t, Parser.Error.t) => {
+let parse = (tokens: Token.t): result(t, Parser.Error.t) => {
   let err = n => Error(Parser.Error.Response(n, tokens));
   switch (tokens) {
   | A(_) => err(0)
@@ -264,9 +260,7 @@ let parseWithPriority =
               } else {
                 None;
               };
-            // loop index
             i := i^ + 1;
-            // return the solution
             solution;
           });
         Ok(SolveAll(solutions));
@@ -276,9 +270,7 @@ let parseWithPriority =
     | Some(A("agda2-info-action-and-copy")) =>
       switch (xs[1]) {
       | Some(A("*Type-checking*")) =>
-        // Resp_ClearRunningInfo & Resp_RunningInfo may run into this case
         switch (xs[3]) {
-        // t: append
         | Some(A("t")) =>
           switch (xs[2]) {
           | Some(A(message)) => Ok(RunningInfo(1, message))
@@ -305,24 +297,36 @@ let parseWithPriority =
   };
 };
 
-let parse = (tokens: Token.t): result(t, Parser.Error.t) => {
-  //        the following text from `agda-mode.el` explains what are those
-  //        "last . n" prefixes for:
-  //            Every command is run by this function, unless it has the form
-  //            "(('last . priority) . cmd)", in which case it is run by
-  //            `agda2-run-last-commands' at the end, after the Agda2 prompt
-  //            has reappeared, after all non-last commands, and after all
-  //            interactive highlighting is complete. The last commands can have
-  //            different integer priorities; those with the lowest priority are
-  //            executed first.
-  // Read the priorities of expressions like this:
-  //  [["last", ".", "1"], ".", ["agda2-goals-action", []]]
-  // Expressions without the prefix have priority `0` (gets executed first)
-  switch (tokens) {
-  // with prefix
-  | L([|L([|A("last"), A("."), A(priority)|]), A("."), xs|]) =>
-    parseWithPriority(int_of_string(priority), xs)
-  // without prefix
-  | _ => parseWithPriority(0, tokens)
+module Prioritized = {
+  type response = t;
+  type t =
+    | NonLast(response)
+    | Last(int, response);
+
+  let toString =
+    fun
+    | NonLast(response) => "NonLast " ++ toString(response)
+    | Last(n, response) =>
+      "Last(" ++ string_of_int(n) ++ ") " ++ toString(response);
+
+  let parse = (tokens: Token.t): result(t, Parser.Error.t) => {
+    //        the following text from `agda-mode.el` explains what are those
+    //        "last . n" prefixes for:
+    //            Every command is run by this function, unless it has the form
+    //            "(('last . priority) . cmd)", in which case it is run by
+    //            `agda2-run-last-commands' at the end, after the Agda2 prompt
+    //            has reappeared, after all non-last commands, and after all
+    //            interactive highlighting is complete. The last commands can have
+    //            different integer priorities; those with the lowest priority are
+    //            executed first.
+    // Read the priorities of expressions like this:
+    //  [["last", ".", "1"], ".", ["agda2-goals-action", []]]
+    // Expressions without the prefix have priority `0` (gets executed first)
+    switch (tokens) {
+    | L([|L([|A("last"), A("."), A(priority)|]), A("."), xs|]) =>
+      parse(xs)
+      ->Result.map(response => Last(int_of_string(priority), response))
+    | _ => parse(tokens)->Result.map(response => NonLast(response))
+    };
   };
 };

@@ -199,6 +199,8 @@ module Impl = (Editor: Sig.Editor) => {
             switch (state.cursor) {
             | None => ()
             | Some(offset) =>
+              state.cursor = None;
+
               let position = Editor.pointAtOffset(state.editor, offset);
 
               let pointedGoal = pointingAt(~cursor=offset, state);
@@ -416,22 +418,6 @@ module Impl = (Editor: Sig.Editor) => {
             | None => Promise.resolved(global)
             | Some(goal) => Promise.resolved(local(goal))
             }
-          },
-        ),
-      ]
-    | GetIndexedOr(index, callback, alternative) => [
-        Goal(UpdateRange),
-        WithStateP(
-          state => {
-            let found = state.goals->Array.keep(goal => goal.index == index);
-            switch (found[0]) {
-            | None => Promise.resolved(alternative)
-            | Some(goal) =>
-              let content = Goal.getContent(goal, state.editor);
-              Promise.resolved(
-                callback(goal, content == "" ? None : Some(content)),
-              );
-            };
           },
         ),
       ];
