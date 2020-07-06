@@ -3,6 +3,7 @@
 
 # editor
 .vscode
+.vscode-test
 
 # OCaml
 .DS_Store
