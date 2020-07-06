@@ -131,4 +131,5 @@ module type Editor = {
 
   let copyToClipboard: string => Promise.t(unit);
   let colorThemeIsDark: unit => bool;
+  let lineEndingIsCRLF: editor => bool;
 };

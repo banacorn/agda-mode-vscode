@@ -379,3 +379,9 @@ let copyToClipboard = text => Env.clipboard->Clipboard.writeText(text);
 
 let colorThemeIsDark = () =>
   Window.activeColorTheme->ColorTheme.kind == ColorThemeKind.Dark;
+
+let lineEndingIsCRLF = editor =>
+  switch (editor->TextEditor.document->TextDocument.eol) {
+  | EndOfLine.CRLF => true
+  | _ => false
+  };
