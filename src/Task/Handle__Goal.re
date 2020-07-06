@@ -199,6 +199,8 @@ module Impl = (Editor: Sig.Editor) => {
             switch (state.cursor) {
             | None => ()
             | Some(offset) =>
+              state.cursor = None;
+
               let position = Editor.pointAtOffset(state.editor, offset);
 
               let pointedGoal = pointingAt(~cursor=offset, state);
