@@ -40,8 +40,6 @@ module DisplayInfo = {
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
     | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title
-    // | AllGoalsWarnings(warnings) =>
-    //   "AllGoalsWarnings " ++ Emacs.AllGoalsWarnings.toString(warnings)
     | Time(string) => "Time " ++ string
     | Error(string) => "Error " ++ string
     | Intro(string) => "Intro " ++ string
