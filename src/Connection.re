@@ -80,7 +80,8 @@ module Metadata = {
   };
 };
 
-type response = Parser.Incr.Event.t(result(Response.t, Parser.Error.t));
+type response =
+  Parser.Incr.Event.t(result(Response.Prioritized.t, Parser.Error.t));
 
 type t = {
   metadata: Metadata.t,
@@ -114,7 +115,8 @@ let wire = (self): unit => {
       fun
       | Error(parseError) => Parser.Incr.Event.Yield(Error(parseError))
       | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Event.Stop
-      | Ok(tokens) => Parser.Incr.Event.Yield(Response.parse(tokens)),
+      | Ok(tokens) =>
+        Parser.Incr.Event.Yield(Response.Prioritized.parse(tokens)),
     );
 
   // resolves the requests in the queue

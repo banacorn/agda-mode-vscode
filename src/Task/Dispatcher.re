@@ -23,7 +23,12 @@ module Impl = (Editor: Sig.Editor) => {
           let tasks = ErrorHandler.handle(Error.Parser(error));
           runTasks(tasks);
         }
-      | Ok(Yield(Ok(response))) => {
+      | Ok(Yield(Ok(NonLast(response)))) => {
+          Js.log(">>> " ++ Response.toString(response));
+          let tasks = ResponseHandler.handle(response);
+          runTasks(tasks);
+        }
+      | Ok(Yield(Ok(Last(_, response)))) => {
           Js.log(">>> " ++ Response.toString(response));
           let tasks = ResponseHandler.handle(response);
           runTasks(tasks);
