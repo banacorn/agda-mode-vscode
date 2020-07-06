@@ -84,17 +84,17 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | Status(displayImplicit, checked) => [
-        display(
-          "Status",
-          Some(
-            "Typechecked: "
-            ++ string_of_bool(checked)
-            ++ "\nDisplay implicit arguments: "
-            ++ string_of_bool(displayImplicit),
-          ),
-        ),
-      ]
+    | Status(_displayImplicit, _checked) =>
+      // display(
+      //   "Status",
+      //   Some(
+      //     "Typechecked: "
+      //     ++ string_of_bool(checked)
+      //     ++ "\nDisplay implicit arguments: "
+      //     ++ string_of_bool(displayImplicit),
+      //   ),
+      // ),
+      []
     // if (displayImplicit || checked) {
     //   [
     //     display(
