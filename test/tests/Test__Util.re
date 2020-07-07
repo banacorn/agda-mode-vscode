@@ -190,3 +190,18 @@ module Golden = {
 let serialize = xs => xs->Array.map(x => x ++ "\n")->Js.String.concatMany("");
 
 let serializeWith = (f, xs) => xs->Array.map(f)->serialize;
+
+let breakInput = (input: string, breakpoints: array(int)) => {
+  let breakpoints' = Array.concat([|0|], breakpoints);
+
+  breakpoints'
+  ->Array.mapWithIndex((i, x: int) =>
+      switch (breakpoints'[i + 1]) {
+      | Some(next) => (x, next - x)
+      | None => (x, Js.String.length(input) - x)
+      }
+    )
+  ->Array.map(((from, length)) =>
+      Js.String.substrAtMost(~from, ~length, input)
+    );
+};
