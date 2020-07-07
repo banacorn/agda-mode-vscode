@@ -5,7 +5,7 @@ type options = {
 };
 
 [@bs.module "vscode-test"]
-external runTests: options => Promise.t(int) = "runTests";
+external runTests: options => Js.Promise.t(int) = "runTests";
 
 let dirname: option(string) = [%bs.node __dirname];
 
@@ -29,12 +29,10 @@ switch (dirname) {
   Js.log("Failed to read __dirname");
   Node.Process.exit(1);
 | Some(dirname) =>
-  switch (run(dirname)) {
-  | _ => Node.Process.exit(3)
-
-  | exception _ =>
-    Js.log("Failed to run tests");
-    Node.Process.exit(5);
-  }
-// ->Promise.get(Node.Process.exit);
+  run(dirname)
+  |> Js.Promise.catch(error => {
+       Js.log2("Promise rejection ", error);
+       Js.Promise.resolve(1);
+     })
+  |> Js.Promise.then_(Node.Process.exit)
 };
