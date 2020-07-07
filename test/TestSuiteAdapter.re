@@ -11,7 +11,7 @@ module Mocha = {
     color: bool,
   };
 
-  [@bs.module] [@bs.new] external make: options => t = "Mocha";
+  [@bs.module] [@bs.new] external make: options => t = "mocha";
   [@bs.send] external addFile: (t, string) => unit = "addFile";
   [@bs.send] external run: (t, int => unit) => unit = "run";
 };
