@@ -23,8 +23,8 @@ let toResponses = exprs => {
   ->Array.concatMany;
 };
 
-describe("when parsing responses", () =>
-  Golden.getGoldenFilepathsSync("test/tests/Parser/Response")
+describe_skip("when parsing responses", () =>
+  Golden.getGoldenFilepathsSync("../../../../test/tests/Parser/Response")
   ->Array.forEach(filepath =>
       BsMocha.Promise.it("should golden test " ++ filepath, () =>
         Golden.readFile(filepath)

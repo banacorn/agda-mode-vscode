@@ -17,7 +17,7 @@ describe("when parsing file paths", () =>
 );
 
 describe("when parsing source files", () =>
-  Golden.getGoldenFilepathsSync("test/tests/Parser/SourceFile")
+  Golden.getGoldenFilepathsSync("../../../../test/tests/Parser/SourceFile")
   ->Array.forEach(filepath =>
       BsMocha.Promise.it("should golden test " ++ filepath, () =>
         Golden.readFile(filepath)

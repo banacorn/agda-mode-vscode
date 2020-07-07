@@ -12,7 +12,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest]
+        # os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
 
 
@@ -32,6 +33,7 @@ jobs:
       run: npm run build
       
     - name: Run tests
-      uses: GabrielBB/xvfb-action@v1.2
-      with:
-        run: npm test
+      run: npm test
+      # uses: GabrielBB/xvfb-action@v1.2
+      # with:
+      #   run: npm test

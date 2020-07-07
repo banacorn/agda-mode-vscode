@@ -15,6 +15,16 @@ exception Exn(string);
 //   //   Assert.not_equal(~message?, actual, expected);
 // };
 
+module Path = {
+  let toAbsolute = filepath => {
+    let dirname: option(string) = [%bs.node __dirname];
+    switch (dirname) {
+    | None => Node.Process.cwd()
+    | Some(dirname) => Node.Path.resolve(dirname, filepath)
+    };
+  };
+};
+
 module Golden = {
   // bindings for jsdiff
   module Diff = {
@@ -75,24 +85,26 @@ module Golden = {
     };
   };
   // get all filepaths of golden tests (asynchronously)
-  let getGoldenFilepaths = dirname => {
+  let getGoldenFilepaths = directoryPath => {
+    let directoryPath = Path.toAbsolute(directoryPath);
     let readdir = N.Fs.readdir |> N.Util.promisify;
     let isInFile = Js.String.endsWith(".in");
     let toBasename = path =>
-      Node.Path.join2(dirname, Node.Path.basename_ext(path, ".in"));
-    readdir(. dirname)
+      Node.Path.join2(directoryPath, Node.Path.basename_ext(path, ".in"));
+    readdir(. directoryPath)
     |> then_(paths =>
          paths->Array.keep(isInFile)->Array.map(toBasename)->resolve
        );
   };
 
   // get all filepaths of golden tests (synchronously)
-  let getGoldenFilepathsSync = dirname => {
+  let getGoldenFilepathsSync = directoryPath => {
+    let directoryPath = Path.toAbsolute(directoryPath);
     let readdir = Node.Fs.readdirSync;
     let isInFile = Js.String.endsWith(".in");
     let toBasename = path =>
-      Node.Path.join2(dirname, Node.Path.basename_ext(path, ".in"));
-    readdir(dirname)->Array.keep(isInFile)->Array.map(toBasename);
+      Node.Path.join2(directoryPath, Node.Path.basename_ext(path, ".in"));
+    readdir(directoryPath)->Array.keep(isInFile)->Array.map(toBasename);
   };
 
   exception FileMissing(string);
@@ -109,6 +121,7 @@ module Golden = {
 
   // FilePath -> Promise (Golden String)
   let readFile = filepath => {
+    let filepath = Path.toAbsolute(filepath);
     let readFile = N.Fs.readFile |> N.Util.promisify;
 
     [|readFile(. filepath ++ ".in"), readFile(. filepath ++ ".out")|]
