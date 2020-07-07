@@ -19,7 +19,8 @@ switch (dirname) {
   let extensionDevelopmentPath = Node.Path.resolve(dirname, "../");
   // The path to the extension test script
   // Passed to --extensionTestsPath
-  let extensionTestsPath = Node.Path.resolve(dirname, "./suite/index.js");
+  let extensionTestsPath =
+    Node.Path.resolve(dirname, "./testSuiteAdapter.js");
   // Download VS Code, unzip it and run the integration test
   runTests({extensionDevelopmentPath, extensionTestsPath})
   ->Promise.get(Node.Process.exit);

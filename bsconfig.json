@@ -30,6 +30,9 @@
     "reason-react",
     "reason-react-update"
   ],
+  "bs-dev-dependencies": [
+    "bs-mocha"
+  ],
   "ppx-flags": [],
   "bsc-flags": [
     "-bs-g"
