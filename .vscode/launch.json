@@ -21,7 +21,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/lib/js/test/testSuiteAdapter.bs"
+				"--extensionTestsPath=${workspaceFolder}/lib/js/test/TestSuiteAdapter.bs.js"
 			]
 		}
 	]

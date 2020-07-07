@@ -626,7 +626,7 @@
     "build:dev": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
     "build:prod": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
     "vscode:prepublish": "npm run build:prod",
-    "test": "node ./lib/js/test/runTestFromCLI.bs.js"
+    "test": "node ./lib/js/test/RunTestFromCLI.bs.js"
   },
   "devDependencies": {
     "bs-mocha": "^1.0.0",
