@@ -1,0 +1,16 @@
+NoStatus
+ClearRunningInfo
+ClearHighlighting
+RunningInfo 1 Checking QuotationMark (/Users/omega/github/agda-mode/test/ManualTests/QuotationMark.agda).\n
+HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-0
+HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-1
+HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-2
+HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-3
+HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-4
+DisplayInfo Error /Users/omega/github/agda-mode/test/ManualTests/QuotationMark.agda:8,5-8
+String != List Char
+when checking that the expression ")" has type List Char
+JumpToError /Users/omega/github/agda-mode/test/ManualTests/QuotationMark.agda 150
+JumpToError /Users/omega/github/agda-mode/test/ManualTests/QuotationMark.agda 150
+HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-5
+NoStatus

@@ -1,0 +1,15 @@
+This line is ordinary text, which is ignored by Agda.
+
+{! 0 !}
+
+#+begin_src agda2
+module Whatever where
+-- Agda code goes here
+
+{! 1 !}
+
+#+end_src
+
+{! 2 !}
+
+Another non-code line.

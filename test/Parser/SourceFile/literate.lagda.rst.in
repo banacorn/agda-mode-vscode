@@ -1,0 +1,13 @@
+This line is ordinary text, which is ignored by Agda.
+?
+
+::
+
+  module Whatever where
+  -- Agda code goes here
+
+  ?
+
+Another non-code line.?
+::
+.. This line is also ignored ?

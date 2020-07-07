@@ -1,0 +1,10 @@
+data MBool : Set where
+   TT : MBool
+   FF : MBool
+   ?? : MBool
+   A? : ?
+   ?A : ?
+
+?
+?
+?

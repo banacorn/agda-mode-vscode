@@ -1,0 +1,18 @@
+This line is ordinary text, which is ignored by Agda.
+
+? {!!}
+
+```
+module Whatever where
+-- Agda code goes here
+?
+```
+
+? {!!}
+Here is another code block:
+
+```agda
+data ℕ : Set where
+ zero : {!  !}
+ suc  : ℕ → ℕ
+```
