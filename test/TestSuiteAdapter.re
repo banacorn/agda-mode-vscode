@@ -38,36 +38,40 @@ let run = () => {
       Node.Path.resolve(dirname, "tests")
     );
 
-  Js.Promise.make((~resolve, ~reject) => {
-    Glob.glob("**/*.js", {cwd: testsRoot}, (err, files) => {
-      switch (Js.Nullable.toOption(err)) {
-      | Some(err) => reject(. err)
-      | None =>
-        // Add files to the test suite
-        files->Array.forEach(file =>
-          mocha->Mocha.addFile(Node.Path.resolve(testsRoot, file))
-        );
+  let (promise, resolve) = Promise.pending();
 
-        // Run the mocha test
-        switch (
-          mocha->Mocha.run(failures =>
-            if (failures > 0) {
-              reject(.
+  Glob.glob("**/*.js", {cwd: testsRoot}, (err, files) => {
+    switch (Js.Nullable.toOption(err)) {
+    | Some(err) => resolve(Error(err))
+    | None =>
+      // Add files to the test suite
+      files->Array.forEach(file =>
+        mocha->Mocha.addFile(Node.Path.resolve(testsRoot, file))
+      );
+
+      // Run the mocha test
+      switch (
+        mocha->Mocha.run(failures =>
+          if (failures > 0) {
+            resolve(
+              Error(
                 Js.Exn.raiseError(
                   string_of_int(failures) ++ " tests failed.",
                 ),
-              );
-            } else {
-              resolve(. 0);
-            }
-          )
-        ) {
-        | () => ()
-        | exception exn =>
-          Js.log(exn);
-          reject(. exn);
-        };
-      }
-    })
+              ),
+            );
+          } else {
+            resolve(Ok());
+          }
+        )
+      ) {
+      | () => ()
+      | exception exn =>
+        Js.log(exn);
+        resolve(Error(exn));
+      };
+    }
   });
+
+  promise;
 };
