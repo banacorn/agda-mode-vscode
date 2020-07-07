@@ -32,7 +32,7 @@ jobs:
       run: npm install
       
     - name: Build stuff 
-      run: npm run build:dev
+      run: npm run build
       
     - name: Run tests
       uses: GabrielBB/xvfb-action@v1.2
