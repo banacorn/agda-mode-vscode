@@ -25,6 +25,31 @@ module Path = {
   };
 };
 
+module Strings = {
+  // trim and replace all occurences of line breaks with "\n"
+  let normalize = string =>
+    Js.String.(replaceByRe([%re "/\\r\\n|\\r/g"], "\n", trim(string)));
+
+  let serialize = xs => Js.Array.joinWith("\n", xs);
+
+  let serializeWith = (f, xs) => xs->Array.map(f)->serialize;
+
+  let breakInput = (input: string, breakpoints: array(int)) => {
+    let breakpoints' = Array.concat([|0|], breakpoints);
+
+    breakpoints'
+    ->Array.mapWithIndex((i, x: int) =>
+        switch (breakpoints'[i + 1]) {
+        | Some(next) => (x, next - x)
+        | None => (x, Js.String.length(input) - x)
+        }
+      )
+    ->Array.map(((from, length)) =>
+        Js.String.substrAtMost(~from, ~length, input)
+      );
+  };
+};
+
 module Golden = {
   // bindings for jsdiff
   module Diff = {
@@ -111,6 +136,8 @@ module Golden = {
 
   type filepath = string;
   type actual = string;
+
+  // parameterized only by 'expected
   type t('expected) =
     | Golden(filepath, 'expected, actual);
 
@@ -128,22 +155,24 @@ module Golden = {
     |> all
     |> then_(
          fun
-         | [|input, output|] =>
-           resolve(
-             Golden(
-               filepath,
-               Node.Buffer.toString(input),
-               Node.Buffer.toString(output),
-             ),
-           )
+         | [|input, output|] => {
+             resolve(
+               Golden(
+                 filepath,
+                 Node.Buffer.toString(input),
+                 Node.Buffer.toString(output),
+               ),
+             );
+           }
          | _ => reject(FileMissing(filepath)),
        );
   };
 
   // Golden String -> Promise ()
   let compare = (Golden(_path, actual, expected)) => {
-    let actual = Js.String.trim(actual);
-    let expected = Js.String.trim(expected);
+    let actual = Strings.normalize(actual);
+    let expected = Strings.normalize(expected);
+
     Diff.wordsWithSpace(actual, expected)
     ->Diff.firstChange
     ->Option.forEach(((diff, count)) => {
@@ -198,23 +227,4 @@ module Golden = {
       });
     Js.Promise.resolve();
   };
-};
-
-let serialize = xs => xs->Array.map(x => x ++ "\n")->Js.String.concatMany("");
-
-let serializeWith = (f, xs) => xs->Array.map(f)->serialize;
-
-let breakInput = (input: string, breakpoints: array(int)) => {
-  let breakpoints' = Array.concat([|0|], breakpoints);
-
-  breakpoints'
-  ->Array.mapWithIndex((i, x: int) =>
-      switch (breakpoints'[i + 1]) {
-      | Some(next) => (x, next - x)
-      | None => (x, Js.String.length(input) - x)
-      }
-    )
-  ->Array.map(((from, length)) =>
-      Js.String.substrAtMost(~from, ~length, input)
-    );
 };

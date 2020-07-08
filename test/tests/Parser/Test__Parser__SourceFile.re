@@ -29,7 +29,7 @@ describe("when parsing source files", () =>
                    filepath,
                  ),
                )
-             ->Golden.map(serializeWith(SourceFile.Diff.toString))
+             ->Golden.map(Strings.serializeWith(SourceFile.Diff.toString))
              ->Golden.compare
            )
       )

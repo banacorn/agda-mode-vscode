@@ -26,7 +26,7 @@ let parseSExpression = (breakpoints, input) => {
 
   input
   ->Js.String.trim
-  ->breakInput(breakpoints)
+  ->Strings.breakInput(breakpoints)
   ->Array.map(Parser.split)
   ->Array.concatMany
   ->Array.forEach(Parser.Incr.feed(parser));
@@ -34,7 +34,7 @@ let parseSExpression = (breakpoints, input) => {
   output^;
 };
 
-describe("when parsing S-expressions wholly", () =>
+describe("when parsing S-expressions as a whole", () =>
   Golden.getGoldenFilepathsSync("../../../../test/tests/Parser/SExpression")
   ->Array.forEach(filepath =>
       BsMocha.Promise.it("should golden test " ++ filepath, () =>
@@ -42,7 +42,7 @@ describe("when parsing S-expressions wholly", () =>
         |> then_(raw =>
              raw
              ->Golden.map(parseSExpression([||]))
-             ->Golden.map(serializeWith(Parser.SExpression.toString))
+             ->Golden.map(Strings.serializeWith(Parser.SExpression.toString))
              ->Golden.compare
            )
       )
@@ -59,7 +59,7 @@ describe("when parsing S-expressions incrementally", () =>
              ->Golden.map(
                  parseSExpression([|3, 23, 171, 217, 1234, 2342, 3453|]),
                )
-             ->Golden.map(serializeWith(Parser.SExpression.toString))
+             ->Golden.map(Strings.serializeWith(Parser.SExpression.toString))
              ->Golden.compare
            )
       )

@@ -32,7 +32,7 @@ describe_skip("when parsing responses", () =>
              raw
              ->Golden.map(parseSExpression([||]))
              ->Golden.map(toResponses)
-             ->Golden.map(serializeWith(Response.toString))
+             ->Golden.map(Strings.serializeWith(Response.toString))
              ->Golden.compare
            )
       )
