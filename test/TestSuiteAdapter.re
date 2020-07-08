@@ -26,6 +26,8 @@ module Glob = {
     "glob";
 };
 
+exception TestFailure(string);
+
 let run = () => {
   // Create the mocha test
   let mocha = Mocha.make({ui: "bdd", color: true});
@@ -53,9 +55,7 @@ let run = () => {
           mocha->Mocha.run(failures =>
             if (failures > 0) {
               reject(.
-                Js.Exn.raiseError(
-                  string_of_int(failures) ++ " tests failed.",
-                ),
+                TestFailure(string_of_int(failures) ++ " tests failed."),
               );
             } else {
               resolve(. true);
