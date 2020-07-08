@@ -135,15 +135,71 @@ module Golden = {
   exception FileMissing(string);
 
   type filepath = string;
-  type actual = string;
-
-  // parameterized only by 'expected
-  type t('expected) =
-    | Golden(filepath, 'expected, actual);
+  type expected = string;
+  // parameterized only by 'actual;
+  type t('actual) =
+    | Golden(filepath, 'actual, expected);
 
   // (A -> B) -> Golden A -> Golden B
-  let map = (Golden(filepath, expected, actual), f) => {
-    Golden(filepath, f(expected), actual);
+  let map = (Golden(filepath, actual, expected), f) => {
+    Golden(filepath, f(actual), expected);
+  };
+
+  let debug = (Golden(filepath, actual, expected)) => {
+    Diff.wordsWithSpace(actual, expected)
+    ->Diff.firstChange
+    ->Option.forEach(((diff, count)) => {
+        open Diff;
+        let value = Diff.getValue(diff);
+
+        let change =
+          Js.String.length(value) > 100
+            ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
+            : value;
+
+        let expected' =
+          Js.String.substrAtMost(
+            ~from=max(0, count - 50),
+            ~length=50 + String.length(value) + 50,
+            expected,
+          );
+
+        let actual' =
+          Js.String.substrAtMost(
+            ~from=max(0, count - 50),
+            ~length=50 + String.length(value) + 50,
+            actual,
+          );
+
+        let message =
+          "\n\nexpected => "
+          ++ expected'
+          ++ "\n\nactual   => "
+          ++ actual'
+          ++ "\n\nchange => ";
+
+        switch (diff) {
+        | Added(_) =>
+          Js.log(
+            message
+            ++ " added \""
+            ++ change
+            ++ "\"\n at position "
+            ++ string_of_int(count),
+          )
+        | Removed(_) =>
+          Js.log(
+            message
+            ++ " removed \""
+            ++ change
+            ++ "\"\n\n at position "
+            ++ string_of_int(count),
+          )
+        | NoChange(_) => Js.log("NoChange")
+        };
+      });
+
+    Golden(filepath, actual, expected);
   };
 
   // FilePath -> Promise (Golden String)
@@ -160,7 +216,7 @@ module Golden = {
                Golden(
                  filepath,
                  Node.Buffer.toString(input),
-                 Node.Buffer.toString(output),
+                 Strings.normalize(Node.Buffer.toString(output)),
                ),
              );
            }
@@ -226,5 +282,12 @@ module Golden = {
         };
       });
     Js.Promise.resolve();
+  };
+};
+
+let onUnix = () => {
+  switch (N.OS.type_()) {
+  | "Windows_NT" => false
+  | _ => true
   };
 };
