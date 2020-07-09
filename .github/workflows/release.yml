@@ -3,11 +3,10 @@ on:
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
-name: Create Release
+name: Deploy Extension
 
 jobs:
-  build:
-    name: Create Release on Open VSX Registry
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -23,3 +22,9 @@ jobs:
         uses: HaaLeo/publish-vscode-extension@v0
         with:
           pat: ${{ secrets.OPEN_VSX }}
+
+      - name: Publish to Visual Studio Marketplace
+        uses: HaaLeo/publish-vscode-extension@v0
+        with:
+          pat: ${{ secrets.VSCE_PAT }}
+          registryUrl: https://marketplace.visualstudio.com
