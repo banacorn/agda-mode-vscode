@@ -7,6 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.pointAtOffset(editor, start),
         Editor.pointAtOffset(editor, end_),
       );
+
     let background =
       Editor.Decoration.highlightBackground(
         editor,
@@ -60,6 +61,11 @@ module Impl = (Editor: Sig.Editor) => {
   let decorateHighlighting =
       (editor: Editor.editor, highlighting: Highlighting.t) => {
     let start = Editor.pointAtOffset(editor, highlighting.start);
+
+    Js.log("offset: " ++ string_of_int(highlighting.start));
+    Js.log2("point: ", start);
+    Js.log2("offset2:  ", Editor.offsetAtPoint(editor, start));
+
     let end_ = Editor.pointAtOffset(editor, highlighting.end_);
 
     // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3

@@ -31,7 +31,8 @@
     "reason-react-update"
   ],
   "bs-dev-dependencies": [
-    "bs-mocha"
+    "bs-mocha",
+    "reason-promise"
   ],
   "ppx-flags": [],
   "bsc-flags": [

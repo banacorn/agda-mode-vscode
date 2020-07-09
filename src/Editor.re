@@ -325,8 +325,27 @@ let onChangeCursorPosition = callback =>
 
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
-let pointAtOffset = (editor, offset) =>
-  editor->TextEditor.document->TextDocument.positionAt(offset);
+
+let pointAtOffset = (editor, offset) => {
+  // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
+  // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
+  // we need to offset that difference here
+  //
+  // let wrongPoint =
+  //   editor->TextEditor.document->TextDocument.positionAt(offset);
+  // let wrongRange = VSCode.Range.make(VSCode.Position.make(0, 0), wrongPoint);
+  // let textWithInRange = editor->TextEditor.document->TextDocument.getText(None);
+  // this looks really expensive
+  // let text = editor->TextEditor.document->TextDocument.getText(None);
+  // let textBeforeOffset = Js.String.substring(~from=0, ~to_=offset, text);
+  // let realLength = [%raw "[...textBeforeOffset].length"];
+  // let fakeLength = Js.String.length(textBeforeOffset);
+  // let diff = fakeLength - realLength;
+  // let offset = offset + diff;
+  editor
+  ->TextEditor.document
+  ->TextDocument.positionAt(offset);
+};
 let offsetAtPoint = (editor, point) =>
   editor->TextEditor.document->TextDocument.offsetAt(point);
 
