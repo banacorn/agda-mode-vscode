@@ -326,37 +326,59 @@ let onChangeCursorPosition = callback =>
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 
-let graphemeWidth: string => int = [%raw
+let characterWidth: string => int = [%raw
   "function (string) {return [...string].length}"
 ];
+
+// returns `codePointOffset + 1` if `codePointOffset` cuts into the middle of a character of 2 code units wide
+let stringAtOffset =
+    (editor: editor, codePointOffset: int): (int, int, string) => {
+  let point =
+    editor->TextEditor.document->TextDocument.positionAt(codePointOffset + 1);
+  let range = VSCode.Range.make(VSCode.Position.make(0, 0), point);
+  // from `0` to `offset + 1`
+  let textWithLookahead =
+    editor->TextEditor.document->TextDocument.getText(Some(range));
+  // from `0` to `offset`
+  let textWithoutLookahead =
+    Js.String.substring(~from=0, ~to_=codePointOffset, textWithLookahead);
+  // if there's a character ranges from `offset - 1` to `offset + 1`
+  // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
+
+  let charWidthWithLookahead = characterWidth(textWithLookahead);
+  let charWidthWithoutLookahead = characterWidth(textWithoutLookahead);
+  if (charWidthWithLookahead == charWidthWithoutLookahead) {
+    (codePointOffset + 1, charWidthWithoutLookahead, textWithLookahead);
+  } else {
+    (codePointOffset, charWidthWithoutLookahead, textWithoutLookahead);
+  };
+};
 
 let pointAtOffset = (editor, offset) => {
   // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
 
-  let rec approximate = (targetOffset, offset) => {
-    // get the text within `offset`
-    let point = editor->TextEditor.document->TextDocument.positionAt(offset);
-    let range = VSCode.Range.make(VSCode.Position.make(0, 0), point);
-    let textWithInRange =
-      editor->TextEditor.document->TextDocument.getText(Some(range));
+  let rec approximate = (targetOffset, codePointOffset) => {
+    let (codePointOffset, currentCharOffset, text) =
+      stringAtOffset(editor, codePointOffset);
 
-    // let wrongLength = Js.String.length(textWithInRange);
-    let realLength = graphemeWidth(textWithInRange);
-    let diff = 2;
+    let diff = targetOffset - currentCharOffset;
 
     Js.log("target offset " ++ string_of_int(targetOffset));
-    Js.log("current offset " ++ string_of_int(offset));
-    // Js.log("textWithInRange " ++ textWithInRange);
-    // Js.log("wrongLength " ++ string_of_int(wrongLength));
-    // Js.log("realLength " ++ string_of_int(realLength));
+    Js.log("offset " ++ string_of_int(offset));
+    Js.log(
+      "current offset " ++ string_of_int(currentCharOffset) ++ " " ++ text,
+    );
     Js.log("=======");
-    if (targetOffset == realLength) {
-      point;
-    } else {
-      approximate(targetOffset, offset + diff);
-    };
+    editor->TextEditor.document->TextDocument.positionAt(codePointOffset);
+    // if (targetOffset <= currentCharOffset || currentCharOffset > 0) {
+    //   editor->TextEditor.document->TextDocument.positionAt(codePointOffset);
+    // } else if (diff == 0) {
+    //   editor->TextEditor.document->TextDocument.positionAt(codePointOffset);
+    // } else {
+    //   approximate(targetOffset, codePointOffset + diff);
+    // };
   };
   approximate(offset, offset);
 };
