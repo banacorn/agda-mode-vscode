@@ -20,7 +20,11 @@
       {
         "id": "agda",
         "extensions": [
-          ".agda"
+          ".agda",
+          ".lagda",
+          ".lagda.md",
+          ".lagda.rst",
+          ".lagda.tex"
         ],
         "aliases": [
           "Agda"
@@ -238,7 +242,8 @@
       {
         "command": "agda-mode.load",
         "key": "ctrl+c ctrl+l",
-        "mac": "ctrl+c ctrl+l"
+        "mac": "ctrl+c ctrl+l",
+        "when": "editorLangId == agda"
       },
       {
         "command": "agda-mode.quit",
