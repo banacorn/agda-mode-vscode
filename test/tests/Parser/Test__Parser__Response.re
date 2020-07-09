@@ -6,16 +6,16 @@ open Test__Util;
 
 open Test__Parser__SExpression;
 
-// [SExpression] -> [Response]
-let toResponses = exprs => {
+// [SExpression] -> [Response.Prioritized.t]
+let toPrioritizedResponses = exprs => {
   // keeping the successful parsing result
   // Assert.fail on the failed ones
   exprs
-  ->Array.map(Response.parse)
+  ->Array.map(Response.Prioritized.parse)
   ->Array.map(
       fun
       | Error(e) => {
-          Assert.fail(e);
+          Assert.fail(Parser.Error.toString(e));
           [||];
         }
       | Ok(v) => [|v|],
@@ -23,7 +23,7 @@ let toResponses = exprs => {
   ->Array.concatMany;
 };
 
-describe_skip("when parsing responses", () =>
+describe("when parsing responses", () =>
   Golden.getGoldenFilepathsSync("../../../../test/tests/Parser/Response")
   ->Array.forEach(filepath =>
       BsMocha.Promise.it("should golden test " ++ filepath, () =>
@@ -31,8 +31,10 @@ describe_skip("when parsing responses", () =>
         |> then_(raw =>
              raw
              ->Golden.map(parseSExpression([||]))
-             ->Golden.map(toResponses)
-             ->Golden.map(Strings.serializeWith(Response.toString))
+             ->Golden.map(toPrioritizedResponses)
+             ->Golden.map(
+                 Strings.serializeWith(Response.Prioritized.toString),
+               )
              ->Golden.compare
            )
       )

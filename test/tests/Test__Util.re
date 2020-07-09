@@ -145,63 +145,6 @@ module Golden = {
     Golden(filepath, f(actual), expected);
   };
 
-  let debug = (Golden(filepath, actual, expected)) => {
-    Diff.wordsWithSpace(actual, expected)
-    ->Diff.firstChange
-    ->Option.forEach(((diff, count)) => {
-        open Diff;
-        let value = Diff.getValue(diff);
-
-        let change =
-          Js.String.length(value) > 100
-            ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
-            : value;
-
-        let expected' =
-          Js.String.substrAtMost(
-            ~from=max(0, count - 50),
-            ~length=50 + String.length(value) + 50,
-            expected,
-          );
-
-        let actual' =
-          Js.String.substrAtMost(
-            ~from=max(0, count - 50),
-            ~length=50 + String.length(value) + 50,
-            actual,
-          );
-
-        let message =
-          "\n\nexpected => "
-          ++ expected'
-          ++ "\n\nactual   => "
-          ++ actual'
-          ++ "\n\nchange => ";
-
-        switch (diff) {
-        | Added(_) =>
-          Js.log(
-            message
-            ++ " added \""
-            ++ change
-            ++ "\"\n at position "
-            ++ string_of_int(count),
-          )
-        | Removed(_) =>
-          Js.log(
-            message
-            ++ " removed \""
-            ++ change
-            ++ "\"\n\n at position "
-            ++ string_of_int(count),
-          )
-        | NoChange(_) => Js.log("NoChange")
-        };
-      });
-
-    Golden(filepath, actual, expected);
-  };
-
   // FilePath -> Promise (Golden String)
   let readFile = filepath => {
     let filepath = Path.toAbsolute(filepath);
@@ -235,49 +178,55 @@ module Golden = {
         open Diff;
         let value = Diff.getValue(diff);
 
-        let change =
-          Js.String.length(value) > 100
-            ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
-            : value;
+        // let change =
+        //   Js.String.length(value) > 100
+        //     ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
+        //     : value;
 
-        let expected' =
+        let expected =
           Js.String.substrAtMost(
             ~from=max(0, count - 50),
             ~length=50 + String.length(value) + 50,
             expected,
           );
 
-        let actual' =
+        let actual =
           Js.String.substrAtMost(
             ~from=max(0, count - 50),
             ~length=50 + String.length(value) + 50,
             actual,
           );
 
-        let message =
-          "\n\nexpected => "
-          ++ expected'
-          ++ "\n\nactual   => "
-          ++ actual'
-          ++ "\n\nchange => ";
+        // let message = change =>
+        //   "\n\nchange => "
+        //   ++ change
+        //   ++ "\n\nexpected => "
+        //   ++ expected
+        //   ++ "\n\nactual   => "
+        //   ++ actual;
 
         switch (diff) {
-        | Added(_) =>
-          BsMocha.Assert.fail(
-            message
-            ++ " added \""
-            ++ change
-            ++ "\"\n at position "
-            ++ string_of_int(count),
-          )
-        | Removed(_) =>
-          BsMocha.Assert.fail(
-            message
-            ++ " removed \""
-            ++ change
-            ++ "\"\n\n at position "
-            ++ string_of_int(count),
-          )
+        | Added(_) => BsMocha.Assert.fail'(actual, expected)
+        // BsMocha.Assert.fail(
+        //   message(
+        //     " added \""
+        //     ++ change
+        //     ++ "\"\n at position "
+        //     ++ string_of_int(count),
+        //   ),
+        // )
+        | Removed(_) => BsMocha.Assert.fail'(actual, expected)
+        //   ~actual: actual,
+        //   ~expected: expected,
+        //   ~message=change,
+        // )
+
+        // message(
+        //   " removed \""
+        //   ++ change
+        //   ++ "\"\n\n at position "
+        //   ++ string_of_int(count),
+        // ),
         | NoChange(_) => ()
         };
       });
