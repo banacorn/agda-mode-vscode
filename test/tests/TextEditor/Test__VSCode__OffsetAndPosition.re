@@ -113,4 +113,60 @@ describe("Conversion between Offsets and Positions", () => {
       ->Promise.Js.toBsPromise
     });
   });
+
+  describe("VSCode.TextDocument.offsetAt", () => {
+    P.it("should count it wrong", () => {
+      openTextEditor({j|𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇\na|j})
+      ->Promise.map(textEditor => {
+          let fromOffset = n => Editor.pointAtOffset(textEditor, n);
+          let toOffset = point =>
+            TextDocument.offsetAt(textEditor->TextEditor.document, point);
+          Assert.not_equal(toOffset(fromOffset(1)), 1);
+          Assert.equal(toOffset(fromOffset(1)), 2);
+        })
+      ->Promise.Js.toBsPromise
+    })
+  });
+  describe("Editor.offsetAtPoint", () => {
+    P.it("should be a left inverse of Editor.pointAtOffset", () => {
+      openTextEditor({j|𝐀a𝐁bb𝐂c\na|j})
+      ->Promise.map(textEditor => {
+          let fromOffset = n => Editor.pointAtOffset(textEditor, n);
+          let toOffset = point => Editor.offsetAtPoint(textEditor, point);
+          Assert.equal(toOffset(fromOffset(0)), 0);
+          Assert.equal(toOffset(fromOffset(1)), 1);
+          Assert.equal(toOffset(fromOffset(2)), 2);
+          Assert.equal(toOffset(fromOffset(3)), 3);
+          Assert.equal(toOffset(fromOffset(4)), 4);
+          Assert.equal(toOffset(fromOffset(5)), 5);
+          Assert.equal(toOffset(fromOffset(6)), 6);
+          Assert.equal(toOffset(fromOffset(7)), 7);
+          Assert.equal(toOffset(fromOffset(8)), 8);
+          Assert.equal(toOffset(fromOffset(9)), 9);
+        })
+      ->Promise.Js.toBsPromise
+    });
+    P.it("should be a right inverse of Editor.pointAtOffset? (nope!)", () => {
+      openTextEditor({j|𝐀a𝐁bb𝐂c\na|j})
+      ->Promise.map(textEditor => {
+          let fromOffset = n => {
+            let point = Editor.pointAtOffset(textEditor, n);
+            (Editor.Point.line(point), Editor.Point.column(point));
+          };
+          let toOffset = (line, col) =>
+            Editor.offsetAtPoint(textEditor, Editor.Point.make(line, col));
+          Assert.deep_equal(fromOffset(toOffset(0, 0)), (0, 0));
+          Assert.deep_equal(fromOffset(toOffset(0, 1)), (0, 2));
+          Assert.deep_equal(fromOffset(toOffset(0, 2)), (0, 2));
+          Assert.deep_equal(fromOffset(toOffset(0, 3)), (0, 3));
+          Assert.deep_equal(fromOffset(toOffset(0, 4)), (0, 5));
+          Assert.deep_equal(fromOffset(toOffset(0, 5)), (0, 5));
+          Assert.deep_equal(fromOffset(toOffset(0, 6)), (0, 6));
+          Assert.deep_equal(fromOffset(toOffset(0, 7)), (0, 7));
+          Assert.deep_equal(fromOffset(toOffset(0, 8)), (0, 9));
+          Assert.deep_equal(fromOffset(toOffset(0, 9)), (0, 9));
+        })
+      ->Promise.Js.toBsPromise
+    });
+  });
 });

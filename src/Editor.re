@@ -381,8 +381,15 @@ let pointAtOffset = (editor, offset) => {
   approximate(offset, offset);
 };
 
-let offsetAtPoint = (editor, point) =>
-  editor->TextEditor.document->TextDocument.offsetAt(point);
+let offsetAtPoint = (editor, point) => {
+  let range =
+    VSCode.Range.make(
+      VSCode.Position.make(0, 0), // start
+      point // end
+    );
+  let text = editor->TextEditor.document->TextDocument.getText(Some(range));
+  characterWidth(text);
+};
 
 let getTextInRange = (editor, range) =>
   editor->TextEditor.document->TextDocument.getText(Some(range));
