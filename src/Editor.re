@@ -333,9 +333,11 @@ let characterWidth: string => int = [%raw
 // Code unit: a bit sequence used to encode each character of a repertoire within a given encoding form.
 // returns `offset + 1` if `offset` cuts into the middle of a character of 2 code units wide
 let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
-  let point =
-    editor->TextEditor.document->TextDocument.positionAt(offset + 1);
-  let range = VSCode.Range.make(VSCode.Position.make(0, 0), point);
+  let range =
+    VSCode.Range.make(
+      VSCode.Position.make(0, 0), // start
+      editor->TextEditor.document->TextDocument.positionAt(offset + 1) // end
+    );
   // from `0` to `offset + 1`
   let textWithLookahead =
     editor->TextEditor.document->TextDocument.getText(Some(range));
@@ -343,15 +345,15 @@ let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
   let textWithoutLookahead =
     Js.String.substring(~from=0, ~to_=offset, textWithLookahead);
 
-  let charWidthWithLookahead = characterWidth(textWithLookahead);
-  let charWidthWithoutLookahead = characterWidth(textWithoutLookahead);
+  let charOffsetWithLookahead = characterWidth(textWithLookahead);
+  let charOffsetWithoutLookahead = characterWidth(textWithoutLookahead);
 
   // if there's a character ranges from `offset - 1` to `offset + 1`
-  // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
-  if (charWidthWithLookahead == charWidthWithoutLookahead) {
-    (offset + 1, charWidthWithoutLookahead);
+  // the character offset of `textWithLookahead` should be the same as `textWithoutLookahead`
+  if (charOffsetWithLookahead == charOffsetWithoutLookahead) {
+    (offset + 1, charOffsetWithoutLookahead);
   } else {
-    (offset, charWidthWithoutLookahead);
+    (offset, charOffsetWithoutLookahead);
   };
 };
 
@@ -359,14 +361,20 @@ let pointAtOffset = (editor, offset) => {
   // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
-  let rec approximate = (target, offset) => {
-    let (offset, current) = codeUnitEndingOffset(editor, offset);
-    let diff = target - current;
-    let (nextOffset, _) = codeUnitEndingOffset(editor, offset + diff);
 
-    if (diff == 0) {
-      editor->TextEditor.document->TextDocument.positionAt(offset);
+  let rec approximate = (target, offset) => {
+    // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
+    let (offset, current) = codeUnitEndingOffset(editor, offset);
+
+    if (target == current) {
+      // return the current position if the target is met
+      editor
+      ->TextEditor.document
+      ->TextDocument.positionAt(offset);
     } else {
+      // else, offset by `target - current` to see if we can approximate the target
+      let (nextOffset, _) =
+        codeUnitEndingOffset(editor, offset + target - current);
       approximate(target, nextOffset);
     };
   };

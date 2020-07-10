@@ -85,13 +85,30 @@ describe("Conversion between Offsets and Positions", () => {
       textEditor->Editor.getTextInRange(range);
     };
     P.it("should extract the right portion of text", () => {
-      openTextEditor({j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j})
+      openTextEditor({j|𝐀a𝐁bb𝐂c\na|j})
       ->Promise.map(textEditor => {
           Assert.equal(getTextToOffsetAt(textEditor, 0), {j||j});
           Assert.equal(getTextToOffsetAt(textEditor, 1), {j|𝐀|j});
           Assert.equal(getTextToOffsetAt(textEditor, 2), {j|𝐀a|j});
           Assert.equal(getTextToOffsetAt(textEditor, 3), {j|𝐀a𝐁|j});
           Assert.equal(getTextToOffsetAt(textEditor, 4), {j|𝐀a𝐁b|j});
+          Assert.equal(getTextToOffsetAt(textEditor, 5), {j|𝐀a𝐁bb|j});
+          Assert.equal(
+            getTextToOffsetAt(textEditor, 6),
+            {j|𝐀a𝐁bb𝐂|j},
+          );
+          Assert.equal(
+            getTextToOffsetAt(textEditor, 7),
+            {j|𝐀a𝐁bb𝐂c|j},
+          );
+          Assert.equal(
+            getTextToOffsetAt(textEditor, 8),
+            {j|𝐀a𝐁bb𝐂c\n|j},
+          );
+          Assert.equal(
+            getTextToOffsetAt(textEditor, 9),
+            {j|𝐀a𝐁bb𝐂c\na|j},
+          );
         })
       ->Promise.Js.toBsPromise
     });
