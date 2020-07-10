@@ -115,6 +115,8 @@ module type Editor = {
   let rangeForLine: (editor, int) => Range.t;
   let pointAtOffset: (editor, int) => Point.t;
   let offsetAtPoint: (editor, Point.t) => int;
+  let fromAgdaOffset: (editor, int) => int;
+  let toAgdaOffset: (editor, int) => int;
 
   let getText: editor => string;
   let getTextInRange: (editor, Range.t) => string;

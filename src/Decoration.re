@@ -60,8 +60,12 @@ module Impl = (Editor: Sig.Editor) => {
 
   let decorateHighlighting =
       (editor: Editor.editor, highlighting: Highlighting.t) => {
-    let start = Editor.pointAtOffset(editor, highlighting.start);
-    let end_ = Editor.pointAtOffset(editor, highlighting.end_);
+    // converts offsets from Agda to offsets for editor first
+
+    let start = Editor.fromAgdaOffset(editor, highlighting.start);
+    let end_ = Editor.fromAgdaOffset(editor, highlighting.end_);
+    let start = Editor.pointAtOffset(editor, start);
+    let end_ = Editor.pointAtOffset(editor, end_);
 
     // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
     // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s

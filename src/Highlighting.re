@@ -146,8 +146,8 @@ module Token = Parser.SExpression;
 open Token;
 type filepath = string;
 type t = {
-  start: int,
-  end_: int,
+  start: int, // agda offset
+  end_: int, // agda offset
   aspects: array(Aspect.t), // a list of names of aspects
   source: option((filepath, int)) // The defining module and the position in that module
 };
