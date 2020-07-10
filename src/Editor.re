@@ -333,6 +333,7 @@ let characterWidth: string => int = [%raw
 // Code unit: a bit sequence used to encode each character of a repertoire within a given encoding form.
 // returns `offset + 1` if `offset` cuts into the middle of a character of 2 code units wide
 let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
+  // Js.log("codeUnitEndingOffset");
   let range =
     VSCode.Range.make(
       VSCode.Position.make(0, 0), // start
@@ -362,23 +363,34 @@ let pointAtOffset = (editor, offset) => {
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
 
+  let count = ref(0);
+
   let rec approximate = (target, offset) => {
+    count := count^ + 1;
     // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
     let (offset, current) = codeUnitEndingOffset(editor, offset);
-
-    if (target == current) {
+    if (target == current || count^ > 40) {
       // return the current position if the target is met
       editor
       ->TextEditor.document
       ->TextDocument.positionAt(offset);
     } else {
       // else, offset by `target - current` to see if we can approximate the target
-      let (nextOffset, _) =
+      let (nextOffset, nextCurrent) =
         codeUnitEndingOffset(editor, offset + target - current);
-      approximate(target, nextOffset);
+
+      if (current == nextCurrent) {
+        // return it's not progressing anymore
+        editor
+        ->TextEditor.document
+        ->TextDocument.positionAt(nextOffset);
+      } else {
+        approximate(target, nextOffset);
+      };
     };
   };
   approximate(offset, offset);
+  // editor->TextEditor.document->TextDocument.positionAt(offset);
 };
 
 let offsetAtPoint = (editor, point) => {
