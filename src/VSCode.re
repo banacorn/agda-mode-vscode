@@ -1540,6 +1540,10 @@ module TextEdit = {
 // https://code.visualstudio.com/api/references/vscode-api#WorkspaceEdit
 module WorkspaceEdit = {
   type t;
+  // NOTE: this is missing in the API
+  // constructors
+  [@bs.module "vscode"] [@bs.new] external make: unit => t = "WorkspaceEdit";
+
   // properties
   [@bs.get] external size: t => int = "size";
   // methods
@@ -1612,7 +1616,7 @@ module WorkspaceEdit = {
     "renameFile";
   [@bs.send]
   external replace:
-    (t, Range.t, string, option(WorkspaceEditEntryMetadata.t)) => unit =
+    (t, Uri.t, Range.t, string, option(WorkspaceEditEntryMetadata.t)) => unit =
     "replace";
   [@bs.send] external set: (t, Uri.t, array(TextEdit.t)) => unit = "set";
 };

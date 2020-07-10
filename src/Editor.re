@@ -413,22 +413,33 @@ let selectText = (editor, range) => {
   editor->TextEditor.setSelection(selection);
 };
 let setText = (editor, range, text) => {
-  let editCallback = edit => {
-    edit->TextEditorEdit.replaceAtRange(range, text);
-  };
-  editor->TextEditor.edit(editCallback, None);
+  let workspaceEdit = WorkspaceEdit.make();
+  workspaceEdit->WorkspaceEdit.replace(
+    editor->TextEditor.document->TextDocument.uri,
+    range,
+    text,
+    None,
+  );
+  Workspace.applyEdit(workspaceEdit);
 };
 let insertText = (editor, point, text) => {
-  let editCallback = edit => {
-    edit->TextEditorEdit.insert(point, text);
-  };
-  editor->TextEditor.edit(editCallback, None);
+  let workspaceEdit = WorkspaceEdit.make();
+  workspaceEdit->WorkspaceEdit.insert(
+    editor->TextEditor.document->TextDocument.uri,
+    point,
+    text,
+    None,
+  );
+  Workspace.applyEdit(workspaceEdit);
 };
 let deleteText = (editor, range) => {
-  let editCallback = edit => {
-    edit->TextEditorEdit.delete(range);
-  };
-  editor->TextEditor.edit(editCallback, None);
+  let workspaceEdit = WorkspaceEdit.make();
+  workspaceEdit->WorkspaceEdit.delete(
+    editor->TextEditor.document->TextDocument.uri,
+    range,
+    None,
+  );
+  Workspace.applyEdit(workspaceEdit);
 };
 
 type changeEvent = {
