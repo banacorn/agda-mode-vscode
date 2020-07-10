@@ -1505,9 +1505,116 @@ module FileRenameEvent = {
     "files";
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#WorkspaceEditEntryMetadata;
+module WorkspaceEditEntryMetadata = {
+  type t;
+  // properties
+  [@bs.get] external description: t => option(string) = "description";
+  // TODO: [@bs.get] external iconPath: t => ??? = "iconPath";
+  [@bs.get] external label: t => string = "label";
+  [@bs.get] external needsConfirmation: t => bool = "needsConfirmation";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#TextEdit
+module TextEdit = {
+  type t;
+
+  // methods
+  [@bs.send] external delete: (t, Range.t) => unit = "delete";
+  [@bs.send] external insert: (t, Position.t, string) => unit = "insert";
+  [@bs.send] external replace: (t, Range.t, string) => unit = "replace";
+  [@bs.send] external setEndOfLine_raw: (t, int) => unit = "setEndOfLine";
+  let setEndOfLine = (self: t, eol: EndOfLine.t): unit =>
+    setEndOfLine_raw(self, EndOfLine.toEnum(eol));
+
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: (Range.t, string) => t = "TextEdit";
+
+  // properties
+  [@bs.get] external newEol: t => option(EndOfLine.t) = "newEol";
+  [@bs.get] external newText: t => string = "newText";
+  [@bs.get] external range: t => Range.t = "range";
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#WorkspaceEdit
 module WorkspaceEdit = {
   type t;
+  // properties
+  [@bs.get] external size: t => int = "size";
+  // methods
+  [@bs.send]
+  external createFile:
+    (
+      t,
+      Uri.t,
+      option({
+        .
+        "ignoreIfExists": bool,
+        "overwrite": bool,
+      }),
+      option(WorkspaceEditEntryMetadata.t),
+      unit
+    ) =>
+    unit =
+    "createFile";
+  [@bs.send]
+  external delete:
+    (t, Uri.t, Range.t, option(WorkspaceEditEntryMetadata.t)) => unit =
+    "delete";
+  [@bs.send]
+  external deleteFile:
+    (
+      t,
+      Uri.t,
+      Range.t,
+      option({
+        .
+        "ignoreIfNotExists": bool,
+        "recursive": bool,
+      }),
+      option(WorkspaceEditEntryMetadata.t)
+    ) =>
+    unit =
+    "deleteFile";
+  [@bs.send] external entries_raw: t => array('shit) = "entries";
+  let entries = (self: t): array((Uri.t, array(TextEdit.t))) => {
+    Array.map(
+      shit => {
+        let toUri = [%raw "function (shit) { return shit[0] }"];
+        let toTextEdits = [%raw "function (shit) { return shit[1] }"];
+        (toUri(shit), toTextEdits(shit));
+      },
+      entries_raw(self),
+    );
+  };
+  [@bs.send] external get: (t, Uri.t) => array(TextEdit.t) = "get";
+  [@bs.send] external has: (t, Uri.t) => bool = "has";
+  [@bs.send]
+  external insert:
+    (t, Uri.t, Position.t, string, option(WorkspaceEditEntryMetadata.t)) =>
+    unit =
+    "insert";
+  [@bs.send]
+  external renameFile:
+    (
+      t,
+      Uri.t,
+      Uri.t,
+      option({
+        .
+        "ignoreIfExists": bool,
+        "overwrite": bool,
+      }),
+      option(WorkspaceEditEntryMetadata.t)
+    ) =>
+    unit =
+    "renameFile";
+  [@bs.send]
+  external replace:
+    (t, Range.t, string, option(WorkspaceEditEntryMetadata.t)) => unit =
+    "replace";
+  [@bs.send] external set: (t, Uri.t, array(TextEdit.t)) => unit = "set";
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#FileWillCreateEvent
@@ -1571,10 +1678,6 @@ module TextDocumentSaveReason = {
     | _ => Manual;
 };
 
-// https://code.visualstudio.com/api/references/vscode-api#TextEdit
-module TextEdit = {
-  type t;
-};
 // https://code.visualstudio.com/api/references/vscode-api#TextDocumentWillSaveEvent
 module TextDocumentWillSaveEvent = {
   type t;
