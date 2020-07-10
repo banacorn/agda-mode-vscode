@@ -330,27 +330,28 @@ let characterWidth: string => int = [%raw
   "function (string) {return [...string].length}"
 ];
 
-// returns `codePointOffset + 1` if `codePointOffset` cuts into the middle of a character of 2 code units wide
-let stringAtOffset =
-    (editor: editor, codePointOffset: int): (int, int, string) => {
+// Code unit: a bit sequence used to encode each character of a repertoire within a given encoding form.
+// returns `offset + 1` if `offset` cuts into the middle of a character of 2 code units wide
+let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
   let point =
-    editor->TextEditor.document->TextDocument.positionAt(codePointOffset + 1);
+    editor->TextEditor.document->TextDocument.positionAt(offset + 1);
   let range = VSCode.Range.make(VSCode.Position.make(0, 0), point);
   // from `0` to `offset + 1`
   let textWithLookahead =
     editor->TextEditor.document->TextDocument.getText(Some(range));
   // from `0` to `offset`
   let textWithoutLookahead =
-    Js.String.substring(~from=0, ~to_=codePointOffset, textWithLookahead);
-  // if there's a character ranges from `offset - 1` to `offset + 1`
-  // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
+    Js.String.substring(~from=0, ~to_=offset, textWithLookahead);
 
   let charWidthWithLookahead = characterWidth(textWithLookahead);
   let charWidthWithoutLookahead = characterWidth(textWithoutLookahead);
+
+  // if there's a character ranges from `offset - 1` to `offset + 1`
+  // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
   if (charWidthWithLookahead == charWidthWithoutLookahead) {
-    (codePointOffset + 1, charWidthWithoutLookahead, textWithLookahead);
+    (offset + 1, charWidthWithoutLookahead);
   } else {
-    (codePointOffset, charWidthWithoutLookahead, textWithoutLookahead);
+    (offset, charWidthWithoutLookahead);
   };
 };
 
@@ -358,30 +359,20 @@ let pointAtOffset = (editor, offset) => {
   // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
+  let rec approximate = (target, offset) => {
+    let (offset, current) = codeUnitEndingOffset(editor, offset);
+    let diff = target - current;
+    let (nextOffset, _) = codeUnitEndingOffset(editor, offset + diff);
 
-  let rec approximate = (targetOffset, codePointOffset) => {
-    let (codePointOffset, currentCharOffset, text) =
-      stringAtOffset(editor, codePointOffset);
-
-    let diff = targetOffset - currentCharOffset;
-
-    Js.log("target offset " ++ string_of_int(targetOffset));
-    Js.log("offset " ++ string_of_int(offset));
-    Js.log(
-      "current offset " ++ string_of_int(currentCharOffset) ++ " " ++ text,
-    );
-    Js.log("=======");
-    editor->TextEditor.document->TextDocument.positionAt(codePointOffset);
-    // if (targetOffset <= currentCharOffset || currentCharOffset > 0) {
-    //   editor->TextEditor.document->TextDocument.positionAt(codePointOffset);
-    // } else if (diff == 0) {
-    //   editor->TextEditor.document->TextDocument.positionAt(codePointOffset);
-    // } else {
-    //   approximate(targetOffset, codePointOffset + diff);
-    // };
+    if (diff == 0) {
+      editor->TextEditor.document->TextDocument.positionAt(offset);
+    } else {
+      approximate(target, nextOffset);
+    };
   };
   approximate(offset, offset);
 };
+
 let offsetAtPoint = (editor, point) =>
   editor->TextEditor.document->TextDocument.offsetAt(point);
 
