@@ -358,22 +358,24 @@ let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
   };
 };
 
-let pointAtOffset = (editor, offset) => {
+let pointAtOffset = (editor, offset) =>
+  editor->TextEditor.document->TextDocument.positionAt(offset);
+
+let offsetAtPoint = (editor, point) =>
+  editor->TextEditor.document->TextDocument.offsetAt(point);
+
+// for converting offsets sent from Agda (UTF-8) to offsets in the editor (UTF-16)
+let fromAgdaOffset = (editor, offset) => {
   // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
 
-  let count = ref(0);
-
   let rec approximate = (target, offset) => {
-    count := count^ + 1;
     // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
     let (offset, current) = codeUnitEndingOffset(editor, offset);
-    if (target == current || count^ > 40) {
+    if (target == current) {
       // return the current position if the target is met
-      editor
-      ->TextEditor.document
-      ->TextDocument.positionAt(offset);
+      offset;
     } else {
       // else, offset by `target - current` to see if we can approximate the target
       let (nextOffset, nextCurrent) =
@@ -381,23 +383,20 @@ let pointAtOffset = (editor, offset) => {
 
       if (current == nextCurrent) {
         // return it's not progressing anymore
-        editor
-        ->TextEditor.document
-        ->TextDocument.positionAt(nextOffset);
+        nextOffset;
       } else {
         approximate(target, nextOffset);
       };
     };
   };
   approximate(offset, offset);
-  // editor->TextEditor.document->TextDocument.positionAt(offset);
 };
 
-let offsetAtPoint = (editor, point) => {
+let toAgdaOffset = (editor, offset) => {
   let range =
     VSCode.Range.make(
       VSCode.Position.make(0, 0), // start
-      point // end
+      editor->TextEditor.document->TextDocument.positionAt(offset) // end
     );
   let text = editor->TextEditor.document->TextDocument.getText(Some(range));
   characterWidth(text);
