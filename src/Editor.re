@@ -90,7 +90,7 @@ let onDidChangeActivation = callback => {
 // if end with '.agda' or '.lagda'
 let isAgda = (filepath): bool => {
   let filepath = filepath->Parser.filepath;
-  Js.Re.test_([%re "/\\.agda$|\\.lagda$/i"], filepath);
+  Js.Re.test_([%re "/\\.agda$|\\.lagda/i"], filepath);
 };
 
 let registerCommand = (name, callback) =>
