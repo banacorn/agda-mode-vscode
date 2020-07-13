@@ -238,8 +238,13 @@ let make = (getExtensionPath, context, editor) => {
 };
 
 let destroy = view => {
-  view.panel->WebviewPanel.dispose;
+  // if we invoke `view.panel->WebviewPanel.dispose` first,
+  // this would trigger `View.ResponseOrEventFromView.Event(Destroyed)`
+  // and in turns would trigger this function AGAIN
+
+  // destroy the EventEmitter first, to prevent the aforementioned from happening
   view.onResponseOrEventFromView.destroy();
+  view.panel->WebviewPanel.dispose;
 };
 
 // show/hide
