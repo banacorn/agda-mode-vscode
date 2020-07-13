@@ -42,6 +42,10 @@
         "title": "Quit"
       },
       {
+        "command": "agda-mode.restart",
+        "title": "Quit and restart"
+      },
+      {
         "command": "agda-mode.compile",
         "title": "Compile"
       },
@@ -249,6 +253,12 @@
         "command": "agda-mode.quit",
         "key": "ctrl+c ctrl+q",
         "mac": "ctrl+c ctrl+q",
+        "when": "agdaMode"
+      },
+      {
+        "command": "agda-mode.restart",
+        "key": "ctrl+x ctrl+r",
+        "mac": "ctrl+x ctrl+r",
         "when": "agdaMode"
       },
       {

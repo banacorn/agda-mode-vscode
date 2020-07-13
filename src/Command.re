@@ -67,6 +67,7 @@ module InputMethod = {
 type t =
   | Load
   | Quit
+  | Restart
   | Compile
   | ToggleDisplayOfImplicitArguments
   | ShowConstraints
@@ -98,6 +99,7 @@ type t =
 let names: array((t, string)) = [|
   (Load, "load"),
   (Quit, "quit"),
+  (Restart, "restart"),
   (Compile, "compile"),
   (ToggleDisplayOfImplicitArguments, "toggle-display-of-implicit-arguments"),
   (ShowConstraints, "show-constraints"),
@@ -181,6 +183,7 @@ let toString =
   fun
   | Load => "Load"
   | Quit => "Quit"
+  | Restart => "Restart"
   | Compile => "Compile"
   | ToggleDisplayOfImplicitArguments => "Toggle display of hidden arguments"
   | ShowConstraints => "Show constraints"
