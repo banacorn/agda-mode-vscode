@@ -80,9 +80,14 @@ module Impl = (Editor: Sig.Editor) => {
       // `busy` will be set to `true` if there are Tasks being executed
       // A semaphore to make sure that only one `kickStart` is running at a time
       mutable busy: bool,
+      mutable shouldDestroy: option(unit => unit),
     };
 
-    let make = () => {queues: MultiQueue.make(), busy: false};
+    let make = () => {
+      queues: MultiQueue.make(),
+      busy: false,
+      shouldDestroy: None,
+    };
 
     module Queues = {
       let spawn = (self, target) =>
@@ -227,7 +232,12 @@ module Impl = (Editor: Sig.Editor) => {
     and kickStart = (self, state) =>
       if (!self.busy) {
         switch (Queues.getNextTask(self)) {
-        | None => ()
+        | None =>
+          // if there are no more tasks, and .shouldDestroy is set, then resolve it
+          switch (self.shouldDestroy) {
+          | None => ()
+          | Some(resolve) => resolve()
+          }
         | Some(task) =>
           self.busy = true;
           executeTask(self, state, task) // and start executing tasks
@@ -240,6 +250,22 @@ module Impl = (Editor: Sig.Editor) => {
             });
         };
       };
+
+    // returns a promise that resolves when all tasks have been executed
+    let destroy = self =>
+      if (self.busy) {
+        let (promise, resolve) = Promise.pending();
+        self.shouldDestroy = Some(resolve);
+        promise;
+      } else {
+        Promise.resolved();
+      };
+
+    // clear the queue, doesn't wait
+    let destroy' = self => {
+      self.queues = MultiQueue.make();
+      Promise.resolved();
+    };
   };
 
   type t = {
@@ -279,6 +305,17 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
-  // do nothing
-  let destroy = _ => ();
+  // wait until all tasks have finished executing
+  let destroy = self => {
+    self.critical
+    ->Runner.destroy
+    ->Promise.flatMap(() => self.blocking->Runner.destroy);
+  };
+
+  // destroy everything in a rather violent way
+  let destroy' = self => {
+    self.critical
+    ->Runner.destroy'
+    ->Promise.flatMap(() => self.blocking->Runner.destroy');
+  };
 };
