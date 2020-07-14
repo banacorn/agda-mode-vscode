@@ -49,6 +49,9 @@ let getExtensionPath = context => context->ExtensionContext.extensionPath;
 let getFileName = editor =>
   Some(editor->TextEditor.document->TextDocument.fileName->Parser.filepath);
 
+let getEditor = fileName =>
+  Window.showTextDocumentWithUri(Uri.file(fileName), None);
+
 let save = editor => editor->TextEditor.document->TextDocument.save;
 
 let addToSubscriptions = (disposable, context) =>

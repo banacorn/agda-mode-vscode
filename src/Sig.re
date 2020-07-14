@@ -44,6 +44,7 @@ module type Editor = {
   // Helpers
   let getExtensionPath: context => fileName;
   let getFileName: editor => option(fileName);
+  let getEditor: fileName => Promise.t(editor);
   let save: editor => Promise.t(bool);
   let isAgda: fileName => bool;
 
