@@ -29,7 +29,7 @@ module Impl = (Editor: Sig.Editor) => {
         indexRange,
       );
 
-    [|background, index|];
+    (background, index);
   };
 
   let decorateAspect =

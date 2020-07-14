@@ -4,7 +4,8 @@ module Impl = (Editor: Sig.Editor) => {
   type t = {
     index: int,
     mutable range: (int, int),
-    decorations: array(Editor.Decoration.t),
+    decorationBackground: Editor.Decoration.t,
+    decorationIndex: Editor.Decoration.t,
   };
 
   // NOTE: helper function of `makeMany`, returns a thunk
@@ -20,9 +21,14 @@ module Impl = (Editor: Sig.Editor) => {
         );
       Editor.setText(editor, originalRange, diff.content)
       ->Promise.map(_ => {
-          let decorations =
+          let (decorationBackground, decorationIndex) =
             Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
-          {index: diff.index, range: diff.modifiedRange, decorations};
+          {
+            index: diff.index,
+            range: diff.modifiedRange,
+            decorationBackground,
+            decorationIndex,
+          };
         });
     };
   };
@@ -108,17 +114,20 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let refreshDecoration = (self, editor: Editor.editor) => {
-    self.decorations
-    ->Array.forEach(decoration => {
-        Editor.Decoration.decorate(
-          editor,
-          decoration,
-          [|getOuterRange(self, editor)|],
-        )
-      });
+    // redecorate the background
+    let range = getOuterRange(self, editor);
+    Editor.Decoration.decorate(editor, self.decorationBackground, [|range|]);
+    // redecorate the index
+    let range =
+      Editor.Range.make(
+        Editor.Range.start(range),
+        Editor.Point.translate(Editor.Range.end_(range), 0, -2),
+      );
+    Editor.Decoration.decorate(editor, self.decorationIndex, [|range|]);
   };
 
   let destroy = self => {
-    self.decorations->Array.forEach(Editor.Decoration.destroy);
+    self.decorationBackground->Editor.Decoration.destroy;
+    self.decorationIndex->Editor.Decoration.destroy;
   };
 };
