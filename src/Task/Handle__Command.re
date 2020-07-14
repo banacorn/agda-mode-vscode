@@ -17,8 +17,8 @@ module Impl = (Editor: Sig.Editor) => {
         RemoveAllHighlightings,
         SendRequest(Load),
       ]
-    | Quit => [RemoveAllHighlightings, SuicideByCop]
-    | Restart => [Debug("Restart")]
+    | Quit => []
+    | Restart => [DispatchCommand(Load)]
     | Compile => [SendRequest(Compile)]
     | ToggleDisplayOfImplicitArguments => [
         SendRequest(ToggleDisplayOfImplicitArguments),

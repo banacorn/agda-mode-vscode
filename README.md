@@ -38,7 +38,7 @@ Take *infer type* for example:
 | ✔      | load                                    | <kbd>C-c</kbd> <kbd>C-l</kbd>   |
 | ✔      | compile                                 | <kbd>C-x</kbd> <kbd>C-c</kbd>   |
 | ✔      | quit                                    | <kbd>C-c</kbd> <kbd>C-q</kbd>   |
-|        | quit and restart                        | <kbd>C-x</kbd> <kbd>C-r</kbd>   |
+| ✔      | quit and restart                        | <kbd>C-x</kbd> <kbd>C-r</kbd>   |
 |        | abort a command                         | <kbd>C-x</kbd> <kbd>C-a</kbd>   |
 |        | remove goals and highlighting           | <kbd>C-x</kbd> <kbd>C-d</kbd>   |
 | ✔      | toggle display of hidden arguments      | <kbd>C-x</kbd> <kbd>C-h</kbd>   |

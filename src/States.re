@@ -47,10 +47,13 @@ module StateDispatcherPair = {
       (state, dispatcher);
     };
 
-    let destroy = ((state, dispatcher)) => {
-      State.destroy(state) |> ignore;
-      Dispatcher.destroy(dispatcher) |> ignore;
-    };
+    let destroy = ((state, dispatcher)) =>
+      Dispatcher.destroy(dispatcher)
+      ->Promise.flatMap(() => {State.destroy(state)});
+
+    let forceDestroy = ((state, dispatcher)) =>
+      Dispatcher.forceDestroy(dispatcher)
+      ->Promise.flatMap(() => {State.destroy(state)});
   };
 };
 
@@ -94,8 +97,21 @@ module StateDict = {
     };
 
     let destroy = fileName => {
-      get(fileName)->Option.forEach(StateDispatcherPair.destroy);
-      remove(fileName);
+      switch (get(fileName)) {
+      | None => Promise.resolved()
+      | Some(pair) =>
+        remove(fileName);
+        StateDispatcherPair.destroy(pair);
+      };
+    };
+
+    let forceDestroy = fileName => {
+      switch (get(fileName)) {
+      | None => Promise.resolved()
+      | Some(pair) =>
+        remove(fileName);
+        StateDispatcherPair.forceDestroy(pair);
+      };
     };
 
     let contains = fileName => get(fileName)->Option.isSome;
@@ -103,7 +119,8 @@ module StateDict = {
     let destroyAll = () => {
       dict
       ->Js.Dict.entries
-      ->Array.forEach(((_, pair)) => StateDispatcherPair.destroy(pair));
+      ->Array.map(((_, pair), ()) => StateDispatcherPair.destroy(pair))
+      ->Util.oneByOne;
     };
   };
 };
@@ -120,7 +137,7 @@ module Impl = (Editor: Sig.Editor) => {
   let activate = context => {
     Js.log("[ states ] activate");
     // when a TextEditor gets closed, destroy the corresponding State
-    Editor.onDidCloseEditor(States.destroy)
+    Editor.onDidCloseEditor(fileName => States.forceDestroy(fileName)->ignore)
     ->Editor.addToSubscriptions(context);
     // when a file got renamed, destroy the corresponding State if it becomes non-GCL
     Editor.onDidChangeFileName((oldName, newName) =>
@@ -130,7 +147,7 @@ module Impl = (Editor: Sig.Editor) => {
             if (Editor.isAgda(newName)) {
               States.rename(oldName, newName);
             } else {
-              States.destroy(oldName);
+              States.forceDestroy(oldName)->ignore;
             };
           }
         )
@@ -155,45 +172,60 @@ module Impl = (Editor: Sig.Editor) => {
         name,
         editor => {
           Js.log("[ command ] " ++ name);
-          // special treatments on commands like "Load" and "Restart"
-          switch (command) {
-          | Load =>
-            editor
-            ->Editor.getFileName
-            ->Option.forEach(fileName => {
-                switch (States.get(fileName)) {
-                | None =>
-                  // not in the States dict, instantiate a pair of (State, Dispatcher)
-                  let pair =
-                    StateDispatcherPair.make(context, editor, () => {
-                      States.destroy(fileName)
-                    });
-                  // add this (State, Dispatcher) pair to the dict
-                  States.add(fileName, pair);
-                | Some(_pair) =>
-                  // already in the States dict, do nothing
-                  ()
-                }
-              })
-          | Restart =>
-            editor
-            ->Editor.getFileName
-            ->Option.forEach(fileName => {
-                States.destroy(
-                  fileName,
-                  // // not in the States dict, instantiate a pair of (State, Dispatcher)
-                  // let pair = makeStateDispatcherPair(context, editor, fileName);
-                  // // add this (State, Dispatcher) pair to the dict
-                  // States.add(fileName, pair);
-                )
-              })
-          | _ => ()
-          };
-          // dispatch Tasks
-          editor
-          ->States.getByEditor
-          ->Option.forEach(((state, dispatcher)) => {
-              Dispatcher.dispatchCommand(dispatcher, state, command)->ignore
+          // special treatments on commands like "Load", "Quit" and "Restart"
+          (
+            switch (command) {
+            | Load =>
+              editor
+              ->Editor.getFileName
+              ->Option.forEach(fileName => {
+                  switch (States.get(fileName)) {
+                  | None =>
+                    // not in the States dict, instantiate a pair of (State, Dispatcher)
+                    let pair =
+                      StateDispatcherPair.make(context, editor, () => {
+                        States.forceDestroy(fileName)->ignore
+                      });
+                    // add this (State, Dispatcher) pair to the dict
+                    States.add(fileName, pair);
+                  | Some(_pair) =>
+                    // already in the States dict, do nothing
+                    ()
+                  }
+                });
+              Promise.resolved();
+            | Quit =>
+              editor
+              ->Editor.getFileName
+              ->Option.mapWithDefault(Promise.resolved(), fileName => {
+                  States.forceDestroy(fileName)
+                })
+            | Restart =>
+              editor
+              ->Editor.getFileName
+              ->Option.mapWithDefault(Promise.resolved(), fileName => {
+                  States.destroy(fileName)
+                  ->Promise.map(() => {
+                      // not in the States dict, instantiate a pair of (State, Dispatcher)
+                      let pair =
+                        StateDispatcherPair.make(context, editor, () => {
+                          States.forceDestroy(fileName)->ignore
+                        });
+                      // add this (State, Dispatcher) pair to the dict
+                      States.add(fileName, pair);
+                    })
+                })
+            | _ => Promise.resolved()
+            }
+          )
+          ->Promise.get(() => {
+              // dispatch Tasks
+              editor
+              ->States.getByEditor
+              ->Option.forEach(((state, dispatcher)) => {
+                  Dispatcher.dispatchCommand(dispatcher, state, command)
+                  ->ignore
+                })
             });
         },
       )

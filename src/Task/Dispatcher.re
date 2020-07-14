@@ -207,9 +207,11 @@ module Impl = (Editor: Sig.Editor) => {
         state.decorations->Array.forEach(Editor.Decoration.destroy);
         state.decorations = [||];
         Promise.resolved(true);
+
       | WithState(callback) =>
         callback(state);
         Promise.resolved(true);
+
       | WithStateP(callback) =>
         Queues.spawn(self, Misc);
         callback(state)
@@ -266,7 +268,7 @@ module Impl = (Editor: Sig.Editor) => {
       };
 
     // clear the queue, doesn't wait
-    let destroy' = self => {
+    let forceDestroy = self => {
       self.queues = MultiQueue.make();
       Promise.resolved();
     };
@@ -317,9 +319,9 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   // destroy everything in a rather violent way
-  let destroy' = self => {
+  let forceDestroy = self => {
     self.critical
-    ->Runner.destroy'
-    ->Promise.flatMap(() => self.blocking->Runner.destroy');
+    ->Runner.forceDestroy
+    ->Promise.flatMap(() => self.blocking->Runner.forceDestroy);
   };
 };
