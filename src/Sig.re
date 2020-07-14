@@ -91,6 +91,9 @@ module type Editor = {
     type backgroundStyle = string;
     type foregroundStyle = string;
     type color = string;
+
+    let decorate: (editor, t, array(Range.t)) => unit;
+
     let highlightBackground: (editor, backgroundStyle, Range.t) => t;
     let highlightBackgroundWithColor: (editor, color, Range.t) => t;
     let decorateText: (editor, foregroundStyle, Range.t) => t;

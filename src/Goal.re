@@ -62,6 +62,12 @@ module Impl = (Editor: Sig.Editor) => {
       Editor.pointAtOffset(editor, snd(self.range) - 2),
     );
 
+  let getOuterRange = (self, editor) =>
+    Editor.Range.make(
+      Editor.pointAtOffset(editor, fst(self.range)),
+      Editor.pointAtOffset(editor, snd(self.range)),
+    );
+
   let getContent = (self, editor) => {
     let innerRange = getInnerRange(self, editor);
     Editor.getTextInRange(editor, innerRange)->Parser.userInput;
@@ -99,6 +105,17 @@ module Impl = (Editor: Sig.Editor) => {
       {j|(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])|j}
       // after 2.5.1
     };
+  };
+
+  let refreshDecoration = (self, editor: Editor.editor) => {
+    self.decorations
+    ->Array.forEach(decoration => {
+        Editor.Decoration.decorate(
+          editor,
+          decoration,
+          [|getOuterRange(self, editor)|],
+        )
+      });
   };
 
   let destroy = self => {

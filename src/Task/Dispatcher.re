@@ -204,13 +204,20 @@ module Impl = (Editor: Sig.Editor) => {
         });
         Promise.resolved(true);
       | RemoveAllHighlightings =>
-        state.decorations->Array.forEach(Editor.Decoration.destroy);
+        state.decorations
+        ->Array.map(fst)
+        ->Array.forEach(Editor.Decoration.destroy);
         state.decorations = [||];
         Promise.resolved(true);
       | RefreshAllHighlightings =>
-        //  TextEditorDecorationType
-        // Js.log("refresh");
-        Promise.resolved(true)
+        state.decorations
+        ->Array.forEach(((decoration, range)) => {
+            Editor.Decoration.decorate(state.editor, decoration, [|range|])
+          });
+        Js.log("refreshing goals");
+        state.goals
+        ->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor));
+        Promise.resolved(true);
       | WithState(callback) =>
         callback(state);
         Promise.resolved(true);

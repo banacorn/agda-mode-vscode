@@ -11,7 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     view: Editor.view,
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
-    mutable decorations: array(Editor.Decoration.t),
+    mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
     mutable cursor: option(int),
     onKillMePlzEmitter: Event.t(unit),
     inputMethod: InputMethod.t,
@@ -91,7 +91,9 @@ module Impl = (Editor: Sig.Editor) => {
     state.view->Editor.View.destroy;
     state.onKillMePlzEmitter.destroy();
     state.goals->Array.forEach(Goal.destroy);
-    state.decorations->Array.forEach(Editor.Decoration.destroy);
+    state.decorations
+    ->Array.map(fst)
+    ->Array.forEach(Editor.Decoration.destroy);
     setLoaded(false);
     state->disconnect;
   };

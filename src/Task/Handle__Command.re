@@ -19,7 +19,7 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | Quit => []
     | Restart => [DispatchCommand(Load)]
-    | Refresh => [RefreshAllHighlightings]
+    | Refresh => [Goal(UpdateRange), RefreshAllHighlightings]
     | Compile => [SendRequest(Compile)]
     | ToggleDisplayOfImplicitArguments => [
         SendRequest(ToggleDisplayOfImplicitArguments),

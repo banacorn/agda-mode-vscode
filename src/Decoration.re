@@ -37,7 +37,8 @@ module Impl = (Editor: Sig.Editor) => {
         editor: Editor.editor,
         range: Editor.Range.t,
         aspect: Highlighting.Aspect.t,
-      ) => {
+      )
+      : array((Editor.Decoration.t, Editor.Range.t)) => {
     let style = Highlighting.Aspect.toStyle(aspect);
 
     let decorate =
@@ -51,9 +52,9 @@ module Impl = (Editor: Sig.Editor) => {
     | Noop => [||]
     | Themed(light, dark) =>
       if (Editor.colorThemeIsDark()) {
-        [|decorate(dark)|];
+        [|(decorate(dark), range)|];
       } else {
-        [|decorate(light)|];
+        [|(decorate(light), range)|];
       }
     };
   };

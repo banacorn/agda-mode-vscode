@@ -176,6 +176,11 @@ module Decoration = {
   type backgroundStyle = string;
   type foregroundStyle = string;
   type color = string;
+
+  let decorate =
+      (editor: editor, decoration: t, ranges: array(VSCode.Range.t)) => {
+    editor->TextEditor.setDecorations(decoration, ranges);
+  };
   //
   let highlightBackgroundPrim =
       (
@@ -187,9 +192,9 @@ module Decoration = {
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options =
       DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ());
-    let handle = Window.createTextEditorDecorationType(options);
-    editor->TextEditor.setDecorations(handle, [|range|]);
-    handle;
+    let decoration = Window.createTextEditorDecorationType(options);
+    editor->decorate(decoration, [|range|]);
+    decoration;
   };
   let highlightBackground =
       (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
@@ -212,9 +217,9 @@ module Decoration = {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ());
-    let handle = Window.createTextEditorDecorationType(options);
-    editor->TextEditor.setDecorations(handle, [|range|]);
-    handle;
+    let decoration = Window.createTextEditorDecorationType(options);
+    editor->decorate(decoration, [|range|]);
+    decoration;
   };
   let decorateText =
       (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
@@ -243,9 +248,9 @@ module Decoration = {
       );
 
     let options = DecorationRenderOptions.t(~after, ());
-    let handle = Window.createTextEditorDecorationType(options);
-    editor->TextEditor.setDecorations(handle, [|range|]);
-    handle;
+    let decoration = Window.createTextEditorDecorationType(options);
+    editor->decorate(decoration, [|range|]);
+    decoration;
   };
 
   let overlayText =
@@ -272,9 +277,9 @@ module Decoration = {
     let textDecoration = "underline dotted";
     let options =
       DecorationRenderOptions.t(~rangeBehavior, ~textDecoration, ());
-    let handle = Window.createTextEditorDecorationType(options);
-    editor->TextEditor.setDecorations(handle, [|range|]);
-    handle;
+    let decoration = Window.createTextEditorDecorationType(options);
+    editor->decorate(decoration, [|range|]);
+    decoration;
   };
 
   // ThemeColor.themeColor(
