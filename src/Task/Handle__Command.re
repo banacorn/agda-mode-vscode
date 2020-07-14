@@ -17,7 +17,7 @@ module Impl = (Editor: Sig.Editor) => {
         RemoveAllHighlightings,
         SendRequest(Load),
       ]
-    | Quit => [RemoveAllHighlightings, Terminate]
+    | Quit => [RemoveAllHighlightings, SuicideByCop]
     | Restart => [Debug("Restart")]
     | Compile => [SendRequest(Compile)]
     | ToggleDisplayOfImplicitArguments => [
@@ -255,7 +255,7 @@ module Impl = (Editor: Sig.Editor) => {
     | EventFromView(event) =>
       switch (event) {
       | Initialized => []
-      | Destroyed => [Terminate]
+      | Destroyed => [SuicideByCop]
       | InputMethod(InsertChar(char)) => [
           Goal(SaveCursor),
           DispatchCommand(InputMethod(InsertChar(char))),

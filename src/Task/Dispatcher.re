@@ -216,7 +216,11 @@ module Impl = (Editor: Sig.Editor) => {
         ->Promise.map(Queues.addTasks(self, Misc))
         ->Promise.tap(() => {Queues.remove(self, Misc)})
         ->Promise.map(() => true);
-      | Terminate => State.destroy(state)->Promise.map(() => false)
+
+      | SuicideByCop =>
+        state->State.emitKillMePlz;
+        Promise.resolved(false);
+
       | Goal(action) =>
         let tasks = GoalHandler.handle(action);
         Queues.addMiscTasks(self, tasks);

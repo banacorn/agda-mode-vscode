@@ -13,7 +13,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable goals: array(Goal.t),
     mutable decorations: array(Editor.Decoration.t),
     mutable cursor: option(int),
-    onDestroyEventEmitter: Event.t(unit),
+    onKillMePlzEmitter: Event.t(unit),
     inputMethod: InputMethod.t,
     // onInputMethodAction: Event.t(Command.InputMethodAction.t),
     // mutable inputMethodActivated: bool,
@@ -26,9 +26,10 @@ module Impl = (Editor: Sig.Editor) => {
   let getEditor = (state: t) => state.editor;
 
   //
-  // events
+  // events to the outside world
   //
-  let onceDestroyed = state => state.onDestroyEventEmitter.once();
+  let onKillMePlz = state => state.onKillMePlzEmitter.once();
+  let emitKillMePlz = state => state.onKillMePlzEmitter.emit();
 
   //
   // Agda connection/disconnection
@@ -88,8 +89,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let destroy = state => {
     state.view->Editor.View.destroy;
-    state.onDestroyEventEmitter.emit();
-    state.onDestroyEventEmitter.destroy();
+    state.onKillMePlzEmitter.destroy();
     state.goals->Array.forEach(Goal.destroy);
     state.decorations->Array.forEach(Editor.Decoration.destroy);
     setLoaded(false);
@@ -109,7 +109,7 @@ module Impl = (Editor: Sig.Editor) => {
       goals: [||],
       decorations: [||],
       cursor: None,
-      onDestroyEventEmitter: Event.make(),
+      onKillMePlzEmitter: Event.make(),
       inputMethod: InputMethod.make(),
     };
 

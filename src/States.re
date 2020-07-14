@@ -40,8 +40,8 @@ module StateDispatcherPair = {
       ->Editor.Disposable.make
       ->Editor.addToSubscriptions(context);
 
-      // remove it from the States dict if it got destroyed
-      state->State.onceDestroyed->Promise.get(onDestroy);
+      // remove it from the States dict if it request to be killed
+      state->State.onKillMePlz->Promise.get(onDestroy);
 
       // return the pair
       (state, dispatcher);

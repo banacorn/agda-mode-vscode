@@ -26,7 +26,7 @@ module Impl = (Editor: Sig.Editor) => {
   and t =
     | DispatchCommand(Command.t)
     //
-    | Terminate
+    | SuicideByCop
     // Connection
     | SendRequest(Request.t)
     // View
@@ -44,7 +44,7 @@ module Impl = (Editor: Sig.Editor) => {
   let toString =
     fun
     | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
-    | Terminate => "Terminate"
+    | SuicideByCop => "SuicideByCop"
     | SendRequest(_req) => "SendRequest"
     | SendEventToView(_) => "SendEventToView"
     | SendRequestToView(_, _) => "SendRequestToView"
