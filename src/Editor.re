@@ -189,7 +189,7 @@ module Decoration = {
       DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ());
     let handle = Window.createTextEditorDecorationType(options);
     editor->TextEditor.setDecorations(handle, [|range|]);
-    [|handle|];
+    handle;
   };
   let highlightBackground =
       (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
@@ -214,7 +214,7 @@ module Decoration = {
     let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ());
     let handle = Window.createTextEditorDecorationType(options);
     editor->TextEditor.setDecorations(handle, [|range|]);
-    [|handle|];
+    handle;
   };
   let decorateText =
       (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
@@ -245,7 +245,7 @@ module Decoration = {
     let options = DecorationRenderOptions.t(~after, ());
     let handle = Window.createTextEditorDecorationType(options);
     editor->TextEditor.setDecorations(handle, [|range|]);
-    [|handle|];
+    handle;
   };
 
   let overlayText =
@@ -274,7 +274,7 @@ module Decoration = {
       DecorationRenderOptions.t(~rangeBehavior, ~textDecoration, ());
     let handle = Window.createTextEditorDecorationType(options);
     editor->TextEditor.setDecorations(handle, [|range|]);
-    [|handle|];
+    handle;
   };
 
   // ThemeColor.themeColor(

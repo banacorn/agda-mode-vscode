@@ -29,7 +29,7 @@ module Impl = (Editor: Sig.Editor) => {
         indexRange,
       );
 
-    Array.concatMany([|background, index|]);
+    [|background, index|];
   };
 
   let decorateAspect =
@@ -51,9 +51,9 @@ module Impl = (Editor: Sig.Editor) => {
     | Noop => [||]
     | Themed(light, dark) =>
       if (Editor.colorThemeIsDark()) {
-        decorate(dark);
+        [|decorate(dark)|];
       } else {
-        decorate(light);
+        [|decorate(light)|];
       }
     };
   };

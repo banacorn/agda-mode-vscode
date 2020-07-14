@@ -24,11 +24,12 @@ module Impl = (Editor: Sig.Editor) => {
       let end_ = Editor.pointAtOffset(editor, snd(range));
       {
         range,
-        decoration:
+        decoration: [|
           Editor.Decoration.underlineText(
             editor,
             Editor.Range.make(start, end_),
           ),
+        |],
         buffer: Buffer.make(),
       };
     };
@@ -44,11 +45,12 @@ module Impl = (Editor: Sig.Editor) => {
       let (start, end_) = instance.range;
       let start = Editor.pointAtOffset(editor, start);
       let end_ = Editor.pointAtOffset(editor, end_);
-      instance.decoration =
+      instance.decoration = [|
         Editor.Decoration.underlineText(
           editor,
           Editor.Range.make(start, end_),
-        );
+        ),
+      |];
     };
 
     let destroy = instance => {
