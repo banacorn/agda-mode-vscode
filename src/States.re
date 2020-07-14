@@ -1,12 +1,64 @@
 open Belt;
 open VSCode;
 
-// a dictionary of FileName-State entries
-module StateDict = {
+module StateDispatcherPair = {
   module Impl = (Editor: Sig.Editor) => {
     module Dispatcher = Dispatcher.Impl(Editor);
     module State = State.Impl(Editor);
-    let dict: Js.Dict.t((State.t, Dispatcher.t)) = Js.Dict.empty();
+    type t = (State.t, Dispatcher.t);
+
+    let make = (context, editor, onDestroy) => {
+      // not in the States dict, instantiate one new
+      let state = State.make(context, editor);
+      let dispatcher = Dispatcher.make();
+
+      // listens to events from the view
+      state.view
+      ->Editor.View.on(
+          fun
+          | Event(event) => {
+              Dispatcher.dispatchCommand(
+                dispatcher,
+                state,
+                EventFromView(event),
+              )
+              ->ignore;
+            }
+          | Response(_) => (),
+        )
+      ->Editor.addToSubscriptions(context);
+
+      // listens to events from the input method
+      state.inputMethod.onAction.on(action => {
+        Dispatcher.dispatchCommand(
+          dispatcher,
+          state,
+          Command.InputMethod(action),
+        )
+        ->ignore
+      })
+      ->Editor.Disposable.make
+      ->Editor.addToSubscriptions(context);
+
+      // remove it from the States dict if it got destroyed
+      state->State.onceDestroyed->Promise.get(onDestroy);
+
+      // return the pair
+      (state, dispatcher);
+    };
+
+    let destroy = ((state, dispatcher)) => {
+      State.destroy(state) |> ignore;
+      Dispatcher.destroy(dispatcher) |> ignore;
+    };
+  };
+};
+
+// a dictionary of FileName-StateDispatcherPair entries
+module StateDict = {
+  module Impl = (Editor: Sig.Editor) => {
+    module StateDispatcherPair = StateDispatcherPair.Impl(Editor);
+    let dict: Js.Dict.t(StateDispatcherPair.t) = Js.Dict.empty();
 
     let get = fileName => dict->Js.Dict.get(fileName);
 
@@ -33,20 +85,16 @@ module StateDict = {
         });
     };
 
-    // remove the entry (but without triggering .destroy() )
+    // remove the entry (without triggering .destroy() )
     let remove = fileName => {
       let delete_: (Js.Dict.t('a), string) => unit = [%raw
         "function (dict, key) {delete dict[key]}"
       ];
       delete_(dict, fileName);
     };
+
     let destroy = fileName => {
-      get(fileName)
-      ->Option.forEach(((state, dispatcher)) => {
-          Js.log("[ states ][ destroy ]");
-          State.destroy(state) |> ignore;
-          Dispatcher.destroy(dispatcher) |> ignore;
-        });
+      get(fileName)->Option.forEach(StateDispatcherPair.destroy);
       remove(fileName);
     };
 
@@ -55,15 +103,13 @@ module StateDict = {
     let destroyAll = () => {
       dict
       ->Js.Dict.entries
-      ->Array.forEach(((_, (state, dispatcher))) => {
-          State.destroy(state) |> ignore;
-          Dispatcher.destroy(dispatcher) |> ignore;
-        });
+      ->Array.forEach(((_, pair)) => StateDispatcherPair.destroy(pair));
     };
   };
 };
 
 module Impl = (Editor: Sig.Editor) => {
+  module StateDispatcherPair = StateDispatcherPair.Impl(Editor);
   module States = StateDict.Impl(Editor);
   module State = State.Impl(Editor);
   module Dispatcher = Dispatcher.Impl(Editor);
@@ -109,7 +155,7 @@ module Impl = (Editor: Sig.Editor) => {
         name,
         editor => {
           Js.log("[ command ] " ++ name);
-          // special treatments on commands like "Load" and "Quit"
+          // special treatments on commands like "Load" and "Restart"
           switch (command) {
           | Load =>
             editor
@@ -117,49 +163,29 @@ module Impl = (Editor: Sig.Editor) => {
             ->Option.forEach(fileName => {
                 switch (States.get(fileName)) {
                 | None =>
-                  // not in the States dict, instantiate one new
-                  let state = State.make(context, editor);
-                  let dispatcher = Dispatcher.make();
-
-                  // listens to events from the view
-                  state.view
-                  ->Editor.View.on(
-                      fun
-                      | Event(event) => {
-                          Dispatcher.dispatchCommand(
-                            dispatcher,
-                            state,
-                            EventFromView(event),
-                          )
-                          ->ignore;
-                        }
-                      | Response(_) => (),
-                    )
-                  ->Editor.addToSubscriptions(context);
-
-                  // listens to events from the input method
-                  state.inputMethod.onAction.on(action => {
-                    Dispatcher.dispatchCommand(
-                      dispatcher,
-                      state,
-                      Command.InputMethod(action),
-                    )
-                    ->ignore
-                  })
-                  ->Editor.Disposable.make
-                  ->Editor.addToSubscriptions(context);
-
-                  // remove it from the States dict if it got destroyed
-                  state
-                  ->State.onceDestroyed
-                  ->Promise.get(() => {States.destroy(fileName)});
-
-                  // add this new constructed State and Dispatcher to the dict
-                  States.add(fileName, (state, dispatcher));
-                | Some(_state) =>
+                  // not in the States dict, instantiate a pair of (State, Dispatcher)
+                  let pair =
+                    StateDispatcherPair.make(context, editor, () => {
+                      States.destroy(fileName)
+                    });
+                  // add this (State, Dispatcher) pair to the dict
+                  States.add(fileName, pair);
+                | Some(_pair) =>
                   // already in the States dict, do nothing
                   ()
                 }
+              })
+          | Restart =>
+            editor
+            ->Editor.getFileName
+            ->Option.forEach(fileName => {
+                States.destroy(
+                  fileName,
+                  // // not in the States dict, instantiate a pair of (State, Dispatcher)
+                  // let pair = makeStateDispatcherPair(context, editor, fileName);
+                  // // add this (State, Dispatcher) pair to the dict
+                  // States.add(fileName, pair);
+                )
               })
           | _ => ()
           };
