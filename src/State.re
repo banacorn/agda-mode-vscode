@@ -6,7 +6,7 @@ module Impl = (Editor: Sig.Editor) => {
   type editor = Editor.editor;
   type context = Editor.context;
   type t = {
-    editor,
+    mutable editor,
     context,
     view: Editor.view,
     mutable connection: option(Connection.t),

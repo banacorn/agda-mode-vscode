@@ -162,32 +162,15 @@ module Impl = (Editor: Sig.Editor) => {
       ->Option.forEach(((state, _)) => {State.hide(state)});
       next
       ->Option.flatMap(States.getByEditor)
-      ->Option.forEach(_ => {
+      ->Option.forEach(((state, dispatcher)) => {
           next
           ->Option.forEach(editor => {
-              Js.log(editor);
-              editor
-              ->Editor.getFileName
-              ->Option.forEach(fileName => {
-                  States.destroy(fileName)
-                  ->Promise.get(() => {
-                      // not in the States dict, instantiate a pair of (State, Dispatcher)
-                      let pair =
-                        StateDispatcherPair.make(context, editor, () => {
-                          States.forceDestroy(fileName)->ignore
-                        });
-                      // add this (State, Dispatcher) pair to the dict
-                      States.add(fileName, pair);
-
-                      // dispatch Tasks
-                      editor
-                      ->States.getByEditor
-                      ->Option.forEach(((state, dispatcher)) => {
-                          Dispatcher.dispatchCommand(dispatcher, state, Load)
-                          ->ignore
-                        });
-                    })
-                });
+              // Issue #8
+              // after switching tabs, the old editor would be "_disposed"
+              // we need to replace it with this new one
+              state.editor = editor;
+              State.show(state);
+              Dispatcher.dispatchCommand(dispatcher, state, Refresh);
             })
           ->ignore
         });

@@ -35,6 +35,7 @@ module Impl = (Editor: Sig.Editor) => {
     // Misc
     | AddHighlightings(array(Highlighting.t))
     | RemoveAllHighlightings
+    | RefreshAllHighlightings
     | Error(Error.t)
     | Goal(goal)
     | WithState(State.t => unit)
@@ -50,6 +51,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequestToView(_, _) => "SendRequestToView"
     | AddHighlightings(_) => "AddHighlightings"
     | RemoveAllHighlightings => "RemoveAllHighlightings"
+    | RefreshAllHighlightings => "RefreshAllHighlightings"
     | Error(_) => "Error"
     | Goal(Instantiate(_)) => "Goal[Instantiate]"
     | Goal(UpdateRange) => "Goal[UpdateRange]"

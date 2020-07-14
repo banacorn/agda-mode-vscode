@@ -207,7 +207,9 @@ module Impl = (Editor: Sig.Editor) => {
         state.decorations->Array.forEach(Editor.Decoration.destroy);
         state.decorations = [||];
         Promise.resolved(true);
-
+      | RefreshAllHighlightings =>
+        Js.log("refresh");
+        Promise.resolved(true);
       | WithState(callback) =>
         callback(state);
         Promise.resolved(true);

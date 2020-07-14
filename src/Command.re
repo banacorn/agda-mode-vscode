@@ -68,6 +68,7 @@ type t =
   | Load
   | Quit
   | Restart
+  | Refresh
   | Compile
   | ToggleDisplayOfImplicitArguments
   | ShowConstraints
@@ -223,5 +224,6 @@ let toString =
   | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"
   | WhyInScope => "Why in scope"
   | EventFromView(_) => "Event from the view"
+  | Refresh => "Refresh "
   | Escape => "Escape"
   | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action);
