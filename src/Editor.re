@@ -79,15 +79,15 @@ let onDidChangeFileName = callback =>
       })
   );
 let onDidChangeActivation = callback => {
-  let previous = ref(Window.activeTextEditor->Option.flatMap(getFileName));
+  let previous = ref(Window.activeTextEditor);
 
-  Window.onDidChangeActiveTextEditor(next => {
-    let next = next->Option.flatMap(getFileName);
-    if (next != previous^) {
+  Window.onDidChangeActiveTextEditor(next =>
+    if (next->Option.flatMap(getFileName)
+        != (previous^)->Option.flatMap(getFileName)) {
       callback(previous^, next);
       previous := next;
-    };
-  });
+    }
+  );
 };
 
 // if end with '.agda' or '.lagda'

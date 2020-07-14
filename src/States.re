@@ -158,33 +158,36 @@ module Impl = (Editor: Sig.Editor) => {
     // on editor activation, reveal the corresponding Panel (if any)
     Editor.onDidChangeActivation((prev, next) => {
       prev
-      ->Option.flatMap(States.get)
+      ->Option.flatMap(States.getByEditor)
       ->Option.forEach(((state, _)) => {State.hide(state)});
       next
-      ->Option.flatMap(States.get)
+      ->Option.flatMap(States.getByEditor)
       ->Option.forEach(_ => {
           next
-          ->Option.forEach(fileName => {
-              States.destroy(fileName)
-              ->Promise.flatMap(() => {fileName->Editor.getEditor})
-              ->Promise.get(editor => {
-                  Js.log(editor);
-                  // not in the States dict, instantiate a pair of (State, Dispatcher)
-                  let pair =
-                    StateDispatcherPair.make(context, editor, () => {
-                      States.forceDestroy(fileName)->ignore
-                    });
-                  // add this (State, Dispatcher) pair to the dict
-                  States.add(fileName, pair);
+          ->Option.forEach(editor => {
+              Js.log(editor);
+              editor
+              ->Editor.getFileName
+              ->Option.forEach(fileName => {
+                  States.destroy(fileName)
+                  ->Promise.get(() => {
+                      // not in the States dict, instantiate a pair of (State, Dispatcher)
+                      let pair =
+                        StateDispatcherPair.make(context, editor, () => {
+                          States.forceDestroy(fileName)->ignore
+                        });
+                      // add this (State, Dispatcher) pair to the dict
+                      States.add(fileName, pair);
 
-                  // dispatch Tasks
-                  editor
-                  ->States.getByEditor
-                  ->Option.forEach(((state, dispatcher)) => {
-                      Dispatcher.dispatchCommand(dispatcher, state, Load)
-                      ->ignore
-                    });
-                })
+                      // dispatch Tasks
+                      editor
+                      ->States.getByEditor
+                      ->Option.forEach(((state, dispatcher)) => {
+                          Dispatcher.dispatchCommand(dispatcher, state, Load)
+                          ->ignore
+                        });
+                    })
+                });
             })
           ->ignore
         });
