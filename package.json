@@ -1,659 +1,664 @@
 {
-  "name": "agda-mode",
-  "displayName": "agda-mode",
-  "description": "agda-mode on vscode",
-  "publisher": "banacorn",
-  "version": "0.0.11",
-  "engines": {
-    "vscode": "^1.41.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onCommand:agda-mode.load"
-  ],
-  "main": "./dist/app.bundle.js",
-  "repository": "https://github.com/banacorn/agda-mode-vscode",
-  "contributes": {
-    "languages": [
-      {
-        "id": "agda",
-        "extensions": [
-          ".agda",
-          ".lagda",
-          ".lagda.md",
-          ".lagda.rst",
-          ".lagda.tex"
-        ],
-        "aliases": [
-          "Agda"
-        ],
-        "configuration": "./language-configuration.json"
-      }
-    ],
-    "commands": [
-      {
-        "command": "agda-mode.load",
-        "title": "Load"
-      },
-      {
-        "command": "agda-mode.quit",
-        "title": "Quit"
-      },
-      {
-        "command": "agda-mode.compile",
-        "title": "Compile"
-      },
-      {
-        "command": "agda-mode.toggle-display-of-implicit-arguments",
-        "title": "Toggle display of hidden arguments"
-      },
-      {
-        "command": "agda-mode.show-constraints",
-        "title": "Show constraints"
-      },
-      {
-        "command": "agda-mode.solve-constraints[Simplified]",
-        "title": "Solve constraints (simplified)"
-      },
-      {
-        "command": "agda-mode.solve-constraints[Instantiated]",
-        "title": "Solve constraints (instantiated)"
-      },
-      {
-        "command": "agda-mode.solve-constraints[Normalised]",
-        "title": "Solve constraints (normalised)"
-      },
-      {
-        "command": "agda-mode.show-goals",
-        "title": "Show goals"
-      },
-      {
-        "command": "agda-mode.next-goal",
-        "title": "Next goal"
-      },
-      {
-        "command": "agda-mode.previous-goal",
-        "title": "Previous goal"
-      },
-      {
-        "command": "agda-mode.search-about[Simplified]",
-        "title": "Search about (simplified)"
-      },
-      {
-        "command": "agda-mode.search-about[Instantiated]",
-        "title": "Search about (instantiated)"
-      },
-      {
-        "command": "agda-mode.search-about[Normalised]",
-        "title": "Search about (normalised)"
-      },
-      {
-        "command": "agda-mode.give",
-        "title": "Give"
-      },
-      {
-        "command": "agda-mode.refine",
-        "title": "Refine"
-      },
-      {
-        "command": "agda-mode.elaborate-and-give[Simplified]",
-        "title": "Elaborate and give (simplified)"
-      },
-      {
-        "command": "agda-mode.elaborate-and-give[Instantiated]",
-        "title": "Elaborate and give (instantiated)"
-      },
-      {
-        "command": "agda-mode.elaborate-and-give[Normalised]",
-        "title": "Elaborate and give (normalised)"
-      },
-      {
-        "command": "agda-mode.auto",
-        "title": "Auto"
-      },
-      {
-        "command": "agda-mode.case",
-        "title": "Case"
-      },
-      {
-        "command": "agda-mode.helper-function-type[Simplified]",
-        "title": "Helper function type (simplified)"
-      },
-      {
-        "command": "agda-mode.helper-function-type[Instantiated]",
-        "title": "Helper function type (instantiated)"
-      },
-      {
-        "command": "agda-mode.helper-function-type[Normalised]",
-        "title": "Helper function type (normalised)"
-      },
-      {
-        "command": "agda-mode.goal-type[Simplified]",
-        "title": "Goal type (simplified)"
-      },
-      {
-        "command": "agda-mode.goal-type[Instantiated]",
-        "title": "Goal type (instantiated)"
-      },
-      {
-        "command": "agda-mode.goal-type[Normalised]",
-        "title": "Goal type (normalised)"
-      },
-      {
-        "command": "agda-mode.context[Simplified]",
-        "title": "Context (simplified)"
-      },
-      {
-        "command": "agda-mode.context[Instantiated]",
-        "title": "Context (instantiated)"
-      },
-      {
-        "command": "agda-mode.context[Normalised]",
-        "title": "Context (normalised)"
-      },
-      {
-        "command": "agda-mode.infer-type[Simplified]",
-        "title": "Infer Type (simplified)"
-      },
-      {
-        "command": "agda-mode.infer-type[Instantiated]",
-        "title": "Infer Type (instantiated)"
-      },
-      {
-        "command": "agda-mode.infer-type[Normalised]",
-        "title": "Infer Type (normalised)"
-      },
-      {
-        "command": "agda-mode.goal-type-and-context[Simplified]",
-        "title": "Goal type and context (simplified)"
-      },
-      {
-        "command": "agda-mode.goal-type-and-context[Instantiated]",
-        "title": "Goal type and context (instantiated)"
-      },
-      {
-        "command": "agda-mode.goal-type-and-context[Normalised]",
-        "title": "Goal type and context (normalised)"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
-        "title": "Goal type, context and inferred type (simplified)"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
-        "title": "Goal type, context and inferred type (instantiated)"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
-        "title": "Goal type, context and inferred type (normalised)"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
-        "title": "Goal type, context and checked type (simplified)"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
-        "title": "Goal type, context and checked type (instantiated)"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
-        "title": "Goal type, context and checked type (normalised)"
-      },
-      {
-        "command": "agda-mode.module-contents[Simplified]",
-        "title": "Module contents (simplified)"
-      },
-      {
-        "command": "agda-mode.module-contents[Instantiated]",
-        "title": "Module contents (instantiated)"
-      },
-      {
-        "command": "agda-mode.module-contents[Normalised]",
-        "title": "Module contents (normalised)"
-      },
-      {
-        "command": "agda-mode.compute-normal-form[DefaultCompute]",
-        "title": "Compute normal form"
-      },
-      {
-        "command": "agda-mode.compute-normal-form[IgnoreAbstract]",
-        "title": "Compute normal form ignoring abstract"
-      },
-      {
-        "command": "agda-mode.compute-normal-form[UseShowInstance]",
-        "title": "Compute normal form using show instance"
-      },
-      {
-        "command": "agda-mode.why-in-scope",
-        "title": "Why in scope"
-      },
-      {
-        "command": "agda-mode.escape",
-        "title": "Escape"
-      },
-      {
-        "command": "agda-mode.input-symbol",
-        "title": "Input symbol"
-      }
-    ],
-    "keybindings": [
-      {
-        "command": "agda-mode.load",
-        "key": "ctrl+c ctrl+l",
-        "mac": "ctrl+c ctrl+l",
-        "when": "editorLangId == agda"
-      },
-      {
-        "command": "agda-mode.quit",
-        "key": "ctrl+c ctrl+q",
-        "mac": "ctrl+c ctrl+q",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.compile",
-        "key": "ctrl+x ctrl+c",
-        "mac": "ctrl+x ctrl+c",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.toggle-display-of-implicit-arguments",
-        "key": "ctrl+x ctrl+h",
-        "mac": "ctrl+x ctrl+h",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.show-constraints",
-        "key": "ctrl+c ctrl+=",
-        "mac": "ctrl+c ctrl+=",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.solve-constraints[Simplified]",
-        "key": "ctrl+c ctrl+s",
-        "mac": "ctrl+c ctrl+s",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.solve-constraints[Instantiated]",
-        "key": "ctrl+u ctrl+s",
-        "mac": "ctrl+u ctrl+s",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.solve-constraints[Normalised]",
-        "key": "ctrl+y ctrl+s",
-        "mac": "ctrl+y ctrl+s",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.show-goals",
-        "key": "ctrl+c ctrl+?",
-        "mac": "ctrl+c ctrl+?",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.show-goals",
-        "key": "ctrl+c ctrl+shift+/",
-        "mac": "ctrl+c ctrl+shift+/",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.next-goal",
-        "key": "ctrl+c ctrl+f",
-        "mac": "ctrl+c ctrl+f",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.previous-goal",
-        "key": "ctrl+c ctrl+b",
-        "mac": "ctrl+c ctrl+b",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.search-about[Simplified]",
-        "key": "ctrl+c ctrl+z",
-        "mac": "ctrl+c ctrl+z",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.search-about[Instantiated]",
-        "key": "ctrl+u ctrl+z",
-        "mac": "ctrl+u ctrl+z",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.search-about[Normalised]",
-        "key": "ctrl+y ctrl+z",
-        "mac": "ctrl+y ctrl+z",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.give",
-        "key": "ctrl+c ctrl+space",
-        "mac": "ctrl+c ctrl+space",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.refine",
-        "key": "ctrl+c ctrl+r",
-        "mac": "ctrl+c ctrl+r",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.elaborate-and-give[Simplified]",
-        "key": "ctrl+c ctrl+m",
-        "mac": "ctrl+c ctrl+m",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.elaborate-and-give[Instantiated]",
-        "key": "ctrl+u ctrl+m",
-        "mac": "ctrl+u ctrl+m",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.elaborate-and-give[Normalised]",
-        "key": "ctrl+y ctrl+m",
-        "mac": "ctrl+y ctrl+m",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.auto",
-        "key": "ctrl+c ctrl+a",
-        "mac": "ctrl+c ctrl+a",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.case",
-        "key": "ctrl+c ctrl+c",
-        "mac": "ctrl+c ctrl+c",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.helper-function-type[Simplified]",
-        "key": "ctrl+c ctrl+h",
-        "mac": "ctrl+c ctrl+h",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.helper-function-type[Instantiated]",
-        "key": "ctrl+u ctrl+h",
-        "mac": "ctrl+u ctrl+h",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.helper-function-type[Normalised]",
-        "key": "ctrl+y ctrl+h",
-        "mac": "ctrl+y ctrl+h",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type[Simplified]",
-        "key": "ctrl+c ctrl+t",
-        "mac": "ctrl+c ctrl+t",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type[Instantiated]",
-        "key": "ctrl+u ctrl+t",
-        "mac": "ctrl+u ctrl+t",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type[Normalised]",
-        "key": "ctrl+y ctrl+t",
-        "mac": "ctrl+y ctrl+t",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.context[Simplified]",
-        "key": "ctrl+c ctrl+e",
-        "mac": "ctrl+c ctrl+e",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.context[Instantiated]",
-        "key": "ctrl+u ctrl+e",
-        "mac": "ctrl+u ctrl+e",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.context[Normalised]",
-        "key": "ctrl+y ctrl+e",
-        "mac": "ctrl+y ctrl+e",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.infer-type[Simplified]",
-        "key": "ctrl+c ctrl+d",
-        "mac": "ctrl+c ctrl+d",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.infer-type[Instantiated]",
-        "key": "ctrl+u ctrl+d",
-        "mac": "ctrl+u ctrl+d",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.infer-type[Normalised]",
-        "key": "ctrl+y ctrl+d",
-        "mac": "ctrl+y ctrl+d",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-and-context[Simplified]",
-        "key": "ctrl+c ctrl+,",
-        "mac": "ctrl+c ctrl+,",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-and-context[Instantiated]",
-        "key": "ctrl+u ctrl+,",
-        "mac": "ctrl+u ctrl+,",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-and-context[Normalised]",
-        "key": "ctrl+y ctrl+,",
-        "mac": "ctrl+y ctrl+,",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
-        "key": "ctrl+c ctrl+.",
-        "mac": "ctrl+c ctrl+.",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
-        "key": "ctrl+u ctrl+.",
-        "mac": "ctrl+u ctrl+.",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
-        "key": "ctrl+y ctrl+.",
-        "mac": "ctrl+y ctrl+.",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
-        "key": "ctrl+c ctrl+;",
-        "mac": "ctrl+c ctrl+;",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
-        "key": "ctrl+u ctrl+;",
-        "mac": "ctrl+u ctrl+;",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
-        "key": "ctrl+y ctrl+;",
-        "mac": "ctrl+y ctrl+;",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.module-contents[Simplified]",
-        "key": "ctrl+c ctrl+o",
-        "mac": "ctrl+c ctrl+o",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.module-contents[Instantiated]",
-        "key": "ctrl+u ctrl+o",
-        "mac": "ctrl+u ctrl+o",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.module-contents[Normalised]",
-        "key": "ctrl+y ctrl+o",
-        "mac": "ctrl+y ctrl+o",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.compute-normal-form[DefaultCompute]",
-        "key": "ctrl+c ctrl+n",
-        "mac": "ctrl+c ctrl+n",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.compute-normal-form[IgnoreAbstract]",
-        "key": "ctrl+u ctrl+n",
-        "mac": "ctrl+u ctrl+n",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.compute-normal-form[UseShowInstance]",
-        "key": "ctrl+y ctrl+n",
-        "mac": "ctrl+y ctrl+n",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.why-in-scope",
-        "key": "ctrl+c ctrl+w",
-        "mac": "ctrl+c ctrl+w",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.escape",
-        "key": "escape",
-        "mac": "escape",
-        "when": "agdaMode && agdaModeQuerying || agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[MoveUp]",
-        "key": "up",
-        "when": "agdaMode && agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[MoveRight]",
-        "key": "right",
-        "when": "agdaMode && agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[MoveDown]",
-        "key": "down",
-        "when": "agdaMode && agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[MoveLeft]",
-        "key": "left",
-        "when": "agdaMode && agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[InsertOpenCurlyBraces]",
-        "key": "shift+[",
-        "when": "agdaMode && agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[InsertOpenParenthesis]",
-        "key": "shift+9",
-        "when": "agdaMode && agdaModeTyping"
-      },
-      {
-        "command": "agda-mode.input-symbol[Activate]",
-        "key": "\\",
-        "when": "agdaMode"
-      },
-      {
-        "command": "agda-mode.input-symbol[Activate]",
-        "key": "[Backslash]",
-        "when": "agdaMode"
-      }
-    ],
-    "configuration": {
-      "title": "Agda Mode",
-      "properties": {
-        "agdaMode.agdaPath": {
-          "type": "string",
-          "default": "",
-          "scope": "machine-overridable",
-          "description": "Path to the executable of Agda, automatically inferred when possible. Overwrite to override."
-        },
-        "agdaMode.libraryPath": {
-          "type": "string",
-          "default": "",
-          "scope": "machine-overridable",
-          "description": "Paths to include (such as agda-stdlib), seperate with comma. Useless after Agda 2.5.0."
-        },
-        "agdaMode.highlightingMethod": {
-          "type": "string",
-          "default": "Direct",
-          "enum": [
-            "Direct",
-            "Indirect"
-          ],
-          "scope": "machine-overridable",
-          "description": "Receive highlighting information from Agda, directly via stdio, or indirectly via temporary files (which mwy require frequent disk access)."
-        },
-        "agdaMode.backend": {
-          "type": "string",
-          "default": "GHC",
-          "enum": [
-            "GHC",
-            "LaTeX",
-            "QuickLaTeX"
-          ],
-          "scope": "machine-overridable",
-          "description": "Backend target"
-        }
-      }
-    }
-  },
-  "scripts": {
-    "clean": "npx bsb -clean-world",
-    "dev": "webpack --mode development --watch & npx less-watch-compiler style/ dist/",
-    "build": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
-    "vscode:prepublish": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
-    "test": "node lib/js/test/RunTestFromCLI.bs.js"
-  },
-  "devDependencies": {
-    "bs-mocha": "^1.0.0",
-    "glob": "^7.1.6",
-    "less-loader": "^5.0.0",
-    "less-watch-compiler": "^1.14.6",
-    "mocha": "^7.1.2",
-    "reason-promise": "^1.0.1",
-    "vscode-test": "^1.3.0",
-    "webpack": "^4.42.0",
-    "webpack-cli": "^3.3.11"
-  },
-  "dependencies": {
-    "@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
-    "bs-nd": "^0.1.5",
-    "bs-platform": "^7.2",
-    "bs-webapi": "^0.15.3",
-    "compare-versions": "^3.5.1",
-    "eventemitter3": "^4.0.0",
-    "react": "^16.9.0",
-    "react-dom": "^16.9.0",
-    "reason-promise": "^1.0.1",
-    "reason-react": ">=0.7.0",
-    "reason-react-update": "^0.1.1"
-  }
+	"name": "agda-mode",
+	"displayName": "agda-mode",
+	"description": "agda-mode on vscode",
+	"publisher": "banacorn",
+	"version": "0.0.11",
+	"engines": {
+		"vscode": "^1.41.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onCommand:agda-mode.load"
+	],
+	"main": "./dist/app.bundle.js",
+	"repository": "https://github.com/banacorn/agda-mode-vscode",
+	"contributes": {
+		"languages": [
+			{
+				"id": "agda",
+				"extensions": [
+					".agda",
+					".lagda",
+					".lagda.md",
+					".lagda.rst",
+					".lagda.tex"
+				],
+				"aliases": [
+					"Agda"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"commands": [
+			{
+				"command": "agda-mode.load",
+				"title": "Agda: Load"
+			},
+			{
+				"command": "agda-mode.quit",
+				"title": "Agda: Quit"
+			},
+			{
+				"command": "agda-mode.compile",
+				"title": "Agda: Compile"
+			},
+			{
+				"command": "agda-mode.toggle-display-of-implicit-arguments",
+				"title": "Agda: Toggle display of hidden arguments"
+			},
+			{
+				"command": "agda-mode.show-constraints",
+				"title": "Agda: Show constraints"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Simplified]",
+				"title": "Agda: Solve constraints (simplified)"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Instantiated]",
+				"title": "Agda: Solve constraints (instantiated)"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Normalised]",
+				"title": "Agda: Solve constraints (normalised)"
+			},
+			{
+				"command": "agda-mode.show-goals",
+				"title": "Agda: Show goals"
+			},
+			{
+				"command": "agda-mode.next-goal",
+				"title": "Agda: Next goal"
+			},
+			{
+				"command": "agda-mode.previous-goal",
+				"title": "Agda: Previous goal"
+			},
+			{
+				"command": "agda-mode.search-about[Simplified]",
+				"title": "Agda: Search about (simplified)"
+			},
+			{
+				"command": "agda-mode.search-about[Instantiated]",
+				"title": "Agda: Search about (instantiated)"
+			},
+			{
+				"command": "agda-mode.search-about[Normalised]",
+				"title": "Agda: Search about (normalised)"
+			},
+			{
+				"command": "agda-mode.give",
+				"title": "Agda: Give"
+			},
+			{
+				"command": "agda-mode.refine",
+				"title": "Agda: Refine"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Simplified]",
+				"title": "Agda: Elaborate and give (simplified)"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Instantiated]",
+				"title": "Agda: Elaborate and give (instantiated)"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Normalised]",
+				"title": "Agda: Elaborate and give (normalised)"
+			},
+			{
+				"command": "agda-mode.auto",
+				"title": "Agda: Auto"
+			},
+			{
+				"command": "agda-mode.case",
+				"title": "Agda: Case"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Simplified]",
+				"title": "Agda: Helper function type (simplified)"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Instantiated]",
+				"title": "Agda: Helper function type (instantiated)"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Normalised]",
+				"title": "Agda: Helper function type (normalised)"
+			},
+			{
+				"command": "agda-mode.goal-type[Simplified]",
+				"title": "Agda: Goal type (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type[Instantiated]",
+				"title": "Agda: Goal type (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type[Normalised]",
+				"title": "Agda: Goal type (normalised)"
+			},
+			{
+				"command": "agda-mode.context[Simplified]",
+				"title": "Agda: Context (simplified)"
+			},
+			{
+				"command": "agda-mode.context[Instantiated]",
+				"title": "Agda: Context (instantiated)"
+			},
+			{
+				"command": "agda-mode.context[Normalised]",
+				"title": "Agda: Context (normalised)"
+			},
+			{
+				"command": "agda-mode.infer-type[Simplified]",
+				"title": "Agda: Infer Type (simplified)"
+			},
+			{
+				"command": "agda-mode.infer-type[Instantiated]",
+				"title": "Agda: Infer Type (instantiated)"
+			},
+			{
+				"command": "agda-mode.infer-type[Normalised]",
+				"title": "Agda: Infer Type (normalised)"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Simplified]",
+				"title": "Agda: Goal type and context (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Instantiated]",
+				"title": "Agda: Goal type and context (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Normalised]",
+				"title": "Agda: Goal type and context (normalised)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
+				"title": "Agda: Goal type, context and inferred type (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
+				"title": "Agda: Goal type, context and inferred type (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
+				"title": "Agda: Goal type, context and inferred type (normalised)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
+				"title": "Agda: Goal type, context and checked type (simplified)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
+				"title": "Agda: Goal type, context and checked type (instantiated)"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
+				"title": "Agda: Goal type, context and checked type (normalised)"
+			},
+			{
+				"command": "agda-mode.module-contents[Simplified]",
+				"title": "Agda: Module contents (simplified)"
+			},
+			{
+				"command": "agda-mode.module-contents[Instantiated]",
+				"title": "Agda: Module contents (instantiated)"
+			},
+			{
+				"command": "agda-mode.module-contents[Normalised]",
+				"title": "Agda: Module contents (normalised)"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[DefaultCompute]",
+				"title": "Agda: Compute normal form"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
+				"title": "Agda: Compute normal form ignoring abstract"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[UseShowInstance]",
+				"title": "Agda: Compute normal form using show instance"
+			},
+			{
+				"command": "agda-mode.why-in-scope",
+				"title": "Agda: Why in scope"
+			},
+			{
+				"command": "agda-mode.escape",
+				"title": "Agda: Escape"
+			},
+			{
+				"command": "agda-mode.input-symbol",
+				"title": "Agda: Input symbol"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "agda-mode.load",
+				"key": "ctrl+c ctrl+l",
+				"mac": "ctrl+c ctrl+l",
+				"when": "editorLangId == agda"
+			},
+			{
+				"command": "agda-mode.quit",
+				"key": "ctrl+c ctrl+q",
+				"mac": "ctrl+c ctrl+q",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compile",
+				"key": "ctrl+x ctrl+c",
+				"mac": "ctrl+x ctrl+c",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.toggle-display-of-implicit-arguments",
+				"key": "ctrl+x ctrl+h",
+				"mac": "ctrl+x ctrl+h",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.show-constraints",
+				"key": "ctrl+c ctrl+=",
+				"mac": "ctrl+c ctrl+=",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Simplified]",
+				"key": "ctrl+c ctrl+s",
+				"mac": "ctrl+c ctrl+s",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Instantiated]",
+				"key": "ctrl+u ctrl+s",
+				"mac": "ctrl+u ctrl+s",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.solve-constraints[Normalised]",
+				"key": "ctrl+y ctrl+s",
+				"mac": "ctrl+y ctrl+s",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.show-goals",
+				"key": "ctrl+c ctrl+?",
+				"mac": "ctrl+c ctrl+?",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.show-goals",
+				"key": "ctrl+c ctrl+shift+/",
+				"mac": "ctrl+c ctrl+shift+/",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.next-goal",
+				"key": "ctrl+c ctrl+f",
+				"mac": "ctrl+c ctrl+f",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.previous-goal",
+				"key": "ctrl+c ctrl+b",
+				"mac": "ctrl+c ctrl+b",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.search-about[Simplified]",
+				"key": "ctrl+c ctrl+z",
+				"mac": "ctrl+c ctrl+z",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.search-about[Instantiated]",
+				"key": "ctrl+u ctrl+z",
+				"mac": "ctrl+u ctrl+z",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.search-about[Normalised]",
+				"key": "ctrl+y ctrl+z",
+				"mac": "ctrl+y ctrl+z",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.give",
+				"key": "ctrl+c ctrl+space",
+				"mac": "ctrl+c ctrl+space",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.refine",
+				"key": "ctrl+c ctrl+r",
+				"mac": "ctrl+c ctrl+r",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Simplified]",
+				"key": "ctrl+c ctrl+m",
+				"mac": "ctrl+c ctrl+m",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Instantiated]",
+				"key": "ctrl+u ctrl+m",
+				"mac": "ctrl+u ctrl+m",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[Normalised]",
+				"key": "ctrl+y ctrl+m",
+				"mac": "ctrl+y ctrl+m",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.auto",
+				"key": "ctrl+c ctrl+a",
+				"mac": "ctrl+c ctrl+a",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.case",
+				"key": "ctrl+c ctrl+c",
+				"mac": "ctrl+c ctrl+c",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Simplified]",
+				"key": "ctrl+c ctrl+h",
+				"mac": "ctrl+c ctrl+h",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Instantiated]",
+				"key": "ctrl+u ctrl+h",
+				"mac": "ctrl+u ctrl+h",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.helper-function-type[Normalised]",
+				"key": "ctrl+y ctrl+h",
+				"mac": "ctrl+y ctrl+h",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type[Simplified]",
+				"key": "ctrl+c ctrl+t",
+				"mac": "ctrl+c ctrl+t",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type[Instantiated]",
+				"key": "ctrl+u ctrl+t",
+				"mac": "ctrl+u ctrl+t",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type[Normalised]",
+				"key": "ctrl+y ctrl+t",
+				"mac": "ctrl+y ctrl+t",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.context[Simplified]",
+				"key": "ctrl+c ctrl+e",
+				"mac": "ctrl+c ctrl+e",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.context[Instantiated]",
+				"key": "ctrl+u ctrl+e",
+				"mac": "ctrl+u ctrl+e",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.context[Normalised]",
+				"key": "ctrl+y ctrl+e",
+				"mac": "ctrl+y ctrl+e",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.infer-type[Simplified]",
+				"key": "ctrl+c ctrl+d",
+				"mac": "ctrl+c ctrl+d",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.infer-type[Instantiated]",
+				"key": "ctrl+u ctrl+d",
+				"mac": "ctrl+u ctrl+d",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.infer-type[Normalised]",
+				"key": "ctrl+y ctrl+d",
+				"mac": "ctrl+y ctrl+d",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Simplified]",
+				"key": "ctrl+c ctrl+,",
+				"mac": "ctrl+c ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Instantiated]",
+				"key": "ctrl+u ctrl+,",
+				"mac": "ctrl+u ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-and-context[Normalised]",
+				"key": "ctrl+y ctrl+,",
+				"mac": "ctrl+y ctrl+,",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
+				"key": "ctrl+c ctrl+.",
+				"mac": "ctrl+c ctrl+.",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
+				"key": "ctrl+u ctrl+.",
+				"mac": "ctrl+u ctrl+.",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
+				"key": "ctrl+y ctrl+.",
+				"mac": "ctrl+y ctrl+.",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
+				"key": "ctrl+c ctrl+;",
+				"mac": "ctrl+c ctrl+;",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
+				"key": "ctrl+u ctrl+;",
+				"mac": "ctrl+u ctrl+;",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
+				"key": "ctrl+y ctrl+;",
+				"mac": "ctrl+y ctrl+;",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Simplified]",
+				"key": "ctrl+c ctrl+o",
+				"mac": "ctrl+c ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Instantiated]",
+				"key": "ctrl+u ctrl+o",
+				"mac": "ctrl+u ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.module-contents[Normalised]",
+				"key": "ctrl+y ctrl+o",
+				"mac": "ctrl+y ctrl+o",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[DefaultCompute]",
+				"key": "ctrl+c ctrl+n",
+				"mac": "ctrl+c ctrl+n",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
+				"key": "ctrl+u ctrl+n",
+				"mac": "ctrl+u ctrl+n",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.compute-normal-form[UseShowInstance]",
+				"key": "ctrl+y ctrl+n",
+				"mac": "ctrl+y ctrl+n",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.why-in-scope",
+				"key": "ctrl+c ctrl+w",
+				"mac": "ctrl+c ctrl+w",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.escape",
+				"key": "escape",
+				"mac": "escape",
+				"when": "agdaMode && agdaModeQuerying || agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveUp]",
+				"key": "up",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveRight]",
+				"key": "right",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveDown]",
+				"key": "down",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[MoveLeft]",
+				"key": "left",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[InsertOpenCurlyBraces]",
+				"key": "shift+[",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[InsertOpenParenthesis]",
+				"key": "shift+9",
+				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.input-symbol[Activate]",
+				"key": "\\",
+				"when": "agdaMode"
+			},
+			{
+				"command": "agda-mode.input-symbol[Activate]",
+				"key": "[Backslash]",
+				"when": "agdaMode"
+			}
+		],
+		"configuration": {
+			"title": "Agda: Mode",
+			"properties": {
+				"agdaMode.agdaPath": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Path to the executable of Agda, automatically inferred when possible. Overwrite to override."
+				},
+				"agdaMode.libraryPath": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Paths to include (such as agda-stdlib), seperate with comma. Useless after Agda 2.5.0."
+				},
+				"agdaMode.highlightingMethod": {
+					"type": "string",
+					"default": "Direct",
+					"enum": [
+						"Direct",
+						"Indirect"
+					],
+					"scope": "machine-overridable",
+					"description": "Receive highlighting information from Agda, directly via stdio, or indirectly via temporary files (which mwy require frequent disk access)."
+				},
+				"agdaMode.backend": {
+					"type": "string",
+					"default": "GHC",
+					"enum": [
+						"GHC",
+						"LaTeX",
+						"QuickLaTeX"
+					],
+					"scope": "machine-overridable",
+					"description": "Backend target"
+				}
+			}
+		}
+	},
+	"scripts": {
+		"clean": "npx bsb -clean-world",
+		"dev": "webpack --mode development --watch & npx less-watch-compiler style/ dist/",
+		"build": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
+		"vscode:prepublish": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
+		"test": "node lib/js/test/RunTestFromCLI.bs.js"
+	},
+	"devDependencies": {
+		"bs-mocha": "^1.0.0",
+		"glob": "^7.1.6",
+		"less-loader": "^5.0.0",
+		"less-watch-compiler": "^1.14.6",
+		"mocha": "^7.1.2",
+		"reason-promise": "^1.0.1",
+		"vscode-test": "^1.3.0",
+		"webpack": "^4.42.0",
+		"webpack-cli": "^3.3.11"
+	},
+	"dependencies": {
+		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
+		"bs-nd": "^0.1.5",
+		"bs-platform": "^7.2",
+		"bs-webapi": "^0.15.3",
+		"compare-versions": "^3.5.1",
+		"eventemitter3": "^4.0.0",
+		"react": "^16.9.0",
+		"react-dom": "^16.9.0",
+		"reason-promise": "^1.0.1",
+		"reason-react": ">=0.7.0",
+		"reason-react-update": "^0.1.1"
+	},
+	"__metadata": {
+		"id": "50315a05-1d1b-44bf-9e2c-be33d1c4a77e",
+		"publisherDisplayName": "Ting-Gian LUA",
+		"publisherId": "22df016e-6b4f-49b2-9856-3336695d1289"
+	}
 }
