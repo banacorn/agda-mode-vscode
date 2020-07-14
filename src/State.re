@@ -52,33 +52,6 @@ module Impl = (Editor: Sig.Editor) => {
       Promise.resolved();
     };
 
-  let sendRequestToAgda =
-      (state, request): Promise.t(result(Connection.t, Error.t)) => {
-    state
-    ->connect
-    ->Promise.mapOk(connection => {
-        let version = connection.metadata.version;
-        let filepath =
-          Editor.getFileName(state.editor)->Option.getWithDefault("");
-        let libraryPath = Editor.Config.getLibraryPath();
-        let highlightingMethod = Editor.Config.getHighlightingMethod();
-        let backend = Editor.Config.getBackend();
-        let encoded =
-          Request.encode(
-            state.editor,
-            version,
-            filepath,
-            backend,
-            libraryPath,
-            highlightingMethod,
-            request,
-          );
-        Js.log2("<<<", encoded);
-        Connection.send(encoded, connection);
-        connection;
-      });
-  };
-
   //
   // construction/destruction
   //

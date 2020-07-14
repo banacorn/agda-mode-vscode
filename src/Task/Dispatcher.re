@@ -9,7 +9,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   open! Task;
 
-  let sendAgdaRequest = (runTasks, runTasksLater, state, req) => {
+  let sendAgdaRequest = (runTasks, runTasksLater, state, request) => {
     // this promise get resolved after the request to Agda is completed
     let (promise, resolve) = Promise.pending();
     let handle = ref(None);
@@ -44,7 +44,28 @@ module Impl = (Editor: Sig.Editor) => {
         };
 
     state
-    ->State.sendRequestToAgda(req)
+    ->State.connect
+    ->Promise.mapOk(connection => {
+        let version = connection.metadata.version;
+        let filepath =
+          Editor.getFileName(state.editor)->Option.getWithDefault("");
+        let libraryPath = Editor.Config.getLibraryPath();
+        let highlightingMethod = Editor.Config.getHighlightingMethod();
+        let backend = Editor.Config.getBackend();
+        let encoded =
+          Request.encode(
+            state.editor,
+            version,
+            filepath,
+            backend,
+            libraryPath,
+            highlightingMethod,
+            request,
+          );
+        Js.log2("<<<", encoded);
+        Connection.send(encoded, connection);
+        connection;
+      })
     ->Promise.flatMap(
         fun
         | Ok(connection) => {
