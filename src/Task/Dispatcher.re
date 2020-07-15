@@ -97,7 +97,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   module Runner = {
     type t = {
-      mutable queues: MultiQueue.t(Task.t),
+      mutable queues: TaskQueue.t(Task.t),
       // `busy` will be set to `true` if there are Tasks being executed
       // A semaphore to make sure that only one `kickStart` is running at a time
       mutable busy: bool,
@@ -105,55 +105,55 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
     let make = () => {
-      queues: MultiQueue.make(),
+      queues: TaskQueue.make(),
       busy: false,
       shouldDestroy: None,
     };
 
     module Queues = {
-      let spawn = (self, target) =>
-        self.queues = MultiQueue.spawn(self.queues, target);
-      let remove = (self, target) =>
-        self.queues = MultiQueue.remove(self.queues, target);
-      let addTasks = (self, target, tasks) =>
-        self.queues = MultiQueue.addTasks(self.queues, target, tasks);
-      let countBySource = (self, target) =>
-        MultiQueue.countBySource(self.queues, target);
-      let getNextTask = self =>
-        MultiQueue.getNextTask(true, self.queues)
-        ->Option.map(((task, queue)) => {
-            self.queues = queue;
-            task;
-          });
-
-      let addMiscTasks = (self, tasks) => {
-        spawn(self, Misc);
-        addTasks(self, Misc, tasks);
-        remove(self, Misc);
-        Promise.resolved(true);
+      let addTasks = (self, tasks) =>
+        self.queues = TaskQueue.addTasksToMain(self.queues, tasks);
+      let addTasksToAgda = (self, tasks) =>
+        self.queues = TaskQueue.addTasksToAgda(self.queues, tasks);
+      let addTasksToView = (self, tasks) =>
+        self.queues = TaskQueue.addTasksToView(self.queues, tasks);
+      let getNextTask = self => {
+        let (task, queue) = TaskQueue.getNextTask(self.queues);
+        self.queues = queue;
+        task;
       };
+      let agdaOccupied = self => self.queues.agda->Option.isSome;
+      let acquireAgda = self =>
+        self.queues = TaskQueue.acquireAgda(self.queues);
+      let releaseAgda = self =>
+        self.queues = TaskQueue.releaseAgda(self.queues);
+
+      let viewOccupied = self => self.queues.view->Option.isSome;
+      let acquireView = self =>
+        self.queues = TaskQueue.acquireView(self.queues);
+      let releaseView = self =>
+        self.queues = TaskQueue.releaseView(self.queues);
     };
 
     let rec executeTask = (self, state: State.t, task) => {
       switch (task) {
       | DispatchCommand(command) =>
         let tasks = CommandHandler.handle(command);
-        Queues.addTasks(self, Command, tasks);
+        Queues.addTasks(self, tasks);
         Promise.resolved(true);
       | SendRequest(request) =>
-        if (Queues.countBySource(self, Agda) > 0) {
-          // there can only be 1 Agda request at a time
-          Promise.resolved(
-            false,
-          );
+        // there can only be 1 Agda request at a time
+        if (Queues.agdaOccupied(self)) {
+          Js.log("[ panic ] There can only be 1 Agda request at a time!");
+          Promise.resolved(false);
         } else {
-          Queues.spawn(self, Agda);
+          Queues.acquireAgda(self);
 
           let lastTasks = [||];
 
           sendAgdaRequest(
             tasks => {
-              Queues.addTasks(self, Agda, tasks);
+              Queues.addTasksToAgda(self, tasks);
               kickStart(self, state);
             },
             (priority, tasks) => {
@@ -163,15 +163,6 @@ module Impl = (Editor: Sig.Editor) => {
             request,
           )
           ->Promise.map(() => {
-              // lastTasks
-              // ->Array.map(((priority, tasks)) =>
-              //     string_of_int(priority)
-              //     ++ " "
-              //     ++ tasks->List.map(Task.toString)->Util.Pretty.list
-              //   )
-              // ->Util.Pretty.array
-              // ->Js.log;
-
               let tasks =
                 Js.Array.sortInPlaceWith(
                   (x, y) => compare(fst(x), fst(y)),
@@ -179,43 +170,33 @@ module Impl = (Editor: Sig.Editor) => {
                 )
                 ->Array.map(snd)
                 ->List.concatMany;
-
-              Queues.addTasks(self, Agda, tasks);
+              Queues.addTasksToAgda(self, tasks);
+              Queues.releaseAgda(self);
               kickStart(self, state);
             })
-          ->Promise.get(() => {Queues.remove(self, Agda)});
+          ->Promise.get(() => {Queues.releaseAgda(self)});
           // NOTE: return early before `sendAgdaRequest` resolved
           Promise.resolved(true);
         }
       | SendEventToView(event) =>
-        Queues.spawn(self, View);
-        state
-        ->State.sendEventToView(event)
-        ->Promise.map(_ => {
-            Queues.remove(self, View);
-            true;
-          });
+        state->State.sendEventToView(event)->Promise.map(_ => {true})
       | SendRequestToView(request, callback) =>
-        if (Queues.countBySource(self, View) > 0) {
-          // there can only be 1 View request at a time
-          Promise.resolved(
-            false,
-          );
+        // there can only be 1 View request at a time
+        if (Queues.viewOccupied(self)) {
+          Promise.resolved(false);
         } else {
-          Queues.spawn(self, View);
+          Queues.acquireView(self);
           state
           ->State.sendRequestToView(request)
           ->Promise.map(
               fun
-              | None => ()
+              | None => true
               | Some(response) => {
-                  Queues.addTasks(self, View, callback(response));
+                  Queues.addTasksToView(self, callback(response));
+                  Queues.releaseView(self);
+                  true;
                 },
-            )
-          ->Promise.map(() => {
-              Queues.remove(self, View);
-              true;
-            });
+            );
         }
       | AddHighlightings(annotations) =>
         annotations->Array.forEach(highlighting => {
@@ -244,22 +225,20 @@ module Impl = (Editor: Sig.Editor) => {
         Promise.resolved(true);
 
       | WithStateP(callback) =>
-        Queues.spawn(self, Misc);
         callback(state)
-        ->Promise.map(Queues.addTasks(self, Misc))
-        ->Promise.tap(() => {Queues.remove(self, Misc)})
-        ->Promise.map(() => true);
-
+        ->Promise.map(Queues.addTasks(self))
+        ->Promise.map(() => true)
       | SuicideByCop =>
         state->State.emitKillMePlz;
         Promise.resolved(false);
-
       | Goal(action) =>
         let tasks = GoalHandler.handle(action);
-        Queues.addMiscTasks(self, tasks);
+        Queues.addTasks(self, tasks);
+        Promise.resolved(true);
       | Error(error) =>
         let tasks = ErrorHandler.handle(error);
-        Queues.addMiscTasks(self, tasks);
+        Queues.addTasks(self, tasks);
+        Promise.resolved(true);
       | Debug(message) =>
         Js.log("DEBUG " ++ message);
         Promise.resolved(true);
@@ -300,7 +279,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     // clear the queue, doesn't wait
     let forceDestroy = self => {
-      self.queues = MultiQueue.make();
+      self.queues = TaskQueue.make();
       Promise.resolved();
     };
   };
@@ -315,9 +294,9 @@ module Impl = (Editor: Sig.Editor) => {
   let dispatchCommand = (self, state: State.t, command) => {
     log(
       "\n\n"
-      ++ MultiQueue.toString(Task.toString, self.critical.queues)
+      ++ TaskQueue.toString(Task.toString, self.critical.queues)
       ++ "\n----------------------------\n"
-      ++ MultiQueue.toString(Task.toString, self.blocking.queues),
+      ++ TaskQueue.toString(Task.toString, self.blocking.queues),
     );
 
     switch (command) {
@@ -326,18 +305,10 @@ module Impl = (Editor: Sig.Editor) => {
     | InputMethod(_)
     | EventFromView(_)
     | Escape =>
-      Runner.Queues.addTasks(
-        self.critical,
-        Command,
-        [DispatchCommand(command)],
-      );
+      Runner.Queues.addTasks(self.critical, [DispatchCommand(command)]);
       Runner.kickStart(self.critical, state);
     | _ =>
-      Runner.Queues.addTasks(
-        self.blocking,
-        Command,
-        [DispatchCommand(command)],
-      );
+      Runner.Queues.addTasks(self.blocking, [DispatchCommand(command)]);
       Runner.kickStart(self.blocking, state);
     };
   };
