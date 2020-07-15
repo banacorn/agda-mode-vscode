@@ -98,12 +98,7 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
   let executeTask =
-      (
-        state: State.t,
-        queue: TaskQueue.t(Task.t),
-        kickStart: TaskQueue.t(Task.t) => unit,
-        task: Task.t,
-      )
+      (state: State.t, queue: TaskQueue.t(Task.t), task: Task.t)
       : Promise.t(bool) => {
     let keepRunning =
       switch (task) {
@@ -118,15 +113,10 @@ module Impl = (Editor: Sig.Editor) => {
           Js.log(TaskQueue.toString(Task.toString, queue));
           Promise.resolved(false);
         } else {
-          TaskQueue.acquireAgda(queue);
-
           let lastTasks = [||];
 
           sendAgdaRequest(
-            tasks => {
-              TaskQueue.addTasksToAgda(queue, tasks);
-              kickStart(queue);
-            },
+            tasks => {TaskQueue.addTasksToAgda(queue, tasks)},
             (priority, tasks) => {
               Js.Array.push((priority, tasks), lastTasks)->ignore
             },
@@ -143,7 +133,6 @@ module Impl = (Editor: Sig.Editor) => {
                 ->Array.map(snd)
                 ->List.concatMany;
               TaskQueue.addTasksToFront(queue, tasks);
-              kickStart(queue);
             })
           ->ignore;
           // NOTE: return early before `sendAgdaRequest` resolved
@@ -156,22 +145,17 @@ module Impl = (Editor: Sig.Editor) => {
         if (TaskQueue.viewIsOccupied(queue)) {
           Promise.resolved(false);
         } else {
-          TaskQueue.acquireView(queue);
           state
           ->State.sendRequestToView(request)
           ->Promise.flatMap(
               fun
               | None => Promise.resolved()
               | Some(response) => {
-                  Js.log("RESPONSE!!");
                   TaskQueue.addTasksToView(queue, callback(response));
                   TaskQueue.releaseView(queue);
                 },
             )
-          ->Promise.map(_ => {
-              Js.log("released!!");
-              true;
-            })
+          ->Promise.map(_ => {true})
           ->ignore;
           // NOTE: return early before `sendRequestToView` resolved
           Promise.resolved(true);
@@ -254,11 +238,9 @@ module Impl = (Editor: Sig.Editor) => {
     | InputMethod(_)
     | EventFromView(_)
     | Escape =>
-      TaskQueue.addTasksToBack(self.critical, [DispatchCommand(command)]);
-      TaskQueue.kickStart(self.critical);
+      TaskQueue.addTasksToBack(self.critical, [DispatchCommand(command)])
     | _ =>
-      TaskQueue.addTasksToBack(self.blocking, [DispatchCommand(command)]);
-      TaskQueue.kickStart(self.blocking);
+      TaskQueue.addTasksToBack(self.blocking, [DispatchCommand(command)])
     };
   };
 

@@ -17,7 +17,7 @@ type t('task) = {
   mutable agda: status(list('task)),
   mutable view: status(list('task)),
   // Function for consuming the task queues
-  execute: (t('task), t('task) => unit, 'task) => Promise.t(bool),
+  execute: (t('task), 'task) => Promise.t(bool),
   // `busy` will be set to `true` if there are Tasks being executed
   // A semaphore to make sure that only one `kickStart` is running at a time
   mutable busy: bool,
@@ -86,7 +86,7 @@ let rec kickStart = self =>
       }
     | Some(task) =>
       self.busy = true;
-      self.execute(self, kickStart, task) // and start executing tasks
+      self.execute(self, task) // and start executing tasks
       ->Promise.get(keepRunning => {
           self.busy = false; // flip the semaphore back
           if (keepRunning) {
@@ -117,10 +117,11 @@ let forceDestroy = self => {
 // NOTE, currently only DispatchCommand would invoke this
 let addTasksToBack = (self, tasks) => {
   self.main = List.concat(self.main, tasks);
+  kickStart(self);
 };
 
 // add tasks to the current **busy** task queue
-let addTasksToFront = (self, tasks) =>
+let addTasksToFront = (self, tasks) => {
   switch (self.view, self.agda) {
   | (Pending(view), _) => self.view = Pending(List.concat(tasks, view))
   | (Ending(resolver, view), _) =>
@@ -130,6 +131,8 @@ let addTasksToFront = (self, tasks) =>
     self.agda = Ending(resolver, List.concat(tasks, agda))
   | (Free, Free) => self.main = List.concat(tasks, self.main)
   };
+  kickStart(self);
+};
 
 let toString = (taskToString, {main, agda, view}) => {
   let main = "Main " ++ Util.Pretty.list(List.map(main, taskToString));
@@ -162,12 +165,6 @@ let agdaIsOccupied = self =>
   | _ => true
   };
 
-let acquireAgda = self =>
-  switch (self.agda) {
-  | Free => self.agda = Pending([])
-  | _ => Js.log("[ panic ] The Agda task queue has already been acquired")
-  };
-
 let releaseAgda = self =>
   switch (self.agda) {
   | Free => Promise.resolved()
@@ -184,14 +181,15 @@ let releaseAgda = self =>
 let addTasksToAgda = (self, tasks) =>
   switch (self.agda) {
   | Free =>
-    Js.log(
-      "[ panic ] Cannot add task to the Agda task queue before acquiring it",
-    )
+    self.agda = Pending(tasks);
+    kickStart(self);
   | Ending(_, _) =>
     Js.log(
-      "[ panic ] Cannot add task to the Agda task queue when it's ending",
+      "[ panic ] Cannot add task to the Agda task queue when it's been marked ending",
     )
-  | Pending(agda) => self.agda = Pending(List.concat(agda, tasks))
+  | Pending(agda) =>
+    self.agda = Pending(List.concat(agda, tasks));
+    kickStart(self);
   };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -202,12 +200,6 @@ let viewIsOccupied = self =>
   switch (self.view) {
   | Free => false
   | _ => true
-  };
-
-let acquireView = self =>
-  switch (self.view) {
-  | Free => self.view = Pending([])
-  | _ => Js.log("[ panic ] The View task queue has already been acquired")
   };
 
 let releaseView = self =>
@@ -226,12 +218,13 @@ let releaseView = self =>
 let addTasksToView = (self, tasks) =>
   switch (self.view) {
   | Free =>
-    Js.log(
-      "[ panic ] Cannot add task to the View task queue before acquiring it",
-    )
+    self.view = Pending(tasks);
+    kickStart(self);
   | Ending(_, _) =>
     Js.log(
-      "[ panic ] Cannot add task to the View task queue when it's ending",
+      "[ panic ] Cannot add task to the View task queue when it's been marked ending",
     )
-  | Pending(view) => self.view = Pending(List.concat(view, tasks))
+  | Pending(view) =>
+    self.view = Pending(List.concat(view, tasks));
+    kickStart(self);
   };
