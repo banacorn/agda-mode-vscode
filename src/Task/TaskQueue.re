@@ -1,18 +1,20 @@
 open Belt;
 
+type status('payload) =
+  // tasks from Agda pending execution
+  | Pending('payload)
+  // augmented with a promise resolver, should be triggered when all pending tasks have been executed
+  | Ending(unit => unit, 'payload)
+  | Free;
+
 type t('task) = {
   // Theses are the 3 Task queues:
   //    View: for queueing responses from Agda
   //    Agda: for queueing responses from the View
   //    Main: for other tasks
   //
-  // Take the Agda queue for example, when it's:
-  //    Some([Task0, Task1, ...])   : there are tasks from Agda pending execution
-  //    Some([])                    : still waiting for Agda to respond or terminate
-  //    None                        : not waiting for Agda
-  //
   mutable main: list('task),
-  mutable agda: option(list('task)),
+  mutable agda: status(list('task)),
   mutable view: option(list('task)),
   // Function for consuming the task queues
   execute: (t('task), t('task) => unit, 'task) => Promise.t(bool),
@@ -26,24 +28,38 @@ type t('task) = {
 //    View > Agda > Main
 let getNextTask = self => {
   switch (self.view, self.agda, self.main) {
+  // still have tasks in the View queue
   | (Some([x, ...view]), _, _) =>
     self.view = Some(view);
     Some(x);
-  | (Some([]), _, _) => None // stuck on View
-  | (None, Some([x, ...agda]), _) =>
-    self.agda = Some(agda);
+  // stuck on View
+  | (Some([]), _, _) => None
+  // still have tasks in the Agda queue
+  | (None, Pending([x, ...agda]), _) =>
+    self.agda = Pending(agda);
     Some(x);
-  | (None, Some([]), _) => None // stuck on Agda
-  | (None, None, [x, ...main]) =>
+  | (None, Ending(resolve, [x, ...agda]), _) =>
+    self.agda = Ending(resolve, agda);
+    Some(x);
+  // stuck on Agda
+  | (None, Pending([]), _) => None
+  // trigger the ending promise
+  | (None, Ending(resolve, []), _) =>
+    self.agda = Free;
+    resolve();
+    None;
+  // still have tasks in the Main queue
+  | (None, Free, [x, ...main]) =>
     self.main = main;
     Some(x);
-  | (None, None, []) => None
+  // stuck on Main
+  | (None, Free, []) => None
   };
 };
 
 let make = execute => {
   main: [],
-  agda: None,
+  agda: Free,
   view: None,
   execute,
   busy: false,
@@ -85,7 +101,7 @@ let destroy = self =>
 // clear the queue, doesn't wait
 let forceDestroy = self => {
   self.main = [];
-  self.agda = None;
+  self.agda = Free;
   self.view = None;
   Promise.resolved();
 };
@@ -102,9 +118,11 @@ let toString = (taskToString, {main, agda, view}) => {
   let main = "Main " ++ Util.Pretty.list(List.map(main, taskToString));
   let agda =
     switch (agda) {
-    | None => ""
-    | Some(agda) =>
+    | Free => ""
+    | Pending(agda) =>
       "Agda " ++ Util.Pretty.list(List.map(agda, taskToString))
+    | Ending(_, agda) =>
+      "Agda# " ++ Util.Pretty.list(List.map(agda, taskToString))
     };
   let view =
     switch (view) {
@@ -119,31 +137,42 @@ let toString = (taskToString, {main, agda, view}) => {
 // Agda
 ////////////////////////////////////////////////////////////////////////////////
 
-let agdaIsOccupied = self => self.agda->Option.isSome;
+let agdaIsOccupied = self =>
+  switch (self.agda) {
+  | Free => false
+  | _ => true
+  };
 
 let acquireAgda = self =>
   switch (self.agda) {
-  | None => self.agda = Some([])
-  | Some(_) =>
-    Js.log("[ panic ] The Agda task queue has already been acquired")
+  | Free => self.agda = Pending([])
+  | _ => Js.log("[ panic ] The Agda task queue has already been acquired")
   };
 
 let releaseAgda = self =>
   switch (self.agda) {
-  | None => ()
-  | Some(remainingTasks) =>
-    // concat the remaining tasks to the main task queue
-    self.main = List.concat(remainingTasks, self.main);
-    self.agda = None;
+  | Free => Promise.resolved()
+  | Ending(_, _) =>
+    Js.log("[ panic ] The Agda task queue has been released by someone else");
+    Promise.resolved();
+  | Pending(remainingTasks) =>
+    let (promise, resolve) = Promise.pending();
+    self.agda = Ending(resolve, remainingTasks);
+    kickStart(self);
+    promise;
   };
 
 let addTasksToAgda = (self, tasks) =>
   switch (self.agda) {
-  | None =>
+  | Free =>
     Js.log(
       "[ panic ] Cannot add task to the Agda task queue before acquiring it",
     )
-  | Some(agda) => self.agda = Some(List.concat(agda, tasks))
+  | Ending(_, _) =>
+    Js.log(
+      "[ panic ] Cannot add task to the Agda task queue when it's ending",
+    )
+  | Pending(agda) => self.agda = Pending(List.concat(agda, tasks))
   };
 
 ////////////////////////////////////////////////////////////////////////////////

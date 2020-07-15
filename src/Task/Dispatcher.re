@@ -117,6 +117,7 @@ module Impl = (Editor: Sig.Editor) => {
         // there can only be 1 Agda request at a time
         if (TaskQueue.agdaIsOccupied(queue)) {
           Js.log("[ panic ] There can only be 1 Agda request at a time!");
+          Js.log(TaskQueue.toString(Task.toString, queue));
           Promise.resolved(false);
         } else {
           TaskQueue.acquireAgda(queue);
@@ -134,6 +135,7 @@ module Impl = (Editor: Sig.Editor) => {
             state,
             request,
           )
+          ->Promise.flatMap(() => TaskQueue.releaseAgda(queue))
           ->Promise.map(() => {
               let tasks =
                 Js.Array.sortInPlaceWith(
@@ -142,8 +144,7 @@ module Impl = (Editor: Sig.Editor) => {
                 )
                 ->Array.map(snd)
                 ->List.concatMany;
-              TaskQueue.addTasksToAgda(queue, tasks);
-              TaskQueue.releaseAgda(queue);
+              TaskQueue.addTasksToFront(queue, tasks);
               kickStart(queue);
             })
           ->ignore;
