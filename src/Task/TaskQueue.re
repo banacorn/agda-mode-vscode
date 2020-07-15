@@ -15,7 +15,7 @@ type t('task) = {
   //
   mutable main: list('task),
   mutable agda: status(list('task)),
-  mutable view: option(list('task)),
+  mutable view: status(list('task)),
   // Function for consuming the task queues
   execute: (t('task), t('task) => unit, 'task) => Promise.t(bool),
   // `busy` will be set to `true` if there are Tasks being executed
@@ -29,38 +29,46 @@ type t('task) = {
 let getNextTask = self => {
   switch (self.view, self.agda, self.main) {
   // still have tasks in the View queue
-  | (Some([x, ...view]), _, _) =>
-    self.view = Some(view);
+  | (Pending([x, ...view]), _, _) =>
+    self.view = Pending(view);
+    Some(x);
+  | (Ending(resolve, [x, ...view]), _, _) =>
+    self.view = Ending(resolve, view);
     Some(x);
   // stuck on View
-  | (Some([]), _, _) => None
+  | (Pending([]), _, _) => None
+  // trigger the ending promise
+  | (Ending(resolve, []), _, _) =>
+    self.view = Free;
+    resolve();
+    None;
   // still have tasks in the Agda queue
-  | (None, Pending([x, ...agda]), _) =>
+  | (Free, Pending([x, ...agda]), _) =>
     self.agda = Pending(agda);
     Some(x);
-  | (None, Ending(resolve, [x, ...agda]), _) =>
+  | (Free, Ending(resolve, [x, ...agda]), _) =>
     self.agda = Ending(resolve, agda);
     Some(x);
   // stuck on Agda
-  | (None, Pending([]), _) => None
+  | (Free, Pending([]), _) => None
   // trigger the ending promise
-  | (None, Ending(resolve, []), _) =>
+  | (Free, Ending(resolve, []), _) =>
     self.agda = Free;
     resolve();
     None;
   // still have tasks in the Main queue
-  | (None, Free, [x, ...main]) =>
+  | (Free, Free, [x, ...main]) =>
     self.main = main;
     Some(x);
   // stuck on Main
-  | (None, Free, []) => None
+  | (Free, Free, []) => None
   };
 };
 
 let make = execute => {
   main: [],
   agda: Free,
-  view: None,
+  view: Free,
   execute,
   busy: false,
   shouldDestroy: None,
@@ -102,7 +110,7 @@ let destroy = self =>
 let forceDestroy = self => {
   self.main = [];
   self.agda = Free;
-  self.view = None;
+  self.view = Free;
   Promise.resolved();
 };
 
@@ -114,11 +122,13 @@ let addTasksToBack = (self, tasks) => {
 // add tasks to the current **busy** task queue
 let addTasksToFront = (self, tasks) =>
   switch (self.view, self.agda) {
-  | (Some(view), _) => self.view = Some(List.concat(tasks, view))
-  | (None, Pending(agda)) => self.agda = Pending(List.concat(tasks, agda))
-  | (None, Ending(resolver, agda)) =>
+  | (Pending(view), _) => self.view = Pending(List.concat(tasks, view))
+  | (Ending(resolver, view), _) =>
+    self.view = Ending(resolver, List.concat(tasks, view))
+  | (Free, Pending(agda)) => self.agda = Pending(List.concat(tasks, agda))
+  | (Free, Ending(resolver, agda)) =>
     self.agda = Ending(resolver, List.concat(tasks, agda))
-  | (None, Free) => self.main = List.concat(tasks, self.main)
+  | (Free, Free) => self.main = List.concat(tasks, self.main)
   };
 
 let toString = (taskToString, {main, agda, view}) => {
@@ -133,9 +143,11 @@ let toString = (taskToString, {main, agda, view}) => {
     };
   let view =
     switch (view) {
-    | None => ""
-    | Some(view) =>
+    | Free => ""
+    | Pending(view) =>
       "View " ++ Util.Pretty.list(List.map(view, taskToString))
+    | Ending(_, view) =>
+      "View# " ++ Util.Pretty.list(List.map(view, taskToString))
     };
   main ++ "\n" ++ agda ++ "\n" ++ view;
 };
@@ -186,29 +198,40 @@ let addTasksToAgda = (self, tasks) =>
 // View
 ////////////////////////////////////////////////////////////////////////////////
 
-let viewIsOccupied = self => self.view->Option.isSome;
+let viewIsOccupied = self =>
+  switch (self.view) {
+  | Free => false
+  | _ => true
+  };
 
 let acquireView = self =>
   switch (self.view) {
-  | None => self.view = Some([])
-  | Some(_) =>
-    Js.log("[ panic ] The View task queue has already been acquired")
+  | Free => self.view = Pending([])
+  | _ => Js.log("[ panic ] The View task queue has already been acquired")
   };
 
 let releaseView = self =>
   switch (self.view) {
-  | None => ()
-  | Some(remainingTasks) =>
-    // concat the remaining tasks to the main task queue
-    self.main = List.concat(remainingTasks, self.main);
-    self.view = None;
+  | Free => Promise.resolved()
+  | Ending(_, _) =>
+    Js.log("[ panic ] The View task queue has been released by someone else");
+    Promise.resolved();
+  | Pending(remainingTasks) =>
+    let (promise, resolve) = Promise.pending();
+    self.view = Ending(resolve, remainingTasks);
+    kickStart(self);
+    promise;
   };
 
 let addTasksToView = (self, tasks) =>
   switch (self.view) {
-  | None =>
+  | Free =>
     Js.log(
       "[ panic ] Cannot add task to the View task queue before acquiring it",
     )
-  | Some(view) => self.view = Some(List.concat(view, tasks))
+  | Ending(_, _) =>
+    Js.log(
+      "[ panic ] Cannot add task to the View task queue when it's ending",
+    )
+  | Pending(view) => self.view = Pending(List.concat(view, tasks))
   };

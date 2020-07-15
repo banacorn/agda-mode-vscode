@@ -159,15 +159,22 @@ module Impl = (Editor: Sig.Editor) => {
           TaskQueue.acquireView(queue);
           state
           ->State.sendRequestToView(request)
-          ->Promise.map(
+          ->Promise.flatMap(
               fun
-              | None => true
+              | None => Promise.resolved()
               | Some(response) => {
+                  Js.log("RESPONSE!!");
                   TaskQueue.addTasksToView(queue, callback(response));
                   TaskQueue.releaseView(queue);
-                  true;
                 },
-            );
+            )
+          ->Promise.map(_ => {
+              Js.log("released!!");
+              true;
+            })
+          ->ignore;
+          // NOTE: return early before `sendRequestToView` resolved
+          Promise.resolved(true);
         }
       | AddHighlightings(annotations) =>
         annotations->Array.forEach(highlighting => {
