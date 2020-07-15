@@ -10,18 +10,14 @@ module StateDispatcherPair = {
     let make = (context, editor, onDestroy) => {
       // not in the States dict, instantiate one new
       let state = State.make(context, editor);
-      let dispatcher = Dispatcher.make();
+      let dispatcher = Dispatcher.make(state);
 
       // listens to events from the view
       state.view
       ->Editor.View.on(
           fun
           | Event(event) => {
-              Dispatcher.dispatchCommand(
-                dispatcher,
-                state,
-                EventFromView(event),
-              )
+              Dispatcher.dispatchCommand(dispatcher, EventFromView(event))
               ->ignore;
             }
           | Response(_) => (),
@@ -30,11 +26,7 @@ module StateDispatcherPair = {
 
       // listens to events from the input method
       state.inputMethod.onAction.on(action => {
-        Dispatcher.dispatchCommand(
-          dispatcher,
-          state,
-          Command.InputMethod(action),
-        )
+        Dispatcher.dispatchCommand(dispatcher, Command.InputMethod(action))
         ->ignore
       })
       ->Editor.Disposable.make
@@ -170,7 +162,7 @@ module Impl = (Editor: Sig.Editor) => {
               // we need to replace it with this new one
               state.editor = editor;
               State.show(state);
-              Dispatcher.dispatchCommand(dispatcher, state, Refresh);
+              Dispatcher.dispatchCommand(dispatcher, Refresh);
             })
           ->ignore
         });
@@ -233,9 +225,8 @@ module Impl = (Editor: Sig.Editor) => {
               // dispatch Tasks
               editor
               ->States.getByEditor
-              ->Option.forEach(((state, dispatcher)) => {
-                  Dispatcher.dispatchCommand(dispatcher, state, command)
-                  ->ignore
+              ->Option.forEach(((_state, dispatcher)) => {
+                  Dispatcher.dispatchCommand(dispatcher, command)->ignore
                 })
             });
         },
