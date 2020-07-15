@@ -104,11 +104,11 @@ module Impl = (Editor: Sig.Editor) => {
       switch (task) {
       | DispatchCommand(command) =>
         let tasks = CommandHandler.handle(command);
-        TaskQueue.addTasksToFront(queue, tasks);
+        TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
       | SendRequest(request) =>
         // there can only be 1 Agda request at a time
-        if (TaskQueue.agdaIsOccupied(queue)) {
+        if (TaskQueue.Agda.isOccupied(queue)) {
           Js.log("[ panic ] There can only be 1 Agda request at a time!");
           Js.log(TaskQueue.toString(Task.toString, queue));
           Promise.resolved(false);
@@ -116,14 +116,14 @@ module Impl = (Editor: Sig.Editor) => {
           let lastTasks = [||];
 
           sendAgdaRequest(
-            tasks => {TaskQueue.addTasksToAgda(queue, tasks)},
+            tasks => {TaskQueue.Agda.addToTheBack(queue, tasks)},
             (priority, tasks) => {
               Js.Array.push((priority, tasks), lastTasks)->ignore
             },
             state,
             request,
           )
-          ->Promise.flatMap(() => TaskQueue.releaseAgda(queue))
+          ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
               let tasks =
                 Js.Array.sortInPlaceWith(
@@ -132,7 +132,7 @@ module Impl = (Editor: Sig.Editor) => {
                 )
                 ->Array.map(snd)
                 ->List.concatMany;
-              TaskQueue.addTasksToFront(queue, tasks);
+              TaskQueue.addToTheFront(queue, tasks);
             })
           ->ignore;
           // NOTE: return early before `sendAgdaRequest` resolved
@@ -142,7 +142,7 @@ module Impl = (Editor: Sig.Editor) => {
         state->State.sendEventToView(event)->Promise.map(_ => {true})
       | SendRequestToView(request, callback) =>
         // there can only be 1 View request at a time
-        if (TaskQueue.viewIsOccupied(queue)) {
+        if (TaskQueue.View.isOccupied(queue)) {
           Promise.resolved(false);
         } else {
           state
@@ -151,8 +151,8 @@ module Impl = (Editor: Sig.Editor) => {
               fun
               | None => Promise.resolved()
               | Some(response) => {
-                  TaskQueue.addTasksToView(queue, callback(response));
-                  TaskQueue.releaseView(queue);
+                  TaskQueue.View.addToTheBack(queue, callback(response));
+                  TaskQueue.View.close(queue);
                 },
             )
           ->Promise.map(_ => {true})
@@ -187,18 +187,18 @@ module Impl = (Editor: Sig.Editor) => {
 
       | WithStateP(callback) =>
         callback(state)
-        ->Promise.map(TaskQueue.addTasksToFront(queue))
+        ->Promise.map(TaskQueue.addToTheFront(queue))
         ->Promise.map(() => true)
       | SuicideByCop =>
         state->State.emitKillMePlz;
         Promise.resolved(false);
       | Goal(action) =>
         let tasks = GoalHandler.handle(action);
-        TaskQueue.addTasksToFront(queue, tasks);
+        TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
       | Error(error) =>
         let tasks = ErrorHandler.handle(error);
-        TaskQueue.addTasksToFront(queue, tasks);
+        TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
       | Debug(message) =>
         Js.log("DEBUG " ++ message);
@@ -238,9 +238,8 @@ module Impl = (Editor: Sig.Editor) => {
     | InputMethod(_)
     | EventFromView(_)
     | Escape =>
-      TaskQueue.addTasksToBack(self.critical, [DispatchCommand(command)])
-    | _ =>
-      TaskQueue.addTasksToBack(self.blocking, [DispatchCommand(command)])
+      TaskQueue.addToTheBack(self.critical, [DispatchCommand(command)])
+    | _ => TaskQueue.addToTheBack(self.blocking, [DispatchCommand(command)])
     };
   };
 

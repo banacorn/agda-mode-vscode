@@ -3,8 +3,9 @@ open Belt;
 type status('payload) =
   // tasks from Agda pending execution
   | Pending('payload)
-  // augmented with a promise resolver, should be triggered when all pending tasks have been executed
-  | Ending(unit => unit, 'payload)
+  // augmented with a promise resolver,
+  // which should be triggered after all pending tasks have been executed
+  | Closing(unit => unit, 'payload)
   | Free;
 
 type t('task) = {
@@ -32,13 +33,13 @@ let getNextTask = self => {
   | (Pending([x, ...view]), _, _) =>
     self.view = Pending(view);
     Some(x);
-  | (Ending(resolve, [x, ...view]), _, _) =>
-    self.view = Ending(resolve, view);
+  | (Closing(resolve, [x, ...view]), _, _) =>
+    self.view = Closing(resolve, view);
     Some(x);
   // stuck on View
   | (Pending([]), _, _) => None
   // trigger the ending promise
-  | (Ending(resolve, []), _, _) =>
+  | (Closing(resolve, []), _, _) =>
     self.view = Free;
     resolve();
     None;
@@ -46,13 +47,13 @@ let getNextTask = self => {
   | (Free, Pending([x, ...agda]), _) =>
     self.agda = Pending(agda);
     Some(x);
-  | (Free, Ending(resolve, [x, ...agda]), _) =>
-    self.agda = Ending(resolve, agda);
+  | (Free, Closing(resolve, [x, ...agda]), _) =>
+    self.agda = Closing(resolve, agda);
     Some(x);
   // stuck on Agda
   | (Free, Pending([]), _) => None
   // trigger the ending promise
-  | (Free, Ending(resolve, []), _) =>
+  | (Free, Closing(resolve, []), _) =>
     self.agda = Free;
     resolve();
     None;
@@ -115,20 +116,20 @@ let forceDestroy = self => {
 };
 
 // NOTE, currently only DispatchCommand would invoke this
-let addTasksToBack = (self, tasks) => {
+let addToTheBack = (self, tasks) => {
   self.main = List.concat(self.main, tasks);
   kickStart(self);
 };
 
 // add tasks to the current **busy** task queue
-let addTasksToFront = (self, tasks) => {
+let addToTheFront = (self, tasks) => {
   switch (self.view, self.agda) {
   | (Pending(view), _) => self.view = Pending(List.concat(tasks, view))
-  | (Ending(resolver, view), _) =>
-    self.view = Ending(resolver, List.concat(tasks, view))
+  | (Closing(resolver, view), _) =>
+    self.view = Closing(resolver, List.concat(tasks, view))
   | (Free, Pending(agda)) => self.agda = Pending(List.concat(tasks, agda))
-  | (Free, Ending(resolver, agda)) =>
-    self.agda = Ending(resolver, List.concat(tasks, agda))
+  | (Free, Closing(resolver, agda)) =>
+    self.agda = Closing(resolver, List.concat(tasks, agda))
   | (Free, Free) => self.main = List.concat(tasks, self.main)
   };
   kickStart(self);
@@ -141,7 +142,7 @@ let toString = (taskToString, {main, agda, view}) => {
     | Free => ""
     | Pending(agda) =>
       "Agda " ++ Util.Pretty.list(List.map(agda, taskToString))
-    | Ending(_, agda) =>
+    | Closing(_, agda) =>
       "Agda# " ++ Util.Pretty.list(List.map(agda, taskToString))
     };
   let view =
@@ -149,7 +150,7 @@ let toString = (taskToString, {main, agda, view}) => {
     | Free => ""
     | Pending(view) =>
       "View " ++ Util.Pretty.list(List.map(view, taskToString))
-    | Ending(_, view) =>
+    | Closing(_, view) =>
       "View# " ++ Util.Pretty.list(List.map(view, taskToString))
     };
   main ++ "\n" ++ agda ++ "\n" ++ view;
@@ -159,72 +160,80 @@ let toString = (taskToString, {main, agda, view}) => {
 // Agda
 ////////////////////////////////////////////////////////////////////////////////
 
-let agdaIsOccupied = self =>
-  switch (self.agda) {
-  | Free => false
-  | _ => true
-  };
+module Agda = {
+  let isOccupied = self =>
+    switch (self.agda) {
+    | Free => false
+    | _ => true
+    };
 
-let releaseAgda = self =>
-  switch (self.agda) {
-  | Free => Promise.resolved()
-  | Ending(_, _) =>
-    Js.log("[ panic ] The Agda task queue has been released by someone else");
-    Promise.resolved();
-  | Pending(remainingTasks) =>
-    let (promise, resolve) = Promise.pending();
-    self.agda = Ending(resolve, remainingTasks);
-    kickStart(self);
-    promise;
-  };
+  let close = self =>
+    switch (self.agda) {
+    | Free => Promise.resolved()
+    | Closing(_, _) =>
+      Js.log(
+        "[ panic ] The Agda task queue has been released by someone else",
+      );
+      Promise.resolved();
+    | Pending(remainingTasks) =>
+      let (promise, resolve) = Promise.pending();
+      self.agda = Closing(resolve, remainingTasks);
+      kickStart(self);
+      promise;
+    };
 
-let addTasksToAgda = (self, tasks) =>
-  switch (self.agda) {
-  | Free =>
-    self.agda = Pending(tasks);
-    kickStart(self);
-  | Ending(_, _) =>
-    Js.log(
-      "[ panic ] Cannot add task to the Agda task queue when it's been marked ending",
-    )
-  | Pending(agda) =>
-    self.agda = Pending(List.concat(agda, tasks));
-    kickStart(self);
-  };
+  let addToTheBack = (self, tasks) =>
+    switch (self.agda) {
+    | Free =>
+      self.agda = Pending(tasks);
+      kickStart(self);
+    | Closing(_, _) =>
+      Js.log(
+        "[ panic ] Cannot add task to the Agda task queue after it's been marked closed",
+      )
+    | Pending(agda) =>
+      self.agda = Pending(List.concat(agda, tasks));
+      kickStart(self);
+    };
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // View
 ////////////////////////////////////////////////////////////////////////////////
 
-let viewIsOccupied = self =>
-  switch (self.view) {
-  | Free => false
-  | _ => true
-  };
+module View = {
+  let isOccupied = self =>
+    switch (self.view) {
+    | Free => false
+    | _ => true
+    };
 
-let releaseView = self =>
-  switch (self.view) {
-  | Free => Promise.resolved()
-  | Ending(_, _) =>
-    Js.log("[ panic ] The View task queue has been released by someone else");
-    Promise.resolved();
-  | Pending(remainingTasks) =>
-    let (promise, resolve) = Promise.pending();
-    self.view = Ending(resolve, remainingTasks);
-    kickStart(self);
-    promise;
-  };
+  let close = self =>
+    switch (self.view) {
+    | Free => Promise.resolved()
+    | Closing(_, _) =>
+      Js.log(
+        "[ panic ] The View task queue has been released by someone else",
+      );
+      Promise.resolved();
+    | Pending(remainingTasks) =>
+      let (promise, resolve) = Promise.pending();
+      self.view = Closing(resolve, remainingTasks);
+      kickStart(self);
+      promise;
+    };
 
-let addTasksToView = (self, tasks) =>
-  switch (self.view) {
-  | Free =>
-    self.view = Pending(tasks);
-    kickStart(self);
-  | Ending(_, _) =>
-    Js.log(
-      "[ panic ] Cannot add task to the View task queue when it's been marked ending",
-    )
-  | Pending(view) =>
-    self.view = Pending(List.concat(view, tasks));
-    kickStart(self);
-  };
+  let addToTheBack = (self, tasks) =>
+    switch (self.view) {
+    | Free =>
+      self.view = Pending(tasks);
+      kickStart(self);
+    | Closing(_, _) =>
+      Js.log(
+        "[ panic ] Cannot add task to the View task queue after it's been marked closed",
+      )
+    | Pending(view) =>
+      self.view = Pending(List.concat(view, tasks));
+      kickStart(self);
+    };
+};
