@@ -90,8 +90,12 @@ let forceDestroy = self => {
   Promise.resolved();
 };
 
-let addTasksToMain = (self, tasks) => {
+let addTasksToBack = (self, tasks) => {
   self.main = List.concat(self.main, tasks);
+};
+
+let addTasksToFront = (self, tasks) => {
+  self.main = List.concat(tasks, self.main);
 };
 
 let toString = (taskToString, {main, agda, view}) => {

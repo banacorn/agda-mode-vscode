@@ -10,6 +10,14 @@ module Impl = (Editor: Sig.Editor) => {
   open! Task;
 
   let sendAgdaRequest = (runTasks, runTasksLater, state, request) => {
+    let printLog = true;
+    let (log, log2) =
+      if (printLog) {
+        (Js.log, Js.log2);
+      } else {
+        (_ => (), (_, _) => ());
+      };
+
     // this promise get resolved after the request to Agda is completed
     let (promise, resolve) = Promise.pending();
     let handle = ref(None);
@@ -24,12 +32,12 @@ module Impl = (Editor: Sig.Editor) => {
           runTasks(tasks);
         }
       | Ok(Yield(Ok(NonLast(response)))) => {
-          Js.log(">>> " ++ Response.toString(response));
+          log(">>> " ++ Response.toString(response));
           let tasks = ResponseHandler.handle(response);
           runTasks(tasks);
         }
       | Ok(Yield(Ok(Last(priority, response)))) => {
-          Js.log(
+          log(
             ">>> "
             ++ string_of_int(priority)
             ++ " "
@@ -39,7 +47,7 @@ module Impl = (Editor: Sig.Editor) => {
           runTasksLater(priority, tasks);
         }
       | Ok(Stop) => {
-          Js.log(">>| ");
+          log(">>| ");
           resolve();
         };
 
@@ -62,7 +70,7 @@ module Impl = (Editor: Sig.Editor) => {
             highlightingMethod,
             request,
           );
-        Js.log2("<<<", encoded);
+        log2("<<<", encoded);
         Connection.send(encoded, connection);
         connection;
       })
@@ -81,7 +89,7 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let printLog = false;
+  let printLog = true;
   let log =
     if (printLog) {
       Js.log;
@@ -97,112 +105,119 @@ module Impl = (Editor: Sig.Editor) => {
         task: Task.t,
       )
       : Promise.t(bool) => {
-    switch (task) {
-    | DispatchCommand(command) =>
-      let tasks = CommandHandler.handle(command);
-      TaskQueue.addTasksToMain(queue, tasks);
-      Promise.resolved(true);
-    | SendRequest(request) =>
-      // there can only be 1 Agda request at a time
-      if (TaskQueue.agdaIsOccupied(queue)) {
-        Js.log("[ panic ] There can only be 1 Agda request at a time!");
-        Promise.resolved(false);
-      } else {
-        TaskQueue.acquireAgda(queue);
+    log("================ " ++ Task.toString(task));
 
-        let lastTasks = [||];
-
-        sendAgdaRequest(
-          tasks => {
-            TaskQueue.addTasksToAgda(queue, tasks);
-            kickStart(queue);
-          },
-          (priority, tasks) => {
-            Js.Array.push((priority, tasks), lastTasks)->ignore
-          },
-          state,
-          request,
-        )
-        ->Promise.map(() => {
-            let tasks =
-              Js.Array.sortInPlaceWith(
-                (x, y) => compare(fst(x), fst(y)),
-                lastTasks,
-              )
-              ->Array.map(snd)
-              ->List.concatMany;
-            TaskQueue.addTasksToAgda(queue, tasks);
-            TaskQueue.releaseAgda(queue);
-            kickStart(queue);
-          })
-        ->Promise.get(() => {TaskQueue.releaseAgda(queue)});
-        // NOTE: return early before `sendAgdaRequest` resolved
+    let keepRunning =
+      switch (task) {
+      | DispatchCommand(command) =>
+        let tasks = CommandHandler.handle(command);
+        TaskQueue.addTasksToFront(queue, tasks);
         Promise.resolved(true);
-      }
-    | SendEventToView(event) =>
-      state->State.sendEventToView(event)->Promise.map(_ => {true})
-    | SendRequestToView(request, callback) =>
-      // there can only be 1 View request at a time
-      if (TaskQueue.viewIsOccupied(queue)) {
-        Promise.resolved(false);
-      } else {
-        TaskQueue.acquireView(queue);
-        state
-        ->State.sendRequestToView(request)
-        ->Promise.map(
-            fun
-            | None => true
-            | Some(response) => {
-                TaskQueue.addTasksToView(queue, callback(response));
-                TaskQueue.releaseView(queue);
-                true;
-              },
-          );
-      }
-    | AddHighlightings(annotations) =>
-      annotations->Array.forEach(highlighting => {
-        let decorations =
-          Decoration.decorateHighlighting(state.editor, highlighting);
-        state.decorations = Array.concat(state.decorations, decorations);
-      });
-      Promise.resolved(true);
-    | RemoveAllHighlightings =>
-      state.decorations
-      ->Array.map(fst)
-      ->Array.forEach(Editor.Decoration.destroy);
-      state.decorations = [||];
-      Promise.resolved(true);
-    | RefreshAllHighlightings =>
-      state.decorations
-      ->Array.forEach(((decoration, range)) => {
-          Editor.Decoration.decorate(state.editor, decoration, [|range|])
-        });
-      state.goals
-      ->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor));
-      Promise.resolved(true);
-    | WithState(callback) =>
-      callback(state);
-      Promise.resolved(true);
+      | SendRequest(request) =>
+        // there can only be 1 Agda request at a time
+        if (TaskQueue.agdaIsOccupied(queue)) {
+          Js.log("[ panic ] There can only be 1 Agda request at a time!");
+          Promise.resolved(false);
+        } else {
+          TaskQueue.acquireAgda(queue);
 
-    | WithStateP(callback) =>
-      callback(state)
-      ->Promise.map(TaskQueue.addTasksToMain(queue))
-      ->Promise.map(() => true)
-    | SuicideByCop =>
-      state->State.emitKillMePlz;
-      Promise.resolved(false);
-    | Goal(action) =>
-      let tasks = GoalHandler.handle(action);
-      TaskQueue.addTasksToMain(queue, tasks);
-      Promise.resolved(true);
-    | Error(error) =>
-      let tasks = ErrorHandler.handle(error);
-      TaskQueue.addTasksToMain(queue, tasks);
-      Promise.resolved(true);
-    | Debug(message) =>
-      Js.log("DEBUG " ++ message);
-      Promise.resolved(true);
-    };
+          let lastTasks = [||];
+
+          sendAgdaRequest(
+            tasks => {
+              TaskQueue.addTasksToAgda(queue, tasks);
+              kickStart(queue);
+            },
+            (priority, tasks) => {
+              Js.Array.push((priority, tasks), lastTasks)->ignore
+            },
+            state,
+            request,
+          )
+          ->Promise.map(() => {
+              let tasks =
+                Js.Array.sortInPlaceWith(
+                  (x, y) => compare(fst(x), fst(y)),
+                  lastTasks,
+                )
+                ->Array.map(snd)
+                ->List.concatMany;
+              TaskQueue.addTasksToAgda(queue, tasks);
+              TaskQueue.releaseAgda(queue);
+              kickStart(queue);
+            })
+          ->ignore;
+          // NOTE: return early before `sendAgdaRequest` resolved
+          Promise.resolved(true);
+        }
+      | SendEventToView(event) =>
+        state->State.sendEventToView(event)->Promise.map(_ => {true})
+      | SendRequestToView(request, callback) =>
+        // there can only be 1 View request at a time
+        if (TaskQueue.viewIsOccupied(queue)) {
+          Promise.resolved(false);
+        } else {
+          TaskQueue.acquireView(queue);
+          state
+          ->State.sendRequestToView(request)
+          ->Promise.map(
+              fun
+              | None => true
+              | Some(response) => {
+                  TaskQueue.addTasksToView(queue, callback(response));
+                  TaskQueue.releaseView(queue);
+                  true;
+                },
+            );
+        }
+      | AddHighlightings(annotations) =>
+        annotations->Array.forEach(highlighting => {
+          let decorations =
+            Decoration.decorateHighlighting(state.editor, highlighting);
+          state.decorations = Array.concat(state.decorations, decorations);
+        });
+        Promise.resolved(true);
+      | RemoveAllHighlightings =>
+        state.decorations
+        ->Array.map(fst)
+        ->Array.forEach(Editor.Decoration.destroy);
+        state.decorations = [||];
+        Promise.resolved(true);
+      | RefreshAllHighlightings =>
+        state.decorations
+        ->Array.forEach(((decoration, range)) => {
+            Editor.Decoration.decorate(state.editor, decoration, [|range|])
+          });
+        state.goals
+        ->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor));
+        Promise.resolved(true);
+      | WithState(callback) =>
+        callback(state);
+        Promise.resolved(true);
+
+      | WithStateP(callback) =>
+        callback(state)
+        ->Promise.map(TaskQueue.addTasksToFront(queue))
+        ->Promise.map(() => true)
+      | SuicideByCop =>
+        state->State.emitKillMePlz;
+        Promise.resolved(false);
+      | Goal(action) =>
+        let tasks = GoalHandler.handle(action);
+        TaskQueue.addTasksToFront(queue, tasks);
+        Promise.resolved(true);
+      | Error(error) =>
+        let tasks = ErrorHandler.handle(error);
+        TaskQueue.addTasksToFront(queue, tasks);
+        Promise.resolved(true);
+      | Debug(message) =>
+        Js.log("DEBUG " ++ message);
+        Promise.resolved(true);
+      };
+
+    log(TaskQueue.toString(Task.toString, queue));
+
+    keepRunning;
   };
 
   type t = {
@@ -216,23 +231,22 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let dispatchCommand = (self, command) => {
-    log(
-      "\n\n"
-      ++ TaskQueue.toString(Task.toString, self.critical)
-      ++ "\n----------------------------\n"
-      ++ TaskQueue.toString(Task.toString, self.blocking),
-    );
-
+    // log(
+    //   "\n\n"
+    //   ++ TaskQueue.toString(Task.toString, self.critical)
+    //   ++ "\n----------------------------\n"
+    //   ++ TaskQueue.toString(Task.toString, self.blocking),
+    // );
     switch (command) {
     | Command.NextGoal
     | PreviousGoal
     | InputMethod(_)
     | EventFromView(_)
     | Escape =>
-      TaskQueue.addTasksToMain(self.critical, [DispatchCommand(command)]);
+      TaskQueue.addTasksToBack(self.critical, [DispatchCommand(command)]);
       TaskQueue.kickStart(self.critical);
     | _ =>
-      TaskQueue.addTasksToMain(self.blocking, [DispatchCommand(command)]);
+      TaskQueue.addTasksToBack(self.blocking, [DispatchCommand(command)]);
       TaskQueue.kickStart(self.blocking);
     };
   };

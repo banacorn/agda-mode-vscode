@@ -134,7 +134,9 @@ let toString =
   | HighlightingInfoDirect(keepHighlighting, annotations) =>
     "HighlightingInfoDirect "
     ++ (keepHighlighting ? "Keep " : "Remove ")
-    ++ annotations->Array.map(Highlighting.toString)->Util.Pretty.array
+    ++ " "
+    ++ annotations->Array.length->string_of_int
+    ++ " annotations"
   | HighlightingInfoIndirect(filepath) =>
     "HighlightingInfoIndirect " ++ filepath
   | Status(displayed, checked) =>
