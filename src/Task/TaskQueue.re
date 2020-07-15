@@ -11,39 +11,87 @@ type t('task) = {
   //    Some([])                    : still waiting for Agda to respond or terminate
   //    None                        : not waiting for Agda
   //
-  main: list('task),
-  agda: option(list('task)),
-  view: option(list('task)),
+  mutable main: list('task),
+  mutable agda: option(list('task)),
+  mutable view: option(list('task)),
+  // Function for consuming the task queues
+  execute: (t('task), t('task) => unit, 'task) => Promise.t(bool),
+  // `busy` will be set to `true` if there are Tasks being executed
+  // A semaphore to make sure that only one `kickStart` is running at a time
+  mutable busy: bool,
+  mutable shouldDestroy: option(unit => unit),
 };
 
 // Here's the order when retrieving the next task for execution:
 //    View > Agda > Main
 let getNextTask = self => {
   switch (self.view, self.agda, self.main) {
-  | (Some([x, ...view]), agda, main) => (
-      Some(x),
-      {view: Some(view), agda, main},
-    )
-  | (Some([]), _, _) => (None, self) // stuck on View
-  | (None, Some([x, ...agda]), main) => (
-      Some(x),
-      {view: None, agda: Some(agda), main},
-    )
-  | (None, Some([]), _) => (None, self) // stuck on Agda
-  | (None, None, [x, ...main]) => (
-      Some(x),
-      {view: None, agda: None, main},
-    )
-  | (None, None, []) => (None, self)
+  | (Some([x, ...view]), _, _) =>
+    self.view = Some(view);
+    Some(x);
+  | (Some([]), _, _) => None // stuck on View
+  | (None, Some([x, ...agda]), _) =>
+    self.agda = Some(agda);
+    Some(x);
+  | (None, Some([]), _) => None // stuck on Agda
+  | (None, None, [x, ...main]) =>
+    self.main = main;
+    Some(x);
+  | (None, None, []) => None
   };
 };
 
-let make = () => {main: [], agda: None, view: None};
+let make = execute => {
+  main: [],
+  agda: None,
+  view: None,
+  execute,
+  busy: false,
+  shouldDestroy: None,
+};
 
-let addTasksToMain = ({main, agda, view}, tasks) => {
-  main: List.concat(main, tasks),
-  agda,
-  view,
+// consuming Tasks in the `queues`
+let rec kickStart = self =>
+  if (!self.busy) {
+    switch (getNextTask(self)) {
+    | None =>
+      // if there are no more tasks, and .shouldDestroy is set, then resolve it
+      switch (self.shouldDestroy) {
+      | None => ()
+      | Some(resolve) => resolve()
+      }
+    | Some(task) =>
+      self.busy = true;
+      self.execute(self, kickStart, task) // and start executing tasks
+      ->Promise.get(keepRunning => {
+          self.busy = false; // flip the semaphore back
+          if (keepRunning) {
+            // and keep running
+            kickStart(self);
+          };
+        });
+    };
+  };
+// returns a promise that resolves when all tasks have been executed
+let destroy = self =>
+  if (self.busy) {
+    let (promise, resolve) = Promise.pending();
+    self.shouldDestroy = Some(resolve);
+    promise;
+  } else {
+    Promise.resolved();
+  };
+
+// clear the queue, doesn't wait
+let forceDestroy = self => {
+  self.main = [];
+  self.agda = None;
+  self.view = None;
+  Promise.resolved();
+};
+
+let addTasksToMain = (self, tasks) => {
+  self.main = List.concat(self.main, tasks);
 };
 
 let toString = (taskToString, {main, agda, view}) => {
@@ -69,33 +117,29 @@ let toString = (taskToString, {main, agda, view}) => {
 
 let agdaIsOccupied = self => self.agda->Option.isSome;
 
-let acquireAgda = ({main, agda, view}) =>
-  switch (agda) {
-  | None => {main, agda: Some([]), view}
+let acquireAgda = self =>
+  switch (self.agda) {
+  | None => self.agda = Some([])
   | Some(_) =>
-    Js.log("[ panic ] The Agda task queue has already been acquired");
-    {main, agda, view};
+    Js.log("[ panic ] The Agda task queue has already been acquired")
   };
 
-let releaseAgda = ({main, agda, view}) =>
-  switch (agda) {
-  | None => {main, agda, view}
-  | Some(remainingTasks) => {
-      // concat the remaining tasks to the main task queue
-      main: List.concat(remainingTasks, main),
-      agda: None,
-      view,
-    }
+let releaseAgda = self =>
+  switch (self.agda) {
+  | None => ()
+  | Some(remainingTasks) =>
+    // concat the remaining tasks to the main task queue
+    self.main = List.concat(remainingTasks, self.main);
+    self.agda = None;
   };
 
-let addTasksToAgda = ({main, agda, view}, tasks) =>
-  switch (agda) {
+let addTasksToAgda = (self, tasks) =>
+  switch (self.agda) {
   | None =>
     Js.log(
       "[ panic ] Cannot add task to the Agda task queue before acquiring it",
-    );
-    {main, agda, view};
-  | Some(agda) => {main, agda: Some(List.concat(agda, tasks)), view}
+    )
+  | Some(agda) => self.agda = Some(List.concat(agda, tasks))
   };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -104,31 +148,27 @@ let addTasksToAgda = ({main, agda, view}, tasks) =>
 
 let viewIsOccupied = self => self.view->Option.isSome;
 
-let acquireView = ({main, agda, view}) =>
-  switch (view) {
-  | None => {main, agda, view: Some([])}
+let acquireView = self =>
+  switch (self.view) {
+  | None => self.view = Some([])
   | Some(_) =>
-    Js.log("[ panic ] The View task queue has already been acquired");
-    {main, agda: None, view};
+    Js.log("[ panic ] The View task queue has already been acquired")
   };
 
-let releaseView = ({main, agda, view}) =>
-  switch (view) {
-  | None => {main, agda, view}
-  | Some(remainingTasks) => {
-      // concat the remaining tasks to the main task queue
-      main: List.concat(remainingTasks, main),
-      agda,
-      view: None,
-    }
+let releaseView = self =>
+  switch (self.view) {
+  | None => ()
+  | Some(remainingTasks) =>
+    // concat the remaining tasks to the main task queue
+    self.main = List.concat(remainingTasks, self.main);
+    self.view = None;
   };
 
-let addTasksToView = ({main, agda, view}, tasks) =>
-  switch (view) {
+let addTasksToView = (self, tasks) =>
+  switch (self.view) {
   | None =>
     Js.log(
       "[ panic ] Cannot add task to the View task queue before acquiring it",
-    );
-    {main, agda, view};
-  | Some(view) => {main, agda, view: Some(List.concat(view, tasks))}
+    )
+  | Some(view) => self.view = Some(List.concat(view, tasks))
   };

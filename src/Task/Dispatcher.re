@@ -89,91 +89,33 @@ module Impl = (Editor: Sig.Editor) => {
       _ => ();
     };
 
-  module Runner = {
-    type t = {
-      mutable queues: TaskQueue.t(Task.t),
-      executeTask: (t, t => unit, Task.t) => Promise.t(bool),
-      // `busy` will be set to `true` if there are Tasks being executed
-      // A semaphore to make sure that only one `kickStart` is running at a time
-      mutable busy: bool,
-      mutable shouldDestroy: option(unit => unit),
-    };
-
-    let make = executeTask => {
-      queues: TaskQueue.make(),
-      busy: false,
-      shouldDestroy: None,
-      executeTask,
-    };
-
-    // consuming Tasks in the `queues`
-    let rec kickStart = self =>
-      if (!self.busy) {
-        let (nextTask, queue) = TaskQueue.getNextTask(self.queues);
-        self.queues = queue;
-        switch (nextTask) {
-        | None =>
-          // if there are no more tasks, and .shouldDestroy is set, then resolve it
-          switch (self.shouldDestroy) {
-          | None => ()
-          | Some(resolve) => resolve()
-          }
-        | Some(task) =>
-          self.busy = true;
-          self.executeTask(self, kickStart, task) // and start executing tasks
-          ->Promise.get(keepRunning => {
-              self.busy = false; // flip the semaphore back
-              if (keepRunning) {
-                // and keep running
-                kickStart(self);
-              };
-            });
-        };
-      };
-    // returns a promise that resolves when all tasks have been executed
-    let destroy = self =>
-      if (self.busy) {
-        let (promise, resolve) = Promise.pending();
-        self.shouldDestroy = Some(resolve);
-        promise;
-      } else {
-        Promise.resolved();
-      };
-
-    // clear the queue, doesn't wait
-    let forceDestroy = self => {
-      self.queues = TaskQueue.make();
-      Promise.resolved();
-    };
-  };
-
   let executeTask =
       (
         state: State.t,
-        self: Runner.t,
-        kickStart: Runner.t => unit,
+        queue: TaskQueue.t(Task.t),
+        kickStart: TaskQueue.t(Task.t) => unit,
         task: Task.t,
       )
       : Promise.t(bool) => {
     switch (task) {
     | DispatchCommand(command) =>
       let tasks = CommandHandler.handle(command);
-      self.queues = TaskQueue.addTasksToMain(self.queues, tasks);
+      TaskQueue.addTasksToMain(queue, tasks);
       Promise.resolved(true);
     | SendRequest(request) =>
       // there can only be 1 Agda request at a time
-      if (TaskQueue.agdaIsOccupied(self.queues)) {
+      if (TaskQueue.agdaIsOccupied(queue)) {
         Js.log("[ panic ] There can only be 1 Agda request at a time!");
         Promise.resolved(false);
       } else {
-        self.queues = TaskQueue.acquireAgda(self.queues);
+        TaskQueue.acquireAgda(queue);
 
         let lastTasks = [||];
 
         sendAgdaRequest(
           tasks => {
-            self.queues = TaskQueue.addTasksToAgda(self.queues, tasks);
-            kickStart(self);
+            TaskQueue.addTasksToAgda(queue, tasks);
+            kickStart(queue);
           },
           (priority, tasks) => {
             Js.Array.push((priority, tasks), lastTasks)->ignore
@@ -189,13 +131,11 @@ module Impl = (Editor: Sig.Editor) => {
               )
               ->Array.map(snd)
               ->List.concatMany;
-            self.queues = TaskQueue.addTasksToAgda(self.queues, tasks);
-            self.queues = TaskQueue.releaseAgda(self.queues);
-            kickStart(self);
+            TaskQueue.addTasksToAgda(queue, tasks);
+            TaskQueue.releaseAgda(queue);
+            kickStart(queue);
           })
-        ->Promise.get(() => {
-            self.queues = TaskQueue.releaseAgda(self.queues)
-          });
+        ->Promise.get(() => {TaskQueue.releaseAgda(queue)});
         // NOTE: return early before `sendAgdaRequest` resolved
         Promise.resolved(true);
       }
@@ -203,19 +143,18 @@ module Impl = (Editor: Sig.Editor) => {
       state->State.sendEventToView(event)->Promise.map(_ => {true})
     | SendRequestToView(request, callback) =>
       // there can only be 1 View request at a time
-      if (TaskQueue.viewIsOccupied(self.queues)) {
+      if (TaskQueue.viewIsOccupied(queue)) {
         Promise.resolved(false);
       } else {
-        self.queues = TaskQueue.acquireView(self.queues);
+        TaskQueue.acquireView(queue);
         state
         ->State.sendRequestToView(request)
         ->Promise.map(
             fun
             | None => true
             | Some(response) => {
-                self.queues =
-                  TaskQueue.addTasksToView(self.queues, callback(response));
-                self.queues = TaskQueue.releaseView(self.queues);
+                TaskQueue.addTasksToView(queue, callback(response));
+                TaskQueue.releaseView(queue);
                 true;
               },
           );
@@ -247,20 +186,18 @@ module Impl = (Editor: Sig.Editor) => {
 
     | WithStateP(callback) =>
       callback(state)
-      ->Promise.map(tasks => {
-          self.queues = TaskQueue.addTasksToMain(self.queues, tasks)
-        })
+      ->Promise.map(TaskQueue.addTasksToMain(queue))
       ->Promise.map(() => true)
     | SuicideByCop =>
       state->State.emitKillMePlz;
       Promise.resolved(false);
     | Goal(action) =>
       let tasks = GoalHandler.handle(action);
-      self.queues = TaskQueue.addTasksToMain(self.queues, tasks);
+      TaskQueue.addTasksToMain(queue, tasks);
       Promise.resolved(true);
     | Error(error) =>
       let tasks = ErrorHandler.handle(error);
-      self.queues = TaskQueue.addTasksToMain(self.queues, tasks);
+      TaskQueue.addTasksToMain(queue, tasks);
       Promise.resolved(true);
     | Debug(message) =>
       Js.log("DEBUG " ++ message);
@@ -269,21 +206,21 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   type t = {
-    blocking: Runner.t,
-    critical: Runner.t,
+    blocking: TaskQueue.t(Task.t),
+    critical: TaskQueue.t(Task.t),
   };
 
   let make = (state: State.t) => {
-    blocking: Runner.make(executeTask(state)),
-    critical: Runner.make(executeTask(state)),
+    blocking: TaskQueue.make(executeTask(state)),
+    critical: TaskQueue.make(executeTask(state)),
   };
 
   let dispatchCommand = (self, command) => {
     log(
       "\n\n"
-      ++ TaskQueue.toString(Task.toString, self.critical.queues)
+      ++ TaskQueue.toString(Task.toString, self.critical)
       ++ "\n----------------------------\n"
-      ++ TaskQueue.toString(Task.toString, self.blocking.queues),
+      ++ TaskQueue.toString(Task.toString, self.blocking),
     );
 
     switch (command) {
@@ -292,33 +229,25 @@ module Impl = (Editor: Sig.Editor) => {
     | InputMethod(_)
     | EventFromView(_)
     | Escape =>
-      self.critical.queues =
-        TaskQueue.addTasksToMain(
-          self.critical.queues,
-          [DispatchCommand(command)],
-        );
-      Runner.kickStart(self.critical);
+      TaskQueue.addTasksToMain(self.critical, [DispatchCommand(command)]);
+      TaskQueue.kickStart(self.critical);
     | _ =>
-      self.blocking.queues =
-        TaskQueue.addTasksToMain(
-          self.blocking.queues,
-          [DispatchCommand(command)],
-        );
-      Runner.kickStart(self.blocking);
+      TaskQueue.addTasksToMain(self.blocking, [DispatchCommand(command)]);
+      TaskQueue.kickStart(self.blocking);
     };
   };
 
   // wait until all tasks have finished executing
   let destroy = self => {
     self.critical
-    ->Runner.destroy
-    ->Promise.flatMap(() => self.blocking->Runner.destroy);
+    ->TaskQueue.destroy
+    ->Promise.flatMap(() => self.blocking->TaskQueue.destroy);
   };
 
   // destroy everything in a rather violent way
   let forceDestroy = self => {
     self.critical
-    ->Runner.forceDestroy
-    ->Promise.flatMap(() => self.blocking->Runner.forceDestroy);
+    ->TaskQueue.forceDestroy
+    ->Promise.flatMap(() => self.blocking->TaskQueue.forceDestroy);
   };
 };
