@@ -106,13 +106,20 @@ let forceDestroy = self => {
   Promise.resolved();
 };
 
+// NOTE, currently only DispatchCommand would invoke this
 let addTasksToBack = (self, tasks) => {
   self.main = List.concat(self.main, tasks);
 };
 
-let addTasksToFront = (self, tasks) => {
-  self.main = List.concat(tasks, self.main);
-};
+// add tasks to the current **busy** task queue
+let addTasksToFront = (self, tasks) =>
+  switch (self.view, self.agda) {
+  | (Some(view), _) => self.view = Some(List.concat(tasks, view))
+  | (None, Pending(agda)) => self.agda = Pending(List.concat(tasks, agda))
+  | (None, Ending(resolver, agda)) =>
+    self.agda = Ending(resolver, List.concat(tasks, agda))
+  | (None, Free) => self.main = List.concat(tasks, self.main)
+  };
 
 let toString = (taskToString, {main, agda, view}) => {
   let main = "Main " ++ Util.Pretty.list(List.map(main, taskToString));

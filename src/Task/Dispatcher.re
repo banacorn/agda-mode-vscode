@@ -105,8 +105,6 @@ module Impl = (Editor: Sig.Editor) => {
         task: Task.t,
       )
       : Promise.t(bool) => {
-    log("================ " ++ Task.toString(task));
-
     let keepRunning =
       switch (task) {
       | DispatchCommand(command) =>
@@ -216,7 +214,12 @@ module Impl = (Editor: Sig.Editor) => {
         Promise.resolved(true);
       };
 
-    log(TaskQueue.toString(Task.toString, queue));
+    log(
+      "### "
+      ++ Task.toString(task)
+      ++ "\n"
+      ++ TaskQueue.toString(Task.toString, queue),
+    );
 
     keepRunning;
   };

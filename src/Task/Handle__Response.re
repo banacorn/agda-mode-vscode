@@ -145,14 +145,15 @@ module Impl = (Editor: Sig.Editor) => {
                 ),
               ])
             | Some(goal) =>
-              let tasks =
+              Promise.resolved(
                 switch (give) {
                 | Paren => [
                     Goal(Modify(goal, content => "(" ++ content ++ ")")),
+                    Goal(RemoveBoundaryAndDestroy(goal)),
                   ]
                 | NoParen =>
                   // do nothing
-                  []
+                  [Goal(RemoveBoundaryAndDestroy(goal))]
                 | String(content) => [
                     Goal(
                       Modify(
@@ -165,14 +166,10 @@ module Impl = (Editor: Sig.Editor) => {
                           ),
                       ),
                     ),
+                    Goal(RemoveBoundaryAndDestroy(goal)),
                   ]
-                };
-              Promise.resolved(
-                List.concatMany([|
-                  tasks,
-                  [Goal(RemoveBoundaryAndDestroy(goal))],
-                |]),
-              );
+                },
+              )
             };
           },
         ),
