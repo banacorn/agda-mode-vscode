@@ -19,5 +19,15 @@ module Impl = (Editor: Sig.Editor) => {
             state.decorations = Array.concat(state.decorations, decorations);
           },
         ),
+      ]
+    | RemoveAll => [
+        WithState(
+          state => {
+            state.decorations
+            ->Array.map(fst)
+            ->Array.forEach(Editor.Decoration.destroy);
+            state.decorations = [||];
+          },
+        ),
       ];
 };

@@ -35,7 +35,6 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequestToView(View.Request.t, View.Response.t => list(t))
     // Misc
     | Decoration(Decoration.action)
-    | RemoveAllHighlightings
     | RefreshAllHighlightings
     | Error(Error.t)
     | Goal(goal)
@@ -50,7 +49,6 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(_req) => "SendRequest"
     | SendEventToView(_) => "SendEventToView"
     | SendRequestToView(_, _) => "SendRequestToView"
-    | RemoveAllHighlightings => "RemoveAllHighlightings"
     | RefreshAllHighlightings => "RefreshAllHighlightings"
     | Error(_) => "Error"
     | Goal(Instantiate(_)) => "Goal[Instantiate]"
@@ -67,6 +65,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
     | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
     | Decoration(Add(_)) => "Decoration[Add]"
+    | Decoration(RemoveAll) => "Decoration[RemoveAll]"
     | WithState(_) => "WithState"
     | WithStateP(_) => "WithStateP"
     | Debug(msg) => "Debug[" ++ msg ++ "]";
