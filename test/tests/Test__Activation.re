@@ -7,23 +7,8 @@ open! Belt;
 let source = {j|
 data ℕ : Set where
   Z : ℕ
-  S : ℕ → ℕ
+  S : ℕ → ?
 |j};
-
-// shady!
-external makeContext:
-  {
-    .
-    // "extensionPath": string,
-    "subscriptions": array(Disposable.t),
-  } =>
-  Editor.context =
-  "%identity";
-
-// let context = makeContext({"subscriptions": [||]});
-// AgdaMode.activate(context);
-
-module AgdaMode = States.Impl(Editor);
 
 let openTextEditor = content =>
   Workspace.openTextDocumentWithOptions(
@@ -32,16 +17,37 @@ let openTextEditor = content =>
   ->Promise.flatMap(textDocument =>
       Window.showTextDocumentWithShowOptions(textDocument, None)
     );
+let dirname: option(string) = [%bs.node __dirname];
+let dirname = dirname->Option.getWithDefault("./");
 
-();
-
-describe("Extention Activation", () => {
-  it("should be able to acquire \"banacorn.agda-mode\"", () => {
+describe_only("Extention Activation", () => {
+  P.it("should be able to acquire \"banacorn.agda-mode\"", () => {
     let extension = VSCode.Extensions.getExtension("banacorn.agda-mode");
-    Assert.equal(
-      extension->Option.isSome,
-      true,
-      ~message="extension shouldn't be undefined",
-    );
+    (
+      switch (extension) {
+      | None =>
+        Assert.fail("cannot acquire the extension");
+        Promise.resolved();
+      | Some(extension) =>
+        extension
+        ->VSCode.Extension.activate
+        ->Promise.flatMap(() => {
+            let fileName = Node.Path.join2(dirname, "assets/A.agda");
+            let fileUri = VSCode.Uri.file(fileName);
+            VSCode.Commands.executeCommand1("vscode.open", fileUri);
+          })
+        ->Promise.tap(Js.log)
+        ->Promise.flatMap(() => {
+            VSCode.Commands.executeCommand0("agda-mode.load")
+          })
+        ->Promise.tap(Js.log)
+      // ->Promise.flatMap(() => {openTextEditor(source)})
+      // ->Promise.flatMap(textEditor => {
+      //     VSCode.Commands.executeCommandRaw("agda-mode.next-goal")
+      //     ->Promise.map(() => {Js.log(textEditor->Editor.getText)})
+      //   })
+      }
+    )
+    ->Promise.Js.toBsPromise;
   })
 });

@@ -123,7 +123,10 @@ module Commands = {
     Promise.t('a) =
     "executeCommand";
   [@bs.module "vscode"] [@bs.scope "commands"]
-  external executeCommandRaw: string => Promise.t('a) = "executeCommand";
+  external executeCommand0: string => Promise.t('a) = "executeCommand";
+  [@bs.module "vscode"] [@bs.scope "commands"]
+  external executeCommand1: (string, 'arg0) => Promise.t('a) =
+    "executeCommand";
   [@bs.module "vscode"] [@bs.scope "commands"]
   external setContext:
     ([@bs.as "setContext"] _, string, bool) => Promise.t(unit) =
