@@ -637,8 +637,8 @@
 	},
 	"scripts": {
 		"clean": "npx bsb -clean-world",
-		"dev": "webpack --mode development --watch & npx less-watch-compiler style/ dist/",
 		"build": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
+		"dev": "npm run build && webpack --mode development --watch & npx less-watch-compiler style/ dist/",
 		"vscode:prepublish": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js"
 	},
