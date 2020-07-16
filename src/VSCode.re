@@ -1953,3 +1953,55 @@ module Workspace = {
     Promise.t(bool) =
     "updateWorkspaceFolders";
 };
+
+// https://code.visualstudio.com/api/references/vscode-api#ExtensionKind
+module ExtensionKind = {
+  type t =
+    | UI
+    | Workspace;
+  let toEnum =
+    fun
+    | UI => 1
+    | Workspace => 2;
+  let fromEnum =
+    fun
+    | 1 => UI
+    | _ => Workspace;
+};
+
+// module TextDocument = {
+//   type t;
+//   // properties
+//   [@bs.get] external eol_raw: t => int = "eol";
+//   let eol = (self: t): EndOfLine.t => EndOfLine.fromEnum(eol_raw(self));
+// https://code.visualstudio.com/api/references/vscode-api#Extension
+module Extension = {
+  type t('a);
+
+  // properties
+  [@bs.get] external exports: t('a) => 'a = "exports";
+  [@bs.get] external extensionKind_raw: t('a) => int = "extensionKind";
+  let extensionKind = (self: t('a)): ExtensionKind.t =>
+    ExtensionKind.fromEnum(extensionKind_raw(self));
+  [@bs.get] external extensionPath: t('a) => string = "extensionPath";
+  [@bs.get] external extensionUri: t('a) => Uri.t = "extensionUri";
+  [@bs.get] external id: t('a) => string = "id";
+  [@bs.get] external isActive: t('a) => bool = "isActive";
+  [@bs.get] external packageJSON: t('a) => 'json = "packageJSON";
+
+  // methods
+  [@bs.send] external activate: t('a) => Promise.t('a) = "activate";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#extensions
+module Extensions = {
+  // variables
+  [@bs.module "vscode"] [@bs.scope "extensions"]
+  external all: array(Extension.t('a)) = "all";
+  // events
+  [@bs.module "vscode"] [@bs.scope "extensions"]
+  external onDidChange: (unit => unit) => Disposable.t = "onDidChange";
+  // functions
+  [@bs.module "vscode"] [@bs.scope "extensions"]
+  external getExtension: string => option(Extension.t('a)) = "getExtension";
+};
