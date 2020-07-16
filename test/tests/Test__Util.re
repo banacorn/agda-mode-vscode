@@ -23,6 +23,18 @@ module Path = {
     | Some(dirname) => Node.Path.resolve(dirname, filepath)
     };
   };
+
+  let asset = filepath => {
+    let dirname: option(string) = [%bs.node __dirname];
+    switch (dirname) {
+    | None => Node.Process.cwd()
+    | Some(dirname) =>
+      Node.Path.resolve(
+        dirname,
+        Node.Path.join2("../../../../test/tests/assets", filepath),
+      )
+    };
+  };
 };
 
 module Strings = {
