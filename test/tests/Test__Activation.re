@@ -35,13 +35,13 @@ let openTextEditor = content =>
 
 ();
 
-describe_only("Case split", () => {
-  P.it("should load the source", () => {
-    openTextEditor(source)
-    ->Promise.flatMap(textEditor => {
-        VSCode.Commands.executeCommandRaw("agda-mode:load")
-        ->Promise.tap(_ => {Js.log("agda-mode loaded")})
-      })
-    ->Promise.Js.toBsPromise
+describe("Extention Activation", () => {
+  it("should be able to acquire \"banacorn.agda-mode\"", () => {
+    let extension = VSCode.Extensions.getExtension("banacorn.agda-mode");
+    Assert.equal(
+      extension->Option.isSome,
+      true,
+      ~message="extension shouldn't be undefined",
+    );
   })
 });
