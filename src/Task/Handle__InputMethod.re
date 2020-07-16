@@ -13,7 +13,7 @@ module Impl = (Editor: Sig.Editor) => {
             if (state.inputMethod.activated) {
               InputMethod.insertBackslash(state.editor);
               InputMethod.deactivate(state.inputMethod);
-              Promise.resolved([SendEventToView(InputMethod(Deactivate))]);
+              Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
             } else {
               state.inputMethod.activated = true;
               // // collect of cursor positions and remove all selected texts
@@ -44,7 +44,7 @@ module Impl = (Editor: Sig.Editor) => {
                 state.editor,
                 startingRanges,
               );
-              Promise.resolved([SendEventToView(InputMethod(Activate))]);
+              Promise.resolved([ViewEvent(InputMethod(Activate))]);
             },
         ),
       ]
@@ -55,11 +55,11 @@ module Impl = (Editor: Sig.Editor) => {
             InputMethod.deactivate(state.inputMethod);
           },
         ),
-        SendEventToView(InputMethod(Deactivate)),
+        ViewEvent(InputMethod(Deactivate)),
       ]
 
     | Update(sequence, translation, index) => [
-        SendEventToView(InputMethod(Update(sequence, translation, index))),
+        ViewEvent(InputMethod(Update(sequence, translation, index))),
       ]
     | InsertChar(char) => [
         WithState(state => {InputMethod.insertChar(state.editor, char)}),

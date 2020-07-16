@@ -202,7 +202,7 @@ module Impl = (Editor: Sig.Editor) => {
               | None => []
               | Some(goal) => [
                   Goal(Modify(goal, _ => solution)),
-                  SendRequest(Give(goal)),
+                  AgdaRequest(Give(goal)),
                 ]
               };
             };

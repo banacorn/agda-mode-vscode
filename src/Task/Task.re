@@ -26,28 +26,27 @@ module Impl = (Editor: Sig.Editor) => {
 
   and t =
     | DispatchCommand(Command.t)
-    //
-    | SuicideByCop
-    // Connection
-    | SendRequest(Request.t)
+    // Agda
+    | AgdaRequest(Request.t)
     // View
-    | SendEventToView(View.EventToView.t)
-    | SendRequestToView(View.Request.t, View.Response.t => list(t))
+    | ViewEvent(View.EventToView.t)
+    | ViewRequest(View.Request.t, View.Response.t => list(t))
     // Misc
     | Decoration(Decoration.action)
     | Error(Error.t)
     | Goal(goal)
     | WithState(State.t => unit)
     | WithStateP(State.t => Promise.t(list(t)))
+    | SuicideByCop
     | Debug(string);
 
   let toString =
     fun
     | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
     | SuicideByCop => "SuicideByCop"
-    | SendRequest(_req) => "SendRequest"
-    | SendEventToView(_) => "SendEventToView"
-    | SendRequestToView(_, _) => "SendRequestToView"
+    | AgdaRequest(_req) => "AgdaRequest"
+    | ViewEvent(_) => "ViewEvent"
+    | ViewRequest(_, _) => "ViewRequest"
     | Error(_) => "Error"
     | Goal(Instantiate(_)) => "Goal[Instantiate]"
     | Goal(UpdateRange) => "Goal[UpdateRange]"
@@ -72,8 +71,8 @@ module Impl = (Editor: Sig.Editor) => {
   // Smart constructors
   let display' = header =>
     fun
-    | None => SendEventToView(Display(header, Nothing))
-    | Some(message) => SendEventToView(Display(header, Plain(message)));
+    | None => ViewEvent(Display(header, Nothing))
+    | Some(message) => ViewEvent(Display(header, Plain(message)));
   let display = header => display'(Plain(header));
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
@@ -89,7 +88,7 @@ module Impl = (Editor: Sig.Editor) => {
         Js.log("focus in");
       },
     ),
-    SendRequestToView(
+    ViewRequest(
       Query(header, placeholder, value),
       response => {
         let tasks =

@@ -107,7 +107,7 @@ module Impl = (Editor: Sig.Editor) => {
         let tasks = CommandHandler.handle(command);
         TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
-      | SendRequest(request) =>
+      | AgdaRequest(request) =>
         // there can only be 1 Agda request at a time
         if (TaskQueue.Agda.isOccupied(queue)) {
           Js.log("[ panic ] There can only be 1 Agda request at a time!");
@@ -139,9 +139,9 @@ module Impl = (Editor: Sig.Editor) => {
           // NOTE: return early before `sendAgdaRequest` resolved
           Promise.resolved(true);
         }
-      | SendEventToView(event) =>
+      | ViewEvent(event) =>
         state->State.sendEventToView(event)->Promise.map(_ => {true})
-      | SendRequestToView(request, callback) =>
+      | ViewRequest(request, callback) =>
         // there can only be 1 View request at a time
         if (TaskQueue.View.isOccupied(queue)) {
           Promise.resolved(false);

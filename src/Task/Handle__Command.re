@@ -15,38 +15,38 @@ module Impl = (Editor: Sig.Editor) => {
         ),
         Goal(SaveCursor),
         Decoration(RemoveAll),
-        SendRequest(Load),
+        AgdaRequest(Load),
       ]
     | Quit => []
     | Restart => [DispatchCommand(Load)]
     | Refresh => [Goal(UpdateRange), Decoration(Refresh)]
-    | Compile => [SendRequest(Compile)]
+    | Compile => [AgdaRequest(Compile)]
     | ToggleDisplayOfImplicitArguments => [
-        SendRequest(ToggleDisplayOfImplicitArguments),
+        AgdaRequest(ToggleDisplayOfImplicitArguments),
       ]
-    | ShowConstraints => [SendRequest(ShowConstraints)]
+    | ShowConstraints => [AgdaRequest(ShowConstraints)]
     | SolveConstraints(normalization) => [
         Goal(
           LocalOrGlobal(
-            goal => [SendRequest(SolveConstraints(normalization, goal))],
-            [SendRequest(SolveConstraintsGlobal(normalization))],
+            goal => [AgdaRequest(SolveConstraints(normalization, goal))],
+            [AgdaRequest(SolveConstraintsGlobal(normalization))],
           ),
         ),
       ]
-    | ShowGoals => [SendRequest(ShowGoals)]
+    | ShowGoals => [AgdaRequest(ShowGoals)]
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
     | SearchAbout(normalization) =>
       query(header, Some("name:"), None, expr =>
-        [SendRequest(SearchAbout(normalization, expr))]
+        [AgdaRequest(SearchAbout(normalization, expr))]
       )
     | Give => [
         Goal(
           LocalOrGlobal2(
-            (goal, _) => [SendRequest(Give(goal))],
+            (goal, _) => [AgdaRequest(Give(goal))],
             goal =>
               query(header, Some("expression to give:"), None, expr =>
-                [Goal(Modify(goal, _ => expr)), SendRequest(Give(goal))]
+                [Goal(Modify(goal, _ => expr)), AgdaRequest(Give(goal))]
               ),
             [Error(OutOfGoal)],
           ),
@@ -55,7 +55,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Refine => [
         Goal(
           LocalOrGlobal(
-            goal => [Goal(SaveCursor), SendRequest(Refine(goal))],
+            goal => [Goal(SaveCursor), AgdaRequest(Refine(goal))],
             [Error(OutOfGoal)],
           ),
         ),
@@ -66,10 +66,10 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           LocalOrGlobal2(
             (goal, expr) =>
-              [SendRequest(ElaborateAndGive(normalization, expr, goal))],
+              [AgdaRequest(ElaborateAndGive(normalization, expr, goal))],
             goal =>
               query(header, placeholder, None, expr =>
-                [SendRequest(ElaborateAndGive(normalization, expr, goal))]
+                [AgdaRequest(ElaborateAndGive(normalization, expr, goal))]
               ),
             [Error(OutOfGoal)],
           ),
@@ -78,7 +78,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Auto => [
         Goal(
           LocalOrGlobal(
-            goal => {[SendRequest(Auto(goal))]},
+            goal => {[AgdaRequest(Auto(goal))]},
             [Error(OutOfGoal)],
           ),
         ),
@@ -88,13 +88,13 @@ module Impl = (Editor: Sig.Editor) => {
       [
         Goal(
           LocalOrGlobal2(
-            (goal, _) => [Goal(SaveCursor), SendRequest(Case(goal))],
+            (goal, _) => [Goal(SaveCursor), AgdaRequest(Case(goal))],
             goal =>
               query(header, placeholder, None, expr =>
                 [
                   Goal(Modify(goal, _ => expr)), // place the queried expression in the goal
                   Goal(SaveCursor),
-                  SendRequest(Case(goal)),
+                  AgdaRequest(Case(goal)),
                 ]
               ),
             [Error(OutOfGoal)],
@@ -107,10 +107,10 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           LocalOrGlobal2(
             (goal, expr) =>
-              [SendRequest(HelperFunctionType(normalization, expr, goal))],
+              [AgdaRequest(HelperFunctionType(normalization, expr, goal))],
             goal =>
               query(header, placeholder, None, expr =>
-                [SendRequest(HelperFunctionType(normalization, expr, goal))]
+                [AgdaRequest(HelperFunctionType(normalization, expr, goal))]
               ),
             [Error(OutOfGoal)],
           ),
@@ -122,13 +122,13 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           LocalOrGlobal2(
             (goal, expr) =>
-              [SendRequest(InferType(normalization, expr, goal))],
+              [AgdaRequest(InferType(normalization, expr, goal))],
             goal =>
               query(header, placeholder, None, expr =>
-                [SendRequest(InferType(normalization, expr, goal))]
+                [AgdaRequest(InferType(normalization, expr, goal))]
               ),
             query(header, placeholder, None, expr =>
-              [SendRequest(InferTypeGlobal(normalization, expr))]
+              [AgdaRequest(InferTypeGlobal(normalization, expr))]
             ),
           ),
         ),
@@ -136,7 +136,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Context(normalization) => [
         Goal(
           LocalOrGlobal(
-            goal => [SendRequest(Context(normalization, goal))],
+            goal => [AgdaRequest(Context(normalization, goal))],
             [Error(OutOfGoal)],
           ),
         ),
@@ -144,7 +144,7 @@ module Impl = (Editor: Sig.Editor) => {
     | GoalType(normalization) => [
         Goal(
           LocalOrGlobal(
-            goal => [SendRequest(GoalType(normalization, goal))],
+            goal => [AgdaRequest(GoalType(normalization, goal))],
             [Error(OutOfGoal)],
           ),
         ),
@@ -152,7 +152,7 @@ module Impl = (Editor: Sig.Editor) => {
     | GoalTypeAndContext(normalization) => [
         Goal(
           LocalOrGlobal(
-            goal => [SendRequest(GoalTypeAndContext(normalization, goal))],
+            goal => [AgdaRequest(GoalTypeAndContext(normalization, goal))],
             [Error(OutOfGoal)],
           ),
         ),
@@ -164,14 +164,14 @@ module Impl = (Editor: Sig.Editor) => {
           LocalOrGlobal2(
             (goal, expr) =>
               [
-                SendRequest(
+                AgdaRequest(
                   GoalTypeContextAndInferredType(normalization, expr, goal),
                 ),
               ],
             goal =>
               query(header, placeholder, None, expr =>
                 [
-                  SendRequest(
+                  AgdaRequest(
                     GoalTypeContextAndInferredType(normalization, expr, goal),
                   ),
                 ]
@@ -187,14 +187,14 @@ module Impl = (Editor: Sig.Editor) => {
           LocalOrGlobal2(
             (goal, expr) =>
               [
-                SendRequest(
+                AgdaRequest(
                   GoalTypeContextAndCheckedType(normalization, expr, goal),
                 ),
               ],
             goal =>
               query(header, placeholder, None, expr =>
                 [
-                  SendRequest(
+                  AgdaRequest(
                     GoalTypeContextAndCheckedType(normalization, expr, goal),
                   ),
                 ]
@@ -209,13 +209,13 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           LocalOrGlobal2(
             (goal, expr) =>
-              [SendRequest(ModuleContents(normalization, expr, goal))],
+              [AgdaRequest(ModuleContents(normalization, expr, goal))],
             goal =>
               query(header, placeholder, None, expr =>
-                [SendRequest(ModuleContents(normalization, expr, goal))]
+                [AgdaRequest(ModuleContents(normalization, expr, goal))]
               ),
             query(header, placeholder, None, expr =>
-              [SendRequest(ModuleContentsGlobal(normalization, expr))]
+              [AgdaRequest(ModuleContentsGlobal(normalization, expr))]
             ),
           ),
         ),
@@ -226,13 +226,13 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           LocalOrGlobal2(
             (goal, expr) =>
-              [SendRequest(ComputeNormalForm(computeMode, expr, goal))],
+              [AgdaRequest(ComputeNormalForm(computeMode, expr, goal))],
             goal =>
               query(header, placeholder, None, expr =>
-                [SendRequest(ComputeNormalForm(computeMode, expr, goal))]
+                [AgdaRequest(ComputeNormalForm(computeMode, expr, goal))]
               ),
             query(header, placeholder, None, expr =>
-              [SendRequest(ComputeNormalFormGlobal(computeMode, expr))]
+              [AgdaRequest(ComputeNormalFormGlobal(computeMode, expr))]
             ),
           ),
         ),
@@ -242,13 +242,13 @@ module Impl = (Editor: Sig.Editor) => {
       [
         Goal(
           LocalOrGlobal2(
-            (goal, expr) => [SendRequest(WhyInScope(expr, goal))],
+            (goal, expr) => [AgdaRequest(WhyInScope(expr, goal))],
             goal =>
               query(header, placeholder, None, expr =>
-                [SendRequest(WhyInScope(expr, goal))]
+                [AgdaRequest(WhyInScope(expr, goal))]
               ),
             query(header, placeholder, None, expr =>
-              [SendRequest(WhyInScopeGlobal(expr))]
+              [AgdaRequest(WhyInScopeGlobal(expr))]
             ),
           ),
         ),
@@ -268,7 +268,7 @@ module Impl = (Editor: Sig.Editor) => {
           Goal(RestoreCursor),
         ]
       }
-    | Escape => [SendEventToView(InterruptQuery)]
+    | Escape => [ViewEvent(InterruptQuery)]
     | InputMethod(action) => InputMethodHandler.handle(action)
     };
   };
