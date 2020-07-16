@@ -6,9 +6,9 @@ module StateDispatcherPair = {
     module State = State.Impl(Editor);
     type t = (State.t, Dispatcher.t);
 
-    let make = (context, editor, onDestroy) => {
+    let make = (extentionPath, editor, onDestroy) => {
       // not in the States dict, instantiate one new
-      let state = State.make(context, editor);
+      let state = State.make(extentionPath, editor);
       let dispatcher = Dispatcher.make(state);
 
       // listens to events from the view
@@ -21,7 +21,8 @@ module StateDispatcherPair = {
             }
           | Response(_) => (),
         )
-      ->Editor.addToSubscriptions(context);
+      ->Js.Array.push(state.subscriptions)
+      ->ignore;
 
       // listens to events from the input method
       state.inputMethod.onAction.on(action => {
@@ -29,7 +30,8 @@ module StateDispatcherPair = {
         ->ignore
       })
       ->Editor.Disposable.make
-      ->Editor.addToSubscriptions(context);
+      ->Js.Array.push(state.subscriptions)
+      ->ignore;
 
       // remove it from the States dict if it request to be killed
       state->State.onKillMePlz->Promise.get(onDestroy);

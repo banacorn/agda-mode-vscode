@@ -47,7 +47,7 @@ module Impl = (Editor: Sig.Editor) => {
         });
     })
     ->Editor.addToSubscriptions(context);
-
+    Editor.getExtensionPath(context)->Js.log;
     // on trigger command
     Command.names->Array.forEach(((command, name)) => {
       Editor.registerCommand(
@@ -63,9 +63,11 @@ module Impl = (Editor: Sig.Editor) => {
               ->Option.forEach(fileName => {
                   switch (States.get(fileName)) {
                   | None =>
+                    let extentionPath = Editor.getExtensionPath(context);
+                    Js.log(extentionPath);
                     // not in the States dict, instantiate a pair of (State, Dispatcher)
                     let pair =
-                      StateDispatcherPair.make(context, editor, () => {
+                      StateDispatcherPair.make(extentionPath, editor, () => {
                         States.forceDestroy(fileName)->ignore
                       });
                     // add this (State, Dispatcher) pair to the dict
@@ -88,9 +90,10 @@ module Impl = (Editor: Sig.Editor) => {
               ->Option.mapWithDefault(Promise.resolved(), fileName => {
                   States.destroy(fileName)
                   ->Promise.map(() => {
+                      let extentionPath = Editor.getExtensionPath(context);
                       // not in the States dict, instantiate a pair of (State, Dispatcher)
                       let pair =
-                        StateDispatcherPair.make(context, editor, () => {
+                        StateDispatcherPair.make(extentionPath, editor, () => {
                           States.forceDestroy(fileName)->ignore
                         });
                       // add this (State, Dispatcher) pair to the dict

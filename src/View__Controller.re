@@ -10,6 +10,7 @@ type status =
 type t = {
   panel: WebviewPanel.t,
   onResponseOrEventFromView: Event.t(View.ResponseOrEventFromView.t),
+  subscriptions: array(VSCode.Disposable.t),
   mutable status,
 };
 
@@ -67,7 +68,7 @@ let on = (view, callback) => {
   ->Disposable.make;
 };
 
-let make = (getExtensionPath, context, editor) => {
+let make = (extensionPath, editor) => {
   let html = (distPath, styleUri, scriptUri) => {
     let nonce = {
       let text = ref("");
@@ -117,8 +118,8 @@ let make = (getExtensionPath, context, editor) => {
         |j};
   };
 
-  let createPanel = (context, editor) => {
-    let distPath = Node.Path.join2(context->getExtensionPath, "dist");
+  let createPanel = editor => {
+    let distPath = Node.Path.join2(extensionPath, "dist");
     let fileName =
       Node.Path.basename_ext(
         editor->TextEditor.document->TextDocument.fileName,
@@ -168,8 +169,11 @@ let make = (getExtensionPath, context, editor) => {
   };
 
   // intantiate the panel
-  let panel = createPanel(context, editor);
+  let panel = createPanel(editor);
   moveToBottom() |> ignore;
+
+  // array of Disposable.t
+  let subscriptions = [||];
 
   // on message
   // relay Webview.onDidReceiveMessage => onResponseOrEventFromView;
@@ -186,7 +190,7 @@ let make = (getExtensionPath, context, editor) => {
         )
       }
     })
-  ->Js.Array.push(context->ExtensionContext.subscriptions)
+  ->Js.Array.push(subscriptions)
   ->ignore;
 
   // on destroy
@@ -196,11 +200,12 @@ let make = (getExtensionPath, context, editor) => {
         View.ResponseOrEventFromView.Event(Destroyed),
       )
     )
-  ->Js.Array.push(context->ExtensionContext.subscriptions)
+  ->Js.Array.push(subscriptions)
   ->ignore;
 
   let view = {
     panel,
+    subscriptions,
     onResponseOrEventFromView,
     status: Uninitialized([||], [||]),
   };
@@ -231,7 +236,7 @@ let make = (getExtensionPath, context, editor) => {
     | _ => (),
   )
   ->Disposable.make
-  ->Js.Array.push(context->ExtensionContext.subscriptions)
+  ->Js.Array.push(view.subscriptions)
   ->ignore;
 
   view;
@@ -245,6 +250,7 @@ let destroy = view => {
   // destroy the EventEmitter first, to prevent the aforementioned from happening
   view.onResponseOrEventFromView.destroy();
   view.panel->WebviewPanel.dispose;
+  view.subscriptions->Belt.Array.forEach(Disposable.dispose);
 };
 
 // show/hide

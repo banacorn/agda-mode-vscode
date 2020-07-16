@@ -7,7 +7,6 @@ module Impl = (Editor: Sig.Editor) => {
   type context = Editor.context;
   type t = {
     mutable editor,
-    context,
     view: Editor.view,
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
@@ -15,9 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable cursor: option(int),
     onKillMePlzEmitter: Event.t(unit),
     inputMethod: InputMethod.t,
-    // onInputMethodAction: Event.t(Command.InputMethodAction.t),
-    // mutable inputMethodActivated: bool,
-    // onViewInquiryResponse: Event.t(option(string)),
+    subscriptions: array(Editor.Disposable.t),
   };
 
   //
@@ -68,17 +65,17 @@ module Impl = (Editor: Sig.Editor) => {
     ->Array.map(fst)
     ->Array.forEach(Editor.Decoration.destroy);
     setLoaded(false);
+    state.subscriptions->Array.forEach(Editor.Disposable.dispose);
     state->disconnect;
   };
 
-  let make = (context, editor) => {
+  let make = (extentionPath, editor) => {
     setLoaded(true);
     // view initialization
-    let view = Editor.View.make(context, editor);
+    let view = Editor.View.make(extentionPath, editor);
 
     let state = {
       editor,
-      context,
       view,
       connection: None,
       goals: [||],
@@ -86,6 +83,7 @@ module Impl = (Editor: Sig.Editor) => {
       cursor: None,
       onKillMePlzEmitter: Event.make(),
       inputMethod: InputMethod.make(),
+      subscriptions: [||],
     };
 
     state;

@@ -165,7 +165,7 @@ module Config = {
 module View = {
   include View__Controller;
   // override View.make to inject editor-dependent arguments
-  let make = View__Controller.make(getExtensionPath);
+  let make = View__Controller.make;
 };
 //
 // Decoration
