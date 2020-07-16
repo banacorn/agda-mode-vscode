@@ -15,9 +15,6 @@ module Impl = (Editor: Sig.Editor) => {
               InputMethod.deactivate(state.inputMethod);
               Promise.resolved([SendEventToView(InputMethod(Deactivate))]);
             } else {
-              // setContext
-              Editor.setContext("agdaModeTyping", true)->ignore;
-
               state.inputMethod.activated = true;
               // // collect of cursor positions and remove all selected texts
               // let offsets =
@@ -54,9 +51,6 @@ module Impl = (Editor: Sig.Editor) => {
     | Deactivate => [
         WithState(
           state => {
-            // setContext
-            Editor.setContext("agdaModeTyping", false)->ignore;
-
             state.inputMethod.activated = false;
             InputMethod.deactivate(state.inputMethod);
           },

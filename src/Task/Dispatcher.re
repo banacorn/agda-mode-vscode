@@ -10,7 +10,7 @@ module Impl = (Editor: Sig.Editor) => {
   open! Task;
 
   let sendAgdaRequest = (runTasks, runTasksLater, state, request) => {
-    let printLog = true;
+    let printLog = false;
     let (log, log2) =
       if (printLog) {
         (Js.log, Js.log2);
@@ -89,7 +89,7 @@ module Impl = (Editor: Sig.Editor) => {
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let printLog = true;
+  let printLog = false;
   let log =
     if (printLog) {
       Js.log;

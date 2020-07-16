@@ -294,6 +294,9 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let activate = (self, editor, ranges: array((int, int))) => {
+    // setContext
+    Editor.setContext("agdaModeTyping", true)->ignore;
+
     // instantiate from an array of offsets
     self.instances =
       Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), ranges)
@@ -423,6 +426,9 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let deactivate = self => {
+    // setContext
+    Editor.setContext("agdaModeTyping", false)->ignore;
+
     self.instances->Array.forEach(Instance.destroy);
     self.instances = [||];
     self.activated = false;
