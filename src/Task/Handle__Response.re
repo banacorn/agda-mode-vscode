@@ -42,7 +42,7 @@ module Impl = (Editor: Sig.Editor) => {
   let handle = response => {
     switch (response) {
     | HighlightingInfoDirect(_remove, annotations) => [
-        AddHighlightings(annotations),
+        Decoration(Add(annotations)),
       ]
     | HighlightingInfoIndirect(filepath) => [
         WithStateP(
@@ -77,7 +77,7 @@ module Impl = (Editor: Sig.Editor) => {
                         )
                       ->Array.concatMany;
 
-                    [AddHighlightings(annotations)];
+                    [Decoration(Add(annotations))];
                   }
                 // TODO: we should do something about these parse errors
                 | Error(_err) => [],

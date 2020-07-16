@@ -1,6 +1,7 @@
 module Impl = (Editor: Sig.Editor) => {
   module State = State.Impl(Editor);
   module Goal = Goal.Impl(Editor);
+  module Decoration = Decoration.Impl(Editor);
   module Request = Request.Impl(Editor);
 
   type goal =
@@ -33,7 +34,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SendEventToView(View.EventToView.t)
     | SendRequestToView(View.Request.t, View.Response.t => list(t))
     // Misc
-    | AddHighlightings(array(Highlighting.t))
+    | Decoration(Decoration.action)
     | RemoveAllHighlightings
     | RefreshAllHighlightings
     | Error(Error.t)
@@ -49,7 +50,6 @@ module Impl = (Editor: Sig.Editor) => {
     | SendRequest(_req) => "SendRequest"
     | SendEventToView(_) => "SendEventToView"
     | SendRequestToView(_, _) => "SendRequestToView"
-    | AddHighlightings(_) => "AddHighlightings"
     | RemoveAllHighlightings => "RemoveAllHighlightings"
     | RefreshAllHighlightings => "RefreshAllHighlightings"
     | Error(_) => "Error"
@@ -66,6 +66,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
     | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
     | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
+    | Decoration(Add(_)) => "Decoration[Add]"
     | WithState(_) => "WithState"
     | WithStateP(_) => "WithStateP"
     | Debug(msg) => "Debug[" ++ msg ++ "]";

@@ -6,6 +6,7 @@ module Impl = (Editor: Sig.Editor) => {
   module GoalHandler = Handle__Goal.Impl(Editor);
   module CommandHandler = Handle__Command.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
+  module DecorationHandler = Handle__Decoration.Impl(Editor);
   module Task = Task.Impl(Editor);
   open! Task;
 
@@ -160,12 +161,9 @@ module Impl = (Editor: Sig.Editor) => {
           // NOTE: return early before `sendRequestToView` resolved
           Promise.resolved(true);
         }
-      | AddHighlightings(annotations) =>
-        annotations->Array.forEach(highlighting => {
-          let decorations =
-            Decoration.decorateHighlighting(state.editor, highlighting);
-          state.decorations = Array.concat(state.decorations, decorations);
-        });
+      | Decoration(action) =>
+        let tasks = DecorationHandler.handle(action);
+        TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
       | RemoveAllHighlightings =>
         state.decorations

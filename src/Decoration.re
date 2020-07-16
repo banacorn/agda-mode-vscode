@@ -1,5 +1,8 @@
 open Belt;
 module Impl = (Editor: Sig.Editor) => {
+  type action =
+    | Add(array(Highlighting.t));
+
   let decorateHole =
       (editor: Editor.editor, (start, end_): (int, int), index: int) => {
     let backgroundRange =
