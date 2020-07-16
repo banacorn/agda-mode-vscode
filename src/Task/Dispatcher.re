@@ -165,14 +165,6 @@ module Impl = (Editor: Sig.Editor) => {
         let tasks = DecorationHandler.handle(action);
         TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
-      | RefreshAllHighlightings =>
-        state.decorations
-        ->Array.forEach(((decoration, range)) => {
-            Editor.Decoration.decorate(state.editor, decoration, [|range|])
-          });
-        state.goals
-        ->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor));
-        Promise.resolved(true);
       | WithState(callback) =>
         callback(state);
         Promise.resolved(true);

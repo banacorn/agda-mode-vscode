@@ -29,5 +29,25 @@ module Impl = (Editor: Sig.Editor) => {
             state.decorations = [||];
           },
         ),
+      ]
+    | Refresh => [
+        WithState(
+          state => {
+            // highlightings
+            state.decorations
+            ->Array.forEach(((decoration, range)) => {
+                Editor.Decoration.decorate(
+                  state.editor,
+                  decoration,
+                  [|range|],
+                )
+              });
+            // goal decorations
+            state.goals
+            ->Array.forEach(goal =>
+                goal->Goal.refreshDecoration(state.editor)
+              );
+          },
+        ),
       ];
 };
