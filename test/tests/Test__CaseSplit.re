@@ -47,20 +47,22 @@ describe_only("Case split", () => {
     // replaceWithLines
     makeTextEditor(source)
     ->Promise.flatMap(editor => {
-        // let (_, dispatcher) =
-        //   StateDispatcherPair.make(Path.extensionPath(), editor, () => {
-        //     Js.log("self destruct")
-        //   });
-        // Dispatcher.dispatchCommand(dispatcher, command)->ignore;
+        Js.log(editor->Editor.getText);
+
+        let dispatcher =
+          Dispatcher.make(Path.extensionPath(), editor, () => ());
         Goal.makeMany(editor, [|0|])
-        ->Promise.map(goals => {
+        ->Promise.flatMap(goals => {
             switch (goals[0]) {
-            | None => Assert.fail("failed to instantiate any goals")
+            | None =>
+              Assert.fail("failed to instantiate any goals");
+              Promise.resolved();
             | Some(goal) =>
               let tasks = GoalHandler.handle(ReplaceWithLines(goal, lines));
-              Js.log(tasks->List.map(Task.toString)->Util.Pretty.list);
+              Dispatcher.addToTheBackCritical(dispatcher, tasks);
             }
           })
+        ->Promise.map(() => Js.log(editor->Editor.getText));
       })
     ->Promise.Js.toBsPromise;
   })

@@ -43,7 +43,7 @@ module Impl = (Editor: Sig.Editor) => {
               // we need to replace it with this new one
               dispatcher.state.editor = editor;
               State.show(dispatcher.state);
-              Dispatcher.dispatchCommand(dispatcher, Refresh);
+              Dispatcher.dispatchCommand(dispatcher, Refresh)->ignore;
             })
           ->ignore
         });

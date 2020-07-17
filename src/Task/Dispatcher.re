@@ -204,6 +204,16 @@ module Impl = (Editor: Sig.Editor) => {
     critical: TaskQueue.t(Task.t),
   };
 
+  let addToTheBackCritical = (self, tasks) => {
+    TaskQueue.addToTheBack(self.critical, tasks);
+    TaskQueue.onEmptied(self.critical);
+  };
+
+  let addToTheBackBlocking = (self, tasks) => {
+    TaskQueue.addToTheBack(self.blocking, tasks);
+    TaskQueue.onEmptied(self.blocking);
+  };
+
   let dispatchCommand = (self, command) => {
     open Command;
     // a command is non-blocking if it doesn't generate any Agda request/View query tasks
@@ -217,9 +227,9 @@ module Impl = (Editor: Sig.Editor) => {
       | _ => false;
 
     if (nonBlocking(command)) {
-      TaskQueue.addToTheBack(self.critical, [DispatchCommand(command)]);
+      addToTheBackCritical(self, [DispatchCommand(command)]);
     } else {
-      TaskQueue.addToTheBack(self.blocking, [DispatchCommand(command)]);
+      addToTheBackBlocking(self, [DispatchCommand(command)]);
     };
   };
 
@@ -266,8 +276,8 @@ module Impl = (Editor: Sig.Editor) => {
   // wait until all tasks have finished executing
   let destroy = self => {
     self.critical
-    ->TaskQueue.destroy
-    ->Promise.flatMap(() => self.blocking->TaskQueue.destroy)
+    ->TaskQueue.onEmptied
+    ->Promise.flatMap(() => self.blocking->TaskQueue.onEmptied)
     ->Promise.flatMap(() => self.state->State.destroy);
   };
 

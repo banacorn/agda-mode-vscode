@@ -22,7 +22,9 @@ type t('task) = {
   // `busy` will be set to `true` if there are Tasks being executed
   // A semaphore to make sure that only one `kickStart` is running at a time
   mutable busy: bool,
-  mutable shouldDestroy: option(unit => unit),
+  // invoke the callback (if any) when the task queues are all emptied
+  // useful for testing or self destruction
+  mutable shouldResolveWhenEmptied: option(unit => unit),
 };
 
 // Here's the order when retrieving the next task for execution:
@@ -72,7 +74,7 @@ let make = execute => {
   view: Free,
   execute,
   busy: false,
-  shouldDestroy: None,
+  shouldResolveWhenEmptied: None,
 };
 
 // consuming Tasks in the `queues`
@@ -80,8 +82,8 @@ let rec kickStart = self =>
   if (!self.busy) {
     switch (getNextTask(self)) {
     | None =>
-      // if there are no more tasks, and .shouldDestroy is set, then resolve it
-      switch (self.shouldDestroy) {
+      // if there are no more tasks, and .shouldResolveWhenEmptied is set, then resolve it
+      switch (self.shouldResolveWhenEmptied) {
       | None => ()
       | Some(resolve) => resolve()
       }
@@ -97,11 +99,12 @@ let rec kickStart = self =>
         });
     };
   };
+
 // returns a promise that resolves when all tasks have been executed
-let destroy = self =>
+let onEmptied = self =>
   if (self.busy) {
     let (promise, resolve) = Promise.pending();
-    self.shouldDestroy = Some(resolve);
+    self.shouldResolveWhenEmptied = Some(resolve);
     promise;
   } else {
     Promise.resolved();
