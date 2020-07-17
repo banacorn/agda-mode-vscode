@@ -270,9 +270,9 @@ module Impl = (Editor: Sig.Editor) => {
             let indentation = Js.String.repeat(indentWidth, " ");
             let indentedLines =
               indentation ++ Js.Array.joinWith("\n" ++ indentation, lines);
-            Js.log("[ReplaceWithLines]");
-            Js.log(indentedLines);
-            Js.log("=================");
+            // Js.log("[ReplaceWithLines]");
+            // Js.log(indentedLines);
+            // Js.log("=================");
             // the rows spanned by the goal (including the text outside the goal)
             // will be replaced by the `indentedLines`
             let start = Editor.pointAtOffset(state.editor, fst(goal.range));
@@ -283,9 +283,9 @@ module Impl = (Editor: Sig.Editor) => {
 
             let end_ = Editor.pointAtOffset(state.editor, snd(goal.range));
             let rangeToBeReplaced = Editor.Range.make(start, end_);
-            Js.log("[rangeToBeReplaced]");
-            Js.log(rangeToBeReplaced);
-            Js.log("=================");
+            // Js.log("[rangeToBeReplaced]");
+            // Js.log(rangeToBeReplaced);
+            // Js.log("=================");
             Editor.setText(state.editor, rangeToBeReplaced, indentedLines)
             ->Promise.map(
                 fun
