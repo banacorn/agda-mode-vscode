@@ -26,10 +26,15 @@ module Path = {
 
   // replacement of ExtensionContext.getExtensionPath as ExtensionContext.t is out of reach
   let extensionPath = () => {
-    Node.Process.cwd();
+    let dirname: option(string) = [%bs.node __dirname];
+    switch (dirname) {
+    | None => Node.Process.cwd()
+    | Some(dirname) => Node.Path.resolve(dirname, "../../../../")
+    };
   };
 
   let asset = filepath => {
+    Js.log(extensionPath());
     Node.Path.join([|extensionPath(), "test/tests/assets", filepath|]);
   };
 };

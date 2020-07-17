@@ -180,62 +180,6 @@ module Impl = (Editor: Sig.Editor) => {
     (indentedBy(textBeforeGoal), textBeforeGoal, range);
   };
 
-  // There are two kinds of lambda abstraction
-  //  1.  λ { x → ? }
-  //  2.  λ where x → ?
-  // We employ the strategy implemented by the Emacs mode
-  // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
-  // which searches backward (starting from the goal) and see if there's a open curly bracket "{"
-  //
-  //      λ { x → ? }
-  //        ^------------------- open curly bracket, not in a where clause
-  //
-  // returns whether the goal is in a where clause, along with the range to rewrite
-  let inWhereClause = (editor, goal: Goal.t) => {
-    let (indentWidth, textBeforeGoal, range) =
-      indentationWidth(editor, goal);
-
-    // where the search begins
-    let searchStart: int = Editor.Point.column(Editor.Range.end_(range));
-    // where the search ends (it ends at the last ";", or the first non-blank character)
-    let searchEnd: int =
-      switch (Js.String.lastIndexOf(";", textBeforeGoal)) {
-      | (-1) => indentWidth
-      | n => n + 1
-      };
-
-    // determine the position of "{"
-    let bracketCount = ref(0);
-    let i = ref(searchStart - 1);
-    while (i^ >= searchEnd && bracketCount^ >= 0) {
-      switch (i^) {
-      // no preceding character
-      | 0 => ()
-      // has preceding character
-      | i' =>
-        switch (Js.String.charAt(i' - 1, textBeforeGoal)) {
-        | "}" => bracketCount := bracketCount^ + 1
-        | "{" => bracketCount := bracketCount^ - 1
-        | _ => ()
-        }
-      };
-      // scanning backwards
-      i := i^ - 1;
-    };
-
-    let rewriteStart =
-      Editor.Point.make(
-        Editor.Point.line(Editor.Range.start(range)),
-        i^ + 1,
-      );
-    let rewriteEnd = Editor.pointAtOffset(editor, snd(goal.range));
-    let rewriteRange = Editor.Range.make(rewriteStart, rewriteEnd);
-    Js.log(i^ + 1);
-    Js.log(indentWidth);
-    let inWhereClause = i^ + 1 == indentWidth;
-    (inWhereClause, rewriteRange);
-  };
-
   // from Goal-related action to Tasks
   let handle =
     fun
