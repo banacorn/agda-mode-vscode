@@ -485,24 +485,18 @@ module Impl = (Editor: Sig.Editor) => {
     // Replace definition of extended lambda with new clauses
     //
     // We are asked to replace a clause like "x → ?" with multiple clauese
-    // However, there are two kinds of syntax
+    // There are two kinds of syntax for extended lambda
     //  1.  λ { x → ?
     //        ; y → ?
     //        }
     //  2.  λ where
     //          x → ?
     //          y → ?
-    // We will need to determine whether semicolons ";"
-    // should to be inserted in between the given clauses
-    // We employ the strategy implemented by the Emacs mode
-    // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
-    // which searches backward (starting from the goal) and look for the presence of "{"
     | ReplaceWithLambda(goal, lines) => [
         WithStateP(
           state => {
-            let (indentWidth, _, _) = indentationWidth(state.editor, goal);
-            let (inWhereClause, rewriteRange) =
-              inWhereClause(state.editor, goal);
+            let (inWhereClause, indentWidth, rewriteRange) =
+              caseSplitAux(state.editor, goal);
             let rewriteText =
               if (inWhereClause) {
                 Js.Array.joinWith(
@@ -510,12 +504,17 @@ module Impl = (Editor: Sig.Editor) => {
                   lines,
                 );
               } else {
-                " "
-                ++ Js.Array.joinWith(
-                     "\n" ++ Js.String.repeat(indentWidth, " ") ++ "; ",
-                     lines,
-                   );
+                Js.Array.joinWith(
+                  "\n" ++ Js.String.repeat(indentWidth - 2, " ") ++ "; ",
+                  lines,
+                );
               };
+
+            let rewriteRange =
+              Editor.Range.make(
+                Editor.pointAtOffset(state.editor, fst(rewriteRange)),
+                Editor.pointAtOffset(state.editor, snd(rewriteRange)),
+              );
             Editor.setText(state.editor, rewriteRange, rewriteText)
             ->Promise.map(
                 fun

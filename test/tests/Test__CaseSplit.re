@@ -35,7 +35,7 @@ let forGoal = (goals, index, callback) => {
   };
 };
 
-describe_only("Handle__Goal.caseSplitAux", () => {
+describe("Handle__Goal.caseSplitAux", () => {
   let lines = [|{j|Z + y = ?|j}, {j|S x + y = ?|j}|];
   P.it(
     "should calculate the infomation needed for case splitting correctly", () => {
