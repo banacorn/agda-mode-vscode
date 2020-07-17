@@ -256,7 +256,7 @@ module Impl = (Editor: Sig.Editor) => {
     | EventFromView(event) =>
       switch (event) {
       | Initialized => []
-      | Destroyed => [SuicideByCop]
+      | Destroyed => [Destroy]
       | InputMethod(InsertChar(char)) => [
           Goal(SaveCursor),
           DispatchCommand(InputMethod(InsertChar(char))),

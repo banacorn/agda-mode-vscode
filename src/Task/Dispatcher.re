@@ -10,7 +10,8 @@ module Impl = (Editor: Sig.Editor) => {
   module Task = Task.Impl(Editor);
   open! Task;
 
-  let sendAgdaRequest = (runTasks, runTasksLater, state, request) => {
+  // helper function of `executeTask`
+  let sendAgdaRequest = (addToAgdaQueue, addToDeferredQueue, state, request) => {
     let printLog = false;
     let (log, log2) =
       if (printLog) {
@@ -26,16 +27,16 @@ module Impl = (Editor: Sig.Editor) => {
       fun
       | Error(error) => {
           let tasks = ErrorHandler.handle(Error.Connection(error));
-          runTasks(tasks);
+          addToAgdaQueue(tasks);
         }
       | Ok(Parser.Incr.Event.Yield(Error(error))) => {
           let tasks = ErrorHandler.handle(Error.Parser(error));
-          runTasks(tasks);
+          addToAgdaQueue(tasks);
         }
       | Ok(Yield(Ok(NonLast(response)))) => {
           log(">>> " ++ Response.toString(response));
           let tasks = ResponseHandler.handle(response);
-          runTasks(tasks);
+          addToAgdaQueue(tasks);
         }
       | Ok(Yield(Ok(Last(priority, response)))) => {
           log(
@@ -45,7 +46,7 @@ module Impl = (Editor: Sig.Editor) => {
             ++ Response.toString(response),
           );
           let tasks = ResponseHandler.handle(response);
-          runTasksLater(priority, tasks);
+          addToDeferredQueue(priority, tasks);
         }
       | Ok(Stop) => {
           log(">>| ");
@@ -83,21 +84,14 @@ module Impl = (Editor: Sig.Editor) => {
           }
         | Error(error) => {
             let tasks = ErrorHandler.handle(error);
-            runTasks(tasks);
+            addToAgdaQueue(tasks);
             promise;
           },
       )
     ->Promise.tap(() => (handle^)->Option.forEach(f => f()));
   };
 
-  let printLog = false;
-  let log =
-    if (printLog) {
-      Js.log;
-    } else {
-      _ => ();
-    };
-
+  // the working horse
   let executeTask =
       (state: State.t, queue: TaskQueue.t(Task.t), task: Task.t)
       : Promise.t(bool) => {
@@ -114,26 +108,26 @@ module Impl = (Editor: Sig.Editor) => {
           Js.log(TaskQueue.toString(Task.toString, queue));
           Promise.resolved(false);
         } else {
-          let lastTasks = [||];
+          let deferredTasks = [||];
 
           sendAgdaRequest(
-            tasks => {TaskQueue.Agda.addToTheBack(queue, tasks)},
-            (priority, tasks) => {
-              Js.Array.push((priority, tasks), lastTasks)->ignore
-            },
+            tasks => TaskQueue.Agda.addToTheBack(queue, tasks),
+            (priority, tasks) =>
+              Js.Array.push((priority, tasks), deferredTasks)->ignore,
             state,
             request,
           )
           ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
-              let tasks =
+              // sort the deferred task by priority (ascending order)
+              let deferredTasks =
                 Js.Array.sortInPlaceWith(
                   (x, y) => compare(fst(x), fst(y)),
-                  lastTasks,
+                  deferredTasks,
                 )
                 ->Array.map(snd)
                 ->List.concatMany;
-              TaskQueue.addToTheFront(queue, tasks);
+              TaskQueue.addToTheFront(queue, deferredTasks);
             })
           ->ignore;
           // NOTE: return early before `sendAgdaRequest` resolved
@@ -173,9 +167,6 @@ module Impl = (Editor: Sig.Editor) => {
         callback(state)
         ->Promise.map(TaskQueue.addToTheFront(queue))
         ->Promise.map(() => true)
-      | SuicideByCop =>
-        state->State.emitKillMePlz;
-        Promise.resolved(false);
       | Goal(action) =>
         let tasks = GoalHandler.handle(action);
         TaskQueue.addToTheFront(queue, tasks);
@@ -184,36 +175,51 @@ module Impl = (Editor: Sig.Editor) => {
         let tasks = ErrorHandler.handle(error);
         TaskQueue.addToTheFront(queue, tasks);
         Promise.resolved(true);
+      | Destroy =>
+        state->State.emitRemoveFromRegistry;
+        Promise.resolved(false);
       | Debug(message) =>
         Js.log("DEBUG " ++ message);
         Promise.resolved(true);
       };
 
-    log(
-      "### "
-      ++ Task.toString(task)
-      ++ "\n"
-      ++ TaskQueue.toString(Task.toString, queue),
-    );
+    let printLog = false;
+    if (printLog) {
+      Js.log(
+        "### "
+        ++ Task.toString(task)
+        ++ "\n"
+        ++ TaskQueue.toString(Task.toString, queue),
+      );
+    };
 
     keepRunning;
   };
 
   type t = {
     state: State.t,
+    // may contain Tasks like `AgdaRequest` or `ViewRequest`
     blocking: TaskQueue.t(Task.t),
+    // mainly for UI-related commands
     critical: TaskQueue.t(Task.t),
   };
 
   let dispatchCommand = (self, command) => {
-    switch (command) {
-    | Command.NextGoal
-    | PreviousGoal
-    | InputMethod(_)
-    | EventFromView(_)
-    | Escape =>
-      TaskQueue.addToTheBack(self.critical, [DispatchCommand(command)])
-    | _ => TaskQueue.addToTheBack(self.blocking, [DispatchCommand(command)])
+    open Command;
+    // a command is non-blocking if it doesn't generate any Agda request/View query tasks
+    let nonBlocking =
+      fun
+      | NextGoal
+      | PreviousGoal
+      | InputMethod(_)
+      | EventFromView(_)
+      | Escape => true
+      | _ => false;
+
+    if (nonBlocking(command)) {
+      TaskQueue.addToTheBack(self.critical, [DispatchCommand(command)]);
+    } else {
+      TaskQueue.addToTheBack(self.blocking, [DispatchCommand(command)]);
     };
   };
 
@@ -221,7 +227,7 @@ module Impl = (Editor: Sig.Editor) => {
       (
         extentionPath: string,
         editor: Editor.editor,
-        removeFromDict: unit => unit,
+        removeFromRegistry: unit => unit,
       ) => {
     let state = State.make(extentionPath, editor);
     let dispatcher = {
@@ -250,8 +256,8 @@ module Impl = (Editor: Sig.Editor) => {
     ->Js.Array.push(state.subscriptions)
     ->ignore;
 
-    // remove it from the States dict if it request to be killed
-    state->State.onKillMePlz->Promise.get(removeFromDict);
+    // remove it from the Registry if it requests to be destroyed
+    state->State.onRemoveFromRegistry->Promise.get(removeFromRegistry);
 
     // return the dispatcher
     dispatcher;

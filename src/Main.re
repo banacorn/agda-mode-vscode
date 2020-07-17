@@ -1,23 +1,26 @@
+// The entry module of the whole extension
 module Impl = (Editor: Sig.Editor) => {
-  module States = States.Impl(Editor);
+  module Registry = Registry.Impl(Editor);
   module State = State.Impl(Editor);
   module Dispatcher = Dispatcher.Impl(Editor);
   open Belt;
 
   let activate = context => {
-    Js.log("[ states ] activate");
+    Js.log("[ extention ] activate");
     // when a TextEditor gets closed, destroy the corresponding State
-    Editor.onDidCloseEditor(fileName => States.forceDestroy(fileName)->ignore)
+    Editor.onDidCloseEditor(fileName =>
+      Registry.forceDestroy(fileName)->ignore
+    )
     ->Editor.addToSubscriptions(context);
-    // when a file got renamed, destroy the corresponding State if it becomes non-GCL
+    // when a file got renamed, destroy the corresponding State if it becomes something else than Agda file
     Editor.onDidChangeFileName((oldName, newName) =>
       oldName->Option.forEach(oldName =>
         newName->Option.forEach(newName =>
-          if (States.contains(oldName)) {
+          if (Registry.contains(oldName)) {
             if (Editor.isAgda(newName)) {
-              States.rename(oldName, newName);
+              Registry.rename(oldName, newName);
             } else {
-              States.forceDestroy(oldName)->ignore;
+              Registry.forceDestroy(oldName)->ignore;
             };
           }
         )
@@ -28,10 +31,10 @@ module Impl = (Editor: Sig.Editor) => {
     // on editor activation, reveal the corresponding Panel (if any)
     Editor.onDidChangeActivation((prev, next) => {
       prev
-      ->Option.flatMap(States.getByEditor)
+      ->Option.flatMap(Registry.getByEditor)
       ->Option.forEach(dispatcher => {State.hide(dispatcher.state)});
       next
-      ->Option.flatMap(States.getByEditor)
+      ->Option.flatMap(Registry.getByEditor)
       ->Option.forEach(dispatcher => {
           next
           ->Option.forEach(editor => {
@@ -60,18 +63,18 @@ module Impl = (Editor: Sig.Editor) => {
               editor
               ->Editor.getFileName
               ->Option.forEach(fileName => {
-                  switch (States.get(fileName)) {
+                  switch (Registry.get(fileName)) {
                   | None =>
                     let extentionPath = Editor.getExtensionPath(context);
-                    // not in the States dict, instantiate a pair of (State, Dispatcher)
-                    let pair =
+                    // not in the Registry, instantiate a Dispatcher
+                    let dispatcher =
                       Dispatcher.make(extentionPath, editor, () => {
-                        States.forceDestroy(fileName)->ignore
+                        Registry.forceDestroy(fileName)->ignore
                       });
-                    // add this (State, Dispatcher) pair to the dict
-                    States.add(fileName, pair);
-                  | Some(_pair) =>
-                    // already in the States dict, do nothing
+                    // add this dispatcher to the Registry
+                    Registry.add(fileName, dispatcher);
+                  | Some(_) =>
+                    // already in the Registry, do nothing
                     ()
                   }
                 });
@@ -80,22 +83,22 @@ module Impl = (Editor: Sig.Editor) => {
               editor
               ->Editor.getFileName
               ->Option.mapWithDefault(Promise.resolved(), fileName => {
-                  States.forceDestroy(fileName)
+                  Registry.forceDestroy(fileName)
                 })
             | Restart =>
               editor
               ->Editor.getFileName
               ->Option.mapWithDefault(Promise.resolved(), fileName => {
-                  States.destroy(fileName)
+                  Registry.destroy(fileName)
                   ->Promise.map(() => {
                       let extentionPath = Editor.getExtensionPath(context);
-                      // not in the States dict, instantiate a pair of (State, Dispatcher)
-                      let pair =
+                      // not in the Registry, instantiate a Dispatcher
+                      let dispatcher =
                         Dispatcher.make(extentionPath, editor, () => {
-                          States.forceDestroy(fileName)->ignore
+                          Registry.forceDestroy(fileName)->ignore
                         });
-                      // add this (State, Dispatcher) pair to the dict
-                      States.add(fileName, pair);
+                      // add this dispatcher to the Registry
+                      Registry.add(fileName, dispatcher);
                     })
                 })
             | _ => Promise.resolved()
@@ -104,7 +107,7 @@ module Impl = (Editor: Sig.Editor) => {
           ->Promise.get(() => {
               // dispatch Tasks
               editor
-              ->States.getByEditor
+              ->Registry.getByEditor
               ->Option.forEach(dispatcher => {
                   Dispatcher.dispatchCommand(dispatcher, command)->ignore
                 })
@@ -116,7 +119,8 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let deactivate = () => {
-    States.destroyAll();
+    Js.log("[ extention ] deactivate");
+    Registry.destroyAll();
   };
 };
 

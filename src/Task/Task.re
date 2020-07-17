@@ -37,13 +37,13 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(goal)
     | WithState(State.t => unit)
     | WithStateP(State.t => Promise.t(list(t)))
-    | SuicideByCop
+    | Destroy
     | Debug(string);
 
   let toString =
     fun
     | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
-    | SuicideByCop => "SuicideByCop"
+    | Destroy => "Destroy"
     | AgdaRequest(_req) => "AgdaRequest"
     | ViewEvent(_) => "ViewEvent"
     | ViewRequest(_, _) => "ViewRequest"

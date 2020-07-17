@@ -1,6 +1,6 @@
 open Belt;
 
-// a dictionary of FileName-Dispatcher entries
+// FileName-Dispatcher bookkeeping
 module Impl = (Editor: Sig.Editor) => {
   module Dispatcher = Dispatcher.Impl(Editor);
   let dict: Js.Dict.t(Dispatcher.t) = Js.Dict.empty();

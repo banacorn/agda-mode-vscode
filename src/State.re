@@ -12,9 +12,10 @@ module Impl = (Editor: Sig.Editor) => {
     mutable goals: array(Goal.t),
     mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
     mutable cursor: option(int),
-    onKillMePlzEmitter: Event.t(unit),
     inputMethod: InputMethod.t,
     subscriptions: array(Editor.Disposable.t),
+    // for self destruction
+    onRemoveFromRegistry: Event.t(unit),
   };
 
   //
@@ -23,10 +24,10 @@ module Impl = (Editor: Sig.Editor) => {
   let getEditor = (state: t) => state.editor;
 
   //
-  // events to the outside world
+  // events to the FileName-Dispatch Registry
   //
-  let onKillMePlz = state => state.onKillMePlzEmitter.once();
-  let emitKillMePlz = state => state.onKillMePlzEmitter.emit();
+  let onRemoveFromRegistry = state => state.onRemoveFromRegistry.once();
+  let emitRemoveFromRegistry = state => state.onRemoveFromRegistry.emit();
 
   //
   // Agda connection/disconnection
@@ -59,7 +60,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let destroy = state => {
     state.view->Editor.View.destroy;
-    state.onKillMePlzEmitter.destroy();
+    state.onRemoveFromRegistry.destroy();
     state.goals->Array.forEach(Goal.destroy);
     state.decorations
     ->Array.map(fst)
@@ -81,9 +82,9 @@ module Impl = (Editor: Sig.Editor) => {
       goals: [||],
       decorations: [||],
       cursor: None,
-      onKillMePlzEmitter: Event.make(),
       inputMethod: InputMethod.make(),
       subscriptions: [||],
+      onRemoveFromRegistry: Event.make(),
     };
 
     state;
