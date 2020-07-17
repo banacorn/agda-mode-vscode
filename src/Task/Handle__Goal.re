@@ -31,10 +31,129 @@ module Impl = (Editor: Sig.Editor) => {
     pointedGoals[0];
   };
 
+  // There are two kinds of lambda abstraction
+  //  1.  λ { x → ? }
+  //  2.  λ where x → ?
+  // We employ the strategy implemented by the Emacs mode
+  // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
+  // which searches backward (starting from the goal) and see if there's a open curly bracket "{"
+  //
+  //      λ { x → ? }
+  //        ^------------------- open curly bracket
+  //
+  //  or if there's a "where" token
+  //
+  //      λ where x → ?
+  //        ^------------------- the "where" token
+  //
+  let caseSplitAux = (editor, goal: Goal.t) => {
+    let textBeforeGoal = {
+      let start = Editor.pointAtOffset(editor, 0);
+      let end_ = Editor.pointAtOffset(editor, fst(goal.range));
+      let range = Editor.Range.make(start, end_);
+      Editor.getTextInRange(editor, range);
+    };
+
+    // returns the offset of the first non-space character it encountered from somewhere
+    let nextWordBoundary = (start, string) => {
+      let break = ref(false);
+      let n = ref(0);
+      let i = ref(start + 1);
+      while (i^ < Js.String.length(string) && ! break^) {
+        let char = Js.String.charAt(i^, string);
+        switch (char) {
+        | " "
+        | "\012"
+        | "\t" => n := n^ + 1
+        | _ => break := true
+        };
+        i := i^ + 1;
+      };
+      start + n^ + 1;
+    };
+
+    let (inWhereClause, searchStart, lastLineBreakOffset) = {
+      let lastOpenCurlyBracketOffset =
+        {
+          let bracketCount = ref(0);
+          let i = ref(fst(goal.range) - 1);
+          while (i^ >= 0 && bracketCount^ >= 0) {
+            switch (i^) {
+            // no preceding character
+            | 0 => ()
+            // has preceding character
+            | i' =>
+              switch (Js.String.charAt(i' - 1, textBeforeGoal)) {
+              | "}" => bracketCount := bracketCount^ + 1
+              | "{" => bracketCount := bracketCount^ - 1
+              | _ => ()
+              }
+            };
+            // scanning backwards
+            i := i^ - 1;
+          };
+          i^;
+        }
+        + 1;
+
+      let lastSemicolonOffset =
+        (
+          switch (Js.String.lastIndexOf(";", textBeforeGoal)) {
+          | (-1) => 0
+          | n => n
+          }
+        )
+        + 1;
+
+      let lastWhereTokenOffset =
+        (
+          switch (Js.String.lastIndexOf("where", textBeforeGoal)) {
+          | (-1) => 0
+          | n => n
+          }
+        )
+        + 5;
+
+      let lastLineBreakOffset =
+        max(
+          0,
+          max(
+            Js.String.lastIndexOf("\r", textBeforeGoal),
+            Js.String.lastIndexOf("\n", textBeforeGoal),
+          ),
+        )
+        + 1;
+
+      let inWhereClause = lastWhereTokenOffset > lastOpenCurlyBracketOffset;
+      let offset =
+        max(
+          max(lastLineBreakOffset, lastSemicolonOffset),
+          max(lastWhereTokenOffset, lastOpenCurlyBracketOffset),
+        );
+      (inWhereClause, offset, lastLineBreakOffset);
+    };
+
+    // returns the range of the case clause (that is going to be replaced)
+    //    "x -> {!   !}"
+    let range = {
+      let caseStart = nextWordBoundary(searchStart, textBeforeGoal);
+      let caseEnd = snd(goal.range);
+      (caseStart, caseEnd);
+    };
+
+    // let r =
+    //   Editor.Range.make(
+    //     Editor.pointAtOffset(editor, fst(range)),
+    //     Editor.pointAtOffset(editor, snd(range)),
+    //   );
+    // Js.log("[" ++ Editor.getTextInRange(editor, r) ++ "]");
+    (inWhereClause, fst(range) - lastLineBreakOffset, range);
+  };
+
   // returns the width of indentation of the first line of a goal
   // along with the text and the range before the goal
   let indentationWidth =
-      (goal: Goal.t, editor): (int, string, Editor.Range.t) => {
+      (editor, goal: Goal.t): (int, string, Editor.Range.t) => {
     let goalStart = Editor.pointAtOffset(editor, fst(goal.range));
     let lineNo = Editor.Point.line(goalStart);
     let range = Editor.Range.make(Editor.Point.make(lineNo, 0), goalStart);
@@ -59,6 +178,62 @@ module Impl = (Editor: Sig.Editor) => {
       n^;
     };
     (indentedBy(textBeforeGoal), textBeforeGoal, range);
+  };
+
+  // There are two kinds of lambda abstraction
+  //  1.  λ { x → ? }
+  //  2.  λ where x → ?
+  // We employ the strategy implemented by the Emacs mode
+  // https://github.com/agda/agda/blob/f46ecaf729c00217efad7a77e5d9932bfdd030e5/src/data/emacs-mode/agda2-mode.el#L950
+  // which searches backward (starting from the goal) and see if there's a open curly bracket "{"
+  //
+  //      λ { x → ? }
+  //        ^------------------- open curly bracket, not in a where clause
+  //
+  // returns whether the goal is in a where clause, along with the range to rewrite
+  let inWhereClause = (editor, goal: Goal.t) => {
+    let (indentWidth, textBeforeGoal, range) =
+      indentationWidth(editor, goal);
+
+    // where the search begins
+    let searchStart: int = Editor.Point.column(Editor.Range.end_(range));
+    // where the search ends (it ends at the last ";", or the first non-blank character)
+    let searchEnd: int =
+      switch (Js.String.lastIndexOf(";", textBeforeGoal)) {
+      | (-1) => indentWidth
+      | n => n + 1
+      };
+
+    // determine the position of "{"
+    let bracketCount = ref(0);
+    let i = ref(searchStart - 1);
+    while (i^ >= searchEnd && bracketCount^ >= 0) {
+      switch (i^) {
+      // no preceding character
+      | 0 => ()
+      // has preceding character
+      | i' =>
+        switch (Js.String.charAt(i' - 1, textBeforeGoal)) {
+        | "}" => bracketCount := bracketCount^ + 1
+        | "{" => bracketCount := bracketCount^ - 1
+        | _ => ()
+        }
+      };
+      // scanning backwards
+      i := i^ - 1;
+    };
+
+    let rewriteStart =
+      Editor.Point.make(
+        Editor.Point.line(Editor.Range.start(range)),
+        i^ + 1,
+      );
+    let rewriteEnd = Editor.pointAtOffset(editor, snd(goal.range));
+    let rewriteRange = Editor.Range.make(rewriteStart, rewriteEnd);
+    Js.log(i^ + 1);
+    Js.log(indentWidth);
+    let inWhereClause = i^ + 1 == indentWidth;
+    (inWhereClause, rewriteRange);
   };
 
   // from Goal-related action to Tasks
@@ -266,7 +441,7 @@ module Impl = (Editor: Sig.Editor) => {
         WithStateP(
           state => {
             // get the width of indentation from the first line of the goal
-            let (indentWidth, _, _) = indentationWidth(goal, state.editor);
+            let (indentWidth, _, _) = indentationWidth(state.editor, goal);
             let indentation = Js.String.repeat(indentWidth, " ");
             let indentedLines =
               indentation ++ Js.Array.joinWith("\n" ++ indentation, lines);
@@ -325,43 +500,11 @@ module Impl = (Editor: Sig.Editor) => {
     | ReplaceWithLambda(goal, lines) => [
         WithStateP(
           state => {
-            let goalEnd =
-              Editor.pointAtOffset(state.editor, snd(goal.range));
-            let (indentWidth, textBeforeGoal, range) =
-              indentationWidth(goal, state.editor);
-            // start at the last ";", or the first non-blank character
-            let scanRow = Editor.Point.line(Editor.Range.start(range));
-            let scanColStart =
-              switch (Js.String.lastIndexOf(";", textBeforeGoal)) {
-              | (-1) => indentWidth
-              | n => n + 1
-              };
-            let scanColEnd = Editor.Point.column(Editor.Range.end_(range));
-
-            // determine the position of "{"
-            // iterate from the end to the start
-            let bracketCount = ref(0);
-            let i = ref(scanColEnd - 1);
-            while (i^ >= scanColStart && bracketCount^ >= 0) {
-              switch (i^) {
-              // no preceding character
-              | 0 => ()
-              // has preceding character
-              | i' =>
-                switch (Js.String.charAt(i' - 1, textBeforeGoal)) {
-                | "}" => bracketCount := bracketCount^ + 1
-                | "{" => bracketCount := bracketCount^ - 1
-                | _ => ()
-                }
-              };
-              i := i^ - 1;
-            };
-            Js.log((textBeforeGoal, i^ + 1, indentWidth));
-            let rewriteRange =
-              Editor.Range.make(Editor.Point.make(scanRow, i^ + 1), goalEnd);
-            let isLambdaWhere = i^ + 1 == indentWidth;
+            let (indentWidth, _, _) = indentationWidth(state.editor, goal);
+            let (inWhereClause, rewriteRange) =
+              inWhereClause(state.editor, goal);
             let rewriteText =
-              if (isLambdaWhere) {
+              if (inWhereClause) {
                 Js.Array.joinWith(
                   "\n" ++ Js.String.repeat(indentWidth, " "),
                   lines,
