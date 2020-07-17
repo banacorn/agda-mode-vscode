@@ -29,6 +29,9 @@ module type Editor = {
     let compare: (t, t) => ordering;
   };
 
+  let pointAtOffset: (editor, int) => Point.t;
+  let offsetAtPoint: (editor, Point.t) => int;
+
   module Range: {
     type t;
     let make: (Point.t, Point.t) => t;
@@ -37,6 +40,8 @@ module type Editor = {
 
     let contains: (t, Point.t) => bool;
     let containsRange: (t, t) => bool;
+
+    let fromOffset: (editor, (int, int)) => t;
   };
 
   let editorType: editorType;
@@ -116,8 +121,6 @@ module type Editor = {
   let onChangeCursorPosition: (array(Point.t) => unit) => Disposable.t;
 
   let rangeForLine: (editor, int) => Range.t;
-  let pointAtOffset: (editor, int) => Point.t;
-  let offsetAtPoint: (editor, Point.t) => int;
   let fromAgdaOffset: (editor, int) => int;
   let toAgdaOffset: (editor, int) => int;
 

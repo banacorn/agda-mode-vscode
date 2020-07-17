@@ -43,20 +43,31 @@ describe("Handle__Goal.caseSplitAux", () => {
     ->Promise.flatMap(editor => {
         Goal.makeMany(editor, [|0, 1, 2, 3, 4, 5, 6, 7|])
         ->Promise.map(goals => {
-            goals->Array.map(GoalHandler.caseSplitAux(editor))
+            goals->Array.map(goal => {
+              // convert `rewriteRange` to text in that range because range offsets are different on different OSs
+              let (inWhereClause, indentWidth, rewriteRange) =
+                GoalHandler.caseSplitAux(editor, goal);
+              let rewriteRange =
+                Editor.Range.fromOffset(editor, rewriteRange);
+              (
+                inWhereClause,
+                indentWidth,
+                Editor.getTextInRange(editor, rewriteRange),
+              );
+            })
           })
         ->Promise.map(results => {
             Assert.deep_equal(
               results,
               [|
-                (false, 9, (85, 96)),
-                (false, 23, (99, 110)),
-                (false, 4, (138, 149)),
-                (false, 4, (155, 166)),
-                (true, 13, (197, 208)),
-                (true, 13, (222, 233)),
-                (true, 2, (263, 274)),
-                (true, 2, (277, 288)),
+                (false, 9, {j|x → {!   !}|j}),
+                (false, 23, {j|y → {!   !}|j}),
+                (false, 4, {j|x → {!   !}|j}),
+                (false, 4, {j|y → {!   !}|j}),
+                (true, 13, {j|x → {!   !}|j}),
+                (true, 13, {j|y → {!   !}|j}),
+                (true, 2, {j|x → {!   !}|j}),
+                (true, 2, {j|y → {!   !}|j}),
               |],
             )
           })

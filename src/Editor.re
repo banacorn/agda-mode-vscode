@@ -28,6 +28,12 @@ module Point = {
     };
 };
 
+let pointAtOffset = (editor, offset) =>
+  editor->TextEditor.document->TextDocument.positionAt(offset);
+
+let offsetAtPoint = (editor, point) =>
+  editor->TextEditor.document->TextDocument.offsetAt(point);
+
 module Range = {
   type t = Range.t;
   let make = Range.make;
@@ -36,6 +42,8 @@ module Range = {
 
   let contains = Range.contains;
   let containsRange = Range.containsRange;
+  let fromOffset = (editor, (start, end_)) =>
+    make(pointAtOffset(editor, start), pointAtOffset(editor, end_));
 };
 
 type fileName = string;
@@ -365,12 +373,6 @@ let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
     (offset, charOffsetWithoutLookahead);
   };
 };
-
-let pointAtOffset = (editor, offset) =>
-  editor->TextEditor.document->TextDocument.positionAt(offset);
-
-let offsetAtPoint = (editor, point) =>
-  editor->TextEditor.document->TextDocument.offsetAt(point);
 
 // for converting offsets sent from Agda (UTF-8) to offsets in the editor (UTF-16)
 let fromAgdaOffset = (editor, offset) => {
