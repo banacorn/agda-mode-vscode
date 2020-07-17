@@ -64,7 +64,6 @@ module Impl = (Editor: Sig.Editor) => {
                   switch (States.get(fileName)) {
                   | None =>
                     let extentionPath = Editor.getExtensionPath(context);
-                    Js.log(extentionPath);
                     // not in the States dict, instantiate a pair of (State, Dispatcher)
                     let pair =
                       StateDispatcherPair.make(extentionPath, editor, () => {

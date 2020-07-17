@@ -4,7 +4,7 @@ module P = BsMocha.Promise;
 open VSCode;
 open! Belt;
 
-// open Test__Util;
+open Test__Util;
 
 let openTextEditor = path => {
   VSCode.Workspace.openTextDocumentWithFileName(path)
@@ -40,14 +40,19 @@ describe_only("Case split", () => {
   P.it("0", () => {
     module Goal = Goal.Impl(Editor);
     module Task = Task.Impl(Editor);
+    module Dispatcher = Dispatcher.Impl(Editor);
     module GoalHandler = Handle__Goal.Impl(Editor);
     module StateDispatcherPair = States.StateDispatcherPair.Impl(Editor);
-
-    let a = StateDispatcherPair.make;
+    Js.log(Path.extensionPath());
 
     // replaceWithLines
     makeTextEditor(source)
     ->Promise.flatMap(editor => {
+        // let (_, dispatcher) =
+        //   StateDispatcherPair.make(Path.extensionPath(), editor, () => {
+        //     Js.log("self destruct")
+        //   });
+        // Dispatcher.dispatchCommand(dispatcher, command)->ignore;
         Goal.makeMany(editor, [|0|])
         ->Promise.map(goals => {
             switch (goals[0]) {
