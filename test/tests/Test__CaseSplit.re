@@ -34,7 +34,7 @@ x + y = {!   !}
 
 let lines = [|{j|Z + y = ?|j}, {j|S x + y = ?|j}|];
 
-let replaceWithLines = lines => ();
+// let replaceWithLines = lines => ();
 
 describe_only("Case split", () => {
   P.it("0", () => {
@@ -42,7 +42,6 @@ describe_only("Case split", () => {
     module Task = Task.Impl(Editor);
     module Dispatcher = Dispatcher.Impl(Editor);
     module GoalHandler = Handle__Goal.Impl(Editor);
-    module StateDispatcherPair = States.StateDispatcherPair.Impl(Editor);
     Js.log(Path.extensionPath());
 
     // replaceWithLines

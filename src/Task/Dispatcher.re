@@ -200,22 +200,12 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   type t = {
+    state: State.t,
     blocking: TaskQueue.t(Task.t),
     critical: TaskQueue.t(Task.t),
   };
 
-  let make = (state: State.t) => {
-    blocking: TaskQueue.make(executeTask(state)),
-    critical: TaskQueue.make(executeTask(state)),
-  };
-
   let dispatchCommand = (self, command) => {
-    // log(
-    //   "\n\n"
-    //   ++ TaskQueue.toString(Task.toString, self.critical)
-    //   ++ "\n----------------------------\n"
-    //   ++ TaskQueue.toString(Task.toString, self.blocking),
-    // );
     switch (command) {
     | Command.NextGoal
     | PreviousGoal
@@ -227,17 +217,59 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  let make =
+      (
+        extentionPath: string,
+        editor: Editor.editor,
+        removeFromDict: unit => unit,
+      ) => {
+    let state = State.make(extentionPath, editor);
+    let dispatcher = {
+      state,
+      blocking: TaskQueue.make(executeTask(state)),
+      critical: TaskQueue.make(executeTask(state)),
+    };
+
+    // listens to events from the view
+    state.view
+    ->Editor.View.on(
+        fun
+        | Event(event) => {
+            dispatchCommand(dispatcher, EventFromView(event))->ignore;
+          }
+        | Response(_) => (),
+      )
+    ->Js.Array.push(state.subscriptions)
+    ->ignore;
+
+    // listens to events from the input method
+    state.inputMethod.onAction.on(action => {
+      dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
+    })
+    ->Editor.Disposable.make
+    ->Js.Array.push(state.subscriptions)
+    ->ignore;
+
+    // remove it from the States dict if it request to be killed
+    state->State.onKillMePlz->Promise.get(removeFromDict);
+
+    // return the dispatcher
+    dispatcher;
+  };
+
   // wait until all tasks have finished executing
   let destroy = self => {
     self.critical
     ->TaskQueue.destroy
-    ->Promise.flatMap(() => self.blocking->TaskQueue.destroy);
+    ->Promise.flatMap(() => self.blocking->TaskQueue.destroy)
+    ->Promise.flatMap(() => self.state->State.destroy);
   };
 
   // destroy everything in a rather violent way
   let forceDestroy = self => {
     self.critical
     ->TaskQueue.forceDestroy
-    ->Promise.flatMap(() => self.blocking->TaskQueue.forceDestroy);
+    ->Promise.flatMap(() => self.blocking->TaskQueue.forceDestroy)
+    ->Promise.flatMap(() => self.state->State.destroy);
   };
 };

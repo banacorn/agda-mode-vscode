@@ -1,119 +1,67 @@
 open Belt;
 
-module StateDispatcherPair = {
-  module Impl = (Editor: Sig.Editor) => {
-    module Dispatcher = Dispatcher.Impl(Editor);
-    module State = State.Impl(Editor);
-    type t = (State.t, Dispatcher.t);
+// a dictionary of FileName-Dispatcher entries
+module Impl = (Editor: Sig.Editor) => {
+  module Dispatcher = Dispatcher.Impl(Editor);
+  let dict: Js.Dict.t(Dispatcher.t) = Js.Dict.empty();
 
-    let make = (extentionPath, editor, onDestroy) => {
-      // not in the States dict, instantiate one new
-      let state = State.make(extentionPath, editor);
-      let dispatcher = Dispatcher.make(state);
+  let get = fileName => dict->Js.Dict.get(fileName);
 
-      // listens to events from the view
-      state.view
-      ->Editor.View.on(
-          fun
-          | Event(event) => {
-              Dispatcher.dispatchCommand(dispatcher, EventFromView(event))
-              ->ignore;
-            }
-          | Response(_) => (),
-        )
-      ->Js.Array.push(state.subscriptions)
-      ->ignore;
+  let getByEditor = (editor: Editor.editor) =>
+    editor->Editor.getFileName->Option.flatMap(get);
 
-      // listens to events from the input method
-      state.inputMethod.onAction.on(action => {
-        Dispatcher.dispatchCommand(dispatcher, Command.InputMethod(action))
-        ->ignore
-      })
-      ->Editor.Disposable.make
-      ->Js.Array.push(state.subscriptions)
-      ->ignore;
-
-      // remove it from the States dict if it request to be killed
-      state->State.onKillMePlz->Promise.get(onDestroy);
-
-      // return the pair
-      (state, dispatcher);
+  // do nothing if the state already exists
+  let add = (fileName, dispatcher) => {
+    switch (get(fileName)) {
+    | Some(_) => ()
+    | None => dict->Js.Dict.set(fileName, dispatcher)
     };
-
-    let destroy = ((state, dispatcher)) =>
-      Dispatcher.destroy(dispatcher)
-      ->Promise.flatMap(() => {State.destroy(state)});
-
-    let forceDestroy = ((state, dispatcher)) =>
-      Dispatcher.forceDestroy(dispatcher)
-      ->Promise.flatMap(() => {State.destroy(state)});
   };
-};
 
-// a dictionary of FileName-StateDispatcherPair entries
-module Dict = {
-  module Impl = (Editor: Sig.Editor) => {
-    module StateDispatcherPair = StateDispatcherPair.Impl(Editor);
-    let dict: Js.Dict.t(StateDispatcherPair.t) = Js.Dict.empty();
+  let rename = (oldName, newName) => {
+    let delete_: (Js.Dict.t('a), string) => unit = [%raw
+      "function (dict, key) {delete dict[key]}"
+    ];
+    get(oldName)
+    ->Option.forEach(dispatcher => {
+        Js.log3("[ states ][ rename ]", oldName, newName);
+        delete_(dict, oldName);
+        add(newName, dispatcher);
+      });
+  };
 
-    let get = fileName => dict->Js.Dict.get(fileName);
+  // remove the entry (without triggering .destroy() )
+  let remove = fileName => {
+    let delete_: (Js.Dict.t('a), string) => unit = [%raw
+      "function (dict, key) {delete dict[key]}"
+    ];
+    delete_(dict, fileName);
+  };
 
-    let getByEditor = (editor: Editor.editor) =>
-      editor->Editor.getFileName->Option.flatMap(get);
-
-    // do nothing if the state already exists
-    let add = (fileName, state) => {
-      switch (get(fileName)) {
-      | Some(_) => ()
-      | None => dict->Js.Dict.set(fileName, state)
-      };
+  let destroy = fileName => {
+    switch (get(fileName)) {
+    | None => Promise.resolved()
+    | Some(dispatcher) =>
+      remove(fileName);
+      Dispatcher.destroy(dispatcher);
     };
+  };
 
-    let rename = (oldName, newName) => {
-      let delete_: (Js.Dict.t('a), string) => unit = [%raw
-        "function (dict, key) {delete dict[key]}"
-      ];
-      get(oldName)
-      ->Option.forEach(state => {
-          Js.log3("[ states ][ rename ]", oldName, newName);
-          delete_(dict, oldName);
-          add(newName, state);
-        });
+  let forceDestroy = fileName => {
+    switch (get(fileName)) {
+    | None => Promise.resolved()
+    | Some(dispatcher) =>
+      remove(fileName);
+      Dispatcher.forceDestroy(dispatcher);
     };
+  };
 
-    // remove the entry (without triggering .destroy() )
-    let remove = fileName => {
-      let delete_: (Js.Dict.t('a), string) => unit = [%raw
-        "function (dict, key) {delete dict[key]}"
-      ];
-      delete_(dict, fileName);
-    };
+  let contains = fileName => get(fileName)->Option.isSome;
 
-    let destroy = fileName => {
-      switch (get(fileName)) {
-      | None => Promise.resolved()
-      | Some(pair) =>
-        remove(fileName);
-        StateDispatcherPair.destroy(pair);
-      };
-    };
-
-    let forceDestroy = fileName => {
-      switch (get(fileName)) {
-      | None => Promise.resolved()
-      | Some(pair) =>
-        remove(fileName);
-        StateDispatcherPair.forceDestroy(pair);
-      };
-    };
-
-    let contains = fileName => get(fileName)->Option.isSome;
-
-    let destroyAll = () => {
-      dict
-      ->Js.Dict.entries
-      ->Array.map(((_, pair), ()) => StateDispatcherPair.destroy(pair))
-      ->Util.oneByOne;
-    };
+  let destroyAll = () => {
+    dict
+    ->Js.Dict.entries
+    ->Array.map(((_, dispatcher), ()) => Dispatcher.destroy(dispatcher))
+    ->Util.oneByOne;
   };
 };

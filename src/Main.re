@@ -1,6 +1,5 @@
 module Impl = (Editor: Sig.Editor) => {
-  module StateDispatcherPair = States.StateDispatcherPair.Impl(Editor);
-  module States = States.Dict.Impl(Editor);
+  module States = States.Impl(Editor);
   module State = State.Impl(Editor);
   module Dispatcher = Dispatcher.Impl(Editor);
   open Belt;
@@ -30,17 +29,17 @@ module Impl = (Editor: Sig.Editor) => {
     Editor.onDidChangeActivation((prev, next) => {
       prev
       ->Option.flatMap(States.getByEditor)
-      ->Option.forEach(((state, _)) => {State.hide(state)});
+      ->Option.forEach(dispatcher => {State.hide(dispatcher.state)});
       next
       ->Option.flatMap(States.getByEditor)
-      ->Option.forEach(((state, dispatcher)) => {
+      ->Option.forEach(dispatcher => {
           next
           ->Option.forEach(editor => {
               // Issue #8
               // after switching tabs, the old editor would be "_disposed"
               // we need to replace it with this new one
-              state.editor = editor;
-              State.show(state);
+              dispatcher.state.editor = editor;
+              State.show(dispatcher.state);
               Dispatcher.dispatchCommand(dispatcher, Refresh);
             })
           ->ignore
@@ -66,7 +65,7 @@ module Impl = (Editor: Sig.Editor) => {
                     let extentionPath = Editor.getExtensionPath(context);
                     // not in the States dict, instantiate a pair of (State, Dispatcher)
                     let pair =
-                      StateDispatcherPair.make(extentionPath, editor, () => {
+                      Dispatcher.make(extentionPath, editor, () => {
                         States.forceDestroy(fileName)->ignore
                       });
                     // add this (State, Dispatcher) pair to the dict
@@ -92,7 +91,7 @@ module Impl = (Editor: Sig.Editor) => {
                       let extentionPath = Editor.getExtensionPath(context);
                       // not in the States dict, instantiate a pair of (State, Dispatcher)
                       let pair =
-                        StateDispatcherPair.make(extentionPath, editor, () => {
+                        Dispatcher.make(extentionPath, editor, () => {
                           States.forceDestroy(fileName)->ignore
                         });
                       // add this (State, Dispatcher) pair to the dict
@@ -106,7 +105,7 @@ module Impl = (Editor: Sig.Editor) => {
               // dispatch Tasks
               editor
               ->States.getByEditor
-              ->Option.forEach(((_state, dispatcher)) => {
+              ->Option.forEach(dispatcher => {
                   Dispatcher.dispatchCommand(dispatcher, command)->ignore
                 })
             });
