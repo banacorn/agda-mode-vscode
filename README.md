@@ -2,13 +2,18 @@
 
 Please open an issue if you are experiencing any problems.
 
+## Installation
+
+1. Make sure that you have [agda](https://agda.readthedocs.io/en/latest/getting-started/installation.html) properly installed (check this in your terminal, type `agda` and see if it's on your machine).
+2. Open an Agda file and you should be able to load it by typing <kbd>C-c</kbd> <kbd>C-l</kbd>.
+<!-- 
 ## TODO & Known Issues
 
 - [ ] Atomic task scheduler (abort/undo/redo)
 - [ ] Goals/Warnings/Errors display overhaul
 - [ ] Themeable syntax highlighting
 - [ ] Settings and whatnot
-- [ ] [Unicode input not working in the input prompt](https://github.com/banacorn/agda-mode-vscode/issues/2)
+- [ ] [Unicode input not working in the input prompt](https://github.com/banacorn/agda-mode-vscode/issues/2) -->
 
 ## Unicode Input
 
