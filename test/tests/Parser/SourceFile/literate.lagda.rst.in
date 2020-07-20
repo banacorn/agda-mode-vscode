@@ -11,3 +11,17 @@ This line is ordinary text, which is ignored by Agda.
 Another non-code line.?
 ::
 .. This line is also ignored ?
+
+..
+  ::
+  -- Agda code
+
+  ?
+
+
+The second one is the language containing a single word; the empty word. The
+root node is labelled ``true``, and all the others are labelled ``false``::
+
+    ε : ∀ {i A} → Lang i A
+    ν ε   = ?
+    δ ε _ = ∅
