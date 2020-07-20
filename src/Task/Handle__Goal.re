@@ -183,7 +183,7 @@ module Impl = (Editor: Sig.Editor) => {
   // from Goal-related action to Tasks
   let handle =
     fun
-    | Instantiate(indices) => [
+    | Goal.Instantiate(indices) => [
         Task.WithStateP(
           state => {
             // destroy all existing goals

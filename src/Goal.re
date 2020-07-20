@@ -8,6 +8,26 @@ module Impl = (Editor: Sig.Editor) => {
     decorationIndex: Editor.Decoration.t,
   };
 
+  type action('task) =
+    | Instantiate(array(int))
+    | UpdateRange
+    | Next
+    | Previous
+    | Modify(t, string => string)
+    | SaveCursor
+    | RestoreCursor
+    | SetCursor(int)
+    | RemoveBoundaryAndDestroy(t)
+    | ReplaceWithLines(t, array(string))
+    | ReplaceWithLambda(t, array(string))
+    // for commands that have both the local (goal-specific) and global (top-level) version
+    | LocalOrGlobal(t => list('task), list('task))
+    | LocalOrGlobal2(
+        (t, string) => list('task),
+        t => list('task),
+        list('task),
+      );
+
   // NOTE: helper function of `makeMany`, returns a thunk
   let make =
       (editor: Editor.editor, diff: SourceFile.Diff.t)

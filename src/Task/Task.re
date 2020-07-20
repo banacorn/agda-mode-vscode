@@ -4,27 +4,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Decoration = Decoration.Impl(Editor);
   module Request = Request.Impl(Editor);
 
-  type goal =
-    | Instantiate(array(int))
-    | UpdateRange
-    | Next
-    | Previous
-    | Modify(Goal.t, string => string)
-    | SaveCursor
-    | RestoreCursor
-    | SetCursor(int)
-    | RemoveBoundaryAndDestroy(Goal.t)
-    | ReplaceWithLines(Goal.t, array(string))
-    | ReplaceWithLambda(Goal.t, array(string))
-    // for commands that have both the local (goal-specific) and global (top-level) version
-    | LocalOrGlobal(Goal.t => list(t), list(t))
-    | LocalOrGlobal2(
-        (Goal.t, string) => list(t),
-        Goal.t => list(t),
-        list(t),
-      )
-
-  and t =
+  type t =
     | DispatchCommand(Command.t)
     // Agda
     | AgdaRequest(Request.t)
@@ -34,7 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
     // Misc
     | Decoration(Decoration.action)
     | Error(Error.t)
-    | Goal(goal)
+    | Goal(Goal.action(t))
     | WithState(State.t => unit)
     | WithStateP(State.t => Promise.t(list(t)))
     | Destroy
