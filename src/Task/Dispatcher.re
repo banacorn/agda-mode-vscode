@@ -7,6 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
   module CommandHandler = Handle__Command.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
   module DecorationHandler = Handle__Decoration.Impl(Editor);
+  module TaskQueue = TaskQueue.Impl(Editor);
   module Task = Task.Impl(Editor);
   open! Task;
 
@@ -93,8 +94,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   // the working horse
   let executeTask =
-      (state: State.t, queue: TaskQueue.t(Task.t), task: Task.t)
-      : Promise.t(bool) => {
+      (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t(bool) => {
     let keepRunning =
       switch (task) {
       | DispatchCommand(command) =>
@@ -199,9 +199,9 @@ module Impl = (Editor: Sig.Editor) => {
   type t = {
     state: State.t,
     // may contain Tasks like `AgdaRequest` or `ViewRequest`
-    blocking: TaskQueue.t(Task.t),
+    blocking: TaskQueue.t,
     // mainly for UI-related commands
-    critical: TaskQueue.t(Task.t),
+    critical: TaskQueue.t,
   };
 
   let addToTheBackCritical = (self, tasks) => {
