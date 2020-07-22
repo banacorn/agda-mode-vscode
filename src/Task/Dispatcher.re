@@ -128,10 +128,12 @@ module Impl = (Editor: Sig.Editor) => {
                 ->Array.map(snd)
                 ->List.concatMany;
               TaskQueue.addToTheFront(queue, deferredTasks);
-            })
-          ->ignore;
-          // NOTE: return early before `sendAgdaRequest` resolved
-          Promise.resolved(true);
+
+              true;
+            });
+          // ->ignore;
+          // // NOTE: return early before `sendAgdaRequest` resolved
+          // Promise.resolved(true);
         }
       | ViewEvent(event) =>
         state->State.sendEventToView(event)->Promise.map(_ => {true})

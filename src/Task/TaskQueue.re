@@ -24,7 +24,7 @@ module Impl = (Editor: Sig.Editor) => {
     execute: (t, Task.t) => Promise.t(bool),
     // `busy` will be set to `true` if there are Tasks being executed
     // A semaphore to make sure that only one `kickStart` is running at a time
-    mutable busy: bool,
+    mutable busy: option(Task.t),
     // invoke the callback (if any) when the task queues are all emptied
     // useful for testing or self destruction
     mutable shouldResolveWhenEmptied: option(unit => unit),
@@ -76,13 +76,13 @@ module Impl = (Editor: Sig.Editor) => {
     agda: Free,
     view: Free,
     execute,
-    busy: false,
+    busy: None,
     shouldResolveWhenEmptied: None,
   };
 
   // consuming Tasks in the `queues`
   let rec kickStart = self =>
-    if (!self.busy) {
+    if (self.busy->Option.isNone) {
       switch (getNextTask(self)) {
       | None =>
         // if there are no more tasks, and .shouldResolveWhenEmptied is set, then resolve it
@@ -91,21 +91,34 @@ module Impl = (Editor: Sig.Editor) => {
         | Some(resolve) => resolve()
         }
       | Some(task) =>
-        self.busy = true;
-        self.execute(self, task) // and start executing tasks
-        ->Promise.get(keepRunning => {
-            self.busy = false; // flip the semaphore back
-            if (keepRunning) {
-              // and keep running
-              kickStart(self);
-            };
-          });
+        // set the semaphore
+        switch (task) {
+        | AgdaRequest(_) =>
+          // self.execute(self, AgdaRequest(_)) would block everything
+          self.execute(self, task) // and start executing tasks
+          ->Promise.get(keepRunning =>
+              if (keepRunning) {
+                // and keep running
+                kickStart(self);
+              }
+            )
+        | _ =>
+          self.busy = Some(task);
+          self.execute(self, task) // and start executing tasks
+          ->Promise.get(keepRunning => {
+              self.busy = None; // flip the semaphore back
+              if (keepRunning) {
+                // and keep running
+                kickStart(self);
+              };
+            });
+        }
       };
     };
 
   // returns a promise that resolves when all tasks have been executed
   let onEmptied = self =>
-    if (self.busy) {
+    if (self.busy->Option.isSome) {
       let (promise, resolve) = Promise.pending();
       self.shouldResolveWhenEmptied = Some(resolve);
       promise;
