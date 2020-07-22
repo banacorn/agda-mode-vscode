@@ -13,7 +13,6 @@ module Impl = (Editor: Sig.Editor) => {
         Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
-        Goal(SaveCursor),
         Decoration(RemoveAll),
         AgdaRequest(Load),
       ]
@@ -55,7 +54,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Refine => [
         Goal(
           LocalOrGlobal(
-            goal => [Goal(SaveCursor), AgdaRequest(Refine(goal))],
+            goal => [AgdaRequest(Refine(goal))],
             [Error(OutOfGoal)],
           ),
         ),
@@ -88,12 +87,11 @@ module Impl = (Editor: Sig.Editor) => {
       [
         Goal(
           LocalOrGlobal2(
-            (goal, _) => [Goal(SaveCursor), AgdaRequest(Case(goal))],
+            (goal, _) => [AgdaRequest(Case(goal))],
             goal =>
               query(header, placeholder, None, expr =>
                 [
                   Goal(Modify(goal, _ => expr)), // place the queried expression in the goal
-                  Goal(SaveCursor),
                   AgdaRequest(Case(goal)),
                 ]
               ),
@@ -258,14 +256,10 @@ module Impl = (Editor: Sig.Editor) => {
       | Initialized => []
       | Destroyed => [Destroy]
       | InputMethod(InsertChar(char)) => [
-          Goal(SaveCursor),
           DispatchCommand(InputMethod(InsertChar(char))),
-          Goal(RestoreCursor),
         ]
       | InputMethod(ChooseSymbol(symbol)) => [
-          Goal(SaveCursor),
           DispatchCommand(InputMethod(ChooseSymbol(symbol))),
-          Goal(RestoreCursor),
         ]
       }
     | Escape => [ViewEvent(InterruptQuery)]

@@ -231,7 +231,11 @@ module Impl = (Editor: Sig.Editor) => {
     if (nonBlocking(command)) {
       addToTheBackCritical(self, [DispatchCommand(command)]);
     } else {
-      addToTheBackBlocking(self, [DispatchCommand(command)]);
+      // `SaveCursor` before and `RestoreCursor` after `DispatchCommand(command)`
+      addToTheBackBlocking(
+        self,
+        [Goal(SaveCursor), DispatchCommand(command), Goal(RestoreCursor)],
+      );
     };
   };
 

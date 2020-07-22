@@ -11,7 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
     mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
-    mutable cursor: option(int),
+    mutable cursor: option(Editor.Point.t),
     inputMethod: InputMethod.t,
     subscriptions: array(Editor.Disposable.t),
     // for self destruction

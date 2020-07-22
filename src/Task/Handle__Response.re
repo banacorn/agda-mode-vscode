@@ -128,10 +128,7 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | InteractionPoints(indices) => [
-        Goal(Instantiate(indices)),
-        Goal(RestoreCursor),
-      ]
+    | InteractionPoints(indices) => [Goal(Instantiate(indices))]
     | GiveAction(index, give) => [
         WithStateP(
           state => {

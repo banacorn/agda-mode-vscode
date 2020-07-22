@@ -13,15 +13,12 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let pointingAt = (~cursor=?, state: State.t): option(Goal.t) => {
-    let cursorOffset =
+    let cursor =
       switch (cursor) {
-      | None =>
-        Editor.offsetAtPoint(
-          state.editor,
-          Editor.getCursorPosition(state.editor),
-        )
+      | None => Editor.getCursorPosition(state.editor)
       | Some(x) => x
       };
+    let cursorOffset = Editor.offsetAtPoint(state.editor, cursor);
     let pointedGoals =
       state.goals
       ->Array.keep(goal =>
@@ -304,32 +301,23 @@ module Impl = (Editor: Sig.Editor) => {
         WithState(
           state => {
             let position = Editor.getCursorPosition(state.editor);
-            let offset = Editor.offsetAtPoint(state.editor, position);
-            state.cursor = Some(offset);
+            state.cursor = Some(position);
           },
         ),
       ]
-    //  if the cursor is pointing at some empty hole
-    //    then move the cursor inside the empty hole
+    //  if the cursor is pointing at some hole
+    //    then move the cursor inside the hole
     //    else restore the cursor to its original position (if there's any)
     | RestoreCursor => [
         WithState(
           state => {
             switch (state.cursor) {
             | None => ()
-            | Some(offset) =>
+            | Some(position) =>
               state.cursor = None;
-
-              let position = Editor.pointAtOffset(state.editor, offset);
-
-              let pointedGoal = pointingAt(~cursor=offset, state);
+              let pointedGoal = pointingAt(~cursor=position, state);
               switch (pointedGoal) {
-              | Some(goal) =>
-                if (Goal.getContent(goal, state.editor) == "") {
-                  Goal.setCursor(goal, state.editor);
-                } else {
-                  Editor.setCursorPosition(state.editor, position);
-                }
+              | Some(goal) => Goal.setCursor(goal, state.editor)
               | None =>
                 Editor.setCursorPosition(state.editor, position);
                 // put the focus back on the editor
