@@ -7,7 +7,7 @@ let make =
       ~onEventFromView: Event.t(View.EventFromView.t),
     ) => {
   let (header, setHeader) =
-    React.useState(() => View.Header.Plain("Loading ..."));
+    React.useState(() => View.Header.Plain("File not loaded yet"));
   let (body, setBody) = React.useState(() => View.Body.Nothing);
   let (inputMethodState, runInputMethodAction) =
     React.useReducer(Keyboard.reducer, None);

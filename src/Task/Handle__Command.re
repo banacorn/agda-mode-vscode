@@ -10,6 +10,7 @@ module Impl = (Editor: Sig.Editor) => {
     let header = Command.toString(command);
     switch (command) {
     | Load => [
+        display("Loading ...", None),
         Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),

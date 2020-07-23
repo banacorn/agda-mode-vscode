@@ -68,55 +68,35 @@ module Impl = (Editor: Sig.Editor) => {
         name,
         editor => {
           Js.log("[ command ] " ++ name);
-          // special treatments on commands like "Load", "Quit" and "Restart"
-          (
-            switch (command) {
-            | Load =>
-              editor
-              ->Editor.getFileName
-              ->Option.forEach(fileName => {
+          editor
+          ->Editor.getFileName
+          ->Option.forEach(fileName => {
+              // Commands like "Load", "InputMethod", "Quit", and "Restart" act on the Registry
+              (
+                switch (command) {
+                | Load
+                | InputMethod(Activate) =>
                   switch (Registry.get(fileName)) {
                   | None => makeAndAddToRegistry(editor, fileName)
                   | Some(_) =>
                     // already in the Registry, do nothing
                     ()
-                  }
-                });
-              Promise.resolved();
-            | InputMethod(Activate) =>
-              editor
-              ->Editor.getFileName
-              ->Option.forEach(fileName => {
-                  switch (Registry.get(fileName)) {
-                  | None => makeAndAddToRegistry(editor, fileName)
-                  | Some(_) =>
-                    // already in the Registry, do nothing
-                    ()
-                  }
-                });
-              Promise.resolved();
-            | Quit =>
-              editor
-              ->Editor.getFileName
-              ->Option.mapWithDefault(Promise.resolved(), fileName => {
-                  Registry.forceDestroy(fileName)
-                })
-            | Restart =>
-              editor
-              ->Editor.getFileName
-              ->Option.mapWithDefault(Promise.resolved(), fileName => {
+                  };
+                  Promise.resolved();
+                | Quit => Registry.forceDestroy(fileName)
+                | Restart =>
                   Registry.destroy(fileName)
                   ->Promise.map(() => makeAndAddToRegistry(editor, fileName))
-                })
-            | _ => Promise.resolved()
-            }
-          )
-          ->Promise.get(() => {
-              // dispatch Tasks
-              editor
-              ->Registry.getByEditor
-              ->Option.forEach(dispatcher => {
-                  Dispatcher.dispatchCommand(dispatcher, command)->ignore
+                | _ => Promise.resolved()
+                }
+              )
+              ->Promise.get(() => {
+                  // dispatch Tasks
+                  fileName
+                  ->Registry.get
+                  ->Option.forEach(dispatcher => {
+                      Dispatcher.dispatchCommand(dispatcher, command)->ignore
+                    })
                 })
             });
         },
