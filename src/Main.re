@@ -49,7 +49,19 @@ module Impl = (Editor: Sig.Editor) => {
         });
     })
     ->Editor.addToSubscriptions(context);
-    Editor.getExtensionPath(context)->Js.log;
+
+    // helper function for initializing a Dispatcher
+    let extentionPath = Editor.getExtensionPath(context);
+    let makeAndAddToRegistry = (editor, fileName) => {
+      // not in the Registry, instantiate a Dispatcher
+      let dispatcher =
+        Dispatcher.make(extentionPath, editor, () => {
+          Registry.forceDestroy(fileName)->ignore
+        });
+      // add this dispatcher to the Registry
+      Registry.add(fileName, dispatcher);
+    };
+
     // on trigger command
     Command.names->Array.forEach(((command, name)) => {
       Editor.registerCommand(
@@ -64,15 +76,19 @@ module Impl = (Editor: Sig.Editor) => {
               ->Editor.getFileName
               ->Option.forEach(fileName => {
                   switch (Registry.get(fileName)) {
-                  | None =>
-                    let extentionPath = Editor.getExtensionPath(context);
-                    // not in the Registry, instantiate a Dispatcher
-                    let dispatcher =
-                      Dispatcher.make(extentionPath, editor, () => {
-                        Registry.forceDestroy(fileName)->ignore
-                      });
-                    // add this dispatcher to the Registry
-                    Registry.add(fileName, dispatcher);
+                  | None => makeAndAddToRegistry(editor, fileName)
+                  | Some(_) =>
+                    // already in the Registry, do nothing
+                    ()
+                  }
+                });
+              Promise.resolved();
+            | InputMethod(Activate) =>
+              editor
+              ->Editor.getFileName
+              ->Option.forEach(fileName => {
+                  switch (Registry.get(fileName)) {
+                  | None => makeAndAddToRegistry(editor, fileName)
                   | Some(_) =>
                     // already in the Registry, do nothing
                     ()
@@ -90,16 +106,7 @@ module Impl = (Editor: Sig.Editor) => {
               ->Editor.getFileName
               ->Option.mapWithDefault(Promise.resolved(), fileName => {
                   Registry.destroy(fileName)
-                  ->Promise.map(() => {
-                      let extentionPath = Editor.getExtensionPath(context);
-                      // not in the Registry, instantiate a Dispatcher
-                      let dispatcher =
-                        Dispatcher.make(extentionPath, editor, () => {
-                          Registry.forceDestroy(fileName)->ignore
-                        });
-                      // add this dispatcher to the Registry
-                      Registry.add(fileName, dispatcher);
-                    })
+                  ->Promise.map(() => makeAndAddToRegistry(editor, fileName))
                 })
             | _ => Promise.resolved()
             }

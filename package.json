@@ -11,7 +11,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:agda-mode.load"
+		"onCommand:agda-mode.load",
+		"onCommand:agda-mode.input-symbol[Activate]"
 	],
 	"main": "./dist/app.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
@@ -238,8 +239,8 @@
 				"title": "Agda: Escape"
 			},
 			{
-				"command": "agda-mode.input-symbol",
-				"title": "Agda: Input symbol"
+				"command": "agda-mode.input-symbol[Activate]",
+				"title": "Agda: Activate input method"
 			}
 		],
 		"keybindings": [
@@ -247,6 +248,16 @@
 				"command": "agda-mode.load",
 				"key": "ctrl+c ctrl+l",
 				"mac": "ctrl+c ctrl+l",
+				"when": "editorLangId == agda"
+			},
+			{
+				"command": "agda-mode.input-symbol[Activate]",
+				"key": "\\",
+				"when": "editorLangId == agda"
+			},
+			{
+				"command": "agda-mode.input-symbol[Activate]",
+				"key": "[Backslash]",
 				"when": "editorLangId == agda"
 			},
 			{
@@ -584,16 +595,6 @@
 				"command": "agda-mode.input-symbol[InsertOpenParenthesis]",
 				"key": "shift+9",
 				"when": "agdaMode && agdaModeTyping"
-			},
-			{
-				"command": "agda-mode.input-symbol[Activate]",
-				"key": "\\",
-				"when": "agdaMode"
-			},
-			{
-				"command": "agda-mode.input-symbol[Activate]",
-				"key": "[Backslash]",
-				"when": "agdaMode"
 			}
 		],
 		"configuration": {
