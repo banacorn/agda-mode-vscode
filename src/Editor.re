@@ -98,24 +98,12 @@ let onDidChangeActivation = callback => {
   );
 };
 
-// if end with '.agda' or '.lagda'
-let isAgda = (filepath): bool => {
-  let filepath = filepath->Parser.filepath;
-  Js.Re.test_([%re "/\\.agda$|\\.lagda/i"], filepath);
-};
-
 let registerCommand = (name, callback) =>
-  Commands.registerCommand("agda-mode." ++ name, () => {
-    Window.activeTextEditor->Option.forEach(editor => {
-      editor
-      ->getFileName
-      ->Option.forEach(fileName =>
-          if (isAgda(fileName)) {
-            callback(editor);
-          }
-        )
-    })
-  });
+  Commands.registerCommand("agda-mode." ++ name, () =>
+    Window.activeTextEditor->Option.flatMap(editor =>
+      editor->getFileName->Option.map(fileName => callback(editor, fileName))
+    )
+  );
 
 let setContext = Commands.setContext;
 

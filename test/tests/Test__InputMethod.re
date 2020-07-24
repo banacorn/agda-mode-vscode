@@ -34,9 +34,9 @@ describe_only("InputMethod", () => {
                   "agda-mode.input-symbol[Activate]",
                 )
               )
+            ->Promise.flatMap(result => result)
             ->Promise.flatMap(() => {
                 let pos = Editor.getCursorPosition(editor);
-                Js.log(pos);
                 editor->Editor.insertText(pos, "l");
               })
             ->Promise.flatMap(_ => wait(1000))

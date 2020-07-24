@@ -5,6 +5,12 @@ module Impl = (Editor: Sig.Editor) => {
   module Dispatcher = Dispatcher.Impl(Editor);
   open Belt;
 
+  // if end with '.agda' or '.lagda'
+  let isAgda = (filepath): bool => {
+    let filepath = filepath->Parser.filepath;
+    Js.Re.test_([%re "/\\.agda$|\\.lagda/i"], filepath);
+  };
+
   let activate = context => {
     Js.log("[ extention ] activate");
     // when a TextEditor gets closed, destroy the corresponding State
@@ -17,7 +23,7 @@ module Impl = (Editor: Sig.Editor) => {
       oldName->Option.forEach(oldName =>
         newName->Option.forEach(newName =>
           if (Registry.contains(oldName)) {
-            if (Editor.isAgda(newName)) {
+            if (isAgda(newName)) {
               Registry.rename(oldName, newName);
             } else {
               Registry.forceDestroy(oldName)->ignore;
@@ -64,42 +70,39 @@ module Impl = (Editor: Sig.Editor) => {
 
     // on trigger command
     Command.names->Array.forEach(((command, name)) => {
-      Editor.registerCommand(
-        name,
-        editor => {
+      Editor.registerCommand(name, (editor, fileName) =>
+        if (isAgda(fileName)) {
           Js.log("[ command ] " ++ name);
-          editor
-          ->Editor.getFileName
-          ->Option.forEach(fileName => {
-              // Commands like "Load", "InputMethod", "Quit", and "Restart" act on the Registry
-              (
-                switch (command) {
-                | Load
-                | InputMethod(Activate) =>
-                  switch (Registry.get(fileName)) {
-                  | None => makeAndAddToRegistry(editor, fileName)
-                  | Some(_) =>
-                    // already in the Registry, do nothing
-                    ()
-                  };
-                  Promise.resolved();
-                | Quit => Registry.forceDestroy(fileName)
-                | Restart =>
-                  Registry.destroy(fileName)
-                  ->Promise.map(() => makeAndAddToRegistry(editor, fileName))
-                | _ => Promise.resolved()
-                }
-              )
-              ->Promise.get(() => {
-                  // dispatch Tasks
-                  fileName
-                  ->Registry.get
-                  ->Option.forEach(dispatcher => {
-                      Dispatcher.dispatchCommand(dispatcher, command)->ignore
-                    })
-                })
+          // Commands like "Load", "InputMethod", "Quit", and "Restart" act on the Registry
+          (
+            switch (command) {
+            | Load
+            | InputMethod(Activate) =>
+              switch (Registry.get(fileName)) {
+              | None => makeAndAddToRegistry(editor, fileName)
+              | Some(_) =>
+                // already in the Registry, do nothing
+                ()
+              };
+              Promise.resolved();
+            | Quit => Registry.forceDestroy(fileName)
+            | Restart =>
+              Registry.destroy(fileName)
+              ->Promise.map(() => makeAndAddToRegistry(editor, fileName))
+            | _ => Promise.resolved()
+            }
+          )
+          ->Promise.flatMap(() => {
+              // dispatch Tasks
+              switch (Registry.get(fileName)) {
+              | None => Promise.resolved()
+              | Some(dispatcher) =>
+                Dispatcher.dispatchCommand(dispatcher, command)
+              }
             });
-        },
+        } else {
+          Promise.resolved();
+        }
       )
       ->Editor.addToSubscriptions(context)
     });

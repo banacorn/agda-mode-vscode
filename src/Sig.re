@@ -50,7 +50,6 @@ module type Editor = {
   let getExtensionPath: context => fileName;
   let getFileName: editor => option(fileName);
   let save: editor => Promise.t(bool);
-  let isAgda: fileName => bool;
 
   // Events
   let onDidChangeFileName:
@@ -58,7 +57,7 @@ module type Editor = {
   let onDidChangeActivation:
     ((option(editor), option(editor)) => unit) => Disposable.t;
   let onDidCloseEditor: (fileName => unit) => Disposable.t;
-  let registerCommand: (string, editor => unit) => Disposable.t;
+  let registerCommand: (string, (editor, fileName) => 'a) => Disposable.t;
   let setContext: (string, bool) => Promise.t(unit);
 
   // Subscriptions

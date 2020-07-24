@@ -136,7 +136,7 @@ module Commands = {
   external getCommands: option(bool) => Promise.t(array(string)) =
     "getCommands";
   [@bs.module "vscode"] [@bs.scope "commands"]
-  external registerCommand: (string, 'a => unit) => Disposable.t =
+  external registerCommand: (string, unit => 'a) => Disposable.t =
     "registerCommand";
 };
 
