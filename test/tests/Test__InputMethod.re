@@ -29,18 +29,18 @@ describe_only("InputMethod", () => {
         ->Promise.flatMap(editor => {
             extension
             ->VSCode.Extension.activate
-            ->Promise.flatMap(_ =>
+            ->Promise.flatMap((emitter: Event.t(unit)) => {
                 VSCode.Commands.executeCommand0(
                   "agda-mode.input-symbol[Activate]",
                 )
-              )
-            ->Promise.flatMap(result => result)
-            ->Promise.flatMap(() => {
-                let pos = Editor.getCursorPosition(editor);
-                editor->Editor.insertText(pos, "l");
+                ->Promise.flatMap(result => result)
+                ->Promise.flatMap(() => {
+                    let pos = Editor.getCursorPosition(editor);
+                    editor->Editor.insertText(pos, "l");
+                  })
+                ->Promise.flatMap(_ => emitter.once())
+                ->Promise.map(_ => {Js.log(Editor.getText(editor))})
               })
-            ->Promise.flatMap(_ => wait(1000))
-            ->Promise.map(_ => {Js.log(Editor.getText(editor))})
           })
       }
     )

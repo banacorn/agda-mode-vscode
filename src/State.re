@@ -70,7 +70,7 @@ module Impl = (Editor: Sig.Editor) => {
     state->disconnect;
   };
 
-  let make = (extentionPath, editor) => {
+  let make = (extentionPath, debugEventEmitter, editor) => {
     setLoaded(true);
     // view initialization
     let view = Editor.View.make(extentionPath, editor);
@@ -82,7 +82,7 @@ module Impl = (Editor: Sig.Editor) => {
       goals: [||],
       decorations: [||],
       cursor: None,
-      inputMethod: InputMethod.make(),
+      inputMethod: InputMethod.make(debugEventEmitter),
       subscriptions: [||],
       onRemoveFromRegistry: Event.make(),
     };
