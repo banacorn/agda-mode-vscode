@@ -11,33 +11,14 @@ data ℕ : Set where
   S : ℕ → ?
 |j};
 
-// let openTextEditor = content =>
-//   Workspace.openTextDocumentWithOptions(
-//     Some({"content": content, "language": "agda"}),
-//   )
-//   ->Promise.flatMap(textDocument =>
-//       Window.showTextDocumentWithShowOptions(textDocument, None)
-//     );
 let dirname: option(string) = [%bs.node __dirname];
 let dirname = dirname->Option.getWithDefault("./");
-
-// let openAsset = path => {
-//   let fileUri = VSCode.Uri.file(Path.asset(path));
-//   VSCode.Commands.executeCommand1("vscode.open", fileUri)
-//   ->Promise.map(() => VSCode.Window.activeTextEditor);
-// };
 
 let openTextEditor = path => {
   VSCode.Workspace.openTextDocumentWithFileName(path)
   ->Promise.flatMap(textDocument =>
       Window.showTextDocumentWithShowOptions(textDocument, None)
     );
-};
-
-let wait = ms => {
-  let (promise, resolve) = Promise.pending();
-  Js.Global.setTimeout(resolve, ms)->ignore;
-  promise;
 };
 
 describe_skip("Extention Activation", () => {

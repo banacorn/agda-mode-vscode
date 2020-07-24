@@ -34,9 +34,16 @@ module Path = {
   };
 
   let asset = filepath => {
-    Js.log(extensionPath());
     Node.Path.join([|extensionPath(), "test/tests/assets", filepath|]);
   };
+};
+
+let getExtension = () => VSCode.Extensions.getExtension("banacorn.agda-mode");
+
+let wait = ms => {
+  let (promise, resolve) = Promise.pending();
+  Js.Global.setTimeout(resolve, ms)->ignore;
+  promise;
 };
 
 module Strings = {
