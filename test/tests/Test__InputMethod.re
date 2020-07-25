@@ -42,8 +42,9 @@ let cleanup = editor => {
   // ->Promise.flatMap(result => result);
 };
 
-let deactivateInputhMethod = (emitter, editor) =>
-  insertChar(emitter, editor, " ");
+let deactivateInputhMethod = () =>
+  VSCode.Commands.executeCommand0("agda-mode.escape")
+  ->Promise.flatMap(result => result);
 
 describe_only("InputMethod", () => {
   let prep = ref(None);
@@ -90,24 +91,26 @@ describe_only("InputMethod", () => {
           )
         ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
         ->Promise.tap(() => Assert.equal(Editor.getText(editor), {j|λ|j}))
-        ->Promise.flatMap(() => deactivateInputhMethod(emitter, editor))
+        ->Promise.tap(() => Js.log("before deactivateInputhMethod"))
+        ->Promise.flatMap(deactivateInputhMethod)
+        ->Promise.tap(() => Js.log("after deactivateInputhMethod"))
         ->Promise.Js.toBsPromise
       )
   });
-  // P.it({j|should translate "bn" to "𝕟"|j}, () => {
-  //   (prep^)
-  //   ->Option.mapWithDefault(
-  //       Promise.resolved()->Promise.Js.toBsPromise, ((editor, emitter)) => {
-  //       activateInputhMethod()
-  //       ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
-  //       ->Promise.flatMap(() => insertChar(emitter, editor, "n"))
-  //       ->Promise.map(_ => {
-  //           Assert.equal(Editor.getText(editor), {j|𝕟|j})
-  //         })
-  //       ->Promise.tap(() => Js.log("before deactivateInputhMethod"))
-  //       // ->Promise.flatMap(() => deactivateInputhMethod(emitter, editor))
-  //       ->Promise.tap(() => Js.log("deactivateInputhMethod"))
-  //       ->Promise.Js.toBsPromise
-  //     })
-  // });
+  P.it({j|should translate "bn" to "𝕟"|j}, () => {
+    (prep^)
+    ->Option.mapWithDefault(
+        Promise.resolved()->Promise.Js.toBsPromise, ((editor, emitter)) => {
+        activateInputhMethod()
+        ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
+        ->Promise.flatMap(() => insertChar(emitter, editor, "n"))
+        ->Promise.map(_ => {
+            Assert.equal(Editor.getText(editor), {j|𝕟|j})
+          })
+        ->Promise.tap(() => Js.log("before deactivateInputhMethod"))
+        ->Promise.flatMap(deactivateInputhMethod)
+        ->Promise.tap(() => Js.log("deactivateInputhMethod"))
+        ->Promise.Js.toBsPromise
+      })
+  });
 });

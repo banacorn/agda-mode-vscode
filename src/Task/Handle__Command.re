@@ -263,7 +263,19 @@ module Impl = (Editor: Sig.Editor) => {
           DispatchCommand(InputMethod(ChooseSymbol(symbol))),
         ]
       }
-    | Escape => [ViewEvent(InterruptQuery)]
+    | Escape => [
+        WithStateP(
+          state => {
+            Promise.resolved(
+              if (state.inputMethod.activated) {
+                [DispatchCommand(InputMethod(Deactivate))];
+              } else {
+                [ViewEvent(InterruptQuery)];
+              },
+            )
+          },
+        ),
+      ]
     | InputMethod(action) => InputMethodHandler.handle(action)
     };
   };
