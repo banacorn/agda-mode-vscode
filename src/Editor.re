@@ -410,7 +410,7 @@ let selectText = (editor, range) => {
   let selection = Selection.make(start, end_);
   editor->TextEditor.setSelection(selection);
 };
-let setText = (editor, range, text) => {
+let replaceText = (editor, range, text) => {
   let workspaceEdit = WorkspaceEdit.make();
   workspaceEdit->WorkspaceEdit.replace(
     editor->TextEditor.document->TextDocument.uri,
@@ -427,6 +427,15 @@ let insertText = (editor, point, text) => {
     point,
     text,
     None,
+  );
+  Workspace.applyEdit(workspaceEdit);
+};
+let insertTexts = (editor, points, text) => {
+  let workspaceEdit = WorkspaceEdit.make();
+  let textEdits = points->Array.map(point => TextEdit.insert(point, text));
+  workspaceEdit->WorkspaceEdit.set(
+    editor->TextEditor.document->TextDocument.uri,
+    textEdits,
   );
   Workspace.applyEdit(workspaceEdit);
 };

@@ -126,8 +126,9 @@ module type Editor = {
   let getText: editor => string;
   let getTextInRange: (editor, Range.t) => string;
   let selectText: (editor, Range.t) => unit;
-  let setText: (editor, Range.t, string) => Promise.t(bool);
+  let replaceText: (editor, Range.t, string) => Promise.t(bool);
   let insertText: (editor, Point.t, string) => Promise.t(bool);
+  let insertTexts: (editor, array(Point.t), string) => Promise.t(bool);
   let deleteText: (editor, Range.t) => Promise.t(bool);
 
   type changeEvent = {

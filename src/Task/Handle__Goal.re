@@ -347,7 +347,7 @@ module Impl = (Editor: Sig.Editor) => {
               );
             let content =
               Editor.getTextInRange(state.editor, innerRange)->String.trim;
-            Editor.setText(state.editor, outerRange, content)
+            Editor.replaceText(state.editor, outerRange, content)
             ->Promise.map(
                 fun
                 | true => {
@@ -393,7 +393,7 @@ module Impl = (Editor: Sig.Editor) => {
             // Js.log("[rangeToBeReplaced]");
             // Js.log(rangeToBeReplaced);
             // Js.log("=================");
-            Editor.setText(state.editor, rangeToBeReplaced, indentedLines)
+            Editor.replaceText(state.editor, rangeToBeReplaced, indentedLines)
             ->Promise.map(
                 fun
                 | true => {
@@ -447,7 +447,7 @@ module Impl = (Editor: Sig.Editor) => {
                 Editor.pointAtOffset(state.editor, fst(rewriteRange)),
                 Editor.pointAtOffset(state.editor, snd(rewriteRange)),
               );
-            Editor.setText(state.editor, rewriteRange, rewriteText)
+            Editor.replaceText(state.editor, rewriteRange, rewriteText)
             ->Promise.map(
                 fun
                 | true => {

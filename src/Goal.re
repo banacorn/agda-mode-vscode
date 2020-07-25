@@ -39,7 +39,7 @@ module Impl = (Editor: Sig.Editor) => {
           Editor.pointAtOffset(editor, fst(diff.originalRange)),
           Editor.pointAtOffset(editor, snd(diff.originalRange)),
         );
-      Editor.setText(editor, originalRange, diff.content)
+      Editor.replaceText(editor, originalRange, diff.content)
       ->Promise.map(_ => {
           let (decorationBackground, decorationIndex) =
             Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
@@ -101,7 +101,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let setContent = (self, editor, text) => {
     let innerRange = getInnerRange(self, editor);
-    Editor.setText(editor, innerRange, " " ++ text ++ " ");
+    Editor.replaceText(editor, innerRange, " " ++ text ++ " ");
   };
 
   let setCursor = (self, editor) => {

@@ -1524,13 +1524,13 @@ module WorkspaceEditEntryMetadata = {
 module TextEdit = {
   type t;
 
-  // methods
-  [@bs.send] external delete: (t, Range.t) => unit = "delete";
-  [@bs.send] external insert: (t, Position.t, string) => unit = "insert";
-  [@bs.send] external replace: (t, Range.t, string) => unit = "replace";
-  [@bs.send] external setEndOfLine_raw: (t, int) => unit = "setEndOfLine";
-  let setEndOfLine = (self: t, eol: EndOfLine.t): unit =>
-    setEndOfLine_raw(self, EndOfLine.toEnum(eol));
+  // statics
+  [@bs.val] external delete: Range.t => t = "delete";
+  [@bs.val] external insert: (Position.t, string) => t = "insert";
+  [@bs.val] external replace: (Range.t, string) => t = "replace";
+  [@bs.val] external setEndOfLine_raw: int => t = "setEndOfLine";
+  let setEndOfLine = (eol: EndOfLine.t): t =>
+    setEndOfLine_raw(EndOfLine.toEnum(eol));
 
   // constructors
   [@bs.module "vscode"] [@bs.new]

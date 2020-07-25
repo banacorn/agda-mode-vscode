@@ -25,7 +25,7 @@ let activateExtension =
 let cleanup = editor => {
   let range =
     Editor.Range.make(Editor.Point.make(0, 0), Editor.Point.make(100, 0));
-  editor->Editor.setText(range, "")->Promise.map(_ => ());
+  editor->Editor.replaceText(range, "")->Promise.map(_ => ());
 };
 
 let insertChar = (emitter: Event.t(unit), editor, char) => {

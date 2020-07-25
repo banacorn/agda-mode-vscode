@@ -20,7 +20,7 @@ module Impl = (Editor: Sig.Editor) => {
               // let offsets =
               //   Editor.getSelectionRanges(state.editor)
               //   ->Array.map(range => {
-              //       let _ = Editor.setText(state.editor, range, "");
+              //       let _ = Editor.replaceText(state.editor, range, "");
               //       ();
               //     });
 
