@@ -1,6 +1,5 @@
 open! BsMocha.Mocha;
 module Assert = BsMocha.Assert;
-module P = BsMocha.Promise;
 // open VSCode;
 open! Belt;
 
@@ -23,10 +22,24 @@ let activateExtension =
       })
   };
 
+let cleanup = editor => {
+  let range =
+    Editor.Range.make(Editor.Point.make(0, 0), Editor.Point.make(100, 0));
+  editor->Editor.setText(range, "")->Promise.map(_ => ());
+};
+
 let insertChar = (emitter: Event.t(unit), editor, char) => {
   let promise = emitter.once();
   let pos = Editor.getCursorPosition(editor);
   editor->Editor.insertText(pos, char)->Promise.flatMap(_ => promise);
+};
+
+let backspace = (emitter: Event.t(unit), editor) => {
+  let promise = emitter.once();
+  let end_ = Editor.getCursorPosition(editor);
+  let start = end_->Editor.Point.translate(0, -1);
+  let range = Editor.Range.make(start, end_);
+  editor->Editor.deleteText(range)->Promise.flatMap(_ => promise);
 };
 
 let activateInputhMethod = () => {
@@ -34,83 +47,107 @@ let activateInputhMethod = () => {
   ->Promise.flatMap(result => result);
 };
 
-let cleanup = editor => {
-  let range =
-    Editor.Range.make(Editor.Point.make(0, 0), Editor.Point.make(100, 0));
-  editor->Editor.setText(range, "")->Promise.map(_ => ());
-  // ->Promise.flatMap(_ => {VSCode.Commands.executeCommand0("agda-mode.quit")})
-  // ->Promise.flatMap(result => result);
-};
-
 let deactivateInputhMethod = () =>
   VSCode.Commands.executeCommand0("agda-mode.escape")
   ->Promise.flatMap(result => result);
 
 describe_only("InputMethod", () => {
-  let prep = ref(None);
-  P.before(() => {
+  let env = ref(None);
+  Q.before(() => {
     activateExtension(Path.asset("InputMethod.agda"))
     ->Promise.map(
         fun
         | None => BsMocha.Assert.fail("cannot acquire the extension")
         | Some((editor, emitter)) => {
-            prep := Some((editor, emitter));
+            env := Some((editor, emitter));
           },
       )
-    ->Promise.Js.toBsPromise
   });
 
-  P.after_each(() => {
-    (prep^)
-    ->Option.mapWithDefault(
-        Promise.resolved()->Promise.Js.toBsPromise, ((editor, _)) =>
-        cleanup(editor)->Promise.Js.toBsPromise
+  Q.after_each(() => {
+    (env^)
+    ->Option.mapWithDefault(Promise.resolved(), ((editor, _)) =>
+        cleanup(editor)
       )
   });
 
-  P.it({j|should translate "lambda" to "λ"|j}, () => {
-    (prep^)
-    ->Option.mapWithDefault(
-        Promise.resolved()->Promise.Js.toBsPromise, ((editor, emitter)) =>
-        activateInputhMethod()
-        ->Promise.flatMap(() => insertChar(emitter, editor, "l"))
-        ->Promise.tap(() => Assert.equal(Editor.getText(editor), {j|←|j}))
-        ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
-        ->Promise.tap(() => Assert.equal(Editor.getText(editor), {j|←a|j}))
-        ->Promise.flatMap(() => insertChar(emitter, editor, "m"))
-        ->Promise.tap(() =>
-            Assert.equal(Editor.getText(editor), {j|←am|j})
-          )
-        ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
-        ->Promise.tap(() =>
-            Assert.equal(Editor.getText(editor), {j|←amb|j})
-          )
-        ->Promise.flatMap(() => insertChar(emitter, editor, "d"))
-        ->Promise.tap(() =>
-            Assert.equal(Editor.getText(editor), {j|←ambd|j})
-          )
-        ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
-        ->Promise.tap(() => Assert.equal(Editor.getText(editor), {j|λ|j}))
-        ->Promise.tap(() => Js.log("before deactivateInputhMethod"))
-        ->Promise.flatMap(deactivateInputhMethod)
-        ->Promise.tap(() => Js.log("after deactivateInputhMethod"))
-        ->Promise.Js.toBsPromise
-      )
+  describe("Insertion", () => {
+    Q.it({j|should translate "lambda" to "λ"|j}, () => {
+      (env^)
+      ->Option.mapWithDefault(Promise.resolved(), ((editor, emitter)) =>
+          activateInputhMethod()
+          ->Promise.flatMap(() => insertChar(emitter, editor, "l"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←a|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "m"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←am|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←amb|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "d"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←ambd|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
+          ->Promise.tap(() => Assert.equal(Editor.getText(editor), {j|λ|j}))
+          ->Promise.flatMap(deactivateInputhMethod)
+        )
+    });
+    Q.it({j|should translate "bn" to "𝕟"|j}, () => {
+      (env^)
+      ->Option.mapWithDefault(Promise.resolved(), ((editor, emitter)) => {
+          activateInputhMethod()
+          ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
+          ->Promise.flatMap(() => insertChar(emitter, editor, "n"))
+          ->Promise.map(() => {
+              Assert.equal(Editor.getText(editor), {j|𝕟|j})
+            })
+          ->Promise.flatMap(deactivateInputhMethod)
+        })
+    });
   });
-  P.it({j|should translate "bn" to "𝕟"|j}, () => {
-    (prep^)
-    ->Option.mapWithDefault(
-        Promise.resolved()->Promise.Js.toBsPromise, ((editor, emitter)) => {
-        activateInputhMethod()
-        ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
-        ->Promise.flatMap(() => insertChar(emitter, editor, "n"))
-        ->Promise.map(_ => {
-            Assert.equal(Editor.getText(editor), {j|𝕟|j})
-          })
-        ->Promise.tap(() => Js.log("before deactivateInputhMethod"))
-        ->Promise.flatMap(deactivateInputhMethod)
-        ->Promise.tap(() => Js.log("deactivateInputhMethod"))
-        ->Promise.Js.toBsPromise
-      })
+
+  describe("Backspace", () => {
+    Q.it({j|should work just fine|j}, () => {
+      (env^)
+      ->Option.mapWithDefault(Promise.resolved(), ((editor, emitter)) =>
+          activateInputhMethod()
+          ->Promise.flatMap(() => insertChar(emitter, editor, "l"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←a|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "m"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←am|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "b"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←amb|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "d"))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|←ambd|j})
+            )
+          ->Promise.flatMap(() => insertChar(emitter, editor, "a"))
+          ->Promise.tap(() => Assert.equal(Editor.getText(editor), {j|λ|j}))
+          ->Promise.flatMap(() => backspace(emitter, editor))
+          ->Promise.tap(() =>
+              Assert.equal(Editor.getText(editor), {j|lambd|j})
+            )
+          ->Promise.flatMap(deactivateInputhMethod)
+        )
+    })
   });
 });

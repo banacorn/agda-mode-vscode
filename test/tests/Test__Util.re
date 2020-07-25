@@ -51,6 +51,25 @@ let wait = ms => {
   promise;
 };
 
+module Q = {
+  let it = (s, f) => BsMocha.Promise.it(s, () =>
+                        f()->Promise.Js.toBsPromise
+                      );
+
+  let it_only = (s, f) =>
+    BsMocha.Promise.it_only(s, () => f()->Promise.Js.toBsPromise);
+
+  let it_skip = (s, f) =>
+    BsMocha.Promise.it_skip(s, () => f()->Promise.Js.toBsPromise);
+
+  let before = f => BsMocha.Promise.before(() => f()->Promise.Js.toBsPromise);
+  let before_each = f =>
+    BsMocha.Promise.before_each(() => f()->Promise.Js.toBsPromise);
+  let after = f => BsMocha.Promise.after(() => f()->Promise.Js.toBsPromise);
+  let after_each = f =>
+    BsMocha.Promise.after_each(() => f()->Promise.Js.toBsPromise);
+};
+
 module Strings = {
   // trim and replace all occurences of line breaks with "\n"
   let normalize = string =>
