@@ -244,9 +244,9 @@ module Impl = (Editor: Sig.Editor) => {
         extentionPath: string,
         editor: Editor.editor,
         removeFromRegistry: unit => unit,
-        debugEventEmitter: Event.t(unit),
+        eventEmitter: Event.t(unit),
       ) => {
-    let state = State.make(extentionPath, debugEventEmitter, editor);
+    let state = State.make(extentionPath, eventEmitter, editor);
     let dispatcher = {
       state,
       blocking: TaskQueue.make(executeTask(state)),

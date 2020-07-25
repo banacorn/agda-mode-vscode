@@ -67,7 +67,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable busy: bool,
     mutable handles: array(Editor.Disposable.t),
     // for reporting when some stuff has be done
-    debugEventEmitter: Event.t(unit),
+    eventEmitter: Event.t(unit),
   };
 
   // datatype for representing a rewrite to be made to the text editor
@@ -207,7 +207,7 @@ module Impl = (Editor: Sig.Editor) => {
     go(0, List.fromArray(rewrites))
     ->Promise.get(() => {
         // emit event after applied rewriting
-        self.debugEventEmitter.emit();
+        self.eventEmitter.emit();
         // all offsets updated and rewrites applied, reset the semaphore
         self.busy = false;
         // see if there are any pending cursor positions to be checked
@@ -442,13 +442,13 @@ module Impl = (Editor: Sig.Editor) => {
     self.handles = [||];
   };
 
-  let make = debugEventEmitter => {
+  let make = eventEmitter => {
     onAction: Event.make(),
     instances: [||],
     activated: false,
     cursorsToBeChecked: None,
     busy: false,
     handles: [||],
-    debugEventEmitter,
+    eventEmitter,
   };
 };

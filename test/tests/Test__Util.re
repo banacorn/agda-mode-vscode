@@ -38,7 +38,12 @@ module Path = {
   };
 };
 
-let getExtension = () => VSCode.Extensions.getExtension("banacorn.agda-mode");
+let openTextEditor = path => {
+  VSCode.Workspace.openTextDocumentWithFileName(path)
+  ->Promise.flatMap(textDocument =>
+      VSCode.Window.showTextDocumentWithShowOptions(textDocument, None)
+    );
+};
 
 let wait = ms => {
   let (promise, resolve) = Promise.pending();

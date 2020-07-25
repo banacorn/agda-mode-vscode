@@ -14,7 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
   let activate = context => {
     // expose an EventEmitter for testing, emits events when something has been completed,
     // for example, when the input method has translated a key sequence into a symbol
-    let debugEventEmitter = Event.make();
+    let eventEmitter = Event.make();
 
     Js.log("[ extention ] activate");
     // when a TextEditor gets closed, destroy the corresponding State
@@ -69,7 +69,7 @@ module Impl = (Editor: Sig.Editor) => {
           extentionPath,
           editor,
           () => {Registry.forceDestroy(fileName)->ignore},
-          debugEventEmitter,
+          eventEmitter,
         );
       // add this dispatcher to the Registry
       Registry.add(fileName, dispatcher);
@@ -114,7 +114,7 @@ module Impl = (Editor: Sig.Editor) => {
       ->Editor.addToSubscriptions(context)
     });
 
-    debugEventEmitter;
+    eventEmitter;
   };
 
   let deactivate = () => {
