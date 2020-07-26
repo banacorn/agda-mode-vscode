@@ -1525,10 +1525,14 @@ module TextEdit = {
   type t;
 
   // statics
-  [@bs.val] external delete: Range.t => t = "delete";
-  [@bs.val] external insert: (Position.t, string) => t = "insert";
-  [@bs.val] external replace: (Range.t, string) => t = "replace";
-  [@bs.val] external setEndOfLine_raw: int => t = "setEndOfLine";
+  [@bs.module "vscode"] [@bs.scope "TextEdit"]
+  external delete: Range.t => t = "delete";
+  [@bs.module "vscode"] [@bs.scope "TextEdit"]
+  external insert: (Position.t, string) => t = "insert";
+  [@bs.module "vscode"] [@bs.scope "TextEdit"]
+  external replace: (Range.t, string) => t = "replace";
+  [@bs.module "vscode"] [@bs.scope "TextEdit"]
+  external setEndOfLine_raw: int => t = "setEndOfLine";
   let setEndOfLine = (eol: EndOfLine.t): t =>
     setEndOfLine_raw(EndOfLine.toEnum(eol));
 

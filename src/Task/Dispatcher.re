@@ -7,6 +7,7 @@ module Impl = (Editor: Sig.Editor) => {
   module CommandHandler = Handle__Command.Impl(Editor);
   module ResponseHandler = Handle__Response.Impl(Editor);
   module DecorationHandler = Handle__Decoration.Impl(Editor);
+  module InputMethod = InputMethod.Impl(Editor);
   module TaskQueue = TaskQueue.Impl(Editor);
   module Task = Task.Impl(Editor);
   open! Task;
@@ -244,7 +245,7 @@ module Impl = (Editor: Sig.Editor) => {
         extentionPath: string,
         editor: Editor.editor,
         removeFromRegistry: unit => unit,
-        eventEmitter: Event.t(unit),
+        eventEmitter: Event.t(InputMethod.event),
       ) => {
     let state = State.make(extentionPath, eventEmitter, editor);
     let dispatcher = {

@@ -70,6 +70,10 @@ module Q = {
     BsMocha.Promise.after_each(() => f()->Promise.Js.toBsPromise);
 };
 
+module A = {
+  let equal = (expected, actual) => BsMocha.Assert.equal(actual, expected);
+};
+
 module Strings = {
   // trim and replace all occurences of line breaks with "\n"
   let normalize = string =>

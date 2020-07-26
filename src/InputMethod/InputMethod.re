@@ -4,6 +4,11 @@ module Impl = (Editor: Sig.Editor) => {
   // open Command.InputMethodAction;
   module Buffer = Buffer.Impl(Editor);
 
+  type event =
+    | Change
+    | Activate
+    | Deactivate;
+
   let printLog = false;
   let log =
     if (printLog) {
@@ -67,7 +72,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable busy: bool,
     mutable handles: array(Editor.Disposable.t),
     // for reporting when some stuff has be done
-    eventEmitter: Event.t(unit),
+    eventEmitter: Event.t(event),
   };
 
   // datatype for representing a rewrite to be made to the text editor
@@ -206,8 +211,8 @@ module Impl = (Editor: Sig.Editor) => {
     // iterate though the list of rewrites
     go(0, List.fromArray(rewrites))
     ->Promise.get(() => {
-        // emit event after applied rewriting
-        self.eventEmitter.emit();
+        // emit CHANGE event after applied rewriting
+        self.eventEmitter.emit(Change);
         // all offsets updated and rewrites applied, reset the semaphore
         self.busy = false;
         // see if there are any pending cursor positions to be checked
@@ -298,6 +303,8 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let activate = (self, editor, ranges: array((int, int))) => {
+    // emit ACTIVATE event after applied rewriting
+    self.eventEmitter.emit(Activate);
     // setContext
     Editor.setContext("agdaModeTyping", true)->ignore;
 
