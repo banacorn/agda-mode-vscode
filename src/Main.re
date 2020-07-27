@@ -11,20 +11,19 @@ module Impl = (Editor: Sig.Editor) => {
     Js.Re.test_([%re "/\\.agda$|\\.lagda/i"], filepath);
   };
 
-  let activate = context => {
+  // invoked by `activate` below, with parameters for mocking the context when testing the extension
+  let activateWithoutContext = (disposables, extensionPath) => {
     // expose an EventEmitter for testing, emits events when something has been completed,
     // for example, when the input method has translated a key sequence into a symbol
-    Js.log("[ extention ] activate 0");
+    Js.log("[ extention ] activate");
     let eventEmitter = Event.make();
 
-    Js.log("[ extention ] activate 1");
-    Js.log("[ extention ] activate 2");
-    Js.log("[ extention ] activate 3 ");
     // when a TextEditor gets closed, destroy the corresponding State
     Editor.onDidCloseEditor(fileName =>
       Registry.forceDestroy(fileName)->ignore
     )
-    ->Editor.addToSubscriptions(context);
+    ->Js.Array.push(disposables)
+    ->ignore;
     // when a file got renamed, destroy the corresponding State if it becomes something else than Agda file
     Editor.onDidChangeFileName((oldName, newName) =>
       oldName->Option.forEach(oldName =>
@@ -39,7 +38,8 @@ module Impl = (Editor: Sig.Editor) => {
         )
       )
     )
-    ->Editor.addToSubscriptions(context);
+    ->Js.Array.push(disposables)
+    ->ignore;
 
     // on editor activation, reveal the corresponding Panel (if any)
     Editor.onDidChangeActivation((prev, next) => {
@@ -61,15 +61,15 @@ module Impl = (Editor: Sig.Editor) => {
           ->ignore
         });
     })
-    ->Editor.addToSubscriptions(context);
+    ->Js.Array.push(disposables)
+    ->ignore;
 
     // helper function for initializing a Dispatcher
-    let extentionPath = Editor.getExtensionPath(context);
     let makeAndAddToRegistry = (editor, fileName) => {
       // not in the Registry, instantiate a Dispatcher
       let dispatcher =
         Dispatcher.make(
-          extentionPath,
+          extensionPath,
           editor,
           () => {Registry.forceDestroy(fileName)->ignore},
           eventEmitter,
@@ -114,16 +114,19 @@ module Impl = (Editor: Sig.Editor) => {
           Promise.resolved();
         }
       )
-      ->Editor.addToSubscriptions(context)
+      ->Js.Array.push(disposables)
+      ->ignore
     });
-    Js.log("WHY U NO PRINT");
-    Js.Console.error("eventEmitter");
-    Js.Console.error("eventEmitter");
-    Js.Console.error("eventEmitter");
-    Js.Console.error("eventEmitter");
-    Js.Console.error("eventEmitter");
-    Js.Console.error(eventEmitter);
+
+    // for testing
     eventEmitter;
+  };
+
+  // this function is the entry point of the whole extension
+  let activate = context => {
+    let disposables = Editor.getDisposables(context);
+    let extensionPath = Editor.getExtensionPath(context);
+    activateWithoutContext(disposables, extensionPath);
   };
 
   let deactivate = () => {

@@ -4,17 +4,6 @@ open Js.Promise;
 
 exception Exn(string);
 
-// module Assert = {
-//   let equal = (~message=?, expected, actual) =>
-//     BsMocha.Assert.equal(~message?, actual, expected);
-//   let yes = equal(true);
-//   let no = equal(false);
-//   let fail = BsMocha.Assert.fail;
-//   let ok = _ => BsMocha.Assert.ok(true);
-//   // let not_equal = (~message=?, expected, actual) =>
-//   //   Assert.not_equal(~message?, actual, expected);
-// };
-
 module Path = {
   let toAbsolute = filepath => {
     let dirname: option(string) = [%bs.node __dirname];

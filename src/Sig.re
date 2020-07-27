@@ -61,7 +61,7 @@ module type Editor = {
   let setContext: (string, bool) => Promise.t(unit);
 
   // Subscriptions
-  let addToSubscriptions: (Disposable.t, context) => unit;
+  let getDisposables: context => array(Disposable.t);
 
   module Config: {
     // Agda path

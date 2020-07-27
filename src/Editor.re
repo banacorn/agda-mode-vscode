@@ -62,8 +62,8 @@ let getEditor = fileName =>
 
 let save = editor => editor->TextEditor.document->TextDocument.save;
 
-let addToSubscriptions = (disposable, context) =>
-  disposable->Js.Array.push(context->ExtensionContext.subscriptions)->ignore;
+let getDisposables = context => context->ExtensionContext.subscriptions;
+
 // let onOpenEditor = callback => Workspace.onDidRenameFiles(event => ());
 // when the editor got closed
 let onDidCloseEditor = callback =>
