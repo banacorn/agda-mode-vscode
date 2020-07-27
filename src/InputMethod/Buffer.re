@@ -96,13 +96,6 @@ module Impl = (Editor: Sig.Editor) => {
         Js.String.substring(~from=0, ~to_=insertStart, sequence);
       let afterInsertedText =
         Js.String.substringToEnd(~from=insertEnd, sequence);
-      // Js.log(
-      //   beforeInsertedText
-      //   ++ "["
-      //   ++ change.insertText
-      //   ++ "]"
-      //   ++ afterInsertedText,
-      // );
       beforeInsertedText ++ change.insertText ++ afterInsertedText;
     };
 

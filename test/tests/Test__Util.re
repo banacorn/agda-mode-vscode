@@ -52,9 +52,16 @@ let wait = ms => {
 };
 
 module Q = {
-  let it = (s, f) => BsMocha.Promise.it(s, () =>
-                        f()->Promise.Js.toBsPromise
-                      );
+  let it = (s, f) =>
+    BsMocha.Promise.it(s, () =>
+      f()
+      ->Promise.map(
+          fun
+          | Error(error) => BsMocha.Assert.fail(error)
+          | Ok(_) => (),
+        )
+      ->Promise.Js.toBsPromise
+    );
 
   let it_only = (s, f) =>
     BsMocha.Promise.it_only(s, () => f()->Promise.Js.toBsPromise);

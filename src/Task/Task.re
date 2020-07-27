@@ -65,7 +65,6 @@ module Impl = (Editor: Sig.Editor) => {
         // focus on the panel before inquiring
         Editor.setContext("agdaModeQuerying", true)->ignore;
         state.view->Editor.View.focus;
-        Js.log("focus in");
       },
     ),
     ViewRequest(
@@ -85,7 +84,6 @@ module Impl = (Editor: Sig.Editor) => {
                 // put the focus back to the editor after inquiring
                 Editor.setContext("agdaModeQuerying", false)->ignore;
                 state.editor->Editor.focus;
-                Js.log("focus back");
               },
             ),
           ],

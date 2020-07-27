@@ -216,7 +216,6 @@ let make = (extensionPath, editor) => {
     | Event(Initialized) => {
         switch (view.status) {
         | Uninitialized(queuedRequests, queuedEvents) =>
-          Js.log("[ view ] [ initialized ]");
           view.status = Initialized;
           queuedRequests->Belt.Array.forEach(((req, resolve)) =>
             send(view, View.RequestOrEventToView.Request(req))

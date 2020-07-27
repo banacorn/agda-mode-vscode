@@ -14,9 +14,12 @@ module Impl = (Editor: Sig.Editor) => {
   let activate = context => {
     // expose an EventEmitter for testing, emits events when something has been completed,
     // for example, when the input method has translated a key sequence into a symbol
+    Js.log("[ extention ] activate 0");
     let eventEmitter = Event.make();
 
-    Js.log("[ extention ] activate");
+    Js.log("[ extention ] activate 1");
+    Js.log("[ extention ] activate 2");
+    Js.log("[ extention ] activate 3 ");
     // when a TextEditor gets closed, destroy the corresponding State
     Editor.onDidCloseEditor(fileName =>
       Registry.forceDestroy(fileName)->ignore
@@ -113,7 +116,13 @@ module Impl = (Editor: Sig.Editor) => {
       )
       ->Editor.addToSubscriptions(context)
     });
-
+    Js.log("WHY U NO PRINT");
+    Js.Console.error("eventEmitter");
+    Js.Console.error("eventEmitter");
+    Js.Console.error("eventEmitter");
+    Js.Console.error("eventEmitter");
+    Js.Console.error("eventEmitter");
+    Js.Console.error(eventEmitter);
     eventEmitter;
   };
 

@@ -337,7 +337,6 @@ let characterWidth: string => int = [%raw
 // Code unit: a bit sequence used to encode each character of a repertoire within a given encoding form.
 // returns `offset + 1` if `offset` cuts into the middle of a character of 2 code units wide
 let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
-  // Js.log("codeUnitEndingOffset");
   let range =
     VSCode.Range.make(
       VSCode.Position.make(0, 0), // start
