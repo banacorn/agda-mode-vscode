@@ -42,7 +42,7 @@ describe("Handle__Goal.caseSplitAux", () => {
     => {
       openTextEditor(Path.asset("CaseSplit.agda"))
       ->Promise.flatMap(editor => {
-          Goal.makeMany(editor, [|0, 1, 2, 3, 4, 5, 6, 7|])
+          Goal.makeMany(editor, [|0, 1, 2, 3, 4, 5, 6, 7, 8|])
           ->Promise.map(goals => {
               goals->Array.map(goal => {
                 // convert `rewriteRange` to text in that range because range offsets are different on different OSs
@@ -69,6 +69,7 @@ describe("Handle__Goal.caseSplitAux", () => {
                   (true, 13, {j|y → {!   !}|j}),
                   (true, 2, {j|x → {!   !}|j}),
                   (true, 2, {j|y → {!   !}|j}),
+                  (false, 13, {j|x → {!   !}|j}),
                 |],
               )
             })

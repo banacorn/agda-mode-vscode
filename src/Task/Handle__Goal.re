@@ -51,22 +51,25 @@ module Impl = (Editor: Sig.Editor) => {
       Editor.getTextInRange(editor, range);
     };
 
-    // returns the offset of the first non-space character it encountered from somewhere
+    // returns the offset of the first non-blank character it encountered from somewhere
     let nextWordBoundary = (start, string) => {
       let break = ref(false);
       let n = ref(0);
-      let i = ref(start + 1);
+
+      let i = ref(start);
       while (i^ < Js.String.length(string) && ! break^) {
         let char = Js.String.charAt(i^, string);
         switch (char) {
+        // skip blank characters
         | " "
         | "\012"
         | "\t" => n := n^ + 1
+        // stop when we hit something
         | _ => break := true
         };
         i := i^ + 1;
       };
-      start + n^ + 1;
+      start + n^;
     };
 
     let (inWhereClause, searchStart, lastLineBreakOffset) = {
