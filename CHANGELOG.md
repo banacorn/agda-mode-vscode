@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Change
 - Input method can be activated by hitting "\" without having to load the Agda file first
+- Input method can be deactivated by hitting "escape"
 
 ## v0.1.3 - 2020-07-22
 
