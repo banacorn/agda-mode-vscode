@@ -1195,13 +1195,67 @@ module ColorThemeKind = {
     | _ => HighContrast;
 };
 
-// https://code.visualstudio.com/api/references/vscode-api#ColorTheme;
+// https://code.visualstudio.com/api/references/vscode-api#ColorTheme
 module ColorTheme = {
   type t;
   // properties
   [@bs.get] external kind_raw: t => int = "kind";
   let kind: t => ColorThemeKind.t =
     self => ColorThemeKind.fromEnum(self->kind_raw);
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CustomDocumentOpenContext
+module CustomDocumentOpenContext = {
+  type t;
+  // properties
+  [@bs.get] external backupId: t => option(string) = "backupId";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CustomEditorProvider
+// module CustomEditorProvider = {
+//   type t('a);
+//   // events
+//   [@bs.send]
+//   external onDidChangeCustomDocument: (t('a), Uri.t => unit) => Disposable.t =
+//     "onDidChange";
+//   // methods
+//   [@bs.send]
+//   external openCustomDocument:
+//     (t('a), Uri.t, CustomDocumentOpenContext.t, CancellationToken.t) =>
+//     option(Promise.t('a)) =
+//     "openCustomDocument";
+//   [@bs.send]
+//   external resolveCustomEditor:
+//     (t('a), 'a, WebviewPanel.t, CancellationToken.t) =>
+//     option(Promise.t(unit)) =
+//     "resolveCustomEditor";
+// };
+
+// https://code.visualstudio.com/api/references/vscode-api#CustomReadonlyEditorProvider
+module CustomReadonlyEditorProvider = {
+  type t('a);
+  // methods
+  [@bs.send]
+  external openCustomDocument:
+    (t('a), Uri.t, CustomDocumentOpenContext.t, CancellationToken.t) =>
+    option(Promise.t('a)) =
+    "openCustomDocument";
+  [@bs.send]
+  external resolveCustomEditor:
+    (t('a), 'a, WebviewPanel.t, CancellationToken.t) =>
+    option(Promise.t(unit)) =
+    "resolveCustomEditor";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CustomTextEditorProvider
+module CustomTextEditorProvider = {
+  type t;
+  // methods
+  [@bs.send]
+  external resolveCustomTextEditor:
+    (t, TextDocument.t, WebviewPanel.t, CancellationToken.t) =>
+    option(Promise.t(unit)) =
+    "resolveCustomTextEditor";
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#window
@@ -1304,6 +1358,10 @@ module Window = {
     ) =>
     WebviewPanel.t =
     "createWebviewPanel";
+  // [@bs.module "vscode"] [@bs.scope "window"]
+  // external registerCustomEditorProvider:
+  //   (string, TreeDataProvider.t) => Disposable.t =
+  //   "registerCustomEditorProvider";
   [@bs.module "vscode"] [@bs.scope "window"]
   external registerTreeDataProvider:
     (string, TreeDataProvider.t) => Disposable.t =
