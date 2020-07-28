@@ -60,26 +60,35 @@ let backspace = setup => {
   ->map(x => Ok(x));
 };
 
-let activateInputhMethod = () => {
-  VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-  ->flatMap(result => result)
-  ->map(x => Ok(x));
-};
+module IM = {
+  let activate' = () => {
+    VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+    ->flatMap(result => result)
+    ->map(x => Ok(x));
+  };
 
-let activateInputhMethod2 = (setup, points) => {
-  let promise = setup.emitter.once();
-  setup.editor->Editor.setCursorPositions(points);
-  VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-  ->flatMap(result => result)
-  ->flatMap(_ => promise)
-  ->map(x => Ok(x));
-  // setup.editor->Editor.insertTexts(points, "\\")->flatMap(_ => promise);
-};
+  let activate = (setup, ~positions=?, ()) => {
+    let promise = setup.emitter.once();
+    let positions =
+      positions->Option.getWithDefault([|
+        Editor.getCursorPosition(setup.editor),
+      |]);
+    setup.editor->Editor.setCursorPositions(positions);
+    VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+    ->flatMap(result => result)
+    ->flatMap(_ => promise)
+    ->map(x => Ok(x));
+    // setup.editor->Editor.insertTexts(points, "\\")->flatMap(_ => promise);
+  };
 
-let deactivateInputhMethod = () =>
-  VSCode.Commands.executeCommand0("agda-mode.escape")
-  ->flatMap(result => result)
-  ->map(x => Ok(x));
+  let deactivate = setup => {
+    let promise = setup.emitter.once();
+    VSCode.Commands.executeCommand0("agda-mode.escape")
+    ->flatMap(result => result)
+    ->flatMap(_ => promise)
+    ->map(x => Ok(x));
+  };
+};
 
 describe_only("InputMethod", () => {
   let setup = ref(None);
@@ -98,7 +107,8 @@ describe_only("InputMethod", () => {
     Q.it({j|should translate "lambdabar" to "λ"|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
-          activateInputhMethod()
+          IM.activate(setup, ())
+          ->flatMapOk(A.equal(InputMethod.Activate))
           ->flatMapOk(() => insertChar(setup, "l"))
           ->flatMapOk(A.equal(InputMethod.Change))
           ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(setup.editor)))
@@ -136,21 +146,25 @@ describe_only("InputMethod", () => {
           ->flatMapOk(() => insertChar(setup, "r"))
           ->flatMapOk(A.equal(InputMethod.Change))
           ->flatMapOk(() => A.equal({j|ƛ|j}, Editor.getText(setup.editor)))
-          ->flatMapOk(deactivateInputhMethod)
         })
     });
     Q.it({j|should translate "bn" to "𝕟"|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
-          activateInputhMethod()
+          IM.activate(setup, ())
+          ->flatMapOk(A.equal(InputMethod.Activate))
           ->flatMapOk(() => insertChar(setup, "b"))
           ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => {
+              A.equal({j|♭|j}, Editor.getText(setup.editor))
+            })
           ->flatMapOk(() => insertChar(setup, "n"))
           ->flatMapOk(A.equal(InputMethod.Change))
           ->flatMapOk(() => {
               A.equal({j|𝕟|j}, Editor.getText(setup.editor))
             })
-          ->flatMapOk(deactivateInputhMethod)
+          // ->flatMapOk(() => IM.deactivate(setup))
+          // ->flatMapOk(A.equal(InputMethod.Deactivate))
         })
     });
   });
@@ -158,7 +172,8 @@ describe_only("InputMethod", () => {
     Q.it({j|should work just fine|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
-          activateInputhMethod()
+          IM.activate(setup, ())
+          ->flatMapOk(A.equal(InputMethod.Activate))
           ->flatMapOk(() => insertChar(setup, "l"))
           ->flatMapOk(A.equal(InputMethod.Change))
           ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(setup.editor)))
@@ -190,7 +205,8 @@ describe_only("InputMethod", () => {
           ->flatMapOk(() => {
               A.equal({j|lambd|j}, Editor.getText(setup.editor))
             })
-          ->flatMapOk(deactivateInputhMethod)
+          ->flatMapOk(() => IM.deactivate(setup))
+          ->flatMapOk(A.equal(InputMethod.Deactivate))
         })
     })
   });
@@ -206,15 +222,24 @@ describe_only("InputMethod", () => {
       ->flatMapOk(setup => {
           setup.editor
           ->Editor.insertText(Editor.Point.make(0, 0), "\n\n\n")
-          ->flatMap(_ => activateInputhMethod2(setup, positions))
+          ->flatMap(_ => IM.activate(setup, ~positions, ()))
           ->flatMapOk(A.equal(InputMethod.Activate))
-          ->flatMapOk(() => insertChar(setup, "l"))
+          ->flatMapOk(() => insertChar(setup, "b"))
           ->flatMapOk(A.equal(InputMethod.Change))
           ->flatMapOk(() =>
-              A.equal({j|←\n←\n←\n←|j}, Editor.getText(setup.editor))
+              A.equal({j|♭\n♭\n♭\n♭|j}, Editor.getText(setup.editor))
             )
-          ->tapOk(() => Editor.getText(setup.editor)->Console.info)
-          ->flatMapOk(deactivateInputhMethod)
+          ->flatMapOk(() => insertChar(setup, "n"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal(
+                {j|𝕟\n𝕟\n𝕟\n𝕟|j},
+                Editor.getText(setup.editor),
+              )
+            )
+          // ->tapOk(() => Editor.getText(setup.editor)->Console.info)
+          // ->flatMapOk(() => IM.deactivate(setup))
+          // ->flatMapOk(A.equal(InputMethod.Deactivate))
         })
     });
   });

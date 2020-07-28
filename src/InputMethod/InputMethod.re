@@ -134,6 +134,7 @@ module Impl = (Editor: Sig.Editor) => {
     // emit "Deactivate" if all instances have been destroyed
     if (Array.length(self.instances) == 0) {
       self.onAction.emit(Deactivate);
+      self.eventEmitter.emit(Deactivate);
     };
   };
 
@@ -439,6 +440,8 @@ module Impl = (Editor: Sig.Editor) => {
   let deactivate = self => {
     // setContext
     Editor.setContext("agdaModeTyping", false)->ignore;
+
+    self.eventEmitter.emit(Deactivate);
 
     self.instances->Array.forEach(Instance.destroy);
     self.instances = [||];
