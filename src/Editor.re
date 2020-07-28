@@ -318,6 +318,10 @@ let getCursorPositions = editor =>
   editor->TextEditor.selections->Array.map(Selection.end_);
 let setCursorPosition = (editor, point) =>
   editor->TextEditor.setSelection(Selection.make(point, point));
+let setCursorPositions = (editor, points) =>
+  editor->TextEditor.setSelections(
+    points->Array.map(point => Selection.make(point, point)),
+  );
 let onChangeCursorPosition = callback =>
   Window.onDidChangeTextEditorSelection(event =>
     callback(

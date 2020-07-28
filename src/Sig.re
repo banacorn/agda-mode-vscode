@@ -117,6 +117,7 @@ module type Editor = {
   let getCursorPosition: editor => Point.t;
   let getCursorPositions: editor => array(Point.t);
   let setCursorPosition: (editor, Point.t) => unit;
+  let setCursorPositions: (editor, array(Point.t)) => unit;
   let onChangeCursorPosition: (array(Point.t) => unit) => Disposable.t;
 
   let rangeForLine: (editor, int) => Range.t;

@@ -767,6 +767,8 @@ module TextEditor = {
   [@bs.get] external selection: t => Selection.t = "selection";
   [@bs.set] external setSelection: (t, Selection.t) => unit = "selection";
   [@bs.get] external selections: t => array(Selection.t) = "selections";
+  [@bs.set]
+  external setSelections: (t, array(Selection.t)) => unit = "selections";
   [@bs.get] external viewColumn_raw: t => option(int) = "viewColumn";
   let viewColumn = (self: t): option(ViewColumn.t) =>
     viewColumn_raw(self)->Belt.Option.map(ViewColumn.fromEnum);
