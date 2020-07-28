@@ -36,211 +36,263 @@
 		"commands": [
 			{
 				"command": "agda-mode.load",
-				"title": "Agda: Load"
+				"title": "Load",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.quit",
-				"title": "Agda: Quit"
+				"title": "Quit",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.restart",
-				"title": "Agda: Quit and restart"
+				"title": "Quit and restart",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.compile",
-				"title": "Agda: Compile"
+				"title": "Compile",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.toggle-display-of-implicit-arguments",
-				"title": "Agda: Toggle display of hidden arguments"
+				"title": "Toggle display of hidden arguments",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.show-constraints",
-				"title": "Agda: Show constraints"
+				"title": "Show constraints",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Simplified]",
-				"title": "Agda: Solve constraints (simplified)"
+				"title": "Solve constraints (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Instantiated]",
-				"title": "Agda: Solve constraints (instantiated)"
+				"title": "Solve constraints (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Normalised]",
-				"title": "Agda: Solve constraints (normalised)"
+				"title": "Solve constraints (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.show-goals",
-				"title": "Agda: Show goals"
+				"title": "Show goals",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.next-goal",
-				"title": "Agda: Next goal"
+				"title": "Next goal",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.previous-goal",
-				"title": "Agda: Previous goal"
+				"title": "Previous goal",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.search-about[Simplified]",
-				"title": "Agda: Search about (simplified)"
+				"title": "Search about (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.search-about[Instantiated]",
-				"title": "Agda: Search about (instantiated)"
+				"title": "Search about (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.search-about[Normalised]",
-				"title": "Agda: Search about (normalised)"
+				"title": "Search about (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.give",
-				"title": "Agda: Give"
+				"title": "Give",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.refine",
-				"title": "Agda: Refine"
+				"title": "Refine",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Simplified]",
-				"title": "Agda: Elaborate and give (simplified)"
+				"title": "Elaborate and give (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Instantiated]",
-				"title": "Agda: Elaborate and give (instantiated)"
+				"title": "Elaborate and give (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Normalised]",
-				"title": "Agda: Elaborate and give (normalised)"
+				"title": "Elaborate and give (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.auto",
-				"title": "Agda: Auto"
+				"title": "Auto",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.case",
-				"title": "Agda: Case"
+				"title": "Case",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Simplified]",
-				"title": "Agda: Helper function type (simplified)"
+				"title": "Helper function type (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Instantiated]",
-				"title": "Agda: Helper function type (instantiated)"
+				"title": "Helper function type (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Normalised]",
-				"title": "Agda: Helper function type (normalised)"
+				"title": "Helper function type (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",
-				"title": "Agda: Goal type (simplified)"
+				"title": "Goal type (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type[Instantiated]",
-				"title": "Agda: Goal type (instantiated)"
+				"title": "Goal type (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type[Normalised]",
-				"title": "Agda: Goal type (normalised)"
+				"title": "Goal type (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.context[Simplified]",
-				"title": "Agda: Context (simplified)"
+				"title": "Context (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.context[Instantiated]",
-				"title": "Agda: Context (instantiated)"
+				"title": "Context (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.context[Normalised]",
-				"title": "Agda: Context (normalised)"
+				"title": "Context (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.infer-type[Simplified]",
-				"title": "Agda: Infer Type (simplified)"
+				"title": "Infer Type (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.infer-type[Instantiated]",
-				"title": "Agda: Infer Type (instantiated)"
+				"title": "Infer Type (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.infer-type[Normalised]",
-				"title": "Agda: Infer Type (normalised)"
+				"title": "Infer Type (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Simplified]",
-				"title": "Agda: Goal type and context (simplified)"
+				"title": "Goal type and context (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Instantiated]",
-				"title": "Agda: Goal type and context (instantiated)"
+				"title": "Goal type and context (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Normalised]",
-				"title": "Agda: Goal type and context (normalised)"
+				"title": "Goal type and context (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
-				"title": "Agda: Goal type, context and inferred type (simplified)"
+				"title": "Goal type, context and inferred type (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
-				"title": "Agda: Goal type, context and inferred type (instantiated)"
+				"title": "Goal type, context and inferred type (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
-				"title": "Agda: Goal type, context and inferred type (normalised)"
+				"title": "Goal type, context and inferred type (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
-				"title": "Agda: Goal type, context and checked type (simplified)"
+				"title": "Goal type, context and checked type (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
-				"title": "Agda: Goal type, context and checked type (instantiated)"
+				"title": "Goal type, context and checked type (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
-				"title": "Agda: Goal type, context and checked type (normalised)"
+				"title": "Goal type, context and checked type (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.module-contents[Simplified]",
-				"title": "Agda: Module contents (simplified)"
+				"title": "Module contents (simplified)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.module-contents[Instantiated]",
-				"title": "Agda: Module contents (instantiated)"
+				"title": "Module contents (instantiated)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.module-contents[Normalised]",
-				"title": "Agda: Module contents (normalised)"
+				"title": "Module contents (normalised)",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[DefaultCompute]",
-				"title": "Agda: Compute normal form"
+				"title": "Compute normal form",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
-				"title": "Agda: Compute normal form ignoring abstract"
+				"title": "Compute normal form ignoring abstract",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[UseShowInstance]",
-				"title": "Agda: Compute normal form using show instance"
+				"title": "Compute normal form using show instance",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.why-in-scope",
-				"title": "Agda: Why in scope"
+				"title": "Why in scope",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.escape",
-				"title": "Agda: Escape"
+				"title": "Escape",
+				"category": "Agda"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
-				"title": "Agda: Activate input method"
+				"title": "Activate input method",
+				"category": "Agda"
 			}
 		],
 		"keybindings": [
@@ -598,7 +650,7 @@
 			}
 		],
 		"configuration": {
-			"title": "Agda: Mode",
+			"title": "agda-mode",
 			"properties": {
 				"agdaMode.agdaPath": {
 					"type": "string",
