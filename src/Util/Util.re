@@ -1,5 +1,7 @@
 open Belt;
 
+exception Error(string);
+
 module Decode = {
   open Json.Decode;
 

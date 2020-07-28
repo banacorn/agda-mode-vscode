@@ -1,6 +1,4 @@
 open! BsMocha.Mocha;
-module Assert = BsMocha.Assert;
-// open VSCode;
 open! Belt;
 
 open Test__Util;
@@ -9,6 +7,10 @@ module Task = Task.Impl(Editor);
 module InputMethod = InputMethod.Impl(Editor);
 module Dispatcher = Dispatcher.Impl(Editor);
 module GoalHandler = Handle__Goal.Impl(Editor);
+
+module Console = Js.Console;
+module Exn = Js.Exn;
+module JsPromise = Js.Promise;
 open Promise;
 
 type setup = {
@@ -27,7 +29,7 @@ let activateExtension = (fileName): Promise.t(setup) => {
 
 let acquire = setup => {
   switch (setup^) {
-  | None => resolved(Error("Cannot acquire the setup"))
+  | None => resolved(Error(Util.Error("Cannot acquire the setup")))
   | Some(setup) => resolved(Ok(setup))
   };
 };
@@ -35,18 +37,16 @@ let acquire = setup => {
 let cleanup = setup => {
   let range =
     Editor.Range.make(Editor.Point.make(0, 0), Editor.Point.make(100, 0));
-  setup.editor->Editor.replaceText(range, "")->map(_ => ());
+  setup.editor->Editor.replaceText(range, "")->map(_ => Ok());
 };
 
-let insertChar = (setup, ~positions=?, char) => {
+let insertChar = (setup, char) => {
   let promise = setup.emitter.once();
-  switch (positions) {
-  | None =>
-    let pos = Editor.getCursorPosition(setup.editor);
-    setup.editor->Editor.insertText(pos, char)->flatMap(_ => promise);
-  | Some(positions) =>
-    setup.editor->Editor.insertTexts(positions, char)->flatMap(_ => promise)
-  };
+  let positions = Editor.getCursorPositions(setup.editor);
+  setup.editor
+  ->Editor.insertTexts(positions, char)
+  ->flatMap(_ => promise)
+  ->map(x => Ok(x));
 };
 
 let backspace = setup => {
@@ -54,78 +54,103 @@ let backspace = setup => {
   let end_ = Editor.getCursorPosition(setup.editor);
   let start = end_->Editor.Point.translate(0, -1);
   let range = Editor.Range.make(start, end_);
-  setup.editor->Editor.deleteText(range)->flatMap(_ => promise);
+  setup.editor
+  ->Editor.deleteText(range)
+  ->flatMap(_ => promise)
+  ->map(x => Ok(x));
 };
 
 let activateInputhMethod = () => {
   VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-  ->flatMap(result => result);
+  ->flatMap(result => result)
+  ->map(x => Ok(x));
 };
 
-let activateInputhMethod2 = setup => {
+let activateInputhMethod2 = (setup, points) => {
+  let promise = setup.emitter.once();
+  setup.editor->Editor.setCursorPositions(points);
   VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-  ->flatMap(result => result);
+  ->flatMap(result => result)
+  ->flatMap(_ => promise)
+  ->map(x => Ok(x));
+  // setup.editor->Editor.insertTexts(points, "\\")->flatMap(_ => promise);
 };
 
 let deactivateInputhMethod = () =>
   VSCode.Commands.executeCommand0("agda-mode.escape")
-  ->flatMap(result => result);
+  ->flatMap(result => result)
+  ->map(x => Ok(x));
 
-describe("InputMethod", () => {
+describe_only("InputMethod", () => {
   let setup = ref(None);
+
   Q.before(() => {
     activateExtension(Path.asset("InputMethod.agda"))
-    ->map(value => {setup := Some(value)})
+    ->map(value => {
+        setup := Some(value);
+        Ok();
+      })
   });
 
-  Q.after_each(() => {(setup^)->Option.mapWithDefault(resolved(), cleanup)});
+  Q.after_each(() => {acquire(setup)->mapOk(cleanup)});
 
   describe("Insertion", () => {
-    Q.it({j|should translate "lambda" to "λ"|j}, () => {
+    Q.it({j|should translate "lambdabar" to "λ"|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
           activateInputhMethod()
-          ->flatMap(() => insertChar(setup, "l"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() => Assert.equal(Editor.getText(setup.editor), {j|←|j}))
-          ->flatMap(_ => insertChar(setup, "a"))
-          ->map(A.equal(InputMethod.Change))
-          ->map(() => Assert.equal(Editor.getText(setup.editor), {j|←a|j}))
-          ->flatMap(() => insertChar(setup, "m"))
-          ->map(A.equal(InputMethod.Change))
-          ->map(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|←am|j})
+          ->flatMapOk(() => insertChar(setup, "l"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(setup.editor)))
+          ->flatMapOk(() => insertChar(setup, "a"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←a|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(() => insertChar(setup, "b"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|←amb|j})
+          ->flatMapOk(() => insertChar(setup, "m"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←am|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(() => insertChar(setup, "d"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|←ambd|j})
+          ->flatMapOk(() => insertChar(setup, "b"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←amb|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(() => insertChar(setup, "a"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() => Assert.equal(Editor.getText(setup.editor), {j|λ|j}))
-          ->flatMap(deactivateInputhMethod)
-          ->map(x => Ok(x))
+          ->flatMapOk(() => insertChar(setup, "d"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←ambd|j}, Editor.getText(setup.editor))
+            )
+          ->flatMapOk(() => insertChar(setup, "a"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => A.equal({j|λ|j}, Editor.getText(setup.editor)))
+          ->flatMapOk(() => insertChar(setup, "b"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => A.equal({j|λb|j}, Editor.getText(setup.editor)))
+          ->flatMapOk(() => insertChar(setup, "a"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|λba|j}, Editor.getText(setup.editor))
+            )
+          ->flatMapOk(() => insertChar(setup, "r"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => A.equal({j|ƛ|j}, Editor.getText(setup.editor)))
+          ->flatMapOk(deactivateInputhMethod)
         })
     });
     Q.it({j|should translate "bn" to "𝕟"|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
           activateInputhMethod()
-          ->flatMap(() => insertChar(setup, "b"))
-          ->map(A.equal(InputMethod.Change))
-          ->flatMap(() => insertChar(setup, "n"))
-          ->map(A.equal(InputMethod.Change))
-          ->map(() => {
-              Assert.equal(Editor.getText(setup.editor), {j|𝕟|j})
+          ->flatMapOk(() => insertChar(setup, "b"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => insertChar(setup, "n"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => {
+              A.equal({j|𝕟|j}, Editor.getText(setup.editor))
             })
-          ->flatMap(deactivateInputhMethod)
-          ->map(x => Ok(x))
+          ->flatMapOk(deactivateInputhMethod)
         })
     });
   });
@@ -134,64 +159,63 @@ describe("InputMethod", () => {
       acquire(setup)
       ->flatMapOk(setup => {
           activateInputhMethod()
-          ->flatMap(() => insertChar(setup, "l"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() => Assert.equal(Editor.getText(setup.editor), {j|←|j}))
-          ->flatMap(() => insertChar(setup, "a"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() => Assert.equal(Editor.getText(setup.editor), {j|←a|j}))
-          ->flatMap(() => insertChar(setup, "m"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|←am|j})
+          ->flatMapOk(() => insertChar(setup, "l"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(setup.editor)))
+          ->flatMapOk(() => insertChar(setup, "a"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←a|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(() => insertChar(setup, "b"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|←amb|j})
+          ->flatMapOk(() => insertChar(setup, "m"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←am|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(() => insertChar(setup, "d"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|←ambd|j})
+          ->flatMapOk(() => insertChar(setup, "b"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←amb|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(() => insertChar(setup, "a"))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() => Assert.equal(Editor.getText(setup.editor), {j|λ|j}))
-          ->flatMap(() => backspace(setup))
-          ->map(A.equal(InputMethod.Change))
-          ->tap(() =>
-              Assert.equal(Editor.getText(setup.editor), {j|lambd|j})
+          ->flatMapOk(() => insertChar(setup, "d"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←ambd|j}, Editor.getText(setup.editor))
             )
-          ->flatMap(deactivateInputhMethod)
-          ->map(x => Ok(x))
+          ->flatMapOk(() => insertChar(setup, "a"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => A.equal({j|λ|j}, Editor.getText(setup.editor)))
+          ->flatMapOk(() => backspace(setup))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() => {
+              A.equal({j|lambd|j}, Editor.getText(setup.editor))
+            })
+          ->flatMapOk(deactivateInputhMethod)
         })
     })
   });
+  describe("Multiple cursors at once", () => {
+    let positions = [|
+      Editor.Point.make(0, 0),
+      Editor.Point.make(1, 0),
+      Editor.Point.make(2, 0),
+      Editor.Point.make(3, 0),
+    |];
+    Q.it({j|should work just fine|j}, () => {
+      acquire(setup)
+      ->flatMapOk(setup => {
+          setup.editor
+          ->Editor.insertText(Editor.Point.make(0, 0), "\n\n\n")
+          ->flatMap(_ => activateInputhMethod2(setup, positions))
+          ->flatMapOk(A.equal(InputMethod.Activate))
+          ->flatMapOk(() => insertChar(setup, "l"))
+          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(() =>
+              A.equal({j|←\n←\n←\n←|j}, Editor.getText(setup.editor))
+            )
+          ->tapOk(() => Editor.getText(setup.editor)->Console.info)
+          ->flatMapOk(deactivateInputhMethod)
+        })
+    });
+  });
 });
-
-// describe("Multiple cursors at once", () => {
-//   let positions = [|
-//     Editor.Point.make(0, 0),
-//     Editor.Point.make(1, 0),
-//     Editor.Point.make(2, 0),
-//     Editor.Point.make(3, 0),
-//   |];
-//   Q.it({j|should work just fine|j}, () => {
-//     (env^)
-//     ->Option.mapWithDefault(resolved(), ((editor, emitter)) =>
-//         activateInputhMethod()
-//         ->flatMap(() => insertChar(setup, "\n\n\n"))
-//         ->tap(() =>
-//             Assert.equal(Editor.getText(setup.editor), {j|←|j})
-//           )
-//         ->flatMap(() =>
-//             insertChar(setup, ~positions, "l")
-//           )
-//         ->tap(() =>
-//             Assert.equal(Editor.getText(setup.editor), {j|←|j})
-//           )
-//         ->flatMap(deactivateInputhMethod)
-//       )
-//   });
-// });

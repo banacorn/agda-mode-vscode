@@ -41,33 +41,39 @@ let wait = ms => {
 };
 
 module Q = {
-  let it = (s, f) =>
+  let toPromise = f =>
+    Js.Promise.make((~resolve, ~reject) => {
+      f->Promise.get(
+        fun
+        | Error(error) => reject(. error)
+        | Ok(result) => resolve(. result),
+      )
+    });
+
+  let it = (s, f: unit => Promise.t(result('a, 'error))) =>
     BsMocha.Promise.it(s, () =>
-      f()
-      ->Promise.map(
-          fun
-          | Error(error) => BsMocha.Assert.fail(error)
-          | Ok(_) => (),
-        )
-      ->Promise.Js.toBsPromise
+      f()->toPromise
     );
 
-  let it_only = (s, f) =>
-    BsMocha.Promise.it_only(s, () => f()->Promise.Js.toBsPromise);
+  let it_only = (s, f) => BsMocha.Promise.it_only(s, () => f()->toPromise);
 
-  let it_skip = (s, f) =>
-    BsMocha.Promise.it_skip(s, () => f()->Promise.Js.toBsPromise);
+  let it_skip = (s, f) => BsMocha.Promise.it_skip(s, () => f()->toPromise);
 
-  let before = f => BsMocha.Promise.before(() => f()->Promise.Js.toBsPromise);
-  let before_each = f =>
-    BsMocha.Promise.before_each(() => f()->Promise.Js.toBsPromise);
-  let after = f => BsMocha.Promise.after(() => f()->Promise.Js.toBsPromise);
-  let after_each = f =>
-    BsMocha.Promise.after_each(() => f()->Promise.Js.toBsPromise);
+  let before = f => BsMocha.Promise.before(() => f()->toPromise);
+  let before_each = f => BsMocha.Promise.before_each(() => f()->toPromise);
+  let after = f => BsMocha.Promise.after(() => f()->toPromise);
+  let after_each = f => BsMocha.Promise.after_each(() => f()->toPromise);
 };
 
 module A = {
-  let equal = (expected, actual) => BsMocha.Assert.equal(actual, expected);
+  let equal = (expected, actual) =>
+    (
+      switch (BsMocha.Assert.equal(actual, expected)) {
+      | () => Ok()
+      | exception exn => Error(exn)
+      }
+    )
+    ->Promise.resolved;
 };
 
 module Strings = {

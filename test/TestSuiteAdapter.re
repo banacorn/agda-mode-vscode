@@ -64,7 +64,7 @@ let run = () => {
         ) {
         | () => ()
         | exception exn =>
-          Js.log(exn);
+          Js.Console.error(exn);
           reject(. exn);
         };
       }
