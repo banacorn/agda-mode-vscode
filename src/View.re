@@ -316,7 +316,8 @@ module EventFromView = {
   type t =
     | Initialized
     | Destroyed
-    | InputMethod(InputMethod.t);
+    | InputMethod(InputMethod.t)
+    | QueryChange(string);
 
   open Json.Decode;
   open Util.Decode;
@@ -328,6 +329,7 @@ module EventFromView = {
       | "Destroyed" => TagOnly(Destroyed)
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(action => InputMethod(action)))
+      | "QueryChange" => Contents(string |> map(text => QueryChange(text)))
       | tag =>
         raise(DecodeError("[Response.EVent] Unknown constructor: " ++ tag)),
     );
@@ -341,6 +343,11 @@ module EventFromView = {
       object_([
         ("tag", string("InputMethod")),
         ("contents", action |> InputMethod.encode),
+      ])
+    | QueryChange(text) =>
+      object_([
+        ("tag", string("QueryChange")),
+        ("contents", text |> string),
       ]);
 };
 

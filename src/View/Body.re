@@ -1,7 +1,12 @@
 open ReasonReact;
 open Belt;
 [@react.component]
-let make = (~body: View.Body.t, ~onSubmit: option(string) => unit) => {
+let make =
+    (
+      ~body: View.Body.t,
+      ~onSubmit: option(string) => unit,
+      ~onChange: string => unit,
+    ) => {
   switch (body) {
   | Nothing => <> </>
   | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>
@@ -11,6 +16,7 @@ let make = (~body: View.Body.t, ~onSubmit: option(string) => unit) => {
       React.useState(_ => value->Option.getWithDefault(""));
     let onChange = event => {
       let value = event->ReactEvent.Form.target##value;
+      onChange(value);
       setValue(_ => value);
     };
     let onSubmit = _ => onSubmit(Some(value));

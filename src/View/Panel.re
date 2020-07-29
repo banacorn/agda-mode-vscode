@@ -1,3 +1,5 @@
+open Belt;
+
 [@react.component]
 let make =
     (
@@ -26,31 +28,27 @@ let make =
     [||],
   );
 
-  let resolver = React.useRef(None);
+  let queryResponseResolver = React.useRef(None);
   let onSubmit = result =>
-    switch (resolver.current) {
-    | None => ()
-    | Some(resolve) =>
-      resolve(result);
-      resolver.current = None;
-    };
+    queryResponseResolver.current
+    ->Option.forEach(resolve => {
+        resolve(result);
+        queryResponseResolver.current = None;
+      });
+  let onChange = string => onEventFromView.emit(QueryChange(string));
 
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
     | Query(header, placeholder, value) =>
       let (promise, resolve) = Promise.pending();
-      resolver.current = Some(resolve);
+      queryResponseResolver.current = Some(resolve);
       setHeader(_ => Plain(header));
       setBody(_ => Query(placeholder, value));
       promise->Promise.map(
         fun
-        | None => {
-            View.Response.QueryInterrupted;
-          }
-        | Some(result) => {
-            View.Response.QuerySuccess(result);
-          },
+        | None => View.Response.QueryInterrupted
+        | Some(result) => View.Response.QuerySuccess(result),
       );
     }
   );
@@ -70,16 +68,14 @@ let make =
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
     <Header header />
-    <Body body onSubmit />
+    <Body body onSubmit onChange />
     <Keyboard
       state=inputMethodState
       onInsertChar={char => {
-        Js.log("onInsertChar " ++ char);
-        onEventFromView.emit(InputMethod(InsertChar(char)));
+        onEventFromView.emit(InputMethod(InsertChar(char)))
       }}
       onChooseSymbol={symbol => {
-        Js.log("onChooseSymbol " ++ symbol);
-        onEventFromView.emit(InputMethod(ChooseSymbol(symbol)));
+        onEventFromView.emit(InputMethod(ChooseSymbol(symbol)))
       }}
       querying
     />

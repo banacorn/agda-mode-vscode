@@ -262,6 +262,7 @@ module Impl = (Editor: Sig.Editor) => {
       | InputMethod(ChooseSymbol(symbol)) => [
           DispatchCommand(InputMethod(ChooseSymbol(symbol))),
         ]
+      | QueryChange(string) => [Debug("query: " ++ string)]
       }
     | Escape => [
         WithStateP(
