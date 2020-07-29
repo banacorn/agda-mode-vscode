@@ -649,17 +649,6 @@
 				"when": "agdaMode && agdaModeTyping"
 			}
 		],
-		"customEditors": [
-			{
-				"viewType": "agda-mode.file",
-				"displayName": "Agda Mode",
-				"selector": [
-					{
-						"filenamePattern": "*.agda"
-					}
-				]
-			}
-		],
 		"configuration": {
 			"title": "agda-mode",
 			"properties": {
