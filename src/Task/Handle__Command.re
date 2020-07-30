@@ -270,10 +270,10 @@ module Impl = (Editor: Sig.Editor) => {
         WithStateP(
           state => {
             Promise.resolved(
-              switch (state.inputMethod.activated) {
-              | ByEditor
-              | ByQuery => [DispatchCommand(InputMethod(Deactivate))]
-              | No => [ViewEvent(QueryInterrupt)]
+              if (state.editorIM.activated) {
+                [DispatchCommand(InputMethod(Deactivate))];
+              } else {
+                [ViewEvent(QueryInterrupt)];
               },
             )
           },

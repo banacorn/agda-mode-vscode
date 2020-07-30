@@ -1,7 +1,7 @@
 module Impl = (Editor: Sig.Editor) => {
   module Goal = Goal.Impl(Editor);
-  module InputMethod = InputMethod.Impl(Editor);
-  module QueryInputMethod = QueryInputMethod.Impl(Editor);
+  module EditorIM = EditorIM.Impl(Editor);
+  module QueryIM = QueryIM.Impl(Editor);
   module Request = Request.Impl(Editor);
   open Belt;
   type editor = Editor.editor;
@@ -13,8 +13,8 @@ module Impl = (Editor: Sig.Editor) => {
     mutable goals: array(Goal.t),
     mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
     mutable cursor: option(Editor.Point.t),
-    inputMethod: InputMethod.t,
-    queryInputMethod: QueryInputMethod.t,
+    editorIM: EditorIM.t,
+    queryIM: QueryIM.t,
     subscriptions: array(Editor.Disposable.t),
     // for self destruction
     onRemoveFromRegistry: Event.t(unit),
@@ -84,8 +84,8 @@ module Impl = (Editor: Sig.Editor) => {
       goals: [||],
       decorations: [||],
       cursor: None,
-      inputMethod: InputMethod.make(eventEmitter),
-      queryInputMethod: QueryInputMethod.make(),
+      editorIM: EditorIM.make(eventEmitter),
+      queryIM: QueryIM.make(),
       subscriptions: [||],
       onRemoveFromRegistry: Event.make(),
     };

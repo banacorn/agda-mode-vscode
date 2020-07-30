@@ -19,7 +19,7 @@ let make =
       onChange(value);
     };
 
-    let onSubmit = event => onSubmit(Some(value));
+    let onSubmit = _event => onSubmit(Some(value));
 
     <div className="agda-mode-query">
       <form onSubmit>

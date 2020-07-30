@@ -3,7 +3,7 @@ open Belt;
 module Impl = (Editor: Sig.Editor) => {
   module Buffer = Buffer.Impl(Editor);
   module Task = Task.Impl(Editor);
-  module InputMethod = InputMethod.Impl(Editor);
+  module EditorIM = EditorIM.Impl(Editor);
   open! Task;
   // from Editor Command to Tasks
   let handle =
@@ -11,14 +11,12 @@ module Impl = (Editor: Sig.Editor) => {
     | Command.InputMethod.Activate => [
         WithStateP(
           state =>
-            switch (state.inputMethod.activated) {
-            | InputMethod.ByEditor =>
-              InputMethod.insertBackslash(state.editor);
-              InputMethod.deactivate(state.inputMethod);
+            if (state.editorIM.activated) {
+              // already activated, insert backslash "\" instead
+              EditorIM.insertBackslash(state.editor);
+              EditorIM.deactivate(state.editorIM);
               Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
-            | ByQuery => Promise.resolved([Debug(":D")])
-            | No =>
-              state.inputMethod.activated = ByEditor;
+            } else {
               // activated the input method with positions of cursors
               let startingRanges: array((int, int)) =
                 Editor.getSelectionRanges(state.editor)
@@ -34,11 +32,7 @@ module Impl = (Editor: Sig.Editor) => {
                       ),
                     )
                   );
-              InputMethod.activate(
-                state.inputMethod,
-                state.editor,
-                startingRanges,
-              );
+              EditorIM.activate(state.editorIM, state.editor, startingRanges);
               Promise.resolved([ViewEvent(InputMethod(Activate))]);
             },
         ),
@@ -50,12 +44,11 @@ module Impl = (Editor: Sig.Editor) => {
             // activate when the user typed a backslash "/"
             let shouldActivate = Js.String.endsWith("\\", input);
 
-            let deactivateByEditor = () => {
-              InputMethod.deactivate(state.inputMethod);
+            let deactivateEditorIM = () => {
+              EditorIM.deactivate(state.editorIM);
               [ViewEvent(InputMethod(Deactivate))];
             };
-            let activateByQuery = () => {
-              state.inputMethod.activated = ByQuery;
+            let activateQueryIM = () => {
               // remove the ending backslash "\"
               let input =
                 Js.String.substring(
@@ -69,55 +62,45 @@ module Impl = (Editor: Sig.Editor) => {
               ];
             };
 
-            switch (state.inputMethod.activated) {
-            | ByEditor =>
+            if (state.editorIM.activated) {
               if (shouldActivate) {
                 Promise.resolved(
                   List.concatMany([|
-                    deactivateByEditor(),
-                    activateByQuery(),
+                    deactivateEditorIM(),
+                    activateQueryIM(),
                   |]),
                 );
               } else {
-                // do nothing
-                Promise.resolved([
-                  Debug("ByEditor => ByEditor"),
-                  ViewEvent(QueryUpdate(input)),
-                ]);
-              }
-            | ByQuery =>
-              let buffer = Buffer.make();
+                Promise.resolved([ViewEvent(QueryUpdate(input))]);
+              };
+            } else if (state.queryIM.activated) {
+              // let buffer = Buffer.make();
               // Buffer.reflectEditorChange(buffer, )
               // Buffer.toSequence(instance.buffer)
-              Promise.resolved([Debug("ByQuery => ByQuery")]);
-            // if (shouldActivate) {
-            //   // already activated, insert backslash "\"
-            //   InputMethod.deactivate(state.inputMethod);
-            //   Promise.resolved([
-            //     Debug("ByQuery => No"),
-            //     ViewEvent(QueryUpdate(input)),
-            //     ViewEvent(InputMethod(Deactivate)),
-            //   ]);
-            // } else {
-            //   Promise.resolved([Debug("ByQuery => ByQuery")]);
-            // }
-            | No =>
-              if (shouldActivate) {
-                Promise.resolved(activateByQuery());
-              } else {
-                Promise.resolved([ViewEvent(QueryUpdate(input))]);
-              }
+              Promise.resolved([
+                Debug("ByQuery => ByQuery"),
+                // if (shouldActivate) {
+                //   // already activated, insert backslash "\"
+                //   InputMethod.deactivate(state.inputMethod);
+                //   Promise.resolved([
+                //     Debug("ByQuery => No"),
+                //     ViewEvent(QueryUpdate(input)),
+                //     ViewEvent(InputMethod(Deactivate)),
+                //   ]);
+                // } else {
+                //   Promise.resolved([Debug("ByQuery => ByQuery")]);
+                // }
+              ]);
+            } else if (shouldActivate) {
+              Promise.resolved(activateQueryIM());
+            } else {
+              Promise.resolved([ViewEvent(QueryUpdate(input))]);
             };
           },
         ),
       ]
     | Deactivate => [
-        WithState(
-          state => {
-            state.inputMethod.activated = No;
-            InputMethod.deactivate(state.inputMethod);
-          },
-        ),
+        WithState(state => EditorIM.deactivate(state.editorIM)),
         ViewEvent(InputMethod(Deactivate)),
       ]
 
@@ -125,33 +108,31 @@ module Impl = (Editor: Sig.Editor) => {
         ViewEvent(InputMethod(Update(sequence, translation, index))),
       ]
     | InsertChar(char) => [
-        WithState(state => {InputMethod.insertChar(state.editor, char)}),
+        WithState(state => {EditorIM.insertChar(state.editor, char)}),
       ]
     | ChooseSymbol(symbol) => [
         WithState(
           state => {
-            InputMethod.chooseSymbol(state.inputMethod, state.editor, symbol)
+            EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)
           },
         ),
       ]
     | MoveUp => [
-        WithState(
-          state => {InputMethod.moveUp(state.inputMethod, state.editor)},
-        ),
+        WithState(state => {EditorIM.moveUp(state.editorIM, state.editor)}),
       ]
     | MoveRight => [
         WithState(
-          state => {InputMethod.moveRight(state.inputMethod, state.editor)},
+          state => {EditorIM.moveRight(state.editorIM, state.editor)},
         ),
       ]
     | MoveDown => [
         WithState(
-          state => {InputMethod.moveDown(state.inputMethod, state.editor)},
+          state => {EditorIM.moveDown(state.editorIM, state.editor)},
         ),
       ]
     | MoveLeft => [
         WithState(
-          state => {InputMethod.moveLeft(state.inputMethod, state.editor)},
+          state => {EditorIM.moveLeft(state.editorIM, state.editor)},
         ),
       ];
 };

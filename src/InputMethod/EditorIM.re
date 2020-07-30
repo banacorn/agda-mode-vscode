@@ -64,15 +64,10 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
-  type activated =
-    | ByEditor
-    | ByQuery
-    | No;
-
   type t = {
     onAction: Event.t(Command.InputMethod.t),
     mutable instances: array(Instance.t),
-    mutable activated,
+    mutable activated: bool,
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
     mutable busy: bool,
     mutable handles: array(Editor.Disposable.t),
@@ -309,6 +304,8 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let activate = (self, editor, ranges: array((int, int))) => {
+    self.activated = true;
+
     // emit ACTIVATE event after applied rewriting
     self.eventEmitter.emit(Activate);
     // setContext
@@ -450,7 +447,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     self.instances->Array.forEach(Instance.destroy);
     self.instances = [||];
-    self.activated = No;
+    self.activated = false;
     self.cursorsToBeChecked = None;
     self.busy = false;
     self.handles->Array.forEach(Editor.Disposable.dispose);
@@ -460,7 +457,7 @@ module Impl = (Editor: Sig.Editor) => {
   let make = eventEmitter => {
     onAction: Event.make(),
     instances: [||],
-    activated: No,
+    activated: false,
     cursorsToBeChecked: None,
     busy: false,
     handles: [||],

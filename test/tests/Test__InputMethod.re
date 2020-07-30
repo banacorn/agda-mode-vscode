@@ -4,7 +4,7 @@ open! Belt;
 open Test__Util;
 module Goal = Goal.Impl(Editor);
 module Task = Task.Impl(Editor);
-module InputMethod = InputMethod.Impl(Editor);
+module EditorIM = EditorIM.Impl(Editor);
 module Dispatcher = Dispatcher.Impl(Editor);
 module GoalHandler = Handle__Goal.Impl(Editor);
 
@@ -15,7 +15,7 @@ open Promise;
 
 type setup = {
   editor: Editor.editor,
-  emitter: Event.t(InputMethod.event),
+  emitter: Event.t(EditorIM.event),
 };
 
 let activateExtension = (fileName): Promise.t(setup) => {
@@ -108,43 +108,43 @@ describe_only("InputMethod", () => {
       acquire(setup)
       ->flatMapOk(setup => {
           IM.activate(setup, ())
-          ->flatMapOk(A.equal(InputMethod.Activate))
+          ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "l"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(setup.editor)))
           ->flatMapOk(() => insertChar(setup, "a"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←a|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "m"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←am|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "b"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←amb|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "d"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←ambd|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "a"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => A.equal({j|λ|j}, Editor.getText(setup.editor)))
           ->flatMapOk(() => insertChar(setup, "b"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => A.equal({j|λb|j}, Editor.getText(setup.editor)))
           ->flatMapOk(() => insertChar(setup, "a"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|λba|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "r"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => A.equal({j|ƛ|j}, Editor.getText(setup.editor)))
         })
     });
@@ -152,19 +152,19 @@ describe_only("InputMethod", () => {
       acquire(setup)
       ->flatMapOk(setup => {
           IM.activate(setup, ())
-          ->flatMapOk(A.equal(InputMethod.Activate))
+          ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "b"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => {
               A.equal({j|♭|j}, Editor.getText(setup.editor))
             })
           ->flatMapOk(() => insertChar(setup, "n"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => {
               A.equal({j|𝕟|j}, Editor.getText(setup.editor))
             })
           // ->flatMapOk(() => IM.deactivate(setup))
-          // ->flatMapOk(A.equal(InputMethod.Deactivate))
+          // ->flatMapOk(A.equal(EditorIM.Deactivate))
         })
     });
   });
@@ -173,40 +173,40 @@ describe_only("InputMethod", () => {
       acquire(setup)
       ->flatMapOk(setup => {
           IM.activate(setup, ())
-          ->flatMapOk(A.equal(InputMethod.Activate))
+          ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "l"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(setup.editor)))
           ->flatMapOk(() => insertChar(setup, "a"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←a|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "m"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←am|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "b"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←amb|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "d"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|←ambd|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "a"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => A.equal({j|λ|j}, Editor.getText(setup.editor)))
           ->flatMapOk(() => backspace(setup))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() => {
               A.equal({j|lambd|j}, Editor.getText(setup.editor))
             })
           ->flatMapOk(() => IM.deactivate(setup))
-          ->flatMapOk(A.equal(InputMethod.Deactivate))
+          ->flatMapOk(A.equal(EditorIM.Deactivate))
         })
     })
   });
@@ -223,14 +223,14 @@ describe_only("InputMethod", () => {
           setup.editor
           ->Editor.insertText(Editor.Point.make(0, 0), "\n\n\n")
           ->flatMap(_ => IM.activate(setup, ~positions, ()))
-          ->flatMapOk(A.equal(InputMethod.Activate))
+          ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "b"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal({j|♭\n♭\n♭\n♭|j}, Editor.getText(setup.editor))
             )
           ->flatMapOk(() => insertChar(setup, "n"))
-          ->flatMapOk(A.equal(InputMethod.Change))
+          ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal(
                 {j|𝕟\n𝕟\n𝕟\n𝕟|j},
@@ -239,7 +239,7 @@ describe_only("InputMethod", () => {
             )
           // ->tapOk(() => Editor.getText(setup.editor)->Console.info)
           // ->flatMapOk(() => IM.deactivate(setup))
-          // ->flatMapOk(A.equal(InputMethod.Deactivate))
+          // ->flatMapOk(A.equal(EditorIM.Deactivate))
         })
     });
   });
