@@ -5,49 +5,71 @@ module Impl = (Editor: Sig.Editor) => {
   module Buffer = Buffer.Impl(Editor);
 
   type t = {
+    mutable activated: bool,
+    mutable start: int,
     mutable buffer: Buffer.t,
-    start: int,
-    mutable end_: int,
+    // // for notifying the Task Dispatcher
+    // eventEmitter: Event.t(Command.InputMethod.t),
   };
 
-  let make = n => {buffer: Buffer.make(), start: n, end_: n};
+  let make = () => {
+    activated: false,
+    buffer: Buffer.make(),
+    // to mark where the input method begins (where backslash "\" is typed)
+    start: 0,
+  };
 
+  let activate = (self, text) => {
+    self.activated = true;
+    self.start = String.length(text);
+  };
+
+  // given a string from the Query input
+  // update the Buffer and return the rewritten string and the next Command (if any)
   let update = (self, input) => {
     let penult = String.length(input) - 1;
-    let inputInit = Js.String.substring(~from=0, ~to_=penult, input);
-    let inputLast = Js.String.substringToEnd(~from=penult, input);
+
+    let before = Js.String.substring(~from=0, ~to_=self.start, input);
+    let actual = Js.String.substring(~from=0, ~to_=penult, input);
+    let expected = before ++ Buffer.toSurface(self.buffer);
+    let isInsertion = actual == expected;
 
     // INSERT
-    if (inputInit == Buffer.toSurface(self.buffer)) {
+    if (isInsertion) {
+      let insertedText = Js.String.substringToEnd(~from=penult, input);
       let change: Editor.changeEvent = {
         offset: penult,
-        insertText: inputLast,
+        insertText: insertedText,
         replaceLength: 0,
       };
       let (buffer, shouldRewrite) =
         Buffer.reflectEditorChange(self.buffer, self.start, change);
       self.buffer = buffer;
 
-      switch (shouldRewrite) {
-      | None =>
-        Js.log(
-          "input: "
-          ++ input
-          ++ "\ninputInit: "
-          ++ inputInit
-          ++ "\ninputLast: "
-          ++ inputLast
-          ++ "\nbuffer: "
-          ++ Buffer.toString(self.buffer),
-        )
-      | Some(_) => ()
+      if (buffer.translation.further) {
+        Some((
+          before ++ Buffer.toSurface(buffer),
+          Command.InputMethod.Update(
+            Buffer.toSequence(buffer),
+            buffer.translation,
+            buffer.candidateIndex,
+          ),
+        ));
+      } else {
+        self.buffer = Buffer.make();
+        self.activated = false;
+        switch (shouldRewrite) {
+        | Some(_) => Some((before ++ Buffer.toSurface(buffer), Deactivate))
+        | None =>
+          Some((
+            before ++ Buffer.toSurface(buffer) ++ insertedText,
+            Deactivate,
+          ))
+        };
       };
-
-      Some(Buffer.toSurface(buffer));
     } else {
-      Js.log(
-        "input: " ++ input ++ "\nbuffer" ++ Buffer.toString(self.buffer),
-      );
+      self.buffer = Buffer.make();
+      self.activated = false;
       None;
     };
   };

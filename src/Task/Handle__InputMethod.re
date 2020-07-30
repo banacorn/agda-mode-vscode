@@ -57,7 +57,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ~to_=String.length(input) - 1,
                   input,
                 );
-              state.queryIM = Some(QueryIM.make(String.length(input)));
+              QueryIM.activate(state.queryIM, input);
 
               // update the view
               [
@@ -77,22 +77,24 @@ module Impl = (Editor: Sig.Editor) => {
               } else {
                 Promise.resolved([ViewEvent(QueryUpdate(input))]);
               };
-            } else {
-              switch (state.queryIM) {
-              | Some(queryIM) =>
-                let shouldRewrite = queryIM->QueryIM.update(input);
-                switch (shouldRewrite) {
-                | None => Promise.resolved([Debug("????")])
-                | Some(input) =>
-                  Promise.resolved([ViewEvent(QueryUpdate(input))])
-                };
+            } else if (state.queryIM.activated) {
+              let result = QueryIM.update(state.queryIM, input);
+              switch (result) {
               | None =>
-                if (shouldActivate) {
-                  Promise.resolved(activateQueryIM());
-                } else {
-                  Promise.resolved([ViewEvent(QueryUpdate(input))]);
-                }
+                Promise.resolved([
+                  Debug("????"),
+                  DispatchCommand(InputMethod(Deactivate)),
+                ])
+              | Some((text, command)) =>
+                Promise.resolved([
+                  ViewEvent(QueryUpdate(text)),
+                  DispatchCommand(InputMethod(command)),
+                ])
               };
+            } else if (shouldActivate) {
+              Promise.resolved(activateQueryIM());
+            } else {
+              Promise.resolved([ViewEvent(QueryUpdate(input))]);
             };
           },
         ),

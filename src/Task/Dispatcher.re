@@ -262,8 +262,8 @@ module Impl = (Editor: Sig.Editor) => {
     ->Js.Array.push(state.subscriptions)
     ->ignore;
 
-    // listens to events from the input method
-    state.editorIM.onAction.on(action => {
+    // listens to events from the editor input method
+    state.editorIM.eventEmitter.on(action => {
       dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
     })
     ->Editor.Disposable.make

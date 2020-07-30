@@ -65,14 +65,15 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   type t = {
-    onAction: Event.t(Command.InputMethod.t),
     mutable instances: array(Instance.t),
     mutable activated: bool,
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
     mutable busy: bool,
     mutable handles: array(Editor.Disposable.t),
-    // for reporting when some stuff has be done
-    eventEmitter: Event.t(event),
+    // for notifying the Task Dispatcher
+    eventEmitter: Event.t(Command.InputMethod.t),
+    // for reporting when some task has be done
+    eventEmitterTest: Event.t(event),
   };
 
   // datatype for representing a rewrite to be made to the text editor
@@ -133,8 +134,8 @@ module Impl = (Editor: Sig.Editor) => {
 
     // emit "Deactivate" if all instances have been destroyed
     if (Array.length(self.instances) == 0) {
-      self.onAction.emit(Deactivate);
       self.eventEmitter.emit(Deactivate);
+      self.eventEmitterTest.emit(Deactivate);
     };
   };
 
@@ -142,7 +143,7 @@ module Impl = (Editor: Sig.Editor) => {
     // update the view
     self.instances[0]
     ->Option.forEach(instance => {
-        self.onAction.emit(
+        self.eventEmitter.emit(
           Update(
             Buffer.toSequence(instance.buffer),
             instance.buffer.translation,
@@ -213,7 +214,7 @@ module Impl = (Editor: Sig.Editor) => {
     go(0, List.fromArray(rewrites))
     ->Promise.get(() => {
         // emit CHANGE event after applied rewriting
-        self.eventEmitter.emit(Change);
+        self.eventEmitterTest.emit(Change);
         // all offsets updated and rewrites applied, reset the semaphore
         self.busy = false;
         // see if there are any pending cursor positions to be checked
@@ -307,7 +308,7 @@ module Impl = (Editor: Sig.Editor) => {
     self.activated = true;
 
     // emit ACTIVATE event after applied rewriting
-    self.eventEmitter.emit(Activate);
+    self.eventEmitterTest.emit(Activate);
     // setContext
     Editor.setContext("agdaModeTyping", true)->ignore;
 
@@ -443,7 +444,7 @@ module Impl = (Editor: Sig.Editor) => {
     // setContext
     Editor.setContext("agdaModeTyping", false)->ignore;
 
-    self.eventEmitter.emit(Deactivate);
+    self.eventEmitterTest.emit(Deactivate);
 
     self.instances->Array.forEach(Instance.destroy);
     self.instances = [||];
@@ -454,13 +455,13 @@ module Impl = (Editor: Sig.Editor) => {
     self.handles = [||];
   };
 
-  let make = eventEmitter => {
-    onAction: Event.make(),
+  let make = eventEmitterTest => {
     instances: [||],
     activated: false,
     cursorsToBeChecked: None,
     busy: false,
     handles: [||],
-    eventEmitter,
+    eventEmitter: Event.make(),
+    eventEmitterTest,
   };
 };
