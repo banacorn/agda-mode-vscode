@@ -4,6 +4,7 @@ module Impl = (Editor: Sig.Editor) => {
   module Buffer = Buffer.Impl(Editor);
   module Task = Task.Impl(Editor);
   module EditorIM = EditorIM.Impl(Editor);
+  module QueryIM = QueryIM.Impl(Editor);
   open! Task;
   // from Editor Command to Tasks
   let handle =
@@ -56,6 +57,9 @@ module Impl = (Editor: Sig.Editor) => {
                   ~to_=String.length(input) - 1,
                   input,
                 );
+              state.queryIM = Some(QueryIM.make(String.length(input)));
+
+              // update the view
               [
                 ViewEvent(InputMethod(Activate)),
                 ViewEvent(QueryUpdate(input)),
@@ -73,28 +77,22 @@ module Impl = (Editor: Sig.Editor) => {
               } else {
                 Promise.resolved([ViewEvent(QueryUpdate(input))]);
               };
-            } else if (state.queryIM.activated) {
-              // let buffer = Buffer.make();
-              // Buffer.reflectEditorChange(buffer, )
-              // Buffer.toSequence(instance.buffer)
-              Promise.resolved([
-                Debug("ByQuery => ByQuery"),
-                // if (shouldActivate) {
-                //   // already activated, insert backslash "\"
-                //   InputMethod.deactivate(state.inputMethod);
-                //   Promise.resolved([
-                //     Debug("ByQuery => No"),
-                //     ViewEvent(QueryUpdate(input)),
-                //     ViewEvent(InputMethod(Deactivate)),
-                //   ]);
-                // } else {
-                //   Promise.resolved([Debug("ByQuery => ByQuery")]);
-                // }
-              ]);
-            } else if (shouldActivate) {
-              Promise.resolved(activateQueryIM());
             } else {
-              Promise.resolved([ViewEvent(QueryUpdate(input))]);
+              switch (state.queryIM) {
+              | Some(queryIM) =>
+                let shouldRewrite = queryIM->QueryIM.update(input);
+                switch (shouldRewrite) {
+                | None => Promise.resolved([Debug("????")])
+                | Some(input) =>
+                  Promise.resolved([ViewEvent(QueryUpdate(input))])
+                };
+              | None =>
+                if (shouldActivate) {
+                  Promise.resolved(activateQueryIM());
+                } else {
+                  Promise.resolved([ViewEvent(QueryUpdate(input))]);
+                }
+              };
             };
           },
         ),
