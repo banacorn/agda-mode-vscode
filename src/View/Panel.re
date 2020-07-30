@@ -32,7 +32,6 @@ let make =
   let onSubmit = result =>
     queryResponseResolver.current
     ->Option.forEach(resolve => {
-        Js.log("SUBMIT " ++ result->Option.getWithDefault("None"));
         resolve(result);
         queryResponseResolver.current = None;
       });
@@ -49,10 +48,7 @@ let make =
       promise->Promise.map(
         fun
         | None => View.Response.QueryInterrupted
-        | Some(result) => {
-            Js.log("RETURN");
-            View.Response.QuerySuccess(result);
-          },
+        | Some(result) => View.Response.QuerySuccess(result),
       );
     }
   );

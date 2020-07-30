@@ -9,7 +9,8 @@ type status =
 
 type t = {
   panel: WebviewPanel.t,
-  onResponseOrEventFromView: Event.t(View.ResponseOrEventFromView.t),
+  onResponseFromView: Event.t(View.Response.t),
+  onEventFromView: Event.t(View.EventFromView.t),
   subscriptions: array(VSCode.Disposable.t),
   mutable status,
 };
@@ -42,20 +43,15 @@ let send = (view, requestOrEvent) =>
     open View.RequestOrEventToView;
     let stringified =
       Js.Json.stringify(View.RequestOrEventToView.encode(requestOrEvent));
+
     switch (requestOrEvent) {
     | Request(req) =>
-      Js.log2("QUERYING", req);
-      let promise = view.onResponseOrEventFromView.once();
+      let promise = view.onResponseFromView.once();
       view.panel
       ->WebviewPanel.webview
       ->Webview.postMessage(stringified)
       ->Promise.flatMap(_ => promise)
-      ->Promise.tap(_ => Js.log("RESULEV"))
-      ->Promise.map(
-          fun
-          | Event(_) => None
-          | Response(res) => Some(res),
-        );
+      ->Promise.map(res => Some(res));
     | Event(_) =>
       view.panel
       ->WebviewPanel.webview
@@ -64,9 +60,9 @@ let send = (view, requestOrEvent) =>
     };
   };
 
-let on = (view, callback) => {
+let onEvent = (view, callback) => {
   // Handle events from the webview
-  view.onResponseOrEventFromView.on(callback)
+  view.onEventFromView.on(callback)
   ->Disposable.make;
 };
 
@@ -178,13 +174,15 @@ let make = (extensionPath, editor) => {
   let subscriptions = [||];
 
   // on message
-  // relay Webview.onDidReceiveMessage => onResponseOrEventFromView;
-  let onResponseOrEventFromView = Event.make();
+  // relay Webview.onDidReceiveMessage => onResponseFromView or onEventFromView
+  let onResponseFromView = Event.make();
+  let onEventFromView = Event.make();
   panel
   ->WebviewPanel.webview
   ->Webview.onDidReceiveMessage(json => {
       switch (View.ResponseOrEventFromView.decode(json)) {
-      | result => onResponseOrEventFromView.emit(result)
+      | Response(res) => onResponseFromView.emit(res)
+      | Event(ev) => onEventFromView.emit(ev)
       | exception e =>
         Js.log2(
           "[ panic ][ Webview.onDidReceiveMessage JSON decode error ]",
@@ -197,25 +195,22 @@ let make = (extensionPath, editor) => {
 
   // on destroy
   panel
-  ->WebviewPanel.onDidDispose(() =>
-      onResponseOrEventFromView.emit(
-        View.ResponseOrEventFromView.Event(Destroyed),
-      )
-    )
+  ->WebviewPanel.onDidDispose(() => onEventFromView.emit(Destroyed))
   ->Js.Array.push(subscriptions)
   ->ignore;
 
   let view = {
     panel,
     subscriptions,
-    onResponseOrEventFromView,
+    onResponseFromView,
+    onEventFromView,
     status: Uninitialized([||], [||]),
   };
 
   // when initialized, send the queued Requests & Events
-  view.onResponseOrEventFromView.on(
+  view.onEventFromView.on(
     fun
-    | Event(Initialized) => {
+    | Initialized => {
         switch (view.status) {
         | Uninitialized(queuedRequests, queuedEvents) =>
           view.status = Initialized;
@@ -249,7 +244,8 @@ let destroy = view => {
   // and in turns would trigger this function AGAIN
 
   // destroy the EventEmitter first, to prevent the aforementioned from happening
-  view.onResponseOrEventFromView.destroy();
+  view.onResponseFromView.destroy();
+  view.onEventFromView.destroy();
   view.panel->WebviewPanel.dispose;
   view.subscriptions->Belt.Array.forEach(Disposable.dispose);
 };

@@ -256,12 +256,8 @@ module Impl = (Editor: Sig.Editor) => {
 
     // listens to events from the view
     state.view
-    ->Editor.View.on(
-        fun
-        | Event(event) => {
-            dispatchCommand(dispatcher, EventFromView(event))->ignore;
-          }
-        | Response(_) => (),
+    ->Editor.View.onEvent(event =>
+        dispatchCommand(dispatcher, EventFromView(event))->ignore
       )
     ->Js.Array.push(state.subscriptions)
     ->ignore;

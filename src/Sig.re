@@ -87,7 +87,7 @@ module type Editor = {
     let send:
       (view, View.RequestOrEventToView.t) =>
       Promise.t(option(View.Response.t));
-    let on: (view, View.ResponseOrEventFromView.t => unit) => Disposable.t;
+    let onEvent: (view, View.EventFromView.t => unit) => Disposable.t;
   };
 
   module Decoration: {
