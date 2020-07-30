@@ -45,7 +45,7 @@ let send = (view, requestOrEvent) =>
       Js.Json.stringify(View.RequestOrEventToView.encode(requestOrEvent));
 
     switch (requestOrEvent) {
-    | Request(req) =>
+    | Request(_) =>
       let promise = view.onResponseFromView.once();
       view.panel
       ->WebviewPanel.webview

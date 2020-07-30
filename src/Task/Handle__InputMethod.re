@@ -1,6 +1,7 @@
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
+  module Buffer = Buffer.Impl(Editor);
   module Task = Task.Impl(Editor);
   module InputMethod = InputMethod.Impl(Editor);
   open! Task;
@@ -45,49 +46,69 @@ module Impl = (Editor: Sig.Editor) => {
     | QueryChange(input) => [
         Debug("QueryChange " ++ input),
         WithStateP(
-          state =>
-            {
-              // activate when the user typed a backslash "/"
-              let shouldActivate = Js.String.endsWith("\\", input);
-              Promise.resolved([ViewEvent(QueryUpdate(input))]);
-            },
-            // switch (state.inputMethod.activated) {
-            // | InputMethod.ByEditor =>
-            //   if (shouldActivate) {
-            //     // the InputMethod was activated by the editor, should deactivate it first
-            //     InputMethod.deactivate(state.inputMethod);
-            //     Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
-            //   } else {
-            //     // do nothing
-            //     Promise.resolved([]);
-            //   }
-            // | ByQuery =>
-            //   if (shouldActivate) {
-            //     Promise.resolved([
-            //       Debug("ByQuery: activate"),
-            //       ViewEvent(QueryUpdate(input)),
-            //     ]);
-            //   } else {
-            //     Promise.resolved([Debug("ByQuery: nothing")]);
-            //   }
-            // | No =>
-            //   if (shouldActivate) {
-            //     state.inputMethod.activated = ByQuery;
-            //     // remove the ending backslash "/"
-            //     let input =
-            //       Js.String.substring(
-            //         ~from=0,
-            //         ~to_=String.length(input) - 1,
-            //         input,
-            //       );
-            //     Promise.resolved([
-            //       ViewEvent(InputMethod(Activate)),
-            //       ViewEvent(QueryUpdate(input)),
-            //     ]);
-            //   } else {
-            //     Promise.resolved([]);
-            //   }
-            // };
+          state => {
+            // activate when the user typed a backslash "/"
+            let shouldActivate = Js.String.endsWith("\\", input);
+
+            let deactivateByEditor = () => {
+              InputMethod.deactivate(state.inputMethod);
+              [ViewEvent(InputMethod(Deactivate))];
+            };
+            let activateByQuery = () => {
+              state.inputMethod.activated = ByQuery;
+              // remove the ending backslash "\"
+              let input =
+                Js.String.substring(
+                  ~from=0,
+                  ~to_=String.length(input) - 1,
+                  input,
+                );
+              [
+                ViewEvent(InputMethod(Activate)),
+                ViewEvent(QueryUpdate(input)),
+              ];
+            };
+
+            switch (state.inputMethod.activated) {
+            | ByEditor =>
+              if (shouldActivate) {
+                Promise.resolved(
+                  List.concatMany([|
+                    deactivateByEditor(),
+                    activateByQuery(),
+                  |]),
+                );
+              } else {
+                // do nothing
+                Promise.resolved([
+                  Debug("ByEditor => ByEditor"),
+                  ViewEvent(QueryUpdate(input)),
+                ]);
+              }
+            | ByQuery =>
+              let buffer = Buffer.make();
+              // Buffer.reflectEditorChange(buffer, )
+              // Buffer.toSequence(instance.buffer)
+              Promise.resolved([Debug("ByQuery => ByQuery")]);
+            // if (shouldActivate) {
+            //   // already activated, insert backslash "\"
+            //   InputMethod.deactivate(state.inputMethod);
+            //   Promise.resolved([
+            //     Debug("ByQuery => No"),
+            //     ViewEvent(QueryUpdate(input)),
+            //     ViewEvent(InputMethod(Deactivate)),
+            //   ]);
+            // } else {
+            //   Promise.resolved([Debug("ByQuery => ByQuery")]);
+            // }
+            | No =>
+              if (shouldActivate) {
+                Promise.resolved(activateByQuery());
+              } else {
+                Promise.resolved([ViewEvent(QueryUpdate(input))]);
+              }
+            };
+          },
         ),
       ]
     | Deactivate => [
