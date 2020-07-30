@@ -131,7 +131,8 @@ module EventToView = {
     | Show
     | Hide
     | Display(Header.t, Body.t)
-    | InterruptQuery
+    | QueryInterrupt
+    | QueryUpdate(string)
     | InputMethod(InputMethod.t);
 
   // JSON encode/decode
@@ -149,7 +150,8 @@ module EventToView = {
           pair(Header.decode, Body.decode)
           |> map(((header, body)) => Display(header, body)),
         )
-      | "InterruptQuery" => TagOnly(InterruptQuery)
+      | "QueryInterrupt" => TagOnly(QueryInterrupt)
+      | "QueryUpdate" => Contents(string |> map(text => QueryUpdate(text)))
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(x => InputMethod(x)))
       | tag =>
@@ -166,7 +168,12 @@ module EventToView = {
         ("tag", string("Display")),
         ("contents", (header, body) |> pair(Header.encode, Body.encode)),
       ])
-    | InterruptQuery => object_([("tag", string("InterruptQuery"))])
+    | QueryInterrupt => object_([("tag", string("QueryInterrupt"))])
+    | QueryUpdate(text) =>
+      object_([
+        ("tag", string("QueryUpdate")),
+        ("contents", text |> string),
+      ])
     | InputMethod(payload) =>
       object_([
         ("tag", string("InputMethod")),

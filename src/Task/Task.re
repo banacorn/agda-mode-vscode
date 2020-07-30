@@ -70,10 +70,13 @@ module Impl = (Editor: Sig.Editor) => {
     ViewRequest(
       Query(header, placeholder, value),
       response => {
+        Js.log("!!");
         let tasks =
           switch (response) {
-          | View.Response.Success => []
-          | QuerySuccess(result) => callbackOnQuerySuccess(result)
+          | View.Response.Success => [Debug("!")]
+          | QuerySuccess(result) =>
+            Js.log("BACK " ++ result);
+            callbackOnQuerySuccess(result);
           | QueryInterrupted => [displayError("Query Cancelled", None)]
           };
         Belt.List.concat(

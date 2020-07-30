@@ -43,12 +43,14 @@ let send = (view, requestOrEvent) =>
     let stringified =
       Js.Json.stringify(View.RequestOrEventToView.encode(requestOrEvent));
     switch (requestOrEvent) {
-    | Request(_) =>
+    | Request(req) =>
+      Js.log2("QUERYING", req);
       let promise = view.onResponseOrEventFromView.once();
       view.panel
       ->WebviewPanel.webview
       ->Webview.postMessage(stringified)
       ->Promise.flatMap(_ => promise)
+      ->Promise.tap(_ => Js.log("RESULEV"))
       ->Promise.map(
           fun
           | Event(_) => None

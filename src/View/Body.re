@@ -12,14 +12,14 @@ let make =
   | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>
   | Query(placeholder, value) =>
     let placeholder = placeholder->Option.getWithDefault("");
-    let (value, setValue) =
-      React.useState(_ => value->Option.getWithDefault(""));
+    let value = value->Option.getWithDefault("");
+
     let onChange = event => {
       let value = event->ReactEvent.Form.target##value;
       onChange(value);
-      setValue(_ => value);
     };
-    let onSubmit = _ => onSubmit(Some(value));
+
+    let onSubmit = event => onSubmit(Some(value));
 
     <div className="agda-mode-query">
       <form onSubmit>

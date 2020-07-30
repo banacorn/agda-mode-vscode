@@ -32,6 +32,7 @@ let make =
   let onSubmit = result =>
     queryResponseResolver.current
     ->Option.forEach(resolve => {
+        Js.log("SUBMIT " ++ result->Option.getWithDefault("None"));
         resolve(result);
         queryResponseResolver.current = None;
       });
@@ -48,7 +49,10 @@ let make =
       promise->Promise.map(
         fun
         | None => View.Response.QueryInterrupted
-        | Some(result) => View.Response.QuerySuccess(result),
+        | Some(result) => {
+            Js.log("RETURN");
+            View.Response.QuerySuccess(result);
+          },
       );
     }
   );
@@ -57,7 +61,13 @@ let make =
   Hook.on(onEventToView, event =>
     switch (event) {
     | InputMethod(action) => runInputMethodAction(action)
-    | InterruptQuery => onSubmit(None)
+    | QueryInterrupt => onSubmit(None)
+    | QueryUpdate(text) =>
+      setBody(
+        fun
+        | Query(placeholder, _) => Query(placeholder, Some(text))
+        | others => others,
+      )
     | Display(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);

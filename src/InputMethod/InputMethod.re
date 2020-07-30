@@ -64,10 +64,15 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  type activated =
+    | ByEditor
+    | ByQuery
+    | No;
+
   type t = {
     onAction: Event.t(Command.InputMethod.t),
     mutable instances: array(Instance.t),
-    mutable activated: bool,
+    mutable activated,
     mutable cursorsToBeChecked: option(array(Editor.Point.t)),
     mutable busy: bool,
     mutable handles: array(Editor.Disposable.t),
@@ -445,7 +450,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     self.instances->Array.forEach(Instance.destroy);
     self.instances = [||];
-    self.activated = false;
+    self.activated = No;
     self.cursorsToBeChecked = None;
     self.busy = false;
     self.handles->Array.forEach(Editor.Disposable.dispose);
@@ -455,7 +460,7 @@ module Impl = (Editor: Sig.Editor) => {
   let make = eventEmitter => {
     onAction: Event.make(),
     instances: [||],
-    activated: false,
+    activated: No,
     cursorsToBeChecked: None,
     busy: false,
     handles: [||],

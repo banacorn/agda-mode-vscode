@@ -10,20 +10,14 @@ module Impl = (Editor: Sig.Editor) => {
     | Command.InputMethod.Activate => [
         WithStateP(
           state =>
-            if (state.inputMethod.activated) {
+            switch (state.inputMethod.activated) {
+            | InputMethod.ByEditor =>
               InputMethod.insertBackslash(state.editor);
               InputMethod.deactivate(state.inputMethod);
               Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
-            } else {
-              state.inputMethod.activated = true;
-              // // collect of cursor positions and remove all selected texts
-              // let offsets =
-              //   Editor.getSelectionRanges(state.editor)
-              //   ->Array.map(range => {
-              //       let _ = Editor.replaceText(state.editor, range, "");
-              //       ();
-              //     });
-
+            | ByQuery => Promise.resolved([Debug(":D")])
+            | No =>
+              state.inputMethod.activated = ByEditor;
               // activated the input method with positions of cursors
               let startingRanges: array((int, int)) =
                 Editor.getSelectionRanges(state.editor)
@@ -48,10 +42,58 @@ module Impl = (Editor: Sig.Editor) => {
             },
         ),
       ]
+    | QueryChange(input) => [
+        Debug("QueryChange " ++ input),
+        WithStateP(
+          state =>
+            {
+              // activate when the user typed a backslash "/"
+              let shouldActivate = Js.String.endsWith("\\", input);
+              Promise.resolved([ViewEvent(QueryUpdate(input))]);
+            },
+            // switch (state.inputMethod.activated) {
+            // | InputMethod.ByEditor =>
+            //   if (shouldActivate) {
+            //     // the InputMethod was activated by the editor, should deactivate it first
+            //     InputMethod.deactivate(state.inputMethod);
+            //     Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
+            //   } else {
+            //     // do nothing
+            //     Promise.resolved([]);
+            //   }
+            // | ByQuery =>
+            //   if (shouldActivate) {
+            //     Promise.resolved([
+            //       Debug("ByQuery: activate"),
+            //       ViewEvent(QueryUpdate(input)),
+            //     ]);
+            //   } else {
+            //     Promise.resolved([Debug("ByQuery: nothing")]);
+            //   }
+            // | No =>
+            //   if (shouldActivate) {
+            //     state.inputMethod.activated = ByQuery;
+            //     // remove the ending backslash "/"
+            //     let input =
+            //       Js.String.substring(
+            //         ~from=0,
+            //         ~to_=String.length(input) - 1,
+            //         input,
+            //       );
+            //     Promise.resolved([
+            //       ViewEvent(InputMethod(Activate)),
+            //       ViewEvent(QueryUpdate(input)),
+            //     ]);
+            //   } else {
+            //     Promise.resolved([]);
+            //   }
+            // };
+        ),
+      ]
     | Deactivate => [
         WithState(
           state => {
-            state.inputMethod.activated = false;
+            state.inputMethod.activated = No;
             InputMethod.deactivate(state.inputMethod);
           },
         ),
