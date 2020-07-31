@@ -6,41 +6,40 @@ module Impl = (Editor: Sig.Editor) => {
 
   type t = {
     mutable activated: bool,
-    mutable start: int,
     mutable buffer: Buffer.t,
-    // // for notifying the Task Dispatcher
-    // eventEmitter: Event.t(Command.InputMethod.t),
+    mutable textBeforeActivation: string,
   };
 
   let make = () => {
     activated: false,
     buffer: Buffer.make(),
-    // to mark where the input method begins (where backslash "\" is typed)
-    start: 0,
+    textBeforeActivation: "",
   };
 
   let activate = (self, text) => {
     self.activated = true;
-    self.start = String.length(text);
+    self.textBeforeActivation = text;
   };
+
   // helper funcion
   let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s);
   let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s);
 
   // devise the "change" made to the input box
   let determineChange = (self, input): option(Editor.changeEvent) => {
-    let before = Js.String.substring(~from=0, ~to_=self.start, input);
     let inputLength = String.length(input);
     let bufferSurface = Buffer.toSurface(self.buffer);
 
-    if (init(input) == before ++ bufferSurface) {
+    if (init(input) == self.textBeforeActivation ++ bufferSurface) {
       // Insertion
       Some({
         offset: inputLength - 1,
         insertText: last(input),
         replaceLength: 0,
       });
-    } else if (input == before || input == before ++ init(bufferSurface)) {
+    } else if (input == self.textBeforeActivation
+               || input == self.textBeforeActivation
+               ++ init(bufferSurface)) {
       // Backspacing
       Some({
         offset: inputLength,
@@ -55,16 +54,18 @@ module Impl = (Editor: Sig.Editor) => {
   // given a string from the Query input
   // update the Buffer and return the rewritten string and the next Command (if any)
   let update = (self, input) => {
-    let before = Js.String.substring(~from=0, ~to_=self.start, input);
-
     switch (determineChange(self, input)) {
     | Some(change) =>
       let (buffer, shouldRewrite) =
-        Buffer.reflectEditorChange(self.buffer, self.start, change);
+        Buffer.reflectEditorChange(
+          self.buffer,
+          String.length(self.textBeforeActivation),
+          change,
+        );
       if (buffer.translation.further) {
         self.buffer = buffer;
         Some((
-          before ++ Buffer.toSurface(buffer),
+          self.textBeforeActivation ++ Buffer.toSurface(buffer),
           Command.InputMethod.Update(
             Buffer.toSequence(buffer),
             buffer.translation,
@@ -75,7 +76,7 @@ module Impl = (Editor: Sig.Editor) => {
         self.buffer = Buffer.make();
         self.activated = false;
         switch (shouldRewrite) {
-        | Some(s) => Some((before ++ s, Deactivate))
+        | Some(s) => Some((self.textBeforeActivation ++ s, Deactivate))
         | None => Some((input, Deactivate))
         };
       };
@@ -84,5 +85,12 @@ module Impl = (Editor: Sig.Editor) => {
       self.activated = false;
       None;
     };
+  };
+
+  let insertChar = (self, char) => {
+    update(
+      self,
+      self.textBeforeActivation ++ Buffer.toSurface(self.buffer) ++ char,
+    );
   };
 };

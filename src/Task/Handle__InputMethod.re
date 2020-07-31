@@ -111,24 +111,40 @@ module Impl = (Editor: Sig.Editor) => {
               EditorIM.insertChar(state.editor, char);
               Promise.resolved([]);
             } else if (state.queryIM.activated) {
-              // Promise.resolved([
-              //   ViewEvent(
-              //     QueryUpdate(state.queryIM.buffer->Buffer.toSurface ++ char),
-              //   ),
-              // ]);
-              Promise.resolved(
-                []
-              );
+              let result = QueryIM.insertChar(state.queryIM, char);
+              switch (result) {
+              | None =>
+                Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
+              | Some((text, command)) =>
+                Promise.resolved([
+                  ViewEvent(QueryUpdate(text)),
+                  DispatchCommand(InputMethod(command)),
+                ])
+              };
             } else {
               Promise.resolved([]);
             },
         ),
       ]
     | ChooseSymbol(symbol) => [
-        WithState(
-          state => {
-            EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)
-          },
+        WithStateP(
+          state =>
+            if (state.editorIM.activated) {
+              EditorIM.chooseSymbol(state.editorIM, state.editor, symbol);
+              Promise.resolved([]);
+            } else if (state.queryIM.activated) {
+              switch (state.queryIM.buffer.symbol) {
+              | None => Promise.resolved([])
+              | Some((_, symbolSequence)) =>
+                state.queryIM.buffer = {
+                  ...state.queryIM.buffer,
+                  symbol: Some((symbol, symbolSequence)),
+                };
+                Promise.resolved([ViewEvent(QueryUpdate(symbol))]);
+              };
+            } else {
+              Promise.resolved([]);
+            },
         ),
       ]
     | MoveUp => [
