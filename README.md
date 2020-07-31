@@ -87,7 +87,9 @@ Take *infer type* for example:
 ## Unicode Input
 
 Pretty much the same like on Emacs. 
-Press backslash "\\" (after loaded the file) and you should see a keyboard in the panel, with key suggestions and symbol candidates.
+Press backslash "\\" and you should see a keyboard popping up in the panel, with key suggestions and symbol candidates. Use arrow keys to explore and navigate between the candidates (if there's any). 
+
+Unicode input also works in the input prompt, though it's a bit less powerful.
 
 ## Troubleshooting
 
