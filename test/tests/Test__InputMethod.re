@@ -7,10 +7,9 @@ module Task = Task.Impl(Editor);
 module EditorIM = EditorIM.Impl(Editor);
 module GoalHandler = Handle__Goal.Impl(Editor);
 
-module Console = Js.Console;
-module Exn = Js.Exn;
-module JsPromise = Js.Promise;
+module Js' = Js;
 open Promise;
+module Js = Js';
 
 type setup = {
   editor: Editor.editor,
@@ -211,6 +210,8 @@ describe("Input Method (Editor)", () => {
       Editor.Point.make(3, 0),
     |];
     Q.it({j|should work just fine|j}, () => {
+      let replaceCRLF = Js.String.replaceByRe([%re "/\\r\\n/g"], "\n");
+
       acquire(setup)
       ->flatMapOk(setup => {
           setup.editor
@@ -220,20 +221,23 @@ describe("Input Method (Editor)", () => {
           ->flatMapOk(() => insertChar(setup, "b"))
           ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
-              A.equal({j|♭\n♭\n♭\n♭|j}, Editor.getText(setup.editor))
+              A.equal(
+                {j|♭\n♭\n♭\n♭|j},
+                replaceCRLF(Editor.getText(setup.editor)),
+              )
             )
           ->flatMapOk(() => insertChar(setup, "n"))
           ->flatMapOk(A.equal(EditorIM.Change))
           ->flatMapOk(() =>
               A.equal(
                 {j|𝕟\n𝕟\n𝕟\n𝕟|j},
-                Editor.getText(setup.editor),
+                replaceCRLF(Editor.getText(setup.editor)),
               )
             )
           // ->tapOk(() => Editor.getText(setup.editor)->Console.info)
           // ->flatMapOk(() => IM.deactivate(setup))
           // ->flatMapOk(A.equal(EditorIM.Deactivate))
-        })
+        });
     });
   });
 });
