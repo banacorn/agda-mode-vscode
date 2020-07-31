@@ -5,7 +5,6 @@ open Test__Util;
 module Goal = Goal.Impl(Editor);
 module Task = Task.Impl(Editor);
 module EditorIM = EditorIM.Impl(Editor);
-module Dispatcher = Dispatcher.Impl(Editor);
 module GoalHandler = Handle__Goal.Impl(Editor);
 
 module Console = Js.Console;
@@ -61,12 +60,6 @@ let backspace = setup => {
 };
 
 module IM = {
-  let activate' = () => {
-    VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-    ->flatMap(result => result)
-    ->map(x => Ok(x));
-  };
-
   let activate = (setup, ~positions=?, ()) => {
     let promise = setup.emitter.once();
     let positions =
@@ -90,7 +83,7 @@ module IM = {
   };
 };
 
-describe_only("InputMethod", () => {
+describe("Input Method (Editor)", () => {
   let setup = ref(None);
 
   Q.before(() => {

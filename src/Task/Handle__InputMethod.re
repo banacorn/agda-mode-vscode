@@ -39,7 +39,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | QueryChange(input) => [
-        Debug("QueryChange " ++ input),
+        // Debug("QueryChange " ++ input),
         WithStateP(
           state => {
             // activate when the user typed a backslash "/"
@@ -81,10 +81,7 @@ module Impl = (Editor: Sig.Editor) => {
               let result = QueryIM.update(state.queryIM, input);
               switch (result) {
               | None =>
-                Promise.resolved([
-                  Debug("????"),
-                  DispatchCommand(InputMethod(Deactivate)),
-                ])
+                Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
               | Some((text, command)) =>
                 Promise.resolved([
                   ViewEvent(QueryUpdate(text)),
@@ -108,7 +105,24 @@ module Impl = (Editor: Sig.Editor) => {
         ViewEvent(InputMethod(Update(sequence, translation, index))),
       ]
     | InsertChar(char) => [
-        WithState(state => {EditorIM.insertChar(state.editor, char)}),
+        WithStateP(
+          state =>
+            if (state.editorIM.activated) {
+              EditorIM.insertChar(state.editor, char);
+              Promise.resolved([]);
+            } else if (state.queryIM.activated) {
+              // Promise.resolved([
+              //   ViewEvent(
+              //     QueryUpdate(state.queryIM.buffer->Buffer.toSurface ++ char),
+              //   ),
+              // ]);
+              Promise.resolved(
+                []
+              );
+            } else {
+              Promise.resolved([]);
+            },
+        ),
       ]
     | ChooseSymbol(symbol) => [
         WithState(
