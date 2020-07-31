@@ -161,7 +161,7 @@ describe("Input Method (Editor)", () => {
         })
     });
   });
-  describe("Backspace", () => {
+  describe("Backspacing", () => {
     Q.it({j|should work just fine|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
