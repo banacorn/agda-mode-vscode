@@ -39,16 +39,14 @@
     .agda-mode-keyboard-sequence-and-candidates {
         display    : flex;
         // dimensions
-        padding    : @padding;
+        padding    : @padding 0;
         min-height : 2rem;
-        // calc(@header-height - @padding * 2);
         line-height: 2rem;
         .agda-mode-keyboard-sequence {
             padding      : 0rem @padding;
             flex-grow    : 100;
             background   : @body-background;
             font-weight  : bold;
-            // border-radius: @padding;
         }
 
         .agda-mode-keyboard-candidates {
@@ -64,7 +62,7 @@
         max-width: 100%;
         display  : flex;
         flex-wrap: wrap;
-        padding  : 0 (@padding - @button-margin) @padding;
+        padding-bottom  : @padding;
     }
 
     .agda-mode-key {

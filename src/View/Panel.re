@@ -73,8 +73,6 @@ let make =
   );
 
   <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <Header header />
-    <Body body onSubmit onChange />
     <Keyboard
       state=inputMethodState
       onInsertChar={char => {
@@ -85,5 +83,7 @@ let make =
       }}
       querying
     />
+    <Header header />
+    <Body body onSubmit onChange />
   </section>;
 };
