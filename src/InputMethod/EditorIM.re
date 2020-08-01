@@ -86,20 +86,6 @@ module Impl = (Editor: Sig.Editor) => {
     instance: option(Instance.t) // update range offsets after rewrite
   };
 
-  let insertBackslash = editor => {
-    Editor.getCursorPositions(editor)
-    ->Array.forEach(point => {
-        Editor.insertText(editor, point, "\\")->ignore
-      });
-  };
-  let insertChar = (editor, char) => {
-    let char = Js.String.charAt(0, char);
-    Editor.getCursorPositions(editor)
-    ->Array.forEach(point => {
-        Editor.insertText(editor, point, char)->ignore
-      });
-  };
-
   // kill the Instances that are not are not pointed by cursors
   let checkCursorPositions = (self, editor, points: array(Editor.Point.t)) => {
     let offsets = points->Array.map(Editor.offsetAtPoint(editor));
@@ -228,6 +214,161 @@ module Impl = (Editor: Sig.Editor) => {
       });
   };
 
+  // update offsets of Instances base on changes
+  let updateInstanceOffsets =
+      (instances: array(Instance.t), changes: array(Buffer.change))
+      : (array(Instance.t), array(rewrite)) => {
+    // sort the changes base on their offsets in the ascending order
+    let changes =
+      Js.Array.sortInPlaceWith(
+        (x: Buffer.change, y: Buffer.change) => compare(x.offset, y.offset),
+        changes,
+      );
+
+    // iterate through Instances and changes
+    // returns a list of Instances along with the changeEvent event that occurred inside that Instance
+    let rec go:
+      (int, (list(Buffer.change), list(Instance.t))) =>
+      list((Instance.t, option(Buffer.change))) =
+      accum =>
+        fun
+        | ([change, ...cs], [instance, ...is]) => {
+            let (start, end_) = instance.range;
+            let delta =
+              String.length(change.insertedText) - change.replacedTextLength;
+            if (Instance.withIn(instance, change.offset)) {
+              // `change` appears inside the `instance`
+              instance.range = (accum + start, accum + end_ + delta);
+              [
+                (instance, Some({...change, offset: change.offset + accum})),
+                ...go(accum + delta, (cs, is)),
+              ];
+            } else if (change.offset < fst(instance.range)) {
+              // `change` appears before the `instance`
+              go(
+                accum + delta, // update only `accum`
+                (cs, [instance, ...is]),
+              );
+            } else {
+              // `change` appears after the `instance`
+              instance.range = (accum + start, accum + end_);
+              [(instance, None), ...go(accum, ([change, ...cs], is))];
+            };
+          }
+        | ([], [instance, ...is]) =>
+          [instance, ...is]->List.map(i => (i, None))
+        | (_, []) => [];
+    let instancesWithChanges =
+      go(0, (List.fromArray(changes), List.fromArray(instances)))
+      ->List.toArray;
+
+    let rewrites = [||];
+
+    // push rewrites to the `rewrites` queue
+    let instances =
+      instancesWithChanges->Array.keepMap(((instance, change)) => {
+        switch (change) {
+        | None => Some(instance)
+        | Some(change) =>
+          let (buffer, shouldRewrite) =
+            Buffer.update(instance.buffer, fst(instance.range), change);
+          // issue rewrites
+          shouldRewrite->Option.forEach(text => {
+            Js.Array.push(
+              {
+                range: instance.range,
+                text,
+                instance: buffer.translation.further ? Some(instance) : None,
+              },
+              rewrites,
+            )
+            ->ignore
+          });
+
+          // destroy the instance if there's no further possible transition
+          if (buffer.translation.further) {
+            instance.buffer = buffer;
+            Some(instance);
+          } else {
+            Instance.destroy(instance);
+            None;
+          };
+        }
+      });
+    (instances, rewrites);
+  };
+
+  let activate = (self, editor, ranges: array((int, int))) => {
+    self.activated = true;
+
+    // emit ACTIVATE event after applied rewriting
+    self.eventEmitterTest.emit(Activate);
+    // setContext
+    Editor.setContext("agdaModeTyping", true)->ignore;
+
+    // instantiate from an array of offsets
+    self.instances =
+      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), ranges)
+      ->Array.map(Instance.make(editor));
+
+    // initiate listeners
+    Editor.onChangeCursorPosition(points =>
+      if (self.busy) {
+        // cannot check cursor positions at this moment
+        // store cursor positions and wait until the system is not busy
+        self.cursorsToBeChecked =
+          Some(points);
+      } else {
+        checkCursorPositions(self, editor, points);
+      }
+    )
+    ->Js.Array.push(self.handles)
+    ->ignore;
+
+    // listens to changes from the text editor
+    Editor.onChange(changes =>
+      if (!self.busy && Array.length(changes) > 0) {
+        let changes = changes->Array.map(fromEditorChangeEvent);
+        // update the offsets to reflect the changes
+        let (instances, rewrites) =
+          updateInstanceOffsets(self.instances, changes);
+        self.instances = instances;
+        // apply rewrites onto the text editor
+        applyRewrites(self, editor, rewrites);
+        // update the view
+        updateView(self);
+      }
+    )
+    ->Js.Array.push(self.handles)
+    ->ignore;
+  };
+
+  let deactivate = self => {
+    // setContext
+    Editor.setContext("agdaModeTyping", false)->ignore;
+
+    self.eventEmitterTest.emit(Deactivate);
+
+    self.instances->Array.forEach(Instance.destroy);
+    self.instances = [||];
+    self.activated = false;
+    self.cursorsToBeChecked = None;
+    self.busy = false;
+    self.handles->Array.forEach(Editor.Disposable.dispose);
+    self.handles = [||];
+  };
+
+  let make = eventEmitterTest => {
+    instances: [||],
+    activated: false,
+    cursorsToBeChecked: None,
+    busy: false,
+    handles: [||],
+    eventEmitter: Event.make(),
+    eventEmitterTest,
+  };
+  ////////////////////////////////////////////////////////////////////////////////////////////
+
   let moveUp = (self, editor) => {
     let rewrites =
       self.instances
@@ -307,159 +448,17 @@ module Impl = (Editor: Sig.Editor) => {
     applyRewrites(self, editor, rewrites);
   };
 
-  let activate = (self, editor, ranges: array((int, int))) => {
-    self.activated = true;
-
-    // emit ACTIVATE event after applied rewriting
-    self.eventEmitterTest.emit(Activate);
-    // setContext
-    Editor.setContext("agdaModeTyping", true)->ignore;
-
-    // instantiate from an array of offsets
-    self.instances =
-      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), ranges)
-      ->Array.map(Instance.make(editor));
-
-    // update offsets of Instances base on changeEvents
-    let updateInstanceOffsets = (changes: array(Buffer.change)) => {
-      // sort the changes base on their offsets in the ascending order
-      let changes =
-        Js.Array.sortInPlaceWith(
-          (x: Buffer.change, y: Buffer.change) =>
-            compare(x.offset, y.offset),
-          changes,
-        );
-
-      // iterate through Instances and changeEvents
-      // returns a list of Instances along with the changeEvent event that occurred inside that Instance
-      let rec go:
-        (int, (list(Buffer.change), list(Instance.t))) =>
-        list((Instance.t, option(Buffer.change))) =
-        accum =>
-          fun
-          | ([change, ...cs], [instance, ...is]) => {
-              let (start, end_) = instance.range;
-              let delta =
-                String.length(change.insertedText) - change.replacedTextLength;
-              if (Instance.withIn(instance, change.offset)) {
-                // `change` appears inside the `instance`
-                instance.range = (accum + start, accum + end_ + delta);
-                [
-                  (
-                    instance,
-                    Some({...change, offset: change.offset + accum}),
-                  ),
-                  ...go(accum + delta, (cs, is)),
-                ];
-              } else if (change.offset < fst(instance.range)) {
-                // `change` appears before the `instance`
-                go(
-                  accum + delta, // update only `accum`
-                  (cs, [instance, ...is]),
-                );
-              } else {
-                // `change` appears after the `instance`
-                instance.range = (accum + start, accum + end_);
-                [(instance, None), ...go(accum, ([change, ...cs], is))];
-              };
-            }
-          | ([], [instance, ...is]) =>
-            [instance, ...is]->List.map(i => (i, None))
-          | (_, []) => [];
-      let instancesWithChanges =
-        go(0, (List.fromArray(changes), List.fromArray(self.instances)))
-        ->List.toArray;
-
-      let rewrites = [||];
-
-      // store the updated instances
-      // and push rewrites to the `rewrites` queue
-      self.instances =
-        instancesWithChanges->Array.keepMap(((instance, change)) => {
-          switch (change) {
-          | None => Some(instance)
-          | Some(change) =>
-            let (buffer, shouldRewrite) =
-              Buffer.update(instance.buffer, fst(instance.range), change);
-            // issue rewrites
-            shouldRewrite->Option.forEach(text => {
-              Js.Array.push(
-                {
-                  range: instance.range,
-                  text,
-                  instance:
-                    buffer.translation.further ? Some(instance) : None,
-                },
-                rewrites,
-              )
-              ->ignore
-            });
-
-            // destroy the instance if there's no further possible transition
-            if (buffer.translation.further) {
-              instance.buffer = buffer;
-              Some(instance);
-            } else {
-              Instance.destroy(instance);
-              None;
-            };
-          }
-        });
-      rewrites;
-    };
-
-    // initiate listeners
-    Editor.onChangeCursorPosition(points =>
-      if (self.busy) {
-        // cannot check cursor positions at this moment
-        // store cursor positions and wait until the system is not busy
-        self.cursorsToBeChecked =
-          Some(points);
-      } else {
-        checkCursorPositions(self, editor, points);
-      }
-    )
-    ->Js.Array.push(self.handles)
-    ->ignore;
-
-    // listens to changes from the text editor
-    Editor.onChange(changes =>
-      if (!self.busy && Array.length(changes) > 0) {
-        let changes = changes->Array.map(fromEditorChangeEvent);
-        // update the offsets to reflect the changes
-        let rewrites = updateInstanceOffsets(changes);
-        // apply rewrites onto the text editor
-        applyRewrites(self, editor, rewrites);
-        // update the view
-        updateView(self);
-      }
-    )
-    ->Js.Array.push(self.handles)
-    ->ignore;
+  let insertBackslash = editor => {
+    Editor.getCursorPositions(editor)
+    ->Array.forEach(point => {
+        Editor.insertText(editor, point, "\\")->ignore
+      });
   };
-
-  let deactivate = self => {
-    // setContext
-    Editor.setContext("agdaModeTyping", false)->ignore;
-
-    self.eventEmitterTest.emit(Deactivate);
-
-    self.instances->Array.forEach(Instance.destroy);
-    self.instances = [||];
-    self.activated = false;
-    self.cursorsToBeChecked = None;
-    self.busy = false;
-    self.handles->Array.forEach(Editor.Disposable.dispose);
-    self.handles = [||];
-  };
-
-  let make = eventEmitterTest => {
-    instances: [||],
-    activated: false,
-    cursorsToBeChecked: None,
-    busy: false,
-    handles: [||],
-    eventEmitter: Event.make(),
-    eventEmitterTest,
+  let insertChar = (editor, char) => {
+    let char = Js.String.charAt(0, char);
+    Editor.getCursorPositions(editor)
+    ->Array.forEach(point => {
+        Editor.insertText(editor, point, char)->ignore
+      });
   };
 };
