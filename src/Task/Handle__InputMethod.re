@@ -1,10 +1,8 @@
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
-  module Buffer = Buffer.Impl(Editor);
   module Task = Task.Impl(Editor);
   module EditorIM = EditorIM.Impl(Editor);
-  module QueryIM = QueryIM.Impl(Editor);
   open! Task;
   // from Editor Command to Tasks
   let handle =

@@ -454,8 +454,8 @@ let deleteText = (editor, range) => {
 
 type changeEvent = {
   offset: int,
-  insertText: string,
-  replaceLength: int,
+  insertedText: string,
+  replacedTextLength: int,
 };
 // TextDocumentContentChangeEvent.t;
 
@@ -469,8 +469,8 @@ let onChange = callback => {
         ->Array.map(change =>
             {
               offset: change->TextDocumentContentChangeEvent.rangeOffset,
-              insertText: change->TextDocumentContentChangeEvent.text,
-              replaceLength:
+              insertedText: change->TextDocumentContentChangeEvent.text,
+              replacedTextLength:
                 change->TextDocumentContentChangeEvent.rangeLength,
             }
           )

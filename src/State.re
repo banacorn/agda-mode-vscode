@@ -1,7 +1,6 @@
 module Impl = (Editor: Sig.Editor) => {
   module Goal = Goal.Impl(Editor);
   module EditorIM = EditorIM.Impl(Editor);
-  module QueryIM = QueryIM.Impl(Editor);
   module Request = Request.Impl(Editor);
   open Belt;
   type editor = Editor.editor;

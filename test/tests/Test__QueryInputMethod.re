@@ -1,8 +1,6 @@
 open! BsMocha.Mocha;
 open! Belt;
 
-module QueryIM = QueryIM.Impl(Editor);
-
 module Assert = BsMocha.Assert;
 
 let testQueryIMUpdate = (self, ~input, ~output, ~command=?, ()) => {

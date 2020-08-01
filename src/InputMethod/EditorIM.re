@@ -1,9 +1,6 @@
 open Belt;
 
 module Impl = (Editor: Sig.Editor) => {
-  // open Command.InputMethodAction;
-  module Buffer = Buffer.Impl(Editor);
-
   type event =
     | Change
     | Activate
@@ -74,6 +71,12 @@ module Impl = (Editor: Sig.Editor) => {
     eventEmitter: Event.t(Command.InputMethod.t),
     // for reporting when some task has be done
     eventEmitterTest: Event.t(event),
+  };
+
+  let fromEditorChangeEvent = (change: Editor.changeEvent): Buffer.change => {
+    offset: change.offset,
+    insertedText: change.insertedText,
+    replacedTextLength: change.replacedTextLength,
   };
 
   // datatype for representing a rewrite to be made to the text editor
@@ -318,11 +321,11 @@ module Impl = (Editor: Sig.Editor) => {
       ->Array.map(Instance.make(editor));
 
     // update offsets of Instances base on changeEvents
-    let updateInstanceOffsets = (changes: array(Editor.changeEvent)) => {
+    let updateInstanceOffsets = (changes: array(Buffer.change)) => {
       // sort the changes base on their offsets in the ascending order
       let changes =
         Js.Array.sortInPlaceWith(
-          (x: Editor.changeEvent, y: Editor.changeEvent) =>
+          (x: Buffer.change, y: Buffer.change) =>
             compare(x.offset, y.offset),
           changes,
         );
@@ -330,25 +333,21 @@ module Impl = (Editor: Sig.Editor) => {
       // iterate through Instances and changeEvents
       // returns a list of Instances along with the changeEvent event that occurred inside that Instance
       let rec go:
-        (int, (list(Editor.changeEvent), list(Instance.t))) =>
-        list((Instance.t, option(Editor.changeEvent))) =
+        (int, (list(Buffer.change), list(Instance.t))) =>
+        list((Instance.t, option(Buffer.change))) =
         accum =>
           fun
           | ([change, ...cs], [instance, ...is]) => {
               let (start, end_) = instance.range;
               let delta =
-                String.length(change.insertText) - change.replaceLength;
+                String.length(change.insertedText) - change.replacedTextLength;
               if (Instance.withIn(instance, change.offset)) {
                 // `change` appears inside the `instance`
                 instance.range = (accum + start, accum + end_ + delta);
                 [
                   (
                     instance,
-                    Some({
-                      offset: change.offset + accum,
-                      insertText: change.insertText,
-                      replaceLength: change.replaceLength,
-                    }),
+                    Some({...change, offset: change.offset + accum}),
                   ),
                   ...go(accum + delta, (cs, is)),
                 ];
@@ -381,11 +380,7 @@ module Impl = (Editor: Sig.Editor) => {
           | None => Some(instance)
           | Some(change) =>
             let (buffer, shouldRewrite) =
-              Buffer.reflectEditorChange(
-                instance.buffer,
-                fst(instance.range),
-                change,
-              );
+              Buffer.update(instance.buffer, fst(instance.range), change);
             // issue rewrites
             shouldRewrite->Option.forEach(text => {
               Js.Array.push(
@@ -426,8 +421,11 @@ module Impl = (Editor: Sig.Editor) => {
     )
     ->Js.Array.push(self.handles)
     ->ignore;
+
+    // listens to changes from the text editor
     Editor.onChange(changes =>
       if (!self.busy && Array.length(changes) > 0) {
+        let changes = changes->Array.map(fromEditorChangeEvent);
         // update the offsets to reflect the changes
         let rewrites = updateInstanceOffsets(changes);
         // apply rewrites onto the text editor

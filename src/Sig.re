@@ -134,8 +134,8 @@ module type Editor = {
 
   type changeEvent = {
     offset: int,
-    insertText: string,
-    replaceLength: int,
+    insertedText: string,
+    replacedTextLength: int,
   };
   let onChange: (array(changeEvent) => unit) => Disposable.t;
 
