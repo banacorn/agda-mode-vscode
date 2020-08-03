@@ -143,6 +143,26 @@ module Impl = (Editor: Sig.Editor) => {
       });
   };
 
+  let toRewrites =
+      (instances: array(Instance.t), f: Instance.t => option(string))
+      : array(rewrite) => {
+    let accum = ref(0);
+
+    instances->Array.keepMap(instance => {
+      f(instance)
+      ->Option.map(replacement => {
+          let (start, end_) = instance.range;
+          let delta = String.length(replacement) - (end_ - start);
+          {
+            range: instance.range,
+            rangeAfter: (start + accum^, end_ + accum^ + delta),
+            text: replacement,
+            instance: Some(instance),
+          };
+        })
+    });
+  };
+
   // iterate through a list of rewrites and apply them to the text editor
   let applyRewrites = (self, editor, rewrites) => {
     let rec go: (int, list(rewrite)) => Promise.t(unit) =
@@ -302,6 +322,7 @@ module Impl = (Editor: Sig.Editor) => {
         }
       });
     };
+
     (instances, rewrites);
   };
 
@@ -377,25 +398,15 @@ module Impl = (Editor: Sig.Editor) => {
   ////////////////////////////////////////////////////////////////////////////////////////////
 
   let moveUp = (self, editor) => {
-    let rewrites = {
-      let accum = ref(0);
-      self.instances
-      ->Array.keepMap(instance => {
+    let rewrites =
+      toRewrites(
+        self.instances,
+        instance => {
           instance.buffer = Buffer.moveUp(instance.buffer);
           instance.buffer.translation.candidateSymbols[instance.buffer.
-                                                         candidateIndex]
-          ->Option.map(symbol => {
-              let (start, end_) = instance.range;
-              let delta = String.length(symbol) - (end_ - start);
-              {
-                range: instance.range,
-                rangeAfter: (start + accum^, end_ + accum^ + delta),
-                text: symbol,
-                instance: Some(instance),
-              };
-            });
-        });
-    };
+                                                         candidateIndex];
+        },
+      );
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites);
 
@@ -404,25 +415,15 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let moveRight = (self, editor) => {
-    let rewrites = {
-      let accum = ref(0);
-      self.instances
-      ->Array.keepMap(instance => {
+    let rewrites =
+      toRewrites(
+        self.instances,
+        instance => {
           instance.buffer = Buffer.moveRight(instance.buffer);
           instance.buffer.translation.candidateSymbols[instance.buffer.
-                                                         candidateIndex]
-          ->Option.map(symbol => {
-              let (start, end_) = instance.range;
-              let delta = String.length(symbol) - (end_ - start);
-              {
-                range: instance.range,
-                rangeAfter: (start + accum^, end_ + accum^ + delta),
-                text: symbol,
-                instance: Some(instance),
-              };
-            });
-        });
-    };
+                                                         candidateIndex];
+        },
+      );
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites);
     // update the view
@@ -430,25 +431,15 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let moveDown = (self, editor) => {
-    let rewrites = {
-      let accum = ref(0);
-      self.instances
-      ->Array.keepMap(instance => {
+    let rewrites =
+      toRewrites(
+        self.instances,
+        instance => {
           instance.buffer = Buffer.moveDown(instance.buffer);
           instance.buffer.translation.candidateSymbols[instance.buffer.
-                                                         candidateIndex]
-          ->Option.map(symbol => {
-              let (start, end_) = instance.range;
-              let delta = String.length(symbol) - (end_ - start);
-              {
-                range: instance.range,
-                rangeAfter: (start + accum^, end_ + accum^ + delta),
-                text: symbol,
-                instance: Some(instance),
-              };
-            });
-        });
-    };
+                                                         candidateIndex];
+        },
+      );
 
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites);
@@ -457,25 +448,16 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let moveLeft = (self, editor) => {
-    let rewrites = {
-      let accum = ref(0);
-      self.instances
-      ->Array.keepMap(instance => {
+    let rewrites =
+      toRewrites(
+        self.instances,
+        instance => {
           instance.buffer = Buffer.moveLeft(instance.buffer);
           instance.buffer.translation.candidateSymbols[instance.buffer.
-                                                         candidateIndex]
-          ->Option.map(symbol => {
-              let (start, end_) = instance.range;
-              let delta = String.length(symbol) - (end_ - start);
-              {
-                range: instance.range,
-                rangeAfter: (start + accum^, end_ + accum^ + delta),
-                text: symbol,
-                instance: Some(instance),
-              };
-            });
-        });
-    };
+                                                         candidateIndex];
+        },
+      );
+
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites);
     // update the view
@@ -483,22 +465,11 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let chooseSymbol = (self, editor, symbol) => {
-    let rewrites = {
-      let accum = ref(0);
-      self.instances
-      ->Array.map(instance => {
-          let (start, end_) = instance.range;
-          let delta = String.length(symbol) - (end_ - start);
-          {
-            range: instance.range,
-            rangeAfter: (start + accum^, end_ + accum^ + delta),
-            text: symbol,
-            instance: Some(instance),
-          };
-        });
-    };
+    let rewrites = toRewrites(self.instances, _ => {Some(symbol)});
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites);
+    // update the view
+    updateView(self);
   };
 
   let insertBackslash = editor => {
