@@ -149,17 +149,23 @@ module Impl = (Editor: Sig.Editor) => {
     let accum = ref(0);
 
     instances->Array.keepMap(instance => {
+      let (start, end_) = instance.range;
+      // update the range
+      instance.range = (start + accum^, end_ + accum^);
+
       f(instance)
       ->Option.map(replacement => {
-          let (start, end_) = instance.range;
           let delta = String.length(replacement) - (end_ - start);
+          // update `accum`
+          accum := accum^ + delta;
+          // returns a `rewrite`
           {
-            rangeBefore: (start + accum^, end_ + accum^),
-            rangeAfter: (start + accum^, end_ + accum^ + delta),
+            rangeBefore: instance.range,
+            rangeAfter: (fst(instance.range), snd(instance.range) + delta),
             text: replacement,
             instance: Some(instance),
           };
-        })
+        });
     });
   };
 
