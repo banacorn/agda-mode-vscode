@@ -81,7 +81,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
-    range: (int, int),
+    rangeBefore: (int, int),
     rangeAfter: (int, int),
     text: string,
     instance: option(Instance.t) // update range offsets after rewrite
@@ -154,7 +154,7 @@ module Impl = (Editor: Sig.Editor) => {
           let (start, end_) = instance.range;
           let delta = String.length(replacement) - (end_ - start);
           {
-            range: instance.range,
+            rangeBefore: (start + accum^, end_ + accum^),
             rangeAfter: (start + accum^, end_ + accum^ + delta),
             text: replacement,
             instance: Some(instance),
@@ -165,64 +165,34 @@ module Impl = (Editor: Sig.Editor) => {
 
   // iterate through a list of rewrites and apply them to the text editor
   let applyRewrites = (self, editor, rewrites) => {
-    let rec go: (int, list(rewrite)) => Promise.t(unit) =
-      accum =>
-        fun
-        | [] => Promise.resolved()
-        | [{range, rangeAfter, text, instance}, ...rewrites] => {
-            let (start, end_) = range;
-            // this value represents the offset change made by this update
-            // e.g. "lambda" => "λ" would result in `-5`
-            let delta = String.length(text) - (end_ - start);
-
-            log(
-              "!!! "
-              ++ text
-              ++ " ("
-              ++ string_of_int(accum + start)
-              ++ ","
-              ++ string_of_int(accum + end_)
-              ++ ") => ("
-              ++ string_of_int(accum + start)
-              ++ ","
-              ++ string_of_int(accum + end_ + delta)
-              ++ ") "
-              ++ string_of_int(accum),
-            );
-
-            let editorRange =
-              Editor.Range.make(
-                Editor.pointAtOffset(editor, start + accum),
-                Editor.pointAtOffset(editor, end_ + accum),
-              );
-            // update the text buffer
-            Editor.deleteText(editor, editorRange)
-            ->Promise.flatMap(_ => {
-                Editor.insertText(
-                  editor,
-                  Editor.Range.start(editorRange),
-                  text,
-                )
-              })
-            ->Promise.flatMap(_ => {
-                // update range offsets and redecorate the Instance
-                // if it still exist after this rewrite
-                switch (instance) {
-                | None => ()
-                | Some(instance) =>
-                  instance.range = rangeAfter;
-                  Instance.redocorate(instance, editor);
-                };
-                // pass this change down
-                go(accum + delta, rewrites);
-              });
-          };
-
     // before applying edits to the text editor, flip the semaphore
     self.busy = true;
     // iterate though the list of rewrites
-    go(0, List.fromArray(rewrites))
-    ->Promise.get(() => {
+    rewrites
+    ->Array.map(({rangeBefore, rangeAfter, text, instance}, ()) => {
+        let editorRange =
+          Editor.Range.make(
+            Editor.pointAtOffset(editor, fst(rangeBefore)),
+            Editor.pointAtOffset(editor, snd(rangeBefore)),
+          );
+        // update the text buffer
+        Editor.deleteText(editor, editorRange)
+        ->Promise.flatMap(_ => {
+            Editor.insertText(editor, Editor.Range.start(editorRange), text)
+          })
+        ->Promise.map(_ => {
+            // update range offsets and redecorate the Instance
+            // if it still exist after this rewrite
+            switch (instance) {
+            | None => ()
+            | Some(instance) =>
+              instance.range = rangeAfter;
+              Instance.redocorate(instance, editor);
+            }
+          });
+      })
+    ->Util.oneByOne
+    ->Promise.get(_ => {
         // emit CHANGE event after applied rewriting
         self.eventEmitterTest.emit(Change);
         // all offsets updated and rewrites applied, reset the semaphore
@@ -300,7 +270,7 @@ module Impl = (Editor: Sig.Editor) => {
             let delta = String.length(text) - (end_ - start);
             Js.Array.push(
               {
-                range: (start, end_),
+                rangeBefore: (start + accum^, end_ + accum^),
                 rangeAfter: (start + accum^, end_ + accum^ + delta),
                 text,
                 instance: buffer.translation.further ? Some(instance) : None,
