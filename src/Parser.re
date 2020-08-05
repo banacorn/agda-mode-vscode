@@ -242,42 +242,6 @@ module Error = {
       ++ "\"";
 };
 
-let captures = (regex, handler, raw) =>
-  Js.Re.exec_(regex, raw)
-  ->Option.map(result =>
-      result->Js.Re.captures->Array.map(Js.Nullable.toOption)
-    )
-  ->Option.flatMap(handler);
-
-let at =
-    (captured: array(option(string)), i: int, parser: string => option('a))
-    : option('a) =>
-  if (i >= Array.length(captured)) {
-    None;
-  } else {
-    captured[i]->Option.flatMap(x => x)->Option.flatMap(parser);
-  };
-
-let choice = (res: array(string => option('a)), raw) =>
-  Js.Array.reduce(
-    (result, parse) =>
-      switch (result) {
-      /* Done, pass it on */
-      | Some(value) => Some(value)
-      /* Failed, try this one */
-      | None => parse(raw)
-      },
-    None,
-    res,
-  );
-
-// replacement of `int_of_string`
-let int = s =>
-  switch (int_of_string(s)) {
-  | i => Some(i)
-  | exception _ => None
-  };
-
 let userInput = (s: string): string => {
   // let trim = s =>
   //   Atom.Config.get("agda-mode.trimSpaces") ? String.trim(s) : s;

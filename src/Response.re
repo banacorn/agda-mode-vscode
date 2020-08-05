@@ -205,7 +205,7 @@ let parse = (tokens: Token.t): result(t, Parser.Error.t) => {
     | Some(A("agda2-maybe-goto")) =>
       switch (xs[1]) {
       | Some(L([|A(filepath), _, A(index')|])) =>
-        Parser.int(index')
+        int_of_string_opt(index')
         ->Option.flatMap(index => Some(JumpToError(filepath, index)))
         ->Option.mapWithDefault(err(3), x => Ok(x))
       | _ => err(4)
@@ -213,13 +213,17 @@ let parse = (tokens: Token.t): result(t, Parser.Error.t) => {
     | Some(A("agda2-goals-action")) =>
       switch (xs[1]) {
       | Some(xs) =>
-        Ok(InteractionPoints(xs->Token.flatten->Array.keepMap(Parser.int)))
+        Ok(
+          InteractionPoints(
+            xs->Token.flatten->Array.keepMap(int_of_string_opt),
+          ),
+        )
       | _ => err(5)
       }
     | Some(A("agda2-give-action")) =>
       switch (xs[1]) {
       | Some(A(index')) =>
-        Parser.int(index')
+        int_of_string_opt(index')
         ->Option.flatMap(i =>
             switch (xs[2]) {
             | Some(A("paren")) => Some(GiveAction(i, Paren))
@@ -255,7 +259,7 @@ let parse = (tokens: Token.t): result(t, Parser.Error.t) => {
           tokens->Array.keepMap(token => {
             let solution =
               if (isEven(i^)) {
-                Parser.int(token)
+                int_of_string_opt(token)
                 ->Option.flatMap(index =>
                     tokens[i^ + 1]->Option.map(s => (index, s))
                   );

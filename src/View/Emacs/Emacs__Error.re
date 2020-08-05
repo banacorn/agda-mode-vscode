@@ -7,7 +7,7 @@ let parse: string => array(Component.WarningError.t) =
     ->Emacs__Parser.Dict.partite(((_, i)) =>
         i === 0 ? Some("errors") : None
       )
-    ->Emacs__Parser.partiteWarningsOrErrors("errors")
+    ->Emacs__Parser2.partiteWarningsOrErrors("errors")
     ->Js.Dict.get("errors")
     ->Option.mapWithDefault([||], metas =>
         metas

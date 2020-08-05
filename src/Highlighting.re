@@ -177,11 +177,11 @@ let parse: Token.t => option(t) =
         _,
         L([|A(filepath), _, A(index')|]),
       |] =>
-      Parser.int(start')
+      int_of_string_opt(start')
       ->Option.flatMap(start =>
-          Parser.int(end_')
+          int_of_string_opt(end_')
           ->Option.flatMap(end_ =>
-              Parser.int(index')
+              int_of_string_opt(index')
               ->Option.map(index =>
                   {
                     start: start - 1,
@@ -194,9 +194,9 @@ let parse: Token.t => option(t) =
         )
 
     | [|A(start'), A(end_'), aspects|] =>
-      Parser.int(start')
+      int_of_string_opt(start')
       ->Option.flatMap(start =>
-          Parser.int(end_')
+          int_of_string_opt(end_')
           ->Option.map(end_ =>
               {
                 start: start - 1,
@@ -207,9 +207,9 @@ let parse: Token.t => option(t) =
             )
         )
     | [|A(start'), A(end_'), aspects, _|] =>
-      Parser.int(start')
+      int_of_string_opt(start')
       ->Option.flatMap(start =>
-          Parser.int(end_')
+          int_of_string_opt(end_')
           ->Option.map(end_ =>
               {
                 start: start - 1,

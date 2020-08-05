@@ -129,52 +129,31 @@ let unindent: array(string) => array(string) =
       );
   };
 
-let partiteMetas = xs =>
-  xs->Dict.split("metas", (rawMetas: array(string)) => {
-    let metas = unindent(rawMetas);
-    let indexOfHiddenMetas =
-      metas->Array.getIndexBy(s =>
-        Component.Output.parseOutputWithRange(s)->Option.isSome
-      );
-    metas->Dict.partite(((_, i)) =>
-      switch (indexOfHiddenMetas) {
-      | Some(n) =>
-        if (i === n) {
-          Some("hiddenMetas");
-        } else if (i === 0) {
-          Some("interactionMetas");
-        } else {
-          None;
-        }
-      | None =>
-        /* All interaction metas */
-        if (i === 0) {
-          Some("interactionMetas");
-        } else {
-          None;
-        }
-      }
-    );
-  });
+let captures = (regex, handler, raw) =>
+  Js.Re.exec_(regex, raw)
+  ->Option.map(result =>
+      result->Js.Re.captures->Array.map(Js.Nullable.toOption)
+    )
+  ->Option.flatMap(handler);
 
-let partiteWarningsOrErrors = (xs, key) =>
-  xs->Dict.update(
-    key,
-    (raw: array(string)) => {
-      let hasDelimeter =
-        raw[0]
-        ->Option.flatMap(Js.String.match([%re "/^\\u2014{4}/"]))
-        ->Option.isSome;
-      let lines = hasDelimeter ? raw |> Js.Array.sliceFrom(1) : raw;
-      let markWarningStart = line => line->View.Range.parse->Option.isSome;
-      /* If the previous warning of error ends with "at", then we have to glue it back */
-      let glueBack = xs =>
-        xs[Array.length(xs) - 1]
-        ->Option.flatMap(Js.String.match([%re "/at$/"]))
-        ->Option.isSome;
-      lines
-      ->Array_.partite(markWarningStart)
-      ->Array_.mergeWithNext(glueBack)
-      ->Array.map(Js.Array.joinWith("\n"));
-    },
+let choice = (res: array(string => option('a)), raw) =>
+  Js.Array.reduce(
+    (result, parse) =>
+      switch (result) {
+      /* Done, pass it on */
+      | Some(value) => Some(value)
+      /* Failed, try this one */
+      | None => parse(raw)
+      },
+    None,
+    res,
   );
+
+let at =
+    (captured: array(option(string)), i: int, parser: string => option('a))
+    : option('a) =>
+  if (i >= Array.length(captured)) {
+    None;
+  } else {
+    captured[i]->Option.flatMap(x => x)->Option.flatMap(parser);
+  };

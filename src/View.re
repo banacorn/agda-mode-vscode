@@ -183,7 +183,7 @@ module Range = {
       /*          |  different row                    |    same row            | */
       "/^(\\S+)\\:(?:(\\d+)\\,(\\d+)\\-(\\d+)\\,(\\d+)|(\\d+)\\,(\\d+)\\-(\\d+))$/"
     ]
-    ->Parser.captures(captured => {
+    ->Emacs__Parser.captures(captured => {
         open Option;
         let flatten = xs => xs->flatMap(x => x);
         let srcFile = captured[1]->flatten;
@@ -191,15 +191,15 @@ module Range = {
         if (sameRow) {
           captured[6]
           ->flatten
-          ->flatMap(Parser.int)
+          ->flatMap(int_of_string_opt)
           ->flatMap(row =>
               captured[7]
               ->flatten
-              ->flatMap(Parser.int)
+              ->flatMap(int_of_string_opt)
               ->flatMap(colStart =>
                   captured[8]
                   ->flatten
-                  ->flatMap(Parser.int)
+                  ->flatMap(int_of_string_opt)
                   ->flatMap(colEnd =>
                       Some(
                         Range(
@@ -226,19 +226,19 @@ module Range = {
         } else {
           captured[2]
           ->flatten
-          ->flatMap(Parser.int)
+          ->flatMap(int_of_string_opt)
           ->flatMap(rowStart =>
               captured[3]
               ->flatten
-              ->flatMap(Parser.int)
+              ->flatMap(int_of_string_opt)
               ->flatMap(colStart =>
                   captured[4]
                   ->flatten
-                  ->flatMap(Parser.int)
+                  ->flatMap(int_of_string_opt)
                   ->flatMap(rowEnd =>
                       captured[5]
                       ->flatten
-                      ->flatMap(Parser.int)
+                      ->flatMap(int_of_string_opt)
                       ->flatMap(colEnd =>
                           Some(
                             Range(

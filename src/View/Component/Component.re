@@ -48,7 +48,7 @@ module Expr = {
         | 1 =>
           token
           ->Option.map(Js.String.sliceToEnd(~from=1))
-          ->Option.flatMap(Parser.int)
+          ->Option.flatMap(int_of_string_opt)
           ->Option.map(x => Term.QuestionMark(x))
         | 2 => token->Option.map(x => Term.Underscore(x))
         | _ => token->Option.map(x => Term.Plain(x))
@@ -84,33 +84,38 @@ module OutputConstraint = {
 
   let parseOfType =
     [%re "/^([^\\:]*) \\: ((?:\\n|.)+)/"]
-    ->Parser.captures(captured =>
+    ->Emacs__Parser.captures(captured =>
         captured
-        ->Parser.at(2, Expr.parse)
+        ->Emacs__Parser.at(2, Expr.parse)
         ->Option.flatMap(type_ =>
             captured
-            ->Parser.at(1, Expr.parse)
+            ->Emacs__Parser.at(1, Expr.parse)
             ->Option.flatMap(term => Some(OfType(term, type_)))
           )
       );
   let parseJustType =
     [%re "/^Type ((?:\\n|.)+)/"]
-    ->Parser.captures(captured =>
+    ->Emacs__Parser.captures(captured =>
         captured
-        ->Parser.at(1, Expr.parse)
+        ->Emacs__Parser.at(1, Expr.parse)
         ->Option.map(type_ => JustType(type_))
       );
   let parseJustSort =
     [%re "/^Sort ((?:\\n|.)+)/"]
-    ->Parser.captures(captured =>
+    ->Emacs__Parser.captures(captured =>
         captured
-        ->Parser.at(1, Expr.parse)
+        ->Emacs__Parser.at(1, Expr.parse)
         ->Option.map(sort => JustSort(sort))
       );
   let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others(raw'));
 
   let parse =
-    Parser.choice([|parseOfType, parseJustType, parseJustSort, parseOthers|]);
+    Emacs__Parser.choice([|
+      parseOfType,
+      parseJustType,
+      parseJustSort,
+      parseOthers,
+    |]);
 
   [@react.component]
   let make = (~value: t, ~range: option(View.Range.t)) => {
@@ -159,7 +164,7 @@ module Output = {
     raw->OutputConstraint.parse->Option.map(x => Output(x, None));
   let parseOutputWithRange =
     [%re "/((?:\\n|.)*\\S+)\\s*\\[ at ([^\\]]+) \\]/"]
-    ->Parser.captures(captured =>
+    ->Emacs__Parser.captures(captured =>
         captured[1]
         ->Option.flatMap(x => x)
         ->Option.flatMap(OutputConstraint.parse)
