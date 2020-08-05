@@ -10,7 +10,8 @@ let make =
   switch (body) {
   | Nothing => <> </>
   | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>
-  | Error(text) => <div className="agda-mode-body"> {string(text)} </div>
+  | Error(payload) =>
+    <div className="agda-mode-body"> <Emacs__Error payload /> </div>
   | Query(placeholder, value) =>
     let placeholder = placeholder->Option.getWithDefault("");
     let value = value->Option.getWithDefault("");
