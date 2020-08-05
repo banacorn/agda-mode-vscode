@@ -10,8 +10,7 @@ let make = (~range, ~abbr=false) =>
     <Component__Link jump=true target={View.Link.ToRange(range)}>
       // <span className="text-subtle range icon icon-link">
 
-        <span className="codicon codicon-link">
-          {string(View.Range.toString(range))}
-        </span>
+        <div className="codicon codicon-link" />
+        {string(View.Range.toString(range))}
       </Component__Link>;
   };

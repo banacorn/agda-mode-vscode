@@ -1,4 +1,3 @@
-open ReasonReact;
 open Belt;
 [@react.component]
 let make =
@@ -9,7 +8,8 @@ let make =
     ) => {
   switch (body) {
   | Nothing => <> </>
-  | Plain(text) => <div className="agda-mode-body"> {string(text)} </div>
+  | Plain(payload) =>
+    <div className="agda-mode-body"> <Emacs__PlainText payload /> </div>
   | Error(payload) =>
     <div className="agda-mode-body"> <Emacs__Error payload /> </div>
   | Query(placeholder, value) =>

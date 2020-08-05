@@ -717,7 +717,8 @@
 		"react-dom": "^16.9.0",
 		"reason-promise": "^1.0.1",
 		"reason-react": ">=0.7.0",
-		"reason-react-update": "^0.1.1"
+		"reason-react-update": "^0.1.1",
+		"vscode-codicons": "^0.0.7"
 	},
 	"__metadata": {
 		"id": "50315a05-1d1b-44bf-9e2c-be33d1c4a77e",

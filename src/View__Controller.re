@@ -67,7 +67,7 @@ let onEvent = (view, callback) => {
 };
 
 let make = (extensionPath, editor) => {
-  let html = (distPath, styleUri, scriptUri) => {
+  let html = (distPath, styleUri, scriptUri, codiconUri, fontUri) => {
     let nonce = {
       let text = ref("");
       let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -90,9 +90,12 @@ let make = (extensionPath, editor) => {
     let scriptUri =
       Uri.file(Node.Path.join2(distPath, scriptUri))
       ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+    let codiconUri =
+      Uri.file(Node.Path.join2(distPath, codiconUri))
+      ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
 
     let metaContent =
-      "default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
+      "font-src vscode-resource: ;default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
       ++ nonce
       ++ "';style-src vscode-resource: 'unsafe-inline' http: https: data:;";
 
@@ -105,6 +108,7 @@ let make = (extensionPath, editor) => {
                 <meta name="theme-color" content="#000000">
                 <title>React App</title>
                 <link rel="stylesheet" type="text/css" href="$styleUri">
+                <link rel="stylesheet" type="text/css" href="$codiconUri">
                 <meta http-equiv="Content-Security-Policy" content="$metaContent">
               </head>
               <body>
@@ -144,7 +148,15 @@ let make = (extensionPath, editor) => {
 
     panel
     ->WebviewPanel.webview
-    ->Webview.setHtml(html(distPath, "style.css", "view.bundle.js"));
+    ->Webview.setHtml(
+        html(
+          distPath,
+          "style.css",
+          "view.bundle.js",
+          "codicon/codicon.css",
+          "codicon/codicon.ttf",
+        ),
+      );
 
     panel;
   };
