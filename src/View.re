@@ -35,6 +35,7 @@ module Body = {
   type t =
     | Nothing
     | Plain(string)
+    | Error(string)
     | Query(option(string), option(string));
 
   open Json.Decode;
@@ -45,6 +46,7 @@ module Body = {
       fun
       | "Nothing" => TagOnly(Nothing)
       | "Plain" => Contents(string |> map(text => Plain(text)))
+      | "Error" => Contents(string |> map(text => Error(text)))
       | "Query" =>
         Contents(
           pair(optional(string), optional(string))
@@ -59,6 +61,8 @@ module Body = {
     | Nothing => object_([("tag", string("Nothing"))])
     | Plain(text) =>
       object_([("tag", string("Plain")), ("contents", text |> string)])
+    | Error(text) =>
+      object_([("tag", string("Error")), ("contents", text |> string)])
     | Query(placeholder, value) =>
       object_([
         ("tag", string("Query")),
@@ -67,6 +71,331 @@ module Body = {
           (placeholder, value) |> pair(nullable(string), nullable(string)),
         ),
       ]);
+};
+
+open Belt;
+module Position = {
+  type t = {
+    pos: option(int),
+    line: int,
+    col: int,
+  };
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Position" =>
+        Contents(
+          tuple3(optional(int), int, int)
+          |> map(((pos, line, col)) => {pos, line, col}),
+        )
+      | tag =>
+        raise(DecodeError("[View.Position] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | {pos, line, col} =>
+      object_([
+        ("tag", string("Position")),
+        ("contents", (pos, line, col) |> tuple3(nullable(int), int, int)),
+      ]);
+};
+
+module Interval = {
+  type t = {
+    start: Position.t,
+    end_: Position.t,
+  };
+
+  let fuse = (a, b) => {
+    let start =
+      if (a.start.pos > b.start.pos) {
+        b.start;
+      } else {
+        a.start;
+      };
+    let end_ =
+      if (a.end_.pos > b.end_.pos) {
+        a.end_;
+      } else {
+        b.end_;
+      };
+    {start, end_};
+  };
+
+  let toString = (self): string =>
+    if (self.start.line === self.end_.line) {
+      string_of_int(self.start.line)
+      ++ ","
+      ++ string_of_int(self.start.col)
+      ++ "-"
+      ++ string_of_int(self.end_.col);
+    } else {
+      string_of_int(self.start.line)
+      ++ ","
+      ++ string_of_int(self.start.col)
+      ++ "-"
+      ++ string_of_int(self.end_.line)
+      ++ ","
+      ++ string_of_int(self.end_.col);
+    };
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Interval" =>
+        Contents(
+          pair(Position.decode, Position.decode)
+          |> map(((start, end_)) => {start, end_}),
+        )
+      | tag =>
+        raise(DecodeError("[View.Interval] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | {start, end_} =>
+      object_([
+        ("tag", string("Interval")),
+        (
+          "contents",
+          (start, end_) |> pair(Position.encode, Position.encode),
+        ),
+      ]);
+};
+
+module Range = {
+  type t =
+    | NoRange
+    | Range(option(string), array(Interval.t));
+
+  let parse =
+    [%re
+      /*          |  different row                    |    same row            | */
+      "/^(\\S+)\\:(?:(\\d+)\\,(\\d+)\\-(\\d+)\\,(\\d+)|(\\d+)\\,(\\d+)\\-(\\d+))$/"
+    ]
+    ->Parser.captures(captured => {
+        open Option;
+        let flatten = xs => xs->flatMap(x => x);
+        let srcFile = captured[1]->flatten;
+        let sameRow = captured[6]->flatten->isSome;
+        if (sameRow) {
+          captured[6]
+          ->flatten
+          ->flatMap(Parser.int)
+          ->flatMap(row =>
+              captured[7]
+              ->flatten
+              ->flatMap(Parser.int)
+              ->flatMap(colStart =>
+                  captured[8]
+                  ->flatten
+                  ->flatMap(Parser.int)
+                  ->flatMap(colEnd =>
+                      Some(
+                        Range(
+                          srcFile,
+                          [|
+                            {
+                              start: {
+                                pos: None,
+                                line: row,
+                                col: colStart,
+                              },
+                              end_: {
+                                pos: None,
+                                line: row,
+                                col: colEnd,
+                              },
+                            },
+                          |],
+                        ),
+                      )
+                    )
+                )
+            );
+        } else {
+          captured[2]
+          ->flatten
+          ->flatMap(Parser.int)
+          ->flatMap(rowStart =>
+              captured[3]
+              ->flatten
+              ->flatMap(Parser.int)
+              ->flatMap(colStart =>
+                  captured[4]
+                  ->flatten
+                  ->flatMap(Parser.int)
+                  ->flatMap(rowEnd =>
+                      captured[5]
+                      ->flatten
+                      ->flatMap(Parser.int)
+                      ->flatMap(colEnd =>
+                          Some(
+                            Range(
+                              srcFile,
+                              [|
+                                {
+                                  start: {
+                                    pos: None,
+                                    line: rowStart,
+                                    col: colStart,
+                                  },
+                                  end_: {
+                                    pos: None,
+                                    line: rowEnd,
+                                    col: colEnd,
+                                  },
+                                },
+                              |],
+                            ),
+                          )
+                        )
+                    )
+                )
+            );
+        };
+      });
+
+  let fuse = (a: t, b: t): t => {
+    open Interval;
+
+    let mergeTouching = (l, e, s, r) =>
+      List.concat(List.concat(l, [{start: e.start, end_: s.end_}]), r);
+
+    let rec fuseSome = (s1, r1, s2, r2) => {
+      let r1' = Util.List.dropWhile(x => x.end_.pos <= s2.end_.pos, r1);
+      helpFuse(r1', [Interval.fuse(s1, s2), ...r2]);
+    }
+    and outputLeftPrefix = (s1, r1, s2, is2) => {
+      let (r1', r1'') = Util.List.span(s => s.end_.pos < s2.start.pos, r1);
+      List.concat(List.concat([s1], r1'), helpFuse(r1'', is2));
+    }
+    and helpFuse = (a: List.t(Interval.t), b: List.t(Interval.t)) =>
+      switch (a, List.reverse(a), b, List.reverse(b)) {
+      | ([], _, _, _) => a
+      | (_, _, [], _) => b
+      | ([s1, ...r1], [e1, ...l1], [s2, ...r2], [e2, ...l2]) =>
+        if (e1.end_.pos < s2.start.pos) {
+          List.concat(a, b);
+        } else if (e2.end_.pos < s1.start.pos) {
+          List.concat(b, a);
+        } else if (e1.end_.pos === s2.start.pos) {
+          mergeTouching(l1, e1, s2, r2);
+        } else if (e2.end_.pos === s1.start.pos) {
+          mergeTouching(l2, e2, s1, r1);
+        } else if (s1.end_.pos < s2.start.pos) {
+          outputLeftPrefix(s1, r1, s2, b);
+        } else if (s2.end_.pos < s1.start.pos) {
+          outputLeftPrefix(s2, r2, s1, a);
+        } else if (s1.end_.pos < s2.end_.pos) {
+          fuseSome(s1, r1, s2, r2);
+        } else {
+          fuseSome(s2, r2, s1, r1);
+        }
+      | _ => failwith("something wrong with Range::fuse")
+      };
+    switch (a, b) {
+    | (NoRange, r2) => r2
+    | (r1, NoRange) => r1
+    | (Range(f, r1), Range(_, r2)) =>
+      Range(
+        f,
+        helpFuse(List.fromArray(r1), List.fromArray(r2))->List.toArray,
+      )
+    };
+  };
+
+  let toString = (self: t): string =>
+    switch (self) {
+    | NoRange => ""
+    | Range(None, xs) =>
+      switch (xs[0], xs[Array.length(xs) - 1]) {
+      | (Some(first), Some(last)) =>
+        Interval.toString({start: first.start, end_: last.end_})
+      | _ => ""
+      }
+
+    | Range(Some(filepath), [||]) => filepath
+    | Range(Some(filepath), xs) =>
+      filepath
+      ++ ":"
+      ++ (
+        switch (xs[0], xs[Array.length(xs) - 1]) {
+        | (Some(first), Some(last)) =>
+          Interval.toString({start: first.start, end_: last.end_})
+        | _ => ""
+        }
+      )
+    };
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Range" =>
+        Contents(
+          pair(optional(string), array(Interval.decode))
+          |> map(((source, intervals)) => Range(source, intervals)),
+        )
+      | "NoRange" => TagOnly(NoRange)
+      | tag =>
+        raise(DecodeError("[View.Range] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | Range(source, intervals) =>
+      object_([
+        ("tag", string("Range")),
+        (
+          "contents",
+          (source, intervals)
+          |> pair(nullable(string), array(Interval.encode)),
+        ),
+      ])
+    | NoRange => object_([("tag", string("NoRange"))]);
+};
+
+module Link = {
+  type t =
+    | ToRange(Range.t)
+    | ToHole(int);
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "ToRange" => Contents(Range.decode |> map(range => ToRange(range)))
+      | "ToHole" => Contents(int |> map(index => ToHole(index)))
+      | tag =>
+        raise(DecodeError("[View.Link] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | ToRange(range) =>
+      object_([
+        ("tag", string("ToRange")),
+        ("contents", range |> Range.encode),
+      ])
+    | ToHole(index) =>
+      object_([("tag", string("ToHole")), ("contents", index |> int)]);
 };
 
 module EventToView = {
@@ -324,7 +653,10 @@ module EventFromView = {
     | Initialized
     | Destroyed
     | InputMethod(InputMethod.t)
-    | QueryChange(string);
+    | QueryChange(string)
+    | JumpToTarget(Link.t)
+    | MouseOver(Link.t)
+    | MouseOut(Link.t);
 
   open Json.Decode;
   open Util.Decode;
@@ -337,8 +669,16 @@ module EventFromView = {
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(action => InputMethod(action)))
       | "QueryChange" => Contents(string |> map(text => QueryChange(text)))
+      | "JumpToTarget" =>
+        Contents(Link.decode |> map(link => JumpToTarget(link)))
+      | "MouseOver" => Contents(Link.decode |> map(link => MouseOver(link)))
+      | "MouseOut" => Contents(Link.decode |> map(link => MouseOut(link)))
       | tag =>
-        raise(DecodeError("[Response.EVent] Unknown constructor: " ++ tag)),
+        raise(
+          DecodeError(
+            "[Response.EventFromView] Unknown constructor: " ++ tag,
+          ),
+        ),
     );
 
   open! Json.Encode;
@@ -355,6 +695,21 @@ module EventFromView = {
       object_([
         ("tag", string("QueryChange")),
         ("contents", text |> string),
+      ])
+    | JumpToTarget(link) =>
+      object_([
+        ("tag", string("JumpToTarget")),
+        ("contents", link |> Link.encode),
+      ])
+    | MouseOver(link) =>
+      object_([
+        ("tag", string("MouseOver")),
+        ("contents", link |> Link.encode),
+      ])
+    | MouseOut(link) =>
+      object_([
+        ("tag", string("MouseOut")),
+        ("contents", link |> Link.encode),
       ]);
 };
 
