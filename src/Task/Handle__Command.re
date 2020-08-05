@@ -265,6 +265,9 @@ module Impl = (Editor: Sig.Editor) => {
       | QueryChange(input) => [
           DispatchCommand(InputMethod(QueryChange(input))),
         ]
+      | JumpToTarget(_) => [Debug("JumpToTarget")]
+      | MouseOver(_) => [Debug("MouseOver")]
+      | MouseOut(_) => [Debug("MouseOut")]
       }
     | Escape => [
         WithStateP(

@@ -17,7 +17,9 @@ module Impl = (Editor: Sig.Editor) => {
       | AllGoalsWarnings(header, "nil") => [displaySuccess(header, None)]
       | AllGoalsWarnings(header, body) => [display(header, Some(body))]
       | Time(payload) => [display("Time", Some(payload))]
-      | Error(payload) => [displayError("Error", Some(payload))]
+      | Error(payload) => [
+          ViewEvent(Display(Error("Error"), Error(payload))),
+        ]
       | Intro(payload) => [display("Intro", Some(payload))]
       | Auto(payload) => [displaySuccess("Auto", Some(payload))]
       | ModuleContents(payload) => [

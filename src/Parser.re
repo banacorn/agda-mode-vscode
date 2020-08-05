@@ -242,7 +242,7 @@ module Error = {
       ++ "\"";
 };
 
-let captures = (handler, regex, raw) =>
+let captures = (regex, handler, raw) =>
   Js.Re.exec_(regex, raw)
   ->Option.map(result =>
       result->Js.Re.captures->Array.map(Js.Nullable.toOption)

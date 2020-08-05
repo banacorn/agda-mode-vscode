@@ -143,3 +143,27 @@ module JsError = {
     "_e.toString()";
   };
 };
+
+module List = {
+  let rec span = (p, xs) =>
+    switch (xs) {
+    | [] => ([], [])
+    | [x, ...xs] =>
+      if (p(x)) {
+        let (ys, zs) = span(p, xs);
+        ([x, ...ys], zs);
+      } else {
+        ([], xs);
+      }
+    };
+  let rec dropWhile = (p, xs) =>
+    switch (xs) {
+    | [] => []
+    | [x, ...xs] =>
+      if (p(x)) {
+        dropWhile(p, xs);
+      } else {
+        [x, ...xs];
+      }
+    };
+};
