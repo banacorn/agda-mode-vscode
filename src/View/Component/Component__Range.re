@@ -4,13 +4,11 @@ open React;
 let make = (~range, ~abbr=false) =>
   if (abbr) {
     <Component__Link jump=true target={View.Link.ToRange(range)}>
-      <span className="codicon codicon-link" />
+      <div className="codicon codicon-link" />
     </Component__Link>;
   } else {
     <Component__Link jump=true target={View.Link.ToRange(range)}>
-      // <span className="text-subtle range icon icon-link">
-
-        <div className="codicon codicon-link" />
-        {string(View.Range.toString(range))}
-      </Component__Link>;
+      <div className="codicon codicon-link" />
+      {string(View.Range.toString(range))}
+    </Component__Link>;
   };

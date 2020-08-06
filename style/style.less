@@ -117,10 +117,16 @@
 }
 
 .agda-mode-body {
+    @line-height: 1.5rem;
+
+    .codicon {
+        vertical-align: middle;
+    }
+
     white-space: pre;
     background : @body-background;
     font-size  : 125%;
-    line-height: 1.5rem;
+    line-height: @line-height;
     padding: @padding;
 
     ul {
@@ -130,6 +136,13 @@
     }
 
     // components
+    .component-link {
+        color: @link;
+    }
+    .component-link:hover {
+        color: @link-hover;
+        cursor: pointer;
+    }
 }
 
 // the total height of .agda-mode-query should be the same as @header-height

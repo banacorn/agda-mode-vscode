@@ -31,12 +31,12 @@ let make =
 
   switch (sanitizedTarget) {
   | None =>
-    <span className={String.concat(" ", ["link", ...className])}>
+    <span className={String.concat(" ", ["component-link", ...className])}>
       children
     </span>
   | Some(t) =>
     <span
-      className={String.concat(" ", ["link", ...className])}
+      className={String.concat(" ", ["component-link", ...className])}
       onClick={_ =>
         if (jump) {
           link.emit(View.EventFromView.JumpToTarget(t));
