@@ -262,13 +262,13 @@ module WarningError = {
   let make = (~value: t) => {
     switch (value) {
     | WarningMessage(body) =>
-      <li className="warning-error">
-        <span className="warning-label"> {string("warning")} </span>
+      <li className="item-warning-error">
+        <span className="item-error-label"> {string("warning")} </span>
         <PlainText value=body />
       </li>
     | ErrorMessage(body) =>
-      <li className="warning-error">
-        <span className="error-label"> {string("error")} </span>
+      <li className="item-warning-error">
+        <span className="item-error-label"> {string("error")} </span>
         <PlainText value=body />
       </li>
     };

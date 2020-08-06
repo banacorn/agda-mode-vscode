@@ -133,16 +133,25 @@
         list-style: none;
         padding: 0px;
         margin: 0px;
+
+        
+        li.item-warning-error {
+            span.item-warning-label {
+                font-variant: small-caps;
+                font-weight: bolder;
+                color: @warning;
+                float: right;
+            }
+    
+            span.item-error-label {
+                font-variant: small-caps;
+                font-weight: bolder;
+                color: @error;
+                float: right;
+            }
+        }
     }
 
-    // components
-    .component-link {
-        color: @link;
-    }
-    .component-link:hover {
-        color: @link-hover;
-        cursor: pointer;
-    }
 }
 
 // the total height of .agda-mode-query should be the same as @header-height
@@ -163,4 +172,20 @@
     input::-webkit-input-placeholder {
         color: @inputPlaceholder;
     }
+}
+
+
+// components
+.component-link {
+    color: @link;
+
+    .codicon-link::after  {
+        content: " ";
+        white-space: pre;
+    }
+}
+.component-link:hover {
+    color: @link-hover;
+    cursor: pointer;
+    text-decoration: underline;
 }
