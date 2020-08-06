@@ -28,7 +28,9 @@ module Impl = (Editor: Sig.Editor) => {
       | SearchAbout(payload) => [display("Search About", Some(payload))]
       | WhyInScope(payload) => [display("Scope info", Some(payload))]
       | NormalForm(payload) => [display("Normal form", Some(payload))]
-      | GoalType(payload) => [display("Goal Type", Some(payload))]
+      | GoalType(payload) => [
+          ViewEvent(Display(Plain("Goal Type"), GoalType(payload))),
+        ]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]
       | Context(payload) => [display("Context", Some(payload))]
