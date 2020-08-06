@@ -67,7 +67,7 @@ let onEvent = (view, callback) => {
 };
 
 let make = (extensionPath, editor) => {
-  let html = (distPath, styleUri, scriptUri, codiconUri, fontUri) => {
+  let html = (distPath, styleUri, scriptUri, codiconUri) => {
     let nonce = {
       let text = ref("");
       let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -90,6 +90,7 @@ let make = (extensionPath, editor) => {
     let scriptUri =
       Uri.file(Node.Path.join2(distPath, scriptUri))
       ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+
     let codiconUri =
       Uri.file(Node.Path.join2(distPath, codiconUri))
       ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
@@ -149,13 +150,7 @@ let make = (extensionPath, editor) => {
     panel
     ->WebviewPanel.webview
     ->Webview.setHtml(
-        html(
-          distPath,
-          "style.css",
-          "view.bundle.js",
-          "codicon/codicon.css",
-          "codicon/codicon.ttf",
-        ),
+        html(distPath, "style.css", "view.bundle.js", "codicon/codicon.css"),
       );
 
     panel;

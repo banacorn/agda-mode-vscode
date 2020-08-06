@@ -697,6 +697,7 @@
 	},
 	"devDependencies": {
 		"bs-mocha": "^1.0.0",
+		"copy-webpack-plugin": "^6.0.3",
 		"glob": "^7.1.6",
 		"less-loader": "^5.0.0",
 		"less-watch-compiler": "^1.14.6",
