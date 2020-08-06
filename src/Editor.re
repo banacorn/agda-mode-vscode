@@ -297,12 +297,12 @@ let focus = editor => {
   ->ignore;
 };
 
-let getSelectionRange = editor => {
+let getSelection = editor => {
   let selection = editor->TextEditor.selection;
   VSCode.Range.make(Selection.start(selection), Selection.end_(selection));
 };
 
-let getSelectionRanges = editor => {
+let getSelections = editor => {
   editor
   ->TextEditor.selections
   ->Array.map(selection => {
@@ -311,6 +311,20 @@ let getSelectionRanges = editor => {
         Selection.end_(selection),
       )
     });
+};
+
+let setSelection = (editor, range) => {
+  let selection =
+    Selection.make(VSCode.Range.start(range), VSCode.Range.end_(range));
+  editor->TextEditor.setSelection(selection);
+};
+
+let setSelections = (editor, ranges) => {
+  let selections =
+    ranges->Array.map(range =>
+      Selection.make(VSCode.Range.start(range), VSCode.Range.end_(range))
+    );
+  editor->TextEditor.setSelections(selections);
 };
 
 let getCursorPosition = editor => editor->TextEditor.selection->Selection.end_;

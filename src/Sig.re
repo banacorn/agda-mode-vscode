@@ -114,8 +114,10 @@ module type Editor = {
 
   let focus: editor => unit;
 
-  let getSelectionRange: editor => Range.t;
-  let getSelectionRanges: editor => array(Range.t);
+  let getSelection: editor => Range.t;
+  let getSelections: editor => array(Range.t);
+  let setSelection: (editor, Range.t) => unit;
+  let setSelections: (editor, array(Range.t)) => unit;
 
   let getCursorPosition: editor => Point.t;
   let getCursorPositions: editor => array(Point.t);

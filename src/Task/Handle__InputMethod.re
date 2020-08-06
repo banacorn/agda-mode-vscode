@@ -18,7 +18,7 @@ module Impl = (Editor: Sig.Editor) => {
             } else {
               // activated the input method with positions of cursors
               let startingRanges: array((int, int)) =
-                Editor.getSelectionRanges(state.editor)
+                Editor.getSelections(state.editor)
                 ->Array.map(range =>
                     (
                       Editor.offsetAtPoint(
