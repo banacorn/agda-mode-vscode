@@ -90,7 +90,7 @@ module type Editor = {
     let onEvent: (view, View.EventFromView.t => unit) => Disposable.t;
     // converting between types
     let fromPosition: View.Position.t => Point.t;
-    let fromInternal: View.Interval.t => Range.t;
+    let fromInterval: View.Interval.t => Range.t;
   };
 
   module Decoration: {

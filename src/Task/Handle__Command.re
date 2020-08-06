@@ -267,30 +267,21 @@ module Impl = (Editor: Sig.Editor) => {
           DispatchCommand(InputMethod(QueryChange(input))),
         ]
       | JumpToTarget(link) => [
-          // TODO: move this to Goal.action
-          WithStateP(
+          WithState(
             state => {
               Editor.focus(state.editor);
-              // only jump to site of error
-              // when it's on the same file
               switch (Editor.getFileName(state.editor)) {
-              | None => Promise.resolved([])
+              | None => ()
               | Some(path) =>
                 switch (link) {
-                | ToRange(NoRange) => Promise.resolved([])
-                | ToRange(Range(None, _intervals)) => Promise.resolved([])
+                | ToRange(NoRange) => ()
+                | ToRange(Range(None, _intervals)) => ()
                 | ToRange(Range(Some(filePath), intervals)) =>
+                  // only select the intervals when it's on the same file
                   if (path == filePath) {
-                    switch (intervals[0]) {
-                    | None => Promise.resolved([])
-                    | Some(interval) =>
-                      let range = Editor.View.fromInternal(interval);
-                      let point = Editor.Range.start(range);
-                      let offset = Editor.offsetAtPoint(state.editor, point);
-                      Promise.resolved([Goal(SetCursor(offset - 1))]);
-                    };
-                  } else {
-                    Promise.resolved([]);
+                    let ranges =
+                      intervals->Array.map(Editor.View.fromInterval);
+                    Editor.setSelections(state.editor, ranges);
                   }
                 | ToHole(index) =>
                   let goal =
@@ -299,11 +290,8 @@ module Impl = (Editor: Sig.Editor) => {
                       state.goals,
                     );
                   switch (goal) {
-                  | None => Promise.resolved([])
-                  | Some(goal) =>
-                    Promise.resolved([
-                      Goal(SetCursor(fst(goal.range) - 1)),
-                    ])
+                  | None => ()
+                  | Some(goal) => Goal.setCursor(goal, state.editor)
                   };
                 }
               };
