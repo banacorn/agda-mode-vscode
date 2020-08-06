@@ -1,3 +1,4 @@
+open Belt;
 open Command;
 
 module Impl = (Editor: Sig.Editor) => {
@@ -265,7 +266,50 @@ module Impl = (Editor: Sig.Editor) => {
       | QueryChange(input) => [
           DispatchCommand(InputMethod(QueryChange(input))),
         ]
-      | JumpToTarget(_) => [Debug("JumpToTarget")]
+      | JumpToTarget(link) => [
+          // TODO: move this to Goal.action
+          WithStateP(
+            state => {
+              Editor.focus(state.editor);
+              // only jump to site of error
+              // when it's on the same file
+              switch (Editor.getFileName(state.editor)) {
+              | None => Promise.resolved([])
+              | Some(path) =>
+                switch (link) {
+                | ToRange(NoRange) => Promise.resolved([])
+                | ToRange(Range(None, _intervals)) => Promise.resolved([])
+                | ToRange(Range(Some(filePath), intervals)) =>
+                  if (path == filePath) {
+                    switch (intervals[0]) {
+                    | None => Promise.resolved([])
+                    | Some(interval) =>
+                      let range = Editor.View.fromInternal(interval);
+                      let point = Editor.Range.start(range);
+                      let offset = Editor.offsetAtPoint(state.editor, point);
+                      Promise.resolved([Goal(SetCursor(offset - 1))]);
+                    };
+                  } else {
+                    Promise.resolved([]);
+                  }
+                | ToHole(index) =>
+                  let goal =
+                    Js.Array.find(
+                      (goal: Goal.t) => goal.index == index,
+                      state.goals,
+                    );
+                  switch (goal) {
+                  | None => Promise.resolved([])
+                  | Some(goal) =>
+                    Promise.resolved([
+                      Goal(SetCursor(fst(goal.range) - 1)),
+                    ])
+                  };
+                }
+              };
+            },
+          ),
+        ]
       | MouseOver(_) => [Debug("MouseOver")]
       | MouseOut(_) => [Debug("MouseOut")]
       }

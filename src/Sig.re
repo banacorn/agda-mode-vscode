@@ -88,6 +88,9 @@ module type Editor = {
       (view, View.RequestOrEventToView.t) =>
       Promise.t(option(View.Response.t));
     let onEvent: (view, View.EventFromView.t => unit) => Disposable.t;
+    // converting between types
+    let fromPosition: View.Position.t => Point.t;
+    let fromInternal: View.Interval.t => Range.t;
   };
 
   module Decoration: {

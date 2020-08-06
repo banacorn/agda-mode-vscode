@@ -261,3 +261,8 @@ let destroy = view => {
 let show = view => view.panel->WebviewPanel.reveal(~preserveFocus=true, ());
 let focus = view => view.panel->WebviewPanel.reveal();
 let hide = _view => ();
+
+let fromPosition = (position: View.Position.t) =>
+  Position.make(position.line, position.col);
+let fromInternal = (interval: View.Interval.t) =>
+  Range.make(fromPosition(interval.start), fromPosition(interval.end_));

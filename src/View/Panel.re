@@ -72,18 +72,20 @@ let make =
     }
   );
 
-  <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-    <Keyboard
-      state=inputMethodState
-      onInsertChar={char => {
-        onEventFromView.emit(InputMethod(InsertChar(char)))
-      }}
-      onChooseSymbol={symbol => {
-        onEventFromView.emit(InputMethod(ChooseSymbol(symbol)))
-      }}
-      querying
-    />
-    <Header header />
-    <Body body onSubmit onChange />
-  </section>;
+  <Component__Link.Provider value=onEventFromView>
+    <section className="agda-mode native-key-bindings" tabIndex=(-1)>
+      <Keyboard
+        state=inputMethodState
+        onInsertChar={char => {
+          onEventFromView.emit(InputMethod(InsertChar(char)))
+        }}
+        onChooseSymbol={symbol => {
+          onEventFromView.emit(InputMethod(ChooseSymbol(symbol)))
+        }}
+        querying
+      />
+      <Header header />
+      <Body body onSubmit onChange />
+    </section>
+  </Component__Link.Provider>;
 };
