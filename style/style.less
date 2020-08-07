@@ -129,27 +129,36 @@
     line-height: @line-height;
     padding: @padding;
 
+    li.labeled {
+        background : @header-background;
+        padding: @padding;
+        margin: @padding 0;
+
+        span.label {
+            font-variant: small-caps;
+            font-weight: bolder;
+            float: right;
+            color: @success
+
+        }
+        span.warning-label {
+            font-variant: small-caps;
+            font-weight: bolder;
+            float: right;
+            color: @warning;
+        }
+        span.error-label {
+            font-variant: small-caps;
+            font-weight: bolder;
+            float: right;
+            color: @error;
+        }
+    }
+        
     ul {
         list-style: none;
         padding: 0px;
         margin: 0px;
-
-        
-        li.item-warning-error {
-            span.item-warning-label {
-                font-variant: small-caps;
-                font-weight: bolder;
-                color: @warning;
-                float: right;
-            }
-    
-            span.item-error-label {
-                font-variant: small-caps;
-                font-weight: bolder;
-                color: @error;
-                float: right;
-            }
-        }
     }
 
 }

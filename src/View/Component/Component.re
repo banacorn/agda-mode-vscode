@@ -140,10 +140,12 @@ module OutputConstraint = {
 
 module Labeled = {
   [@react.component]
-  let make = (~label: string, ~expr: Expr.t) => {
+  let make = (~label: string, ~isError=false, ~isWarning=false, ~children) => {
+    let className =
+      isError ? "error-label" : isWarning ? "warning-label" : "label";
     <li className="labeled">
-      <span className="label"> {string(label)} </span>
-      <Expr expr />
+      <span className> {string(label)} </span>
+      children
     </li>;
   };
 };
@@ -262,15 +264,11 @@ module WarningError = {
   let make = (~value: t) => {
     switch (value) {
     | WarningMessage(body) =>
-      <li className="item-warning-error">
-        <span className="item-error-label"> {string("warning")} </span>
+      <Labeled label="Warning" isWarning=true>
         <PlainText value=body />
-      </li>
+      </Labeled>
     | ErrorMessage(body) =>
-      <li className="item-warning-error">
-        <span className="item-error-label"> {string("error")} </span>
-        <PlainText value=body />
-      </li>
+      <Labeled label="Error" isError=true> <PlainText value=body /> </Labeled>
     };
   };
 };

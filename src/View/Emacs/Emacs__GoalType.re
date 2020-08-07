@@ -74,9 +74,13 @@ let make = (~payload: string) => {
   <>
     <ul>
       {parsed.goal
-       ->Option.mapWithDefault(null, expr => <Labeled label="Goal " expr />)}
+       ->Option.mapWithDefault(null, expr =>
+           <Labeled label="Goal"> <Expr expr /> </Labeled>
+         )}
       {parsed.have
-       ->Option.mapWithDefault(null, expr => <Labeled label="Have " expr />)}
+       ->Option.mapWithDefault(null, expr =>
+           <Labeled label="Have"> <Expr expr /> </Labeled>
+         )}
     </ul>
     {<ul>
        {parsed.interactionMetas
