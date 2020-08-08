@@ -1,5 +1,6 @@
 open Emacs__Parser;
 open Belt;
+open Component;
 
 let partiteMetas = xs =>
   xs->Dict.split("metas", (rawMetas: array(string)) => {
@@ -50,3 +51,19 @@ let partiteWarningsOrErrors = (xs, key) =>
       ->Array.map(Js.Array.joinWith("\n"));
     },
   );
+
+let parseError: string => array(Component.LabeledItem.t) =
+  raw => {
+    let lines = raw |> Js.String.split("\n");
+    lines
+    ->Emacs__Parser.Dict.partite(((_, i)) =>
+        i === 0 ? Some("errors") : None
+      )
+    ->partiteWarningsOrErrors("errors")
+    ->Js.Dict.get("errors")
+    ->Option.mapWithDefault([||], entries =>
+        entries->Array.map(entry =>
+          Component.LabeledItem.Error(Component.Text.parse(entry))
+        )
+      );
+  };

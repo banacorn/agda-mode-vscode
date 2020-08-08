@@ -1,4 +1,5 @@
 open Belt;
+open Component;
 [@react.component]
 let make =
     (
@@ -17,7 +18,16 @@ let make =
   | GoalType(payload) =>
     <div className="agda-mode-body"> <Emacs__GoalType payload /> </div>
   | Error(payload) =>
-    <div className="agda-mode-body"> <Emacs__Error payload /> </div>
+    let labeledItems = Emacs__Parser2.parseError(payload);
+    <div className="agda-mode-body">
+      <ul>
+        {labeledItems
+         ->Array.mapWithIndex((i, payload) =>
+             <LabeledItem key={string_of_int(i)} payload />
+           )
+         ->React.array}
+      </ul>
+    </div>;
   | Query(placeholder, value) =>
     let placeholder = placeholder->Option.getWithDefault("");
     let value = value->Option.getWithDefault("");
