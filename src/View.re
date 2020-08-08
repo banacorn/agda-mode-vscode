@@ -34,6 +34,7 @@ module Header = {
 module Body = {
   module Emacs = {
     type t =
+      | AllGoalsWarnings
       | GoalType
       | Error;
 
@@ -43,6 +44,7 @@ module Body = {
     let decode: decoder(t) =
       sum(
         fun
+        | "AllGoalsWarnings" => TagOnly(AllGoalsWarnings)
         | "GoalType" => TagOnly(GoalType)
         | "Error" => TagOnly(Error)
         | tag =>
@@ -52,6 +54,7 @@ module Body = {
     open! Json.Encode;
     let encode: encoder(t) =
       fun
+      | AllGoalsWarnings => object_([("tag", string("AllGoalsWarnings"))])
       | GoalType => object_([("tag", string("GoalType"))])
       | Error => object_([("tag", string("Error"))]);
   };
@@ -59,7 +62,6 @@ module Body = {
   type t =
     | Nothing
     | Plain(string)
-    | AllGoalsWarnings(string, string)
     | Emacs(Emacs.t, string, string)
     | Query(option(string), option(string));
 
@@ -71,11 +73,6 @@ module Body = {
       fun
       | "Nothing" => TagOnly(Nothing)
       | "Plain" => Contents(string |> map(text => Plain(text)))
-      | "AllGoalsWarnings" =>
-        Contents(
-          pair(string, string)
-          |> map(((header, body)) => AllGoalsWarnings(header, body)),
-        )
       | "Emacs" =>
         Contents(
           tuple3(Emacs.decode, string, string)
@@ -95,11 +92,6 @@ module Body = {
     | Nothing => object_([("tag", string("Nothing"))])
     | Plain(text) =>
       object_([("tag", string("Plain")), ("contents", text |> string)])
-    | AllGoalsWarnings(header, body) =>
-      object_([
-        ("tag", string("AllGoalsWarnings")),
-        ("contents", (header, body) |> pair(string, string)),
-      ])
     | Emacs(kind, header, body) =>
       object_([
         ("tag", string("Emacs")),

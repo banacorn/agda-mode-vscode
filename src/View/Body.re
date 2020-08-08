@@ -1,5 +1,6 @@
 open Belt;
 open Component;
+open React;
 [@react.component]
 let make =
     (
@@ -10,14 +11,11 @@ let make =
   switch (body) {
   | Nothing => <> </>
   | Plain(payload) =>
-    <div className="agda-mode-body"> <Emacs__PlainText payload /> </div>
-  | AllGoalsWarnings(header, body) =>
-    <div className="agda-mode-body">
-      <Emacs__AllGoalsWarnings header body />
-    </div>
-  | Emacs(kind, _header, body) =>
+    <div className="agda-mode-body"> <p> {string(payload)} </p> </div>
+  | Emacs(kind, header, body) =>
     let items =
       switch (kind) {
+      | AllGoalsWarnings => Emacs__Parser2.parseAllGoalsWarnings(header, body)
       | GoalType => Emacs__Parser2.parseGoalType(body)
       | Error => Emacs__Parser2.parseError(body)
       };

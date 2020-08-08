@@ -17,7 +17,7 @@ module Impl = (Editor: Sig.Editor) => {
       | AllGoalsWarnings(header, "nil") => [displaySuccess(header, None)]
       | AllGoalsWarnings(header, body) => [
           ViewEvent(
-            Display(Plain(header), AllGoalsWarnings(header, body)),
+            Display(Plain(header), Emacs(AllGoalsWarnings, header, body)),
           ),
         ]
       | Time(payload) => [display("Time", Some(payload))]

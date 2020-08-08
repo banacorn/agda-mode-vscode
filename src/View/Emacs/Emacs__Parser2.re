@@ -124,3 +124,85 @@ let parseGoalType: string => array(Item.t) =
       })
     ->Js.Array.concatMany([||]);
   };
+
+let parseAllGoalsWarnings = (title, body): array(Item.t) => {
+  let partiteAllGoalsWarnings: (string, string) => Js.Dict.t(array(string)) =
+    (title, body) => {
+      let lines = Js.String.split("\n", body);
+      /* examine the header to see what's in the body */
+      let hasMetas =
+        title->Js.String.match([%re "/Goals/"], _)->Option.isSome;
+      let hasWarnings =
+        title->Js.String.match([%re "/Warnings/"], _)->Option.isSome;
+      let hasErrors =
+        title->Js.String.match([%re "/Errors/"], _)->Option.isSome;
+      /* predicates for partitioning the body */
+      let markMetas = ((_, i)) =>
+        hasMetas && i === 0 ? Some("metas") : None;
+      let markWarnings = ((line, i)) =>
+        hasWarnings
+          ? hasMetas
+              /* Has both warnings and metas */
+              ? line
+                ->Js.String.slice(~from=5, ~to_=13, _)
+                ->Js.String.match([%re "/Warnings/"], _)
+                ->Option.map(_ => "warnings")
+              /* Has only warnings */
+              : i === 0 ? Some("warnings") : None
+          /* Has no warnings */
+          : None;
+      let markErrors = ((line, i)) =>
+        hasErrors
+          /* Has both warnings or metas and errors */
+          ? hasMetas || hasWarnings
+              ? line
+                ->Js.String.slice(~from=5, ~to_=11, _)
+                ->Js.String.match([%re "/Errors/"], _)
+                ->Option.map(_ => "errors")
+              /* Has only errors */
+              : i === 0 ? Some("errors") : None
+          : None;
+      lines->Emacs__Parser.Dict.partite(line =>
+        switch (markMetas(line)) {
+        | Some(value) => Some(value)
+        | None =>
+          switch (markWarnings(line)) {
+          | Some(value) => Some(value)
+          | None =>
+            switch (markErrors(line)) {
+            | Some(value) => Some(value)
+            | None => None
+            }
+          }
+        }
+      );
+    };
+  let dictionary: Js.Dict.t(array(string)) =
+    partiteAllGoalsWarnings(title, body)
+    ->partiteMetas
+    ->partiteWarningsOrErrors("warnings")
+    ->partiteWarningsOrErrors("errors");
+
+  // convert entries in the dictionary to Items for render
+  dictionary
+  ->Js.Dict.entries
+  ->Array.map(((key, lines)) => {
+      switch (key) {
+      | "warnings" =>
+        lines->Array.map(line => Item.Warning(Text.parse(line)))
+      | "errors" => lines->Array.map(line => Item.Error(Text.parse(line)))
+      | "interactionMetas" =>
+        lines
+        ->Array.map(Output.parseOutputWithoutRange)
+        ->Array.keepMap(x => x)
+        ->Array.map(output => Item.Output(output))
+      | "hiddenMetas" =>
+        lines
+        ->Array.map(Output.parseOutputWithRange)
+        ->Array.keepMap(x => x)
+        ->Array.map(output => Item.Output(output))
+      | _ => [||]
+      }
+    })
+  ->Js.Array.concatMany([||]);
+};
