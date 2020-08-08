@@ -5,6 +5,13 @@ module Header = {
     | Warning(string)
     | Error(string);
 
+  let toString =
+    fun
+    | Plain(string) => string
+    | Success(string) => string
+    | Warning(string) => string
+    | Error(string) => string;
+
   open Json.Decode;
   open Util.Decode;
 
@@ -37,6 +44,7 @@ module Body = {
       | ContextOrConstraints
       | AllGoalsWarnings
       | GoalType
+      | SearchAbout
       | Error
       | Others;
 
@@ -49,6 +57,7 @@ module Body = {
         | "ContextOrConstraints" => TagOnly(ContextOrConstraints)
         | "AllGoalsWarnings" => TagOnly(AllGoalsWarnings)
         | "GoalType" => TagOnly(GoalType)
+        | "SearchAbout" => TagOnly(SearchAbout)
         | "Error" => TagOnly(Error)
         | "Others" => TagOnly(Others)
         | tag =>
@@ -62,6 +71,7 @@ module Body = {
         object_([("tag", string("ContextOrConstraints"))])
       | AllGoalsWarnings => object_([("tag", string("AllGoalsWarnings"))])
       | GoalType => object_([("tag", string("GoalType"))])
+      | SearchAbout => object_([("tag", string("SearchAbout"))])
       | Error => object_([("tag", string("Error"))])
       | Others => object_([("tag", string("Others"))]);
   };

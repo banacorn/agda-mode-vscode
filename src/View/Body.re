@@ -1,6 +1,5 @@
 open Belt;
 open Component;
-open React;
 [@react.component]
 let make =
     (
@@ -11,13 +10,23 @@ let make =
   switch (body) {
   | Nothing => <> </>
   | Plain(payload) =>
-    <div className="agda-mode-body"> <p> {string(payload)} </p> </div>
+    let items = [|Item.PlainText(Text.parse(payload))|];
+    <div className="agda-mode-body">
+      <ul>
+        {items
+         ->Array.mapWithIndex((i, item) =>
+             <Item key={string_of_int(i)} item />
+           )
+         ->React.array}
+      </ul>
+    </div>;
   | Emacs(kind, header, body) =>
     let items =
       switch (kind) {
       | ContextOrConstraints => Emacs__Parser2.parseContextOrConstraints(body)
       | AllGoalsWarnings => Emacs__Parser2.parseAllGoalsWarnings(header, body)
       | GoalType => Emacs__Parser2.parseGoalType(body)
+      | SearchAbout => Emacs__Parser2.parseSearchAbout(body)
       | Error => Emacs__Parser2.parseError(body)
       | Others => Emacs__Parser2.parseOthers(body)
       };

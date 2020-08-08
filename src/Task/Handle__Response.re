@@ -8,62 +8,40 @@ module Impl = (Editor: Sig.Editor) => {
     let handle =
       fun
       | Response.DisplayInfo.CompilationOk => [
-          displaySuccess("Compilation Done!", None),
+          displayHeaderOnly(Success("Compilation Done!")),
         ]
-      | Constraints(None) => [display("No Constraints", None)]
+      | Constraints(None) => [displayHeaderOnly(Plain("No Constraints"))]
       | Constraints(Some(body)) => [
-          ViewEvent(
-            Display(
-              Plain("Constraints"),
-              Emacs(ContextOrConstraints, "Constraints", body),
-            ),
-          ),
+          displayEmacs(ContextOrConstraints, Plain("Constraints"), body),
         ]
-      | AllGoalsWarnings(header, "nil") => [displaySuccess(header, None)]
+      | AllGoalsWarnings(header, "nil") => [
+          displayHeaderOnly(Success(header)),
+        ]
       | AllGoalsWarnings(header, body) => [
-          ViewEvent(
-            Display(Plain(header), Emacs(AllGoalsWarnings, header, body)),
-          ),
+          displayEmacs(AllGoalsWarnings, Plain(header), body),
         ]
-      | Time(payload) => [display("Time", Some(payload))]
-      | Error(payload) => [
-          ViewEvent(
-            Display(Error("Error"), Emacs(Error, "Error", payload)),
-          ),
+      | Time(body) => [displayEmacs(Others, Plain("Time"), body)]
+      | Error(body) => [
+          displayEmacs(AllGoalsWarnings, Error("Error"), body),
         ]
-      | Intro(payload) => [display("Intro", Some(payload))]
-      | Auto(payload) => [displaySuccess("Auto", Some(payload))]
-      | ModuleContents(payload) => [
-          display("Module Contents", Some(payload)),
+      | Intro(body) => [displayEmacs(Others, Plain("Error"), body)]
+      | Auto(body) => [displayEmacs(Others, Success("Auto"), body)]
+      | ModuleContents(body) => [
+          displayEmacs(Others, Plain("Module Contents"), body),
         ]
-      | SearchAbout(payload) => [display("Search About", Some(payload))]
-      | WhyInScope(payload) => [
-          ViewEvent(
-            Display(
-              Plain("Scope info"),
-              Emacs(Others, "Scope info", payload),
-            ),
-          ),
+      | SearchAbout(body) => [
+          displayEmacs(SearchAbout, Plain("Search About"), body),
         ]
-      | NormalForm(payload) => [display("Normal form", Some(payload))]
-      | GoalType(payload) => [
-          ViewEvent(
-            Display(
-              Plain("Goal Type"),
-              Emacs(GoalType, "Goal Type", payload),
-            ),
-          ),
+      | WhyInScope(body) => [
+          displayEmacs(Others, Plain("Scope info"), body),
         ]
+      | NormalForm(body) => [
+          displayEmacs(Others, Plain("Normal form"), body),
+        ]
+      | GoalType(body) => [displayEmacs(Others, Plain("Goal Type"), body)]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]
-      | Context(body) => [
-          ViewEvent(
-            Display(
-              Plain("Context"),
-              Emacs(ContextOrConstraints, "Context", body),
-            ),
-          ),
-        ]
+      | Context(body) => [displayEmacs(Others, Plain("Context"), body)]
       | HelperFunction(payload) => [
           WithStateP(
             _ => Editor.copyToClipboard(payload)->Promise.map(() => []),

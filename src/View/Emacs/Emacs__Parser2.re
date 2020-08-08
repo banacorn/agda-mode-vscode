@@ -220,3 +220,41 @@ let parseOthers: string => array(Item.t) =
   raw => {
     [|Item.PlainText(Text.parse(raw))|];
   };
+
+let parseSearchAbout: string => array(Item.t) =
+  raw => {
+    let lines = Js.String.split("\n", raw);
+    let outputs =
+      lines
+      ->Js.Array.sliceFrom(1, _)
+      ->Array.map(Js.String.sliceToEnd(~from=2))
+      ->Emacs__Parser.unindent
+      ->Array.map(Output.parse)
+      ->Array.keepMap(x => x)
+      ->Array.map(output => Item.Output(output));
+
+    let target = lines[0]->Option.map(Js.String.sliceToEnd(~from=18));
+    switch (target) {
+    | None => [|
+        Item.PlainText(Text.parse("Don't know what to search about")),
+      |]
+    | Some(target) =>
+      if (Array.length(outputs) == 0) {
+        [|
+          Item.PlainText(
+            Text.parse("There are no definitions about " ++ target),
+          ),
+        |];
+      } else {
+        [|
+          [|
+            Item.PlainText(
+              Text.parse("Definitions about " ++ target ++ ":"),
+            ),
+          |],
+          outputs,
+        |]
+        ->Array.concatMany;
+      }
+    };
+  };
