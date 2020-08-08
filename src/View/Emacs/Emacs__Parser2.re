@@ -52,7 +52,7 @@ let partiteWarningsOrErrors = (xs, key) =>
     },
   );
 
-let parseError: string => array(LabeledItem.t) =
+let parseError: string => array(Item.t) =
   raw => {
     let lines = raw |> Js.String.split("\n");
     lines
@@ -62,7 +62,7 @@ let parseError: string => array(LabeledItem.t) =
     ->partiteWarningsOrErrors("errors")
     ->Js.Dict.get("errors")
     ->Option.mapWithDefault([||], entries =>
-        entries->Array.map(entry => LabeledItem.Error(Text.parse(entry)))
+        entries->Array.map(entry => Item.Error(Text.parse(entry)))
       );
   };
 
@@ -103,26 +103,22 @@ let parseGoalType: string => array(Item.t) =
           Js.Array.joinWith("\n", lines)
           ->Js.String.sliceToEnd(~from=5, _)
           ->Expr.parse
-          ->Option.mapWithDefault([||], expr =>
-              [|Item.Labeled(LabeledItem.Goal(expr))|]
-            )
+          ->Option.mapWithDefault([||], expr => [|Item.Goal(expr)|])
         | "have" =>
           Js.Array.joinWith("\n", lines)
           ->Js.String.sliceToEnd(~from=5, _)
           ->Expr.parse
-          ->Option.mapWithDefault([||], expr =>
-              [|Item.Labeled(LabeledItem.Have(expr))|]
-            )
+          ->Option.mapWithDefault([||], expr => [|Item.Have(expr)|])
         | "interactionMetas" =>
           lines
           ->Array.map(Output.parseOutputWithoutRange)
           ->Array.keepMap(x => x)
-          ->Array.map(output => Item.Unlabeled(output))
+          ->Array.map(output => Item.Output(output))
         | "hiddenMetas" =>
           lines
           ->Array.map(Output.parseOutputWithRange)
           ->Array.keepMap(x => x)
-          ->Array.map(output => Item.Unlabeled(output))
+          ->Array.map(output => Item.Output(output))
         | _ => [||]
         }
       })

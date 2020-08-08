@@ -239,23 +239,25 @@ module Text = {
   };
 };
 
-module LabeledItem = {
+module Item = {
   type t =
     | Error(Text.t)
     | Warning(Text.t)
     | Goal(Expr.t)
-    | Have(Expr.t);
+    | Have(Expr.t)
+    | Output(Output.t);
 
   let toString =
     fun
-    | Error(text) => "LabeledItem [Error] " ++ Text.toString(text)
-    | Warning(text) => "LabeledItem [Warning] " ++ Text.toString(text)
-    | Goal(expr) => "LabeledItem [Goal] " ++ Expr.toString(expr)
-    | Have(expr) => "LabeledItem [Have] " ++ Expr.toString(expr);
+    | Error(text) => "Item [Error] " ++ Text.toString(text)
+    | Warning(text) => "Item [Warning] " ++ Text.toString(text)
+    | Goal(expr) => "Item [Goal] " ++ Expr.toString(expr)
+    | Have(expr) => "Item [Have] " ++ Expr.toString(expr)
+    | Output(output) => "Item [Output] " ++ Output.toString(output);
 
   [@react.component]
-  let make = (~payload: t) =>
-    switch (payload) {
+  let make = (~item: t) =>
+    switch (item) {
     | Error(text) =>
       <li className="labeled">
         <span className="error-label"> {string("Error")} </span>
@@ -276,18 +278,6 @@ module LabeledItem = {
         <span className="label"> {string("Have")} </span>
         <Expr expr />
       </li>
-    };
-};
-
-module Item = {
-  type t =
-    | Labeled(LabeledItem.t)
-    | Unlabeled(Output.t);
-
-  [@react.component]
-  let make = (~item: t) =>
-    switch (item) {
-    | Labeled(payload) => <LabeledItem payload />
-    | Unlabeled(value) => <Output value />
+    | Output(value) => <Output value />
     };
 };

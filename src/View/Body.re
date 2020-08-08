@@ -17,7 +17,6 @@ let make =
     </div>
   | GoalType(payload) =>
     let items = Emacs__Parser2.parseGoalType(payload);
-
     <div className="agda-mode-body">
       <ul>
         {items
@@ -32,8 +31,8 @@ let make =
     <div className="agda-mode-body">
       <ul>
         {labeledItems
-         ->Array.mapWithIndex((i, payload) =>
-             <LabeledItem key={string_of_int(i)} payload />
+         ->Array.mapWithIndex((i, item) =>
+             <Item key={string_of_int(i)} item />
            )
          ->React.array}
       </ul>
