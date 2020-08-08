@@ -15,7 +15,11 @@ module Impl = (Editor: Sig.Editor) => {
           display("Constraints", Some(payload)),
         ]
       | AllGoalsWarnings(header, "nil") => [displaySuccess(header, None)]
-      | AllGoalsWarnings(header, body) => [display(header, Some(body))]
+      | AllGoalsWarnings(header, body) => [
+          ViewEvent(
+            Display(Plain(header), AllGoalsWarnings(header, body)),
+          ),
+        ]
       | Time(payload) => [display("Time", Some(payload))]
       | Error(payload) => [
           ViewEvent(Display(Error("Error"), Error(payload))),

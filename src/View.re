@@ -35,6 +35,7 @@ module Body = {
   type t =
     | Nothing
     | Plain(string)
+    | AllGoalsWarnings(string, string)
     | GoalType(string)
     | Error(string)
     | Query(option(string), option(string));
@@ -47,6 +48,11 @@ module Body = {
       fun
       | "Nothing" => TagOnly(Nothing)
       | "Plain" => Contents(string |> map(text => Plain(text)))
+      | "AllGoalsWarnings" =>
+        Contents(
+          pair(string, string)
+          |> map(((header, body)) => AllGoalsWarnings(header, body)),
+        )
       | "GoalType" => Contents(string |> map(text => GoalType(text)))
       | "Error" => Contents(string |> map(text => Error(text)))
       | "Query" =>
@@ -63,6 +69,11 @@ module Body = {
     | Nothing => object_([("tag", string("Nothing"))])
     | Plain(text) =>
       object_([("tag", string("Plain")), ("contents", text |> string)])
+    | AllGoalsWarnings(header, body) =>
+      object_([
+        ("tag", string("AllGoalsWarnings")),
+        ("contents", (header, body) |> pair(string, string)),
+      ])
     | GoalType(text) =>
       object_([("tag", string("GoalType")), ("contents", text |> string)])
     | Error(text) =>

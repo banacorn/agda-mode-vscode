@@ -129,6 +129,11 @@
     line-height: @line-height;
     padding: @padding;
 
+    li {
+        padding: 0 @padding;
+        margin: @padding 0;
+    }
+
     li.labeled {
         background : @header-background;
         padding: @padding;
@@ -188,7 +193,7 @@
 .component-link {
     color: @link;
 
-    .codicon-link::after  {
+    .codicon-link::after {
         content: " ";
         white-space: pre;
     }

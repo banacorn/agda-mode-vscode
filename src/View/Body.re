@@ -10,6 +10,10 @@ let make =
   | Nothing => <> </>
   | Plain(payload) =>
     <div className="agda-mode-body"> <Emacs__PlainText payload /> </div>
+  | AllGoalsWarnings(header, body) =>
+    <div className="agda-mode-body">
+      <Emacs__AllGoalsWarnings header body />
+    </div>
   | GoalType(payload) =>
     <div className="agda-mode-body"> <Emacs__GoalType payload /> </div>
   | Error(payload) =>
