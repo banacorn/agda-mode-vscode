@@ -22,7 +22,9 @@ module Impl = (Editor: Sig.Editor) => {
         ]
       | Time(payload) => [display("Time", Some(payload))]
       | Error(payload) => [
-          ViewEvent(Display(Error("Error"), Error(payload))),
+          ViewEvent(
+            Display(Error("Error"), Emacs(Error, "Error", payload)),
+          ),
         ]
       | Intro(payload) => [display("Intro", Some(payload))]
       | Auto(payload) => [displaySuccess("Auto", Some(payload))]
@@ -33,7 +35,12 @@ module Impl = (Editor: Sig.Editor) => {
       | WhyInScope(payload) => [display("Scope info", Some(payload))]
       | NormalForm(payload) => [display("Normal form", Some(payload))]
       | GoalType(payload) => [
-          ViewEvent(Display(Plain("Goal Type"), GoalType(payload))),
+          ViewEvent(
+            Display(
+              Plain("Goal Type"),
+              Emacs(GoalType, "Goal Type", payload),
+            ),
+          ),
         ]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]

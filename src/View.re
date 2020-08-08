@@ -32,12 +32,35 @@ module Header = {
 };
 
 module Body = {
+  module Emacs = {
+    type t =
+      | GoalType
+      | Error;
+
+    open Json.Decode;
+    open Util.Decode;
+
+    let decode: decoder(t) =
+      sum(
+        fun
+        | "GoalType" => TagOnly(GoalType)
+        | "Error" => TagOnly(Error)
+        | tag =>
+          raise(DecodeError("[Body.Emacs] Unknown constructor: " ++ tag)),
+      );
+
+    open! Json.Encode;
+    let encode: encoder(t) =
+      fun
+      | GoalType => object_([("tag", string("GoalType"))])
+      | Error => object_([("tag", string("Error"))]);
+  };
+
   type t =
     | Nothing
     | Plain(string)
     | AllGoalsWarnings(string, string)
-    | GoalType(string)
-    | Error(string)
+    | Emacs(Emacs.t, string, string)
     | Query(option(string), option(string));
 
   open Json.Decode;
@@ -53,8 +76,11 @@ module Body = {
           pair(string, string)
           |> map(((header, body)) => AllGoalsWarnings(header, body)),
         )
-      | "GoalType" => Contents(string |> map(text => GoalType(text)))
-      | "Error" => Contents(string |> map(text => Error(text)))
+      | "Emacs" =>
+        Contents(
+          tuple3(Emacs.decode, string, string)
+          |> map(((kind, header, body)) => Emacs(kind, header, body)),
+        )
       | "Query" =>
         Contents(
           pair(optional(string), optional(string))
@@ -74,10 +100,14 @@ module Body = {
         ("tag", string("AllGoalsWarnings")),
         ("contents", (header, body) |> pair(string, string)),
       ])
-    | GoalType(text) =>
-      object_([("tag", string("GoalType")), ("contents", text |> string)])
-    | Error(text) =>
-      object_([("tag", string("Error")), ("contents", text |> string)])
+    | Emacs(kind, header, body) =>
+      object_([
+        ("tag", string("Emacs")),
+        (
+          "contents",
+          (kind, header, body) |> tuple3(Emacs.encode, string, string),
+        ),
+      ])
     | Query(placeholder, value) =>
       object_([
         ("tag", string("Query")),

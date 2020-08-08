@@ -15,22 +15,15 @@ let make =
     <div className="agda-mode-body">
       <Emacs__AllGoalsWarnings header body />
     </div>
-  | GoalType(payload) =>
-    let items = Emacs__Parser2.parseGoalType(payload);
+  | Emacs(kind, _header, body) =>
+    let items =
+      switch (kind) {
+      | GoalType => Emacs__Parser2.parseGoalType(body)
+      | Error => Emacs__Parser2.parseError(body)
+      };
     <div className="agda-mode-body">
       <ul>
         {items
-         ->Array.mapWithIndex((i, item) =>
-             <Item key={string_of_int(i)} item />
-           )
-         ->React.array}
-      </ul>
-    </div>;
-  | Error(payload) =>
-    let labeledItems = Emacs__Parser2.parseError(payload);
-    <div className="agda-mode-body">
-      <ul>
-        {labeledItems
          ->Array.mapWithIndex((i, item) =>
              <Item key={string_of_int(i)} item />
            )
