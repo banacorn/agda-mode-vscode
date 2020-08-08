@@ -5,8 +5,8 @@ type t = {
   title: string,
   interactionMetas: array(Output.t),
   hiddenMetas: array(Output.t),
-  warnings: array(WarningError.t),
-  errors: array(WarningError.t),
+  warnings: array(LabeledItem.t),
+  errors: array(LabeledItem.t),
 };
 
 let toString = self =>
@@ -18,9 +18,9 @@ let toString = self =>
     ++ "\n"
     ++ array(Belt.Array.map(self.hiddenMetas, Output.toString))
     ++ "\n"
-    ++ array(Belt.Array.map(self.warnings, WarningError.toString))
+    ++ array(Belt.Array.map(self.warnings, LabeledItem.toString))
     ++ "\n"
-    ++ array(Belt.Array.map(self.errors, WarningError.toString))
+    ++ array(Belt.Array.map(self.errors, LabeledItem.toString))
   );
 
 let parse = (title, body): t => {
@@ -96,12 +96,12 @@ let parse = (title, body): t => {
   let warnings =
     Js.Dict.get(dictionary, "warnings")
     ->Option.mapWithDefault([||], entries =>
-        entries->Array.map(WarningError.parseWarning)
+        entries->Array.map(entry => LabeledItem.Error(Text.parse(entry)))
       );
   let errors =
     Js.Dict.get(dictionary, "errors")
     ->Option.mapWithDefault([||], entries =>
-        entries->Array.map(WarningError.parseError)
+        entries->Array.map(entry => LabeledItem.Error(Text.parse(entry)))
       );
   {title, interactionMetas, hiddenMetas, warnings, errors};
 };
@@ -127,15 +127,15 @@ let make = (~header: string, ~body: string) => {
     </ul>
     <ul>
       {warnings
-       ->Array.mapWithIndex((i, value) =>
-           <WarningError key={string_of_int(i)} value />
+       ->Array.mapWithIndex((i, payload) =>
+           <LabeledItem key={string_of_int(i)} payload />
          )
        ->React.array}
     </ul>
     <ul>
       {errors
-       ->Array.mapWithIndex((i, value) =>
-           <WarningError key={string_of_int(i)} value />
+       ->Array.mapWithIndex((i, payload) =>
+           <LabeledItem key={string_of_int(i)} payload />
          )
        ->React.array}
     </ul>

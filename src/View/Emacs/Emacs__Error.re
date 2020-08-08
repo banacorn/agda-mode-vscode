@@ -1,6 +1,7 @@
 open Belt;
+open Component;
 
-let parse: string => array(Component.WarningError.t) =
+let parse: string => array(LabeledItem.t) =
   raw => {
     let lines = raw |> Js.String.split("\n");
     lines
@@ -9,16 +10,16 @@ let parse: string => array(Component.WarningError.t) =
       )
     ->Emacs__Parser2.partiteWarningsOrErrors("errors")
     ->Js.Dict.get("errors")
-    ->Option.mapWithDefault([||], metas =>
-        metas->Array.map(Component.WarningError.parseError)
+    ->Option.mapWithDefault([||], entries =>
+        entries->Array.map(entry => LabeledItem.Error(Text.parse(entry)))
       );
   };
 [@react.component]
 let make = (~payload: string) =>
   <ul>
     {parse(payload)
-     ->Array.mapWithIndex((i, value) =>
-         <Component.WarningError key={string_of_int(i)} value />
+     ->Array.mapWithIndex((i, payload) =>
+         <LabeledItem key={string_of_int(i)} payload />
        )
      ->React.array}
   </ul>;

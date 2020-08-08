@@ -138,18 +138,6 @@ module OutputConstraint = {
   };
 };
 
-module Labeled = {
-  [@react.component]
-  let make = (~label: string, ~isError=false, ~isWarning=false, ~children) => {
-    let className =
-      isError ? "error-label" : isWarning ? "warning-label" : "label";
-    <li className="labeled">
-      <span className> {string(label)} </span>
-      children
-    </li>;
-  };
-};
-
 module Output = {
   type t =
     | Output(OutputConstraint.t, option(View.Range.t));
@@ -237,8 +225,8 @@ module Text = {
     ->(xs => Text(xs));
 
   [@react.component]
-  let make = (~payload: t) => {
-    let Text(segments) = payload;
+  let make = (~text: t) => {
+    let Text(segments) = text;
     <span>
       {segments
        ->Array.mapWithIndex(i =>
@@ -251,30 +239,42 @@ module Text = {
   };
 };
 
-module WarningError = {
+module LabeledItem = {
   type t =
-    | WarningMessage(Text.t)
-    | ErrorMessage(Text.t);
+    | Error(Text.t)
+    | Warning(Text.t)
+    | Goal(Expr.t)
+    | Have(Expr.t);
+
   let toString =
     fun
-    | WarningMessage(xs) => xs->Text.toString
-    | ErrorMessage(xs) => xs->Text.toString;
-  let parse = (isWarning, raw) => {
-    let text = Text.parse(raw);
-    isWarning ? WarningMessage(text) : ErrorMessage(text);
-  };
-
-  let parseWarning = parse(true);
-
-  let parseError = parse(false);
+    | Error(text) => "LabeledItem [Error] " ++ Text.toString(text)
+    | Warning(text) => "LabeledItem [Warning] " ++ Text.toString(text)
+    | Goal(expr) => "LabeledItem [Goal] " ++ Expr.toString(expr)
+    | Have(expr) => "LabeledItem [Have] " ++ Expr.toString(expr);
 
   [@react.component]
-  let make = (~value: t) => {
-    switch (value) {
-    | WarningMessage(payload) =>
-      <Labeled label="Warning" isWarning=true> <Text payload /> </Labeled>
-    | ErrorMessage(payload) =>
-      <Labeled label="Error" isError=true> <Text payload /> </Labeled>
+  let make = (~payload: t) =>
+    switch (payload) {
+    | Error(text) =>
+      <li className="labeled">
+        <span className="error-label"> {string("Error")} </span>
+        <Text text />
+      </li>
+    | Warning(text) =>
+      <li className="labeled">
+        <span className="warning-label"> {string("Warning")} </span>
+        <Text text />
+      </li>
+    | Goal(expr) =>
+      <li className="labeled">
+        <span className="label"> {string("Goal")} </span>
+        <Expr expr />
+      </li>
+    | Have(expr) =>
+      <li className="labeled">
+        <span className="label"> {string("Have")} </span>
+        <Expr expr />
+      </li>
     };
-  };
 };

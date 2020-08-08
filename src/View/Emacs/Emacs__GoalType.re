@@ -2,8 +2,8 @@ open Belt;
 
 open Component;
 type t = {
-  goal: option(Expr.t),
-  have: option(Expr.t),
+  goal: option(LabeledItem.t),
+  have: option(LabeledItem.t),
   interactionMetas: array(Output.t),
   hiddenMetas: array(Output.t),
 };
@@ -43,16 +43,18 @@ let parse = raw => {
     Js.Dict.get(dictionary, "goal")
     ->Option.flatMap(line =>
         Js.Array.joinWith("\n", line)
-        |> Js.String.sliceToEnd(~from=5)
-        |> Expr.parse
-      );
+        ->Js.String.sliceToEnd(~from=5, _)
+        ->Expr.parse
+      )
+    ->Option.map(expr => LabeledItem.Goal(expr));
   let have =
     Js.Dict.get(dictionary, "have")
     ->Option.flatMap(line =>
         Js.Array.joinWith("\n", line)
-        |> Js.String.sliceToEnd(~from=5)
-        |> Expr.parse
-      );
+        ->Js.String.sliceToEnd(~from=5, _)
+        ->Expr.parse
+      )
+    ->Option.map(expr => LabeledItem.Have(expr));
   let interactionMetas =
     Js.Dict.get(dictionary, "interactionMetas")
     ->Option.mapWithDefault([||], metas =>
@@ -74,13 +76,9 @@ let make = (~payload: string) => {
   <>
     <ul>
       {parsed.goal
-       ->Option.mapWithDefault(null, expr =>
-           <Labeled label="Goal"> <Expr expr /> </Labeled>
-         )}
+       ->Option.mapWithDefault(null, payload => {<LabeledItem payload />})}
       {parsed.have
-       ->Option.mapWithDefault(null, expr =>
-           <Labeled label="Have"> <Expr expr /> </Labeled>
-         )}
+       ->Option.mapWithDefault(null, payload => <LabeledItem payload />)}
     </ul>
     {<ul>
        {parsed.interactionMetas
