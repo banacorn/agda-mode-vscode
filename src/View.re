@@ -37,7 +37,8 @@ module Body = {
       | ContextOrConstraints
       | AllGoalsWarnings
       | GoalType
-      | Error;
+      | Error
+      | Others;
 
     open Json.Decode;
     open Util.Decode;
@@ -49,6 +50,7 @@ module Body = {
         | "AllGoalsWarnings" => TagOnly(AllGoalsWarnings)
         | "GoalType" => TagOnly(GoalType)
         | "Error" => TagOnly(Error)
+        | "Others" => TagOnly(Others)
         | tag =>
           raise(DecodeError("[Body.Emacs] Unknown constructor: " ++ tag)),
       );
@@ -60,7 +62,8 @@ module Body = {
         object_([("tag", string("ContextOrConstraints"))])
       | AllGoalsWarnings => object_([("tag", string("AllGoalsWarnings"))])
       | GoalType => object_([("tag", string("GoalType"))])
-      | Error => object_([("tag", string("Error"))]);
+      | Error => object_([("tag", string("Error"))])
+      | Others => object_([("tag", string("Others"))]);
   };
 
   type t =

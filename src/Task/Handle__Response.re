@@ -37,7 +37,14 @@ module Impl = (Editor: Sig.Editor) => {
           display("Module Contents", Some(payload)),
         ]
       | SearchAbout(payload) => [display("Search About", Some(payload))]
-      | WhyInScope(payload) => [display("Scope info", Some(payload))]
+      | WhyInScope(payload) => [
+          ViewEvent(
+            Display(
+              Plain("Scope info"),
+              Emacs(Others, "Scope info", payload),
+            ),
+          ),
+        ]
       | NormalForm(payload) => [display("Normal form", Some(payload))]
       | GoalType(payload) => [
           ViewEvent(

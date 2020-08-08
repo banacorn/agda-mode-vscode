@@ -263,6 +263,6 @@ let focus = view => view.panel->WebviewPanel.reveal();
 let hide = _view => ();
 
 let fromPosition = (position: View.Position.t) =>
-  Position.make(position.line - 1, position.col);
+  Position.make(position.line - 1, position.col - 1);
 let fromInterval = (interval: View.Interval.t) =>
   Range.make(fromPosition(interval.start), fromPosition(interval.end_));

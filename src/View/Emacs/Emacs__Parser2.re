@@ -215,3 +215,8 @@ let parseContextOrConstraints: string => array(Item.t) =
     ->Array.keepMap(x => x)
     ->Array.map(output => Item.Output(output));
   };
+
+let parseOthers: string => array(Item.t) =
+  raw => {
+    [|Item.PlainText(Text.parse(raw))|];
+  };

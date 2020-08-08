@@ -19,6 +19,7 @@ let make =
       | AllGoalsWarnings => Emacs__Parser2.parseAllGoalsWarnings(header, body)
       | GoalType => Emacs__Parser2.parseGoalType(body)
       | Error => Emacs__Parser2.parseError(body)
+      | Others => Emacs__Parser2.parseOthers(body)
       };
     <div className="agda-mode-body">
       <ul>
