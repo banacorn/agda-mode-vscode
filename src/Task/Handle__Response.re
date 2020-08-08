@@ -11,8 +11,13 @@ module Impl = (Editor: Sig.Editor) => {
           displaySuccess("Compilation Done!", None),
         ]
       | Constraints(None) => [display("No Constraints", None)]
-      | Constraints(Some(payload)) => [
-          display("Constraints", Some(payload)),
+      | Constraints(Some(body)) => [
+          ViewEvent(
+            Display(
+              Plain("Constraints"),
+              Emacs(ContextOrConstraints, "Constraints", body),
+            ),
+          ),
         ]
       | AllGoalsWarnings(header, "nil") => [displaySuccess(header, None)]
       | AllGoalsWarnings(header, body) => [
@@ -44,7 +49,14 @@ module Impl = (Editor: Sig.Editor) => {
         ]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]
-      | Context(payload) => [display("Context", Some(payload))]
+      | Context(body) => [
+          ViewEvent(
+            Display(
+              Plain("Context"),
+              Emacs(ContextOrConstraints, "Context", body),
+            ),
+          ),
+        ]
       | HelperFunction(payload) => [
           WithStateP(
             _ => Editor.copyToClipboard(payload)->Promise.map(() => []),

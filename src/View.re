@@ -34,6 +34,7 @@ module Header = {
 module Body = {
   module Emacs = {
     type t =
+      | ContextOrConstraints
       | AllGoalsWarnings
       | GoalType
       | Error;
@@ -44,6 +45,7 @@ module Body = {
     let decode: decoder(t) =
       sum(
         fun
+        | "ContextOrConstraints" => TagOnly(ContextOrConstraints)
         | "AllGoalsWarnings" => TagOnly(AllGoalsWarnings)
         | "GoalType" => TagOnly(GoalType)
         | "Error" => TagOnly(Error)
@@ -54,6 +56,8 @@ module Body = {
     open! Json.Encode;
     let encode: encoder(t) =
       fun
+      | ContextOrConstraints =>
+        object_([("tag", string("ContextOrConstraints"))])
       | AllGoalsWarnings => object_([("tag", string("AllGoalsWarnings"))])
       | GoalType => object_([("tag", string("GoalType"))])
       | Error => object_([("tag", string("Error"))]);

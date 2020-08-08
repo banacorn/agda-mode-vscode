@@ -206,3 +206,12 @@ let parseAllGoalsWarnings = (title, body): array(Item.t) => {
     })
   ->Js.Array.concatMany([||]);
 };
+
+let parseContextOrConstraints: string => array(Item.t) =
+  raw => {
+    let lines = Js.String.split("\n", raw)->Emacs__Parser.unindent;
+    lines
+    ->Array.map(Output.parse)
+    ->Array.keepMap(x => x)
+    ->Array.map(output => Item.Output(output));
+  };

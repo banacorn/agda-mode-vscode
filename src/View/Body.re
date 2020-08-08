@@ -15,6 +15,7 @@ let make =
   | Emacs(kind, header, body) =>
     let items =
       switch (kind) {
+      | ContextOrConstraints => Emacs__Parser2.parseContextOrConstraints(body)
       | AllGoalsWarnings => Emacs__Parser2.parseAllGoalsWarnings(header, body)
       | GoalType => Emacs__Parser2.parseGoalType(body)
       | Error => Emacs__Parser2.parseError(body)

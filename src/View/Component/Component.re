@@ -241,6 +241,7 @@ module Text = {
 
 module Item = {
   type t =
+    | PlainText(Text.t)
     | Error(Text.t)
     | Warning(Text.t)
     | Goal(Expr.t)
@@ -249,6 +250,7 @@ module Item = {
 
   let toString =
     fun
+    | PlainText(text) => "Item [PlainText] " ++ Text.toString(text)
     | Error(text) => "Item [Error] " ++ Text.toString(text)
     | Warning(text) => "Item [Warning] " ++ Text.toString(text)
     | Goal(expr) => "Item [Goal] " ++ Expr.toString(expr)
@@ -258,6 +260,7 @@ module Item = {
   [@react.component]
   let make = (~item: t) =>
     switch (item) {
+    | PlainText(text) => <li className="labeled"> <Text text /> </li>
     | Error(text) =>
       <li className="labeled">
         <span className="error-label"> {string("Error")} </span>

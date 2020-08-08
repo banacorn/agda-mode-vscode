@@ -54,6 +54,8 @@ module Impl = (Editor: Sig.Editor) => {
     | None => ViewEvent(Display(header, Nothing))
     | Some(message) => ViewEvent(Display(header, Plain(message)));
   let display = header => display'(Plain(header));
+  // let displayEmacs = (kind, header, body) =>
+  //   ViewEvent(Display(Plain(header), Emacs(kind, header, body)));
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
