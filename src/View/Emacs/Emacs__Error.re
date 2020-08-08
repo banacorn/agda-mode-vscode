@@ -10,9 +10,7 @@ let parse: string => array(Component.WarningError.t) =
     ->Emacs__Parser2.partiteWarningsOrErrors("errors")
     ->Js.Dict.get("errors")
     ->Option.mapWithDefault([||], metas =>
-        metas
-        ->Array.map(Component.WarningError.parseError)
-        ->Array.keepMap(x => x)
+        metas->Array.map(Component.WarningError.parseError)
       );
   };
 [@react.component]

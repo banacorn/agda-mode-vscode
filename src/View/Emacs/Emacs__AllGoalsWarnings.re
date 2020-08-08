@@ -96,12 +96,12 @@ let parse = (title, body): t => {
   let warnings =
     Js.Dict.get(dictionary, "warnings")
     ->Option.mapWithDefault([||], entries =>
-        entries->Array.map(WarningError.parseWarning)->Array.keepMap(x => x)
+        entries->Array.map(WarningError.parseWarning)
       );
   let errors =
     Js.Dict.get(dictionary, "errors")
     ->Option.mapWithDefault([||], entries =>
-        entries->Array.map(WarningError.parseError)->Array.keepMap(x => x)
+        entries->Array.map(WarningError.parseError)
       );
   {title, interactionMetas, hiddenMetas, warnings, errors};
 };

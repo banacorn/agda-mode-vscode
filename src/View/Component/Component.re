@@ -197,15 +197,23 @@ module Output = {
   };
 };
 
-module PlainText = {
-  type t =
-    | Text(string)
-    | Range(View.Range.t);
+// <Text> represents a mixed array of Strings & Ranges
+module Text = {
+  module Segment = {
+    type t =
+      | PlainText(string)
+      | Range(View.Range.t);
 
-  let toString =
-    fun
-    | Text(s) => s
-    | Range(r) => View.Range.toString(r);
+    let toString =
+      fun
+      | PlainText(s) => s
+      | Range(r) => View.Range.toString(r);
+  };
+  type t =
+    | Text(array(Segment.t));
+  let toString = (Text(segments)) =>
+    segments->Array.map(Segment.toString)->Js.Array.joinWith("", _);
+
   let parse = raw =>
     raw
     ->Js.String.splitByRe(
@@ -220,41 +228,41 @@ module PlainText = {
         | 1 =>
           token
           ->View.Range.parse
-          ->Option.mapWithDefault(Text(token), x => Range(x))
-        | _ => Text(token)
+          ->Option.mapWithDefault(Segment.PlainText(token), x =>
+              Segment.Range(x)
+            )
+        | _ => PlainText(token)
         }
       )
-    ->(x => Some(x));
+    ->(xs => Text(xs));
 
   [@react.component]
-  let make = (~value: array(t)) =>
+  let make = (~payload: t) => {
+    let Text(segments) = payload;
     <span>
-      {value
+      {segments
        ->Array.mapWithIndex(i =>
            fun
-           | Text(plainText) => string(plainText)
+           | PlainText(plainText) => string(plainText)
            | Range(range) => <Range key={string_of_int(i)} range />
          )
        ->React.array}
     </span>;
+  };
 };
 
 module WarningError = {
   type t =
-    | WarningMessage(array(PlainText.t))
-    | ErrorMessage(array(PlainText.t));
+    | WarningMessage(Text.t)
+    | ErrorMessage(Text.t);
   let toString =
     fun
-    | WarningMessage(xs) =>
-      xs->Array.map(PlainText.toString)->Util.Pretty.array
-    | ErrorMessage(xs) =>
-      xs->Array.map(PlainText.toString)->Util.Pretty.array;
-  let parse = (isWarning, raw) =>
-    raw
-    ->PlainText.parse
-    ->Option.map(body =>
-        isWarning ? WarningMessage(body) : ErrorMessage(body)
-      );
+    | WarningMessage(xs) => xs->Text.toString
+    | ErrorMessage(xs) => xs->Text.toString;
+  let parse = (isWarning, raw) => {
+    let text = Text.parse(raw);
+    isWarning ? WarningMessage(text) : ErrorMessage(text);
+  };
 
   let parseWarning = parse(true);
 
@@ -263,12 +271,10 @@ module WarningError = {
   [@react.component]
   let make = (~value: t) => {
     switch (value) {
-    | WarningMessage(body) =>
-      <Labeled label="Warning" isWarning=true>
-        <PlainText value=body />
-      </Labeled>
-    | ErrorMessage(body) =>
-      <Labeled label="Error" isError=true> <PlainText value=body /> </Labeled>
+    | WarningMessage(payload) =>
+      <Labeled label="Warning" isWarning=true> <Text payload /> </Labeled>
+    | ErrorMessage(payload) =>
+      <Labeled label="Error" isError=true> <Text payload /> </Labeled>
     };
   };
 };
