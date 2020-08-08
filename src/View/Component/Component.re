@@ -278,3 +278,16 @@ module LabeledItem = {
       </li>
     };
 };
+
+module Item = {
+  type t =
+    | Labeled(LabeledItem.t)
+    | Unlabeled(Output.t);
+
+  [@react.component]
+  let make = (~item: t) =>
+    switch (item) {
+    | Labeled(payload) => <LabeledItem payload />
+    | Unlabeled(value) => <Output value />
+    };
+};

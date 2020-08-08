@@ -16,7 +16,17 @@ let make =
       <Emacs__AllGoalsWarnings header body />
     </div>
   | GoalType(payload) =>
-    <div className="agda-mode-body"> <Emacs__GoalType payload /> </div>
+    let items = Emacs__Parser2.parseGoalType(payload);
+
+    <div className="agda-mode-body">
+      <ul>
+        {items
+         ->Array.mapWithIndex((i, item) =>
+             <Item key={string_of_int(i)} item />
+           )
+         ->React.array}
+      </ul>
+    </div>;
   | Error(payload) =>
     let labeledItems = Emacs__Parser2.parseError(payload);
     <div className="agda-mode-body">

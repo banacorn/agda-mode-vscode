@@ -52,7 +52,7 @@ let partiteWarningsOrErrors = (xs, key) =>
     },
   );
 
-let parseError: string => array(Component.LabeledItem.t) =
+let parseError: string => array(LabeledItem.t) =
   raw => {
     let lines = raw |> Js.String.split("\n");
     lines
@@ -62,8 +62,69 @@ let parseError: string => array(Component.LabeledItem.t) =
     ->partiteWarningsOrErrors("errors")
     ->Js.Dict.get("errors")
     ->Option.mapWithDefault([||], entries =>
-        entries->Array.map(entry =>
-          Component.LabeledItem.Error(Component.Text.parse(entry))
-        )
+        entries->Array.map(entry => LabeledItem.Error(Text.parse(entry)))
       );
+  };
+
+let parseGoalType: string => array(Item.t) =
+  raw => {
+    let markGoal = ((line, _)) =>
+      Js.String.match([%re "/^Goal:/"], line)->Option.map(_ => "goal");
+    let markHave = ((line, _)) =>
+      Js.String.match([%re "/^Have:/"], line)->Option.map(_ => "have");
+    let markMetas = ((line, _)) =>
+      Js.String.match([%re "/\\u2014{60}/g"], line)->Option.map(_ => "metas");
+    let partiteGoalTypeContext = xs =>
+      xs->Emacs__Parser.Dict.partite(line =>
+        switch (markGoal(line)) {
+        | Some(v) => Some(v)
+        | None =>
+          switch (markHave(line)) {
+          | Some(v) => Some(v)
+          | None =>
+            switch (markMetas(line)) {
+            | Some(v) => Some(v)
+            | None => None
+            }
+          }
+        }
+      );
+    let removeDelimeter = xs =>
+      xs->Emacs__Parser.Dict.update("metas", Js.Array.sliceFrom(1));
+    let lines = Js.String.split("\n", raw);
+    let dictionary =
+      lines->partiteGoalTypeContext->removeDelimeter->partiteMetas;
+    // convert entries in the dictionary to Items for render
+    dictionary
+    ->Js.Dict.entries
+    ->Array.map(((key, lines)) => {
+        switch (key) {
+        | "goal" =>
+          Js.Array.joinWith("\n", lines)
+          ->Js.String.sliceToEnd(~from=5, _)
+          ->Expr.parse
+          ->Option.mapWithDefault([||], expr =>
+              [|Item.Labeled(LabeledItem.Goal(expr))|]
+            )
+        | "have" =>
+          Js.Array.joinWith("\n", lines)
+          ->Js.String.sliceToEnd(~from=5, _)
+          ->Expr.parse
+          ->Option.mapWithDefault([||], expr =>
+              [|Item.Labeled(LabeledItem.Have(expr))|]
+            )
+        | "interactionMetas" =>
+          lines
+          ->Array.map(Output.parseOutputWithoutRange)
+          ->Array.keepMap(x => x)
+          ->Array.map(output => Item.Unlabeled(output))
+        | "hiddenMetas" =>
+          lines
+          ->Array.map(Output.parseOutputWithRange)
+          ->Array.keepMap(x => x)
+          ->Array.map(output => Item.Unlabeled(output))
+        | _ => [||]
+        }
+      })
+    ->Js.Array.concatMany([||]);
   };
