@@ -164,8 +164,8 @@ let make = (extensionPath, editor) => {
           groups:
             Layout.(
               [|
-                sized({groups: [|simple|], size: 0.5}),
-                sized({groups: [|simple|], size: 0.5}),
+                sized({groups: [|simple|], size: 0.7}),
+                sized({groups: [|simple|], size: 0.3}),
               |]
             ),
         }),

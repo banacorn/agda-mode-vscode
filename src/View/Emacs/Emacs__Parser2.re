@@ -38,7 +38,7 @@ let partiteWarningsOrErrors = (xs, key) =>
         raw[0]
         ->Option.flatMap(Js.String.match([%re "/^\\u2014{4}/"]))
         ->Option.isSome;
-      let lines = hasDelimeter ? raw |> Js.Array.sliceFrom(1) : raw;
+      let lines = hasDelimeter ? Js.Array.sliceFrom(1, raw) : raw;
       let markWarningStart = line => line->View.Range.parse->Option.isSome;
       /* If the previous warning of error ends with "at", then we have to glue it back */
       let glueBack = xs =>
@@ -54,7 +54,7 @@ let partiteWarningsOrErrors = (xs, key) =>
 
 let parseError: string => array(Item.t) =
   raw => {
-    let lines = raw |> Js.String.split("\n");
+    let lines = Js.String.split("\n", raw);
     lines
     ->Emacs__Parser.Dict.partite(((_, i)) =>
         i === 0 ? Some("errors") : None

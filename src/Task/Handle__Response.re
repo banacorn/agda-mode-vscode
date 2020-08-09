@@ -21,10 +21,8 @@ module Impl = (Editor: Sig.Editor) => {
           displayEmacs(AllGoalsWarnings, Plain(header), body),
         ]
       | Time(body) => [displayEmacs(Others, Plain("Time"), body)]
-      | Error(body) => [
-          displayEmacs(AllGoalsWarnings, Error("Error"), body),
-        ]
-      | Intro(body) => [displayEmacs(Others, Plain("Error"), body)]
+      | Error(body) => [displayEmacs(Error, Error("Error!"), body)]
+      | Intro(body) => [displayEmacs(Others, Plain("Intro"), body)]
       | Auto(body) => [displayEmacs(Others, Success("Auto"), body)]
       | ModuleContents(body) => [
           displayEmacs(Others, Plain("Module Contents"), body),
@@ -38,7 +36,9 @@ module Impl = (Editor: Sig.Editor) => {
       | NormalForm(body) => [
           displayEmacs(Others, Plain("Normal form"), body),
         ]
-      | GoalType(body) => [displayEmacs(Others, Plain("Goal Type"), body)]
+      | GoalType(body) => [
+          displayEmacs(GoalType, Plain("Goal Type"), body),
+        ]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]
       | Context(body) => [displayEmacs(Others, Plain("Context"), body)]
@@ -52,6 +52,7 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let handle = response => {
+    Js.log(Response.toString(response));
     switch (response) {
     | HighlightingInfoDirect(_remove, annotations) => [
         Decoration(Add(annotations)),
