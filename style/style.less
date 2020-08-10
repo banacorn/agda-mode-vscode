@@ -4,6 +4,8 @@
 @padding   : 1rem;
 @header-height  : 4rem;
 
+@left-margin: 6rem;
+
 // vscode: removes focus outline  
 *:focus {
     outline: none;
@@ -96,6 +98,7 @@
 .agda-mode-header {
     height : @header-height;
     padding: 0 @padding;
+    margin-left: @left-margin;
 
     background: @header-background;
 
@@ -124,39 +127,44 @@
     }
 
     white-space: pre;
-    background : @body-background;
+
     font-size  : 125%;
     line-height: @line-height;
-    padding: @padding;
 
     li {
-        padding: 0 @padding;
         margin: @padding 0;
+
+        &:first-of-type {
+            margin-top: 0;
+        }
     }
 
-    li.labeled {
-        background : @header-background;
-        padding: @padding;
-        margin: @padding 0;
+    li.unlabeled-item {
+        background: @body-background;
+        padding: @padding/2 @padding;
+        margin-left: @left-margin;
+    }
 
-        span.label {
-            font-variant: small-caps;
-            font-weight: bolder;
-            float: right;
-            color: @success
+    li.labeled-item {
 
-        }
-        span.warning-label {
+        display: flex;
+
+        div.item-label {
+            width: @left-margin - @padding * 2;
+            flex-grow: 0;
+            padding: @padding/2 @padding;
             font-variant: small-caps;
             font-weight: bolder;
-            float: right;
-            color: @warning;
+            text-align: right;
         }
-        span.error-label {
-            font-variant: small-caps;
-            font-weight: bolder;
-            float: right;
-            color: @error;
+        div.item-label.success { color: @success }
+        div.item-label.warning { color: @warning }
+        div.item-label.error { color: @error }
+
+        div.item-content {
+            background : @body-background;
+            flex-grow: 1;
+            padding: @padding/2 @padding;
         }
     }
         

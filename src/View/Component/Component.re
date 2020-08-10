@@ -123,17 +123,25 @@ module OutputConstraint = {
       Option.mapWithDefault(range, null, range => <Range range abbr=true />);
     switch (value) {
     | OfType(e, t) =>
-      <li className="output">
+      <li className="unlabeled-item">
         <Expr expr=e />
         {string(" : ")}
         <Expr expr=t />
         range
       </li>
     | JustType(e) =>
-      <li className="output"> {string("Type ")} <Expr expr=e /> range </li>
+      <li className="unlabeled-item">
+        {string("Type ")}
+        <Expr expr=e />
+        range
+      </li>
     | JustSort(e) =>
-      <li className="output"> {string("Sort ")} <Expr expr=e /> range </li>
-    | Others(e) => <li className="output"> <Expr expr=e /> range </li>
+      <li className="unlabeled-item">
+        {string("Sort ")}
+        <Expr expr=e />
+        range
+      </li>
+    | Others(e) => <li className="unlabeled-item"> <Expr expr=e /> range </li>
     };
   };
 };
@@ -260,26 +268,26 @@ module Item = {
   [@react.component]
   let make = (~item: t) =>
     switch (item) {
-    | PlainText(text) => <li className="labeled"> <Text text /> </li>
+    | PlainText(text) => <li className="labeled-item"> <Text text /> </li>
     | Error(text) =>
-      <li className="labeled">
-        <span className="error-label"> {string("Error")} </span>
-        <Text text />
+      <li className="labeled-item">
+        <div className="item-label error"> {string("Error")} </div>
+        <div className="item-content"> <Text text /> </div>
       </li>
     | Warning(text) =>
-      <li className="labeled">
-        <span className="warning-label"> {string("Warning")} </span>
-        <Text text />
+      <li className="labeled-item">
+        <div className="item-label warning"> {string("Warning")} </div>
+        <div className="item-content"> <Text text /> </div>
       </li>
     | Goal(expr) =>
-      <li className="labeled">
-        <span className="label"> {string("Goal")} </span>
-        <Expr expr />
+      <li className="labeled-item">
+        <div className="item-label success"> {string("Goal")} </div>
+        <div className="item-content"> <Expr expr /> </div>
       </li>
     | Have(expr) =>
-      <li className="labeled">
-        <span className="label"> {string("Have")} </span>
-        <Expr expr />
+      <li className="labeled-item">
+        <div className="item-label success"> {string("Have")} </div>
+        <div className="item-content"> <Expr expr /> </div>
       </li>
     | Output(value) => <Output value />
     };
