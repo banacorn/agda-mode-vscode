@@ -4,7 +4,7 @@
 @padding   : 1rem;
 @header-height  : 4rem;
 
-@left-margin: 6rem;
+@left-border-width: 0.2rem;
 
 // vscode: removes focus outline  
 *:focus {
@@ -98,7 +98,7 @@
 .agda-mode-header {
     height : @header-height;
     padding: 0 @padding;
-    margin-left: @left-margin;
+    margin-left: @left-border-width;
 
     background: @header-background;
 
@@ -133,40 +133,30 @@
 
     li {
         margin: @padding 0;
+        padding: @padding/2 @padding;
+        background: @body-background;
+
+        border-left: @left-border-width solid @body-background;
 
         &:first-of-type {
             margin-top: 0;
         }
     }
 
-    li.unlabeled-item {
-        background: @body-background;
-        padding: @padding/2 @padding;
-        margin-left: @left-margin;
+    li .item-label {
+        float: right;
+
+        font-variant: small-caps;
+        font-weight: bolder;
+        text-align: right;
     }
 
-    li.labeled-item {
-
-        display: flex;
-
-        div.item-label {
-            width: @left-margin - @padding * 2;
-            flex-grow: 0;
-            padding: @padding/2 @padding;
-            font-variant: small-caps;
-            font-weight: bolder;
-            text-align: right;
-        }
-        div.item-label.success { color: @success }
-        div.item-label.warning { color: @warning }
-        div.item-label.error { color: @error }
-
-        div.item-content {
-            background : @body-background;
-            flex-grow: 1;
-            padding: @padding/2 @padding;
-        }
-    }
+    li.special .item-label { color: @success }
+    li.special { border-color: @success }
+    li.warning .item-label { color: @warning }
+    li.warning { border-color: @warning }
+    li.error .item-label { color: @error }
+    li.error { border-color: @error }
         
     ul {
         list-style: none;

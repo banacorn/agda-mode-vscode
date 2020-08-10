@@ -270,24 +270,24 @@ module Item = {
     switch (item) {
     | PlainText(text) => <li className="labeled-item"> <Text text /> </li>
     | Error(text) =>
-      <li className="labeled-item">
-        <div className="item-label error"> {string("Error")} </div>
-        <div className="item-content"> <Text text /> </div>
+      <li className="labeled-item error">
+        <span className="item-label"> {string("Error")} </span>
+        <Text text />
       </li>
     | Warning(text) =>
-      <li className="labeled-item">
-        <div className="item-label warning"> {string("Warning")} </div>
-        <div className="item-content"> <Text text /> </div>
+      <li className="labeled-item warning">
+        <span className="item-label"> {string("Warning")} </span>
+        <Text text />
       </li>
     | Goal(expr) =>
-      <li className="labeled-item">
-        <div className="item-label success"> {string("Goal")} </div>
-        <div className="item-content"> <Expr expr /> </div>
+      <li className="labeled-item special">
+        <span className="item-label"> {string("Goal")} </span>
+        <Expr expr />
       </li>
     | Have(expr) =>
-      <li className="labeled-item">
-        <div className="item-label success"> {string("Have")} </div>
-        <div className="item-content"> <Expr expr /> </div>
+      <li className="labeled-item special">
+        <span className="item-label"> {string("Have")} </span>
+        <Expr expr />
       </li>
     | Output(value) => <Output value />
     };
