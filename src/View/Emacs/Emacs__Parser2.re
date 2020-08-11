@@ -207,7 +207,7 @@ let parseAllGoalsWarnings = (title, body): array(Item.t) => {
   ->Js.Array.concatMany([||]);
 };
 
-let parseContextOrConstraints: string => array(Item.t) =
+let parseOutputs: string => array(Item.t) =
   raw => {
     let lines = Js.String.split("\n", raw)->Emacs__Parser.unindent;
     lines
@@ -216,10 +216,8 @@ let parseContextOrConstraints: string => array(Item.t) =
     ->Array.map(output => Item.Output(output));
   };
 
-let parseOthers: string => array(Item.t) =
-  raw => {
-    [|Item.PlainText(Text.parse(raw))|];
-  };
+let parseText: string => array(Item.t) =
+  raw => [|Item.PlainText(Text.parse(raw))|];
 
 let parseSearchAbout: string => array(Item.t) =
   raw => {

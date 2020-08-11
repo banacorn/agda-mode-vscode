@@ -41,12 +41,12 @@ module Header = {
 module Body = {
   module Emacs = {
     type t =
-      | ContextOrConstraints
+      | Outputs
       | AllGoalsWarnings
       | GoalType
       | SearchAbout
       | Error
-      | Others;
+      | Text;
 
     open Json.Decode;
     open Util.Decode;
@@ -54,12 +54,12 @@ module Body = {
     let decode: decoder(t) =
       sum(
         fun
-        | "ContextOrConstraints" => TagOnly(ContextOrConstraints)
+        | "Outputs" => TagOnly(Outputs)
         | "AllGoalsWarnings" => TagOnly(AllGoalsWarnings)
         | "GoalType" => TagOnly(GoalType)
         | "SearchAbout" => TagOnly(SearchAbout)
         | "Error" => TagOnly(Error)
-        | "Others" => TagOnly(Others)
+        | "Text" => TagOnly(Text)
         | tag =>
           raise(DecodeError("[Body.Emacs] Unknown constructor: " ++ tag)),
       );
@@ -67,13 +67,12 @@ module Body = {
     open! Json.Encode;
     let encode: encoder(t) =
       fun
-      | ContextOrConstraints =>
-        object_([("tag", string("ContextOrConstraints"))])
+      | Outputs => object_([("tag", string("Outputs"))])
       | AllGoalsWarnings => object_([("tag", string("AllGoalsWarnings"))])
       | GoalType => object_([("tag", string("GoalType"))])
       | SearchAbout => object_([("tag", string("SearchAbout"))])
       | Error => object_([("tag", string("Error"))])
-      | Others => object_([("tag", string("Others"))]);
+      | Text => object_([("tag", string("Text"))]);
   };
 
   type t =

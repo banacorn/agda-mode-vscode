@@ -23,12 +23,12 @@ let make =
   | Emacs(kind, header, body) =>
     let items =
       switch (kind) {
-      | ContextOrConstraints => Emacs__Parser2.parseContextOrConstraints(body)
+      | Outputs => Emacs__Parser2.parseOutputs(body)
       | AllGoalsWarnings => Emacs__Parser2.parseAllGoalsWarnings(header, body)
       | GoalType => Emacs__Parser2.parseGoalType(body)
       | SearchAbout => Emacs__Parser2.parseSearchAbout(body)
       | Error => Emacs__Parser2.parseError(body)
-      | Others => Emacs__Parser2.parseOthers(body)
+      | Text => Emacs__Parser2.parseText(body)
       };
     <div className="agda-mode-body">
       <ul>

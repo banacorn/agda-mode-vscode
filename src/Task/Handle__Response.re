@@ -12,7 +12,7 @@ module Impl = (Editor: Sig.Editor) => {
         ]
       | Constraints(None) => [displayHeaderOnly(Plain("No Constraints"))]
       | Constraints(Some(body)) => [
-          displayEmacs(ContextOrConstraints, Plain("Constraints"), body),
+          displayEmacs(Outputs, Plain("Constraints"), body),
         ]
       | AllGoalsWarnings(header, "nil") => [
           displayHeaderOnly(Success(header)),
@@ -20,28 +20,26 @@ module Impl = (Editor: Sig.Editor) => {
       | AllGoalsWarnings(header, body) => [
           displayEmacs(AllGoalsWarnings, Plain(header), body),
         ]
-      | Time(body) => [displayEmacs(Others, Plain("Time"), body)]
+      | Time(body) => [displayEmacs(Text, Plain("Time"), body)]
       | Error(body) => [displayEmacs(Error, Error("Error!"), body)]
-      | Intro(body) => [displayEmacs(Others, Plain("Intro"), body)]
-      | Auto(body) => [displayEmacs(Others, Success("Auto"), body)]
+      | Intro(body) => [displayEmacs(Text, Plain("Intro"), body)]
+      | Auto(body) => [displayEmacs(Text, Success("Auto"), body)]
       | ModuleContents(body) => [
-          displayEmacs(Others, Plain("Module Contents"), body),
+          displayEmacs(Text, Plain("Module Contents"), body),
         ]
       | SearchAbout(body) => [
           displayEmacs(SearchAbout, Plain("Search About"), body),
         ]
-      | WhyInScope(body) => [
-          displayEmacs(Others, Plain("Scope info"), body),
-        ]
+      | WhyInScope(body) => [displayEmacs(Text, Plain("Scope info"), body)]
       | NormalForm(body) => [
-          displayEmacs(Others, Plain("Normal form"), body),
+          displayEmacs(Outputs, Plain("Normal form"), body),
         ]
       | GoalType(body) => [
           displayEmacs(GoalType, Plain("Goal Type"), body),
         ]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]
-      | Context(body) => [displayEmacs(Others, Plain("Context"), body)]
+      | Context(body) => [displayEmacs(Outputs, Plain("Context"), body)]
       | HelperFunction(payload) => [
           WithStateP(
             _ => Editor.copyToClipboard(payload)->Promise.map(() => []),
