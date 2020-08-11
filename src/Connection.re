@@ -72,7 +72,7 @@ module Metadata = {
       };
     };
 
-    Process.Validation.run(path ++ " -V", validator)
+    Process.Validation.run("\"" ++ path ++ "\" -V", validator)
     ->Promise.mapOk(((version, protocol)) =>
         {path, args, version, protocol}
       )

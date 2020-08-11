@@ -238,7 +238,7 @@ let make = (path, args): t => {
   // spawn the child process
   let process =
     Nd.ChildProcess.spawn_(
-      path,
+      "\"" ++ path ++ "\"",
       args,
       Nd.ChildProcess.spawnOption(
         ~shell=Nd.ChildProcess.Shell.bool(true),
