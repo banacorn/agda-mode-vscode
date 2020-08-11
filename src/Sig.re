@@ -2,16 +2,19 @@ type editorType =
   | Atom
   | VsCode;
 
-module type Disposable = {
-  type t;
-  let make: (unit => unit) => t;
-  let dispose: t => unit;
-};
+let characterWidth: string => int = [%raw
+  "function (string) {return [...string].length}"
+];
 
 module type Editor = {
+  module Disposable: {
+    type t;
+    let make: (unit => unit) => t;
+    let dispose: t => unit;
+  };
+
   type editor;
   type context;
-  module Disposable: Disposable;
   type view;
   type fileName = string;
 
@@ -49,6 +52,8 @@ module type Editor = {
   // Helpers
   let getExtensionPath: context => fileName;
   let getFileName: editor => option(fileName);
+  let openEditor: fileName => Promise.t(editor);
+  let openEditorWithContent: string => Promise.t(editor);
   let save: editor => Promise.t(bool);
 
   // Events
@@ -129,6 +134,7 @@ module type Editor = {
   let rangeForLine: (editor, int) => Range.t;
   let fromAgdaOffset: (editor, int) => int;
   let toAgdaOffset: (editor, int) => int;
+  let codeUnitEndingOffset: (editor, int) => (int, int);
 
   let getText: editor => string;
   let getTextInRange: (editor, Range.t) => string;

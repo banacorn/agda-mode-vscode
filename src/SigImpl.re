@@ -57,8 +57,16 @@ let getExtensionPath = context => context->ExtensionContext.extensionPath;
 let getFileName = editor =>
   Some(editor->TextEditor.document->TextDocument.fileName->Parser.filepath);
 
-let getEditor = fileName =>
+let openEditor = fileName =>
   Window.showTextDocumentWithUri(Uri.file(fileName), None);
+
+let openEditorWithContent = content =>
+  Workspace.openTextDocumentWithOptions(
+    Some({"content": content, "language": "agda"}),
+  )
+  ->Promise.flatMap(textDocument =>
+      Window.showTextDocumentWithShowOptions(textDocument, None)
+    );
 
 let save = editor => editor->TextEditor.document->TextDocument.save;
 
@@ -355,10 +363,6 @@ let onChangeCursorPosition = callback =>
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 
-let characterWidth: string => int = [%raw
-  "function (string) {return [...string].length}"
-];
-
 // Code unit: a bit sequence used to encode each character of a repertoire within a given encoding form.
 // returns `offset + 1` if `offset` cuts into the middle of a character of 2 code units wide
 let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
@@ -374,8 +378,8 @@ let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
   let textWithoutLookahead =
     Js.String.substring(~from=0, ~to_=offset, textWithLookahead);
 
-  let charOffsetWithLookahead = characterWidth(textWithLookahead);
-  let charOffsetWithoutLookahead = characterWidth(textWithoutLookahead);
+  let charOffsetWithLookahead = Sig.characterWidth(textWithLookahead);
+  let charOffsetWithoutLookahead = Sig.characterWidth(textWithoutLookahead);
 
   // if there's a character ranges from `offset - 1` to `offset + 1`
   // the character offset of `textWithLookahead` should be the same as `textWithoutLookahead`
@@ -421,7 +425,7 @@ let toAgdaOffset = (editor, offset) => {
       editor->TextEditor.document->TextDocument.positionAt(offset) // end
     );
   let text = editor->TextEditor.document->TextDocument.getText(Some(range));
-  characterWidth(text);
+  Sig.characterWidth(text);
 };
 
 let getTextInRange = (editor, range) =>

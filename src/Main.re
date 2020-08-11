@@ -135,4 +135,4 @@ module Impl = (Editor: Sig.Editor) => {
   };
 };
 
-include Impl(Editor);
+include Impl(SigImpl);
