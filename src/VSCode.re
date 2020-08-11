@@ -845,8 +845,14 @@ module TextEditor = {
     Promise.t(bool) =
     "insertSnippet";
   [@bs.send]
-  external revealRange: (t, Range.t, option(TextEditorRevealType.t)) => unit =
-    "revealRange";
+  external revealRange_raw: (t, Range.t, option(int)) => unit = "revealRange";
+  let revealRange =
+      (self: t, range: Range.t, option: option(TextEditorRevealType.t)): unit =>
+    revealRange_raw(
+      self,
+      range,
+      option->Belt.Option.map(TextEditorRevealType.toEnum),
+    );
   [@bs.send]
   external setDecorations:
     (t, TextEditorDecorationType.t, array(Range.t)) => unit =

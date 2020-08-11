@@ -17,6 +17,7 @@ module Impl = (Editor: Sig.Editor) => {
     | SaveCursor
     | RestoreCursor
     | SetCursor(int)
+    | JumpToOffset(int)
     | RemoveBoundaryAndDestroy(t)
     | ReplaceWithLines(t, array(string))
     | ReplaceWithLambda(t, array(string))

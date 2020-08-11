@@ -113,6 +113,7 @@ module type Editor = {
   };
 
   let focus: editor => unit;
+  let reveal: (editor, Range.t) => unit;
 
   let getSelection: editor => Range.t;
   let getSelections: editor => array(Range.t);

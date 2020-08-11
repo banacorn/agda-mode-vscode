@@ -297,6 +297,13 @@ let focus = editor => {
   ->ignore;
 };
 
+let reveal = (editor, range) => {
+  editor->TextEditor.revealRange(
+    range,
+    Some(TextEditorRevealType.InCenterIfOutsideViewport),
+  );
+};
+
 let getSelection = editor => {
   let selection = editor->TextEditor.selection;
   VSCode.Range.make(Selection.start(selection), Selection.end_(selection));

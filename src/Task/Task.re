@@ -36,6 +36,7 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(SaveCursor) => "Goal[SaveCursor]"
     | Goal(RestoreCursor) => "Goal[RestoreCursor]"
     | Goal(SetCursor(_)) => "Goal[SetCursor]"
+    | Goal(JumpToOffset(_)) => "Goal[JumpToOffset]"
     | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
     | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
     | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
@@ -60,7 +61,7 @@ module Impl = (Editor: Sig.Editor) => {
     ViewEvent(
       Display(header, Emacs(kind, View.Header.toString(header), body)),
     );
-    // 
+  //
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));

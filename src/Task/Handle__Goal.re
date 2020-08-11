@@ -195,7 +195,7 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | Next => [
         Goal(UpdateRange),
-        WithState(
+        WithStateP(
           state => {
             let nextGoal = ref(None);
             let cursorOffset =
@@ -218,19 +218,20 @@ module Impl = (Editor: Sig.Editor) => {
             };
 
             switch (nextGoal^) {
-            | None => ()
+            | None => Promise.resolved([])
             | Some(offset) =>
               Editor.setCursorPosition(
                 state.editor,
                 Editor.pointAtOffset(state.editor, offset),
-              )
+              );
+              Promise.resolved([Goal(JumpToOffset(offset))]);
             };
           },
         ),
       ]
     | Previous => [
         Goal(UpdateRange),
-        WithState(
+        WithStateP(
           state => {
             let previousGoal = ref(None);
             let cursorOffset =
@@ -253,12 +254,13 @@ module Impl = (Editor: Sig.Editor) => {
             };
 
             switch (previousGoal^) {
-            | None => ()
+            | None => Promise.resolved([])
             | Some(offset) =>
               Editor.setCursorPosition(
                 state.editor,
                 Editor.pointAtOffset(state.editor, offset),
-              )
+              );
+              Promise.resolved([Goal(JumpToOffset(offset))]);
             };
           },
         ),
@@ -321,6 +323,15 @@ module Impl = (Editor: Sig.Editor) => {
           state => {
             let point = Editor.pointAtOffset(state.editor, offset);
             Editor.setCursorPosition(state.editor, point);
+          },
+        ),
+      ]
+    | JumpToOffset(offset) => [
+        WithState(
+          state => {
+            let point = Editor.pointAtOffset(state.editor, offset);
+            let range = Editor.Range.make(point, point);
+            Editor.reveal(state.editor, range);
           },
         ),
       ]
