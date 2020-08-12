@@ -20,7 +20,8 @@ module PathSearch = {
         )
       | NotFound(name, msg) => (
           "Auto search failed when looking for \"" ++ name ++ "\"",
-          msg,
+          {j|If you know where the executable of Agda is located, please fill it in "agdaMode.agdaPath" in the Settings.
+The system responded with the following message $(msg)|j},
         );
   };
 
