@@ -719,6 +719,7 @@
 		"reason-promise": "^1.0.1",
 		"reason-react": ">=0.7.0",
 		"reason-react-update": "^0.1.1",
+		"untildify": "^4.0.0",
 		"vscode-codicons": "^0.0.7"
 	},
 	"__metadata": {

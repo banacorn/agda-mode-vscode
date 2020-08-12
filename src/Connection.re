@@ -12,6 +12,8 @@ module Error = {
     | Process(e) => Process.Error.toString(e);
 };
 
+[@bs.module] external untildify: string => string = "untildify";
+
 module Metadata = {
   // supported protocol
   // p.s. currently only the `EmacsOnly` kind is supported
@@ -71,7 +73,8 @@ module Metadata = {
         }
       };
     };
-
+    // normailize the path by replacing the tild "~/" with the absolute path of home directory
+    let path = untildify(path);
     Process.Validation.run("\"" ++ path ++ "\" -V", validator)
     ->Promise.mapOk(((version, protocol)) =>
         {path, args, version, protocol}
