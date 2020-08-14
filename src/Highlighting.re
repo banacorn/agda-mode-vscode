@@ -97,7 +97,7 @@ module Aspect = {
 
   let toStyle =
     fun
-    | Comment => Noop
+    | Comment => Themed(Foreground("#B0B0B0"), Foreground("#505050"))
     | Keyword => Themed(Foreground("#CD6600"), Foreground("#FF9932"))
     | String => Themed(Foreground("#B22222"), Foreground("#DD4D4D"))
     | Number => Themed(Foreground("#800080"), Foreground("#9010E0"))
