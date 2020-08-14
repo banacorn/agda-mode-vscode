@@ -510,8 +510,6 @@ module EventToView = {
   };
 
   type t =
-    | Show
-    | Hide
     | Display(Header.t, Body.t)
     | QueryInterrupt
     | QueryUpdate(string)
@@ -525,8 +523,8 @@ module EventToView = {
   let decode: decoder(t) =
     sum(
       fun
-      | "Show" => TagOnly(Show)
-      | "Hide" => TagOnly(Hide)
+      // | "Initialize" =>
+      //   Contents(string |> map(imageUri => Initialize(imageUri)))
       | "Display" =>
         Contents(
           pair(Header.decode, Body.decode)
@@ -543,8 +541,11 @@ module EventToView = {
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Show => object_([("tag", string("Show"))])
-    | Hide => object_([("tag", string("Hide"))])
+    // | Initialize(imageUri) =>
+    //   object_([
+    //     ("tag", string("Initialize")),
+    //     ("contents", imageUri |> string),
+    //   ])
     | Display(header, body) =>
       object_([
         ("tag", string("Display")),

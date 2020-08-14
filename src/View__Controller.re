@@ -67,7 +67,7 @@ let onEvent = (view, callback) => {
 };
 
 let make = (extensionPath, editor) => {
-  let html = (distPath, styleUri, scriptUri, codiconUri) => {
+  let html = (distPath, styleUri, scriptUri, codiconUri, imageUri) => {
     let nonce = {
       let text = ref("");
       let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -95,12 +95,18 @@ let make = (extensionPath, editor) => {
       Uri.file(Node.Path.join2(distPath, codiconUri))
       ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
 
+    let imageUri =
+      Uri.file(Node.Path.join2(distPath, imageUri))
+      ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()))
+      ->Uri.toString;
+
     let metaContent =
       "font-src vscode-resource: ;default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
       ++ nonce
       ++ "';style-src vscode-resource: 'unsafe-inline' http: https: data:;";
 
-    {j|
+    (
+      {j|
         <!DOCTYPE html>
               <html lang="en">
               <head>
@@ -113,12 +119,15 @@ let make = (extensionPath, editor) => {
                 <meta http-equiv="Content-Security-Policy" content="$metaContent">
               </head>
               <body>
+                <img src="$imageUri" />
                 <noscript>You need to enable JavaScript to run this app.</noscript>
-                <div id="root"></div>
+                <div id="root" data-imageUri="$imageUri"></div>
                 <script nonce="$nonce" src="$scriptUri"></script>
               </body>
               </html>
-        |j};
+        |j},
+      imageUri,
+    );
   };
 
   let createPanel = editor => {
@@ -146,14 +155,18 @@ let make = (extensionPath, editor) => {
           ),
         ),
       );
-
-    panel
-    ->WebviewPanel.webview
-    ->Webview.setHtml(
-        html(distPath, "style.css", "view.bundle.js", "codicon/codicon.css"),
+    let (content, imageUri) =
+      html(
+        distPath,
+        "style.css",
+        "view.bundle.js",
+        "codicon/codicon.css",
+        "image/chen.png",
       );
 
-    panel;
+    panel->WebviewPanel.webview->Webview.setHtml(content);
+
+    (panel, imageUri);
   };
 
   let moveToBottom = () => {
@@ -174,7 +187,7 @@ let make = (extensionPath, editor) => {
   };
 
   // intantiate the panel
-  let panel = createPanel(editor);
+  let (panel, imageUri) = createPanel(editor);
   moveToBottom() |> ignore;
 
   // array of Disposable.t
@@ -242,7 +255,7 @@ let make = (extensionPath, editor) => {
   ->Js.Array.push(view.subscriptions)
   ->ignore;
 
-  view;
+  (view, imageUri);
 };
 
 let destroy = view => {

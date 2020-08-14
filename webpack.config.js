@@ -25,7 +25,8 @@ module.exports = [
         plugins: [
             new CopyPlugin({
                 patterns: [
-                    { from: 'asset/codicon', to: 'codicon' }
+                    { from: 'asset/codicon', to: 'codicon' },
+                    { from: 'asset/image', to: 'image' }
                 ],
             }),
         ],

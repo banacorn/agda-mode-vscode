@@ -13,7 +13,9 @@ module Impl = (Editor: Sig.Editor) => {
     | Load => [
         display("Loading ...", None),
         Task.WithStateP(
-          state => Editor.save(state.editor)->Promise.map(_ => []),
+          state =>
+            Editor.save(state.editor)
+            ->Promise.map(_ => [])
         ),
         Decoration(RemoveAll),
         AgdaRequest(Load),

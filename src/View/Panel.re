@@ -3,6 +3,7 @@ open Belt;
 [@react.component]
 let make =
     (
+      ~imageUri: option(string),
       ~onRequest: Event.t(View.Request.t),
       ~onEventToView: Event.t(View.EventToView.t),
       ~onResponse: Event.t(View.Response.t),
@@ -67,8 +68,6 @@ let make =
     | Display(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
-    | Show => ()
-    | Hide => ()
     }
   );
 
