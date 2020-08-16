@@ -8,7 +8,6 @@ module Impl = (Editor: Sig.Editor) => {
   type t = {
     mutable editor,
     view: Editor.view,
-    imageUri: string,
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
     mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
@@ -75,12 +74,11 @@ module Impl = (Editor: Sig.Editor) => {
   let make = (extentionPath, eventEmitter, editor) => {
     setLoaded(true);
     // view initialization
-    let (view, imageUri) = Editor.View.make(extentionPath, editor);
+    let view = Editor.View.make(extentionPath, editor);
 
     let state = {
       editor,
       view,
-      imageUri,
       connection: None,
       goals: [||],
       decorations: [||],

@@ -9,6 +9,7 @@ let make =
       ~onResponse: Event.t(View.Response.t),
       ~onEventFromView: Event.t(View.EventFromView.t),
     ) => {
+  let (shouldPrank, setShouldPrank) = React.useState(() => None);
   let (header, setHeader) =
     React.useState(() => View.Header.Plain("File not loaded yet"));
   let (body, setBody) = React.useState(() => View.Body.Nothing);
@@ -68,6 +69,7 @@ let make =
     | Display(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
+    | Prank => setShouldPrank(_ => imageUri)
     }
   );
 
@@ -83,8 +85,21 @@ let make =
         }}
         querying
       />
-      <Header header />
-      <Body body onSubmit onChange />
+      {switch (shouldPrank) {
+       | None => <> <Header header /> <Body body onSubmit onChange /> </>
+       | Some(imageUri) =>
+         let quotes = [|"Why would you do that?"|];
+         let quoteNumber = Array.length(quotes);
+         let selected = Js.Math.random_int(0, quoteNumber);
+         let quote =
+           quotes[selected]->Option.getWithDefault("Why would you do that?");
+         <div className="agda-mode-body">
+           <div id="prank">
+             <blockquote> {React.string(quote)} </blockquote>
+             <img src=imageUri />
+           </div>
+         </div>;
+       }}
     </section>
   </Component__Link.Provider>;
 };

@@ -105,8 +105,7 @@ let make = (extensionPath, editor) => {
       ++ nonce
       ++ "';style-src vscode-resource: 'unsafe-inline' http: https: data:;";
 
-    (
-      {j|
+    {j|
         <!DOCTYPE html>
               <html lang="en">
               <head>
@@ -119,15 +118,12 @@ let make = (extensionPath, editor) => {
                 <meta http-equiv="Content-Security-Policy" content="$metaContent">
               </head>
               <body>
-                <img src="$imageUri" />
                 <noscript>You need to enable JavaScript to run this app.</noscript>
                 <div id="root" data-imageUri="$imageUri"></div>
                 <script nonce="$nonce" src="$scriptUri"></script>
               </body>
               </html>
-        |j},
-      imageUri,
-    );
+        |j};
   };
 
   let createPanel = editor => {
@@ -155,18 +151,20 @@ let make = (extensionPath, editor) => {
           ),
         ),
       );
-    let (content, imageUri) =
-      html(
-        distPath,
-        "style.css",
-        "view.bundle.js",
-        "codicon/codicon.css",
-        "image/chen.png",
+
+    panel
+    ->WebviewPanel.webview
+    ->Webview.setHtml(
+        html(
+          distPath,
+          "style.css",
+          "view.bundle.js",
+          "codicon/codicon.css",
+          "image/chen.png",
+        ),
       );
 
-    panel->WebviewPanel.webview->Webview.setHtml(content);
-
-    (panel, imageUri);
+    panel;
   };
 
   let moveToBottom = () => {
@@ -187,7 +185,7 @@ let make = (extensionPath, editor) => {
   };
 
   // intantiate the panel
-  let (panel, imageUri) = createPanel(editor);
+  let panel = createPanel(editor);
   moveToBottom() |> ignore;
 
   // array of Disposable.t
@@ -255,7 +253,7 @@ let make = (extensionPath, editor) => {
   ->Js.Array.push(view.subscriptions)
   ->ignore;
 
-  (view, imageUri);
+  view;
 };
 
 let destroy = view => {

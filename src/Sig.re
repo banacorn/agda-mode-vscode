@@ -82,7 +82,7 @@ module type Editor = {
 
   module View: {
     // construction/destruction
-    let make: (fileName, editor) => (view, string);
+    let make: (fileName, editor) => view;
     let destroy: view => unit;
     // show/hide
     let show: view => unit;
