@@ -43,6 +43,7 @@ let make =
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
     | Query(header, placeholder, value) =>
+      setShouldPrank(_ => None);
       let (promise, resolve) = Promise.pending();
       queryResponseResolver.current = Some(resolve);
       setHeader(_ => Plain(header));
@@ -58,15 +59,21 @@ let make =
   // on receiving Events to View
   Hook.on(onEventToView, event =>
     switch (event) {
-    | InputMethod(action) => runInputMethodAction(action)
-    | QueryInterrupt => onSubmit(None)
+    | InputMethod(action) =>
+      setShouldPrank(_ => None);
+      runInputMethodAction(action);
+    | QueryInterrupt =>
+      setShouldPrank(_ => None);
+      onSubmit(None);
     | QueryUpdate(text) =>
+      setShouldPrank(_ => None);
       setBody(
         fun
         | Query(placeholder, _) => Query(placeholder, Some(text))
         | others => others,
-      )
+      );
     | Display(header, body) =>
+      setShouldPrank(_ => None);
       setHeader(_ => header);
       setBody(_ => body);
     | Prank =>
