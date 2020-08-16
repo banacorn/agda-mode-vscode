@@ -77,11 +77,29 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ];
     | Auto => [
-        Goal(
-          LocalOrGlobal(
-            goal => {[AgdaRequest(Auto(goal))]},
-            [Error(OutOfGoal)],
-          ),
+        WithStateP(
+          state => {
+            let isFLOLAC =
+              Editor.getFileName(state.editor)
+              ->Option.mapWithDefault(false, fileName => {
+                  Js.Re.test_(
+                    [%re "/^FLOLAC-/"],
+                    Node.Path.basename(fileName),
+                  )
+                });
+            if (isFLOLAC) {
+              Promise.resolved([ViewEvent(Prank)]);
+            } else {
+              Promise.resolved([
+                Goal(
+                  LocalOrGlobal(
+                    goal => {[AgdaRequest(Auto(goal))]},
+                    [Error(OutOfGoal)],
+                  ),
+                ),
+              ]);
+            };
+          },
         ),
       ]
     | Case =>
@@ -220,52 +238,23 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ];
-    | ComputeNormalForm(computeMode) => [
-        WithStateP(
-          state => {
-            let isFLOLAC =
-              Editor.getFileName(state.editor)
-              ->Option.mapWithDefault(false, fileName => {
-                  Js.Re.test_(
-                    [%re "/^FLOLAC-/"],
-                    Node.Path.basename(fileName),
-                  )
-                });
-            if (isFLOLAC) {
-              Promise.resolved([ViewEvent(Prank)]);
-            } else {
-              let placeholder = Some("expression to normalize:");
-              Promise.resolved([
-                Goal(
-                  LocalOrGlobal2(
-                    (goal, expr) =>
-                      [
-                        AgdaRequest(
-                          ComputeNormalForm(computeMode, expr, goal),
-                        ),
-                      ],
-                    goal =>
-                      query(header, placeholder, None, expr =>
-                        [
-                          AgdaRequest(
-                            ComputeNormalForm(computeMode, expr, goal),
-                          ),
-                        ]
-                      ),
-                    query(header, placeholder, None, expr =>
-                      [
-                        AgdaRequest(
-                          ComputeNormalFormGlobal(computeMode, expr),
-                        ),
-                      ]
-                    ),
-                  ),
-                ),
-              ]);
-            };
-          },
+    | ComputeNormalForm(computeMode) =>
+      let placeholder = Some("expression to normalize:");
+      [
+        Goal(
+          LocalOrGlobal2(
+            (goal, expr) =>
+              [AgdaRequest(ComputeNormalForm(computeMode, expr, goal))],
+            goal =>
+              query(header, placeholder, None, expr =>
+                [AgdaRequest(ComputeNormalForm(computeMode, expr, goal))]
+              ),
+            query(header, placeholder, None, expr =>
+              [AgdaRequest(ComputeNormalFormGlobal(computeMode, expr))]
+            ),
+          ),
         ),
-      ]
+      ];
     | WhyInScope =>
       let placeholder = Some("name:");
       [

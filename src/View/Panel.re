@@ -69,7 +69,19 @@ let make =
     | Display(header, body) =>
       setHeader(_ => header);
       setBody(_ => body);
-    | Prank => setShouldPrank(_ => imageUri)
+    | Prank =>
+      let quotes = [|
+        {j|Why would you do that?|j},
+        {j|Tut, tut, tut. Naughty, naughty, you’ll get caughty.|j},
+      |];
+      let quoteNumber = Array.length(quotes);
+      let selected = Js.Math.random_int(0, quoteNumber);
+      let quote =
+        quotes[selected]->Option.getWithDefault("Why would you do that?");
+      switch (imageUri) {
+      | None => ()
+      | Some(imageUri) => setShouldPrank(_ => Some((imageUri, quote)))
+      };
     }
   );
 
@@ -87,18 +99,13 @@ let make =
       />
       {switch (shouldPrank) {
        | None => <> <Header header /> <Body body onSubmit onChange /> </>
-       | Some(imageUri) =>
-         let quotes = [|"Why would you do that?"|];
-         let quoteNumber = Array.length(quotes);
-         let selected = Js.Math.random_int(0, quoteNumber);
-         let quote =
-           quotes[selected]->Option.getWithDefault("Why would you do that?");
+       | Some((imageUri, quote)) =>
          <div className="agda-mode-body">
            <div id="prank">
              <blockquote> {React.string(quote)} </blockquote>
              <img src=imageUri />
            </div>
-         </div>;
+         </div>
        }}
     </section>
   </Component__Link.Provider>;
