@@ -300,7 +300,7 @@
 				"command": "agda-mode.load",
 				"key": "ctrl+c ctrl+l",
 				"mac": "ctrl+c ctrl+l",
-				"when": "editorLangId == agda"
+				"when": "!editorHasSelection && editorLangId == agda"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
@@ -316,37 +316,37 @@
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.restart",
 				"key": "ctrl+x ctrl+r",
 				"mac": "ctrl+x ctrl+r",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.compile",
 				"key": "ctrl+x ctrl+c",
 				"mac": "ctrl+x ctrl+c",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.toggle-display-of-implicit-arguments",
 				"key": "ctrl+x ctrl+h",
 				"mac": "ctrl+x ctrl+h",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.show-constraints",
 				"key": "ctrl+c ctrl+=",
 				"mac": "ctrl+c ctrl+=",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Simplified]",
 				"key": "ctrl+c ctrl+s",
 				"mac": "ctrl+c ctrl+s",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Instantiated]",
@@ -364,31 +364,31 @@
 				"command": "agda-mode.show-goals",
 				"key": "ctrl+c ctrl+?",
 				"mac": "ctrl+c ctrl+?",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.show-goals",
 				"key": "ctrl+c ctrl+shift+/",
 				"mac": "ctrl+c ctrl+shift+/",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.next-goal",
 				"key": "ctrl+c ctrl+f",
 				"mac": "ctrl+c ctrl+f",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.search-about[Simplified]",
 				"key": "ctrl+c ctrl+z",
 				"mac": "ctrl+c ctrl+z",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.search-about[Instantiated]",
@@ -406,19 +406,19 @@
 				"command": "agda-mode.give",
 				"key": "ctrl+c ctrl+space",
 				"mac": "ctrl+c ctrl+space",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.refine",
 				"key": "ctrl+c ctrl+r",
 				"mac": "ctrl+c ctrl+r",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Simplified]",
 				"key": "ctrl+c ctrl+m",
 				"mac": "ctrl+c ctrl+m",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Instantiated]",
@@ -436,19 +436,19 @@
 				"command": "agda-mode.auto",
 				"key": "ctrl+c ctrl+a",
 				"mac": "ctrl+c ctrl+a",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.case",
 				"key": "ctrl+c ctrl+c",
 				"mac": "ctrl+c ctrl+c",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Simplified]",
 				"key": "ctrl+c ctrl+h",
 				"mac": "ctrl+c ctrl+h",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Instantiated]",
@@ -466,7 +466,7 @@
 				"command": "agda-mode.goal-type[Simplified]",
 				"key": "ctrl+c ctrl+t",
 				"mac": "ctrl+c ctrl+t",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type[Instantiated]",
@@ -484,7 +484,7 @@
 				"command": "agda-mode.context[Simplified]",
 				"key": "ctrl+c ctrl+e",
 				"mac": "ctrl+c ctrl+e",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.context[Instantiated]",
@@ -502,7 +502,7 @@
 				"command": "agda-mode.infer-type[Simplified]",
 				"key": "ctrl+c ctrl+d",
 				"mac": "ctrl+c ctrl+d",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.infer-type[Instantiated]",
@@ -520,7 +520,7 @@
 				"command": "agda-mode.goal-type-and-context[Simplified]",
 				"key": "ctrl+c ctrl+,",
 				"mac": "ctrl+c ctrl+,",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Instantiated]",
@@ -538,7 +538,7 @@
 				"command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
 				"key": "ctrl+c ctrl+.",
 				"mac": "ctrl+c ctrl+.",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
@@ -556,7 +556,7 @@
 				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
 				"key": "ctrl+c ctrl+;",
 				"mac": "ctrl+c ctrl+;",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
@@ -574,7 +574,7 @@
 				"command": "agda-mode.module-contents[Simplified]",
 				"key": "ctrl+c ctrl+o",
 				"mac": "ctrl+c ctrl+o",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.module-contents[Instantiated]",
@@ -592,7 +592,7 @@
 				"command": "agda-mode.compute-normal-form[DefaultCompute]",
 				"key": "ctrl+c ctrl+n",
 				"mac": "ctrl+c ctrl+n",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
@@ -610,7 +610,7 @@
 				"command": "agda-mode.why-in-scope",
 				"key": "ctrl+c ctrl+w",
 				"mac": "ctrl+c ctrl+w",
-				"when": "agdaMode"
+				"when": "!editorHasSelection && agdaMode"
 			},
 			{
 				"command": "agda-mode.escape",
