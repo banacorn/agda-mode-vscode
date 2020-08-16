@@ -23,7 +23,7 @@ module Impl = (Editor: Sig.Editor) => {
       | Time(body) => [displayEmacs(Text, Plain("Time"), body)]
       | Error(body) => [displayEmacs(Error, Error("Error!"), body)]
       | Intro(body) => [displayEmacs(Text, Plain("Intro"), body)]
-      | Auto(body) => [displayEmacs(Text, Success("Auto"), body)]
+      | Auto(body) => [displayEmacs(Text, Plain("Auto"), body)]
       | ModuleContents(body) => [
           displayEmacs(Text, Plain("Module Contents"), body),
         ]
@@ -32,7 +32,7 @@ module Impl = (Editor: Sig.Editor) => {
         ]
       | WhyInScope(body) => [displayEmacs(Text, Plain("Scope info"), body)]
       | NormalForm(body) => [
-          displayEmacs(Outputs, Plain("Normal form"), body),
+          displayEmacs(Text, Plain("Normal form"), body),
         ]
       | GoalType(body) => [
           displayEmacs(GoalType, Plain("Goal Type"), body),
