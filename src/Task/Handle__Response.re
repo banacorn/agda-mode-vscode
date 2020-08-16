@@ -35,7 +35,7 @@ module Impl = (Editor: Sig.Editor) => {
           displayEmacs(Text, Plain("Normal form"), body),
         ]
       | GoalType(body) => [
-          displayEmacs(GoalType, Plain("Goal Type"), body),
+          displayEmacs(GoalType, Plain("Goal and Context"), body),
         ]
       | CurrentGoal(payload) => [display("Current goal", Some(payload))]
       | InferredType(payload) => [display("Inferred type", Some(payload))]

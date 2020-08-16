@@ -175,9 +175,7 @@ module Impl = (Editor: Sig.Editor) => {
           ),
         ),
       ]
-    | GoalTypeContextAndInferredType(normalization) =>
-      let placeholder = Some("expression to type:");
-      [
+    | GoalTypeContextAndInferredType(normalization) => [
         Goal(
           LocalOrGlobal2(
             (goal, expr) =>
@@ -186,18 +184,12 @@ module Impl = (Editor: Sig.Editor) => {
                   GoalTypeContextAndInferredType(normalization, expr, goal),
                 ),
               ],
-            goal =>
-              query(header, placeholder, None, expr =>
-                [
-                  AgdaRequest(
-                    GoalTypeContextAndInferredType(normalization, expr, goal),
-                  ),
-                ]
-              ),
+            // fallback to `GoalTypeAndContext` when there's no content
+            goal => [AgdaRequest(GoalTypeAndContext(normalization, goal))],
             [Error(OutOfGoal)],
           ),
         ),
-      ];
+      ]
     | GoalTypeContextAndCheckedType(normalization) =>
       let placeholder = Some("expression to type:");
       [
