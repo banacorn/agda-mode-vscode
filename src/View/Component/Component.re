@@ -124,24 +124,33 @@ module OutputConstraint = {
     switch (value) {
     | OfType(e, t) =>
       <li className="unlabeled-item">
-        <Expr expr=e />
-        {string(" : ")}
-        <Expr expr=t />
-        range
+        <div className="item-content">
+          <Expr expr=e />
+          {string(" : ")}
+          <Expr expr=t />
+          range
+        </div>
       </li>
     | JustType(e) =>
       <li className="unlabeled-item">
-        {string("Type ")}
-        <Expr expr=e />
-        range
+        <div className="item-content">
+          {string("Type ")}
+          <Expr expr=e />
+          range
+        </div>
       </li>
     | JustSort(e) =>
       <li className="unlabeled-item">
-        {string("Sort ")}
-        <Expr expr=e />
-        range
+        <div className="item-content">
+          {string("Sort ")}
+          <Expr expr=e />
+          range
+        </div>
       </li>
-    | Others(e) => <li className="unlabeled-item"> <Expr expr=e /> range </li>
+    | Others(e) =>
+      <li className="unlabeled-item">
+        <div className="item-content"> <Expr expr=e /> range </div>
+      </li>
     };
   };
 };
@@ -268,26 +277,29 @@ module Item = {
   [@react.component]
   let make = (~item: t) =>
     switch (item) {
-    | PlainText(text) => <li className="labeled-item"> <Text text /> </li>
+    | PlainText(text) =>
+      <li className="labeled-item">
+        <div className="item-content"> <Text text /> </div>
+      </li>
     | Error(text) =>
       <li className="labeled-item error">
-        <span className="item-label"> {string("Error")} </span>
-        <Text text />
+        <div className="item-label"> {string("Error")} </div>
+        <div className="item-content"> <Text text /> </div>
       </li>
     | Warning(text) =>
       <li className="labeled-item warning">
-        <span className="item-label"> {string("Warning")} </span>
-        <Text text />
+        <div className="item-label"> {string("Warning")} </div>
+        <div className="item-content"> <Text text /> </div>
       </li>
     | Goal(expr) =>
       <li className="labeled-item special">
-        <span className="item-label"> {string("Goal")} </span>
-        <Expr expr />
+        <div className="item-label"> {string("Goal")} </div>
+        <div className="item-content"> <Expr expr /> </div>
       </li>
     | Have(expr) =>
       <li className="labeled-item special">
-        <span className="item-label"> {string("Have")} </span>
-        <Expr expr />
+        <div className="item-label"> {string("Have")} </div>
+        <div className="item-content"> <Expr expr /> </div>
       </li>
     | Output(value) => <Output value />
     };

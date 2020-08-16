@@ -159,10 +159,17 @@
         &:first-of-type {
             margin-top: 0;
         }
+
+        display: flex;
     }
 
+    li .item-content {
+        white-space: pre-wrap;
+        order: 1;
+        flex-grow: 1;
+    }
     li .item-label {
-        float: right;
+        order: 2;
 
         font-variant: small-caps;
         font-weight: bolder;
