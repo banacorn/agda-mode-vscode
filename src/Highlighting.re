@@ -67,7 +67,7 @@ module Aspect = {
 
     | "error" => Error
     | "dottedpattern" => DottedPattern
-    | "unsolpedmeta" => UnsolvedMeta
+    | "unsolvedmeta" => UnsolvedMeta
     | "unsolvedconstraint" => UnsolvedConstraint
     | "terminationproblem" => TerminationProblem
     | "positivityproblem" => PositivityProblem
