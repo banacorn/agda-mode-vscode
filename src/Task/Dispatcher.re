@@ -14,7 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   // helper function of `executeTask`
   let sendAgdaRequest = (addToAgdaQueue, addToDeferredQueue, state, request) => {
-    let printLog = false;
+    let printLog = true;
     let (log, log2) =
       if (printLog) {
         (Js.log, Js.log2);
@@ -36,9 +36,17 @@ module Impl = (Editor: Sig.Editor) => {
           addToAgdaQueue(tasks);
         }
       | Ok(Yield(Ok(NonLast(response)))) => {
-          log(">>> " ++ Response.toString(response));
-          let tasks = ResponseHandler.handle(response);
-          addToAgdaQueue(tasks);
+          switch (response) {
+          | Response.HighlightingInfoDirect(_, _)
+          | HighlightingInfoIndirect(_) =>
+            log("~~~ " ++ Response.toString(response));
+            let tasks = ResponseHandler.handle(response);
+            addToDeferredQueue(-1, tasks);
+          | _ =>
+            log(">>> " ++ Response.toString(response));
+            let tasks = ResponseHandler.handle(response);
+            addToAgdaQueue(tasks);
+          };
         }
       | Ok(Yield(Ok(Last(priority, response)))) => {
           log(

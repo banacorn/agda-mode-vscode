@@ -50,7 +50,7 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let handle = response => {
-    Js.log(Response.toString(response));
+    // Js.log(Response.toString(response));
     switch (response) {
     | HighlightingInfoDirect(_remove, annotations) => [
         Decoration(Add(annotations)),
