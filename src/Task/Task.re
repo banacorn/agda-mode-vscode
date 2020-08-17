@@ -42,7 +42,8 @@ module Impl = (Editor: Sig.Editor) => {
     | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
     | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
     | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
-    | Decoration(Add(_)) => "Decoration[Add]"
+    | Decoration(AddDirectly(_)) => "Decoration[AddDirectly]"
+    | Decoration(AddIndirectly(_)) => "Decoration[AddIndirectly]"
     | Decoration(RemoveAll) => "Decoration[RemoveAll]"
     | Decoration(Refresh) => "Decoration[Refresh]"
     | WithState(_) => "WithState"
@@ -65,7 +66,8 @@ module Impl = (Editor: Sig.Editor) => {
   let displayError = header => display'(Error(header));
   let displayWarning = header => display'(Warning(header));
   let displaySuccess = header => display'(Success(header));
-
+  let timeStart = label => WithState(_ => Js.Console.timeStart(label));
+  let timeEnd = label => WithState(_ => Js.Console.timeEnd(label));
   let query =
       (
         header,

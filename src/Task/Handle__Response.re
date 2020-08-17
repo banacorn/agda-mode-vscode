@@ -18,6 +18,7 @@ module Impl = (Editor: Sig.Editor) => {
           displayHeaderOnly(Success(header)),
         ]
       | AllGoalsWarnings(header, body) => [
+          timeEnd("view displayed"),
           displayEmacs(AllGoalsWarnings, Plain(header), body),
         ]
       | Time(body) => [displayEmacs(Text, Plain("Time"), body)]
@@ -50,51 +51,13 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let handle = response => {
-    Js.log(Response.toString(response));
+    // Js.log(Response.toString(response));
     switch (response) {
     | HighlightingInfoDirect(_remove, annotations) => [
-        Decoration(Add(annotations)),
+        Decoration(AddDirectly(annotations)),
       ]
     | HighlightingInfoIndirect(filepath) => [
-        WithStateP(
-          _ => {
-            let readFile = N.Util.promisify(N.Fs.readFile);
-            readFile(. filepath)
-            ->Promise.Js.fromBsPromise
-            ->Promise.Js.toResult
-            ->Promise.map(
-                fun
-                | Ok(content) => {
-                    open! Parser.SExpression;
-                    let expressions =
-                      content->Node.Buffer.toString->Parser.SExpression.parse;
-
-                    // TODO: we should do something about these parse errors
-                    let _parseErrors: array((int, string)) =
-                      expressions->Array.keepMap(
-                        fun
-                        | Error(error) => Some(error)
-                        | Ok(_) => None,
-                      );
-
-                    let annotations: array(Highlighting.t) =
-                      expressions
-                      ->Array.keepMap(
-                          fun
-                          | Error(_) => None // filter errors out
-                          | Ok(L(xs)) =>
-                            Some(Highlighting.parseIndirectHighlightings(xs))
-                          | Ok(_) => Some([||]),
-                        )
-                      ->Array.concatMany;
-
-                    [Decoration(Add(annotations))];
-                  }
-                // TODO: we should do something about these parse errors
-                | Error(_err) => [],
-              );
-          },
-        ),
+        Decoration(AddIndirectly(filepath)),
       ]
     | Status(_displayImplicit, _checked) =>
       // display(

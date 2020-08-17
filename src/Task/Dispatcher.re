@@ -36,9 +36,17 @@ module Impl = (Editor: Sig.Editor) => {
           addToAgdaQueue(tasks);
         }
       | Ok(Yield(Ok(NonLast(response)))) => {
-          log(">>> " ++ Response.toString(response));
-          let tasks = ResponseHandler.handle(response);
-          addToAgdaQueue(tasks);
+          switch (response) {
+          | Response.HighlightingInfoDirect(_, _)
+          | HighlightingInfoIndirect(_) =>
+            log("~~~ " ++ Response.toString(response));
+            let tasks = ResponseHandler.handle(response);
+            addToDeferredQueue(-1, tasks);
+          | _ =>
+            log(">>> " ++ Response.toString(response));
+            let tasks = ResponseHandler.handle(response);
+            addToAgdaQueue(tasks);
+          };
         }
       | Ok(Yield(Ok(Last(priority, response)))) => {
           log(
@@ -120,6 +128,7 @@ module Impl = (Editor: Sig.Editor) => {
           )
           ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
+              Js.log("================================");
               // sort the deferred task by priority (ascending order)
               let deferredTasks =
                 Js.Array.sortInPlaceWith(

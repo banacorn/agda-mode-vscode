@@ -6,7 +6,7 @@ module Impl = (Editor: Sig.Editor) => {
   // from Decoration to Tasks
   let handle =
     fun
-    | Decoration.Add(highlightings) => [
+    | Decoration.AddDirectly(highlightings) => [
         WithState(
           state => {
             let decorations =
@@ -17,6 +17,58 @@ module Impl = (Editor: Sig.Editor) => {
               ->Array.concatMany;
 
             state.decorations = Array.concat(state.decorations, decorations);
+          },
+        ),
+      ]
+    | AddIndirectly(filepath) => [
+        WithState(
+          state => {
+            let readFile = N.Util.promisify(N.Fs.readFile);
+            readFile(. filepath)
+            ->Promise.Js.fromBsPromise
+            ->Promise.Js.toResult
+            ->Promise.map(
+                fun
+                | Ok(content) => {
+                    open! Parser.SExpression;
+                    let expressions =
+                      content->Node.Buffer.toString->Parser.SExpression.parse;
+                    // TODO: we should do something about these parse errors
+                    let _parseErrors: array((int, string)) =
+                      expressions->Array.keepMap(
+                        fun
+                        | Error(error) => Some(error)
+                        | Ok(_) => None,
+                      );
+                    let annotations: array(Highlighting.t) =
+                      expressions
+                      ->Array.keepMap(
+                          fun
+                          | Error(_) => None // filter errors out
+                          | Ok(L(xs)) =>
+                            Some(Highlighting.parseIndirectHighlightings(xs))
+                          | Ok(_) => Some([||]),
+                        )
+                      ->Array.concatMany;
+                    // [Decoration(AddDirectly(annotations))];
+
+                    let decorations =
+                      annotations
+                      ->Array.map(annotation => {
+                          Decoration.decorateHighlighting(
+                            state.editor,
+                            annotation,
+                          )
+                        })
+                      ->Array.concatMany;
+
+                    state.decorations =
+                      Array.concat(state.decorations, decorations);
+                  }
+                // TODO: we should do something about these parse errors
+                | Error(_err) => (),
+              )
+            ->ignore;
           },
         ),
       ]
