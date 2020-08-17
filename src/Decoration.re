@@ -1,7 +1,8 @@
 open Belt;
 module Impl = (Editor: Sig.Editor) => {
   type action =
-    | Add(array(Highlighting.t))
+    | AddDirectly(array(Highlighting.t))
+    | AddIndirectly(string)
     | RemoveAll
     | Refresh;
 
