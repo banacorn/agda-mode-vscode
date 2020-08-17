@@ -67,7 +67,13 @@ module Impl = (Editor: Sig.Editor) => {
   let displaySuccess = header => display'(Success(header));
 
   let query =
-      (header, placeholder, value, callbackOnQuerySuccess: string => list(t)) => [
+      (
+        header,
+        body,
+        placeholder,
+        value,
+        callbackOnQuerySuccess: string => list(t),
+      ) => [
     WithState(
       state => {
         // focus on the panel before inquiring
@@ -76,7 +82,7 @@ module Impl = (Editor: Sig.Editor) => {
       },
     ),
     ViewRequest(
-      Query(header, placeholder, value),
+      Query(header, body, placeholder, value),
       response => {
         let tasks =
           switch (response) {

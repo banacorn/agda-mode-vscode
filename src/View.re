@@ -79,7 +79,7 @@ module Body = {
     | Nothing
     | Plain(string)
     | Emacs(Emacs.t, string, string)
-    | Query(option(string), option(string));
+    | Query(option(string), option(string), option(string));
 
   open Json.Decode;
   open Util.Decode;
@@ -96,8 +96,10 @@ module Body = {
         )
       | "Query" =>
         Contents(
-          pair(optional(string), optional(string))
-          |> map(((placeholder, value)) => Query(placeholder, value)),
+          tuple3(optional(string), optional(string), optional(string))
+          |> map(((body, placeholder, value)) =>
+               Query(body, placeholder, value)
+             ),
         )
       | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag)),
     );
@@ -116,12 +118,13 @@ module Body = {
           (kind, header, body) |> tuple3(Emacs.encode, string, string),
         ),
       ])
-    | Query(placeholder, value) =>
+    | Query(body, placeholder, value) =>
       object_([
         ("tag", string("Query")),
         (
           "contents",
-          (placeholder, value) |> pair(nullable(string), nullable(string)),
+          (body, placeholder, value)
+          |> tuple3(nullable(string), nullable(string), nullable(string)),
         ),
       ]);
 };
@@ -562,7 +565,7 @@ module EventToView = {
 
 module Request = {
   type t =
-    | Query(string, option(string), option(string));
+    | Query(string, option(string), option(string), option(string));
 
   // JSON encode/decode
 
@@ -574,9 +577,14 @@ module Request = {
       fun
       | "Query" =>
         Contents(
-          tuple3(string, optional(string), optional(string))
-          |> map(((header, placeholder, value)) =>
-               Query(header, placeholder, value)
+          tuple4(
+            string,
+            optional(string),
+            optional(string),
+            optional(string),
+          )
+          |> map(((header, body, placeholder, value)) =>
+               Query(header, body, placeholder, value)
              ),
         )
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
@@ -585,13 +593,18 @@ module Request = {
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Query(header, placeholder, value) =>
+    | Query(header, body, placeholder, value) =>
       object_([
         ("tag", string("Query")),
         (
           "contents",
-          (header, placeholder, value)
-          |> tuple3(string, nullable(string), nullable(string)),
+          (header, body, placeholder, value)
+          |> tuple4(
+               string,
+               nullable(string),
+               nullable(string),
+               nullable(string),
+             ),
         ),
       ]);
 };

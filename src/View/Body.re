@@ -39,7 +39,7 @@ let make =
          ->React.array}
       </ul>
     </div>;
-  | Query(placeholder, value) =>
+  | Query(body, placeholder, value) =>
     let placeholder = placeholder->Option.getWithDefault("");
     let value = value->Option.getWithDefault("");
 
@@ -52,6 +52,10 @@ let make =
 
     <div className="agda-mode-query">
       <form onSubmit>
+        {switch (body) {
+         | None => <> </>
+         | Some(message) => <p> {React.string(message)} </p>
+         }}
         <input
           type_="text"
           placeholder

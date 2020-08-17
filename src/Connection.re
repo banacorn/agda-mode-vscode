@@ -153,9 +153,10 @@ let wire = (self): unit => {
   let onData: result(string, Process.Error.t) => unit =
     fun
     | Ok(rawText) => {
-        Js.log(rawText);
         // split the raw text into pieces and feed it to the parser
-        rawText->Parser.split->Array.forEach(Parser.Incr.feed(pipeline));
+        rawText
+        ->Parser.split
+        ->Array.forEach(Parser.Incr.feed(pipeline));
       }
     | Error(e) => self.emitter.emit(Error(Process(e)));
 

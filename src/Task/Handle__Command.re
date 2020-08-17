@@ -38,7 +38,7 @@ module Impl = (Editor: Sig.Editor) => {
     | NextGoal => [Goal(Next)]
     | PreviousGoal => [Goal(Previous)]
     | SearchAbout(normalization) =>
-      query(header, Some("name:"), None, expr =>
+      query(header, None, Some("name:"), None, expr =>
         [AgdaRequest(SearchAbout(normalization, expr))]
       )
     | Give => [
@@ -46,7 +46,7 @@ module Impl = (Editor: Sig.Editor) => {
           LocalOrGlobal2(
             (goal, _) => [AgdaRequest(Give(goal))],
             goal =>
-              query(header, Some("expression to give:"), None, expr =>
+              query(header, None, Some("expression to give:"), None, expr =>
                 [Goal(Modify(goal, _ => expr)), AgdaRequest(Give(goal))]
               ),
             [Error(OutOfGoal)],
@@ -69,7 +69,7 @@ module Impl = (Editor: Sig.Editor) => {
             (goal, expr) =>
               [AgdaRequest(ElaborateAndGive(normalization, expr, goal))],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [AgdaRequest(ElaborateAndGive(normalization, expr, goal))]
               ),
             [Error(OutOfGoal)],
@@ -103,13 +103,27 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Case =>
-      let placeholder = Some("expression to case:");
+      let placeholder = Some("variable to case split:");
       [
         Goal(
           LocalOrGlobal2(
             (goal, _) => [AgdaRequest(Case(goal))],
+            // _goal =>
+            //   [
+            //     displayWarning(
+            //       "Don't know which variable to case split",
+            //       Some(
+            //         "Please specify the variable you wish to split in the goal",
+            //       ),
+            //     ),
+            //   ],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(
+                header,
+                Some("Please specify which variable you wish to split"),
+                placeholder,
+                None,
+                expr =>
                 [
                   Goal(Modify(goal, _ => expr)), // place the queried expression in the goal
                   AgdaRequest(Case(goal)),
@@ -127,7 +141,7 @@ module Impl = (Editor: Sig.Editor) => {
             (goal, expr) =>
               [AgdaRequest(HelperFunctionType(normalization, expr, goal))],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [AgdaRequest(HelperFunctionType(normalization, expr, goal))]
               ),
             [Error(OutOfGoal)],
@@ -142,10 +156,10 @@ module Impl = (Editor: Sig.Editor) => {
             (goal, expr) =>
               [AgdaRequest(InferType(normalization, expr, goal))],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [AgdaRequest(InferType(normalization, expr, goal))]
               ),
-            query(header, placeholder, None, expr =>
+            query(header, None, placeholder, None, expr =>
               [AgdaRequest(InferTypeGlobal(normalization, expr))]
             ),
           ),
@@ -202,7 +216,7 @@ module Impl = (Editor: Sig.Editor) => {
                 ),
               ],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [
                   AgdaRequest(
                     GoalTypeContextAndCheckedType(normalization, expr, goal),
@@ -221,10 +235,10 @@ module Impl = (Editor: Sig.Editor) => {
             (goal, expr) =>
               [AgdaRequest(ModuleContents(normalization, expr, goal))],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [AgdaRequest(ModuleContents(normalization, expr, goal))]
               ),
-            query(header, placeholder, None, expr =>
+            query(header, None, placeholder, None, expr =>
               [AgdaRequest(ModuleContentsGlobal(normalization, expr))]
             ),
           ),
@@ -238,10 +252,10 @@ module Impl = (Editor: Sig.Editor) => {
             (goal, expr) =>
               [AgdaRequest(ComputeNormalForm(computeMode, expr, goal))],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [AgdaRequest(ComputeNormalForm(computeMode, expr, goal))]
               ),
-            query(header, placeholder, None, expr =>
+            query(header, None, placeholder, None, expr =>
               [AgdaRequest(ComputeNormalFormGlobal(computeMode, expr))]
             ),
           ),
@@ -254,10 +268,10 @@ module Impl = (Editor: Sig.Editor) => {
           LocalOrGlobal2(
             (goal, expr) => [AgdaRequest(WhyInScope(expr, goal))],
             goal =>
-              query(header, placeholder, None, expr =>
+              query(header, None, placeholder, None, expr =>
                 [AgdaRequest(WhyInScope(expr, goal))]
               ),
-            query(header, placeholder, None, expr =>
+            query(header, None, placeholder, None, expr =>
               [AgdaRequest(WhyInScopeGlobal(expr))]
             ),
           ),

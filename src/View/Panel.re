@@ -17,7 +17,7 @@ let make =
     React.useReducer(Keyboard.reducer, None);
   let querying =
     switch (body) {
-    | Query(_, _) => true
+    | Query(_, _, _) => true
     | _ => false
     };
 
@@ -42,12 +42,12 @@ let make =
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
-    | Query(header, placeholder, value) =>
+    | Query(header, body, placeholder, value) =>
       setShouldPrank(_ => None);
       let (promise, resolve) = Promise.pending();
       queryResponseResolver.current = Some(resolve);
       setHeader(_ => Plain(header));
-      setBody(_ => Query(placeholder, value));
+      setBody(_ => Query(body, placeholder, value));
       promise->Promise.map(
         fun
         | None => View.Response.QueryInterrupted
@@ -69,7 +69,8 @@ let make =
       setShouldPrank(_ => None);
       setBody(
         fun
-        | Query(placeholder, _) => Query(placeholder, Some(text))
+        | Query(body, placeholder, _) =>
+          Query(body, placeholder, Some(text))
         | others => others,
       );
     | Display(header, body) =>
