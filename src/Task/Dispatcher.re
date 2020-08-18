@@ -126,6 +126,13 @@ module Impl = (Editor: Sig.Editor) => {
             state,
             request,
           )
+          ->Promise.tap(() =>
+              Js.Array.push(
+                ((-1), [Task.Decoration(StopAddingIndirectly)]),
+                deferredTasks,
+              )
+              ->ignore
+            )
           ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
               Js.log("================================");

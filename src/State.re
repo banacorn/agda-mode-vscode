@@ -10,6 +10,7 @@ module Impl = (Editor: Sig.Editor) => {
     view: Editor.view,
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
+    mutable indirectHighlightingFileNames: array(string),
     mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
     mutable cursor: option(Editor.Point.t),
     editorIM: EditorIM.t,
@@ -69,6 +70,7 @@ module Impl = (Editor: Sig.Editor) => {
     setLoaded(false);
     state.subscriptions->Array.forEach(Editor.Disposable.dispose);
     state->disconnect;
+    // TODO: delete files in `.indirectHighlightingFileNames`
   };
 
   let make = (extentionPath, eventEmitter, editor) => {
@@ -81,6 +83,7 @@ module Impl = (Editor: Sig.Editor) => {
       view,
       connection: None,
       goals: [||],
+      indirectHighlightingFileNames: [||],
       decorations: [||],
       cursor: None,
       editorIM: EditorIM.make(eventEmitter),
