@@ -296,7 +296,7 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    //  if the cursor is pointing at some hole
+    //  if the cursor is pointing at the boundary of some hole
     //    then move the cursor inside the hole
     //    else restore the cursor to its original position (if there's any)
     | RestoreCursor => [
@@ -306,7 +306,20 @@ module Impl = (Editor: Sig.Editor) => {
             | None => ()
             | Some(position) =>
               state.cursor = None;
-              let pointedGoal = pointingAt(~cursor=position, state);
+
+              let cursor = Editor.getCursorPosition(state.editor);
+              let cursorOffset = Editor.offsetAtPoint(state.editor, cursor);
+              let pointedGoals =
+                state.goals
+                ->Array.keep(goal =>
+                    fst(goal.range) <= cursorOffset
+                    && cursorOffset <= fst(goal.range)
+                    + 2
+                    || snd(goal.range)
+                    - 2 <= cursorOffset
+                    && cursorOffset <= snd(goal.range)
+                  );
+              let pointedGoal = pointedGoals[0];
               switch (pointedGoal) {
               | Some(goal) => Goal.setCursor(goal, state.editor)
               | None =>
