@@ -5,17 +5,6 @@ module Assert = BsMocha.Assert;
 module P = BsMocha.Promise;
 
 module Impl = (Editor: Sig.Editor) => {
-  let getTextToOffsetAt = (textEditor, from, to_) => {
-    let (from, _) = Editor.codeUnitEndingOffset(textEditor, from);
-    let (to_, _) = Editor.codeUnitEndingOffset(textEditor, to_);
-    let range =
-      Editor.Range.make(
-        Editor.pointAtOffset(textEditor, from),
-        Editor.pointAtOffset(textEditor, to_),
-      );
-    textEditor->Editor.getTextInRange(range);
-  };
-
   describe("Conversion between Agda Offsets and Editor Offsets", () => {
     describe("Sig.characterWidth", () => {
       it("should calculate the width of some grapheme cluster", () => {
@@ -30,9 +19,19 @@ module Impl = (Editor: Sig.Editor) => {
       });
     });
 
-    describe_only("Editor.codeUnitEndingOffset", () => {
+    describe_only("SigImpl.codeUnitEndingOffset", () => {
+      let getTextToOffsetAt = (textEditor, from, to_) => {
+        let from = SigImpl.codeUnitEndingOffset(textEditor, from).utf16;
+        let to_ = SigImpl.codeUnitEndingOffset(textEditor, to_).utf16;
+        let range =
+          SigImpl.Range.make(
+            SigImpl.pointAtOffset(textEditor, from),
+            SigImpl.pointAtOffset(textEditor, to_),
+          );
+        textEditor->SigImpl.getTextInRange(range);
+      };
       P.it("shouldn't cut into a grapheme", () => {
-        Editor.openEditorWithContent(
+        SigImpl.openEditorWithContent(
           {j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j},
         )
         ->Promise.map(textEditor => {
@@ -59,7 +58,7 @@ module Impl = (Editor: Sig.Editor) => {
             Assert.equal(getTextToOffsetAt(textEditor, 5, 6), {j|b|j});
           })
         ->Promise.Js.toBsPromise
-      })
+      });
     });
 
     describe("Editor.fromAgdaOffset", () => {

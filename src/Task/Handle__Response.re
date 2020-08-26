@@ -18,7 +18,6 @@ module Impl = (Editor: Sig.Editor) => {
           displayHeaderOnly(Success(header)),
         ]
       | AllGoalsWarnings(header, body) => [
-          timeEnd("view displayed"),
           displayEmacs(AllGoalsWarnings, Plain(header), body),
         ]
       | Time(body) => [displayEmacs(Text, Plain("Time"), body)]

@@ -363,8 +363,13 @@ let onChangeCursorPosition = callback =>
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 
+type offset = {
+  utf8: int,
+  utf16: int,
+};
+
 // normalize a UTF-16 offset so that it stays in the boundary of a character in UTF-8
-let codeUnitEndingOffset = (editor: editor, utf16offset: int): (int, int) => {
+let codeUnitEndingOffset = (editor: editor, utf16offset: int): offset => {
   // observation:
   //    `utf16offset` cuts right into the middle of a character of 2 code units wide
   //    if and only if
@@ -393,9 +398,9 @@ let codeUnitEndingOffset = (editor: editor, utf16offset: int): (int, int) => {
   // if there's a character ranges from `offset - 1` to `offset + 1`
   // the character offset of `textWithLookahead` should be the same as `textWithoutLookahead`
   if (utf8offsetWithLookahead == utf8offsetWithoutLookahead) {
-    (utf16offset + 1, utf8offsetWithoutLookahead);
+    {utf16: utf16offset + 1, utf8: utf8offsetWithoutLookahead};
   } else {
-    (utf16offset, utf8offsetWithoutLookahead);
+    {utf16: utf16offset, utf8: utf8offsetWithoutLookahead};
   };
 };
 
@@ -405,22 +410,24 @@ let fromAgdaOffset = (editor, offset) => {
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
 
-  let rec approximate = (target, offset) => {
+  let rec approximate = (target, utf16offset) => {
     // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
-    let (offset, current) = codeUnitEndingOffset(editor, offset);
-    if (target == current) {
+    let current = codeUnitEndingOffset(editor, utf16offset);
+    if (target == current.utf8) {
       // return the current position if the target is met
-      offset;
+      current.
+        utf16;
     } else {
       // else, offset by `target - current` to see if we can approximate the target
-      let (nextOffset, nextCurrent) =
-        codeUnitEndingOffset(editor, offset + target - current);
+      let next =
+        codeUnitEndingOffset(editor, current.utf16 + target - current.utf8);
 
-      if (current == nextCurrent) {
+      if (current.utf8 == next.utf8) {
         // return it's not progressing anymore
-        nextOffset;
+        next.
+          utf16;
       } else {
-        approximate(target, nextOffset);
+        approximate(target, next.utf16);
       };
     };
   };
