@@ -7,6 +7,9 @@ module Impl = (Editor: Sig.Editor) => {
     | RemoveAll
     | Refresh;
 
+  ////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////////
+
   let decorateHole =
       (editor: Editor.editor, (start, end_): (int, int), index: int) => {
     let backgroundRange =
@@ -93,5 +96,105 @@ module Impl = (Editor: Sig.Editor) => {
     highlighting.aspects
     ->Array.map(decorateAspect(editor, range))
     ->Array.concatMany;
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////////
+
+  type t = {
+    // from AddIndirectly
+    mutable tempFilePaths: array(string),
+    // from AddDirectly
+    mutable highlightings: array(Highlighting.t),
+    // after Apply
+    mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
+  };
+
+  let make = () => {
+    highlightings: [||],
+    tempFilePaths: [||],
+    decorations: [||],
+  };
+
+  let destroy = self => {
+    self.highlightings = [||];
+    self.tempFilePaths
+    ->Array.forEach(filepath => N.Fs.unlink(filepath, _ => ()));
+    self.tempFilePaths = [||];
+    self.decorations
+    ->Array.forEach(((decoration, _)) =>
+        Editor.Decoration.destroy(decoration)
+      );
+  };
+
+  let refresh = (editor, self) => {
+    self.decorations
+    ->Array.forEach(((decoration, range)) => {
+        Editor.Decoration.decorate(editor, decoration, [|range|])
+      });
+  };
+
+  let addDirectly = (self, highlightings) => {
+    self.highlightings = Array.concat(self.highlightings, highlightings);
+  };
+
+  let addIndirectly = (self, filepath) => {
+    Js.Array.push(filepath, self.tempFilePaths)->ignore;
+  };
+
+  let readFile = N.Util.promisify(N.Fs.readFile);
+
+  let readAndParse = (filepath): Promise.t(array(Highlighting.t)) => {
+    readFile(. filepath)
+    ->Promise.Js.fromBsPromise
+    ->Promise.Js.toResult
+    ->Promise.map(
+        fun
+        | Ok(content) => {
+            open! Parser.SExpression;
+            let expressions =
+              content->Node.Buffer.toString->Parser.SExpression.parse;
+            // TODO: we should do something about these parse errors
+            let _parseErrors: array((int, string)) =
+              expressions->Array.keepMap(
+                fun
+                | Error(error) => Some(error)
+                | Ok(_) => None,
+              );
+            expressions
+            ->Array.keepMap(
+                fun
+                | Error(_) => None // filter errors out
+                | Ok(L(xs)) =>
+                  Some(Highlighting.parseIndirectHighlightings(xs))
+                | Ok(_) => Some([||]),
+              )
+            ->Array.concatMany;
+          }
+        // TODO: we should do something about these parse errors
+        | Error(_err) => [||],
+      );
+  };
+
+  // .tempFilePaths ====> .highlightings
+  let readTempFiles = self => {
+    self.tempFilePaths
+    ->Array.map(readAndParse)
+    ->Promise.allArray
+    ->Promise.map(Array.concatMany)
+    ->Promise.map(highlightings => {
+        self.highlightings = Array.concat(self.highlightings, highlightings);
+        self.tempFilePaths = [||];
+      });
+  };
+
+  // .highlightings ====> .decorations
+  let applyHighlightings = (self, editor) => {
+    let decorations =
+      self.highlightings
+      ->Array.map(decorateHighlighting(editor))
+      ->Array.concatMany;
+    self.highlightings = [||];
+    self.decorations = Array.concat(self.decorations, decorations);
   };
 };

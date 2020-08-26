@@ -1,6 +1,7 @@
 module Impl = (Editor: Sig.Editor) => {
   module Goal = Goal.Impl(Editor);
   module EditorIM = EditorIM.Impl(Editor);
+  module Decoration = Decoration.Impl(Editor);
   module Request = Request.Impl(Editor);
   open Belt;
   type editor = Editor.editor;
@@ -10,8 +11,7 @@ module Impl = (Editor: Sig.Editor) => {
     view: Editor.view,
     mutable connection: option(Connection.t),
     mutable goals: array(Goal.t),
-    mutable indirectHighlightingFileNames: array(string),
-    mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
+    mutable decorations: Decoration.t,
     mutable cursor: option(Editor.Point.t),
     editorIM: EditorIM.t,
     queryIM: QueryIM.t,
@@ -64,9 +64,7 @@ module Impl = (Editor: Sig.Editor) => {
     state.view->Editor.View.destroy;
     state.onRemoveFromRegistry.destroy();
     state.goals->Array.forEach(Goal.destroy);
-    state.decorations
-    ->Array.map(fst)
-    ->Array.forEach(Editor.Decoration.destroy);
+    state.decorations->Decoration.destroy;
     setLoaded(false);
     state.subscriptions->Array.forEach(Editor.Disposable.dispose);
     state->disconnect;
@@ -83,8 +81,7 @@ module Impl = (Editor: Sig.Editor) => {
       view,
       connection: None,
       goals: [||],
-      indirectHighlightingFileNames: [||],
-      decorations: [||],
+      decorations: Decoration.make(),
       cursor: None,
       editorIM: EditorIM.make(eventEmitter),
       queryIM: QueryIM.make(),
