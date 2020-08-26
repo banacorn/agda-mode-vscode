@@ -5,12 +5,13 @@ module Assert = BsMocha.Assert;
 module P = BsMocha.Promise;
 
 module Impl = (Editor: Sig.Editor) => {
-  let getTextToOffsetAt = (textEditor, offset) => {
-    let (offset, _) = Editor.codeUnitEndingOffset(textEditor, offset);
+  let getTextToOffsetAt = (textEditor, from, to_) => {
+    let (from, _) = Editor.codeUnitEndingOffset(textEditor, from);
+    let (to_, _) = Editor.codeUnitEndingOffset(textEditor, to_);
     let range =
       Editor.Range.make(
-        Editor.Point.make(0, 0),
-        Editor.pointAtOffset(textEditor, offset),
+        Editor.pointAtOffset(textEditor, from),
+        Editor.pointAtOffset(textEditor, to_),
       );
     textEditor->Editor.getTextInRange(range);
   };
@@ -29,19 +30,33 @@ module Impl = (Editor: Sig.Editor) => {
       });
     });
 
-    describe("Editor.codeUnitEndingOffset", () => {
+    describe_only("Editor.codeUnitEndingOffset", () => {
       P.it("shouldn't cut into a grapheme", () => {
         Editor.openEditorWithContent(
           {j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j},
         )
         ->Promise.map(textEditor => {
-            Assert.equal(getTextToOffsetAt(textEditor, 0), {j||j});
-            Assert.equal(getTextToOffsetAt(textEditor, 1), {j|𝐀|j});
-            Assert.equal(getTextToOffsetAt(textEditor, 2), {j|𝐀|j});
-            Assert.equal(getTextToOffsetAt(textEditor, 3), {j|𝐀a|j});
-            Assert.equal(getTextToOffsetAt(textEditor, 4), {j|𝐀a𝐁|j});
-            Assert.equal(getTextToOffsetAt(textEditor, 5), {j|𝐀a𝐁|j});
-            Assert.equal(getTextToOffsetAt(textEditor, 6), {j|𝐀a𝐁b|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 0, 0), {j||j});
+            Assert.equal(getTextToOffsetAt(textEditor, 0, 1), {j|𝐀|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 0, 2), {j|𝐀|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 0, 3), {j|𝐀a|j});
+            Assert.equal(
+              getTextToOffsetAt(textEditor, 0, 4),
+              {j|𝐀a𝐁|j},
+            );
+            Assert.equal(
+              getTextToOffsetAt(textEditor, 0, 5),
+              {j|𝐀a𝐁|j},
+            );
+            Assert.equal(
+              getTextToOffsetAt(textEditor, 0, 6),
+              {j|𝐀a𝐁b|j},
+            );
+            Assert.equal(getTextToOffsetAt(textEditor, 1, 6), {j|a𝐁b|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 2, 6), {j|a𝐁b|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 3, 6), {j|𝐁b|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 4, 6), {j|b|j});
+            Assert.equal(getTextToOffsetAt(textEditor, 5, 6), {j|b|j});
           })
         ->Promise.Js.toBsPromise
       })

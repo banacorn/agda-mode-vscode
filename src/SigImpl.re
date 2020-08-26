@@ -363,30 +363,39 @@ let onChangeCursorPosition = callback =>
 let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 
-// Code unit: a bit sequence used to encode each character of a repertoire within a given encoding form.
-// returns `offset + 1` if `offset` cuts into the middle of a character of 2 code units wide
-let codeUnitEndingOffset = (editor: editor, offset: int): (int, int) => {
+// normalize a UTF-16 offset so that it stays in the boundary of a character in UTF-8
+let codeUnitEndingOffset = (editor: editor, utf16offset: int): (int, int) => {
+  // observation:
+  //    `utf16offset` cuts right into the middle of a character of 2 code units wide
+  //    if and only if
+  //    the character of the following ranges all have the same character width:
+  //      0 ~ utf16offset
+  //      0 ~ utf16offset + 1
+  //
+  //    in that case, we return `(utf16offset + 1, utf8offset)`
+
   let range =
     VSCode.Range.make(
       VSCode.Position.make(0, 0), // start
-      editor->TextEditor.document->TextDocument.positionAt(offset + 1) // end
+      // editor->TextEditor.document->TextDocument.positionAt(offset - 2), // start
+      editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1) // end
     );
   // from `0` to `offset + 1`
   let textWithLookahead =
     editor->TextEditor.document->TextDocument.getText(Some(range));
   // from `0` to `offset`
   let textWithoutLookahead =
-    Js.String.substring(~from=0, ~to_=offset, textWithLookahead);
+    Js.String.substring(~from=0, ~to_=utf16offset, textWithLookahead);
 
-  let charOffsetWithLookahead = Sig.characterWidth(textWithLookahead);
-  let charOffsetWithoutLookahead = Sig.characterWidth(textWithoutLookahead);
+  let utf8offsetWithLookahead = Sig.characterWidth(textWithLookahead);
+  let utf8offsetWithoutLookahead = Sig.characterWidth(textWithoutLookahead);
 
   // if there's a character ranges from `offset - 1` to `offset + 1`
   // the character offset of `textWithLookahead` should be the same as `textWithoutLookahead`
-  if (charOffsetWithLookahead == charOffsetWithoutLookahead) {
-    (offset + 1, charOffsetWithoutLookahead);
+  if (utf8offsetWithLookahead == utf8offsetWithoutLookahead) {
+    (utf16offset + 1, utf8offsetWithoutLookahead);
   } else {
-    (offset, charOffsetWithoutLookahead);
+    (utf16offset, utf8offsetWithoutLookahead);
   };
 };
 
