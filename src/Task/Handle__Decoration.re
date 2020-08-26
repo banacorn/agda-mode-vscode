@@ -63,7 +63,7 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | StopAddingIndirectly => [
+    | Apply => [
         WithState(
           state => {
             state.indirectHighlightingFileNames

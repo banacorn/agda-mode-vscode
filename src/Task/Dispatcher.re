@@ -36,17 +36,8 @@ module Impl = (Editor: Sig.Editor) => {
           addToAgdaQueue(tasks);
         }
       | Ok(Yield(Ok(NonLast(response)))) => {
-          switch (response) {
-          | Response.HighlightingInfoDirect(_, _)
-          | HighlightingInfoIndirect(_) =>
-            log("~~~ " ++ Response.toString(response));
-            let tasks = ResponseHandler.handle(response);
-            addToDeferredQueue(-1, tasks);
-          | _ =>
-            log(">>> " ++ Response.toString(response));
-            let tasks = ResponseHandler.handle(response);
-            addToAgdaQueue(tasks);
-          };
+          let tasks = ResponseHandler.handle(response);
+          addToAgdaQueue(tasks);
         }
       | Ok(Yield(Ok(Last(priority, response)))) => {
           log(
@@ -126,9 +117,10 @@ module Impl = (Editor: Sig.Editor) => {
             state,
             request,
           )
+          // process and apply decorations
           ->Promise.tap(() =>
               Js.Array.push(
-                ((-1), [Task.Decoration(StopAddingIndirectly)]),
+                ((-1), [Task.Decoration(Apply)]),
                 deferredTasks,
               )
               ->ignore
