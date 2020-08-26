@@ -70,8 +70,8 @@ module Impl = (Editor: Sig.Editor) => {
       (editor: Editor.editor, highlighting: Highlighting.t) => {
     // converts offsets from Agda to offsets for editor first
 
-    let start = Editor.fromAgdaOffset(editor, highlighting.start);
-    let end_ = Editor.fromAgdaOffset(editor, highlighting.end_);
+    let start = Editor.fromAgdaOffset(editor, None, highlighting.start);
+    let end_ = Editor.fromAgdaOffset(editor, None, highlighting.end_);
     let start = Editor.pointAtOffset(editor, start);
     let end_ = Editor.pointAtOffset(editor, end_);
 

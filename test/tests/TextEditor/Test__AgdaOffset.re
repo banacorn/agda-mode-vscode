@@ -21,8 +21,12 @@ module Impl = (Editor: Sig.Editor) => {
 
     describe_only("SigImpl.codeUnitEndingOffset", () => {
       let getTextToOffsetAt = (textEditor, from, to_) => {
-        let from = SigImpl.codeUnitEndingOffset(textEditor, from).utf16;
-        let to_ = SigImpl.codeUnitEndingOffset(textEditor, to_).utf16;
+        let from =
+          SigImpl.codeUnitEndingOffset(textEditor, {utf8: 0, utf16: 0}, from).
+            utf16;
+        let to_ =
+          SigImpl.codeUnitEndingOffset(textEditor, {utf8: 0, utf16: 0}, to_).
+            utf16;
         let range =
           SigImpl.Range.make(
             SigImpl.pointAtOffset(textEditor, from),
@@ -65,7 +69,7 @@ module Impl = (Editor: Sig.Editor) => {
       P.it("should do it right", () => {
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.fromAgdaOffset(n);
+            let f = n => textEditor->Editor.fromAgdaOffset(None, n);
             Assert.equal(f(0), 0);
             Assert.equal(f(1), 2);
             Assert.equal(f(2), 3);
@@ -82,7 +86,7 @@ module Impl = (Editor: Sig.Editor) => {
 
       P.it("should extract the right portion of text", () => {
         let getTextToOffsetAt = (textEditor, offset) => {
-          let offset = textEditor->Editor.fromAgdaOffset(offset);
+          let offset = textEditor->Editor.fromAgdaOffset(None, offset);
           let range =
             Editor.Range.make(
               Editor.Point.make(0, 0),
@@ -146,7 +150,7 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
             let f = n => textEditor->Editor.toAgdaOffset(n);
-            let g = n => textEditor->Editor.fromAgdaOffset(n);
+            let g = n => textEditor->Editor.fromAgdaOffset(None, n);
             Assert.equal(f(g(0)), 0);
             Assert.equal(f(g(1)), 1);
             Assert.equal(f(g(2)), 2);
@@ -166,7 +170,7 @@ module Impl = (Editor: Sig.Editor) => {
         // fromAgdaOffset . toAgdaOffset = id
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.fromAgdaOffset(n);
+            let f = n => textEditor->Editor.fromAgdaOffset(None, n);
             let g = n => textEditor->Editor.toAgdaOffset(n);
             Assert.equal(f(g(0)), 0);
             Assert.equal(f(g(2)), 2);

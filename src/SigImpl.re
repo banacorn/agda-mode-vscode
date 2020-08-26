@@ -369,69 +369,86 @@ type offset = {
 };
 
 // normalize a UTF-16 offset so that it stays in the boundary of a character in UTF-8
-let codeUnitEndingOffset = (editor: editor, utf16offset: int): offset => {
+let codeUnitEndingOffset =
+    (editor: editor, init: offset, utf16offset: int): offset => {
   // observation:
   //    `utf16offset` cuts right into the middle of a character of 2 code units wide
   //    if and only if
   //    the character of the following ranges all have the same character width:
-  //      0 ~ utf16offset
-  //      0 ~ utf16offset + 1
+  //      init.utf16 ~ utf16offset
+  //      init.utf16 ~ utf16offset + 1
   //
   //    in that case, we return `(utf16offset + 1, utf8offset)`
 
   let range =
     VSCode.Range.make(
-      VSCode.Position.make(0, 0), // start
-      // editor->TextEditor.document->TextDocument.positionAt(offset - 2), // start
+      editor->TextEditor.document->TextDocument.positionAt(init.utf16), // start
       editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1) // end
     );
-  // from `0` to `offset + 1`
+  // from `init.utf16` to `utf16offset + 1`
   let textWithLookahead =
     editor->TextEditor.document->TextDocument.getText(Some(range));
-  // from `0` to `offset`
+  // from `init.utf16` to `utf16offset`
   let textWithoutLookahead =
-    Js.String.substring(~from=0, ~to_=utf16offset, textWithLookahead);
+    Js.String.substring(
+      ~from=init.utf16,
+      ~to_=utf16offset,
+      textWithLookahead,
+    );
 
-  let utf8offsetWithLookahead = Sig.characterWidth(textWithLookahead);
-  let utf8offsetWithoutLookahead = Sig.characterWidth(textWithoutLookahead);
+  let utf8widthWithLookahead = Sig.characterWidth(textWithLookahead);
+  let utf8widthWithoutLookahead = Sig.characterWidth(textWithoutLookahead);
 
-  // if there's a character ranges from `offset - 1` to `offset + 1`
-  // the character offset of `textWithLookahead` should be the same as `textWithoutLookahead`
-  if (utf8offsetWithLookahead == utf8offsetWithoutLookahead) {
-    {utf16: utf16offset + 1, utf8: utf8offsetWithoutLookahead};
+  // if there's a character ranges from `utf16offset - 1` to `utf16offset + 1`
+  // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
+  if (utf8widthWithLookahead == utf8widthWithoutLookahead) {
+    {utf16: utf16offset + 1, utf8: init.utf8 + utf8widthWithoutLookahead};
   } else {
-    {utf16: utf16offset, utf8: utf8offsetWithoutLookahead};
+    {utf16: utf16offset, utf8: init.utf8 + utf8widthWithoutLookahead};
   };
 };
 
 // for converting offsets sent from Agda (UTF-8) to offsets in the editor (UTF-16)
-let fromAgdaOffset = (editor, offset) => {
+let fromAgdaOffset = (editor, initial, targetUTF8) => {
   // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
 
-  let rec approximate = (target, utf16offset) => {
+  let initial =
+    switch (initial) {
+    | None => {utf8: 0, utf16: 0}
+    | Some(init) => init
+    };
+
+  let rec approximate = utf16offset => {
     // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
-    let current = codeUnitEndingOffset(editor, utf16offset);
-    if (target == current.utf8) {
+    let current = codeUnitEndingOffset(editor, initial, utf16offset);
+    if (targetUTF8 == current.utf8) {
       // return the current position if the target is met
       current.
         utf16;
     } else {
-      // else, offset by `target - current` to see if we can approximate the target
+      // else, offset by `targetUTF8 - current` to see if we can approximate the target
       let next =
-        codeUnitEndingOffset(editor, current.utf16 + target - current.utf8);
+        codeUnitEndingOffset(
+          editor,
+          initial,
+          current.utf16 + targetUTF8 - current.utf8,
+        );
 
       if (current.utf8 == next.utf8) {
         // return it's not progressing anymore
         next.
           utf16;
       } else {
-        approximate(target, next.utf16);
+        approximate(next.utf16);
       };
     };
   };
-  approximate(offset, offset);
+
+  // since UTF-8 offset ≤ UTF-16 offset, we use the target UTF-8 offset as a starting offset
+  let currentUTF16 = targetUTF8;
+  approximate(currentUTF16);
 };
 
 let toAgdaOffset = (editor, offset) => {
