@@ -19,13 +19,13 @@ module Impl = (Editor: Sig.Editor) => {
       });
     });
 
-    describe_only("SigImpl.codeUnitEndingOffset", () => {
+    describe_only("SigImpl.normalizeUTF16Offset", () => {
       let getTextToOffsetAt = (textEditor, from, to_) => {
         let from =
-          SigImpl.codeUnitEndingOffset(textEditor, {utf8: 0, utf16: 0}, from).
+          SigImpl.normalizeUTF16Offset(textEditor, {utf8: 0, utf16: 0}, from).
             utf16;
         let to_ =
-          SigImpl.codeUnitEndingOffset(textEditor, {utf8: 0, utf16: 0}, to_).
+          SigImpl.normalizeUTF16Offset(textEditor, {utf8: 0, utf16: 0}, to_).
             utf16;
         let range =
           SigImpl.Range.make(
@@ -65,11 +65,11 @@ module Impl = (Editor: Sig.Editor) => {
       });
     });
 
-    describe("Editor.fromAgdaOffset", () => {
+    describe("Editor.fromUTF8Offset", () => {
       P.it("should do it right", () => {
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.fromAgdaOffset(None, n);
+            let f = n => textEditor->Editor.fromUTF8Offset(None, n);
             Assert.equal(f(0), 0);
             Assert.equal(f(1), 2);
             Assert.equal(f(2), 3);
@@ -86,7 +86,7 @@ module Impl = (Editor: Sig.Editor) => {
 
       P.it("should extract the right portion of text", () => {
         let getTextToOffsetAt = (textEditor, offset) => {
-          let offset = textEditor->Editor.fromAgdaOffset(None, offset);
+          let offset = textEditor->Editor.fromUTF8Offset(None, offset);
           let range =
             Editor.Range.make(
               Editor.Point.make(0, 0),
@@ -125,13 +125,13 @@ module Impl = (Editor: Sig.Editor) => {
         ->Promise.Js.toBsPromise;
       });
     });
-    describe("Editor.toAgdaOffset", () => {
+    describe("Editor.toUTF8Offset", () => {
       P.it("should do it right", () => {
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.toAgdaOffset(n);
+            let f = n => textEditor->Editor.toUTF8Offset(n);
             Assert.equal(f(0), 0);
-            Assert.equal(f(1), 1); // cuts grapheme in half, toAgdaOffset is a partial function
+            Assert.equal(f(1), 1); // cuts grapheme in half, toUTF8Offset is a partial function
             Assert.equal(f(2), 1);
             Assert.equal(f(3), 2);
             Assert.equal(f(5), 3);
@@ -145,12 +145,12 @@ module Impl = (Editor: Sig.Editor) => {
         ->Promise.Js.toBsPromise
       });
 
-      P.it("should be a left inverse of Editor.fromAgdaOffset", () => {
-        // toAgdaOffset . fromAgdaOffset = id
+      P.it("should be a left inverse of Editor.fromUTF8Offset", () => {
+        // toUTF8Offset . fromUTF8Offset = id
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.toAgdaOffset(n);
-            let g = n => textEditor->Editor.fromAgdaOffset(None, n);
+            let f = n => textEditor->Editor.toUTF8Offset(n);
+            let g = n => textEditor->Editor.fromUTF8Offset(None, n);
             Assert.equal(f(g(0)), 0);
             Assert.equal(f(g(1)), 1);
             Assert.equal(f(g(2)), 2);
@@ -165,13 +165,13 @@ module Impl = (Editor: Sig.Editor) => {
         ->Promise.Js.toBsPromise
       });
 
-      P.it("should be a right inverse of Editor.fromAgdaOffset ()", () => {
-        // NOTE: toAgdaOffset is a partial function
-        // fromAgdaOffset . toAgdaOffset = id
+      P.it("should be a right inverse of Editor.fromUTF8Offset ()", () => {
+        // NOTE: toUTF8Offset is a partial function
+        // fromUTF8Offset . toUTF8Offset = id
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.fromAgdaOffset(None, n);
-            let g = n => textEditor->Editor.toAgdaOffset(n);
+            let f = n => textEditor->Editor.fromUTF8Offset(None, n);
+            let g = n => textEditor->Editor.toUTF8Offset(n);
             Assert.equal(f(g(0)), 0);
             Assert.equal(f(g(2)), 2);
             Assert.equal(f(g(3)), 3);

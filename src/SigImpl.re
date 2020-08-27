@@ -364,35 +364,49 @@ let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 
 type offset = {
-  utf8: int,
-  utf16: int,
+  mutable utf8: int,
+  mutable utf16: int,
 };
 
-// normalize a UTF-16 offset so that it stays in the boundary of a character in UTF-8
-let codeUnitEndingOffset =
-    (editor: editor, init: offset, utf16offset: int): offset => {
+// Converts an offset in UTF-16 to an offset in UTF-8
+// Also returns a "normalized" UTF-16 offset that doesn't cut a UTF-8 symbol in half
+//
+//    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
+//              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
+//
+let normalizeUTF16Offset =
+    (editor: editor, cachedStart: offset, utf16offset: int): offset => {
   // observation:
   //    `utf16offset` cuts right into the middle of a character of 2 code units wide
   //    if and only if
   //    the character of the following ranges all have the same character width:
-  //      init.utf16 ~ utf16offset
-  //      init.utf16 ~ utf16offset + 1
-  //
-  //    in that case, we return `(utf16offset + 1, utf8offset)`
+  //      without lookahead: cachedStart.utf16 ~ utf16offset
+  //      with    lookahead: cachedStart.utf16 ~ utf16offset + 1
 
-  let range =
-    VSCode.Range.make(
-      editor->TextEditor.document->TextDocument.positionAt(init.utf16), // start
-      editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1) // end
-    );
-  // from `init.utf16` to `utf16offset + 1`
-  let textWithLookahead =
+  // invalidate the cached starting offset
+  if (utf16offset < cachedStart.utf16) {
+    // reset the cached starting offset to 0
+    cachedStart.utf8 = 0;
+    cachedStart.utf16 = 0;
+  };
+
+  // from `cachedStart.utf16` to `utf16offset + 1`
+  let textWithLookahead = {
+    let range =
+      VSCode.Range.make(
+        editor
+        ->TextEditor.document
+        ->TextDocument.positionAt(cachedStart.utf16), // start
+        editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1) // end
+      );
+    // retrieve the text of the range
     editor->TextEditor.document->TextDocument.getText(Some(range));
-  // from `init.utf16` to `utf16offset`
+  };
+  // from `cachedStart.utf16` to `utf16offset`
   let textWithoutLookahead =
     Js.String.substring(
-      ~from=init.utf16,
-      ~to_=utf16offset,
+      ~from=0,
+      ~to_=utf16offset - cachedStart.utf16,
       textWithLookahead,
     );
 
@@ -401,43 +415,57 @@ let codeUnitEndingOffset =
 
   // if there's a character ranges from `utf16offset - 1` to `utf16offset + 1`
   // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
-  if (utf8widthWithLookahead == utf8widthWithoutLookahead) {
-    {utf16: utf16offset + 1, utf8: init.utf8 + utf8widthWithoutLookahead};
-  } else {
-    {utf16: utf16offset, utf8: init.utf8 + utf8widthWithoutLookahead};
-  };
+  let result =
+    if (utf8widthWithLookahead != utf8widthWithoutLookahead) {
+      {
+        utf16: utf16offset,
+        utf8: cachedStart.utf8 + utf8widthWithoutLookahead,
+      };
+    } else {
+      {
+        // cut!
+        utf16: utf16offset + 1,
+        utf8: cachedStart.utf8 + utf8widthWithoutLookahead,
+      };
+    };
+
+  // update the cached starting offset
+  cachedStart.utf8 = result.utf8;
+  cachedStart.utf16 = result.utf16;
+
+  result;
 };
 
 // for converting offsets sent from Agda (UTF-8) to offsets in the editor (UTF-16)
-let fromAgdaOffset = (editor, initial, targetUTF8) => {
+let fromUTF8Offset = (editor, cachedStart, targetUTF8) => {
   // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
   // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
   // we need to offset that difference here
 
-  let initial =
-    switch (initial) {
+  let cachedStart =
+    switch (cachedStart) {
     | None => {utf8: 0, utf16: 0}
-    | Some(init) => init
+    | Some(cached) => cached
     };
 
   let rec approximate = utf16offset => {
     // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
-    let current = codeUnitEndingOffset(editor, initial, utf16offset);
+    let current = normalizeUTF16Offset(editor, cachedStart, utf16offset);
     if (targetUTF8 == current.utf8) {
       // return the current position if the target is met
       current.
         utf16;
     } else {
-      // else, offset by `targetUTF8 - current` to see if we can approximate the target
+      // else, offset by `targetUTF8 - current.utf8` to see if we can approximate the target
       let next =
-        codeUnitEndingOffset(
+        normalizeUTF16Offset(
           editor,
-          initial,
+          cachedStart,
           current.utf16 + targetUTF8 - current.utf8,
         );
 
       if (current.utf8 == next.utf8) {
-        // return it's not progressing anymore
+        // return if it's not progressing anymore
         next.
           utf16;
       } else {
@@ -451,7 +479,7 @@ let fromAgdaOffset = (editor, initial, targetUTF8) => {
   approximate(currentUTF16);
 };
 
-let toAgdaOffset = (editor, offset) => {
+let toUTF8Offset = (editor, offset) => {
   let range =
     VSCode.Range.make(
       VSCode.Position.make(0, 0), // start

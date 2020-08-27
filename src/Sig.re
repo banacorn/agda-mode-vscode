@@ -132,13 +132,13 @@ module type Editor = {
   let onChangeCursorPosition: (array(Point.t) => unit) => Disposable.t;
 
   type offset = {
-    utf8: int,
-    utf16: int,
+    mutable utf8: int,
+    mutable utf16: int,
   };
 
   let rangeForLine: (editor, int) => Range.t;
-  let fromAgdaOffset: (editor, option(offset), int) => int;
-  let toAgdaOffset: (editor, int) => int;
+  let fromUTF8Offset: (editor, option(offset), int) => int;
+  let toUTF8Offset: (editor, int) => int;
 
   let getText: editor => string;
   let getTextInRange: (editor, Range.t) => string;

@@ -73,8 +73,8 @@ module Impl = (Editor: Sig.Editor) => {
       (editor: Editor.editor, highlighting: Highlighting.t) => {
     // converts offsets from Agda to offsets for editor first
 
-    let start = Editor.fromAgdaOffset(editor, None, highlighting.start);
-    let end_ = Editor.fromAgdaOffset(editor, None, highlighting.end_);
+    let start = Editor.fromUTF8Offset(editor, None, highlighting.start);
+    let end_ = Editor.fromUTF8Offset(editor, None, highlighting.end_);
     let start = Editor.pointAtOffset(editor, start);
     let end_ = Editor.pointAtOffset(editor, end_);
 
@@ -95,6 +95,44 @@ module Impl = (Editor: Sig.Editor) => {
 
     highlighting.aspects
     ->Array.map(decorateAspect(editor, range))
+    ->Array.concatMany;
+  };
+
+  let decorateHighlightings =
+      (editor: Editor.editor, highlightings: array(Highlighting.t)) => {
+    let initOffset = {Editor.utf8: 0, utf16: 0};
+    highlightings
+    ->Array.map(highlighting => {
+        let start =
+          Editor.fromUTF8Offset(
+            editor,
+            Some(initOffset),
+            highlighting.start,
+          );
+        let end_ =
+          Editor.fromUTF8Offset(editor, Some(initOffset), highlighting.end_);
+        let start = Editor.pointAtOffset(editor, start);
+        let end_ = Editor.pointAtOffset(editor, end_);
+
+        // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
+        // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
+        // We need to count how many `CR`s are skipped and add them back to the offsets
+        let normalize = point => {
+          let useCRLF = Editor.lineEndingIsCRLF(editor);
+          if (useCRLF) {
+            let skippedCRLF = Editor.Point.line(point);
+            Editor.Point.translate(point, 0, skippedCRLF);
+          } else {
+            point;
+          };
+        };
+
+        let range = Editor.Range.make(normalize(start), normalize(end_));
+
+        highlighting.aspects
+        ->Array.map(decorateAspect(editor, range))
+        ->Array.concatMany;
+      })
     ->Array.concatMany;
   };
 
@@ -190,10 +228,9 @@ module Impl = (Editor: Sig.Editor) => {
 
   // .highlightings ====> .decorations
   let applyHighlightings = (self, editor) => {
-    let decorations =
-      self.highlightings
-      ->Array.map(decorateHighlighting(editor))
-      ->Array.concatMany;
+    let decorations = decorateHighlightings(editor, self.highlightings);
+    // ->Array.map(decorateHighlighting(editor))
+    // ->Array.concatMany;
     self.highlightings = [||];
     self.decorations = Array.concat(self.decorations, decorations);
   };
