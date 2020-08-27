@@ -392,13 +392,11 @@ let normalizeUTF16Offset =
 
   // from `cachedStart.utf16` to `utf16offset + 1`
   let textWithLookahead = {
-    let range =
-      VSCode.Range.make(
-        editor
-        ->TextEditor.document
-        ->TextDocument.positionAt(cachedStart.utf16), // start
-        editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1) // end
-      );
+    let start =
+      editor->TextEditor.document->TextDocument.positionAt(cachedStart.utf16);
+    let end_ =
+      editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1);
+    let range = VSCode.Range.make(start, end_);
     // retrieve the text of the range
     editor->TextEditor.document->TextDocument.getText(Some(range));
   };

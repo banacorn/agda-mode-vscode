@@ -19,7 +19,7 @@ module Impl = (Editor: Sig.Editor) => {
       });
     });
 
-    describe_only("SigImpl.normalizeUTF16Offset", () => {
+    describe("SigImpl.normalizeUTF16Offset", () => {
       let getTextToOffsetAt = (textEditor, from, to_) => {
         let from =
           SigImpl.normalizeUTF16Offset(textEditor, {utf8: 0, utf16: 0}, from).

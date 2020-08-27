@@ -100,6 +100,9 @@ module Impl = (Editor: Sig.Editor) => {
 
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t)) => {
+    Js.log(
+      "decorateHighlightings " ++ string_of_int(Array.length(highlightings)),
+    );
     let initOffset = {Editor.utf8: 0, utf16: 0};
     highlightings
     ->Array.map(highlighting => {
@@ -155,14 +158,15 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let destroy = self => {
-    self.highlightings = [||];
     self.tempFilePaths
     ->Array.forEach(filepath => N.Fs.unlink(filepath, _ => ()));
     self.tempFilePaths = [||];
+    self.highlightings = [||];
     self.decorations
     ->Array.forEach(((decoration, _)) =>
         Editor.Decoration.destroy(decoration)
       );
+    self.decorations = [||];
   };
 
   let refresh = (editor, self) => {
