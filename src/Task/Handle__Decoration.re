@@ -19,6 +19,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Apply => [
+        timeStart("Apply decorations"),
         WithStateP(
           state => {
             Decoration.readTempFiles(state.decorations)
@@ -31,6 +32,7 @@ module Impl = (Editor: Sig.Editor) => {
               })
           },
         ),
+        timeEnd("Apply decorations"),
       ]
     | RemoveAll => [
         WithState(state => Decoration.destroy(state.decorations)),
