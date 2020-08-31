@@ -140,7 +140,10 @@ module type Editor = {
 
   // for converting between UTF-8/UTF-16 based offsets
   module OffsetIntervals: {
-    type t;
+    type t = {
+      intervals: array((int, int)),
+      mutable cursor: int,
+    };
     let compile: string => t;
     let fromUTF8Offset: (t, int) => int;
   };

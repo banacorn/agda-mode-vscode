@@ -368,39 +368,39 @@ module OffsetIntervals = {
     intervals: array((int, int)),
     mutable cursor: int,
   };
+  let computeUTF16SurrogatePairIndices = (text: string): array(int) => {
+    let surrogatePairs = [||];
+
+    // length in code units (16 bits), not the actual UTF-8 length
+    let lengthInCodeUnits = String.length(text);
+
+    // iterate through the text to find surrogate pairs
+    let i = ref(0);
+    while (i^ < lengthInCodeUnits) {
+      let charCode = Js.String.charCodeAt(i^, text)->int_of_float;
+      let notFinal = i^ + 1 < lengthInCodeUnits;
+      // check if this is a part of a surrogate pair
+      if (charCode >= 0xD800 && charCode <= 0xDBFF && notFinal) {
+        // found the high surrogate, proceed to check the low surrogate
+        let nextCharCode = Js.String.charCodeAt(i^ + 1, text)->int_of_float;
+        if (nextCharCode >= 0xDC00 && charCode <= 0xDFFF) {
+          // store the index of this surrogate pair
+          Js.Array.push(i^, surrogatePairs)
+          ->ignore;
+        };
+        // increment by 2 because we have checked the presumably low surrogate char
+        i := i^ + 2;
+      } else {
+        i := i^ + 1;
+      };
+    };
+
+    surrogatePairs;
+  };
+
   // compile an array of UTF-8 based offset intervals
   // for faster UTF-8 => UTF-16 convertion
   let compile = (text: string): t => {
-    let computeUTF16SurrogatePairIndices = (text: string): array(int) => {
-      let surrogatePairs = [||];
-
-      // length in code units (16 bits), not the actual UTF-8 length
-      let lengthInCodeUnits = String.length(text);
-
-      // iterate through the text to find surrogate pairs
-      let i = ref(0);
-      while (i^ < lengthInCodeUnits) {
-        let charCode = Js.String.charCodeAt(i^, text)->int_of_float;
-        let notFinal = i^ + 1 < lengthInCodeUnits;
-        // check if this is a part of a surrogate pair
-        if (charCode >= 0xD800 && charCode <= 0xDBFF && notFinal) {
-          // found the high surrogate, proceed to check the low surrogate
-          let nextCharCode = Js.String.charCodeAt(i^ + 1, text)->int_of_float;
-          if (nextCharCode >= 0xDC00 && charCode <= 0xDFFF) {
-            // store the index of this surrogate pair
-            Js.Array.push(i^, surrogatePairs)
-            ->ignore;
-          };
-          // increment by 2 because we have checked the presumably low surrogate char
-          i := i^ + 2;
-        } else {
-          i := i^ + 1;
-        };
-      };
-
-      surrogatePairs;
-    };
-
     //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
     //
     //        UTF-8       UTF-16

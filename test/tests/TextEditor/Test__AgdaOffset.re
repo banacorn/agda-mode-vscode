@@ -19,6 +19,87 @@ module Impl = (Editor: Sig.Editor) => {
       });
     });
 
+    describe("SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices", () => {
+      it("should work", () => {
+        Assert.deep_equal(
+          SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices(
+            {j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j},
+          ),
+          [|0, 2, 4, 6, 9, 11, 13, 15|],
+        );
+        Assert.deep_equal(
+          SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices(
+            {j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j},
+          ),
+          [|0, 3, 7, 10, 14, 17, 19, 21|],
+        );
+      })
+    });
+
+    describe("Sig.OffsetIntervals.compile", () => {
+      it("should work", () => {
+        open Editor.OffsetIntervals;
+        Assert.deep_equal(
+          compile({j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j}),
+          {
+            intervals: [|
+              (0, 0),
+              (1, 1),
+              (2, 2),
+              (3, 3),
+              (4, 5),
+              (6, 6),
+              (7, 7),
+              (8, 8),
+              (9, 9),
+            |],
+            cursor: 0,
+          },
+        );
+        Assert.deep_equal(
+          compile({j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j}),
+          {
+            intervals: [|
+              (0, 0),
+              (1, 2),
+              (3, 5),
+              (6, 7),
+              (8, 10),
+              (11, 12),
+              (13, 13),
+              (14, 14),
+              (15, 17),
+            |],
+            cursor: 0,
+          },
+        );
+      })
+    });
+
+    describe("Sig.OffsetIntervals.fromUTF8Offset", () => {
+      it("should work", () => {
+        open Editor.OffsetIntervals;
+        let a = compile({j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j});
+        Assert.deep_equal(fromUTF8Offset(a, 0), 0);
+        Assert.deep_equal(a.cursor, 0);
+        Assert.deep_equal(fromUTF8Offset(a, 1), 2);
+        Assert.deep_equal(a.cursor, 1);
+        Assert.deep_equal(fromUTF8Offset(a, 2), 4);
+        Assert.deep_equal(a.cursor, 2);
+        Assert.deep_equal(fromUTF8Offset(a, 3), 6);
+        Assert.deep_equal(a.cursor, 3);
+        Assert.deep_equal(fromUTF8Offset(a, 0), 0);
+        Assert.deep_equal(a.cursor, 0);
+        Assert.deep_equal(fromUTF8Offset(a, 4), 8);
+        Assert.deep_equal(fromUTF8Offset(a, 5), 9);
+        Assert.deep_equal(fromUTF8Offset(a, 6), 11);
+        Assert.deep_equal(fromUTF8Offset(a, 7), 13);
+        Assert.deep_equal(fromUTF8Offset(a, 8), 15);
+        Assert.deep_equal(fromUTF8Offset(a, 9), 17);
+        Assert.deep_equal(a.cursor, 8);
+      })
+    });
+
     describe("SigImpl.normalizeUTF16Offset", () => {
       let getTextToOffsetAt = (textEditor, from, to_) => {
         let from =
