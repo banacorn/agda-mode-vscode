@@ -69,54 +69,20 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
-  let decorateHighlighting =
-      (editor: Editor.editor, highlighting: Highlighting.t) => {
-    // converts offsets from Agda to offsets for editor first
-
-    let start = Editor.fromUTF8Offset(editor, None, highlighting.start);
-    let end_ = Editor.fromUTF8Offset(editor, None, highlighting.end_);
-    let start = Editor.pointAtOffset(editor, start);
-    let end_ = Editor.pointAtOffset(editor, end_);
-
-    // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
-    // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
-    // We need to count how many `CR`s are skipped and add them back to the offsets
-    let normalize = point => {
-      let useCRLF = Editor.lineEndingIsCRLF(editor);
-      if (useCRLF) {
-        let skippedCRLF = Editor.Point.line(point);
-        Editor.Point.translate(point, 0, skippedCRLF);
-      } else {
-        point;
-      };
-    };
-
-    let range = Editor.Range.make(normalize(start), normalize(end_));
-
-    highlighting.aspects
-    ->Array.map(decorateAspect(editor, range))
-    ->Array.concatMany;
-  };
-
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t)) => {
     let text = Editor.getText(editor);
 
     let intervals = Editor.OffsetIntervals.compile(text);
-    
+
     //
     //
     //
 
     highlightings
     ->Array.map(highlighting => {
-        let start =
-          Editor.OffsetIntervals.fromUTF8Offset(
-            intervals,
-            highlighting.start,
-          );
-        let end_ =
-          Editor.OffsetIntervals.fromUTF8Offset(intervals, highlighting.end_);
+        let start = Editor.fromUTF8Offset(intervals, highlighting.start);
+        let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
         let start = Editor.pointAtOffset(editor, start);
         let end_ = Editor.pointAtOffset(editor, end_);
         // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3

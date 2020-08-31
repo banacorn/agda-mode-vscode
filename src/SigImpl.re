@@ -364,6 +364,8 @@ let rangeForLine = (editor, line) =>
   editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
 
 module OffsetIntervals = {
+  //    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
+  //              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
   type t = {
     intervals: array((int, int)),
     mutable cursor: int,
@@ -454,138 +456,24 @@ module OffsetIntervals = {
 
     {intervals, cursor: 0};
   };
-
-  let rec fromUTF8Offset = (self, index) => {
-    switch (self.intervals[self.cursor]) {
-    | None => index // shouldn't happen
-    | Some((left, right)) =>
-      if (index < left) {
-        // reset the cursor to the beginning of the intervals
-        self.cursor = 0;
-        fromUTF8Offset(self, index);
-      } else if (index > right) {
-        // move the cursor a tad right
-        self.cursor = self.cursor + 1;
-        fromUTF8Offset(self, index);
-      } else {
-        index + self.cursor;
-      }
-    };
-  };
 };
 
-type offset = {
-  mutable utf8: int,
-  mutable utf16: int,
-};
-
-// Converts an offset in UTF-16 to an offset in UTF-8
-// Also returns a "normalized" UTF-16 offset that doesn't cut a UTF-8 symbol in half
-//
-//    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
-//              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
-//
-let normalizeUTF16Offset =
-    (editor: editor, cachedStart: offset, utf16offset: int): offset => {
-  // observation:
-  //    `utf16offset` cuts right into the middle of a character of 2 code units wide
-  //    if and only if
-  //    the character of the following ranges all have the same character width:
-  //      without lookahead: cachedStart.utf16 ~ utf16offset
-  //      with    lookahead: cachedStart.utf16 ~ utf16offset + 1
-
-  // invalidate the cached starting offset
-  if (utf16offset < cachedStart.utf16) {
-    // reset the cached starting offset to 0
-    cachedStart.utf8 = 0;
-    cachedStart.utf16 = 0;
-  };
-
-  // from `cachedStart.utf16` to `utf16offset + 1`
-  let textWithLookahead = {
-    let start =
-      editor->TextEditor.document->TextDocument.positionAt(cachedStart.utf16);
-    let end_ =
-      editor->TextEditor.document->TextDocument.positionAt(utf16offset + 1);
-    let range = VSCode.Range.make(start, end_);
-    // retrieve the text of the range
-    editor->TextEditor.document->TextDocument.getText(Some(range));
-  };
-  // from `cachedStart.utf16` to `utf16offset`
-  let textWithoutLookahead =
-    Js.String.substring(
-      ~from=0,
-      ~to_=utf16offset - cachedStart.utf16,
-      textWithLookahead,
-    );
-
-  let utf8widthWithLookahead = Sig.characterWidth(textWithLookahead);
-  let utf8widthWithoutLookahead = Sig.characterWidth(textWithoutLookahead);
-
-  // if there's a character ranges from `utf16offset - 1` to `utf16offset + 1`
-  // the character width of `textWithLookahead` should be the same as `textWithoutLookahead`
-  let result =
-    if (utf8widthWithLookahead != utf8widthWithoutLookahead) {
-      {
-        utf16: utf16offset,
-        utf8: cachedStart.utf8 + utf8widthWithoutLookahead,
-      };
+let rec fromUTF8Offset = (self, index) => {
+  switch (self.OffsetIntervals.intervals[self.cursor]) {
+  | None => index // shouldn't happen
+  | Some((left, right)) =>
+    if (index < left) {
+      // reset the cursor to the beginning of the intervals
+      self.cursor = 0;
+      fromUTF8Offset(self, index);
+    } else if (index > right) {
+      // move the cursor a tad right
+      self.cursor = self.cursor + 1;
+      fromUTF8Offset(self, index);
     } else {
-      {
-        // cut!
-        utf16: utf16offset + 1,
-        utf8: cachedStart.utf8 + utf8widthWithoutLookahead,
-      };
-    };
-
-  // update the cached starting offset
-  cachedStart.utf8 = result.utf8;
-  cachedStart.utf16 = result.utf16;
-
-  result;
-};
-
-// for converting offsets sent from Agda (UTF-8) to offsets in the editor (UTF-16)
-let fromUTF8Offset = (editor, cachedStart, targetUTF8) => {
-  // the native VS Code API uses UTF-16 internally and is bad at calculating widths of charactors
-  // for example the width of grapheme cluster "𝕁" is 1 for Agda, but 2 for VS Code
-  // we need to offset that difference here
-
-  let cachedStart =
-    switch (cachedStart) {
-    | None => {utf8: 0, utf16: 0}
-    | Some(cached) => cached
-    };
-
-  let rec approximate = utf16offset => {
-    // update `offset` in case that it cuts a grapheme in half, also calculates the current code unit offset
-    let current = normalizeUTF16Offset(editor, cachedStart, utf16offset);
-    if (targetUTF8 == current.utf8) {
-      // return the current position if the target is met
-      current.
-        utf16;
-    } else {
-      // else, offset by `targetUTF8 - current.utf8` to see if we can approximate the target
-      let next =
-        normalizeUTF16Offset(
-          editor,
-          cachedStart,
-          current.utf16 + targetUTF8 - current.utf8,
-        );
-
-      if (current.utf8 == next.utf8) {
-        // return if it's not progressing anymore
-        next.
-          utf16;
-      } else {
-        approximate(next.utf16);
-      };
-    };
+      index + self.cursor;
+    }
   };
-
-  // since UTF-8 offset ≤ UTF-16 offset, we use the target UTF-8 offset as a starting offset
-  let currentUTF16 = targetUTF8;
-  approximate(currentUTF16);
 };
 
 let toUTF8Offset = (editor, offset) => {

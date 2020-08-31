@@ -131,11 +131,6 @@ module type Editor = {
   let setCursorPositions: (editor, array(Point.t)) => unit;
   let onChangeCursorPosition: (array(Point.t) => unit) => Disposable.t;
 
-  type offset = {
-    mutable utf8: int,
-    mutable utf16: int,
-  };
-
   let rangeForLine: (editor, int) => Range.t;
 
   // for converting between UTF-8/UTF-16 based offsets
@@ -145,12 +140,9 @@ module type Editor = {
       mutable cursor: int,
     };
     let compile: string => t;
-    let fromUTF8Offset: (t, int) => int;
   };
 
-  // let compileUTF8OffsetIntervals: string => array((int, int));
-
-  let fromUTF8Offset: (editor, option(offset), int) => int;
+  let fromUTF8Offset: (OffsetIntervals.t, int) => int;
   let toUTF8Offset: (editor, int) => int;
 
   let getText: editor => string;
