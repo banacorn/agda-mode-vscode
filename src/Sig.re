@@ -139,7 +139,13 @@ module type Editor = {
   let rangeForLine: (editor, int) => Range.t;
 
   // for converting between UTF-8/UTF-16 based offsets
-  let compileUTF8OffsetIntervals: string => array((int, int));
+  module OffsetIntervals: {
+    type t;
+    let compile: string => t;
+    let fromUTF8Offset: (t, int) => int;
+  };
+
+  // let compileUTF8OffsetIntervals: string => array((int, int));
 
   let fromUTF8Offset: (editor, option(offset), int) => int;
   let toUTF8Offset: (editor, int) => int;

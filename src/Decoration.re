@@ -102,35 +102,21 @@ module Impl = (Editor: Sig.Editor) => {
       (editor: Editor.editor, highlightings: array(Highlighting.t)) => {
     let text = Editor.getText(editor);
 
-    let intervalsUTF8 = Editor.compileUTF8OffsetIntervals(text);
-
-    let cursor = ref(0);
-    let rec fromUTF8Offset = index => {
-      switch (intervalsUTF8[cursor^]) {
-      | None => index // shouldn't happen
-      | Some((left, right)) =>
-        if (index < left) {
-          // reset the cursor to the beginning of the intervals
-          cursor := 0;
-          fromUTF8Offset(index);
-        } else if (index > right) {
-          // move the cursor a tad right
-          cursor := cursor^ + 1;
-          fromUTF8Offset(index);
-        } else {
-          index + cursor^;
-        }
-      };
-    };
-
+    let intervals = Editor.OffsetIntervals.compile(text);
+    
     //
     //
     //
 
     highlightings
     ->Array.map(highlighting => {
-        let start = fromUTF8Offset(highlighting.start);
-        let end_ = fromUTF8Offset(highlighting.end_);
+        let start =
+          Editor.OffsetIntervals.fromUTF8Offset(
+            intervals,
+            highlighting.start,
+          );
+        let end_ =
+          Editor.OffsetIntervals.fromUTF8Offset(intervals, highlighting.end_);
         let start = Editor.pointAtOffset(editor, start);
         let end_ = Editor.pointAtOffset(editor, end_);
         // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
