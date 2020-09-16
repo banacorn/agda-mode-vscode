@@ -45,7 +45,6 @@ module Impl = (Editor: Sig.Editor) => {
     | Decoration(AddDirectly(_)) => "Decoration[AddDirectly]"
     | Decoration(AddIndirectly(_)) => "Decoration[AddIndirectly]"
     | Decoration(Apply) => "Decoration[Apply]"
-    | Decoration(RemoveAll) => "Decoration[RemoveAll]"
     | Decoration(Refresh) => "Decoration[Refresh]"
     | WithState(_) => "WithState"
     | WithStateP(_) => "WithStateP"

@@ -4,7 +4,6 @@ module Impl = (Editor: Sig.Editor) => {
     | AddDirectly(array(Highlighting.t))
     | AddIndirectly(string)
     | Apply
-    | RemoveAll
     | Refresh;
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,6 +120,14 @@ module Impl = (Editor: Sig.Editor) => {
     highlightings: [||],
     tempFilePaths: [||],
     decorations: [||],
+  };
+
+  let removeAppliedDecorations = self => {
+    self.decorations
+    ->Array.forEach(((decoration, _)) =>
+        Editor.Decoration.destroy(decoration)
+      );
+    self.decorations = [||];
   };
 
   let destroy = self => {

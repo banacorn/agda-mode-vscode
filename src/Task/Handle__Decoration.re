@@ -19,23 +19,29 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Apply => [
-        timeStart("Apply decorations"),
+        timeStart(">>> Apply decorations"),
         WithStateP(
           state => {
-            Decoration.readTempFiles(state.decorations)
-            ->Promise.map(() => {
-                Decoration.applyHighlightings(
-                  state.decorations,
-                  state.editor,
-                );
-                [];
-              })
+            let receivedNewHighlighting =
+              Array.length(state.decorations.highlightings) > 0;
+            let receivedNewTempFilePaths =
+              Array.length(state.decorations.tempFilePaths) > 0;
+            // only remove old decorations and apply new ones, when there are new yet-to-be-applied highlightings
+            if (receivedNewHighlighting || receivedNewTempFilePaths) {
+              Decoration.readTempFiles(state.decorations)
+              ->Promise.map(() => {
+                  Decoration.applyHighlightings(
+                    state.decorations,
+                    state.editor,
+                  );
+                  [];
+                });
+            } else {
+              Promise.resolved([]);
+            };
           },
         ),
-        timeEnd("Apply decorations"),
-      ]
-    | RemoveAll => [
-        WithState(state => Decoration.destroy(state.decorations)),
+        timeEnd(">>> Apply decorations"),
       ]
     | Refresh => [
         WithState(
