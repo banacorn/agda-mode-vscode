@@ -288,49 +288,48 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
 
-    | SaveCursor => [
-        WithState(
-          state => {
-            let position = Editor.getCursorPosition(state.editor);
-            state.cursor = Some(position);
-          },
-        ),
-      ]
+    | SaveCursor =>
+      // WithState(
+      //   state => {
+      //     let position = Editor.getCursorPosition(state.editor);
+      //     state.cursor = Some(position);
+      //   },
+      // ),
+      []
     //  if the cursor is pointing at the boundary of some hole
     //    then move the cursor inside the hole
     //    else restore the cursor to its original position (if there's any)
-    | RestoreCursor => [
-        WithState(
-          state => {
-            switch (state.cursor) {
-            | None => ()
-            | Some(position) =>
-              state.cursor = None;
-
-              let cursor = Editor.getCursorPosition(state.editor);
-              let cursorOffset = Editor.offsetAtPoint(state.editor, cursor);
-              let pointedGoals =
-                state.goals
-                ->Array.keep(goal =>
-                    fst(goal.range) <= cursorOffset
-                    && cursorOffset <= fst(goal.range)
-                    + 2
-                    || snd(goal.range)
-                    - 2 <= cursorOffset
-                    && cursorOffset <= snd(goal.range)
-                  );
-              let pointedGoal = pointedGoals[0];
-              switch (pointedGoal) {
-              | Some(goal) => Goal.setCursor(goal, state.editor)
-              | None =>
-                Editor.setCursorPosition(state.editor, position);
-                // put the focus back on the editor
-                state.editor->Editor.focus;
-              };
-            }
-          },
-        ),
-      ]
+    | RestoreCursor =>
+      // WithState(
+      //   state => {
+      //     switch (state.cursor) {
+      //     | None => ()
+      //     | Some(position) =>
+      //       state.cursor = None;
+      //       let cursor = Editor.getCursorPosition(state.editor);
+      //       let cursorOffset = Editor.offsetAtPoint(state.editor, cursor);
+      //       let pointedGoals =
+      //         state.goals
+      //         ->Array.keep(goal =>
+      //             fst(goal.range) <= cursorOffset
+      //             && cursorOffset <= fst(goal.range)
+      //             + 2
+      //             || snd(goal.range)
+      //             - 2 <= cursorOffset
+      //             && cursorOffset <= snd(goal.range)
+      //           );
+      //       let pointedGoal = pointedGoals[0];
+      //       switch (pointedGoal) {
+      //       | Some(goal) => Goal.setCursor(goal, state.editor)
+      //       | None =>
+      //         Editor.setCursorPosition(state.editor, position);
+      //         // put the focus back on the editor
+      //         state.editor->Editor.focus;
+      //       };
+      //     }
+      //   },
+      // ),
+      []
     | SetCursor(offset) => [
         WithState(
           state => {
