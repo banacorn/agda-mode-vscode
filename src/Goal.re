@@ -29,31 +29,6 @@ module Impl = (Editor: Sig.Editor) => {
         list('task),
       );
 
-  // NOTE: helper function of `makeMany`, returns a thunk
-  let make =
-      (editor: Editor.editor, diff: SourceFile.Diff.t)
-      : (unit => Promise.t(t)) => {
-    // modify the text buffer base on the Diff
-    () => {
-      let originalRange =
-        Editor.Range.make(
-          Editor.pointAtOffset(editor, fst(diff.originalRange)),
-          Editor.pointAtOffset(editor, snd(diff.originalRange)),
-        );
-      Editor.replaceText(editor, originalRange, diff.content)
-      ->Promise.map(_ => {
-          let (decorationBackground, decorationIndex) =
-            Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
-          {
-            index: diff.index,
-            range: diff.modifiedRange,
-            decorationBackground,
-            decorationIndex,
-          };
-        });
-    };
-  };
-
   let generateDiffs =
       (editor: Editor.editor, indices: array(int)): array(SourceFile.Diff.t) => {
     let filePath =
@@ -68,7 +43,41 @@ module Impl = (Editor: Sig.Editor) => {
       (editor: Editor.editor, indices: array(int)): Promise.t(array(t)) => {
     let diffs = generateDiffs(editor, indices);
     // scan through the diffs to modify the text buffer one by one
-    diffs->Array.map(make(editor))->Util.oneByOne;
+    Js.Console.timeStart(">>> Instantiating goals");
+
+    let delta = ref(0);
+    let replacements =
+      diffs->Array.map(diff => {
+        let range =
+          Editor.Range.make(
+            Editor.pointAtOffset(editor, fst(diff.originalRange) - delta^),
+            Editor.pointAtOffset(editor, snd(diff.originalRange) - delta^),
+          );
+
+        // update the delta
+        delta :=
+          delta^
+          + (snd(diff.modifiedRange) - fst(diff.modifiedRange))
+          - (snd(diff.originalRange) - fst(diff.originalRange));
+
+        let text = diff.content;
+        (range, text);
+      });
+
+    Editor.replaceTextBatch(editor, replacements)
+    ->Promise.map(_ => {
+        Js.Console.timeEnd(">>> Instantiating goals");
+        diffs->Array.map(diff => {
+          let (decorationBackground, decorationIndex) =
+            Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
+          {
+            index: diff.index,
+            range: diff.modifiedRange,
+            decorationBackground,
+            decorationIndex,
+          };
+        });
+      });
   };
 
   // parse the whole source file and update the ranges of an array of Goal.t

@@ -13,14 +13,11 @@ module Impl = (Editor: Sig.Editor) => {
     | Load => [
         timeStart(">>> LOAD"),
         display("Loading ...", None),
-        timeStart(">>> save editor"),
         Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
-        timeEnd(">>> save editor"),
         timeStart(">>> Send request"),
         AgdaRequest(Load),
-        timeEnd(">>> Send request"),
         timeEnd(">>> LOAD"),
       ]
     | Quit => []

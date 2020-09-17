@@ -497,14 +497,20 @@ let selectText = (editor, range) => {
   editor->TextEditor.setSelection(selection);
 };
 let replaceText = (editor, range, text) => {
-  let workspaceEdit = WorkspaceEdit.make();
-  workspaceEdit->WorkspaceEdit.replace(
-    editor->TextEditor.document->TextDocument.uri,
-    range,
-    text,
+  editor->TextEditor.edit(
+    editBuilder => {editBuilder->TextEditorEdit.replaceAtRange(range, text)},
     None,
   );
-  Workspace.applyEdit(workspaceEdit);
+};
+let replaceTextBatch = (editor, replacements) => {
+  editor->TextEditor.edit(
+    editBuilder => {
+      replacements->Array.forEach(((range, text)) =>
+        editBuilder->TextEditorEdit.replaceAtRange(range, text)
+      )
+    },
+    None,
+  );
 };
 let insertText = (editor, point, text) => {
   let workspaceEdit = WorkspaceEdit.make();
