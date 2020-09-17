@@ -47,22 +47,24 @@ module Impl = (Editor: Sig.Editor) => {
 
     let delta = ref(0);
     let replacements =
-      diffs->Array.map(diff => {
-        let range =
-          Editor.Range.make(
-            Editor.pointAtOffset(editor, fst(diff.originalRange) - delta^),
-            Editor.pointAtOffset(editor, snd(diff.originalRange) - delta^),
-          );
+      diffs
+      ->Array.keep(diff => diff.changed)
+      ->Array.map(diff => {
+          let range =
+            Editor.Range.make(
+              Editor.pointAtOffset(editor, fst(diff.originalRange) - delta^),
+              Editor.pointAtOffset(editor, snd(diff.originalRange) - delta^),
+            );
 
-        // update the delta
-        delta :=
-          delta^
-          + (snd(diff.modifiedRange) - fst(diff.modifiedRange))
-          - (snd(diff.originalRange) - fst(diff.originalRange));
+          // update the delta
+          delta :=
+            delta^
+            + (snd(diff.modifiedRange) - fst(diff.modifiedRange))
+            - (snd(diff.originalRange) - fst(diff.originalRange));
 
-        let text = diff.content;
-        (range, text);
-      });
+          let text = diff.content;
+          (range, text);
+        });
 
     Editor.replaceTextBatch(editor, replacements)
     ->Promise.map(_ => {

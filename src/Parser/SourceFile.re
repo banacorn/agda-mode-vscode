@@ -200,6 +200,7 @@ module Diff = {
     modifiedRange: (int, int),
     originalRange: (int, int),
     content: string,
+    changed: bool,
   };
 
   let toString = ({index, modifiedRange, originalRange, content}) => {
@@ -319,6 +320,7 @@ let parse =
           originalRange: (start, start + String.length(token.content)),
           modifiedRange: modifiedHole.range,
           content: modifiedHole.content,
+          changed: token.content != modifiedHole.content,
         });
       | _ => None
       }
