@@ -28,6 +28,7 @@ module Impl = (Editor: Sig.Editor) => {
               Array.length(state.decorations.tempFilePaths) > 0;
             // only remove old decorations and apply new ones, when there are new yet-to-be-applied highlightings
             if (receivedNewHighlighting || receivedNewTempFilePaths) {
+              Decoration.removeAppliedDecorations(state.decorations);
               Decoration.readTempFiles(state.decorations)
               ->Promise.map(() => {
                   Decoration.applyHighlightings(
