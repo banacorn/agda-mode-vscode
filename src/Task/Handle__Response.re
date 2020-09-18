@@ -58,6 +58,7 @@ module Impl = (Editor: Sig.Editor) => {
     | HighlightingInfoIndirect(filepath) => [
         Decoration(AddIndirectly(filepath)),
       ]
+    | ClearHighlighting => [Decoration(Clear)]
     | Status(_displayImplicit, _checked) =>
       // display(
       //   "Status",

@@ -3,6 +3,7 @@ module Impl = (Editor: Sig.Editor) => {
   type action =
     | AddDirectly(array(Highlighting.t))
     | AddIndirectly(string)
+    | Clear
     | Apply
     | Refresh;
 
