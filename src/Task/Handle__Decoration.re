@@ -18,11 +18,11 @@ module Impl = (Editor: Sig.Editor) => {
           state => {state.decorations->Decoration.addIndirectly(filepath)},
         ),
       ]
-    | Clear =>
-      // WithState(
-      //   state => {Decoration.removeAppliedDecorations(state.decorations)},
-      // ),
-      []
+    | Clear => [
+        WithState(
+          state => {Decoration.removeAppliedDecorations(state.decorations)},
+        ),
+      ]
     | Apply => [
         timeStart(">>> Apply decorations"),
         WithStateP(

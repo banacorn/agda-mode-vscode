@@ -42,37 +42,6 @@ module Impl = (Editor: Sig.Editor) => {
     (background, index);
   };
 
-  let decorateAspect =
-      (
-        editor: Editor.editor,
-        range: Editor.Range.t,
-        aspect: Highlighting.Aspect.t,
-      )
-      : array((Editor.Decoration.t, Editor.Range.t)) => {
-    let style = Highlighting.Aspect.toStyle(aspect);
-
-    let decorate =
-      fun
-      | Highlighting.Background(color) =>
-        Editor.Decoration.highlightBackgroundWithColor(
-          editor,
-          color,
-          [|range|],
-        )
-      | Foreground(color) =>
-        Editor.Decoration.decorateTextWithColor(editor, color, [|range|]);
-
-    switch (style) {
-    | Noop => [||]
-    | Themed(light, dark) =>
-      if (Editor.colorThemeIsDark()) {
-        [|(decorate(dark), range)|];
-      } else {
-        [|(decorate(light), range)|];
-      }
-    };
-  };
-
   // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
   // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
   // We need to count how many `CR`s are skipped and add them back to the offsets
@@ -123,8 +92,8 @@ module Impl = (Editor: Sig.Editor) => {
     let addFaceToDict = (face: Highlighting.face, range) => {
       switch (face) {
       | Background(color) =>
-        switch (Js.Dict.get(foregroundColorDict, color)) {
-        | None => Js.Dict.set(foregroundColorDict, color, [|range|])
+        switch (Js.Dict.get(backgroundColorDict, color)) {
+        | None => Js.Dict.set(backgroundColorDict, color, [|range|])
         | Some(ranges) => Js.Array.push(range, ranges)->ignore
         }
       | Foreground(color) =>
