@@ -86,7 +86,8 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
   let decorateHighlightings =
-      (editor: Editor.editor, highlightings: array(Highlighting.t)) => {
+      (editor: Editor.editor, highlightings: array(Highlighting.t))
+      : array((Editor.Decoration.t, array(Editor.Range.t))) => {
     let text = Editor.getText(editor);
 
     let intervals = Editor.OffsetIntervals.compile(text);
@@ -94,24 +95,81 @@ module Impl = (Editor: Sig.Editor) => {
     //
     //
     //
-    let result =
-      highlightings
-      ->Array.map(highlighting => {
-          let start = Editor.fromUTF8Offset(intervals, highlighting.start);
-          let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
-          let start = Editor.pointAtOffset(editor, start);
-          let end_ = Editor.pointAtOffset(editor, end_);
-          let range =
-            Editor.Range.make(
-              normalize(editor, start),
-              normalize(editor, end_),
-            );
-          highlighting.aspects
-          ->Array.map(decorateAspect(editor, range))
-          ->Array.concatMany;
-        })
-      ->Array.concatMany;
-    result;
+
+    // dictionary of color-ranges mappings
+    let backgroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
+      Js.Dict.empty();
+    let foregroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
+      Js.Dict.empty();
+
+    let addBackground = (color, range) => {
+      switch (Js.Dict.get(backgroundColorDict, color)) {
+      | None => Js.Dict.set(backgroundColorDict, color, [|range|])
+      | Some(ranges) => Js.Array.push(range, ranges)->ignore
+      };
+    };
+
+    let addForeground = (color, range) => {
+      switch (Js.Dict.get(foregroundColorDict, color)) {
+      | None => Js.Dict.set(foregroundColorDict, color, [|range|])
+      | Some(ranges) => Js.Array.push(range, ranges)->ignore
+      };
+    };
+
+    highlightings->Array.forEach(highlighting => {
+      // calculate the range of each highlighting
+      let range = {
+        let start = Editor.fromUTF8Offset(intervals, highlighting.start);
+        let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
+        let start = Editor.pointAtOffset(editor, start);
+        let end_ = Editor.pointAtOffset(editor, end_);
+        Editor.Range.make(
+          normalize(editor, start),
+          normalize(editor, end_),
+        );
+      };
+      // Aspects => Faces & Ranges (background/foreground color)
+      highlighting.aspects
+      ->Array.map(Highlighting.Aspect.toStyle)
+      ->Array.keepMap(
+          fun
+          | Noop => None
+          | Themed(light, dark) =>
+            if (Editor.colorThemeIsDark()) {
+              Some((dark, range));
+            } else {
+              Some((light, range));
+            },
+        )
+      ->Array.forEach(
+          fun
+          | (Background(color), range) => addBackground(color, range)
+          | (Foreground(color), range) => addForeground(color, range),
+        );
+    });
+
+    let backgroundDecorations =
+      Js.Dict.entries(backgroundColorDict)
+      ->Array.map(((color, ranges)) =>
+          (
+            Editor.Decoration.highlightBackgroundWithColor(
+              editor,
+              color,
+              ranges,
+            ),
+            ranges,
+          )
+        );
+    let foregroundDecorations =
+      Js.Dict.entries(foregroundColorDict)
+      ->Array.map(((color, ranges)) =>
+          (
+            Editor.Decoration.decorateTextWithColor(editor, color, ranges),
+            ranges,
+          )
+        );
+
+    Js.Array.concat(backgroundDecorations, foregroundDecorations);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,7 +181,8 @@ module Impl = (Editor: Sig.Editor) => {
     // from AddDirectly
     mutable highlightings: array(Highlighting.t),
     // after Apply
-    mutable decorations: array((Editor.Decoration.t, Editor.Range.t)),
+    mutable decorations:
+      array((Editor.Decoration.t, array(Editor.Range.t))),
   };
 
   let make = () => {
@@ -154,8 +213,8 @@ module Impl = (Editor: Sig.Editor) => {
 
   let refresh = (editor, self) => {
     self.decorations
-    ->Array.forEach(((decoration, range)) => {
-        Editor.Decoration.decorate(editor, decoration, [|range|])
+    ->Array.forEach(((decoration, ranges)) => {
+        Editor.Decoration.decorate(editor, decoration, ranges)
       });
   };
 
