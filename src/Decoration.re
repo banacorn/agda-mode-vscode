@@ -90,64 +90,66 @@ module Impl = (Editor: Sig.Editor) => {
       : array((Editor.Decoration.t, array(Editor.Range.t))) => {
     let text = Editor.getText(editor);
 
+    // for fast UTF8 => UTF16 index conversion
     let intervals = Editor.OffsetIntervals.compile(text);
 
-    //
-    //
-    //
+    // array of pairs of Aspect & Range
+    let aspects: array((Highlighting.Aspect.t, Editor.Range.t)) =
+      highlightings
+      ->Array.map(highlighting => {
+          // calculate the range of each highlighting
+          let range = {
+            let start = Editor.fromUTF8Offset(intervals, highlighting.start);
+            let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
+            let start = Editor.pointAtOffset(editor, start);
+            let end_ = Editor.pointAtOffset(editor, end_);
+            Editor.Range.make(
+              normalize(editor, start),
+              normalize(editor, end_),
+            );
+          };
+          // pair the aspect with the range
+          highlighting.aspects->Array.map(aspect => (aspect, range));
+        })
+      ->Array.concatMany;
 
-    // dictionary of color-ranges mappings
+    // dictionaries of color-ranges mapping
+    // speed things up by aggregating decorations of the same kind
     let backgroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
       Js.Dict.empty();
     let foregroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
       Js.Dict.empty();
 
-    let addBackground = (color, range) => {
-      switch (Js.Dict.get(backgroundColorDict, color)) {
-      | None => Js.Dict.set(backgroundColorDict, color, [|range|])
-      | Some(ranges) => Js.Array.push(range, ranges)->ignore
+    let addFaceToDict = (face: Highlighting.face, range) => {
+      switch (face) {
+      | Background(color) =>
+        switch (Js.Dict.get(foregroundColorDict, color)) {
+        | None => Js.Dict.set(foregroundColorDict, color, [|range|])
+        | Some(ranges) => Js.Array.push(range, ranges)->ignore
+        }
+      | Foreground(color) =>
+        switch (Js.Dict.get(foregroundColorDict, color)) {
+        | None => Js.Dict.set(foregroundColorDict, color, [|range|])
+        | Some(ranges) => Js.Array.push(range, ranges)->ignore
+        }
       };
     };
 
-    let addForeground = (color, range) => {
-      switch (Js.Dict.get(foregroundColorDict, color)) {
-      | None => Js.Dict.set(foregroundColorDict, color, [|range|])
-      | Some(ranges) => Js.Array.push(range, ranges)->ignore
+    // convert Aspects to colors and collect them in the dict
+    aspects->Array.forEach(((aspect, range)) => {
+      let style = Highlighting.Aspect.toStyle(aspect);
+      switch (style) {
+      | Noop => ()
+      | Themed(light, dark) =>
+        if (Editor.colorThemeIsDark()) {
+          addFaceToDict(dark, range);
+        } else {
+          addFaceToDict(light, range);
+        }
       };
-    };
-
-    highlightings->Array.forEach(highlighting => {
-      // calculate the range of each highlighting
-      let range = {
-        let start = Editor.fromUTF8Offset(intervals, highlighting.start);
-        let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
-        let start = Editor.pointAtOffset(editor, start);
-        let end_ = Editor.pointAtOffset(editor, end_);
-        Editor.Range.make(
-          normalize(editor, start),
-          normalize(editor, end_),
-        );
-      };
-      // Aspects => Faces & Ranges (background/foreground color)
-      highlighting.aspects
-      ->Array.map(Highlighting.Aspect.toStyle)
-      ->Array.keepMap(
-          fun
-          | Noop => None
-          | Themed(light, dark) =>
-            if (Editor.colorThemeIsDark()) {
-              Some((dark, range));
-            } else {
-              Some((light, range));
-            },
-        )
-      ->Array.forEach(
-          fun
-          | (Background(color), range) => addBackground(color, range)
-          | (Foreground(color), range) => addForeground(color, range),
-        );
     });
 
+    // decorate with colors stored in the dicts
     let backgroundDecorations =
       Js.Dict.entries(backgroundColorDict)
       ->Array.map(((color, ranges)) =>
@@ -169,6 +171,7 @@ module Impl = (Editor: Sig.Editor) => {
           )
         );
 
+    // return decorations
     Js.Array.concat(backgroundDecorations, foregroundDecorations);
   };
 
