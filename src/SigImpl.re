@@ -190,52 +190,52 @@ module Decoration = {
       (
         editor: editor,
         backgroundColor: ThemeColor.stringOrThemeColor,
-        range: VSCode.Range.t,
+        ranges: array(VSCode.Range.t),
       ) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options =
       DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ());
     let decoration = Window.createTextEditorDecorationType(options);
-    editor->decorate(decoration, [|range|]);
+    editor->decorate(decoration, ranges);
     decoration;
   };
   let highlightBackground =
-      (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
+      (editor: editor, style: backgroundStyle, ranges: array(VSCode.Range.t)) =>
     highlightBackgroundPrim(
       editor,
       ThemeColor.themeColor(ThemeColor.make(style)),
-      range,
+      ranges,
     );
 
   let highlightBackgroundWithColor =
-      (editor: editor, color: color, range: VSCode.Range.t) =>
-    highlightBackgroundPrim(editor, ThemeColor.string(color), range);
+      (editor: editor, color: color, ranges: array(VSCode.Range.t)) =>
+    highlightBackgroundPrim(editor, ThemeColor.string(color), ranges);
 
   let decorateTextPrim =
       (
         editor: editor,
         color: ThemeColor.stringOrThemeColor,
-        range: VSCode.Range.t,
+        ranges: array(VSCode.Range.t),
       ) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
     let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ());
     let decoration = Window.createTextEditorDecorationType(options);
-    editor->decorate(decoration, [|range|]);
+    editor->decorate(decoration, ranges);
     decoration;
   };
   let decorateText =
-      (editor: editor, style: backgroundStyle, range: VSCode.Range.t) =>
+      (editor: editor, style: backgroundStyle, ranges: array(VSCode.Range.t)) =>
     decorateTextPrim(
       editor,
       ThemeColor.themeColor(ThemeColor.make(style)),
-      range,
+      ranges,
     );
 
   let decorateTextWithColor =
-      (editor: editor, color: color, range: VSCode.Range.t) =>
-    decorateTextPrim(editor, ThemeColor.string(color), range);
+      (editor: editor, color: color, ranges: array(VSCode.Range.t)) =>
+    decorateTextPrim(editor, ThemeColor.string(color), ranges);
 
   let overlayTextPrim =
       (

@@ -22,7 +22,7 @@ module Impl = (Editor: Sig.Editor) => {
       Editor.Decoration.highlightBackground(
         editor,
         "editor.selectionHighlightBackground",
-        backgroundRange,
+        [|backgroundRange|],
       );
     let indexText = string_of_int(index);
     let indexRange =
@@ -54,9 +54,13 @@ module Impl = (Editor: Sig.Editor) => {
     let decorate =
       fun
       | Highlighting.Background(color) =>
-        Editor.Decoration.highlightBackgroundWithColor(editor, color, range)
+        Editor.Decoration.highlightBackgroundWithColor(
+          editor,
+          color,
+          [|range|],
+        )
       | Foreground(color) =>
-        Editor.Decoration.decorateTextWithColor(editor, color, range);
+        Editor.Decoration.decorateTextWithColor(editor, color, [|range|]);
 
     switch (style) {
     | Noop => [||]
@@ -69,6 +73,18 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
+  // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
+  // We need to count how many `CR`s are skipped and add them back to the offsets
+  let normalize = (editor, point) => {
+    let useCRLF = Editor.lineEndingIsCRLF(editor);
+    if (useCRLF) {
+      let skippedCRLF = Editor.Point.line(point);
+      Editor.Point.translate(point, 0, skippedCRLF);
+    } else {
+      point;
+    };
+  };
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t)) => {
     let text = Editor.getText(editor);
@@ -78,31 +94,24 @@ module Impl = (Editor: Sig.Editor) => {
     //
     //
     //
-
-    highlightings
-    ->Array.map(highlighting => {
-        let start = Editor.fromUTF8Offset(intervals, highlighting.start);
-        let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
-        let start = Editor.pointAtOffset(editor, start);
-        let end_ = Editor.pointAtOffset(editor, end_);
-        // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
-        // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
-        // We need to count how many `CR`s are skipped and add them back to the offsets
-        let normalize = point => {
-          let useCRLF = Editor.lineEndingIsCRLF(editor);
-          if (useCRLF) {
-            let skippedCRLF = Editor.Point.line(point);
-            Editor.Point.translate(point, 0, skippedCRLF);
-          } else {
-            point;
-          };
-        };
-        let range = Editor.Range.make(normalize(start), normalize(end_));
-        highlighting.aspects
-        ->Array.map(decorateAspect(editor, range))
-        ->Array.concatMany;
-      })
-    ->Array.concatMany;
+    let result =
+      highlightings
+      ->Array.map(highlighting => {
+          let start = Editor.fromUTF8Offset(intervals, highlighting.start);
+          let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
+          let start = Editor.pointAtOffset(editor, start);
+          let end_ = Editor.pointAtOffset(editor, end_);
+          let range =
+            Editor.Range.make(
+              normalize(editor, start),
+              normalize(editor, end_),
+            );
+          highlighting.aspects
+          ->Array.map(decorateAspect(editor, range))
+          ->Array.concatMany;
+        })
+      ->Array.concatMany;
+    result;
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////
