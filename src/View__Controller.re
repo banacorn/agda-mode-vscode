@@ -67,7 +67,7 @@ let onEvent = (view, callback) => {
 };
 
 let make = (extensionPath, editor) => {
-  let html = (distPath, styleUri, scriptUri, codiconUri, imageUri) => {
+  let html = (distPath, styleUri, scriptUri, codiconUri) => {
     let nonce = {
       let text = ref("");
       let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -95,11 +95,6 @@ let make = (extensionPath, editor) => {
       Uri.file(Node.Path.join2(distPath, codiconUri))
       ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
 
-    let imageUri =
-      Uri.file(Node.Path.join2(distPath, imageUri))
-      ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()))
-      ->Uri.toString;
-
     let metaContent =
       "font-src vscode-resource: ;default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
       ++ nonce
@@ -119,7 +114,7 @@ let make = (extensionPath, editor) => {
               </head>
               <body>
                 <noscript>You need to enable JavaScript to run this app.</noscript>
-                <div id="root" data-imageUri="$imageUri"></div>
+                <div id="root"></div>
                 <script nonce="$nonce" src="$scriptUri"></script>
               </body>
               </html>
@@ -155,13 +150,7 @@ let make = (extensionPath, editor) => {
     panel
     ->WebviewPanel.webview
     ->Webview.setHtml(
-        html(
-          distPath,
-          "style.css",
-          "view.bundle.js",
-          "codicon/codicon.css",
-          "image/chen.png",
-        ),
+        html(distPath, "style.css", "view.bundle.js", "codicon/codicon.css"),
       );
 
     panel;

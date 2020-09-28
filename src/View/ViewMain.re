@@ -37,9 +37,8 @@ onEventFromView.on(event => {
 // mount the view at the "root" element
 Webapi.Dom.Document.getElementById("root", Webapi.Dom.document)
 ->Option.forEach(element => {
-    let imageUri = Webapi.Dom.Element.getAttribute("data-imageUri", element);
     ReactDOMRe.render(
-      <Panel imageUri onRequest onEventToView onResponse onEventFromView />,
+      <Panel onRequest onEventToView onResponse onEventFromView />,
       element,
-    );
+    )
   });

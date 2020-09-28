@@ -3,13 +3,11 @@ open Belt;
 [@react.component]
 let make =
     (
-      ~imageUri: option(string),
       ~onRequest: Event.t(View.Request.t),
       ~onEventToView: Event.t(View.EventToView.t),
       ~onResponse: Event.t(View.Response.t),
       ~onEventFromView: Event.t(View.EventFromView.t),
     ) => {
-  let (shouldPrank, setShouldPrank) = React.useState(() => None);
   let (header, setHeader) =
     React.useState(() => View.Header.Plain("File not loaded yet"));
   let (body, setBody) = React.useState(() => View.Body.Nothing);
@@ -43,7 +41,6 @@ let make =
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
     | Query(header, body, placeholder, value) =>
-      setShouldPrank(_ => None);
       let (promise, resolve) = Promise.pending();
       queryResponseResolver.current = Some(resolve);
       setHeader(_ => Plain(header));
@@ -59,37 +56,18 @@ let make =
   // on receiving Events to View
   Hook.on(onEventToView, event =>
     switch (event) {
-    | InputMethod(action) =>
-      setShouldPrank(_ => None);
-      runInputMethodAction(action);
-    | QueryInterrupt =>
-      setShouldPrank(_ => None);
-      onSubmit(None);
+    | InputMethod(action) => runInputMethodAction(action)
+    | QueryInterrupt => onSubmit(None)
     | QueryUpdate(text) =>
-      setShouldPrank(_ => None);
       setBody(
         fun
         | Query(body, placeholder, _) =>
           Query(body, placeholder, Some(text))
         | others => others,
-      );
+      )
     | Display(header, body) =>
-      setShouldPrank(_ => None);
       setHeader(_ => header);
       setBody(_ => body);
-    | Prank =>
-      let quotes = [|
-        {j|Why would you do that?|j},
-        {j|Tut, tut, tut. Naughty, naughty, you’ll get caughty.|j},
-      |];
-      let quoteNumber = Array.length(quotes);
-      let selected = Js.Math.random_int(0, quoteNumber);
-      let quote =
-        quotes[selected]->Option.getWithDefault("Why would you do that?");
-      switch (imageUri) {
-      | None => ()
-      | Some(imageUri) => setShouldPrank(_ => Some((imageUri, quote)))
-      };
     }
   );
 
@@ -105,16 +83,7 @@ let make =
         }}
         querying
       />
-      {switch (shouldPrank) {
-       | None => <> <Header header /> <Body body onSubmit onChange /> </>
-       | Some((imageUri, quote)) =>
-         <div className="agda-mode-body">
-           <div id="prank">
-             <blockquote> {React.string(quote)} </blockquote>
-             <img src=imageUri />
-           </div>
-         </div>
-       }}
+      <> <Header header /> <Body body onSubmit onChange /> </>
     </section>
   </Component__Link.Provider>;
 };

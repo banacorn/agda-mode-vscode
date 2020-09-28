@@ -516,8 +516,7 @@ module EventToView = {
     | Display(Header.t, Body.t)
     | QueryInterrupt
     | QueryUpdate(string)
-    | InputMethod(InputMethod.t)
-    | Prank;
+    | InputMethod(InputMethod.t);
 
   // JSON encode/decode
 
@@ -536,7 +535,6 @@ module EventToView = {
       | "QueryUpdate" => Contents(string |> map(text => QueryUpdate(text)))
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(x => InputMethod(x)))
-      | "Prank" => TagOnly(Prank)
       | tag =>
         raise(DecodeError("[EventToView] Unknown constructor: " ++ tag)),
     );
@@ -559,8 +557,7 @@ module EventToView = {
       object_([
         ("tag", string("InputMethod")),
         ("contents", payload |> InputMethod.encode),
-      ])
-    | Prank => object_([("tag", string("Prank"))]);
+      ]);
 };
 
 module Request = {

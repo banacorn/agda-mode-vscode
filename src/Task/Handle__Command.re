@@ -80,27 +80,15 @@ module Impl = (Editor: Sig.Editor) => {
       ];
     | Auto => [
         WithStateP(
-          state => {
-            let isFLOLAC =
-              Editor.getFileName(state.editor)
-              ->Option.mapWithDefault(false, fileName => {
-                  Js.Re.test_(
-                    [%re "/^FLOLAC-/"],
-                    Node.Path.basename(fileName),
-                  )
-                });
-            if (isFLOLAC) {
-              Promise.resolved([ViewEvent(Prank)]);
-            } else {
-              Promise.resolved([
-                Goal(
-                  LocalOrGlobal(
-                    goal => {[AgdaRequest(Auto(goal))]},
-                    [Error(OutOfGoal)],
-                  ),
+          _ => {
+            Promise.resolved([
+              Goal(
+                LocalOrGlobal(
+                  goal => {[AgdaRequest(Auto(goal))]},
+                  [Error(OutOfGoal)],
                 ),
-              ]);
-            };
+              ),
+            ])
           },
         ),
       ]
