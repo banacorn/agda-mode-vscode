@@ -111,20 +111,14 @@ module Impl = (Editor: Sig.Editor) => {
           let deferredTasks = [||];
 
           sendAgdaRequest(
+            // when received a "NonLast" Agda Response
             tasks => TaskQueue.Agda.addToTheBack(queue, tasks),
+            // when received a "Last" Agda Response
             (priority, tasks) =>
               Js.Array.push((priority, tasks), deferredTasks)->ignore,
             state,
             request,
           )
-          // process and apply decorations
-          ->Promise.tap(() =>
-              Js.Array.push(
-                ((-1), [Task.Decoration(Apply)]),
-                deferredTasks,
-              )
-              ->ignore
-            )
           ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
               Js.log("================================");
@@ -137,8 +131,10 @@ module Impl = (Editor: Sig.Editor) => {
                 )
                 ->Array.map(snd)
                 ->List.concatMany;
-              TaskQueue.addToTheFront(queue, deferredTasks);
+              // apply decorations after all "NonLast" tasks before all "Last" tasks
+              let deferredTasks = [Task.Decoration(Apply), ...deferredTasks];
 
+              TaskQueue.addToTheFront(queue, deferredTasks);
               true;
             });
           // ->ignore;
