@@ -316,14 +316,11 @@ module Impl = (Editor: Sig.Editor) => {
       }
     | Escape => [
         WithStateP(
-          state => {
-            Promise.resolved(
-              if (state.editorIM.activated) {
-                [DispatchCommand(InputMethod(Deactivate))];
-              } else {
-                [ViewEvent(PromptInterrupt)];
-              },
-            )
+          _ => {
+            Promise.resolved([
+              DispatchCommand(InputMethod(Deactivate)),
+              ViewEvent(PromptInterrupt),
+            ])
           },
         ),
       ]
