@@ -18,7 +18,7 @@ let make =
 
     let onSubmit = _event => onSubmit(Some(value));
 
-    <div className="agda-mode-query">
+    <div className="agda-mode-prompt">
       <form onSubmit>
         {switch (body) {
          | None => <> </>

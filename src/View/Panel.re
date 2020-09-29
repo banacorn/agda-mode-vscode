@@ -26,27 +26,27 @@ let make =
     [||],
   );
 
-  let queryResponseResolver = React.useRef(None);
+  let promptResponseResolver = React.useRef(None);
   let onSubmit = result =>
-    queryResponseResolver.current
+    promptResponseResolver.current
     ->Option.forEach(resolve => {
         resolve(result);
-        queryResponseResolver.current = None;
+        promptResponseResolver.current = None;
       });
-  let onChange = string => onEventFromView.emit(QueryChange(string));
+  let onChange = string => onEventFromView.emit(PromptChange(string));
 
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
     | Prompt(header, body, placeholder, value) =>
       let (promise, resolve) = Promise.pending();
-      queryResponseResolver.current = Some(resolve);
+      promptResponseResolver.current = Some(resolve);
       setHeader(_ => Plain(header));
       setPrompt(_ => Some((body, placeholder, value)));
       promise->Promise.map(
         fun
-        | None => View.Response.QueryInterrupted
-        | Some(result) => View.Response.QuerySuccess(result),
+        | None => View.Response.PromptInterrupted
+        | Some(result) => View.Response.PromptSuccess(result),
       );
     }
   );

@@ -36,8 +36,8 @@ module Impl = (Editor: Sig.Editor) => {
             },
         ),
       ]
-    | QueryChange(input) => [
-        // Debug("QueryChange " ++ input),
+    | PromptChange(input) => [
+        // Debug("PromptChange " ++ input),
         WithStateP(
           state => {
             // activate when the user typed a backslash "/"
@@ -47,7 +47,7 @@ module Impl = (Editor: Sig.Editor) => {
               EditorIM.deactivate(state.editorIM);
               [ViewEvent(InputMethod(Deactivate))];
             };
-            let activateQueryIM = () => {
+            let activatePromptIM = () => {
               // remove the ending backslash "\"
               let input =
                 Js.String.substring(
@@ -55,7 +55,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ~to_=String.length(input) - 1,
                   input,
                 );
-              QueryIM.activate(state.queryIM, input);
+              PromptIM.activate(state.promptIM, input);
 
               // update the view
               [
@@ -69,14 +69,14 @@ module Impl = (Editor: Sig.Editor) => {
                 Promise.resolved(
                   List.concatMany([|
                     deactivateEditorIM(),
-                    activateQueryIM(),
+                    activatePromptIM(),
                   |]),
                 );
               } else {
                 Promise.resolved([ViewEvent(PromptUpdate(input))]);
               };
-            } else if (state.queryIM.activated) {
-              let result = QueryIM.update(state.queryIM, input);
+            } else if (state.promptIM.activated) {
+              let result = PromptIM.update(state.promptIM, input);
               switch (result) {
               | None =>
                 Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
@@ -87,7 +87,7 @@ module Impl = (Editor: Sig.Editor) => {
                 ])
               };
             } else if (shouldActivate) {
-              Promise.resolved(activateQueryIM());
+              Promise.resolved(activatePromptIM());
             } else {
               Promise.resolved([ViewEvent(PromptUpdate(input))]);
             };
@@ -108,8 +108,8 @@ module Impl = (Editor: Sig.Editor) => {
             if (state.editorIM.activated) {
               EditorIM.insertChar(state.editor, char);
               Promise.resolved([]);
-            } else if (state.queryIM.activated) {
-              let result = QueryIM.insertChar(state.queryIM, char);
+            } else if (state.promptIM.activated) {
+              let result = PromptIM.insertChar(state.promptIM, char);
               switch (result) {
               | None =>
                 Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
@@ -130,12 +130,12 @@ module Impl = (Editor: Sig.Editor) => {
             if (state.editorIM.activated) {
               EditorIM.chooseSymbol(state.editorIM, state.editor, symbol);
               Promise.resolved([]);
-            } else if (state.queryIM.activated) {
-              switch (state.queryIM.buffer.symbol) {
+            } else if (state.promptIM.activated) {
+              switch (state.promptIM.buffer.symbol) {
               | None => Promise.resolved([])
               | Some((_, symbolSequence)) =>
-                state.queryIM.buffer = {
-                  ...state.queryIM.buffer,
+                state.promptIM.buffer = {
+                  ...state.promptIM.buffer,
                   symbol: Some((symbol, symbolSequence)),
                 };
                 Promise.resolved([ViewEvent(PromptUpdate(symbol))]);

@@ -224,7 +224,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let dispatchCommand = (self, command) => {
     open Command;
-    // a command is non-blocking if it doesn't generate any Agda request/View query tasks
+    // a command is non-blocking if it doesn't generate any Agda request/View prompt tasks
     let nonBlocking =
       fun
       | NextGoal

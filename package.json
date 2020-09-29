@@ -616,7 +616,7 @@
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",
-				"when": "agdaMode && agdaModeQuerying || agdaModeTyping"
+				"when": "agdaMode && agdaModePrompting || agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[MoveUp]",

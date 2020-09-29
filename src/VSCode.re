@@ -154,7 +154,7 @@ module Uri = {
   [@bs.get] external fragment: t => string = "fragment";
   [@bs.get] external fsPath: t => string = "fsPath";
   [@bs.get] external path: t => string = "path";
-  [@bs.get] external query: t => string = "query";
+  [@bs.get] external prompt: t => string = "prompt";
   [@bs.get] external scheme: t => string = "scheme";
 
   [@bs.send] external toJSON: t => Js.Json.t = "toJSON";
@@ -164,16 +164,16 @@ module Uri = {
     authority: option(string),
     fragment: option(string),
     path: option(string),
-    query: option(string),
+    prompt: option(string),
     scheme: option(string),
   };
 
   let makeChange =
-      (~authority=?, ~fragment=?, ~path=?, ~query=?, ~scheme=?, ()): change => {
+      (~authority=?, ~fragment=?, ~path=?, ~prompt=?, ~scheme=?, ()): change => {
     authority,
     fragment,
     path,
-    query,
+    prompt,
     scheme,
   };
   [@bs.send] external with_: (t, change) => t = "with";

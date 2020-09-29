@@ -69,18 +69,18 @@ module Impl = (Editor: Sig.Editor) => {
   let displaySuccess = header => display'(Success(header));
   let timeStart = label => WithState(_ => Js.Console.timeStart(label));
   let timeEnd = label => WithState(_ => Js.Console.timeEnd(label));
-  let query =
+  let prompt =
       (
         header,
         body,
         placeholder,
         value,
-        callbackOnQuerySuccess: string => list(t),
+        callbackOnPromptSuccess: string => list(t),
       ) => [
     WithState(
       state => {
-        // focus on the panel before inquiring
-        Editor.setContext("agdaModeQuerying", true)->ignore;
+        // focus on the panel before prompting
+        Editor.setContext("agdaModePrompting", true)->ignore;
         state.view->Editor.View.focus;
       },
     ),
@@ -90,16 +90,16 @@ module Impl = (Editor: Sig.Editor) => {
         let tasks =
           switch (response) {
           | View.Response.Success => []
-          | QuerySuccess(result) => callbackOnQuerySuccess(result)
-          | QueryInterrupted => [displayError("Query Cancelled", None)]
+          | PromptSuccess(result) => callbackOnPromptSuccess(result)
+          | PromptInterrupted => [displayError("Prompt Cancelled", None)]
           };
         Belt.List.concat(
           tasks,
           [
             WithState(
               state => {
-                // put the focus back to the editor after inquiring
-                Editor.setContext("agdaModeQuerying", false)->ignore;
+                // put the focus back to the editor after prompting
+                Editor.setContext("agdaModePrompting", false)->ignore;
                 state.editor->Editor.focus;
               },
             ),

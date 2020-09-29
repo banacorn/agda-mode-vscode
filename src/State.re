@@ -14,7 +14,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable decorations: Decoration.t,
     mutable cursor: option(Editor.Point.t),
     editorIM: EditorIM.t,
-    queryIM: QueryIM.t,
+    promptIM: PromptIM.t,
     subscriptions: array(Editor.Disposable.t),
     // for self destruction
     onRemoveFromRegistry: Event.t(unit),
@@ -84,7 +84,7 @@ module Impl = (Editor: Sig.Editor) => {
       decorations: Decoration.make(),
       cursor: None,
       editorIM: EditorIM.make(eventEmitter),
-      queryIM: QueryIM.make(),
+      promptIM: PromptIM.make(),
       subscriptions: [||],
       onRemoveFromRegistry: Event.make(),
     };

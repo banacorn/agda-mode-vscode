@@ -42,7 +42,7 @@ module ComputeMode = {
 module InputMethod = {
   type t =
     | Activate
-    | QueryChange(string)
+    | PromptChange(string)
     | Deactivate
     | Update(string, Translator.translation, int)
     | InsertChar(string)
@@ -55,7 +55,7 @@ module InputMethod = {
   let toString =
     fun
     | Activate => "Activate"
-    | QueryChange(input) => "QueryChange '" ++ input ++ "'"
+    | PromptChange(input) => "PromptChange '" ++ input ++ "'"
     | Deactivate => "Deactivate"
     | Update(_, _, _) => "Update"
     | InsertChar(char) => "InsertChar '" ++ char ++ "'"

@@ -47,7 +47,7 @@ let deviseChange = (self, input): option(Buffer.change) => {
   };
 };
 
-// given a string from the Query input
+// given a string from the Prompt input
 // update the Buffer and return the rewritten string and the next Command (if any)
 let update = (self, input) => {
   switch (deviseChange(self, input)) {

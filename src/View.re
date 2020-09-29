@@ -79,7 +79,7 @@ module Body = {
     | Nothing
     | Plain(string)
     | Emacs(Emacs.t, string, string);
-  // | Query(option(string), option(string), option(string));
+  // | Prompt(option(string), option(string), option(string));
 
   open Json.Decode;
   open Util.Decode;
@@ -94,11 +94,11 @@ module Body = {
           tuple3(Emacs.decode, string, string)
           |> map(((kind, header, body)) => Emacs(kind, header, body)),
         )
-      // | "Query" =>
+      // | "Prompt" =>
       //   Contents(
       //     tuple3(optional(string), optional(string), optional(string))
       //     |> map(((body, placeholder, value)) =>
-      //          Query(body, placeholder, value)
+      //          Prompt(body, placeholder, value)
       //        ),
       //   )
       | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag)),
@@ -118,9 +118,9 @@ module Body = {
           (kind, header, body) |> tuple3(Emacs.encode, string, string),
         ),
       ]);
-  // | Query(body, placeholder, value) =>
+  // | Prompt(body, placeholder, value) =>
   //   object_([
-  //     ("tag", string("Query")),
+  //     ("tag", string("Prompt")),
   //     (
   //       "contents",
   //       (body, placeholder, value)
@@ -645,8 +645,8 @@ module RequestOrEventToView = {
 module Response = {
   type t =
     | Success
-    | QuerySuccess(string)
-    | QueryInterrupted;
+    | PromptSuccess(string)
+    | PromptInterrupted;
 
   open Json.Decode;
   open Util.Decode;
@@ -655,9 +655,9 @@ module Response = {
     sum(
       fun
       | "Success" => TagOnly(Success)
-      | "QuerySuccess" =>
-        Contents(string |> map(result => QuerySuccess(result)))
-      | "QueryInterrupted" => TagOnly(QueryInterrupted)
+      | "PromptSuccess" =>
+        Contents(string |> map(result => PromptSuccess(result)))
+      | "PromptInterrupted" => TagOnly(PromptInterrupted)
       | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag)),
     );
 
@@ -665,12 +665,12 @@ module Response = {
   let encode: encoder(t) =
     fun
     | Success => object_([("tag", string("Success"))])
-    | QuerySuccess(result) =>
+    | PromptSuccess(result) =>
       object_([
-        ("tag", string("QuerySuccess")),
+        ("tag", string("PromptSuccess")),
         ("contents", result |> string),
       ])
-    | QueryInterrupted => object_([("tag", string("QueryInterrupted"))]);
+    | PromptInterrupted => object_([("tag", string("PromptInterrupted"))]);
 };
 
 module EventFromView = {
@@ -713,7 +713,7 @@ module EventFromView = {
     | Initialized
     | Destroyed
     | InputMethod(InputMethod.t)
-    | QueryChange(string)
+    | PromptChange(string)
     | JumpToTarget(Link.t)
     | MouseOver(Link.t)
     | MouseOut(Link.t);
@@ -728,7 +728,7 @@ module EventFromView = {
       | "Destroyed" => TagOnly(Destroyed)
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(action => InputMethod(action)))
-      | "QueryChange" => Contents(string |> map(text => QueryChange(text)))
+      | "PromptChange" => Contents(string |> map(text => PromptChange(text)))
       | "JumpToTarget" =>
         Contents(Link.decode |> map(link => JumpToTarget(link)))
       | "MouseOver" => Contents(Link.decode |> map(link => MouseOver(link)))
@@ -751,9 +751,9 @@ module EventFromView = {
         ("tag", string("InputMethod")),
         ("contents", action |> InputMethod.encode),
       ])
-    | QueryChange(text) =>
+    | PromptChange(text) =>
       object_([
-        ("tag", string("QueryChange")),
+        ("tag", string("PromptChange")),
         ("contents", text |> string),
       ])
     | JumpToTarget(link) =>
