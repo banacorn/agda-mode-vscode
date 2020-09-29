@@ -32,10 +32,12 @@
 
 
     // position
-    position  : absolute;
 
+    // default: stick to the top 
+    // prompting: normal flow
+    position  : absolute;
     &.prompting {
-        top: @header-height*2;
+        position: relative;
     }
 
     // dimension

@@ -60,7 +60,7 @@ module Impl = (Editor: Sig.Editor) => {
               // update the view
               [
                 ViewEvent(InputMethod(Activate)),
-                ViewEvent(PromptUpdate(input)),
+                ViewEvent(PromptIMUpdate(input)),
               ];
             };
 
@@ -73,7 +73,7 @@ module Impl = (Editor: Sig.Editor) => {
                   |]),
                 );
               } else {
-                Promise.resolved([ViewEvent(PromptUpdate(input))]);
+                Promise.resolved([ViewEvent(PromptIMUpdate(input))]);
               };
             } else if (state.promptIM.activated) {
               let result = PromptIM.update(state.promptIM, input);
@@ -82,14 +82,14 @@ module Impl = (Editor: Sig.Editor) => {
                 Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
               | Some((text, command)) =>
                 Promise.resolved([
-                  ViewEvent(PromptUpdate(text)),
+                  ViewEvent(PromptIMUpdate(text)),
                   DispatchCommand(InputMethod(command)),
                 ])
               };
             } else if (shouldActivate) {
               Promise.resolved(activatePromptIM());
             } else {
-              Promise.resolved([ViewEvent(PromptUpdate(input))]);
+              Promise.resolved([ViewEvent(PromptIMUpdate(input))]);
             };
           },
         ),
@@ -115,7 +115,7 @@ module Impl = (Editor: Sig.Editor) => {
                 Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
               | Some((text, command)) =>
                 Promise.resolved([
-                  ViewEvent(PromptUpdate(text)),
+                  ViewEvent(PromptIMUpdate(text)),
                   DispatchCommand(InputMethod(command)),
                 ])
               };
@@ -138,7 +138,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ...state.promptIM.buffer,
                   symbol: Some((symbol, symbolSequence)),
                 };
-                Promise.resolved([ViewEvent(PromptUpdate(symbol))]);
+                Promise.resolved([ViewEvent(PromptIMUpdate(symbol))]);
               };
             } else {
               Promise.resolved([]);

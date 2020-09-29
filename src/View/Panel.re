@@ -30,6 +30,7 @@ let make =
   let onSubmit = result =>
     promptResponseResolver.current
     ->Option.forEach(resolve => {
+        setPrompt(_ => None);
         resolve(result);
         promptResponseResolver.current = None;
       });
@@ -38,10 +39,9 @@ let make =
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
-    | Prompt(header, body, placeholder, value) =>
+    | Prompt(body, placeholder, value) =>
       let (promise, resolve) = Promise.pending();
       promptResponseResolver.current = Some(resolve);
-      setHeader(_ => Plain(header));
       setPrompt(_ => Some((body, placeholder, value)));
       promise->Promise.map(
         fun
@@ -55,15 +55,18 @@ let make =
   Hook.on(onEventToView, event =>
     switch (event) {
     | InputMethod(action) => runInputMethodAction(action)
-    | PromptInterrupt => onSubmit(None)
-    | PromptUpdate(text) =>
+    | PromptIMUpdate(text) =>
       setPrompt(
         fun
         | Some((body, placeholder, _)) =>
           Some((body, placeholder, Some(text)))
         | None => None,
       )
+    | PromptInterrupt =>
+      onSubmit(None);
+      setPrompt(_ => None);
     | Display(header, body) =>
+      onSubmit(None);
       setHeader(_ => header);
       setBody(_ => body);
     }

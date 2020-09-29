@@ -78,7 +78,7 @@ module Impl = (Editor: Sig.Editor) => {
     ),
     ViewEvent(Display(Plain(header), Nothing)),
     ViewRequest(
-      Prompt(header, body, placeholder, value),
+      Prompt(body, placeholder, value),
       response => {
         let tasks =
           switch (response) {

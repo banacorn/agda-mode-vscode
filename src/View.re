@@ -515,7 +515,7 @@ module EventToView = {
   type t =
     | Display(Header.t, Body.t)
     | PromptInterrupt
-    | PromptUpdate(string)
+    | PromptIMUpdate(string)
     | InputMethod(InputMethod.t);
 
   // JSON encode/decode
@@ -532,7 +532,8 @@ module EventToView = {
           |> map(((header, body)) => Display(header, body)),
         )
       | "PromptInterrupt" => TagOnly(PromptInterrupt)
-      | "PromptUpdate" => Contents(string |> map(text => PromptUpdate(text)))
+      | "PromptIMUpdate" =>
+        Contents(string |> map(text => PromptIMUpdate(text)))
       | "InputMethod" =>
         Contents(InputMethod.decode |> map(x => InputMethod(x)))
       | tag =>
@@ -548,9 +549,9 @@ module EventToView = {
         ("contents", (header, body) |> pair(Header.encode, Body.encode)),
       ])
     | PromptInterrupt => object_([("tag", string("PromptInterrupt"))])
-    | PromptUpdate(text) =>
+    | PromptIMUpdate(text) =>
       object_([
-        ("tag", string("PromptUpdate")),
+        ("tag", string("PromptIMUpdate")),
         ("contents", text |> string),
       ])
     | InputMethod(payload) =>
@@ -562,7 +563,7 @@ module EventToView = {
 
 module Request = {
   type t =
-    | Prompt(string, option(string), option(string), option(string));
+    | Prompt(option(string), option(string), option(string));
 
   // JSON encode/decode
 
@@ -574,14 +575,9 @@ module Request = {
       fun
       | "Prompt" =>
         Contents(
-          tuple4(
-            string,
-            optional(string),
-            optional(string),
-            optional(string),
-          )
-          |> map(((header, body, placeholder, value)) =>
-               Prompt(header, body, placeholder, value)
+          tuple3(optional(string), optional(string), optional(string))
+          |> map(((body, placeholder, value)) =>
+               Prompt(body, placeholder, value)
              ),
         )
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
@@ -590,18 +586,13 @@ module Request = {
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Prompt(header, body, placeholder, value) =>
+    | Prompt(body, placeholder, value) =>
       object_([
         ("tag", string("Prompt")),
         (
           "contents",
-          (header, body, placeholder, value)
-          |> tuple4(
-               string,
-               nullable(string),
-               nullable(string),
-               nullable(string),
-             ),
+          (body, placeholder, value)
+          |> tuple3(nullable(string), nullable(string), nullable(string)),
         ),
       ]);
 };

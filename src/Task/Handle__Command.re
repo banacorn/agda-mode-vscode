@@ -95,15 +95,6 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(
           LocalOrGlobal2(
             (goal, _) => [AgdaRequest(Case(goal))],
-            // _goal =>
-            //   [
-            //     displayWarning(
-            //       "Don't know which variable to case split",
-            //       Some(
-            //         "Please specify the variable you wish to split in the goal",
-            //       ),
-            //     ),
-            //   ],
             goal =>
               prompt(
                 header,
