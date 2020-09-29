@@ -61,14 +61,7 @@ module Impl = (Editor: Sig.Editor) => {
     );
 
   // Header + Prompt
-  let prompt =
-      (
-        header,
-        body,
-        placeholder,
-        value,
-        callbackOnPromptSuccess: string => list(t),
-      ) => [
+  let prompt = (header, prompt, callbackOnPromptSuccess: string => list(t)) => [
     WithState(
       state => {
         // focus on the panel before prompting
@@ -76,17 +69,13 @@ module Impl = (Editor: Sig.Editor) => {
         state.view->Editor.View.focus;
       },
     ),
-    ViewEvent(Display(Plain(header), Nothing)),
     ViewRequest(
-      Prompt(body, placeholder, value),
+      Prompt(header, prompt),
       response => {
         let tasks =
           switch (response) {
-          | View.Response.Success => []
           | PromptSuccess(result) => callbackOnPromptSuccess(result)
-          | PromptInterrupted => [
-              display(Error("Prompt Cancelled"), Nothing),
-            ]
+          | PromptInterrupted => []
           };
         Belt.List.concat(
           tasks,

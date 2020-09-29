@@ -38,6 +38,42 @@ module Header = {
       object_([("tag", string("Error")), ("contents", text |> string)]);
 };
 
+module Prompt = {
+  type t = {
+    body: option(string),
+    placeholder: option(string),
+    value: option(string),
+  };
+
+  // JSON encode/decode
+
+  open Json.Decode;
+  open Util.Decode;
+
+  let decode: decoder(t) =
+    sum(
+      fun
+      | "Prompt" =>
+        Contents(
+          tuple3(optional(string), optional(string), optional(string))
+          |> map(((body, placeholder, value)) => {body, placeholder, value}),
+        )
+      | tag => raise(DecodeError("[Prompt] Unknown constructor: " ++ tag)),
+    );
+
+  open! Json.Encode;
+  let encode: encoder(t) =
+    fun
+    | {body, placeholder, value} =>
+      object_([
+        ("tag", string("Prompt")),
+        (
+          "contents",
+          (body, placeholder, value)
+          |> tuple3(nullable(string), nullable(string), nullable(string)),
+        ),
+      ]);
+};
 module Body = {
   module Emacs = {
     type t =
@@ -79,7 +115,6 @@ module Body = {
     | Nothing
     | Plain(string)
     | Emacs(Emacs.t, string, string);
-  // | Prompt(option(string), option(string), option(string));
 
   open Json.Decode;
   open Util.Decode;
@@ -94,13 +129,6 @@ module Body = {
           tuple3(Emacs.decode, string, string)
           |> map(((kind, header, body)) => Emacs(kind, header, body)),
         )
-      // | "Prompt" =>
-      //   Contents(
-      //     tuple3(optional(string), optional(string), optional(string))
-      //     |> map(((body, placeholder, value)) =>
-      //          Prompt(body, placeholder, value)
-      //        ),
-      //   )
       | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag)),
     );
 
@@ -118,15 +146,6 @@ module Body = {
           (kind, header, body) |> tuple3(Emacs.encode, string, string),
         ),
       ]);
-  // | Prompt(body, placeholder, value) =>
-  //   object_([
-  //     ("tag", string("Prompt")),
-  //     (
-  //       "contents",
-  //       (body, placeholder, value)
-  //       |> tuple3(nullable(string), nullable(string), nullable(string)),
-  //     ),
-  //   ]);
 };
 
 open Belt;
@@ -563,7 +582,7 @@ module EventToView = {
 
 module Request = {
   type t =
-    | Prompt(option(string), option(string), option(string));
+    | Prompt(Header.t, Prompt.t);
 
   // JSON encode/decode
 
@@ -575,10 +594,8 @@ module Request = {
       fun
       | "Prompt" =>
         Contents(
-          tuple3(optional(string), optional(string), optional(string))
-          |> map(((body, placeholder, value)) =>
-               Prompt(body, placeholder, value)
-             ),
+          pair(Header.decode, Prompt.decode)
+          |> map(((header, prompt)) => Prompt(header, prompt)),
         )
       | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag)),
     );
@@ -586,13 +603,12 @@ module Request = {
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Prompt(body, placeholder, value) =>
+    | Prompt(header, prompt) =>
       object_([
         ("tag", string("Prompt")),
         (
           "contents",
-          (body, placeholder, value)
-          |> tuple3(nullable(string), nullable(string), nullable(string)),
+          (header, prompt) |> pair(Header.encode, Prompt.encode),
         ),
       ]);
 };
@@ -635,7 +651,6 @@ module RequestOrEventToView = {
 
 module Response = {
   type t =
-    | Success
     | PromptSuccess(string)
     | PromptInterrupted;
 
@@ -645,7 +660,6 @@ module Response = {
   let decode: decoder(t) =
     sum(
       fun
-      | "Success" => TagOnly(Success)
       | "PromptSuccess" =>
         Contents(string |> map(result => PromptSuccess(result)))
       | "PromptInterrupted" => TagOnly(PromptInterrupted)
@@ -655,7 +669,6 @@ module Response = {
   open! Json.Encode;
   let encode: encoder(t) =
     fun
-    | Success => object_([("tag", string("Success"))])
     | PromptSuccess(result) =>
       object_([
         ("tag", string("PromptSuccess")),

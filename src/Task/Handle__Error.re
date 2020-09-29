@@ -14,7 +14,6 @@ module Impl = (Editor: Sig.Editor) => {
         let body = Parser.Error.toString(error);
         [display(Error("Internal Parse Error"), Plain(body))];
       }
-    | Cancelled => [display(Error("Prompt Cancelled"), Nothing)]
     | OutOfGoal => [
         display(
           Error("Out of goal"),

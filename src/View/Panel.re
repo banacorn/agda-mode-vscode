@@ -11,6 +11,20 @@ let make =
   let (header, setHeader) =
     React.useState(() => View.Header.Plain("File not loaded yet"));
   let (body, setBody) = React.useState(() => View.Body.Nothing);
+  // save Header & Body up
+  // so that we can restore them if the prompt is interrupted
+  let savedHeaderAndBody = React.useRef(None);
+  let saveHeaderAndBody = (header, body) =>
+    savedHeaderAndBody.current = Some((header, body));
+  let restoreHeaderAndBody = () =>
+    savedHeaderAndBody.current
+    ->Option.forEach(((header, body)) => {
+        setHeader(_ => header);
+        setBody(_ => body);
+        // clear the saved Header & Body
+        savedHeaderAndBody.current = None;
+      });
+
   let (prompt, setPrompt) = React.useState(() => None);
   let prompting = prompt->Option.isSome;
 
@@ -39,13 +53,21 @@ let make =
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
-    | Prompt(body, placeholder, value) =>
+    | Prompt(header', {body: body', placeholder, value}) =>
+      // set the view
+      setHeader(_ => header');
+      setBody(_ => Nothing);
+      setPrompt(_ => Some((body', placeholder, value)));
+
       let (promise, resolve) = Promise.pending();
       promptResponseResolver.current = Some(resolve);
-      setPrompt(_ => Some((body, placeholder, value)));
       promise->Promise.map(
         fun
-        | None => View.Response.PromptInterrupted
+        | None => {
+            Js.log("NOTHING BACK");
+            restoreHeaderAndBody();
+            View.Response.PromptInterrupted;
+          }
         | Some(result) => View.Response.PromptSuccess(result),
       );
     }
@@ -65,8 +87,10 @@ let make =
     | PromptInterrupt =>
       onSubmit(None);
       setPrompt(_ => None);
+      restoreHeaderAndBody();
     | Display(header, body) =>
       onSubmit(None);
+      saveHeaderAndBody(header, body);
       setHeader(_ => header);
       setBody(_ => body);
     }
