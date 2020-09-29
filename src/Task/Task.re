@@ -51,24 +51,16 @@ module Impl = (Editor: Sig.Editor) => {
     | WithStateP(_) => "WithStateP"
     | Debug(msg) => "Debug[" ++ msg ++ "]";
 
-  // Smart constructors
-  let display' = header =>
-    fun
-    | None => ViewEvent(Display(header, Nothing))
-    | Some(message) => ViewEvent(Display(header, Plain(message)));
-  let display = header => display'(Plain(header));
-  //
-  let displayHeaderOnly = header => ViewEvent(Display(header, Nothing));
+  // Smart constructors for controlling the view
+
+  // Header + Body
+  let display = (header, body) => ViewEvent(Display(header, body));
   let displayEmacs = (kind, header, body) =>
     ViewEvent(
       Display(header, Emacs(kind, View.Header.toString(header), body)),
     );
-  //
-  let displayError = header => display'(Error(header));
-  let displayWarning = header => display'(Warning(header));
-  let displaySuccess = header => display'(Success(header));
-  let timeStart = label => WithState(_ => Js.Console.timeStart(label));
-  let timeEnd = label => WithState(_ => Js.Console.timeEnd(label));
+
+  // Header + Prompt
   let prompt =
       (
         header,
@@ -84,6 +76,7 @@ module Impl = (Editor: Sig.Editor) => {
         state.view->Editor.View.focus;
       },
     ),
+    ViewEvent(Display(Plain(header), Nothing)),
     ViewRequest(
       Prompt(header, body, placeholder, value),
       response => {
@@ -91,7 +84,9 @@ module Impl = (Editor: Sig.Editor) => {
           switch (response) {
           | View.Response.Success => []
           | PromptSuccess(result) => callbackOnPromptSuccess(result)
-          | PromptInterrupted => [displayError("Prompt Cancelled", None)]
+          | PromptInterrupted => [
+              display(Error("Prompt Cancelled"), Nothing),
+            ]
           };
         Belt.List.concat(
           tasks,

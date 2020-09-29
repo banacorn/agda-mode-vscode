@@ -8,14 +8,14 @@ module Impl = (Editor: Sig.Editor) => {
     let handle =
       fun
       | Response.DisplayInfo.CompilationOk => [
-          displayHeaderOnly(Success("Compilation Done!")),
+          display(Success("Compilation Done!"), Nothing),
         ]
-      | Constraints(None) => [displayHeaderOnly(Plain("No Constraints"))]
+      | Constraints(None) => [display(Plain("No Constraints"), Nothing)]
       | Constraints(Some(body)) => [
           displayEmacs(Outputs, Plain("Constraints"), body),
         ]
       | AllGoalsWarnings(header, "nil") => [
-          displayHeaderOnly(Success(header)),
+          display(Success(header), Nothing),
         ]
       | AllGoalsWarnings(header, body) => [
           displayEmacs(AllGoalsWarnings, Plain(header), body),
@@ -37,16 +37,23 @@ module Impl = (Editor: Sig.Editor) => {
       | GoalType(body) => [
           displayEmacs(GoalType, Plain("Goal and Context"), body),
         ]
-      | CurrentGoal(payload) => [display("Current goal", Some(payload))]
-      | InferredType(payload) => [display("Inferred type", Some(payload))]
+      | CurrentGoal(payload) => [
+          display(Plain("Current goal"), Plain(payload)),
+        ]
+      | InferredType(payload) => [
+          display(Plain("Inferred type"), Plain(payload)),
+        ]
       | Context(body) => [displayEmacs(Outputs, Plain("Context"), body)]
       | HelperFunction(payload) => [
           WithStateP(
             _ => Editor.copyToClipboard(payload)->Promise.map(() => []),
           ),
-          display("Helper function (copied to clipboard)", Some(payload)),
+          display(
+            Plain("Helper function (copied to clipboard)"),
+            Plain(payload),
+          ),
         ]
-      | Version(payload) => [display("Version", Some(payload))];
+      | Version(payload) => [display(Plain("Version"), Plain(payload))];
   };
 
   let handle = response => {
@@ -110,9 +117,9 @@ module Impl = (Editor: Sig.Editor) => {
             switch (found[0]) {
             | None =>
               Promise.resolved([
-                displayError(
-                  "Error: Give failed",
-                  Some("Cannot find goal #" ++ string_of_int(index)),
+                display(
+                  Error("Error: Give failed"),
+                  Plain("Cannot find goal #" ++ string_of_int(index)),
                 ),
               ])
             | Some(goal) =>
@@ -183,12 +190,12 @@ module Impl = (Editor: Sig.Editor) => {
             let size = Array.length(solutions);
             let after =
               if (size == 0) {
-                [displayError("No solutions found", None)];
+                [display(Error("No solutions found"), Nothing)];
               } else {
                 [
-                  displaySuccess(
-                    string_of_int(size) ++ " goals solved",
-                    None,
+                  display(
+                    Success(string_of_int(size) ++ " goals solved"),
+                    Nothing,
                   ),
                 ];
               };
@@ -198,7 +205,7 @@ module Impl = (Editor: Sig.Editor) => {
       ]
     | DisplayInfo(info) => DisplayInfo.handle(info)
     | RunningInfo(_verbosity, message) => [
-        display("Type-checking", Some(message)),
+        display(Plain("Type-checking"), Plain(message)),
       ]
     | _ => []
     // | others => [Debug(Response.toString(others))];

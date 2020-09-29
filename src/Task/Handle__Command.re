@@ -11,14 +11,11 @@ module Impl = (Editor: Sig.Editor) => {
     let header = Command.toString(command);
     switch (command) {
     | Load => [
-        timeStart(">>> LOAD"),
-        display("Loading ...", None),
+        display(Plain("Loading ..."), Nothing),
         Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
-        timeStart(">>> Send request"),
         AgdaRequest(Load),
-        timeEnd(">>> LOAD"),
       ]
     | Quit => []
     | Restart => [DispatchCommand(Load)]

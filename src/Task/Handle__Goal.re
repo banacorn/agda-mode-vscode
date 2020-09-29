@@ -275,9 +275,9 @@ module Impl = (Editor: Sig.Editor) => {
                 fun
                 | true => []
                 | false => [
-                    displayError(
-                      "Goal-related Error",
-                      Some(
+                    display(
+                      Error("Goal-related Error"),
+                      Plain(
                         "Failed to modify the content of goal #"
                         ++ string_of_int(goal.index),
                       ),
@@ -367,9 +367,9 @@ module Impl = (Editor: Sig.Editor) => {
                     [];
                   }
                 | false => [
-                    displayError(
-                      "Goal-related Error",
-                      Some(
+                    display(
+                      Error("Goal-related Error"),
+                      Plain(
                         "Unable to remove the boundary of goal #"
                         ++ string_of_int(goal.index),
                       ),
@@ -407,9 +407,9 @@ module Impl = (Editor: Sig.Editor) => {
                     [];
                   }
                 | false => [
-                    displayError(
-                      "Goal-related Error",
-                      Some(
+                    display(
+                      Error("Goal-related Error"),
+                      Plain(
                         "Unable to replace the lines of goal #"
                         ++ string_of_int(goal.index),
                       ),
@@ -461,9 +461,9 @@ module Impl = (Editor: Sig.Editor) => {
                     [];
                   }
                 | false => [
-                    displayError(
-                      "Goal-related Error",
-                      Some(
+                    display(
+                      Error("Goal-related Error"),
+                      Plain(
                         "Unable to replace the lines of goal #"
                         ++ string_of_int(goal.index),
                       ),

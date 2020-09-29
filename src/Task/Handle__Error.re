@@ -8,17 +8,17 @@ module Impl = (Editor: Sig.Editor) => {
     fun
     | Connection(error) => {
         let (header, body) = Connection.Error.toString(error);
-        [displayError("Connection Error: " ++ header, Some(body))];
+        [display(Error("Connection Error: " ++ header), Plain(body))];
       }
     | Parser(error) => {
         let body = Parser.Error.toString(error);
-        [displayError("Internal Parse Error", Some(body))];
+        [display(Error("Internal Parse Error"), Plain(body))];
       }
-    | Cancelled => [displayError("Prompt Cancelled", None)]
+    | Cancelled => [display(Error("Prompt Cancelled"), Nothing)]
     | OutOfGoal => [
-        displayError(
-          "Out of goal",
-          Some("Please place the cursor in a goal"),
+        display(
+          Error("Out of goal"),
+          Plain("Please place the cursor in a goal"),
         ),
       ];
 };
