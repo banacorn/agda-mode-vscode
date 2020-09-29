@@ -1,8 +1,12 @@
 @import "variables";
 
 // dimensions
-@padding   : 1rem;
-@header-height  : 4rem;
+
+@root-padding: 20px; // the left/right padding of the root housing element
+
+@padding: 1rem;
+
+@header-height: 2rem;
 
 @left-border-width: 0.2rem;
 
@@ -95,13 +99,25 @@
     }
 }
 
+// we need this container for overcoming the width problem of fixed elements
+.agda-mode-header-container {
+    position: fixed;
+    width: 100%; // this 100% percentage is relative to the viewport rather than its parent
+    left: 0;    // stick it to the viewport
+}
+
 .agda-mode-header {
+    
     height : @header-height;
-    padding: 0 @padding;
-    margin-left: @left-border-width;
-
+    
+    margin: 0 @root-padding;
+    padding: @padding*0.5 0;
+    
+    // create a shadow at the bottom of the <Header>
+    box-shadow: @header-background 0px 3px 3px;
+    
     background: @header-background;
-
+    
     line-height: @header-height;
     font-size  : 150%;
     font-weight: bold;
@@ -121,30 +137,14 @@
 
 .agda-mode-body {
 
-    #prank {
-        padding: @padding*2;
-
-        display: flex;
-        align-items: center;
-
-
-        blockquote { 
-            white-space: normal;
-
-            background: @header-background;
-            flex-grow: 1;
-            font-size: 300%; 
-            line-height: @line-height*3;
-            text-align: center;
-        }
-    }
-
-
     @line-height: 1.5rem;
+
+    padding-top: @header-height + @padding;
 
     .codicon {
         vertical-align: middle;
     }
+
 
     white-space: pre;
 
