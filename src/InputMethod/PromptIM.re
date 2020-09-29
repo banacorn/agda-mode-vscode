@@ -17,6 +17,12 @@ let activate = (self, text) => {
   self.textBeforeActivation = text;
 };
 
+let deactivate = self => {
+  self.activated = false;
+  self.buffer = Buffer.make();
+  self.textBeforeActivation = "";
+};
+
 // helper funcion
 let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s);
 let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s);
@@ -77,8 +83,7 @@ let update = (self, input) => {
       };
     };
   | None =>
-    self.buffer = Buffer.make();
-    self.activated = false;
+    deactivate(self);
     None;
   };
 };

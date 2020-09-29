@@ -95,7 +95,12 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Deactivate => [
-        WithState(state => EditorIM.deactivate(state.editorIM)),
+        WithState(
+          state => {
+            EditorIM.deactivate(state.editorIM);
+            PromptIM.deactivate(state.promptIM);
+          },
+        ),
         ViewEvent(InputMethod(Deactivate)),
       ]
 
