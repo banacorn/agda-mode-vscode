@@ -11,13 +11,11 @@ let make =
   let (header, setHeader) =
     React.useState(() => View.Header.Plain("File not loaded yet"));
   let (body, setBody) = React.useState(() => View.Body.Nothing);
+  let (prompt, setPrompt) = React.useState(() => None);
+  let prompting = prompt->Option.isSome;
+
   let (inputMethodState, runInputMethodAction) =
     React.useReducer(Keyboard.reducer, None);
-  let querying =
-    switch (body) {
-    | Query(_, _, _) => true
-    | _ => false
-    };
 
   // emit event Initialized on mount
   React.useEffect1(
@@ -40,11 +38,11 @@ let make =
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch (msg) {
-    | Query(header, body, placeholder, value) =>
+    | Prompt(header, body, placeholder, value) =>
       let (promise, resolve) = Promise.pending();
       queryResponseResolver.current = Some(resolve);
       setHeader(_ => Plain(header));
-      setBody(_ => Query(body, placeholder, value));
+      setPrompt(_ => Some((body, placeholder, value)));
       promise->Promise.map(
         fun
         | None => View.Response.QueryInterrupted
@@ -57,13 +55,13 @@ let make =
   Hook.on(onEventToView, event =>
     switch (event) {
     | InputMethod(action) => runInputMethodAction(action)
-    | QueryInterrupt => onSubmit(None)
-    | QueryUpdate(text) =>
-      setBody(
+    | PromptInterrupt => onSubmit(None)
+    | PromptUpdate(text) =>
+      setPrompt(
         fun
-        | Query(body, placeholder, _) =>
-          Query(body, placeholder, Some(text))
-        | others => others,
+        | Some((body, placeholder, _)) =>
+          Some((body, placeholder, Some(text)))
+        | None => None,
       )
     | Display(header, body) =>
       setHeader(_ => header);
@@ -73,17 +71,21 @@ let make =
 
   <Component__Link.Provider value=onEventFromView>
     <section className="agda-mode native-key-bindings" tabIndex=(-1)>
-      <Keyboard
-        state=inputMethodState
-        onInsertChar={char => {
-          onEventFromView.emit(InputMethod(InsertChar(char)))
-        }}
-        onChooseSymbol={symbol => {
-          onEventFromView.emit(InputMethod(ChooseSymbol(symbol)))
-        }}
-        querying
-      />
-      <> <Header header /> <Body body onSubmit onChange /> </>
+      <div className="agda-mode-header-container">
+        <Header header />
+        <Prompt prompt onChange onSubmit />
+        <Keyboard
+          state=inputMethodState
+          onInsertChar={char => {
+            onEventFromView.emit(InputMethod(InsertChar(char)))
+          }}
+          onChooseSymbol={symbol => {
+            onEventFromView.emit(InputMethod(ChooseSymbol(symbol)))
+          }}
+          prompting
+        />
+      </div>
+      <Body body />
     </section>
   </Component__Link.Provider>;
 };

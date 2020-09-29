@@ -60,7 +60,7 @@ module Impl = (Editor: Sig.Editor) => {
               // update the view
               [
                 ViewEvent(InputMethod(Activate)),
-                ViewEvent(QueryUpdate(input)),
+                ViewEvent(PromptUpdate(input)),
               ];
             };
 
@@ -73,7 +73,7 @@ module Impl = (Editor: Sig.Editor) => {
                   |]),
                 );
               } else {
-                Promise.resolved([ViewEvent(QueryUpdate(input))]);
+                Promise.resolved([ViewEvent(PromptUpdate(input))]);
               };
             } else if (state.queryIM.activated) {
               let result = QueryIM.update(state.queryIM, input);
@@ -82,14 +82,14 @@ module Impl = (Editor: Sig.Editor) => {
                 Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
               | Some((text, command)) =>
                 Promise.resolved([
-                  ViewEvent(QueryUpdate(text)),
+                  ViewEvent(PromptUpdate(text)),
                   DispatchCommand(InputMethod(command)),
                 ])
               };
             } else if (shouldActivate) {
               Promise.resolved(activateQueryIM());
             } else {
-              Promise.resolved([ViewEvent(QueryUpdate(input))]);
+              Promise.resolved([ViewEvent(PromptUpdate(input))]);
             };
           },
         ),
@@ -115,7 +115,7 @@ module Impl = (Editor: Sig.Editor) => {
                 Promise.resolved([DispatchCommand(InputMethod(Deactivate))])
               | Some((text, command)) =>
                 Promise.resolved([
-                  ViewEvent(QueryUpdate(text)),
+                  ViewEvent(PromptUpdate(text)),
                   DispatchCommand(InputMethod(command)),
                 ])
               };
@@ -138,7 +138,7 @@ module Impl = (Editor: Sig.Editor) => {
                   ...state.queryIM.buffer,
                   symbol: Some((symbol, symbolSequence)),
                 };
-                Promise.resolved([ViewEvent(QueryUpdate(symbol))]);
+                Promise.resolved([ViewEvent(PromptUpdate(symbol))]);
               };
             } else {
               Promise.resolved([]);

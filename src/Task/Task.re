@@ -85,7 +85,7 @@ module Impl = (Editor: Sig.Editor) => {
       },
     ),
     ViewRequest(
-      Query(header, body, placeholder, value),
+      Prompt(header, body, placeholder, value),
       response => {
         let tasks =
           switch (response) {

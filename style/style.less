@@ -19,6 +19,13 @@
     height: 100%;
 }
 
+// we need this container for overcoming the width problem of fixed elements
+.agda-mode-header-container {
+    position: fixed;
+    width: 100%; // this 100% percentage is relative to the viewport rather than its parent
+    left: 0;    // stick it to the viewport
+}
+
 .agda-mode-keyboard {
     @button-height: 1.5rem;
     @button-margin: 0.2rem;
@@ -27,7 +34,7 @@
     // position
     position  : absolute;
 
-    &.querying {
+    &.prompting {
         top: @header-height*2;
     }
 
@@ -97,13 +104,6 @@
             background: @selection;
         }
     }
-}
-
-// we need this container for overcoming the width problem of fixed elements
-.agda-mode-header-container {
-    position: fixed;
-    width: 100%; // this 100% percentage is relative to the viewport rather than its parent
-    left: 0;    // stick it to the viewport
 }
 
 .agda-mode-header {

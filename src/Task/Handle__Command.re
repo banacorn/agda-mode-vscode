@@ -322,7 +322,7 @@ module Impl = (Editor: Sig.Editor) => {
               if (state.editorIM.activated) {
                 [DispatchCommand(InputMethod(Deactivate))];
               } else {
-                [ViewEvent(QueryInterrupt)];
+                [ViewEvent(PromptInterrupt)];
               },
             )
           },
