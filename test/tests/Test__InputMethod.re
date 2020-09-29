@@ -248,9 +248,6 @@ module Impl = (Editor: Sig.Editor) => {
                   replaceCRLF(Editor.getText(setup.editor)),
                 )
               )
-            // ->tapOk(() => Editor.getText(setup.editor)->Console.info)
-            // ->flatMapOk(() => IM.deactivate(setup))
-            // ->flatMapOk(A.equal(EditorIM.Deactivate))
           });
       });
     });

@@ -43,7 +43,6 @@ module Impl = (Editor: Sig.Editor) => {
       (editor: Editor.editor, indices: array(int)): Promise.t(array(t)) => {
     let diffs = generateDiffs(editor, indices);
     // scan through the diffs to modify the text buffer one by one
-    Js.Console.timeStart(">>> Instantiating goals");
 
     let delta = ref(0);
     let replacements =
@@ -68,7 +67,6 @@ module Impl = (Editor: Sig.Editor) => {
 
     Editor.replaceTextBatch(editor, replacements)
     ->Promise.map(_ => {
-        Js.Console.timeEnd(">>> Instantiating goals");
         diffs->Array.map(diff => {
           let (decorationBackground, decorationIndex) =
             Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
@@ -78,7 +76,7 @@ module Impl = (Editor: Sig.Editor) => {
             decorationBackground,
             decorationIndex,
           };
-        });
+        })
       });
   };
 

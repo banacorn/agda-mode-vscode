@@ -122,7 +122,6 @@ module Impl = (Editor: Sig.Editor) => {
           ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
               Js.log("================================");
-              Js.Console.timeEnd(">>> Send request");
               // sort the deferred task by priority (ascending order)
               let deferredTasks =
                 Js.Array.sortInPlaceWith(
