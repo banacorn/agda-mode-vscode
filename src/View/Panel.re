@@ -21,8 +21,6 @@ let make =
     ->Option.forEach(((header, body)) => {
         setHeader(_ => header);
         setBody(_ => body);
-        // clear the saved Header & Body
-        savedHeaderAndBody.current = None;
       });
 
   let (prompt, setPrompt) = React.useState(() => None);
@@ -63,11 +61,7 @@ let make =
       promptResponseResolver.current = Some(resolve);
       promise->Promise.map(
         fun
-        | None => {
-            Js.log("NOTHING BACK");
-            restoreHeaderAndBody();
-            View.Response.PromptInterrupted;
-          }
+        | None => View.Response.PromptInterrupted
         | Some(result) => View.Response.PromptSuccess(result),
       );
     }
