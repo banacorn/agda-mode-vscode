@@ -1,3 +1,28 @@
+module MaybeArray: {
+  type t('a);
+  type case('a) =
+    | Singular('a)
+    | Plural(array('a));
+  let singular: 'a => t('a);
+  let plural: array('a) => t('a);
+  let classify: t('a) => case('a);
+} = {
+  [@unboxed]
+  type t('a) =
+    | Any('b): t('a);
+  type case('a) =
+    | Singular('a)
+    | Plural(array('a));
+  let singular = (v: 'a) => Any(v);
+  let plural = (v: array('a)) => Any(v);
+  let classify = (Any(v): t('a)): case('a) =>
+    if ([%raw {|function (a) { return a instanceof Array}|}](v)) {
+      Singular(Obj.magic(v): 'a);
+    } else {
+      Plural(Obj.magic(v): array('a));
+    };
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#ThemeColor
 module ThemeColor = {
   type t;
@@ -2116,6 +2141,21 @@ module Location = {
   [@bs.get] external uri: t => Uri.t = "uri";
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#LocationLink
+module LocationLink = {
+  type t;
+
+  // properties
+  [@bs.get]
+  external originSelectionRange: t => option(Range.t) =
+    "originSelectionRange";
+  [@bs.get] external targetRange: t => Range.t = "targetRange";
+  [@bs.get]
+  external targetSelectionRange: t => option(Range.t) =
+    "targetSelectionRange";
+  [@bs.get] external targetUri: t => Uri.t = "targetUri";
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#DiagnosticRelatedInformation
 module DiagnosticRelatedInformation = {
   type t;
@@ -2189,6 +2229,41 @@ module Diagnostic = {
   [@bs.get] external tags: t => option(array(DiagnosticTag.t)) = "tags";
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#DocumentFilter
+module DocumentFilter = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DocumentSelector
+module DocumentFilterOrString: {
+  type t;
+  type case =
+    | DocumentFilter(DocumentFilter.t)
+    | String(string);
+  let documentFilter: DocumentFilter.t => t;
+  let string: string => t;
+  let classify: t => case;
+} = {
+  [@unboxed]
+  type t =
+    | Any('a): t;
+  type case =
+    | DocumentFilter(DocumentFilter.t)
+    | String(string);
+  let documentFilter = (v: DocumentFilter.t) => Any(v);
+  let string = (v: string) => Any(v);
+  let classify = (Any(v): t): case =>
+    if (Js.typeof(v) == "string") {
+      String(Obj.magic(v): string);
+    } else {
+      DocumentFilter(Obj.magic(v): DocumentFilter.t);
+    };
+};
+
+module DocumentSelector = {
+  type t = MaybeArray.t(DocumentFilterOrString.t);
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#DiagnosticCollection
 module DiagnosticCollection = {
   type t;
@@ -2212,6 +2287,133 @@ module DiagnosticCollection = {
     "set";
 };
 
+module ProviderResult: {
+  type t('a);
+  type case('a) =
+    | Resolved(option('a))
+    | Promised(Promise.t(option('a)));
+  let resolved: option('a) => t('a);
+  let promised: Promise.t(option('a)) => t('a);
+  let classify: t('a) => case('a);
+} = {
+  [@unboxed]
+  type t('a) =
+    | Any('b): t('a);
+  type case('a) =
+    | Resolved(option('a))
+    | Promised(Promise.t(option('a)));
+  let resolved = (v: option('a)) => Any(v);
+  let promised = (v: Promise.t(option('a))) => Any(v);
+  let classify = (Any(v): t('a)): case('a) =>
+    if ([%raw {|function (a) { return a.then === undefined }|}](v)) {
+      Resolved(Obj.magic(v): option('a));
+    } else {
+      Promised(Obj.magic(v): Promise.t(option('a)));
+    };
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CallHierarchyItem
+module CallHierarchyItem = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CallHierarchyOutgoingCall
+module CallHierarchyOutgoingCall = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CallHierarchyIncomingCall
+module CallHierarchyIncomingCall = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CallHierarchyProvider
+module CallHierarchyProvider = {
+  type t;
+  // methods
+  [@bs.send]
+  external prepareCallHierarchy:
+    (t, TextDocument.t, Position.t, CancellationToken.t) =>
+    ProviderResult.t(MaybeArray.t(CallHierarchyItem.t)) =
+    "prepareCallHierarchy";
+  [@bs.send]
+  external provideCallHierarchyIncomingCalls:
+    (t, CallHierarchyItem.t, CancellationToken.t) =>
+    ProviderResult.t(array(CallHierarchyIncomingCall.t)) =
+    "provideCallHierarchyIncomingCalls";
+  [@bs.send]
+  external provideCallHierarchyOutgoingCalls:
+    (t, CallHierarchyItem.t, CancellationToken.t) =>
+    ProviderResult.t(array(CallHierarchyOutgoingCall.t)) =
+    "provideCallHierarchyOutgoingCalls";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CodeActionProvider
+module CodeActionProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CodeActionProviderMetadata
+module CodeActionProviderMetadata = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CodeLensProvider
+module CodeLensProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DocumentColorProvider
+module DocumentColorProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CompletionItemProvider
+module CompletionItemProvider = {
+  type t;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DeclarationProvider
+module DeclarationProvider = {
+  type t;
+};
+
+module LocationLinkOrLocation: {
+  type t;
+  type case =
+    | Location(MaybeArray.t(Location.t))
+    | LocationLink(array(LocationLink.t));
+  let location: MaybeArray.t(Location.t) => t;
+  let locationLink: array(LocationLink.t) => t;
+  let classify: t => case;
+} = {
+  [@unboxed]
+  type t =
+    | Any('a): t;
+  type case =
+    | Location(MaybeArray.t(Location.t))
+    | LocationLink(array(LocationLink.t));
+  let location = (v: MaybeArray.t(Location.t)) => Any(v);
+  let locationLink = (v: array(LocationLink.t)) => Any(v);
+  let classify = (Any(v): t): case =>
+    if ([%raw {|function (a) { return a.targetRange === undefined}|}](v)) {
+      Location(Obj.magic(v): MaybeArray.t(Location.t));
+    } else {
+      LocationLink(Obj.magic(v): array(LocationLink.t));
+    };
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DefinitionProvider
+module DefinitionProvider = {
+  type t;
+  // methods
+  [@bs.send]
+  external provideDefinition:
+    (t, TextDocument.t, Position.t, CancellationToken.t) =>
+    ProviderResult.t(LocationLinkOrLocation.t) =
+    "provideDefinition";
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#languages
 module Languages = {
   // events
@@ -2219,23 +2421,56 @@ module Languages = {
   external onDidChangeDiagnostics:
     (DiagnosticChangeEvent.t => unit) => Disposable.t =
     "onDidChangeDiagnostics";
+
   // functions
   [@bs.module "vscode"] [@bs.scope "languages"]
   external createDiagnosticCollection:
     option(string) => DiagnosticCollection.t =
     "createDiagnosticCollection";
-  // createDiagnosticCollection(name?: string): DiagnosticCollection
-  // getDiagnostics(resource: Uri): Diagnostic[]
-  // getDiagnostics(): [Uri, Diagnostic[]][]
-  // getLanguages(): Thenable<string[]>
-  // match(selector: DocumentSelector, document: TextDocument): number
-  // registerCallHierarchyProvider(selector: DocumentSelector, provider: CallHierarchyProvider): Disposable
-  // registerCodeActionsProvider(selector: DocumentSelector, provider: CodeActionProvider, metadata?: CodeActionProviderMetadata): Disposable
-  // registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable
-  // registerColorProvider(selector: DocumentSelector, provider: DocumentColorProvider): Disposable
-  // registerCompletionItemProvider(selector: DocumentSelector, provider: CompletionItemProvider, ...triggerCharacters: string[]): Disposable
-  // registerDeclarationProvider(selector: DocumentSelector, provider: DeclarationProvider): Disposable
-  // registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable
+  [@bs.module "vscode"] [@bs.scope "languages"]
+  external getDiagnostics: Uri.t => array(Diagnostic.t) = "getDiagnostics";
+  external getDiagnosticEntries:
+    Uri.t => array((Uri.t, array(Diagnostic.t))) =
+    "getDiagnostics";
+  external getLanguages: unit => Promise.t(array(string)) = "getLanguages";
+  external match: (DocumentSelector.t, TextDocument.t) => int = "match";
+  external registerCallHierarchyProvider:
+    (DocumentSelector.t, CallHierarchyProvider.t) => Disposable.t =
+    "registerCallHierarchyProvider";
+  external registerCodeActionsProvider:
+    (
+      DocumentSelector.t,
+      CodeActionProvider.t,
+      option(CodeActionProviderMetadata.t)
+    ) =>
+    Disposable.t =
+    "registerCodeActionsProvider";
+  external registerCodeLensProvider:
+    (DocumentSelector.t, CodeLensProvider.t) => Disposable.t =
+    "registerCodeLensProvider";
+  external registerColorProvider:
+    (DocumentSelector.t, DocumentColorProvider.t) => Disposable.t =
+    "registerColorProvider";
+  external registerCompletionItemProvider0:
+    (DocumentSelector.t, CompletionItemProvider.t) => Disposable.t =
+    "registerCompletionItemProvider";
+  external registerCompletionItemProvider1:
+    (DocumentSelector.t, CompletionItemProvider.t, string) => Disposable.t =
+    "registerCompletionItemProvider";
+  external registerCompletionItemProvider2:
+    (DocumentSelector.t, CompletionItemProvider.t, string, string) =>
+    Disposable.t =
+    "registerCompletionItemProvider";
+  external registerCompletionItemProvider3:
+    (DocumentSelector.t, CompletionItemProvider.t, string, string, string) =>
+    Disposable.t =
+    "registerCompletionItemProvider";
+  external registerDeclarationProvider:
+    (DocumentSelector.t, DeclarationProvider.t) => Disposable.t =
+    "registerDeclarationProvider";
+  external registerDefinitionProvider:
+    (DocumentSelector.t, DefinitionProvider.t) => Disposable.t =
+    "registerDefinitionProvider";
   // registerDocumentFormattingEditProvider(selector: DocumentSelector, provider: DocumentFormattingEditProvider): Disposable
   // registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable
   // registerDocumentLinkProvider(selector: DocumentSelector, provider: DocumentLinkProvider): Disposable
