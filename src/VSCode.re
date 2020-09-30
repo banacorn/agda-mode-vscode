@@ -1129,6 +1129,22 @@ module InputBoxOptions = {
 // https://code.visualstudio.com/api/references/vscode-api#CancellationToken
 module CancellationToken = {
   type t;
+  // properties
+  [@bs.get]
+  external isCancellationRequested: t => bool = "isCancellationRequested";
+  [@bs.send]
+  external onCancellationRequested: (t, 'a => unit) => Disposable.t =
+    "onCancellationRequested";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#CancellationTokenSource
+module CancellationTokenSource = {
+  type t;
+  // properties
+  [@bs.get] external token: t => CancellationToken.t = "token";
+  // methods
+  [@bs.send] external cancel: t => unit = "cancel";
+  [@bs.send] external dispose: t => unit = "dispose";
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#OpenDialogOptions
@@ -2077,4 +2093,168 @@ module Extensions = {
   // functions
   [@bs.module "vscode"] [@bs.scope "extensions"]
   external getExtension: string => option(Extension.t('a)) = "getExtension";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DiagnosticChangeEvent
+module DiagnosticChangeEvent = {
+  type t;
+  // properties
+  [@bs.get] external uris: t => array(Uri.t) = "uris";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#Location
+module Location = {
+  type t;
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external makeWithRange: (Uri.t, Range.t) => t = "Location";
+  [@bs.module "vscode"] [@bs.new]
+  external makeWithPosition: (Uri.t, Position.t) => t = "Location";
+
+  // properties
+  [@bs.get] external range: t => Range.t = "range";
+  [@bs.get] external uri: t => Uri.t = "uri";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DiagnosticRelatedInformation
+module DiagnosticRelatedInformation = {
+  type t;
+
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: (Location.t, string) => t = "DiagnosticRelatedInformation";
+
+  // properties
+  [@bs.get] external location: t => Location.t = "location";
+  [@bs.get] external message: t => string = "message";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DiagnosticSeverity
+module DiagnosticSeverity = {
+  type t =
+    | Error
+    | Warning
+    | Information
+    | Hint;
+
+  let toEnum =
+    fun
+    | Error => 0
+    | Warning => 1
+    | Information => 2
+    | Hint => 3;
+  let fromEnum =
+    fun
+    | 0 => Error
+    | 1 => Warning
+    | 2 => Information
+    | _ => Hint;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DiagnosticTag
+module DiagnosticTag = {
+  type t =
+    | Unnecessary
+    | Deprecated;
+
+  let toEnum =
+    fun
+    | Unnecessary => 1
+    | Deprecated => 2;
+  let fromEnum =
+    fun
+    | 1 => Unnecessary
+    | _ => Deprecated;
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#Diagnostic
+module Diagnostic = {
+  type t;
+
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: (Range.t, string, option(DiagnosticSeverity.t)) => t =
+    "Diagnostic";
+
+  // properties
+  [@bs.get] external code: t => option(string) = "code"; // FIX THIS
+  [@bs.get] external message: t => string = "message";
+  [@bs.get] external range: t => Range.t = "range";
+  [@bs.get]
+  external relatedInformation:
+    t => option(array(DiagnosticRelatedInformation.t)) =
+    "relatedInformation";
+  [@bs.get] external severity: t => DiagnosticSeverity.t = "severity";
+  [@bs.get] external source: t => option(string) = "source";
+  [@bs.get] external tags: t => option(array(DiagnosticTag.t)) = "tags";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DiagnosticCollection
+module DiagnosticCollection = {
+  type t;
+  // properties
+  [@bs.get] external name: t => string = "name";
+  // methods
+  [@bs.send] external clear: t => unit = "clear";
+  [@bs.send] external delete: (t, Uri.t) => unit = "delete";
+  [@bs.send] external dispose: t => unit = "dispose";
+  [@bs.send]
+  external forEach: (t, (Uri.t, array(Diagnostic.t), t) => 'a) => unit =
+    "forEach";
+  [@bs.send] external get: (t, Uri.t) => option(array(Diagnostic.t)) = "get";
+  [@bs.send] external has: (t, Uri.t) => bool = "has";
+  [@bs.send] external set: (t, Uri.t) => unit = "set";
+  [@bs.send]
+  external setDiagnostics: (t, Uri.t, array(Diagnostic.t)) => unit = "set";
+  [@bs.send]
+  external setDiagnosticEntries:
+    (t, array((Uri.t, option(array(Diagnostic.t))))) => unit =
+    "set";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#languages
+module Languages = {
+  // events
+  [@bs.module "vscode"] [@bs.scope "languages"]
+  external onDidChangeDiagnostics:
+    (DiagnosticChangeEvent.t => unit) => Disposable.t =
+    "onDidChangeDiagnostics";
+  // functions
+  [@bs.module "vscode"] [@bs.scope "languages"]
+  external createDiagnosticCollection:
+    option(string) => DiagnosticCollection.t =
+    "createDiagnosticCollection";
+  // createDiagnosticCollection(name?: string): DiagnosticCollection
+  // getDiagnostics(resource: Uri): Diagnostic[]
+  // getDiagnostics(): [Uri, Diagnostic[]][]
+  // getLanguages(): Thenable<string[]>
+  // match(selector: DocumentSelector, document: TextDocument): number
+  // registerCallHierarchyProvider(selector: DocumentSelector, provider: CallHierarchyProvider): Disposable
+  // registerCodeActionsProvider(selector: DocumentSelector, provider: CodeActionProvider, metadata?: CodeActionProviderMetadata): Disposable
+  // registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable
+  // registerColorProvider(selector: DocumentSelector, provider: DocumentColorProvider): Disposable
+  // registerCompletionItemProvider(selector: DocumentSelector, provider: CompletionItemProvider, ...triggerCharacters: string[]): Disposable
+  // registerDeclarationProvider(selector: DocumentSelector, provider: DeclarationProvider): Disposable
+  // registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable
+  // registerDocumentFormattingEditProvider(selector: DocumentSelector, provider: DocumentFormattingEditProvider): Disposable
+  // registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable
+  // registerDocumentLinkProvider(selector: DocumentSelector, provider: DocumentLinkProvider): Disposable
+  // registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable
+  // registerDocumentRangeSemanticTokensProvider(selector: DocumentSelector, provider: DocumentRangeSemanticTokensProvider, legend: SemanticTokensLegend): Disposable
+  // registerDocumentSemanticTokensProvider(selector: DocumentSelector, provider: DocumentSemanticTokensProvider, legend: SemanticTokensLegend): Disposable
+  // registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider, metaData?: DocumentSymbolProviderMetadata): Disposable
+  // registerEvaluatableExpressionProvider(selector: DocumentSelector, provider: EvaluatableExpressionProvider): Disposable
+  // registerFoldingRangeProvider(selector: DocumentSelector, provider: FoldingRangeProvider): Disposable
+  // registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable
+  // registerImplementationProvider(selector: DocumentSelector, provider: ImplementationProvider): Disposable
+  // registerOnTypeFormattingEditProvider(selector: DocumentSelector, provider: OnTypeFormattingEditProvider, firstTriggerCharacter: string, ...moreTriggerCharacter: string[]): Disposable
+  // registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable
+  // registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable
+  // registerSelectionRangeProvider(selector: DocumentSelector, provider: SelectionRangeProvider): Disposable
+  // registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, ...triggerCharacters: string[]): Disposable
+  // registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, metadata: SignatureHelpProviderMetadata): Disposable
+  // registerTypeDefinitionProvider(selector: DocumentSelector, provider: TypeDefinitionProvider): Disposable
+  // registerWorkspaceSymbolProvider(provider: WorkspaceSymbolProvider): Disposable
+  // setLanguageConfiguration(language: string, configuration: LanguageConfiguration): Disposable
+  // setTextDocumentLanguage(document: TextDocument, languageId: string): Thenable<TextDocument>
 };
