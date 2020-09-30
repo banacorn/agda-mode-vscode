@@ -24,6 +24,7 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | Apply => [
+        BenchStart("$$$ Decoration"),
         WithStateP(
           state => {
             Decoration.readTempFiles(state.decorations)
@@ -36,8 +37,10 @@ module Impl = (Editor: Sig.Editor) => {
               })
           },
         ),
+        BenchEnd("$$$ Decoration"),
       ]
     | Refresh => [
+        BenchStart("$$$ Refreshing decorations"),
         WithState(
           state => {
             // highlightings
@@ -49,5 +52,6 @@ module Impl = (Editor: Sig.Editor) => {
               );
           },
         ),
+        BenchEnd("$$$ Refreshing decorations"),
       ];
 };

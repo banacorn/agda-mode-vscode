@@ -11,11 +11,13 @@ module Impl = (Editor: Sig.Editor) => {
     let header = View.Header.Plain(Command.toString(command));
     switch (command) {
     | Load => [
+        BenchStart("$$$ Load"),
         display(Plain("Loading ..."), Nothing),
         Task.WithStateP(
           state => Editor.save(state.editor)->Promise.map(_ => []),
         ),
         AgdaRequest(Load),
+        BenchEnd("$$$ Load"),
       ]
     | Quit => []
     | Restart => [DispatchCommand(Load)]

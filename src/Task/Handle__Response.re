@@ -57,7 +57,7 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let handle = response => {
-    Js.log(Response.toString(response));
+    // Js.log(Response.toString(response));
     switch (response) {
     | HighlightingInfoDirect(_remove, annotations) => [
         Decoration(AddDirectly(annotations)),
@@ -109,7 +109,11 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
       ]
-    | InteractionPoints(indices) => [Goal(Instantiate(indices))]
+    | InteractionPoints(indices) => [
+        BenchStart("$$$ Instantiating goals"),
+        Goal(Instantiate(indices)),
+        BenchEnd("$$$ Instantiating goals"),
+      ]
     | GiveAction(index, give) => [
         WithStateP(
           state => {

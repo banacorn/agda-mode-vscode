@@ -110,6 +110,7 @@ module Impl = (Editor: Sig.Editor) => {
         } else {
           let deferredTasks = [||];
 
+          Js.Console.timeStart("$$$ Agda Request/Response");
           sendAgdaRequest(
             // when received a "NonLast" Agda Response
             tasks => TaskQueue.Agda.addToTheBack(queue, tasks),
@@ -121,7 +122,7 @@ module Impl = (Editor: Sig.Editor) => {
           )
           ->Promise.flatMap(() => TaskQueue.Agda.close(queue))
           ->Promise.map(() => {
-              Js.log("================================");
+              Js.Console.timeEnd("$$$ Agda Request/Response");
               // sort the deferred task by priority (ascending order)
               let deferredTasks =
                 Js.Array.sortInPlaceWith(
@@ -136,9 +137,6 @@ module Impl = (Editor: Sig.Editor) => {
               TaskQueue.addToTheFront(queue, deferredTasks);
               true;
             });
-          // ->ignore;
-          // // NOTE: return early before `sendAgdaRequest` resolved
-          // Promise.resolved(true);
         }
       | ViewEvent(event) =>
         state->State.sendEventToView(event)->Promise.map(_ => {true})
@@ -185,6 +183,12 @@ module Impl = (Editor: Sig.Editor) => {
       | Destroy =>
         state->State.emitRemoveFromRegistry;
         Promise.resolved(false);
+      | BenchStart(id) =>
+        Js.Console.timeStart(id);
+        Promise.resolved(true);
+      | BenchEnd(id) =>
+        Js.Console.timeEnd(id);
+        Promise.resolved(true);
       | Debug(message) =>
         Js.log("DEBUG " ++ message);
         Promise.resolved(true);

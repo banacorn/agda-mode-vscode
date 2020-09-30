@@ -57,31 +57,41 @@ module Impl = (Editor: Sig.Editor) => {
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t))
       : array((Editor.Decoration.t, array(Editor.Range.t))) => {
+    Js.Console.timeStart("$$$ Decoration / aspects");
+    Js.Console.timeStart("$$$ Decoration / aspects 0");
+
     let text = Editor.getText(editor);
 
     // for fast UTF8 => UTF16 index conversion
     let intervals = Editor.OffsetIntervals.compile(text);
 
+    Js.Console.timeEnd("$$$ Decoration / aspects 0");
+    Js.Console.timeStart("$$$ Decoration / aspects 1");
     // array of pairs of Aspect & Range
     let aspects: array((Highlighting.Aspect.t, Editor.Range.t)) =
       highlightings
       ->Array.map(highlighting => {
           // calculate the range of each highlighting
           let range = {
+            // UTF8 -> UTF16
             let start = Editor.fromUTF8Offset(intervals, highlighting.start);
             let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
+            // offset -> point
             let start = Editor.pointAtOffset(editor, start);
             let end_ = Editor.pointAtOffset(editor, end_);
-            Editor.Range.make(
-              normalize(editor, start),
-              normalize(editor, end_),
-            );
+            // unnormalized -> normalized
+            let start = normalize(editor, start);
+            let end_ = normalize(editor, end_);
+
+            Editor.Range.make(start, end_);
           };
           // pair the aspect with the range
           highlighting.aspects->Array.map(aspect => (aspect, range));
         })
       ->Array.concatMany;
 
+    Js.Console.timeEnd("$$$ Decoration / aspects 1");
+    Js.Console.timeStart("$$$ Decoration / aspects 2");
     // dictionaries of color-ranges mapping
     // speed things up by aggregating decorations of the same kind
     let backgroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
@@ -103,6 +113,9 @@ module Impl = (Editor: Sig.Editor) => {
         }
       };
     };
+    Js.Console.timeEnd("$$$ Decoration / aspects 2");
+    Js.Console.timeEnd("$$$ Decoration / aspects");
+    Js.Console.timeStart("$$$ Decoration / dicts");
 
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
@@ -117,7 +130,8 @@ module Impl = (Editor: Sig.Editor) => {
         }
       };
     });
-
+    Js.Console.timeEnd("$$$ Decoration / dicts");
+    Js.Console.timeStart("$$$ Decoration / apply");
     // decorate with colors stored in the dicts
     let backgroundDecorations =
       Js.Dict.entries(backgroundColorDict)
@@ -133,13 +147,14 @@ module Impl = (Editor: Sig.Editor) => {
         );
     let foregroundDecorations =
       Js.Dict.entries(foregroundColorDict)
-      ->Array.map(((color, ranges)) =>
+      ->Array.map(((color, ranges)) => {
           (
+            // Js.log(ranges);
             Editor.Decoration.decorateTextWithColor(editor, color, ranges),
             ranges,
           )
-        );
-
+        });
+    Js.Console.timeEnd("$$$ Decoration / apply");
     // return decorations
     Js.Array.concat(backgroundDecorations, foregroundDecorations);
   };
@@ -158,8 +173,8 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let make = () => {
-    highlightings: [||],
     tempFilePaths: [||],
+    highlightings: [||],
     decorations: [||],
   };
 
@@ -247,8 +262,7 @@ module Impl = (Editor: Sig.Editor) => {
   // .highlightings ====> .decorations
   let applyHighlightings = (self, editor) => {
     let decorations = decorateHighlightings(editor, self.highlightings);
-    // ->Array.map(decorateHighlighting(editor))
-    // ->Array.concatMany;
+
     self.highlightings = [||];
     self.decorations = Array.concat(self.decorations, decorations);
   };
