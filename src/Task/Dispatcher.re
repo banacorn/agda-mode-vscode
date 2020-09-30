@@ -281,6 +281,19 @@ module Impl = (Editor: Sig.Editor) => {
     // remove it from the Registry if it requests to be destroyed
     state->State.onRemoveFromRegistry->Promise.get(removeFromRegistry);
 
+    // register a definition provider to implement go-to-definition
+    Editor.registerProvider((fileName, point)
+      // only provide source location, when the filenames are matched
+      =>
+        if (Some(fileName) == Editor.getFileName(state.editor)) {
+          Decoration.lookupSrcLoc(state.decorations, point);
+        } else {
+          None;
+        }
+      )
+    ->Js.Array.push(state.subscriptions)
+    ->ignore;
+
     // return the dispatcher
     dispatcher;
   };

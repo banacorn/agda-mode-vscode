@@ -165,4 +165,8 @@ module type Editor = {
   let copyToClipboard: string => Promise.t(unit);
   let colorThemeIsDark: unit => bool;
   let lineEndingIsCRLF: editor => bool;
+
+  // for VSCode https://code.visualstudio.com/api/language-extensions/programmatic-language-features
+  let registerProvider:
+    ((fileName, Point.t) => option((fileName, Point.t))) => Disposable.t;
 };

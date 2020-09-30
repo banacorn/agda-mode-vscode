@@ -10,6 +10,15 @@ module Impl = (Editor: Sig.Editor) => {
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
+  type srcLoc = {
+    range: Editor.Range.t,
+    filename: Highlighting.filepath,
+    position: Editor.Point.t,
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////////
+
   let decorateHole =
       (editor: Editor.editor, (start, end_): (int, int), index: int) => {
     let backgroundRange =
@@ -54,9 +63,22 @@ module Impl = (Editor: Sig.Editor) => {
       point;
     };
   };
+
+  let offsetToPoint = (editor, intervals, offset) => {
+    // UTF8 -> UTF16
+    let offset = Editor.fromUTF8Offset(intervals, offset);
+    // offset -> point
+    let point = Editor.pointAtOffset(editor, offset);
+    // unnormalized -> normalized
+    normalize(editor, point);
+  };
+
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t))
-      : array((Editor.Decoration.t, array(Editor.Range.t))) => {
+      : (
+          array((Editor.Decoration.t, array(Editor.Range.t))),
+          array(srcLoc),
+        ) => {
     Js.Console.timeStart("$$$ Decoration / aspects");
     Js.Console.timeStart("$$$ Decoration / aspects 0");
 
@@ -67,28 +89,47 @@ module Impl = (Editor: Sig.Editor) => {
 
     Js.Console.timeEnd("$$$ Decoration / aspects 0");
     Js.Console.timeStart("$$$ Decoration / aspects 1");
-    // array of pairs of Aspect & Range
+
+    // convert offsets in Highlighting.t to Ranges
+    let highlightings:
+      array(
+        (
+          Editor.Range.t,
+          array(Highlighting.Aspect.t),
+          option((Highlighting.filepath, int)),
+        ),
+      ) =
+      highlightings->Array.map(highlighting => {
+        // calculate the range of each highlighting
+        let range = {
+          let start = offsetToPoint(editor, intervals, highlighting.start);
+          let end_ = offsetToPoint(editor, intervals, highlighting.end_);
+
+          Editor.Range.make(start, end_);
+        };
+        (range, highlighting.aspects, highlighting.source);
+      });
+
+    // array of Aspect & Range
     let aspects: array((Highlighting.Aspect.t, Editor.Range.t)) =
       highlightings
-      ->Array.map(highlighting => {
-          // calculate the range of each highlighting
-          let range = {
-            // UTF8 -> UTF16
-            let start = Editor.fromUTF8Offset(intervals, highlighting.start);
-            let end_ = Editor.fromUTF8Offset(intervals, highlighting.end_);
-            // offset -> point
-            let start = Editor.pointAtOffset(editor, start);
-            let end_ = Editor.pointAtOffset(editor, end_);
-            // unnormalized -> normalized
-            let start = normalize(editor, start);
-            let end_ = normalize(editor, end_);
-
-            Editor.Range.make(start, end_);
-          };
+      ->Array.map(((range, aspects, _)) => {
           // pair the aspect with the range
-          highlighting.aspects->Array.map(aspect => (aspect, range));
+          aspects->Array.map(aspect => (aspect, range))
         })
       ->Array.concatMany;
+
+    // array of Range & source location
+    let srcLocs: array(srcLoc) =
+      highlightings->Array.keepMap(((range, _, source)) =>
+        source->Option.map(((filename, offset)) =>
+          {
+            range,
+            filename,
+            position: offsetToPoint(editor, intervals, offset),
+          }
+        )
+      );
 
     Js.Console.timeEnd("$$$ Decoration / aspects 1");
     Js.Console.timeStart("$$$ Decoration / aspects 2");
@@ -156,7 +197,7 @@ module Impl = (Editor: Sig.Editor) => {
         });
     Js.Console.timeEnd("$$$ Decoration / apply");
     // return decorations
-    Js.Array.concat(backgroundDecorations, foregroundDecorations);
+    (Js.Array.concat(backgroundDecorations, foregroundDecorations), srcLocs);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -170,12 +211,15 @@ module Impl = (Editor: Sig.Editor) => {
     // after Apply
     mutable decorations:
       array((Editor.Decoration.t, array(Editor.Range.t))),
+    // source locations
+    mutable srcLocs: array(srcLoc),
   };
 
   let make = () => {
     tempFilePaths: [||],
     highlightings: [||],
     decorations: [||],
+    srcLocs: [||],
   };
 
   let removeAppliedDecorations = self => {
@@ -261,9 +305,21 @@ module Impl = (Editor: Sig.Editor) => {
 
   // .highlightings ====> .decorations
   let applyHighlightings = (self, editor) => {
-    let decorations = decorateHighlightings(editor, self.highlightings);
+    let (decorations, srcLocs) =
+      decorateHighlightings(editor, self.highlightings);
 
     self.highlightings = [||];
+    self.srcLocs = srcLocs;
     self.decorations = Array.concat(self.decorations, decorations);
+  };
+
+  // TODO: speed this up
+  let lookupSrcLoc =
+      (self, point): option((Highlighting.filepath, Editor.Point.t)) => {
+    Js.Array.find(
+      (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.range, point),
+      self.srcLocs,
+    )
+    ->Option.map(srcLoc => (srcLoc.filename, srcLoc.position));
   };
 };

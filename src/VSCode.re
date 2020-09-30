@@ -2231,7 +2231,11 @@ module Diagnostic = {
 
 // https://code.visualstudio.com/api/references/vscode-api#DocumentFilter
 module DocumentFilter = {
-  type t;
+  type t = {
+    language: option(string),
+    pattern: option(GlobPattern.t),
+    scheme: option(string),
+  };
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#DocumentSelector
@@ -2384,7 +2388,7 @@ module LocationLinkOrLocation: {
     | Location(MaybeArray.t(Location.t))
     | LocationLink(array(LocationLink.t));
   let location: MaybeArray.t(Location.t) => t;
-  let locationLink: array(LocationLink.t) => t;
+  let locationLinks: array(LocationLink.t) => t;
   let classify: t => case;
 } = {
   [@unboxed]
@@ -2394,7 +2398,7 @@ module LocationLinkOrLocation: {
     | Location(MaybeArray.t(Location.t))
     | LocationLink(array(LocationLink.t));
   let location = (v: MaybeArray.t(Location.t)) => Any(v);
-  let locationLink = (v: array(LocationLink.t)) => Any(v);
+  let locationLinks = (v: array(LocationLink.t)) => Any(v);
   let classify = (Any(v): t): case =>
     if ([%raw {|function (a) { return a.targetRange === undefined}|}](v)) {
       Location(Obj.magic(v): MaybeArray.t(Location.t));
@@ -2405,13 +2409,37 @@ module LocationLinkOrLocation: {
 
 // https://code.visualstudio.com/api/references/vscode-api#DefinitionProvider
 module DefinitionProvider = {
-  type t;
-  // methods
-  [@bs.send]
-  external provideDefinition:
-    (t, TextDocument.t, Position.t, CancellationToken.t) =>
-    ProviderResult.t(LocationLinkOrLocation.t) =
-    "provideDefinition";
+  type t = {
+    provideDefinition:
+      (TextDocument.t, Position.t, CancellationToken.t) =>
+      ProviderResult.t(LocationLinkOrLocation.t),
+  };
+  let make = (func): t => {provideDefinition: func};
+  let makeWithLocation = (func): t => {
+    provideDefinition: (doc, point, token) =>
+      ProviderResult.resolved(
+        func(doc, point, token)
+        ->Belt.Option.map(x =>
+            x->MaybeArray.singular->LocationLinkOrLocation.location
+          ),
+      ),
+  };
+  let makeWithLocations = (func): t => {
+    provideDefinition: (doc, point, token) =>
+      ProviderResult.resolved(
+        func(doc, point, token)
+        ->Belt.Option.map(x =>
+            x->MaybeArray.plural->LocationLinkOrLocation.location
+          ),
+      ),
+  };
+  let makeWithLocationLinks = (func): t => {
+    provideDefinition: (doc, point, token) =>
+      ProviderResult.resolved(
+        func(doc, point, token)
+        ->Belt.Option.map(LocationLinkOrLocation.locationLinks),
+      ),
+  };
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#languages
@@ -2429,14 +2457,19 @@ module Languages = {
     "createDiagnosticCollection";
   [@bs.module "vscode"] [@bs.scope "languages"]
   external getDiagnostics: Uri.t => array(Diagnostic.t) = "getDiagnostics";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external getDiagnosticEntries:
     Uri.t => array((Uri.t, array(Diagnostic.t))) =
     "getDiagnostics";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external getLanguages: unit => Promise.t(array(string)) = "getLanguages";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external match: (DocumentSelector.t, TextDocument.t) => int = "match";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCallHierarchyProvider:
     (DocumentSelector.t, CallHierarchyProvider.t) => Disposable.t =
     "registerCallHierarchyProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCodeActionsProvider:
     (
       DocumentSelector.t,
@@ -2445,29 +2478,37 @@ module Languages = {
     ) =>
     Disposable.t =
     "registerCodeActionsProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCodeLensProvider:
     (DocumentSelector.t, CodeLensProvider.t) => Disposable.t =
     "registerCodeLensProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerColorProvider:
     (DocumentSelector.t, DocumentColorProvider.t) => Disposable.t =
     "registerColorProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCompletionItemProvider0:
     (DocumentSelector.t, CompletionItemProvider.t) => Disposable.t =
     "registerCompletionItemProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCompletionItemProvider1:
     (DocumentSelector.t, CompletionItemProvider.t, string) => Disposable.t =
     "registerCompletionItemProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCompletionItemProvider2:
     (DocumentSelector.t, CompletionItemProvider.t, string, string) =>
     Disposable.t =
     "registerCompletionItemProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerCompletionItemProvider3:
     (DocumentSelector.t, CompletionItemProvider.t, string, string, string) =>
     Disposable.t =
     "registerCompletionItemProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerDeclarationProvider:
     (DocumentSelector.t, DeclarationProvider.t) => Disposable.t =
     "registerDeclarationProvider";
+  [@bs.module "vscode"] [@bs.scope "languages"]
   external registerDefinitionProvider:
     (DocumentSelector.t, DefinitionProvider.t) => Disposable.t =
     "registerDefinitionProvider";

@@ -578,3 +578,17 @@ let lineEndingIsCRLF = editor =>
   | EndOfLine.CRLF => true
   | _ => false
   };
+
+let registerProvider = defnProvider => {
+  let documentSelector =
+    MaybeArray.singular(DocumentFilterOrString.string("agda"));
+  let definitionProvider =
+    DefinitionProvider.makeWithLocation((textDocument, point, _) => {
+      defnProvider(textDocument->TextDocument.fileName, point)
+      ->Option.map(((fileName, position)) =>
+          Location.makeWithPosition(Uri.file(fileName), position)
+        )
+    });
+
+  Languages.registerDefinitionProvider(documentSelector, definitionProvider);
+};
