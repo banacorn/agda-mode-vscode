@@ -11,9 +11,11 @@ module Impl = (Editor: Sig.Editor) => {
   ////////////////////////////////////////////////////////////////////////////////////////////
 
   type srcLoc = {
-    range: Editor.Range.t,
-    filename: Highlighting.filepath,
-    position: Editor.Point.t,
+    // range of the reference
+    refRange: Editor.Range.t,
+    // file/position of the source
+    srcFile: Highlighting.filepath,
+    srcPoint: Editor.Point.t,
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +66,21 @@ module Impl = (Editor: Sig.Editor) => {
     };
   };
 
+  // with compiled intervals for speeding the convertion
   let offsetToPoint = (editor, intervals, offset) => {
+    // UTF8 -> UTF16
+    let offset = Editor.fromUTF8Offset(intervals, offset);
+    // offset -> point
+    let point = Editor.pointAtOffset(editor, offset);
+    // unnormalized -> normalized
+    normalize(editor, point);
+  };
+
+  // one off slow conversion for srclocs
+  let offsetToPointSlow = (editor, file, offset) => {
+    let text = Editor.getText(editor);
+    // Editor.openEditor(file)->Promise.map(Editor.getText)
+    let intervals = Editor.OffsetIntervals.compile(text);
     // UTF8 -> UTF16
     let offset = Editor.fromUTF8Offset(intervals, offset);
     // offset -> point
@@ -80,15 +96,12 @@ module Impl = (Editor: Sig.Editor) => {
           array(srcLoc),
         ) => {
     Js.Console.timeStart("$$$ Decoration / aspects");
-    Js.Console.timeStart("$$$ Decoration / aspects 0");
+    Js.Console.timeStart("$$$ Decoration / aspects / offset conversion");
 
     let text = Editor.getText(editor);
 
     // for fast UTF8 => UTF16 index conversion
     let intervals = Editor.OffsetIntervals.compile(text);
-
-    Js.Console.timeEnd("$$$ Decoration / aspects 0");
-    Js.Console.timeStart("$$$ Decoration / aspects 1");
 
     // convert offsets in Highlighting.t to Ranges
     let highlightings:
@@ -109,7 +122,6 @@ module Impl = (Editor: Sig.Editor) => {
         };
         (range, highlighting.aspects, highlighting.source);
       });
-
     // array of Aspect & Range
     let aspects: array((Highlighting.Aspect.t, Editor.Range.t)) =
       highlightings
@@ -119,20 +131,22 @@ module Impl = (Editor: Sig.Editor) => {
         })
       ->Array.concatMany;
 
+    Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion");
+    Js.Console.timeStart("$$$ Decoration / aspects / scrlocs conversion");
+
     // array of Range & source location
     let srcLocs: array(srcLoc) =
-      highlightings->Array.keepMap(((range, _, source)) =>
-        source->Option.map(((filename, offset)) =>
+      highlightings->Array.keepMap(((refRange, _, source)) =>
+        source->Option.map(((srcFile, offset)) =>
           {
-            range,
-            filename,
-            position: offsetToPoint(editor, intervals, offset),
+            refRange,
+            srcFile,
+            srcPoint: offsetToPointSlow(editor, srcFile, offset),
           }
         )
       );
-
-    Js.Console.timeEnd("$$$ Decoration / aspects 1");
-    Js.Console.timeStart("$$$ Decoration / aspects 2");
+    Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion");
+    Js.Console.timeStart("$$$ Decoration / aspects / dict bundling");
     // dictionaries of color-ranges mapping
     // speed things up by aggregating decorations of the same kind
     let backgroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
@@ -154,7 +168,7 @@ module Impl = (Editor: Sig.Editor) => {
         }
       };
     };
-    Js.Console.timeEnd("$$$ Decoration / aspects 2");
+    Js.Console.timeEnd("$$$ Decoration / aspects / dict bundling");
     Js.Console.timeEnd("$$$ Decoration / aspects");
     Js.Console.timeStart("$$$ Decoration / dicts");
 
@@ -317,9 +331,12 @@ module Impl = (Editor: Sig.Editor) => {
   let lookupSrcLoc =
       (self, point): option((Highlighting.filepath, Editor.Point.t)) => {
     Js.Array.find(
-      (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.range, point),
+      (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.refRange, point),
       self.srcLocs,
     )
-    ->Option.map(srcLoc => (srcLoc.filename, srcLoc.position));
+    ->Option.map(srcLoc => {
+        Js.log(srcLoc);
+        (srcLoc.srcFile, srcLoc.srcPoint);
+      });
   };
 };
