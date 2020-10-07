@@ -2291,29 +2291,29 @@ module DiagnosticCollection = {
     "set";
 };
 
-module ProviderResult: {
-  type t('a);
-  type case('a) =
-    | Resolved(option('a))
-    | Promised(Promise.t(option('a)));
-  let resolved: option('a) => t('a);
-  let promised: Promise.t(option('a)) => t('a);
-  let classify: t('a) => case('a);
-} = {
-  [@unboxed]
-  type t('a) =
-    | Any('b): t('a);
-  type case('a) =
-    | Resolved(option('a))
-    | Promised(Promise.t(option('a)));
-  let resolved = (v: option('a)) => Any(v);
-  let promised = (v: Promise.t(option('a))) => Any(v);
-  let classify = (Any(v): t('a)): case('a) =>
-    if ([%raw {|function (a) { return a.then === undefined }|}](v)) {
-      Resolved(Obj.magic(v): option('a));
-    } else {
-      Promised(Obj.magic(v): Promise.t(option('a)));
-    };
+module ProviderResult = {
+  type t('a) = option(Promise.t('a));
+  //   type case('a) =
+  //     | Resolved(option('a))
+  //     | Promised(Promise.t(option('a)));
+  //   let resolved: option('a) => t('a);
+  //   let promised: Promise.t(option('a)) => t('a);
+  //   let classify: t('a) => case('a);
+  // } = {
+  //   [@unboxed]
+  //   type t('a) =
+  //     | Any('b): t('a);
+  //   type case('a) =
+  //     | Resolved(option('a))
+  //     | Promised(Promise.t(option('a)));
+  //   let resolved = (v: option('a)) => Any(v);
+  //   let promised = (v: Promise.t(option('a))) => Any(v);
+  //   let classify = (Any(v): t('a)): case('a) =>
+  //     if ([%raw {|function (a) { return a.then === undefined }|}](v)) {
+  //       Resolved(Obj.magic(v): option('a));
+  //     } else {
+  //       Promised(Obj.magic(v): Promise.t(option('a)));
+  //     };
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#CallHierarchyItem
@@ -2385,9 +2385,9 @@ module DeclarationProvider = {
 module LocationLinkOrLocation: {
   type t;
   type case =
-    | Location(MaybeArray.t(Location.t))
+    | Location(array(Location.t))
     | LocationLink(array(LocationLink.t));
-  let location: MaybeArray.t(Location.t) => t;
+  let locations: array(Location.t) => t;
   let locationLinks: array(LocationLink.t) => t;
   let classify: t => case;
 } = {
@@ -2395,13 +2395,13 @@ module LocationLinkOrLocation: {
   type t =
     | Any('a): t;
   type case =
-    | Location(MaybeArray.t(Location.t))
+    | Location(array(Location.t))
     | LocationLink(array(LocationLink.t));
-  let location = (v: MaybeArray.t(Location.t)) => Any(v);
+  let locations = (v: array(Location.t)) => Any(v);
   let locationLinks = (v: array(LocationLink.t)) => Any(v);
   let classify = (Any(v): t): case =>
     if ([%raw {|function (a) { return a.targetRange === undefined}|}](v)) {
-      Location(Obj.magic(v): MaybeArray.t(Location.t));
+      Location(Obj.magic(v): array(Location.t));
     } else {
       LocationLink(Obj.magic(v): array(LocationLink.t));
     };
@@ -2415,30 +2415,19 @@ module DefinitionProvider = {
       ProviderResult.t(LocationLinkOrLocation.t),
   };
   let make = (func): t => {provideDefinition: func};
-  let makeWithLocation = (func): t => {
-    provideDefinition: (doc, point, token) =>
-      ProviderResult.resolved(
-        func(doc, point, token)
-        ->Belt.Option.map(x =>
-            x->MaybeArray.singular->LocationLinkOrLocation.location
-          ),
-      ),
-  };
   let makeWithLocations = (func): t => {
     provideDefinition: (doc, point, token) =>
-      ProviderResult.resolved(
-        func(doc, point, token)
-        ->Belt.Option.map(x =>
-            x->MaybeArray.plural->LocationLinkOrLocation.location
-          ),
-      ),
+      func(doc, point, token)
+      ->Belt.Option.map(result =>
+          result->Promise.map(LocationLinkOrLocation.locations)
+        ),
   };
   let makeWithLocationLinks = (func): t => {
     provideDefinition: (doc, point, token) =>
-      ProviderResult.resolved(
-        func(doc, point, token)
-        ->Belt.Option.map(LocationLinkOrLocation.locationLinks),
-      ),
+      func(doc, point, token)
+      ->Belt.Option.map(result =>
+          result->Promise.map(LocationLinkOrLocation.locationLinks)
+        ),
   };
 };
 
