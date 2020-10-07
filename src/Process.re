@@ -221,9 +221,14 @@ signal: $signal
       );
 };
 
+type output =
+  | Stdout(string)
+  | Stderr(string)
+  | Error(Error.t);
+
 type t = {
   send: string => result(unit, Error.t),
-  emitter: Event.t(result(string, Error.t)),
+  emitter: Event.t(output),
   disconnect: unit => Promise.t(unit),
   isConnected: unit => bool,
 };
@@ -252,7 +257,8 @@ let make = (path, args): t => {
   |> Nd.ChildProcess.stdout
   |> Nd.Stream.Readable.on(
        `data(
-         chunk => emitter.emit(Ok(Node.Buffer.toString(chunk))) |> ignore,
+         chunk =>
+           emitter.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore,
        ),
      )
   |> ignore;
@@ -261,7 +267,13 @@ let make = (path, args): t => {
   process
   |> Nd.ChildProcess.stderr
   |> Nd.Stream.Readable.on(
-       `data(chunk => stderr := Node.Buffer.toString(chunk)),
+       `data(
+         chunk => {
+           emitter.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore;
+           // store the latest message from stderr
+           stderr := Node.Buffer.toString(chunk);
+         },
+       ),
      )
   |> ignore;
 
@@ -293,6 +305,7 @@ let make = (path, args): t => {
        `exit(
          (code, signal) =>
            if (code != 0) {
+             //  returns the last message from stderr
              emitter.emit(Error(ExitedByProcess(code, signal, stderr^)))
              |> ignore;
            },

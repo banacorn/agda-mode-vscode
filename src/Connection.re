@@ -150,14 +150,15 @@ let wire = (self): unit => {
 
   // listens to the "data" event on the stdout
   // The chunk may contain various fractions of the Agda output
-  let onData: result(string, Process.Error.t) => unit =
+  let onData: Process.output => unit =
     fun
-    | Ok(rawText) => {
+    | Stdout(rawText) => {
         // split the raw text into pieces and feed it to the parser
         rawText
         ->Parser.split
         ->Array.forEach(Parser.Incr.feed(pipeline));
       }
+    | Stderr(_) => ()
     | Error(e) => self.emitter.emit(Error(Process(e)));
 
   let _ = self.process.emitter.on(onData);
