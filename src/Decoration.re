@@ -12,10 +12,10 @@ module Impl = (Editor: Sig.Editor) => {
 
   type srcLoc = {
     // range of the reference
-    refRange: Editor.Range.t,
+    range: Editor.Range.t,
     // file/offset of the source
-    srcFile: Highlighting.filepath,
-    srcOffset: int,
+    filepath: Highlighting.filepath,
+    offset: int,
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -78,17 +78,16 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   // one off slow conversion for srclocs
-  // let offsetToPointSlow = (editor, file, offset) => {
-  //   let text = Editor.getText(editor);
-  //   // Editor.openEditor(file)->Promise.map(Editor.getText)
-  //   let intervals = Editor.OffsetIntervals.compile(text);
-  //   // UTF8 -> UTF16
-  //   let offset = Editor.fromUTF8Offset(intervals, offset);
-  //   // offset -> point
-  //   let point = Editor.pointAtOffset(editor, offset);
-  //   // unnormalized -> normalized
-  //   normalize(editor, point);
-  // };
+  let offsetToPointSlow = (document, offset) => {
+    let text = Editor.getText(document);
+    let intervals = Editor.OffsetIntervals.compile(text);
+    // UTF8 -> UTF16
+    let offset = Editor.fromUTF8Offset(intervals, offset);
+    // offset -> point
+    let point = Editor.pointAtOffset(document, offset);
+    // unnormalized -> normalized
+    normalize(document, point);
+  };
 
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t))
@@ -138,9 +137,9 @@ module Impl = (Editor: Sig.Editor) => {
 
     // array of Range & source location
     let srcLocs: array(srcLoc) =
-      highlightings->Array.keepMap(((refRange, _, source)) =>
-        source->Option.map(((srcFile, srcOffset)) =>
-          {refRange, srcFile, srcOffset}
+      highlightings->Array.keepMap(((range, _, source)) =>
+        source->Option.map(((filepath, offset)) =>
+          {range, filepath, offset}
         )
       );
     Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion");
@@ -325,34 +324,19 @@ module Impl = (Editor: Sig.Editor) => {
     self.decorations = Array.concat(self.decorations, decorations);
   };
 
-  // TODO: speed this up
   let lookupSrcLoc =
       (self, point)
       : option(Promise.t(array((Highlighting.filepath, Editor.Point.t)))) => {
     Js.Array.find(
-      (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.refRange, point),
+      (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.range, point),
       self.srcLocs,
     )
     ->Option.map(srcLoc => {
-        Editor.openDocument(srcLoc.srcFile)
+        Editor.openDocument(srcLoc.filepath)
         ->Promise.map(document => {
-            let text = Editor.getText(document);
-            Js.log(text);
-            [||];
+            let point = offsetToPointSlow(document, srcLoc.offset - 1);
+            [|(srcLoc.filepath, point)|];
           })
-        // let readFile = N.Util.promisify(N.Fs.readFile);
-        // readFile(. srcLoc.srcFile)
-        // ->Promise.Js.fromBsPromise
-        // ->Promise.Js.toResult
-        // ->Promise.map(
-        //     fun
-        //     | Error(_) => [||]
-        //     | Ok(buffer) => {
-        //         let text = Node.Buffer.toString(buffer);
-        //         Js.log(text);
-        //         [||];
-        //       },
-        //   );
       });
   };
 };
