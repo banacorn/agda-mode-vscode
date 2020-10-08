@@ -597,12 +597,17 @@ let registerProvider = defnProvider => {
   let documentSelector =
     MaybeArray.singular(DocumentFilterOrString.string("agda"));
   let definitionProvider =
-    DefinitionProvider.makeWithLocations((textDocument, point, _) => {
+    DefinitionProvider.makeWithLocationLinks((textDocument, point, _) => {
       defnProvider(textDocument->TextDocument.fileName, point)
       ->Option.map(result =>
           result->Promise.map(pairs =>
-            pairs->Array.map(((fileName, position)) =>
-              Location.makeWithPosition(Uri.file(fileName), position)
+            pairs->Array.map(((srcRange, targetFile, targetPos)) =>
+              LocationLink.{
+                originSelectionRange: Some(srcRange),
+                targetRange: VSCode.Range.make(targetPos, targetPos),
+                targetSelectionRange: None,
+                targetUri: Uri.file(targetFile),
+              }
             )
           )
         )

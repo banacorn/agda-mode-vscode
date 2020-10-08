@@ -173,7 +173,8 @@ module type Editor = {
   // for VSCode https://code.visualstudio.com/api/language-extensions/programmatic-language-features
   let registerProvider:
     (
-      (fileName, Point.t) => option(Promise.t(array((fileName, Point.t))))
+      (fileName, Point.t) =>
+      option(Promise.t(array((Range.t, fileName, Point.t))))
     ) =>
     Disposable.t;
 };

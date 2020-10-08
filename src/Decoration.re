@@ -326,7 +326,11 @@ module Impl = (Editor: Sig.Editor) => {
 
   let lookupSrcLoc =
       (self, point)
-      : option(Promise.t(array((Highlighting.filepath, Editor.Point.t)))) => {
+      : option(
+          Promise.t(
+            array((Editor.Range.t, Highlighting.filepath, Editor.Point.t)),
+          ),
+        ) => {
     Js.Array.find(
       (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.range, point),
       self.srcLocs,
@@ -335,7 +339,7 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.openDocument(srcLoc.filepath)
         ->Promise.map(document => {
             let point = offsetToPointSlow(document, srcLoc.offset - 1);
-            [|(srcLoc.filepath, point)|];
+            [|(srcLoc.range, srcLoc.filepath, point)|];
           })
       });
   };

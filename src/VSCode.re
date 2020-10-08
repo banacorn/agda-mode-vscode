@@ -2143,17 +2143,12 @@ module Location = {
 
 // https://code.visualstudio.com/api/references/vscode-api#LocationLink
 module LocationLink = {
-  type t;
-
-  // properties
-  [@bs.get]
-  external originSelectionRange: t => option(Range.t) =
-    "originSelectionRange";
-  [@bs.get] external targetRange: t => Range.t = "targetRange";
-  [@bs.get]
-  external targetSelectionRange: t => option(Range.t) =
-    "targetSelectionRange";
-  [@bs.get] external targetUri: t => Uri.t = "targetUri";
+  type t = {
+    originSelectionRange: option(Range.t),
+    targetRange: Range.t,
+    targetSelectionRange: option(Range.t),
+    targetUri: Uri.t,
+  };
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#DiagnosticRelatedInformation
@@ -2415,6 +2410,7 @@ module DefinitionProvider = {
       ProviderResult.t(LocationLinkOrLocation.t),
   };
   let make = (func): t => {provideDefinition: func};
+  // Represents a location inside a resource, such as a line inside a text file.
   let makeWithLocations = (func): t => {
     provideDefinition: (doc, point, token) =>
       func(doc, point, token)
@@ -2422,6 +2418,8 @@ module DefinitionProvider = {
           result->Promise.map(LocationLinkOrLocation.locations)
         ),
   };
+  // Represents the connection of two locations.
+  // Provides additional metadata over normal locations, including an origin range.
   let makeWithLocationLinks = (func): t => {
     provideDefinition: (doc, point, token) =>
       func(doc, point, token)
