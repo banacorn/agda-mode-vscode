@@ -18,7 +18,8 @@ module Impl = (Editor: Sig.Editor) => {
       | None => Editor.getCursorPosition(state.editor)
       | Some(x) => x
       };
-    let cursorOffset = Editor.offsetAtPoint(state.editor, cursor);
+    let cursorOffset =
+      Editor.offsetAtPoint(Editor.getDocument(state.editor), cursor);
     let pointedGoals =
       state.goals
       ->Array.keep(goal =>
@@ -191,16 +192,21 @@ module Impl = (Editor: Sig.Editor) => {
         ),
       ]
     | UpdateRange => [
-        WithState(state => {Goal.updateRanges(state.goals, state.editor)}),
+        WithState(
+          state => {
+            Goal.updateRanges(state.goals, Editor.getDocument(state.editor))
+          },
+        ),
       ]
     | Next => [
         Goal(UpdateRange),
         WithStateP(
           state => {
+            let document = Editor.getDocument(state.editor);
             let nextGoal = ref(None);
             let cursorOffset =
               Editor.offsetAtPoint(
-                state.editor,
+                document,
                 Editor.getCursorPosition(state.editor),
               );
             let offsets = getOffsets(state);
@@ -222,7 +228,7 @@ module Impl = (Editor: Sig.Editor) => {
             | Some(offset) =>
               Editor.setCursorPosition(
                 state.editor,
-                Editor.pointAtOffset(state.editor, offset),
+                Editor.pointAtOffset(document, offset),
               );
               Promise.resolved([Goal(JumpToOffset(offset))]);
             };
@@ -233,10 +239,11 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(UpdateRange),
         WithStateP(
           state => {
+            let document = Editor.getDocument(state.editor);
             let previousGoal = ref(None);
             let cursorOffset =
               Editor.offsetAtPoint(
-                state.editor,
+                document,
                 Editor.getCursorPosition(state.editor),
               );
             let offsets = getOffsets(state);
@@ -258,7 +265,7 @@ module Impl = (Editor: Sig.Editor) => {
             | Some(offset) =>
               Editor.setCursorPosition(
                 state.editor,
-                Editor.pointAtOffset(state.editor, offset),
+                Editor.pointAtOffset(document, offset),
               );
               Promise.resolved([Goal(JumpToOffset(offset))]);
             };
@@ -269,8 +276,9 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(UpdateRange),
         WithStateP(
           state => {
-            let content = Goal.getContent(goal, state.editor);
-            Goal.setContent(goal, state.editor, f(content))
+            let document = Editor.getDocument(state.editor);
+            let content = Goal.getContent(goal, document);
+            Goal.setContent(goal, document, f(content))
             ->Promise.map(
                 fun
                 | true => []
@@ -333,7 +341,8 @@ module Impl = (Editor: Sig.Editor) => {
     | SetCursor(offset) => [
         WithState(
           state => {
-            let point = Editor.pointAtOffset(state.editor, offset);
+            let document = Editor.getDocument(state.editor);
+            let point = Editor.pointAtOffset(document, offset);
             Editor.setCursorPosition(state.editor, point);
           },
         ),
@@ -341,7 +350,8 @@ module Impl = (Editor: Sig.Editor) => {
     | JumpToOffset(offset) => [
         WithState(
           state => {
-            let point = Editor.pointAtOffset(state.editor, offset);
+            let document = Editor.getDocument(state.editor);
+            let point = Editor.pointAtOffset(document, offset);
             let range = Editor.Range.make(point, point);
             Editor.reveal(state.editor, range);
           },
@@ -351,15 +361,16 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(UpdateRange),
         WithStateP(
           state => {
-            let innerRange = Goal.getInnerRange(goal, state.editor);
+            let document = Editor.getDocument(state.editor);
+            let innerRange = Goal.getInnerRange(goal, document);
             let outerRange =
               Editor.Range.make(
-                Editor.pointAtOffset(state.editor, fst(goal.range)),
-                Editor.pointAtOffset(state.editor, snd(goal.range)),
+                Editor.pointAtOffset(document, fst(goal.range)),
+                Editor.pointAtOffset(document, snd(goal.range)),
               );
             let content =
-              Editor.getTextInRange(state.editor, innerRange)->String.trim;
-            Editor.replaceText(state.editor, outerRange, content)
+              Editor.getTextInRange(document, innerRange)->String.trim;
+            Editor.replaceText(document, outerRange, content)
             ->Promise.map(
                 fun
                 | true => {
@@ -384,22 +395,22 @@ module Impl = (Editor: Sig.Editor) => {
     | ReplaceWithLines(goal, lines) => [
         WithStateP(
           state => {
+            let document = Editor.getDocument(state.editor);
             // get the width of indentation from the first line of the goal
-            let (indentWidth, _, _) = indentationWidth(state.editor, goal);
+            let (indentWidth, _, _) = indentationWidth(document, goal);
             let indentation = Js.String.repeat(indentWidth, " ");
             let indentedLines =
               indentation ++ Js.Array.joinWith("\n" ++ indentation, lines);
             // the rows spanned by the goal (including the text outside the goal)
             // will be replaced by the `indentedLines`
-            let start = Editor.pointAtOffset(state.editor, fst(goal.range));
+            let start = Editor.pointAtOffset(document, fst(goal.range));
             let startLineNo = Editor.Point.line(start);
-            let startLineRange =
-              Editor.rangeForLine(state.editor, startLineNo);
+            let startLineRange = Editor.rangeForLine(document, startLineNo);
             let start = Editor.Range.start(startLineRange);
 
-            let end_ = Editor.pointAtOffset(state.editor, snd(goal.range));
+            let end_ = Editor.pointAtOffset(document, snd(goal.range));
             let rangeToBeReplaced = Editor.Range.make(start, end_);
-            Editor.replaceText(state.editor, rangeToBeReplaced, indentedLines)
+            Editor.replaceText(document, rangeToBeReplaced, indentedLines)
             ->Promise.map(
                 fun
                 | true => {
@@ -433,8 +444,9 @@ module Impl = (Editor: Sig.Editor) => {
     | ReplaceWithLambda(goal, lines) => [
         WithStateP(
           state => {
+            let document = Editor.getDocument(state.editor);
             let (inWhereClause, indentWidth, rewriteRange) =
-              caseSplitAux(state.editor, goal);
+              caseSplitAux(document, goal);
             let rewriteText =
               if (inWhereClause) {
                 Js.Array.joinWith(
@@ -450,10 +462,10 @@ module Impl = (Editor: Sig.Editor) => {
 
             let rewriteRange =
               Editor.Range.make(
-                Editor.pointAtOffset(state.editor, fst(rewriteRange)),
-                Editor.pointAtOffset(state.editor, snd(rewriteRange)),
+                Editor.pointAtOffset(document, fst(rewriteRange)),
+                Editor.pointAtOffset(document, snd(rewriteRange)),
               );
-            Editor.replaceText(state.editor, rewriteRange, rewriteText)
+            Editor.replaceText(document, rewriteRange, rewriteText)
             ->Promise.map(
                 fun
                 | true => {
@@ -477,16 +489,17 @@ module Impl = (Editor: Sig.Editor) => {
         Goal(UpdateRange),
         WithStateP(
           state => {
+            let document = Editor.getDocument(state.editor);
             switch (pointingAt(state)) {
             | None => Promise.resolved(global)
             | Some(goal) =>
-              let content = Goal.getContent(goal, state.editor);
+              let content = Goal.getContent(goal, document);
               if (content == "") {
                 Promise.resolved(localEmpty(goal));
               } else {
                 Promise.resolved(local(goal, content));
               };
-            }
+            };
           },
         ),
       ]

@@ -14,7 +14,9 @@ module Impl = (Editor: Sig.Editor) => {
         BenchStart("$$$ Load"),
         display(Plain("Loading ..."), Nothing),
         Task.WithStateP(
-          state => Editor.save(state.editor)->Promise.map(_ => []),
+          state =>
+            Editor.save(Editor.getDocument(state.editor))
+            ->Promise.map(_ => []),
         ),
         AgdaRequest(Load),
         BenchEnd("$$$ Load"),
@@ -285,7 +287,7 @@ module Impl = (Editor: Sig.Editor) => {
           WithState(
             state => {
               Editor.focus(state.editor);
-              switch (Editor.getFileName(state.editor)) {
+              switch (Editor.getFileName(Editor.getDocument(state.editor))) {
               | None => ()
               | Some(path) =>
                 switch (link) {

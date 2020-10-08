@@ -14,6 +14,8 @@ module type Editor = {
   };
 
   type editor;
+  type document;
+
   type context;
   type view;
   type fileName = string;
@@ -32,8 +34,8 @@ module type Editor = {
     let compare: (t, t) => ordering;
   };
 
-  let pointAtOffset: (editor, int) => Point.t;
-  let offsetAtPoint: (editor, Point.t) => int;
+  let pointAtOffset: (document, int) => Point.t;
+  let offsetAtPoint: (document, Point.t) => int;
 
   module Range: {
     type t;
@@ -44,17 +46,19 @@ module type Editor = {
     let contains: (t, Point.t) => bool;
     let containsRange: (t, t) => bool;
 
-    let fromOffset: (editor, (int, int)) => t;
+    let fromOffset: (document, (int, int)) => t;
   };
 
   let editorType: editorType;
 
   // Helpers
   let getExtensionPath: context => fileName;
-  let getFileName: editor => option(fileName);
+  let getFileName: document => option(fileName);
+  let getDocument: editor => document;
+  let openDocument: fileName => Promise.t(document);
   let openEditor: fileName => Promise.t(editor);
   let openEditorWithContent: string => Promise.t(editor);
-  let save: editor => Promise.t(bool);
+  let save: document => Promise.t(bool);
 
   // Events
   let onDidChangeFileName:
@@ -131,7 +135,7 @@ module type Editor = {
   let setCursorPositions: (editor, array(Point.t)) => unit;
   let onChangeCursorPosition: (array(Point.t) => unit) => Disposable.t;
 
-  let rangeForLine: (editor, int) => Range.t;
+  let rangeForLine: (document, int) => Range.t;
 
   // for converting between UTF-8/UTF-16 based offsets
   module OffsetIntervals: {
@@ -143,17 +147,17 @@ module type Editor = {
   };
 
   let fromUTF8Offset: (OffsetIntervals.t, int) => int;
-  let toUTF8Offset: (editor, int) => int;
+  let toUTF8Offset: (document, int) => int;
 
-  let getText: editor => string;
-  let getTextInRange: (editor, Range.t) => string;
   let selectText: (editor, Range.t) => unit;
-  let replaceText: (editor, Range.t, string) => Promise.t(bool);
+  let getText: document => string;
+  let getTextInRange: (document, Range.t) => string;
+  let replaceText: (document, Range.t, string) => Promise.t(bool);
   let replaceTextBatch:
-    (editor, array((Range.t, string))) => Promise.t(bool);
-  let insertText: (editor, Point.t, string) => Promise.t(bool);
-  let insertTexts: (editor, array(Point.t), string) => Promise.t(bool);
-  let deleteText: (editor, Range.t) => Promise.t(bool);
+    (document, array((Range.t, string))) => Promise.t(bool);
+  let insertText: (document, Point.t, string) => Promise.t(bool);
+  let insertTexts: (document, array(Point.t), string) => Promise.t(bool);
+  let deleteText: (document, Range.t) => Promise.t(bool);
 
   type changeEvent = {
     offset: int,
@@ -164,9 +168,12 @@ module type Editor = {
 
   let copyToClipboard: string => Promise.t(unit);
   let colorThemeIsDark: unit => bool;
-  let lineEndingIsCRLF: editor => bool;
+  let lineEndingIsCRLF: document => bool;
 
   // for VSCode https://code.visualstudio.com/api/language-extensions/programmatic-language-features
   let registerProvider:
-    ((fileName, Point.t) => option((fileName, Point.t))) => Disposable.t;
+    (
+      (fileName, Point.t) => option(Promise.t(array((fileName, Point.t))))
+    ) =>
+    Disposable.t;
 };

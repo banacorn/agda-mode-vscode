@@ -16,17 +16,18 @@ module Impl = (Editor: Sig.Editor) => {
               EditorIM.deactivate(state.editorIM);
               Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
             } else {
+              let document = Editor.getDocument(state.editor);
               // activated the input method with positions of cursors
               let startingRanges: array((int, int)) =
                 Editor.getSelections(state.editor)
                 ->Array.map(range =>
                     (
                       Editor.offsetAtPoint(
-                        state.editor,
+                        document,
                         Editor.Range.start(range),
                       ),
                       Editor.offsetAtPoint(
-                        state.editor,
+                        document,
                         Editor.Range.end_(range),
                       ),
                     )

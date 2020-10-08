@@ -57,15 +57,16 @@ module Impl = (Editor: Sig.Editor) => {
     state
     ->State.connect
     ->Promise.mapOk(connection => {
+        let document = Editor.getDocument(state.editor);
         let version = connection.metadata.version;
         let filepath =
-          Editor.getFileName(state.editor)->Option.getWithDefault("");
+          Editor.getFileName(document)->Option.getWithDefault("");
         let libraryPath = Editor.Config.getLibraryPath();
         let highlightingMethod = Editor.Config.getHighlightingMethod();
         let backend = Editor.Config.getBackend();
         let encoded =
           Request.encode(
-            state.editor,
+            document,
             version,
             filepath,
             backend,
@@ -282,15 +283,17 @@ module Impl = (Editor: Sig.Editor) => {
     state->State.onRemoveFromRegistry->Promise.get(removeFromRegistry);
 
     // register a definition provider to implement go-to-definition
-    Editor.registerProvider((fileName, point)
+    Editor.registerProvider((fileName, point) => {
       // only provide source location, when the filenames are matched
-      =>
-        if (Some(fileName) == Editor.getFileName(state.editor)) {
-          Decoration.lookupSrcLoc(state.decorations, point);
-        } else {
-          None;
-        }
-      )
+
+      let currentFileName =
+        Editor.getFileName(Editor.getDocument(state.editor));
+      if (Some(fileName) == currentFileName) {
+        Decoration.lookupSrcLoc(state.decorations, point);
+      } else {
+        None;
+      };
+    })
     ->Js.Array.push(state.subscriptions)
     ->ignore;
 

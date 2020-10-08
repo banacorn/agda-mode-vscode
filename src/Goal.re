@@ -30,10 +30,11 @@ module Impl = (Editor: Sig.Editor) => {
       );
 
   let generateDiffs =
-      (editor: Editor.editor, indices: array(int)): array(SourceFile.Diff.t) => {
+      (document: Editor.document, indices: array(int))
+      : array(SourceFile.Diff.t) => {
     let filePath =
-      Editor.getFileName(editor)->Option.getWithDefault("unnamed.agda");
-    let source = Editor.getText(editor);
+      Editor.getFileName(document)->Option.getWithDefault("unnamed.agda");
+    let source = Editor.getText(document);
     SourceFile.parse(indices, filePath, source);
   };
 
@@ -41,7 +42,8 @@ module Impl = (Editor: Sig.Editor) => {
   // modifies the text buffer along the way
   let makeMany =
       (editor: Editor.editor, indices: array(int)): Promise.t(array(t)) => {
-    let diffs = generateDiffs(editor, indices);
+    let document = Editor.getDocument(editor);
+    let diffs = generateDiffs(document, indices);
     // scan through the diffs to modify the text buffer one by one
 
     let delta = ref(0);
@@ -51,8 +53,14 @@ module Impl = (Editor: Sig.Editor) => {
       ->Array.map(diff => {
           let range =
             Editor.Range.make(
-              Editor.pointAtOffset(editor, fst(diff.originalRange) - delta^),
-              Editor.pointAtOffset(editor, snd(diff.originalRange) - delta^),
+              Editor.pointAtOffset(
+                document,
+                fst(diff.originalRange) - delta^,
+              ),
+              Editor.pointAtOffset(
+                document,
+                snd(diff.originalRange) - delta^,
+              ),
             );
 
           // update the delta
@@ -65,7 +73,7 @@ module Impl = (Editor: Sig.Editor) => {
           (range, text);
         });
 
-    Editor.replaceTextBatch(editor, replacements)
+    Editor.replaceTextBatch(document, replacements)
     ->Promise.map(_ => {
         diffs->Array.map(diff => {
           let (decorationBackground, decorationIndex) =
@@ -81,9 +89,9 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   // parse the whole source file and update the ranges of an array of Goal.t
-  let updateRanges = (goals: array(t), editor: Editor.editor) => {
+  let updateRanges = (goals: array(t), document: Editor.document) => {
     let indices = goals->Array.map(goal => goal.index);
-    let diffs = generateDiffs(editor, indices);
+    let diffs = generateDiffs(document, indices);
     diffs->Array.forEachWithIndex((i, diff) => {
       switch (goals[i]) {
       | None => () // do nothing :|
@@ -116,7 +124,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let setCursor = (self, editor) => {
     let (start, _) = self.range;
-    let point = Editor.pointAtOffset(editor, start + 3);
+    let point = Editor.pointAtOffset(Editor.getDocument(editor), start + 3);
     Editor.setCursorPosition(editor, point);
   };
 
@@ -145,7 +153,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   let refreshDecoration = (self, editor: Editor.editor) => {
     // redecorate the background
-    let range = getOuterRange(self, editor);
+    let range = getOuterRange(self, Editor.getDocument(editor));
     Editor.Decoration.decorate(editor, self.decorationBackground, [|range|]);
     // redecorate the index
     let range =

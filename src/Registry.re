@@ -8,7 +8,7 @@ module Impl = (Editor: Sig.Editor) => {
   let get = fileName => dict->Js.Dict.get(fileName);
 
   let getByEditor = (editor: Editor.editor) =>
-    editor->Editor.getFileName->Option.flatMap(get);
+    editor->Editor.getDocument->Editor.getFileName->Option.flatMap(get);
 
   // do nothing if the state already exists
   let add = (fileName, dispatcher) => {

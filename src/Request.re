@@ -41,7 +41,7 @@ module Impl = (Editor: Sig.Editor) => {
   // encode Request.t to String
   let encode =
       (
-        editor: Editor.editor,
+        document: Editor.document,
         version,
         filepath: string,
         backend: string,
@@ -75,9 +75,9 @@ module Impl = (Editor: Sig.Editor) => {
 
     let buildRange = goal =>
       if (Util.Version.gte(version, "2.5.1")) {
-        Goal.buildHaskellRange(editor, goal, false, filepath);
+        Goal.buildHaskellRange(document, goal, false, filepath);
       } else {
-        Goal.buildHaskellRange(editor, goal, true, filepath);
+        Goal.buildHaskellRange(document, goal, true, filepath);
       };
 
     // assemble them
@@ -129,7 +129,7 @@ module Impl = (Editor: Sig.Editor) => {
     // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
     | Give(goal) =>
       let index: string = string_of_int(goal.index);
-      let content: string = Goal.getContent(goal, editor);
+      let content: string = Goal.getContent(goal, document);
       let range: string = buildRange(goal);
       if (Util.Version.gte(version, "2.5.3")) {
         commonPart(NonInteractive)
@@ -141,7 +141,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     | Refine(goal) =>
       let index: string = string_of_int(goal.index);
-      let content: string = Goal.getContent(goal, editor);
+      let content: string = Goal.getContent(goal, document);
       let range: string = buildRange(goal);
       commonPart(NonInteractive)
       ++ {j|( Cmd_refine_or_intro False $(index) $(range) "$(content)" )|j};
@@ -155,7 +155,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     | Auto(goal) =>
       let index: string = string_of_int(goal.index);
-      let content: string = Goal.getContent(goal, editor);
+      let content: string = Goal.getContent(goal, document);
       let range: string = buildRange(goal);
       if (Util.Version.gte(version, "2.6.0.1")) {
         // after 2.6.0.1
@@ -169,7 +169,7 @@ module Impl = (Editor: Sig.Editor) => {
 
     | Case(goal) =>
       let index: string = string_of_int(goal.index);
-      let content: string = Goal.getContent(goal, editor);
+      let content: string = Goal.getContent(goal, document);
       let range: string = buildRange(goal);
       commonPart(NonInteractive)
       ++ {j|( Cmd_make_case $(index) $(range) "$(content)" )|j};

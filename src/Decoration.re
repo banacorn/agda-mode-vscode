@@ -13,9 +13,9 @@ module Impl = (Editor: Sig.Editor) => {
   type srcLoc = {
     // range of the reference
     refRange: Editor.Range.t,
-    // file/position of the source
+    // file/offset of the source
     srcFile: Highlighting.filepath,
-    srcPoint: Editor.Point.t,
+    srcOffset: int,
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,10 +23,11 @@ module Impl = (Editor: Sig.Editor) => {
 
   let decorateHole =
       (editor: Editor.editor, (start, end_): (int, int), index: int) => {
+    let document = Editor.getDocument(editor);
     let backgroundRange =
       Editor.Range.make(
-        Editor.pointAtOffset(editor, start),
-        Editor.pointAtOffset(editor, end_),
+        Editor.pointAtOffset(document, start),
+        Editor.pointAtOffset(document, end_),
       );
 
     let background =
@@ -38,8 +39,8 @@ module Impl = (Editor: Sig.Editor) => {
     let indexText = string_of_int(index);
     let indexRange =
       Editor.Range.make(
-        Editor.pointAtOffset(editor, start),
-        Editor.pointAtOffset(editor, end_ - 2),
+        Editor.pointAtOffset(document, start),
+        Editor.pointAtOffset(document, end_ - 2),
       );
 
     let index =
@@ -56,8 +57,8 @@ module Impl = (Editor: Sig.Editor) => {
   // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
   // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
   // We need to count how many `CR`s are skipped and add them back to the offsets
-  let normalize = (editor, point) => {
-    let useCRLF = Editor.lineEndingIsCRLF(editor);
+  let normalize = (document, point) => {
+    let useCRLF = Editor.lineEndingIsCRLF(document);
     if (useCRLF) {
       let skippedCRLF = Editor.Point.line(point);
       Editor.Point.translate(point, 0, skippedCRLF);
@@ -67,27 +68,27 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   // with compiled intervals for speeding the convertion
-  let offsetToPoint = (editor, intervals, offset) => {
+  let offsetToPoint = (document, intervals, offset) => {
     // UTF8 -> UTF16
     let offset = Editor.fromUTF8Offset(intervals, offset);
     // offset -> point
-    let point = Editor.pointAtOffset(editor, offset);
+    let point = Editor.pointAtOffset(document, offset);
     // unnormalized -> normalized
-    normalize(editor, point);
+    normalize(document, point);
   };
 
   // one off slow conversion for srclocs
-  let offsetToPointSlow = (editor, file, offset) => {
-    let text = Editor.getText(editor);
-    // Editor.openEditor(file)->Promise.map(Editor.getText)
-    let intervals = Editor.OffsetIntervals.compile(text);
-    // UTF8 -> UTF16
-    let offset = Editor.fromUTF8Offset(intervals, offset);
-    // offset -> point
-    let point = Editor.pointAtOffset(editor, offset);
-    // unnormalized -> normalized
-    normalize(editor, point);
-  };
+  // let offsetToPointSlow = (editor, file, offset) => {
+  //   let text = Editor.getText(editor);
+  //   // Editor.openEditor(file)->Promise.map(Editor.getText)
+  //   let intervals = Editor.OffsetIntervals.compile(text);
+  //   // UTF8 -> UTF16
+  //   let offset = Editor.fromUTF8Offset(intervals, offset);
+  //   // offset -> point
+  //   let point = Editor.pointAtOffset(editor, offset);
+  //   // unnormalized -> normalized
+  //   normalize(editor, point);
+  // };
 
   let decorateHighlightings =
       (editor: Editor.editor, highlightings: array(Highlighting.t))
@@ -98,7 +99,8 @@ module Impl = (Editor: Sig.Editor) => {
     Js.Console.timeStart("$$$ Decoration / aspects");
     Js.Console.timeStart("$$$ Decoration / aspects / offset conversion");
 
-    let text = Editor.getText(editor);
+    let document = Editor.getDocument(editor);
+    let text = Editor.getText(document);
 
     // for fast UTF8 => UTF16 index conversion
     let intervals = Editor.OffsetIntervals.compile(text);
@@ -115,8 +117,8 @@ module Impl = (Editor: Sig.Editor) => {
       highlightings->Array.map(highlighting => {
         // calculate the range of each highlighting
         let range = {
-          let start = offsetToPoint(editor, intervals, highlighting.start);
-          let end_ = offsetToPoint(editor, intervals, highlighting.end_);
+          let start = offsetToPoint(document, intervals, highlighting.start);
+          let end_ = offsetToPoint(document, intervals, highlighting.end_);
 
           Editor.Range.make(start, end_);
         };
@@ -137,12 +139,8 @@ module Impl = (Editor: Sig.Editor) => {
     // array of Range & source location
     let srcLocs: array(srcLoc) =
       highlightings->Array.keepMap(((refRange, _, source)) =>
-        source->Option.map(((srcFile, offset)) =>
-          {
-            refRange,
-            srcFile,
-            srcPoint: offsetToPointSlow(editor, srcFile, offset),
-          }
+        source->Option.map(((srcFile, srcOffset)) =>
+          {refRange, srcFile, srcOffset}
         )
       );
     Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion");
@@ -329,14 +327,32 @@ module Impl = (Editor: Sig.Editor) => {
 
   // TODO: speed this up
   let lookupSrcLoc =
-      (self, point): option((Highlighting.filepath, Editor.Point.t)) => {
+      (self, point)
+      : option(Promise.t(array((Highlighting.filepath, Editor.Point.t)))) => {
     Js.Array.find(
       (srcLoc: srcLoc) => Editor.Range.contains(srcLoc.refRange, point),
       self.srcLocs,
     )
     ->Option.map(srcLoc => {
-        Js.log(srcLoc);
-        (srcLoc.srcFile, srcLoc.srcPoint);
+        Editor.openDocument(srcLoc.srcFile)
+        ->Promise.map(document => {
+            let text = Editor.getText(document);
+            Js.log(text);
+            [||];
+          })
+        // let readFile = N.Util.promisify(N.Fs.readFile);
+        // readFile(. srcLoc.srcFile)
+        // ->Promise.Js.fromBsPromise
+        // ->Promise.Js.toResult
+        // ->Promise.map(
+        //     fun
+        //     | Error(_) => [||]
+        //     | Ok(buffer) => {
+        //         let text = Node.Buffer.toString(buffer);
+        //         Js.log(text);
+        //         [||];
+        //       },
+        //   );
       });
   };
 };

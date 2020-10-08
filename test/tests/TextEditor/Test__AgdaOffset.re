@@ -105,7 +105,8 @@ module Impl = (Editor: Sig.Editor) => {
       P.it("should do it right", () => {
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.toUTF8Offset(n);
+            let f = n =>
+              textEditor->Editor.getDocument->Editor.toUTF8Offset(n);
             Assert.equal(f(0), 0);
             Assert.equal(f(1), 1); // cuts grapheme in half, toUTF8Offset is a partial function
             Assert.equal(f(2), 1);
@@ -125,7 +126,8 @@ module Impl = (Editor: Sig.Editor) => {
         // toUTF8Offset . fromUTF8Offset = id
         Editor.openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
         ->Promise.map(textEditor => {
-            let f = n => textEditor->Editor.toUTF8Offset(n);
+            let f = n =>
+              textEditor->Editor.getDocument->Editor.toUTF8Offset(n);
             let g = n =>
               Editor.OffsetIntervals.compile({j|𝐀a𝐁bb𝐂c\na|j})
               ->Editor.fromUTF8Offset(n);
@@ -151,7 +153,8 @@ module Impl = (Editor: Sig.Editor) => {
             let f = n =>
               Editor.OffsetIntervals.compile({j|𝐀a𝐁bb𝐂c\na|j})
               ->Editor.fromUTF8Offset(n);
-            let g = n => textEditor->Editor.toUTF8Offset(n);
+            let g = n =>
+              textEditor->Editor.getDocument->Editor.toUTF8Offset(n);
             Assert.equal(f(g(0)), 0);
             Assert.equal(f(g(2)), 2);
             Assert.equal(f(g(3)), 3);

@@ -37,13 +37,15 @@ module Impl = (Editor: Sig.Editor) => {
   let cleanup = setup => {
     let range =
       Editor.Range.make(Editor.Point.make(0, 0), Editor.Point.make(100, 0));
-    setup.editor->Editor.replaceText(range, "")->map(_ => Ok());
+    setup.editor->Editor.getDocument->Editor.replaceText(range, "");
+    // ->map(_ => Ok());
   };
 
   let insertChar = (setup, char) => {
     let promise = setup.emitter.once();
     let positions = Editor.getCursorPositions(setup.editor);
     setup.editor
+    ->Editor.getDocument
     ->Editor.insertTexts(positions, char)
     ->flatMap(_ => promise)
     ->map(x => Ok(x));
@@ -55,6 +57,7 @@ module Impl = (Editor: Sig.Editor) => {
     let start = end_->Editor.Point.translate(0, -1);
     let range = Editor.Range.make(start, end_);
     setup.editor
+    ->Editor.getDocument
     ->Editor.deleteText(range)
     ->flatMap(_ => promise)
     ->map(x => Ok(x));
@@ -72,7 +75,7 @@ module Impl = (Editor: Sig.Editor) => {
       ->flatMap(result => result)
       ->flatMap(_ => promise)
       ->map(x => Ok(x));
-      // setup.editor->Editor.insertTexts(points, "\\")->flatMap(_ => promise);
+      // document->Editor.insertTexts(points, "\\")->flatMap(_ => promise);
     };
 
     let deactivate = setup => {
@@ -101,70 +104,56 @@ module Impl = (Editor: Sig.Editor) => {
       Q.it({j|should translate "lambdabar" to "λ"|j}, () => {
         acquire(setup)
         ->flatMapOk(setup => {
+            let document = Editor.getDocument(setup.editor);
             IM.activate(setup, ())
             ->flatMapOk(A.equal(EditorIM.Activate))
             ->flatMapOk(() => insertChar(setup, "l"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|←|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "a"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|←a|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|←a|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "m"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|←am|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|←am|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "b"))
             ->flatMapOk(A.equal(EditorIM.Change))
             ->flatMapOk(() =>
-                A.equal({j|←amb|j}, Editor.getText(setup.editor))
+                A.equal({j|←amb|j}, Editor.getText(document))
               )
             ->flatMapOk(() => insertChar(setup, "d"))
             ->flatMapOk(A.equal(EditorIM.Change))
             ->flatMapOk(() =>
-                A.equal({j|←ambd|j}, Editor.getText(setup.editor))
+                A.equal({j|←ambd|j}, Editor.getText(document))
               )
             ->flatMapOk(() => insertChar(setup, "a"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|λ|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|λ|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "b"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|λb|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|λb|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "a"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|λba|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|λba|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "r"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|ƛ|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|ƛ|j}, Editor.getText(document)));
           })
       });
       Q.it({j|should translate "bn" to "𝕟"|j}, () => {
         acquire(setup)
         ->flatMapOk(setup => {
+            let document = Editor.getDocument(setup.editor);
             IM.activate(setup, ())
             ->flatMapOk(A.equal(EditorIM.Activate))
             ->flatMapOk(() => insertChar(setup, "b"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() => {
-                A.equal({j|♭|j}, Editor.getText(setup.editor))
-              })
+            ->flatMapOk(() => {A.equal({j|♭|j}, Editor.getText(document))})
             ->flatMapOk(() => insertChar(setup, "n"))
             ->flatMapOk(A.equal(EditorIM.Change))
             ->flatMapOk(() => {
-                A.equal({j|𝕟|j}, Editor.getText(setup.editor))
-              })
+                A.equal({j|𝕟|j}, Editor.getText(document))
+              });
             // ->flatMapOk(() => IM.deactivate(setup))
             // ->flatMapOk(A.equal(EditorIM.Deactivate))
           })
@@ -174,45 +163,38 @@ module Impl = (Editor: Sig.Editor) => {
       Q.it({j|should work just fine|j}, () => {
         acquire(setup)
         ->flatMapOk(setup => {
+            let document = Editor.getDocument(setup.editor);
             IM.activate(setup, ())
             ->flatMapOk(A.equal(EditorIM.Activate))
             ->flatMapOk(() => insertChar(setup, "l"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|←|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|←|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "a"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|←a|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|←a|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "m"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|←am|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|←am|j}, Editor.getText(document)))
             ->flatMapOk(() => insertChar(setup, "b"))
             ->flatMapOk(A.equal(EditorIM.Change))
             ->flatMapOk(() =>
-                A.equal({j|←amb|j}, Editor.getText(setup.editor))
+                A.equal({j|←amb|j}, Editor.getText(document))
               )
             ->flatMapOk(() => insertChar(setup, "d"))
             ->flatMapOk(A.equal(EditorIM.Change))
             ->flatMapOk(() =>
-                A.equal({j|←ambd|j}, Editor.getText(setup.editor))
+                A.equal({j|←ambd|j}, Editor.getText(document))
               )
             ->flatMapOk(() => insertChar(setup, "a"))
             ->flatMapOk(A.equal(EditorIM.Change))
-            ->flatMapOk(() =>
-                A.equal({j|λ|j}, Editor.getText(setup.editor))
-              )
+            ->flatMapOk(() => A.equal({j|λ|j}, Editor.getText(document)))
             ->flatMapOk(() => backspace(setup))
             ->flatMapOk(A.equal(EditorIM.Change))
             ->flatMapOk(() => {
-                A.equal({j|lambd|j}, Editor.getText(setup.editor))
+                A.equal({j|lambd|j}, Editor.getText(document))
               })
             ->flatMapOk(() => IM.deactivate(setup))
-            ->flatMapOk(A.equal(EditorIM.Deactivate))
+            ->flatMapOk(A.equal(EditorIM.Deactivate));
           })
       })
     });
@@ -228,7 +210,9 @@ module Impl = (Editor: Sig.Editor) => {
 
         acquire(setup)
         ->flatMapOk(setup => {
-            setup.editor
+            let document = Editor.getDocument(setup.editor);
+
+            document
             ->Editor.insertText(Editor.Point.make(0, 0), "\n\n\n")
             ->flatMap(_ => IM.activate(setup, ~positions, ()))
             ->flatMapOk(A.equal(EditorIM.Activate))
@@ -237,7 +221,7 @@ module Impl = (Editor: Sig.Editor) => {
             ->flatMapOk(() =>
                 A.equal(
                   {j|♭\n♭\n♭\n♭|j},
-                  replaceCRLF(Editor.getText(setup.editor)),
+                  replaceCRLF(Editor.getText(document)),
                 )
               )
             ->flatMapOk(() => insertChar(setup, "n"))
@@ -245,9 +229,9 @@ module Impl = (Editor: Sig.Editor) => {
             ->flatMapOk(() =>
                 A.equal(
                   {j|𝕟\n𝕟\n𝕟\n𝕟|j},
-                  replaceCRLF(Editor.getText(setup.editor)),
+                  replaceCRLF(Editor.getText(document)),
                 )
-              )
+              );
           });
       });
     });

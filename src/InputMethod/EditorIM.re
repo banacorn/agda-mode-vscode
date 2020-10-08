@@ -22,8 +22,9 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
     let make = (editor, range) => {
-      let start = Editor.pointAtOffset(editor, fst(range));
-      let end_ = Editor.pointAtOffset(editor, snd(range));
+      let document = Editor.getDocument(editor);
+      let start = Editor.pointAtOffset(document, fst(range));
+      let end_ = Editor.pointAtOffset(document, snd(range));
       {
         range,
         decoration: [|
@@ -42,11 +43,12 @@ module Impl = (Editor: Sig.Editor) => {
     };
 
     let redocorate = (instance, editor) => {
+      let document = Editor.getDocument(editor);
       instance.decoration->Array.forEach(Editor.Decoration.destroy);
       instance.decoration = [||];
       let (start, end_) = instance.range;
-      let start = Editor.pointAtOffset(editor, start);
-      let end_ = Editor.pointAtOffset(editor, end_);
+      let start = Editor.pointAtOffset(document, start);
+      let end_ = Editor.pointAtOffset(document, end_);
       instance.decoration = [|
         Editor.Decoration.underlineText(
           editor,
@@ -88,8 +90,8 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   // kill the Instances that are not are not pointed by cursors
-  let checkCursorPositions = (self, editor, points: array(Editor.Point.t)) => {
-    let offsets = points->Array.map(Editor.offsetAtPoint(editor));
+  let checkCursorPositions = (self, document, points: array(Editor.Point.t)) => {
+    let offsets = points->Array.map(Editor.offsetAtPoint(document));
     log(
       "\n### Cursors  : "
       ++ Js.Array.sortInPlaceWith(compare, offsets)
@@ -171,6 +173,7 @@ module Impl = (Editor: Sig.Editor) => {
 
   // iterate through a list of rewrites and apply them to the text editor
   let applyRewrites = (self, editor, rewrites) => {
+    let document = Editor.getDocument(editor);
     // before applying edits to the text editor, flip the semaphore
     self.busy = true;
     // iterate though the list of rewrites
@@ -178,13 +181,17 @@ module Impl = (Editor: Sig.Editor) => {
     ->Array.map(({rangeBefore, rangeAfter, text, instance}, ()) => {
         let editorRange =
           Editor.Range.make(
-            Editor.pointAtOffset(editor, fst(rangeBefore)),
-            Editor.pointAtOffset(editor, snd(rangeBefore)),
+            Editor.pointAtOffset(document, fst(rangeBefore)),
+            Editor.pointAtOffset(document, snd(rangeBefore)),
           );
         // update the text buffer
-        Editor.deleteText(editor, editorRange)
+        Editor.deleteText(document, editorRange)
         ->Promise.flatMap(_ => {
-            Editor.insertText(editor, Editor.Range.start(editorRange), text)
+            Editor.insertText(
+              document,
+              Editor.Range.start(editorRange),
+              text,
+            )
           })
         ->Promise.map(_ => {
             // update range offsets and redecorate the Instance
@@ -206,7 +213,7 @@ module Impl = (Editor: Sig.Editor) => {
         // see if there are any pending cursor positions to be checked
         switch (self.cursorsToBeChecked) {
         | None => ()
-        | Some(points) => checkCursorPositions(self, editor, points)
+        | Some(points) => checkCursorPositions(self, document, points)
         };
       });
   };
@@ -323,7 +330,7 @@ module Impl = (Editor: Sig.Editor) => {
         self.cursorsToBeChecked =
           Some(points);
       } else {
-        checkCursorPositions(self, editor, points);
+        checkCursorPositions(self, Editor.getDocument(editor), points);
       }
     )
     ->Js.Array.push(self.handles)
@@ -451,14 +458,14 @@ module Impl = (Editor: Sig.Editor) => {
   let insertBackslash = editor => {
     Editor.getCursorPositions(editor)
     ->Array.forEach(point => {
-        Editor.insertText(editor, point, "\\")->ignore
+        Editor.insertText(Editor.getDocument(editor), point, "\\")->ignore
       });
   };
   let insertChar = (editor, char) => {
     let char = Js.String.charAt(0, char);
     Editor.getCursorPositions(editor)
     ->Array.forEach(point => {
-        Editor.insertText(editor, point, char)->ignore
+        Editor.insertText(Editor.getDocument(editor), point, char)->ignore
       });
   };
 };

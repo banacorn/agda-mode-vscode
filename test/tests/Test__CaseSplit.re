@@ -36,19 +36,20 @@ module Impl = (Editor: Sig.Editor) => {
       "should calculate the infomation needed for case splitting correctly", ()
       => {
         Editor.openEditor(Path.asset("CaseSplit.agda"))
-        ->Promise.flatMap(editor => {
+        ->Promise.map(editor => {
+            let document = Editor.getDocument(editor);
             Goal.makeMany(editor, [|0, 1, 2, 3, 4, 5, 6, 7, 8|])
             ->Promise.map(goals => {
                 goals->Array.map(goal => {
                   // convert `rewriteRange` to text in that range because range offsets are different on different OSs
                   let (inWhereClause, indentWidth, rewriteRange) =
-                    GoalHandler.caseSplitAux(editor, goal);
+                    GoalHandler.caseSplitAux(document, goal);
                   let rewriteRange =
-                    Editor.Range.fromOffset(editor, rewriteRange);
+                    Editor.Range.fromOffset(document, rewriteRange);
                   (
                     inWhereClause,
                     indentWidth,
-                    Editor.getTextInRange(editor, rewriteRange),
+                    Editor.getTextInRange(document, rewriteRange),
                   );
                 })
               })
@@ -67,7 +68,7 @@ module Impl = (Editor: Sig.Editor) => {
                     (false, 13, {j|x → {!   !}|j}),
                   |],
                 )
-              })
+              });
           })
         ->Promise.Js.toBsPromise
       })

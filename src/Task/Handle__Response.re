@@ -97,7 +97,7 @@ module Impl = (Editor: Sig.Editor) => {
           state => {
             // only jump to site of error
             // when it's on the same file
-            switch (Editor.getFileName(state.editor)) {
+            switch (Editor.getFileName(Editor.getDocument(state.editor))) {
             | None => Promise.resolved([])
             | Some(path) =>
               if (path == filepath) {

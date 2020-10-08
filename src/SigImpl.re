@@ -1,6 +1,7 @@
 open VSCode;
 
 type editor = TextEditor.t;
+type document = TextDocument.t;
 type context = ExtensionContext.t;
 module Disposable = {
   type t = Disposable.t;
@@ -28,11 +29,11 @@ module Point = {
     };
 };
 
-let pointAtOffset = (editor, offset) =>
-  editor->TextEditor.document->TextDocument.positionAt(offset);
+let pointAtOffset = (document, offset) =>
+  document->TextDocument.positionAt(offset);
 
-let offsetAtPoint = (editor, point) =>
-  editor->TextEditor.document->TextDocument.offsetAt(point);
+let offsetAtPoint = (document, point) =>
+  document->TextDocument.offsetAt(point);
 
 module Range = {
   type t = Range.t;
@@ -42,8 +43,8 @@ module Range = {
 
   let contains = Range.contains;
   let containsRange = Range.containsRange;
-  let fromOffset = (editor, (start, end_)) =>
-    make(pointAtOffset(editor, start), pointAtOffset(editor, end_));
+  let fromOffset = (document, (start, end_)) =>
+    make(pointAtOffset(document, start), pointAtOffset(document, end_));
 };
 
 type fileName = string;
@@ -54,8 +55,13 @@ let editorType = Sig.VsCode;
 
 let getExtensionPath = context => context->ExtensionContext.extensionPath;
 
-let getFileName = editor =>
-  Some(editor->TextEditor.document->TextDocument.fileName->Parser.filepath);
+let getFileName = document =>
+  Some(document->TextDocument.fileName->Parser.filepath);
+
+let getDocument = TextEditor.document;
+
+let openDocument = fileName =>
+  Workspace.openTextDocumentWithFileName(fileName);
 
 let openEditor = fileName =>
   Window.showTextDocumentWithUri(Uri.file(fileName), None);
@@ -68,7 +74,7 @@ let openEditorWithContent = content =>
       Window.showTextDocumentWithShowOptions(textDocument, None)
     );
 
-let save = editor => editor->TextEditor.document->TextDocument.save;
+let save = TextDocument.save;
 
 let getDisposables = context => context->ExtensionContext.subscriptions;
 
@@ -98,8 +104,10 @@ let onDidChangeActivation = callback => {
   let previous = ref(Window.activeTextEditor);
 
   Window.onDidChangeActiveTextEditor(next =>
-    if (next->Option.flatMap(getFileName)
-        != (previous^)->Option.flatMap(getFileName)) {
+    if (next->Option.map(TextEditor.document)->Option.flatMap(getFileName)
+        != (previous^)
+           ->Option.map(TextEditor.document)
+           ->Option.flatMap(getFileName)) {
       callback(previous^, next);
       previous := next;
     }
@@ -109,7 +117,10 @@ let onDidChangeActivation = callback => {
 let registerCommand = (name, callback) =>
   Commands.registerCommand("agda-mode." ++ name, () =>
     Window.activeTextEditor->Option.flatMap(editor =>
-      editor->getFileName->Option.map(fileName => callback(editor, fileName))
+      editor
+      ->TextEditor.document
+      ->getFileName
+      ->Option.map(fileName => callback(editor, fileName))
     )
   );
 
@@ -360,8 +371,8 @@ let onChangeCursorPosition = callback =>
     )
   );
 
-let rangeForLine = (editor, line) =>
-  editor->TextEditor.document->TextDocument.lineAt(line)->TextLine.range;
+let rangeForLine = (document, line) =>
+  document->TextDocument.lineAt(line)->TextLine.range;
 
 module OffsetIntervals = {
   //    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
@@ -476,65 +487,68 @@ let rec fromUTF8Offset = (self, index) => {
   };
 };
 
-let toUTF8Offset = (editor, offset) => {
+let toUTF8Offset = (document, offset) => {
   let range =
     VSCode.Range.make(
       VSCode.Position.make(0, 0), // start
-      editor->TextEditor.document->TextDocument.positionAt(offset) // end
+      document->TextDocument.positionAt(offset) // end
     );
-  let text = editor->TextEditor.document->TextDocument.getText(Some(range));
+  let text = document->TextDocument.getText(Some(range));
   Sig.characterWidth(text);
 };
 
-let getTextInRange = (editor, range) =>
-  editor->TextEditor.document->TextDocument.getText(Some(range));
-let getText = editor =>
-  editor->TextEditor.document->TextDocument.getText(None);
+let getTextInRange = (document, range) =>
+  document->TextDocument.getText(Some(range));
+let getText = document => document->TextDocument.getText(None);
 let selectText = (editor, range) => {
   let start = VSCode.Range.start(range);
   let end_ = VSCode.Range.end_(range);
   let selection = Selection.make(start, end_);
   editor->TextEditor.setSelection(selection);
 };
-let replaceText = (editor, range, text) => {
-  editor->TextEditor.edit(
-    editBuilder => {editBuilder->TextEditorEdit.replaceAtRange(range, text)},
+let replaceText = (document, range, text) => {
+  let workspaceEdit = WorkspaceEdit.make();
+  workspaceEdit->WorkspaceEdit.replace(
+    document->TextDocument.uri,
+    range,
+    text,
     None,
   );
+  Workspace.applyEdit(workspaceEdit);
 };
-let replaceTextBatch = (editor, replacements) => {
-  editor->TextEditor.edit(
-    editBuilder => {
-      replacements->Array.forEach(((range, text)) =>
-        editBuilder->TextEditorEdit.replaceAtRange(range, text)
-      )
-    },
-    None,
+let replaceTextBatch = (document, replacements) => {
+  let workspaceEdit = WorkspaceEdit.make();
+  replacements->Array.forEach(((range, text)) =>
+    workspaceEdit->WorkspaceEdit.replace(
+      document->TextDocument.uri,
+      range,
+      text,
+      None,
+    )
   );
+  Workspace.applyEdit(workspaceEdit);
 };
-let insertText = (editor, point, text) => {
+
+let insertText = (document, point, text) => {
   let workspaceEdit = WorkspaceEdit.make();
   workspaceEdit->WorkspaceEdit.insert(
-    editor->TextEditor.document->TextDocument.uri,
+    document->TextDocument.uri,
     point,
     text,
     None,
   );
   Workspace.applyEdit(workspaceEdit);
 };
-let insertTexts = (editor, points, text) => {
+let insertTexts = (document, points, text) => {
   let workspaceEdit = WorkspaceEdit.make();
   let textEdits = points->Array.map(point => TextEdit.insert(point, text));
-  workspaceEdit->WorkspaceEdit.set(
-    editor->TextEditor.document->TextDocument.uri,
-    textEdits,
-  );
+  workspaceEdit->WorkspaceEdit.set(document->TextDocument.uri, textEdits);
   Workspace.applyEdit(workspaceEdit);
 };
-let deleteText = (editor, range) => {
+let deleteText = (document, range) => {
   let workspaceEdit = WorkspaceEdit.make();
   workspaceEdit->WorkspaceEdit.delete(
-    editor->TextEditor.document->TextDocument.uri,
+    document->TextDocument.uri,
     range,
     None,
   );
@@ -573,8 +587,8 @@ let copyToClipboard = text => Env.clipboard->Clipboard.writeText(text);
 let colorThemeIsDark = () =>
   Window.activeColorTheme->ColorTheme.kind == ColorThemeKind.Dark;
 
-let lineEndingIsCRLF = editor =>
-  switch (editor->TextEditor.document->TextDocument.eol) {
+let lineEndingIsCRLF = document =>
+  switch (document->TextDocument.eol) {
   | EndOfLine.CRLF => true
   | _ => false
   };
@@ -585,10 +599,12 @@ let registerProvider = defnProvider => {
   let definitionProvider =
     DefinitionProvider.makeWithLocations((textDocument, point, _) => {
       defnProvider(textDocument->TextDocument.fileName, point)
-      ->Option.map(((fileName, position)) =>
-          Promise.resolved([|
-            Location.makeWithPosition(Uri.file(fileName), position),
-          |])
+      ->Option.map(result =>
+          result->Promise.map(pairs =>
+            pairs->Array.map(((fileName, position)) =>
+              Location.makeWithPosition(Uri.file(fileName), position)
+            )
+          )
         )
     });
 
