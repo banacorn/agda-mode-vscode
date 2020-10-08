@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.2.0 - TBA
 
+### Added 
+- #22: Go to definition! 
+
+### Change  
+- QoL UI updates
+
 ### Removed
 - Prank for [FLOLAC](https://flolac.iis.sinica.edu.tw/)
 

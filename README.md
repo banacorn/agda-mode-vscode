@@ -2,6 +2,11 @@
 
 Feedbacks, issues, and PRs all welcome!
 
+## LSP Features
+
+- [x] Go to definition
+- [ ] Type information on hover
+
 ## Installation
 
 1. Make sure that you have [agda](https://agda.readthedocs.io/en/latest/getting-started/installation.html) properly installed (check this in your terminal, type `agda` and see if it's on your machine).
