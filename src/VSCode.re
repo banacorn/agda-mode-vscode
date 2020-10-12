@@ -2288,27 +2288,6 @@ module DiagnosticCollection = {
 
 module ProviderResult = {
   type t('a) = option(Promise.t('a));
-  //   type case('a) =
-  //     | Resolved(option('a))
-  //     | Promised(Promise.t(option('a)));
-  //   let resolved: option('a) => t('a);
-  //   let promised: Promise.t(option('a)) => t('a);
-  //   let classify: t('a) => case('a);
-  // } = {
-  //   [@unboxed]
-  //   type t('a) =
-  //     | Any('b): t('a);
-  //   type case('a) =
-  //     | Resolved(option('a))
-  //     | Promised(Promise.t(option('a)));
-  //   let resolved = (v: option('a)) => Any(v);
-  //   let promised = (v: Promise.t(option('a))) => Any(v);
-  //   let classify = (Any(v): t('a)): case('a) =>
-  //     if ([%raw {|function (a) { return a.then === undefined }|}](v)) {
-  //       Resolved(Obj.magic(v): option('a));
-  //     } else {
-  //       Promised(Obj.magic(v): Promise.t(option('a)));
-  //     };
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#CallHierarchyItem
@@ -2375,6 +2354,30 @@ module CompletionItemProvider = {
 // https://code.visualstudio.com/api/references/vscode-api#DeclarationProvider
 module DeclarationProvider = {
   type t;
+};
+
+// MarkedString is deprecated in favor of MarkdownString
+
+// https://code.visualstudio.com/api/references/vscode-api#Hover
+module Hover = {
+  type t;
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: array(MarkdownString.t) => t = "Hover";
+  [@bs.module "vscode"] [@bs.new]
+  external makeWithRange: (array(MarkdownString.t), Range.t) => t = "Hover";
+  // properties
+  [@bs.get] external contents: t => array(MarkdownString.t) = "contents";
+  [@bs.get] external range: t => option(Range.t) = "range";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#HoverProvider
+module HoverProvider = {
+  type t = {
+    provideHover:
+      (TextDocument.t, Position.t, CancellationToken.t) =>
+      ProviderResult.t(Hover.t),
+  };
 };
 
 module LocationLinkOrLocation: {
@@ -2508,7 +2511,11 @@ module Languages = {
   // registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider, metaData?: DocumentSymbolProviderMetadata): Disposable
   // registerEvaluatableExpressionProvider(selector: DocumentSelector, provider: EvaluatableExpressionProvider): Disposable
   // registerFoldingRangeProvider(selector: DocumentSelector, provider: FoldingRangeProvider): Disposable
-  // registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable
+
+  [@bs.module "vscode"] [@bs.scope "languages"]
+  external registerHoverProvider:
+    (DocumentSelector.t, HoverProvider.t) => Disposable.t =
+    "registerHoverProvider";
   // registerImplementationProvider(selector: DocumentSelector, provider: ImplementationProvider): Disposable
   // registerOnTypeFormattingEditProvider(selector: DocumentSelector, provider: OnTypeFormattingEditProvider, firstTriggerCharacter: string, ...moreTriggerCharacter: string[]): Disposable
   // registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable
