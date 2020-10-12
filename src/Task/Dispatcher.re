@@ -282,10 +282,9 @@ module Impl = (Editor: Sig.Editor) => {
     // remove it from the Registry if it requests to be destroyed
     state->State.onRemoveFromRegistry->Promise.get(removeFromRegistry);
 
-    // register a definition provider to implement go-to-definition
-    Editor.registerProvider((fileName, point) => {
+    // definition provider for go-to-definition
+    let definitionProvider = (fileName, point) => {
       // only provide source location, when the filenames are matched
-
       let currentFileName =
         Editor.getFileName(Editor.getDocument(state.editor));
       if (Some(fileName) == currentFileName) {
@@ -293,9 +292,25 @@ module Impl = (Editor: Sig.Editor) => {
       } else {
         None;
       };
-    })
-    ->Js.Array.push(state.subscriptions)
-    ->ignore;
+    };
+
+    // hover provider
+    let hoverProvider = (fileName, point) => {
+      // only provide source location, when the filenames are matched
+      let currentFileName =
+        Editor.getFileName(Editor.getDocument(state.editor));
+      if (Some(fileName) == currentFileName) {
+        let range = Editor.Range.make(point, point);
+        Some(Promise.resolved(([|"hover message here"|], range)));
+      } else {
+        None;
+      };
+    };
+
+    // registering feature providers
+    let disposables =
+      Editor.registerProvider(definitionProvider, hoverProvider);
+    state.subscriptions = Js.Array.concat(state.subscriptions, disposables);
 
     // return the dispatcher
     dispatcher;

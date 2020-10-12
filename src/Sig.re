@@ -174,7 +174,8 @@ module type Editor = {
   let registerProvider:
     (
       (fileName, Point.t) =>
-      option(Promise.t(array((Range.t, fileName, Point.t))))
+      option(Promise.t(array((Range.t, fileName, Point.t)))),
+      (fileName, Point.t) => option(Promise.t((array(string), Range.t)))
     ) =>
-    Disposable.t;
+    array(Disposable.t);
 };

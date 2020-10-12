@@ -2288,6 +2288,8 @@ module DiagnosticCollection = {
 
 module ProviderResult = {
   type t('a) = option(Promise.t('a));
+
+  let map = (x, f) => x->Belt.Option.map(result => result->Promise.map(f));
 };
 
 // https://code.visualstudio.com/api/references/vscode-api#CallHierarchyItem
@@ -2411,24 +2413,6 @@ module DefinitionProvider = {
     provideDefinition:
       (TextDocument.t, Position.t, CancellationToken.t) =>
       ProviderResult.t(LocationLinkOrLocation.t),
-  };
-  let make = (func): t => {provideDefinition: func};
-  // Represents a location inside a resource, such as a line inside a text file.
-  let makeWithLocations = (func): t => {
-    provideDefinition: (doc, point, token) =>
-      func(doc, point, token)
-      ->Belt.Option.map(result =>
-          result->Promise.map(LocationLinkOrLocation.locations)
-        ),
-  };
-  // Represents the connection of two locations.
-  // Provides additional metadata over normal locations, including an origin range.
-  let makeWithLocationLinks = (func): t => {
-    provideDefinition: (doc, point, token) =>
-      func(doc, point, token)
-      ->Belt.Option.map(result =>
-          result->Promise.map(LocationLinkOrLocation.locationLinks)
-        ),
   };
 };
 

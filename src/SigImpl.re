@@ -593,25 +593,47 @@ let lineEndingIsCRLF = document =>
   | _ => false
   };
 
-let registerProvider = defnProvider => {
+let registerProvider = (definitionProvider, hoverProvider) => {
   let documentSelector =
     MaybeArray.singular(DocumentFilterOrString.string("agda"));
-  let definitionProvider =
-    DefinitionProvider.makeWithLocationLinks((textDocument, point, _) => {
-      defnProvider(textDocument->TextDocument.fileName, point)
-      ->Option.map(result =>
-          result->Promise.map(pairs =>
-            pairs->Array.map(((srcRange, targetFile, targetPos)) =>
-              LocationLink.{
-                originSelectionRange: Some(srcRange),
-                targetRange: VSCode.Range.make(targetPos, targetPos),
-                targetSelectionRange: None,
-                targetUri: Uri.file(targetFile),
-              }
-            )
-          )
-        )
-    });
 
-  Languages.registerDefinitionProvider(documentSelector, definitionProvider);
+  let definitionProvider =
+    DefinitionProvider.{
+      provideDefinition: (textDocument, point, _) => {
+        definitionProvider(textDocument->TextDocument.fileName, point)
+        ->ProviderResult.map(pairs =>
+            LocationLinkOrLocation.locationLinks(
+              pairs->Array.map(((srcRange, targetFile, targetPos)) =>
+                LocationLink.{
+                  originSelectionRange: Some(srcRange),
+                  targetRange: VSCode.Range.make(targetPos, targetPos),
+                  targetSelectionRange: None,
+                  targetUri: Uri.file(targetFile),
+                }
+              ),
+            )
+          );
+      },
+    };
+
+  let hoverProvider =
+    HoverProvider.{
+      provideHover: (textDocument, point, _) =>
+        hoverProvider(textDocument->TextDocument.fileName, point)
+        ->ProviderResult.map(((strings, range)) => {
+            let markdownStrings =
+              strings->Belt.Array.map(string =>
+                MarkdownString.make(string, true)
+              );
+            Hover.makeWithRange(markdownStrings, range);
+          }),
+    };
+
+  [|
+    Languages.registerDefinitionProvider(
+      documentSelector,
+      definitionProvider,
+    ),
+    Languages.registerHoverProvider(documentSelector, hoverProvider),
+  |];
 };

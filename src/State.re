@@ -15,7 +15,7 @@ module Impl = (Editor: Sig.Editor) => {
     mutable cursor: option(Editor.Point.t),
     editorIM: EditorIM.t,
     promptIM: PromptIM.t,
-    subscriptions: array(Editor.Disposable.t),
+    mutable subscriptions: array(Editor.Disposable.t),
     // for self destruction
     onRemoveFromRegistry: Event.t(unit),
   };
