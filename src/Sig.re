@@ -178,4 +178,7 @@ module type Editor = {
       (fileName, Point.t) => option(Promise.t((array(string), Range.t)))
     ) =>
     array(Disposable.t);
+  let registerTestingProvider:
+    (fileName => option(Promise.t(array(int))), array(string)) =>
+    array(Disposable.t);
 };
