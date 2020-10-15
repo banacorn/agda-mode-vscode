@@ -2416,6 +2416,63 @@ module DefinitionProvider = {
   };
 };
 
+// https://code.visualstudio.com/api/references/vscode-api#SemanticsTokens
+module SemanticsTokens = {
+  type t;
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: array(int) => t = "SemanticsTokens";
+  [@bs.module "vscode"] [@bs.new]
+  external makeWithResultId: (array(int), string) => t = "SemanticsTokens";
+  // properties
+  [@bs.get] external data: t => array(int) = "data";
+  [@bs.get] external resultId: t => option(string) = "resultId";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#SemanticTokensLegend
+module SemanticTokensLegend = {
+  type t;
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: array(string) => t = "SemanticTokensLegend";
+  [@bs.module "vscode"] [@bs.new]
+  external makeWithTokenModifiers: (array(string), array(string)) => t =
+    "SemanticTokensLegend";
+  // properties
+  [@bs.get] external tokenModifiers: t => array(string) = "tokenModifiers";
+  [@bs.get] external tokenTypes: t => array(string) = "tokenTypes";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#SemanticTokensBuilder
+module SemanticTokensBuilder = {
+  type t;
+  // constructors
+  [@bs.module "vscode"] [@bs.new]
+  external make: unit => t = "SemanticTokensBuilder";
+  [@bs.module "vscode"] [@bs.new]
+  external makeWithLegend: SemanticTokensLegend.t => t =
+    "SemanticTokensBuilder";
+  // methods
+  [@bs.send] external build: unit => SemanticsTokens.t = "build";
+  [@bs.send] external buildWithResultId: string => SemanticsTokens.t = "build";
+  [@bs.send]
+  external push: (int, int, int, int, option(int)) => unit = "push";
+  [@bs.send]
+  external pushLegend: (Range.t, string, option(array(string))) => unit =
+    "push";
+};
+
+// https://code.visualstudio.com/api/references/vscode-api#DocumentSemanticTokensProvider
+module DocumentSemanticTokensProvider = {
+  // missing: onDidChangeSemanticTokens
+  // missing: provideDocumentSemanticTokensEdits
+  type t = {
+    provideDocumentSemanticTokens:
+      (TextDocument.t, CancellationToken.t) =>
+      ProviderResult.t(SemanticsTokens.t),
+  };
+};
+
 // https://code.visualstudio.com/api/references/vscode-api#languages
 module Languages = {
   // events
@@ -2491,7 +2548,15 @@ module Languages = {
   // registerDocumentLinkProvider(selector: DocumentSelector, provider: DocumentLinkProvider): Disposable
   // registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable
   // registerDocumentRangeSemanticTokensProvider(selector: DocumentSelector, provider: DocumentRangeSemanticTokensProvider, legend: SemanticTokensLegend): Disposable
-  // registerDocumentSemanticTokensProvider(selector: DocumentSelector, provider: DocumentSemanticTokensProvider, legend: SemanticTokensLegend): Disposable
+  [@bs.module "vscode"] [@bs.scope "languages"]
+  external registerDocumentSemanticTokensProvider:
+    (
+      DocumentSelector.t,
+      DocumentSemanticTokensProvider.t,
+      SemanticTokensLegend.t
+    ) =>
+    Disposable.t =
+    "registerDocumentSemanticTokensProvider";
   // registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider, metaData?: DocumentSymbolProviderMetadata): Disposable
   // registerEvaluatableExpressionProvider(selector: DocumentSelector, provider: EvaluatableExpressionProvider): Disposable
   // registerFoldingRangeProvider(selector: DocumentSelector, provider: FoldingRangeProvider): Disposable
