@@ -211,6 +211,89 @@ module Impl = (Editor: Sig.Editor) => {
     (Js.Array.concat(backgroundDecorations, foregroundDecorations), srcLocs);
   };
 
+  let generateSemanticTokens =
+      (
+        editor: Editor.editor,
+        highlightings: array(Highlighting.t),
+        push: (Editor.Range.t, string, option(array(string))) => unit,
+      )
+      : Promise.t(unit) => {
+    Js.Console.timeStart("$$$ Decoration / aspects");
+    Js.Console.timeStart("$$$ Decoration / aspects / offset conversion");
+
+    let document = Editor.getDocument(editor);
+    let text = Editor.getText(document);
+
+    // for fast UTF8 => UTF16 index conversion
+    let intervals = Editor.OffsetIntervals.compile(text);
+
+    // convert offsets in Highlighting.t to Ranges
+    let highlightings:
+      array(
+        (
+          Editor.Range.t,
+          array(Highlighting.Aspect.t),
+          option((Highlighting.filepath, int)),
+        ),
+      ) =
+      highlightings->Array.map(highlighting => {
+        // calculate the range of each highlighting
+        let range = {
+          let start = offsetToPoint(document, intervals, highlighting.start);
+          let end_ = offsetToPoint(document, intervals, highlighting.end_);
+
+          Editor.Range.make(start, end_);
+        };
+        (range, highlighting.aspects, highlighting.source);
+      });
+    // array of Aspect & Range
+    let aspects: array((Highlighting.Aspect.t, Editor.Range.t)) =
+      highlightings
+      ->Array.map(((range, aspects, _)) => {
+          // pair the aspect with the range
+          aspects->Array.map(aspect => (aspect, range))
+        })
+      ->Array.concatMany;
+
+    Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion");
+    Js.Console.timeStart("$$$ Decoration / aspects / dict bundling");
+    // // dictionaries of color-ranges mapping
+    // // speed things up by aggregating decorations of the same kind
+    // let backgroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
+    //   Js.Dict.empty();
+    // let foregroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
+    //   Js.Dict.empty();
+
+    // let addFaceToDict = (face: Highlighting.face, range) => {
+    //   switch (face) {
+    //   | Background(color) =>
+    //     switch (Js.Dict.get(backgroundColorDict, color)) {
+    //     | None => Js.Dict.set(backgroundColorDict, color, [|range|])
+    //     | Some(ranges) => Js.Array.push(range, ranges)->ignore
+    //     }
+    //   | Foreground(color) =>
+    //     switch (Js.Dict.get(foregroundColorDict, color)) {
+    //     | None => Js.Dict.set(foregroundColorDict, color, [|range|])
+    //     | Some(ranges) => Js.Array.push(range, ranges)->ignore
+    //     }
+    //   };
+    // };
+    Js.Console.timeEnd("$$$ Decoration / aspects / dict bundling");
+    Js.Console.timeEnd("$$$ Decoration / aspects");
+    Js.Console.timeStart("$$$ Decoration / dicts");
+
+    // convert Aspects to colors and collect them in the dict
+    aspects->Array.forEach(((aspect, range)) => {
+      let tokenType = "class";
+      let tokenModifier = None;
+      push(range, tokenType, tokenModifier);
+    });
+    Js.Console.timeEnd("$$$ Decoration / dicts");
+    Js.Console.timeStart("$$$ Decoration / apply");
+
+    Promise.resolved();
+  };
+
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 

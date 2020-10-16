@@ -2453,12 +2453,13 @@ module SemanticTokensBuilder = {
   external makeWithLegend: SemanticTokensLegend.t => t =
     "SemanticTokensBuilder";
   // methods
-  [@bs.send] external build: unit => SemanticsTokens.t = "build";
-  [@bs.send] external buildWithResultId: string => SemanticsTokens.t = "build";
+  [@bs.send] external build: t => SemanticsTokens.t = "build";
   [@bs.send]
-  external push: (int, int, int, int, option(int)) => unit = "push";
+  external buildWithResultId: (t, string) => SemanticsTokens.t = "build";
   [@bs.send]
-  external pushLegend: (Range.t, string, option(array(string))) => unit =
+  external push: (t, int, int, int, int, option(int)) => unit = "push";
+  [@bs.send]
+  external pushLegend: (t, Range.t, string, option(array(string))) => unit =
     "push";
 };
 

@@ -638,18 +638,22 @@ let registerProvider = (definitionProvider, hoverProvider) => {
   |];
 };
 
-let registerTestingProvider = (prodider, legend) => {
+let registerTestingProvider = (prodider, (tokenTypes, tokenModifiers)) => {
   let documentSelector =
     MaybeArray.singular(DocumentFilterOrString.string("agda"));
+  let semanticTokensLegend =
+    SemanticTokensLegend.makeWithTokenModifiers(tokenTypes, tokenModifiers);
 
   let documentSemanticTokensProvider =
     DocumentSemanticTokensProvider.{
-      provideDocumentSemanticTokens: (textDocument, _) =>
-        prodider(textDocument->TextDocument.fileName)
-        ->ProviderResult.map(SemanticsTokens.make),
+      provideDocumentSemanticTokens: (textDocument, _) => {
+        let builder =
+          SemanticTokensBuilder.makeWithLegend(semanticTokensLegend);
+        let pushLegend = SemanticTokensBuilder.pushLegend(builder);
+        prodider(textDocument->TextDocument.fileName, pushLegend)
+        ->ProviderResult.map(() => SemanticTokensBuilder.build(builder));
+      },
     };
-
-  let semanticTokensLegend = SemanticTokensLegend.make(legend);
 
   [|
     Languages.registerDocumentSemanticTokensProvider(

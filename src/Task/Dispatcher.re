@@ -133,7 +133,8 @@ module Impl = (Editor: Sig.Editor) => {
                 ->Array.map(snd)
                 ->List.concatMany;
               // apply decorations after all "NonLast" tasks before all "Last" tasks
-              let deferredTasks = [Task.Decoration(Apply), ...deferredTasks];
+              let deferredTasks = deferredTasks;
+              // let deferredTasks = [Task.Decoration(Apply), ...deferredTasks];
 
               TaskQueue.addToTheFront(queue, deferredTasks);
               true;
@@ -301,7 +302,7 @@ module Impl = (Editor: Sig.Editor) => {
         Editor.getFileName(Editor.getDocument(state.editor));
       if (Some(fileName) == currentFileName) {
         let range = Editor.Range.make(point, point);
-        Some(Promise.resolved(([|"hover message here"|], range)));
+        Some(Promise.resolved(([|""|], range)));
       } else {
         None;
       };
@@ -310,6 +311,32 @@ module Impl = (Editor: Sig.Editor) => {
     // registering feature providers
     let disposables =
       Editor.registerProvider(definitionProvider, hoverProvider);
+    state.subscriptions = Js.Array.concat(state.subscriptions, disposables);
+
+    // these two arrays are called "legends"
+    let tokenTypes = [|"class", "interface", "enum", "function", "variable"|];
+    let tokenModifiers = [|"declaration", "documentation"|];
+
+    let documentSemanticTokensProvider = (fileName, push) => {
+      let currentFileName =
+        Editor.getFileName(Editor.getDocument(state.editor));
+      if (Some(fileName) == currentFileName) {
+        Some(
+          Decoration.generateSemanticTokens(
+            editor,
+            state.decorations.highlightings,
+            push,
+          ),
+        );
+      } else {
+        None;
+      };
+    };
+    let disposables =
+      Editor.registerTestingProvider(
+        documentSemanticTokensProvider,
+        (tokenTypes, tokenModifiers),
+      );
     state.subscriptions = Js.Array.concat(state.subscriptions, disposables);
 
     // return the dispatcher
