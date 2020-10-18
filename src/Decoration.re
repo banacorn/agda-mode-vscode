@@ -218,9 +218,6 @@ module Impl = (Editor: Sig.Editor) => {
         push: (Editor.Range.t, string, option(array(string))) => unit,
       )
       : Promise.t(unit) => {
-    Js.Console.timeStart("$$$ Decoration / aspects");
-    Js.Console.timeStart("$$$ Decoration / aspects / offset conversion");
-
     let document = Editor.getDocument(editor);
     let text = Editor.getText(document);
 
@@ -255,41 +252,12 @@ module Impl = (Editor: Sig.Editor) => {
         })
       ->Array.concatMany;
 
-    Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion");
-    Js.Console.timeStart("$$$ Decoration / aspects / dict bundling");
-    // // dictionaries of color-ranges mapping
-    // // speed things up by aggregating decorations of the same kind
-    // let backgroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
-    //   Js.Dict.empty();
-    // let foregroundColorDict: Js.Dict.t(array(Editor.Range.t)) =
-    //   Js.Dict.empty();
-
-    // let addFaceToDict = (face: Highlighting.face, range) => {
-    //   switch (face) {
-    //   | Background(color) =>
-    //     switch (Js.Dict.get(backgroundColorDict, color)) {
-    //     | None => Js.Dict.set(backgroundColorDict, color, [|range|])
-    //     | Some(ranges) => Js.Array.push(range, ranges)->ignore
-    //     }
-    //   | Foreground(color) =>
-    //     switch (Js.Dict.get(foregroundColorDict, color)) {
-    //     | None => Js.Dict.set(foregroundColorDict, color, [|range|])
-    //     | Some(ranges) => Js.Array.push(range, ranges)->ignore
-    //     }
-    //   };
-    // };
-    Js.Console.timeEnd("$$$ Decoration / aspects / dict bundling");
-    Js.Console.timeEnd("$$$ Decoration / aspects");
-    Js.Console.timeStart("$$$ Decoration / dicts");
-
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
       let tokenType = "class";
       let tokenModifier = None;
       push(range, tokenType, tokenModifier);
     });
-    Js.Console.timeEnd("$$$ Decoration / dicts");
-    Js.Console.timeStart("$$$ Decoration / apply");
 
     Promise.resolved();
   };

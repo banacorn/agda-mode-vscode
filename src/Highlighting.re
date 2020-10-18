@@ -53,6 +53,134 @@ module Aspect = {
     // when the second field of Aspect.Name is True
     | Operator;
 
+  // namespace
+  // type, class, enum, interface, struct, typeParameter
+  // parameter, variable, property, enumMember, event
+  // function, member, macro
+  // label
+  // comment, string, keyword, number, regexp, operator
+
+  // VS Code Token type
+  // https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-classification
+  module TokenType = {
+    type t =
+      | Namespace
+      | Type
+      | Class
+      | Enum
+      | Interface
+      | Struct
+      | TypeParameter
+      | Parameter
+      | Variable
+      | Property
+      | EnumMember
+      | Event
+      | Function
+      | Member
+      | Macro
+      | Label
+      | Comment
+      | String
+      | Keyword
+      | Number
+      | Regexp
+      | Operator;
+
+    let toString =
+      fun
+      | Namespace => "namespace"
+      | Type => "type"
+      | Class => "class"
+      | Enum => "enum"
+      | Interface => "interface"
+      | Struct => "struct"
+      | TypeParameter => "typeParameter"
+      | Parameter => "parameter"
+      | Variable => "variable"
+      | Property => "property"
+      | EnumMember => "enumMember"
+      | Event => "event"
+      | Function => "function"
+      | Member => "member"
+      | Macro => "macro"
+      | Label => "label"
+      | Comment => "comment"
+      | String => "string"
+      | Keyword => "keyword"
+      | Number => "number"
+      | Regexp => "regexp"
+      | Operator => "operator";
+  };
+
+  // VS Code Token modifier
+  // https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-classification
+  module TokenModifier = {
+    type t =
+      | Declaration
+      | Readonly
+      | Static
+      | Deprecated
+      | Abstract
+      | Async
+      | Modification
+      | Documentation
+      | DefaultLibrary;
+
+    let toString =
+      fun
+      | Declaration => "declaration"
+      | Readonly => "readonly"
+      | Static => "static"
+      | Deprecated => "deprecated"
+      | Abstract => "abstract"
+      | Async => "async"
+      | Modification => "modification"
+      | Documentation => "documentation"
+      | DefaultLibrary => "defaultLibrary";
+  };
+
+  // let toTokenTypeAndModifiers = fun
+  //   | Comment => ()
+  //   | _ =>
+  // | Keyword
+  // | String
+  // | Number
+  // | Symbol
+  // | PrimitiveType
+  // | Pragma
+  // | Background
+  // | Markup
+  // // the OtherAspect part
+  // | Error
+  // | DottedPattern
+  // | UnsolvedMeta
+  // | UnsolvedConstraint
+  // | TerminationProblem
+  // | PositivityProblem
+  // | Deadcode
+  // | CoverageProblem
+  // | IncompletePattern
+  // | TypeChecks
+  // | CatchallClause
+  // | ConfluenceProblem
+  // // the NameKind part
+  // | Bound
+  // | Generalizable
+  // | ConstructorInductive
+  // | ConstructorCoInductive
+  // | Datatype
+  // | Field
+  // | Function
+  // | Module
+  // | Postulate
+  // | Primitive
+  // | Record
+  // | Argument
+  // | Macro
+  // // when the second field of Aspect.Name is True
+  // | Operator;
+
   let parse =
     fun
     | "comment" => Comment
