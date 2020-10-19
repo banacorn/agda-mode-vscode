@@ -211,6 +211,36 @@ module Impl = (Editor: Sig.Editor) => {
     (Js.Array.concat(backgroundDecorations, foregroundDecorations), srcLocs);
   };
 
+  // split a single range into multiple ranges that only occupies single lines
+  let lines =
+      (doc: Editor.document, range: Editor.Range.t): array(Editor.Range.t) => {
+    open Editor.Range;
+    open Editor.Point;
+    let startingLine = line(start(range));
+    let endingLine = line(end_(range));
+
+    let ranges = [||];
+    for (i in startingLine to endingLine) {
+      let startingPoint =
+        if (i == startingLine) {
+          start(range);
+        } else {
+          Editor.Point.make(i, 0);
+        };
+      let endingPoint =
+        if (i == endingLine) {
+          end_(range);
+        } else {
+          let offset =
+            Editor.offsetAtPoint(doc, Editor.Point.make(i + 1, 0)) - 1;
+          Editor.pointAtOffset(doc, offset);
+        };
+      Js.Array.push(Editor.Range.make(startingPoint, endingPoint), ranges)
+      ->ignore;
+    };
+    ranges;
+  };
+
   let generateSemanticTokens =
       (
         editor: Editor.editor,
@@ -218,6 +248,7 @@ module Impl = (Editor: Sig.Editor) => {
         push: (Editor.Range.t, string, option(array(string))) => unit,
       )
       : Promise.t(unit) => {
+    Js.log("GENERATE");
     let document = Editor.getDocument(editor);
     let text = Editor.getText(document);
 
@@ -254,9 +285,16 @@ module Impl = (Editor: Sig.Editor) => {
 
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
-      let tokenType = "class";
-      let tokenModifier = None;
-      push(range, tokenType, tokenModifier);
+      // split the range so in case that it spans multiple lines
+      let ranges = lines(Editor.getDocument(editor), range);
+      let (tokenType, tokenModifier) =
+        Highlighting.Aspect.toTokenTypeAndModifiers(aspect);
+      let tokenType = Highlighting.Aspect.TokenType.toString(tokenType);
+      let tokenModifier =
+        tokenModifier->Option.map(x =>
+          x->Array.map(Highlighting.Aspect.TokenModifier.toString)
+        );
+      ranges->Array.forEach(range => push(range, tokenType, tokenModifier));
     });
 
     Promise.resolved();

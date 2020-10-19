@@ -43,6 +43,7 @@ module type Editor = {
     let start: t => Point.t;
     let end_: t => Point.t;
 
+    let isSingleLine: t => bool;
     let contains: (t, Point.t) => bool;
     let containsRange: (t, t) => bool;
 

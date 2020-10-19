@@ -41,6 +41,7 @@ module Range = {
   let start = Range.start;
   let end_ = Range.end_;
 
+  let isSingleLine = Range.isSingleLine;
   let contains = Range.contains;
   let containsRange = Range.containsRange;
   let fromOffset = (document, (start, end_)) =>

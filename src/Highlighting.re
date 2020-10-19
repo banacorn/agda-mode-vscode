@@ -111,6 +111,31 @@ module Aspect = {
       | Number => "number"
       | Regexp => "regexp"
       | Operator => "operator";
+
+    let enumurate = [|
+      "namespace",
+      "type",
+      "class",
+      "enum",
+      "interface",
+      "struct",
+      "typeParameter",
+      "parameter",
+      "variable",
+      "property",
+      "enumMember",
+      "event",
+      "function",
+      "member",
+      "macro",
+      "label",
+      "comment",
+      "string",
+      "keyword",
+      "number",
+      "regexp",
+      "operator",
+    |];
   };
 
   // VS Code Token modifier
@@ -138,11 +163,25 @@ module Aspect = {
       | Modification => "modification"
       | Documentation => "documentation"
       | DefaultLibrary => "defaultLibrary";
+
+    let enumurate = [|
+      "declaration",
+      "readonly",
+      "static",
+      "deprecated",
+      "abstract",
+      "async",
+      "modification",
+      "documentation",
+      "defaultLibrary",
+    |];
   };
 
-  // let toTokenTypeAndModifiers = fun
-  //   | Comment => ()
-  //   | _ =>
+  let toTokenTypeAndModifiers:
+    t => (TokenType.t, option(array(TokenModifier.t))) =
+    fun
+    | Comment => (Comment, None)
+    | _ => (Keyword, None);
   // | Keyword
   // | String
   // | Number

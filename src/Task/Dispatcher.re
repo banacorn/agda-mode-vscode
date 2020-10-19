@@ -314,8 +314,8 @@ module Impl = (Editor: Sig.Editor) => {
     state.subscriptions = Js.Array.concat(state.subscriptions, disposables);
 
     // these two arrays are called "legends"
-    let tokenTypes = [|"class", "interface", "enum", "function", "variable"|];
-    let tokenModifiers = [|"declaration", "documentation"|];
+    let tokenTypes = Highlighting.Aspect.TokenType.enumurate;
+    let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate;
 
     let documentSemanticTokensProvider = (fileName, push) => {
       let currentFileName =
