@@ -708,6 +708,12 @@
 					"scope": "machine-overridable",
 					"description": "Receive highlighting information from Agda, directly via stdio, or indirectly via temporary files (which mwy require frequent disk access)."
 				},
+				"agdaMode.semanticHighlighting": {
+					"type": "boolean",
+					"default": false,
+					"scope": "machine-overridable",
+					"description": "Experimental semantic highlighting."
+				},
 				"agdaMode.backend": {
 					"type": "string",
 					"default": "GHC",

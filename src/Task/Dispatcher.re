@@ -133,6 +133,7 @@ module Impl = (Editor: Sig.Editor) => {
                 ->Array.map(snd)
                 ->List.concatMany;
               // apply decorations after all "NonLast" tasks before all "Last" tasks
+              Editor.Config.getSemanticHighlighting()->Js.log;
               let deferredTasks = deferredTasks;
               // let deferredTasks = [Task.Decoration(Apply), ...deferredTasks];
 

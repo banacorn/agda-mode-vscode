@@ -160,6 +160,17 @@ module Config = {
     | _ => false
     };
   };
+  // Semantic Highlighting
+  let getSemanticHighlighting = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("semanticHighlighting");
+    switch (raw) {
+    | Some("true") => true
+    | _ => false
+    };
+  };
+
   // Backend
   let getBackend = () => {
     let raw =

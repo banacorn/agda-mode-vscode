@@ -81,6 +81,8 @@ module type Editor = {
     let getLibraryPath: unit => array(fileName);
     // Highlighting method
     let getHighlightingMethod: unit => bool;
+    // Semantic Highlighting
+    let getSemanticHighlighting: unit => bool;
     // Backend
     let getBackend: unit => string;
   };
