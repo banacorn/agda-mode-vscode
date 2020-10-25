@@ -698,21 +698,21 @@
 					"scope": "machine-overridable",
 					"description": "Paths to include (such as agda-stdlib), seperate with comma. Useless after Agda 2.5.0."
 				},
-				"agdaMode.highlightingMethod": {
+				"agdaMode.highlighting.IPC": {
 					"type": "string",
-					"default": "Direct",
+					"default": "Standard input/output",
 					"enum": [
-						"Direct",
-						"Indirect"
+						"Standard input/output",
+						"Temporary Files"
 					],
 					"scope": "machine-overridable",
-					"description": "Receive highlighting information from Agda, directly via stdio, or indirectly via temporary files (which mwy require frequent disk access)."
+					"description": "How agda-mode receives highlighting information from Agda. Via either standard input/output or temporary files (which may require frequent disk access)."
 				},
-				"agdaMode.semanticHighlighting": {
+				"agdaMode.highlighting.semanticToken": {
 					"type": "boolean",
 					"default": false,
 					"scope": "machine-overridable",
-					"description": "Experimental semantic highlighting."
+					"description": "Enable \"Semantic Highlighting\" (experimental)."
 				},
 				"agdaMode.backend": {
 					"type": "string",

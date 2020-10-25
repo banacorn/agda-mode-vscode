@@ -154,9 +154,9 @@ module Config = {
   let getHighlightingMethod = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)
-      ->WorkspaceConfiguration.get("highlightingMethod");
+      ->WorkspaceConfiguration.get("highlighting.IPC");
     switch (raw) {
-    | Some("Direct") => true
+    | Some("Standard input/output") => true
     | _ => false
     };
   };
@@ -164,7 +164,7 @@ module Config = {
   let getSemanticHighlighting = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)
-      ->WorkspaceConfiguration.get("semanticHighlighting");
+      ->WorkspaceConfiguration.get("highlighting.semanticToken");
     switch (raw) {
     | Some("true") => true
     | _ => false
