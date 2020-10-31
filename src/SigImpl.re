@@ -606,8 +606,7 @@ let lineEndingIsCRLF = document =>
   };
 
 let registerProvider = (definitionProvider, hoverProvider) => {
-  let documentSelector =
-    MaybeArray.singular(DocumentFilterOrString.string("agda"));
+  let documentSelector = [|DocumentFilterOrString.string("agda")|];
 
   let definitionProvider =
     DefinitionProvider.{
@@ -650,25 +649,100 @@ let registerProvider = (definitionProvider, hoverProvider) => {
   |];
 };
 
+module Mock = {
+  // https://code.visualstudio.com/api/references/vscode-api#SemanticsTokens
+  module SemanticsTokens = {
+    type t;
+    // constructors
+    [@bs.module "vscode"] [@bs.new]
+    external make: array(int) => t = "SemanticsTokens";
+    [@bs.module "vscode"] [@bs.new]
+    external makeWithResultId: (array(int), string) => t = "SemanticsTokens";
+    // properties
+    [@bs.get] external data: t => array(int) = "data";
+    [@bs.get] external resultId: t => option(string) = "resultId";
+  };
+
+  // https://code.visualstudio.com/api/references/vscode-api#SemanticTokensLegend
+  module SemanticTokensLegend = {
+    type t;
+    // constructors
+    [@bs.module "vscode"] [@bs.new]
+    external make: array(string) => t = "SemanticTokensLegend";
+    [@bs.module "vscode"] [@bs.new]
+    external makeWithTokenModifiers: (array(string), array(string)) => t =
+      "SemanticTokensLegend";
+    // properties
+    [@bs.get] external tokenModifiers: t => array(string) = "tokenModifiers";
+    [@bs.get] external tokenTypes: t => array(string) = "tokenTypes";
+  };
+
+  // https://code.visualstudio.com/api/references/vscode-api#SemanticTokensBuilder
+  module SemanticTokensBuilder = {
+    type t;
+    // constructors
+    [@bs.module "vscode"] [@bs.new]
+    external make: unit => t = "SemanticTokensBuilder";
+    [@bs.module "vscode"] [@bs.new]
+    external makeWithLegend: SemanticTokensLegend.t => t =
+      "SemanticTokensBuilder";
+    // methods
+    [@bs.send] external build: t => SemanticsTokens.t = "build";
+    [@bs.send]
+    external buildWithResultId: (t, string) => SemanticsTokens.t = "build";
+    [@bs.send]
+    external push: (t, int, int, int, int, option(int)) => unit = "push";
+    [@bs.send]
+    external pushLegend:
+      (t, VSCode.Range.t, string, option(array(string))) => unit =
+      "push";
+  };
+
+  // https://code.visualstudio.com/api/references/vscode-api#DocumentSemanticTokensProvider
+  module DocumentSemanticTokensProvider = {
+    // missing: onDidChangeSemanticTokens
+    // missing: provideDocumentSemanticTokensEdits
+    type t = {
+      provideDocumentSemanticTokens:
+        (TextDocument.t, CancellationToken.t) =>
+        ProviderResult.t(SemanticsTokens.t),
+    };
+  };
+
+  module Languages = {
+    [@bs.module "vscode"] [@bs.scope "languages"]
+    external registerDocumentSemanticTokensProvider:
+      (
+        DocumentSelector.t,
+        DocumentSemanticTokensProvider.t,
+        SemanticTokensLegend.t
+      ) =>
+      Disposable.t =
+      "registerDocumentSemanticTokensProvider";
+  };
+};
+
 let registerTestingProvider = (prodider, (tokenTypes, tokenModifiers)) => {
-  let documentSelector =
-    MaybeArray.singular(DocumentFilterOrString.string("agda"));
+  let documentSelector = [|DocumentFilterOrString.string("agda")|];
   let semanticTokensLegend =
-    SemanticTokensLegend.makeWithTokenModifiers(tokenTypes, tokenModifiers);
+    Mock.SemanticTokensLegend.makeWithTokenModifiers(
+      tokenTypes,
+      tokenModifiers,
+    );
 
   let documentSemanticTokensProvider =
-    DocumentSemanticTokensProvider.{
+    Mock.DocumentSemanticTokensProvider.{
       provideDocumentSemanticTokens: (textDocument, _) => {
         let builder =
-          SemanticTokensBuilder.makeWithLegend(semanticTokensLegend);
-        let pushLegend = SemanticTokensBuilder.pushLegend(builder);
+          Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend);
+        let pushLegend = Mock.SemanticTokensBuilder.pushLegend(builder);
         prodider(textDocument->TextDocument.fileName, pushLegend)
-        ->ProviderResult.map(() => SemanticTokensBuilder.build(builder));
+        ->ProviderResult.map(() => Mock.SemanticTokensBuilder.build(builder));
       },
     };
 
   [|
-    Languages.registerDocumentSemanticTokensProvider(
+    Mock.Languages.registerDocumentSemanticTokensProvider(
       documentSelector,
       documentSemanticTokensProvider,
       semanticTokensLegend,

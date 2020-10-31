@@ -42,7 +42,7 @@ module Impl = (Editor: Sig.Editor) => {
     | ApplyExperimental => [
         BenchStart("$$$ Decoration (experimental)"),
         WithStateP(
-          state => {
+          _state => {
             Js.log("YO");
             Promise.resolved([]);
           },

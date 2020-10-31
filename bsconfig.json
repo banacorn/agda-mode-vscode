@@ -24,6 +24,7 @@
   "namespace": true,
   "bs-dependencies": [
     "@glennsl/bs-json",
+    "bs-vscode",
     "bs-webapi",
     "bs-nd",
     "reason-promise",
