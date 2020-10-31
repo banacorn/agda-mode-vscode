@@ -166,7 +166,7 @@ module Config = {
       Workspace.getConfiguration(Some("agdaMode"), None)
       ->WorkspaceConfiguration.get("highlighting.semanticToken");
     switch (raw) {
-    | Some("true") => true
+    | Some(true) => true
     | _ => false
     };
   };

@@ -1,10 +1,14 @@
 open Belt;
 module Impl = (Editor: Sig.Editor) => {
   type action =
-    | AddDirectly(array(Highlighting.t))
-    | AddIndirectly(string)
+    // standard output
+    | AddViaPipe(array(Highlighting.t))
+    // temporary files
+    | AddViaFile(string)
     | Clear
     | Apply
+    // experimental
+    | ApplyExperimental
     | Refresh;
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -304,9 +308,9 @@ module Impl = (Editor: Sig.Editor) => {
   ////////////////////////////////////////////////////////////////////////////////////////////
 
   type t = {
-    // from AddIndirectly
+    // from AddViaFile
     mutable tempFilePaths: array(string),
-    // from AddDirectly
+    // from AddViaPipe
     mutable highlightings: array(Highlighting.t),
     // after Apply
     mutable decorations:

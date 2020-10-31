@@ -133,9 +133,13 @@ module Impl = (Editor: Sig.Editor) => {
                 ->Array.map(snd)
                 ->List.concatMany;
               // apply decorations after all "NonLast" tasks before all "Last" tasks
-              Editor.Config.getSemanticHighlighting()->Js.log;
-              let deferredTasks = deferredTasks;
-              // let deferredTasks = [Task.Decoration(Apply), ...deferredTasks];
+
+              // Only dispatch `Decoration(Apply)` when SemanticHighlighting is not enabled
+              let deferredTasks =
+                Editor.Config.getSemanticHighlighting()
+                  ? deferredTasks
+                  : [Task.Decoration(Apply), ...deferredTasks];
+              Js.log("APPLY!!!!");
 
               TaskQueue.addToTheFront(queue, deferredTasks);
               true;
@@ -319,9 +323,11 @@ module Impl = (Editor: Sig.Editor) => {
     let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate;
 
     let documentSemanticTokensProvider = (fileName, push) => {
+      let useSemanticHighlighting = Editor.Config.getSemanticHighlighting();
+      Js.log("useSemanticHighlighting");
       let currentFileName =
         Editor.getFileName(Editor.getDocument(state.editor));
-      if (Some(fileName) == currentFileName) {
+      if (useSemanticHighlighting && Some(fileName) == currentFileName) {
         Some(
           Decoration.generateSemanticTokens(
             editor,

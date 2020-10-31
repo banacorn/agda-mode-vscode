@@ -60,10 +60,10 @@ module Impl = (Editor: Sig.Editor) => {
     // Js.log(Response.toString(response));
     switch (response) {
     | HighlightingInfoDirect(_remove, annotations) => [
-        Decoration(AddDirectly(annotations)),
+        Decoration(AddViaPipe(annotations)),
       ]
     | HighlightingInfoIndirect(filepath) => [
-        Decoration(AddIndirectly(filepath)),
+        Decoration(AddViaFile(filepath)),
       ]
     | ClearHighlighting => [Decoration(Clear)]
     | Status(_displayImplicit, _checked) =>

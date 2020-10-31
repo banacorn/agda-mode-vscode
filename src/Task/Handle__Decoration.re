@@ -8,12 +8,12 @@ module Impl = (Editor: Sig.Editor) => {
   // from Decoration to Tasks
   let handle =
     fun
-    | Decoration.AddDirectly(highlightings) => [
+    | Decoration.AddViaPipe(highlightings) => [
         WithState(
           state => {state.decorations->Decoration.addDirectly(highlightings)},
         ),
       ]
-    | AddIndirectly(filepath) => [
+    | AddViaFile(filepath) => [
         WithState(
           state => {state.decorations->Decoration.addIndirectly(filepath)},
         ),
@@ -38,6 +38,16 @@ module Impl = (Editor: Sig.Editor) => {
           },
         ),
         BenchEnd("$$$ Decoration"),
+      ]
+    | ApplyExperimental => [
+        BenchStart("$$$ Decoration (experimental)"),
+        WithStateP(
+          state => {
+            Js.log("YO");
+            Promise.resolved([]);
+          },
+        ),
+        BenchEnd("$$$ Decoration (experimental)"),
       ]
     | Refresh => [
         BenchStart("$$$ Refreshing decorations"),
