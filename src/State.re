@@ -1,111 +1,111 @@
-module Impl = (Editor: Sig.Editor) => {
-  module Goal = Goal.Impl(Editor);
-  module EditorIM = EditorIM.Impl(Editor);
-  module Decoration = Decoration.Impl(Editor);
-  module Request = Request.Impl(Editor);
-  open Belt;
-  type editor = Editor.editor;
-  type context = Editor.context;
-  type t = {
-    mutable editor,
-    view: Editor.view,
-    mutable connection: option(Connection.t),
-    mutable goals: array(Goal.t),
-    mutable decorations: Decoration.t,
-    mutable cursor: option(Editor.Point.t),
-    editorIM: EditorIM.t,
-    promptIM: PromptIM.t,
-    mutable subscriptions: array(Editor.Disposable.t),
-    // for self destruction
-    onRemoveFromRegistry: Event.t(unit),
-  };
+open VSCode;
+module VSRange = Range;
+open Belt;
 
-  //
-  // getters
-  //
-  let getEditor = (state: t) => state.editor;
-
-  //
-  // events to the FileName-Dispatch Registry
-  //
-  let onRemoveFromRegistry = state => state.onRemoveFromRegistry.once();
-  let emitRemoveFromRegistry = state => state.onRemoveFromRegistry.emit();
-
-  //
-  // Agda connection/disconnection
-  //
-
-  // connect if not connected yet
-  let connect = state =>
-    switch (state.connection) {
-    | None =>
-      Connection.make(Editor.Config.getAgdaPath, Editor.Config.setAgdaPath)
-      ->Promise.mapError(e => Error.Connection(e))
-      ->Promise.tapOk(conn => state.connection = Some(conn))
-    | Some(connection) => Promise.resolved(Ok(connection))
-    };
-  let disconnect = state =>
-    switch (state.connection) {
-    | None => Promise.resolved()
-    | Some(connection) =>
-      Connection.destroy(connection);
-      Promise.resolved();
-    };
-
-  //
-  // construction/destruction
-  //
-
-  // set context so that only certain key bindings only work
-  // when there's a active text editor
-  let setLoaded = value => Editor.setContext("agdaMode", value)->ignore;
-
-  let destroy = state => {
-    state.view->Editor.View.destroy;
-    state.onRemoveFromRegistry.destroy();
-    state.goals->Array.forEach(Goal.destroy);
-    state.decorations->Decoration.destroy;
-    setLoaded(false);
-    state.subscriptions->Array.forEach(Editor.Disposable.dispose);
-    state->disconnect;
-    // TODO: delete files in `.indirectHighlightingFileNames`
-  };
-
-  let make = (extentionPath, eventEmitter, editor) => {
-    setLoaded(true);
-    // view initialization
-    let view = Editor.View.make(extentionPath, editor);
-
-    let state = {
-      editor,
-      view,
-      connection: None,
-      goals: [||],
-      decorations: Decoration.make(),
-      cursor: None,
-      editorIM: EditorIM.make(eventEmitter),
-      promptIM: PromptIM.make(),
-      subscriptions: [||],
-      onRemoveFromRegistry: Event.make(),
-    };
-
-    state;
-  };
-
-  //
-  // View-related
-  //
-
-  let show = state => {
-    state.view->Editor.View.show;
-    setLoaded(true);
-  };
-  let hide = state => {
-    state.view->Editor.View.hide;
-    setLoaded(false);
-  };
-  let sendRequestToView = (state, request) =>
-    Editor.View.send(state.view, View.RequestOrEventToView.Request(request));
-  let sendEventToView = (state, event) =>
-    Editor.View.send(state.view, View.RequestOrEventToView.Event(event));
+// type editor = TextEditor.t;
+// type context = Editor.context;
+type t = {
+  mutable editor: TextEditor.t,
+  view: View__Controller.t,
+  mutable connection: option(Connection.t),
+  mutable goals: array(Goal.t),
+  mutable decorations: Decoration.t,
+  mutable cursor: option(Position.t),
+  editorIM: EditorIM.t,
+  promptIM: PromptIM.t,
+  mutable subscriptions: array(Disposable.t),
+  // for self destruction
+  onRemoveFromRegistry: Event.t(unit),
 };
+
+//
+// getters
+//
+let getEditor = (state: t) => state.editor;
+
+//
+// events to the FileName-Dispatch Registry
+//
+let onRemoveFromRegistry = state => state.onRemoveFromRegistry.once();
+let emitRemoveFromRegistry = state => state.onRemoveFromRegistry.emit();
+
+//
+// Agda connection/disconnection
+//
+
+// connect if not connected yet
+let connect = state =>
+  switch (state.connection) {
+  | None =>
+    Connection.make(Config.getAgdaPath, Config.setAgdaPath)
+    ->Promise.mapError(e => Error.Connection(e))
+    ->Promise.tapOk(conn => state.connection = Some(conn))
+  | Some(connection) => Promise.resolved(Ok(connection))
+  };
+let disconnect = state =>
+  switch (state.connection) {
+  | None => Promise.resolved()
+  | Some(connection) =>
+    Connection.destroy(connection);
+    Promise.resolved();
+  };
+
+//
+// construction/destruction
+//
+
+// set context so that only certain key bindings only work
+// when there's a active text editor
+let setLoaded = value => Commands.setContext("agdaMode", value)->ignore;
+
+let destroy = state => {
+  state.view->View__Controller.destroy;
+  state.onRemoveFromRegistry.destroy();
+  state.goals->Array.forEach(Goal.destroy);
+  state.decorations->Decoration.destroy;
+  setLoaded(false);
+  state.subscriptions->Array.forEach(Disposable.dispose);
+  state->disconnect;
+  // TODO: delete files in `.indirectHighlightingFileNames`
+};
+
+let make = (extentionPath, eventEmitter, editor) => {
+  setLoaded(true);
+  // view initialization
+  let view = View__Controller.make(extentionPath, editor);
+
+  let state = {
+    editor,
+    view,
+    connection: None,
+    goals: [||],
+    decorations: Decoration.make(),
+    cursor: None,
+    editorIM: EditorIM.make(eventEmitter),
+    promptIM: PromptIM.make(),
+    subscriptions: [||],
+    onRemoveFromRegistry: Event.make(),
+  };
+
+  state;
+};
+
+//
+// View-related
+//
+
+let show = state => {
+  state.view->View__Controller.show;
+  setLoaded(true);
+};
+let hide = state => {
+  state.view->View__Controller.hide;
+  setLoaded(false);
+};
+let sendRequestToView = (state, request) =>
+  View__Controller.send(
+    state.view,
+    View.RequestOrEventToView.Request(request),
+  );
+let sendEventToView = (state, event) =>
+  View__Controller.send(state.view, View.RequestOrEventToView.Event(event));

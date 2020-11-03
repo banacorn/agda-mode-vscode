@@ -105,25 +105,6 @@ module type Editor = {
     let fromInterval: View.Interval.t => Range.t;
   };
 
-  module Decoration: {
-    type t;
-    type backgroundStyle = string;
-    type foregroundStyle = string;
-    type color = string;
-
-    let decorate: (editor, t, array(Range.t)) => unit;
-
-    let highlightBackground: (editor, backgroundStyle, array(Range.t)) => t;
-    let highlightBackgroundWithColor: (editor, color, array(Range.t)) => t;
-    let decorateText: (editor, foregroundStyle, array(Range.t)) => t;
-    let decorateTextWithColor: (editor, color, array(Range.t)) => t;
-    // for hole indices
-    let overlayText: (editor, foregroundStyle, string, Range.t) => t;
-    let overlayTextWithColor: (editor, color, string, Range.t) => t;
-    let underlineText: (editor, Range.t) => t;
-    let destroy: t => unit;
-  };
-
   let focus: editor => unit;
   let reveal: (editor, Range.t) => unit;
 

@@ -1,171 +1,168 @@
+open VSCode;
+module VSRange = Range;
 open Belt;
-module Impl = (Editor: Sig.Editor) => {
-  module Decoration = Decoration.Impl(Editor);
-  type t = {
-    index: int,
-    mutable range: (int, int),
-    decorationBackground: Editor.Decoration.t,
-    decorationIndex: Editor.Decoration.t,
-  };
 
-  type action('task) =
-    | Instantiate(array(int))
-    | UpdateRange
-    | Next
-    | Previous
-    | Modify(t, string => string)
-    | SaveCursor
-    | RestoreCursor
-    | SetCursor(int)
-    | JumpToOffset(int)
-    | RemoveBoundaryAndDestroy(t)
-    | ReplaceWithLines(t, array(string))
-    | ReplaceWithLambda(t, array(string))
-    // for commands that have both the local (goal-specific) and global (top-level) version
-    | LocalOrGlobal(t => list('task), list('task))
-    | LocalOrGlobal2(
-        (t, string) => list('task),
-        t => list('task),
-        list('task),
-      );
+type t = {
+  index: int,
+  mutable range: (int, int),
+  decorationBackground: Editor.Decoration.t,
+  decorationIndex: Editor.Decoration.t,
+};
 
-  let generateDiffs =
-      (document: Editor.document, indices: array(int))
-      : array(SourceFile.Diff.t) => {
-    let filePath =
-      Editor.getFileName(document)->Option.getWithDefault("unnamed.agda");
-    let source = Editor.getText(document);
-    SourceFile.parse(indices, filePath, source);
-  };
+type action('task) =
+  | Instantiate(array(int))
+  | UpdateRange
+  | Next
+  | Previous
+  | Modify(t, string => string)
+  | SaveCursor
+  | RestoreCursor
+  | SetCursor(int)
+  | JumpToOffset(int)
+  | RemoveBoundaryAndDestroy(t)
+  | ReplaceWithLines(t, array(string))
+  | ReplaceWithLambda(t, array(string))
+  // for commands that have both the local (goal-specific) and global (top-level) version
+  | LocalOrGlobal(t => list('task), list('task))
+  | LocalOrGlobal2(
+      (t, string) => list('task),
+      t => list('task),
+      list('task),
+    );
 
-  // make an array of Goal.t with given goal indices
-  // modifies the text buffer along the way
-  let makeMany =
-      (editor: Editor.editor, indices: array(int)): Promise.t(array(t)) => {
-    let document = Editor.getDocument(editor);
-    let diffs = generateDiffs(document, indices);
-    // scan through the diffs to modify the text buffer one by one
+let generateDiffs =
+    (document: TextDocument.t, indices: array(int))
+    : array(SourceFile.Diff.t) => {
+  let filePath = document->TextDocument.fileName->Parser.filepath;
+  let source = Editor.Text.getAll(document);
+  SourceFile.parse(indices, filePath, source);
+};
 
-    let delta = ref(0);
-    let replacements =
-      diffs
-      ->Array.keep(diff => diff.changed)
-      ->Array.map(diff => {
-          let range =
-            Editor.Range.make(
-              Editor.pointAtOffset(
-                document,
-                fst(diff.originalRange) - delta^,
-              ),
-              Editor.pointAtOffset(
-                document,
-                snd(diff.originalRange) - delta^,
-              ),
-            );
+// make an array of Goal.t with given goal indices
+// modifies the text buffer along the way
+let makeMany =
+    (editor: TextEditor.t, indices: array(int)): Promise.t(array(t)) => {
+  let document = TextEditor.document(editor);
+  let diffs = generateDiffs(document, indices);
+  // scan through the diffs to modify the text buffer one by one
 
-          // update the delta
-          delta :=
-            delta^
-            + (snd(diff.modifiedRange) - fst(diff.modifiedRange))
-            - (snd(diff.originalRange) - fst(diff.originalRange));
+  let delta = ref(0);
+  let replacements =
+    diffs
+    ->Array.keep(diff => diff.changed)
+    ->Array.map(diff => {
+        let range =
+          VSRange.make(
+            document->TextDocument.positionAt(
+              fst(diff.originalRange) - delta^,
+            ),
+            document->TextDocument.positionAt(
+              snd(diff.originalRange) - delta^,
+            ),
+          );
 
-          let text = diff.content;
-          (range, text);
-        });
+        // update the delta
+        delta :=
+          delta^
+          + (snd(diff.modifiedRange) - fst(diff.modifiedRange))
+          - (snd(diff.originalRange) - fst(diff.originalRange));
 
-    Editor.replaceTextBatch(document, replacements)
-    ->Promise.map(_ => {
-        diffs->Array.map(diff => {
-          let (decorationBackground, decorationIndex) =
-            Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
-          {
-            index: diff.index,
-            range: diff.modifiedRange,
-            decorationBackground,
-            decorationIndex,
-          };
-        })
+        let text = diff.content;
+        (range, text);
       });
-  };
 
-  // parse the whole source file and update the ranges of an array of Goal.t
-  let updateRanges = (goals: array(t), document: Editor.document) => {
-    let indices = goals->Array.map(goal => goal.index);
-    let diffs = generateDiffs(document, indices);
-    diffs->Array.forEachWithIndex((i, diff) => {
-      switch (goals[i]) {
-      | None => () // do nothing :|
-      | Some(goal) => goal.range = diff.modifiedRange
-      }
+  Editor.Text.batchReplace(document, replacements)
+  ->Promise.map(_ => {
+      diffs->Array.map(diff => {
+        let (decorationBackground, decorationIndex) =
+          Decoration.decorateHole(editor, diff.modifiedRange, diff.index);
+        {
+          index: diff.index,
+          range: diff.modifiedRange,
+          decorationBackground,
+          decorationIndex,
+        };
+      })
     });
-  };
+};
 
-  let getInnerRange = (self, editor) =>
-    Editor.Range.make(
-      Editor.pointAtOffset(editor, fst(self.range) + 2),
-      Editor.pointAtOffset(editor, snd(self.range) - 2),
+// parse the whole source file and update the ranges of an array of Goal.t
+let updateRanges = (goals: array(t), document: TextDocument.t) => {
+  let indices = goals->Array.map(goal => goal.index);
+  let diffs = generateDiffs(document, indices);
+  diffs->Array.forEachWithIndex((i, diff) => {
+    switch (goals[i]) {
+    | None => () // do nothing :|
+    | Some(goal) => goal.range = diff.modifiedRange
+    }
+  });
+};
+
+let getInnerRange = (self, document) =>
+  VSRange.make(
+    document->TextDocument.positionAt(fst(self.range) + 2),
+    document->TextDocument.positionAt(snd(self.range) - 2),
+  );
+
+let getOuterRange = (self, document) =>
+  VSRange.make(
+    document->TextDocument.positionAt(fst(self.range)),
+    document->TextDocument.positionAt(snd(self.range)),
+  );
+
+let getContent = (self, document) => {
+  let innerRange = getInnerRange(self, document);
+  Editor.Text.get(document, innerRange)->Parser.userInput;
+};
+
+let setContent = (self, document, text) => {
+  let innerRange = getInnerRange(self, document);
+  Editor.Text.replace(document, innerRange, " " ++ text ++ " ");
+};
+
+let setCursor = (self, editor) => {
+  let (start, _) = self.range;
+  let point = editor->TextEditor.document->TextDocument.positionAt(start + 3);
+  editor->TextEditor.setSelection(Selection.make(point, point));
+};
+
+let buildHaskellRange = (document, self, old, filepath: string) => {
+  let (start, end_) = self.range;
+  let startPoint = TextDocument.positionAt(document, start);
+  let endPoint = TextDocument.positionAt(document, end_);
+
+  let startIndex = string_of_int(start + 3);
+  let startRow = string_of_int(Position.line(startPoint) + 1);
+  let startColumn = string_of_int(Position.character(startPoint) + 3);
+  let startPart = {j|$(startIndex) $(startRow) $(startColumn)|j};
+  let endIndex' = string_of_int(end_ - 3);
+  let endRow = string_of_int(Position.line(endPoint) + 1);
+  let endColumn = string_of_int(Position.character(endPoint) - 1);
+  let endPart = {j|$(endIndex') $(endRow) $(endColumn)|j};
+
+  if (old) {
+    {j|(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])|j}
+    // before (not including) 2.5.1
+  } else {
+    {j|(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])|j}
+    // after 2.5.1
+  };
+};
+
+let refreshDecoration = (self, editor: TextEditor.t) => {
+  // redecorate the background
+  let range = getOuterRange(self, TextEditor.document(editor));
+  Editor.Decoration.decorate(editor, self.decorationBackground, [|range|]);
+  // redecorate the index
+  let range =
+    VSRange.make(
+      VSRange.start(range),
+      Position.translate(VSRange.end_(range), 0, -2),
     );
+  Editor.Decoration.decorate(editor, self.decorationIndex, [|range|]);
+};
 
-  let getOuterRange = (self, editor) =>
-    Editor.Range.make(
-      Editor.pointAtOffset(editor, fst(self.range)),
-      Editor.pointAtOffset(editor, snd(self.range)),
-    );
-
-  let getContent = (self, editor) => {
-    let innerRange = getInnerRange(self, editor);
-    Editor.getTextInRange(editor, innerRange)->Parser.userInput;
-  };
-
-  let setContent = (self, editor, text) => {
-    let innerRange = getInnerRange(self, editor);
-    Editor.replaceText(editor, innerRange, " " ++ text ++ " ");
-  };
-
-  let setCursor = (self, editor) => {
-    let (start, _) = self.range;
-    let point = Editor.pointAtOffset(Editor.getDocument(editor), start + 3);
-    Editor.setCursorPosition(editor, point);
-  };
-
-  let buildHaskellRange = (editor, self, old, filepath: string) => {
-    let (start, end_) = self.range;
-    let startPoint = Editor.pointAtOffset(editor, start);
-    let endPoint = Editor.pointAtOffset(editor, end_);
-
-    let startIndex = string_of_int(start + 3);
-    let startRow = string_of_int(Editor.Point.line(startPoint) + 1);
-    let startColumn = string_of_int(Editor.Point.column(startPoint) + 3);
-    let startPart = {j|$(startIndex) $(startRow) $(startColumn)|j};
-    let endIndex' = string_of_int(end_ - 3);
-    let endRow = string_of_int(Editor.Point.line(endPoint) + 1);
-    let endColumn = string_of_int(Editor.Point.column(endPoint) - 1);
-    let endPart = {j|$(endIndex') $(endRow) $(endColumn)|j};
-
-    if (old) {
-      {j|(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])|j}
-      // before (not including) 2.5.1
-    } else {
-      {j|(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])|j}
-      // after 2.5.1
-    };
-  };
-
-  let refreshDecoration = (self, editor: Editor.editor) => {
-    // redecorate the background
-    let range = getOuterRange(self, Editor.getDocument(editor));
-    Editor.Decoration.decorate(editor, self.decorationBackground, [|range|]);
-    // redecorate the index
-    let range =
-      Editor.Range.make(
-        Editor.Range.start(range),
-        Editor.Point.translate(Editor.Range.end_(range), 0, -2),
-      );
-    Editor.Decoration.decorate(editor, self.decorationIndex, [|range|]);
-  };
-
-  let destroy = self => {
-    self.decorationBackground->Editor.Decoration.destroy;
-    self.decorationIndex->Editor.Decoration.destroy;
-  };
+let destroy = self => {
+  self.decorationBackground->Editor.Decoration.destroy;
+  self.decorationIndex->Editor.Decoration.destroy;
 };

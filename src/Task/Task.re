@@ -1,100 +1,95 @@
-module Impl = (Editor: Sig.Editor) => {
-  module State = State.Impl(Editor);
-  module Goal = Goal.Impl(Editor);
-  module Decoration = Decoration.Impl(Editor);
-  module Request = Request.Impl(Editor);
+open VSCode;
 
-  type t =
-    | DispatchCommand(Command.t)
-    // Agda
-    | AgdaRequest(Request.t)
-    // View
-    | ViewEvent(View.EventToView.t)
-    | ViewRequest(View.Request.t, View.Response.t => list(t))
-    // Misc
-    | Decoration(Decoration.action)
-    | Error(Error.t)
-    | Goal(Goal.action(t))
-    | WithState(State.t => unit)
-    | WithStateP(State.t => Promise.t(list(t)))
-    | Destroy
-    | BenchStart(string)
-    | BenchEnd(string)
-    | Debug(string);
+type t =
+  | DispatchCommand(Command.t)
+  // Agda
+  | AgdaRequest(Request.t)
+  // View
+  | ViewEvent(View.EventToView.t)
+  | ViewRequest(View.Request.t, View.Response.t => list(t))
+  // Misc
+  | Decoration(Decoration.action)
+  | Error(Error.t)
+  | Goal(Goal.action(t))
+  | WithState(State.t => unit)
+  | WithStateP(State.t => Promise.t(list(t)))
+  | Destroy
+  | BenchStart(string)
+  | BenchEnd(string)
+  | Debug(string);
 
-  let toString =
-    fun
-    | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
-    | Destroy => "Destroy"
-    | AgdaRequest(_req) => "AgdaRequest"
-    | ViewEvent(_) => "ViewEvent"
-    | ViewRequest(_, _) => "ViewRequest"
-    | Error(_) => "Error"
-    | Goal(Instantiate(_)) => "Goal[Instantiate]"
-    | Goal(UpdateRange) => "Goal[UpdateRange]"
-    | Goal(Next) => "Goal[Next]"
-    | Goal(Previous) => "Goal[Previous]"
-    | Goal(Modify(_, _)) => "Goal[Modify]"
-    | Goal(SaveCursor) => "Goal[SaveCursor]"
-    | Goal(RestoreCursor) => "Goal[RestoreCursor]"
-    | Goal(SetCursor(_)) => "Goal[SetCursor]"
-    | Goal(JumpToOffset(_)) => "Goal[JumpToOffset]"
-    | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
-    | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
-    | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
-    | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
-    | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
-    | Decoration(AddViaPipe(_)) => "Decoration[AddViaPipe]"
-    | Decoration(AddViaFile(_)) => "Decoration[AddViaFile]"
-    | Decoration(Clear) => "Decoration[Clear]"
-    | Decoration(Apply) => "Decoration[Apply]"
-    | Decoration(ApplyExperimental) => "Decoration[ApplyExperimental]"
-    | Decoration(Refresh) => "Decoration[Refresh]"
-    | WithState(_) => "WithState"
-    | WithStateP(_) => "WithStateP"
-    | BenchStart(id) => "BenchStart[" ++ id ++ "]"
-    | BenchEnd(id) => "BenchEnd[" ++ id ++ "]"
-    | Debug(msg) => "Debug[" ++ msg ++ "]";
+let toString =
+  fun
+  | DispatchCommand(cmd) => "Command[" ++ Command.toString(cmd) ++ "]"
+  | Destroy => "Destroy"
+  | AgdaRequest(_req) => "AgdaRequest"
+  | ViewEvent(_) => "ViewEvent"
+  | ViewRequest(_, _) => "ViewRequest"
+  | Error(_) => "Error"
+  | Goal(Instantiate(_)) => "Goal[Instantiate]"
+  | Goal(UpdateRange) => "Goal[UpdateRange]"
+  | Goal(Next) => "Goal[Next]"
+  | Goal(Previous) => "Goal[Previous]"
+  | Goal(Modify(_, _)) => "Goal[Modify]"
+  | Goal(SaveCursor) => "Goal[SaveCursor]"
+  | Goal(RestoreCursor) => "Goal[RestoreCursor]"
+  | Goal(SetCursor(_)) => "Goal[SetCursor]"
+  | Goal(JumpToOffset(_)) => "Goal[JumpToOffset]"
+  | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
+  | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
+  | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
+  | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
+  | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
+  | Decoration(AddViaPipe(_)) => "Decoration[AddViaPipe]"
+  | Decoration(AddViaFile(_)) => "Decoration[AddViaFile]"
+  | Decoration(Clear) => "Decoration[Clear]"
+  | Decoration(Apply) => "Decoration[Apply]"
+  | Decoration(ApplyExperimental) => "Decoration[ApplyExperimental]"
+  | Decoration(Refresh) => "Decoration[Refresh]"
+  | WithState(_) => "WithState"
+  | WithStateP(_) => "WithStateP"
+  | BenchStart(id) => "BenchStart[" ++ id ++ "]"
+  | BenchEnd(id) => "BenchEnd[" ++ id ++ "]"
+  | Debug(msg) => "Debug[" ++ msg ++ "]";
 
-  // Smart constructors for controlling the view
+// Smart constructors for controlling the view
 
-  // Header + Body
-  let display = (header, body) => ViewEvent(Display(header, body));
-  let displayEmacs = (kind, header, body) =>
-    ViewEvent(
-      Display(header, Emacs(kind, View.Header.toString(header), body)),
-    );
+// Header + Body
+let display = (header, body) => ViewEvent(Display(header, body));
+let displayEmacs = (kind, header, body) =>
+  ViewEvent(
+    Display(header, Emacs(kind, View.Header.toString(header), body)),
+  );
 
-  // Header + Prompt
-  let prompt = (header, prompt, callbackOnPromptSuccess: string => list(t)) => [
-    WithState(
-      state => {
-        // focus on the panel before prompting
-        Editor.setContext("agdaModePrompting", true)->ignore;
-        state.view->Editor.View.focus;
-      },
-    ),
-    ViewRequest(
-      Prompt(header, prompt),
-      response => {
-        let tasks =
-          switch (response) {
-          | PromptSuccess(result) => callbackOnPromptSuccess(result)
-          | PromptInterrupted => []
-          };
-        Belt.List.concat(
-          tasks,
-          [
-            WithState(
-              state => {
-                // put the focus back to the editor after prompting
-                Editor.setContext("agdaModePrompting", false)->ignore;
-                state.editor->Editor.focus;
-              },
-            ),
-          ],
-        );
-      },
-    ),
-  ];
-};
+// Header + Prompt
+let prompt = (header, prompt, callbackOnPromptSuccess: string => list(t)) => [
+  WithState(
+    state => {
+      // focus on the panel before prompting
+      Commands.setContext("agdaModePrompting", true)->ignore;
+      state.view->View__Controller.focus;
+    },
+  ),
+  ViewRequest(
+    Prompt(header, prompt),
+    response => {
+      let tasks =
+        switch (response) {
+        | PromptSuccess(result) => callbackOnPromptSuccess(result)
+        | PromptInterrupted => []
+        };
+      Belt.List.concat(
+        tasks,
+        [
+          WithState(
+            state => {
+              // put the focus back to the editor after prompting
+              Commands.setContext("agdaModePrompting", false)->ignore;
+              state.editor->TextEditor.document->Editor.focus;
+            },
+          ),
+        ],
+      );
+    },
+  ),
+];
