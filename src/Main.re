@@ -128,11 +128,6 @@ module Impl = (Editor: Sig.Editor) => {
     let extensionPath = Editor.getExtensionPath(context);
     activateWithoutContext(disposables, extensionPath);
   };
-
-  let deactivate = () => {
-    Js.log("[ extention ] deactivate");
-    Registry.destroyAll();
-  };
 };
 
 include Impl(SigImpl);

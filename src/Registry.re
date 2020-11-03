@@ -57,11 +57,4 @@ module Impl = (Editor: Sig.Editor) => {
   };
 
   let contains = fileName => get(fileName)->Option.isSome;
-
-  let destroyAll = () => {
-    dict
-    ->Js.Dict.entries
-    ->Array.map(((_, dispatcher), ()) => Dispatcher.destroy(dispatcher))
-    ->Util.oneByOne;
-  };
 };
