@@ -18,8 +18,8 @@
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"scripts": {
 		"clean": "npx bsb -clean-world",
-		"build": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
-		"dev": "yarn run build && webpack --mode development --watch & npx less-watch-compiler style/ dist/",
+		"build": "npx bsb -clean-world && npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
+		"dev": "npm run build && webpack --mode development --watch & npx less-watch-compiler style/ dist/",
 		"vscode:prepublish": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js"
 	},
@@ -30,7 +30,6 @@
 		"less-loader": "^5.0.0",
 		"less-watch-compiler": "^1.14.6",
 		"mocha": "^7.1.2",
-		"reason-promise": "^1.0.1",
 		"vscode-test": "^1.3.0",
 		"webpack": "^4.42.0",
 		"webpack-cli": "^3.3.11"
@@ -39,15 +38,15 @@
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"bs-vscode": "github:banacorn/bs-vscode#v0.0.3",
 		"bs-nd": "^0.1.5",
-		"bs-platform": "^7.2",
-		"bs-webapi": "^0.15.3",
+		"bs-platform": "^8.3.2",
+		"bs-webapi": "^0.19.1",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": "^4.0.0",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-promise": "^1.0.1",
-		"reason-react": ">=0.7.0",
-		"reason-react-update": "^0.1.1",
+		"reason-react": "^0.9.1",
+		"reason-react-update": "^2.0.0",
 		"untildify": "^4.0.0",
 		"vscode-codicons": "^0.0.7"
 	},
