@@ -292,16 +292,9 @@ let handle = command => {
             | ToRange(Range(Some(filePath), intervals)) =>
               // only select the intervals when it's on the same file
               if (path == filePath) {
-                let selections =
-                  intervals
-                  ->Array.map(View__Controller.fromInterval)
-                  ->Array.map(range =>
-                      Selection.make(
-                        VSCode.Range.start(range),
-                        VSCode.Range.end_(range),
-                      )
-                    );
-                state.editor->TextEditor.setSelections(selections);
+                let ranges =
+                  intervals->Array.map(View__Controller.fromInterval);
+                Editor.Selection.setMany(state.editor, ranges);
               }
             | ToHole(index) =>
               let goal =

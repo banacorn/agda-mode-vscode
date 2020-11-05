@@ -1,5 +1,6 @@
-open Belt;
 open VSCode;
+module VSRange = Range;
+open Belt;
 
 module Decoration = {
   type t = TextEditorDecorationType.t;
@@ -8,7 +9,7 @@ module Decoration = {
   type color = string;
 
   let decorate =
-      (editor: TextEditor.t, decoration: t, ranges: array(VSCode.Range.t)) => {
+      (editor: TextEditor.t, decoration: t, ranges: array(VSRange.t)) => {
     editor->TextEditor.setDecorations(decoration, ranges);
   };
   //
@@ -16,7 +17,7 @@ module Decoration = {
       (
         editor: TextEditor.t,
         backgroundColor: ThemeColor.stringOrThemeColor,
-        ranges: array(VSCode.Range.t),
+        ranges: array(VSRange.t),
       ) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
@@ -30,7 +31,7 @@ module Decoration = {
       (
         editor: TextEditor.t,
         style: backgroundStyle,
-        ranges: array(VSCode.Range.t),
+        ranges: array(VSRange.t),
       ) =>
     highlightBackgroundPrim(
       editor,
@@ -39,14 +40,14 @@ module Decoration = {
     );
 
   let highlightBackgroundWithColor =
-      (editor: TextEditor.t, color: color, ranges: array(VSCode.Range.t)) =>
+      (editor: TextEditor.t, color: color, ranges: array(VSRange.t)) =>
     highlightBackgroundPrim(editor, ThemeColor.string(color), ranges);
 
   let decorateTextPrim =
       (
         editor: TextEditor.t,
         color: ThemeColor.stringOrThemeColor,
-        ranges: array(VSCode.Range.t),
+        ranges: array(VSRange.t),
       ) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed);
@@ -59,7 +60,7 @@ module Decoration = {
       (
         editor: TextEditor.t,
         style: backgroundStyle,
-        ranges: array(VSCode.Range.t),
+        ranges: array(VSRange.t),
       ) =>
     decorateTextPrim(
       editor,
@@ -68,7 +69,7 @@ module Decoration = {
     );
 
   let decorateTextWithColor =
-      (editor: TextEditor.t, color: color, ranges: array(VSCode.Range.t)) =>
+      (editor: TextEditor.t, color: color, ranges: array(VSRange.t)) =>
     decorateTextPrim(editor, ThemeColor.string(color), ranges);
 
   let overlayTextPrim =
@@ -76,7 +77,7 @@ module Decoration = {
         editor: TextEditor.t,
         color: ThemeColor.stringOrThemeColor,
         text: string,
-        range: VSCode.Range.t,
+        range: VSRange.t,
       ) => {
     let after =
       ThemableDecorationAttachmentRenderOptions.t(
@@ -96,7 +97,7 @@ module Decoration = {
         editor: TextEditor.t,
         style: foregroundStyle,
         text: string,
-        range: VSCode.Range.t,
+        range: VSRange.t,
       ) =>
     overlayTextPrim(
       editor,
@@ -106,15 +107,10 @@ module Decoration = {
     );
 
   let overlayTextWithColor =
-      (
-        editor: TextEditor.t,
-        color: color,
-        text: string,
-        range: VSCode.Range.t,
-      ) =>
+      (editor: TextEditor.t, color: color, text: string, range: VSRange.t) =>
     overlayTextPrim(editor, ThemeColor.string(color), text, range);
 
-  let underlineText = (editor: TextEditor.t, range: VSCode.Range.t) => {
+  let underlineText = (editor: TextEditor.t, range: VSRange.t) => {
     let rangeBehavior =
       DecorationRangeBehavior.toEnum(DecorationRangeBehavior.OpenOpen);
     let textDecoration = "underline dotted";
@@ -128,27 +124,45 @@ module Decoration = {
   let destroy = TextEditorDecorationType.dispose;
 };
 
-// module Selection = {
-//   let set = (editor, range) => {
-//     let selection =
-//       Selection.make(VSCode.Range.start(range), VSCode.Range.end_(range));
-//     editor->TextEditor.setSelection(selection);
-//   };
-//   let setMany = (editor, ranges) => {
-//     let selections =
-//       ranges->Array.map(range =>
-//         Selection.make(VSCode.Range.start(range), VSCode.Range.end_(range))
-//       );
-//     editor->TextEditor.setSelections(selections);
-//   };
-//   let get = editor => {
-//     let selection = editor->TextEditor.selection;
-//     VSCode.Range.make(
-//       Selection.start(selection),
-//       Selection.end_(selection),
-//     );
-//   };
-// };
+module Cursor = {
+  let set = (editor, point) => {
+    let selection = Selection.make(point, point);
+    editor->TextEditor.setSelection(selection);
+  };
+  let setMany = (editor, points) => {
+    let selections = points->Array.map(point => Selection.make(point, point));
+    editor->TextEditor.setSelections(selections);
+  };
+  let get = editor => editor->TextEditor.selection->Selection.active;
+  let getMany = editor =>
+    editor->TextEditor.selections->Array.map(Selection.active);
+};
+
+module Selection = {
+  let set = (editor, range) => {
+    let selection =
+      Selection.make(VSRange.start(range), VSRange.end_(range));
+    editor->TextEditor.setSelection(selection);
+  };
+  let setMany = (editor, ranges) => {
+    let selections =
+      ranges->Array.map(range =>
+        Selection.make(VSRange.start(range), VSRange.end_(range))
+      );
+    editor->TextEditor.setSelections(selections);
+  };
+  let get = editor => {
+    let selection = editor->TextEditor.selection;
+    VSRange.make(Selection.start(selection), Selection.end_(selection));
+  };
+  let getMany = editor => {
+    editor
+    ->TextEditor.selections
+    ->Array.map(selection =>
+        VSRange.make(Selection.start(selection), Selection.end_(selection))
+      );
+  };
+};
 
 module Text = {
   let get = (document, range) =>
@@ -320,7 +334,7 @@ let rec fromUTF8Offset = (self, index) => {
 
 let toUTF8Offset = (document, offset) => {
   let range =
-    VSCode.Range.make(
+    VSRange.make(
       VSCode.Position.make(0, 0), // start
       document->TextDocument.positionAt(offset) // end
     );
@@ -352,7 +366,7 @@ module Provider = {
                 pairs->Array.map(((srcRange, targetFile, targetPos)) =>
                   LocationLink.{
                     originSelectionRange: Some(srcRange),
-                    targetRange: VSCode.Range.make(targetPos, targetPos),
+                    targetRange: VSRange.make(targetPos, targetPos),
                     targetSelectionRange: None,
                     targetUri: Uri.file(targetFile),
                   }
@@ -431,7 +445,7 @@ module Provider = {
       external push: (t, int, int, int, int, option(int)) => unit = "push";
       [@bs.send]
       external pushLegend:
-        (t, VSCode.Range.t, string, option(array(string))) => unit =
+        (t, VSRange.t, string, option(array(string))) => unit =
         "push";
     };
 

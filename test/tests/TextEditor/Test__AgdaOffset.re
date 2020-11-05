@@ -31,13 +31,13 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
   describe("SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices", () => {
     it("should work", () => {
       Assert.deep_equal(
-        SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices(
+        Editor.OffsetIntervals.computeUTF16SurrogatePairIndices(
           {j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j},
         ),
         [|0, 2, 4, 6, 9, 11, 13, 15|],
       );
       Assert.deep_equal(
-        SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices(
+        Editor.OffsetIntervals.computeUTF16SurrogatePairIndices(
           {j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j},
         ),
         [|0, 3, 7, 10, 14, 17, 19, 21|],

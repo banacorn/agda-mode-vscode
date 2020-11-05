@@ -18,18 +18,13 @@ let handle =
             let document = TextEditor.document(state.editor);
             // activated the input method with positions of cursors
             let startingRanges: array((int, int)) =
-              state.editor
-              ->TextEditor.selections
-              ->Array.map(selection => {
+              Editor.Selection.getMany(state.editor)
+              ->Array.map(range =>
                   (
-                    document->TextDocument.offsetAt(
-                      Selection.start(selection),
-                    ),
-                    document->TextDocument.offsetAt(
-                      Selection.end_(selection),
-                    ),
+                    document->TextDocument.offsetAt(VSRange.start(range)),
+                    document->TextDocument.offsetAt(VSRange.end_(range)),
                   )
-                });
+                );
             EditorIM.activate(state.editorIM, state.editor, startingRanges);
             Promise.resolved([ViewEvent(InputMethod(Activate))]);
           },

@@ -12,7 +12,7 @@ let getOffsets = (state: State.t): array(int) => {
 let pointingAt = (~cursor=?, state: State.t): option(Goal.t) => {
   let cursor =
     switch (cursor) {
-    | None => state.editor->TextEditor.selection->Selection.end_
+    | None => Editor.Cursor.get(state.editor)
     | Some(x) => x
     };
   let cursorOffset =
@@ -201,10 +201,7 @@ let handle =
           let document = TextEditor.document(state.editor);
           let nextGoal = ref(None);
           let cursorOffset =
-            TextDocument.offsetAt(
-              document,
-              state.editor->TextEditor.selection->Selection.end_,
-            );
+            TextDocument.offsetAt(document, Editor.Cursor.get(state.editor));
           let offsets = getOffsets(state);
 
           // find the first Goal after the cursor
@@ -223,8 +220,7 @@ let handle =
           | None => Promise.resolved([])
           | Some(offset) =>
             let point = document->TextDocument.positionAt(offset);
-            state.editor
-            ->TextEditor.setSelection(Selection.make(point, point));
+            Editor.Cursor.set(state.editor, point);
             Promise.resolved([Goal(JumpToOffset(offset))]);
           };
         },
@@ -237,10 +233,7 @@ let handle =
           let document = TextEditor.document(state.editor);
           let previousGoal = ref(None);
           let cursorOffset =
-            TextDocument.offsetAt(
-              document,
-              state.editor->TextEditor.selection->Selection.end_,
-            );
+            TextDocument.offsetAt(document, Editor.Cursor.get(state.editor));
           let offsets = getOffsets(state);
 
           // find the last Goal before the cursor
@@ -259,8 +252,7 @@ let handle =
           | None => Promise.resolved([])
           | Some(offset) =>
             let point = document->TextDocument.positionAt(offset);
-            state.editor
-            ->TextEditor.setSelection(Selection.make(point, point));
+            Editor.Cursor.set(state.editor, point);
             Promise.resolved([Goal(JumpToOffset(offset))]);
           };
         },
@@ -295,10 +287,11 @@ let handle =
   | SetCursor(offset) => [
       WithState(
         state => {
-          let document = TextEditor.document(state.editor);
-          let point = document->TextDocument.positionAt(offset);
-          state.editor
-          ->TextEditor.setSelection(Selection.make(point, point));
+          let point =
+            state.editor
+            ->TextEditor.document
+            ->TextDocument.positionAt(offset);
+          Editor.Cursor.set(state.editor, point);
         },
       ),
     ]

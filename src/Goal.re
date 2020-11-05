@@ -123,7 +123,7 @@ let setContent = (self, document, text) => {
 let setCursor = (self, editor) => {
   let (start, _) = self.range;
   let point = editor->TextEditor.document->TextDocument.positionAt(start + 3);
-  editor->TextEditor.setSelection(Selection.make(point, point));
+  Editor.Cursor.set(editor, point);
 };
 
 let buildHaskellRange = (document, self, old, filepath: string) => {

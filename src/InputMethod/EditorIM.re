@@ -460,18 +460,14 @@ let chooseSymbol = (self, editor, symbol) => {
 };
 
 let insertBackslash = editor => {
-  editor
-  ->TextEditor.selections
-  ->Array.map(Selection.end_)
+  Editor.Cursor.getMany(editor)
   ->Array.forEach(point => {
       Editor.Text.insert(TextEditor.document(editor), point, "\\")->ignore
     });
 };
 let insertChar = (editor, char) => {
   let char = Js.String.charAt(0, char);
-  editor
-  ->TextEditor.selections
-  ->Array.map(Selection.end_)
+  Editor.Cursor.getMany(editor)
   ->Array.forEach(point => {
       Editor.Text.insert(TextEditor.document(editor), point, char)->ignore
     });

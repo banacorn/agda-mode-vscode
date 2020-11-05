@@ -35,8 +35,9 @@ let cleanup = setup => {
 
 let insertChar = (setup, char) => {
   let promise = setup.emitter.once();
-  let positions =
-    setup.editor->TextEditor.selections->Array.map(Selection.end_);
+
+  let positions = Editor.Cursor.getMany(setup.editor);
+
   setup.editor
   ->TextEditor.document
   ->Editor.Text.batchInsert(positions, char)
@@ -46,7 +47,7 @@ let insertChar = (setup, char) => {
 
 let backspace = setup => {
   let promise = setup.emitter.once();
-  let end_ = setup.editor->TextEditor.selection->Selection.end_;
+  let end_ = Editor.Cursor.get(setup.editor);
   let start = end_->Position.translate(0, -1);
   let range = VSRange.make(start, end_);
   setup.editor
@@ -60,13 +61,8 @@ module IM = {
   let activate = (setup, ~positions=?, ()) => {
     let promise = setup.emitter.once();
     let positions =
-      positions->Option.getWithDefault([|
-        setup.editor->TextEditor.selection->Selection.end_,
-      |]);
-    setup.editor
-    ->TextEditor.setSelections(
-        positions->Array.map(point => Selection.make(point, point)),
-      );
+      positions->Option.getWithDefault(Editor.Cursor.getMany(setup.editor));
+    Editor.Cursor.setMany(setup.editor, positions);
     VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
     ->flatMap(result => result)
     ->flatMap(_ => promise)
