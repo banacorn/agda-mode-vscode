@@ -1,5 +1,3 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 
 open! Task;
@@ -49,9 +47,9 @@ let sendAgdaRequest = (addToAgdaQueue, addToDeferredQueue, state, request) => {
   state
   ->State.connect
   ->Promise.mapOk(connection => {
-      let document = TextEditor.document(state.editor);
+      let document = VSCode.TextEditor.document(state.editor);
       let version = connection.metadata.version;
-      let filepath = document->TextDocument.fileName->Parser.filepath;
+      let filepath = document->VSCode.TextDocument.fileName->Parser.filepath;
       let libraryPath = Config.getLibraryPath();
       let highlightingMethod = Config.getHighlightingMethod();
       let backend = Config.getBackend();
@@ -248,7 +246,7 @@ let dispatchCommand = (self, command) => {
 let make =
     (
       extentionPath: string,
-      editor: TextEditor.t,
+      editor: VSCode.TextEditor.t,
       removeFromRegistry: unit => unit,
       eventEmitter: Event.t(EditorIM.event),
     ) => {
@@ -271,7 +269,7 @@ let make =
   state.editorIM.eventEmitter.on(action => {
     dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
   })
-  ->Disposable.make
+  ->VSCode.Disposable.make
   ->Js.Array.push(state.subscriptions)
   ->ignore;
 
@@ -283,8 +281,8 @@ let make =
     // only provide source location, when the filenames are matched
     let currentFileName =
       state.editor
-      ->TextEditor.document
-      ->TextDocument.fileName
+      ->VSCode.TextEditor.document
+      ->VSCode.TextDocument.fileName
       ->Parser.filepath;
 
     if (fileName == currentFileName) {
@@ -299,12 +297,12 @@ let make =
     // only provide source location, when the filenames are matched
     let currentFileName =
       state.editor
-      ->TextEditor.document
-      ->TextDocument.fileName
+      ->VSCode.TextEditor.document
+      ->VSCode.TextDocument.fileName
       ->Parser.filepath;
 
     if (fileName == currentFileName) {
-      let range = VSRange.make(point, point);
+      let range = VSCode.Range.make(point, point);
       Some(Promise.resolved(([|""|], range)));
     } else {
       None;
@@ -323,8 +321,9 @@ let make =
   let documentSemanticTokensProvider = (fileName, push) => {
     let useSemanticHighlighting = Config.getSemanticHighlighting();
     Js.log("useSemanticHighlighting");
-    let document = TextEditor.document(editor);
-    let currentFileName = document->TextDocument.fileName->Parser.filepath;
+    let document = VSCode.TextEditor.document(editor);
+    let currentFileName =
+      document->VSCode.TextDocument.fileName->Parser.filepath;
     if (useSemanticHighlighting && fileName == currentFileName) {
       Some(
         Decoration.generateSemanticTokens(

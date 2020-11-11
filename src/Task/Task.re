@@ -1,5 +1,3 @@
-open VSCode;
-
 type t =
   | DispatchCommand(Command.t)
   // Agda
@@ -66,7 +64,7 @@ let prompt = (header, prompt, callbackOnPromptSuccess: string => list(t)) => [
   WithState(
     state => {
       // focus on the panel before prompting
-      Commands.setContext("agdaModePrompting", true)->ignore;
+      VSCode.Commands.setContext("agdaModePrompting", true)->ignore;
       state.view->View__Controller.focus;
     },
   ),
@@ -84,8 +82,8 @@ let prompt = (header, prompt, callbackOnPromptSuccess: string => list(t)) => [
           WithState(
             state => {
               // put the focus back to the editor after prompting
-              Commands.setContext("agdaModePrompting", false)->ignore;
-              state.editor->TextEditor.document->Editor.focus;
+              VSCode.Commands.setContext("agdaModePrompting", false)->ignore;
+              state.editor->VSCode.TextEditor.document->Editor.focus;
             },
           ),
         ],

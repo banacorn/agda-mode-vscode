@@ -1,5 +1,3 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 
 type event =
@@ -23,13 +21,16 @@ module Instance = {
   };
 
   let make = (editor, range) => {
-    let document = TextEditor.document(editor);
-    let start = document->TextDocument.positionAt(fst(range));
-    let end_ = document->TextDocument.positionAt(snd(range));
+    let document = VSCode.TextEditor.document(editor);
+    let start = document->VSCode.TextDocument.positionAt(fst(range));
+    let end_ = document->VSCode.TextDocument.positionAt(snd(range));
     {
       range,
       decoration: [|
-        Editor.Decoration.underlineText(editor, VSRange.make(start, end_)),
+        Editor.Decoration.underlineText(
+          editor,
+          VSCode.Range.make(start, end_),
+        ),
       |],
       buffer: Buffer.make(),
     };
@@ -44,11 +45,11 @@ module Instance = {
     instance.decoration->Array.forEach(Editor.Decoration.destroy);
     instance.decoration = [||];
 
-    let document = TextEditor.document(editor);
+    let document = VSCode.TextEditor.document(editor);
     let (start, end_) = instance.range;
-    let start = document->TextDocument.positionAt(start);
-    let end_ = document->TextDocument.positionAt(end_);
-    let range = VSRange.make(start, end_);
+    let start = document->VSCode.TextDocument.positionAt(start);
+    let end_ = document->VSCode.TextDocument.positionAt(end_);
+    let range = VSCode.Range.make(start, end_);
 
     instance.decoration = [|Editor.Decoration.underlineText(editor, range)|];
   };
@@ -62,9 +63,9 @@ module Instance = {
 type t = {
   mutable instances: array(Instance.t),
   mutable activated: bool,
-  mutable cursorsToBeChecked: option(array(Position.t)),
+  mutable cursorsToBeChecked: option(array(VSCode.Position.t)),
   mutable busy: bool,
-  mutable handles: array(Disposable.t),
+  mutable handles: array(VSCode.Disposable.t),
   // for notifying the Task Dispatcher
   eventEmitter: Event.t(Command.InputMethod.t),
   // for reporting when some task has be done
@@ -72,10 +73,11 @@ type t = {
 };
 
 let fromContentChangeEvent =
-    (change: TextDocumentContentChangeEvent.t): Buffer.change => {
-  offset: change->TextDocumentContentChangeEvent.rangeOffset,
-  insertedText: change->TextDocumentContentChangeEvent.text,
-  replacedTextLength: change->TextDocumentContentChangeEvent.rangeLength,
+    (change: VSCode.TextDocumentContentChangeEvent.t): Buffer.change => {
+  offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
+  insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
+  replacedTextLength:
+    change->VSCode.TextDocumentContentChangeEvent.rangeLength,
 };
 
 // datatype for representing a rewrite to be made to the text editor
@@ -87,8 +89,8 @@ type rewrite = {
 };
 
 // kill the Instances that are not are not pointed by cursors
-let checkCursorPositions = (self, document, points: array(Position.t)) => {
-  let offsets = points->Array.map(TextDocument.offsetAt(document));
+let checkCursorPositions = (self, document, points: array(VSCode.Position.t)) => {
+  let offsets = points->Array.map(VSCode.TextDocument.offsetAt(document));
   log(
     "\n### Cursors  : "
     ++ Js.Array.sortInPlaceWith(compare, offsets)
@@ -111,7 +113,7 @@ let checkCursorPositions = (self, document, points: array(Position.t)) => {
     self.instances
     ->Array.keep((instance: Instance.t) => {
         // if any cursor falls into the range of the instance, the instance survives
-        let survived = offsets->Belt.Array.some(Instance.withIn(instance));
+        let survived = offsets->Array.some(Instance.withIn(instance));
         // if not, the instance gets destroyed
         if (!survived) {
           Instance.destroy(instance);
@@ -170,21 +172,21 @@ let toRewrites =
 
 // iterate through a list of rewrites and apply them to the text editor
 let applyRewrites = (self, editor, rewrites) => {
-  let document = TextEditor.document(editor);
+  let document = VSCode.TextEditor.document(editor);
   // before applying edits to the text editor, flip the semaphore
   self.busy = true;
   // iterate though the list of rewrites
   rewrites
   ->Array.map(({rangeBefore, rangeAfter, text, instance}, ()) => {
       let editorRange =
-        VSRange.make(
-          document->TextDocument.positionAt(fst(rangeBefore)),
-          document->TextDocument.positionAt(snd(rangeBefore)),
+        VSCode.Range.make(
+          document->VSCode.TextDocument.positionAt(fst(rangeBefore)),
+          document->VSCode.TextDocument.positionAt(snd(rangeBefore)),
         );
       // update the text buffer
       Editor.Text.delete(document, editorRange)
       ->Promise.flatMap(_ => {
-          Editor.Text.insert(document, VSRange.start(editorRange), text)
+          Editor.Text.insert(document, VSCode.Range.start(editorRange), text)
         })
       ->Promise.map(_ => {
           // update range offsets and redecorate the Instance
@@ -308,7 +310,7 @@ let activate = (self, editor, ranges: array((int, int))) => {
   // emit ACTIVATE event after applied rewriting
   self.eventEmitterTest.emit(Activate);
   // setContext
-  Commands.setContext("agdaModeTyping", true)->ignore;
+  VSCode.Commands.setContext("agdaModeTyping", true)->ignore;
 
   // instantiate from an array of offsets
   self.instances =
@@ -317,29 +319,29 @@ let activate = (self, editor, ranges: array((int, int))) => {
 
   // initiate listeners
 
-  Window.onDidChangeTextEditorSelection(event => {
+  VSCode.Window.onDidChangeTextEditorSelection(event => {
     let points =
       event
-      ->TextEditorSelectionChangeEvent.selections
-      ->Array.map(Selection.anchor);
+      ->VSCode.TextEditorSelectionChangeEvent.selections
+      ->Array.map(VSCode.Selection.anchor);
     if (self.busy) {
       // cannot check cursor positions at this moment
       // store cursor positions and wait until the system is not busy
       self.cursorsToBeChecked =
         Some(points);
     } else {
-      checkCursorPositions(self, TextEditor.document(editor), points);
+      checkCursorPositions(self, VSCode.TextEditor.document(editor), points);
     };
   })
   ->Js.Array.push(self.handles)
   ->ignore;
 
   // listens to changes from the text editor
-  Workspace.onDidChangeTextDocument(
+  VSCode.Workspace.onDidChangeTextDocument(
     fun
     | None => ()
     | Some(event) => {
-        let changes = event->TextDocumentChangeEvent.contentChanges;
+        let changes = event->VSCode.TextDocumentChangeEvent.contentChanges;
 
         if (!self.busy && Array.length(changes) > 0) {
           let changes = changes->Array.map(fromContentChangeEvent);
@@ -360,7 +362,7 @@ let activate = (self, editor, ranges: array((int, int))) => {
 
 let deactivate = self => {
   // setContext
-  Commands.setContext("agdaModeTyping", false)->ignore;
+  VSCode.Commands.setContext("agdaModeTyping", false)->ignore;
 
   self.eventEmitterTest.emit(Deactivate);
 
@@ -369,7 +371,7 @@ let deactivate = self => {
   self.activated = false;
   self.cursorsToBeChecked = None;
   self.busy = false;
-  self.handles->Array.forEach(Disposable.dispose);
+  self.handles->Array.forEach(VSCode.Disposable.dispose);
   self.handles = [||];
 };
 
@@ -462,13 +464,15 @@ let chooseSymbol = (self, editor, symbol) => {
 let insertBackslash = editor => {
   Editor.Cursor.getMany(editor)
   ->Array.forEach(point => {
-      Editor.Text.insert(TextEditor.document(editor), point, "\\")->ignore
+      Editor.Text.insert(VSCode.TextEditor.document(editor), point, "\\")
+      ->ignore
     });
 };
 let insertChar = (editor, char) => {
   let char = Js.String.charAt(0, char);
   Editor.Cursor.getMany(editor)
   ->Array.forEach(point => {
-      Editor.Text.insert(TextEditor.document(editor), point, char)->ignore
+      Editor.Text.insert(VSCode.TextEditor.document(editor), point, char)
+      ->ignore
     });
 };

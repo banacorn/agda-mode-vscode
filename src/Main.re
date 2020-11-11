@@ -1,6 +1,5 @@
 // The entry module of the whole extension
 open Belt;
-open VSCode;
 
 // if end with '.agda' or '.lagda'
 let isAgda = (filepath): bool => {
@@ -16,21 +15,21 @@ let activateWithoutContext = (disposables, extensionPath) => {
   let eventEmitter = Event.make();
 
   // when a TextEditor gets closed, destroy the corresponding State
-  Workspace.onDidCloseTextDocument(textDoc =>
+  VSCode.Workspace.onDidCloseTextDocument(textDoc =>
     textDoc->Option.forEach(textDoc =>
-      Registry.forceDestroy(textDoc->TextDocument.fileName)->ignore
+      Registry.forceDestroy(textDoc->VSCode.TextDocument.fileName)->ignore
     )
   )
   ->Js.Array.push(disposables)
   ->ignore;
   // when a file got renamed, destroy the corresponding State if it becomes something else than Agda file
-  Workspace.onDidRenameFiles(event =>
+  VSCode.Workspace.onDidRenameFiles(event =>
     event
-    ->Option.map(FileRenameEvent.files)
+    ->Option.map(VSCode.FileRenameEvent.files)
     ->Option.forEach(files => {
         files->Array.forEach(file => {
-          let oldName = file##oldUri->Uri.path;
-          let newName = file##newUri->Uri.path;
+          let oldName = file##oldUri->VSCode.Uri.path;
+          let newName = file##newUri->VSCode.Uri.path;
           if (Registry.contains(oldName)) {
             if (isAgda(newName)) {
               Registry.rename(oldName, newName);
@@ -47,18 +46,18 @@ let activateWithoutContext = (disposables, extensionPath) => {
   // on editor activation, reveal the corresponding Panel (if any)
   // TODO: refactor this
   let onDidChangeActivation = callback => {
-    let previous = ref(Window.activeTextEditor);
+    let previous = ref(VSCode.Window.activeTextEditor);
 
-    Window.onDidChangeActiveTextEditor(next =>
+    VSCode.Window.onDidChangeActiveTextEditor(next =>
       if (next
-          ->Option.map(TextEditor.document)
+          ->Option.map(VSCode.TextEditor.document)
           ->Option.map(document =>
-              document->TextDocument.fileName->Parser.filepath
+              document->VSCode.TextDocument.fileName->Parser.filepath
             )
           != (previous^)
-             ->Option.map(TextEditor.document)
+             ->Option.map(VSCode.TextEditor.document)
              ->Option.map(document =>
-                 document->TextDocument.fileName->Parser.filepath
+                 document->VSCode.TextDocument.fileName->Parser.filepath
                )) {
         callback(previous^, next);
         previous := next;
@@ -104,10 +103,13 @@ let activateWithoutContext = (disposables, extensionPath) => {
   // on trigger command
 
   let registerCommand = (name, callback) =>
-    Commands.registerCommand("agda-mode." ++ name, () =>
-      Window.activeTextEditor->Option.map(editor => {
+    VSCode.Commands.registerCommand("agda-mode." ++ name, () =>
+      VSCode.Window.activeTextEditor->Option.map(editor => {
         let fileName =
-          editor->TextEditor.document->TextDocument.fileName->Parser.filepath;
+          editor
+          ->VSCode.TextEditor.document
+          ->VSCode.TextDocument.fileName
+          ->Parser.filepath;
         callback(editor, fileName);
       })
     );
@@ -157,7 +159,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
 
 // this function is the entry point of the whole extension
 let activate = context => {
-  let disposables = context->ExtensionContext.subscriptions;
-  let extensionPath = context->ExtensionContext.extensionPath;
+  let disposables = context->VSCode.ExtensionContext.subscriptions;
+  let extensionPath = context->VSCode.ExtensionContext.extensionPath;
   activateWithoutContext(disposables, extensionPath);
 };

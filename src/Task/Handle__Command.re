@@ -1,5 +1,3 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 open Command;
 
@@ -13,7 +11,7 @@ let handle = command => {
       display(Plain("Loading ..."), Nothing),
       Task.WithStateP(
         state =>
-          TextDocument.save(TextEditor.document(state.editor))
+          VSCode.TextDocument.save(VSCode.TextEditor.document(state.editor))
           ->Promise.map(_ => []),
       ),
       AgdaRequest(Load),
@@ -283,9 +281,9 @@ let handle = command => {
     | JumpToTarget(link) => [
         WithState(
           state => {
-            let document = TextEditor.document(state.editor);
+            let document = VSCode.TextEditor.document(state.editor);
             Editor.focus(document);
-            let path = document->TextDocument.fileName->Parser.filepath;
+            let path = document->VSCode.TextDocument.fileName->Parser.filepath;
             switch (link) {
             | ToRange(NoRange) => ()
             | ToRange(Range(None, _intervals)) => ()

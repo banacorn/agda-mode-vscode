@@ -1,5 +1,3 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 
 type t =
@@ -40,7 +38,7 @@ type highlightingLevel =
 // encode Request.t to String
 let encode =
     (
-      document: TextDocument.t,
+      document: VSCode.TextDocument.t,
       version,
       filepath: string,
       backend: string,

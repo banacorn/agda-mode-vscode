@@ -1,5 +1,3 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 
 open! Task;
@@ -15,14 +13,18 @@ let handle =
             EditorIM.deactivate(state.editorIM);
             Promise.resolved([ViewEvent(InputMethod(Deactivate))]);
           } else {
-            let document = TextEditor.document(state.editor);
+            let document = VSCode.TextEditor.document(state.editor);
             // activated the input method with positions of cursors
             let startingRanges: array((int, int)) =
               Editor.Selection.getMany(state.editor)
               ->Array.map(range =>
                   (
-                    document->TextDocument.offsetAt(VSRange.start(range)),
-                    document->TextDocument.offsetAt(VSRange.end_(range)),
+                    document->VSCode.TextDocument.offsetAt(
+                      VSCode.Range.start(range),
+                    ),
+                    document->VSCode.TextDocument.offsetAt(
+                      VSCode.Range.end_(range),
+                    ),
                   )
                 );
             EditorIM.activate(state.editorIM, state.editor, startingRanges);
