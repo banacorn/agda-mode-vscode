@@ -127,7 +127,6 @@ let executeTask =
             let deferredTasks =
               Config.getSemanticHighlighting()
                 ? deferredTasks : [Task.Decoration(Apply), ...deferredTasks];
-            Js.log("APPLY!!!!");
 
             TaskQueue.addToTheFront(queue, deferredTasks);
             true;

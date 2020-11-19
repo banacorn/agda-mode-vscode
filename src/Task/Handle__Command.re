@@ -10,9 +10,18 @@ let handle = command => {
       BenchStart("$$$ Load"),
       display(Plain("Loading ..."), Nothing),
       Task.WithStateP(
-        state =>
-          VSCode.TextDocument.save(VSCode.TextEditor.document(state.editor))
-          ->Promise.map(_ => []),
+        state => {
+          let document = VSCode.TextEditor.document(state.editor);
+          let options =
+            Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()));
+          // save the document before loading
+          VSCode.TextDocument.save(document)
+          // Issue #26 - don't load the document in preview mode
+          ->Promise.flatMap(_ =>
+              VSCode.Window.showTextDocumentWithShowOptions(document, options)
+            )
+          ->Promise.map(_ => []);
+        },
       ),
       AgdaRequest(Load),
       BenchEnd("$$$ Load"),
