@@ -1,5 +1,3 @@
-open VSCode;
-
 type status =
   | Initialized
   | Uninitialized(
@@ -8,7 +6,7 @@ type status =
     );
 
 type t = {
-  panel: WebviewPanel.t,
+  panel: VSCode.WebviewPanel.t,
   onResponseFromView: Event.t(View.Response.t),
   onEventFromView: Event.t(View.EventFromView.t),
   subscriptions: array(VSCode.Disposable.t),
@@ -48,14 +46,14 @@ let send = (view, requestOrEvent) =>
     | Request(_) =>
       let promise = view.onResponseFromView.once();
       view.panel
-      ->WebviewPanel.webview
-      ->Webview.postMessage(stringified)
+      ->VSCode.WebviewPanel.webview
+      ->VSCode.Webview.postMessage(stringified)
       ->Promise.flatMap(_ => promise)
       ->Promise.map(res => Some(res));
     | Event(_) =>
       view.panel
-      ->WebviewPanel.webview
-      ->Webview.postMessage(stringified)
+      ->VSCode.WebviewPanel.webview
+      ->VSCode.Webview.postMessage(stringified)
       ->Promise.map(_ => None)
     };
   };
@@ -63,7 +61,7 @@ let send = (view, requestOrEvent) =>
 let onEvent = (view, callback) => {
   // Handle events from the webview
   view.onEventFromView.on(callback)
-  ->Disposable.make;
+  ->VSCode.Disposable.make;
 };
 
 let make = (extensionPath, editor) => {
@@ -84,16 +82,22 @@ let make = (extensionPath, editor) => {
     };
 
     let styleUri =
-      Uri.file(Node.Path.join2(distPath, styleUri))
-      ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+      VSCode.Uri.file(Node.Path.join2(distPath, styleUri))
+      ->VSCode.Uri.with_(
+          VSCode.Uri.makeChange(~scheme="vscode-resource", ()),
+        );
 
     let scriptUri =
-      Uri.file(Node.Path.join2(distPath, scriptUri))
-      ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+      VSCode.Uri.file(Node.Path.join2(distPath, scriptUri))
+      ->VSCode.Uri.with_(
+          VSCode.Uri.makeChange(~scheme="vscode-resource", ()),
+        );
 
     let codiconUri =
-      Uri.file(Node.Path.join2(distPath, codiconUri))
-      ->Uri.with_(Uri.makeChange(~scheme="vscode-resource", ()));
+      VSCode.Uri.file(Node.Path.join2(distPath, codiconUri))
+      ->VSCode.Uri.with_(
+          VSCode.Uri.makeChange(~scheme="vscode-resource", ()),
+        );
 
     let metaContent =
       "font-src vscode-resource: ;default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-"
@@ -125,31 +129,31 @@ let make = (extensionPath, editor) => {
     let distPath = Node.Path.join2(extensionPath, "dist");
     let fileName =
       Node.Path.basename_ext(
-        editor->TextEditor.document->TextDocument.fileName,
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
         ".agda",
       );
 
     let panel =
-      Window.createWebviewPanel(
+      VSCode.Window.createWebviewPanel(
         "panel",
         "Agda [" ++ fileName ++ "]",
         {preserveFocus: true, viewColumn: 3},
         // None,
         Some(
-          WebviewAndWebviewPanelOptions.make(
+          VSCode.WebviewAndWebviewPanelOptions.make(
             ~enableScripts=true,
             // So that the view don't get wiped out when it's not in the foreground
             ~retainContextWhenHidden=true,
             // And restrict the webview to only loading content from our extension's `media` directory.
-            ~localResourceRoots=[|Uri.file(distPath)|],
+            ~localResourceRoots=[|VSCode.Uri.file(distPath)|],
             (),
           ),
         ),
       );
 
     panel
-    ->WebviewPanel.webview
-    ->Webview.setHtml(
+    ->VSCode.WebviewPanel.webview
+    ->VSCode.Webview.setHtml(
         html(distPath, "style.css", "view.bundle.js", "codicon/codicon.css"),
       );
 
@@ -157,7 +161,7 @@ let make = (extensionPath, editor) => {
   };
 
   let moveToBottom = () => {
-    Commands.(
+    VSCode.Commands.(
       executeCommand(
         `setEditorLayout({
           orientation: 1,
@@ -185,8 +189,8 @@ let make = (extensionPath, editor) => {
   let onResponseFromView = Event.make();
   let onEventFromView = Event.make();
   panel
-  ->WebviewPanel.webview
-  ->Webview.onDidReceiveMessage(json => {
+  ->VSCode.WebviewPanel.webview
+  ->VSCode.Webview.onDidReceiveMessage(json => {
       switch (View.ResponseOrEventFromView.decode(json)) {
       | Response(res) => onResponseFromView.emit(res)
       | Event(ev) => onEventFromView.emit(ev)
@@ -202,7 +206,7 @@ let make = (extensionPath, editor) => {
 
   // on destroy
   panel
-  ->WebviewPanel.onDidDispose(() => onEventFromView.emit(Destroyed))
+  ->VSCode.WebviewPanel.onDidDispose(() => onEventFromView.emit(Destroyed))
   ->Js.Array.push(subscriptions)
   ->ignore;
 
@@ -238,7 +242,7 @@ let make = (extensionPath, editor) => {
       }
     | _ => (),
   )
-  ->Disposable.make
+  ->VSCode.Disposable.make
   ->Js.Array.push(view.subscriptions)
   ->ignore;
 
@@ -253,16 +257,20 @@ let destroy = view => {
   // destroy the EventEmitter first, to prevent the aforementioned from happening
   view.onResponseFromView.destroy();
   view.onEventFromView.destroy();
-  view.panel->WebviewPanel.dispose;
-  view.subscriptions->Belt.Array.forEach(Disposable.dispose);
+  view.panel->VSCode.WebviewPanel.dispose;
+  view.subscriptions->Belt.Array.forEach(VSCode.Disposable.dispose);
 };
 
 // show/hide
-let show = view => view.panel->WebviewPanel.reveal(~preserveFocus=true, ());
-let focus = view => view.panel->WebviewPanel.reveal();
+let show = view =>
+  view.panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ());
+let focus = view => view.panel->VSCode.WebviewPanel.reveal();
 let hide = _view => ();
 
 let fromPosition = (position: View.Position.t) =>
-  Position.make(position.line - 1, position.col - 1);
+  VSCode.Position.make(position.line - 1, position.col - 1);
 let fromInterval = (interval: View.Interval.t) =>
-  Range.make(fromPosition(interval.start), fromPosition(interval.end_));
+  VSCode.Range.make(
+    fromPosition(interval.start),
+    fromPosition(interval.end_),
+  );

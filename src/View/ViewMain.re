@@ -1,14 +1,13 @@
-open VSCode;
-open! Belt;
+open Belt;
 
 // As this so called "WebView" is isolated and independent from the Extension
 // this is the only way to send messages back to the extension
-let vscode = Api.acquireVsCodeApi();
+let vscode = VSCode.Api.acquireVsCodeApi();
 
 // relay VSCode.Api.onMessage => onRequest or onEvent;
 let onRequest = Event.make();
 let onEventToView = Event.make();
-Api.onMessage(stringifiedJSON => {
+VSCode.Api.onMessage(stringifiedJSON => {
   let requestOrEvent =
     stringifiedJSON->Js.Json.parseExn->View.RequestOrEventToView.decode;
 
@@ -22,7 +21,7 @@ Api.onMessage(stringifiedJSON => {
 let onResponse = Event.make();
 onResponse.on(response => {
   View.ResponseOrEventFromView.(
-    vscode->Api.postMessage(encode(Response(response)))
+    vscode->VSCode.Api.postMessage(encode(Response(response)))
   )
 });
 
@@ -30,7 +29,7 @@ onResponse.on(response => {
 let onEventFromView = Event.make();
 onEventFromView.on(event => {
   View.ResponseOrEventFromView.(
-    vscode->Api.postMessage(encode(Event(event)))
+    vscode->VSCode.Api.postMessage(encode(Event(event)))
   )
 });
 

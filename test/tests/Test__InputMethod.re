@@ -1,5 +1,3 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 open! BsMocha.Mocha;
 open Test__Util;
@@ -9,7 +7,7 @@ open Promise;
 module Js = Js';
 
 type setup = {
-  editor: TextEditor.t,
+  editor: VSCode.TextEditor.t,
   emitter: Event.t(EditorIM.event),
 };
 
@@ -17,7 +15,7 @@ let activateExtension = (fileName): Promise.t(setup) => {
   let disposables = [||];
   let extensionPath = Path.extensionPath();
   let emitter = Main.activateWithoutContext(disposables, extensionPath);
-  Window.showTextDocumentWithUri(Uri.file(fileName), None)
+  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
   ->map(editor => {editor, emitter});
 };
 
@@ -29,8 +27,12 @@ let acquire = setup => {
 };
 
 let cleanup = setup => {
-  let range = VSRange.make(Position.make(0, 0), Position.make(100, 0));
-  setup.editor->TextEditor.document->Editor.Text.replace(range, "");
+  let range =
+    VSCode.Range.make(
+      VSCode.Position.make(0, 0),
+      VSCode.Position.make(100, 0),
+    );
+  setup.editor->VSCode.TextEditor.document->Editor.Text.replace(range, "");
 };
 
 let insertChar = (setup, char) => {
@@ -39,7 +41,7 @@ let insertChar = (setup, char) => {
   let positions = Editor.Cursor.getMany(setup.editor);
 
   setup.editor
-  ->TextEditor.document
+  ->VSCode.TextEditor.document
   ->Editor.Text.batchInsert(positions, char)
   ->flatMap(_ => promise)
   ->map(x => Ok(x));
@@ -48,10 +50,10 @@ let insertChar = (setup, char) => {
 let backspace = setup => {
   let promise = setup.emitter.once();
   let end_ = Editor.Cursor.get(setup.editor);
-  let start = end_->Position.translate(0, -1);
-  let range = VSRange.make(start, end_);
+  let start = end_->VSCode.Position.translate(0, -1);
+  let range = VSCode.Range.make(start, end_);
   setup.editor
-  ->TextEditor.document
+  ->VSCode.TextEditor.document
   ->Editor.Text.delete(range)
   ->flatMap(_ => promise)
   ->map(x => Ok(x));
@@ -96,7 +98,7 @@ describe("Input Method (Editor)", () => {
     Q.it({j|should translate "lambdabar" to "λ"|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
-          let document = TextEditor.document(setup.editor);
+          let document = VSCode.TextEditor.document(setup.editor);
           IM.activate(setup, ())
           ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "l"))
@@ -141,7 +143,7 @@ describe("Input Method (Editor)", () => {
     Q.it({j|should translate "bn" to "𝕟"|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
-          let document = TextEditor.document(setup.editor);
+          let document = VSCode.TextEditor.document(setup.editor);
           IM.activate(setup, ())
           ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "b"))
@@ -163,7 +165,7 @@ describe("Input Method (Editor)", () => {
     Q.it({j|should work just fine|j}, () => {
       acquire(setup)
       ->flatMapOk(setup => {
-          let document = TextEditor.document(setup.editor);
+          let document = VSCode.TextEditor.document(setup.editor);
           IM.activate(setup, ())
           ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "l"))
@@ -204,20 +206,20 @@ describe("Input Method (Editor)", () => {
   });
   describe("Multiple cursors at once", () => {
     let positions = [|
-      Position.make(0, 0),
-      Position.make(1, 0),
-      Position.make(2, 0),
-      Position.make(3, 0),
+      VSCode.Position.make(0, 0),
+      VSCode.Position.make(1, 0),
+      VSCode.Position.make(2, 0),
+      VSCode.Position.make(3, 0),
     |];
     Q.it({j|should work just fine|j}, () => {
       let replaceCRLF = Js.String.replaceByRe([%re "/\\r\\n/g"], "\n");
 
       acquire(setup)
       ->flatMapOk(setup => {
-          let document = TextEditor.document(setup.editor);
+          let document = VSCode.TextEditor.document(setup.editor);
 
           document
-          ->Editor.Text.insert(Position.make(0, 0), "\n\n\n")
+          ->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
           ->flatMap(_ => IM.activate(setup, ~positions, ()))
           ->flatMapOk(A.equal(EditorIM.Activate))
           ->flatMapOk(() => insertChar(setup, "b"))

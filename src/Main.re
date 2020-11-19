@@ -15,29 +15,25 @@ let activateWithoutContext = (disposables, extensionPath) => {
   let eventEmitter = Event.make();
 
   // when a TextEditor gets closed, destroy the corresponding State
-  VSCode.Workspace.onDidCloseTextDocument(textDoc =>
-    textDoc->Option.forEach(textDoc =>
-      Registry.forceDestroy(textDoc->VSCode.TextDocument.fileName)->ignore
-    )
+  VSCode.Workspace.onDidCloseTextDocument(. textDoc =>
+    Registry.forceDestroy(textDoc->VSCode.TextDocument.fileName)->ignore
   )
   ->Js.Array.push(disposables)
   ->ignore;
   // when a file got renamed, destroy the corresponding State if it becomes something else than Agda file
-  VSCode.Workspace.onDidRenameFiles(event =>
+  VSCode.Workspace.onDidRenameFiles(. event =>
     event
-    ->Option.map(VSCode.FileRenameEvent.files)
-    ->Option.forEach(files => {
-        files->Array.forEach(file => {
-          let oldName = file##oldUri->VSCode.Uri.path;
-          let newName = file##newUri->VSCode.Uri.path;
-          if (Registry.contains(oldName)) {
-            if (isAgda(newName)) {
-              Registry.rename(oldName, newName);
-            } else {
-              Registry.forceDestroy(oldName)->ignore;
-            };
+    ->VSCode.FileRenameEvent.files
+    ->Array.forEach(file => {
+        let oldName = file##oldUri->VSCode.Uri.path;
+        let newName = file##newUri->VSCode.Uri.path;
+        if (Registry.contains(oldName)) {
+          if (isAgda(newName)) {
+            Registry.rename(oldName, newName);
+          } else {
+            Registry.forceDestroy(oldName)->ignore;
           };
-        })
+        };
       })
   )
   ->Js.Array.push(disposables)

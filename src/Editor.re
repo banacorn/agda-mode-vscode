@@ -16,7 +16,7 @@ module Decoration = {
   let highlightBackgroundPrim =
       (
         editor: TextEditor.t,
-        backgroundColor: ThemeColor.stringOrThemeColor,
+        backgroundColor: VSCode.StringOr.t(ThemeColor.t),
         ranges: array(VSRange.t),
       ) => {
     let rangeBehavior =
@@ -35,18 +35,18 @@ module Decoration = {
       ) =>
     highlightBackgroundPrim(
       editor,
-      ThemeColor.themeColor(ThemeColor.make(style)),
+      VSCode.StringOr.others(ThemeColor.make(style)),
       ranges,
     );
 
   let highlightBackgroundWithColor =
       (editor: TextEditor.t, color: color, ranges: array(VSRange.t)) =>
-    highlightBackgroundPrim(editor, ThemeColor.string(color), ranges);
+    highlightBackgroundPrim(editor, VSCode.StringOr.string(color), ranges);
 
   let decorateTextPrim =
       (
         editor: TextEditor.t,
-        color: ThemeColor.stringOrThemeColor,
+        color: VSCode.StringOr.t(ThemeColor.t),
         ranges: array(VSRange.t),
       ) => {
     let rangeBehavior =
@@ -64,18 +64,18 @@ module Decoration = {
       ) =>
     decorateTextPrim(
       editor,
-      ThemeColor.themeColor(ThemeColor.make(style)),
+      VSCode.StringOr.others(ThemeColor.make(style)),
       ranges,
     );
 
   let decorateTextWithColor =
       (editor: TextEditor.t, color: color, ranges: array(VSRange.t)) =>
-    decorateTextPrim(editor, ThemeColor.string(color), ranges);
+    decorateTextPrim(editor, VSCode.StringOr.string(color), ranges);
 
   let overlayTextPrim =
       (
         editor: TextEditor.t,
-        color: ThemeColor.stringOrThemeColor,
+        color: VSCode.StringOr.t(ThemeColor.t),
         text: string,
         range: VSRange.t,
       ) => {
@@ -101,14 +101,14 @@ module Decoration = {
       ) =>
     overlayTextPrim(
       editor,
-      ThemeColor.themeColor(ThemeColor.make(style)),
+      VSCode.StringOr.others(ThemeColor.make(style)),
       text,
       range,
     );
 
   let overlayTextWithColor =
       (editor: TextEditor.t, color: color, text: string, range: VSRange.t) =>
-    overlayTextPrim(editor, ThemeColor.string(color), text, range);
+    overlayTextPrim(editor, VSCode.StringOr.string(color), text, range);
 
   let underlineText = (editor: TextEditor.t, range: VSRange.t) => {
     let rangeBehavior =
@@ -355,7 +355,7 @@ let reveal = (editor, range) => {
 
 module Provider = {
   let registerProvider = (definitionProvider, hoverProvider) => {
-    let documentSelector = [|DocumentFilterOrString.string("agda")|];
+    let documentSelector = [|VSCode.StringOr.string("agda")|];
 
     let definitionProvider =
       DefinitionProvider.{
@@ -474,7 +474,7 @@ module Provider = {
   };
 
   let registerTestingProvider = (prodider, (tokenTypes, tokenModifiers)) => {
-    let documentSelector = [|DocumentFilterOrString.string("agda")|];
+    let documentSelector = [|VSCode.StringOr.string("agda")|];
     let semanticTokensLegend =
       Mock.SemanticTokensLegend.makeWithTokenModifiers(
         tokenTypes,

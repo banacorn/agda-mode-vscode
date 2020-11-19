@@ -337,25 +337,21 @@ let activate = (self, editor, ranges: array((int, int))) => {
   ->ignore;
 
   // listens to changes from the text editor
-  VSCode.Workspace.onDidChangeTextDocument(
-    fun
-    | None => ()
-    | Some(event) => {
-        let changes = event->VSCode.TextDocumentChangeEvent.contentChanges;
+  VSCode.Workspace.onDidChangeTextDocument(.event => {
+    let changes = event->VSCode.TextDocumentChangeEvent.contentChanges;
 
-        if (!self.busy && Array.length(changes) > 0) {
-          let changes = changes->Array.map(fromContentChangeEvent);
-          // update the offsets to reflect the changes
-          let (instances, rewrites) =
-            updateInstanceOffsets(self.instances, changes);
-          self.instances = instances;
-          // apply rewrites onto the text editor
-          applyRewrites(self, editor, rewrites);
-          // update the view
-          updateView(self);
-        };
-      },
-  )
+    if (!self.busy && Array.length(changes) > 0) {
+      let changes = changes->Array.map(fromContentChangeEvent);
+      // update the offsets to reflect the changes
+      let (instances, rewrites) =
+        updateInstanceOffsets(self.instances, changes);
+      self.instances = instances;
+      // apply rewrites onto the text editor
+      applyRewrites(self, editor, rewrites);
+      // update the view
+      updateView(self);
+    };
+  })
   ->Js.Array.push(self.handles)
   ->ignore;
 };

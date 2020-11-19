@@ -1,19 +1,17 @@
-open VSCode;
-module VSRange = Range;
 open Belt;
 
 // type editor = TextEditor.t;
 // type context = Editor.context;
 type t = {
-  mutable editor: TextEditor.t,
+  mutable editor: VSCode.TextEditor.t,
   view: View__Controller.t,
   mutable connection: option(Connection.t),
   mutable goals: array(Goal.t),
   mutable decorations: Decoration.t,
-  mutable cursor: option(Position.t),
+  mutable cursor: option(VSCode.Position.t),
   editorIM: EditorIM.t,
   promptIM: PromptIM.t,
-  mutable subscriptions: array(Disposable.t),
+  mutable subscriptions: array(VSCode.Disposable.t),
   // for self destruction
   onRemoveFromRegistry: Event.t(unit),
 };
@@ -56,7 +54,8 @@ let disconnect = state =>
 
 // set context so that only certain key bindings only work
 // when there's a active text editor
-let setLoaded = value => Commands.setContext("agdaMode", value)->ignore;
+let setLoaded = value =>
+  VSCode.Commands.setContext("agdaMode", value)->ignore;
 
 let destroy = state => {
   state.view->View__Controller.destroy;
@@ -64,7 +63,7 @@ let destroy = state => {
   state.goals->Array.forEach(Goal.destroy);
   state.decorations->Decoration.destroy;
   setLoaded(false);
-  state.subscriptions->Array.forEach(Disposable.dispose);
+  state.subscriptions->Array.forEach(VSCode.Disposable.dispose);
   state->disconnect;
   // TODO: delete files in `.indirectHighlightingFileNames`
 };
