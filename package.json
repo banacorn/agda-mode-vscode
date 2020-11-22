@@ -25,6 +25,7 @@
 	},
 	"devDependencies": {
 		"bs-mocha": "^1.0.0",
+		"bsdoc": "^6.0.4-alpha",
 		"copy-webpack-plugin": "^6.0.3",
 		"glob": "^7.1.6",
 		"less-loader": "^5.0.0",
@@ -36,16 +37,16 @@
 	},
 	"dependencies": {
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
-		"bs-vscode": "github:banacorn/bs-vscode#v0.0.7",
 		"bs-nd": "^0.1.5",
 		"bs-platform": ">=8.2.0",
+		"bs-vscode": "github:banacorn/bs-vscode#v0.0.7",
 		"bs-webapi": ">=0.19.0",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-promise": ">=1.1.0",
-		"reason-react": ">=0.9.0",
+		"reason-react": "^0.9.1",
 		"reason-react-update": "^2.0.0",
 		"untildify": "^4.0.0",
 		"vscode-codicons": "^0.0.7"
