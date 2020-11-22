@@ -21,5 +21,39 @@ describe("Conversion of offsets between LF and CRLF line endings", () => {
         [|2, 6|],
       );
     })
-  })
+  });
+
+  describe("Editor.Indices.make", () => {
+    it("should work", () => {
+      open Editor.Indices;
+      ();
+      Assert.deep_equal(
+        {j|12\r\n56\r\n90|j}->Editor.computeCRLFIndices->make->expose->fst,
+        [|(0, 2), (3, 5)|],
+      );
+    })
+  });
+
+  describe("Editor.Indices.convert", () => {
+    it("should work", () => {
+      open Editor.Indices;
+      let a = make(Editor.computeCRLFIndices({j|12\r\n56\r\n90|j}));
+      Assert.deep_equal(convert(a, 0), 0);
+      Assert.deep_equal(a->expose->snd, 0);
+      Assert.deep_equal(convert(a, 1), 1);
+      Assert.deep_equal(a->expose->snd, 0);
+      Assert.deep_equal(convert(a, 2), 2);
+      Assert.deep_equal(a->expose->snd, 0);
+      Assert.deep_equal(convert(a, 3), 4);
+      Assert.deep_equal(a->expose->snd, 1);
+      Assert.deep_equal(convert(a, 4), 5);
+      Assert.deep_equal(a->expose->snd, 1);
+      Assert.deep_equal(convert(a, 5), 6);
+      Assert.deep_equal(a->expose->snd, 1);
+      Assert.deep_equal(convert(a, 6), 8);
+      Assert.deep_equal(a->expose->snd, 2);
+      Assert.deep_equal(convert(a, 7), 9);
+      Assert.deep_equal(a->expose->snd, 2);
+    })
+  });
 });

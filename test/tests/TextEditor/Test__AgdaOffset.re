@@ -85,7 +85,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     })
   });
 
-  describe("Editor.OffsetIntervals.fromUTF8Offset", () => {
+  describe("Editor.Indices.convert", () => {
     it("should work", () => {
       open Editor.Indices;
       let a =
