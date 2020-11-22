@@ -219,55 +219,78 @@ module Text = {
   };
 };
 
-module OffsetIntervals = {
+// returns an array of UTF-16 based indices where surrogate pairs occur,
+// for example, suppose that there are surrogate pairs at [6000, 6001] and [6003, 6004]
+//
+//        UTF-8       UTF-16
+//        --------------------
+//        5999        5999
+//        6000        6000
+//                    6001
+//        6001        6002
+//        6002        6003
+//                    6004
+//        6003        6005
+//
+// then this function should return [6000, 6003]
+let computeUTF16SurrogatePairIndices = (text: string): array(int) => {
+  let surrogatePairs = [||];
+
+  // length in code units (16 bits), not the actual UTF-8 length
+  let lengthInCodeUnits = String.length(text);
+
+  // iterate through the text to find surrogate pairs
+  let i = ref(0);
+  while (i^ < lengthInCodeUnits) {
+    let charCode = Js.String.charCodeAt(i^, text)->int_of_float;
+    let notFinal = i^ + 1 < lengthInCodeUnits;
+    // check if this is a part of a surrogate pair
+    if (charCode >= 0xD800 && charCode <= 0xDBFF && notFinal) {
+      // found the high surrogate, proceed to check the low surrogate
+      let nextCharCode = Js.String.charCodeAt(i^ + 1, text)->int_of_float;
+      if (nextCharCode >= 0xDC00 && charCode <= 0xDFFF) {
+        // store the index of this surrogate pair
+        Js.Array.push(i^, surrogatePairs)
+        ->ignore;
+      };
+      // increment by 2 because we have checked the presumably low surrogate char
+      i := i^ + 2;
+    } else {
+      i := i^ + 1;
+    };
+  };
+
+  surrogatePairs;
+};
+
+module type Indices = {
+  type t;
+  let make: array(int) => t;
+  let convert: (t, int) => int;
+  // expose the intervals for testing
+  let expose: t => (array((int, int)), int);
+};
+
+module Indices: Indices = {
   //    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
   //              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
   type t = {
     intervals: array((int, int)),
     mutable cursor: int,
   };
-  let computeUTF16SurrogatePairIndices = (text: string): array(int) => {
-    let surrogatePairs = [||];
-
-    // length in code units (16 bits), not the actual UTF-8 length
-    let lengthInCodeUnits = String.length(text);
-
-    // iterate through the text to find surrogate pairs
-    let i = ref(0);
-    while (i^ < lengthInCodeUnits) {
-      let charCode = Js.String.charCodeAt(i^, text)->int_of_float;
-      let notFinal = i^ + 1 < lengthInCodeUnits;
-      // check if this is a part of a surrogate pair
-      if (charCode >= 0xD800 && charCode <= 0xDBFF && notFinal) {
-        // found the high surrogate, proceed to check the low surrogate
-        let nextCharCode = Js.String.charCodeAt(i^ + 1, text)->int_of_float;
-        if (nextCharCode >= 0xDC00 && charCode <= 0xDFFF) {
-          // store the index of this surrogate pair
-          Js.Array.push(i^, surrogatePairs)
-          ->ignore;
-        };
-        // increment by 2 because we have checked the presumably low surrogate char
-        i := i^ + 2;
-      } else {
-        i := i^ + 1;
-      };
-    };
-
-    surrogatePairs;
-  };
 
   // compile an array of UTF-8 based offset intervals
   // for faster UTF-8 => UTF-16 convertion
-  let compile = (text: string): t => {
+  let make = (indicesUTF16: array(int)): t => {
     //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
     //
     //        UTF-8       UTF-16
     //        --------------------
     //        5999        5999
-    //        6000        6000
+    //        6000        6000           <
     //                    6001
     //        6001        6002
-    //        6002        6003
+    //        6002        6003           <
     //                    6004
     //        6003        6005
     //
@@ -279,9 +302,11 @@ module OffsetIntervals = {
     //
     //  Here's what we are going to compute next:
     //    * UTF-8 based indices of surrogate pairs: [6000, 6002]
-    //    * intervals of UTF-8 based indices [(0, 6000), (6001, 6002), (6003, ...)]
-    // [6000, 6003]
-    let indicesUTF16 = computeUTF16SurrogatePairIndices(text);
+    //    * intervals of UTF-8 based indices [(0, 6000), (6001, 6002)]
+    //
+    //  NOTE: the last interval (6003, ...) will not be included
+
+    //  indicesUTF16 = [6000, 6003]
 
     // [6000, 6002]
     let indicesUTF8 = indicesUTF16->Array.mapWithIndex((i, x) => x - i);
@@ -297,39 +322,32 @@ module OffsetIntervals = {
           };
         (leftEndpoint, rightEndpoint);
       });
-
-    // append the final interval
-    let lastEndpoint = String.length(text) - Array.length(indicesUTF16);
-
-    // [(0, 6000), (6001, 6002), (6003, ...)]
-    let intervals =
-      switch (intervals[Array.length(intervals) - 1]) {
-      | None => [|(0, lastEndpoint)|]
-      // otherwise
-      | Some((_left, right)) =>
-        Array.concat(intervals, [|(right + 1, lastEndpoint)|])
-      };
-
     {intervals, cursor: 0};
   };
-};
 
-let rec fromUTF8Offset = (self, index) => {
-  switch (self.OffsetIntervals.intervals[self.cursor]) {
-  | None => index // shouldn't happen
-  | Some((left, right)) =>
-    if (index < left) {
-      // reset the cursor to the beginning of the intervals
-      self.cursor = 0;
-      fromUTF8Offset(self, index);
-    } else if (index > right) {
-      // move the cursor a tad right
-      self.cursor = self.cursor + 1;
-      fromUTF8Offset(self, index);
-    } else {
-      index + self.cursor;
-    }
+  let rec convert = (self, index) => {
+    switch (self.intervals[self.cursor]) {
+    | None =>
+      // happens when we have passed the last inverval
+      // return index + how many pairs it have skipped
+      index + self.cursor
+    | Some((left, right)) =>
+      if (index < left) {
+        // reset the cursor to the beginning of the intervals
+        self.cursor = 0;
+        convert(self, index);
+      } else if (index > right) {
+        // move the cursor a tad right
+        self.cursor = self.cursor + 1;
+        convert(self, index);
+      } else {
+        // index + how many pairs it have skipped
+        index + self.cursor;
+      }
+    };
   };
+
+  let expose = self => (self.intervals, self.cursor);
 };
 
 let toUTF8Offset = (document, offset) => {

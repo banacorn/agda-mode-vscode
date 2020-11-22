@@ -28,16 +28,16 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     });
   });
 
-  describe("SigImpl.OffsetIntervals.computeUTF16SurrogatePairIndices", () => {
+  describe("Editor.computeUTF16SurrogatePairIndices", () => {
     it("should work", () => {
       Assert.deep_equal(
-        Editor.OffsetIntervals.computeUTF16SurrogatePairIndices(
+        Editor.computeUTF16SurrogatePairIndices(
           {j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j},
         ),
         [|0, 2, 4, 6, 9, 11, 13, 15|],
       );
       Assert.deep_equal(
-        Editor.OffsetIntervals.computeUTF16SurrogatePairIndices(
+        Editor.computeUTF16SurrogatePairIndices(
           {j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j},
         ),
         [|0, 3, 7, 10, 14, 17, 19, 21|],
@@ -45,68 +45,72 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     })
   });
 
-  describe("Sig.OffsetIntervals.compile", () => {
+  describe("Editor.Indices.make", () => {
     it("should work", () => {
-      open Editor.OffsetIntervals;
+      open Editor.Indices;
       Assert.deep_equal(
-        compile({j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j}),
-        {
-          intervals: [|
-            (0, 0),
-            (1, 1),
-            (2, 2),
-            (3, 3),
-            (4, 5),
-            (6, 6),
-            (7, 7),
-            (8, 8),
-            (9, 9),
-          |],
-          cursor: 0,
-        },
+        {j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j}
+        ->Editor.computeUTF16SurrogatePairIndices
+        ->make
+        ->expose
+        ->fst,
+        [|
+          (0, 0),
+          (1, 1),
+          (2, 2),
+          (3, 3),
+          (4, 5),
+          (6, 6),
+          (7, 7),
+          (8, 8),
+        |],
       );
       Assert.deep_equal(
-        compile({j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j}),
-        {
-          intervals: [|
-            (0, 0),
-            (1, 2),
-            (3, 5),
-            (6, 7),
-            (8, 10),
-            (11, 12),
-            (13, 13),
-            (14, 14),
-            (15, 17),
-          |],
-          cursor: 0,
-        },
+        {j|𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na|j}
+        ->Editor.computeUTF16SurrogatePairIndices
+        ->make
+        ->expose
+        ->fst,
+        [|
+          (0, 0),
+          (1, 2),
+          (3, 5),
+          (6, 7),
+          (8, 10),
+          (11, 12),
+          (13, 13),
+          (14, 14),
+        |],
       );
     })
   });
 
   describe("Sig.OffsetIntervals.fromUTF8Offset", () => {
     it("should work", () => {
-      open Editor.OffsetIntervals;
-      open Editor;
-      let a = compile({j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j});
-      Assert.deep_equal(fromUTF8Offset(a, 0), 0);
-      Assert.deep_equal(a.cursor, 0);
-      Assert.deep_equal(fromUTF8Offset(a, 1), 2);
-      Assert.deep_equal(a.cursor, 1);
-      Assert.deep_equal(fromUTF8Offset(a, 2), 4);
-      Assert.deep_equal(a.cursor, 2);
-      Assert.deep_equal(fromUTF8Offset(a, 3), 6);
-      Assert.deep_equal(a.cursor, 3);
-      Assert.deep_equal(fromUTF8Offset(a, 0), 0);
-      Assert.deep_equal(a.cursor, 0);
-      Assert.deep_equal(fromUTF8Offset(a, 4), 8);
-      Assert.deep_equal(fromUTF8Offset(a, 5), 9);
-      Assert.deep_equal(fromUTF8Offset(a, 6), 11);
-      Assert.deep_equal(fromUTF8Offset(a, 7), 13);
-      Assert.deep_equal(fromUTF8Offset(a, 8), 15);
-      Assert.deep_equal(fromUTF8Offset(a, 9), 17);
-      Assert.deep_equal(a.cursor, 8);
+      open Editor.Indices;
+      let a =
+        make(
+          Editor.computeUTF16SurrogatePairIndices(
+            {j|𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀|j},
+          ),
+        );
+      Assert.deep_equal(convert(a, 0), 0);
+      Assert.deep_equal(a->expose->snd, 0);
+      Assert.deep_equal(convert(a, 1), 2);
+      Assert.deep_equal(a->expose->snd, 1);
+      Assert.deep_equal(convert(a, 2), 4);
+      Assert.deep_equal(a->expose->snd, 2);
+      Assert.deep_equal(convert(a, 3), 6);
+      Assert.deep_equal(a->expose->snd, 3);
+      Assert.deep_equal(convert(a, 0), 0);
+      Assert.deep_equal(a->expose->snd, 0);
+      Assert.deep_equal(convert(a, 4), 8);
+      Assert.deep_equal(convert(a, 5), 9);
+      Assert.deep_equal(convert(a, 6), 11);
+      Assert.deep_equal(convert(a, 7), 13);
+      Assert.deep_equal(convert(a, 8), 15);
+      Assert.deep_equal(convert(a, 9), 17);
+      Assert.deep_equal(a->expose->snd, 8);
     })
   });
 
@@ -138,8 +142,9 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
           let f = n =>
             textEditor->TextEditor.document->Editor.toUTF8Offset(n);
           let g = n =>
-            Editor.OffsetIntervals.compile({j|𝐀a𝐁bb𝐂c\na|j})
-            ->Editor.fromUTF8Offset(n);
+            Editor.computeUTF16SurrogatePairIndices({j|𝐀a𝐁bb𝐂c\na|j})
+            ->Editor.Indices.make
+            ->Editor.Indices.convert(n);
           Assert.equal(f(g(0)), 0);
           Assert.equal(f(g(1)), 1);
           Assert.equal(f(g(2)), 2);
@@ -160,8 +165,9 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       openEditorWithContent({j|𝐀a𝐁bb𝐂c\na|j})
       ->Promise.map(textEditor => {
           let f = n =>
-            Editor.OffsetIntervals.compile({j|𝐀a𝐁bb𝐂c\na|j})
-            ->Editor.fromUTF8Offset(n);
+            Editor.computeUTF16SurrogatePairIndices({j|𝐀a𝐁bb𝐂c\na|j})
+            ->Editor.Indices.make
+            ->Editor.Indices.convert(n);
           let g = n =>
             textEditor->TextEditor.document->Editor.toUTF8Offset(n);
           Assert.equal(f(g(0)), 0);

@@ -77,10 +77,10 @@ let normalize = (document, point) => {
   };
 };
 
-// with compiled intervals for speeding the convertion
-let offsetToPoint = (document, intervals, offset) => {
+// with compiled indices for speeding the convertion
+let offsetToPoint = (document, indices, offset) => {
   // UTF8 -> UTF16
-  let offset = Editor.fromUTF8Offset(intervals, offset);
+  let offset = Editor.Indices.convert(indices, offset);
   // offset -> point
   let point = document->TextDocument.positionAt(offset);
   // unnormalized -> normalized
@@ -90,9 +90,10 @@ let offsetToPoint = (document, intervals, offset) => {
 // one off slow conversion for srclocs
 let offsetToPointSlow = (document, offset) => {
   let text = Editor.Text.getAll(document);
-  let intervals = Editor.OffsetIntervals.compile(text);
+  let indices =
+    Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text));
   // UTF8 -> UTF16
-  let offset = Editor.fromUTF8Offset(intervals, offset);
+  let offset = Editor.Indices.convert(indices, offset);
   // offset -> point
   let point = document->TextDocument.positionAt(offset);
   // unnormalized -> normalized
@@ -109,7 +110,8 @@ let decorateHighlightings =
   let text = Editor.Text.getAll(document);
 
   // for fast UTF8 => UTF16 index conversion
-  let intervals = Editor.OffsetIntervals.compile(text);
+  let indices =
+    Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text));
 
   // convert offsets in Highlighting.t to Ranges
   let highlightings:
@@ -123,8 +125,8 @@ let decorateHighlightings =
     highlightings->Array.map(highlighting => {
       // calculate the range of each highlighting
       let range = {
-        let start = offsetToPoint(document, intervals, highlighting.start);
-        let end_ = offsetToPoint(document, intervals, highlighting.end_);
+        let start = offsetToPoint(document, indices, highlighting.start);
+        let end_ = offsetToPoint(document, indices, highlighting.end_);
 
         VSRange.make(start, end_);
       };
@@ -254,7 +256,8 @@ let generateSemanticTokens =
   let text = Editor.Text.getAll(document);
 
   // for fast UTF8 => UTF16 index conversion
-  let intervals = Editor.OffsetIntervals.compile(text);
+  let indices =
+    Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text));
 
   // convert offsets in Highlighting.t to Ranges
   let highlightings:
@@ -268,8 +271,8 @@ let generateSemanticTokens =
     highlightings->Array.map(highlighting => {
       // calculate the range of each highlighting
       let range = {
-        let start = offsetToPoint(document, intervals, highlighting.start);
-        let end_ = offsetToPoint(document, intervals, highlighting.end_);
+        let start = offsetToPoint(document, indices, highlighting.start);
+        let end_ = offsetToPoint(document, indices, highlighting.end_);
 
         VSRange.make(start, end_);
       };
