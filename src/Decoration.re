@@ -62,42 +62,26 @@ let decorateHole =
 
 // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
 // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
-// We need to count how many `CR`s are skipped and add them back to the offsets
-let normalize = (document, point) => {
-  let useCRLF =
-    switch (document->TextDocument.eol) {
-    | EndOfLine.CRLF => true
-    | _ => false
-    };
-  if (useCRLF) {
-    let skippedCRLF = Position.line(point);
-    Position.translate(point, 0, skippedCRLF);
-  } else {
-    point;
-  };
-};
-
-// with compiled indices for speeding the convertion
-let offsetToPoint = (document, indices, offset) => {
+// For example, in "ab\r\ncd", Agda would ignore the "\r" and think that "c" is the 4th character
+// we pass in compiled indices for speeding up the convertion
+let offsetToPoint = (document, utf16indices, eolIndices, offset) => {
   // UTF8 -> UTF16
-  let offset = Editor.Indices.convert(indices, offset);
+  let offset = Editor.Indices.convert(utf16indices, offset);
+  // LF -> CRLF
+  let offset = Editor.Indices.convert(eolIndices, offset);
   // offset -> point
-  let point = document->TextDocument.positionAt(offset);
-  // unnormalized -> normalized
-  normalize(document, point);
+  document->TextDocument.positionAt(offset);
 };
 
 // one off slow conversion for srclocs
 let offsetToPointSlow = (document, offset) => {
   let text = Editor.Text.getAll(document);
-  let indices =
+  let utf16indices =
     Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text));
   // UTF8 -> UTF16
-  let offset = Editor.Indices.convert(indices, offset);
+  let offset = Editor.Indices.convert(utf16indices, offset);
   // offset -> point
-  let point = document->TextDocument.positionAt(offset);
-  // unnormalized -> normalized
-  normalize(document, point);
+  document->TextDocument.positionAt(offset);
 };
 
 let decorateHighlightings =
@@ -109,9 +93,11 @@ let decorateHighlightings =
   let document = TextEditor.document(editor);
   let text = Editor.Text.getAll(document);
 
-  // for fast UTF8 => UTF16 index conversion
-  let indices =
+  // for fast UTF8 => UTF16 offset conversion
+  let utf16indices =
     Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text));
+  // for LF => CRLF => LF offset conversion
+  let eolIndices = Editor.Indices.make(Editor.computeCRLFIndices(text));
 
   // convert offsets in Highlighting.t to Ranges
   let highlightings:
@@ -125,8 +111,20 @@ let decorateHighlightings =
     highlightings->Array.map(highlighting => {
       // calculate the range of each highlighting
       let range = {
-        let start = offsetToPoint(document, indices, highlighting.start);
-        let end_ = offsetToPoint(document, indices, highlighting.end_);
+        let start =
+          offsetToPoint(
+            document,
+            utf16indices,
+            eolIndices,
+            highlighting.start,
+          );
+        let end_ =
+          offsetToPoint(
+            document,
+            utf16indices,
+            eolIndices,
+            highlighting.end_,
+          );
 
         VSRange.make(start, end_);
       };
@@ -255,9 +253,11 @@ let generateSemanticTokens =
   let document = TextEditor.document(editor);
   let text = Editor.Text.getAll(document);
 
-  // for fast UTF8 => UTF16 index conversion
-  let indices =
+  // for fast UTF8 => UTF16 offset conversion
+  let utf16indices =
     Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text));
+  // for LF => CRLF => LF offset conversion
+  let eolIndices = Editor.Indices.make(Editor.computeCRLFIndices(text));
 
   // convert offsets in Highlighting.t to Ranges
   let highlightings:
@@ -271,8 +271,20 @@ let generateSemanticTokens =
     highlightings->Array.map(highlighting => {
       // calculate the range of each highlighting
       let range = {
-        let start = offsetToPoint(document, indices, highlighting.start);
-        let end_ = offsetToPoint(document, indices, highlighting.end_);
+        let start =
+          offsetToPoint(
+            document,
+            utf16indices,
+            eolIndices,
+            highlighting.start,
+          );
+        let end_ =
+          offsetToPoint(
+            document,
+            utf16indices,
+            eolIndices,
+            highlighting.end_,
+          );
 
         VSRange.make(start, end_);
       };
