@@ -219,6 +219,10 @@ module Text = {
   };
 };
 
+let characterWidth: string => int = [%raw
+  "function (string) {return [...string].length}"
+];
+
 // returns an array of UTF-16 based indices where surrogate pairs occur,
 // for example, suppose that there are surrogate pairs at [6000, 6001] and [6003, 6004]
 //
@@ -374,7 +378,7 @@ let toUTF8Offset = (document, offset) => {
       document->TextDocument.positionAt(offset) // end
     );
   let text = document->TextDocument.getText(Some(range));
-  Sig.characterWidth(text);
+  characterWidth(text);
 };
 
 let focus = document => {

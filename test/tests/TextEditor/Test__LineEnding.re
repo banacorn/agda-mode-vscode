@@ -12,7 +12,7 @@ let openEditorWithContent = content =>
       Window.showTextDocumentWithShowOptions(textDocument, None)
     );
 
-describe_only("Conversion of offsets between LF and CRLF line endings", () => {
+describe("Conversion of offsets between LF and CRLF line endings", () => {
   describe("Editor.computeCRLFIndices", () => {
     it("should work", () => {
       Assert.deep_equal(Editor.computeCRLFIndices({j|1234\r\n78|j}), [|4|]);

@@ -15,15 +15,15 @@ let openEditorWithContent = content =>
     );
 
 describe("Conversion between Agda Offsets and Editor Offsets", () => {
-  describe("Sig.characterWidth", () => {
+  describe("Editor.characterWidth", () => {
     it("should calculate the width of some grapheme cluster", () => {
       let expected = 1;
-      let actual = Sig.characterWidth({j|𝐀|j});
+      let actual = Editor.characterWidth({j|𝐀|j});
       Assert.deep_equal(actual, expected);
     });
     it("should calculate the width of some ordinary ASCII character", () => {
       let expected = 1;
-      let actual = Sig.characterWidth({j|a|j});
+      let actual = Editor.characterWidth({j|a|j});
       Assert.deep_equal(actual, expected);
     });
   });
@@ -85,7 +85,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     })
   });
 
-  describe("Sig.OffsetIntervals.fromUTF8Offset", () => {
+  describe("Editor.OffsetIntervals.fromUTF8Offset", () => {
     it("should work", () => {
       open Editor.Indices;
       let a =
