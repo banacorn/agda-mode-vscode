@@ -263,6 +263,23 @@ let computeUTF16SurrogatePairIndices = (text: string): array(int) => {
   surrogatePairs;
 };
 
+// returns an array of indices where CRLF line endings occur
+let computeCRLFIndices = (text: string): array(int) => {
+  let regexp = [%re "/\\r\\n/g"];
+  let matchAll = [%raw
+    "function (regexp, string) {
+      let match;
+      let result = [];
+      while ((match = regexp.exec(string)) !== null) {
+        result.push(match.index);
+      }
+      return result;
+    }
+  "
+  ];
+  matchAll(regexp, text);
+};
+
 module type Indices = {
   type t;
   let make: array(int) => t;
@@ -279,7 +296,7 @@ module Indices: Indices = {
     mutable cursor: int,
   };
 
-  // compile an array of UTF-8 based offset intervals
+  // compiles an array of UTF-8 based offset intervals
   // for faster UTF-8 => UTF-16 convertion
   let make = (indicesUTF16: array(int)): t => {
     //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
