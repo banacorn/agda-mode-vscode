@@ -44,7 +44,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
   let onDidChangeActivation = callback => {
     let previous = ref(VSCode.Window.activeTextEditor);
 
-    VSCode.Window.onDidChangeActiveTextEditor(next =>
+    VSCode.Window.onDidChangeActiveTextEditor(. next =>
       if (next
           ->Option.map(VSCode.TextEditor.document)
           ->Option.map(document =>

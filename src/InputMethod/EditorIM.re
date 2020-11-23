@@ -319,7 +319,7 @@ let activate = (self, editor, ranges: array((int, int))) => {
 
   // initiate listeners
 
-  VSCode.Window.onDidChangeTextEditorSelection(event => {
+  VSCode.Window.onDidChangeTextEditorSelection(.event => {
     let points =
       event
       ->VSCode.TextEditorSelectionChangeEvent.selections

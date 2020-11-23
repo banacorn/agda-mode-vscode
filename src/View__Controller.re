@@ -190,7 +190,7 @@ let make = (extensionPath, editor) => {
   let onEventFromView = Event.make();
   panel
   ->VSCode.WebviewPanel.webview
-  ->VSCode.Webview.onDidReceiveMessage(json => {
+  ->VSCode.Webview.onDidReceiveMessage(. json => {
       switch (View.ResponseOrEventFromView.decode(json)) {
       | Response(res) => onResponseFromView.emit(res)
       | Event(ev) => onEventFromView.emit(ev)
@@ -206,7 +206,7 @@ let make = (extensionPath, editor) => {
 
   // on destroy
   panel
-  ->VSCode.WebviewPanel.onDidDispose(() => onEventFromView.emit(Destroyed))
+  ->VSCode.WebviewPanel.onDidDispose(. () => onEventFromView.emit(Destroyed))
   ->Js.Array.push(subscriptions)
   ->ignore;
 
