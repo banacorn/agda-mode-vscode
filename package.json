@@ -46,7 +46,7 @@
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-promise": ">=1.1.0",
-		"reason-react": "^0.9.1",
+		"reason-react": "github:banacorn/reason-react#3454936b",
 		"reason-react-update": "^2.0.0",
 		"untildify": "^4.0.0",
 		"vscode-codicons": "^0.0.7"
