@@ -25,7 +25,6 @@
 	},
 	"devDependencies": {
 		"bs-mocha": "^1.0.0",
-		"bsdoc": "^6.0.4-alpha",
 		"copy-webpack-plugin": "^6.0.3",
 		"glob": "^7.1.6",
 		"less-loader": "^5.0.0",
@@ -40,7 +39,7 @@
 		"bs-nd": "^0.1.5",
 		"bs-platform": ">=8.2.0",
 		"bs-vscode": "github:banacorn/bs-vscode#v0.0.7",
-		"bs-webapi": ">=0.19.0",
+		"bs-webapi": "github:reasonml-community/bs-webapi-incubator#b3bbe0",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"react": "^16.9.0",
