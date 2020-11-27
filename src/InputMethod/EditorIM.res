@@ -1,3 +1,50 @@
+open Belt
+// Validates cursor position
+module type CursorValidator = {
+  type t
+
+  let make: unit => t
+  let isBusy: t => bool
+  let lock: t => unit
+  let unlock: (t, array<VSCode.Position.t> => bool) => unit
+  let validate: (t, array<VSCode.Position.t> => bool, array<VSCode.Position.t>) => Promise.t<bool>
+}
+module CursorValidator: CursorValidator = {
+  type t = {
+    // the semaphore
+    mutable isBusy: bool,
+    // cursor positions waiting to be validated + resolver
+    // only accumulates when `isBusy` is flipped to `true`
+    mutable backlog: array<(array<VSCode.Position.t>, bool => unit)>,
+  }
+
+  let make = () => {
+    isBusy: false,
+    backlog: [],
+  }
+
+  let isBusy = self => self.isBusy
+
+  let lock = self => self.isBusy = true
+
+  let unlock = (self, callback) => {
+    self.isBusy = false
+
+    self.backlog->Array.forEach(((positions, resolver)) => callback(positions)->resolver)
+    self.backlog = []
+  }
+
+  let validate = (self, callback, positions) => {
+    if self.isBusy {
+      let (promise, resolver) = Promise.pending()
+      Js.Array2.push(self.backlog, (positions, resolver))->ignore
+      promise
+    } else {
+      callback(positions)->Promise.resolved
+    }
+  }
+}
+
 module type Module = {
   type t
   type event =
@@ -34,8 +81,6 @@ module type Module = {
   let insertChar: (VSCode.TextEditor.t, string) => unit
 }
 module Module: Module = {
-  open Belt
-
   type event =
     | Change
     | Activate
@@ -111,10 +156,11 @@ module Module: Module = {
   type t = {
     mutable instances: array<Instance.t>,
     mutable activated: bool,
-    mutable busy: bool,
+    // mutable busy: bool,
+    cursorValidator: CursorValidator.t,
     // cursor positions will NOT be validated until the semaphore `busy` is flipped false
     // cursor positions waiting to be validated will be queued here and resolved afterwards
-    mutable cursorPositionsToBeValidated: array<(array<VSCode.Position.t>, bool => unit)>,
+    // mutable cursorPositionsToBeValidated: array<(array<VSCode.Position.t>, bool => unit)>,
     // for notifying the Task Dispatcher
     chan: Chan.t<Command.InputMethod.t>,
     // for reporting when some task has be done
@@ -149,8 +195,6 @@ module Module: Module = {
         }
         survived
       })
-
-    self.cursorPositionsToBeValidated = []
 
     // return `true` and emit `Deactivate` if all instances have been destroyed
     if Array.length(self.instances) == 0 {
@@ -203,8 +247,8 @@ module Module: Module = {
   let applyRewrites = (self, editor, rewrites) => {
     let document = VSCode.TextEditor.document(editor)
 
-    // before applying edits to the text editor, flip the semaphore
-    self.busy = true
+    // lock the CursorValidator before applying edits to the text editor
+    self.cursorValidator->CursorValidator.lock
     // iterate though the list of rewrites
     rewrites->Array.map(({rangeBefore, rangeAfter, text, instance}, ()) => {
       let editorRange = VSCode.Range.make(
@@ -228,13 +272,11 @@ module Module: Module = {
       // emit CHANGE event after applied rewriting
       self.chanTest->Chan.emit(Change)
 
-      // all offsets updated and rewrites applied, reset the semaphore
-      self.busy = false
-      // see if there are any pending cursor positions to be checked
-      self.cursorPositionsToBeValidated->Array.forEach(((points, resolve)) =>
-        validateCursorPositions(self, document, points)->resolve
+      // all offsets updated and rewrites have been applied
+      // unlock the cursor validator
+      self.cursorValidator->CursorValidator.unlock(
+        validateCursorPositions(self, editor->VSCode.TextEditor.document),
       )
-      self.cursorPositionsToBeValidated = []
     })
   }
 
@@ -356,24 +398,19 @@ module Module: Module = {
     }
   }
 
-  let changeSelection = (self, editor, points) => {
+  let changeSelection = (self, editor, positions) => {
     if self.activated {
-      if self.busy {
-        // cannot check cursor positions at this moment
-        // store cursor positions and wait until the system is not busy
-        let (promise, resolve) = Promise.pending()
-        self.cursorPositionsToBeValidated->Js.Array2.push((points, resolve))->ignore
-        promise
-      } else {
-        validateCursorPositions(self, VSCode.TextEditor.document(editor), points)->Promise.resolved
-      }
+      self.cursorValidator->CursorValidator.validate(
+        validateCursorPositions(self, editor->VSCode.TextEditor.document),
+        positions,
+      )
     } else {
       Promise.resolved(false)
     }
   }
 
   let changeDocument = (self, editor, changes) => {
-    if self.activated && !self.busy {
+    if self.activated && !CursorValidator.isBusy(self.cursorValidator) {
       // update the offsets to reflect the changes
       let (instances, rewrites) = updateInstanceOffsets(self.instances, changes)
       self.instances = instances
@@ -393,15 +430,12 @@ module Module: Module = {
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
     self.activated = false
-    self.cursorPositionsToBeValidated = []
-    self.busy = false
   }
 
   let make = chanTest => {
     instances: [],
     activated: false,
-    cursorPositionsToBeValidated: [],
-    busy: false,
+    cursorValidator: CursorValidator.make(),
     chan: Chan.make(),
     chanTest: chanTest,
   }
