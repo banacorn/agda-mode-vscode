@@ -12,7 +12,6 @@ module type Module = {
 
   let onCommand: (t, Command.InputMethod.t => unit, unit) => unit
   // methods
-
   let chooseSymbol: (t, VSCode.TextEditor.t, string) => unit
   let moveUp: (t, VSCode.TextEditor.t) => unit
   let moveRight: (t, VSCode.TextEditor.t) => unit
@@ -36,12 +35,30 @@ module Module: Module = {
     _ => ()
   }
 
+  // module type Instance = {
+  //   type t
+
+  //   // constructor/destructor
+  //   let make: (VSCode.TextEditor.t, (int, int)) => t
+  //   let destroy: t => unit
+  //   // getters/setters
+  //   let getRange: t => (int, int)
+  //   let setRange: t => (int, int)
+
+  //   // returns its range, for debugging
+  //   let toString: t => string
+  //   // see if an offset is with in its range
+  //   let withIn: (t, int) => bool
+  // }
   module Instance = {
     type t = {
       mutable range: (int, int),
       mutable decoration: array<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
+
+    let toString = self =>
+      "(" ++ string_of_int(fst(self.range)) ++ ", " ++ (string_of_int(snd(self.range)) ++ ")")
 
     let make = (editor, range) => {
       let document = VSCode.TextEditor.document(editor)
@@ -110,12 +127,7 @@ module Module: Module = {
     log(
       "\n### Cursors  : " ++
       (Js.Array.sortInPlaceWith(compare, offsets)->Array.map(string_of_int)->Util.Pretty.array ++
-      ("\n### Instances: " ++
-      self.instances
-      ->Array.map(i =>
-        "(" ++ (string_of_int(fst(i.range)) ++ (", " ++ (string_of_int(snd(i.range)) ++ ")")))
-      )
-      ->Util.Pretty.array)),
+      ("\n### Instances: " ++ self.instances->Array.map(Instance.toString)->Util.Pretty.array)),
     )
 
     // store the surviving instances
@@ -298,7 +310,7 @@ module Module: Module = {
     (instances, rewrites)
   }
 
-  let activate = (self, editor, ranges: array<(int, int)>) => {
+  let activate = (self, editor, cursors: array<(int, int)>) => {
     self.activated = true
 
     // emit ACTIVATE event after applied rewriting
@@ -308,7 +320,7 @@ module Module: Module = {
 
     // instantiate from an array of offsets
     self.instances =
-      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), ranges)->Array.map(
+      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), cursors)->Array.map(
         Instance.make(editor),
       )
 
@@ -369,7 +381,7 @@ module Module: Module = {
   }
   ////////////////////////////////////////////////////////////////////////////////////////////
 
-  let isActivated = self => self.activated == true
+  let isActivated = self => self.activated
 
   let onCommand = (self, callback) => self.chan->Chan.on(callback)
 

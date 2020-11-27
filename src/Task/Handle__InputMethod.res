@@ -51,7 +51,7 @@ let handle = x =>
             } else {
               Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
             }
-          } else if state.promptIM.activated {
+          } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.update(state.promptIM, input)
             switch result {
             | None => Promise.resolved(list{DispatchCommand(InputMethod(Deactivate))})
@@ -88,7 +88,7 @@ let handle = x =>
           if EditorIM.isActivated(state.editorIM) {
             EditorIM.insertChar(state.editor, char)
             Promise.resolved(list{})
-          } else if state.promptIM.activated {
+          } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.insertChar(state.promptIM, char)
             switch result {
             | None => Promise.resolved(list{DispatchCommand(InputMethod(Deactivate))})
@@ -109,15 +109,12 @@ let handle = x =>
           if EditorIM.isActivated(state.editorIM) {
             EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)
             Promise.resolved(list{})
-          } else if state.promptIM.activated {
-            switch state.promptIM.buffer.symbol {
-            | None => Promise.resolved(list{})
-            | Some((_, symbolSequence)) =>
-              state.promptIM.buffer = {
-                ...state.promptIM.buffer,
-                symbol: Some((symbol, symbolSequence)),
-              }
+          } else if PromptIM.isActivated(state.promptIM) {
+            let result = PromptIM.chooseSymbol(state.promptIM, symbol)
+            if result {
               Promise.resolved(list{ViewEvent(PromptIMUpdate(symbol))})
+            } else {
+              Promise.resolved(list{})
             }
           } else {
             Promise.resolved(list{})
