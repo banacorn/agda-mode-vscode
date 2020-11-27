@@ -198,7 +198,7 @@ type output =
 
 type t = {
   send: string => result<unit, Error.t>,
-  emitter: Chan.t<output>,
+  chan: Chan.t<output>,
   disconnect: unit => Promise.t<unit>,
   isConnected: unit => bool,
 }
@@ -209,7 +209,7 @@ type status =
   | Disconnected
 
 let make = (path, args): t => {
-  let emitter = Chan.make()
+  let chan = Chan.make()
   let stderr = ref("")
   // spawn the child process
   let process = Nd.ChildProcess.spawn_(
@@ -222,7 +222,7 @@ let make = (path, args): t => {
   process
   |> Nd.ChildProcess.stdout
   |> Nd.Stream.Readable.on(
-    #data(chunk => emitter->Chan.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore),
+    #data(chunk => chan->Chan.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore),
   )
   |> ignore
 
@@ -232,7 +232,7 @@ let make = (path, args): t => {
   |> Nd.Stream.Readable.on(
     #data(
       chunk => {
-        emitter->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
+        chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
         // store the latest message from stderr
         stderr := Node.Buffer.toString(chunk)
       },
@@ -244,23 +244,23 @@ let make = (path, args): t => {
   process
   |> Nd.ChildProcess.stdin
   |> Nd.Stream.Writable.on(
-    #close(() => emitter->Chan.emit(Error(Error.ClosedByProcess(0, ""))) |> ignore),
+    #close(() => chan->Chan.emit(Error(Error.ClosedByProcess(0, ""))) |> ignore),
   )
   |> ignore
 
   // on errors and anomalies
   process
   |> Nd.ChildProcess.on(
-    #close((code, signal) => emitter->Chan.emit(Error(ClosedByProcess(code, signal))) |> ignore),
+    #close((code, signal) => chan->Chan.emit(Error(ClosedByProcess(code, signal))) |> ignore),
   )
-  |> Nd.ChildProcess.on(#disconnect(() => emitter->Chan.emit(Error(DisconnectedByUser)) |> ignore))
-  |> Nd.ChildProcess.on(#error(exn => emitter->Chan.emit(Error(ShellError(exn))) |> ignore))
+  |> Nd.ChildProcess.on(#disconnect(() => chan->Chan.emit(Error(DisconnectedByUser)) |> ignore))
+  |> Nd.ChildProcess.on(#error(exn => chan->Chan.emit(Error(ShellError(exn))) |> ignore))
   |> Nd.ChildProcess.on(
     #exit(
       (code, signal) =>
         if code != 0 {
           //  returns the last message from stderr
-          emitter->Chan.emit(Error(ExitedByProcess(code, signal, stderr.contents))) |> ignore
+          chan->Chan.emit(Error(ExitedByProcess(code, signal, stderr.contents))) |> ignore
         },
     ),
   )
@@ -287,10 +287,10 @@ let make = (path, args): t => {
       process := Disconnecting(promise)
 
       // listen to the `exit` event
-      emitter->Chan.on(x =>
+      chan->Chan.on(x =>
         switch x {
         | Error(ExitedByProcess(_, _, _)) =>
-          emitter->Chan.destroy
+          chan->Chan.destroy
           process := Disconnected
           resolve()
         | _ => ()
@@ -312,5 +312,5 @@ let make = (path, args): t => {
     | _ => false
     }
 
-  {send: send, disconnect: disconnect, emitter: emitter, isConnected: isConnected}
+  {send: send, disconnect: disconnect, chan: chan, isConnected: isConnected}
 }

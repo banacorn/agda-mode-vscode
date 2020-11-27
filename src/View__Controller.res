@@ -228,7 +228,7 @@ let destroy = view => {
   // this would trigger `View.ResponseOrEventFromView.Event(Destroyed)`
   // and in turns would trigger this function AGAIN
 
-  // destroy the EventEmitter first, to prevent the aforementioned from happening
+  // destroy the chan first, to prevent the aforementioned from happening
   view.onResponseFromView->Chan.destroy
   view.onEventFromView->Chan.destroy
   view.panel->VSCode.WebviewPanel.dispose

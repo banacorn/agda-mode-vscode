@@ -61,7 +61,7 @@ let destroy = state => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (extentionPath, eventEmitter, editor) => {
+let make = (extentionPath, chan, editor) => {
   setLoaded(true)
   // view initialization
   let view = View__Controller.make(extentionPath, editor)
@@ -73,7 +73,7 @@ let make = (extentionPath, eventEmitter, editor) => {
     goals: [],
     decorations: Decoration.make(),
     cursor: None,
-    editorIM: EditorIM.make(eventEmitter),
+    editorIM: EditorIM.make(chan),
     promptIM: PromptIM.make(),
     subscriptions: [],
     onRemoveFromRegistry: Chan.make(),

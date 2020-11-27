@@ -9,10 +9,10 @@ let isAgda = (filepath): bool => {
 
 // invoked by `activate` below, with parameters for mocking the context when testing the extension
 let activateWithoutContext = (disposables, extensionPath) => {
-  // expose an EventEmitter for testing, emits events when something has been completed,
+  // expose an Chan for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   Js.log("[ extention ] activate")
-  let eventEmitter = Chan.make()
+  let chan = Chan.make()
 
   // when a TextEditor gets closed, destroy the corresponding State
   VSCode.Workspace.onDidCloseTextDocument(.textDoc =>
@@ -79,7 +79,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
       extensionPath,
       editor,
       () => Registry.forceDestroy(fileName)->ignore,
-      eventEmitter,
+      chan,
     )
     // add this dispatcher to the Registry
     Registry.add(fileName, dispatcher)
@@ -126,7 +126,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
     )->Js.Array.push(disposables)->ignore)
 
   // for testing
-  eventEmitter
+  chan
 }
 
 // this function is the entry point of the whole extension

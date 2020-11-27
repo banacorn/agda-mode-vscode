@@ -87,13 +87,13 @@ type response = Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>
 type t = {
   metadata: Metadata.t,
   process: Process.t,
-  emitter: Chan.t<result<response, Error.t>>,
+  chan: Chan.t<result<response, Error.t>>,
   mutable encountedFirstPrompt: bool,
 }
 
 let destroy = self => {
   self.process.disconnect() |> ignore
-  self.emitter->Chan.destroy
+  self.chan->Chan.destroy
   self.encountedFirstPrompt = false
 }
 
@@ -122,10 +122,10 @@ let wire = (self): unit => {
   // resolves the requests in the queue
   let handleResponse = (res: response) =>
     switch res {
-    | Yield(x) => self.emitter->Chan.emit(Ok(Yield(x)))
+    | Yield(x) => self.chan->Chan.emit(Ok(Yield(x)))
     | Stop =>
       if self.encountedFirstPrompt {
-        self.emitter->Chan.emit(Ok(Stop))
+        self.chan->Chan.emit(Ok(Stop))
       } else {
         // do nothing when encountering the first Stop
         self.encountedFirstPrompt = true
@@ -149,10 +149,10 @@ let wire = (self): unit => {
       // split the raw text into pieces and feed it to the parser
       rawText->Parser.split->Array.forEach(Parser.Incr.feed(pipeline))
     | Stderr(_) => ()
-    | Error(e) => self.emitter->Chan.emit(Error(Process(e)))
+    | Error(e) => self.chan->Chan.emit(Error(Process(e)))
     }
 
-  let _ = self.process.emitter->Chan.on(onData)
+  let _ = self.process.chan->Chan.on(onData)
 }
 
 let make = (fromConfig, toConfig) => {
@@ -180,7 +180,7 @@ let make = (fromConfig, toConfig) => {
   ->Promise.mapOk(metadata => {
     metadata: metadata,
     process: Process.make(metadata.path, metadata.args),
-    emitter: Chan.make(),
+    chan: Chan.make(),
     encountedFirstPrompt: false,
   })
   ->Promise.tapOk(wire)

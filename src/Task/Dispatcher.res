@@ -56,7 +56,7 @@ let sendAgdaRequest = (addToAgdaQueue, addToDeferredQueue, state, request) => {
   })->Promise.flatMap(x =>
     switch x {
     | Ok(connection) =>
-      handle := Some(connection.Connection.emitter->Chan.on(handler))
+      handle := Some(connection.Connection.chan->Chan.on(handler))
       promise
     | Error(error) =>
       let tasks = Handle__Error.handle(error)
@@ -213,9 +213,9 @@ let make = (
   extentionPath: string,
   editor: VSCode.TextEditor.t,
   removeFromRegistry: unit => unit,
-  eventEmitter: Chan.t<EditorIM.event>,
+  chan: Chan.t<EditorIM.event>,
 ) => {
-  let state = State.make(extentionPath, eventEmitter, editor)
+  let state = State.make(extentionPath, chan, editor)
   let dispatcher = {
     state: state,
     blocking: TaskQueue.make(executeTask(state)),
@@ -229,7 +229,7 @@ let make = (
   ->ignore
 
   // listens to events from the editor input method
-  state.editorIM.eventEmitter
+  state.editorIM.chan
   ->Chan.on(action => dispatchCommand(dispatcher, Command.InputMethod(action))->ignore)
   ->VSCode.Disposable.make
   ->Js.Array.push(state.subscriptions)

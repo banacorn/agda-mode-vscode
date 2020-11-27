@@ -1,5 +1,5 @@
-let emitter: Chan.t<View.EventFromView.t> = Chan.make()
-let eventContext = React.createContext(emitter)
+let chan: Chan.t<View.EventFromView.t> = Chan.make()
+let eventContext = React.createContext(chan)
 
 module Provider = {
   let makeProps = (~value, ~children, ()) =>
