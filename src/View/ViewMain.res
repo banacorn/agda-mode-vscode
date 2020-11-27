@@ -5,27 +5,27 @@ open Belt
 let vscode = VSCode.Api.acquireVsCodeApi()
 
 // relay VSCode.Api.onMessage => onRequest or onEvent;
-let onRequest = Event.make()
-let onEventToView = Event.make()
+let onRequest = Chan.make()
+let onEventToView = Chan.make()
 VSCode.Api.onMessage(stringifiedJSON => {
   let requestOrEvent = stringifiedJSON->Js.Json.parseExn->View.RequestOrEventToView.decode
 
   switch requestOrEvent {
-  | Event(event) => onEventToView.emit(event)
-  | Request(req) => onRequest.emit(req)
+  | Event(event) => onEventToView->Chan.emit(event)
+  | Request(req) => onRequest->Chan.emit(req)
   }
 })
 
 // relay onResponse => VSCode.Api.postMessage
-let onResponse = Event.make()
-onResponse.on(response => {
+let onResponse = Chan.make()
+onResponse->Chan.on(response => {
   open View.ResponseOrEventFromView
   vscode->VSCode.Api.postMessage(encode(Response(response)))
 })
 
 // relay onEventFromView => VSCode.Api.postMessage
-let onEventFromView = Event.make()
-onEventFromView.on(event => {
+let onEventFromView = Chan.make()
+onEventFromView->Chan.on(event => {
   open View.ResponseOrEventFromView
   vscode->VSCode.Api.postMessage(encode(Event(event)))
 })

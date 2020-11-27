@@ -12,7 +12,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
   // expose an EventEmitter for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   Js.log("[ extention ] activate")
-  let eventEmitter = Event.make()
+  let eventEmitter = Chan.make()
 
   // when a TextEditor gets closed, destroy the corresponding State
   VSCode.Workspace.onDidCloseTextDocument(.textDoc =>

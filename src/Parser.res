@@ -9,7 +9,7 @@ let split = s => s->Js.String.splitByRe(%re("/\\r\\n|\\n/"), _)->Array.map(x =>
   )->Array.keepMap(x => x)
 
 module Incr = {
-  module Event = {
+  module Gen = {
     type t<'a> =
       | Yield('a)
       | Stop
@@ -40,7 +40,7 @@ module Incr = {
   type t<'a, 'e> = {
     initialContinuation: string => continuation<'a, 'e>,
     continuation: ref<option<string => continuation<'a, 'e>>>,
-    callback: Event.t<result<'a, 'e>> => unit,
+    callback: Gen.t<result<'a, 'e>> => unit,
   }
 
   let make = (initialContinuation, callback) => {

@@ -2,10 +2,10 @@ open Belt
 
 @react.component
 let make = (
-  ~onRequest: Event.t<View.Request.t>,
-  ~onEventToView: Event.t<View.EventToView.t>,
-  ~onResponse: Event.t<View.Response.t>,
-  ~onEventFromView: Event.t<View.EventFromView.t>,
+  ~onRequest: Chan.t<View.Request.t>,
+  ~onEventToView: Chan.t<View.EventToView.t>,
+  ~onResponse: Chan.t<View.Response.t>,
+  ~onEventFromView: Chan.t<View.EventFromView.t>,
 ) => {
   let (header, setHeader) = React.useState(() => View.Header.Plain("File not loaded yet"))
   let (body, setBody) = React.useState(() => View.Body.Nothing)
@@ -25,7 +25,7 @@ let make = (
 
   // emit event Initialized on mount
   React.useEffect1(() => {
-    onEventFromView.emit(Initialized)
+    onEventFromView->Chan.emit(Initialized)
     None
   }, [])
 
@@ -35,7 +35,7 @@ let make = (
       resolve(result)
       promptResponseResolver.current = None
     })
-  let onChange = string => onEventFromView.emit(PromptChange(string))
+  let onChange = string => onEventFromView->Chan.emit(PromptChange(string))
 
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
@@ -86,8 +86,8 @@ let make = (
         <Prompt prompt onChange onSubmit />
         <Keyboard
           state=inputMethodState
-          onInsertChar={char => onEventFromView.emit(InputMethod(InsertChar(char)))}
-          onChooseSymbol={symbol => onEventFromView.emit(InputMethod(ChooseSymbol(symbol)))}
+          onInsertChar={char => onEventFromView->Chan.emit(InputMethod(InsertChar(char)))}
+          onChooseSymbol={symbol => onEventFromView->Chan.emit(InputMethod(ChooseSymbol(symbol)))}
           prompting
         />
       </div>

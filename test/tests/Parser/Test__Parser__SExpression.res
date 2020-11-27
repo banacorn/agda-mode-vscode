@@ -9,7 +9,7 @@ open Belt
 
 // [Int] -> String -> [SExpression]
 let parseSExpression = (breakpoints, input) => {
-  open Parser.Incr.Event
+  open Parser.Incr.Gen
 
   let output = ref([])
 

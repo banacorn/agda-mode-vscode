@@ -61,9 +61,9 @@ type t = {
   mutable busy: bool,
   mutable handles: array<VSCode.Disposable.t>,
   // for notifying the Task Dispatcher
-  eventEmitter: Event.t<Command.InputMethod.t>,
+  eventEmitter: Chan.t<Command.InputMethod.t>,
   // for reporting when some task has be done
-  eventEmitterTest: Event.t<event>,
+  eventEmitterTest: Chan.t<event>,
 }
 
 let fromContentChangeEvent = (change: VSCode.TextDocumentContentChangeEvent.t): Buffer.change => {
@@ -109,15 +109,15 @@ let checkCursorPositions = (self, document, points: array<VSCode.Position.t>) =>
 
   // emit "Deactivate" if all instances have been destroyed
   if Array.length(self.instances) == 0 {
-    self.eventEmitter.emit(Deactivate)
-    self.eventEmitterTest.emit(Deactivate)
+    self.eventEmitter->Chan.emit(Deactivate)
+    self.eventEmitterTest->Chan.emit(Deactivate)
   }
 }
 
 let updateView = self =>
   // update the view
   self.instances[0]->Option.forEach(instance =>
-    self.eventEmitter.emit(
+    self.eventEmitter->Chan.emit(
       Update(
         Buffer.toSequence(instance.buffer),
         instance.buffer.translation,
@@ -179,7 +179,7 @@ let applyRewrites = (self, editor, rewrites) => {
     )
   })->Util.oneByOne->Promise.get(_ => {
     // emit CHANGE event after applied rewriting
-    self.eventEmitterTest.emit(Change)
+    self.eventEmitterTest->Chan.emit(Change)
 
     // all offsets updated and rewrites applied, reset the semaphore
     self.busy = false
@@ -278,7 +278,7 @@ let activate = (self, editor, ranges: array<(int, int)>) => {
   self.activated = true
 
   // emit ACTIVATE event after applied rewriting
-  self.eventEmitterTest.emit(Activate)
+  self.eventEmitterTest->Chan.emit(Activate)
   // setContext
   VSCode.Commands.setContext("agdaModeTyping", true)->ignore
 
@@ -323,7 +323,7 @@ let deactivate = self => {
   // setContext
   VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
-  self.eventEmitterTest.emit(Deactivate)
+  self.eventEmitterTest->Chan.emit(Deactivate)
 
   self.instances->Array.forEach(Instance.destroy)
   self.instances = []
@@ -340,7 +340,7 @@ let make = eventEmitterTest => {
   cursorsToBeChecked: None,
   busy: false,
   handles: [],
-  eventEmitter: Event.make(),
+  eventEmitter: Chan.make(),
   eventEmitterTest: eventEmitterTest,
 }
 ////////////////////////////////////////////////////////////////////////////////////////////

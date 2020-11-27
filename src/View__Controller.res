@@ -7,8 +7,8 @@ type status =
 
 type t = {
   panel: VSCode.WebviewPanel.t,
-  onResponseFromView: Event.t<View.Response.t>,
-  onEventFromView: Event.t<View.EventFromView.t>,
+  onResponseFromView: Chan.t<View.Response.t>,
+  onEventFromView: Chan.t<View.EventFromView.t>,
   subscriptions: array<VSCode.Disposable.t>,
   mutable status: status,
 }
@@ -43,7 +43,7 @@ let send = (view, requestOrEvent) =>
 
     switch requestOrEvent {
     | Request(_) =>
-      let promise = view.onResponseFromView.once()
+      let promise = view.onResponseFromView->Chan.once
       view.panel
       ->VSCode.WebviewPanel.webview
       ->VSCode.Webview.postMessage(stringified)
@@ -59,7 +59,7 @@ let send = (view, requestOrEvent) =>
 
 let onEvent = (view, callback) =>
   // Handle events from the webview
-  view.onEventFromView.on(callback)->VSCode.Disposable.make
+  view.onEventFromView->Chan.on(callback)->VSCode.Disposable.make
 
 let make = (extensionPath, editor) => {
   let html = (distPath, styleUri, scriptUri, codiconUri) => {
@@ -172,19 +172,19 @@ let make = (extensionPath, editor) => {
 
   // on message
   // relay Webview.onDidReceiveMessage => onResponseFromView or onEventFromView
-  let onResponseFromView = Event.make()
-  let onEventFromView = Event.make()
+  let onResponseFromView = Chan.make()
+  let onEventFromView = Chan.make()
   panel->VSCode.WebviewPanel.webview->VSCode.Webview.onDidReceiveMessage(json =>
     switch View.ResponseOrEventFromView.decode(json) {
-    | Response(res) => onResponseFromView.emit(res)
-    | Event(ev) => onEventFromView.emit(ev)
+    | Response(res) => onResponseFromView->Chan.emit(res)
+    | Event(ev) => onEventFromView->Chan.emit(ev)
     | exception e => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
     }
   )->Js.Array.push(subscriptions)->ignore
 
   // on destroy
   panel
-  ->VSCode.WebviewPanel.onDidDispose(() => onEventFromView.emit(Destroyed))
+  ->VSCode.WebviewPanel.onDidDispose(() => onEventFromView->Chan.emit(Destroyed))
   ->Js.Array.push(subscriptions)
   ->ignore
 
@@ -197,7 +197,7 @@ let make = (extensionPath, editor) => {
   }
 
   // when initialized, send the queued Requests & Events
-  view.onEventFromView.on(x =>
+  view.onEventFromView->Chan.on(x =>
     switch x {
     | Initialized =>
       switch view.status {
@@ -229,8 +229,8 @@ let destroy = view => {
   // and in turns would trigger this function AGAIN
 
   // destroy the EventEmitter first, to prevent the aforementioned from happening
-  view.onResponseFromView.destroy()
-  view.onEventFromView.destroy()
+  view.onResponseFromView->Chan.destroy
+  view.onEventFromView->Chan.destroy
   view.panel->VSCode.WebviewPanel.dispose
   view.subscriptions->Belt.Array.forEach(VSCode.Disposable.dispose)
 }

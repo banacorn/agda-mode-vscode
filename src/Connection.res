@@ -70,29 +70,30 @@ module Metadata = {
       }
     // normailize the path by replacing the tild "~/" with the absolute path of home directory
     let path = untildify(path)
-    Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
-    ->Promise.mapOk(((version, protocol)) => {
+    Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)->Promise.mapOk(((
+      version,
+      protocol,
+    )) => {
       path: path,
       args: args,
       version: version,
       protocol: protocol,
-    })
-    ->Promise.mapError(e => Error.Validation(e))
+    })->Promise.mapError(e => Error.Validation(e))
   }
 }
 
-type response = Parser.Incr.Event.t<result<Response.Prioritized.t, Parser.Error.t>>
+type response = Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>>
 
 type t = {
   metadata: Metadata.t,
   process: Process.t,
-  emitter: Event.t<result<response, Error.t>>,
+  emitter: Chan.t<result<response, Error.t>>,
   mutable encountedFirstPrompt: bool,
 }
 
 let destroy = self => {
   self.process.disconnect() |> ignore
-  self.emitter.destroy()
+  self.emitter->Chan.destroy
   self.encountedFirstPrompt = false
 }
 
@@ -110,28 +111,28 @@ let wire = (self): unit => {
   //      yield
   //      stop
 
-  let toResponse = Parser.Incr.Event.flatMap(x =>
+  let toResponse = Parser.Incr.Gen.flatMap(x =>
     switch x {
-    | Error(parseError) => Parser.Incr.Event.Yield(Error(parseError))
-    | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Event.Stop
-    | Ok(tokens) => Parser.Incr.Event.Yield(Response.Prioritized.parse(tokens))
+    | Error(parseError) => Parser.Incr.Gen.Yield(Error(parseError))
+    | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Gen.Stop
+    | Ok(tokens) => Parser.Incr.Gen.Yield(Response.Prioritized.parse(tokens))
     }
   )
 
   // resolves the requests in the queue
   let handleResponse = (res: response) =>
     switch res {
-    | Yield(x) => self.emitter.emit(Ok(Yield(x)))
+    | Yield(x) => self.emitter->Chan.emit(Ok(Yield(x)))
     | Stop =>
       if self.encountedFirstPrompt {
-        self.emitter.emit(Ok(Stop))
+        self.emitter->Chan.emit(Ok(Stop))
       } else {
         // do nothing when encountering the first Stop
         self.encountedFirstPrompt = true
       }
     }
 
-  let mapError = x => Parser.Incr.Event.map(x =>
+  let mapError = x => Parser.Incr.Gen.map(x =>
       switch x {
       | Ok(x) => Ok(x)
       | Error((no, e)) => Error(Parser.Error.SExpression(no, e))
@@ -146,14 +147,12 @@ let wire = (self): unit => {
     switch x {
     | Stdout(rawText) =>
       // split the raw text into pieces and feed it to the parser
-      rawText
-      ->Parser.split
-      ->Array.forEach(Parser.Incr.feed(pipeline))
+      rawText->Parser.split->Array.forEach(Parser.Incr.feed(pipeline))
     | Stderr(_) => ()
-    | Error(e) => self.emitter.emit(Error(Process(e)))
+    | Error(e) => self.emitter->Chan.emit(Error(Process(e)))
     }
 
-  let _ = self.process.emitter.on(onData)
+  let _ = self.process.emitter->Chan.on(onData)
 }
 
 let make = (fromConfig, toConfig) => {
@@ -181,7 +180,7 @@ let make = (fromConfig, toConfig) => {
   ->Promise.mapOk(metadata => {
     metadata: metadata,
     process: Process.make(metadata.path, metadata.args),
-    emitter: Event.make(),
+    emitter: Chan.make(),
     encountedFirstPrompt: false,
   })
   ->Promise.tapOk(wire)

@@ -8,7 +8,7 @@ module Js = Js'
 
 type setup = {
   editor: VSCode.TextEditor.t,
-  emitter: Event.t<EditorIM.event>,
+  emitter: Chan.t<EditorIM.event>,
 }
 
 let activateExtension = (fileName): Promise.t<setup> => {
@@ -33,7 +33,7 @@ let cleanup = setup => {
 }
 
 let insertChar = (setup, char) => {
-  let promise = setup.emitter.once()
+  let promise = setup.emitter->Chan.once
 
   let positions = Editor.Cursor.getMany(setup.editor)
 
@@ -45,7 +45,7 @@ let insertChar = (setup, char) => {
 }
 
 let backspace = setup => {
-  let promise = setup.emitter.once()
+  let promise = setup.emitter->Chan.once
   let end_ = Editor.Cursor.get(setup.editor)
   let start = end_->VSCode.Position.translate(0, -1)
   let range = VSCode.Range.make(start, end_)
@@ -58,7 +58,7 @@ let backspace = setup => {
 
 module IM = {
   let activate = (setup, ~positions=?, ()) => {
-    let promise = setup.emitter.once()
+    let promise = setup.emitter->Chan.once
     let positions = positions->Option.getWithDefault(Editor.Cursor.getMany(setup.editor))
     Editor.Cursor.setMany(setup.editor, positions)
     VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
@@ -69,7 +69,7 @@ module IM = {
   }
 
   let deactivate = setup => {
-    let promise = setup.emitter.once()
+    let promise = setup.emitter->Chan.once
     VSCode.Commands.executeCommand0("agda-mode.escape")
     ->flatMap(result => result)
     ->flatMap(_ => promise)

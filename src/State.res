@@ -13,7 +13,7 @@ type t = {
   promptIM: PromptIM.t,
   mutable subscriptions: array<VSCode.Disposable.t>,
   // for self destruction
-  onRemoveFromRegistry: Event.t<unit>,
+  onRemoveFromRegistry: Chan.t<unit>,
 }
 
 // getters
@@ -22,8 +22,8 @@ let getEditor = (state: t) => state.editor
 
 // events to the FileName-Dispatch Registry
 
-let onRemoveFromRegistry = state => state.onRemoveFromRegistry.once()
-let emitRemoveFromRegistry = state => state.onRemoveFromRegistry.emit()
+let onRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.once
+let emitRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.emit()
 
 // Agda connection/disconnection
 
@@ -52,7 +52,7 @@ let setLoaded = value => VSCode.Commands.setContext("agdaMode", value)->ignore
 
 let destroy = state => {
   state.view->View__Controller.destroy
-  state.onRemoveFromRegistry.destroy()
+  state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
   state.decorations->Decoration.destroy
   setLoaded(false)
@@ -76,7 +76,7 @@ let make = (extentionPath, eventEmitter, editor) => {
     editorIM: EditorIM.make(eventEmitter),
     promptIM: PromptIM.make(),
     subscriptions: [],
-    onRemoveFromRegistry: Event.make(),
+    onRemoveFromRegistry: Chan.make(),
   }
 
   state

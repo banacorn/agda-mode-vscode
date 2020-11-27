@@ -1,4 +1,4 @@
-let emitter: Event.t<View.EventFromView.t> = Event.make()
+let emitter: Chan.t<View.EventFromView.t> = Chan.make()
 let eventContext = React.createContext(emitter)
 
 module Provider = {
@@ -37,15 +37,15 @@ let make = (
       className={String.concat(" ", list{"component-link", ...className})}
       onClick={_ =>
         if jump {
-          link.emit(View.EventFromView.JumpToTarget(t))
+          link->Chan.emit(View.EventFromView.JumpToTarget(t))
         }}
       onMouseOver={_ =>
         if hover {
-          link.emit(View.EventFromView.MouseOver(t))
+          link->Chan.emit(View.EventFromView.MouseOver(t))
         }}
       onMouseOut={_ =>
         if hover {
-          link.emit(View.EventFromView.MouseOut(t))
+          link->Chan.emit(View.EventFromView.MouseOut(t))
         }}>
       children
     </span>
