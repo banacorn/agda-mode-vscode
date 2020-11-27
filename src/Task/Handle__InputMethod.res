@@ -7,7 +7,7 @@ let handle = x =>
   | Command.InputMethod.Activate => list{
       WithStateP(
         state =>
-          if state.editorIM.activated {
+          if EditorIM.isActivated(state.editorIM) {
             // already activated, insert backslash "\" instead
             EditorIM.insertBackslash(state.editor)
             EditorIM.deactivate(state.editorIM)
@@ -45,7 +45,7 @@ let handle = x =>
             list{ViewEvent(InputMethod(Activate)), ViewEvent(PromptIMUpdate(input))}
           }
 
-          if state.editorIM.activated {
+          if EditorIM.isActivated(state.editorIM) {
             if shouldActivate {
               Promise.resolved(List.concatMany([deactivateEditorIM(), activatePromptIM()]))
             } else {
@@ -85,7 +85,7 @@ let handle = x =>
   | InsertChar(char) => list{
       WithStateP(
         state =>
-          if state.editorIM.activated {
+          if EditorIM.isActivated(state.editorIM) {
             EditorIM.insertChar(state.editor, char)
             Promise.resolved(list{})
           } else if state.promptIM.activated {
@@ -106,7 +106,7 @@ let handle = x =>
   | ChooseSymbol(symbol) => list{
       WithStateP(
         state =>
-          if state.editorIM.activated {
+          if EditorIM.isActivated(state.editorIM) {
             EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)
             Promise.resolved(list{})
           } else if state.promptIM.activated {

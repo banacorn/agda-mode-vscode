@@ -229,8 +229,8 @@ let make = (
   ->ignore
 
   // listens to events from the editor input method
-  state.editorIM.chan
-  ->Chan.on(action => dispatchCommand(dispatcher, Command.InputMethod(action))->ignore)
+  state.editorIM
+  ->EditorIM.onCommand(command => dispatchCommand(dispatcher, Command.InputMethod(command))->ignore)
   ->VSCode.Disposable.make
   ->Js.Array.push(state.subscriptions)
   ->ignore
