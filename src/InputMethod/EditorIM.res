@@ -10,6 +10,19 @@ module type Module = {
   let deactivate: t => unit
   let isActivated: t => bool
 
+  // event => input
+  let handleTextEditorSelectionChangeEvent: VSCode.TextEditorSelectionChangeEvent.t => array<
+    VSCode.Position.t,
+  >
+  let handleTextDocumentChangeEvent: (
+    VSCode.TextEditor.t,
+    VSCode.TextDocumentChangeEvent.t,
+  ) => array<Buffer.change>
+
+  // input
+  let changeSelection: (t, VSCode.TextEditor.t, array<VSCode.Position.t>) => unit
+  let changeDocument: (t, VSCode.TextEditor.t, array<Buffer.change>) => unit
+
   let onCommand: (t, Command.InputMethod.t => unit, unit) => unit
   // methods
   let chooseSymbol: (t, VSCode.TextEditor.t, string) => unit
@@ -100,17 +113,10 @@ module Module: Module = {
     mutable activated: bool,
     mutable cursorsToBeChecked: option<array<VSCode.Position.t>>,
     mutable busy: bool,
-    mutable handles: array<VSCode.Disposable.t>,
     // for notifying the Task Dispatcher
     chan: Chan.t<Command.InputMethod.t>,
     // for reporting when some task has be done
     chanTest: Chan.t<event>,
-  }
-
-  let fromContentChangeEvent = (change: VSCode.TextDocumentContentChangeEvent.t): Buffer.change => {
-    offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
-    insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
-    replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
   }
 
   // datatype for representing a rewrite to be made to the text editor
@@ -323,12 +329,29 @@ module Module: Module = {
       Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), cursors)->Array.map(
         Instance.make(editor),
       )
+  }
 
-    // initiate listeners
+  let handleTextEditorSelectionChangeEvent = event =>
+    event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor)
 
-    VSCode.Window.onDidChangeTextEditorSelection(.event => {
-      let points =
-        event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor)
+  let handleTextDocumentChangeEvent = (editor, event) => {
+    // see if the change event happened in this TextEditor
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
+    if fileName == eventFileName {
+      // TextDocumentContentChangeEvent.t => Buffer.change
+      event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
+        Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
+        insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
+        replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
+      })
+    } else {
+      []
+    }
+  }
+
+  let changeSelection = (self, editor, points) => {
+    if self.activated {
       if self.busy {
         // cannot check cursor positions at this moment
         // store cursor positions and wait until the system is not busy
@@ -336,23 +359,19 @@ module Module: Module = {
       } else {
         checkCursorPositions(self, VSCode.TextEditor.document(editor), points)
       }
-    })->Js.Array.push(self.handles)->ignore
+    }
+  }
 
-    // listens to changes from the text editor
-    VSCode.Workspace.onDidChangeTextDocument(.event => {
-      let changes = event->VSCode.TextDocumentChangeEvent.contentChanges
-
-      if !self.busy && Array.length(changes) > 0 {
-        let changes = changes->Array.map(fromContentChangeEvent)
-        // update the offsets to reflect the changes
-        let (instances, rewrites) = updateInstanceOffsets(self.instances, changes)
-        self.instances = instances
-        // apply rewrites onto the text editor
-        applyRewrites(self, editor, rewrites)
-        // update the view
-        updateView(self)
-      }
-    })->Js.Array.push(self.handles)->ignore
+  let changeDocument = (self, editor, changes) => {
+    if self.activated && !self.busy {
+      // update the offsets to reflect the changes
+      let (instances, rewrites) = updateInstanceOffsets(self.instances, changes)
+      self.instances = instances
+      // apply rewrites onto the text editor
+      applyRewrites(self, editor, rewrites)
+      // update the view
+      updateView(self)
+    }
   }
 
   let deactivate = self => {
@@ -366,8 +385,6 @@ module Module: Module = {
     self.activated = false
     self.cursorsToBeChecked = None
     self.busy = false
-    self.handles->Array.forEach(VSCode.Disposable.dispose)
-    self.handles = []
   }
 
   let make = chanTest => {
@@ -375,7 +392,6 @@ module Module: Module = {
     activated: false,
     cursorsToBeChecked: None,
     busy: false,
-    handles: [],
     chan: Chan.make(),
     chanTest: chanTest,
   }

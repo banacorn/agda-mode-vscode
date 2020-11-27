@@ -222,18 +222,29 @@ let make = (
     critical: TaskQueue.make(executeTask(state)),
   }
 
+  let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
+
   // listens to events from the view
   state.view
   ->View__Controller.onEvent(event => dispatchCommand(dispatcher, EventFromView(event))->ignore)
   ->Js.Array.push(state.subscriptions)
   ->ignore
 
+  // register event listeners for the input method
+  VSCode.Window.onDidChangeTextEditorSelection(.event => {
+    let points = EditorIM.handleTextEditorSelectionChangeEvent(event)
+    EditorIM.changeSelection(state.editorIM, editor, points)
+  })->subscribe
+  VSCode.Workspace.onDidChangeTextDocument(.event => {
+    let changes = EditorIM.handleTextDocumentChangeEvent(editor, event)
+    EditorIM.changeDocument(state.editorIM, editor, changes)
+  })->subscribe
+
   // listens to events from the editor input method
   state.editorIM
   ->EditorIM.onCommand(command => dispatchCommand(dispatcher, Command.InputMethod(command))->ignore)
   ->VSCode.Disposable.make
-  ->Js.Array.push(state.subscriptions)
-  ->ignore
+  ->subscribe
 
   // remove it from the Registry if it requests to be destroyed
   state->State.onRemoveFromRegistry->Promise.get(removeFromRegistry)
