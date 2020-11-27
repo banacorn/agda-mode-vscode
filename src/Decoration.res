@@ -173,11 +173,11 @@ let decorateHighlightings = (editor: TextEditor.t, highlightings: array<Highligh
       Editor.Decoration.highlightBackgroundWithColor(editor, color, ranges),
       ranges,
     ))
-  let foregroundDecorations = Js.Dict.entries(foregroundColorDict)->Array.map(((color, ranges)) => (
-    // Js.log(ranges);
-    Editor.Decoration.decorateTextWithColor(editor, color, ranges),
-    ranges,
-  ))
+  let foregroundDecorations =
+    Js.Dict.entries(foregroundColorDict)->Array.map(((color, ranges)) => (
+      Editor.Decoration.decorateTextWithColor(editor, color, ranges),
+      ranges,
+    ))
   Js.Console.timeEnd("$$$ Decoration / apply")
   // return decorations
   (Js.Array.concat(backgroundDecorations, foregroundDecorations), srcLocs)

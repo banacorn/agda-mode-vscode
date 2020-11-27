@@ -40,8 +40,13 @@ let insertChar = (setup, char) => {
   setup.editor
   ->VSCode.TextEditor.document
   ->Editor.Text.batchInsert(positions, char)
-  ->flatMap(_ => promise)
-  ->map(x => Ok(x))
+  ->flatMap(succeed =>
+    if succeed {
+      promise->Promise.map(x => Ok(x))
+    } else {
+      Promise.resolved(Error(Js.Exn.raiseError("Failed to insert " ++ char)))
+    }
+  )
 }
 
 let backspace = setup => {
@@ -49,11 +54,13 @@ let backspace = setup => {
   let end_ = Editor.Cursor.get(setup.editor)
   let start = end_->VSCode.Position.translate(0, -1)
   let range = VSCode.Range.make(start, end_)
-  setup.editor
-  ->VSCode.TextEditor.document
-  ->Editor.Text.delete(range)
-  ->flatMap(_ => promise)
-  ->map(x => Ok(x))
+  setup.editor->VSCode.TextEditor.document->Editor.Text.delete(range)->flatMap(succeed =>
+    if succeed {
+      promise->Promise.map(x => Ok(x))
+    } else {
+      Promise.resolved(Error(Js.Exn.raiseError("Failed to backspace")))
+    }
+  )
 }
 
 module IM = {
@@ -65,7 +72,6 @@ module IM = {
     ->flatMap(result => result)
     ->flatMap(_ => promise)
     ->map(x => Ok(x))
-    // document->Editor.insertTexts(points, "\\")->flatMap(_ => promise);
   }
 
   let deactivate = setup => {

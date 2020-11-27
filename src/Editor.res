@@ -136,6 +136,13 @@ module Text = {
     )
     Workspace.applyEdit(workspaceEdit)
   }
+  let batchReplace' = (editor, replacements) => {
+    editor->TextEditor.edit(editBuilder => {
+      replacements->Array.forEach(((range, text)) =>
+        editBuilder->TextEditorEdit.replaceAtRange(range, text)
+      )
+    }, None)
+  }
 
   let insert = (document, point, text) => {
     let workspaceEdit = WorkspaceEdit.make()
@@ -147,6 +154,11 @@ module Text = {
     let textEdits = points->Array.map(point => TextEdit.insert(point, text))
     workspaceEdit->WorkspaceEdit.set(document->TextDocument.uri, textEdits)
     Workspace.applyEdit(workspaceEdit)
+  }
+  let batchInsert' = (editor, points, text) => {
+    editor->TextEditor.edit(editBuilder => {
+      points->Array.forEach(point => editBuilder->TextEditorEdit.insert(point, text))
+    }, None)
   }
   let delete = (document, range) => {
     let workspaceEdit = WorkspaceEdit.make()
@@ -294,8 +306,7 @@ module Indices: Indices = {
         convert(self, index)
       } else {
         // index + how many pairs it have skipped
-        index +
-        self.cursor
+        index + self.cursor
       }
     }
 

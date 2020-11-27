@@ -1,5 +1,4 @@
 // open BsMocha;
-// let (it, it_skip) = BsMocha.Promise.(it, it_skip);
 open! BsMocha.Mocha
 module Assert = BsMocha.Assert
 module P = BsMocha.Promise
@@ -98,8 +97,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
 
     P.it("should be a left inverse of Editor.fromUTF8Offset", () =>
       // toUTF8Offset . fromUTF8Offset = id
-      openEditorWithContent(j`𝐀a𝐁bb𝐂c\\na`)
-      ->Promise.map(textEditor => {
+      openEditorWithContent(j`𝐀a𝐁bb𝐂c\\na`)->Promise.map(textEditor => {
         let f = n => textEditor->TextEditor.document->Editor.toUTF8Offset(n)
         let g = n =>
           Editor.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c\\na`)
@@ -115,15 +113,13 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         Assert.equal(f(g(7)), 7)
         Assert.equal(f(g(8)), 8)
         Assert.equal(f(g(9)), 9)
-      })
-      ->Promise.Js.toBsPromise
+      })->Promise.Js.toBsPromise
     )
 
     P.it("should be a right inverse of Editor.fromUTF8Offset ()", () =>
       // NOTE: toUTF8Offset is a partial function
       // fromUTF8Offset . toUTF8Offset = id
-      openEditorWithContent(j`𝐀a𝐁bb𝐂c\\na`)
-      ->Promise.map(textEditor => {
+      openEditorWithContent(j`𝐀a𝐁bb𝐂c\\na`)->Promise.map(textEditor => {
         let f = n =>
           Editor.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c\\na`)
           ->Editor.Indices.make
@@ -136,8 +132,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         Assert.equal(f(g(6)), 6)
         Assert.equal(f(g(7)), 7)
         Assert.equal(f(g(9)), 9)
-      })
-      ->Promise.Js.toBsPromise
+      })->Promise.Js.toBsPromise
     )
   })
 })

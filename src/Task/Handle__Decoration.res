@@ -23,7 +23,6 @@ let handle = x =>
       BenchStart("$$$ Decoration (experimental)"),
       WithStateP(
         _state => {
-          Js.log("YO")
           Promise.resolved(list{})
         },
       ),

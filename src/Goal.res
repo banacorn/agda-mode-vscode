@@ -57,7 +57,8 @@ let makeMany = (editor: TextEditor.t, indices: array<int>): Promise.t<array<t>> 
     (range, text)
   })
 
-  Editor.Text.batchReplace(document, replacements)->Promise.map(_ => diffs->Array.map(diff => {
+  Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
+    diffs->Array.map(diff => {
       let (decorationBackground, decorationIndex) = Decoration.decorateHole(
         editor,
         diff.modifiedRange,
@@ -69,7 +70,8 @@ let makeMany = (editor: TextEditor.t, indices: array<int>): Promise.t<array<t>> 
         decorationBackground: decorationBackground,
         decorationIndex: decorationIndex,
       }
-    }))
+    })
+  })
 }
 
 // parse the whole source file and update the ranges of an array of Goal.t

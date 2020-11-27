@@ -32,8 +32,7 @@ module DisplayInfo = {
 }
 
 let handle = response =>
-  switch // Js.log(Response.toString(response));
-  response {
+  switch response {
   | HighlightingInfoDirect(_remove, annotations) => list{Decoration(AddViaPipe(annotations))}
   | HighlightingInfoIndirect(filepath) => list{Decoration(AddViaFile(filepath))}
   | ClearHighlighting => list{Decoration(Clear)}
