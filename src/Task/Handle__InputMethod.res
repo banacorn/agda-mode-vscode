@@ -107,8 +107,12 @@ let handle = x =>
       WithStateP(
         state =>
           if EditorIM.isActivated(state.editorIM) {
-            EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)
-            Promise.resolved(list{})
+            EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)->Promise.map(x =>
+              switch x {
+              | None => list{}
+              | Some(xs) => list{DispatchCommand(InputMethod(xs))}
+              }
+            )
           } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.chooseSymbol(state.promptIM, symbol)
             if result {
@@ -121,8 +125,36 @@ let handle = x =>
           },
       ),
     }
-  | MoveUp => list{WithState(state => EditorIM.moveUp(state.editorIM, state.editor))}
-  | MoveRight => list{WithState(state => EditorIM.moveRight(state.editorIM, state.editor))}
-  | MoveDown => list{WithState(state => EditorIM.moveDown(state.editorIM, state.editor))}
-  | MoveLeft => list{WithState(state => EditorIM.moveLeft(state.editorIM, state.editor))}
+  | MoveUp => list{
+      WithStateP(state => EditorIM.moveUp(state.editorIM, state.editor)->Promise.map(x =>
+            switch x {
+            | None => list{}
+            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
+            }
+          )),
+    }
+  | MoveRight => list{
+      WithStateP(state => EditorIM.moveRight(state.editorIM, state.editor)->Promise.map(x =>
+            switch x {
+            | None => list{}
+            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
+            }
+          )),
+    }
+  | MoveDown => list{
+      WithStateP(state => EditorIM.moveDown(state.editorIM, state.editor)->Promise.map(x =>
+            switch x {
+            | None => list{}
+            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
+            }
+          )),
+    }
+  | MoveLeft => list{
+      WithStateP(state => EditorIM.moveLeft(state.editorIM, state.editor)->Promise.map(x =>
+            switch x {
+            | None => list{}
+            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
+            }
+          )),
+    }
   }

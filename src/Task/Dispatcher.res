@@ -241,14 +241,10 @@ let make = (
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
     let changes = EditorIM.handleTextDocumentChangeEvent(editor, event)
-    EditorIM.changeDocument(state.editorIM, editor, changes)
+    EditorIM.changeDocument(state.editorIM, editor, changes)->Promise.getSome(action =>
+      dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
+    )
   })->subscribe
-
-  // listens to events from the editor input method
-  state.editorIM
-  ->EditorIM.onCommand(command => dispatchCommand(dispatcher, Command.InputMethod(command))->ignore)
-  ->VSCode.Disposable.make
-  ->subscribe
 
   // remove it from the Registry if it requests to be destroyed
   state->State.onRemoveFromRegistry->Promise.get(removeFromRegistry)

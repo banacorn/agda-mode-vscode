@@ -72,15 +72,19 @@ module type Module = {
 
   // input
   let changeSelection: (t, VSCode.TextEditor.t, array<VSCode.Position.t>) => Promise.t<bool>
-  let changeDocument: (t, VSCode.TextEditor.t, array<Buffer.change>) => unit
+  let changeDocument: (
+    t,
+    VSCode.TextEditor.t,
+    array<Buffer.change>,
+  ) => Promise.t<option<Command.InputMethod.t>>
 
-  let onCommand: (t, Command.InputMethod.t => unit, unit) => unit
+  // let onCommand: (t, Command.InputMethod.t => unit, unit) => unit
   // methods
-  let chooseSymbol: (t, VSCode.TextEditor.t, string) => unit
-  let moveUp: (t, VSCode.TextEditor.t) => unit
-  let moveRight: (t, VSCode.TextEditor.t) => unit
-  let moveDown: (t, VSCode.TextEditor.t) => unit
-  let moveLeft: (t, VSCode.TextEditor.t) => unit
+  let chooseSymbol: (t, VSCode.TextEditor.t, string) => Promise.t<option<Command.InputMethod.t>>
+  let moveUp: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  let moveRight: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  let moveDown: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  let moveLeft: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
   let insertBackslash: VSCode.TextEditor.t => unit
   let insertChar: (VSCode.TextEditor.t, string) => unit
 }
@@ -166,7 +170,7 @@ module Module: Module = {
     // cursor positions waiting to be validated will be queued here and resolved afterwards
     // mutable cursorPositionsToBeValidated: array<(array<VSCode.Position.t>, bool => unit)>,
     // for notifying the Task Dispatcher
-    chan: Chan.t<Command.InputMethod.t>,
+    // chan: Chan.t<Command.InputMethod.t>,
     // for reporting when some task has be done
     chanTest: Chan.t<event>,
   }
@@ -176,7 +180,8 @@ module Module: Module = {
     intervalBefore: interval,
     intervalAfter: interval,
     text: string,
-    instance: option<Instance.t>, // update intervals after rewrite
+    // `instance` has been destroyed if is None
+    instance: option<Instance.t>,
   }
 
   // kill the Instances that are not are not pointed by cursors
@@ -209,7 +214,8 @@ module Module: Module = {
     }
   }
 
-  let toRewrites = (instances: array<Instance.t>, f: Instance.t => option<string>): array<
+  //
+  let toRewrites = (instances: array<Instance.t>, modify: Instance.t => option<string>): array<
     rewrite,
   > => {
     let accum = ref(0)
@@ -220,7 +226,7 @@ module Module: Module = {
       // update the interval
       instance.interval = (start + accum.contents, end_ + accum.contents)
 
-      f(instance)->Option.map(replacement => {
+      modify(instance)->Option.map(replacement => {
         let delta = String.length(replacement) - (end_ - start)
         // update `accum`
         accum := accum.contents + delta
@@ -251,7 +257,7 @@ module Module: Module = {
       (editorRange, text)
     })
 
-    Editor.Text.batchReplace'(editor, replacements)->Promise.get(_ => {
+    Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
       // redecorate and update intervals of each Instance
       rewrites->Array.forEach(rewrite => {
         rewrite.instance->Option.forEach(instance => {
@@ -268,15 +274,11 @@ module Module: Module = {
       self.cursorValidator->CursorValidator.unlock(validateCursorPositions(self, document))
 
       // update the view
-      self.instances[0]->Option.forEach(instance =>
-        self.chan->Chan.emit(
-          Update(
-            Buffer.toSequence(instance.buffer),
-            instance.buffer.translation,
-            instance.buffer.candidateIndex,
-          ),
-        )
-      )
+      self.instances[0]->Option.map(instance => Command.InputMethod.Update(
+        Buffer.toSequence(instance.buffer),
+        instance.buffer.translation,
+        instance.buffer.candidateIndex,
+      ))
     })
   }
 
@@ -401,7 +403,7 @@ module Module: Module = {
       []
     }
   }
-
+  // returns true if the Input Method should be deactivated afterwards
   let changeSelection = (self, editor, positions) => {
     if self.activated {
       self.cursorValidator->CursorValidator.validate(
@@ -420,6 +422,8 @@ module Module: Module = {
       self.instances = instances
       // apply rewrites onto the text editor
       applyRewrites(self, editor, rewrites)
+    } else {
+      Promise.resolved(None)
     }
   }
 
@@ -438,14 +442,14 @@ module Module: Module = {
     instances: [],
     activated: false,
     cursorValidator: CursorValidator.make(),
-    chan: Chan.make(),
+    // chan: Chan.make(),
     chanTest: chanTest,
   }
   ////////////////////////////////////////////////////////////////////////////////////////////
 
   let isActivated = self => self.activated
 
-  let onCommand = (self, callback) => self.chan->Chan.on(callback)
+  // let onCommand = (self, callback) => self.chan->Chan.on(callback)
 
   let moveUp = (self, editor) => {
     let rewrites = toRewrites(self.instances, instance => {
