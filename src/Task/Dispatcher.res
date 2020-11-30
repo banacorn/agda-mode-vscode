@@ -233,11 +233,9 @@ let make = (
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
     let points = EditorIM.handleTextEditorSelectionChangeEvent(event)
-    EditorIM.changeSelection(state.editorIM, editor, points)->Promise.get(shouldDeactivate => {
-      if shouldDeactivate {
-        dispatchCommand(dispatcher, Command.InputMethod(Deactivate))->ignore
-      }
-    })
+    EditorIM.changeSelection(state.editorIM, editor, points)->Promise.getSome(action =>
+      dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
+    )
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
     let changes = EditorIM.handleTextDocumentChangeEvent(editor, event)

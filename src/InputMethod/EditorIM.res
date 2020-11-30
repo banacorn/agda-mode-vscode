@@ -71,15 +71,16 @@ module type Module = {
   ) => array<Buffer.change>
 
   // input
-  let changeSelection: (t, VSCode.TextEditor.t, array<VSCode.Position.t>) => Promise.t<bool>
+  let changeSelection: (
+    t,
+    VSCode.TextEditor.t,
+    array<VSCode.Position.t>,
+  ) => Promise.t<option<Command.InputMethod.t>>
   let changeDocument: (
     t,
     VSCode.TextEditor.t,
     array<Buffer.change>,
   ) => Promise.t<option<Command.InputMethod.t>>
-
-  // let onCommand: (t, Command.InputMethod.t => unit, unit) => unit
-  // methods
   let chooseSymbol: (t, VSCode.TextEditor.t, string) => Promise.t<option<Command.InputMethod.t>>
   let moveUp: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
   let moveRight: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
@@ -403,15 +404,23 @@ module Module: Module = {
       []
     }
   }
-  // returns true if the Input Method should be deactivated afterwards
+
   let changeSelection = (self, editor, positions) => {
     if self.activated {
-      self.cursorValidator->CursorValidator.validate(
+      self.cursorValidator
+      ->CursorValidator.validate(
         validateCursorPositions(self, editor->VSCode.TextEditor.document),
         positions,
       )
+      ->Promise.map(shouldDeactivate =>
+        if shouldDeactivate {
+          Some(Command.InputMethod.Deactivate)
+        } else {
+          None
+        }
+      )
     } else {
-      Promise.resolved(false)
+      Promise.resolved(None)
     }
   }
 
@@ -432,7 +441,6 @@ module Module: Module = {
     VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
     self.chanTest->Chan.emit(Deactivate)
-
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
     self.activated = false
@@ -442,7 +450,6 @@ module Module: Module = {
     instances: [],
     activated: false,
     cursorValidator: CursorValidator.make(),
-    // chan: Chan.make(),
     chanTest: chanTest,
   }
   ////////////////////////////////////////////////////////////////////////////////////////////
