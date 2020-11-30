@@ -1,4 +1,8 @@
 open Belt
+
+type offset = int
+type interval = (offset, offset)
+
 // Validates cursor position
 module type CursorValidator = {
   type t
@@ -53,7 +57,7 @@ module type Module = {
     | Deactivate
 
   let make: Chan.t<event> => t
-  let activate: (t, VSCode.TextEditor.t, array<(int, int)>) => unit
+  let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
   let deactivate: t => unit
   let isActivated: t => bool
 
@@ -110,27 +114,27 @@ module Module: Module = {
   // }
   module Instance = {
     type t = {
-      mutable range: (int, int),
+      mutable interval: interval,
       mutable decoration: array<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
 
     let toString = self =>
-      "(" ++ string_of_int(fst(self.range)) ++ ", " ++ (string_of_int(snd(self.range)) ++ ")")
+      "(" ++ string_of_int(fst(self.interval)) ++ ", " ++ (string_of_int(snd(self.interval)) ++ ")")
 
-    let make = (editor, range) => {
+    let make = (editor, interval) => {
       let document = VSCode.TextEditor.document(editor)
-      let start = document->VSCode.TextDocument.positionAt(fst(range))
-      let end_ = document->VSCode.TextDocument.positionAt(snd(range))
+      let start = document->VSCode.TextDocument.positionAt(fst(interval))
+      let end_ = document->VSCode.TextDocument.positionAt(snd(interval))
       {
-        range: range,
+        interval: interval,
         decoration: [Editor.Decoration.underlineText(editor, VSCode.Range.make(start, end_))],
         buffer: Buffer.make(),
       }
     }
 
     let withIn = (instance, offset) => {
-      let (start, end_) = instance.range
+      let (start, end_) = instance.interval
       start <= offset && offset <= end_
     }
 
@@ -139,7 +143,7 @@ module Module: Module = {
       instance.decoration = []
 
       let document = VSCode.TextEditor.document(editor)
-      let (start, end_) = instance.range
+      let (start, end_) = instance.interval
       let start = document->VSCode.TextDocument.positionAt(start)
       let end_ = document->VSCode.TextDocument.positionAt(end_)
       let range = VSCode.Range.make(start, end_)
@@ -169,10 +173,10 @@ module Module: Module = {
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
-    rangeBefore: (int, int),
-    rangeAfter: (int, int),
+    intervalBefore: interval,
+    intervalAfter: interval,
     text: string,
-    instance: option<Instance.t>, // update range offsets after rewrite
+    instance: option<Instance.t>, // update intervals after rewrite
   }
 
   // kill the Instances that are not are not pointed by cursors
@@ -205,28 +209,16 @@ module Module: Module = {
     }
   }
 
-  let updateView = self =>
-    // update the view
-    self.instances[0]->Option.forEach(instance =>
-      self.chan->Chan.emit(
-        Update(
-          Buffer.toSequence(instance.buffer),
-          instance.buffer.translation,
-          instance.buffer.candidateIndex,
-        ),
-      )
-    )
-
   let toRewrites = (instances: array<Instance.t>, f: Instance.t => option<string>): array<
     rewrite,
   > => {
     let accum = ref(0)
 
     instances->Array.keepMap(instance => {
-      let (start, end_) = instance.range
+      let (start, end_) = instance.interval
 
-      // update the range
-      instance.range = (start + accum.contents, end_ + accum.contents)
+      // update the interval
+      instance.interval = (start + accum.contents, end_ + accum.contents)
 
       f(instance)->Option.map(replacement => {
         let delta = String.length(replacement) - (end_ - start)
@@ -234,8 +226,8 @@ module Module: Module = {
         accum := accum.contents + delta
         // returns a `rewrite`
         {
-          rangeBefore: instance.range,
-          rangeAfter: (fst(instance.range), snd(instance.range) + delta),
+          intervalBefore: instance.interval,
+          intervalAfter: (fst(instance.interval), snd(instance.interval) + delta),
           text: replacement,
           instance: Some(instance),
         }
@@ -249,33 +241,41 @@ module Module: Module = {
 
     // lock the CursorValidator before applying edits to the text editor
     self.cursorValidator->CursorValidator.lock
-    // iterate though the list of rewrites
-    rewrites->Array.map(({rangeBefore, rangeAfter, text, instance}, ()) => {
+
+    // calculate the replacements to be made to the editor
+    let replacements = rewrites->Array.map(({intervalBefore, text}) => {
       let editorRange = VSCode.Range.make(
-        document->VSCode.TextDocument.positionAt(fst(rangeBefore)),
-        document->VSCode.TextDocument.positionAt(snd(rangeBefore)),
+        document->VSCode.TextDocument.positionAt(fst(intervalBefore)),
+        document->VSCode.TextDocument.positionAt(snd(intervalBefore)),
       )
-      // update the text buffer
-      Editor.Text.delete(document, editorRange)
-      ->Promise.flatMap(_ => Editor.Text.insert(document, VSCode.Range.start(editorRange), text))
-      ->Promise.map(_ =>
-        switch // update range offsets and redecorate the Instance
-        // if it still exist after this rewrite
-        instance {
-        | None => ()
-        | Some(instance) =>
-          instance.range = rangeAfter
+      (editorRange, text)
+    })
+
+    Editor.Text.batchReplace'(editor, replacements)->Promise.get(_ => {
+      // redecorate and update intervals of each Instance
+      rewrites->Array.forEach(rewrite => {
+        rewrite.instance->Option.forEach(instance => {
+          instance.interval = rewrite.intervalAfter
           Instance.redocorate(instance, editor)
-        }
-      )
-    })->Util.oneByOne->Promise.get(_ => {
+        })
+      })
+
       // emit CHANGE event after applied rewriting
       self.chanTest->Chan.emit(Change)
 
       // all offsets updated and rewrites have been applied
       // unlock the cursor validator
-      self.cursorValidator->CursorValidator.unlock(
-        validateCursorPositions(self, editor->VSCode.TextEditor.document),
+      self.cursorValidator->CursorValidator.unlock(validateCursorPositions(self, document))
+
+      // update the view
+      self.instances[0]->Option.forEach(instance =>
+        self.chan->Chan.emit(
+          Update(
+            Buffer.toSequence(instance.buffer),
+            instance.buffer.translation,
+            instance.buffer.candidateIndex,
+          ),
+        )
       )
     })
   }
@@ -299,21 +299,21 @@ module Module: Module = {
     ) => list<(Instance.t, option<Buffer.change>)> = (accum, x) =>
       switch x {
       | (list{change, ...cs}, list{instance, ...is}) =>
-        let (start, end_) = instance.range
+        let (start, end_) = instance.interval
         let delta = String.length(change.insertedText) - change.replacedTextLength
         if Instance.withIn(instance, change.offset) {
           // `change` appears inside the `instance`
-          instance.range = (accum + start, accum + end_ + delta)
+          instance.interval = (accum + start, accum + end_ + delta)
           list{
             (instance, Some({...change, offset: change.offset + accum})),
             ...go(accum + delta, (cs, is)),
           }
-        } else if change.offset < fst(instance.range) {
+        } else if change.offset < fst(instance.interval) {
           // `change` appears before the `instance`
           go(accum + delta, (cs, list{instance, ...is})) // update only `accum`
         } else {
           // `change` appears after the `instance`
-          instance.range = (accum + start, accum + end_)
+          instance.interval = (accum + start, accum + end_)
           list{(instance, None), ...go(accum, (list{change, ...cs}, is))}
         }
       | (list{}, list{instance, ...is}) => list{instance, ...is}->List.map(i => (i, None))
@@ -331,15 +331,19 @@ module Module: Module = {
         switch change {
         | None => Some(instance)
         | Some(change) =>
-          let (buffer, shouldRewrite) = Buffer.update(instance.buffer, fst(instance.range), change)
+          let (buffer, shouldRewrite) = Buffer.update(
+            instance.buffer,
+            fst(instance.interval),
+            change,
+          )
           // issue rewrites
           shouldRewrite->Option.forEach(text => {
-            let (start, end_) = instance.range
+            let (start, end_) = instance.interval
             let delta = String.length(text) - (end_ - start)
             Js.Array.push(
               {
-                rangeBefore: (start + accum.contents, end_ + accum.contents),
-                rangeAfter: (start + accum.contents, end_ + accum.contents + delta),
+                intervalBefore: (start + accum.contents, end_ + accum.contents),
+                intervalAfter: (start + accum.contents, end_ + accum.contents + delta),
                 text: text,
                 instance: buffer.translation.further ? Some(instance) : None,
               },
@@ -363,7 +367,7 @@ module Module: Module = {
     (instances, rewrites)
   }
 
-  let activate = (self, editor, cursors: array<(int, int)>) => {
+  let activate = (self, editor, cursors: array<interval>) => {
     self.activated = true
 
     // emit ACTIVATE event after applied rewriting
@@ -416,8 +420,6 @@ module Module: Module = {
       self.instances = instances
       // apply rewrites onto the text editor
       applyRewrites(self, editor, rewrites)
-      // update the view
-      updateView(self)
     }
   }
 
@@ -452,9 +454,6 @@ module Module: Module = {
     })
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites)
-
-    // update the view
-    updateView(self)
   }
 
   let moveRight = (self, editor) => {
@@ -464,8 +463,6 @@ module Module: Module = {
     })
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites)
-    // update the view
-    updateView(self)
   }
 
   let moveDown = (self, editor) => {
@@ -476,8 +473,6 @@ module Module: Module = {
 
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites)
-    // update the view
-    updateView(self)
   }
 
   let moveLeft = (self, editor) => {
@@ -488,16 +483,12 @@ module Module: Module = {
 
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites)
-    // update the view
-    updateView(self)
   }
 
   let chooseSymbol = (self, editor, symbol) => {
     let rewrites = toRewrites(self.instances, _ => Some(symbol))
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites)
-    // update the view
-    updateView(self)
   }
 
   let insertBackslash = editor =>

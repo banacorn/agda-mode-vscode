@@ -236,7 +236,6 @@ let make = (
     EditorIM.changeSelection(state.editorIM, editor, points)->Promise.get(shouldDeactivate => {
       if shouldDeactivate {
         dispatchCommand(dispatcher, Command.InputMethod(Deactivate))->ignore
-        Js.log("EditorIM should deactivate")
       }
     })
   })->subscribe
