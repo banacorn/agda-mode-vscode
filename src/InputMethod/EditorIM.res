@@ -188,21 +188,16 @@ module Module: Module = {
   type t = {
     mutable instances: array<Instance.t>,
     mutable activated: bool,
-    // mutable busy: bool,
-    cursorValidator: CursorValidator.t,
     // cursor positions will NOT be validated until the semaphore `busy` is flipped false
     // cursor positions waiting to be validated will be queued here and resolved afterwards
-    // mutable cursorPositionsToBeValidated: array<(array<VSCode.Position.t>, bool => unit)>,
-    // for notifying the Task Dispatcher
-    // chan: Chan.t<Command.InputMethod.t>,
+    cursorValidator: CursorValidator.t,
     // for reporting when some task has be done
     chanTest: Chan.t<event>,
   }
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
-    intervalBefore: interval,
-    intervalAfter: interval,
+    interval: interval,
     text: string,
     // `instance` has been destroyed if is None
     instance: option<Instance.t>,
@@ -247,17 +242,20 @@ module Module: Module = {
     instances->Array.keepMap(instance => {
       let (start, end_) = instance.interval
 
-      // update the interval
+      // update the interval with `accum`
       instance.interval = (start + accum.contents, end_ + accum.contents)
 
       modify(instance)->Option.map(replacement => {
         let delta = String.length(replacement) - (end_ - start)
         // update `accum`
         accum := accum.contents + delta
+
+        // update the interval with the change `delta`
+        instance.interval = (fst(instance.interval), snd(instance.interval) + delta)
+
         // returns a `rewrite`
         {
-          intervalBefore: instance.interval,
-          intervalAfter: (fst(instance.interval), snd(instance.interval) + delta),
+          interval: instance.interval,
           text: replacement,
           instance: Some(instance),
         }
@@ -273,10 +271,10 @@ module Module: Module = {
     self.cursorValidator->CursorValidator.lock
 
     // calculate the replacements to be made to the editor
-    let replacements = rewrites->Array.map(({intervalBefore, text}) => {
+    let replacements = rewrites->Array.map(({interval, text}) => {
       let editorRange = VSCode.Range.make(
-        document->VSCode.TextDocument.positionAt(fst(intervalBefore)),
-        document->VSCode.TextDocument.positionAt(snd(intervalBefore)),
+        document->VSCode.TextDocument.positionAt(fst(interval)),
+        document->VSCode.TextDocument.positionAt(snd(interval)),
       )
       (editorRange, text)
     })
@@ -285,7 +283,6 @@ module Module: Module = {
       // redecorate and update intervals of each Instance
       rewrites->Array.forEach(rewrite => {
         rewrite.instance->Option.forEach(instance => {
-          instance.interval = rewrite.intervalAfter
           Instance.redocorate(instance, editor)
         })
       })
@@ -306,11 +303,10 @@ module Module: Module = {
     })
   }
 
-  // update offsets of Instances base on changes
-  let updateInstanceOffsets = (instances: array<Instance.t>, changes: array<Buffer.change>): (
-    array<Instance.t>,
-    array<rewrite>,
-  ) => {
+  let groupChangeWithInstances = (
+    instances: array<Instance.t>,
+    changes: array<Buffer.change>,
+  ): array<(Instance.t, option<Buffer.change>)> => {
     // sort the changes base on their offsets in the ascending order
     let changes = Js.Array.sortInPlaceWith(
       (x: Buffer.change, y: Buffer.change) => compare(x.offset, y.offset),
@@ -345,8 +341,15 @@ module Module: Module = {
       | (list{}, list{instance, ...is}) => list{instance, ...is}->List.map(i => (i, None))
       | (_, list{}) => list{}
       }
-    let instancesWithChanges =
-      go(0, (List.fromArray(changes), List.fromArray(instances)))->List.toArray
+    go(0, (List.fromArray(changes), List.fromArray(instances)))->List.toArray
+  }
+
+  // update offsets of Instances base on changes
+  let updateInstances = (instances: array<Instance.t>, changes: array<Buffer.change>): (
+    array<Instance.t>,
+    array<rewrite>,
+  ) => {
+    let instancesWithChanges = groupChangeWithInstances(instances, changes)
 
     let rewrites = []
 
@@ -366,10 +369,12 @@ module Module: Module = {
           shouldRewrite->Option.forEach(text => {
             let (start, end_) = instance.interval
             let delta = String.length(text) - (end_ - start)
+
+            // update the interval
+            instance.interval = (start + accum.contents, end_ + accum.contents + delta)
             Js.Array.push(
               {
-                intervalBefore: (start + accum.contents, end_ + accum.contents),
-                intervalAfter: (start + accum.contents, end_ + accum.contents + delta),
+                interval: (start + accum.contents, end_ + accum.contents),
                 text: text,
                 instance: buffer.translation.further ? Some(instance) : None,
               },
@@ -432,7 +437,7 @@ module Module: Module = {
     if self.activated && !CursorValidator.isBusy(self.cursorValidator) {
       let changes = Temp.handleTextDocumentChangeEvent(editor, event)
       // update the offsets to reflect the changes
-      let (instances, rewrites) = updateInstanceOffsets(self.instances, changes)
+      let (instances, rewrites) = updateInstances(self.instances, changes)
       self.instances = instances
       // apply rewrites onto the text editor
       applyRewrites(self, editor, rewrites)
