@@ -232,14 +232,12 @@ let make = (
 
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
-    let points = EditorIM.handleTextEditorSelectionChangeEvent(event)
-    EditorIM.changeSelection(state.editorIM, editor, points)->Promise.getSome(action =>
+    EditorIM.changeSelection(state.editorIM, editor, event)->Promise.getSome(action =>
       dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
     )
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
-    let changes = EditorIM.handleTextDocumentChangeEvent(editor, event)
-    EditorIM.changeDocument(state.editorIM, editor, changes)->Promise.getSome(action =>
+    EditorIM.changeDocument(state.editorIM, editor, event)->Promise.getSome(action =>
       dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
     )
   })->subscribe

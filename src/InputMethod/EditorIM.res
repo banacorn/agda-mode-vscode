@@ -49,6 +49,38 @@ module CursorValidator: CursorValidator = {
   }
 }
 
+module type Temp = {
+  // event => input
+  let handleTextEditorSelectionChangeEvent: VSCode.TextEditorSelectionChangeEvent.t => array<
+    VSCode.Position.t,
+  >
+  let handleTextDocumentChangeEvent: (
+    VSCode.TextEditor.t,
+    VSCode.TextDocumentChangeEvent.t,
+  ) => array<Buffer.change>
+}
+module Temp: Temp = {
+  // TextEditorSelectionChangeEvent.t => array<Position.t>
+  let handleTextEditorSelectionChangeEvent = event =>
+    event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor)
+
+  let handleTextDocumentChangeEvent = (editor, event) => {
+    // see if the change event happened in this TextEditor
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
+    if fileName == eventFileName {
+      // TextDocumentContentChangeEvent.t => Buffer.change
+      event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
+        Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
+        insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
+        replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
+      })
+    } else {
+      []
+    }
+  }
+}
+
 module type Module = {
   type t
   type event =
@@ -61,25 +93,16 @@ module type Module = {
   let deactivate: t => unit
   let isActivated: t => bool
 
-  // event => input
-  let handleTextEditorSelectionChangeEvent: VSCode.TextEditorSelectionChangeEvent.t => array<
-    VSCode.Position.t,
-  >
-  let handleTextDocumentChangeEvent: (
-    VSCode.TextEditor.t,
-    VSCode.TextDocumentChangeEvent.t,
-  ) => array<Buffer.change>
-
   // input
   let changeSelection: (
     t,
     VSCode.TextEditor.t,
-    array<VSCode.Position.t>,
+    VSCode.TextEditorSelectionChangeEvent.t,
   ) => Promise.t<option<Command.InputMethod.t>>
   let changeDocument: (
     t,
     VSCode.TextEditor.t,
-    array<Buffer.change>,
+    VSCode.TextDocumentChangeEvent.t,
   ) => Promise.t<option<Command.InputMethod.t>>
   let chooseSymbol: (t, VSCode.TextEditor.t, string) => Promise.t<option<Command.InputMethod.t>>
   let moveUp: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
@@ -385,28 +408,9 @@ module Module: Module = {
       )
   }
 
-  // TextEditorSelectionChangeEvent.t => array<Position.t>
-  let handleTextEditorSelectionChangeEvent = event =>
-    event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor)
-
-  let handleTextDocumentChangeEvent = (editor, event) => {
-    // see if the change event happened in this TextEditor
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
-    if fileName == eventFileName {
-      // TextDocumentContentChangeEvent.t => Buffer.change
-      event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
-        Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
-        insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
-        replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
-      })
-    } else {
-      []
-    }
-  }
-
-  let changeSelection = (self, editor, positions) => {
+  let changeSelection = (self, editor, event) => {
     if self.activated {
+      let positions = Temp.handleTextEditorSelectionChangeEvent(event)
       self.cursorValidator
       ->CursorValidator.validate(
         validateCursorPositions(self, editor->VSCode.TextEditor.document),
@@ -424,8 +428,9 @@ module Module: Module = {
     }
   }
 
-  let changeDocument = (self, editor, changes) => {
+  let changeDocument = (self, editor, event) => {
     if self.activated && !CursorValidator.isBusy(self.cursorValidator) {
+      let changes = Temp.handleTextDocumentChangeEvent(editor, event)
       // update the offsets to reflect the changes
       let (instances, rewrites) = updateInstanceOffsets(self.instances, changes)
       self.instances = instances
