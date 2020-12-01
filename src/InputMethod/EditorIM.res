@@ -83,40 +83,53 @@ module Temp: Temp = {
 
 module type Module = {
   type t
-  type event =
-    | Change
-    | Activate
-    | Deactivate
+  type logEvent =
+    | LogChange
+    | LogActivate
+    | LogDeactivate
 
-  let make: Chan.t<event> => t
+  let make: Chan.t<logEvent> => t
   let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
   let deactivate: t => unit
   let isActivated: t => bool
 
   // input
-  let changeSelection: (
-    t,
-    VSCode.TextEditor.t,
-    VSCode.TextEditorSelectionChangeEvent.t,
-  ) => Promise.t<option<Command.InputMethod.t>>
-  let changeDocument: (
-    t,
-    VSCode.TextEditor.t,
-    VSCode.TextDocumentChangeEvent.t,
-  ) => Promise.t<option<Command.InputMethod.t>>
-  let chooseSymbol: (t, VSCode.TextEditor.t, string) => Promise.t<option<Command.InputMethod.t>>
-  let moveUp: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
-  let moveRight: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
-  let moveDown: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
-  let moveLeft: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  type candidateInput =
+    | ChooseSymbol(string)
+    | BrowseUp
+    | BrowseDown
+    | BrowseLeft
+    | BrowseRight
+  type input =
+    | Change(VSCode.TextDocumentChangeEvent.t)
+    | Select(VSCode.TextEditorSelectionChangeEvent.t)
+    | Candidate(candidateInput)
+
+  let run: (t, VSCode.TextEditor.t, input) => Promise.t<option<Command.InputMethod.t>>
+
+  // let changeSelection: (
+  //   t,
+  //   VSCode.TextEditor.t,
+  //   VSCode.TextEditorSelectionChangeEvent.t,
+  // ) => Promise.t<option<Command.InputMethod.t>>
+  // let changeDocument: (
+  //   t,
+  //   VSCode.TextEditor.t,
+  //   VSCode.TextDocumentChangeEvent.t,
+  // ) => Promise.t<option<Command.InputMethod.t>>
+  // let chooseSymbol: (t, VSCode.TextEditor.t, string) => Promise.t<option<Command.InputMethod.t>>
+  // let moveUp: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  // let moveRight: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  // let moveDown: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
+  // let moveLeft: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
   let insertBackslash: VSCode.TextEditor.t => unit
   let insertChar: (VSCode.TextEditor.t, string) => unit
 }
 module Module: Module = {
-  type event =
-    | Change
-    | Activate
-    | Deactivate
+  type logEvent =
+    | LogChange
+    | LogActivate
+    | LogDeactivate
 
   let printLog = false
   let log = if printLog {
@@ -192,8 +205,20 @@ module Module: Module = {
     // cursor positions waiting to be validated will be queued here and resolved afterwards
     cursorValidator: CursorValidator.t,
     // for reporting when some task has be done
-    chanTest: Chan.t<event>,
+    chanLog: Chan.t<logEvent>,
   }
+
+  // input
+  type candidateInput =
+    | ChooseSymbol(string)
+    | BrowseUp
+    | BrowseDown
+    | BrowseLeft
+    | BrowseRight
+  type input =
+    | Change(VSCode.TextDocumentChangeEvent.t)
+    | Select(VSCode.TextEditorSelectionChangeEvent.t)
+    | Candidate(candidateInput)
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
@@ -226,7 +251,7 @@ module Module: Module = {
 
     // return `true` and emit `Deactivate` if all instances have been destroyed
     if Array.length(self.instances) == 0 {
-      self.chanTest->Chan.emit(Deactivate)
+      self.chanLog->Chan.emit(LogDeactivate)
       true
     } else {
       false
@@ -288,7 +313,7 @@ module Module: Module = {
       })
 
       // emit CHANGE event after applied rewriting
-      self.chanTest->Chan.emit(Change)
+      self.chanLog->Chan.emit(LogChange)
 
       // all offsets updated and rewrites have been applied
       // unlock the cursor validator
@@ -402,7 +427,7 @@ module Module: Module = {
     self.activated = true
 
     // emit ACTIVATE event after applied rewriting
-    self.chanTest->Chan.emit(Activate)
+    self.chanLog->Chan.emit(LogActivate)
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", true)->ignore
 
@@ -450,17 +475,17 @@ module Module: Module = {
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
-    self.chanTest->Chan.emit(Deactivate)
+    self.chanLog->Chan.emit(LogDeactivate)
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
     self.activated = false
   }
 
-  let make = chanTest => {
+  let make = chanLog => {
     instances: [],
     activated: false,
     cursorValidator: CursorValidator.make(),
-    chanTest: chanTest,
+    chanLog: chanLog,
   }
   ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -511,6 +536,17 @@ module Module: Module = {
     // apply rewrites onto the text editor
     applyRewrites(self, editor, rewrites)
   }
+
+  let run = (self, editor, input) =>
+    switch input {
+    | Select(event) => changeSelection(self, editor, event)
+    | Change(event) => changeDocument(self, editor, event)
+    | Candidate(ChooseSymbol(symbol)) => chooseSymbol(self, editor, symbol)
+    | Candidate(BrowseUp) => moveUp(self, editor)
+    | Candidate(BrowseDown) => moveDown(self, editor)
+    | Candidate(BrowseLeft) => moveLeft(self, editor)
+    | Candidate(BrowseRight) => moveRight(self, editor)
+    }
 
   let insertBackslash = editor =>
     Editor.Cursor.getMany(editor)->Array.forEach(point =>

@@ -213,7 +213,7 @@ let make = (
   extentionPath: string,
   editor: VSCode.TextEditor.t,
   removeFromRegistry: unit => unit,
-  chan: Chan.t<EditorIM.event>,
+  chan: Chan.t<EditorIM.logEvent>,
 ) => {
   let state = State.make(extentionPath, chan, editor)
   let dispatcher = {
@@ -232,12 +232,12 @@ let make = (
 
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
-    EditorIM.changeSelection(state.editorIM, editor, event)->Promise.getSome(action =>
+    EditorIM.run(state.editorIM, editor, Select(event))->Promise.getSome(action =>
       dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
     )
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
-    EditorIM.changeDocument(state.editorIM, editor, event)->Promise.getSome(action =>
+    EditorIM.run(state.editorIM, editor, Change(event))->Promise.getSome(action =>
       dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
     )
   })->subscribe

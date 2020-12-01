@@ -107,7 +107,11 @@ let handle = x =>
       WithStateP(
         state =>
           if EditorIM.isActivated(state.editorIM) {
-            EditorIM.chooseSymbol(state.editorIM, state.editor, symbol)->Promise.map(x =>
+            EditorIM.run(
+              state.editorIM,
+              state.editor,
+              Candidate(ChooseSymbol(symbol)),
+            )->Promise.map(x =>
               switch x {
               | None => list{}
               | Some(xs) => list{DispatchCommand(InputMethod(xs))}
@@ -126,35 +130,44 @@ let handle = x =>
       ),
     }
   | MoveUp => list{
-      WithStateP(state => EditorIM.moveUp(state.editorIM, state.editor)->Promise.map(x =>
+      WithStateP(
+        state => EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
             }
-          )),
+          ),
+      ),
     }
   | MoveRight => list{
-      WithStateP(state => EditorIM.moveRight(state.editorIM, state.editor)->Promise.map(x =>
+      WithStateP(
+        state =>
+          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
             }
-          )),
+          ),
+      ),
     }
   | MoveDown => list{
-      WithStateP(state => EditorIM.moveDown(state.editorIM, state.editor)->Promise.map(x =>
+      WithStateP(
+        state => EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
             }
-          )),
+          ),
+      ),
     }
   | MoveLeft => list{
-      WithStateP(state => EditorIM.moveLeft(state.editorIM, state.editor)->Promise.map(x =>
+      WithStateP(
+        state => EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
             }
-          )),
+          ),
+      ),
     }
   }
