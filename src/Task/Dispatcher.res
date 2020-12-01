@@ -213,7 +213,7 @@ let make = (
   extentionPath: string,
   editor: VSCode.TextEditor.t,
   removeFromRegistry: unit => unit,
-  chan: Chan.t<EditorIM.logEvent>,
+  chan: Chan.t<EditorIM.output>,
 ) => {
   let state = State.make(extentionPath, chan, editor)
   let dispatcher = {

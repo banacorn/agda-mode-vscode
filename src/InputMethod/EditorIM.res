@@ -82,17 +82,6 @@ module Temp: Temp = {
 }
 
 module type Module = {
-  type t
-  type logEvent =
-    | LogChange
-    | LogActivate
-    | LogDeactivate
-
-  let make: Chan.t<logEvent> => t
-  let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
-  let deactivate: t => unit
-  let isActivated: t => bool
-
   // input
   type candidateInput =
     | ChooseSymbol(string)
@@ -105,32 +94,24 @@ module type Module = {
     | Select(VSCode.TextEditorSelectionChangeEvent.t)
     | Candidate(candidateInput)
 
+  // output
+  type output =
+    | Update(string, Translator.translation, int)
+    | Activate
+    | Deactivate
+
+  type t
+
+  let make: Chan.t<output> => t
+  let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
+  let deactivate: t => unit
+  let isActivated: t => bool
   let run: (t, VSCode.TextEditor.t, input) => Promise.t<option<Command.InputMethod.t>>
 
-  // let changeSelection: (
-  //   t,
-  //   VSCode.TextEditor.t,
-  //   VSCode.TextEditorSelectionChangeEvent.t,
-  // ) => Promise.t<option<Command.InputMethod.t>>
-  // let changeDocument: (
-  //   t,
-  //   VSCode.TextEditor.t,
-  //   VSCode.TextDocumentChangeEvent.t,
-  // ) => Promise.t<option<Command.InputMethod.t>>
-  // let chooseSymbol: (t, VSCode.TextEditor.t, string) => Promise.t<option<Command.InputMethod.t>>
-  // let moveUp: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
-  // let moveRight: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
-  // let moveDown: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
-  // let moveLeft: (t, VSCode.TextEditor.t) => Promise.t<option<Command.InputMethod.t>>
   let insertBackslash: VSCode.TextEditor.t => unit
   let insertChar: (VSCode.TextEditor.t, string) => unit
 }
 module Module: Module = {
-  type logEvent =
-    | LogChange
-    | LogActivate
-    | LogDeactivate
-
   let printLog = false
   let log = if printLog {
     Js.log
@@ -198,16 +179,6 @@ module Module: Module = {
     }
   }
 
-  type t = {
-    mutable instances: array<Instance.t>,
-    mutable activated: bool,
-    // cursor positions will NOT be validated until the semaphore `busy` is flipped false
-    // cursor positions waiting to be validated will be queued here and resolved afterwards
-    cursorValidator: CursorValidator.t,
-    // for reporting when some task has be done
-    chanLog: Chan.t<logEvent>,
-  }
-
   // input
   type candidateInput =
     | ChooseSymbol(string)
@@ -219,6 +190,22 @@ module Module: Module = {
     | Change(VSCode.TextDocumentChangeEvent.t)
     | Select(VSCode.TextEditorSelectionChangeEvent.t)
     | Candidate(candidateInput)
+
+  // output
+  type output =
+    | Update(string, Translator.translation, int)
+    | Activate
+    | Deactivate
+
+  type t = {
+    mutable instances: array<Instance.t>,
+    mutable activated: bool,
+    // cursor positions will NOT be validated until the semaphore `busy` is flipped false
+    // cursor positions waiting to be validated will be queued here and resolved afterwards
+    cursorValidator: CursorValidator.t,
+    // for reporting when some task has be done
+    chanLog: Chan.t<output>,
+  }
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
@@ -251,7 +238,7 @@ module Module: Module = {
 
     // return `true` and emit `Deactivate` if all instances have been destroyed
     if Array.length(self.instances) == 0 {
-      self.chanLog->Chan.emit(LogDeactivate)
+      self.chanLog->Chan.emit(Deactivate)
       true
     } else {
       false
@@ -312,19 +299,27 @@ module Module: Module = {
         })
       })
 
-      // emit CHANGE event after applied rewriting
-      self.chanLog->Chan.emit(LogChange)
-
       // all offsets updated and rewrites have been applied
       // unlock the cursor validator
       self.cursorValidator->CursorValidator.unlock(validateCursorPositions(self, document))
 
       // update the view
-      self.instances[0]->Option.map(instance => Command.InputMethod.Update(
-        Buffer.toSequence(instance.buffer),
-        instance.buffer.translation,
-        instance.buffer.candidateIndex,
-      ))
+      self.instances[0]->Option.map(instance => {
+        // for testing
+        self.chanLog->Chan.emit(
+          Update(
+            Buffer.toSequence(instance.buffer),
+            instance.buffer.translation,
+            instance.buffer.candidateIndex,
+          ),
+        )
+        // real output
+        Command.InputMethod.Update(
+          Buffer.toSequence(instance.buffer),
+          instance.buffer.translation,
+          instance.buffer.candidateIndex,
+        )
+      })
     })
   }
 
@@ -427,7 +422,7 @@ module Module: Module = {
     self.activated = true
 
     // emit ACTIVATE event after applied rewriting
-    self.chanLog->Chan.emit(LogActivate)
+    self.chanLog->Chan.emit(Activate)
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", true)->ignore
 
@@ -475,7 +470,7 @@ module Module: Module = {
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
-    self.chanLog->Chan.emit(LogDeactivate)
+    self.chanLog->Chan.emit(Deactivate)
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
     self.activated = false

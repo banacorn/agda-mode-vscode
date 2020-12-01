@@ -8,7 +8,7 @@ module Js = Js'
 
 type setup = {
   editor: VSCode.TextEditor.t,
-  chan: Chan.t<EditorIM.logEvent>,
+  chan: Chan.t<EditorIM.output>,
 }
 
 let activateExtension = (fileName): Promise.t<setup> => {
@@ -81,6 +81,13 @@ module IM = {
     ->flatMap(_ => promise)
     ->map(x => Ok(x))
   }
+
+  let updated = output =>
+    switch output {
+    | EditorIM.Update(_, _, _) => Ok()
+    | Activate => Error(Js.Exn.raiseError("Expecting Update, got Activate"))
+    | Deactivate => Error(Js.Exn.raiseError("Expecting Update, got Deactivate"))
+    }->Promise.resolved
 }
 
 describe("Input Method (Editor)", () => {
@@ -97,77 +104,75 @@ describe("Input Method (Editor)", () => {
     Q.it(j`should translate "lambdabar" to "λ"`, () => acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
-        ->flatMapOk(A.equal(EditorIM.LogActivate))
+        ->flatMapOk(A.equal(EditorIM.Activate))
         ->flatMapOk(() => insertChar(setup, "l"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "a"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←a`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "m"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←am`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "b"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←amb`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "d"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←ambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "a"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`λ`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "b"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`λb`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "a"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`λba`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "r"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(A.equal(EditorIM.Deactivate))
         ->flatMapOk(() => A.equal(j`ƛ`, Editor.Text.getAll(document)))
       }))
     Q.it(j`should translate "bn" to "𝕟"`, () => acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
-        ->flatMapOk(A.equal(EditorIM.LogActivate))
+        ->flatMapOk(A.equal(EditorIM.Activate))
         ->flatMapOk(() => insertChar(setup, "b"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "n"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(A.equal(EditorIM.Deactivate))
         ->flatMapOk(() => A.equal(j`𝕟`, Editor.Text.getAll(document)))
-        // ->flatMapOk(() => IM.deactivate(setup))
-        // ->flatMapOk(A.equal(EditorIM.LogDeactivate))
       }))
   })
   describe("Backspacing", () =>
     Q.it(j`should work just fine`, () => acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
-        ->flatMapOk(A.equal(EditorIM.LogActivate))
+        ->flatMapOk(A.equal(EditorIM.Activate))
         ->flatMapOk(() => insertChar(setup, "l"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "a"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←a`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "m"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←am`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "b"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←amb`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "d"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←ambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "a"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`λ`, Editor.Text.getAll(document)))
         ->flatMapOk(() => backspace(setup))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`lambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.deactivate(setup))
-        ->flatMapOk(A.equal(EditorIM.LogDeactivate))
+        ->flatMapOk(A.equal(EditorIM.Deactivate))
       }))
   )
   describe("Multiple cursors at once", () => {
@@ -186,14 +191,14 @@ describe("Input Method (Editor)", () => {
         document
         ->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
         ->flatMap(_ => IM.activate(setup, ~positions, ()))
-        ->flatMapOk(A.equal(EditorIM.LogActivate))
+        ->flatMapOk(A.equal(EditorIM.Activate))
         ->flatMapOk(() => insertChar(setup, "b"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(IM.updated)
         ->flatMapOk(() =>
           A.equal(j`♭\\n♭\\n♭\\n♭`, replaceCRLF(Editor.Text.getAll(document)))
         )
         ->flatMapOk(() => insertChar(setup, "n"))
-        ->flatMapOk(A.equal(EditorIM.LogChange))
+        ->flatMapOk(A.equal(EditorIM.Deactivate))
         ->flatMapOk(() =>
           A.equal(j`𝕟\\n𝕟\\n𝕟\\n𝕟`, replaceCRLF(Editor.Text.getAll(document)))
         )
