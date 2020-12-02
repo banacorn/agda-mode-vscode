@@ -8,7 +8,7 @@ module Js = Js'
 
 type setup = {
   editor: VSCode.TextEditor.t,
-  chan: Chan.t<EditorIM.output>,
+  chan: Chan.t<EditorIM.Output.kind>,
 }
 
 let activateExtension = (fileName): Promise.t<setup> => {
@@ -84,8 +84,7 @@ module IM = {
 
   let updated = output =>
     switch output {
-    | EditorIM.Update(_, _, _) => Ok()
-    | Noop => Error(Js.Exn.raiseError("Expecting Update, got Noop"))
+    | EditorIM.Output.Update(_, _, _) => Ok()
     | Activate => Error(Js.Exn.raiseError("Expecting Update, got Activate"))
     | Deactivate => Error(Js.Exn.raiseError("Expecting Update, got Deactivate"))
     }->Promise.resolved
@@ -105,7 +104,7 @@ describe("Input Method (Editor)", () => {
     Q.it(j`should translate "lambdabar" to "λ"`, () => acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
-        ->flatMapOk(A.equal(EditorIM.Activate))
+        ->flatMapOk(A.equal(EditorIM.Output.Activate))
         ->flatMapOk(() => insertChar(setup, "l"))
         ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
@@ -131,18 +130,18 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`λba`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "r"))
-        ->flatMapOk(A.equal(EditorIM.Deactivate))
+        ->flatMapOk(A.equal(EditorIM.Output.Deactivate))
         ->flatMapOk(() => A.equal(j`ƛ`, Editor.Text.getAll(document)))
       }))
     Q.it(j`should translate "bn" to "𝕟"`, () => acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
-        ->flatMapOk(A.equal(EditorIM.Activate))
+        ->flatMapOk(A.equal(EditorIM.Output.Activate))
         ->flatMapOk(() => insertChar(setup, "b"))
         ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
         ->flatMapOk(() => insertChar(setup, "n"))
-        ->flatMapOk(A.equal(EditorIM.Deactivate))
+        ->flatMapOk(A.equal(EditorIM.Output.Deactivate))
         ->flatMapOk(() => A.equal(j`𝕟`, Editor.Text.getAll(document)))
       }))
   })
@@ -150,7 +149,7 @@ describe("Input Method (Editor)", () => {
     Q.it(j`should work just fine`, () => acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
-        ->flatMapOk(A.equal(EditorIM.Activate))
+        ->flatMapOk(A.equal(EditorIM.Output.Activate))
         ->flatMapOk(() => insertChar(setup, "l"))
         ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
@@ -173,7 +172,7 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(IM.updated)
         ->flatMapOk(() => A.equal(j`lambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.deactivate(setup))
-        ->flatMapOk(A.equal(EditorIM.Deactivate))
+        ->flatMapOk(A.equal(EditorIM.Output.Deactivate))
       }))
   )
   describe("Multiple cursors at once", () => {
@@ -192,14 +191,14 @@ describe("Input Method (Editor)", () => {
         document
         ->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
         ->flatMap(_ => IM.activate(setup, ~positions, ()))
-        ->flatMapOk(A.equal(EditorIM.Activate))
+        ->flatMapOk(A.equal(EditorIM.Output.Activate))
         ->flatMapOk(() => insertChar(setup, "b"))
         ->flatMapOk(IM.updated)
         ->flatMapOk(() =>
           A.equal(j`♭\\n♭\\n♭\\n♭`, replaceCRLF(Editor.Text.getAll(document)))
         )
         ->flatMapOk(() => insertChar(setup, "n"))
-        ->flatMapOk(A.equal(EditorIM.Deactivate))
+        ->flatMapOk(A.equal(EditorIM.Output.Deactivate))
         ->flatMapOk(() =>
           A.equal(j`𝕟\\n𝕟\\n𝕟\\n𝕟`, replaceCRLF(Editor.Text.getAll(document)))
         )

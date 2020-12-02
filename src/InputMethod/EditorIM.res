@@ -40,24 +40,7 @@ module Semaphore: Semaphore = {
     }
 }
 
-module type Input = {
-  // input
-  type candidateInput =
-    | ChooseSymbol(string)
-    | BrowseUp
-    | BrowseDown
-    | BrowseLeft
-    | BrowseRight
-  type t =
-    | Change(array<Buffer.change>)
-    | Select(array<VSCode.Position.t>)
-    | Candidate(candidateInput)
-
-  let fromTextDocumentChangeEvent: (VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => t
-  let fromTextEditorSelectionChangeEvent: VSCode.TextEditorSelectionChangeEvent.t => t
-}
-module Input: Input = {
-  // input
+module Input = {
   type candidateInput =
     | ChooseSymbol(string)
     | BrowseUp
@@ -91,23 +74,33 @@ module Input: Input = {
   }
 }
 
-module type Module = {
-  // output
-  type output =
-    | Noop
+module Output = {
+  type kind =
     | Update(string, Translator.translation, int)
     | Activate
     | Deactivate
 
+  type t = array<kind>
+
+  let handle = output => {
+    let handle = kind =>
+      switch kind {
+      | Update(a, b, c) => Command.InputMethod.Update(a, b, c)
+      | Activate => Command.InputMethod.Activate
+      | Deactivate => Command.InputMethod.Deactivate
+      }
+    output->Array.map(handle)
+  }
+}
+
+module type Module = {
   type t
 
-  let make: Chan.t<output> => t
+  let make: Chan.t<Output.kind> => t
   let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
   let deactivate: t => unit
   let isActivated: t => bool
-  let run: (t, VSCode.TextEditor.t, Input.t) => Promise.t<output>
-  let fromOutput: output => option<Command.InputMethod.t>
-  // let run: (t, VSCode.TextEditor.t, input) => Promise.t<option<Command.InputMethod.t>>
+  let run: (t, VSCode.TextEditor.t, Input.t) => Promise.t<Output.t>
 
   let insertBackslash: VSCode.TextEditor.t => unit
   let insertChar: (VSCode.TextEditor.t, string) => unit
@@ -179,12 +172,6 @@ module Module: Module = {
       instance.decoration = []
     }
   }
-  // output
-  type output =
-    | Noop
-    | Update(string, Translator.translation, int)
-    | Activate
-    | Deactivate
 
   type t = {
     mutable instances: array<Instance.t>,
@@ -193,7 +180,7 @@ module Module: Module = {
     // cursor positions waiting to be validated will be queued here and resolved afterwards
     semaphore: Semaphore.t,
     // for reporting when some task has be done
-    chanLog: Chan.t<output>,
+    chanLog: Chan.t<Output.kind>,
   }
 
   // datatype for representing a rewrite to be made to the text editor
@@ -257,7 +244,7 @@ module Module: Module = {
   }
 
   // iterate through a list of rewrites and apply them to the text editor
-  let applyRewrites = (self, editor, rewrites): Promise.t<output> => {
+  let applyRewrites = (self, editor, rewrites): Promise.t<Output.t> => {
     let document = VSCode.TextEditor.document(editor)
 
     // lock before applying edits to the text editor
@@ -285,7 +272,7 @@ module Module: Module = {
       self.semaphore->Semaphore.unlock
     })->Promise.map(_ => {
       // update the view
-      self.instances[0]->Option.mapWithDefault(Noop, instance => {
+      self.instances[0]->Option.mapWithDefault([], instance => {
         // for testing
         self.chanLog->Chan.emit(
           Update(
@@ -295,11 +282,13 @@ module Module: Module = {
           ),
         )
         // real output
-        Update(
-          Buffer.toSequence(instance.buffer),
-          instance.buffer.translation,
-          instance.buffer.candidateIndex,
-        )
+        [
+          Output.Update(
+            Buffer.toSequence(instance.buffer),
+            instance.buffer.translation,
+            instance.buffer.candidateIndex,
+          ),
+        ]
       })
     })
   }
@@ -446,13 +435,13 @@ module Module: Module = {
           validateCursorPositions(self, editor->VSCode.TextEditor.document, positions)
           if Js.Array.length(self.instances) == 0 {
             deactivate(self)
-            Deactivate
+            [Output.Deactivate]
           } else {
-            Noop
+            []
           }
         })
       } else {
-        Promise.resolved(Noop)
+        Promise.resolved([])
       }
     | Change(changes) =>
       if self.activated && !Semaphore.isLocked(self.semaphore) {
@@ -462,7 +451,7 @@ module Module: Module = {
         // apply rewrites onto the text editor
         applyRewrites(self, editor, rewrites)
       } else {
-        Promise.resolved(Noop)
+        Promise.resolved([])
       }
     | Candidate(action) =>
       let callback = switch action {
@@ -490,14 +479,6 @@ module Module: Module = {
       }
       let rewrites = toRewrites(self.instances, callback)
       applyRewrites(self, editor, rewrites)
-    }
-
-  let fromOutput = output =>
-    switch output {
-    | Noop => None
-    | Update(a, b, c) => Some(Command.InputMethod.Update(a, b, c))
-    | Activate => Some(Command.InputMethod.Activate)
-    | Deactivate => Some(Command.InputMethod.Deactivate)
     }
 
   let insertBackslash = editor =>

@@ -107,13 +107,8 @@ let handle = x =>
         state =>
           if EditorIM.isActivated(state.editorIM) {
             EditorIM.run(state.editorIM, state.editor, Candidate(ChooseSymbol(symbol)))
-            ->Promise.map(EditorIM.fromOutput)
-            ->Promise.map(x =>
-              switch x {
-              | None => list{}
-              | Some(xs) => list{DispatchCommand(InputMethod(xs))}
-              }
-            )
+            ->Promise.map(EditorIM.Output.handle)
+            ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
           } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.chooseSymbol(state.promptIM, symbol)
             if result {
@@ -130,52 +125,32 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))
-          ->Promise.map(EditorIM.fromOutput)
-          ->Promise.map(x =>
-            switch x {
-            | None => list{}
-            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
-            }
-          ),
+          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
   | MoveRight => list{
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))
-          ->Promise.map(EditorIM.fromOutput)
-          ->Promise.map(x =>
-            switch x {
-            | None => list{}
-            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
-            }
-          ),
+          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
   | MoveDown => list{
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))
-          ->Promise.map(EditorIM.fromOutput)
-          ->Promise.map(x =>
-            switch x {
-            | None => list{}
-            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
-            }
-          ),
+          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
   | MoveLeft => list{
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))
-          ->Promise.map(EditorIM.fromOutput)
-          ->Promise.map(x =>
-            switch x {
-            | None => list{}
-            | Some(xs) => list{DispatchCommand(InputMethod(xs))}
-            }
-          ),
+          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
   }
