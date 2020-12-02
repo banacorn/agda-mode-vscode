@@ -47,7 +47,7 @@ module InputMethod = {
   type t =
     | Activate
     | PromptChange(string)
-    | Rewrite(array<(VSCode.Range.t, string)>, unit => unit)
+    | Rewrite(array<(EditorIM.interval, string)>, unit => unit)
     | Deactivate
     | UpdateView(string, Translator.translation, int)
     | InsertChar(string)

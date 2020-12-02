@@ -76,22 +76,11 @@ module Input = {
 module Output = {
   type kind =
     | UpdateView(string, Translator.translation, int)
-    | Rewrite(array<(VSCode.Range.t, string)>, unit => unit)
+    | Rewrite(array<(interval, string)>, unit => unit)
     | Activate
     | Deactivate
 
   type t = array<kind>
-
-  let handle = output => {
-    let handle = kind =>
-      switch kind {
-      | UpdateView(s, t, i) => Command.InputMethod.UpdateView(s, t, i)
-      | Rewrite(xs, f) => Command.InputMethod.Rewrite(xs, f)
-      | Activate => Command.InputMethod.Activate
-      | Deactivate => Command.InputMethod.Deactivate
-      }
-    output->Array.map(handle)
-  }
 }
 
 module type Module = {
@@ -246,18 +235,17 @@ module Module: Module = {
 
   // iterate through a list of rewrites and apply them to the text editor
   let applyRewrites = (self, editor, rewrites): Promise.t<Output.t> => {
-    let document = VSCode.TextEditor.document(editor)
-
     // lock before applying edits to the text editor
     self.semaphore->Semaphore.lock
 
     // calculate the replacements to be made to the editor
     let replacements = rewrites->Array.map(({interval, text}) => {
-      let editorRange = VSCode.Range.make(
-        document->VSCode.TextDocument.positionAt(fst(interval)),
-        document->VSCode.TextDocument.positionAt(snd(interval)),
-      )
-      (editorRange, text)
+      (interval, text)
+      // let editorRange = VSCode.Range.make(
+      //   document->VSCode.TextDocument.positionAt(fst(interval)),
+      //   document->VSCode.TextDocument.positionAt(snd(interval)),
+      // )
+      // (editorRange, text)
     })
 
     let (promise, resolve) = Promise.pending()

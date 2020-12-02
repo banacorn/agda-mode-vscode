@@ -1,6 +1,19 @@
 open Belt
 
 open! Task
+
+let handleIMOutput = output => {
+  open EditorIM.Output
+  let handle = kind =>
+    switch kind {
+    | UpdateView(s, t, i) => Command.InputMethod.UpdateView(s, t, i)
+    | Rewrite(xs, f) => Command.InputMethod.Rewrite(xs, f)
+    | Activate => Command.InputMethod.Activate
+    | Deactivate => Command.InputMethod.Deactivate
+    }
+  output->Array.map(handle)
+}
+
 // from Editor Command to Tasks
 let handle = x =>
   switch x {
@@ -72,6 +85,13 @@ let handle = x =>
       WithStateP(
         state => {
           let document = state.editor->VSCode.TextEditor.document
+          let replacements = replacements->Array.map(((interval, text)) => {
+            let range = VSCode.Range.make(
+              document->VSCode.TextDocument.positionAt(fst(interval)),
+              document->VSCode.TextDocument.positionAt(snd(interval)),
+            )
+            (range, text)
+          })
           Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
             resolve()
             list{}
@@ -118,7 +138,7 @@ let handle = x =>
         state =>
           if EditorIM.isActivated(state.editorIM) {
             EditorIM.run(state.editorIM, state.editor, Candidate(ChooseSymbol(symbol)))
-            ->Promise.map(EditorIM.Output.handle)
+            ->Promise.map(handleIMOutput)
             ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
           } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.chooseSymbol(state.promptIM, symbol)
@@ -136,7 +156,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))
-          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(handleIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
@@ -144,7 +164,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))
-          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(handleIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
@@ -152,7 +172,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))
-          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(handleIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
@@ -160,7 +180,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))
-          ->Promise.map(EditorIM.Output.handle)
+          ->Promise.map(handleIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
