@@ -91,7 +91,7 @@ module type Module = {
   let deactivate: t => unit
   let isActivated: t => bool
 
-  let run: (t, VSCode.TextEditor.t, Input.t) => Promise.t<Output.t>
+  let run: (t, option<VSCode.TextEditor.t>, Input.t) => Promise.t<Output.t>
 }
 module Module: Module = {
   let printLog = false
@@ -174,8 +174,7 @@ module Module: Module = {
 
   // kill the Instances that are not are not pointed by cursors
   // returns `true` when the system should be Deactivate
-  let validateCursorPositions = (self, document, points: array<VSCode.Position.t>) => {
-    let offsets = points->Array.map(VSCode.TextDocument.offsetAt(document))
+  let validateCursorPositions = (self, offsets) => {
     log(
       "\n### Cursors  : " ++
       (Js.Array.sortInPlaceWith(compare, offsets)->Array.map(string_of_int)->Util.Pretty.array ++
@@ -238,7 +237,7 @@ module Module: Module = {
       // redecorate and update intervals of each Instance
       rewrites->Array.forEach(rewrite => {
         rewrite.instance->Option.forEach(instance => {
-          Instance.redecorate(instance, editor)
+          editor->Option.forEach(Instance.redecorate(instance))
         })
       })
 
@@ -411,14 +410,19 @@ module Module: Module = {
     switch input {
     | Input.Select(positions) =>
       if self.activated {
-        // let positions = Input.fromTextEditorSelectionChangeEvent(event)
         self.semaphore->Semaphore.acquire->Promise.map(() => {
-          validateCursorPositions(self, editor->VSCode.TextEditor.document, positions)
-          if Js.Array.length(self.instances) == 0 {
-            deactivate(self)
-            [Output.Deactivate]
-          } else {
-            []
+          switch editor {
+          | None => []
+          | Some(editor) =>
+            let document = editor->VSCode.TextEditor.document
+            let offsets = positions->Array.map(VSCode.TextDocument.offsetAt(document))
+            validateCursorPositions(self, offsets)
+            if Js.Array.length(self.instances) == 0 {
+              deactivate(self)
+              [Output.Deactivate]
+            } else {
+              []
+            }
           }
         })
       } else {

@@ -144,7 +144,7 @@ let handle = x =>
       WithStateP(
         state =>
           if EditorIM.isActivated(state.editorIM) {
-            EditorIM.run(state.editorIM, state.editor, Candidate(ChooseSymbol(symbol)))
+            EditorIM.run(state.editorIM, Some(state.editor), Candidate(ChooseSymbol(symbol)))
             ->Promise.map(handleEditorIMOutput)
             ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
           } else if PromptIM.isActivated(state.promptIM) {
@@ -157,7 +157,7 @@ let handle = x =>
   | MoveUp => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))
           ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
@@ -165,7 +165,7 @@ let handle = x =>
   | MoveRight => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))
           ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
@@ -173,7 +173,7 @@ let handle = x =>
   | MoveDown => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))
           ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
@@ -181,7 +181,7 @@ let handle = x =>
   | MoveLeft => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))
           ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
