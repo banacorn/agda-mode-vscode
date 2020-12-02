@@ -5,10 +5,12 @@ module type Module = {
   let deactivate: t => unit
   let isActivated: t => bool
 
-  let update: (t, string) => option<(string, Command.InputMethod.t)>
-  let insertChar: (t, string) => option<(string, Command.InputMethod.t)>
+  // let update: (t, string) => option<(string, Command.InputMethod.t)>
+  let update2: (t, string) => EditorIM.Output.t
+  // let insertChar: (t, string) => option<(string, Command.InputMethod.t)>
+  let insertChar2: (t, string) => EditorIM.Output.t
 
-  let chooseSymbol: (t, string) => bool
+  let chooseSymbol: (t, string) => EditorIM.Output.t
 }
 
 module Module: Module = {
@@ -70,7 +72,40 @@ module Module: Module = {
 
   // given a string from the Prompt input
   // update the Buffer and return the rewritten string and the next Command (if any)
-  let update = (self, input) =>
+  // let update = (self, input) =>
+  //   switch deviseChange(self, input) {
+  //   | Some(change) =>
+  //     let (buffer, shouldRewrite) = Buffer.update(
+  //       self.buffer,
+  //       String.length(self.textBeforeActivation),
+  //       change,
+  //     )
+  //     if buffer.translation.further {
+  //       self.buffer = buffer
+  //       Some((
+  //         self.textBeforeActivation ++ Buffer.toSurface(buffer),
+  //         Command.InputMethod.UpdateView(
+  //           Buffer.toSequence(buffer),
+  //           buffer.translation,
+  //           buffer.candidateIndex,
+  //         ),
+  //       ))
+  //     } else {
+  //       self.buffer = Buffer.make()
+  //       self.activated = false
+  //       switch shouldRewrite {
+  //       | Some(s) => Some((self.textBeforeActivation ++ s, Deactivate))
+  //       | None => Some((input, Deactivate))
+  //       }
+  //     }
+  //   | None =>
+  //     deactivate(self)
+  //     None
+  //   }
+
+  // given a string from the Prompt input
+  // update the Buffer and return the rewritten string and the next Command (if any)
+  let update2 = (self, input) =>
     switch deviseChange(self, input) {
     | Some(change) =>
       let (buffer, shouldRewrite) = Buffer.update(
@@ -80,39 +115,57 @@ module Module: Module = {
       )
       if buffer.translation.further {
         self.buffer = buffer
-        Some((
-          self.textBeforeActivation ++ Buffer.toSurface(buffer),
-          Command.InputMethod.UpdateView(
-            Buffer.toSequence(buffer),
-            buffer.translation,
-            buffer.candidateIndex,
+        [
+          EditorIM.Output.Rewrite(
+            [((0, 0), self.textBeforeActivation ++ Buffer.toSurface(buffer))],
+            () => (),
           ),
-        ))
+          UpdateView(Buffer.toSequence(buffer), buffer.translation, buffer.candidateIndex),
+        ]
       } else {
         self.buffer = Buffer.make()
         self.activated = false
         switch shouldRewrite {
-        | Some(s) => Some((self.textBeforeActivation ++ s, Deactivate))
-        | None => Some((input, Deactivate))
+        | Some(s) => [
+            EditorIM.Output.Rewrite([((0, 0), self.textBeforeActivation ++ s)], () => ()),
+            Deactivate,
+          ]
+        | None => [EditorIM.Output.Rewrite([((0, 0), input)], () => ()), Deactivate]
         }
       }
     | None =>
       deactivate(self)
-      None
+      [Deactivate]
     }
 
-  let insertChar = (self, char) =>
-    update(self, self.textBeforeActivation ++ (Buffer.toSurface(self.buffer) ++ char))
+  // let insertChar = (self, char) =>
+  //   update(self, self.textBeforeActivation ++ (Buffer.toSurface(self.buffer) ++ char))
+
+  let insertChar2 = (self, char) =>
+    update2(self, self.textBeforeActivation ++ (Buffer.toSurface(self.buffer) ++ char))
+
+  // let chooseSymbol = (self, symbol) => {
+  //   switch self.buffer.symbol {
+  //   | None => false
+  //   | Some((_, symbolSequence)) =>
+  //     self.buffer = {
+  //       ...self.buffer,
+  //       symbol: Some((symbol, symbolSequence)),
+  //     }
+  //     true
+  //   }
+  // }
 
   let chooseSymbol = (self, symbol) => {
     switch self.buffer.symbol {
-    | None => false
+    | None => []
     | Some((_, symbolSequence)) =>
       self.buffer = {
         ...self.buffer,
         symbol: Some((symbol, symbolSequence)),
       }
-      true
+      // TODO: devise the correct interval
+      [EditorIM.Output.Rewrite([((0, 0), symbol)], () => ())]
     }
   }
 }

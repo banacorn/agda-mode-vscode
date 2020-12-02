@@ -14,6 +14,23 @@ let handleEditorIMOutput = output => {
   output->Array.map(handle)
 }
 
+let handlePromptIMOutput = output => {
+  open EditorIM.Output
+  let handle = kind =>
+    switch kind {
+    | UpdateView(s, t, i) => list{DispatchCommand(InputMethod(UpdateView(s, t, i)))}
+    | Rewrite(xs, f) =>
+      f()
+      switch xs[0] {
+      | None => list{}
+      | Some((_, symbol)) => list{ViewEvent(PromptIMUpdate(symbol))}
+      }
+    | Activate => list{DispatchCommand(InputMethod(Activate))}
+    | Deactivate => list{DispatchCommand(InputMethod(Deactivate))}
+    }
+  output->Array.map(handle)->List.concatMany
+}
+
 // from Editor Command to Tasks
 let handle = x =>
   switch x {
@@ -67,15 +84,7 @@ let handle = x =>
               Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
             }
           } else if PromptIM.isActivated(state.promptIM) {
-            let result = PromptIM.update(state.promptIM, input)
-            switch result {
-            | None => Promise.resolved(list{DispatchCommand(InputMethod(Deactivate))})
-            | Some((text, command)) =>
-              Promise.resolved(list{
-                ViewEvent(PromptIMUpdate(text)),
-                DispatchCommand(InputMethod(command)),
-              })
-            }
+            PromptIM.update2(state.promptIM, input)->handlePromptIMOutput->Promise.resolved
           } else if shouldActivate {
             Promise.resolved(activatePromptIM())
           } else {
@@ -125,15 +134,7 @@ let handle = x =>
             )
             Promise.resolved(list{})
           } else if PromptIM.isActivated(state.promptIM) {
-            let result = PromptIM.insertChar(state.promptIM, char)
-            switch result {
-            | None => Promise.resolved(list{DispatchCommand(InputMethod(Deactivate))})
-            | Some((text, command)) =>
-              Promise.resolved(list{
-                ViewEvent(PromptIMUpdate(text)),
-                DispatchCommand(InputMethod(command)),
-              })
-            }
+            PromptIM.insertChar2(state.promptIM, char)->handlePromptIMOutput->Promise.resolved
           } else {
             Promise.resolved(list{})
           },
@@ -147,12 +148,7 @@ let handle = x =>
             ->Promise.map(handleEditorIMOutput)
             ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
           } else if PromptIM.isActivated(state.promptIM) {
-            let result = PromptIM.chooseSymbol(state.promptIM, symbol)
-            if result {
-              Promise.resolved(list{ViewEvent(PromptIMUpdate(symbol))})
-            } else {
-              Promise.resolved(list{})
-            }
+            PromptIM.chooseSymbol(state.promptIM, symbol)->handlePromptIMOutput->Promise.resolved
           } else {
             Promise.resolved(list{})
           },
