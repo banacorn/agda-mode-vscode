@@ -3,50 +3,41 @@ open Belt
 type offset = int
 type interval = (offset, offset)
 
-// Validates cursor position
-module type CursorValidator = {
+module type Semaphore = {
   type t
 
   let make: unit => t
-  let isBusy: t => bool
+  let isLocked: t => bool
   let lock: t => unit
-  let unlock: (t, array<VSCode.Position.t> => bool) => unit
-  let validate: (t, array<VSCode.Position.t> => bool, array<VSCode.Position.t>) => Promise.t<bool>
+  let unlock: t => Promise.t<unit>
+  let acquire: t => Promise.t<unit>
 }
-module CursorValidator: CursorValidator = {
-  type t = {
-    // the semaphore
-    mutable isBusy: bool,
-    // cursor positions waiting to be validated + resolver
-    // only accumulates when `isBusy` is flipped to `true`
-    mutable backlog: array<(array<VSCode.Position.t>, bool => unit)>,
+module Semaphore: Semaphore = {
+  type t = ref<option<(Promise.t<unit>, unit => unit)>>
+
+  let make = () => ref(None)
+
+  let isLocked = self => self.contents->Option.isSome
+
+  let lock = self => {
+    let (promise, resolver) = Promise.pending()
+    self.contents = Some(promise, resolver)
   }
 
-  let make = () => {
-    isBusy: false,
-    backlog: [],
-  }
-
-  let isBusy = self => self.isBusy
-
-  let lock = self => self.isBusy = true
-
-  let unlock = (self, callback) => {
-    self.isBusy = false
-
-    self.backlog->Array.forEach(((positions, resolver)) => callback(positions)->resolver)
-    self.backlog = []
-  }
-
-  let validate = (self, callback, positions) => {
-    if self.isBusy {
-      let (promise, resolver) = Promise.pending()
-      Js.Array2.push(self.backlog, (positions, resolver))->ignore
+  let unlock = self =>
+    switch self.contents {
+    | None => Promise.resolved()
+    | Some((promise, resolver)) =>
+      self.contents = None
+      resolver()
       promise
-    } else {
-      callback(positions)->Promise.resolved
     }
-  }
+
+  let acquire = self =>
+    switch self.contents {
+    | None => Promise.resolved()
+    | Some((promise, _)) => promise
+    }
 }
 
 module type Temp = {
@@ -112,7 +103,7 @@ module type Module = {
   let insertChar: (VSCode.TextEditor.t, string) => unit
 }
 module Module: Module = {
-  let printLog = false
+  let printLog = true
   let log = if printLog {
     Js.log
   } else {
@@ -202,7 +193,7 @@ module Module: Module = {
     mutable activated: bool,
     // cursor positions will NOT be validated until the semaphore `busy` is flipped false
     // cursor positions waiting to be validated will be queued here and resolved afterwards
-    cursorValidator: CursorValidator.t,
+    semaphore: Semaphore.t,
     // for reporting when some task has be done
     chanLog: Chan.t<output>,
   }
@@ -237,12 +228,11 @@ module Module: Module = {
       })
 
     // return `true` and emit `Deactivate` if all instances have been destroyed
-    if Array.length(self.instances) == 0 {
-      self.chanLog->Chan.emit(Deactivate)
-      true
-    } else {
-      false
-    }
+    // if Array.length(self.instances) == 0 {
+    //   true
+    // } else {
+    //   false
+    // }
   }
 
   //
@@ -279,8 +269,8 @@ module Module: Module = {
   let applyRewrites = (self, editor, rewrites) => {
     let document = VSCode.TextEditor.document(editor)
 
-    // lock the CursorValidator before applying edits to the text editor
-    self.cursorValidator->CursorValidator.lock
+    // lock before applying edits to the text editor
+    self.semaphore->Semaphore.lock
 
     // calculate the replacements to be made to the editor
     let replacements = rewrites->Array.map(({interval, text}) => {
@@ -291,7 +281,7 @@ module Module: Module = {
       (editorRange, text)
     })
 
-    Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
+    Editor.Text.batchReplace(document, replacements)->Promise.flatMap(_ => {
       // redecorate and update intervals of each Instance
       rewrites->Array.forEach(rewrite => {
         rewrite.instance->Option.forEach(instance => {
@@ -300,9 +290,9 @@ module Module: Module = {
       })
 
       // all offsets updated and rewrites have been applied
-      // unlock the cursor validator
-      self.cursorValidator->CursorValidator.unlock(validateCursorPositions(self, document))
-
+      // unlock the semaphore
+      self.semaphore->Semaphore.unlock
+    })->Promise.map(_ => {
       // update the view
       self.instances[0]->Option.map(instance => {
         // for testing
@@ -369,6 +359,7 @@ module Module: Module = {
     array<Instance.t>,
     array<rewrite>,
   ) => {
+    Js.log("CHANGE")
     let instancesWithChanges = groupChangeWithInstances(instances, changes)
 
     let rewrites = []
@@ -391,6 +382,7 @@ module Module: Module = {
             let delta = String.length(text) - (end_ - start)
 
             // update the interval
+            Js.log("update interval")
             instance.interval = (start + accum.contents, end_ + accum.contents + delta)
             Js.Array.push(
               {
@@ -436,13 +428,13 @@ module Module: Module = {
   let changeSelection = (self, editor, event) => {
     if self.activated {
       let positions = Temp.handleTextEditorSelectionChangeEvent(event)
-      self.cursorValidator
-      ->CursorValidator.validate(
-        validateCursorPositions(self, editor->VSCode.TextEditor.document),
-        positions,
+      self.semaphore
+      ->Semaphore.acquire
+      ->Promise.tap(() =>
+        validateCursorPositions(self, editor->VSCode.TextEditor.document, positions)
       )
-      ->Promise.map(shouldDeactivate =>
-        if shouldDeactivate {
+      ->Promise.map(() =>
+        if Js.Array.length(self.instances) == 0 {
           Some(Command.InputMethod.Deactivate)
         } else {
           None
@@ -454,7 +446,7 @@ module Module: Module = {
   }
 
   let changeDocument = (self, editor, event) => {
-    if self.activated && !CursorValidator.isBusy(self.cursorValidator) {
+    if self.activated && !Semaphore.isLocked(self.semaphore) {
       let changes = Temp.handleTextDocumentChangeEvent(editor, event)
       // update the offsets to reflect the changes
       let (instances, rewrites) = updateInstances(self.instances, changes)
@@ -470,6 +462,7 @@ module Module: Module = {
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
+    Js.log2("DEACTIVATE from deactivate()", self.activated)
     self.chanLog->Chan.emit(Deactivate)
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
@@ -477,10 +470,13 @@ module Module: Module = {
   }
 
   let make = chanLog => {
-    instances: [],
-    activated: false,
-    cursorValidator: CursorValidator.make(),
-    chanLog: chanLog,
+    let a = chanLog->Chan.on(Js.log2("output"))
+    {
+      instances: [],
+      activated: false,
+      semaphore: Semaphore.make(),
+      chanLog: chanLog,
+    }
   }
   ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -532,7 +528,7 @@ module Module: Module = {
     applyRewrites(self, editor, rewrites)
   }
 
-  let run = (self, editor, input) =>
+  let run = (self, editor, input) => {
     switch input {
     | Select(event) => changeSelection(self, editor, event)
     | Change(event) => changeDocument(self, editor, event)
@@ -542,6 +538,7 @@ module Module: Module = {
     | Candidate(BrowseLeft) => moveLeft(self, editor)
     | Candidate(BrowseRight) => moveRight(self, editor)
     }
+  }
 
   let insertBackslash = editor =>
     Editor.Cursor.getMany(editor)->Array.forEach(point =>
