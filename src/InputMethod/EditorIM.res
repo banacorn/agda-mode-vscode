@@ -87,13 +87,11 @@ module type Module = {
   type t
 
   let make: Chan.t<Output.kind> => t
-  let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
+  let activate: (t, option<VSCode.TextEditor.t>, array<interval>) => unit
   let deactivate: t => unit
   let isActivated: t => bool
-  let run: (t, VSCode.TextEditor.t, Input.t) => Promise.t<Output.t>
 
-  let insertBackslash: VSCode.TextEditor.t => unit
-  let insertChar: (VSCode.TextEditor.t, string) => unit
+  let run: (t, VSCode.TextEditor.t, Input.t) => Promise.t<Output.t>
 }
 module Module: Module = {
   let printLog = false
@@ -103,41 +101,36 @@ module Module: Module = {
     _ => ()
   }
 
-  // module type Instance = {
-  //   type t
-
-  //   // constructor/destructor
-  //   let make: (VSCode.TextEditor.t, (int, int)) => t
-  //   let destroy: t => unit
-  //   // getters/setters
-  //   let getRange: t => (int, int)
-  //   let setRange: t => (int, int)
-
-  //   // returns its range, for debugging
-  //   let toString: t => string
-  //   // see if an offset is with in its range
-  //   let withIn: (t, int) => bool
-  // }
   module Instance = {
     type t = {
       mutable interval: interval,
-      mutable decoration: array<Editor.Decoration.t>,
+      mutable decoration: option<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
 
     let toString = self =>
       "(" ++ string_of_int(fst(self.interval)) ++ ", " ++ (string_of_int(snd(self.interval)) ++ ")")
 
-    let make = (editor, interval) => {
-      let document = VSCode.TextEditor.document(editor)
-      let start = document->VSCode.TextDocument.positionAt(fst(interval))
-      let end_ = document->VSCode.TextDocument.positionAt(snd(interval))
-      {
-        interval: interval,
-        decoration: [Editor.Decoration.underlineText(editor, VSCode.Range.make(start, end_))],
-        buffer: Buffer.make(),
+    let make = (editor, interval) =>
+      switch editor {
+      | None => {
+          interval: interval,
+          decoration: None,
+          buffer: Buffer.make(),
+        }
+      | Some(editor) =>
+        let document = VSCode.TextEditor.document(editor)
+        let (start, end_) = interval
+        let start = document->VSCode.TextDocument.positionAt(start)
+        let end_ = document->VSCode.TextDocument.positionAt(end_)
+        let range = VSCode.Range.make(start, end_)
+
+        {
+          interval: interval,
+          decoration: Some(Editor.Decoration.underlineText(editor, range)),
+          buffer: Buffer.make(),
+        }
       }
-    }
 
     let withIn = (instance, offset) => {
       let (start, end_) = instance.interval
@@ -145,8 +138,7 @@ module Module: Module = {
     }
 
     let redecorate = (instance, editor) => {
-      instance.decoration->Array.forEach(Editor.Decoration.destroy)
-      instance.decoration = []
+      instance.decoration->Option.forEach(Editor.Decoration.destroy)
 
       let document = VSCode.TextEditor.document(editor)
       let (start, end_) = instance.interval
@@ -154,12 +146,11 @@ module Module: Module = {
       let end_ = document->VSCode.TextDocument.positionAt(end_)
       let range = VSCode.Range.make(start, end_)
 
-      instance.decoration = [Editor.Decoration.underlineText(editor, range)]
+      instance.decoration = Some(Editor.Decoration.underlineText(editor, range))
     }
 
     let destroy = instance => {
-      instance.decoration->Array.forEach(Editor.Decoration.destroy)
-      instance.decoration = []
+      instance.decoration->Option.forEach(Editor.Decoration.destroy)
     }
   }
 
@@ -239,14 +230,7 @@ module Module: Module = {
     self.semaphore->Semaphore.lock
 
     // calculate the replacements to be made to the editor
-    let replacements = rewrites->Array.map(({interval, text}) => {
-      (interval, text)
-      // let editorRange = VSCode.Range.make(
-      //   document->VSCode.TextDocument.positionAt(fst(interval)),
-      //   document->VSCode.TextDocument.positionAt(snd(interval)),
-      // )
-      // (editorRange, text)
-    })
+    let replacements = rewrites->Array.map(({interval, text}) => (interval, text))
 
     let (promise, resolve) = Promise.pending()
 
@@ -288,39 +272,6 @@ module Module: Module = {
         ),
       ])
     }
-
-    // Editor.Text.batchReplace(document, replacements)->Promise.flatMap(_ => {
-    //   // redecorate and update intervals of each Instance
-    //   rewrites->Array.forEach(rewrite => {
-    //     rewrite.instance->Option.forEach(instance => {
-    //       Instance.redecorate(instance, editor)
-    //     })
-    //   })
-
-    //   // all offsets updated and rewrites have been applied
-    //   // unlock the semaphore
-    //   self.semaphore->Semaphore.unlock
-    // })->Promise.map(_ => {
-    //   // update the view
-    //   self.instances[0]->Option.mapWithDefault([], instance => {
-    //     // for testing
-    //     self.chanLog->Chan.emit(
-    //       UpdateView(
-    //         Buffer.toSequence(instance.buffer),
-    //         instance.buffer.translation,
-    //         instance.buffer.candidateIndex,
-    //       ),
-    //     )
-    //     // real output
-    //     [
-    //       Output.UpdateView(
-    //         Buffer.toSequence(instance.buffer),
-    //         instance.buffer.translation,
-    //         instance.buffer.candidateIndex,
-    //       ),
-    //     ]
-    //   })
-    // })
   }
 
   let groupChangeWithInstances = (
@@ -510,16 +461,5 @@ module Module: Module = {
       let rewrites = toRewrites(self.instances, callback)
       applyRewrites(self, editor, rewrites)
     }
-
-  let insertBackslash = editor =>
-    Editor.Cursor.getMany(editor)->Array.forEach(point =>
-      Editor.Text.insert(VSCode.TextEditor.document(editor), point, "\\")->ignore
-    )
-  let insertChar = (editor, char) => {
-    let char = Js.String.charAt(0, char)
-    Editor.Cursor.getMany(editor)->Array.forEach(point =>
-      Editor.Text.insert(VSCode.TextEditor.document(editor), point, char)->ignore
-    )
-  }
 }
 include Module

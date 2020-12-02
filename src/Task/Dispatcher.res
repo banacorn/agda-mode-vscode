@@ -234,7 +234,7 @@ let make = (
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
     let input = EditorIM.Input.fromTextEditorSelectionChangeEvent(event)
     EditorIM.run(state.editorIM, editor, input)
-    ->Promise.map(Handle__InputMethod.handleIMOutput)
+    ->Promise.map(Handle__InputMethod.handleEditorIMOutput)
     ->Promise.get(actions => {
       actions->Array.forEach(action =>
         dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
@@ -244,7 +244,7 @@ let make = (
   VSCode.Workspace.onDidChangeTextDocument(.event => {
     let input = EditorIM.Input.fromTextDocumentChangeEvent(editor, event)
     EditorIM.run(state.editorIM, editor, input)
-    ->Promise.map(Handle__InputMethod.handleIMOutput)
+    ->Promise.map(Handle__InputMethod.handleEditorIMOutput)
     ->Promise.get(actions => {
       actions->Array.forEach(action =>
         dispatchCommand(dispatcher, Command.InputMethod(action))->ignore

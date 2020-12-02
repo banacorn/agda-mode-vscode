@@ -2,7 +2,7 @@ open Belt
 
 open! Task
 
-let handleIMOutput = output => {
+let handleEditorIMOutput = output => {
   open EditorIM.Output
   let handle = kind =>
     switch kind {
@@ -22,7 +22,10 @@ let handle = x =>
         state =>
           if EditorIM.isActivated(state.editorIM) {
             // already activated, insert backslash "\" instead
-            EditorIM.insertBackslash(state.editor)
+            Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
+              Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, "\\")->ignore
+            )
+            // deactivate
             EditorIM.deactivate(state.editorIM)
             Promise.resolved(list{ViewEvent(InputMethod(Deactivate))})
           } else {
@@ -33,7 +36,7 @@ let handle = x =>
                 document->VSCode.TextDocument.offsetAt(VSCode.Range.start(range)),
                 document->VSCode.TextDocument.offsetAt(VSCode.Range.end_(range)),
               ))
-            EditorIM.activate(state.editorIM, state.editor, startingRanges)
+            EditorIM.activate(state.editorIM, Some(state.editor), startingRanges)
             Promise.resolved(list{ViewEvent(InputMethod(Activate))})
           },
       ),
@@ -116,7 +119,10 @@ let handle = x =>
       WithStateP(
         state =>
           if EditorIM.isActivated(state.editorIM) {
-            EditorIM.insertChar(state.editor, char)
+            let char = Js.String.charAt(0, char)
+            Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
+              Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, char)->ignore
+            )
             Promise.resolved(list{})
           } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.insertChar(state.promptIM, char)
@@ -138,7 +144,7 @@ let handle = x =>
         state =>
           if EditorIM.isActivated(state.editorIM) {
             EditorIM.run(state.editorIM, state.editor, Candidate(ChooseSymbol(symbol)))
-            ->Promise.map(handleIMOutput)
+            ->Promise.map(handleEditorIMOutput)
             ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
           } else if PromptIM.isActivated(state.promptIM) {
             let result = PromptIM.chooseSymbol(state.promptIM, symbol)
@@ -156,7 +162,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))
-          ->Promise.map(handleIMOutput)
+          ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
@@ -164,7 +170,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))
-          ->Promise.map(handleIMOutput)
+          ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
@@ -172,7 +178,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))
-          ->Promise.map(handleIMOutput)
+          ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
@@ -180,7 +186,7 @@ let handle = x =>
       WithStateP(
         state =>
           EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))
-          ->Promise.map(handleIMOutput)
+          ->Promise.map(handleEditorIMOutput)
           ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
       ),
     }
