@@ -84,9 +84,10 @@ module IM = {
 
   let updated = output =>
     switch output {
-    | EditorIM.Output.Update(_, _, _) => Ok()
-    | Activate => Error(Js.Exn.raiseError("Expecting Update, got Activate"))
-    | Deactivate => Error(Js.Exn.raiseError("Expecting Update, got Deactivate"))
+    | EditorIM.Output.UpdateView(_, _, _) => Ok()
+    | Rewrite(_, _) => Error(Js.Exn.raiseError("Expecting UpdateView, got Rewrite"))
+    | Activate => Error(Js.Exn.raiseError("Expecting UpdateView, got Activate"))
+    | Deactivate => Error(Js.Exn.raiseError("Expecting UpdateView, got Deactivate"))
     }->Promise.resolved
 }
 

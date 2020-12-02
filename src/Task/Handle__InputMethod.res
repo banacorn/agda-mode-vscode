@@ -68,6 +68,17 @@ let handle = x =>
         },
       ),
     }
+  | Rewrite(replacements, resolve) => list{
+      WithStateP(
+        state => {
+          let document = state.editor->VSCode.TextEditor.document
+          Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
+            resolve()
+            list{}
+          })
+        },
+      ),
+    }
   | Deactivate => list{
       WithState(
         state => {
@@ -78,7 +89,7 @@ let handle = x =>
       ViewEvent(InputMethod(Deactivate)),
     }
 
-  | Update(sequence, translation, index) => list{
+  | UpdateView(sequence, translation, index) => list{
       ViewEvent(InputMethod(Update(sequence, translation, index))),
     }
   | InsertChar(char) => list{

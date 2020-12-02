@@ -47,8 +47,9 @@ module InputMethod = {
   type t =
     | Activate
     | PromptChange(string)
+    | Rewrite(array<(VSCode.Range.t, string)>, unit => unit)
     | Deactivate
-    | Update(string, Translator.translation, int)
+    | UpdateView(string, Translator.translation, int)
     | InsertChar(string)
     | ChooseSymbol(string)
     | MoveUp
@@ -60,8 +61,9 @@ module InputMethod = {
     switch x {
     | Activate => "Activate"
     | PromptChange(input) => "PromptChange '" ++ (input ++ "'")
+    | Rewrite(_, _) => "Rewrite"
     | Deactivate => "Deactivate"
-    | Update(_, _, _) => "Update"
+    | UpdateView(_, _, _) => "UpdateView"
     | InsertChar(char) => "InsertChar '" ++ (char ++ "'")
     | ChooseSymbol(symbol) => "ChooseSymbol '" ++ (symbol ++ "'")
     | MoveUp => "MoveUp"

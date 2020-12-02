@@ -82,7 +82,7 @@ module Module: Module = {
         self.buffer = buffer
         Some((
           self.textBeforeActivation ++ Buffer.toSurface(buffer),
-          Command.InputMethod.Update(
+          Command.InputMethod.UpdateView(
             Buffer.toSequence(buffer),
             buffer.translation,
             buffer.candidateIndex,

@@ -9,7 +9,7 @@ module type Semaphore = {
   let make: unit => t
   let isLocked: t => bool
   let lock: t => unit
-  let unlock: t => Promise.t<unit>
+  let unlock: t => unit
   let acquire: t => Promise.t<unit>
 }
 module Semaphore: Semaphore = {
@@ -26,11 +26,10 @@ module Semaphore: Semaphore = {
 
   let unlock = self =>
     switch self.contents {
-    | None => Promise.resolved()
-    | Some((promise, resolver)) =>
+    | None => ()
+    | Some((_, resolver)) =>
       self.contents = None
       resolver()
-      promise
     }
 
   let acquire = self =>
@@ -76,7 +75,8 @@ module Input = {
 
 module Output = {
   type kind =
-    | Update(string, Translator.translation, int)
+    | UpdateView(string, Translator.translation, int)
+    | Rewrite(array<(VSCode.Range.t, string)>, unit => unit)
     | Activate
     | Deactivate
 
@@ -85,7 +85,8 @@ module Output = {
   let handle = output => {
     let handle = kind =>
       switch kind {
-      | Update(a, b, c) => Command.InputMethod.Update(a, b, c)
+      | UpdateView(s, t, i) => Command.InputMethod.UpdateView(s, t, i)
+      | Rewrite(xs, f) => Command.InputMethod.Rewrite(xs, f)
       | Activate => Command.InputMethod.Activate
       | Deactivate => Command.InputMethod.Deactivate
       }
@@ -154,7 +155,7 @@ module Module: Module = {
       start <= offset && offset <= end_
     }
 
-    let redocorate = (instance, editor) => {
+    let redecorate = (instance, editor) => {
       instance.decoration->Array.forEach(Editor.Decoration.destroy)
       instance.decoration = []
 
@@ -259,38 +260,79 @@ module Module: Module = {
       (editorRange, text)
     })
 
-    Editor.Text.batchReplace(document, replacements)->Promise.flatMap(_ => {
+    let (promise, resolve) = Promise.pending()
+
+    promise->Promise.get(() => {
       // redecorate and update intervals of each Instance
       rewrites->Array.forEach(rewrite => {
         rewrite.instance->Option.forEach(instance => {
-          Instance.redocorate(instance, editor)
+          Instance.redecorate(instance, editor)
         })
       })
 
       // all offsets updated and rewrites have been applied
       // unlock the semaphore
       self.semaphore->Semaphore.unlock
-    })->Promise.map(_ => {
-      // update the view
-      self.instances[0]->Option.mapWithDefault([], instance => {
-        // for testing
+
+      // for testing
+      self.instances[0]->Option.forEach(instance => {
         self.chanLog->Chan.emit(
-          Update(
+          UpdateView(
             Buffer.toSequence(instance.buffer),
             instance.buffer.translation,
             instance.buffer.candidateIndex,
           ),
         )
-        // real output
-        [
-          Output.Update(
-            Buffer.toSequence(instance.buffer),
-            instance.buffer.translation,
-            instance.buffer.candidateIndex,
-          ),
-        ]
       })
     })
+
+    // update the view
+    switch self.instances[0] {
+    | None => Promise.resolved([Output.Rewrite(replacements, resolve)])
+    | Some(instance) =>
+      // real output
+      Promise.resolved([
+        Output.Rewrite(replacements, resolve),
+        UpdateView(
+          Buffer.toSequence(instance.buffer),
+          instance.buffer.translation,
+          instance.buffer.candidateIndex,
+        ),
+      ])
+    }
+
+    // Editor.Text.batchReplace(document, replacements)->Promise.flatMap(_ => {
+    //   // redecorate and update intervals of each Instance
+    //   rewrites->Array.forEach(rewrite => {
+    //     rewrite.instance->Option.forEach(instance => {
+    //       Instance.redecorate(instance, editor)
+    //     })
+    //   })
+
+    //   // all offsets updated and rewrites have been applied
+    //   // unlock the semaphore
+    //   self.semaphore->Semaphore.unlock
+    // })->Promise.map(_ => {
+    //   // update the view
+    //   self.instances[0]->Option.mapWithDefault([], instance => {
+    //     // for testing
+    //     self.chanLog->Chan.emit(
+    //       UpdateView(
+    //         Buffer.toSequence(instance.buffer),
+    //         instance.buffer.translation,
+    //         instance.buffer.candidateIndex,
+    //       ),
+    //     )
+    //     // real output
+    //     [
+    //       Output.UpdateView(
+    //         Buffer.toSequence(instance.buffer),
+    //         instance.buffer.translation,
+    //         instance.buffer.candidateIndex,
+    //       ),
+    //     ]
+    //   })
+    // })
   }
 
   let groupChangeWithInstances = (
