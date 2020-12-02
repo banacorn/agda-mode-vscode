@@ -40,39 +40,7 @@ module Semaphore: Semaphore = {
     }
 }
 
-module type Temp = {
-  // event => input
-  let handleTextEditorSelectionChangeEvent: VSCode.TextEditorSelectionChangeEvent.t => array<
-    VSCode.Position.t,
-  >
-  let handleTextDocumentChangeEvent: (
-    VSCode.TextEditor.t,
-    VSCode.TextDocumentChangeEvent.t,
-  ) => array<Buffer.change>
-}
-module Temp: Temp = {
-  // TextEditorSelectionChangeEvent.t => array<Position.t>
-  let handleTextEditorSelectionChangeEvent = event =>
-    event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor)
-
-  let handleTextDocumentChangeEvent = (editor, event) => {
-    // see if the change event happened in this TextEditor
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
-    if fileName == eventFileName {
-      // TextDocumentContentChangeEvent.t => Buffer.change
-      event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
-        Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
-        insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
-        replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
-      })
-    } else {
-      []
-    }
-  }
-}
-
-module type Module = {
+module type Input = {
   // input
   type candidateInput =
     | ChooseSymbol(string)
@@ -80,13 +48,53 @@ module type Module = {
     | BrowseDown
     | BrowseLeft
     | BrowseRight
-  type input =
-    | Change(VSCode.TextDocumentChangeEvent.t)
-    | Select(VSCode.TextEditorSelectionChangeEvent.t)
+  type t =
+    | Change(array<Buffer.change>)
+    | Select(array<VSCode.Position.t>)
     | Candidate(candidateInput)
 
+  let fromTextDocumentChangeEvent: (VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => t
+  let fromTextEditorSelectionChangeEvent: VSCode.TextEditorSelectionChangeEvent.t => t
+}
+module Input: Input = {
+  // input
+  type candidateInput =
+    | ChooseSymbol(string)
+    | BrowseUp
+    | BrowseDown
+    | BrowseLeft
+    | BrowseRight
+  type t =
+    | Change(array<Buffer.change>)
+    | Select(array<VSCode.Position.t>)
+    | Candidate(candidateInput)
+
+  // TextEditorSelectionChangeEvent.t => array<Position.t>
+  let fromTextEditorSelectionChangeEvent = event => Select(
+    event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor),
+  )
+
+  let fromTextDocumentChangeEvent = (editor, event) => {
+    // see if the change event happened in this TextEditor
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
+    if fileName == eventFileName {
+      // TextDocumentContentChangeEvent.t => Buffer.change
+      Change(event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
+          Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
+          insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
+          replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
+        }))
+    } else {
+      Change([])
+    }
+  }
+}
+
+module type Module = {
   // output
   type output =
+    | Noop
     | Update(string, Translator.translation, int)
     | Activate
     | Deactivate
@@ -97,13 +105,15 @@ module type Module = {
   let activate: (t, VSCode.TextEditor.t, array<interval>) => unit
   let deactivate: t => unit
   let isActivated: t => bool
-  let run: (t, VSCode.TextEditor.t, input) => Promise.t<option<Command.InputMethod.t>>
+  let run: (t, VSCode.TextEditor.t, Input.t) => Promise.t<output>
+  let fromOutput: output => option<Command.InputMethod.t>
+  // let run: (t, VSCode.TextEditor.t, input) => Promise.t<option<Command.InputMethod.t>>
 
   let insertBackslash: VSCode.TextEditor.t => unit
   let insertChar: (VSCode.TextEditor.t, string) => unit
 }
 module Module: Module = {
-  let printLog = true
+  let printLog = false
   let log = if printLog {
     Js.log
   } else {
@@ -169,21 +179,9 @@ module Module: Module = {
       instance.decoration = []
     }
   }
-
-  // input
-  type candidateInput =
-    | ChooseSymbol(string)
-    | BrowseUp
-    | BrowseDown
-    | BrowseLeft
-    | BrowseRight
-  type input =
-    | Change(VSCode.TextDocumentChangeEvent.t)
-    | Select(VSCode.TextEditorSelectionChangeEvent.t)
-    | Candidate(candidateInput)
-
   // output
   type output =
+    | Noop
     | Update(string, Translator.translation, int)
     | Activate
     | Deactivate
@@ -226,13 +224,6 @@ module Module: Module = {
         }
         survived
       })
-
-    // return `true` and emit `Deactivate` if all instances have been destroyed
-    // if Array.length(self.instances) == 0 {
-    //   true
-    // } else {
-    //   false
-    // }
   }
 
   //
@@ -266,7 +257,7 @@ module Module: Module = {
   }
 
   // iterate through a list of rewrites and apply them to the text editor
-  let applyRewrites = (self, editor, rewrites) => {
+  let applyRewrites = (self, editor, rewrites): Promise.t<output> => {
     let document = VSCode.TextEditor.document(editor)
 
     // lock before applying edits to the text editor
@@ -294,7 +285,7 @@ module Module: Module = {
       self.semaphore->Semaphore.unlock
     })->Promise.map(_ => {
       // update the view
-      self.instances[0]->Option.map(instance => {
+      self.instances[0]->Option.mapWithDefault(Noop, instance => {
         // for testing
         self.chanLog->Chan.emit(
           Update(
@@ -304,7 +295,7 @@ module Module: Module = {
           ),
         )
         // real output
-        Command.InputMethod.Update(
+        Update(
           Buffer.toSequence(instance.buffer),
           instance.buffer.translation,
           instance.buffer.candidateIndex,
@@ -359,7 +350,6 @@ module Module: Module = {
     array<Instance.t>,
     array<rewrite>,
   ) => {
-    Js.log("CHANGE")
     let instancesWithChanges = groupChangeWithInstances(instances, changes)
 
     let rewrites = []
@@ -382,7 +372,6 @@ module Module: Module = {
             let delta = String.length(text) - (end_ - start)
 
             // update the interval
-            Js.log("update interval")
             instance.interval = (start + accum.contents, end_ + accum.contents + delta)
             Js.Array.push(
               {
@@ -425,52 +414,18 @@ module Module: Module = {
       )
   }
 
-  let changeSelection = (self, editor, event) => {
-    if self.activated {
-      let positions = Temp.handleTextEditorSelectionChangeEvent(event)
-      self.semaphore
-      ->Semaphore.acquire
-      ->Promise.tap(() =>
-        validateCursorPositions(self, editor->VSCode.TextEditor.document, positions)
-      )
-      ->Promise.map(() =>
-        if Js.Array.length(self.instances) == 0 {
-          Some(Command.InputMethod.Deactivate)
-        } else {
-          None
-        }
-      )
-    } else {
-      Promise.resolved(None)
-    }
-  }
-
-  let changeDocument = (self, editor, event) => {
-    if self.activated && !Semaphore.isLocked(self.semaphore) {
-      let changes = Temp.handleTextDocumentChangeEvent(editor, event)
-      // update the offsets to reflect the changes
-      let (instances, rewrites) = updateInstances(self.instances, changes)
-      self.instances = instances
-      // apply rewrites onto the text editor
-      applyRewrites(self, editor, rewrites)
-    } else {
-      Promise.resolved(None)
-    }
-  }
-
   let deactivate = self => {
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
-    Js.log2("DEACTIVATE from deactivate()", self.activated)
     self.chanLog->Chan.emit(Deactivate)
+
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
     self.activated = false
   }
 
   let make = chanLog => {
-    let a = chanLog->Chan.on(Js.log2("output"))
     {
       instances: [],
       activated: false,
@@ -482,63 +437,68 @@ module Module: Module = {
 
   let isActivated = self => self.activated
 
-  // let onCommand = (self, callback) => self.chan->Chan.on(callback)
-
-  let moveUp = (self, editor) => {
-    let rewrites = toRewrites(self.instances, instance => {
-      instance.buffer = Buffer.moveUp(instance.buffer)
-      instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
-    })
-    // apply rewrites onto the text editor
-    applyRewrites(self, editor, rewrites)
-  }
-
-  let moveRight = (self, editor) => {
-    let rewrites = toRewrites(self.instances, instance => {
-      instance.buffer = Buffer.moveRight(instance.buffer)
-      instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
-    })
-    // apply rewrites onto the text editor
-    applyRewrites(self, editor, rewrites)
-  }
-
-  let moveDown = (self, editor) => {
-    let rewrites = toRewrites(self.instances, instance => {
-      instance.buffer = Buffer.moveDown(instance.buffer)
-      instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
-    })
-
-    // apply rewrites onto the text editor
-    applyRewrites(self, editor, rewrites)
-  }
-
-  let moveLeft = (self, editor) => {
-    let rewrites = toRewrites(self.instances, instance => {
-      instance.buffer = Buffer.moveLeft(instance.buffer)
-      instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
-    })
-
-    // apply rewrites onto the text editor
-    applyRewrites(self, editor, rewrites)
-  }
-
-  let chooseSymbol = (self, editor, symbol) => {
-    let rewrites = toRewrites(self.instances, _ => Some(symbol))
-    // apply rewrites onto the text editor
-    applyRewrites(self, editor, rewrites)
-  }
-
-  let run = (self, editor, input) => {
+  let run = (self, editor, input) =>
     switch input {
-    | Select(event) => changeSelection(self, editor, event)
-    | Change(event) => changeDocument(self, editor, event)
-    | Candidate(ChooseSymbol(symbol)) => chooseSymbol(self, editor, symbol)
-    | Candidate(BrowseUp) => moveUp(self, editor)
-    | Candidate(BrowseDown) => moveDown(self, editor)
-    | Candidate(BrowseLeft) => moveLeft(self, editor)
-    | Candidate(BrowseRight) => moveRight(self, editor)
+    | Input.Select(positions) =>
+      if self.activated {
+        // let positions = Input.fromTextEditorSelectionChangeEvent(event)
+        self.semaphore->Semaphore.acquire->Promise.map(() => {
+          validateCursorPositions(self, editor->VSCode.TextEditor.document, positions)
+          if Js.Array.length(self.instances) == 0 {
+            deactivate(self)
+            Deactivate
+          } else {
+            Noop
+          }
+        })
+      } else {
+        Promise.resolved(Noop)
+      }
+    | Change(changes) =>
+      if self.activated && !Semaphore.isLocked(self.semaphore) {
+        // update the offsets to reflect the changes
+        let (instances, rewrites) = updateInstances(self.instances, changes)
+        self.instances = instances
+        // apply rewrites onto the text editor
+        applyRewrites(self, editor, rewrites)
+      } else {
+        Promise.resolved(Noop)
+      }
+    | Candidate(action) =>
+      let callback = switch action {
+      | ChooseSymbol(symbol) => _ => Some(symbol)
+      | BrowseUp =>
+        instance => {
+          instance.Instance.buffer = Buffer.moveUp(instance.Instance.buffer)
+          instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
+        }
+      | BrowseDown =>
+        instance => {
+          instance.buffer = Buffer.moveDown(instance.buffer)
+          instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
+        }
+      | BrowseLeft =>
+        instance => {
+          instance.buffer = Buffer.moveLeft(instance.buffer)
+          instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
+        }
+      | BrowseRight =>
+        instance => {
+          instance.buffer = Buffer.moveRight(instance.buffer)
+          instance.buffer.translation.candidateSymbols[instance.buffer.candidateIndex]
+        }
+      }
+      let rewrites = toRewrites(self.instances, callback)
+      applyRewrites(self, editor, rewrites)
     }
-  }
+
+  let fromOutput = output =>
+    switch output {
+    | Noop => None
+    | Update(a, b, c) => Some(Command.InputMethod.Update(a, b, c))
+    | Activate => Some(Command.InputMethod.Activate)
+    | Deactivate => Some(Command.InputMethod.Deactivate)
+    }
 
   let insertBackslash = editor =>
     Editor.Cursor.getMany(editor)->Array.forEach(point =>

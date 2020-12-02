@@ -26,7 +26,6 @@ let handle = x =>
       ),
     }
   | PromptChange(input) => list{
-      // Debug("PromptChange " ++ input),
       WithStateP(
         state => {
           // activate when the user typed a backslash "/"
@@ -107,11 +106,9 @@ let handle = x =>
       WithStateP(
         state =>
           if EditorIM.isActivated(state.editorIM) {
-            EditorIM.run(
-              state.editorIM,
-              state.editor,
-              Candidate(ChooseSymbol(symbol)),
-            )->Promise.map(x =>
+            EditorIM.run(state.editorIM, state.editor, Candidate(ChooseSymbol(symbol)))
+            ->Promise.map(EditorIM.fromOutput)
+            ->Promise.map(x =>
               switch x {
               | None => list{}
               | Some(xs) => list{DispatchCommand(InputMethod(xs))}
@@ -131,7 +128,10 @@ let handle = x =>
     }
   | MoveUp => list{
       WithStateP(
-        state => EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))->Promise.map(x =>
+        state =>
+          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseUp))
+          ->Promise.map(EditorIM.fromOutput)
+          ->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
@@ -142,7 +142,9 @@ let handle = x =>
   | MoveRight => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))->Promise.map(x =>
+          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseRight))
+          ->Promise.map(EditorIM.fromOutput)
+          ->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
@@ -152,7 +154,10 @@ let handle = x =>
     }
   | MoveDown => list{
       WithStateP(
-        state => EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))->Promise.map(x =>
+        state =>
+          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseDown))
+          ->Promise.map(EditorIM.fromOutput)
+          ->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}
@@ -162,7 +167,10 @@ let handle = x =>
     }
   | MoveLeft => list{
       WithStateP(
-        state => EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))->Promise.map(x =>
+        state =>
+          EditorIM.run(state.editorIM, state.editor, Candidate(BrowseLeft))
+          ->Promise.map(EditorIM.fromOutput)
+          ->Promise.map(x =>
             switch x {
             | None => list{}
             | Some(xs) => list{DispatchCommand(InputMethod(xs))}

@@ -85,6 +85,7 @@ module IM = {
   let updated = output =>
     switch output {
     | EditorIM.Update(_, _, _) => Ok()
+    | Noop => Error(Js.Exn.raiseError("Expecting Update, got Noop"))
     | Activate => Error(Js.Exn.raiseError("Expecting Update, got Activate"))
     | Deactivate => Error(Js.Exn.raiseError("Expecting Update, got Deactivate"))
     }->Promise.resolved

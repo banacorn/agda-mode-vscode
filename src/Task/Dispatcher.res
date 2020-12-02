@@ -232,14 +232,16 @@ let make = (
 
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
-    EditorIM.run(state.editorIM, editor, Select(event))->Promise.getSome(action =>
-      dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
-    )
+    let input = EditorIM.Input.fromTextEditorSelectionChangeEvent(event)
+    EditorIM.run(state.editorIM, editor, input)
+    ->Promise.map(EditorIM.fromOutput)
+    ->Promise.getSome(action => dispatchCommand(dispatcher, Command.InputMethod(action))->ignore)
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
-    EditorIM.run(state.editorIM, editor, Change(event))->Promise.getSome(action =>
-      dispatchCommand(dispatcher, Command.InputMethod(action))->ignore
-    )
+    let input = EditorIM.Input.fromTextDocumentChangeEvent(editor, event)
+    EditorIM.run(state.editorIM, editor, input)
+    ->Promise.map(EditorIM.fromOutput)
+    ->Promise.getSome(action => dispatchCommand(dispatcher, Command.InputMethod(action))->ignore)
   })->subscribe
 
   // remove it from the Registry if it requests to be destroyed
