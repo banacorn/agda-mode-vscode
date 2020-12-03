@@ -14,21 +14,31 @@ let handleEditorIMOutput = output => {
   output->Array.map(handle)
 }
 
-let handlePromptIMOutput = output => {
-  open EditorIM.Output
-  let handle = kind =>
-    switch kind {
-    | UpdateView(s, t, i) => list{DispatchCommand(InputMethod(UpdateView(s, t, i)))}
-    | Rewrite(xs, f) =>
-      f()
-      switch xs[0] {
-      | None => list{}
-      | Some((_, symbol)) => list{ViewEvent(PromptIMUpdate(symbol))}
+module TempPromptIM = {
+  let previous = ref("")
+  let activate = (self, input) => {
+    let cursorOffset = String.length(input) - 1
+    previous.contents = Js.String.substring(~from=0, ~to_=cursorOffset, input)
+    EditorIM.activate(self, None, [(cursorOffset, cursorOffset)])
+  }
+  let change = (self, input) => EditorIM.deviseChange(self, previous.contents, input)
+
+  let handle = output => {
+    open EditorIM.Output
+    let handle = kind =>
+      switch kind {
+      | UpdateView(s, t, i) => list{DispatchCommand(InputMethod(UpdateView(s, t, i)))}
+      | Rewrite(xs, f) =>
+        f()
+        switch xs[0] {
+        | None => list{}
+        | Some((_, symbol)) => list{ViewEvent(PromptIMUpdate(symbol))}
+        }
+      | Activate => list{DispatchCommand(InputMethod(Activate))}
+      | Deactivate => list{DispatchCommand(InputMethod(Deactivate))}
       }
-    | Activate => list{DispatchCommand(InputMethod(Activate))}
-    | Deactivate => list{DispatchCommand(InputMethod(Deactivate))}
-    }
-  output->Array.map(handle)->List.concatMany
+    output->Array.map(handle)->List.concatMany
+  }
 }
 
 // from Editor Command to Tasks
@@ -84,7 +94,7 @@ let handle = x =>
               Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
             }
           } else if PromptIM.isActivated(state.promptIM) {
-            PromptIM.update2(state.promptIM, input)->handlePromptIMOutput->Promise.resolved
+            PromptIM.update2(state.promptIM, input)->TempPromptIM.handle->Promise.resolved
           } else if shouldActivate {
             Promise.resolved(activatePromptIM())
           } else {
@@ -134,7 +144,7 @@ let handle = x =>
             )
             Promise.resolved(list{})
           } else if PromptIM.isActivated(state.promptIM) {
-            PromptIM.insertChar2(state.promptIM, char)->handlePromptIMOutput->Promise.resolved
+            PromptIM.insertChar2(state.promptIM, char)->TempPromptIM.handle->Promise.resolved
           } else {
             Promise.resolved(list{})
           },
@@ -148,7 +158,7 @@ let handle = x =>
             ->Promise.map(handleEditorIMOutput)
             ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
           } else if PromptIM.isActivated(state.promptIM) {
-            PromptIM.chooseSymbol(state.promptIM, symbol)->handlePromptIMOutput->Promise.resolved
+            PromptIM.chooseSymbol(state.promptIM, symbol)->TempPromptIM.handle->Promise.resolved
           } else {
             Promise.resolved(list{})
           },
