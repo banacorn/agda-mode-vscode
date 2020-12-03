@@ -6,7 +6,8 @@ let handleEditorIMOutput = output => {
   open EditorIM.Output
   let handle = kind =>
     switch kind {
-    | UpdateView(s, t, i) => DispatchCommand(InputMethod(UpdateView(s, t, i)))
+    | UpdateView(sequence, translation, index) =>
+      ViewEvent(InputMethod(Update(sequence, translation, index)))
     | Rewrite(xs, f) => DispatchCommand(InputMethod(Rewrite(xs, f)))
     | Activate => DispatchCommand(InputMethod(Activate))
     | Deactivate => ViewEvent(InputMethod(Deactivate))
@@ -36,7 +37,9 @@ module TempPromptIM = {
     open EditorIM.Output
     let handle = kind =>
       switch kind {
-      | UpdateView(s, t, i) => list{DispatchCommand(InputMethod(UpdateView(s, t, i)))}
+      | UpdateView(sequence, translation, index) => list{
+          ViewEvent(InputMethod(Update(sequence, translation, index))),
+        }
       | Rewrite(rewrites, f) =>
         // TODO, postpone calling f
         f()
@@ -145,19 +148,6 @@ let handle = x =>
           })
         },
       ),
-    }
-  // | Deactivate => list{
-  //     WithState(
-  //       state => {
-  //         EditorIM.deactivate(state.editorIM)
-  //         EditorIM.deactivate(state.promptIM)
-  //       },
-  //     ),
-  //     ViewEvent(InputMethod(Deactivate)),
-  //   }
-
-  | UpdateView(sequence, translation, index) => list{
-      ViewEvent(InputMethod(Update(sequence, translation, index))),
     }
   | InsertChar(char) => list{
       WithStateP(
