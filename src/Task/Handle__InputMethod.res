@@ -16,12 +16,23 @@ let handleEditorIMOutput = output => {
 
 module TempPromptIM = {
   let previous = ref("")
+  let current = ref("")
   let activate = (self, input) => {
-    let cursorOffset = String.length(input) - 1
+    let cursorOffset = String.length(input)
     previous.contents = Js.String.substring(~from=0, ~to_=cursorOffset, input)
     EditorIM.activate(self, None, [(cursorOffset, cursorOffset)])
   }
-  let change = (self, input) => EditorIM.deviseChange(self, previous.contents, input)
+  let change = (self, input) => {
+    current.contents = input
+    switch EditorIM.deviseChange(self, previous.contents, input) {
+    | None =>
+      Js.log("DEAD")
+      Promise.resolved([EditorIM.Output.Deactivate])
+    | Some(input) => EditorIM.run(self, None, input)
+    }
+  }
+
+  let insertChar = (self, char) => change(self, previous.contents ++ char)
 
   let handle = output => {
     open EditorIM.Output
@@ -31,11 +42,13 @@ module TempPromptIM = {
       | Rewrite(xs, f) =>
         f()
         switch xs[0] {
-        | None => list{}
+        | None => list{ViewEvent(PromptIMUpdate(current.contents))}
         | Some((_, symbol)) => list{ViewEvent(PromptIMUpdate(symbol))}
         }
       | Activate => list{DispatchCommand(InputMethod(Activate))}
-      | Deactivate => list{DispatchCommand(InputMethod(Deactivate))}
+      | Deactivate =>
+        Js.log("Deactivate PromptIM")
+        list{DispatchCommand(InputMethod(Deactivate))}
       }
     output->Array.map(handle)->List.concatMany
   }
@@ -81,7 +94,7 @@ let handle = x =>
           let activatePromptIM = () => {
             // remove the ending backslash "\"
             let input = Js.String.substring(~from=0, ~to_=String.length(input) - 1, input)
-            PromptIM.activate(state.promptIM, input)
+            TempPromptIM.activate(state.promptIM, input)
 
             // update the view
             list{ViewEvent(InputMethod(Activate)), ViewEvent(PromptIMUpdate(input))}
@@ -93,8 +106,8 @@ let handle = x =>
             } else {
               Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
             }
-          } else if PromptIM.isActivated(state.promptIM) {
-            PromptIM.update2(state.promptIM, input)->TempPromptIM.handle->Promise.resolved
+          } else if EditorIM.isActivated(state.promptIM) {
+            TempPromptIM.change(state.promptIM, input)->Promise.map(TempPromptIM.handle)
           } else if shouldActivate {
             Promise.resolved(activatePromptIM())
           } else {
@@ -125,7 +138,7 @@ let handle = x =>
       WithState(
         state => {
           EditorIM.deactivate(state.editorIM)
-          PromptIM.deactivate(state.promptIM)
+          EditorIM.deactivate(state.promptIM)
         },
       ),
       ViewEvent(InputMethod(Deactivate)),
@@ -143,8 +156,8 @@ let handle = x =>
               Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, char)->ignore
             )
             Promise.resolved(list{})
-          } else if PromptIM.isActivated(state.promptIM) {
-            PromptIM.insertChar2(state.promptIM, char)->TempPromptIM.handle->Promise.resolved
+          } else if EditorIM.isActivated(state.promptIM) {
+            TempPromptIM.insertChar(state.promptIM, char)->Promise.map(TempPromptIM.handle)
           } else {
             Promise.resolved(list{})
           },
@@ -157,8 +170,10 @@ let handle = x =>
             EditorIM.run(state.editorIM, Some(state.editor), Candidate(ChooseSymbol(symbol)))
             ->Promise.map(handleEditorIMOutput)
             ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
-          } else if PromptIM.isActivated(state.promptIM) {
-            PromptIM.chooseSymbol(state.promptIM, symbol)->TempPromptIM.handle->Promise.resolved
+          } else if EditorIM.isActivated(state.promptIM) {
+            EditorIM.run(state.promptIM, None, Candidate(ChooseSymbol(symbol)))->Promise.map(
+              TempPromptIM.handle,
+            )
           } else {
             Promise.resolved(list{})
           },

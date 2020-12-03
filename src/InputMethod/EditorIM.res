@@ -260,7 +260,7 @@ module Module: Module = {
 
     // update the view
     switch self.instances[0] {
-    | None => Promise.resolved([Output.Rewrite(replacements, resolve)])
+    | None => Promise.resolved([Output.Rewrite(replacements, resolve), Deactivate])
     | Some(instance) =>
       // real output
       Promise.resolved([
@@ -336,6 +336,9 @@ module Module: Module = {
             fst(instance.interval),
             change,
           )
+          // Js.log4("Buffer.update ", instance.buffer, fst(instance.interval), change)
+          // Js.log3("Buffer.update2 ", buffer, shouldRewrite)
+
           // issue rewrites
           shouldRewrite->Option.forEach(text => {
             let (start, end_) = instance.interval
@@ -477,18 +480,45 @@ module Module: Module = {
       let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s)
       let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s)
 
+      Js.log(
+        "previous: " ++
+        previous ++
+        "\nnext: " ++
+        next ++
+        "\ninit: " ++
+        init(next) ++
+        "\nbufferSurface: " ++
+        bufferSurface,
+      )
+
       if init(next) == previous ++ bufferSurface {
+        Js.log2(
+          "INSERT",
+          {
+            Buffer.offset: inputLength - 1,
+            insertedText: last(next),
+            replacedTextLength: 0,
+          },
+        )
         // Insertion
         Some(
           Input.Change([
             {
-              Buffer.offset: inputLength - 1,
+              offset: inputLength - 1,
               insertedText: last(next),
               replacedTextLength: 0,
             },
           ]),
         )
       } else if next == previous || next == previous ++ init(bufferSurface) {
+        Js.log2(
+          "BACKSPACE",
+          {
+            Buffer.offset: inputLength,
+            insertedText: "",
+            replacedTextLength: 1,
+          },
+        )
         // Backspacing
         Some(
           Input.Change([
@@ -500,6 +530,7 @@ module Module: Module = {
           ]),
         )
       } else {
+        Js.log("NOTHING")
         None
       }
     })
