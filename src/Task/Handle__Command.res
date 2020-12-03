@@ -256,11 +256,15 @@ let handle = command => {
     }
   | Escape => list{
       WithStateP(
-        _ =>
-          Promise.resolved(list{
-            DispatchCommand(InputMethod(Deactivate)),
-            ViewEvent(PromptInterrupt),
-          }),
+        state => {
+          if state.editorIM->EditorIM.isActivated {
+            state.editorIM->EditorIM.deactivate
+          }
+          if state.promptIM->EditorIM.isActivated {
+            state.promptIM->EditorIM.deactivate
+          }
+          Promise.resolved(list{ViewEvent(PromptInterrupt)})
+        },
       ),
     }
   | InputMethod(action) => Handle__InputMethod.handle(action)

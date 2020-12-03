@@ -6,12 +6,12 @@ let handleEditorIMOutput = output => {
   open EditorIM.Output
   let handle = kind =>
     switch kind {
-    | UpdateView(s, t, i) => Command.InputMethod.UpdateView(s, t, i)
-    | Rewrite(xs, f) => Command.InputMethod.Rewrite(xs, f)
-    | Activate => Command.InputMethod.Activate
-    | Deactivate => Command.InputMethod.Deactivate
+    | UpdateView(s, t, i) => DispatchCommand(InputMethod(UpdateView(s, t, i)))
+    | Rewrite(xs, f) => DispatchCommand(InputMethod(Rewrite(xs, f)))
+    | Activate => DispatchCommand(InputMethod(Activate))
+    | Deactivate => ViewEvent(InputMethod(Deactivate))
     }
-  output->Array.map(handle)
+  output->Array.map(handle)->List.fromArray
 }
 
 module TempPromptIM = {
@@ -32,7 +32,7 @@ module TempPromptIM = {
 
   let insertChar = (self, char) => change(self, previous.contents ++ char)
 
-  let handle = output => {
+  let handle = (self, output) => {
     open EditorIM.Output
     let handle = kind =>
       switch kind {
@@ -56,7 +56,9 @@ module TempPromptIM = {
 
         list{ViewEvent(PromptIMUpdate(replaced.contents))}
       | Activate => list{DispatchCommand(InputMethod(Activate))}
-      | Deactivate => list{DispatchCommand(InputMethod(Deactivate))}
+      | Deactivate =>
+        self->EditorIM.deactivate
+        list{ViewEvent(InputMethod(Deactivate))}
       }
     output->Array.map(handle)->List.concatMany
   }
@@ -115,7 +117,9 @@ let handle = x =>
               Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
             }
           } else if EditorIM.isActivated(state.promptIM) {
-            TempPromptIM.change(state.promptIM, input)->Promise.map(TempPromptIM.handle)
+            TempPromptIM.change(state.promptIM, input)->Promise.map(
+              TempPromptIM.handle(state.promptIM),
+            )
           } else if shouldActivate {
             Promise.resolved(activatePromptIM())
           } else {
@@ -142,15 +146,15 @@ let handle = x =>
         },
       ),
     }
-  | Deactivate => list{
-      WithState(
-        state => {
-          EditorIM.deactivate(state.editorIM)
-          EditorIM.deactivate(state.promptIM)
-        },
-      ),
-      ViewEvent(InputMethod(Deactivate)),
-    }
+  // | Deactivate => list{
+  //     WithState(
+  //       state => {
+  //         EditorIM.deactivate(state.editorIM)
+  //         EditorIM.deactivate(state.promptIM)
+  //       },
+  //     ),
+  //     ViewEvent(InputMethod(Deactivate)),
+  //   }
 
   | UpdateView(sequence, translation, index) => list{
       ViewEvent(InputMethod(Update(sequence, translation, index))),
@@ -165,7 +169,9 @@ let handle = x =>
             )
             Promise.resolved(list{})
           } else if EditorIM.isActivated(state.promptIM) {
-            TempPromptIM.insertChar(state.promptIM, char)->Promise.map(TempPromptIM.handle)
+            TempPromptIM.insertChar(state.promptIM, char)->Promise.map(
+              TempPromptIM.handle(state.promptIM),
+            )
           } else {
             Promise.resolved(list{})
           },
@@ -175,12 +181,14 @@ let handle = x =>
       WithStateP(
         state =>
           if EditorIM.isActivated(state.editorIM) {
-            EditorIM.run(state.editorIM, Some(state.editor), Candidate(ChooseSymbol(symbol)))
-            ->Promise.map(handleEditorIMOutput)
-            ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x))))
+            EditorIM.run(
+              state.editorIM,
+              Some(state.editor),
+              Candidate(ChooseSymbol(symbol)),
+            )->Promise.map(handleEditorIMOutput)
           } else if EditorIM.isActivated(state.promptIM) {
             EditorIM.run(state.promptIM, None, Candidate(ChooseSymbol(symbol)))->Promise.map(
-              TempPromptIM.handle,
+              TempPromptIM.handle(state.promptIM),
             )
           } else {
             Promise.resolved(list{})
@@ -190,33 +198,33 @@ let handle = x =>
   | MoveUp => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))
-          ->Promise.map(handleEditorIMOutput)
-          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))->Promise.map(
+            handleEditorIMOutput,
+          ),
       ),
     }
   | MoveRight => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))
-          ->Promise.map(handleEditorIMOutput)
-          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))->Promise.map(
+            handleEditorIMOutput,
+          ),
       ),
     }
   | MoveDown => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))
-          ->Promise.map(handleEditorIMOutput)
-          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))->Promise.map(
+            handleEditorIMOutput,
+          ),
       ),
     }
   | MoveLeft => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))
-          ->Promise.map(handleEditorIMOutput)
-          ->Promise.map(xs => xs->List.fromArray->List.map(x => DispatchCommand(InputMethod(x)))),
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))->Promise.map(
+            handleEditorIMOutput,
+          ),
       ),
     }
   }

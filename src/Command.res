@@ -48,7 +48,6 @@ module InputMethod = {
     | Activate
     | PromptChange(string)
     | Rewrite(array<(EditorIM.interval, string)>, unit => unit)
-    | Deactivate
     | UpdateView(string, Translator.translation, int)
     | InsertChar(string)
     | ChooseSymbol(string)
@@ -62,7 +61,6 @@ module InputMethod = {
     | Activate => "Activate"
     | PromptChange(input) => "PromptChange '" ++ (input ++ "'")
     | Rewrite(_, _) => "Rewrite"
-    | Deactivate => "Deactivate"
     | UpdateView(_, _, _) => "UpdateView"
     | InsertChar(char) => "InsertChar '" ++ (char ++ "'")
     | ChooseSymbol(symbol) => "ChooseSymbol '" ++ (symbol ++ "'")
