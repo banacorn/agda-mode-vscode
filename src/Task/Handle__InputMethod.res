@@ -25,9 +25,7 @@ module TempPromptIM = {
   let change = (self, input) => {
     current.contents = input
     switch EditorIM.deviseChange(self, previous.contents, input) {
-    | None =>
-      Js.log("DEAD")
-      Promise.resolved([EditorIM.Output.Deactivate])
+    | None => Promise.resolved([EditorIM.Output.Deactivate])
     | Some(input) => EditorIM.run(self, None, input)
     }
   }
@@ -39,16 +37,26 @@ module TempPromptIM = {
     let handle = kind =>
       switch kind {
       | UpdateView(s, t, i) => list{DispatchCommand(InputMethod(UpdateView(s, t, i)))}
-      | Rewrite(xs, f) =>
+      | Rewrite(rewrites, f) =>
+        // TODO, postpone calling f
         f()
-        switch xs[0] {
-        | None => list{ViewEvent(PromptIMUpdate(current.contents))}
-        | Some((_, symbol)) => list{ViewEvent(PromptIMUpdate(symbol))}
+
+        // iterate through an array of `rewrites`
+        let replaced = ref(current.contents)
+        let delta = ref(0)
+        let replace = (((start, end_), t)) => {
+          replaced :=
+            replaced.contents->Js.String2.slice(~from=0, ~to_=delta.contents + start) ++
+            t ++
+            replaced.contents->Js.String2.sliceToEnd(~from=delta.contents + end_)
+          delta := delta.contents + Js.String.length(t) - (end_ - start)
         }
+
+        rewrites->Array.forEach(replace)
+
+        list{ViewEvent(PromptIMUpdate(replaced.contents))}
       | Activate => list{DispatchCommand(InputMethod(Activate))}
-      | Deactivate =>
-        Js.log("Deactivate PromptIM")
-        list{DispatchCommand(InputMethod(Deactivate))}
+      | Deactivate => list{DispatchCommand(InputMethod(Deactivate))}
       }
     output->Array.map(handle)->List.concatMany
   }
