@@ -4,37 +4,39 @@ type offset = int
 type interval = (offset, offset)
 
 module type Semaphore = {
-  type t
+  type t<'a>
 
-  let make: unit => t
-  let isLocked: t => bool
-  let lock: t => unit
-  let unlock: t => unit
-  let acquire: t => Promise.t<unit>
+  let make: unit => t<'a>
+  let isLocked: t<'a> => bool
+  let lock: t<'a> => unit
+  let unlock: (t<'a>, 'a) => unit
+  let acquire: t<'a> => Promise.t<option<'a>>
 }
 module Semaphore: Semaphore = {
-  type t = ref<option<(Promise.t<unit>, unit => unit)>>
+  type t<'a> = ref<option<(Promise.t<option<'a>>, option<'a> => unit)>>
 
   let make = () => ref(None)
 
   let isLocked = self => self.contents->Option.isSome
 
   let lock = self => {
+    Js.log(">>>>> LOCK")
     let (promise, resolver) = Promise.pending()
     self.contents = Some(promise, resolver)
   }
 
-  let unlock = self =>
+  let unlock = (self, value) =>
     switch self.contents {
     | None => ()
     | Some((_, resolver)) =>
+      Js.log(">>>>> UNLOCK")
       self.contents = None
-      resolver()
+      resolver(Some(value))
     }
 
   let acquire = self =>
     switch self.contents {
-    | None => Promise.resolved()
+    | None => Promise.resolved(None)
     | Some((promise, _)) => promise
     }
 }
@@ -155,7 +157,7 @@ module Module: Module = {
     mutable activated: bool,
     // cursor positions will NOT be validated until the semaphore `busy` is flipped false
     // cursor positions waiting to be validated will be queued here and resolved afterwards
-    semaphore: Semaphore.t,
+    semaphore: Semaphore.t<array<(interval, string)>>,
     // for reporting when some task has be done
     chanLog: Chan.t<Output.kind>,
   }
@@ -239,7 +241,7 @@ module Module: Module = {
 
       // all offsets updated and rewrites have been applied
       // unlock the semaphore
-      self.semaphore->Semaphore.unlock
+      self.semaphore->Semaphore.unlock(replacements)
 
       // for testing
       self.instances[0]->Option.forEach(instance => {
@@ -409,11 +411,42 @@ module Module: Module = {
     switch input {
     | Input.Select(offsets) =>
       if self.activated {
-        self.semaphore->Semaphore.acquire->Promise.map(() => {
-          validateCursorPositions(self, offsets)
-          if Js.Array.length(self.instances) == 0 {
-            deactivate(self)
-            [Output.Deactivate]
+        self.semaphore->Semaphore.acquire->Promise.map(replacements => {
+          if Js.Array.length(self.instances) != 0 {
+            Js.log2("before", offsets)
+            // update `offsets` after rewrites have been made
+            let offsets = {
+              let accum = ref(0)
+              // a array of (offset, delta) pairs
+              let deltaTable = replacements->Option.mapWithDefault([], xs => xs->Array.map(((
+                  (start, end_),
+                  text,
+                )) => {
+                  let delta = Js.String.length(text) + start - end_
+                  accum := accum.contents + delta
+                  (start, accum.contents)
+                }))
+              let lookupDelta = offset => {
+                let (_, delta) =
+                  deltaTable->Array.reduce((0, 0), ((x, d), (y, e)) =>
+                    offset >= y ? (y, e) : (x, d)
+                  )
+                delta
+              }
+
+              offsets->Array.map(offset => {
+                offset + lookupDelta(offset)
+              })
+            }
+            Js.log3("after", offsets, self.instances->Array.map(instance => instance.interval))
+
+            validateCursorPositions(self, offsets)
+            if Js.Array.length(self.instances) == 0 {
+              deactivate(self)
+              [Output.Deactivate]
+            } else {
+              []
+            }
           } else {
             []
           }

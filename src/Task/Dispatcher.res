@@ -237,6 +237,7 @@ let make = (
       ->VSCode.TextEditorSelectionChangeEvent.selections
       ->Array.map(VSCode.Selection.anchor)
       ->Array.map(VSCode.TextDocument.offsetAt(VSCode.TextEditor.document(editor)))
+    Js.log2("SELECT", offsets)
 
     Handle__InputMethod.select(state, offsets)->Promise.get(
       TaskQueue.addToTheFront(dispatcher.critical),
