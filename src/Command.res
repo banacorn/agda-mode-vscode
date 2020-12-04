@@ -47,9 +47,8 @@ module InputMethod = {
   type t =
     | Activate
     | PromptChange(string)
-    // | Rewrite(array<(EditorIM.interval, string)>, unit => unit)
     | InsertChar(string)
-    | ChooseSymbol(string)
+    // | ChooseSymbol(string)
     | MoveUp
     | MoveRight
     | MoveDown
@@ -59,9 +58,8 @@ module InputMethod = {
     switch x {
     | Activate => "Activate"
     | PromptChange(input) => "PromptChange '" ++ (input ++ "'")
-    // | Rewrite(_, _) => "Rewrite"
     | InsertChar(char) => "InsertChar '" ++ (char ++ "'")
-    | ChooseSymbol(symbol) => "ChooseSymbol '" ++ (symbol ++ "'")
+    // | ChooseSymbol(symbol) => "ChooseSymbol '" ++ (symbol ++ "'")
     | MoveUp => "MoveUp"
     | MoveRight => "MoveRight"
     | MoveDown => "MoveDown"

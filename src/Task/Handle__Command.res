@@ -224,7 +224,9 @@ let handle = command => {
     | Initialized => list{}
     | Destroyed => list{Destroy}
     | InputMethod(InsertChar(char)) => list{DispatchCommand(InputMethod(InsertChar(char)))}
-    | InputMethod(ChooseSymbol(symbol)) => list{DispatchCommand(InputMethod(ChooseSymbol(symbol)))}
+    | InputMethod(ChooseSymbol(symbol)) => list{
+        WithStateP(state => Handle__InputMethod.chooseSymbol(state, symbol)),
+      }
     | PromptChange(input) => list{DispatchCommand(InputMethod(PromptChange(input)))}
     | JumpToTarget(link) => list{
         WithState(
@@ -257,13 +259,11 @@ let handle = command => {
   | Escape => list{
       WithStateP(
         state => {
-          if state.editorIM->EditorIM.isActivated {
-            state.editorIM->EditorIM.deactivate
+          if state.editorIM->EditorIM.isActivated || state.promptIM->EditorIM.isActivated {
+            Promise.resolved(Handle__InputMethod.IM.deactivate(state))
+          } else {
+            Promise.resolved(list{ViewEvent(PromptInterrupt)})
           }
-          if state.promptIM->EditorIM.isActivated {
-            state.promptIM->EditorIM.deactivate
-          }
-          Promise.resolved(list{ViewEvent(PromptInterrupt)})
         },
       ),
     }
