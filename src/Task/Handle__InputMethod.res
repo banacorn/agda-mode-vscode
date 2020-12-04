@@ -2,17 +2,30 @@ open Belt
 
 open! Task
 
-let handleEditorIMOutput = output => {
+let handleEditorIMOutput = (state: State.t, output: EditorIM.Output.t): Promise.t<list<Task.t>> => {
   open EditorIM.Output
   let handle = kind =>
     switch kind {
     | UpdateView(sequence, translation, index) =>
-      ViewEvent(InputMethod(Update(sequence, translation, index)))
-    | Rewrite(xs, f) => DispatchCommand(InputMethod(Rewrite(xs, f)))
-    | Activate => DispatchCommand(InputMethod(Activate))
-    | Deactivate => ViewEvent(InputMethod(Deactivate))
+      Promise.resolved(list{ViewEvent(InputMethod(Update(sequence, translation, index)))})
+    | Rewrite(replacements, resolve) =>
+      let document = state.editor->VSCode.TextEditor.document
+      let replacements = replacements->Array.map(((interval, text)) => {
+        let range = VSCode.Range.make(
+          document->VSCode.TextDocument.positionAt(fst(interval)),
+          document->VSCode.TextDocument.positionAt(snd(interval)),
+        )
+        (range, text)
+      })
+      Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
+        resolve()
+        list{}
+      })
+    // DispatchCommand(InputMethod(Rewrite(xs, f)))
+    | Activate => Promise.resolved(list{DispatchCommand(InputMethod(Activate))})
+    | Deactivate => Promise.resolved(list{ViewEvent(InputMethod(Deactivate))})
     }
-  output->Array.map(handle)->List.fromArray
+  output->Array.map(handle)->Util.oneByOne->Promise.map(List.concatMany)
 }
 
 module TempPromptIM = {
@@ -131,24 +144,6 @@ let handle = x =>
         },
       ),
     }
-  | Rewrite(replacements, resolve) => list{
-      WithStateP(
-        state => {
-          let document = state.editor->VSCode.TextEditor.document
-          let replacements = replacements->Array.map(((interval, text)) => {
-            let range = VSCode.Range.make(
-              document->VSCode.TextDocument.positionAt(fst(interval)),
-              document->VSCode.TextDocument.positionAt(snd(interval)),
-            )
-            (range, text)
-          })
-          Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
-            resolve()
-            list{}
-          })
-        },
-      ),
-    }
   | InsertChar(char) => list{
       WithStateP(
         state =>
@@ -175,7 +170,7 @@ let handle = x =>
               state.editorIM,
               Some(state.editor),
               Candidate(ChooseSymbol(symbol)),
-            )->Promise.map(handleEditorIMOutput)
+            )->Promise.flatMap(handleEditorIMOutput(state))
           } else if EditorIM.isActivated(state.promptIM) {
             EditorIM.run(state.promptIM, None, Candidate(ChooseSymbol(symbol)))->Promise.map(
               TempPromptIM.handle(state.promptIM),
@@ -188,32 +183,32 @@ let handle = x =>
   | MoveUp => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))->Promise.map(
-            handleEditorIMOutput,
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))->Promise.flatMap(
+            handleEditorIMOutput(state),
           ),
       ),
     }
   | MoveRight => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))->Promise.map(
-            handleEditorIMOutput,
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))->Promise.flatMap(
+            handleEditorIMOutput(state),
           ),
       ),
     }
   | MoveDown => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))->Promise.map(
-            handleEditorIMOutput,
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))->Promise.flatMap(
+            handleEditorIMOutput(state),
           ),
       ),
     }
   | MoveLeft => list{
       WithStateP(
         state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))->Promise.map(
-            handleEditorIMOutput,
+          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))->Promise.flatMap(
+            handleEditorIMOutput(state),
           ),
       ),
     }

@@ -110,8 +110,7 @@ module Pretty = {
 let rec oneByOne' = x =>
   switch x {
   | list{} => Promise.resolved(list{})
-  | list{x, ...xs} =>
-    x()->Promise.flatMap(x' => oneByOne'(xs)->Promise.map(xs' => list{x', ...xs'}))
+  | list{x, ...xs} => x->Promise.flatMap(x' => oneByOne'(xs)->Promise.map(xs' => list{x', ...xs'}))
   }
 
 let oneByOne = xs => oneByOne'(List.fromArray(xs))->Promise.map(List.toArray)
