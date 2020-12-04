@@ -653,22 +653,22 @@
 				"when": "agdaMode && agdaModePrompting || agdaModeTyping"
 			},
 			{
-				"command": "agda-mode.input-symbol[MoveUp]",
+				"command": "agda-mode.input-symbol[BrowseUp]",
 				"key": "up",
 				"when": "agdaMode && agdaModeTyping"
 			},
 			{
-				"command": "agda-mode.input-symbol[MoveRight]",
+				"command": "agda-mode.input-symbol[BrowseRight]",
 				"key": "right",
 				"when": "agdaMode && agdaModeTyping"
 			},
 			{
-				"command": "agda-mode.input-symbol[MoveDown]",
+				"command": "agda-mode.input-symbol[BrowseDown]",
 				"key": "down",
 				"when": "agdaMode && agdaModeTyping"
 			},
 			{
-				"command": "agda-mode.input-symbol[MoveLeft]",
+				"command": "agda-mode.input-symbol[BrowseLeft]",
 				"key": "left",
 				"when": "agdaMode && agdaModeTyping"
 			},

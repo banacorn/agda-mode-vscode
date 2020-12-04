@@ -48,13 +48,8 @@ module Input = {
     | BrowseRight
   type t =
     | Change(array<Buffer.change>)
-    | Select(array<VSCode.Position.t>)
+    | Select(array<offset>)
     | Candidate(candidateInput)
-
-  // TextEditorSelectionChangeEvent.t => array<Position.t>
-  let fromTextEditorSelectionChangeEvent = event => Select(
-    event->VSCode.TextEditorSelectionChangeEvent.selections->Array.map(VSCode.Selection.anchor),
-  )
 
   let fromTextDocumentChangeEvent = (editor, event) => {
     // see if the change event happened in this TextEditor
@@ -412,21 +407,15 @@ module Module: Module = {
 
   let run = (self, editor, input) =>
     switch input {
-    | Input.Select(positions) =>
+    | Input.Select(offsets) =>
       if self.activated {
         self.semaphore->Semaphore.acquire->Promise.map(() => {
-          switch editor {
-          | None => []
-          | Some(editor) =>
-            let document = editor->VSCode.TextEditor.document
-            let offsets = positions->Array.map(VSCode.TextDocument.offsetAt(document))
-            validateCursorPositions(self, offsets)
-            if Js.Array.length(self.instances) == 0 {
-              deactivate(self)
-              [Output.Deactivate]
-            } else {
-              []
-            }
+          validateCursorPositions(self, offsets)
+          if Js.Array.length(self.instances) == 0 {
+            deactivate(self)
+            [Output.Deactivate]
+          } else {
+            []
           }
         })
       } else {
@@ -480,26 +469,7 @@ module Module: Module = {
       let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s)
       let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s)
 
-      Js.log(
-        "previous: " ++
-        previous ++
-        "\nnext: " ++
-        next ++
-        "\ninit: " ++
-        init(next) ++
-        "\nbufferSurface: " ++
-        bufferSurface,
-      )
-
       if init(next) == previous ++ bufferSurface {
-        Js.log2(
-          "INSERT",
-          {
-            Buffer.offset: inputLength - 1,
-            insertedText: last(next),
-            replacedTextLength: 0,
-          },
-        )
         // Insertion
         Some(
           Input.Change([
@@ -511,14 +481,6 @@ module Module: Module = {
           ]),
         )
       } else if next == previous || next == previous ++ init(bufferSurface) {
-        Js.log2(
-          "BACKSPACE",
-          {
-            Buffer.offset: inputLength,
-            insertedText: "",
-            replacedTextLength: 1,
-          },
-        )
         // Backspacing
         Some(
           Input.Change([
@@ -530,7 +492,6 @@ module Module: Module = {
           ]),
         )
       } else {
-        Js.log("NOTHING")
         None
       }
     })

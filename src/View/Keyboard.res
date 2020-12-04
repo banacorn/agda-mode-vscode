@@ -16,8 +16,8 @@ let reducer = (state, action) =>
   | (None, _) => None
   | (Some(_), Update(sequence, translation, candidateIndex)) =>
     Some({sequence: sequence, translation: translation, candidateIndex: candidateIndex})
-  | (Some(state), MoveUp) => Some({...state, candidateIndex: max(0, state.candidateIndex - 10)})
-  | (Some(state), MoveRight) =>
+  | (Some(state), BrowseUp) => Some({...state, candidateIndex: max(0, state.candidateIndex - 10)})
+  | (Some(state), BrowseRight) =>
     Some({
       ...state,
       candidateIndex: min(
@@ -25,7 +25,7 @@ let reducer = (state, action) =>
         state.candidateIndex + 1,
       ),
     })
-  | (Some(state), MoveDown) =>
+  | (Some(state), BrowseDown) =>
     Some({
       ...state,
       candidateIndex: min(
@@ -33,7 +33,7 @@ let reducer = (state, action) =>
         state.candidateIndex + 10,
       ),
     })
-  | (Some(state), MoveLeft) => Some({...state, candidateIndex: max(0, state.candidateIndex - 1)})
+  | (Some(state), BrowseLeft) => Some({...state, candidateIndex: max(0, state.candidateIndex - 1)})
   }
 
 @react.component

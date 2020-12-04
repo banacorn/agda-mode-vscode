@@ -166,14 +166,11 @@ module Position = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Position" =>
-      Contents(
-        tuple3(optional(int), int, int) |> map(((pos, line, col)) => {
+    | "Position" => Contents(tuple3(optional(int), int, int) |> map(((pos, line, col)) => {
           pos: pos,
           line: line,
           col: col,
-        }),
-      )
+        }))
     | tag => raise(DecodeError("[View.Position] Unknown constructor: " ++ tag))
     }
   )
@@ -227,13 +224,10 @@ module Interval = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Interval" =>
-      Contents(
-        pair(Position.decode, Position.decode) |> map(((start, end_)) => {
+    | "Interval" => Contents(pair(Position.decode, Position.decode) |> map(((start, end_)) => {
           start: start,
           end_: end_,
-        }),
-      )
+        }))
     | tag => raise(DecodeError("[View.Interval] Unknown constructor: " ++ tag))
     }
   )
@@ -255,7 +249,7 @@ module Range = {
     | Range(option<string>, array<Interval.t>)
 
   let parse = %re(
-  /* |  different row                    |    same row            | */
+    /* |  different row                    |    same row            | */
     "/^(\\S+)\\:(?:(\\d+)\\,(\\d+)\\-(\\d+)\\,(\\d+)|(\\d+)\\,(\\d+)\\-(\\d+))$/"
   )->Emacs__Parser.captures(captured => {
     open Option
@@ -455,10 +449,10 @@ module EventToView = {
       | Activate
       | Deactivate
       | Update(string, Translator.translation, int)
-      | MoveUp
-      | MoveRight
-      | MoveDown
-      | MoveLeft
+      | BrowseUp
+      | BrowseRight
+      | BrowseDown
+      | BrowseLeft
 
     open Json.Decode
     open Util.Decode
@@ -475,10 +469,10 @@ module EventToView = {
             index,
           )),
         )
-      | "MoveUp" => TagOnly(MoveUp)
-      | "MoveRight" => TagOnly(MoveRight)
-      | "MoveDown" => TagOnly(MoveDown)
-      | "MoveLeft" => TagOnly(MoveLeft)
+      | "BrowseUp" => TagOnly(BrowseUp)
+      | "BrowseRight" => TagOnly(BrowseRight)
+      | "BrowseDown" => TagOnly(BrowseDown)
+      | "BrowseLeft" => TagOnly(BrowseLeft)
       | tag => raise(DecodeError("[EventToView.InputMethod] Unknown constructor: " ++ tag))
       }
     )
@@ -493,10 +487,10 @@ module EventToView = {
           ("tag", string("Update")),
           ("contents", (sequence, translation, index) |> tuple3(string, Translator.encode, int)),
         })
-      | MoveUp => object_(list{("tag", string("MoveUp"))})
-      | MoveRight => object_(list{("tag", string("MoveRight"))})
-      | MoveDown => object_(list{("tag", string("MoveDown"))})
-      | MoveLeft => object_(list{("tag", string("MoveLeft"))})
+      | BrowseUp => object_(list{("tag", string("BrowseUp"))})
+      | BrowseRight => object_(list{("tag", string("BrowseRight"))})
+      | BrowseDown => object_(list{("tag", string("BrowseDown"))})
+      | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
       }
   }
 
@@ -633,7 +627,7 @@ module EventFromView = {
       switch x {
       | "InsertChar" => Contents(string |> map(char => InsertChar(char)))
       | "ChooseSymbol" => Contents(string |> map(char => ChooseSymbol(char)))
-      | tag => raise(DecodeError("[Event.InputMethod] Unknown constructor: " ++ tag))
+      | tag => raise(DecodeError("[EventFromView.InputMethod] Unknown constructor: " ++ tag))
       }
     )
 
@@ -647,11 +641,48 @@ module EventFromView = {
       }
   }
 
+  module Prompt = {
+    type t =
+      | Select(array<int>)
+      | Change(string)
+      | BrowseUp
+      | BrowseDown
+      | BrowseLeft
+      | BrowseRight
+
+    open Json.Decode
+    open Util.Decode
+
+    let decode: decoder<t> = sum(x =>
+      switch x {
+      | "Select" => Contents(array(int) |> map(offsets => Select(offsets)))
+      | "Change" => Contents(string |> map(char => Change(char)))
+      | "BrowseUp" => TagOnly(BrowseUp)
+      | "BrowseDown" => TagOnly(BrowseDown)
+      | "BrowseLeft" => TagOnly(BrowseLeft)
+      | "BrowseRight" => TagOnly(BrowseRight)
+      | tag => raise(DecodeError("[EventFromView.Prompt] Unknown constructor: " ++ tag))
+      }
+    )
+
+    open! Json.Encode
+    let encode: encoder<t> = x =>
+      switch x {
+      | Select(offsets) =>
+        object_(list{("tag", string("Select")), ("contents", offsets |> array(int))})
+      | Change(char) => object_(list{("tag", string("Change")), ("contents", char |> string)})
+      | BrowseUp => object_(list{("tag", string("BrowseUp"))})
+      | BrowseDown => object_(list{("tag", string("BrowseDown"))})
+      | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
+      | BrowseRight => object_(list{("tag", string("BrowseRight"))})
+      }
+  }
+
   type t =
     | Initialized
     | Destroyed
     | InputMethod(InputMethod.t)
-    | PromptChange(string)
+    | PromptChange(Prompt.t)
     | JumpToTarget(Link.t)
     | MouseOver(Link.t)
     | MouseOut(Link.t)
@@ -664,7 +695,7 @@ module EventFromView = {
     | "Initialized" => TagOnly(Initialized)
     | "Destroyed" => TagOnly(Destroyed)
     | "InputMethod" => Contents(InputMethod.decode |> map(action => InputMethod(action)))
-    | "PromptChange" => Contents(string |> map(text => PromptChange(text)))
+    | "PromptChange" => Contents(Prompt.decode |> map(action => PromptChange(action)))
     | "JumpToTarget" => Contents(Link.decode |> map(link => JumpToTarget(link)))
     | "MouseOver" => Contents(Link.decode |> map(link => MouseOver(link)))
     | "MouseOut" => Contents(Link.decode |> map(link => MouseOut(link)))
@@ -679,8 +710,8 @@ module EventFromView = {
     | Destroyed => object_(list{("tag", string("Destroyed"))})
     | InputMethod(action) =>
       object_(list{("tag", string("InputMethod")), ("contents", action |> InputMethod.encode)})
-    | PromptChange(text) =>
-      object_(list{("tag", string("PromptChange")), ("contents", text |> string)})
+    | PromptChange(action) =>
+      object_(list{("tag", string("PromptChange")), ("contents", action |> Prompt.encode)})
     | JumpToTarget(link) =>
       object_(list{("tag", string("JumpToTarget")), ("contents", link |> Link.encode)})
     | MouseOver(link) =>

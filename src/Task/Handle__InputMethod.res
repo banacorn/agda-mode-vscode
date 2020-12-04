@@ -164,6 +164,17 @@ let activatePromptIM = (state: State.t, input) =>
     }
   }
 
+let select = (state: State.t, offset) => {
+  switch isActivated(state) {
+  | Editor =>
+    IM.run(state.editorIM, Some(state.editor), Select(offset))->Promise.flatMap(
+      EditorIM.handle(state),
+    )
+  | Prompt => IM.run(state.promptIM, None, Select(offset))->Promise.flatMap(EditorIM.handle(state))
+  | None => Promise.resolved(list{})
+  }
+}
+
 let chooseSymbol = (state: State.t, symbol) =>
   // deactivate after passing `Candidate(ChooseSymbol(symbol))` to the IM
   switch isActivated(state) {
@@ -246,8 +257,8 @@ let handle = x =>
   switch x {
   | Command.InputMethod.Activate => list{WithStateP(state => activate(state)->Promise.resolved)}
   | InsertChar(char) => list{WithStateP(state => insertChar(state, char))}
-  | MoveUp => list{WithStateP(moveUp)}
-  | MoveDown => list{WithStateP(moveDown)}
-  | MoveLeft => list{WithStateP(moveLeft)}
-  | MoveRight => list{WithStateP(moveRight)}
+  | BrowseUp => list{WithStateP(moveUp)}
+  | BrowseDown => list{WithStateP(moveDown)}
+  | BrowseLeft => list{WithStateP(moveLeft)}
+  | BrowseRight => list{WithStateP(moveRight)}
   }

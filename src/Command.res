@@ -46,22 +46,20 @@ module ComputeMode = {
 module InputMethod = {
   type t =
     | Activate
-    // | PromptChange(string)
     | InsertChar(string)
-    | MoveUp
-    | MoveRight
-    | MoveDown
-    | MoveLeft
+    | BrowseUp
+    | BrowseRight
+    | BrowseDown
+    | BrowseLeft
 
   let toString = x =>
     switch x {
     | Activate => "Activate"
-    // | PromptChange(input) => "PromptChange '" ++ (input ++ "'")
     | InsertChar(char) => "InsertChar '" ++ (char ++ "'")
-    | MoveUp => "MoveUp"
-    | MoveRight => "MoveRight"
-    | MoveDown => "MoveDown"
-    | MoveLeft => "MoveLeft"
+    | BrowseUp => "BrowseUp"
+    | BrowseRight => "BrowseRight"
+    | BrowseDown => "BrowseDown"
+    | BrowseLeft => "BrowseLeft"
     }
 }
 
@@ -154,10 +152,10 @@ let names: array<(t, string)> = [
   (WhyInScope, "why-in-scope"),
   (Escape, "escape"),
   (InputMethod(Activate), "input-symbol[Activate]"),
-  (InputMethod(MoveUp), "input-symbol[MoveUp]"),
-  (InputMethod(MoveRight), "input-symbol[MoveRight]"),
-  (InputMethod(MoveDown), "input-symbol[MoveDown]"),
-  (InputMethod(MoveLeft), "input-symbol[MoveLeft]"),
+  (InputMethod(BrowseUp), "input-symbol[BrowseUp]"),
+  (InputMethod(BrowseRight), "input-symbol[BrowseRight]"),
+  (InputMethod(BrowseDown), "input-symbol[BrowseDown]"),
+  (InputMethod(BrowseLeft), "input-symbol[BrowseLeft]"),
   (InputMethod(InsertChar("{")), "input-symbol[InsertOpenCurlyBraces]"),
   (InputMethod(InsertChar("(")), "input-symbol[InsertOpenParenthesis]"),
 ]

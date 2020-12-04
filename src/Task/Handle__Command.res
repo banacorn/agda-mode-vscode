@@ -227,9 +227,16 @@ let handle = command => {
     | InputMethod(ChooseSymbol(symbol)) => list{
         WithStateP(state => Handle__InputMethod.chooseSymbol(state, symbol)),
       }
-    | PromptChange(input) => list{
+    | PromptChange(Select(offset)) => list{
+        WithStateP(state => Handle__InputMethod.select(state, offset)),
+      }
+    | PromptChange(Change(input)) => list{
         WithStateP(state => Handle__InputMethod.activatePromptIM(state, input)),
       }
+    | PromptChange(BrowseUp) => list{DispatchCommand(InputMethod(BrowseUp))}
+    | PromptChange(BrowseDown) => list{DispatchCommand(InputMethod(BrowseDown))}
+    | PromptChange(BrowseLeft) => list{DispatchCommand(InputMethod(BrowseLeft))}
+    | PromptChange(BrowseRight) => list{DispatchCommand(InputMethod(BrowseRight))}
     | JumpToTarget(link) => list{
         WithState(
           state => {
