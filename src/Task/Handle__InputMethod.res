@@ -2,66 +2,79 @@ open Belt
 
 open! Task
 
-module IM = {
-  let deactivate = (state: State.t) => {
-    if state.editorIM->EditorIM.isActivated {
-      state.editorIM->EditorIM.deactivate
-      list{ViewEvent(InputMethod(Deactivate))}
-    } else if state.promptIM->EditorIM.isActivated {
-      state.promptIM->EditorIM.deactivate
-      list{ViewEvent(InputMethod(Deactivate))}
-    } else {
-      list{}
-    }
+module EditorIM = {
+  let activate = (self, editor) => {
+    // activated the input method with cursors positions
+    let document = VSCode.TextEditor.document(editor)
+    let intervals: array<(int, int)> =
+      Editor.Selection.getMany(editor)->Array.map(range => (
+        document->VSCode.TextDocument.offsetAt(VSCode.Range.start(range)),
+        document->VSCode.TextDocument.offsetAt(VSCode.Range.end_(range)),
+      ))
+    IM.activate(self, Some(editor), intervals)
+    list{ViewEvent(InputMethod(Activate))}
+  }
+  let deactivate = self => {
+    self->IM.deactivate
+    list{ViewEvent(InputMethod(Deactivate))}
+  }
+
+  let handle = (state: State.t, output) => {
+    open IM.Output
+    let handle = kind =>
+      switch kind {
+      | UpdateView(sequence, translation, index) =>
+        Promise.resolved(list{ViewEvent(InputMethod(Update(sequence, translation, index)))})
+      | Rewrite(replacements, resolve) =>
+        let document = state.editor->VSCode.TextEditor.document
+        let replacements = replacements->Array.map(((interval, text)) => {
+          let range = VSCode.Range.make(
+            document->VSCode.TextDocument.positionAt(fst(interval)),
+            document->VSCode.TextDocument.positionAt(snd(interval)),
+          )
+          (range, text)
+        })
+        Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
+          resolve()
+          list{}
+        })
+      // DispatchCommand(InputMethod(Rewrite(xs, f)))
+      | Activate => Promise.resolved(list{DispatchCommand(InputMethod(Activate))})
+      | Deactivate => Promise.resolved(list{ViewEvent(InputMethod(Deactivate))})
+      }
+    output->Array.map(handle)->Util.oneByOne->Promise.map(List.concatMany)
   }
 }
 
-let handleEditorIMOutput = (state: State.t, output: EditorIM.Output.t): Promise.t<list<Task.t>> => {
-  open EditorIM.Output
-  let handle = kind =>
-    switch kind {
-    | UpdateView(sequence, translation, index) =>
-      Promise.resolved(list{ViewEvent(InputMethod(Update(sequence, translation, index)))})
-    | Rewrite(replacements, resolve) =>
-      let document = state.editor->VSCode.TextEditor.document
-      let replacements = replacements->Array.map(((interval, text)) => {
-        let range = VSCode.Range.make(
-          document->VSCode.TextDocument.positionAt(fst(interval)),
-          document->VSCode.TextDocument.positionAt(snd(interval)),
-        )
-        (range, text)
-      })
-      Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
-        resolve()
-        list{}
-      })
-    // DispatchCommand(InputMethod(Rewrite(xs, f)))
-    | Activate => Promise.resolved(list{DispatchCommand(InputMethod(Activate))})
-    | Deactivate => Promise.resolved(list{ViewEvent(InputMethod(Deactivate))})
-    }
-  output->Array.map(handle)->Util.oneByOne->Promise.map(List.concatMany)
-}
-
-module TempPromptIM = {
+module PromptIM = {
   let previous = ref("")
   let current = ref("")
   let activate = (self, input) => {
-    let cursorOffset = String.length(input)
-    previous.contents = Js.String.substring(~from=0, ~to_=cursorOffset, input)
-    EditorIM.activate(self, None, [(cursorOffset, cursorOffset)])
+    // remove the ending backslash "\"
+    let cursorOffset = String.length(input) - 1
+    let input = Js.String.substring(~from=0, ~to_=cursorOffset, input)
+
+    // save the input
+    previous.contents = input
+    IM.activate(self, None, [(cursorOffset, cursorOffset)])
+    list{ViewEvent(InputMethod(Activate)), ViewEvent(PromptIMUpdate(input))}
+  }
+  let deactivate = self => {
+    self->IM.deactivate
+    list{ViewEvent(InputMethod(Deactivate))}
   }
   let change = (self, input) => {
     current.contents = input
-    switch EditorIM.deviseChange(self, previous.contents, input) {
-    | None => Promise.resolved([EditorIM.Output.Deactivate])
-    | Some(input) => EditorIM.run(self, None, input)
+    switch IM.deviseChange(self, previous.contents, input) {
+    | None => Promise.resolved([IM.Output.Deactivate])
+    | Some(input) => IM.run(self, None, input)
     }
   }
 
   let insertChar = (self, char) => change(self, previous.contents ++ char)
 
-  let handle = (state, output) => {
-    open EditorIM.Output
+  let handle = (self, output) => {
+    open IM.Output
     let handle = kind =>
       switch kind {
       | UpdateView(sequence, translation, index) => list{
@@ -86,147 +99,155 @@ module TempPromptIM = {
 
         list{ViewEvent(PromptIMUpdate(replaced.contents))}
       | Activate => list{DispatchCommand(InputMethod(Activate))}
-      | Deactivate => IM.deactivate(state)
+      | Deactivate => deactivate(self)
       }
     output->Array.map(handle)->List.concatMany
   }
 }
 
-let chooseSymbol = (state: State.t, symbol) =>
-  if EditorIM.isActivated(state.editorIM) {
-    EditorIM.run(state.editorIM, Some(state.editor), Candidate(ChooseSymbol(symbol)))
-    ->Promise.flatMap(handleEditorIMOutput(state))
-    ->Promise.map(tasks =>
-      Belt.List.concat(tasks, list{WithStateP(state => IM.deactivate(state)->Promise.resolved)})
-    )
-  } else if EditorIM.isActivated(state.promptIM) {
-    EditorIM.run(state.promptIM, None, Candidate(ChooseSymbol(symbol)))
-    ->Promise.map(TempPromptIM.handle(state))
-    ->Promise.map(tasks =>
-      Belt.List.concat(tasks, list{WithStateP(state => IM.deactivate(state)->Promise.resolved)})
-    )
+type activated = Editor | Prompt | None
+
+let isActivated = (state: State.t) =>
+  if IM.isActivated(state.editorIM) {
+    Editor
+  } else if IM.isActivated(state.promptIM) {
+    Prompt
   } else {
-    Promise.resolved(list{})
+    None
   }
 
-let promptChange = (state: State.t, input) => {
-  // activate when the user typed a backslash "/"
-  let shouldActivate = Js.String.endsWith("\\", input)
-
-  let activatePromptIM = () => {
-    // remove the ending backslash "\"
-    let input = Js.String.substring(~from=0, ~to_=String.length(input) - 1, input)
-    TempPromptIM.activate(state.promptIM, input)
-
-    // update the view
-    list{ViewEvent(InputMethod(Activate)), ViewEvent(PromptIMUpdate(input))}
+let deactivate = (state: State.t) =>
+  switch isActivated(state) {
+  | Editor => EditorIM.deactivate(state.editorIM)
+  | Prompt => PromptIM.deactivate(state.promptIM)
+  | None => list{}
   }
 
-  if EditorIM.isActivated(state.editorIM) {
-    if shouldActivate {
-      Promise.resolved(List.concatMany([IM.deactivate(state), activatePromptIM()]))
+let activate = (state: State.t) =>
+  switch isActivated(state) {
+  | Editor =>
+    // already activated, insert backslash "\" instead
+    Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
+      Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, "\\")->ignore
+    )
+    // and then deactivate it
+    EditorIM.deactivate(state.editorIM)
+  // deactivate the prompt IM and activate the editor IM
+  | Prompt =>
+    List.concat(
+      PromptIM.deactivate(state.promptIM),
+      EditorIM.activate(state.editorIM, state.editor),
+    )
+  | None => EditorIM.activate(state.editorIM, state.editor)
+  }
+
+// activate the prompt IM when the user typed a backslash "/"
+let shouldActivatePromptIM = input => Js.String.endsWith("\\", input)
+
+let activatePromptIM = (state: State.t, input) =>
+  switch isActivated(state) {
+  | Editor =>
+    if shouldActivatePromptIM(input) {
+      List.concat(
+        EditorIM.deactivate(state.editorIM),
+        PromptIM.activate(state.promptIM, input),
+      )->Promise.resolved
     } else {
-      Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
+      list{ViewEvent(PromptIMUpdate(input))}->Promise.resolved
     }
-  } else if EditorIM.isActivated(state.promptIM) {
-    TempPromptIM.change(state.promptIM, input)->Promise.map(TempPromptIM.handle(state))
-  } else if shouldActivate {
-    Promise.resolved(activatePromptIM())
-  } else {
-    Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
+  | Prompt => PromptIM.change(state.promptIM, input)->Promise.map(PromptIM.handle(state.promptIM))
+  | None =>
+    if shouldActivatePromptIM(input) {
+      PromptIM.activate(state.promptIM, input)->Promise.resolved
+    } else {
+      list{ViewEvent(PromptIMUpdate(input))}->Promise.resolved
+    }
   }
-}
+
+let chooseSymbol = (state: State.t, symbol) =>
+  // deactivate after passing `Candidate(ChooseSymbol(symbol))` to the IM
+  switch isActivated(state) {
+  | Editor =>
+    IM.run(state.editorIM, Some(state.editor), Candidate(ChooseSymbol(symbol)))
+    ->Promise.flatMap(EditorIM.handle(state))
+    ->Promise.map(tasks1 => List.concat(tasks1, deactivate(state)))
+  | Prompt =>
+    IM.run(state.promptIM, None, Candidate(ChooseSymbol(symbol)))
+    ->Promise.map(PromptIM.handle(state.promptIM))
+    ->Promise.map(tasks1 => List.concat(tasks1, deactivate(state)))
+  | None => Promise.resolved(list{})
+  }
+
+let insertChar = (state: State.t, char) =>
+  switch isActivated(state) {
+  | Editor =>
+    let char = Js.String.charAt(0, char)
+    Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
+      Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, char)->ignore
+    )
+    Promise.resolved(list{})
+  | Prompt =>
+    PromptIM.insertChar(state.promptIM, char)->Promise.map(PromptIM.handle(state.promptIM))
+  | None => Promise.resolved(list{})
+  }
+
+let moveUp = (state: State.t) =>
+  switch isActivated(state) {
+  | Editor =>
+    IM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))->Promise.flatMap(
+      EditorIM.handle(state),
+    )
+  | Prompt =>
+    IM.run(state.promptIM, None, Candidate(BrowseUp))->Promise.map(PromptIM.handle(state.promptIM))
+  | None => Promise.resolved(list{})
+  }
+
+let moveDown = (state: State.t) =>
+  switch isActivated(state) {
+  | Editor =>
+    IM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))->Promise.flatMap(
+      EditorIM.handle(state),
+    )
+  | Prompt =>
+    IM.run(state.promptIM, None, Candidate(BrowseDown))->Promise.map(
+      PromptIM.handle(state.promptIM),
+    )
+  | None => Promise.resolved(list{})
+  }
+
+let moveLeft = (state: State.t) =>
+  switch isActivated(state) {
+  | Editor =>
+    IM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))->Promise.flatMap(
+      EditorIM.handle(state),
+    )
+  | Prompt =>
+    IM.run(state.promptIM, None, Candidate(BrowseLeft))->Promise.map(
+      PromptIM.handle(state.promptIM),
+    )
+  | None => Promise.resolved(list{})
+  }
+
+let moveRight = (state: State.t) =>
+  switch isActivated(state) {
+  | Editor =>
+    IM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))->Promise.flatMap(
+      EditorIM.handle(state),
+    )
+  | Prompt =>
+    IM.run(state.promptIM, None, Candidate(BrowseRight))->Promise.map(
+      PromptIM.handle(state.promptIM),
+    )
+  | None => Promise.resolved(list{})
+  }
 
 // from Editor Command to Tasks
 let handle = x =>
   switch x {
-  | Command.InputMethod.Activate => list{
-      WithStateP(
-        state =>
-          if EditorIM.isActivated(state.editorIM) {
-            // already activated, insert backslash "\" instead
-            Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-              Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, "\\")->ignore
-            )
-            // deactivate
-            IM.deactivate(state)->Promise.resolved
-          } else {
-            let document = VSCode.TextEditor.document(state.editor)
-            // activated the input method with positions of cursors
-            let startingRanges: array<(int, int)> =
-              Editor.Selection.getMany(state.editor)->Array.map(range => (
-                document->VSCode.TextDocument.offsetAt(VSCode.Range.start(range)),
-                document->VSCode.TextDocument.offsetAt(VSCode.Range.end_(range)),
-              ))
-            EditorIM.activate(state.editorIM, Some(state.editor), startingRanges)
-            Promise.resolved(list{ViewEvent(InputMethod(Activate))})
-          },
-      ),
-    }
-  | InsertChar(char) => list{
-      WithStateP(
-        state =>
-          if EditorIM.isActivated(state.editorIM) {
-            let char = Js.String.charAt(0, char)
-            Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-              Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, char)->ignore
-            )
-            Promise.resolved(list{})
-          } else if EditorIM.isActivated(state.promptIM) {
-            TempPromptIM.insertChar(state.promptIM, char)->Promise.map(TempPromptIM.handle(state))
-          } else {
-            Promise.resolved(list{})
-          },
-      ),
-    }
-  // | ChooseSymbol(symbol) => list{
-  //     WithStateP(
-  //       state =>
-  //         if EditorIM.isActivated(state.editorIM) {
-  //           EditorIM.run(
-  //             state.editorIM,
-  //             Some(state.editor),
-  //             Candidate(ChooseSymbol(symbol)),
-  //           )->Promise.flatMap(handleEditorIMOutput(state))
-  //         } else if EditorIM.isActivated(state.promptIM) {
-  //           EditorIM.run(state.promptIM, None, Candidate(ChooseSymbol(symbol)))->Promise.map(
-  //             TempPromptIM.handle(state.promptIM),
-  //           )
-  //         } else {
-  //           Promise.resolved(list{})
-  //         },
-  //     ),
-  //   }
-  | MoveUp => list{
-      WithStateP(
-        state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseUp))->Promise.flatMap(
-            handleEditorIMOutput(state),
-          ),
-      ),
-    }
-  | MoveRight => list{
-      WithStateP(
-        state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseRight))->Promise.flatMap(
-            handleEditorIMOutput(state),
-          ),
-      ),
-    }
-  | MoveDown => list{
-      WithStateP(
-        state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseDown))->Promise.flatMap(
-            handleEditorIMOutput(state),
-          ),
-      ),
-    }
-  | MoveLeft => list{
-      WithStateP(
-        state =>
-          EditorIM.run(state.editorIM, Some(state.editor), Candidate(BrowseLeft))->Promise.flatMap(
-            handleEditorIMOutput(state),
-          ),
-      ),
-    }
+  | Command.InputMethod.Activate => list{WithStateP(state => activate(state)->Promise.resolved)}
+  | InsertChar(char) => list{WithStateP(state => insertChar(state, char))}
+  | MoveUp => list{WithStateP(moveUp)}
+  | MoveDown => list{WithStateP(moveDown)}
+  | MoveLeft => list{WithStateP(moveLeft)}
+  | MoveRight => list{WithStateP(moveRight)}
   }

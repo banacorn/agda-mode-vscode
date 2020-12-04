@@ -213,7 +213,7 @@ let make = (
   extentionPath: string,
   editor: VSCode.TextEditor.t,
   removeFromRegistry: unit => unit,
-  chan: Chan.t<EditorIM.Output.kind>,
+  chan: Chan.t<IM.Output.kind>,
 ) => {
   let state = State.make(extentionPath, chan, editor)
   let dispatcher = {
@@ -232,15 +232,15 @@ let make = (
 
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
-    let input = EditorIM.Input.fromTextEditorSelectionChangeEvent(event)
-    EditorIM.run(state.editorIM, Some(editor), input)
-    ->Promise.flatMap(Handle__InputMethod.handleEditorIMOutput(state))
+    let input = IM.Input.fromTextEditorSelectionChangeEvent(event)
+    IM.run(state.editorIM, Some(editor), input)
+    ->Promise.flatMap(Handle__InputMethod.EditorIM.handle(state))
     ->Promise.get(TaskQueue.addToTheFront(dispatcher.critical))
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
-    let input = EditorIM.Input.fromTextDocumentChangeEvent(editor, event)
-    EditorIM.run(state.editorIM, Some(editor), input)
-    ->Promise.flatMap(Handle__InputMethod.handleEditorIMOutput(state))
+    let input = IM.Input.fromTextDocumentChangeEvent(editor, event)
+    IM.run(state.editorIM, Some(editor), input)
+    ->Promise.flatMap(Handle__InputMethod.EditorIM.handle(state))
     ->Promise.get(TaskQueue.addToTheFront(dispatcher.critical))
   })->subscribe
 

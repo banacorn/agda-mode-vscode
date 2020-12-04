@@ -9,8 +9,8 @@ type t = {
   mutable goals: array<Goal.t>,
   mutable decorations: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,
-  editorIM: EditorIM.t,
-  promptIM: EditorIM.t,
+  editorIM: IM.t,
+  promptIM: IM.t,
   mutable subscriptions: array<VSCode.Disposable.t>,
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
@@ -73,8 +73,8 @@ let make = (extentionPath, chan, editor) => {
     goals: [],
     decorations: Decoration.make(),
     cursor: None,
-    editorIM: EditorIM.make(chan),
-    promptIM: EditorIM.make(chan),
+    editorIM: IM.make(chan),
+    promptIM: IM.make(chan),
     subscriptions: [],
     onRemoveFromRegistry: Chan.make(),
   }

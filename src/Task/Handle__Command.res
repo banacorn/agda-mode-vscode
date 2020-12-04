@@ -228,7 +228,7 @@ let handle = command => {
         WithStateP(state => Handle__InputMethod.chooseSymbol(state, symbol)),
       }
     | PromptChange(input) => list{
-        WithStateP(state => Handle__InputMethod.promptChange(state, input)),
+        WithStateP(state => Handle__InputMethod.activatePromptIM(state, input)),
       }
     | JumpToTarget(link) => list{
         WithState(
@@ -261,8 +261,8 @@ let handle = command => {
   | Escape => list{
       WithStateP(
         state => {
-          if state.editorIM->EditorIM.isActivated || state.promptIM->EditorIM.isActivated {
-            Promise.resolved(Handle__InputMethod.IM.deactivate(state))
+          if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
+            Promise.resolved(Handle__InputMethod.deactivate(state))
           } else {
             Promise.resolved(list{ViewEvent(PromptInterrupt)})
           }
