@@ -109,6 +109,34 @@ let chooseSymbol = (state: State.t, symbol) =>
     Promise.resolved(list{})
   }
 
+let promptChange = (state: State.t, input) => {
+  // activate when the user typed a backslash "/"
+  let shouldActivate = Js.String.endsWith("\\", input)
+
+  let activatePromptIM = () => {
+    // remove the ending backslash "\"
+    let input = Js.String.substring(~from=0, ~to_=String.length(input) - 1, input)
+    TempPromptIM.activate(state.promptIM, input)
+
+    // update the view
+    list{ViewEvent(InputMethod(Activate)), ViewEvent(PromptIMUpdate(input))}
+  }
+
+  if EditorIM.isActivated(state.editorIM) {
+    if shouldActivate {
+      Promise.resolved(List.concatMany([IM.deactivate(state), activatePromptIM()]))
+    } else {
+      Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
+    }
+  } else if EditorIM.isActivated(state.promptIM) {
+    TempPromptIM.change(state.promptIM, input)->Promise.map(TempPromptIM.handle(state))
+  } else if shouldActivate {
+    Promise.resolved(activatePromptIM())
+  } else {
+    Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
+  }
+}
+
 // from Editor Command to Tasks
 let handle = x =>
   switch x {
@@ -133,37 +161,6 @@ let handle = x =>
             EditorIM.activate(state.editorIM, Some(state.editor), startingRanges)
             Promise.resolved(list{ViewEvent(InputMethod(Activate))})
           },
-      ),
-    }
-  | PromptChange(input) => list{
-      WithStateP(
-        state => {
-          // activate when the user typed a backslash "/"
-          let shouldActivate = Js.String.endsWith("\\", input)
-
-          let activatePromptIM = () => {
-            // remove the ending backslash "\"
-            let input = Js.String.substring(~from=0, ~to_=String.length(input) - 1, input)
-            TempPromptIM.activate(state.promptIM, input)
-
-            // update the view
-            list{ViewEvent(InputMethod(Activate)), ViewEvent(PromptIMUpdate(input))}
-          }
-
-          if EditorIM.isActivated(state.editorIM) {
-            if shouldActivate {
-              Promise.resolved(List.concatMany([IM.deactivate(state), activatePromptIM()]))
-            } else {
-              Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
-            }
-          } else if EditorIM.isActivated(state.promptIM) {
-            TempPromptIM.change(state.promptIM, input)->Promise.map(TempPromptIM.handle(state))
-          } else if shouldActivate {
-            Promise.resolved(activatePromptIM())
-          } else {
-            Promise.resolved(list{ViewEvent(PromptIMUpdate(input))})
-          }
-        },
       ),
     }
   | InsertChar(char) => list{

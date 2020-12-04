@@ -227,7 +227,9 @@ let handle = command => {
     | InputMethod(ChooseSymbol(symbol)) => list{
         WithStateP(state => Handle__InputMethod.chooseSymbol(state, symbol)),
       }
-    | PromptChange(input) => list{DispatchCommand(InputMethod(PromptChange(input)))}
+    | PromptChange(input) => list{
+        WithStateP(state => Handle__InputMethod.promptChange(state, input)),
+      }
     | JumpToTarget(link) => list{
         WithState(
           state => {

@@ -46,9 +46,8 @@ module ComputeMode = {
 module InputMethod = {
   type t =
     | Activate
-    | PromptChange(string)
+    // | PromptChange(string)
     | InsertChar(string)
-    // | ChooseSymbol(string)
     | MoveUp
     | MoveRight
     | MoveDown
@@ -57,9 +56,8 @@ module InputMethod = {
   let toString = x =>
     switch x {
     | Activate => "Activate"
-    | PromptChange(input) => "PromptChange '" ++ (input ++ "'")
+    // | PromptChange(input) => "PromptChange '" ++ (input ++ "'")
     | InsertChar(char) => "InsertChar '" ++ (char ++ "'")
-    // | ChooseSymbol(symbol) => "ChooseSymbol '" ++ (symbol ++ "'")
     | MoveUp => "MoveUp"
     | MoveRight => "MoveRight"
     | MoveDown => "MoveDown"
