@@ -235,15 +235,13 @@ let make = (
     let input = EditorIM.Input.fromTextEditorSelectionChangeEvent(event)
     EditorIM.run(state.editorIM, Some(editor), input)
     ->Promise.map(Handle__InputMethod.handleEditorIMOutput)
-    ->Promise.flatMap(addToTheBackCritical(dispatcher))
-    ->ignore
+    ->Promise.get(TaskQueue.addToTheFront(dispatcher.critical))
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
     let input = EditorIM.Input.fromTextDocumentChangeEvent(editor, event)
     EditorIM.run(state.editorIM, Some(editor), input)
     ->Promise.map(Handle__InputMethod.handleEditorIMOutput)
-    ->Promise.flatMap(addToTheBackCritical(dispatcher))
-    ->ignore
+    ->Promise.get(TaskQueue.addToTheFront(dispatcher.critical))
   })->subscribe
 
   // remove it from the Registry if it requests to be destroyed
