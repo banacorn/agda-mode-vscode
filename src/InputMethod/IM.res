@@ -84,13 +84,14 @@ module type Module = {
   type t
 
   let make: Chan.t<Output.kind> => t
-  let activate: (t, option<VSCode.TextEditor.t>, array<interval>) => unit
-  let deactivate: t => unit
+  let activate: (t, option<VSCode.TextEditor.t>, array<interval>) => Output.t
+  let deactivate: t => Output.t
   let isActivated: t => bool
 
   let run: (t, option<VSCode.TextEditor.t>, Input.t) => Promise.t<Output.t>
   let deviseChange: (t, string, string) => option<Input.t>
 }
+
 module Module: Module = {
   let printLog = false
   let log = if printLog {
@@ -160,6 +161,40 @@ module Module: Module = {
     semaphore: Semaphore.t<array<(interval, string)>>,
     // for reporting when some task has be done
     chanLog: Chan.t<Output.kind>,
+  }
+
+  let activate = (self, editor, cursors: array<interval>) => {
+    self.activated = true
+    // setContext
+    VSCode.Commands.setContext("agdaModeTyping", true)->ignore
+
+    // instantiate from an array of offsets
+    self.instances =
+      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), cursors)->Array.map(
+        Instance.make(editor),
+      )
+
+    [Output.Activate]
+  }
+
+  let deactivate = self => {
+    // setContext
+    VSCode.Commands.setContext("agdaModeTyping", false)->ignore
+
+    self.instances->Array.forEach(Instance.destroy)
+    self.instances = []
+    self.activated = false
+
+    [Output.Deactivate]
+  }
+
+  let make = chanLog => {
+    {
+      instances: [],
+      activated: false,
+      semaphore: Semaphore.make(),
+      chanLog: chanLog,
+    }
   }
 
   // datatype for representing a rewrite to be made to the text editor
@@ -257,7 +292,8 @@ module Module: Module = {
 
     // update the view
     switch self.instances[0] {
-    | None => Promise.resolved([Output.Rewrite(replacements, resolve), Deactivate])
+    | None =>
+      Promise.resolved(Belt.Array.concat([Output.Rewrite(replacements, resolve)], deactivate(self)))
     | Some(instance) =>
       // real output
       Promise.resolved([
@@ -369,40 +405,6 @@ module Module: Module = {
     (instances, rewrites)
   }
 
-  let activate = (self, editor, cursors: array<interval>) => {
-    self.activated = true
-
-    // emit ACTIVATE event after applied rewriting
-    // self.chanLog->Chan.emit(Activate)
-    // setContext
-    VSCode.Commands.setContext("agdaModeTyping", true)->ignore
-
-    // instantiate from an array of offsets
-    self.instances =
-      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), cursors)->Array.map(
-        Instance.make(editor),
-      )
-  }
-
-  let deactivate = self => {
-    // setContext
-    VSCode.Commands.setContext("agdaModeTyping", false)->ignore
-
-    // self.chanLog->Chan.emit(Deactivate)
-
-    self.instances->Array.forEach(Instance.destroy)
-    self.instances = []
-    self.activated = false
-  }
-
-  let make = chanLog => {
-    {
-      instances: [],
-      activated: false,
-      semaphore: Semaphore.make(),
-      chanLog: chanLog,
-    }
-  }
   ////////////////////////////////////////////////////////////////////////////////////////////
 
   let isActivated = self => self.activated
@@ -413,8 +415,7 @@ module Module: Module = {
       if self.activated && !Semaphore.isLocked(self.semaphore) {
         validateCursorPositions(self, offsets)
         if Js.Array.length(self.instances) == 0 {
-          deactivate(self)
-          Promise.resolved([Output.Deactivate])
+          Promise.resolved(deactivate(self))
         } else {
           Promise.resolved([])
         }

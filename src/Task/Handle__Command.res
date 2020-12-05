@@ -269,7 +269,7 @@ let handle = command => {
       WithStateP(
         state => {
           if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
-            Promise.resolved(Handle__InputMethod.deactivate(state))
+            Handle__InputMethod.deactivate(state)
           } else {
             Promise.resolved(list{ViewEvent(PromptInterrupt)})
           }
