@@ -58,6 +58,18 @@ module A = {
     | () => Ok()
     | exception exn => Error(exn)
     }->Promise.resolved
+
+  let deep_equal = (expected, actual) =>
+    switch BsMocha.Assert.deep_equal(actual, expected) {
+    | () => Ok()
+    | exception exn => Error(exn)
+    }->Promise.resolved
+
+  let deep_strict_equal = (expected, actual) =>
+    switch BsMocha.Assert.deep_strict_equal(actual, expected) {
+    | () => Ok()
+    | exception exn => Error(exn)
+    }->Promise.resolved
 }
 
 module Strings = {

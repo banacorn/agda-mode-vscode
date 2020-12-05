@@ -3,44 +3,6 @@ open Belt
 type offset = int
 type interval = (offset, offset)
 
-module type Semaphore = {
-  type t<'a>
-
-  let make: unit => t<'a>
-  let isLocked: t<'a> => bool
-  let lock: t<'a> => unit
-  let unlock: (t<'a>, 'a) => unit
-  let acquire: t<'a> => Promise.t<option<'a>>
-}
-module Semaphore: Semaphore = {
-  type t<'a> = ref<option<(Promise.t<option<'a>>, option<'a> => unit)>>
-
-  let make = () => ref(None)
-
-  let isLocked = self => self.contents->Option.isSome
-
-  let lock = self => {
-    Js.log(">>>>> LOCK")
-    let (promise, resolver) = Promise.pending()
-    self.contents = Some(promise, resolver)
-  }
-
-  let unlock = (self, value) =>
-    switch self.contents {
-    | None => ()
-    | Some((_, resolver)) =>
-      Js.log(">>>>> UNLOCK")
-      self.contents = None
-      resolver(Some(value))
-    }
-
-  let acquire = self =>
-    switch self.contents {
-    | None => Promise.resolved(None)
-    | Some((promise, _)) => promise
-    }
-}
-
 module Input = {
   type candidateInput =
     | ChooseSymbol(string)
@@ -78,12 +40,33 @@ module Output = {
     | Deactivate
 
   type t = array<kind>
+
+  // for testing
+  module Log = {
+    type t' = t
+    type kind =
+      | UpdateView
+      | RewriteIssued
+      | RewriteApplied
+      | Activate
+      | Deactivate
+    type t = array<kind>
+
+    let forget = (xs: t') => xs->Array.map(x =>
+        switch x {
+        | UpdateView(_, _, _) => UpdateView
+        | Rewrite(_, _) => RewriteIssued
+        | Activate => Activate
+        | Deactivate => Deactivate
+        }
+      )
+  }
 }
 
 module type Module = {
   type t
 
-  let make: Chan.t<Output.kind> => t
+  let make: Chan.t<Output.Log.t> => t
   let activate: (t, option<VSCode.TextEditor.t>, array<interval>) => Output.t
   let deactivate: t => Output.t
   let isActivated: t => bool
@@ -156,12 +139,19 @@ module Module: Module = {
   type t = {
     mutable instances: array<Instance.t>,
     mutable activated: bool,
-    // cursor positions will NOT be validated until the semaphore `busy` is flipped false
-    // cursor positions waiting to be validated will be queued here and resolved afterwards
-    semaphore: Semaphore.t<array<(interval, string)>>,
+    mutable semaphore: bool,
     // for reporting when some task has be done
-    chanLog: Chan.t<Output.kind>,
+    chanLog: Chan.t<Output.Log.t>,
   }
+
+  let logOutput = (self, output) => output->Promise.get(xs => {
+      if Array.length(xs) > 0 {
+        Chan.emit(self.chanLog, Output.Log.forget(xs))
+        Output.Log.forget(xs)->Js.log2(">>> ")
+      }
+    })
+
+  let logRewriteApplied = self => Chan.emit(self.chanLog, [RewriteApplied])
 
   let activate = (self, editor, cursors: array<interval>) => {
     self.activated = true
@@ -174,6 +164,7 @@ module Module: Module = {
         Instance.make(editor),
       )
 
+    logOutput(self, Promise.resolved([Output.Activate]))
     [Output.Activate]
   }
 
@@ -192,7 +183,7 @@ module Module: Module = {
     {
       instances: [],
       activated: false,
-      semaphore: Semaphore.make(),
+      semaphore: false,
       chanLog: chanLog,
     }
   }
@@ -259,7 +250,7 @@ module Module: Module = {
   // iterate through a list of rewrites and apply them to the text editor
   let applyRewrites = (self, editor, rewrites): Promise.t<Output.t> => {
     // lock before applying edits to the text editor
-    self.semaphore->Semaphore.lock
+    self.semaphore = true
 
     // calculate the replacements to be made to the editor
     let replacements = rewrites->Array.map(({interval, text}) => (interval, text))
@@ -276,18 +267,9 @@ module Module: Module = {
 
       // all offsets updated and rewrites have been applied
       // unlock the semaphore
-      self.semaphore->Semaphore.unlock(replacements)
+      self.semaphore = false
 
-      // // for testing
-      // self.instances[0]->Option.forEach(instance => {
-      //   self.chanLog->Chan.emit(
-      //     UpdateView(
-      //       Buffer.toSequence(instance.buffer),
-      //       instance.buffer.translation,
-      //       instance.buffer.candidateIndex,
-      //     ),
-      //   )
-      // })
+      logRewriteApplied(self)
     })
 
     // update the view
@@ -409,10 +391,10 @@ module Module: Module = {
 
   let isActivated = self => self.activated
 
-  let run = (self, editor, input) =>
-    switch input {
+  let run = (self, editor, input) => {
+    let output = switch input {
     | Input.Select(offsets) =>
-      if self.activated && !Semaphore.isLocked(self.semaphore) {
+      if self.activated && !self.semaphore {
         validateCursorPositions(self, offsets)
         if Js.Array.length(self.instances) == 0 {
           Promise.resolved(deactivate(self))
@@ -423,7 +405,7 @@ module Module: Module = {
         Promise.resolved([])
       }
     | Change(changes) =>
-      if self.activated && !Semaphore.isLocked(self.semaphore) {
+      if self.activated && !self.semaphore {
         // update the offsets to reflect the changes
         let (instances, rewrites) = updateInstances(self.instances, changes)
         self.instances = instances
@@ -459,6 +441,9 @@ module Module: Module = {
       let rewrites = toRewrites(self.instances, callback)
       applyRewrites(self, editor, rewrites)
     }
+    logOutput(self, output)
+    output
+  }
 
   // devise the "change" made to the input box
   let deviseChange = (self, previous, next): option<Input.t> =>
