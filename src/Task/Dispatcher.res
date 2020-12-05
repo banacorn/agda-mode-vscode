@@ -213,7 +213,7 @@ let make = (
   extentionPath: string,
   editor: VSCode.TextEditor.t,
   removeFromRegistry: unit => unit,
-  chan: Chan.t<IM.Output.Log.t>,
+  chan: Chan.t<IM.Log.t>,
 ) => {
   let state = State.make(extentionPath, chan, editor)
   let dispatcher = {
@@ -244,9 +244,9 @@ let make = (
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
     let input = IM.Input.fromTextDocumentChangeEvent(editor, event)
-    IM.run(state.editorIM, Some(editor), input)
-    ->Promise.flatMap(Handle__InputMethod.EditorIM.handle(state))
-    ->Promise.get(TaskQueue.addToTheFront(dispatcher.critical))
+    Handle__InputMethod.EditorIM.runAndHandle(state, input)->Promise.get(
+      TaskQueue.addToTheFront(dispatcher.critical),
+    )
   })->subscribe
 
   // remove it from the Registry if it requests to be destroyed

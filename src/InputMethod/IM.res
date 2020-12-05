@@ -12,6 +12,7 @@ module Input = {
     | BrowseRight
   type t =
     | Activate(array<interval>)
+    | Deactivate
     | Change(array<Buffer.change>)
     | Select(array<offset>)
     | Candidate(candidateInput)
@@ -41,57 +42,45 @@ module Output = {
     | Deactivate
 
   type t = array<kind>
+}
 
-  // for testing
-  module Log = {
-    type t' = t
-    type kind =
-      | UpdateView
-      | RewriteIssued
-      | RewriteApplied
-      | Activate
-      | Deactivate
-    type t = array<kind>
+// for testing
+module Log = {
+  type kind =
+    | UpdateView
+    | RewriteIssued
+    | RewriteApplied
+    | Activate
+    | Deactivate
+  type t = array<kind>
 
-    let forget = (xs: t') => xs->Array.map(x =>
-        switch x {
-        | UpdateView(_, _, _) => UpdateView
-        | Rewrite(_, _) => RewriteIssued
-        | Activate => Activate
-        | Deactivate => Deactivate
-        }
-      )
-  }
+  let fromOutput = (xs: Output.t) => xs->Array.map(x =>
+      switch x {
+      | UpdateView(_, _, _) => UpdateView
+      | Rewrite(_, _) => RewriteIssued
+      | Activate => Activate
+      | Deactivate => Deactivate
+      }
+    )
 }
 
 module type Module = {
   type t
 
-  let make: Chan.t<Output.Log.t> => t
-  let deactivate: t => Output.t
+  let make: Chan.t<Log.t> => t
   let isActivated: t => bool
 
-  let run: (t, option<VSCode.TextEditor.t>, Input.t) => Promise.t<Output.t>
+  let run: (t, option<VSCode.TextEditor.t>, Input.t) => Output.t
   let deviseChange: (t, string, string) => option<Input.t>
 }
 
 module Module: Module = {
-  let printLog = false
-  let log = if printLog {
-    Js.log
-  } else {
-    _ => ()
-  }
-
   module Instance = {
     type t = {
       mutable interval: interval,
       mutable decoration: option<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
-
-    let toString = self =>
-      "(" ++ string_of_int(fst(self.interval)) ++ ", " ++ (string_of_int(snd(self.interval)) ++ ")")
 
     let make = (editor, interval) =>
       switch editor {
@@ -141,28 +130,14 @@ module Module: Module = {
     mutable activated: bool,
     mutable semaphore: bool,
     // for reporting when some task has be done
-    chanLog: Chan.t<Output.Log.t>,
+    chanLog: Chan.t<Log.t>,
   }
 
-  let logOutput = (self, output) => output->Promise.get(xs => {
-      if Array.length(xs) > 0 {
-        Chan.emit(self.chanLog, Output.Log.forget(xs))
-        Output.Log.forget(xs)->Js.log2(">>> ")
-      }
-    })
-
+  let logOutput = (self, output) =>
+    if Array.length(output) > 0 {
+      Chan.emit(self.chanLog, Log.fromOutput(output))
+    }
   let logRewriteApplied = self => Chan.emit(self.chanLog, [RewriteApplied])
-
-  let deactivate = self => {
-    // setContext
-    VSCode.Commands.setContext("agdaModeTyping", false)->ignore
-
-    self.instances->Array.forEach(Instance.destroy)
-    self.instances = []
-    self.activated = false
-
-    [Output.Deactivate]
-  }
 
   let make = chanLog => {
     {
@@ -183,24 +158,16 @@ module Module: Module = {
 
   // kill the Instances that are not are not pointed by cursors
   // returns `true` when the system should be Deactivate
-  let validateCursorPositions = (self, offsets) => {
-    log(
-      "\n### Cursors  : " ++
-      (Js.Array.sortInPlaceWith(compare, offsets)->Array.map(string_of_int)->Util.Pretty.array ++
-      ("\n### Instances: " ++ self.instances->Array.map(Instance.toString)->Util.Pretty.array)),
-    )
-
-    // store the surviving instances
-    self.instances = self.instances->Array.keep((instance: Instance.t) => {
-        // if any cursor falls into the range of the instance, the instance survives
-        let survived = offsets->Array.some(Instance.withIn(instance))
-        // if not, the instance gets destroyed
-        if !survived {
-          Instance.destroy(instance)
-        }
-        survived
-      })
-  }
+  let validateCursorPositions = (instances, offsets): array<Instance.t> =>
+    instances->Array.keep((instance: Instance.t) => {
+      // if any cursor falls into the range of the instance, the instance survives
+      let survived = offsets->Array.some(Instance.withIn(instance))
+      // if not, the instance gets destroyed
+      if !survived {
+        Instance.destroy(instance)
+      }
+      survived
+    })
 
   //
   let toRewrites = (instances: array<Instance.t>, modify: Instance.t => option<string>): array<
@@ -230,48 +197,6 @@ module Module: Module = {
         }
       })
     })
-  }
-
-  // iterate through a list of rewrites and apply them to the text editor
-  let applyRewrites = (self, editor, rewrites): Promise.t<Output.t> => {
-    // lock before applying edits to the text editor
-    self.semaphore = true
-
-    // calculate the replacements to be made to the editor
-    let replacements = rewrites->Array.map(({interval, text}) => (interval, text))
-
-    let (promise, resolve) = Promise.pending()
-
-    promise->Promise.get(() => {
-      // redecorate and update intervals of each Instance
-      rewrites->Array.forEach(rewrite => {
-        rewrite.instance->Option.forEach(instance => {
-          editor->Option.forEach(Instance.redecorate(instance))
-        })
-      })
-
-      // all offsets updated and rewrites have been applied
-      // unlock the semaphore
-      self.semaphore = false
-
-      logRewriteApplied(self)
-    })
-
-    // update the view
-    switch self.instances[0] {
-    | None =>
-      Promise.resolved(Belt.Array.concat([Output.Rewrite(replacements, resolve)], deactivate(self)))
-    | Some(instance) =>
-      // real output
-      Promise.resolved([
-        Output.Rewrite(replacements, resolve),
-        UpdateView(
-          Buffer.toSequence(instance.buffer),
-          instance.buffer.translation,
-          instance.buffer.candidateIndex,
-        ),
-      ])
-    }
   }
 
   let groupChangeWithInstances = (
@@ -376,7 +301,58 @@ module Module: Module = {
 
   let isActivated = self => self.activated
 
-  let run = (self, editor, input) => {
+  let deactivate = self => {
+    // setContext
+    VSCode.Commands.setContext("agdaModeTyping", false)->ignore
+
+    self.instances->Array.forEach(Instance.destroy)
+    self.instances = []
+    self.activated = false
+  }
+
+  // iterate through a list of rewrites and apply them to the text editor
+  let applyRewrites = (self, editor, rewrites): Output.t => {
+    // lock before applying edits to the text editor
+    self.semaphore = true
+
+    // calculate the replacements to be made to the editor
+    let replacements = rewrites->Array.map(({interval, text}) => (interval, text))
+
+    let (promise, resolve) = Promise.pending()
+
+    // this promise will be resolved, once the real edits have been made
+    promise->Promise.get(() => {
+      // redecorate instances
+      rewrites->Array.forEach(rewrite => {
+        rewrite.instance->Option.forEach(instance => {
+          editor->Option.forEach(Instance.redecorate(instance))
+        })
+      })
+
+      // unlock the semaphore
+      self.semaphore = false
+
+      // for testing
+      logRewriteApplied(self)
+    })
+
+    // deactivate if there are no instances left
+    switch self.instances[0] {
+    | None =>
+      deactivate(self)
+      [Output.Rewrite(replacements, resolve), Deactivate]
+    | Some(instance) => [
+        Output.Rewrite(replacements, resolve),
+        UpdateView(
+          Buffer.toSequence(instance.buffer),
+          instance.buffer.translation,
+          instance.buffer.candidateIndex,
+        ),
+      ]
+    }
+  }
+
+  let rec run = (self, editor, input) => {
     let output = switch input {
     | Input.Activate(intervals) =>
       self.activated = true
@@ -389,18 +365,21 @@ module Module: Module = {
           Instance.make(editor),
         )
 
-      logOutput(self, Promise.resolved([Output.Activate]))
-      Promise.resolved([Output.Activate])
+      [Output.Activate]
+    | Deactivate =>
+      deactivate(self)
+      [Output.Deactivate]
     | Select(offsets) =>
       if self.activated && !self.semaphore {
-        validateCursorPositions(self, offsets)
+        self.instances = validateCursorPositions(self.instances, offsets)
+        // deactivate if all instances have been destroyed
         if Js.Array.length(self.instances) == 0 {
-          Promise.resolved(deactivate(self))
+          run(self, editor, Deactivate)
         } else {
-          Promise.resolved([])
+          []
         }
       } else {
-        Promise.resolved([])
+        []
       }
     | Change(changes) =>
       if self.activated && !self.semaphore {
@@ -410,7 +389,7 @@ module Module: Module = {
         // apply rewrites onto the text editor
         applyRewrites(self, editor, rewrites)
       } else {
-        Promise.resolved([])
+        []
       }
     | Candidate(action) =>
       let callback = switch action {
