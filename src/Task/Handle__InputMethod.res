@@ -3,7 +3,7 @@ open Belt
 open! Task
 
 module EditorIM = {
-  let activate = (state: State.t) => {
+  let activate = (state: State.t): Promise.t<IM.Output.t> => {
     // activated the input method with cursors positions
     let document = VSCode.TextEditor.document(state.editor)
     let intervals: array<(int, int)> =
@@ -11,7 +11,7 @@ module EditorIM = {
         document->VSCode.TextDocument.offsetAt(VSCode.Range.start(range)),
         document->VSCode.TextDocument.offsetAt(VSCode.Range.end_(range)),
       ))
-    IM.activate(state.editorIM, Some(state.editor), intervals)
+    IM.run(state.editorIM, Some(state.editor), Activate(intervals))
   }
 
   let deactivate = (state: State.t) => IM.deactivate(state.editorIM)
@@ -52,7 +52,7 @@ module PromptIM = {
 
     // save the input
     previous.contents = input
-    IM.activate(state.promptIM, None, [(cursorOffset, cursorOffset)])
+    IM.run(state.promptIM, None, Activate([(cursorOffset, cursorOffset)]))
   }
 
   let deactivate = (state: State.t) => state.promptIM->IM.deactivate
@@ -133,12 +133,12 @@ let activateEditorIM = (state: State.t): Promise.t<list<Task.t>> =>
     // deactivate the prompt IM
     let tasks1 = PromptIM.handle(PromptIM.deactivate(state))
     // activate the editor IM
-    EditorIM.handle(state, EditorIM.activate(state))->Promise.map(tasks2 => {
+    EditorIM.activate(state)->Promise.flatMap(EditorIM.handle(state))->Promise.map(tasks2 => {
       List.concat(tasks1, tasks2)
     })
   | None =>
     // activate the editor IM
-    EditorIM.handle(state, EditorIM.activate(state))
+    EditorIM.activate(state)->Promise.flatMap(EditorIM.handle(state))
   }
 
 // activate the prompt IM when the user typed a backslash "/"
@@ -149,10 +149,11 @@ let activatePromptIM = (state: State.t, input) =>
   | Editor =>
     if shouldActivatePromptIM(input) {
       // deactivate the editor IM
-      EditorIM.handle(state, EditorIM.deactivate(state))->Promise.map(tasks1 => {
+      EditorIM.handle(state, EditorIM.deactivate(state))->Promise.flatMap(tasks1 => {
         // activate the prompt IM
-        let tasks2 = PromptIM.handle(PromptIM.activate(state, input))
-        List.concat(tasks1, tasks2)
+        PromptIM.activate(state, input)
+        ->Promise.map(PromptIM.handle)
+        ->Promise.map(tasks2 => List.concat(tasks1, tasks2))
       })
     } else {
       list{ViewEvent(PromptIMUpdate(input))}->Promise.resolved
@@ -160,7 +161,7 @@ let activatePromptIM = (state: State.t, input) =>
   | Prompt => PromptIM.change(state, input)->Promise.map(PromptIM.handle)
   | None =>
     if shouldActivatePromptIM(input) {
-      PromptIM.handle(PromptIM.activate(state, input))->Promise.resolved
+      PromptIM.activate(state, input)->Promise.map(PromptIM.handle)
     } else {
       list{ViewEvent(PromptIMUpdate(input))}->Promise.resolved
     }

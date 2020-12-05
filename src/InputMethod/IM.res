@@ -11,6 +11,7 @@ module Input = {
     | BrowseLeft
     | BrowseRight
   type t =
+    | Activate(array<interval>)
     | Change(array<Buffer.change>)
     | Select(array<offset>)
     | Candidate(candidateInput)
@@ -67,7 +68,6 @@ module type Module = {
   type t
 
   let make: Chan.t<Output.Log.t> => t
-  let activate: (t, option<VSCode.TextEditor.t>, array<interval>) => Output.t
   let deactivate: t => Output.t
   let isActivated: t => bool
 
@@ -152,21 +152,6 @@ module Module: Module = {
     })
 
   let logRewriteApplied = self => Chan.emit(self.chanLog, [RewriteApplied])
-
-  let activate = (self, editor, cursors: array<interval>) => {
-    self.activated = true
-    // setContext
-    VSCode.Commands.setContext("agdaModeTyping", true)->ignore
-
-    // instantiate from an array of offsets
-    self.instances =
-      Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), cursors)->Array.map(
-        Instance.make(editor),
-      )
-
-    logOutput(self, Promise.resolved([Output.Activate]))
-    [Output.Activate]
-  }
 
   let deactivate = self => {
     // setContext
@@ -393,7 +378,20 @@ module Module: Module = {
 
   let run = (self, editor, input) => {
     let output = switch input {
-    | Input.Select(offsets) =>
+    | Input.Activate(intervals) =>
+      self.activated = true
+      // setContext
+      VSCode.Commands.setContext("agdaModeTyping", true)->ignore
+
+      // instantiate from an array of offsets
+      self.instances =
+        Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), intervals)->Array.map(
+          Instance.make(editor),
+        )
+
+      logOutput(self, Promise.resolved([Output.Activate]))
+      Promise.resolved([Output.Activate])
+    | Select(offsets) =>
       if self.activated && !self.semaphore {
         validateCursorPositions(self, offsets)
         if Js.Array.length(self.instances) == 0 {
