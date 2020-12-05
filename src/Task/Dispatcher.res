@@ -237,7 +237,6 @@ let make = (
       ->VSCode.TextEditorSelectionChangeEvent.selections
       ->Array.map(VSCode.Selection.anchor)
       ->Array.map(VSCode.TextDocument.offsetAt(VSCode.TextEditor.document(editor)))
-    Js.log2("SELECT", offsets)
 
     Handle__InputMethod.select(state, offsets)->Promise.get(
       TaskQueue.addToTheFront(dispatcher.critical),
@@ -290,7 +289,7 @@ let make = (
 
   let documentSemanticTokensProvider = (fileName, push) => {
     let useSemanticHighlighting = Config.getSemanticHighlighting()
-    Js.log("useSemanticHighlighting")
+    // Js.log("useSemanticHighlighting")
     let document = VSCode.TextEditor.document(editor)
     let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
     if useSemanticHighlighting && fileName == currentFileName {

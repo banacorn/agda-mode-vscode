@@ -243,16 +243,16 @@ module Module: Module = {
       // unlock the semaphore
       self.semaphore->Semaphore.unlock(replacements)
 
-      // for testing
-      self.instances[0]->Option.forEach(instance => {
-        self.chanLog->Chan.emit(
-          UpdateView(
-            Buffer.toSequence(instance.buffer),
-            instance.buffer.translation,
-            instance.buffer.candidateIndex,
-          ),
-        )
-      })
+      // // for testing
+      // self.instances[0]->Option.forEach(instance => {
+      //   self.chanLog->Chan.emit(
+      //     UpdateView(
+      //       Buffer.toSequence(instance.buffer),
+      //       instance.buffer.translation,
+      //       instance.buffer.candidateIndex,
+      //     ),
+      //   )
+      // })
     })
 
     // update the view
@@ -373,7 +373,7 @@ module Module: Module = {
     self.activated = true
 
     // emit ACTIVATE event after applied rewriting
-    self.chanLog->Chan.emit(Activate)
+    // self.chanLog->Chan.emit(Activate)
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", true)->ignore
 
@@ -388,7 +388,7 @@ module Module: Module = {
     // setContext
     VSCode.Commands.setContext("agdaModeTyping", false)->ignore
 
-    self.chanLog->Chan.emit(Deactivate)
+    // self.chanLog->Chan.emit(Deactivate)
 
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
@@ -410,47 +410,14 @@ module Module: Module = {
   let run = (self, editor, input) =>
     switch input {
     | Input.Select(offsets) =>
-      if self.activated {
-        self.semaphore->Semaphore.acquire->Promise.map(replacements => {
-          if Js.Array.length(self.instances) != 0 {
-            Js.log2("before", offsets)
-            // update `offsets` after rewrites have been made
-            let offsets = {
-              let accum = ref(0)
-              // a array of (offset, delta) pairs
-              let deltaTable = replacements->Option.mapWithDefault([], xs => xs->Array.map(((
-                  (start, end_),
-                  text,
-                )) => {
-                  let delta = Js.String.length(text) + start - end_
-                  accum := accum.contents + delta
-                  (start, accum.contents)
-                }))
-              let lookupDelta = offset => {
-                let (_, delta) =
-                  deltaTable->Array.reduce((0, 0), ((x, d), (y, e)) =>
-                    offset >= y ? (y, e) : (x, d)
-                  )
-                delta
-              }
-
-              offsets->Array.map(offset => {
-                offset + lookupDelta(offset)
-              })
-            }
-            Js.log3("after", offsets, self.instances->Array.map(instance => instance.interval))
-
-            validateCursorPositions(self, offsets)
-            if Js.Array.length(self.instances) == 0 {
-              deactivate(self)
-              [Output.Deactivate]
-            } else {
-              []
-            }
-          } else {
-            []
-          }
-        })
+      if self.activated && !Semaphore.isLocked(self.semaphore) {
+        validateCursorPositions(self, offsets)
+        if Js.Array.length(self.instances) == 0 {
+          deactivate(self)
+          Promise.resolved([Output.Deactivate])
+        } else {
+          Promise.resolved([])
+        }
       } else {
         Promise.resolved([])
       }

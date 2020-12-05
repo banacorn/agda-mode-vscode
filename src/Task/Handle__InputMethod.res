@@ -38,9 +38,8 @@ module EditorIM = {
           resolve()
           list{}
         })
-      // DispatchCommand(InputMethod(Rewrite(xs, f)))
       | Activate => Promise.resolved(list{DispatchCommand(InputMethod(Activate))})
-      | Deactivate => Promise.resolved(list{ViewEvent(InputMethod(Deactivate))})
+      | Deactivate => Promise.resolved(deactivate(state.editorIM))
       }
     output->Array.map(handle)->Util.oneByOne->Promise.map(List.concatMany)
   }
