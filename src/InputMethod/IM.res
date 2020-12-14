@@ -48,7 +48,7 @@ module Output = {
 module Log = {
   type kind =
     | UpdateView
-    | RewriteIssued
+    | RewriteIssued(array<(interval, string)>)
     | RewriteApplied
     | Activate
     | Deactivate
@@ -57,7 +57,7 @@ module Log = {
   let fromOutput = (xs: Output.t) => xs->Array.map(x =>
       switch x {
       | UpdateView(_, _, _) => UpdateView
-      | Rewrite(_, _) => RewriteIssued
+      | Rewrite(xs, _) => RewriteIssued(xs)
       | Activate => Activate
       | Deactivate => Deactivate
       }

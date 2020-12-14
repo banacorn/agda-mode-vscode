@@ -103,31 +103,31 @@ describe("Input Method (Editor)", () => {
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
         ->flatMapOk(() => IM.insertChar(setup, "l"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`←`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←a`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "m"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←am`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←amb`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "d"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←ambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 6), j`λ`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`λ`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`λb`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`λba`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "r"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, Deactivate, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 4), j`ƛ`)]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`ƛ`, Editor.Text.getAll(document)))
       }))
     Q.it(j`should translate "bn" to "𝕟"`, () => acquire(setup)->flatMapOk(setup => {
@@ -135,10 +135,10 @@ describe("Input Method (Editor)", () => {
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`♭`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "n"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, Deactivate, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 2), j`𝕟`)]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`𝕟`, Editor.Text.getAll(document)))
       }))
     Q.it(j`should abort nicely`, () => acquire(setup)->flatMapOk(setup => {
@@ -146,7 +146,7 @@ describe("Input Method (Editor)", () => {
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`♭`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.deactivate(setup))
         ->flatMapOk(IM.deep_equal([Deactivate]))
@@ -159,31 +159,33 @@ describe("Input Method (Editor)", () => {
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
         ->flatMapOk(() => IM.insertChar(setup, "l"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`←`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←a`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.backspace(setup))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`←`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←a`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "m"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←am`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←amb`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "d"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←ambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 6), j`λ`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`λ`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.backspace(setup))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(
+          IM.deep_equal([RewriteIssued([((0, 0), j`lambd`)]), UpdateView, RewriteApplied]),
+        )
         ->flatMapOk(() => A.equal(j`lambd`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.deactivate(setup))
         ->flatMapOk(IM.deep_equal([Deactivate]))
@@ -209,74 +211,91 @@ describe("Input Method (Editor)", () => {
         ->flatMap(_ => IM.activate(setup, ~positions, ()))
         ->flatMapOk(IM.deep_equal([Activate]))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+        ->flatMapOk(
+          IM.deep_equal([
+            RewriteIssued([((0, 1), j`♭`), ((2, 3), j`♭`), ((4, 5), j`♭`), ((6, 7), j`♭`)]),
+            UpdateView,
+            RewriteApplied,
+          ]),
+        )
         ->flatMapOk(() =>
           A.equal(j`♭\\n♭\\n♭\\n♭`, replaceCRLF(Editor.Text.getAll(document)))
         )
         ->flatMapOk(() => IM.insertChar(setup, "n"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, Deactivate, RewriteApplied]))
+        ->flatMapOk(
+          IM.deep_equal([
+            RewriteIssued([
+              ((0, 2), j`𝕟`),
+              ((3, 5), j`𝕟`),
+              ((6, 8), j`𝕟`),
+              ((9, 11), j`𝕟`),
+            ]),
+            Deactivate,
+            RewriteApplied,
+          ]),
+        )
         ->flatMapOk(() =>
           A.equal(j`𝕟\\n𝕟\\n𝕟\\n𝕟`, replaceCRLF(Editor.Text.getAll(document)))
         )
       })
     })
-    Q.it_skip(j`should work just fine (ƛ)`, () => {
-      acquire(setup)->flatMapOk(setup => {
-        let positions = [
-          VSCode.Position.make(0, 0),
-          VSCode.Position.make(1, 1),
-          VSCode.Position.make(2, 2),
-          VSCode.Position.make(3, 3),
-        ]
-        let document = VSCode.TextEditor.document(setup.editor)
+    // Q.it_skip(j`should work just fine (ƛ)`, () => {
+    //   acquire(setup)->flatMapOk(setup => {
+    //     let positions = [
+    //       VSCode.Position.make(0, 0),
+    //       VSCode.Position.make(1, 1),
+    //       VSCode.Position.make(2, 2),
+    //       VSCode.Position.make(3, 3),
+    //     ]
+    //     let document = VSCode.TextEditor.document(setup.editor)
 
-        document
-        ->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
-        ->flatMap(_ => IM.activate(setup, ~positions, ()))
-        ->flatMapOk(IM.deep_equal([Activate]))
-        ->flatMapOk(() => IM.insertChar(setup, "l"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-        ->flatMapOk(() =>
-          A.equal(j`←123\\n1←23\\n12←3\\n123←`, replaceCRLF(Editor.Text.getAll(document)))
-        )
-        ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-        ->flatMapOk(() =>
-          A.equal(
-            j`←a123\\n1←a23\\n12←a3\\n123←a`,
-            replaceCRLF(Editor.Text.getAll(document)),
-          )
-        )
-        ->flatMapOk(() => IM.insertChar(setup, "m"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-        ->flatMapOk(() =>
-          A.equal(
-            j`←am123\\n1←am23\\n12←am3\\n123←am`,
-            replaceCRLF(Editor.Text.getAll(document)),
-          )
-        )
-        ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-        ->flatMapOk(() =>
-          A.equal(
-            j`←amb123\\n1←amb23\\n12←amb3\\n123←amb`,
-            replaceCRLF(Editor.Text.getAll(document)),
-          )
-        )
-        ->flatMapOk(() => IM.insertChar(setup, "d"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-        ->flatMapOk(() =>
-          A.equal(
-            j`←ambd123\\n1←ambd23\\n12←ambd3\\n123←ambd`,
-            replaceCRLF(Editor.Text.getAll(document)),
-          )
-        )
-        ->flatMapOk(() => IM.insertChar(setup, "a"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-        ->flatMapOk(() =>
-          A.equal(j`λ123\\n1λ23\\n12λ3\\n123λ`, replaceCRLF(Editor.Text.getAll(document)))
-        )
-      })
-    })
+    //     document
+    //     ->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
+    //     ->flatMap(_ => IM.activate(setup, ~positions, ()))
+    //     ->flatMapOk(IM.deep_equal([Activate]))
+    //     ->flatMapOk(() => IM.insertChar(setup, "l"))
+    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+    //     ->flatMapOk(() =>
+    //       A.equal(j`←123\\n1←23\\n12←3\\n123←`, replaceCRLF(Editor.Text.getAll(document)))
+    //     )
+    //     ->flatMapOk(() => IM.insertChar(setup, "a"))
+    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+    //     ->flatMapOk(() =>
+    //       A.equal(
+    //         j`←a123\\n1←a23\\n12←a3\\n123←a`,
+    //         replaceCRLF(Editor.Text.getAll(document)),
+    //       )
+    //     )
+    //     ->flatMapOk(() => IM.insertChar(setup, "m"))
+    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+    //     ->flatMapOk(() =>
+    //       A.equal(
+    //         j`←am123\\n1←am23\\n12←am3\\n123←am`,
+    //         replaceCRLF(Editor.Text.getAll(document)),
+    //       )
+    //     )
+    //     ->flatMapOk(() => IM.insertChar(setup, "b"))
+    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+    //     ->flatMapOk(() =>
+    //       A.equal(
+    //         j`←amb123\\n1←amb23\\n12←amb3\\n123←amb`,
+    //         replaceCRLF(Editor.Text.getAll(document)),
+    //       )
+    //     )
+    //     ->flatMapOk(() => IM.insertChar(setup, "d"))
+    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+    //     ->flatMapOk(() =>
+    //       A.equal(
+    //         j`←ambd123\\n1←ambd23\\n12←ambd3\\n123←ambd`,
+    //         replaceCRLF(Editor.Text.getAll(document)),
+    //       )
+    //     )
+    //     ->flatMapOk(() => IM.insertChar(setup, "a"))
+    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
+    //     ->flatMapOk(() =>
+    //       A.equal(j`λ123\\n1λ23\\n12λ3\\n123λ`, replaceCRLF(Editor.Text.getAll(document)))
+    //     )
+    //   })
+    // })
   })
 })
