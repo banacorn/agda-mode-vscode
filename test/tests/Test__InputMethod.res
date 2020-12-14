@@ -239,63 +239,47 @@ describe("Input Method (Editor)", () => {
         )
       })
     })
-    // Q.it_skip(j`should work just fine (ƛ)`, () => {
-    //   acquire(setup)->flatMapOk(setup => {
-    //     let positions = [
-    //       VSCode.Position.make(0, 0),
-    //       VSCode.Position.make(1, 1),
-    //       VSCode.Position.make(2, 2),
-    //       VSCode.Position.make(3, 3),
-    //     ]
-    //     let document = VSCode.TextEditor.document(setup.editor)
+    Q.it(j`should work just fine (∧)`, () => {
+      acquire(setup)->flatMapOk(setup => {
+        let positions = [
+          VSCode.Position.make(0, 0),
+          VSCode.Position.make(1, 1),
+          VSCode.Position.make(2, 2),
+          VSCode.Position.make(3, 3),
+        ]
+        let document = VSCode.TextEditor.document(setup.editor)
 
-    //     document
-    //     ->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
-    //     ->flatMap(_ => IM.activate(setup, ~positions, ()))
-    //     ->flatMapOk(IM.deep_equal([Activate]))
-    //     ->flatMapOk(() => IM.insertChar(setup, "l"))
-    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-    //     ->flatMapOk(() =>
-    //       A.equal(j`←123\\n1←23\\n12←3\\n123←`, replaceCRLF(Editor.Text.getAll(document)))
-    //     )
-    //     ->flatMapOk(() => IM.insertChar(setup, "a"))
-    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-    //     ->flatMapOk(() =>
-    //       A.equal(
-    //         j`←a123\\n1←a23\\n12←a3\\n123←a`,
-    //         replaceCRLF(Editor.Text.getAll(document)),
-    //       )
-    //     )
-    //     ->flatMapOk(() => IM.insertChar(setup, "m"))
-    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-    //     ->flatMapOk(() =>
-    //       A.equal(
-    //         j`←am123\\n1←am23\\n12←am3\\n123←am`,
-    //         replaceCRLF(Editor.Text.getAll(document)),
-    //       )
-    //     )
-    //     ->flatMapOk(() => IM.insertChar(setup, "b"))
-    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-    //     ->flatMapOk(() =>
-    //       A.equal(
-    //         j`←amb123\\n1←amb23\\n12←amb3\\n123←amb`,
-    //         replaceCRLF(Editor.Text.getAll(document)),
-    //       )
-    //     )
-    //     ->flatMapOk(() => IM.insertChar(setup, "d"))
-    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-    //     ->flatMapOk(() =>
-    //       A.equal(
-    //         j`←ambd123\\n1←ambd23\\n12←ambd3\\n123←ambd`,
-    //         replaceCRLF(Editor.Text.getAll(document)),
-    //       )
-    //     )
-    //     ->flatMapOk(() => IM.insertChar(setup, "a"))
-    //     ->flatMapOk(IM.deep_equal([RewriteIssued, UpdateView, RewriteApplied]))
-    //     ->flatMapOk(() =>
-    //       A.equal(j`λ123\\n1λ23\\n12λ3\\n123λ`, replaceCRLF(Editor.Text.getAll(document)))
-    //     )
-    //   })
-    // })
+        document
+        ->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
+        ->flatMap(_ => IM.activate(setup, ~positions, ()))
+        ->flatMapOk(IM.deep_equal([Activate]))
+        ->flatMapOk(() => IM.insertChar(setup, "a"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() =>
+          A.equal(j`a123\\n1a23\\n12a3\\n123a`, replaceCRLF(Editor.Text.getAll(document)))
+        )
+        ->flatMapOk(() => IM.insertChar(setup, "n"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() =>
+          A.equal(j`an123\\n1an23\\n12an3\\n123an`, replaceCRLF(Editor.Text.getAll(document)))
+        )
+        ->flatMapOk(() => IM.insertChar(setup, "d"))
+        ->flatMapOk(
+          IM.deep_equal([
+            RewriteIssued([
+              ((0, 3), j`∧`),
+              ((8, 11), j`∧`),
+              ((16, 19), j`∧`),
+              ((24, 27), j`∧`),
+            ]),
+            UpdateView,
+            RewriteApplied,
+          ]),
+        )
+        ->flatMapOk(() =>
+          A.equal(j`∧123\\n1∧23\\n12∧3\\n123∧`, replaceCRLF(Editor.Text.getAll(document)))
+        )
+      })
+    })
   })
 })

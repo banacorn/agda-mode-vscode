@@ -261,8 +261,6 @@ module Module: Module = {
             fst(instance.interval),
             change,
           )
-          // Js.log4("Buffer.update ", instance.buffer, fst(instance.interval), change)
-          // Js.log3("Buffer.update2 ", buffer, shouldRewrite)
 
           // issue rewrites
           shouldRewrite->Option.forEach(text => {
@@ -273,7 +271,7 @@ module Module: Module = {
             instance.interval = (start + accum.contents, end_ + accum.contents + delta)
             Js.Array.push(
               {
-                interval: (start + accum.contents, end_ + accum.contents),
+                interval: (start, end_),
                 text: text,
                 instance: buffer.translation.further ? Some(instance) : None,
               },
