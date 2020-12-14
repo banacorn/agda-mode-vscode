@@ -141,17 +141,6 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 2), j`𝕟`)]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`𝕟`, Editor.Text.getAll(document)))
       }))
-    Q.it(j`should abort nicely`, () => acquire(setup)->flatMapOk(setup => {
-        let document = VSCode.TextEditor.document(setup.editor)
-        IM.activate(setup, ())
-        ->flatMapOk(IM.deep_equal([Activate]))
-        ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`♭`)]), UpdateView, RewriteApplied]))
-        ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
-        ->flatMapOk(() => IM.deactivate(setup))
-        ->flatMapOk(IM.deep_equal([Deactivate]))
-        ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
-      }))
   })
   describe("Backspacing", () =>
     Q.it(j`should work just fine`, () => acquire(setup)->flatMapOk(setup => {
@@ -193,6 +182,30 @@ describe("Input Method (Editor)", () => {
       }))
   )
 
+  describe("Abortion", () => {
+    Q.it(j`should abort after hitting escape`, () => acquire(setup)->flatMapOk(setup => {
+        let document = VSCode.TextEditor.document(setup.editor)
+        IM.activate(setup, ())
+        ->flatMapOk(IM.deep_equal([Activate]))
+        ->flatMapOk(() => IM.insertChar(setup, "b"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`♭`)]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
+        ->flatMapOk(() => IM.deactivate(setup))
+        ->flatMapOk(IM.deep_equal([Deactivate]))
+        ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
+      }))
+    Q.it(j`should abort after typing the wrong sequence`, () => acquire(setup)->flatMapOk(setup => {
+        let document = VSCode.TextEditor.document(setup.editor)
+        IM.activate(setup, ())
+        ->flatMapOk(IM.deep_equal([Activate]))
+        ->flatMapOk(() => IM.insertChar(setup, "a"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`a`, Editor.Text.getAll(document)))
+        ->flatMapOk(() => IM.insertChar(setup, "d"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), Deactivate, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`ad`, Editor.Text.getAll(document)))
+      }))
+  })
   describe("Multiple cursors at once", () => {
     let replaceCRLF = Js.String.replaceByRe(%re("/\\r\\n/g"), "\n")
     Q.it(j`should work just fine (𝕟)`, () => {
