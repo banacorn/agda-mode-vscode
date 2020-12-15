@@ -32,6 +32,7 @@ module Input = {
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
     let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
     if fileName == eventFileName {
+      Js.log(Array.length(event->VSCode.TextDocumentChangeEvent.contentChanges) !== 0)
       // TextDocumentContentChangeEvent.t => Buffer.change
       Change(event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
           Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
@@ -393,7 +394,7 @@ module Module: Module = {
         []
       }
     | Change(changes) =>
-      if self.activated && !self.semaphore {
+      if Array.length(changes) !== 0 && self.activated && !self.semaphore {
         // update the offsets to reflect the changes
         let (instances, rewrites) = updateInstances(self.instances, changes)
         self.instances = instances
