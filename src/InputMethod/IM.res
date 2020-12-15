@@ -24,7 +24,7 @@ module Input = {
     | Activate(array<interval>)
     | Deactivate
     | Change(array<Buffer.change>)
-    | Select(array<offset>)
+    | Select(array<interval>)
     | Candidate(candidateInput)
 
   let fromTextDocumentChangeEvent = (editor, event) => {
@@ -166,10 +166,13 @@ module Module: Module = {
 
   // kill the Instances that are not are not pointed by cursors
   // returns `true` when the system should be Deactivate
-  let validateCursorPositions = (instances, offsets): array<Instance.t> =>
+  let validateCursorPositions = (instances, intervals): array<Instance.t> =>
     instances->Array.keep((instance: Instance.t) => {
-      // if any cursor falls into the range of the instance, the instance survives
-      let survived = offsets->Array.some(Instance.withIn(instance))
+      // if any selection falls into the range of the instance, the instance survives
+      let survived =
+        intervals->Array.some(((start, end_)) =>
+          Instance.withIn(instance, start) && Instance.withIn(instance, end_)
+        )
       // if not, the instance gets destroyed
       if !survived {
         Instance.destroy(instance)
@@ -380,9 +383,9 @@ module Module: Module = {
     | Deactivate =>
       deactivate(self)
       [Output.Deactivate]
-    | Select(offsets) =>
+    | Select(intervals) =>
       if self.activated && !self.semaphore {
-        self.instances = validateCursorPositions(self.instances, offsets)
+        self.instances = validateCursorPositions(self.instances, intervals)
         // deactivate if all instances have been destroyed
         if Js.Array.length(self.instances) == 0 {
           run(self, editor, Deactivate)

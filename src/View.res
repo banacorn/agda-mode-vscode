@@ -643,7 +643,7 @@ module EventFromView = {
 
   module Prompt = {
     type t =
-      | Select(array<int>)
+      | Select((int, int))
       | Change(string)
       | BrowseUp
       | BrowseDown
@@ -655,7 +655,7 @@ module EventFromView = {
 
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "Select" => Contents(array(int) |> map(offsets => Select(offsets)))
+      | "Select" => Contents(pair(int, int) |> map(interval => Select(interval)))
       | "Change" => Contents(string |> map(char => Change(char)))
       | "BrowseUp" => TagOnly(BrowseUp)
       | "BrowseDown" => TagOnly(BrowseDown)
@@ -668,8 +668,8 @@ module EventFromView = {
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
-      | Select(offsets) =>
-        object_(list{("tag", string("Select")), ("contents", offsets |> array(int))})
+      | Select(interval) =>
+        object_(list{("tag", string("Select")), ("contents", interval |> pair(int, int))})
       | Change(char) => object_(list{("tag", string("Change")), ("contents", char |> string)})
       | BrowseUp => object_(list{("tag", string("BrowseUp"))})
       | BrowseDown => object_(list{("tag", string("BrowseDown"))})

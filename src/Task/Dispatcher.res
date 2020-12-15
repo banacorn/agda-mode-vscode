@@ -232,13 +232,16 @@ let make = (
 
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
-    let offsets =
+    let document = VSCode.TextEditor.document(editor)
+    let intervals =
       event
       ->VSCode.TextEditorSelectionChangeEvent.selections
-      ->Array.map(VSCode.Selection.anchor)
-      ->Array.map(VSCode.TextDocument.offsetAt(VSCode.TextEditor.document(editor)))
+      ->Array.map(selection => (
+        IM.toOffset(document, VSCode.Selection.start(selection)),
+        IM.toOffset(document, VSCode.Selection.end_(selection)),
+      ))
 
-    Handle__InputMethod.select(state, offsets)->Promise.get(
+    Handle__InputMethod.select(state, intervals)->Promise.get(
       TaskQueue.addToTheFront(dispatcher.critical),
     )
   })->subscribe

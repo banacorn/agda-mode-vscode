@@ -32,8 +32,9 @@ let make = (
 
     let onMouseUp = event => {
       if inputMethodActivated {
-        let offset: int = (event->ReactEvent.Mouse.target)["selectionStart"]
-        onChange(Select([offset]))
+        let start: int = (event->ReactEvent.Mouse.target)["selectionStart"]
+        let end_: int = (event->ReactEvent.Mouse.target)["selectionEnd"]
+        onChange(Select((start, end_)))
       }
     }
 

@@ -227,8 +227,8 @@ let handle = command => {
     | InputMethod(ChooseSymbol(symbol)) => list{
         WithStateP(state => Handle__InputMethod.chooseSymbol(state, symbol)),
       }
-    | PromptChange(Select(offset)) => list{
-        WithStateP(state => Handle__InputMethod.select(state, offset)),
+    | PromptChange(Select(interval)) => list{
+        WithStateP(state => Handle__InputMethod.select(state, [interval])),
       }
     | PromptChange(Change(input)) => list{
         WithStateP(state => Handle__InputMethod.activatePromptIM(state, input)),
