@@ -3,6 +3,16 @@ open Belt
 type offset = int
 type interval = (offset, offset)
 
+let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
+let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
+
+let fromInterval = (document, interval) =>
+  VSCode.Range.make(document->fromOffset(fst(interval)), document->fromOffset(snd(interval)))
+let toInterval = (document, range) => (
+  document->toOffset(VSCode.Range.start(range)),
+  document->toOffset(VSCode.Range.end_(range)),
+)
+
 module Input = {
   type candidateInput =
     | ChooseSymbol(string)

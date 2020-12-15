@@ -85,6 +85,18 @@ module IM = {
     ->flatMapOk(() => promise1)
     ->flatMapOk(result1 => promise2->Promise.mapOk(result2 => Array.concat(result1, result2)))
   }
+
+  let select = (setup, intervals) => {
+    let ranges = intervals->Array.map(IM.fromInterval(setup.editor->VSCode.TextEditor.document))
+    Editor.Selection.setMany(setup.editor, ranges)
+    Promise.resolved(Ok())
+  }
+  let selectAndWait = (setup, intervals) => {
+    let promise = wait(setup)
+    let ranges = intervals->Array.map(IM.fromInterval(setup.editor->VSCode.TextEditor.document))
+    Editor.Selection.setMany(setup.editor, ranges)
+    promise
+  }
 }
 
 describe("Input Method (Editor)", () => {
@@ -206,6 +218,57 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => A.equal(j`ad`, Editor.Text.getAll(document)))
       }))
   })
+
+  describe("Cursor", () => {
+    Q.it(j`should not abort when the cursor is placed inside the buffer`, () =>
+      acquire(setup)->flatMapOk(setup => {
+        let document = VSCode.TextEditor.document(setup.editor)
+        IM.activate(setup, ())
+        ->flatMapOk(IM.deep_equal([Activate]))
+        ->flatMapOk(() => IM.insertChar(setup, "a"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`a`, Editor.Text.getAll(document)))
+        ->flatMapOk(() => IM.insertChar(setup, "n"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`an`, Editor.Text.getAll(document)))
+        // messing with the cursor
+        ->flatMapOk(() => IM.select(setup, [(0, 0)]))
+        ->flatMapOk(() => IM.select(setup, [(1, 1)]))
+        ->flatMapOk(() => IM.select(setup, [(2, 2)]))
+        ->flatMapOk(() => IM.select(setup, [(0, 1), (1, 2)]))
+        ->flatMapOk(() => IM.select(setup, [(0, 2)]))
+        // resume insertion
+        ->flatMapOk(() => IM.insertChar(setup, "d"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 3), j`∧`)]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`∧`, Editor.Text.getAll(document)))
+        ->flatMapOk(() => IM.insertChar(setup, "="))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 2), j`≙`)]), Deactivate, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`≙`, Editor.Text.getAll(document)))
+      })
+    )
+    Q.it(j`should abort when the cursor is placed outside the buffer`, () =>
+      acquire(setup)->flatMapOk(setup => {
+        let positions = [VSCode.Position.make(0, 3)]
+
+        let document = VSCode.TextEditor.document(setup.editor)
+
+        document
+        ->Editor.Text.insert(VSCode.Position.make(0, 0), "123")
+        ->flatMap(_ => IM.activate(setup, ~positions, ()))
+        ->flatMapOk(IM.deep_equal([Activate]))
+        ->flatMapOk(() => IM.insertChar(setup, "a"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`123a`, Editor.Text.getAll(document)))
+        ->flatMapOk(() => IM.insertChar(setup, "n"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`123an`, Editor.Text.getAll(document)))
+        // messing with the cursor
+        ->flatMapOk(() => IM.selectAndWait(setup, [(1, 1)]))
+        ->flatMapOk(IM.deep_equal([Deactivate]))
+      })
+    )
+  })
+
   describe("Multiple cursors at once", () => {
     let replaceCRLF = Js.String.replaceByRe(%re("/\\r\\n/g"), "\n")
     Q.it(j`should work just fine (𝕟)`, () => {
