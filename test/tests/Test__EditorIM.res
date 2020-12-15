@@ -217,6 +217,17 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(IM.deep_equal([RewriteIssued([]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`ad`, Editor.Text.getAll(document)))
       }))
+    Q.it(j`should abort after backspacing to much`, () => acquire(setup)->flatMapOk(setup => {
+        let document = VSCode.TextEditor.document(setup.editor)
+        IM.activate(setup, ())
+        ->flatMapOk(IM.deep_equal([Activate]))
+        ->flatMapOk(() => IM.insertChar(setup, "a"))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j`a`, Editor.Text.getAll(document)))
+        ->flatMapOk(() => IM.backspace(setup))
+        ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 0), j``)]), Deactivate, RewriteApplied]))
+        ->flatMapOk(() => A.equal(j``, Editor.Text.getAll(document)))
+      }))
   })
 
   describe("Cursor", () => {

@@ -130,9 +130,7 @@ module Module: Module = {
       instance.decoration = Some(Editor.Decoration.underlineText(editor, range))
     }
 
-    let destroy = instance => {
-      instance.decoration->Option.forEach(Editor.Decoration.destroy)
-    }
+    let destroy = instance => instance.decoration->Option.forEach(Editor.Decoration.destroy)
   }
 
   type t = {
@@ -290,8 +288,13 @@ module Module: Module = {
             accum := accum.contents + delta
           })
 
-          // destroy the instance if there's no further possible transition
-          if buffer.translation.further {
+          // destroy the instance when:
+          //  1. interval length is 0
+          //  2. no further possible transition
+          if fst(instance.interval) == snd(instance.interval) {
+            Instance.destroy(instance)
+            None
+          } else if buffer.translation.further {
             instance.buffer = buffer
             Some(instance)
           } else {

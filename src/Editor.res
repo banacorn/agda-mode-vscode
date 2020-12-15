@@ -76,7 +76,7 @@ module Decoration = {
     overlayTextPrim(editor, VSCode.StringOr.string(color), text, range)
 
   let underlineText = (editor: TextEditor.t, range: VSRange.t) => {
-    let rangeBehavior = DecorationRangeBehavior.toEnum(DecorationRangeBehavior.OpenOpen)
+    let rangeBehavior = DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedOpen)
     let textDecoration = "underline dotted"
     let options = DecorationRenderOptions.t(~rangeBehavior, ~textDecoration, ())
     let decoration = Window.createTextEditorDecorationType(options)
