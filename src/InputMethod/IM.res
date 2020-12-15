@@ -81,7 +81,7 @@ module type Module = {
   let isActivated: t => bool
 
   let run: (t, option<VSCode.TextEditor.t>, Input.t) => Output.t
-  let deviseChange: (t, string, string) => option<Input.t>
+  // let deviseChange: (t, string, string) => option<Input.t>
 }
 
 module Module: Module = {
@@ -429,42 +429,5 @@ module Module: Module = {
     logOutput(self, output)
     output
   }
-
-  // devise the "change" made to the input box
-  let deviseChange = (self, previous, next): option<Input.t> =>
-    self.instances[0]->Option.flatMap(instance => {
-      let inputLength = String.length(next)
-      let bufferSurface = Buffer.toSurface(instance.buffer)
-
-      // helper funcion
-      let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s)
-      let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s)
-
-      if init(next) == previous ++ bufferSurface {
-        // Insertion
-        Some(
-          Input.Change([
-            {
-              offset: inputLength - 1,
-              insertedText: last(next),
-              replacedTextLength: 0,
-            },
-          ]),
-        )
-      } else if next == previous || next == previous ++ init(bufferSurface) {
-        // Backspacing
-        Some(
-          Input.Change([
-            {
-              offset: inputLength,
-              insertedText: "",
-              replacedTextLength: 1,
-            },
-          ]),
-        )
-      } else {
-        None
-      }
-    })
 }
 include Module

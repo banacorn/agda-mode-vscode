@@ -40,8 +40,10 @@ module EditorIM = {
 }
 
 module PromptIM = {
+  // we need to know what the <input> looks that
+  // so that we can calculate what has been changed
   let previous = ref("")
-  let current = ref("")
+
   let handle = output => {
     open IM.Output
     let handle = kind =>
@@ -54,7 +56,7 @@ module PromptIM = {
         f()
 
         // iterate through an array of `rewrites`
-        let replaced = ref(current.contents)
+        let replaced = ref(previous.contents)
         let delta = ref(0)
         let replace = (((start, end_), t)) => {
           replaced :=
@@ -66,6 +68,8 @@ module PromptIM = {
 
         rewrites->Array.forEach(replace)
 
+        // update stored <input>
+        previous.contents = replaced.contents
         list{ViewEvent(PromptIMUpdate(replaced.contents))}
       | Activate => list{
           ViewEvent(InputMethod(Activate)),
@@ -79,12 +83,50 @@ module PromptIM = {
   let runAndHandle = (state: State.t, action) =>
     IM.run(state.promptIM, None, action)->handle->Promise.resolved
 
-  let change = (state: State.t, input) => {
-    current.contents = input
-    let output = switch IM.deviseChange(state.promptIM, previous.contents, input) {
+  // devise the "change" made to the input box
+  let deviseChange = (previous, next): option<IM.Input.t> => {
+    let inputLength = String.length(next)
+
+    // helper funcion
+    let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s)
+    let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s)
+
+    if init(next) == previous {
+      // Insertion
+      Some(
+        IM.Input.Change([
+          {
+            offset: inputLength - 1,
+            insertedText: last(next),
+            replacedTextLength: 0,
+          },
+        ]),
+      )
+    } else if next == init(previous) {
+      // Backspacing
+      Some(
+        IM.Input.Change([
+          {
+            offset: inputLength,
+            insertedText: "",
+            replacedTextLength: 1,
+          },
+        ]),
+      )
+    } else {
+      None
+    }
+  }
+
+  let change = (state: State.t, next) => {
+    let output = switch deviseChange(previous.contents, next) {
     | None => [IM.Output.Deactivate]
     | Some(input) => IM.run(state.promptIM, None, input)
     }
+
+    // update stored <input>
+    previous.contents = next
+
     output->handle->Promise.resolved
   }
 
@@ -95,7 +137,7 @@ module PromptIM = {
     let cursorOffset = String.length(input) - 1
     let input = Js.String.substring(~from=0, ~to_=cursorOffset, input)
 
-    // save the input
+    // update stored <input>
     previous.contents = input
 
     runAndHandle(state, Activate([(cursorOffset, cursorOffset)]))
