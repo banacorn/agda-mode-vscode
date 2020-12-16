@@ -12,9 +12,12 @@ let make = (
     let placeholder = placeholder->Option.getWithDefault("")
     let value = value->Option.getWithDefault("")
 
+    // preserves mouse selection
+    let (selectionInterval, setSelectionInterval) = React.useState(_ => None)
+
     // intercept arrow keys when the input method is activated
     // for navigating around symbol candidates
-    let onKeyDown = event => {
+    let onKeyUp = event => {
       let arrowKey = switch event->ReactEvent.Keyboard.keyCode {
       | 38 => Some(View.EventFromView.Prompt.BrowseUp)
       | 40 => Some(BrowseDown)
@@ -32,15 +35,26 @@ let make = (
 
     let onMouseUp = event => {
       if inputMethodActivated {
-        let start: int = (event->ReactEvent.Mouse.target)["selectionStart"]
-        let end_: int = (event->ReactEvent.Mouse.target)["selectionEnd"]
-        onChange(Select((start, end_)))
+        event->ReactEvent.Synthetic.persist
+        let selectionInterval = (
+          ReactEvent.Mouse.target(event)["selectionStart"],
+          ReactEvent.Mouse.target(event)["selectionEnd"],
+        )
+        // preserver mouse selection so that we can restore them later
+        setSelectionInterval(_ => Some(selectionInterval))
+        onChange(Select(selectionInterval))
       }
     }
 
     // on update the text in the input box
     let onChange = event => {
-      let value: string = (event->ReactEvent.Form.target)["value"]
+      let value: string = ReactEvent.Form.target(event)["value"]
+      event->ReactEvent.Synthetic.persist
+      // preserver mouse selection so that we can restore them later
+      setSelectionInterval(_ => Some((
+        ReactEvent.Form.target(event)["selectionStart"],
+        ReactEvent.Form.target(event)["selectionEnd"],
+      )))
       onChange(Change(value))
     }
 
@@ -55,11 +69,21 @@ let make = (
         <input
           type_="text"
           placeholder
-          onKeyDown
+          onKeyUp
           onMouseUp
           onChange
           value
           ref={ReactDOMRe.Ref.callbackDomRef(ref => {
+            // Update mouse selection in <input>
+            ref->Js.Nullable.toOption->Option.forEach(input => {
+              selectionInterval->Option.forEach(((start, end_)) => {
+                let setSelectionRange = %raw(
+                  `(elem, start, end_) => elem.setSelectionRange(start, end_)`
+                )
+                input->setSelectionRange(start, end_)->ignore
+              })
+            })
+
             // HACK
             // somehow focus() won't work on some machines (?)
             // delay focus() 100ms to regain focus

@@ -63,10 +63,11 @@ let handle = command => {
       Goal(
         LocalOrGlobal2(
           (goal, expr) => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))},
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(ElaborateAndGive(normalization, expr, goal)),
-            }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))}),
           list{Error(OutOfGoal)},
         ),
       ),
@@ -95,10 +96,11 @@ let handle = command => {
       Goal(
         LocalOrGlobal2(
           (goal, expr) => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))},
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(HelperFunctionType(normalization, expr, goal)),
-            }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))}),
           list{Error(OutOfGoal)},
         ),
       ),
@@ -109,13 +111,16 @@ let handle = command => {
       Goal(
         LocalOrGlobal2(
           (goal, expr) => list{AgdaRequest(InferType(normalization, expr, goal))},
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(InferType(normalization, expr, goal)),
-            }),
-          prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-            AgdaRequest(InferTypeGlobal(normalization, expr)),
-          }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(InferType(normalization, expr, goal))}),
+          prompt(header, {
+            body: None,
+            placeholder: placeholder,
+            value: None,
+          }, expr => list{AgdaRequest(InferTypeGlobal(normalization, expr))}),
         ),
       ),
     }
@@ -163,10 +168,11 @@ let handle = command => {
           (goal, expr) => list{
             AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
           },
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-            }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))}),
           list{Error(OutOfGoal)},
         ),
       ),
@@ -177,13 +183,16 @@ let handle = command => {
       Goal(
         LocalOrGlobal2(
           (goal, expr) => list{AgdaRequest(ModuleContents(normalization, expr, goal))},
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(ModuleContents(normalization, expr, goal)),
-            }),
-          prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-            AgdaRequest(ModuleContentsGlobal(normalization, expr)),
-          }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(ModuleContents(normalization, expr, goal))}),
+          prompt(header, {
+            body: None,
+            placeholder: placeholder,
+            value: None,
+          }, expr => list{AgdaRequest(ModuleContentsGlobal(normalization, expr))}),
         ),
       ),
     }
@@ -193,13 +202,16 @@ let handle = command => {
       Goal(
         LocalOrGlobal2(
           (goal, expr) => list{AgdaRequest(ComputeNormalForm(computeMode, expr, goal))},
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
-            }),
-          prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-            AgdaRequest(ComputeNormalFormGlobal(computeMode, expr)),
-          }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(ComputeNormalForm(computeMode, expr, goal))}),
+          prompt(header, {
+            body: None,
+            placeholder: placeholder,
+            value: None,
+          }, expr => list{AgdaRequest(ComputeNormalFormGlobal(computeMode, expr))}),
         ),
       ),
     }
@@ -209,13 +221,16 @@ let handle = command => {
       Goal(
         LocalOrGlobal2(
           (goal, expr) => list{AgdaRequest(WhyInScope(expr, goal))},
-          goal =>
-            prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-              AgdaRequest(WhyInScope(expr, goal)),
-            }),
-          prompt(header, {body: None, placeholder: placeholder, value: None}, expr => list{
-            AgdaRequest(WhyInScopeGlobal(expr)),
-          }),
+          goal => prompt(header, {
+              body: None,
+              placeholder: placeholder,
+              value: None,
+            }, expr => list{AgdaRequest(WhyInScope(expr, goal))}),
+          prompt(header, {
+            body: None,
+            placeholder: placeholder,
+            value: None,
+          }, expr => list{AgdaRequest(WhyInScopeGlobal(expr))}),
         ),
       ),
     }

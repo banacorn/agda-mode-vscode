@@ -50,14 +50,15 @@ module Prompt = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Prompt" =>
-      Contents(
-        tuple3(optional(string), optional(string), optional(string)) |> map(((
+    | "Prompt" => Contents(tuple3(optional(string), optional(string), optional(string)) |> map(((
           body,
           placeholder,
           value,
-        )) => {body: body, placeholder: placeholder, value: value}),
-      )
+        )) => {
+          body: body,
+          placeholder: placeholder,
+          value: value,
+        }))
     | tag => raise(DecodeError("[Prompt] Unknown constructor: " ++ tag))
     }
   )
@@ -643,7 +644,7 @@ module EventFromView = {
 
   module Prompt = {
     type t =
-      | Select((int, int))
+      | Select(IM.interval)
       | Change(string)
       | BrowseUp
       | BrowseDown
