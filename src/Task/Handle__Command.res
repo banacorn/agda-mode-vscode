@@ -256,7 +256,7 @@ let handle = command => {
             if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
               Handle__InputMethod.deactivate(state)
             } else {
-              Promise.resolved(list{ViewEvent(PromptInterrupt)})
+              Promise.resolved(list{viewEvent(PromptInterrupt)})
             }
           },
         ),
@@ -295,7 +295,7 @@ let handle = command => {
           if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
             Handle__InputMethod.deactivate(state)
           } else {
-            Promise.resolved(list{ViewEvent(PromptInterrupt)})
+            Promise.resolved(list{viewEvent(PromptInterrupt)})
           }
         },
       ),

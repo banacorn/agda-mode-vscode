@@ -29,7 +29,7 @@ module Module: Module = {
       let handle = kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          Promise.resolved(list{ViewEvent(InputMethod(Update(sequence, translation, index)))})
+          Promise.resolved(list{viewEvent(InputMethod(Update(sequence, translation, index)))})
         | Rewrite(replacements, resolve) =>
           let document = state.editor->VSCode.TextEditor.document
           let replacements = replacements->Array.map(((interval, text)) => {
@@ -40,8 +40,8 @@ module Module: Module = {
             resolve()
             list{}
           })
-        | Activate => Promise.resolved(list{ViewEvent(InputMethod(Activate))})
-        | Deactivate => Promise.resolved(list{ViewEvent(InputMethod(Deactivate))})
+        | Activate => Promise.resolved(list{viewEvent(InputMethod(Activate))})
+        | Deactivate => Promise.resolved(list{viewEvent(InputMethod(Deactivate))})
         }
       output->Array.map(handle)->Util.oneByOne->Promise.map(List.concatMany)
     }
@@ -73,7 +73,7 @@ module Module: Module = {
       let handle = kind =>
         switch kind {
         | UpdateView(sequence, translation, index) => list{
-            ViewEvent(InputMethod(Update(sequence, translation, index))),
+            viewEvent(InputMethod(Update(sequence, translation, index))),
           }
         | Rewrite(rewrites, f) =>
           // TODO, postpone calling f
@@ -94,12 +94,12 @@ module Module: Module = {
 
           // update stored <input>
           previous.contents = replaced.contents
-          list{ViewEvent(PromptIMUpdate(replaced.contents))}
+          list{viewEvent(PromptIMUpdate(replaced.contents))}
         | Activate => list{
-            ViewEvent(InputMethod(Activate)),
-            ViewEvent(PromptIMUpdate(previous.contents)),
+            viewEvent(InputMethod(Activate)),
+            viewEvent(PromptIMUpdate(previous.contents)),
           }
-        | Deactivate => list{ViewEvent(InputMethod(Deactivate))}
+        | Deactivate => list{viewEvent(InputMethod(Deactivate))}
         }
       output->Array.map(handle)->List.concatMany
     }
@@ -217,14 +217,14 @@ module Module: Module = {
           PromptIM.activate(state, input)->Promise.map(tasks2 => List.concat(tasks1, tasks2))
         })
       } else {
-        list{ViewEvent(PromptIMUpdate(input))}->Promise.resolved
+        list{viewEvent(PromptIMUpdate(input))}->Promise.resolved
       }
     | Prompt => PromptIM.keyUpdate(state, input)
     | None =>
       if shouldActivatePromptIM(input) {
         PromptIM.activate(state, input)
       } else {
-        list{ViewEvent(PromptIMUpdate(input))}->Promise.resolved
+        list{viewEvent(PromptIMUpdate(input))}->Promise.resolved
       }
     }
 

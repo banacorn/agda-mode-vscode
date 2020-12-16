@@ -110,7 +110,6 @@ let executeTask = (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t<
         true
       })
     }
-  | ViewEvent(event) => state->State.sendEventToView(event)->Promise.map(_ => true)
   | ViewRequest(request, callback) =>
     // there can only be 1 View request at a time
     if TaskQueue.View.isOccupied(queue) {

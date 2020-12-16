@@ -3,7 +3,6 @@ type rec t =
   // Agda
   | AgdaRequest(Request.t)
   // View
-  | ViewEvent(View.EventToView.t)
   | ViewRequest(View.Request.t, View.Response.t => list<t>)
   // Misc
   | Decoration(Decoration.action)
@@ -19,7 +18,6 @@ let toString = x =>
   | DispatchCommand(cmd) => "Command[" ++ (Command.toString(cmd) ++ "]")
   | Destroy => "Destroy"
   | AgdaRequest(_req) => "AgdaRequest"
-  | ViewEvent(_) => "ViewEvent"
   | ViewRequest(_, _) => "ViewRequest"
   | Error(_) => "Error"
   | Goal(Instantiate(_)) => "Goal[Instantiate]"
@@ -49,11 +47,14 @@ let toString = x =>
 
 // Smart constructors for controlling the view
 
-// Header + Body
-let display = (header, body) => ViewEvent(Display(header, body))
-let displayEmacs = (kind, header, body) => ViewEvent(
-  Display(header, Emacs(kind, View.Header.toString(header), body)),
+let viewEvent = event => WithStateP(
+  state => state->State.sendEventToView(event)->Promise.map(_ => list{}),
 )
+
+// Header + Body
+let display = (header, body) => viewEvent(Display(header, body))
+let displayEmacs = (kind, header, body) =>
+  viewEvent(Display(header, Emacs(kind, View.Header.toString(header), body)))
 
 // Header + Prompt
 let prompt = (header, prompt, callbackOnPromptSuccess: string => list<t>) => list{
