@@ -12,24 +12,19 @@ let handle = x =>
     }
   | Clear => list{WithState(state => Decoration.removeAppliedDecorations(state.decorations))}
   | Apply => list{
-      BenchStart("$$$ Decoration"),
       WithStateP(state => Decoration.readTempFiles(state.decorations)->Promise.map(() => {
             Decoration.applyHighlightings(state.decorations, state.editor)
             list{}
           })),
-      BenchEnd("$$$ Decoration"),
     }
   | ApplyExperimental => list{
-      BenchStart("$$$ Decoration (experimental)"),
       WithStateP(
         _state => {
           Promise.resolved(list{})
         },
       ),
-      BenchEnd("$$$ Decoration (experimental)"),
     }
   | Refresh => list{
-      BenchStart("$$$ Refreshing decorations"),
       WithState(
         state => {
           // highlightings
@@ -38,6 +33,5 @@ let handle = x =>
           state.goals->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor))
         },
       ),
-      BenchEnd("$$$ Refreshing decorations"),
     }
   }

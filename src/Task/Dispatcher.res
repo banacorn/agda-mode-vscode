@@ -148,12 +148,6 @@ let executeTask = (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t<
   | Destroy =>
     state->State.emitRemoveFromRegistry
     Promise.resolved(false)
-  | BenchStart(id) =>
-    Js.Console.timeStart(id)
-    Promise.resolved(true)
-  | BenchEnd(id) =>
-    Js.Console.timeEnd(id)
-    Promise.resolved(true)
   | Debug(message) =>
     Js.log("DEBUG " ++ message)
     Promise.resolved(true)

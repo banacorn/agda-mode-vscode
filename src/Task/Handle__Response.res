@@ -75,11 +75,7 @@ let handle = response =>
         },
       ),
     }
-  | InteractionPoints(indices) => list{
-      BenchStart("$$$ Instantiating goals"),
-      Goal(Instantiate(indices)),
-      BenchEnd("$$$ Instantiating goals"),
-    }
+  | InteractionPoints(indices) => list{Goal(Instantiate(indices))}
   | GiveAction(index, give) => list{
       WithStateP(
         state => {

@@ -12,8 +12,6 @@ type rec t =
   | WithState(State.t => unit)
   | WithStateP(State.t => Promise.t<list<t>>)
   | Destroy
-  | BenchStart(string)
-  | BenchEnd(string)
   | Debug(string)
 
 let toString = x =>
@@ -46,8 +44,6 @@ let toString = x =>
   | Decoration(Refresh) => "Decoration[Refresh]"
   | WithState(_) => "WithState"
   | WithStateP(_) => "WithStateP"
-  | BenchStart(id) => "BenchStart[" ++ (id ++ "]")
-  | BenchEnd(id) => "BenchEnd[" ++ (id ++ "]")
   | Debug(msg) => "Debug[" ++ (msg ++ "]")
   }
 

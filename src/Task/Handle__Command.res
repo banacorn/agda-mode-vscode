@@ -7,7 +7,6 @@ let handle = command => {
   let header = View.Header.Plain(Command.toString(command))
   switch command {
   | Load => list{
-      BenchStart("$$$ Load"),
       display(Plain("Loading ..."), Nothing),
       Task.WithStateP(
         state => {
@@ -21,7 +20,6 @@ let handle = command => {
         },
       ),
       AgdaRequest(Load),
-      BenchEnd("$$$ Load"),
     }
   | Quit => list{}
   | Restart => list{DispatchCommand(Load)}
