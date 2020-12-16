@@ -18,19 +18,24 @@ let make = (
     // intercept arrow keys when the input method is activated
     // for navigating around symbol candidates
     let onKeyUp = event => {
-      let arrowKey = switch event->ReactEvent.Keyboard.keyCode {
-      | 38 => Some(View.EventFromView.Prompt.BrowseUp)
-      | 40 => Some(BrowseDown)
-      | 37 => Some(BrowseLeft)
-      | 39 => Some(BrowseRight)
+      let arrowKey = switch ReactEvent.Keyboard.key(event) {
+      | "ArrowUp" => Some(View.EventFromView.Prompt.BrowseUp)
+      | "ArrowDown" => Some(BrowseDown)
+      | "ArrowLeft" => Some(BrowseLeft)
+      | "ArrowRight" => Some(BrowseRight)
+      | "Escape" => Some(Escape)
       | _ => None
       }
-      if inputMethodActivated {
-        arrowKey->Option.forEach(action => {
+
+      arrowKey->Option.forEach(action => {
+        if inputMethodActivated {
           onChange(action)
           event->ReactEvent.Keyboard.preventDefault
-        })
-      }
+        } else if action === Escape {
+          onSubmit(None)
+          event->ReactEvent.Keyboard.preventDefault
+        }
+      })
     }
 
     let onMouseUp = event => {

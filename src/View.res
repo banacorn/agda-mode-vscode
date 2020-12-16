@@ -650,6 +650,7 @@ module EventFromView = {
       | BrowseDown
       | BrowseLeft
       | BrowseRight
+      | Escape
 
     open Json.Decode
     open Util.Decode
@@ -662,6 +663,7 @@ module EventFromView = {
       | "BrowseDown" => TagOnly(BrowseDown)
       | "BrowseLeft" => TagOnly(BrowseLeft)
       | "BrowseRight" => TagOnly(BrowseRight)
+      | "Escape" => TagOnly(Escape)
       | tag => raise(DecodeError("[EventFromView.Prompt] Unknown constructor: " ++ tag))
       }
     )
@@ -676,6 +678,7 @@ module EventFromView = {
       | BrowseDown => object_(list{("tag", string("BrowseDown"))})
       | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
       | BrowseRight => object_(list{("tag", string("BrowseRight"))})
+      | Escape => object_(list{("tag", string("Escape"))})
       }
   }
 

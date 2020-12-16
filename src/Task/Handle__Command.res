@@ -252,6 +252,17 @@ let handle = command => {
     | PromptChange(BrowseDown) => list{DispatchCommand(InputMethod(BrowseDown))}
     | PromptChange(BrowseLeft) => list{DispatchCommand(InputMethod(BrowseLeft))}
     | PromptChange(BrowseRight) => list{DispatchCommand(InputMethod(BrowseRight))}
+    | PromptChange(Escape) => list{
+        WithStateP(
+          state => {
+            if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
+              Handle__InputMethod.deactivate(state)
+            } else {
+              Promise.resolved(list{ViewEvent(PromptInterrupt)})
+            }
+          },
+        ),
+      }
     | JumpToTarget(link) => list{
         WithState(
           state => {
