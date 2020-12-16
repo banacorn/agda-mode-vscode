@@ -23,8 +23,8 @@ module Input = {
   type t =
     | Activate(array<interval>)
     | Deactivate
-    | Change(array<Buffer.change>)
-    | Select(array<interval>)
+    | KeyUpdate(array<Buffer.change>)
+    | MouseSelect(array<interval>)
     | Candidate(candidateInput)
 
   let fromTextDocumentChangeEvent = (editor, event) => {
@@ -33,13 +33,13 @@ module Input = {
     let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
     if fileName == eventFileName {
       // TextDocumentContentChangeEvent.t => Buffer.change
-      Change(event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
-          Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
-          insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
-          replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
-        }))
+      event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
+        Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
+        insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
+        replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
+      })
     } else {
-      Change([])
+      []
     }
   }
 }
@@ -383,7 +383,7 @@ module Module: Module = {
     | Deactivate =>
       deactivate(self)
       [Output.Deactivate]
-    | Select(intervals) =>
+    | MouseSelect(intervals) =>
       if self.activated && !self.semaphore {
         self.instances = validateCursorPositions(self.instances, intervals)
         // deactivate if all instances have been destroyed
@@ -395,7 +395,7 @@ module Module: Module = {
       } else {
         []
       }
-    | Change(changes) =>
+    | KeyUpdate(changes) =>
       if Array.length(changes) !== 0 && self.activated && !self.semaphore {
         // update the offsets to reflect the changes
         let (instances, rewrites) = updateInstances(self.instances, changes)

@@ -35,7 +35,7 @@ let make = (
       resolve(result)
       promptResponseResolver.current = None
     })
-  let onChange = action => onEventFromView->Chan.emit(PromptChange(action))
+  let onChange = action => onEventFromView->Chan.emit(PromptIMUpdate(action))
 
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>

@@ -642,10 +642,10 @@ module EventFromView = {
       }
   }
 
-  module Prompt = {
+  module PromptIMUpdate = {
     type t =
-      | Select(IM.interval)
-      | Change(string)
+      | MouseSelect(IM.interval)
+      | KeyUpdate(string)
       | BrowseUp
       | BrowseDown
       | BrowseLeft
@@ -657,8 +657,8 @@ module EventFromView = {
 
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "Select" => Contents(pair(int, int) |> map(interval => Select(interval)))
-      | "Change" => Contents(string |> map(char => Change(char)))
+      | "MouseSelect" => Contents(pair(int, int) |> map(interval => MouseSelect(interval)))
+      | "KeyUpdate" => Contents(string |> map(char => KeyUpdate(char)))
       | "BrowseUp" => TagOnly(BrowseUp)
       | "BrowseDown" => TagOnly(BrowseDown)
       | "BrowseLeft" => TagOnly(BrowseLeft)
@@ -671,9 +671,9 @@ module EventFromView = {
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
-      | Select(interval) =>
-        object_(list{("tag", string("Select")), ("contents", interval |> pair(int, int))})
-      | Change(char) => object_(list{("tag", string("Change")), ("contents", char |> string)})
+      | MouseSelect(interval) =>
+        object_(list{("tag", string("MouseSelect")), ("contents", interval |> pair(int, int))})
+      | KeyUpdate(char) => object_(list{("tag", string("KeyUpdate")), ("contents", char |> string)})
       | BrowseUp => object_(list{("tag", string("BrowseUp"))})
       | BrowseDown => object_(list{("tag", string("BrowseDown"))})
       | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
@@ -686,7 +686,7 @@ module EventFromView = {
     | Initialized
     | Destroyed
     | InputMethod(InputMethod.t)
-    | PromptChange(Prompt.t)
+    | PromptIMUpdate(PromptIMUpdate.t)
     | JumpToTarget(Link.t)
     | MouseOver(Link.t)
     | MouseOut(Link.t)
@@ -699,7 +699,7 @@ module EventFromView = {
     | "Initialized" => TagOnly(Initialized)
     | "Destroyed" => TagOnly(Destroyed)
     | "InputMethod" => Contents(InputMethod.decode |> map(action => InputMethod(action)))
-    | "PromptChange" => Contents(Prompt.decode |> map(action => PromptChange(action)))
+    | "PromptIMUpdate" => Contents(PromptIMUpdate.decode |> map(action => PromptIMUpdate(action)))
     | "JumpToTarget" => Contents(Link.decode |> map(link => JumpToTarget(link)))
     | "MouseOver" => Contents(Link.decode |> map(link => MouseOver(link)))
     | "MouseOut" => Contents(Link.decode |> map(link => MouseOut(link)))
@@ -714,8 +714,11 @@ module EventFromView = {
     | Destroyed => object_(list{("tag", string("Destroyed"))})
     | InputMethod(action) =>
       object_(list{("tag", string("InputMethod")), ("contents", action |> InputMethod.encode)})
-    | PromptChange(action) =>
-      object_(list{("tag", string("PromptChange")), ("contents", action |> Prompt.encode)})
+    | PromptIMUpdate(action) =>
+      object_(list{
+        ("tag", string("PromptIMUpdate")),
+        ("contents", action |> PromptIMUpdate.encode),
+      })
     | JumpToTarget(link) =>
       object_(list{("tag", string("JumpToTarget")), ("contents", link |> Link.encode)})
     | MouseOver(link) =>

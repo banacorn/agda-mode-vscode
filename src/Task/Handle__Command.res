@@ -242,17 +242,17 @@ let handle = command => {
     | InputMethod(ChooseSymbol(symbol)) => list{
         WithStateP(state => Handle__InputMethod.chooseSymbol(state, symbol)),
       }
-    | PromptChange(Select(interval)) => list{
+    | PromptIMUpdate(MouseSelect(interval)) => list{
         WithStateP(state => Handle__InputMethod.select(state, [interval])),
       }
-    | PromptChange(Change(input)) => list{
-        WithStateP(state => Handle__InputMethod.activatePromptIM(state, input)),
+    | PromptIMUpdate(KeyUpdate(input)) => list{
+        WithStateP(state => Handle__InputMethod.keyUpdatePromptIM(state, input)),
       }
-    | PromptChange(BrowseUp) => list{DispatchCommand(InputMethod(BrowseUp))}
-    | PromptChange(BrowseDown) => list{DispatchCommand(InputMethod(BrowseDown))}
-    | PromptChange(BrowseLeft) => list{DispatchCommand(InputMethod(BrowseLeft))}
-    | PromptChange(BrowseRight) => list{DispatchCommand(InputMethod(BrowseRight))}
-    | PromptChange(Escape) => list{
+    | PromptIMUpdate(BrowseUp) => list{DispatchCommand(InputMethod(BrowseUp))}
+    | PromptIMUpdate(BrowseDown) => list{DispatchCommand(InputMethod(BrowseDown))}
+    | PromptIMUpdate(BrowseLeft) => list{DispatchCommand(InputMethod(BrowseLeft))}
+    | PromptIMUpdate(BrowseRight) => list{DispatchCommand(InputMethod(BrowseRight))}
+    | PromptIMUpdate(Escape) => list{
         WithStateP(
           state => {
             if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
@@ -302,6 +302,13 @@ let handle = command => {
         },
       ),
     }
-  | InputMethod(action) => Handle__InputMethod.handle(action)
+  | InputMethod(Activate) => list{WithStateP(state => Handle__InputMethod.activateEditorIM(state))}
+  | InputMethod(InsertChar(char)) => list{
+      WithStateP(state => Handle__InputMethod.insertChar(state, char)),
+    }
+  | InputMethod(BrowseUp) => list{WithStateP(Handle__InputMethod.moveUp)}
+  | InputMethod(BrowseDown) => list{WithStateP(Handle__InputMethod.moveDown)}
+  | InputMethod(BrowseLeft) => list{WithStateP(Handle__InputMethod.moveLeft)}
+  | InputMethod(BrowseRight) => list{WithStateP(Handle__InputMethod.moveRight)}
   }
 }

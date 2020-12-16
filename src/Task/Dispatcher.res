@@ -246,8 +246,8 @@ let make = (
     )
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(.event => {
-    let input = IM.Input.fromTextDocumentChangeEvent(editor, event)
-    Handle__InputMethod.EditorIM.runAndHandle(state, input)->Promise.get(
+    let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
+    Handle__InputMethod.keyUpdateEditorIM(state, changes)->Promise.get(
       TaskQueue.addToTheFront(dispatcher.critical),
     )
   })->subscribe
