@@ -5,7 +5,7 @@ let make = (
   ~inputMethodActivated: bool,
   ~prompt: option<(option<string>, option<string>, option<string>)>,
   ~onSubmit: option<string> => unit,
-  ~onChange: View.EventFromView.PromptIMUpdate.t => unit,
+  ~onUpdatePromptIM: View.EventFromView.PromptIMUpdate.t => unit,
 ) =>
   switch prompt {
   | Some((body, placeholder, value)) =>
@@ -29,7 +29,7 @@ let make = (
 
       arrowKey->Option.forEach(action => {
         if inputMethodActivated {
-          onChange(action)
+          onUpdatePromptIM(action)
           event->ReactEvent.Keyboard.preventDefault
         } else if action === Escape {
           onSubmit(None)
@@ -47,7 +47,7 @@ let make = (
         )
         // preserver mouse selection so that we can restore them later
         setSelectionInterval(_ => Some(selectionInterval))
-        onChange(MouseSelect(selectionInterval))
+        onUpdatePromptIM(MouseSelect(selectionInterval))
       }
     }
 
@@ -60,10 +60,13 @@ let make = (
         ReactEvent.Form.target(event)["selectionStart"],
         ReactEvent.Form.target(event)["selectionEnd"],
       )))
-      onChange(KeyUpdate(value))
+      onUpdatePromptIM(KeyUpdate(value))
     }
 
-    let onSubmit = _event => onSubmit(Some(value))
+    let onSubmit = _event => {
+      onUpdatePromptIM(Escape)
+      onSubmit(Some(value))
+    }
 
     <div className="agda-mode-prompt">
       <form onSubmit>

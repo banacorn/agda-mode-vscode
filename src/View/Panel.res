@@ -35,7 +35,7 @@ let make = (
       resolve(result)
       promptResponseResolver.current = None
     })
-  let onChange = action => onEventFromView->Chan.emit(PromptIMUpdate(action))
+  let onUpdatePromptIM = action => onEventFromView->Chan.emit(PromptIMUpdate(action))
 
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
@@ -83,7 +83,9 @@ let make = (
     <section className="agda-mode native-key-bindings" tabIndex={-1}>
       <div className="agda-mode-header-container">
         <Header header />
-        <Prompt inputMethodActivated={Option.isSome(inputMethodState)} prompt onChange onSubmit />
+        <Prompt
+          inputMethodActivated={Option.isSome(inputMethodState)} prompt onUpdatePromptIM onSubmit
+        />
         <Keyboard
           state=inputMethodState
           onInsertChar={char => onEventFromView->Chan.emit(InputMethod(InsertChar(char)))}
