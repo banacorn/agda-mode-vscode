@@ -230,10 +230,13 @@ let insertChar = (state: State.t, char) =>
   switch isActivated(state) {
   | Editor =>
     let char = Js.String.charAt(0, char)
-    Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-      Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, char)->ignore
-    )
-    Promise.resolved(list{})
+    let positions = Editor.Cursor.getMany(state.editor)
+    let document = state.editor->VSCode.TextEditor.document
+
+    document->Editor.Text.batchInsert(positions, char)->Promise.map(_ => {
+      Editor.focus(document)
+      list{}
+    })
   | Prompt => PromptIM.insertChar(state, char)
   | None => Promise.resolved(list{})
   }
