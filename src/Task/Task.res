@@ -6,7 +6,6 @@ type rec t =
   | ViewRequest(View.Request.t, View.Response.t => list<t>)
   // Misc
   | Decoration(Decoration.action)
-  | Error(Error.t)
   | Goal(Goal.action<t>)
   | WithState(State.t => unit)
   | WithStateP(State.t => Promise.t<list<t>>)
@@ -19,7 +18,6 @@ let toString = x =>
   | Destroy => "Destroy"
   | AgdaRequest(_req) => "AgdaRequest"
   | ViewRequest(_, _) => "ViewRequest"
-  | Error(_) => "Error"
   | Goal(Instantiate(_)) => "Goal[Instantiate]"
   | Goal(UpdateRange) => "Goal[UpdateRange]"
   | Goal(Next) => "Goal[Next]"
@@ -55,6 +53,11 @@ let viewEvent = event => WithStateP(
 let display = (header, body) => viewEvent(Display(header, body))
 let displayEmacs = (kind, header, body) =>
   viewEvent(Display(header, Emacs(kind, View.Header.toString(header), body)))
+
+let displayOutOfGoalError = display(
+  Error("Out of goal"),
+  Plain("Please place the cursor in a goal"),
+)
 
 // Header + Prompt
 let prompt = (header, prompt, callbackOnPromptSuccess: string => list<t>) => list{

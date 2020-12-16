@@ -11,16 +11,22 @@ let sendAgdaRequest = (addToAgdaQueue, addToDeferredQueue, state, request) => {
     (_ => (), (_, _) => ())
   }
 
+  let displayConnectionError = error => {
+    let (header, body) = Connection.Error.toString(error)
+    display(Error("Connection Error: " ++ header), Plain(body))
+  }
+
   // this promise get resolved after the request to Agda is completed
   let (promise, resolve) = Promise.pending()
   let handle = ref(None)
   let handler: result<Connection.response, Connection.Error.t> => unit = x =>
     switch x {
     | Error(error) =>
-      let tasks = Handle__Error.handle(Error.Connection(error))
+      let tasks = list{displayConnectionError(error)}
       addToAgdaQueue(tasks)
     | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
-      let tasks = Handle__Error.handle(Error.Parser(error))
+      let body = Parser.Error.toString(error)
+      let tasks = list{display(Error("Internal Parse Error"), Plain(body))}
       addToAgdaQueue(tasks)
     | Ok(Yield(Ok(NonLast(response)))) =>
       let tasks = Handle__Response.handle(response)
@@ -59,7 +65,7 @@ let sendAgdaRequest = (addToAgdaQueue, addToDeferredQueue, state, request) => {
       handle := Some(connection.Connection.chan->Chan.on(handler))
       promise
     | Error(error) =>
-      let tasks = Handle__Error.handle(error)
+      let tasks = list{displayConnectionError(error)}
       addToAgdaQueue(tasks)
       promise
     }
@@ -140,10 +146,10 @@ let executeTask = (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t<
     let tasks = Handle__Goal.handle(action)
     TaskQueue.addToTheFront(queue, tasks)
     Promise.resolved(true)
-  | Error(error) =>
-    let tasks = Handle__Error.handle(error)
-    TaskQueue.addToTheFront(queue, tasks)
-    Promise.resolved(true)
+  // | Error(error) =>
+  //   let tasks = Handle__Error.handle(error)
+  //   TaskQueue.addToTheFront(queue, tasks)
+  //   Promise.resolved(true)
   | Destroy =>
     state->State.emitRemoveFromRegistry
     Promise.resolved(false)

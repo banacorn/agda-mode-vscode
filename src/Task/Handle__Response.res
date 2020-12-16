@@ -115,7 +115,7 @@ let handle = response =>
             | Function => list{Goal(ReplaceWithLines(goal, lines)), DispatchCommand(Load)}
             | ExtendedLambda => list{Goal(ReplaceWithLambda(goal, lines)), DispatchCommand(Load)}
             },
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }

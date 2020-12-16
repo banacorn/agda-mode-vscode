@@ -31,9 +31,9 @@ let emitRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.emit()
 let connect = state =>
   switch state.connection {
   | None =>
-    Connection.make(Config.getAgdaPath, Config.setAgdaPath)
-    ->Promise.mapError(e => Error.Connection(e))
-    ->Promise.tapOk(conn => state.connection = Some(conn))
+    Connection.make(Config.getAgdaPath, Config.setAgdaPath)->Promise.tapOk(conn =>
+      state.connection = Some(conn)
+    )
   | Some(connection) => Promise.resolved(Ok(connection))
   }
 let disconnect = state =>

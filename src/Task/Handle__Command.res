@@ -50,10 +50,10 @@ let handle = command => {
             }, expr => list{
               Goal(Modify(goal, _ => expr)),
               AgdaRequest(Give(goal)),
-            }), list{Error(OutOfGoal)})),
+            }), list{displayOutOfGoalError})),
     }
   | Refine => list{
-      Goal(LocalOrGlobal(goal => list{AgdaRequest(Refine(goal))}, list{Error(OutOfGoal)})),
+      Goal(LocalOrGlobal(goal => list{AgdaRequest(Refine(goal))}, list{displayOutOfGoalError})),
     }
   | ElaborateAndGive(normalization) =>
     let placeholder = Some("expression to elaborate and give:")
@@ -66,7 +66,7 @@ let handle = command => {
               placeholder: placeholder,
               value: None,
             }, expr => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))}),
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
@@ -74,7 +74,7 @@ let handle = command => {
       WithStateP(
         _ =>
           Promise.resolved(list{
-            Goal(LocalOrGlobal(goal => list{AgdaRequest(Auto(goal))}, list{Error(OutOfGoal)})),
+            Goal(LocalOrGlobal(goal => list{AgdaRequest(Auto(goal))}, list{displayOutOfGoalError})),
           }),
       ),
     }
@@ -87,7 +87,7 @@ let handle = command => {
             }, expr => list{
               Goal(Modify(goal, _ => expr)), // place the queried expression in the goal
               AgdaRequest(Case(goal)),
-            }), list{Error(OutOfGoal)}))}
+            }), list{displayOutOfGoalError}))}
   | HelperFunctionType(normalization) =>
     let placeholder = Some("expression:")
     list{
@@ -99,7 +99,7 @@ let handle = command => {
               placeholder: placeholder,
               value: None,
             }, expr => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))}),
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
@@ -126,7 +126,7 @@ let handle = command => {
       Goal(
         LocalOrGlobal(
           goal => list{AgdaRequest(Context(normalization, goal))},
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
@@ -134,7 +134,7 @@ let handle = command => {
       Goal(
         LocalOrGlobal(
           goal => list{AgdaRequest(GoalType(normalization, goal))},
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
@@ -142,7 +142,7 @@ let handle = command => {
       Goal(
         LocalOrGlobal(
           goal => list{AgdaRequest(GoalTypeAndContext(normalization, goal))},
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
@@ -154,7 +154,7 @@ let handle = command => {
           },
           // fallback to `GoalTypeAndContext` when there's no content
           goal => list{AgdaRequest(GoalTypeAndContext(normalization, goal))},
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
@@ -171,7 +171,7 @@ let handle = command => {
               placeholder: placeholder,
               value: None,
             }, expr => list{AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))}),
-          list{Error(OutOfGoal)},
+          list{displayOutOfGoalError},
         ),
       ),
     }
