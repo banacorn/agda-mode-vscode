@@ -29,6 +29,37 @@ type t =
   | WhyInScope(string, Goal.t)
   | WhyInScopeGlobal(string)
 
+let toString = x =>
+  switch x {
+  | Load => "Load"
+  | Compile => "Compile"
+  | ToggleDisplayOfImplicitArguments => "ToggleDisplayOfImplicitArguments"
+  | ShowConstraints => "ShowConstraints"
+  | SolveConstraints(_, _) => "SolveConstraints"
+  | SolveConstraintsGlobal(_) => "SolveConstraintsGlobal"
+  | ShowGoals => "ShowGoals"
+  | SearchAbout(_, _) => "SearchAbout"
+  | Give(_) => "Give"
+  | Refine(_) => "Refine"
+  | ElaborateAndGive(_, _, _) => "ElaborateAndGive"
+  | Auto(_) => "Auto"
+  | Case(_) => "Case"
+  | HelperFunctionType(_, _, _) => "HelperFunctionType"
+  | InferType(_, _, _) => "InferType"
+  | InferTypeGlobal(_, _) => "InferTypeGlobal"
+  | Context(_, _) => "Context"
+  | GoalType(_, _) => "GoalType"
+  | GoalTypeAndContext(_, _) => "GoalTypeAndContext"
+  | GoalTypeContextAndInferredType(_, _, _) => "GoalTypeContextAndInferredType"
+  | GoalTypeContextAndCheckedType(_, _, _) => "GoalTypeContextAndCheckedType"
+  | ModuleContents(_, _, _) => "ModuleContents"
+  | ModuleContentsGlobal(_, _) => "ModuleContentsGlobal"
+  | ComputeNormalForm(_, _, _) => "ComputeNormalForm"
+  | ComputeNormalFormGlobal(_, _) => "ComputeNormalFormGlobal"
+  | WhyInScope(_, _) => "WhyInScope"
+  | WhyInScopeGlobal(_) => "WhyInScopeGlobal"
+  }
+
 // How much highlighting should be sent to the user interface?
 type highlightingLevel =
   | None
@@ -131,6 +162,7 @@ let encode = (
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
+
     j`${commonPart(
       NonInteractive,
     )}( Cmd_elaborate_give $(normalization) $(index) noRange "$(content)" )`
@@ -140,11 +172,11 @@ let encode = (
     let content: string = Goal.getContent(goal, document)
     let range: string = buildRange(goal)
     if Util.Version.gte(version, "2.6.0.1") {
-      j`${// after 2.6.0.1
-      commonPart(NonInteractive)}( Cmd_autoOne $(index) $(range) "$(content)" )`
+      // after 2.6.0.1
+      j`${commonPart(NonInteractive)}( Cmd_autoOne $(index) $(range) "$(content)" )`
     } else {
-      j`${// the old way
-      commonPart(NonInteractive)}( Cmd_auto $(index) $(range) "$(content)" )`
+      // the old way
+      j`${commonPart(NonInteractive)}( Cmd_auto $(index) $(range) "$(content)" )`
     }
 
   | Case(goal) =>
@@ -157,6 +189,7 @@ let encode = (
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
+
     j`${commonPart(
       NonInteractive,
     )}( Cmd_helper_function $(normalization) $(index) noRange "$(content)" )`
@@ -192,6 +225,7 @@ let encode = (
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
+
     j`${commonPart(
       NonInteractive,
     )}( Cmd_goal_type_context_infer $(normalization) $(index) noRange "$(content)" )`
@@ -200,6 +234,7 @@ let encode = (
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
+
     j`${commonPart(
       NonInteractive,
     )}( Cmd_goal_type_context_check $(normalization) $(index) noRange "$(content)" )`

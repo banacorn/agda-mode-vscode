@@ -7,20 +7,14 @@ let rec sendAgdaRequest = (
   state: State.t,
   request: Request.t,
 ): Promise.t<unit> => {
-  let printLog = false
-  let (log, log2) = if printLog {
-    (Js.log, Js.log2)
-  } else {
-    (_ => (), (_, _) => ())
-  }
-
+  Js.log("<<< " ++ Request.toString(request))
   let displayConnectionError = error => {
     let (header, body) = Connection.Error.toString(error)
     display(state, Error("Connection Error: " ++ header), Plain(body))
   }
 
   // deferred responses are queued here
-  let deferredLastResponses = []
+  let deferredLastResponses: array<(int, Response.t)> = []
 
   // this promise get resolved after the request to Agda is completed
   let (promise, resolve) = Promise.pending()
@@ -32,6 +26,7 @@ let rec sendAgdaRequest = (
       let body = Parser.Error.toString(error)
       display(state, Error("Internal Parse Error"), Plain(body))->ignore
     | Ok(Yield(Ok(NonLast(response)))) =>
+      Js.log(">>> " ++ Response.toString(response))
       Handle__Response.handle(
         state,
         dispatchCommand,
@@ -39,15 +34,24 @@ let rec sendAgdaRequest = (
         response,
       )->ignore
     | Ok(Yield(Ok(Last(priority, response)))) =>
-      Js.Array.push(response, deferredLastResponses)->ignore
+      Js.log(">>* " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
+      Js.Array.push((priority, response), deferredLastResponses)->ignore
     | Ok(Stop) =>
-      // handle the deferred response
-      deferredLastResponses
-      ->Array.map(
-        Handle__Response.handle(state, dispatchCommand, sendAgdaRequest(dispatchCommand, state)),
-      )
-      ->Util.oneByOne
-      ->Promise.get(_ => resolve())
+      Js.log(">>| ")
+      // sort the deferred Responses by priority (ascending order)
+      let deferredLastResponses =
+        Js.Array.sortInPlaceWith(
+          (x, y) => compare(fst(x), fst(y)),
+          deferredLastResponses,
+        )->Array.map(snd)
+
+      // apply decorations after all "NonLast" tasks before all "Last" tasks
+      Handle__Decoration.apply(state)->Promise.map(() =>
+        // handle the deferred response
+        deferredLastResponses->Array.map(
+          Handle__Response.handle(state, dispatchCommand, sendAgdaRequest(dispatchCommand, state)),
+        )
+      )->Promise.flatMap(Util.oneByOne)->Promise.get(_ => resolve())
     }
 
   state->State.connect->Promise.mapOk(connection => {
@@ -66,7 +70,6 @@ let rec sendAgdaRequest = (
       highlightingMethod,
       request,
     )
-    log2("<<<", encoded)
     Connection.send(encoded, connection)
     connection
   })->Promise.flatMap(x =>
