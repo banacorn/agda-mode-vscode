@@ -142,10 +142,10 @@ let executeTask = (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t<
 
   | WithStateP(callback) =>
     callback(state)->Promise.map(TaskQueue.addToTheFront(queue))->Promise.map(() => true)
-  | Goal(action) =>
-    let tasks = Handle__Goal.handle(action)
-    TaskQueue.addToTheFront(queue, tasks)
-    Promise.resolved(true)
+  // | Goal(action) =>
+  //   let tasks = Handle__Goal.handle(action)
+  //   TaskQueue.addToTheFront(queue, tasks)
+  //   Promise.resolved(true)
   // | Error(error) =>
   //   let tasks = Handle__Error.handle(error)
   //   TaskQueue.addToTheFront(queue, tasks)
@@ -201,10 +201,7 @@ let dispatchCommand = (self, command) => {
     addToTheBackCritical(self, list{DispatchCommand(command)})
   } else {
     // `SaveCursor` before and `RestoreCursor` after `DispatchCommand(command)`
-    addToTheBackBlocking(
-      self,
-      list{Goal(SaveCursor), DispatchCommand(command), Goal(RestoreCursor)},
-    )
+    addToTheBackBlocking(self, list{DispatchCommand(command)})
   }
 }
 

@@ -23,215 +23,161 @@ let handle = command => {
     }
   | Quit => list{}
   | Restart => list{DispatchCommand(Load)}
-  | Refresh => list{Goal(UpdateRange), Decoration(Refresh)}
+  | Refresh => list{WithState(Handle__Goal.updateRanges), Decoration(Refresh)}
   | Compile => list{AgdaRequest(Compile)}
   | ToggleDisplayOfImplicitArguments => list{AgdaRequest(ToggleDisplayOfImplicitArguments)}
   | ShowConstraints => list{AgdaRequest(ShowConstraints)}
-  | SolveConstraints(normalization) => list{
-      Goal(
-        LocalOrGlobal(
-          goal => list{AgdaRequest(SolveConstraints(normalization, goal))},
-          list{AgdaRequest(SolveConstraintsGlobal(normalization))},
-        ),
-      ),
-    }
+  | SolveConstraints(normalization) =>
+    Handle__Goal.caseSimple(
+      goal => list{AgdaRequest(SolveConstraints(normalization, goal))},
+      list{AgdaRequest(SolveConstraintsGlobal(normalization))},
+    )
   | ShowGoals => list{AgdaRequest(ShowGoals)}
-  | NextGoal => list{Goal(Next)}
-  | PreviousGoal => list{Goal(Previous)}
+  | NextGoal => Handle__Goal.next
+  | PreviousGoal => Handle__Goal.previous
   | SearchAbout(normalization) =>
     prompt(header, {body: None, placeholder: Some("name:"), value: None}, expr => list{
       AgdaRequest(SearchAbout(normalization, expr)),
     })
-  | Give => list{
-      Goal(LocalOrGlobal2((goal, _) => list{AgdaRequest(Give(goal))}, goal => prompt(header, {
-              body: None,
-              placeholder: Some("expression to give:"),
-              value: None,
-            }, expr => list{
-              Goal(Modify(goal, _ => expr)),
-              AgdaRequest(Give(goal)),
-            }), list{displayOutOfGoalError})),
-    }
-  | Refine => list{
-      Goal(LocalOrGlobal(goal => list{AgdaRequest(Refine(goal))}, list{displayOutOfGoalError})),
-    }
+  | Give => Handle__Goal.case((goal, _) => list{AgdaRequest(Give(goal))}, goal => prompt(header, {
+          body: None,
+          placeholder: Some("expression to give:"),
+          value: None,
+        }, expr =>
+          List.concat(Handle__Goal.modify(goal, _ => expr), list{AgdaRequest(Give(goal))})
+        ), list{displayOutOfGoalError})
+  | Refine =>
+    Handle__Goal.caseSimple(goal => list{AgdaRequest(Refine(goal))}, list{displayOutOfGoalError})
   | ElaborateAndGive(normalization) =>
     let placeholder = Some("expression to elaborate and give:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))},
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))}),
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
-  | Auto => list{
-      WithStateP(
-        _ =>
-          Promise.resolved(list{
-            Goal(LocalOrGlobal(goal => list{AgdaRequest(Auto(goal))}, list{displayOutOfGoalError})),
-          }),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(ElaborateAndGive(normalization, expr, goal))}),
+      list{displayOutOfGoalError},
+    )
+  | Auto =>
+    Handle__Goal.caseSimple(goal => list{AgdaRequest(Auto(goal))}, list{displayOutOfGoalError})
   | Case =>
     let placeholder = Some("variable to case split:")
-    list{Goal(LocalOrGlobal2((goal, _) => list{AgdaRequest(Case(goal))}, goal => prompt(header, {
-              body: Some("Please specify which variable you wish to split"),
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{
-              Goal(Modify(goal, _ => expr)), // place the queried expression in the goal
-              AgdaRequest(Case(goal)),
-            }), list{displayOutOfGoalError}))}
+    Handle__Goal.case((goal, _) => list{AgdaRequest(Case(goal))}, goal => prompt(header, {
+          body: Some("Please specify which variable you wish to split"),
+          placeholder: placeholder,
+          value: None,
+        }, expr =>
+          List.concat(
+            // place the queried expression in the goal
+            Handle__Goal.modify(goal, _ => expr),
+            list{AgdaRequest(Case(goal))},
+          )
+        ), list{displayOutOfGoalError})
   | HelperFunctionType(normalization) =>
     let placeholder = Some("expression:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))},
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))}),
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(HelperFunctionType(normalization, expr, goal))}),
+      list{displayOutOfGoalError},
+    )
   | InferType(normalization) =>
     let placeholder = Some("expression to infer:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{AgdaRequest(InferType(normalization, expr, goal))},
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(InferType(normalization, expr, goal))}),
-          prompt(header, {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          }, expr => list{AgdaRequest(InferTypeGlobal(normalization, expr))}),
-        ),
-      ),
-    }
-  | Context(normalization) => list{
-      Goal(
-        LocalOrGlobal(
-          goal => list{AgdaRequest(Context(normalization, goal))},
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
-  | GoalType(normalization) => list{
-      Goal(
-        LocalOrGlobal(
-          goal => list{AgdaRequest(GoalType(normalization, goal))},
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
-  | GoalTypeAndContext(normalization) => list{
-      Goal(
-        LocalOrGlobal(
-          goal => list{AgdaRequest(GoalTypeAndContext(normalization, goal))},
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
-  | GoalTypeContextAndInferredType(normalization) => list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{
-            AgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal)),
-          },
-          // fallback to `GoalTypeAndContext` when there's no content
-          goal => list{AgdaRequest(GoalTypeAndContext(normalization, goal))},
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(InferType(normalization, expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(InferType(normalization, expr, goal))}),
+      prompt(header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => list{AgdaRequest(InferTypeGlobal(normalization, expr))}),
+    )
+  | Context(normalization) =>
+    Handle__Goal.caseSimple(
+      goal => list{AgdaRequest(Context(normalization, goal))},
+      list{displayOutOfGoalError},
+    )
+  | GoalType(normalization) =>
+    Handle__Goal.caseSimple(
+      goal => list{AgdaRequest(GoalType(normalization, goal))},
+      list{displayOutOfGoalError},
+    )
+  | GoalTypeAndContext(normalization) =>
+    Handle__Goal.caseSimple(
+      goal => list{AgdaRequest(GoalTypeAndContext(normalization, goal))},
+      list{displayOutOfGoalError},
+    )
+  | GoalTypeContextAndInferredType(normalization) =>
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal))},
+      // fallback to `GoalTypeAndContext` when there's no content
+      goal => list{AgdaRequest(GoalTypeAndContext(normalization, goal))},
+      list{displayOutOfGoalError},
+    )
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{
-            AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-          },
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))}),
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))}),
+      list{displayOutOfGoalError},
+    )
   | ModuleContents(normalization) =>
     let placeholder = Some("module name:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{AgdaRequest(ModuleContents(normalization, expr, goal))},
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(ModuleContents(normalization, expr, goal))}),
-          prompt(header, {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          }, expr => list{AgdaRequest(ModuleContentsGlobal(normalization, expr))}),
-        ),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(ModuleContents(normalization, expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(ModuleContents(normalization, expr, goal))}),
+      prompt(header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => list{AgdaRequest(ModuleContentsGlobal(normalization, expr))}),
+    )
   | ComputeNormalForm(computeMode) =>
     let placeholder = Some("expression to normalize:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{AgdaRequest(ComputeNormalForm(computeMode, expr, goal))},
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(ComputeNormalForm(computeMode, expr, goal))}),
-          prompt(header, {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          }, expr => list{AgdaRequest(ComputeNormalFormGlobal(computeMode, expr))}),
-        ),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(ComputeNormalForm(computeMode, expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(ComputeNormalForm(computeMode, expr, goal))}),
+      prompt(header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => list{AgdaRequest(ComputeNormalFormGlobal(computeMode, expr))}),
+    )
   | WhyInScope =>
     let placeholder = Some("name:")
-    list{
-      Goal(
-        LocalOrGlobal2(
-          (goal, expr) => list{AgdaRequest(WhyInScope(expr, goal))},
-          goal => prompt(header, {
-              body: None,
-              placeholder: placeholder,
-              value: None,
-            }, expr => list{AgdaRequest(WhyInScope(expr, goal))}),
-          prompt(header, {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          }, expr => list{AgdaRequest(WhyInScopeGlobal(expr))}),
-        ),
-      ),
-    }
+    Handle__Goal.case(
+      (goal, expr) => list{AgdaRequest(WhyInScope(expr, goal))},
+      goal => prompt(header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => list{AgdaRequest(WhyInScope(expr, goal))}),
+      prompt(header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => list{AgdaRequest(WhyInScopeGlobal(expr))}),
+    )
   | EventFromView(event) =>
     switch event {
     | Initialized => list{}

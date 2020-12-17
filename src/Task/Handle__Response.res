@@ -68,14 +68,14 @@ let handle = response =>
           // when it's on the same file
           let path = state.editor->TextEditor.document->TextDocument.fileName->Parser.filepath
           if path == filepath {
-            Promise.resolved(list{Goal(SetCursor(offset - 1))})
+            Promise.resolved(Handle__Goal.setCursor(offset))
           } else {
             Promise.resolved(list{})
           }
         },
       ),
     }
-  | InteractionPoints(indices) => list{Goal(Instantiate(indices))}
+  | InteractionPoints(indices) => Handle__Goal.instantiate(indices)
   | GiveAction(index, give) => list{
       WithStateP(
         state => {
@@ -91,34 +91,33 @@ let handle = response =>
           | Some(goal) =>
             Promise.resolved(
               switch give {
-              | Paren => list{
-                  Goal(Modify(goal, content => "(" ++ (content ++ ")"))),
-                  Goal(RemoveBoundaryAndDestroy(goal)),
-                }
-              | NoParen => // do nothing
-                list{Goal(RemoveBoundaryAndDestroy(goal))}
-              | String(content) => list{
-                  Goal(Modify(goal, _ => Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content))),
-                  Goal(RemoveBoundaryAndDestroy(goal)),
-                }
+              | Paren =>
+                List.concat(
+                  Handle__Goal.modify(goal, content => "(" ++ (content ++ ")")),
+                  Handle__Goal.removeBoundaryAndDestroy(goal),
+                )
+              | NoParen =>
+                // do nothing
+                Handle__Goal.removeBoundaryAndDestroy(goal)
+              | String(content) =>
+                List.concat(
+                  Handle__Goal.modify(goal, _ =>
+                    Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
+                  ),
+                  Handle__Goal.removeBoundaryAndDestroy(goal),
+                )
               },
             )
           }
         },
       ),
     }
-  | MakeCase(makeCaseType, lines) => list{
-      Goal(
-        LocalOrGlobal(
-          goal =>
-            switch makeCaseType {
-            | Function => list{Goal(ReplaceWithLines(goal, lines)), DispatchCommand(Load)}
-            | ExtendedLambda => list{Goal(ReplaceWithLambda(goal, lines)), DispatchCommand(Load)}
-            },
-          list{displayOutOfGoalError},
-        ),
-      ),
-    }
+  | MakeCase(makeCaseType, lines) => Handle__Goal.caseSimple(goal =>
+      switch makeCaseType {
+      | Function => list{Handle__Goal.replaceWithLines(goal, lines), DispatchCommand(Load)}
+      | ExtendedLambda => list{Handle__Goal.replaceWithLambda(goal, lines), DispatchCommand(Load)}
+      }
+    , list{displayOutOfGoalError})
   | SolveAll(solutions) => list{
       WithStateP(
         state => {
@@ -126,7 +125,8 @@ let handle = response =>
             let goals = state.goals->Array.keep(goal => goal.index == index)
             switch goals[0] {
             | None => list{}
-            | Some(goal) => list{Goal(Modify(goal, _ => solution)), AgdaRequest(Give(goal))}
+            | Some(goal) =>
+              List.concat(Handle__Goal.modify(goal, _ => solution), list{AgdaRequest(Give(goal))})
             }
           }
 

@@ -9,23 +9,6 @@ type t = {
   decorationIndex: Editor.Decoration.t,
 }
 
-type action<'task> =
-  | Instantiate(array<int>)
-  | UpdateRange
-  | Next
-  | Previous
-  | Modify(t, string => string)
-  | SaveCursor
-  | RestoreCursor
-  | SetCursor(int)
-  | JumpToOffset(int)
-  | RemoveBoundaryAndDestroy(t)
-  | ReplaceWithLines(t, array<string>)
-  | ReplaceWithLambda(t, array<string>)
-  // for commands that have both the local (goal-specific) and global (top-level) version
-  | LocalOrGlobal(t => list<'task>, list<'task>)
-  | LocalOrGlobal2((t, string) => list<'task>, t => list<'task>, list<'task>)
-
 let generateDiffs = (document: TextDocument.t, indices: array<int>): array<SourceFile.Diff.t> => {
   let filePath = document->TextDocument.fileName->Parser.filepath
   let source = Editor.Text.getAll(document)
