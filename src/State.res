@@ -52,6 +52,7 @@ let setLoaded = value => VSCode.Commands.setContext("agdaMode", value)->ignore
 
 let destroy = state => {
   state.view->View__Controller.destroy
+  state->emitRemoveFromRegistry
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
   state.decorations->Decoration.destroy

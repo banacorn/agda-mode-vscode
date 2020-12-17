@@ -157,162 +157,129 @@ let indentationWidth = (document, goal: Goal.t): (int, string, VSRange.t) => {
   (indentedBy(textBeforeGoal), textBeforeGoal, range)
 }
 
-let jumpToOffset = offset => list{
-  WithState(
-    state => {
-      let document = TextEditor.document(state.editor)
-      let point = document->TextDocument.positionAt(offset)
-      let range = VSRange.make(point, point)
-      Editor.reveal(state.editor, range)
-    },
-  ),
+let jumpToOffset = (state: State.t, offset) => {
+  let document = TextEditor.document(state.editor)
+  let point = document->TextDocument.positionAt(offset)
+  let range = VSRange.make(point, point)
+  Editor.reveal(state.editor, range)
 }
 
-let setCursor = offset => list{
-  WithState(
-    state => {
-      let point = state.editor->TextEditor.document->TextDocument.positionAt(offset - 1)
-      Editor.Cursor.set(state.editor, point)
-    },
-  ),
+let setCursor = (state: State.t, offset) => {
+  let point = state.editor->TextEditor.document->TextDocument.positionAt(offset - 1)
+  Editor.Cursor.set(state.editor, point)
 }
 
 let updateRanges = (state: State.t) =>
   Goal.updateRanges(state.goals, TextEditor.document(state.editor))
 
-let modify = (goal, f) => list{
-  WithStateP(
-    state => {
-      updateRanges(state)
+let modify = (state: State.t, goal, f) => {
+  updateRanges(state)
 
-      let document = TextEditor.document(state.editor)
-      let content = Goal.getContent(goal, document)
-      Goal.setContent(goal, document, f(content))->Promise.map(x =>
-        switch x {
-        | true => list{}
-        | false => list{
-            display(
-              Error("Goal-related Error"),
-              Plain("Failed to modify the content of goal #" ++ string_of_int(goal.index)),
-            ),
-          }
-        }
+  let document = TextEditor.document(state.editor)
+  let content = Goal.getContent(goal, document)
+  Goal.setContent(goal, document, f(content))->Promise.flatMap(x =>
+    switch x {
+    | true => Promise.resolved()
+    | false =>
+      display(
+        state,
+        Error("Goal-related Error"),
+        Plain("Failed to modify the content of goal #" ++ string_of_int(goal.index)),
       )
-    },
-  ),
+    }
+  )
+}
+let next = (state: State.t): Promise.t<unit> => {
+  updateRanges(state)
+
+  let document = TextEditor.document(state.editor)
+  let nextGoal = ref(None)
+  let cursorOffset = TextDocument.offsetAt(document, Editor.Cursor.get(state.editor))
+  let offsets = getOffsets(state)
+
+  // find the first Goal after the cursor
+  offsets->Array.forEach(offset =>
+    if cursorOffset < offset && nextGoal.contents === None {
+      nextGoal := Some(offset)
+    }
+  )
+
+  // if there's no Goal after the cursor, then loop back and return the first Goal
+  if nextGoal.contents === None {
+    nextGoal := offsets[0]
+  }
+
+  switch nextGoal.contents {
+  | None => Promise.resolved()
+  | Some(offset) =>
+    let point = document->TextDocument.positionAt(offset)
+    Editor.Cursor.set(state.editor, point)
+    state->jumpToOffset(offset)
+    Promise.resolved()
+  }
 }
 
-let next = list{
-  WithStateP(
-    state => {
-      updateRanges(state)
+let previous = (state: State.t): Promise.t<unit> => {
+  updateRanges(state)
 
-      let document = TextEditor.document(state.editor)
-      let nextGoal = ref(None)
-      let cursorOffset = TextDocument.offsetAt(document, Editor.Cursor.get(state.editor))
-      let offsets = getOffsets(state)
+  let document = TextEditor.document(state.editor)
+  let previousGoal = ref(None)
+  let cursorOffset = TextDocument.offsetAt(document, Editor.Cursor.get(state.editor))
+  let offsets = getOffsets(state)
 
-      // find the first Goal after the cursor
-      offsets->Array.forEach(offset =>
-        if cursorOffset < offset && nextGoal.contents === None {
-          nextGoal := Some(offset)
-        }
-      )
+  // find the last Goal before the cursor
+  offsets->Array.forEach(offset =>
+    if cursorOffset > offset {
+      previousGoal := Some(offset)
+    }
+  )
 
-      // if there's no Goal after the cursor, then loop back and return the first Goal
-      if nextGoal.contents === None {
-        nextGoal := offsets[0]
-      }
+  // loop back if this is already the first Goal
+  if previousGoal.contents === None {
+    previousGoal := offsets[Array.length(offsets) - 1]
+  }
 
-      switch nextGoal.contents {
-      | None => Promise.resolved(list{})
-      | Some(offset) =>
-        let point = document->TextDocument.positionAt(offset)
-        Editor.Cursor.set(state.editor, point)
-        Promise.resolved(jumpToOffset(offset))
-      }
-    },
-  ),
+  switch previousGoal.contents {
+  | None => Promise.resolved()
+  | Some(offset) =>
+    let point = document->TextDocument.positionAt(offset)
+    Editor.Cursor.set(state.editor, point)
+    state->jumpToOffset(offset)
+    Promise.resolved()
+  }
 }
 
-let previous = list{
-  WithStateP(
-    state => {
-      updateRanges(state)
-
-      let document = TextEditor.document(state.editor)
-      let previousGoal = ref(None)
-      let cursorOffset = TextDocument.offsetAt(document, Editor.Cursor.get(state.editor))
-      let offsets = getOffsets(state)
-
-      // find the last Goal before the cursor
-      offsets->Array.forEach(offset =>
-        if cursorOffset > offset {
-          previousGoal := Some(offset)
-        }
-      )
-
-      // loop back if this is already the first Goal
-      if previousGoal.contents === None {
-        previousGoal := offsets[Array.length(offsets) - 1]
-      }
-
-      switch previousGoal.contents {
-      | None => Promise.resolved(list{})
-      | Some(offset) =>
-        let point = document->TextDocument.positionAt(offset)
-        Editor.Cursor.set(state.editor, point)
-        Promise.resolved(jumpToOffset(offset))
-      }
-    },
-  ),
+let instantiate = (state: State.t, indices) => {
+  // destroy all existing goals
+  state.goals->Array.forEach(Goal.destroy)
+  // instantiate new ones
+  Goal.makeMany(state.editor, indices)->Promise.map(goals => {
+    state.goals = goals
+  })
 }
 
-let instantiate = indices => list{
-  Task.WithStateP(
-    state => {
-      // destroy all existing goals
-      state.goals->Array.forEach(Goal.destroy)
-      // instantiate new ones
-      Goal.makeMany(state.editor, indices)->Promise.map(goals => {
-        state.goals = goals
-        list{}
-      })
-    },
-  ),
+let case = (state: State.t, localWithContent, localEmpty, global): Promise.t<unit> => {
+  updateRanges(state)
+
+  let document = TextEditor.document(state.editor)
+  switch pointingAt(state) {
+  | None => global
+  | Some(goal) =>
+    let content = Goal.getContent(goal, document)
+    if content == "" {
+      localEmpty(goal)
+    } else {
+      localWithContent(goal, content)
+    }
+  }
 }
 
-let case = (localWithContent, localEmpty, global) => list{
-  WithStateP(
-    state => {
-      updateRanges(state)
-
-      let document = TextEditor.document(state.editor)
-      switch pointingAt(state) {
-      | None => Promise.resolved(global)
-      | Some(goal) =>
-        let content = Goal.getContent(goal, document)
-        if content == "" {
-          Promise.resolved(localEmpty(goal))
-        } else {
-          Promise.resolved(localWithContent(goal, content))
-        }
-      }
-    },
-  ),
-}
-
-let caseSimple = (local, global) => list{
-  WithStateP(
-    state => {
-      updateRanges(state)
-
-      switch pointingAt(state) {
-      | None => Promise.resolved(global)
-      | Some(goal) => Promise.resolved(local(goal))
-      }
-    },
-  ),
+let caseSimple = (state: State.t, local, global): Promise.t<unit> => {
+  updateRanges(state)
+  switch pointingAt(state) {
+  | None => global
+  | Some(goal) => local(goal)
+  }
 }
 
 // Replace definition of extended lambda with new clauses
@@ -325,95 +292,87 @@ let caseSimple = (local, global) => list{
 //  2.  λ where
 //          x → ?
 //          y → ?
-let replaceWithLambda = (goal, lines) => WithStateP(
-  state => {
-    let document = TextEditor.document(state.editor)
-    let (inWhereClause, indentWidth, rewriteRange) = caseSplitAux(document, goal)
-    let rewriteText = if inWhereClause {
-      Js.Array.joinWith("\n" ++ Js.String.repeat(indentWidth, " "), lines)
-    } else {
-      Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
-    }
+let replaceWithLambda = (state: State.t, goal, lines) => {
+  let document = TextEditor.document(state.editor)
+  let (inWhereClause, indentWidth, rewriteRange) = caseSplitAux(document, goal)
+  let rewriteText = if inWhereClause {
+    Js.Array.joinWith("\n" ++ Js.String.repeat(indentWidth, " "), lines)
+  } else {
+    Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
+  }
 
-    let rewriteRange = VSRange.make(
-      TextDocument.positionAt(document, fst(rewriteRange)),
-      TextDocument.positionAt(document, snd(rewriteRange)),
-    )
-    Editor.Text.replace(document, rewriteRange, rewriteText)->Promise.map(x =>
-      switch x {
-      | true =>
-        Goal.destroy(goal)
-        list{}
-      | false => list{
-          display(
-            Error("Goal-related Error"),
-            Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
-          ),
-        }
-      }
-    )
-  },
-)
+  let rewriteRange = VSRange.make(
+    TextDocument.positionAt(document, fst(rewriteRange)),
+    TextDocument.positionAt(document, snd(rewriteRange)),
+  )
+  Editor.Text.replace(document, rewriteRange, rewriteText)->Promise.flatMap(x =>
+    switch x {
+    | true =>
+      Goal.destroy(goal)
+      Promise.resolved()
+    | false =>
+      display(
+        state,
+        Error("Goal-related Error"),
+        Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
+      )
+    }
+  )
+}
 
 // replace and insert one or more lines of content at the goal
 // usage: case split
-let replaceWithLines = (goal, lines) => WithStateP(
-  state => {
-    let document = TextEditor.document(state.editor)
-    // get the width of indentation from the first line of the goal
-    let (indentWidth, _, _) = indentationWidth(document, goal)
-    let indentation = Js.String.repeat(indentWidth, " ")
-    let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
-    // the rows spanned by the goal (including the text outside the goal)
-    // will be replaced by the `indentedLines`
-    let start = document->TextDocument.positionAt(fst(goal.range))
-    let startLineNo = Position.line(start)
-    let startLineRange = document->TextDocument.lineAt(startLineNo)->TextLine.range
-    let start = VSRange.start(startLineRange)
+let replaceWithLines = (state: State.t, goal, lines) => {
+  let document = TextEditor.document(state.editor)
+  // get the width of indentation from the first line of the goal
+  let (indentWidth, _, _) = indentationWidth(document, goal)
+  let indentation = Js.String.repeat(indentWidth, " ")
+  let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
+  // the rows spanned by the goal (including the text outside the goal)
+  // will be replaced by the `indentedLines`
+  let start = document->TextDocument.positionAt(fst(goal.range))
+  let startLineNo = Position.line(start)
+  let startLineRange = document->TextDocument.lineAt(startLineNo)->TextLine.range
+  let start = VSRange.start(startLineRange)
 
-    let end_ = document->TextDocument.positionAt(snd(goal.range))
-    let rangeToBeReplaced = VSRange.make(start, end_)
-    Editor.Text.replace(document, rangeToBeReplaced, indentedLines)->Promise.map(x =>
-      switch x {
-      | true =>
-        Goal.destroy(goal)
-        list{}
-      | false => list{
-          display(
-            Error("Goal-related Error"),
-            Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
-          ),
-        }
-      }
-    )
-  },
-)
-
-let removeBoundaryAndDestroy = goal => list{
-  WithStateP(
-    state => {
-      updateRanges(state)
-
-      let document = TextEditor.document(state.editor)
-      let innerRange = Goal.getInnerRange(goal, document)
-      let outerRange = VSRange.make(
-        document->TextDocument.positionAt(fst(goal.range)),
-        document->TextDocument.positionAt(snd(goal.range)),
+  let end_ = document->TextDocument.positionAt(snd(goal.range))
+  let rangeToBeReplaced = VSRange.make(start, end_)
+  Editor.Text.replace(document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
+    switch x {
+    | true =>
+      Goal.destroy(goal)
+      Promise.resolved()
+    | false =>
+      display(
+        state,
+        Error("Goal-related Error"),
+        Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
       )
-      let content = Editor.Text.get(document, innerRange)->String.trim
-      Editor.Text.replace(document, outerRange, content)->Promise.map(x =>
-        switch x {
-        | true =>
-          Goal.destroy(goal)
-          list{}
-        | false => list{
-            display(
-              Error("Goal-related Error"),
-              Plain("Unable to remove the boundary of goal #" ++ string_of_int(goal.index)),
-            ),
-          }
-        }
+    }
+  )
+}
+
+let removeBoundaryAndDestroy = (state: State.t, goal) => {
+  updateRanges(state)
+
+  let document = TextEditor.document(state.editor)
+  let innerRange = Goal.getInnerRange(goal, document)
+  let outerRange = VSRange.make(
+    document->TextDocument.positionAt(fst(goal.range)),
+    document->TextDocument.positionAt(snd(goal.range)),
+  )
+  let content = Editor.Text.get(document, innerRange)->String.trim
+  Editor.Text.replace(document, outerRange, content)->Promise.flatMap(x =>
+    switch x {
+    | true =>
+      Goal.destroy(goal)
+      Promise.resolved()
+    | false =>
+      display(
+        state,
+        Error("Goal-related Error"),
+        Plain("Unable to remove the boundary of goal #" ++ string_of_int(goal.index)),
       )
-    },
-  ),
+    }
+  )
 }

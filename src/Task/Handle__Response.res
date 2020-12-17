@@ -1,60 +1,55 @@
 // from Agda Response to Tasks
 open Belt
-open VSCode
 open! Task
 open Response
 module DisplayInfo = {
-  let handle = x =>
+  let handle = (state, x) =>
     switch x {
-    | Response.DisplayInfo.CompilationOk => list{display(Success("Compilation Done!"), Nothing)}
-    | Constraints(None) => list{display(Plain("No Constraints"), Nothing)}
-    | Constraints(Some(body)) => list{displayEmacs(Outputs, Plain("Constraints"), body)}
-    | AllGoalsWarnings(header, "nil") => list{display(Success(header), Nothing)}
-    | AllGoalsWarnings(header, body) => list{displayEmacs(AllGoalsWarnings, Plain(header), body)}
-    | Time(body) => list{displayEmacs(Text, Plain("Time"), body)}
-    | Error(body) => list{displayEmacs(Error, Error("Error!"), body)}
-    | Intro(body) => list{displayEmacs(Text, Plain("Intro"), body)}
-    | Auto(body) => list{displayEmacs(Text, Plain("Auto"), body)}
-    | ModuleContents(body) => list{displayEmacs(Text, Plain("Module Contents"), body)}
-    | SearchAbout(body) => list{displayEmacs(SearchAbout, Plain("Search About"), body)}
-    | WhyInScope(body) => list{displayEmacs(Text, Plain("Scope info"), body)}
-    | NormalForm(body) => list{displayEmacs(Text, Plain("Normal form"), body)}
-    | GoalType(body) => list{displayEmacs(GoalType, Plain("Goal and Context"), body)}
-    | CurrentGoal(payload) => list{display(Plain("Current goal"), Plain(payload))}
-    | InferredType(payload) => list{display(Plain("Inferred type"), Plain(payload))}
-    | Context(body) => list{displayEmacs(Outputs, Plain("Context"), body)}
-    | HelperFunction(payload) => list{
-        WithStateP(_ => Env.clipboard->Clipboard.writeText(payload)->Promise.map(() => list{})),
-        display(Plain("Helper function (copied to clipboard)"), Plain(payload)),
-      }
-    | Version(payload) => list{display(Plain("Version"), Plain(payload))}
+    | Response.DisplayInfo.CompilationOk => display(state, Success("Compilation Done!"), Nothing)
+    | Constraints(None) => display(state, Plain("No Constraints"), Nothing)
+    | Constraints(Some(body)) => displayEmacs(state, Outputs, Plain("Constraints"), body)
+    | AllGoalsWarnings(header, "nil") => display(state, Success(header), Nothing)
+    | AllGoalsWarnings(header, body) => displayEmacs(state, AllGoalsWarnings, Plain(header), body)
+    | Time(body) => displayEmacs(state, Text, Plain("Time"), body)
+    | Error(body) => displayEmacs(state, Error, Error("Error!"), body)
+    | Intro(body) => displayEmacs(state, Text, Plain("Intro"), body)
+    | Auto(body) => displayEmacs(state, Text, Plain("Auto"), body)
+    | ModuleContents(body) => displayEmacs(state, Text, Plain("Module Contents"), body)
+    | SearchAbout(body) => displayEmacs(state, SearchAbout, Plain("Search About"), body)
+    | WhyInScope(body) => displayEmacs(state, Text, Plain("Scope info"), body)
+    | NormalForm(body) => displayEmacs(state, Text, Plain("Normal form"), body)
+    | GoalType(body) => displayEmacs(state, GoalType, Plain("Goal and Context"), body)
+    | CurrentGoal(payload) => display(state, Plain("Current goal"), Plain(payload))
+    | InferredType(payload) => display(state, Plain("Inferred type"), Plain(payload))
+    | Context(body) => displayEmacs(state, Outputs, Plain("Context"), body)
+    | HelperFunction(payload) =>
+      VSCode.Env.clipboard
+      ->VSCode.Clipboard.writeText(payload)
+      ->Promise.flatMap(() =>
+        display(state, Plain("Helper function (copied to clipboard)"), Plain(payload))
+      )
+    | Version(payload) => display(state, Plain("Version"), Plain(payload))
     }
 }
 
-let handle = response =>
+let handle = (
+  state: State.t,
+  dispatchCommand: Command.t => Promise.t<unit>,
+  sendAgdaRequest: Request.t => Promise.t<unit>,
+  response: Response.t,
+): Promise.t<unit> =>
   switch response {
-  | HighlightingInfoDirect(_remove, annotations) => list{
-      WithState(
-        state => {
-          Handle__Decoration.addViaPipe(state, annotations)
-        },
-      ),
-    }
-  | HighlightingInfoIndirect(filepath) => list{
-      WithState(
-        state => {
-          Handle__Decoration.addViaFile(state, filepath)
-        },
-      ),
-    }
-  | ClearHighlighting => list{
-      WithState(
-        state => {
-          Handle__Decoration.clear(state)
-        },
-      ),
-    }
-  | Status(_displayImplicit, _checked) => // display(
+  | HighlightingInfoDirect(_remove, annotations) =>
+    Handle__Decoration.addViaPipe(state, annotations)
+    Promise.resolved()
+  | HighlightingInfoIndirect(filepath) =>
+    Handle__Decoration.addViaFile(state, filepath)
+    Promise.resolved()
+  | ClearHighlighting =>
+    Handle__Decoration.clear(state)
+    Promise.resolved()
+  | Status(_displayImplicit, _checked) =>
+    // display(
     //   "Status",
     //   Some(
     //     "Typechecked: "
@@ -63,7 +58,8 @@ let handle = response =>
     //     ++ string_of_bool(displayImplicit),
     //   ),
     // ),
-    list{}
+    Promise.resolved()
+
   // if (displayImplicit || checked) {
   //   [
   //     display(
@@ -79,89 +75,72 @@ let handle = response =>
   // } else {
   //   [];
   // }
-  | JumpToError(filepath, offset) => list{
-      WithStateP(
-        state => {
-          // only jump to site of error
-          // when it's on the same file
-          let path = state.editor->TextEditor.document->TextDocument.fileName->Parser.filepath
-          if path == filepath {
-            Promise.resolved(Handle__Goal.setCursor(offset))
-          } else {
-            Promise.resolved(list{})
-          }
-        },
-      ),
+  | JumpToError(filepath, offset) =>
+    // only jump to site of error
+    // when it's on the same file
+    let path =
+      state.editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    if path == filepath {
+      state->Handle__Goal.setCursor(offset)
     }
-  | InteractionPoints(indices) => Handle__Goal.instantiate(indices)
-  | GiveAction(index, give) => list{
-      WithStateP(
-        state => {
-          let found = state.goals->Array.keep(goal => goal.index == index)
-          switch found[0] {
-          | None =>
-            Promise.resolved(list{
-              display(
-                Error("Error: Give failed"),
-                Plain("Cannot find goal #" ++ string_of_int(index)),
-              ),
-            })
-          | Some(goal) =>
-            Promise.resolved(
-              switch give {
-              | Paren =>
-                List.concat(
-                  Handle__Goal.modify(goal, content => "(" ++ (content ++ ")")),
-                  Handle__Goal.removeBoundaryAndDestroy(goal),
-                )
-              | NoParen =>
-                // do nothing
-                Handle__Goal.removeBoundaryAndDestroy(goal)
-              | String(content) =>
-                List.concat(
-                  Handle__Goal.modify(goal, _ =>
-                    Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
-                  ),
-                  Handle__Goal.removeBoundaryAndDestroy(goal),
-                )
-              },
-            )
-          }
-        },
-      ),
-    }
-  | MakeCase(makeCaseType, lines) => Handle__Goal.caseSimple(goal =>
-      switch makeCaseType {
-      | Function => list{Handle__Goal.replaceWithLines(goal, lines), DispatchCommand(Load)}
-      | ExtendedLambda => list{Handle__Goal.replaceWithLambda(goal, lines), DispatchCommand(Load)}
+    Promise.resolved()
+  | InteractionPoints(indices) => Handle__Goal.instantiate(state, indices)
+  | GiveAction(index, give) =>
+    let found = state.goals->Array.keep(goal => goal.index == index)
+    switch found[0] {
+    | None =>
+      display(
+        state,
+        Error("Error: Give failed"),
+        Plain("Cannot find goal #" ++ string_of_int(index)),
+      )
+    | Some(goal) =>
+      switch give {
+      | Paren =>
+        Handle__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))->Promise.flatMap(() =>
+          Handle__Goal.removeBoundaryAndDestroy(state, goal)
+        )
+      | NoParen =>
+        // do nothing
+        Handle__Goal.removeBoundaryAndDestroy(state, goal)
+      | String(content) =>
+        Handle__Goal.modify(state, goal, _ =>
+          Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
+        )->Promise.flatMap(() => Handle__Goal.removeBoundaryAndDestroy(state, goal))
       }
-    , list{displayOutOfGoalError})
-  | SolveAll(solutions) => list{
-      WithStateP(
-        state => {
-          let solveOne = ((index, solution)) => {
-            let goals = state.goals->Array.keep(goal => goal.index == index)
-            switch goals[0] {
-            | None => list{}
-            | Some(goal) =>
-              List.concat(Handle__Goal.modify(goal, _ => solution), list{AgdaRequest(Give(goal))})
-            }
-          }
-
-          // solve them one by one
-          let tasks = solutions->Array.map(solveOne)->List.concatMany
-          let size = Array.length(solutions)
-          let after = if size == 0 {
-            list{display(Error("No solutions found"), Nothing)}
-          } else {
-            list{display(Success(string_of_int(size) ++ " goals solved"), Nothing)}
-          }
-          Promise.resolved(List.concat(tasks, after))
-        },
-      ),
     }
-  | DisplayInfo(info) => DisplayInfo.handle(info)
-  | RunningInfo(_verbosity, message) => list{display(Plain("Type-checking"), Plain(message))}
-  | _ => list{}
-  // | others => [Debug(Response.toString(others))];
+  | MakeCase(makeCaseType, lines) =>
+    Handle__Goal.caseSimple(
+      state,
+      goal =>
+        switch makeCaseType {
+        | Function => Handle__Goal.replaceWithLines(state, goal, lines)
+        | ExtendedLambda => Handle__Goal.replaceWithLambda(state, goal, lines)
+        }->Promise.flatMap(() => dispatchCommand(Load)),
+      displayOutOfGoalError(state),
+    )
+  | SolveAll(solutions) =>
+    let solveOne = ((index, solution)): Promise.t<unit> => {
+      let goals = state.goals->Array.keep(goal => goal.index == index)
+      switch goals[0] {
+      | None => Promise.resolved()
+      | Some(goal) =>
+        Handle__Goal.modify(state, goal, _ => solution)->Promise.flatMap(() =>
+          sendAgdaRequest(Give(goal))
+        )
+      }
+    }
+    // solve them one by one
+    solutions->Array.map(solveOne)->Util.oneByOne->Promise.flatMap(_ => {
+      let size = Array.length(solutions)
+      if size == 0 {
+        display(state, Error("No solutions found"), Nothing)
+      } else {
+        display(state, Success(string_of_int(size) ++ " goals solved"), Nothing)
+      }
+    })
+
+  | DisplayInfo(info) => DisplayInfo.handle(state, info)
+  | RunningInfo(_verbosity, message) => display(state, Plain("Type-checking"), Plain(message))
+  | _ => Promise.resolved()
   }

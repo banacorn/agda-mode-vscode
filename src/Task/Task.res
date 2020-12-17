@@ -1,70 +1,48 @@
-type rec t =
-  | DispatchCommand(Command.t)
-  // Agda
-  | AgdaRequest(Request.t)
-  // View
-  | ViewRequest(View.Request.t, View.Response.t => list<t>)
-  // Misc
-  | WithState(State.t => unit)
-  | WithStateP(State.t => Promise.t<list<t>>)
-  | Destroy
-  | Debug(string)
-
-let toString = x =>
-  switch x {
-  | DispatchCommand(cmd) => "Command[" ++ (Command.toString(cmd) ++ "]")
-  | Destroy => "Destroy"
-  | AgdaRequest(_req) => "AgdaRequest"
-  | ViewRequest(_, _) => "ViewRequest"
-  | WithState(_) => "WithState"
-  | WithStateP(_) => "WithStateP"
-  | Debug(msg) => "Debug[" ++ (msg ++ "]")
-  }
-
 // Smart constructors for controlling the view
 
-let viewEvent = event => WithStateP(
-  state => state->State.sendEventToView(event)->Promise.map(_ => list{}),
-)
+let viewEvent = (state, event) => state->State.sendEventToView(event)->Promise.map(_ => ())
 
 // Header + Body
-let display = (header, body) => viewEvent(Display(header, body))
-let displayEmacs = (kind, header, body) =>
-  viewEvent(Display(header, Emacs(kind, View.Header.toString(header), body)))
+let display = (state, header, body) => viewEvent(state, Display(header, body))
+let displayEmacs = (state, kind, header, body) =>
+  viewEvent(state, Display(header, Emacs(kind, View.Header.toString(header), body)))
 
-let displayOutOfGoalError = display(
-  Error("Out of goal"),
-  Plain("Please place the cursor in a goal"),
-)
+let displayOutOfGoalError = state =>
+  display(state, Error("Out of goal"), Plain("Please place the cursor in a goal"))
+
+let sendViewRequest = (
+  state: State.t,
+  request,
+  callback: View.Response.t => Promise.t<unit>,
+): Promise.t<unit> => {
+  state->State.sendRequestToView(request)->Promise.flatMap(x =>
+    switch x {
+    | None => Promise.resolved()
+    | Some(response) => callback(response)
+    }
+  )
+}
 
 // Header + Prompt
-let prompt = (header, prompt, callbackOnPromptSuccess: string => list<t>) => list{
-  WithState(
-    state => {
-      // focus on the panel before prompting
-      VSCode.Commands.setContext("agdaModePrompting", true)->ignore
-      state.view->View__Controller.focus
-    },
-  ),
-  ViewRequest(
-    Prompt(header, prompt),
-    response => {
-      let tasks = switch response {
-      | PromptSuccess(result) => callbackOnPromptSuccess(result)
-      | PromptInterrupted => list{}
-      }
-      Belt.List.concat(
-        tasks,
-        list{
-          WithState(
-            state => {
-              // put the focus back to the editor after prompting
-              VSCode.Commands.setContext("agdaModePrompting", false)->ignore
-              state.editor->VSCode.TextEditor.document->Editor.focus
-            },
-          ),
-        },
-      )
-    },
-  ),
+let prompt = (
+  state: State.t,
+  header,
+  prompt,
+  callbackOnPromptSuccess: string => Promise.t<unit>,
+): Promise.t<unit> => {
+  // focus on the panel before prompting
+  VSCode.Commands.setContext("agdaModePrompting", true)->ignore
+  state.view->View__Controller.focus
+
+  // send request to view
+  sendViewRequest(state, Prompt(header, prompt), response =>
+    switch response {
+    | PromptSuccess(result) => callbackOnPromptSuccess(result)->Promise.map(() => {
+        // put the focus back to the editor after prompting
+        VSCode.Commands.setContext("agdaModePrompting", false)->ignore
+        state.editor->VSCode.TextEditor.document->Editor.focus
+      })
+    | PromptInterrupted => Promise.resolved()
+    }
+  )
 }

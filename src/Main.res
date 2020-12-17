@@ -16,7 +16,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
 
   // when a TextEditor gets closed, destroy the corresponding State
   VSCode.Workspace.onDidCloseTextDocument(.textDoc =>
-    Registry.forceDestroy(textDoc->VSCode.TextDocument.fileName)->ignore
+    Registry.destroy(textDoc->VSCode.TextDocument.fileName)->ignore
   )
   ->Js.Array.push(disposables)
   ->ignore
@@ -29,7 +29,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
         if isAgda(newName) {
           Registry.rename(oldName, newName)
         } else {
-          Registry.forceDestroy(oldName)->ignore
+          Registry.destroy(oldName)->ignore
         }
       }
     })
@@ -57,32 +57,33 @@ let activateWithoutContext = (disposables, extensionPath) => {
     )
   }
   onDidChangeActivation((prev, next) => {
-    prev
-    ->Option.flatMap(Registry.getByEditor)
-    ->Option.forEach(dispatcher => State.hide(dispatcher.state))
+    prev->Option.flatMap(Registry.getByEditor)->Option.forEach(State.hide)
     next
     ->Option.flatMap(Registry.getByEditor)
-    ->Option.forEach(dispatcher => next->Option.forEach(editor => {
+    ->Option.forEach(state => next->Option.forEach(editor => {
         // Issue #8
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
-        dispatcher.state.editor = editor
-        State.show(dispatcher.state)
-        Dispatcher.dispatchCommand(dispatcher, Refresh)->ignore
+        state.editor = editor
+        State.show(state)
+        Handle__Command.dispatchCommand(state, Refresh)->ignore
       })->ignore)
   })->Js.Array.push(disposables)->ignore
 
-  // helper function for initializing a Dispatcher
+  // helper function for initializing a State
   let makeAndAddToRegistry = (editor, fileName) => {
-    // not in the Registry, instantiate a Dispatcher
-    let dispatcher = Dispatcher.make(
-      extensionPath,
-      editor,
-      () => Registry.forceDestroy(fileName)->ignore,
-      chan,
-    )
+    // not in the Registry, instantiate a State
+
+    let state = State.make(extensionPath, chan, editor)
+
+    // let dispatcher = Dispatcher.make(
+    //   extensionPath,
+    //   editor,
+    //   () => Registry.forceDestroy(fileName)->ignore,
+    //   chan,
+    // )
     // add this dispatcher to the Registry
-    Registry.add(fileName, dispatcher)
+    Registry.add(fileName, state)
   }
 
   // on trigger command
@@ -109,7 +110,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
             ()
           }
           Promise.resolved()
-        | Quit => Registry.forceDestroy(fileName)
+        | Quit => Registry.destroy(fileName)
         | Restart =>
           Registry.destroy(fileName)->Promise.map(() => makeAndAddToRegistry(editor, fileName))
         | _ => Promise.resolved()
@@ -117,7 +118,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
           switch // dispatch Tasks
           Registry.get(fileName) {
           | None => Promise.resolved()
-          | Some(dispatcher) => Dispatcher.dispatchCommand(dispatcher, command)
+          | Some(dispatcher) => Handle__Command.dispatchCommand(dispatcher, command)
           }
         )
       } else {
