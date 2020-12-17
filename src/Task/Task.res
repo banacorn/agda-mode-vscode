@@ -5,8 +5,6 @@ type rec t =
   // View
   | ViewRequest(View.Request.t, View.Response.t => list<t>)
   // Misc
-  | Decoration(Decoration.action)
-  // | Goal(Goal.action<t>)
   | WithState(State.t => unit)
   | WithStateP(State.t => Promise.t<list<t>>)
   | Destroy
@@ -18,26 +16,6 @@ let toString = x =>
   | Destroy => "Destroy"
   | AgdaRequest(_req) => "AgdaRequest"
   | ViewRequest(_, _) => "ViewRequest"
-  // | Goal(Instantiate(_)) => "Goal[Instantiate]"
-  // | Goal(UpdateRange) => "Goal[UpdateRange]"
-  // | Goal(Next) => "Goal[Next]"
-  // | Goal(Previous) => "Goal[Previous]"
-  // | Goal(Modify(_, _)) => "Goal[Modify]"
-  // | Goal(SaveCursor) => "Goal[SaveCursor]"
-  // | Goal(RestoreCursor) => "Goal[RestoreCursor]"
-  // | Goal(SetCursor(_)) => "Goal[SetCursor]"
-  // | Goal(JumpToOffset(_)) => "Goal[JumpToOffset]"
-  // | Goal(RemoveBoundaryAndDestroy(_)) => "Goal[RemoveBoundaryAndDestroy]"
-  // | Goal(ReplaceWithLines(_, _)) => "Goal[ReplaceWithLines]"
-  // | Goal(ReplaceWithLambda(_, _)) => "Goal[ReplaceWithLambda]"
-  // | Goal(LocalOrGlobal2(_, _, _)) => "Goal[LocalOrGlobal2]"
-  // | Goal(LocalOrGlobal(_, _)) => "Goal[LocalOrGlobal]"
-  | Decoration(AddViaPipe(_)) => "Decoration[AddViaPipe]"
-  | Decoration(AddViaFile(_)) => "Decoration[AddViaFile]"
-  | Decoration(Clear) => "Decoration[Clear]"
-  | Decoration(Apply) => "Decoration[Apply]"
-  | Decoration(ApplyExperimental) => "Decoration[ApplyExperimental]"
-  | Decoration(Refresh) => "Decoration[Refresh]"
   | WithState(_) => "WithState"
   | WithStateP(_) => "WithStateP"
   | Debug(msg) => "Debug[" ++ (msg ++ "]")

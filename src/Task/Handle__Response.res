@@ -33,9 +33,27 @@ module DisplayInfo = {
 
 let handle = response =>
   switch response {
-  | HighlightingInfoDirect(_remove, annotations) => list{Decoration(AddViaPipe(annotations))}
-  | HighlightingInfoIndirect(filepath) => list{Decoration(AddViaFile(filepath))}
-  | ClearHighlighting => list{Decoration(Clear)}
+  | HighlightingInfoDirect(_remove, annotations) => list{
+      WithState(
+        state => {
+          Handle__Decoration.addViaPipe(state, annotations)
+        },
+      ),
+    }
+  | HighlightingInfoIndirect(filepath) => list{
+      WithState(
+        state => {
+          Handle__Decoration.addViaFile(state, filepath)
+        },
+      ),
+    }
+  | ClearHighlighting => list{
+      WithState(
+        state => {
+          Handle__Decoration.clear(state)
+        },
+      ),
+    }
   | Status(_displayImplicit, _checked) => // display(
     //   "Status",
     //   Some(

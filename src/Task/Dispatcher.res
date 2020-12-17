@@ -110,7 +110,14 @@ let executeTask = (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t<
         // Only dispatch `Decoration(Apply)` when SemanticHighlighting is not enabled
         let deferredTasks = Config.getSemanticHighlighting()
           ? deferredTasks
-          : list{Task.Decoration(Apply), ...deferredTasks}
+          : list{
+              WithStateP(
+                state => {
+                  Handle__Decoration.apply(state)->Promise.map(() => list{})
+                },
+              ),
+              ...deferredTasks,
+            }
 
         TaskQueue.addToTheFront(queue, deferredTasks)
         true
@@ -132,10 +139,6 @@ let executeTask = (state: State.t, queue: TaskQueue.t, task: Task.t): Promise.t<
       // NOTE: return early before `sendRequestToView` resolved
       Promise.resolved(true)
     }
-  | Decoration(action) =>
-    let tasks = Handle__Decoration.handle(action)
-    TaskQueue.addToTheFront(queue, tasks)
-    Promise.resolved(true)
   | WithState(callback) =>
     callback(state)
     Promise.resolved(true)

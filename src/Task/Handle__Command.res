@@ -23,7 +23,14 @@ let handle = command => {
     }
   | Quit => list{}
   | Restart => list{DispatchCommand(Load)}
-  | Refresh => list{WithState(Handle__Goal.updateRanges), Decoration(Refresh)}
+  | Refresh => list{
+      WithState(
+        state => {
+          Handle__Goal.updateRanges(state)
+          Handle__Decoration.refresh(state)
+        },
+      ),
+    }
   | Compile => list{AgdaRequest(Compile)}
   | ToggleDisplayOfImplicitArguments => list{AgdaRequest(ToggleDisplayOfImplicitArguments)}
   | ShowConstraints => list{AgdaRequest(ShowConstraints)}
