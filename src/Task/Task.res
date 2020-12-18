@@ -40,7 +40,7 @@ let prompt = (
     | PromptSuccess(result) => callbackOnPromptSuccess(result)->Promise.map(() => {
         // put the focus back to the editor after prompting
         VSCode.Commands.setContext("agdaModePrompting", false)->ignore
-        state.editor->VSCode.TextEditor.document->Editor.focus
+        state.document->Editor.focus
       })
     | PromptInterrupted => Promise.resolved()
     }

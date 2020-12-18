@@ -1,133 +1,151 @@
-open VSCode
-module VSRange = Range
-open Belt
+module type Module = {
+  type t = {
+    index: int,
+    mutable range: (int, int),
+    decorationBackground: Editor.Decoration.t,
+    decorationIndex: Editor.Decoration.t,
+  }
 
-type t = {
-  index: int,
-  mutable range: (int, int),
-  decorationBackground: Editor.Decoration.t,
-  decorationIndex: Editor.Decoration.t,
+  // helper function for building strings for Agda
+  let buildHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
+
+  let makeMany: (VSCode.TextEditor.t, array<int>) => Promise.t<array<t>>
+  // get the content inside the hole
+  let getContent: (t, VSCode.TextDocument.t) => string
+  // set the content inside the hole
+  let setContent: (t, VSCode.TextDocument.t, string) => Promise.t<bool>
+  // set cursor inside the hole {! cursor here !}
+  //                               ^
+  let setCursor: (t, VSCode.TextEditor.t) => unit
+  let getInnerRange: (t, VSCode.TextDocument.t) => VSCode.Range.t
+  let refreshDecoration: (t, VSCode.TextEditor.t) => unit
+  let destroy: t => unit
 }
 
-let generateDiffs = (document: TextDocument.t, indices: array<int>): array<SourceFile.Diff.t> => {
-  let filePath = document->TextDocument.fileName->Parser.filepath
-  let source = Editor.Text.getAll(document)
-  SourceFile.parse(indices, filePath, source)
-}
+module Module: Module = {
+  open Belt
 
-// make an array of Goal.t with given goal indices
-// modifies the text buffer along the way
-let makeMany = (editor: TextEditor.t, indices: array<int>): Promise.t<array<t>> => {
-  let document = TextEditor.document(editor)
-  let diffs = generateDiffs(document, indices)
-  // scan through the diffs to modify the text buffer one by one
+  type t = {
+    index: int,
+    mutable range: (int, int),
+    decorationBackground: Editor.Decoration.t,
+    decorationIndex: Editor.Decoration.t,
+  }
 
-  let delta = ref(0)
-  let replacements = diffs->Array.keep(diff => diff.changed)->Array.map(diff => {
-    let range = VSRange.make(
-      document->TextDocument.positionAt(fst(diff.originalRange) - delta.contents),
-      document->TextDocument.positionAt(snd(diff.originalRange) - delta.contents),
+  let generateDiffs = (document: VSCode.TextDocument.t, indices: array<int>): array<
+    SourceFile.Diff.t,
+  > => {
+    let filePath = document->VSCode.TextDocument.fileName->Parser.filepath
+    let source = Editor.Text.getAll(document)
+    SourceFile.parse(indices, filePath, source)
+  }
+
+  // make an array of Goal.t with given goal indices
+  // modifies the text buffer along the way
+  let makeMany = (editor: VSCode.TextEditor.t, indices: array<int>): Promise.t<array<t>> => {
+    let document = VSCode.TextEditor.document(editor)
+    let diffs = generateDiffs(document, indices)
+    // scan through the diffs to modify the text buffer one by one
+
+    let delta = ref(0)
+    let replacements = diffs->Array.keep(diff => diff.changed)->Array.map(diff => {
+      let range = VSCode.Range.make(
+        document->VSCode.TextDocument.positionAt(fst(diff.originalRange) - delta.contents),
+        document->VSCode.TextDocument.positionAt(snd(diff.originalRange) - delta.contents),
+      )
+
+      // update the delta
+      delta :=
+        delta.contents +
+        (snd(diff.modifiedRange) - fst(diff.modifiedRange)) -
+        (snd(diff.originalRange) -
+        fst(diff.originalRange))
+
+      let text = diff.content
+      (range, text)
+    })
+
+    Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
+      diffs->Array.map(diff => {
+        let (decorationBackground, decorationIndex) = Decoration.decorateHole(
+          editor,
+          diff.modifiedRange,
+          diff.index,
+        )
+        {
+          index: diff.index,
+          range: diff.modifiedRange,
+          decorationBackground: decorationBackground,
+          decorationIndex: decorationIndex,
+        }
+      })
+    })
+  }
+
+  let getInnerRange = (self, document) =>
+    VSCode.Range.make(
+      document->VSCode.TextDocument.positionAt(fst(self.range) + 2),
+      document->VSCode.TextDocument.positionAt(snd(self.range) - 2),
     )
 
-    // update the delta
-    delta :=
-      delta.contents +
-      (snd(diff.modifiedRange) - fst(diff.modifiedRange)) -
-      (snd(diff.originalRange) -
-      fst(diff.originalRange))
+  let getOuterRange = (self, document) =>
+    VSCode.Range.make(
+      document->VSCode.TextDocument.positionAt(fst(self.range)),
+      document->VSCode.TextDocument.positionAt(snd(self.range)),
+    )
 
-    let text = diff.content
-    (range, text)
-  })
+  let getContent = (self, document) => {
+    let innerRange = getInnerRange(self, document)
+    Editor.Text.get(document, innerRange)->Parser.userInput
+  }
 
-  Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
-    diffs->Array.map(diff => {
-      let (decorationBackground, decorationIndex) = Decoration.decorateHole(
-        editor,
-        diff.modifiedRange,
-        diff.index,
-      )
-      {
-        index: diff.index,
-        range: diff.modifiedRange,
-        decorationBackground: decorationBackground,
-        decorationIndex: decorationIndex,
-      }
-    })
-  })
-}
+  let setContent = (self, document, text) => {
+    let innerRange = getInnerRange(self, document)
+    Editor.Text.replace(document, innerRange, " " ++ (text ++ " "))
+  }
 
-// parse the whole source file and update the ranges of an array of Goal.t
-let updateRanges = (goals: array<t>, document: TextDocument.t) => {
-  let indices = goals->Array.map(goal => goal.index)
-  let diffs = generateDiffs(document, indices)
-  diffs->Array.forEachWithIndex((i, diff) =>
-    switch goals[i] {
-    | None => () // do nothing :|
-    | Some(goal) => goal.range = diff.modifiedRange
+  let setCursor = (self, editor) => {
+    let (start, _) = self.range
+    let point = editor->VSCode.TextEditor.document->VSCode.TextDocument.positionAt(start + 3)
+    Editor.Cursor.set(editor, point)
+  }
+
+  let buildHaskellRange = (self, document, version, filepath: string) => {
+    let (start, end_) = self.range
+    let startPoint = VSCode.TextDocument.positionAt(document, start)
+    let endPoint = VSCode.TextDocument.positionAt(document, end_)
+
+    let startIndex = string_of_int(start + 3)
+    let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
+    let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
+    let startPart = j`$(startIndex) $(startRow) $(startColumn)`
+    let endIndex' = string_of_int(end_ - 3)
+    let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
+    let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
+    let endPart = j`$(endIndex') $(endRow) $(endColumn)`
+
+    if Util.Version.gte(version, "2.5.1") {
+      j`(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])` // after 2.5.1
+    } else {
+      j`(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])` // before (not including) 2.5.1
     }
-  )
-}
+  }
 
-let getInnerRange = (self, document) =>
-  VSRange.make(
-    document->TextDocument.positionAt(fst(self.range) + 2),
-    document->TextDocument.positionAt(snd(self.range) - 2),
-  )
+  let refreshDecoration = (self, editor: VSCode.TextEditor.t) => {
+    // redecorate the background
+    let range = getOuterRange(self, VSCode.TextEditor.document(editor))
+    Editor.Decoration.decorate(editor, self.decorationBackground, [range])
+    // redecorate the index
+    let range = VSCode.Range.make(
+      VSCode.Range.start(range),
+      VSCode.Position.translate(VSCode.Range.end_(range), 0, -2),
+    )
+    Editor.Decoration.decorate(editor, self.decorationIndex, [range])
+  }
 
-let getOuterRange = (self, document) =>
-  VSRange.make(
-    document->TextDocument.positionAt(fst(self.range)),
-    document->TextDocument.positionAt(snd(self.range)),
-  )
-
-let getContent = (self, document) => {
-  let innerRange = getInnerRange(self, document)
-  Editor.Text.get(document, innerRange)->Parser.userInput
-}
-
-let setContent = (self, document, text) => {
-  let innerRange = getInnerRange(self, document)
-  Editor.Text.replace(document, innerRange, " " ++ (text ++ " "))
-}
-
-let setCursor = (self, editor) => {
-  let (start, _) = self.range
-  let point = editor->TextEditor.document->TextDocument.positionAt(start + 3)
-  Editor.Cursor.set(editor, point)
-}
-
-let buildHaskellRange = (document, self, old, filepath: string) => {
-  let (start, end_) = self.range
-  let startPoint = TextDocument.positionAt(document, start)
-  let endPoint = TextDocument.positionAt(document, end_)
-
-  let startIndex = string_of_int(start + 3)
-  let startRow = string_of_int(Position.line(startPoint) + 1)
-  let startColumn = string_of_int(Position.character(startPoint) + 3)
-  let startPart = j`$(startIndex) $(startRow) $(startColumn)`
-  let endIndex' = string_of_int(end_ - 3)
-  let endRow = string_of_int(Position.line(endPoint) + 1)
-  let endColumn = string_of_int(Position.character(endPoint) - 1)
-  let endPart = j`$(endIndex') $(endRow) $(endColumn)`
-
-  if old {
-    j`(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])` // before (not including) 2.5.1
-  } else {
-    j`(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])` // after 2.5.1
+  let destroy = self => {
+    self.decorationBackground->Editor.Decoration.destroy
+    self.decorationIndex->Editor.Decoration.destroy
   }
 }
-
-let refreshDecoration = (self, editor: TextEditor.t) => {
-  // redecorate the background
-  let range = getOuterRange(self, TextEditor.document(editor))
-  Editor.Decoration.decorate(editor, self.decorationBackground, [range])
-  // redecorate the index
-  let range = VSRange.make(VSRange.start(range), Position.translate(VSRange.end_(range), 0, -2))
-  Editor.Decoration.decorate(editor, self.decorationIndex, [range])
-}
-
-let destroy = self => {
-  self.decorationBackground->Editor.Decoration.destroy
-  self.decorationIndex->Editor.Decoration.destroy
-}
+include Module

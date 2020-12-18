@@ -31,12 +31,11 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           viewEvent(state, InputMethod(Update(sequence, translation, index)))
         | Rewrite(replacements, resolve) =>
-          let document = state.editor->VSCode.TextEditor.document
           let replacements = replacements->Array.map(((interval, text)) => {
-            let range = document->IM.fromInterval(interval)
+            let range = state.document->IM.fromInterval(interval)
             (range, text)
           })
-          Editor.Text.batchReplace(document, replacements)->Promise.map(_ => {
+          Editor.Text.batchReplace(state.document, replacements)->Promise.map(_ => {
             resolve()
             ()
           })
@@ -259,10 +258,9 @@ module Module: Module = {
     | Editor =>
       let char = Js.String.charAt(0, char)
       let positions = Editor.Cursor.getMany(state.editor)
-      let document = state.editor->VSCode.TextEditor.document
 
-      document->Editor.Text.batchInsert(positions, char)->Promise.map(_ => {
-        Editor.focus(document)
+      state.document->Editor.Text.batchInsert(positions, char)->Promise.map(_ => {
+        Editor.focus(state.document)
       })
     | Prompt => PromptIM.insertChar(state, char)
     | None => Promise.resolved()

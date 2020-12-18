@@ -2,6 +2,7 @@ open Belt
 
 type t = {
   mutable editor: VSCode.TextEditor.t,
+  mutable document: VSCode.TextDocument.t,
   view: View__Controller.t,
   mutable connection: option<Connection.t>,
   mutable goals: array<Goal.t>,
@@ -84,6 +85,7 @@ let make = (extentionPath, chan, editor) => {
 
   {
     editor: editor,
+    document: VSCode.TextEditor.document(editor),
     view: view,
     connection: None,
     goals: [],

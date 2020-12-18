@@ -111,8 +111,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
     // definition provider for go-to-definition
     let definitionProvider = (fileName, point) => {
       // only provide source location, when the filenames are matched
-      let currentFileName =
-        state.editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+      let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
 
       if fileName == currentFileName {
         Decoration.lookupSrcLoc(state.decorations, point)
@@ -124,8 +123,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
     // hover provider
     let hoverProvider = (fileName, point) => {
       // only provide source location, when the filenames are matched
-      let currentFileName =
-        state.editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+      let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
 
       if fileName == currentFileName {
         let range = VSCode.Range.make(point, point)

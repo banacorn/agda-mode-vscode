@@ -95,12 +95,7 @@ let encode = (
     "IOTCM \"" ++ (filepath ++ ("\" " ++ (level ++ (" " ++ highlightingMethod))))
   }
 
-  let buildRange = goal =>
-    if Util.Version.gte(version, "2.5.1") {
-      Goal.buildHaskellRange(document, goal, false, filepath)
-    } else {
-      Goal.buildHaskellRange(document, goal, true, filepath)
-    }
+  let buildRange = goal => Goal.buildHaskellRange(goal, document, version, filepath)
 
   // assemble them
   switch request {

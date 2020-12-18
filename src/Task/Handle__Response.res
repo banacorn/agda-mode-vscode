@@ -78,10 +78,10 @@ let handle = (
   | JumpToError(filepath, offset) =>
     // only jump to site of error
     // when it's on the same file
-    let path =
-      state.editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
     if path == filepath {
-      state->Handle__Goal.setCursor(offset)
+      let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
+      Editor.Cursor.set(state.editor, point)
     }
     Promise.resolved()
   | InteractionPoints(indices) => Handle__Goal.instantiate(state, indices)
