@@ -76,13 +76,70 @@ let activateWithoutContext = (disposables, extensionPath) => {
 
     let state = State.make(extensionPath, chan, editor)
 
-    // let dispatcher = Dispatcher.make(
-    //   extensionPath,
-    //   editor,
-    //   () => Registry.forceDestroy(fileName)->ignore,
-    //   chan,
-    // )
-    // add this dispatcher to the Registry
+    let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
+
+    // listens to events from the view
+    state.view
+    ->View__Controller.onEvent(event =>
+      Handle__Command.dispatchCommand(state, EventFromView(event))->ignore
+    )
+    ->Js.Array.push(state.subscriptions)
+    ->ignore
+
+    // register event listeners for the input method
+    VSCode.Window.onDidChangeTextEditorSelection(.event => {
+      let document = VSCode.TextEditor.document(editor)
+      let intervals =
+        event
+        ->VSCode.TextEditorSelectionChangeEvent.selections
+        ->Array.map(selection => (
+          IM.toOffset(document, VSCode.Selection.start(selection)),
+          IM.toOffset(document, VSCode.Selection.end_(selection)),
+        ))
+
+      Handle__InputMethod.select(state, intervals)->ignore
+    })->subscribe
+    VSCode.Workspace.onDidChangeTextDocument(.event => {
+      Js.log(event)
+      let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
+      Handle__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+    })->subscribe
+
+    // remove it from the Registry if it requests to be destroyed
+    state->State.onRemoveFromRegistry->Promise.flatMap(() => Registry.destroy(fileName))->ignore
+
+    // definition provider for go-to-definition
+    let definitionProvider = (fileName, point) => {
+      // only provide source location, when the filenames are matched
+      let currentFileName =
+        state.editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+
+      if fileName == currentFileName {
+        Decoration.lookupSrcLoc(state.decorations, point)
+      } else {
+        None
+      }
+    }
+
+    // hover provider
+    let hoverProvider = (fileName, point) => {
+      // only provide source location, when the filenames are matched
+      let currentFileName =
+        state.editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+
+      if fileName == currentFileName {
+        let range = VSCode.Range.make(point, point)
+        Some(Promise.resolved(([""], range)))
+      } else {
+        None
+      }
+    }
+
+    // registering feature providers
+    let disposables = Editor.Provider.registerProvider(definitionProvider, hoverProvider)
+    state.subscriptions = Js.Array.concat(state.subscriptions, disposables)
+
+    // add this state to the Registry
     Registry.add(fileName, state)
   }
 
@@ -115,10 +172,9 @@ let activateWithoutContext = (disposables, extensionPath) => {
           Registry.destroy(fileName)->Promise.map(() => makeAndAddToRegistry(editor, fileName))
         | _ => Promise.resolved()
         }->Promise.flatMap(() =>
-          switch // dispatch Tasks
-          Registry.get(fileName) {
+          switch Registry.get(fileName) {
           | None => Promise.resolved()
-          | Some(dispatcher) => Handle__Command.dispatchCommand(dispatcher, command)
+          | Some(state) => Handle__Command.dispatchCommand(state, command)
           }
         )
       } else {

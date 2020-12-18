@@ -67,7 +67,7 @@ let make = (extentionPath, chan, editor) => {
   // view initialization
   let view = View__Controller.make(extentionPath, editor)
 
-  let state = {
+  {
     editor: editor,
     view: view,
     connection: None,
@@ -79,8 +79,6 @@ let make = (extentionPath, chan, editor) => {
     subscriptions: [],
     onRemoveFromRegistry: Chan.make(),
   }
-
-  state
 }
 
 // View-related
