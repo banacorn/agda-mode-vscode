@@ -139,6 +139,26 @@ let activateWithoutContext = (disposables, extensionPath) => {
     let disposables = Editor.Provider.registerProvider(definitionProvider, hoverProvider)
     state.subscriptions = Js.Array.concat(state.subscriptions, disposables)
 
+    //   // these two arrays are called "legends"
+    //   let tokenTypes = Highlighting.Aspect.TokenType.enumurate
+    //   let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
+
+    //   let documentSemanticTokensProvider = (fileName, push) => {
+    //     let useSemanticHighlighting = Config.getSemanticHighlighting()
+    //     // Js.log("useSemanticHighlighting")
+    //     let document = VSCode.TextEditor.document(editor)
+    //     let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
+    //     if useSemanticHighlighting && fileName == currentFileName {
+    //       Some(Decoration.generateSemanticTokens(editor, state.decorations.highlightings, push))
+    //     } else {
+    //       None
+    //     }
+    //   }
+    //   let disposables = Editor.Provider.registerTestingProvider(
+    //     documentSemanticTokensProvider,
+    //     (tokenTypes, tokenModifiers),
+    //   )
+
     // add this state to the Registry
     Registry.add(fileName, state)
   }
