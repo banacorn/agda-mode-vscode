@@ -1,8 +1,9 @@
+open Common
 module type Module = {
   // shared by both EditorIM / PromptIM
   let deactivate: State.t => Promise.t<unit>
 
-  let select: (State.t, array<IM.interval>) => Promise.t<unit>
+  let select: (State.t, array<Interval.t>) => Promise.t<unit>
   let insertChar: (State.t, string) => Promise.t<unit>
   let chooseSymbol: (State.t, string) => Promise.t<unit>
   let moveUp: State.t => Promise.t<unit>
@@ -32,7 +33,7 @@ module Module: Module = {
           viewEvent(state, InputMethod(Update(sequence, translation, index)))
         | Rewrite(replacements, resolve) =>
           let replacements = replacements->Array.map(((interval, text)) => {
-            let range = state.document->IM.fromInterval(interval)
+            let range = Interval.toRange(state.document, interval)
             (range, text)
           })
           Editor.Text.batchReplace(state.document, replacements)->Promise.map(_ => {
@@ -54,8 +55,8 @@ module Module: Module = {
     let activate = (state: State.t) => {
       // activated the input method with cursors positions
       let document = VSCode.TextEditor.document(state.editor)
-      let intervals: array<(int, int)> =
-        Editor.Selection.getMany(state.editor)->Array.map(IM.toInterval(document))
+      let intervals: array<Interval.t> =
+        Editor.Selection.getMany(state.editor)->Array.map(Interval.fromRange(document))
       runAndHandle(state, Activate(intervals))
     }
 

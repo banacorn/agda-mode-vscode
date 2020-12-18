@@ -1,4 +1,5 @@
 open Belt
+open Common
 
 @react.component
 let make = (
@@ -41,7 +42,7 @@ let make = (
     let onMouseUp = event => {
       if inputMethodActivated {
         event->ReactEvent.Synthetic.persist
-        let selectionInterval = (
+        let selectionInterval: Interval.t = (
           ReactEvent.Mouse.target(event)["selectionStart"],
           ReactEvent.Mouse.target(event)["selectionEnd"],
         )

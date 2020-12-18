@@ -30,7 +30,7 @@ let partiteMetas = xs => xs->Dict.split("metas", (rawMetas: array<string>) => {
 let partiteWarningsOrErrors = (xs, key) => xs->Dict.update(key, (raw: array<string>) => {
     let hasDelimeter = raw[0]->Option.flatMap(Js.String.match_(%re("/^\\u2014{4}/")))->Option.isSome
     let lines = hasDelimeter ? Js.Array.sliceFrom(1, raw) : raw
-    let markWarningStart = line => line->View.Range.parse->Option.isSome
+    let markWarningStart = line => line->View.AgdaRange.parse->Option.isSome
     /* If the previous warning of error ends with "at", then we have to glue it back */
     let glueBack = xs =>
       xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome

@@ -94,7 +94,7 @@ module OutputConstraint = {
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
   @react.component
-  let make = (~value: t, ~range: option<View.Range.t>) => {
+  let make = (~value: t, ~range: option<View.AgdaRange.t>) => {
     let range = Option.mapWithDefault(range, null, range => <Range range abbr=true />)
     switch value {
     | OfType(e, t) =>
@@ -118,12 +118,12 @@ module OutputConstraint = {
 }
 
 module Output = {
-  type t = Output(OutputConstraint.t, option<View.Range.t>)
+  type t = Output(OutputConstraint.t, option<View.AgdaRange.t>)
   let toString = x =>
     switch x {
     | Output(c, None) => "Output " ++ OutputConstraint.toString(c)
     | Output(c, Some(range)) =>
-      "Output " ++ (OutputConstraint.toString(c) ++ (" " ++ View.Range.toString(range)))
+      "Output " ++ (OutputConstraint.toString(c) ++ (" " ++ View.AgdaRange.toString(range)))
     }
 
   let parseOutputWithoutRange = raw => raw->OutputConstraint.parse->Option.map(x => Output(x, None))
@@ -133,7 +133,7 @@ module Output = {
       ->Option.flatMap(x => x)
       ->Option.flatMap(OutputConstraint.parse)
       ->Option.map(oc => {
-        let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(View.Range.parse)
+        let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(View.AgdaRange.parse)
         Output(oc, r)
       })
     )
@@ -159,12 +159,12 @@ module Text = {
   module Segment = {
     type t =
       | PlainText(string)
-      | Range(View.Range.t)
+      | Range(View.AgdaRange.t)
 
     let toString = x =>
       switch x {
       | PlainText(s) => s
-      | Range(r) => View.Range.toString(r)
+      | Range(r) => View.AgdaRange.toString(r)
       }
   }
   type t = Text(array<Segment.t>)
@@ -181,7 +181,7 @@ module Text = {
       switch mod(i, 2) {
       | 1 =>
         token
-        ->View.Range.parse
+        ->View.AgdaRange.parse
         ->Option.mapWithDefault(Segment.PlainText(token), x => Segment.Range(x))
       | _ => PlainText(token)
       }

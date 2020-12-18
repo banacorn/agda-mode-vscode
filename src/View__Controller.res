@@ -240,7 +240,7 @@ let show = view => view.panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, (
 let focus = view => view.panel->VSCode.WebviewPanel.reveal()
 let hide = _view => ()
 
-let fromPosition = (position: View.Position.t) =>
+let fromPosition = (position: View.AgdaPosition.t) =>
   VSCode.Position.make(position.line - 1, position.col - 1)
-let fromInterval = (interval: View.Interval.t) =>
+let fromInterval = (interval: View.AgdaInterval.t) =>
   VSCode.Range.make(fromPosition(interval.start), fromPosition(interval.end_))

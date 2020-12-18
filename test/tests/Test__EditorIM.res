@@ -1,4 +1,5 @@
 open Belt
+open Common
 open! BsMocha.Mocha
 open Test__Util
 
@@ -87,13 +88,13 @@ module IM = {
   }
 
   let select = (setup, intervals) => {
-    let ranges = intervals->Array.map(IM.fromInterval(setup.editor->VSCode.TextEditor.document))
+    let ranges = intervals->Array.map(Interval.toRange(setup.editor->VSCode.TextEditor.document))
     Editor.Selection.setMany(setup.editor, ranges)
     Promise.resolved(Ok())
   }
   let selectAndWait = (setup, intervals) => {
     let promise = wait(setup)
-    let ranges = intervals->Array.map(IM.fromInterval(setup.editor->VSCode.TextEditor.document))
+    let ranges = intervals->Array.map(Interval.toRange(setup.editor->VSCode.TextEditor.document))
     Editor.Selection.setMany(setup.editor, ranges)
     promise
   }

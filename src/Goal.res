@@ -1,7 +1,9 @@
+open Belt
+open Common
 module type Module = {
   type t = {
     index: int,
-    mutable range: (int, int),
+    mutable interval: Interval.t,
     decorationBackground: Editor.Decoration.t,
     decorationIndex: Editor.Decoration.t,
   }
@@ -23,11 +25,9 @@ module type Module = {
 }
 
 module Module: Module = {
-  open Belt
-
   type t = {
     index: int,
-    mutable range: (int, int),
+    mutable interval: Interval.t,
     decorationBackground: Editor.Decoration.t,
     decorationIndex: Editor.Decoration.t,
   }
@@ -50,16 +50,16 @@ module Module: Module = {
     let delta = ref(0)
     let replacements = diffs->Array.keep(diff => diff.changed)->Array.map(diff => {
       let range = VSCode.Range.make(
-        document->VSCode.TextDocument.positionAt(fst(diff.originalRange) - delta.contents),
-        document->VSCode.TextDocument.positionAt(snd(diff.originalRange) - delta.contents),
+        document->VSCode.TextDocument.positionAt(fst(diff.originalInterval) - delta.contents),
+        document->VSCode.TextDocument.positionAt(snd(diff.originalInterval) - delta.contents),
       )
 
       // update the delta
       delta :=
         delta.contents +
-        (snd(diff.modifiedRange) - fst(diff.modifiedRange)) -
-        (snd(diff.originalRange) -
-        fst(diff.originalRange))
+        (snd(diff.modifiedInterval) - fst(diff.modifiedInterval)) -
+        (snd(diff.originalInterval) -
+        fst(diff.originalInterval))
 
       let text = diff.content
       (range, text)
@@ -69,12 +69,12 @@ module Module: Module = {
       diffs->Array.map(diff => {
         let (decorationBackground, decorationIndex) = Decoration.decorateHole(
           editor,
-          diff.modifiedRange,
+          diff.modifiedInterval,
           diff.index,
         )
         {
           index: diff.index,
-          range: diff.modifiedRange,
+          interval: diff.modifiedInterval,
           decorationBackground: decorationBackground,
           decorationIndex: decorationIndex,
         }
@@ -82,17 +82,12 @@ module Module: Module = {
     })
   }
 
-  let getInnerRange = (self, document) =>
-    VSCode.Range.make(
-      document->VSCode.TextDocument.positionAt(fst(self.range) + 2),
-      document->VSCode.TextDocument.positionAt(snd(self.range) - 2),
-    )
+  let getInnerRange = (self, document) => {
+    let interval = (fst(self.interval) + 2, snd(self.interval) - 2)
+    Interval.toRange(document, interval)
+  }
 
-  let getOuterRange = (self, document) =>
-    VSCode.Range.make(
-      document->VSCode.TextDocument.positionAt(fst(self.range)),
-      document->VSCode.TextDocument.positionAt(snd(self.range)),
-    )
+  let getOuterRange = (self, document) => Interval.toRange(document, self.interval)
 
   let getContent = (self, document) => {
     let innerRange = getInnerRange(self, document)
@@ -105,15 +100,15 @@ module Module: Module = {
   }
 
   let setCursor = (self, editor) => {
-    let (start, _) = self.range
-    let point = editor->VSCode.TextEditor.document->VSCode.TextDocument.positionAt(start + 3)
-    Editor.Cursor.set(editor, point)
+    let (start, _) = self.interval
+    let position = Offset.toPosition(editor->VSCode.TextEditor.document, start + 3)
+    Editor.Cursor.set(editor, position)
   }
 
   let buildHaskellRange = (self, document, version, filepath: string) => {
-    let (start, end_) = self.range
-    let startPoint = VSCode.TextDocument.positionAt(document, start)
-    let endPoint = VSCode.TextDocument.positionAt(document, end_)
+    let (start, end_) = self.interval
+    let startPoint = Offset.toPosition(document, start)
+    let endPoint = Offset.toPosition(document, end_)
 
     let startIndex = string_of_int(start + 3)
     let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)

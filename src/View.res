@@ -155,7 +155,7 @@ module Body = {
 }
 
 open Belt
-module Position = {
+module AgdaPosition = {
   type t = {
     pos: option<int>,
     line: int,
@@ -187,10 +187,10 @@ module Position = {
     }
 }
 
-module Interval = {
+module AgdaInterval = {
   type t = {
-    start: Position.t,
-    end_: Position.t,
+    start: AgdaPosition.t,
+    end_: AgdaPosition.t,
   }
 
   let fuse = (a, b) => {
@@ -225,7 +225,10 @@ module Interval = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Interval" => Contents(pair(Position.decode, Position.decode) |> map(((start, end_)) => {
+    | "Interval" => Contents(pair(AgdaPosition.decode, AgdaPosition.decode) |> map(((
+          start,
+          end_,
+        )) => {
           start: start,
           end_: end_,
         }))
@@ -239,15 +242,15 @@ module Interval = {
     | {start, end_} =>
       object_(list{
         ("tag", string("Interval")),
-        ("contents", (start, end_) |> pair(Position.encode, Position.encode)),
+        ("contents", (start, end_) |> pair(AgdaPosition.encode, AgdaPosition.encode)),
       })
     }
 }
 
-module Range = {
+module AgdaRange = {
   type t =
     | NoRange
-    | Range(option<string>, array<Interval.t>)
+    | Range(option<string>, array<AgdaInterval.t>)
 
   let parse = %re(
     /* |  different row                    |    same row            | */
@@ -326,20 +329,20 @@ module Range = {
   })
 
   let fuse = (a: t, b: t): t => {
-    open Interval
+    open AgdaInterval
 
     let mergeTouching = (l, e, s, r) =>
       List.concat(List.concat(l, list{{start: e.start, end_: s.end_}}), r)
 
     let rec fuseSome = (s1, r1, s2, r2) => {
       let r1' = Util.List.dropWhile(x => x.end_.pos <= s2.end_.pos, r1)
-      helpFuse(r1', list{Interval.fuse(s1, s2), ...r2})
+      helpFuse(r1', list{AgdaInterval.fuse(s1, s2), ...r2})
     }
     and outputLeftPrefix = (s1, r1, s2, is2) => {
       let (r1', r1'') = Util.List.span(s => s.end_.pos < s2.start.pos, r1)
       List.concat(List.concat(list{s1}, r1'), helpFuse(r1'', is2))
     }
-    and helpFuse = (a: List.t<Interval.t>, b: List.t<Interval.t>) =>
+    and helpFuse = (a: List.t<AgdaInterval.t>, b: List.t<AgdaInterval.t>) =>
       switch (a, List.reverse(a), b, List.reverse(b)) {
       | (list{}, _, _, _) => a
       | (_, _, list{}, _) => b
@@ -376,7 +379,7 @@ module Range = {
     | NoRange => ""
     | Range(None, xs) =>
       switch (xs[0], xs[Array.length(xs) - 1]) {
-      | (Some(first), Some(last)) => Interval.toString({start: first.start, end_: last.end_})
+      | (Some(first), Some(last)) => AgdaInterval.toString({start: first.start, end_: last.end_})
       | _ => ""
       }
 
@@ -385,7 +388,7 @@ module Range = {
       filepath ++
       (":" ++
       switch (xs[0], xs[Array.length(xs) - 1]) {
-      | (Some(first), Some(last)) => Interval.toString({start: first.start, end_: last.end_})
+      | (Some(first), Some(last)) => AgdaInterval.toString({start: first.start, end_: last.end_})
       | _ => ""
       })
     }
@@ -397,7 +400,7 @@ module Range = {
     switch x {
     | "Range" =>
       Contents(
-        pair(optional(string), array(Interval.decode)) |> map(((source, intervals)) => Range(
+        pair(optional(string), array(AgdaInterval.decode)) |> map(((source, intervals)) => Range(
           source,
           intervals,
         )),
@@ -413,7 +416,7 @@ module Range = {
     | Range(source, intervals) =>
       object_(list{
         ("tag", string("Range")),
-        ("contents", (source, intervals) |> pair(nullable(string), array(Interval.encode))),
+        ("contents", (source, intervals) |> pair(nullable(string), array(AgdaInterval.encode))),
       })
     | NoRange => object_(list{("tag", string("NoRange"))})
     }
@@ -421,7 +424,7 @@ module Range = {
 
 module Link = {
   type t =
-    | ToRange(Range.t)
+    | ToRange(AgdaRange.t)
     | ToHole(int)
 
   open Json.Decode
@@ -429,7 +432,7 @@ module Link = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "ToRange" => Contents(Range.decode |> map(range => ToRange(range)))
+    | "ToRange" => Contents(AgdaRange.decode |> map(range => ToRange(range)))
     | "ToHole" => Contents(int |> map(index => ToHole(index)))
     | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
     }
@@ -439,7 +442,7 @@ module Link = {
   let encode: encoder<t> = x =>
     switch x {
     | ToRange(range) =>
-      object_(list{("tag", string("ToRange")), ("contents", range |> Range.encode)})
+      object_(list{("tag", string("ToRange")), ("contents", range |> AgdaRange.encode)})
     | ToHole(index) => object_(list{("tag", string("ToHole")), ("contents", index |> int)})
     }
 }
@@ -615,6 +618,8 @@ module Response = {
     }
 }
 
+open Common
+
 module EventFromView = {
   module InputMethod = {
     type t =
@@ -644,7 +649,7 @@ module EventFromView = {
 
   module PromptIMUpdate = {
     type t =
-      | MouseSelect(IM.interval)
+      | MouseSelect(Interval.t)
       | KeyUpdate(string)
       | BrowseUp
       | BrowseDown
@@ -657,7 +662,7 @@ module EventFromView = {
 
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "MouseSelect" => Contents(pair(int, int) |> map(interval => MouseSelect(interval)))
+      | "MouseSelect" => Contents(Interval.decode |> map(interval => MouseSelect(interval)))
       | "KeyUpdate" => Contents(string |> map(char => KeyUpdate(char)))
       | "BrowseUp" => TagOnly(BrowseUp)
       | "BrowseDown" => TagOnly(BrowseDown)
@@ -672,7 +677,7 @@ module EventFromView = {
     let encode: encoder<t> = x =>
       switch x {
       | MouseSelect(interval) =>
-        object_(list{("tag", string("MouseSelect")), ("contents", interval |> pair(int, int))})
+        object_(list{("tag", string("MouseSelect")), ("contents", interval |> Interval.encode)})
       | KeyUpdate(char) => object_(list{("tag", string("KeyUpdate")), ("contents", char |> string)})
       | BrowseUp => object_(list{("tag", string("BrowseUp"))})
       | BrowseDown => object_(list{("tag", string("BrowseDown"))})

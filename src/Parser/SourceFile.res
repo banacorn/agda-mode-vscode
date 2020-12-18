@@ -1,4 +1,5 @@
 open Belt
+open Common
 
 module FileType = {
   type t =
@@ -128,7 +129,7 @@ module Literate = {
       %re("/(.*(?:\\r\\n|[\\n\\v\\f\\r\\x85\\u2028\\u2029])?)/g"),
       raw,
     )->Option.mapWithDefault([], lines => lines->Array.keep(x => x != "")->Array.map(line => {
-    // [\s\.\;\{\}\(\)\@]
+        // [\s\.\;\{\}\(\)\@]
         let cursorOld = cursor.contents
         cursor := cursor.contents + String.length(line)
         open Token
@@ -177,22 +178,22 @@ module Literate = {
 module Diff = {
   type t = {
     index: int,
-    modifiedRange: (int, int),
-    originalRange: (int, int),
+    modifiedInterval: Interval.t,
+    originalInterval: Interval.t,
     content: string,
     changed: bool,
   }
 
-  let toString = ({index, modifiedRange, originalRange, content}) =>
+  let toString = ({index, modifiedInterval, originalInterval, content}) =>
     "Hole [" ++
     (string_of_int(index) ++
     ("] (" ++
-    (string_of_int(fst(originalRange)) ++
+    (string_of_int(fst(originalInterval)) ++
     (", " ++
-    (string_of_int(snd(originalRange)) ++
+    (string_of_int(snd(originalInterval)) ++
     (") => (" ++
-    (string_of_int(fst(modifiedRange)) ++
-    (", " ++ (string_of_int(snd(modifiedRange)) ++ (") \"" ++ (content ++ "\"")))))))))))
+    (string_of_int(fst(modifiedInterval)) ++
+    (", " ++ (string_of_int(snd(modifiedInterval)) ++ (") \"" ++ (content ++ "\"")))))))))))
 }
 
 let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> => {
@@ -285,8 +286,8 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
       let (start, _) = modifiedHole.range
       Some({
         Diff.index: index,
-        originalRange: (start, start + String.length(token.content)),
-        modifiedRange: modifiedHole.range,
+        originalInterval: (start, start + String.length(token.content)),
+        modifiedInterval: modifiedHole.range,
         content: modifiedHole.content,
         changed: token.content != modifiedHole.content,
       })

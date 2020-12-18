@@ -1,3 +1,5 @@
+open Belt
+open Common
 module type Module = {
   let instantiate: (State.t, array<int>) => Promise.t<unit>
   let modify: (State.t, Goal.t, string => string) => Promise.t<unit>
@@ -20,13 +22,11 @@ module type Module = {
 }
 
 module Module: Module = {
-  open Belt
-
   open! Task
 
   // return an array of Offsets of Goals
   let getOffsets = (state: State.t): array<int> =>
-    state.goals->Array.map(goal => fst(goal.range) + 3)
+    state.goals->Array.map(goal => fst(goal.interval) + 3)
 
   let pointingAt = (~cursor=?, state: State.t): option<Goal.t> => {
     let cursor = switch cursor {
@@ -35,9 +35,7 @@ module Module: Module = {
     }
     let cursorOffset = state.document->VSCode.TextDocument.offsetAt(cursor)
     let pointedGoals =
-      state.goals->Array.keep(goal =>
-        fst(goal.range) <= cursorOffset && cursorOffset <= snd(goal.range)
-      )
+      state.goals->Array.keep(goal => Interval.contains(goal.interval, cursorOffset))
     // return the first pointed goal
     pointedGoals[0]
   }
@@ -59,9 +57,8 @@ module Module: Module = {
 
   let caseSplitAux = (document, goal: Goal.t) => {
     let textBeforeGoal = {
-      let start = document->VSCode.TextDocument.positionAt(0)
-      let end_ = document->VSCode.TextDocument.positionAt(fst(goal.range))
-      let range = VSCode.Range.make(start, end_)
+      let interval = (0, fst(goal.interval))
+      let range = Interval.toRange(document, interval)
       Editor.Text.get(document, range)
     }
 
@@ -91,7 +88,7 @@ module Module: Module = {
       let lastOpenCurlyBracketOffset =
         {
           let bracketCount = ref(0)
-          let i = ref(fst(goal.range) - 1)
+          let i = ref(fst(goal.interval) - 1)
           while i.contents >= 0 && bracketCount.contents >= 0 {
             switch i.contents {
             // no preceding character
@@ -143,7 +140,7 @@ module Module: Module = {
     //    "x -> {!   !}"
     let range = {
       let caseStart = nextWordBoundary(searchStart, textBeforeGoal)
-      let caseEnd = snd(goal.range)
+      let caseEnd = snd(goal.interval)
       (caseStart, caseEnd)
     }
     (inWhereClause, fst(range) - lastLineBreakOffset, range)
@@ -152,7 +149,7 @@ module Module: Module = {
   // returns the width of indentation of the first line of a goal
   // along with the text and the range before the goal
   let indentationWidth = (document, goal: Goal.t): (int, string, VSCode.Range.t) => {
-    let goalStart = document->VSCode.TextDocument.positionAt(fst(goal.range))
+    let goalStart = document->VSCode.TextDocument.positionAt(fst(goal.interval))
     let lineNo = VSCode.Position.line(goalStart)
     let range = VSCode.Range.make(VSCode.Position.make(lineNo, 0), goalStart)
     let textBeforeGoal = Editor.Text.get(document, range)
@@ -200,7 +197,7 @@ module Module: Module = {
     diffs->Array.forEachWithIndex((i, diff) =>
       switch state.goals[i] {
       | None => () // do nothing :|
-      | Some(goal) => goal.range = diff.modifiedRange
+      | Some(goal) => goal.interval = diff.modifiedInterval
       }
     )
   }
@@ -363,12 +360,12 @@ module Module: Module = {
     let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
     // the rows spanned by the goal (including the text outside the goal)
     // will be replaced by the `indentedLines`
-    let start = document->VSCode.TextDocument.positionAt(fst(goal.range))
+    let start = Offset.toPosition(state.document, fst(goal.interval))
     let startLineNo = VSCode.Position.line(start)
     let startLineRange = document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
     let start = VSCode.Range.start(startLineRange)
 
-    let end_ = document->VSCode.TextDocument.positionAt(snd(goal.range))
+    let end_ = Offset.toPosition(state.document, snd(goal.interval))
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
     Editor.Text.replace(document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
       switch x {
@@ -390,10 +387,7 @@ module Module: Module = {
 
     let document = VSCode.TextEditor.document(state.editor)
     let innerRange = Goal.getInnerRange(goal, document)
-    let outerRange = VSCode.Range.make(
-      document->VSCode.TextDocument.positionAt(fst(goal.range)),
-      document->VSCode.TextDocument.positionAt(snd(goal.range)),
-    )
+    let outerRange = Interval.toRange(document, goal.interval)
     let content = Editor.Text.get(document, innerRange)->String.trim
     Editor.Text.replace(document, outerRange, content)->Promise.flatMap(x =>
       switch x {

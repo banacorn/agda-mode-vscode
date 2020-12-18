@@ -1,17 +1,18 @@
+open Common
 open Belt
 
-type offset = int
-type interval = (offset, offset)
+// type offset = int
+// type interval = (offset, offset)
 
-let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
-let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
+// let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
+// let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
 
-let fromInterval = (document, interval) =>
-  VSCode.Range.make(document->fromOffset(fst(interval)), document->fromOffset(snd(interval)))
-let toInterval = (document, range) => (
-  document->toOffset(VSCode.Range.start(range)),
-  document->toOffset(VSCode.Range.end_(range)),
-)
+// let fromInterval = (document, interval) =>
+//   VSCode.Range.make(document->fromOffset(fst(interval)), document->fromOffset(snd(interval)))
+// let toInterval = (document, range) => (
+//   document->toOffset(VSCode.Range.start(range)),
+//   document->toOffset(VSCode.Range.end_(range)),
+// )
 
 module Input = {
   type candidateInput =
@@ -21,10 +22,10 @@ module Input = {
     | BrowseLeft
     | BrowseRight
   type t =
-    | Activate(array<interval>)
+    | Activate(array<Interval.t>)
     | Deactivate
     | KeyUpdate(array<Buffer.change>)
-    | MouseSelect(array<interval>)
+    | MouseSelect(array<Interval.t>)
     | Candidate(candidateInput)
 
   let fromTextDocumentChangeEvent = (editor, event) => {
@@ -47,7 +48,7 @@ module Input = {
 module Output = {
   type kind =
     | UpdateView(string, Translator.translation, int)
-    | Rewrite(array<(interval, string)>, unit => unit)
+    | Rewrite(array<(Interval.t, string)>, unit => unit)
     | Activate
     | Deactivate
 
@@ -58,7 +59,7 @@ module Output = {
 module Log = {
   type kind =
     | UpdateView
-    | RewriteIssued(array<(interval, string)>)
+    | RewriteIssued(array<(Interval.t, string)>)
     | RewriteApplied
     | Activate
     | Deactivate
@@ -87,7 +88,7 @@ module type Module = {
 module Module: Module = {
   module Instance = {
     type t = {
-      mutable interval: interval,
+      mutable interval: Interval.t,
       mutable decoration: option<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
@@ -101,11 +102,7 @@ module Module: Module = {
         }
       | Some(editor) =>
         let document = VSCode.TextEditor.document(editor)
-        let (start, end_) = interval
-        let start = document->VSCode.TextDocument.positionAt(start)
-        let end_ = document->VSCode.TextDocument.positionAt(end_)
-        let range = VSCode.Range.make(start, end_)
-
+        let range = Interval.toRange(document, interval)
         {
           interval: interval,
           decoration: Some(Editor.Decoration.underlineText(editor, range)),
@@ -113,10 +110,7 @@ module Module: Module = {
         }
       }
 
-    let withIn = (instance, offset) => {
-      let (start, end_) = instance.interval
-      start <= offset && offset <= end_
-    }
+    let withIn = (instance, offset) => Interval.contains(instance.interval, offset)
 
     let redecorate = (instance, editor) => {
       instance.decoration->Option.forEach(Editor.Decoration.destroy)
@@ -158,7 +152,7 @@ module Module: Module = {
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
-    interval: interval,
+    interval: Interval.t,
     text: string,
     // `instance` has been destroyed if is None
     instance: option<Instance.t>,

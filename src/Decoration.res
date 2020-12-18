@@ -1,3 +1,4 @@
+open Common
 module type Module = {
   type srcLoc = {
     // range of the reference
@@ -13,7 +14,7 @@ module type Module = {
 
   let decorateHole: (
     VSCode.TextEditor.t,
-    (int, int),
+    Interval.t,
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
@@ -44,12 +45,9 @@ module Module: Module = {
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
-  let decorateHole = (editor: VSCode.TextEditor.t, (start, end_): (int, int), index: int) => {
+  let decorateHole = (editor: VSCode.TextEditor.t, interval: Interval.t, index: int) => {
     let document = VSCode.TextEditor.document(editor)
-    let backgroundRange = VSCode.Range.make(
-      document->VSCode.TextDocument.positionAt(start),
-      document->VSCode.TextDocument.positionAt(end_),
-    )
+    let backgroundRange = Interval.toRange(document, interval)
 
     let background = Editor.Decoration.highlightBackground(
       editor,
@@ -57,10 +55,8 @@ module Module: Module = {
       [backgroundRange],
     )
     let indexText = string_of_int(index)
-    let indexRange = VSCode.Range.make(
-      document->VSCode.TextDocument.positionAt(start),
-      document->VSCode.TextDocument.positionAt(end_ - 2),
-    )
+    let innerInterval = (fst(interval), snd(interval) - 2)
+    let indexRange = Interval.toRange(document, innerInterval)
 
     let index = Editor.Decoration.overlayText(
       editor,

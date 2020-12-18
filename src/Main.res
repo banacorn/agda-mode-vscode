@@ -1,5 +1,6 @@
 // The entry module of the whole extension
 open Belt
+open Common
 
 // if end with '.agda' or '.lagda'
 let isAgda = (filepath): bool => {
@@ -93,8 +94,8 @@ let activateWithoutContext = (disposables, extensionPath) => {
         event
         ->VSCode.TextEditorSelectionChangeEvent.selections
         ->Array.map(selection => (
-          IM.toOffset(document, VSCode.Selection.start(selection)),
-          IM.toOffset(document, VSCode.Selection.end_(selection)),
+          Offset.fromPosition(document, VSCode.Selection.start(selection)),
+          Offset.fromPosition(document, VSCode.Selection.end_(selection)),
         ))
 
       Handle__InputMethod.select(state, intervals)->ignore

@@ -8,6 +8,6 @@ let make = (~range, ~abbr=false) =>
     </Component__Link>
   } else {
     <Component__Link jump=true target=View.Link.ToRange(range)>
-      <div className="codicon codicon-link" /> {string(View.Range.toString(range))}
+      <div className="codicon codicon-link" /> {string(View.AgdaRange.toString(range))}
     </Component__Link>
   }
