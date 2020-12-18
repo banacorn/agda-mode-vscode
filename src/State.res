@@ -1,7 +1,5 @@
 open Belt
 
-// type editor = TextEditor.t;
-// type context = Editor.context;
 type t = {
   mutable editor: VSCode.TextEditor.t,
   view: View__Controller.t,
@@ -16,16 +14,33 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
 }
 
-// getters
+module Decoration = {
+  let make = Decoration.make
 
-let getEditor = (state: t) => state.editor
+  let addViaPipe = (state, highlightings) =>
+    state.decorations->Decoration.addDirectly(highlightings)
+
+  let addViaFile = (state, filepath) => state.decorations->Decoration.addIndirectly(filepath)
+
+  let clear = state => Decoration.removeAppliedDecorations(state.decorations)
+
+  let apply = state => Decoration.readTempFiles(state.decorations)->Promise.map(() => {
+      Decoration.applyHighlightings(state.decorations, state.editor)
+    })
+
+  let refresh = state => {
+    // highlightings
+    Decoration.refresh(state.decorations, state.editor)
+    // goal decorations
+    state.goals->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor))
+  }
+
+  let destroy = state => Decoration.destroy(state.decorations)
+}
 
 // events to the FileName-Dispatch Registry
-
 let onRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.once
 let emitRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.emit()
-
-// Agda connection/disconnection
 
 // connect if not connected yet
 let connect = state =>
@@ -55,7 +70,7 @@ let destroy = state => {
   state->emitRemoveFromRegistry
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
-  state.decorations->Decoration.destroy
+  state->Decoration.destroy
   setLoaded(false)
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   state->disconnect

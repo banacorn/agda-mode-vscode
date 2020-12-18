@@ -93,7 +93,7 @@ let rec sendAgdaRequest = (
       // stop the Agda Response listener
       ->Promise.tap(_ => stopListener())
       // apply decoration before handling Last Responses
-      ->Promise.flatMap(_ => Handle__Decoration.apply(state))
+      ->Promise.flatMap(_ => State.Decoration.apply(state))
       ->Promise.map(() =>
         deferredLastResponses->Array.map(
           Handle__Response.handle(state, dispatchCommand, sendAgdaRequest(dispatchCommand, state)),
@@ -152,7 +152,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | Restart => dispatchCommand(Load)
   | Refresh =>
     Handle__Goal.updateRanges(state)
-    Handle__Decoration.refresh(state)
+    State.Decoration.refresh(state)
     Promise.resolved()
   | Compile => sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)

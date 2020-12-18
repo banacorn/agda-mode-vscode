@@ -40,13 +40,13 @@ let handle = (
 ): Promise.t<unit> =>
   switch response {
   | HighlightingInfoDirect(_remove, annotations) =>
-    Handle__Decoration.addViaPipe(state, annotations)
+    State.Decoration.addViaPipe(state, annotations)
     Promise.resolved()
   | HighlightingInfoIndirect(filepath) =>
-    Handle__Decoration.addViaFile(state, filepath)
+    State.Decoration.addViaFile(state, filepath)
     Promise.resolved()
   | ClearHighlighting =>
-    Handle__Decoration.clear(state)
+    State.Decoration.clear(state)
     Promise.resolved()
   | Status(_displayImplicit, _checked) =>
     // display(
