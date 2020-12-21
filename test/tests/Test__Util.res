@@ -32,12 +32,15 @@ let wait = ms => {
 }
 
 module Q = {
-  let toPromise = f => Js.Promise.make((~resolve, ~reject) => f->Promise.get(x =>
+  let toPromise = f =>
+    Js.Promise.make((~resolve, ~reject) =>
+      f->Promise.get(x =>
         switch x {
         | Error(error) => reject(. error)
         | Ok(result) => resolve(. result)
         }
-      ))
+      )
+    )
 
   let it = (s, f: unit => Promise.t<result<'a, 'error>>) =>
     BsMocha.Promise.it(s, () => f()->toPromise)
@@ -86,12 +89,14 @@ module Strings = {
   let breakInput = (input: string, breakpoints: array<int>) => {
     let breakpoints' = Array.concat([0], breakpoints)
 
-    breakpoints'->Array.mapWithIndex((i, x: int) =>
+    breakpoints'
+    ->Array.mapWithIndex((i, x: int) =>
       switch breakpoints'[i + 1] {
       | Some(next) => (x, next - x)
       | None => (x, Js.String.length(input) - x)
       }
-    )->Array.map(((from, length)) => Js.String.substrAtMost(~from, ~length, input))
+    )
+    ->Array.map(((from, length)) => Js.String.substrAtMost(~from, ~length, input))
   }
 }
 
@@ -182,7 +187,9 @@ module Golden = {
     let filepath = Path.toAbsolute(filepath)
     let readFile = N.Fs.readFile |> N.Util.promisify
 
-    [readFile(. filepath ++ ".in"), readFile(. filepath ++ ".out")] |> all |> then_(x =>
+    [readFile(. filepath ++ ".in"), readFile(. filepath ++ ".out")]
+    |> all
+    |> then_(x =>
       switch x {
       | [input, output] =>
         resolve(
@@ -202,7 +209,9 @@ module Golden = {
     let actual = Strings.normalize(actual)
     let expected = Strings.normalize(expected)
 
-    Diff.wordsWithSpace(actual, expected)->Diff.firstChange->Option.forEach(((diff, count)) => {
+    Diff.wordsWithSpace(actual, expected)
+    ->Diff.firstChange
+    ->Option.forEach(((diff, count)) => {
       open Diff
       let value = Diff.getValue(diff)
 
@@ -260,8 +269,7 @@ module Golden = {
   }
 }
 
-let onUnix = () =>
-  switch N.OS.type_() {
-  | "Windows_NT" => false
-  | _ => true
-  }
+let onUnix = switch N.OS.type_() {
+| "Windows_NT" => false
+| _ => true
+}

@@ -103,15 +103,18 @@ module IM = {
 describe("Input Method (Editor)", () => {
   let setup = ref(None)
 
-  Q.before(() => activateExtension(Path.asset("InputMethod.agda"))->map(value => {
+  Q.before(() =>
+    activateExtension(Path.asset("InputMethod.agda"))->map(value => {
       setup := Some(value)
       Ok()
-    }))
+    })
+  )
 
   Q.after_each(() => acquire(setup)->mapOk(cleanup))
 
   describe("Insertion", () => {
-    Q.it(j`should translate "lambdabar" to "λ"`, () => acquire(setup)->flatMapOk(setup => {
+    Q.it(j`should translate "lambdabar" to "λ"`, () =>
+      acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
@@ -142,8 +145,10 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => IM.insertChar(setup, "r"))
         ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 4), j`ƛ`)]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`ƛ`, Editor.Text.getAll(document)))
-      }))
-    Q.it(j`should translate "bn" to "𝕟"`, () => acquire(setup)->flatMapOk(setup => {
+      })
+    )
+    Q.it(j`should translate "bn" to "𝕟"`, () =>
+      acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
@@ -153,10 +158,12 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => IM.insertChar(setup, "n"))
         ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 2), j`𝕟`)]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`𝕟`, Editor.Text.getAll(document)))
-      }))
+      })
+    )
   })
   describe("Backspacing", () =>
-    Q.it(j`should work just fine`, () => acquire(setup)->flatMapOk(setup => {
+    Q.it(j`should work just fine`, () =>
+      acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
@@ -192,11 +199,13 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => IM.deactivate(setup))
         ->flatMapOk(IM.deep_equal([Deactivate]))
         ->flatMapOk(() => A.equal(j`lambd`, Editor.Text.getAll(document)))
-      }))
+      })
+    )
   )
 
   describe("Abortion", () => {
-    Q.it(j`should abort after hitting escape`, () => acquire(setup)->flatMapOk(setup => {
+    Q.it(j`should abort after hitting escape`, () =>
+      acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
@@ -206,8 +215,10 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => IM.deactivate(setup))
         ->flatMapOk(IM.deep_equal([Deactivate]))
         ->flatMapOk(() => A.equal(j`♭`, Editor.Text.getAll(document)))
-      }))
-    Q.it(j`should abort after typing the wrong sequence`, () => acquire(setup)->flatMapOk(setup => {
+      })
+    )
+    Q.it(j`should abort after typing the wrong sequence`, () =>
+      acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
@@ -217,8 +228,10 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => IM.insertChar(setup, "d"))
         ->flatMapOk(IM.deep_equal([RewriteIssued([]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`ad`, Editor.Text.getAll(document)))
-      }))
-    Q.it(j`should abort after backspacing to much`, () => acquire(setup)->flatMapOk(setup => {
+      })
+    )
+    Q.it(j`should abort after backspacing to much`, () =>
+      acquire(setup)->flatMapOk(setup => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
@@ -228,7 +241,8 @@ describe("Input Method (Editor)", () => {
         ->flatMapOk(() => IM.backspace(setup))
         ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 0), j``)]), Deactivate, RewriteApplied]))
         ->flatMapOk(() => A.equal(j``, Editor.Text.getAll(document)))
-      }))
+      })
+    )
   })
 
   describe("Cursor", () => {
@@ -299,28 +313,71 @@ describe("Input Method (Editor)", () => {
         ->flatMap(_ => IM.activate(setup, ~positions, ()))
         ->flatMapOk(IM.deep_equal([Activate]))
         ->flatMapOk(() => IM.insertChar(setup, "b"))
-        ->flatMapOk(
-          IM.deep_equal([
-            RewriteIssued([((0, 1), j`♭`), ((2, 3), j`♭`), ((4, 5), j`♭`), ((6, 7), j`♭`)]),
-            UpdateView,
-            RewriteApplied,
-          ]),
+        ->flatMapOk(actual =>
+          if onUnix {
+            IM.deep_equal(
+              [
+                RewriteIssued([
+                  ((0, 1), j`♭`),
+                  ((2, 3), j`♭`),
+                  ((4, 5), j`♭`),
+                  ((6, 7), j`♭`),
+                ]),
+                UpdateView,
+                RewriteApplied,
+              ],
+              actual,
+            )
+          } else {
+            IM.deep_equal(
+              [
+                RewriteIssued([
+                  ((0, 1), j`♭`),
+                  ((3, 4), j`♭`),
+                  ((6, 7), j`♭`),
+                  ((9, 10), j`♭`),
+                ]),
+                UpdateView,
+                RewriteApplied,
+              ],
+              actual,
+            )
+          }
         )
         ->flatMapOk(() =>
           A.equal(j`♭\\n♭\\n♭\\n♭`, replaceCRLF(Editor.Text.getAll(document)))
         )
         ->flatMapOk(() => IM.insertChar(setup, "n"))
-        ->flatMapOk(
-          IM.deep_equal([
-            RewriteIssued([
-              ((0, 2), j`𝕟`),
-              ((3, 5), j`𝕟`),
-              ((6, 8), j`𝕟`),
-              ((9, 11), j`𝕟`),
-            ]),
-            Deactivate,
-            RewriteApplied,
-          ]),
+        ->flatMapOk(actual =>
+          if onUnix {
+            IM.deep_equal(
+              [
+                RewriteIssued([
+                  ((0, 2), j`𝕟`),
+                  ((3, 5), j`𝕟`),
+                  ((6, 8), j`𝕟`),
+                  ((9, 11), j`𝕟`),
+                ]),
+                Deactivate,
+                RewriteApplied,
+              ],
+              actual,
+            )
+          } else {
+            IM.deep_equal(
+              [
+                RewriteIssued([
+                  ((0, 2), j`𝕟`),
+                  ((4, 6), j`𝕟`),
+                  ((8, 10), j`𝕟`),
+                  ((12, 14), j`𝕟`),
+                ]),
+                Deactivate,
+                RewriteApplied,
+              ],
+              actual,
+            )
+          }
         )
         ->flatMapOk(() =>
           A.equal(j`𝕟\\n𝕟\\n𝕟\\n𝕟`, replaceCRLF(Editor.Text.getAll(document)))
@@ -352,17 +409,36 @@ describe("Input Method (Editor)", () => {
           A.equal(j`an123\\n1an23\\n12an3\\n123an`, replaceCRLF(Editor.Text.getAll(document)))
         )
         ->flatMapOk(() => IM.insertChar(setup, "d"))
-        ->flatMapOk(
-          IM.deep_equal([
-            RewriteIssued([
-              ((0, 3), j`∧`),
-              ((8, 11), j`∧`),
-              ((16, 19), j`∧`),
-              ((24, 27), j`∧`),
-            ]),
-            UpdateView,
-            RewriteApplied,
-          ]),
+        ->flatMapOk(actual =>
+          if onUnix {
+            IM.deep_equal(
+              [
+                RewriteIssued([
+                  ((0, 3), j`∧`),
+                  ((8, 11), j`∧`),
+                  ((16, 19), j`∧`),
+                  ((24, 27), j`∧`),
+                ]),
+                UpdateView,
+                RewriteApplied,
+              ],
+              actual,
+            )
+          } else {
+            IM.deep_equal(
+              [
+                RewriteIssued([
+                  ((0, 3), j`∧`),
+                  ((9, 12), j`∧`),
+                  ((18, 21), j`∧`),
+                  ((27, 30), j`∧`),
+                ]),
+                UpdateView,
+                RewriteApplied,
+              ],
+              actual,
+            )
+          }
         )
         ->flatMapOk(() =>
           A.equal(j`∧123\\n1∧23\\n12∧3\\n123∧`, replaceCRLF(Editor.Text.getAll(document)))

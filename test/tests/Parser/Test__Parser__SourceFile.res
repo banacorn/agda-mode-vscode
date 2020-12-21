@@ -5,7 +5,8 @@ open Js.Promise
 
 open Test__Util
 
-describe("when parsing file paths", () => it("should recognize the file extensions", () => {
+describe("when parsing file paths", () =>
+  it("should recognize the file extensions", () => {
     open SourceFile.FileType
     Assert.equal(parse("a.agda"), Agda)
     Assert.equal(parse("a.lagda"), LiterateTeX)
@@ -13,9 +14,10 @@ describe("when parsing file paths", () => it("should recognize the file extensio
     Assert.equal(parse("a.lagda.md"), LiterateMarkdown)
     Assert.equal(parse("a.lagda.rst"), LiterateRST)
     Assert.equal(parse("a.lagda.org"), LiterateOrg)
-  }))
+  })
+)
 
-if onUnix() {
+if onUnix {
   describe("when parsing source files (Unix only)", () =>
     Golden.getGoldenFilepathsSync(
       "../../../../test/tests/Parser/SourceFile",
