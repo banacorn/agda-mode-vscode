@@ -31,12 +31,11 @@ Js.log(
   ("\n  extensionTestsPath: " ++ extensionTestsPath)),
 )
 
-runTests({
-  extensionDevelopmentPath: extensionDevelopmentPath,
-  extensionTestsPath: extensionTestsPath,
-}) |> Js.Promise.catch(error => {
+Js.Promise.catch(error => {
   Js.log(error)
   Js.log("Failed to run tests")
   Node.Process.exit(1)
-  //  Js.Promise.resolve(1);
-})
+}, runTests({
+  extensionDevelopmentPath: extensionDevelopmentPath,
+  extensionTestsPath: extensionTestsPath,
+}))->ignore

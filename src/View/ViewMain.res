@@ -18,14 +18,14 @@ VSCode.Api.onMessage(stringifiedJSON => {
 
 // relay onResponse => VSCode.Api.postMessage
 let onResponse = Chan.make()
-onResponse->Chan.on(response => {
+let _ = onResponse->Chan.on(response => {
   open View.ResponseOrEventFromView
   vscode->VSCode.Api.postMessage(encode(Response(response)))
 })
 
 // relay onEventFromView => VSCode.Api.postMessage
 let onEventFromView = Chan.make()
-onEventFromView->Chan.on(event => {
+let _ = onEventFromView->Chan.on(event => {
   open View.ResponseOrEventFromView
   vscode->VSCode.Api.postMessage(encode(Event(event)))
 })

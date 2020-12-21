@@ -37,7 +37,7 @@
 	"dependencies": {
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"bs-nd": "^0.1.5",
-		"bs-platform": ">=8.3.3",
+		"bs-platform": ">=8.4.2",
 		"bs-vscode": "github:banacorn/bs-vscode#v0.0.10",
 		"bs-webapi": "github:reasonml-community/bs-webapi-incubator#b3bbe0",
 		"compare-versions": "^3.5.1",
