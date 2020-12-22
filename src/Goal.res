@@ -48,22 +48,25 @@ module Module: Module = {
     // scan through the diffs to modify the text buffer one by one
 
     let delta = ref(0)
-    let replacements = diffs->Array.keep(diff => diff.changed)->Array.map(diff => {
-      let range = VSCode.Range.make(
-        document->VSCode.TextDocument.positionAt(fst(diff.originalInterval) - delta.contents),
-        document->VSCode.TextDocument.positionAt(snd(diff.originalInterval) - delta.contents),
-      )
+    let replacements =
+      diffs
+      ->Array.keep(diff => diff.changed)
+      ->Array.map(diff => {
+        let range = VSCode.Range.make(
+          document->VSCode.TextDocument.positionAt(fst(diff.originalInterval) - delta.contents),
+          document->VSCode.TextDocument.positionAt(snd(diff.originalInterval) - delta.contents),
+        )
 
-      // update the delta
-      delta :=
-        delta.contents +
-        (snd(diff.modifiedInterval) - fst(diff.modifiedInterval)) -
-        (snd(diff.originalInterval) -
-        fst(diff.originalInterval))
+        // update the delta
+        delta :=
+          delta.contents +
+          (snd(diff.modifiedInterval) - fst(diff.modifiedInterval)) -
+          (snd(diff.originalInterval) -
+          fst(diff.originalInterval))
 
-      let text = diff.content
-      (range, text)
-    })
+        let text = diff.content
+        (range, text)
+      })
 
     Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
       diffs->Array.map(diff => {

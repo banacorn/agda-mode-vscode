@@ -71,7 +71,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
         // we need to replace it with this new one
         state.editor = editor
         State.View.show(state)
-        Handle__Command.dispatchCommand(state, Refresh)->ignore
+        State__Command.dispatchCommand(state, Refresh)->ignore
       })
       ->ignore
     )
@@ -90,7 +90,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
     // listens to events from the view
     state.view
     ->ViewController.onEvent(event =>
-      Handle__Command.dispatchCommand(state, EventFromView(event))->ignore
+      State__Command.dispatchCommand(state, EventFromView(event))->ignore
     )
     ->Js.Array.push(state.subscriptions)
     ->ignore
@@ -106,16 +106,16 @@ let activateWithoutContext = (disposables, extensionPath) => {
           Offset.fromPosition(document, VSCode.Selection.end_(selection)),
         ))
 
-      Handle__InputMethod.select(state, intervals)->ignore
+      State__InputMethod.select(state, intervals)->ignore
     })->subscribe
     VSCode.Workspace.onDidChangeTextDocument(.event => {
       Js.log(event)
       let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
-      Handle__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+      State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
     })->subscribe
 
     // remove it from the Registry if it requests to be destroyed
-    state->State.onRemoveFromRegistry->Promise.flatMap(() => Registry.destroy(fileName))->ignore
+    state.onRemoveFromRegistry->Chan.once->Promise.flatMap(() => Registry.destroy(fileName))->ignore
 
     // definition provider for go-to-definition
     let definitionProvider = (fileName, point) => {
@@ -202,7 +202,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
         }->Promise.flatMap(() =>
           switch Registry.get(fileName) {
           | None => Promise.resolved()
-          | Some(state) => Handle__Command.dispatchCommand(state, command)
+          | Some(state) => State__Command.dispatchCommand(state, command)
           }
         )
       } else {

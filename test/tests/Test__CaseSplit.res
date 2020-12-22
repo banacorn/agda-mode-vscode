@@ -21,22 +21,24 @@ let forGoal = (goals, index, callback) =>
   | Some(goal) => callback(goal)
   }
 
-describe("Handle__Goal.caseSplitAux", () =>
+describe("State__Goal.caseSplitAux", () =>
   // let lines = [|{j|Z + y = ?|j}, {j|S x + y = ?|j}|];
   P.it("should calculate the infomation needed for case splitting correctly", () =>
     Window.showTextDocumentWithUri(Uri.file(Path.asset("CaseSplit.agda")), None)
     ->Promise.map(editor => {
       let document = TextEditor.document(editor)
       Goal.makeMany(editor, [0, 1, 2, 3, 4, 5, 6, 7, 8])
-      ->Promise.map(goals => goals->Array.map(goal => {
+      ->Promise.map(goals =>
+        goals->Array.map(goal => {
           // convert `rewriteRange` to text in that range because range offsets are different on different OSs
-          let (inWhereClause, indentWidth, rewriteRange) = Handle__Goal.caseSplitAux(document, goal)
+          let (inWhereClause, indentWidth, rewriteRange) = State__Goal.caseSplitAux(document, goal)
           let rewriteRange = VSRange.make(
             TextDocument.positionAt(document, fst(rewriteRange)),
             TextDocument.positionAt(document, snd(rewriteRange)),
           )
           (inWhereClause, indentWidth, Editor.Text.get(document, rewriteRange))
-        }))
+        })
+      )
       ->Promise.map(results =>
         Assert.deep_equal(
           results,

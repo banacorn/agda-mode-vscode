@@ -1,142 +1,13 @@
 open Belt
 open Command
 
-// There are 2 kinds of Responses
-//  NonLast Response :
-//    * get handled first
-//    * don't invoke `sendAgdaRequest`
-//  Last Response :
-//    * have priorities, those with the smallest priority number are executed first
-//    * only get handled:
-//        1. after prompt has reappeared
-//        2. after all NonLast Responses
-//        3. after all interactive highlighting is complete
-//    * may invoke `sendAgdaRequest`
-
-// This module makes sure that Last Responses are handled after NonLast Responses
-module Lock: {
-  let runNonLast: Promise.t<'a> => Promise.t<'a>
-  let onceDone: unit => Promise.t<unit>
-} = {
-  // keep the number of running NonLast Response
-  let tally = ref(0)
-  let allDone = Chan.make()
-  // NonLast Responses should fed here
-  let runNonLast = promise => {
-    tally := tally.contents + 1
-    promise->Promise.tap(_ => {
-      tally := tally.contents - 1
-      if tally.contents == 0 {
-        allDone->Chan.emit()
-      }
-    })
-  }
-  // gets resolved once there's no NonLast Responses running
-  let onceDone = () =>
-    if tally.contents == 0 {
-      Promise.resolved()
-    } else {
-      allDone->Chan.once
-    }
-}
-
-// helper function of `executeTask`
-let rec sendAgdaRequest = (
-  dispatchCommand: Command.t => Promise.t<unit>,
-  state: State.t,
-  request: Request.t,
-): Promise.t<unit> => {
-  // Js.log("<<< " ++ Request.toString(request))
-  let displayConnectionError = error => {
-    let (header, body) = Connection.Error.toString(error)
-    State.View.display(state, Error("Connection Error: " ++ header), Plain(body))
-  }
-
-  // deferred responses are queued here
-  let deferredLastResponses: array<(int, Response.t)> = []
-
-  // this promise get resolved after all Responses has been received from Agda
-  let (promise, stopListener) = Promise.pending()
-  let handle = ref(None)
-  let agdaResponseListener: result<Connection.response, Connection.Error.t> => unit = x =>
-    switch x {
-    | Error(error) => displayConnectionError(error)->ignore
-    | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
-      let body = Parser.Error.toString(error)
-      State.View.display(state, Error("Internal Parse Error"), Plain(body))->ignore
-    | Ok(Yield(Ok(NonLast(response)))) =>
-      // Js.log(">>> " ++ Response.toString(response))
-      Lock.runNonLast(
-        Handle__Response.handle(
-          state,
-          dispatchCommand,
-          sendAgdaRequest(dispatchCommand, state),
-          response,
-        ),
-      )->ignore
-    | Ok(Yield(Ok(Last(priority, response)))) =>
-      // Js.log(">>* " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
-      Js.Array.push((priority, response), deferredLastResponses)->ignore
-    | Ok(Stop) =>
-      // Js.log(">>| ")
-      // sort the deferred Responses by priority (ascending order)
-      let deferredLastResponses =
-        Js.Array.sortInPlaceWith(
-          (x, y) => compare(fst(x), fst(y)),
-          deferredLastResponses,
-        )->Array.map(snd)
-
-      // wait until all NonLast Responses are handled
-      Lock.onceDone()
-      // stop the Agda Response listener
-      ->Promise.tap(_ => stopListener())
-      // apply decoration before handling Last Responses
-      ->Promise.flatMap(_ => State.Decoration.apply(state))
-      ->Promise.map(() =>
-        deferredLastResponses->Array.map(
-          Handle__Response.handle(state, dispatchCommand, sendAgdaRequest(dispatchCommand, state)),
-        )
-      )
-      ->Promise.flatMap(Util.oneByOne)
-      ->ignore
-    }
-
-  state
-  ->State.connect
-  ->Promise.mapOk(connection => {
-    let document = VSCode.TextEditor.document(state.editor)
-    let version = connection.metadata.version
-    let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
-    let libraryPath = Config.getLibraryPath()
-    let highlightingMethod = Config.getHighlightingMethod()
-    let backend = Config.getBackend()
-    let encoded = Request.encode(
-      document,
-      version,
-      filepath,
-      backend,
-      libraryPath,
-      highlightingMethod,
-      request,
-    )
-    Connection.send(encoded, connection)
-    connection
-  })
-  ->Promise.flatMap(x =>
-    switch x {
-    | Ok(connection) =>
-      handle := Some(connection.Connection.chan->Chan.on(agdaResponseListener))
-      promise
-    | Error(error) => displayConnectionError(error)->Promise.flatMap(() => promise)
-    }
-  )
-  ->Promise.tap(() => handle.contents->Option.forEach(destroyListener => destroyListener()))
-}
-
 // from Editor Command to Tasks
 let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   let dispatchCommand = dispatchCommand(state)
-  let sendAgdaRequest = sendAgdaRequest(dispatchCommand, state)
+  let sendAgdaRequest = State.Connection.sendRequest(
+    state,
+    State__Response.handle(state, dispatchCommand),
+  )
   let document = VSCode.TextEditor.document(state.editor)
   let header = View.Header.Plain(Command.toString(command))
   switch command {
@@ -156,27 +27,27 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | Quit => Promise.resolved()
   | Restart => dispatchCommand(Load)
   | Refresh =>
-    Handle__Goal.updateRanges(state)
+    State__Goal.updateRanges(state)
     State.Decoration.refresh(state)
     Promise.resolved()
   | Compile => sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)
   | ShowConstraints => sendAgdaRequest(ShowConstraints)
   | SolveConstraints(normalization) =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal => sendAgdaRequest(SolveConstraints(normalization, goal)),
       sendAgdaRequest(SolveConstraintsGlobal(normalization)),
     )
   | ShowGoals => sendAgdaRequest(ShowGoals)
-  | NextGoal => Handle__Goal.next(state)
-  | PreviousGoal => Handle__Goal.previous(state)
+  | NextGoal => State__Goal.next(state)
+  | PreviousGoal => State__Goal.previous(state)
   | SearchAbout(normalization) =>
     State.View.prompt(state, header, {body: None, placeholder: Some("name:"), value: None}, expr =>
       sendAgdaRequest(SearchAbout(normalization, expr))
     )
   | Give =>
-    Handle__Goal.case(
+    State__Goal.case(
       state,
       (goal, _) => {sendAgdaRequest(Give(goal))},
       goal =>
@@ -185,21 +56,21 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           placeholder: Some("expression to give:"),
           value: None,
         }, expr =>
-          Handle__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+          State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
             sendAgdaRequest(Give(goal))
           )
         ),
       State.View.displayOutOfGoalError(state),
     )
   | Refine =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal => {sendAgdaRequest(Refine(goal))},
       State.View.displayOutOfGoalError(state),
     )
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
-      Handle__Goal.case(
+      State__Goal.case(
         state,
         (goal, expr) => {sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))},
         goal =>
@@ -212,14 +83,14 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       )
     }
   | Auto =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal => {sendAgdaRequest(Auto(goal))},
       State.View.displayOutOfGoalError(state),
     )
   | Case => {
       let placeholder = Some("variable to case split:")
-      Handle__Goal.case(
+      State__Goal.case(
         state,
         (goal, _) => {sendAgdaRequest(Case(goal))},
         goal =>
@@ -229,7 +100,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             value: None,
           }, expr =>
             // place the queried expression in the goal
-            Handle__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
               sendAgdaRequest(Case(goal))
             )
           ),
@@ -238,7 +109,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
-      Handle__Goal.case(
+      State__Goal.case(
         state,
         (goal, expr) => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
         goal =>
@@ -252,7 +123,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | InferType(normalization) =>
     let placeholder = Some("expression to infer:")
-    Handle__Goal.case(
+    State__Goal.case(
       state,
       (goal, expr) => sendAgdaRequest(InferType(normalization, expr, goal)),
       goal =>
@@ -268,25 +139,25 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       }, expr => sendAgdaRequest(InferTypeGlobal(normalization, expr))),
     )
   | Context(normalization) =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal => sendAgdaRequest(Context(normalization, goal)),
       State.View.displayOutOfGoalError(state),
     )
   | GoalType(normalization) =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal => sendAgdaRequest(GoalType(normalization, goal)),
       State.View.displayOutOfGoalError(state),
     )
   | GoalTypeAndContext(normalization) =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal => sendAgdaRequest(GoalTypeAndContext(normalization, goal)),
       State.View.displayOutOfGoalError(state),
     )
   | GoalTypeContextAndInferredType(normalization) =>
-    Handle__Goal.case(
+    State__Goal.case(
       state,
       (goal, expr) => sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal)),
       // fallback to `GoalTypeAndContext` when there's no content
@@ -295,7 +166,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     )
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
-    state->Handle__Goal.case(
+    state->State__Goal.case(
       (goal, expr) => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
       goal =>
         State.View.prompt(state, header, {
@@ -307,7 +178,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     )
   | ModuleContents(normalization) =>
     let placeholder = Some("module name:")
-    Handle__Goal.case(
+    State__Goal.case(
       state,
       (goal, expr) => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
       goal =>
@@ -324,7 +195,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     )
   | ComputeNormalForm(computeMode) =>
     let placeholder = Some("expression to normalize:")
-    Handle__Goal.case(
+    State__Goal.case(
       state,
       (goal, expr) => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
       goal =>
@@ -341,7 +212,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     )
   | WhyInScope =>
     let placeholder = Some("name:")
-    Handle__Goal.case(
+    State__Goal.case(
       state,
       (goal, expr) => sendAgdaRequest(WhyInScope(expr, goal)),
       goal =>
@@ -361,16 +232,16 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     | Initialized => Promise.resolved()
     | Destroyed => State.destroy(state)
     | InputMethod(InsertChar(char)) => dispatchCommand(InputMethod(InsertChar(char)))
-    | InputMethod(ChooseSymbol(symbol)) => Handle__InputMethod.chooseSymbol(state, symbol)
-    | PromptIMUpdate(MouseSelect(interval)) => Handle__InputMethod.select(state, [interval])
-    | PromptIMUpdate(KeyUpdate(input)) => Handle__InputMethod.keyUpdatePromptIM(state, input)
+    | InputMethod(ChooseSymbol(symbol)) => State__InputMethod.chooseSymbol(state, symbol)
+    | PromptIMUpdate(MouseSelect(interval)) => State__InputMethod.select(state, [interval])
+    | PromptIMUpdate(KeyUpdate(input)) => State__InputMethod.keyUpdatePromptIM(state, input)
     | PromptIMUpdate(BrowseUp) => dispatchCommand(InputMethod(BrowseUp))
     | PromptIMUpdate(BrowseDown) => dispatchCommand(InputMethod(BrowseDown))
     | PromptIMUpdate(BrowseLeft) => dispatchCommand(InputMethod(BrowseLeft))
     | PromptIMUpdate(BrowseRight) => dispatchCommand(InputMethod(BrowseRight))
     | PromptIMUpdate(Escape) =>
       if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
-        Handle__InputMethod.deactivate(state)
+        State__InputMethod.deactivate(state)
       } else {
         State.View.interruptPrompt(state)
       }
@@ -401,15 +272,15 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | Escape =>
     if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
-      Handle__InputMethod.deactivate(state)
+      State__InputMethod.deactivate(state)
     } else {
       State.View.interruptPrompt(state)
     }
-  | InputMethod(Activate) => Handle__InputMethod.activateEditorIM(state)
-  | InputMethod(InsertChar(char)) => Handle__InputMethod.insertChar(state, char)
-  | InputMethod(BrowseUp) => Handle__InputMethod.moveUp(state)
-  | InputMethod(BrowseDown) => Handle__InputMethod.moveDown(state)
-  | InputMethod(BrowseLeft) => Handle__InputMethod.moveLeft(state)
-  | InputMethod(BrowseRight) => Handle__InputMethod.moveRight(state)
+  | InputMethod(Activate) => State__InputMethod.activateEditorIM(state)
+  | InputMethod(InsertChar(char)) => State__InputMethod.insertChar(state, char)
+  | InputMethod(BrowseUp) => State__InputMethod.moveUp(state)
+  | InputMethod(BrowseDown) => State__InputMethod.moveDown(state)
+  | InputMethod(BrowseLeft) => State__InputMethod.moveLeft(state)
+  | InputMethod(BrowseRight) => State__InputMethod.moveRight(state)
   }
 }

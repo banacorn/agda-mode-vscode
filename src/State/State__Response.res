@@ -34,12 +34,12 @@ module DisplayInfo = {
     }
 }
 
-let handle = (
+let rec handle = (
   state: State.t,
   dispatchCommand: Command.t => Promise.t<unit>,
-  sendAgdaRequest: Request.t => Promise.t<unit>,
   response: Response.t,
-): Promise.t<unit> =>
+): Promise.t<unit> => {
+  let sendAgdaRequest = State.Connection.sendRequest(state, handle(state, dispatchCommand))
   switch response {
   | HighlightingInfoDirect(_remove, annotations) =>
     State.Decoration.addViaPipe(state, annotations)
@@ -86,7 +86,7 @@ let handle = (
       Editor.Cursor.set(state.editor, point)
     }
     Promise.resolved()
-  | InteractionPoints(indices) => Handle__Goal.instantiate(state, indices)
+  | InteractionPoints(indices) => State__Goal.instantiate(state, indices)
   | GiveAction(index, give) =>
     let found = state.goals->Array.keep(goal => goal.index == index)
     switch found[0] {
@@ -99,25 +99,25 @@ let handle = (
     | Some(goal) =>
       switch give {
       | Paren =>
-        Handle__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))->Promise.flatMap(() =>
-          Handle__Goal.removeBoundaryAndDestroy(state, goal)
+        State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))->Promise.flatMap(() =>
+          State__Goal.removeBoundaryAndDestroy(state, goal)
         )
       | NoParen =>
         // do nothing
-        Handle__Goal.removeBoundaryAndDestroy(state, goal)
+        State__Goal.removeBoundaryAndDestroy(state, goal)
       | String(content) =>
-        Handle__Goal.modify(state, goal, _ =>
+        State__Goal.modify(state, goal, _ =>
           Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
-        )->Promise.flatMap(() => Handle__Goal.removeBoundaryAndDestroy(state, goal))
+        )->Promise.flatMap(() => State__Goal.removeBoundaryAndDestroy(state, goal))
       }
     }
   | MakeCase(makeCaseType, lines) =>
-    Handle__Goal.caseSimple(
+    State__Goal.caseSimple(
       state,
       goal =>
         switch makeCaseType {
-        | Function => Handle__Goal.replaceWithLines(state, goal, lines)
-        | ExtendedLambda => Handle__Goal.replaceWithLambda(state, goal, lines)
+        | Function => State__Goal.replaceWithLines(state, goal, lines)
+        | ExtendedLambda => State__Goal.replaceWithLambda(state, goal, lines)
         }->Promise.flatMap(() => dispatchCommand(Load)),
       State.View.displayOutOfGoalError(state),
     )
@@ -127,7 +127,7 @@ let handle = (
       switch goals[0] {
       | None => Promise.resolved()
       | Some(goal) =>
-        Handle__Goal.modify(state, goal, _ => solution)->Promise.flatMap(() =>
+        State__Goal.modify(state, goal, _ => solution)->Promise.flatMap(() =>
           sendAgdaRequest(Give(goal))
         )
       }
@@ -150,3 +150,4 @@ let handle = (
     State.View.display(state, Plain("Type-checking"), Plain(message))
   | _ => Promise.resolved()
   }
+}
