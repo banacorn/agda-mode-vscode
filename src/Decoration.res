@@ -1,30 +1,28 @@
 open Common
 module type Module = {
-  type srcLoc = {
-    // range of the reference
-    range: VSCode.Range.t,
-    // file/offset of the source
-    filepath: Highlighting.filepath,
-    offset: int,
-  }
-
   type t
 
   let make: unit => t
+  let destroy: t => unit
 
+  // for decorating Goals
   let decorateHole: (
     VSCode.TextEditor.t,
     Interval.t,
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
-  let addDirectly: (t, array<Highlighting.t>) => unit
-  let addIndirectly: (t, string) => unit
-  let removeAppliedDecorations: t => unit
-  let readTempFiles: t => Promise.t<unit>
-  let applyHighlightings: (t, VSCode.TextEditor.t) => unit
-  let refresh: (t, VSCode.TextEditor.t) => unit
-  let destroy: t => unit
+  // adding decorations
+  let addViaPipe: (t, array<Highlighting.t>) => unit
+  let addViaFile: (t, string) => unit
+  // applying decorations
+  let apply: (t, VSCode.TextEditor.t) => Promise.t<unit>
+  // removing decorations
+  let clear: t => unit
+  // redecorate everything after the TextEditor has been replaced
+  let redecorate: (t, VSCode.TextEditor.t) => unit
+
+  // LSP
   let lookupSrcLoc: (
     t,
     VSCode.Position.t,
@@ -72,8 +70,8 @@ module Module: Module = {
     array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     array<srcLoc>,
   ) => {
-    Js.Console.timeStart("$$$ Decoration / aspects")
-    Js.Console.timeStart("$$$ Decoration / aspects / offset conversion")
+    // Js.Console.timeStart("$$$ Decoration / aspects")
+    // Js.Console.timeStart("$$$ Decoration / aspects / offset conversion")
 
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
@@ -101,8 +99,8 @@ module Module: Module = {
       )
       ->Array.concatMany
 
-    Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion")
-    Js.Console.timeStart("$$$ Decoration / aspects / scrlocs conversion")
+    // Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion")
+    // Js.Console.timeStart("$$$ Decoration / aspects / scrlocs conversion")
 
     // array of Range & source location
     let srcLocs: array<srcLoc> = highlightings->Array.keepMap(((range, _, source)) =>
@@ -112,8 +110,9 @@ module Module: Module = {
         offset: offset,
       })
     )
-    Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion")
-    Js.Console.timeStart("$$$ Decoration / aspects / dict bundling")
+    // Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion")
+    // Js.Console.timeStart("$$$ Decoration / aspects / dict bundling")
+
     // dictionaries of color-ranges mapping
     // speed things up by aggregating decorations of the same kind
     let backgroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
@@ -132,9 +131,9 @@ module Module: Module = {
         | Some(ranges) => Js.Array.push(range, ranges)->ignore
         }
       }
-    Js.Console.timeEnd("$$$ Decoration / aspects / dict bundling")
-    Js.Console.timeEnd("$$$ Decoration / aspects")
-    Js.Console.timeStart("$$$ Decoration / dicts")
+    // Js.Console.timeEnd("$$$ Decoration / aspects / dict bundling")
+    // Js.Console.timeEnd("$$$ Decoration / aspects")
+    // Js.Console.timeStart("$$$ Decoration / dicts")
 
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
@@ -150,8 +149,8 @@ module Module: Module = {
         }
       }
     })
-    Js.Console.timeEnd("$$$ Decoration / dicts")
-    Js.Console.timeStart("$$$ Decoration / apply")
+    // Js.Console.timeEnd("$$$ Decoration / dicts")
+    // Js.Console.timeStart("$$$ Decoration / apply")
     // decorate with colors stored in the dicts
     let backgroundDecorations =
       Js.Dict.entries(backgroundColorDict)->Array.map(((color, ranges)) => (
@@ -163,7 +162,7 @@ module Module: Module = {
         Editor.Decoration.decorateTextWithColor(editor, color, ranges),
         ranges,
       ))
-    Js.Console.timeEnd("$$$ Decoration / apply")
+    // Js.Console.timeEnd("$$$ Decoration / apply")
     // return decorations
     (Js.Array.concat(backgroundDecorations, foregroundDecorations), srcLocs)
   }
@@ -260,7 +259,7 @@ module Module: Module = {
     srcLocs: [],
   }
 
-  let removeAppliedDecorations = self => {
+  let clear = self => {
     self.decorations->Array.forEach(((decoration, _)) => Editor.Decoration.destroy(decoration))
     self.decorations = []
   }
@@ -273,15 +272,15 @@ module Module: Module = {
     self.decorations = []
   }
 
-  let refresh = (self, editor) =>
+  let redecorate = (self, editor) =>
     self.decorations->Array.forEach(((decoration, ranges)) =>
       Editor.Decoration.decorate(editor, decoration, ranges)
     )
 
-  let addDirectly = (self, highlightings) =>
+  let addViaPipe = (self, highlightings) =>
     self.highlightings = Array.concat(self.highlightings, highlightings)
 
-  let addIndirectly = (self, filepath) => Js.Array.push(filepath, self.tempFilePaths)->ignore
+  let addViaFile = (self, filepath) => Js.Array.push(filepath, self.tempFilePaths)->ignore
 
   let readFile = N.Util.promisify(N.Fs.readFile)
 
@@ -334,6 +333,16 @@ module Module: Module = {
     self.srcLocs = srcLocs
     self.decorations = Array.concat(self.decorations, decorations)
   }
+
+  let apply = (self, editor) =>
+    readTempFiles(self)->Promise.map(() => {
+      // only apply decorations when Semantic Highlighting is off
+      if Config.getSemanticHighlighting() {
+        ()
+      } else {
+        applyHighlightings(self, editor)
+      }
+    })
 
   let lookupSrcLoc = (self, point): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>,

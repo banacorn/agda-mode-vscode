@@ -6,7 +6,7 @@ type t = {
   view: ViewController.t,
   mutable connection: option<Connection.t>,
   mutable goals: array<Goal.t>,
-  mutable decorations: Decoration.t,
+  mutable decoration: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,
   promptIM: IM.t,
@@ -24,30 +24,6 @@ module Context = {
   // input method related key-bindings
   let setPrompt = value => VSCode.Commands.setContext("agdaModePrompting", value)->ignore
   let setIM = value => VSCode.Commands.setContext("agdaModeTyping", value)->ignore
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  Decoration
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-module Decoration = {
-  let make = Decoration.make
-
-  let addViaPipe = (state, highlightings) =>
-    state.decorations->Decoration.addDirectly(highlightings)
-
-  let addViaFile = (state, filepath) => state.decorations->Decoration.addIndirectly(filepath)
-
-  let clear = state => Decoration.removeAppliedDecorations(state.decorations)
-
-  let apply = state =>
-    Decoration.readTempFiles(state.decorations)->Promise.map(() => {
-      Decoration.applyHighlightings(state.decorations, state.editor)
-    })
-
-  let refresh = state => Decoration.refresh(state.decorations, state.editor)
-
-  let destroy = state => Decoration.destroy(state.decorations)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -228,7 +204,7 @@ module Connection: Connection = {
         // stop the Agda Response listener
         ->Promise.tap(_ => stopListener())
         // apply decoration before handling Last Responses
-        ->Promise.flatMap(_ => Decoration.apply(state))
+        ->Promise.flatMap(_ => Decoration.apply(state.decoration, state.editor))
         ->Promise.map(() => deferredLastResponses->Array.map(handleResponse))
         ->Promise.flatMap(Util.oneByOne)
         ->ignore
@@ -276,7 +252,7 @@ let destroy = state => {
   state.onRemoveFromRegistry->Chan.emit()
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
-  state->Decoration.destroy
+  state.decoration->Decoration.destroy
   Context.setLoaded(false)
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   state->Connection.disconnect
@@ -294,7 +270,7 @@ let make = (extentionPath, chan, editor) => {
     view: view,
     connection: None,
     goals: [],
-    decorations: Decoration.make(),
+    decoration: Decoration.make(),
     cursor: None,
     editorIM: IM.make(chan),
     promptIM: IM.make(chan),

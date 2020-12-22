@@ -42,13 +42,13 @@ let rec handle = (
   let sendAgdaRequest = State.Connection.sendRequest(state, handle(state, dispatchCommand))
   switch response {
   | HighlightingInfoDirect(_remove, annotations) =>
-    State.Decoration.addViaPipe(state, annotations)
+    state.decoration->Decoration.addViaPipe(annotations)
     Promise.resolved()
   | HighlightingInfoIndirect(filepath) =>
-    State.Decoration.addViaFile(state, filepath)
+    state.decoration->Decoration.addViaFile(filepath)
     Promise.resolved()
   | ClearHighlighting =>
-    State.Decoration.clear(state)
+    state.decoration->Decoration.clear
     Promise.resolved()
   | Status(_displayImplicit, _checked) =>
     // display(

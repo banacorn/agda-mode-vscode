@@ -115,12 +115,12 @@ let activateWithoutContext = (disposables, extensionPath) => {
     state.onRemoveFromRegistry->Chan.once->Promise.flatMap(() => Registry.destroy(fileName))->ignore
 
     // definition provider for go-to-definition
-    Editor.Provider.registerDefinitionProvider((fileName, point) => {
+    Editor.Provider.registerDefinitionProvider((fileName, position) => {
       // only provide source location, when the filename matched
       let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
 
       if fileName == currentFileName {
-        Decoration.lookupSrcLoc(state.decorations, point)
+        state.decoration->Decoration.lookupSrcLoc(position)
       } else {
         None
       }
