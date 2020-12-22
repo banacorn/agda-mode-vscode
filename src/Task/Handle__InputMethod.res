@@ -22,15 +22,13 @@ module type Module = {
 module Module: Module = {
   open Belt
 
-  open! Task
-
   module EditorIM = {
     let handle = (state: State.t, output): Promise.t<unit> => {
       open IM.Output
       let handle = kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          viewEvent(state, InputMethod(Update(sequence, translation, index)))
+          State.View.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
           let replacements = replacements->Array.map(((interval, text)) => {
             let range = Interval.toRange(state.document, interval)
@@ -40,8 +38,8 @@ module Module: Module = {
             resolve()
             ()
           })
-        | Activate => viewEvent(state, InputMethod(Activate))
-        | Deactivate => viewEvent(state, InputMethod(Deactivate))
+        | Activate => State.View.updateIM(state, Activate)
+        | Deactivate => State.View.updateIM(state, Deactivate)
         }
       output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
     }
@@ -73,7 +71,7 @@ module Module: Module = {
       let handle = kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          viewEvent(state, InputMethod(Update(sequence, translation, index)))
+          State.View.updateIM(state, Update(sequence, translation, index))
         | Rewrite(rewrites, f) =>
           // TODO, postpone calling f
           f()
@@ -93,12 +91,12 @@ module Module: Module = {
 
           // update stored <input>
           previous.contents = replaced.contents
-          {viewEvent(state, PromptIMUpdate(replaced.contents))}
+          {State.View.updatePromptIM(state, replaced.contents)}
         | Activate =>
-          viewEvent(state, InputMethod(Activate))->Promise.flatMap(() =>
-            viewEvent(state, PromptIMUpdate(previous.contents))
+          State.View.updateIM(state, Activate)->Promise.flatMap(() =>
+            State.View.updatePromptIM(state, previous.contents)
           )
-        | Deactivate => viewEvent(state, InputMethod(Deactivate))
+        | Deactivate => State.View.updateIM(state, Deactivate)
         }
       output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
     }
@@ -214,14 +212,14 @@ module Module: Module = {
           PromptIM.activate(state, input)
         )
       } else {
-        {viewEvent(state, PromptIMUpdate(input))}
+        {State.View.updatePromptIM(state, input)}
       }
     | Prompt => PromptIM.keyUpdate(state, input)
     | None =>
       if shouldActivatePromptIM(input) {
         PromptIM.activate(state, input)
       } else {
-        {viewEvent(state, PromptIMUpdate(input))}
+        {State.View.updatePromptIM(state, input)}
       }
     }
 
@@ -260,7 +258,9 @@ module Module: Module = {
       let char = Js.String.charAt(0, char)
       let positions = Editor.Cursor.getMany(state.editor)
 
-      state.document->Editor.Text.batchInsert(positions, char)->Promise.map(_ => {
+      state.document
+      ->Editor.Text.batchInsert(positions, char)
+      ->Promise.map(_ => {
         Editor.focus(state.document)
       })
     | Prompt => PromptIM.insertChar(state, char)

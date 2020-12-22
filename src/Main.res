@@ -23,7 +23,9 @@ let activateWithoutContext = (disposables, extensionPath) => {
   ->ignore
   // when a file got renamed, destroy the corresponding State if it becomes something else than Agda file
   VSCode.Workspace.onDidRenameFiles(.event =>
-    event->VSCode.FileRenameEvent.files->Array.forEach(file => {
+    event
+    ->VSCode.FileRenameEvent.files
+    ->Array.forEach(file => {
       let oldName = file["oldUri"]->VSCode.Uri.path
       let newName = file["newUri"]->VSCode.Uri.path
       if Registry.contains(oldName) {
@@ -58,18 +60,24 @@ let activateWithoutContext = (disposables, extensionPath) => {
     )
   }
   onDidChangeActivation((prev, next) => {
-    prev->Option.flatMap(Registry.getByEditor)->Option.forEach(State.hide)
+    prev->Option.flatMap(Registry.getByEditor)->Option.forEach(State.View.hide)
     next
     ->Option.flatMap(Registry.getByEditor)
-    ->Option.forEach(state => next->Option.forEach(editor => {
+    ->Option.forEach(state =>
+      next
+      ->Option.forEach(editor => {
         // Issue #8
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
         state.editor = editor
-        State.show(state)
+        State.View.show(state)
         Handle__Command.dispatchCommand(state, Refresh)->ignore
-      })->ignore)
-  })->Js.Array.push(disposables)->ignore
+      })
+      ->ignore
+    )
+  })
+  ->Js.Array.push(disposables)
+  ->ignore
 
   // helper function for initializing a State
   let makeAndAddToRegistry = (editor, fileName) => {
@@ -81,7 +89,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
 
     // listens to events from the view
     state.view
-    ->View__Controller.onEvent(event =>
+    ->ViewController.onEvent(event =>
       Handle__Command.dispatchCommand(state, EventFromView(event))->ignore
     )
     ->Js.Array.push(state.subscriptions)
@@ -173,7 +181,8 @@ let activateWithoutContext = (disposables, extensionPath) => {
       })
     )
 
-  Command.names->Array.forEach(((command, name)) => registerCommand(name, (editor, fileName) =>
+  Command.names->Array.forEach(((command, name)) =>
+    registerCommand(name, (editor, fileName) =>
       if isAgda(fileName) {
         Js.log("[ command ] " ++ name)
         // Commands like "Load", "InputMethod", "Quit", and "Restart" act on the Registry
@@ -199,7 +208,10 @@ let activateWithoutContext = (disposables, extensionPath) => {
       } else {
         Promise.resolved()
       }
-    )->Js.Array.push(disposables)->ignore)
+    )
+    ->Js.Array.push(disposables)
+    ->ignore
+  )
 
   // for testing
   chan

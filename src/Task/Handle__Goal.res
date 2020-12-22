@@ -22,8 +22,6 @@ module type Module = {
 }
 
 module Module: Module = {
-  open! Task
-
   // return an array of Offsets of Goals
   let getOffsets = (state: State.t): array<int> =>
     state.goals->Array.map(goal => fst(goal.interval) + 3)
@@ -211,7 +209,7 @@ module Module: Module = {
       switch x {
       | true => Promise.resolved()
       | false =>
-        display(
+        State.View.display(
           state,
           Error("Goal-related Error"),
           Plain("Failed to modify the content of goal #" ++ string_of_int(goal.index)),
@@ -341,7 +339,7 @@ module Module: Module = {
         Goal.destroy(goal)
         Promise.resolved()
       | false =>
-        display(
+        State.View.display(
           state,
           Error("Goal-related Error"),
           Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
@@ -373,7 +371,7 @@ module Module: Module = {
         Goal.destroy(goal)
         Promise.resolved()
       | false =>
-        display(
+        State.View.display(
           state,
           Error("Goal-related Error"),
           Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
@@ -395,7 +393,7 @@ module Module: Module = {
         Goal.destroy(goal)
         Promise.resolved()
       | false =>
-        display(
+        State.View.display(
           state,
           Error("Goal-related Error"),
           Plain("Unable to remove the boundary of goal #" ++ string_of_int(goal.index)),

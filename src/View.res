@@ -50,7 +50,9 @@ module Prompt = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Prompt" => Contents(tuple3(optional(string), optional(string), optional(string)) |> map(((
+    | "Prompt" =>
+      Contents(
+        tuple3(optional(string), optional(string), optional(string)) |> map(((
           body,
           placeholder,
           value,
@@ -58,7 +60,8 @@ module Prompt = {
           body: body,
           placeholder: placeholder,
           value: value,
-        }))
+        }),
+      )
     | tag => raise(DecodeError("[Prompt] Unknown constructor: " ++ tag))
     }
   )
@@ -162,16 +165,21 @@ module AgdaPosition = {
     col: int,
   }
 
+  let toPosition = position => VSCode.Position.make(position.line - 1, position.col - 1)
+
   open Json.Decode
   open Util.Decode
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Position" => Contents(tuple3(optional(int), int, int) |> map(((pos, line, col)) => {
+    | "Position" =>
+      Contents(
+        tuple3(optional(int), int, int) |> map(((pos, line, col)) => {
           pos: pos,
           line: line,
           col: col,
-        }))
+        }),
+      )
     | tag => raise(DecodeError("[View.Position] Unknown constructor: " ++ tag))
     }
   )
@@ -220,18 +228,24 @@ module AgdaInterval = {
       (string_of_int(self.end_.line) ++ ("," ++ string_of_int(self.end_.col))))))
     }
 
+  let toRange = interval =>
+    VSCode.Range.make(
+      AgdaPosition.toPosition(interval.start),
+      AgdaPosition.toPosition(interval.end_),
+    )
+
   open Json.Decode
   open Util.Decode
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "Interval" => Contents(pair(AgdaPosition.decode, AgdaPosition.decode) |> map(((
-          start,
-          end_,
-        )) => {
+    | "Interval" =>
+      Contents(
+        pair(AgdaPosition.decode, AgdaPosition.decode) |> map(((start, end_)) => {
           start: start,
           end_: end_,
-        }))
+        }),
+      )
     | tag => raise(DecodeError("[View.Interval] Unknown constructor: " ++ tag))
     }
   )
@@ -269,7 +283,10 @@ module AgdaRange = {
         ->flatten
         ->flatMap(int_of_string_opt)
         ->flatMap(colStart =>
-          captured[8]->flatten->flatMap(int_of_string_opt)->flatMap(colEnd => Some(
+          captured[8]
+          ->flatten
+          ->flatMap(int_of_string_opt)
+          ->flatMap(colEnd => Some(
             Range(
               srcFile,
               [
@@ -303,7 +320,10 @@ module AgdaRange = {
           ->flatten
           ->flatMap(int_of_string_opt)
           ->flatMap(rowEnd =>
-            captured[5]->flatten->flatMap(int_of_string_opt)->flatMap(colEnd => Some(
+            captured[5]
+            ->flatten
+            ->flatMap(int_of_string_opt)
+            ->flatMap(colEnd => Some(
               Range(
                 srcFile,
                 [

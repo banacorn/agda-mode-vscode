@@ -3,7 +3,7 @@ open Belt
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
-  view: View__Controller.t,
+  view: ViewController.t,
   mutable connection: option<Connection.t>,
   mutable goals: array<Goal.t>,
   mutable decorations: Decoration.t,
@@ -15,6 +15,8 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
 }
 
+type state = t
+
 module Decoration = {
   let make = Decoration.make
 
@@ -25,7 +27,8 @@ module Decoration = {
 
   let clear = state => Decoration.removeAppliedDecorations(state.decorations)
 
-  let apply = state => Decoration.readTempFiles(state.decorations)->Promise.map(() => {
+  let apply = state =>
+    Decoration.readTempFiles(state.decorations)->Promise.map(() => {
       Decoration.applyHighlightings(state.decorations, state.editor)
     })
 
@@ -67,7 +70,7 @@ let disconnect = state =>
 let setLoaded = value => VSCode.Commands.setContext("agdaMode", value)->ignore
 
 let destroy = state => {
-  state.view->View__Controller.destroy
+  state.view->ViewController.destroy
   state->emitRemoveFromRegistry
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
@@ -81,7 +84,7 @@ let destroy = state => {
 let make = (extentionPath, chan, editor) => {
   setLoaded(true)
   // view initialization
-  let view = View__Controller.make(extentionPath, editor)
+  let view = ViewController.make(extentionPath, editor)
 
   {
     editor: editor,
@@ -99,16 +102,68 @@ let make = (extentionPath, chan, editor) => {
 }
 
 // View-related
+module type View = {
+  let show: state => unit
+  let hide: state => unit
+  // display stuff
+  let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
+  let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
+  let displayOutOfGoalError: state => Promise.t<unit>
+  // Input Method
+  let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
+  let updatePromptIM: (state, string) => Promise.t<unit>
+  // Prompt
+  let prompt: (state, View.Header.t, View.Prompt.t, string => Promise.t<unit>) => Promise.t<unit>
+  let interruptPrompt: state => Promise.t<unit>
+}
+module View: View = {
+  let show = state => {
+    state.view->ViewController.show
+    setLoaded(true)
+  }
+  let hide = state => {
+    state.view->ViewController.hide
+    setLoaded(false)
+  }
 
-let show = state => {
-  state.view->View__Controller.show
-  setLoaded(true)
+  // display stuff
+  let display = (state, header, body) => ViewController.sendEvent(state.view, Display(header, body))
+  let displayEmacs = (state, kind, header, body) =>
+    ViewController.sendEvent(
+      state.view,
+      Display(header, Emacs(kind, View.Header.toString(header), body)),
+    )
+  let displayOutOfGoalError = state =>
+    display(state, Error("Out of goal"), Plain("Please place the cursor in a goal"))
+
+  // update the Input Method
+  let updateIM = (state, event) => ViewController.sendEvent(state.view, InputMethod(event))
+  let updatePromptIM = (state, content) =>
+    ViewController.sendEvent(state.view, PromptIMUpdate(content))
+
+  // Header + Prompt
+  let prompt = (
+    state,
+    header,
+    prompt,
+    callbackOnPromptSuccess: string => Promise.t<unit>,
+  ): Promise.t<unit> => {
+    // focus on the panel before prompting
+    VSCode.Commands.setContext("agdaModePrompting", true)->ignore
+    state.view->ViewController.focus
+
+    // send request to view
+    ViewController.sendRequest(state.view, Prompt(header, prompt), response =>
+      switch response {
+      | PromptSuccess(result) =>
+        callbackOnPromptSuccess(result)->Promise.map(() => {
+          // put the focus back to the editor after prompting
+          VSCode.Commands.setContext("agdaModePrompting", false)->ignore
+          state.document->Editor.focus
+        })
+      | PromptInterrupted => Promise.resolved()
+      }
+    )
+  }
+  let interruptPrompt = state => ViewController.sendEvent(state.view, PromptInterrupt)
 }
-let hide = state => {
-  state.view->View__Controller.hide
-  setLoaded(false)
-}
-let sendRequestToView = (state, request) =>
-  View__Controller.send(state.view, View.RequestOrEventToView.Request(request))
-let sendEventToView = (state, event) =>
-  View__Controller.send(state.view, View.RequestOrEventToView.Event(event))

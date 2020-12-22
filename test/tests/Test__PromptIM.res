@@ -20,7 +20,7 @@
 // // }
 
 // type setup = {
-//   view: View__Controller.t,
+//   view: ViewController.t,
 //   chan: Chan.t<IM.Log.t>,
 // }
 
