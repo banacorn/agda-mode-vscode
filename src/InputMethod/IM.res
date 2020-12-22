@@ -105,7 +105,7 @@ module Module: Module = {
         }
       | Some(editor) =>
         let document = VSCode.TextEditor.document(editor)
-        let range = Interval.toRange(document, interval)
+        let range = Editor.Range.fromInterval(document, interval)
         {
           interval: interval,
           decoration: Some(Editor.Decoration.underlineText(editor, range)),

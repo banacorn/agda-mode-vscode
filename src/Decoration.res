@@ -47,7 +47,7 @@ module Module: Module = {
 
   let decorateHole = (editor: VSCode.TextEditor.t, interval: Interval.t, index: int) => {
     let document = VSCode.TextEditor.document(editor)
-    let backgroundRange = Interval.toRange(document, interval)
+    let backgroundRange = Editor.Range.fromInterval(document, interval)
 
     let background = Editor.Decoration.highlightBackground(
       editor,
@@ -56,7 +56,7 @@ module Module: Module = {
     )
     let indexText = string_of_int(index)
     let innerInterval = (fst(interval), snd(interval) - 2)
-    let indexRange = Interval.toRange(document, innerInterval)
+    let indexRange = Editor.Range.fromInterval(document, innerInterval)
 
     let index = Editor.Decoration.overlayText(
       editor,
@@ -111,40 +111,36 @@ module Module: Module = {
       VSCode.Range.t,
       array<Highlighting.Aspect.t>,
       option<(Highlighting.filepath, int)>,
-    )> =
-      highlightings->Array.map(highlighting => {
-        // calculate the range of each highlighting
-        let range = {
-          let start = offsetToPoint(document, utf16indices, eolIndices, highlighting.start)
-          let end_ = offsetToPoint(document, utf16indices, eolIndices, highlighting.end_)
+    )> = highlightings->Array.map(highlighting => {
+      // calculate the range of each highlighting
+      let range = {
+        let start = offsetToPoint(document, utf16indices, eolIndices, highlighting.start)
+        let end_ = offsetToPoint(document, utf16indices, eolIndices, highlighting.end_)
 
-          VSCode.Range.make(start, end_)
-        }
-        (range, highlighting.aspects, highlighting.source)
-      })
+        VSCode.Range.make(start, end_)
+      }
+      (range, highlighting.aspects, highlighting.source)
+    })
     // array of Aspect & Range
-    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> = highlightings->Array.map(((
-      range,
-      aspects,
-      _,
-    )) =>
-      // pair the aspect with the range
-      aspects->Array.map(aspect => (aspect, range))
-    )->Array.concatMany
+    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> =
+      highlightings
+      ->Array.map(((range, aspects, _)) =>
+        // pair the aspect with the range
+        aspects->Array.map(aspect => (aspect, range))
+      )
+      ->Array.concatMany
 
     Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion")
     Js.Console.timeStart("$$$ Decoration / aspects / scrlocs conversion")
 
     // array of Range & source location
-    let srcLocs: array<srcLoc> =
-      highlightings->Array.keepMap(((range, _, source)) => source->Option.map(((
-          filepath,
-          offset,
-        )) => {
-          range: range,
-          filepath: filepath,
-          offset: offset,
-        }))
+    let srcLocs: array<srcLoc> = highlightings->Array.keepMap(((range, _, source)) =>
+      source->Option.map(((filepath, offset)) => {
+        range: range,
+        filepath: filepath,
+        offset: offset,
+      })
+    )
     Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion")
     Js.Console.timeStart("$$$ Decoration / aspects / dict bundling")
     // dictionaries of color-ranges mapping
@@ -245,26 +241,24 @@ module Module: Module = {
       VSCode.Range.t,
       array<Highlighting.Aspect.t>,
       option<(Highlighting.filepath, int)>,
-    )> =
-      highlightings->Array.map(highlighting => {
-        // calculate the range of each highlighting
-        let range = {
-          let start = offsetToPoint(document, utf16indices, eolIndices, highlighting.start)
-          let end_ = offsetToPoint(document, utf16indices, eolIndices, highlighting.end_)
+    )> = highlightings->Array.map(highlighting => {
+      // calculate the range of each highlighting
+      let range = {
+        let start = offsetToPoint(document, utf16indices, eolIndices, highlighting.start)
+        let end_ = offsetToPoint(document, utf16indices, eolIndices, highlighting.end_)
 
-          VSCode.Range.make(start, end_)
-        }
-        (range, highlighting.aspects, highlighting.source)
-      })
+        VSCode.Range.make(start, end_)
+      }
+      (range, highlighting.aspects, highlighting.source)
+    })
     // array of Aspect & Range
-    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> = highlightings->Array.map(((
-      range,
-      aspects,
-      _,
-    )) =>
-      // pair the aspect with the range
-      aspects->Array.map(aspect => (aspect, range))
-    )->Array.concatMany
+    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> =
+      highlightings
+      ->Array.map(((range, aspects, _)) =>
+        // pair the aspect with the range
+        aspects->Array.map(aspect => (aspect, range))
+      )
+      ->Array.concatMany
 
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
@@ -327,7 +321,10 @@ module Module: Module = {
   let readFile = N.Util.promisify(N.Fs.readFile)
 
   let readAndParse = (filepath): Promise.t<array<Highlighting.t>> =>
-    readFile(. filepath)->Promise.Js.fromBsPromise->Promise.Js.toResult->Promise.map(x =>
+    readFile(. filepath)
+    ->Promise.Js.fromBsPromise
+    ->Promise.Js.toResult
+    ->Promise.map(x =>
       switch x {
       | Ok(content) =>
         open! Parser.SExpression
@@ -339,13 +336,15 @@ module Module: Module = {
           | Ok(_) => None
           }
         )
-        expressions->Array.keepMap(x =>
+        expressions
+        ->Array.keepMap(x =>
           switch x {
           | Error(_) => None // filter errors out
           | Ok(L(xs)) => Some(Highlighting.parseIndirectHighlightings(xs))
           | Ok(_) => Some([])
           }
-        )->Array.concatMany
+        )
+        ->Array.concatMany
       // TODO: we should do something about these parse errors
       | Error(_err) => []
       }

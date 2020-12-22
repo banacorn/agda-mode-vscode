@@ -2,6 +2,23 @@ open VSCode
 module VSRange = Range
 open Belt
 
+module Position = {
+  let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
+  let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
+}
+
+module Range = {
+  let fromInterval = (document, interval) =>
+    VSCode.Range.make(
+      Position.fromOffset(document, fst(interval)),
+      Position.fromOffset(document, snd(interval)),
+    )
+  let toInterval = (document, range) => (
+    Position.toOffset(document, VSCode.Range.start(range)),
+    Position.toOffset(document, VSCode.Range.end_(range)),
+  )
+}
+
 module Decoration = {
   type t = TextEditorDecorationType.t
   type backgroundStyle = string
@@ -215,8 +232,7 @@ let computeUTF16SurrogatePairIndices = (text: string): array<int> => {
 // returns an array of indices where CRLF line endings occur
 let computeCRLFIndices = (text: string): array<int> => {
   let regexp = %re("/\\r\\n/g")
-  let matchAll = %raw(
-    "function (regexp, string) {
+  let matchAll = %raw("function (regexp, string) {
       let match;
       let result = [];
       while ((match = regexp.exec(string)) !== null) {
@@ -224,8 +240,7 @@ let computeCRLFIndices = (text: string): array<int> => {
       }
       return result;
     }
-  "
-  )
+  ")
   matchAll(regexp, text)
 }
 
@@ -335,11 +350,9 @@ module Provider = {
           definitionProvider(
             textDocument->TextDocument.fileName,
             point,
-          )->ProviderResult.map(pairs => LocationLinkOrLocation.locationLinks(pairs->Array.map(((
-                srcRange,
-                targetFile,
-                targetPos,
-              )) => {
+          )->ProviderResult.map(pairs =>
+            LocationLinkOrLocation.locationLinks(
+              pairs->Array.map(((srcRange, targetFile, targetPos)) => {
                 open LocationLink
                 {
                   originSelectionRange: Some(srcRange),
@@ -347,7 +360,9 @@ module Provider = {
                   targetSelectionRange: None,
                   targetUri: Uri.file(targetFile),
                 }
-              }))),
+              }),
+            )
+          ),
       }
     }
 

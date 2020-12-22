@@ -31,7 +31,7 @@ module Module: Module = {
           State.View.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
           let replacements = replacements->Array.map(((interval, text)) => {
-            let range = Interval.toRange(state.document, interval)
+            let range = Editor.Range.fromInterval(state.document, interval)
             (range, text)
           })
           Editor.Text.batchReplace(state.document, replacements)->Promise.map(_ => {
@@ -58,7 +58,7 @@ module Module: Module = {
       // activated the input method with cursors positions
       let document = VSCode.TextEditor.document(state.editor)
       let intervals: array<Interval.t> =
-        Editor.Selection.getMany(state.editor)->Array.map(Interval.fromRange(document))
+        Editor.Selection.getMany(state.editor)->Array.map(Editor.Range.toInterval(document))
       runAndHandle(state, Activate(intervals))
     }
 

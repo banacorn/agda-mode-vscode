@@ -56,7 +56,7 @@ module Module: Module = {
   let caseSplitAux = (document, goal: Goal.t) => {
     let textBeforeGoal = {
       let interval = (0, fst(goal.interval))
-      let range = Interval.toRange(document, interval)
+      let range = Editor.Range.fromInterval(document, interval)
       Editor.Text.get(document, range)
     }
 
@@ -358,12 +358,12 @@ module Module: Module = {
     let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
     // the rows spanned by the goal (including the text outside the goal)
     // will be replaced by the `indentedLines`
-    let start = Offset.toPosition(state.document, fst(goal.interval))
+    let start = Editor.Position.fromOffset(state.document, fst(goal.interval))
     let startLineNo = VSCode.Position.line(start)
     let startLineRange = document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
     let start = VSCode.Range.start(startLineRange)
 
-    let end_ = Offset.toPosition(state.document, snd(goal.interval))
+    let end_ = Editor.Position.fromOffset(state.document, snd(goal.interval))
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
     Editor.Text.replace(document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
       switch x {
@@ -385,7 +385,7 @@ module Module: Module = {
 
     let document = VSCode.TextEditor.document(state.editor)
     let innerRange = Goal.getInnerRange(goal, document)
-    let outerRange = Interval.toRange(document, goal.interval)
+    let outerRange = Editor.Range.fromInterval(document, goal.interval)
     let content = Editor.Text.get(document, innerRange)->String.trim
     Editor.Text.replace(document, outerRange, content)->Promise.flatMap(x =>
       switch x {

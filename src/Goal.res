@@ -87,10 +87,10 @@ module Module: Module = {
 
   let getInnerRange = (self, document) => {
     let interval = (fst(self.interval) + 2, snd(self.interval) - 2)
-    Interval.toRange(document, interval)
+    Editor.Range.fromInterval(document, interval)
   }
 
-  let getOuterRange = (self, document) => Interval.toRange(document, self.interval)
+  let getOuterRange = (self, document) => Editor.Range.fromInterval(document, self.interval)
 
   let getContent = (self, document) => {
     let innerRange = getInnerRange(self, document)
@@ -104,14 +104,14 @@ module Module: Module = {
 
   let setCursor = (self, editor) => {
     let (start, _) = self.interval
-    let position = Offset.toPosition(editor->VSCode.TextEditor.document, start + 3)
+    let position = Editor.Position.fromOffset(editor->VSCode.TextEditor.document, start + 3)
     Editor.Cursor.set(editor, position)
   }
 
   let buildHaskellRange = (self, document, version, filepath: string) => {
     let (start, end_) = self.interval
-    let startPoint = Offset.toPosition(document, start)
-    let endPoint = Offset.toPosition(document, end_)
+    let startPoint = Editor.Position.fromOffset(document, start)
+    let endPoint = Editor.Position.fromOffset(document, end_)
 
     let startIndex = string_of_int(start + 3)
     let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
