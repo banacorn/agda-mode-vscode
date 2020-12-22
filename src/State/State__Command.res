@@ -8,27 +8,26 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     state,
     State__Response.handle(state, dispatchCommand),
   )
-  let document = VSCode.TextEditor.document(state.editor)
   let header = View.Header.Plain(Command.toString(command))
   switch command {
   | Load =>
     State.View.display(state, Plain("Loading ..."), Nothing)
     ->Promise.flatMap(() => {
       // save the document before loading
-      VSCode.TextDocument.save(document)
+      VSCode.TextDocument.save(state.document)
     })
     ->Promise.flatMap(_ => {
       // Issue #26 - don't load the document in preview mode
       let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
-      VSCode.Window.showTextDocumentWithShowOptions(document, options)->Promise.flatMap(_ =>
+      VSCode.Window.showTextDocumentWithShowOptions(state.document, options)->Promise.flatMap(_ =>
         sendAgdaRequest(Load)
       )
     })
   | Quit => Promise.resolved()
   | Restart => dispatchCommand(Load)
   | Refresh =>
-    State__Goal.updateRanges(state)
     State.Decoration.refresh(state)
+    State__Goal.redecorate(state)
     Promise.resolved()
   | Compile => sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)
@@ -238,9 +237,8 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         State.View.interruptPrompt(state)
       }
     | JumpToTarget(link) =>
-      let document = VSCode.TextEditor.document(state.editor)
-      Editor.focus(document)
-      let path = document->VSCode.TextDocument.fileName->Parser.filepath
+      Editor.focus(state.document)
+      let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
       switch link {
       | ToLocation(NoLocation) => Promise.resolved()
       | ToLocation(Location(None, _ranges)) => Promise.resolved()

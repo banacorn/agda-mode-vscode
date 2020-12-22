@@ -45,12 +45,7 @@ module Decoration = {
       Decoration.applyHighlightings(state.decorations, state.editor)
     })
 
-  let refresh = state => {
-    // highlightings
-    Decoration.refresh(state.decorations, state.editor)
-    // goal decorations
-    state.goals->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor))
-  }
+  let refresh = state => Decoration.refresh(state.decorations, state.editor)
 
   let destroy = state => Decoration.destroy(state.decorations)
 }
@@ -242,14 +237,13 @@ module Connection: Connection = {
     state
     ->connect
     ->Promise.mapOk(connection => {
-      let document = VSCode.TextEditor.document(state.editor)
       let version = connection.metadata.version
-      let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
+      let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
       let libraryPath = Config.getLibraryPath()
       let highlightingMethod = Config.getHighlightingMethod()
       let backend = Config.getBackend()
       let encoded = Request.encode(
-        document,
+        state.document,
         version,
         filepath,
         backend,

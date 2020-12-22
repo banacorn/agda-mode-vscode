@@ -56,9 +56,8 @@ module Module: Module = {
 
     let activate = (state: State.t) => {
       // activated the input method with cursors positions
-      let document = VSCode.TextEditor.document(state.editor)
       let intervals: array<Interval.t> =
-        Editor.Selection.getMany(state.editor)->Array.map(Editor.Range.toInterval(document))
+        Editor.Selection.getMany(state.editor)->Array.map(Editor.Range.toInterval(state.document))
       runAndHandle(state, Activate(intervals))
     }
 
@@ -188,7 +187,7 @@ module Module: Module = {
     | Editor =>
       // already activated, insert backslash "\" instead
       Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-        Editor.Text.insert(VSCode.TextEditor.document(state.editor), point, "\\")->ignore
+        Editor.Text.insert(state.document, point, "\\")->ignore
       )
       // and then deactivate it
       EditorIM.deactivate(state)

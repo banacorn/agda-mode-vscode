@@ -4,13 +4,12 @@ module type Module = {
   let instantiate: (State.t, array<int>) => Promise.t<unit>
   let modify: (State.t, Goal.t, string => string) => Promise.t<unit>
   let removeBoundaryAndDestroy: (State.t, Goal.t) => Promise.t<unit>
+  let pointed: State.t => option<(Goal.t, string)>
   let replaceWithLines: (State.t, Goal.t, array<string>) => Promise.t<unit>
   let replaceWithLambda: (State.t, Goal.t, array<string>) => Promise.t<unit>
-  let pointed: State.t => option<(Goal.t, string)>
-  let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, (int, int))
+  let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, Interval.t)
 
-  // parse the whole source file and update the ranges of an array of Goal.t
-  let updateRanges: State.t => unit
+  let redecorate: State.t => unit
   let next: State.t => Promise.t<unit>
   let previous: State.t => Promise.t<unit>
 }
@@ -169,8 +168,8 @@ module Module: Module = {
     SourceFile.parse(indices, filePath, source)
   }
 
-  // parse the whole source file and update the ranges of an array of Goal.t
-  let updateRanges = (state: State.t) => {
+  // parse the whole source file and update the intervals of an array of Goal.t
+  let updateIntervals = (state: State.t) => {
     let indices = state.goals->Array.map(goal => goal.index)
     let diffs = generateDiffs(state.document, indices)
     diffs->Array.forEachWithIndex((i, diff) =>
@@ -182,7 +181,7 @@ module Module: Module = {
   }
 
   let modify = (state: State.t, goal, f) => {
-    updateRanges(state)
+    updateIntervals(state)
     let content = Goal.getContent(goal, state.document)
     Goal.setContent(goal, state.document, f(content))->Promise.flatMap(x =>
       switch x {
@@ -197,7 +196,7 @@ module Module: Module = {
     )
   }
   let next = (state: State.t): Promise.t<unit> => {
-    updateRanges(state)
+    updateIntervals(state)
 
     let nextGoal = ref(None)
     let cursorOffset = VSCode.TextDocument.offsetAt(state.document, Editor.Cursor.get(state.editor))
@@ -226,7 +225,7 @@ module Module: Module = {
   }
 
   let previous = (state: State.t): Promise.t<unit> => {
-    updateRanges(state)
+    updateIntervals(state)
 
     let previousGoal = ref(None)
     let cursorOffset = VSCode.TextDocument.offsetAt(state.document, Editor.Cursor.get(state.editor))
@@ -264,7 +263,7 @@ module Module: Module = {
   }
 
   let pointed = (state: State.t): option<(Goal.t, string)> => {
-    updateRanges(state)
+    updateIntervals(state)
 
     // let cursor = switch cursor {
     // | None => Editor.Cursor.get(state.editor)
@@ -279,7 +278,7 @@ module Module: Module = {
   }
 
   // let caseSimple = (state: State.t, local, global): Promise.t<unit> => {
-  //   updateRanges(state)
+  //   updateIntervals(state)
   //   switch pointingAt(state) {
   //   | None => global
   //   | Some(goal) => local(goal)
@@ -297,19 +296,14 @@ module Module: Module = {
   //          x → ?
   //          y → ?
   let replaceWithLambda = (state: State.t, goal, lines) => {
-    let document = VSCode.TextEditor.document(state.editor)
-    let (inWhereClause, indentWidth, rewriteRange) = caseSplitAux(document, goal)
+    let (inWhereClause, indentWidth, rewriteInterval) = caseSplitAux(state.document, goal)
     let rewriteText = if inWhereClause {
       Js.Array.joinWith("\n" ++ Js.String.repeat(indentWidth, " "), lines)
     } else {
       Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
     }
-
-    let rewriteRange = VSCode.Range.make(
-      VSCode.TextDocument.positionAt(document, fst(rewriteRange)),
-      VSCode.TextDocument.positionAt(document, snd(rewriteRange)),
-    )
-    Editor.Text.replace(document, rewriteRange, rewriteText)->Promise.flatMap(x =>
+    let rewriteRange = Editor.Range.fromInterval(state.document, rewriteInterval)
+    Editor.Text.replace(state.document, rewriteRange, rewriteText)->Promise.flatMap(x =>
       switch x {
       | true =>
         Goal.destroy(goal)
@@ -327,21 +321,21 @@ module Module: Module = {
   // replace and insert one or more lines of content at the goal
   // usage: case split
   let replaceWithLines = (state: State.t, goal, lines) => {
-    let document = VSCode.TextEditor.document(state.editor)
     // get the width of indentation from the first line of the goal
-    let (indentWidth, _, _) = indentationWidth(document, goal)
+    let (indentWidth, _, _) = indentationWidth(state.document, goal)
     let indentation = Js.String.repeat(indentWidth, " ")
     let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
     // the rows spanned by the goal (including the text outside the goal)
     // will be replaced by the `indentedLines`
     let start = Editor.Position.fromOffset(state.document, fst(goal.interval))
     let startLineNo = VSCode.Position.line(start)
-    let startLineRange = document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
+    let startLineRange =
+      state.document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
     let start = VSCode.Range.start(startLineRange)
 
     let end_ = Editor.Position.fromOffset(state.document, snd(goal.interval))
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
-    Editor.Text.replace(document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
+    Editor.Text.replace(state.document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
       switch x {
       | true =>
         Goal.destroy(goal)
@@ -357,13 +351,12 @@ module Module: Module = {
   }
 
   let removeBoundaryAndDestroy = (state: State.t, goal) => {
-    updateRanges(state)
+    updateIntervals(state)
 
-    let document = VSCode.TextEditor.document(state.editor)
-    let innerRange = Goal.getInnerRange(goal, document)
-    let outerRange = Editor.Range.fromInterval(document, goal.interval)
-    let content = Editor.Text.get(document, innerRange)->String.trim
-    Editor.Text.replace(document, outerRange, content)->Promise.flatMap(x =>
+    let innerRange = Goal.getInnerRange(goal, state.document)
+    let outerRange = Editor.Range.fromInterval(state.document, goal.interval)
+    let content = Editor.Text.get(state.document, innerRange)->String.trim
+    Editor.Text.replace(state.document, outerRange, content)->Promise.flatMap(x =>
       switch x {
       | true =>
         Goal.destroy(goal)
@@ -376,6 +369,12 @@ module Module: Module = {
         )
       }
     )
+  }
+
+  let redecorate = state => {
+    updateIntervals(state)
+    // goal decorations
+    state.goals->Array.forEach(goal => goal->Goal.refreshDecoration(state.editor))
   }
 }
 include Module
