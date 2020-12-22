@@ -112,15 +112,14 @@ let rec handle = (
       }
     }
   | MakeCase(makeCaseType, lines) =>
-    State__Goal.caseSimple(
-      state,
-      goal =>
-        switch makeCaseType {
-        | Function => State__Goal.replaceWithLines(state, goal, lines)
-        | ExtendedLambda => State__Goal.replaceWithLambda(state, goal, lines)
-        }->Promise.flatMap(() => dispatchCommand(Load)),
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, _)) =>
+      switch makeCaseType {
+      | Function => State__Goal.replaceWithLines(state, goal, lines)
+      | ExtendedLambda => State__Goal.replaceWithLambda(state, goal, lines)
+      }->Promise.flatMap(() => dispatchCommand(Load))
+    }
   | SolveAll(solutions) =>
     let solveOne = ((index, solution)): Promise.t<unit> => {
       let goals = state.goals->Array.keep(goal => goal.index == index)
@@ -132,6 +131,7 @@ let rec handle = (
         )
       }
     }
+    Js.log("solve all")
     // solve them one by one
     solutions
     ->Array.map(solveOne)

@@ -6,13 +6,7 @@ module type Module = {
   let removeBoundaryAndDestroy: (State.t, Goal.t) => Promise.t<unit>
   let replaceWithLines: (State.t, Goal.t, array<string>) => Promise.t<unit>
   let replaceWithLambda: (State.t, Goal.t, array<string>) => Promise.t<unit>
-  let case: (
-    State.t,
-    (Goal.t, string) => Promise.t<unit>,
-    Goal.t => Promise.t<unit>,
-    Promise.t<unit>,
-  ) => Promise.t<unit>
-  let caseSimple: (State.t, Goal.t => Promise.t<unit>, Promise.t<unit>) => Promise.t<unit>
+  let pointed: State.t => option<(Goal.t, string)>
   let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, (int, int))
 
   // parse the whole source file and update the ranges of an array of Goal.t
@@ -25,18 +19,6 @@ module Module: Module = {
   // return an array of Offsets of Goals
   let getOffsets = (state: State.t): array<int> =>
     state.goals->Array.map(goal => fst(goal.interval) + 3)
-
-  let pointingAt = (~cursor=?, state: State.t): option<Goal.t> => {
-    let cursor = switch cursor {
-    | None => Editor.Cursor.get(state.editor)
-    | Some(x) => x
-    }
-    let cursorOffset = state.document->VSCode.TextDocument.offsetAt(cursor)
-    let pointedGoals =
-      state.goals->Array.keep(goal => Interval.contains(goal.interval, cursorOffset))
-    // return the first pointed goal
-    pointedGoals[0]
-  }
 
   // There are two kinds of lambda abstraction
   //  1.  λ { x → ? }
@@ -174,8 +156,7 @@ module Module: Module = {
   }
 
   let jumpToOffset = (state: State.t, offset) => {
-    let document = VSCode.TextEditor.document(state.editor)
-    let point = document->VSCode.TextDocument.positionAt(offset)
+    let point = state.document->VSCode.TextDocument.positionAt(offset)
     let range = VSCode.Range.make(point, point)
     Editor.reveal(state.editor, range)
   }
@@ -191,7 +172,7 @@ module Module: Module = {
   // parse the whole source file and update the ranges of an array of Goal.t
   let updateRanges = (state: State.t) => {
     let indices = state.goals->Array.map(goal => goal.index)
-    let diffs = generateDiffs(VSCode.TextEditor.document(state.editor), indices)
+    let diffs = generateDiffs(state.document, indices)
     diffs->Array.forEachWithIndex((i, diff) =>
       switch state.goals[i] {
       | None => () // do nothing :|
@@ -202,10 +183,8 @@ module Module: Module = {
 
   let modify = (state: State.t, goal, f) => {
     updateRanges(state)
-
-    let document = VSCode.TextEditor.document(state.editor)
-    let content = Goal.getContent(goal, document)
-    Goal.setContent(goal, document, f(content))->Promise.flatMap(x =>
+    let content = Goal.getContent(goal, state.document)
+    Goal.setContent(goal, state.document, f(content))->Promise.flatMap(x =>
       switch x {
       | true => Promise.resolved()
       | false =>
@@ -220,9 +199,8 @@ module Module: Module = {
   let next = (state: State.t): Promise.t<unit> => {
     updateRanges(state)
 
-    let document = VSCode.TextEditor.document(state.editor)
     let nextGoal = ref(None)
-    let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(state.editor))
+    let cursorOffset = VSCode.TextDocument.offsetAt(state.document, Editor.Cursor.get(state.editor))
     let offsets = getOffsets(state)
 
     // find the first Goal after the cursor
@@ -240,7 +218,7 @@ module Module: Module = {
     switch nextGoal.contents {
     | None => Promise.resolved()
     | Some(offset) =>
-      let point = document->VSCode.TextDocument.positionAt(offset)
+      let point = state.document->VSCode.TextDocument.positionAt(offset)
       Editor.Cursor.set(state.editor, point)
       state->jumpToOffset(offset)
       Promise.resolved()
@@ -250,9 +228,8 @@ module Module: Module = {
   let previous = (state: State.t): Promise.t<unit> => {
     updateRanges(state)
 
-    let document = VSCode.TextEditor.document(state.editor)
     let previousGoal = ref(None)
-    let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(state.editor))
+    let cursorOffset = VSCode.TextDocument.offsetAt(state.document, Editor.Cursor.get(state.editor))
     let offsets = getOffsets(state)
 
     // find the last Goal before the cursor
@@ -270,7 +247,7 @@ module Module: Module = {
     switch previousGoal.contents {
     | None => Promise.resolved()
     | Some(offset) =>
-      let point = document->VSCode.TextDocument.positionAt(offset)
+      let point = state.document->VSCode.TextDocument.positionAt(offset)
       Editor.Cursor.set(state.editor, point)
       state->jumpToOffset(offset)
       Promise.resolved()
@@ -286,29 +263,28 @@ module Module: Module = {
     })
   }
 
-  let case = (state: State.t, localWithContent, localEmpty, global): Promise.t<unit> => {
+  let pointed = (state: State.t): option<(Goal.t, string)> => {
     updateRanges(state)
 
-    let document = VSCode.TextEditor.document(state.editor)
-    switch pointingAt(state) {
-    | None => global
-    | Some(goal) =>
-      let content = Goal.getContent(goal, document)
-      if content == "" {
-        localEmpty(goal)
-      } else {
-        localWithContent(goal, content)
-      }
-    }
+    // let cursor = switch cursor {
+    // | None => Editor.Cursor.get(state.editor)
+    // | Some(x) => x
+    // }
+    let cursor = Editor.Cursor.get(state.editor)
+    let cursorOffset = state.document->VSCode.TextDocument.offsetAt(cursor)
+    let pointedGoals =
+      state.goals->Array.keep(goal => Interval.contains(goal.interval, cursorOffset))
+    // return the first pointed goal
+    pointedGoals[0]->Option.map(goal => (goal, Goal.getContent(goal, state.document)))
   }
 
-  let caseSimple = (state: State.t, local, global): Promise.t<unit> => {
-    updateRanges(state)
-    switch pointingAt(state) {
-    | None => global
-    | Some(goal) => local(goal)
-    }
-  }
+  // let caseSimple = (state: State.t, local, global): Promise.t<unit> => {
+  //   updateRanges(state)
+  //   switch pointingAt(state) {
+  //   | None => global
+  //   | Some(goal) => local(goal)
+  //   }
+  // }
 
   // Replace definition of extended lambda with new clauses
 

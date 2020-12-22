@@ -34,11 +34,10 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)
   | ShowConstraints => sendAgdaRequest(ShowConstraints)
   | SolveConstraints(normalization) =>
-    State__Goal.caseSimple(
-      state,
-      goal => sendAgdaRequest(SolveConstraints(normalization, goal)),
-      sendAgdaRequest(SolveConstraintsGlobal(normalization)),
-    )
+    switch State__Goal.pointed(state) {
+    | None => sendAgdaRequest(SolveConstraintsGlobal(normalization))
+    | Some((goal, _)) => sendAgdaRequest(SolveConstraints(normalization, goal))
+    }
   | ShowGoals => sendAgdaRequest(ShowGoals)
   | NextGoal => State__Goal.next(state)
   | PreviousGoal => State__Goal.previous(state)
@@ -47,186 +46,179 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       sendAgdaRequest(SearchAbout(normalization, expr))
     )
   | Give =>
-    State__Goal.case(
-      state,
-      (goal, _) => {sendAgdaRequest(Give(goal))},
-      goal =>
-        State.View.prompt(state, header, {
-          body: None,
-          placeholder: Some("expression to give:"),
-          value: None,
-        }, expr =>
-          State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
-            sendAgdaRequest(Give(goal))
-          )
-        ),
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, "")) =>
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: Some("expression to give:"),
+        value: None,
+      }, expr =>
+        State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+          sendAgdaRequest(Give(goal))
+        )
+      )
+    | Some((goal, _)) => sendAgdaRequest(Give(goal))
+    }
   | Refine =>
-    State__Goal.caseSimple(
-      state,
-      goal => {sendAgdaRequest(Refine(goal))},
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, _)) => sendAgdaRequest(Refine(goal))
+    }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
-      State__Goal.case(
-        state,
-        (goal, expr) => {sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))},
-        goal =>
-          State.View.prompt(state, header, {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          }, expr => {sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))}),
-        State.View.displayOutOfGoalError(state),
-      )
+      switch State__Goal.pointed(state) {
+      | None => State.View.displayOutOfGoalError(state)
+      | Some((goal, "")) =>
+        State.View.prompt(state, header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => {sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))})
+      | Some((goal, expr)) => sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+      }
     }
   | Auto =>
-    State__Goal.caseSimple(
-      state,
-      goal => {sendAgdaRequest(Auto(goal))},
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, _)) => sendAgdaRequest(Auto(goal))
+    }
   | Case => {
       let placeholder = Some("variable to case split:")
-      State__Goal.case(
-        state,
-        (goal, _) => {sendAgdaRequest(Case(goal))},
-        goal =>
-          State.View.prompt(state, header, {
-            body: Some("Please specify which variable you wish to split"),
-            placeholder: placeholder,
-            value: None,
-          }, expr =>
-            // place the queried expression in the goal
-            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
-              sendAgdaRequest(Case(goal))
-            )
-          ),
-        State.View.displayOutOfGoalError(state),
-      )
+      switch State__Goal.pointed(state) {
+      | None => State.View.displayOutOfGoalError(state)
+      | Some((goal, "")) =>
+        State.View.prompt(state, header, {
+          body: Some("Please specify which variable you wish to split"),
+          placeholder: placeholder,
+          value: None,
+        }, expr =>
+          // place the queried expression in the goal
+          State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+            sendAgdaRequest(Case(goal))
+          )
+        )
+      | Some((goal, _)) => sendAgdaRequest(Case(goal))
+      }
     }
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
-      State__Goal.case(
-        state,
-        (goal, expr) => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
-        goal =>
-          State.View.prompt(state, header, {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          }, expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal))),
-        State.View.displayOutOfGoalError(state),
-      )
+      switch State__Goal.pointed(state) {
+      | None => State.View.displayOutOfGoalError(state)
+      | Some((goal, "")) =>
+        State.View.prompt(state, header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)))
+      | Some((goal, expr)) => sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
+      }
     }
   | InferType(normalization) =>
     let placeholder = Some("expression to infer:")
-    State__Goal.case(
-      state,
-      (goal, expr) => sendAgdaRequest(InferType(normalization, expr, goal)),
-      goal =>
-        State.View.prompt(state, header, {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        }, expr => sendAgdaRequest(InferType(normalization, expr, goal))),
+    switch State__Goal.pointed(state) {
+    | None =>
       State.View.prompt(state, header, {
         body: None,
         placeholder: placeholder,
         value: None,
-      }, expr => sendAgdaRequest(InferTypeGlobal(normalization, expr))),
-    )
+      }, expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)))
+    | Some((goal, "")) =>
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(InferType(normalization, expr, goal)))
+    | Some((goal, expr)) => sendAgdaRequest(InferType(normalization, expr, goal))
+    }
   | Context(normalization) =>
-    State__Goal.caseSimple(
-      state,
-      goal => sendAgdaRequest(Context(normalization, goal)),
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, _)) => sendAgdaRequest(Context(normalization, goal))
+    }
   | GoalType(normalization) =>
-    State__Goal.caseSimple(
-      state,
-      goal => sendAgdaRequest(GoalType(normalization, goal)),
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, _)) => sendAgdaRequest(GoalType(normalization, goal))
+    }
   | GoalTypeAndContext(normalization) =>
-    State__Goal.caseSimple(
-      state,
-      goal => sendAgdaRequest(GoalTypeAndContext(normalization, goal)),
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, _)) => sendAgdaRequest(GoalTypeAndContext(normalization, goal))
+    }
   | GoalTypeContextAndInferredType(normalization) =>
-    State__Goal.case(
-      state,
-      (goal, expr) => sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal)),
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, "")) =>
       // fallback to `GoalTypeAndContext` when there's no content
-      goal => sendAgdaRequest(GoalTypeAndContext(normalization, goal)),
-      State.View.displayOutOfGoalError(state),
-    )
+      sendAgdaRequest(GoalTypeAndContext(normalization, goal))
+    | Some((goal, expr)) =>
+      sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal))
+    }
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
-    state->State__Goal.case(
-      (goal, expr) => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-      goal =>
-        State.View.prompt(state, header, {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        }, expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))),
-      State.View.displayOutOfGoalError(state),
-    )
+    switch State__Goal.pointed(state) {
+    | None => State.View.displayOutOfGoalError(state)
+    | Some((goal, "")) =>
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)))
+    | Some((goal, expr)) =>
+      sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
+    }
   | ModuleContents(normalization) =>
     let placeholder = Some("module name:")
-    State__Goal.case(
-      state,
-      (goal, expr) => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
-      goal =>
-        State.View.prompt(state, header, {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        }, expr => sendAgdaRequest(ModuleContents(normalization, expr, goal))),
+    switch State__Goal.pointed(state) {
+    | None =>
       State.View.prompt(state, header, {
         body: None,
         placeholder: placeholder,
         value: None,
-      }, expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr))),
-    )
+      }, expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)))
+    | Some((goal, "")) =>
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)))
+    | Some((goal, expr)) => sendAgdaRequest(ModuleContents(normalization, expr, goal))
+    }
   | ComputeNormalForm(computeMode) =>
     let placeholder = Some("expression to normalize:")
-    State__Goal.case(
-      state,
-      (goal, expr) => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
-      goal =>
-        State.View.prompt(state, header, {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        }, expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal))),
+    switch State__Goal.pointed(state) {
+    | None =>
       State.View.prompt(state, header, {
         body: None,
         placeholder: placeholder,
         value: None,
-      }, expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr))),
-    )
+      }, expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)))
+    | Some((goal, "")) =>
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)))
+    | Some((goal, expr)) => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal))
+    }
   | WhyInScope =>
     let placeholder = Some("name:")
-    State__Goal.case(
-      state,
-      (goal, expr) => sendAgdaRequest(WhyInScope(expr, goal)),
-      goal =>
-        State.View.prompt(state, header, {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        }, expr => sendAgdaRequest(WhyInScope(expr, goal))),
+    switch State__Goal.pointed(state) {
+    | None =>
       State.View.prompt(state, header, {
         body: None,
         placeholder: placeholder,
         value: None,
-      }, expr => sendAgdaRequest(WhyInScopeGlobal(expr))),
-    )
+      }, expr => sendAgdaRequest(WhyInScopeGlobal(expr)))
+    | Some((goal, "")) =>
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(WhyInScope(expr, goal)))
+    | Some((goal, expr)) => sendAgdaRequest(WhyInScope(expr, goal))
+    }
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved()
