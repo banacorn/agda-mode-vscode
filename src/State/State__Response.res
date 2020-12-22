@@ -131,7 +131,6 @@ let rec handle = (
         )
       }
     }
-    Js.log("solve all")
     // solve them one by one
     solutions
     ->Array.map(solveOne)

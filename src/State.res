@@ -190,7 +190,7 @@ module Connection: Connection = {
     handleResponse: Response.t => Promise.t<unit>,
     request: Request.t,
   ): Promise.t<unit> => {
-    Js.log("<<< " ++ Request.toString(request))
+    // Js.log("<<< " ++ Request.toString(request))
     let displayConnectionError = error => {
       let (header, body) = Connection.Error.toString(error)
       View.display(state, Error("Connection Error: " ++ header), Plain(body))
@@ -209,13 +209,13 @@ module Connection: Connection = {
         let body = Parser.Error.toString(error)
         View.display(state, Error("Internal Parse Error"), Plain(body))->ignore
       | Ok(Yield(Ok(NonLast(response)))) =>
-        Js.log(">>> " ++ Response.toString(response))
+        // Js.log(">>> " ++ Response.toString(response))
         Lock.runNonLast(handleResponse(response))->ignore
       | Ok(Yield(Ok(Last(priority, response)))) =>
-        Js.log(">>* " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
+        // Js.log(">>* " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
         Js.Array.push((priority, response), deferredLastResponses)->ignore
       | Ok(Stop) =>
-        Js.log(">>| ")
+        // Js.log(">>| ")
         // sort the deferred Responses by priority (ascending order)
         let deferredLastResponses =
           Js.Array.sortInPlaceWith(

@@ -86,13 +86,12 @@ let activateWithoutContext = (disposables, extensionPath) => {
 
     let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
 
-    // listens to events from the view
+    // listens to events from the view and relay them as Commands
     state.view
     ->ViewController.onEvent(event =>
       State__Command.dispatchCommand(state, EventFromView(event))->ignore
     )
-    ->Js.Array.push(state.subscriptions)
-    ->ignore
+    ->subscribe
 
     // register event listeners for the input method
     VSCode.Window.onDidChangeTextEditorSelection(.event => {
@@ -108,7 +107,6 @@ let activateWithoutContext = (disposables, extensionPath) => {
       State__InputMethod.select(state, intervals)->ignore
     })->subscribe
     VSCode.Workspace.onDidChangeTextDocument(.event => {
-      Js.log(event)
       let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
       State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
     })->subscribe
@@ -117,8 +115,8 @@ let activateWithoutContext = (disposables, extensionPath) => {
     state.onRemoveFromRegistry->Chan.once->Promise.flatMap(() => Registry.destroy(fileName))->ignore
 
     // definition provider for go-to-definition
-    let definitionProvider = (fileName, point) => {
-      // only provide source location, when the filenames are matched
+    Editor.Provider.registerDefinitionProvider((fileName, point) => {
+      // only provide source location, when the filename matched
       let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
 
       if fileName == currentFileName {
@@ -126,11 +124,11 @@ let activateWithoutContext = (disposables, extensionPath) => {
       } else {
         None
       }
-    }
+    })->subscribe
 
     // hover provider
-    let hoverProvider = (fileName, point) => {
-      // only provide source location, when the filenames are matched
+    Editor.Provider.registerHoverProvider((fileName, point) => {
+      // only provide source location, when the filename matched
       let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
 
       if fileName == currentFileName {
@@ -139,11 +137,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
       } else {
         None
       }
-    }
-
-    // registering feature providers
-    let disposables = Editor.Provider.registerProvider(definitionProvider, hoverProvider)
-    state.subscriptions = Js.Array.concat(state.subscriptions, disposables)
+    })->subscribe
 
     //   // these two arrays are called "legends"
     //   let tokenTypes = Highlighting.Aspect.TokenType.enumurate

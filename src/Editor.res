@@ -197,11 +197,11 @@ let reveal = (editor, range) =>
   editor->TextEditor.revealRange(range, Some(TextEditorRevealType.InCenterIfOutsideViewport))
 
 module Provider = {
-  let registerProvider = (definitionProvider, hoverProvider) => {
-    let documentSelector = [VSCode.StringOr.string("agda")]
-
-    let definitionProvider = {
-      open DefinitionProvider
+  let documentSelector = [VSCode.StringOr.string("agda")]
+  let registerDefinitionProvider = definitionProvider => {
+    open DefinitionProvider
+    Languages.registerDefinitionProvider(
+      documentSelector,
       {
         provideDefinition: (textDocument, point, _) =>
           definitionProvider(
@@ -220,28 +220,28 @@ module Provider = {
               }),
             )
           ),
-      }
-    }
+      },
+    )
+  }
 
-    let hoverProvider = {
-      open HoverProvider
+  let registerHoverProvider = hoverProvider => {
+    open HoverProvider
+    Languages.registerHoverProvider(
+      documentSelector,
       {
-        provideHover: (textDocument, point, _) =>
-          hoverProvider(textDocument->TextDocument.fileName, point)->ProviderResult.map(((
-            strings,
-            range,
-          )) => {
-            let markdownStrings =
-              strings->Belt.Array.map(string => MarkdownString.make(string, true))
-            Hover.makeWithRange(markdownStrings, range)
-          }),
-      }
-    }
-
-    [
-      Languages.registerDefinitionProvider(documentSelector, definitionProvider),
-      Languages.registerHoverProvider(documentSelector, hoverProvider),
-    ]
+        {
+          provideHover: (textDocument, point, _) =>
+            hoverProvider(textDocument->TextDocument.fileName, point)->ProviderResult.map(((
+              strings,
+              range,
+            )) => {
+              let markdownStrings =
+                strings->Belt.Array.map(string => MarkdownString.make(string, true))
+              Hover.makeWithRange(markdownStrings, range)
+            }),
+        }
+      },
+    )
   }
 
   module Mock = {
