@@ -2,10 +2,11 @@ open Emacs__Parser
 open Belt
 open Component
 
-let partiteMetas = xs => xs->Dict.split("metas", (rawMetas: array<string>) => {
+let partiteMetas = xs =>
+  xs->Dict.split("metas", (rawMetas: array<string>) => {
     let metas = unindent(rawMetas)
     let indexOfHiddenMetas =
-      metas->Array.getIndexBy(s => Component.Output.parseOutputWithRange(s)->Option.isSome)
+      metas->Array.getIndexBy(s => Component.Output.parseOutputWithLocation(s)->Option.isSome)
     metas->Dict.partite(((_, i)) =>
       switch indexOfHiddenMetas {
       | Some(n) =>
@@ -27,10 +28,11 @@ let partiteMetas = xs => xs->Dict.split("metas", (rawMetas: array<string>) => {
     )
   })
 
-let partiteWarningsOrErrors = (xs, key) => xs->Dict.update(key, (raw: array<string>) => {
+let partiteWarningsOrErrors = (xs, key) =>
+  xs->Dict.update(key, (raw: array<string>) => {
     let hasDelimeter = raw[0]->Option.flatMap(Js.String.match_(%re("/^\\u2014{4}/")))->Option.isSome
     let lines = hasDelimeter ? Js.Array.sliceFrom(1, raw) : raw
-    let markWarningStart = line => line->View.AgdaRange.parse->Option.isSome
+    let markWarningStart = line => line->Common.Agda.Location.parse->Option.isSome
     /* If the previous warning of error ends with "at", then we have to glue it back */
     let glueBack = xs =>
       xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome
@@ -54,7 +56,8 @@ let parseGoalType: string => array<Item.t> = raw => {
   let markHave = ((line, _)) => Js.String.match_(%re("/^Have:/"), line)->Option.map(_ => "have")
   let markMetas = ((line, _)) =>
     Js.String.match_(%re("/\\u2014{60}/g"), line)->Option.map(_ => "metas")
-  let partiteGoalTypeContext = xs => xs->Emacs__Parser.Dict.partite(line =>
+  let partiteGoalTypeContext = xs =>
+    xs->Emacs__Parser.Dict.partite(line =>
       switch markGoal(line) {
       | Some(v) => Some(v)
       | None =>
@@ -72,7 +75,9 @@ let parseGoalType: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)
   let dictionary = lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
   // convert entries in the dictionary to Items for render
-  dictionary->Js.Dict.entries->Array.map(((key, lines)) =>
+  dictionary
+  ->Js.Dict.entries
+  ->Array.map(((key, lines)) =>
     switch key {
     | "goal" =>
       Js.Array.joinWith("\n", lines)
@@ -86,17 +91,18 @@ let parseGoalType: string => array<Item.t> = raw => {
       ->Option.mapWithDefault([], expr => [Item.Have(expr)])
     | "interactionMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithoutRange)
+      ->Array.map(Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Item.Output(output))
     | "hiddenMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithRange)
+      ->Array.map(Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Item.Output(output))
     | _ => []
     }
-  )->Js.Array.concatMany([])
+  )
+  ->Js.Array.concatMany([])
 }
 
 let parseAllGoalsWarnings = (title, body): array<Item.t> => {
@@ -157,23 +163,26 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     ->partiteWarningsOrErrors("errors")
 
   // convert entries in the dictionary to Items for render
-  dictionary->Js.Dict.entries->Array.map(((key, lines)) =>
+  dictionary
+  ->Js.Dict.entries
+  ->Array.map(((key, lines)) =>
     switch key {
     | "warnings" => lines->Array.map(line => Item.Warning(Text.parse(line)))
     | "errors" => lines->Array.map(line => Item.Error(Text.parse(line)))
     | "interactionMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithoutRange)
+      ->Array.map(Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Item.Output(output))
     | "hiddenMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithRange)
+      ->Array.map(Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Item.Output(output))
     | _ => []
     }
-  )->Js.Array.concatMany([])
+  )
+  ->Js.Array.concatMany([])
 }
 
 let parseOutputs: string => array<Item.t> = raw => {

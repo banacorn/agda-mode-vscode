@@ -1,6 +1,6 @@
 open Belt
 module Link = Component__Link
-module Range = Component__Range
+module Location = Component__Location
 open React
 
 module Term = {
@@ -94,77 +94,85 @@ module OutputConstraint = {
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
   @react.component
-  let make = (~value: t, ~range: option<View.AgdaRange.t>) => {
-    let range = Option.mapWithDefault(range, null, range => <Range range abbr=true />)
+  let make = (~value: t, ~location: option<Common.Agda.Location.t>) => {
+    let location = Option.mapWithDefault(location, null, location =>
+      <Location location abbr=true />
+    )
     switch value {
     | OfType(e, t) =>
       <li className="unlabeled-item">
-        <div className="item-content"> <Expr expr=e /> {string(" : ")} <Expr expr=t /> range </div>
+        <div className="item-content">
+          <Expr expr=e /> {string(" : ")} <Expr expr=t /> location
+        </div>
       </li>
     | JustType(e) =>
       <li className="unlabeled-item">
-        <div className="item-content"> {string("Type ")} <Expr expr=e /> range </div>
+        <div className="item-content"> {string("Type ")} <Expr expr=e /> location </div>
       </li>
     | JustSort(e) =>
       <li className="unlabeled-item">
-        <div className="item-content"> {string("Sort ")} <Expr expr=e /> range </div>
+        <div className="item-content"> {string("Sort ")} <Expr expr=e /> location </div>
       </li>
     | Others(e) =>
       <li className="unlabeled-item">
-        <div className="item-content"> <Expr expr=e /> range </div>
+        <div className="item-content"> <Expr expr=e /> location </div>
       </li>
     }
   }
 }
 
 module Output = {
-  type t = Output(OutputConstraint.t, option<View.AgdaRange.t>)
+  type t = Output(OutputConstraint.t, option<Common.Agda.Location.t>)
   let toString = x =>
     switch x {
     | Output(c, None) => "Output " ++ OutputConstraint.toString(c)
-    | Output(c, Some(range)) =>
-      "Output " ++ (OutputConstraint.toString(c) ++ (" " ++ View.AgdaRange.toString(range)))
+    | Output(c, Some(location)) =>
+      "Output " ++
+      (OutputConstraint.toString(c) ++
+      (" " ++ Common.Agda.Location.toString(location)))
     }
 
-  let parseOutputWithoutRange = raw => raw->OutputConstraint.parse->Option.map(x => Output(x, None))
-  let parseOutputWithRange =
-    %re("/((?:\\n|.)*\\S+)\\s*\\[ at ([^\\]]+) \\]/")->Emacs__Parser.captures(captured =>
-      captured[1]
-      ->Option.flatMap(x => x)
-      ->Option.flatMap(OutputConstraint.parse)
-      ->Option.map(oc => {
-        let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(View.AgdaRange.parse)
-        Output(oc, r)
-      })
-    )
+  let parseOutputWithoutLocation = raw =>
+    raw->OutputConstraint.parse->Option.map(x => Output(x, None))
+  let parseOutputWithLocation = %re(
+    "/((?:\\n|.)*\\S+)\\s*\\[ at ([^\\]]+) \\]/"
+  )->Emacs__Parser.captures(captured =>
+    captured[1]
+    ->Option.flatMap(x => x)
+    ->Option.flatMap(OutputConstraint.parse)
+    ->Option.map(oc => {
+      let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(Common.Agda.Location.parse)
+      Output(oc, r)
+    })
+  )
   let parse = raw => {
-    let rangeRe = %re("/\\[ at (\\S+\\:(?:\\d+\\,\\d+\\-\\d+\\,\\d+|\\d+\\,\\d+\\-\\d+)) \\]$/")
-    let hasRange = Js.Re.test_(rangeRe, raw)
-    if hasRange {
-      parseOutputWithRange(raw)
+    let locRe = %re("/\\[ at (\\S+\\:(?:\\d+\\,\\d+\\-\\d+\\,\\d+|\\d+\\,\\d+\\-\\d+)) \\]$/")
+    let hasLocation = Js.Re.test_(locRe, raw)
+    if hasLocation {
+      parseOutputWithLocation(raw)
     } else {
-      parseOutputWithoutRange(raw)
+      parseOutputWithoutLocation(raw)
     }
   }
 
   @react.component
   let make = (~value: t) => {
-    let Output(oc, range) = value
-    <OutputConstraint value=oc range />
+    let Output(oc, location) = value
+    <OutputConstraint value=oc location />
   }
 }
 
-// <Text> represents a mixed array of Strings & Ranges
+// <Text> represents a mixed array of Strings & Locations
 module Text = {
   module Segment = {
     type t =
       | PlainText(string)
-      | Range(View.AgdaRange.t)
+      | Location(Common.Agda.Location.t)
 
     let toString = x =>
       switch x {
       | PlainText(s) => s
-      | Range(r) => View.AgdaRange.toString(r)
+      | Location(r) => Common.Agda.Location.toString(r)
       }
   }
   type t = Text(array<Segment.t>)
@@ -181,8 +189,8 @@ module Text = {
       switch mod(i, 2) {
       | 1 =>
         token
-        ->View.AgdaRange.parse
-        ->Option.mapWithDefault(Segment.PlainText(token), x => Segment.Range(x))
+        ->Common.Agda.Location.parse
+        ->Option.mapWithDefault(Segment.PlainText(token), x => Segment.Location(x))
       | _ => PlainText(token)
       }
     )
@@ -191,12 +199,16 @@ module Text = {
   @react.component
   let make = (~text: t) => {
     let Text(segments) = text
-    <span> {segments->Array.mapWithIndex((i, x) =>
+    <span>
+      {segments
+      ->Array.mapWithIndex((i, x) =>
         switch x {
         | PlainText(plainText) => string(plainText)
-        | Range(range) => <Range key={string_of_int(i)} range />
+        | Location(location) => <Location key={string_of_int(i)} location />
         }
-      )->React.array} </span>
+      )
+      ->React.array}
+    </span>
   }
 }
 

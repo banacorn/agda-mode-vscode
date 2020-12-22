@@ -4,7 +4,11 @@ open Belt
 
 module Position = {
   let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
+
   let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
+
+  let fromAgdaPosition = (position: Common.Agda.Position.t) =>
+    VSCode.Position.make(position.line - 1, position.col - 1)
 }
 
 module Range = {
@@ -17,6 +21,9 @@ module Range = {
     Position.toOffset(document, VSCode.Range.start(range)),
     Position.toOffset(document, VSCode.Range.end_(range)),
   )
+
+  let fromAgdaRange = (range: Common.Agda.Range.t) =>
+    VSCode.Range.make(Position.fromAgdaPosition(range.start), Position.fromAgdaPosition(range.end_))
 }
 
 module Decoration = {
