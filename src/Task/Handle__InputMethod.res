@@ -38,8 +38,12 @@ module Module: Module = {
             resolve()
             ()
           })
-        | Activate => State.View.updateIM(state, Activate)
-        | Deactivate => State.View.updateIM(state, Deactivate)
+        | Activate =>
+          State.Context.setIM(true)
+          State.View.updateIM(state, Activate)
+        | Deactivate =>
+          State.Context.setIM(false)
+          State.View.updateIM(state, Deactivate)
         }
       output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
     }

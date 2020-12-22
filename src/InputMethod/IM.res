@@ -34,7 +34,9 @@ module Input = {
     let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
     if fileName == eventFileName {
       // TextDocumentContentChangeEvent.t => Buffer.change
-      event->VSCode.TextDocumentChangeEvent.contentChanges->Array.map(change => {
+      event
+      ->VSCode.TextDocumentChangeEvent.contentChanges
+      ->Array.map(change => {
         Buffer.offset: change->VSCode.TextDocumentContentChangeEvent.rangeOffset,
         insertedText: change->VSCode.TextDocumentContentChangeEvent.text,
         replacedTextLength: change->VSCode.TextDocumentContentChangeEvent.rangeLength,
@@ -65,7 +67,8 @@ module Log = {
     | Deactivate
   type t = array<kind>
 
-  let fromOutput = (xs: Output.t) => xs->Array.map(x =>
+  let fromOutput = (xs: Output.t) =>
+    xs->Array.map(x =>
       switch x {
       | UpdateView(_, _, _) => UpdateView
       | Rewrite(xs, _) => RewriteIssued(xs)
@@ -310,9 +313,6 @@ module Module: Module = {
   let isActivated = self => self.activated
 
   let deactivate = self => {
-    // setContext
-    VSCode.Commands.setContext("agdaModeTyping", false)->ignore
-
     self.instances->Array.forEach(Instance.destroy)
     self.instances = []
     self.activated = false
@@ -364,8 +364,6 @@ module Module: Module = {
     let output = switch input {
     | Input.Activate(intervals) =>
       self.activated = true
-      // setContext
-      VSCode.Commands.setContext("agdaModeTyping", true)->ignore
 
       // instantiate from an array of offsets
       self.instances =

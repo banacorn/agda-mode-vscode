@@ -17,6 +17,40 @@ type t = {
 
 type state = t
 
+// control the scope of command key-binding
+module Context = {
+  // most of the commands will work only after agda-mode:load
+  let setLoaded = value => VSCode.Commands.setContext("agdaMode", value)->ignore
+  // input method related key-bindings
+  let setPrompt = value => VSCode.Commands.setContext("agdaModePrompting", value)->ignore
+  let setIM = value => VSCode.Commands.setContext("agdaModeTyping", value)->ignore
+}
+
+// events to the FileName-Dispatch Registry
+let onRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.once
+let emitRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.emit()
+
+// connect if not connected yet
+let connect = state =>
+  switch state.connection {
+  | None =>
+    Connection.make(Config.getAgdaPath, Config.setAgdaPath)->Promise.tapOk(conn =>
+      state.connection = Some(conn)
+    )
+  | Some(connection) => Promise.resolved(Ok(connection))
+  }
+let disconnect = state =>
+  switch state.connection {
+  | None => Promise.resolved()
+  | Some(connection) =>
+    Connection.destroy(connection)
+    Promise.resolved()
+  }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  Decoration
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 module Decoration = {
   let make = Decoration.make
 
@@ -42,66 +76,10 @@ module Decoration = {
   let destroy = state => Decoration.destroy(state.decorations)
 }
 
-// events to the FileName-Dispatch Registry
-let onRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.once
-let emitRemoveFromRegistry = state => state.onRemoveFromRegistry->Chan.emit()
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  View
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// connect if not connected yet
-let connect = state =>
-  switch state.connection {
-  | None =>
-    Connection.make(Config.getAgdaPath, Config.setAgdaPath)->Promise.tapOk(conn =>
-      state.connection = Some(conn)
-    )
-  | Some(connection) => Promise.resolved(Ok(connection))
-  }
-let disconnect = state =>
-  switch state.connection {
-  | None => Promise.resolved()
-  | Some(connection) =>
-    Connection.destroy(connection)
-    Promise.resolved()
-  }
-
-// construction/destruction
-
-// set context so that only certain key bindings only work
-// when there's a active text editor
-let setLoaded = value => VSCode.Commands.setContext("agdaMode", value)->ignore
-
-let destroy = state => {
-  state.view->ViewController.destroy
-  state->emitRemoveFromRegistry
-  state.onRemoveFromRegistry->Chan.destroy
-  state.goals->Array.forEach(Goal.destroy)
-  state->Decoration.destroy
-  setLoaded(false)
-  state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state->disconnect
-  // TODO: delete files in `.indirectHighlightingFileNames`
-}
-
-let make = (extentionPath, chan, editor) => {
-  setLoaded(true)
-  // view initialization
-  let view = ViewController.make(extentionPath, editor)
-
-  {
-    editor: editor,
-    document: VSCode.TextEditor.document(editor),
-    view: view,
-    connection: None,
-    goals: [],
-    decorations: Decoration.make(),
-    cursor: None,
-    editorIM: IM.make(chan),
-    promptIM: IM.make(chan),
-    subscriptions: [],
-    onRemoveFromRegistry: Chan.make(),
-  }
-}
-
-// View-related
 module type View = {
   let show: state => unit
   let hide: state => unit
@@ -119,11 +97,11 @@ module type View = {
 module View: View = {
   let show = state => {
     state.view->ViewController.show
-    setLoaded(true)
+    Context.setLoaded(true)
   }
   let hide = state => {
     state.view->ViewController.hide
-    setLoaded(false)
+    Context.setLoaded(false)
   }
 
   // display stuff
@@ -149,7 +127,7 @@ module View: View = {
     callbackOnPromptSuccess: string => Promise.t<unit>,
   ): Promise.t<unit> => {
     // focus on the panel before prompting
-    VSCode.Commands.setContext("agdaModePrompting", true)->ignore
+    Context.setPrompt(true)
     state.view->ViewController.focus
 
     // send request to view
@@ -158,7 +136,7 @@ module View: View = {
       | PromptSuccess(result) =>
         callbackOnPromptSuccess(result)->Promise.map(() => {
           // put the focus back to the editor after prompting
-          VSCode.Commands.setContext("agdaModePrompting", false)->ignore
+          Context.setPrompt(false)
           state.document->Editor.focus
         })
       | PromptInterrupted => Promise.resolved()
@@ -166,4 +144,41 @@ module View: View = {
     )
   }
   let interruptPrompt = state => ViewController.sendEvent(state.view, PromptInterrupt)
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  State
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// construction/destruction
+let destroy = state => {
+  state.view->ViewController.destroy
+  state->emitRemoveFromRegistry
+  state.onRemoveFromRegistry->Chan.destroy
+  state.goals->Array.forEach(Goal.destroy)
+  state->Decoration.destroy
+  Context.setLoaded(false)
+  state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
+  state->disconnect
+  // TODO: delete files in `.indirectHighlightingFileNames`
+}
+
+let make = (extentionPath, chan, editor) => {
+  Context.setLoaded(true)
+  // view initialization
+  let view = ViewController.make(extentionPath, editor)
+
+  {
+    editor: editor,
+    document: VSCode.TextEditor.document(editor),
+    view: view,
+    connection: None,
+    goals: [],
+    decorations: Decoration.make(),
+    cursor: None,
+    editorIM: IM.make(chan),
+    promptIM: IM.make(chan),
+    subscriptions: [],
+    onRemoveFromRegistry: Chan.make(),
+  }
 }
