@@ -271,7 +271,7 @@ module Module: Module = {
 
   // show/hide
   let show = view => view.panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
-  let focus = view => view.panel->VSCode.WebviewPanel.reveal()
   let hide = _view => ()
+  let focus = view => view.panel->VSCode.WebviewPanel.reveal()
 }
 include Module

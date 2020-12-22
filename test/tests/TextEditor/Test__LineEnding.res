@@ -3,6 +3,7 @@ module Assert = BsMocha.Assert
 module P = BsMocha.Promise
 
 open VSCode
+open Common
 
 let openEditorWithContent = content =>
   Workspace.openTextDocumentWithOptions(
@@ -10,23 +11,28 @@ let openEditorWithContent = content =>
   )->Promise.flatMap(textDocument => Window.showTextDocumentWithShowOptions(textDocument, None))
 
 describe("Conversion of offsets between LF and CRLF line endings", () => {
-  describe("Editor.computeCRLFIndices", () => it("should work", () => {
-      Assert.deep_equal(Editor.computeCRLFIndices(j`1234\\r\\n78`), [4])
-      Assert.deep_equal(Editor.computeCRLFIndices(j`12\\r\\n56\\r\\n90`), [2, 6])
-    }))
+  describe("Editor.computeCRLFIndices", () =>
+    it("should work", () => {
+      Assert.deep_equal(Agda.OffsetConverter.computeCRLFIndices(j`1234\\r\\n78`), [4])
+      Assert.deep_equal(Agda.OffsetConverter.computeCRLFIndices(j`12\\r\\n56\\r\\n90`), [2, 6])
+    })
+  )
 
-  describe("Editor.Indices.make", () => it("should work", () => {
-      open Editor.Indices
+  describe("Editor.Indices.make", () =>
+    it("should work", () => {
+      open Indices
       ()
       Assert.deep_equal(
-        j`12\\r\\n56\\r\\n90`->Editor.computeCRLFIndices->make->expose->fst,
+        j`12\\r\\n56\\r\\n90`->Agda.OffsetConverter.computeCRLFIndices->make->expose->fst,
         [(0, 2), (3, 5)],
       )
-    }))
+    })
+  )
 
-  describe("Editor.Indices.convert", () => it("should work", () => {
-      open Editor.Indices
-      let a = make(Editor.computeCRLFIndices(j`12\\r\\n56\\r\\n90`))
+  describe("Editor.Indices.convert", () =>
+    it("should work", () => {
+      open Indices
+      let a = make(Agda.OffsetConverter.computeCRLFIndices(j`12\\r\\n56\\r\\n90`))
       Assert.deep_equal(convert(a, 0), 0)
       Assert.deep_equal(a->expose->snd, 0)
       Assert.deep_equal(convert(a, 1), 1)
@@ -43,5 +49,6 @@ describe("Conversion of offsets between LF and CRLF line endings", () => {
       Assert.deep_equal(a->expose->snd, 2)
       Assert.deep_equal(convert(a, 7), 9)
       Assert.deep_equal(a->expose->snd, 2)
-    }))
+    })
+  )
 })

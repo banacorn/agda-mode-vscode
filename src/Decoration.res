@@ -68,29 +68,6 @@ module Module: Module = {
     (background, index)
   }
 
-  // Issue #3: https://github.com/banacorn/agda-mode-vscode/issues/3
-  // Agda ignores `CRLF`s (line endings on Windows) and treat them like `LF`s
-  // For example, in "ab\r\ncd", Agda would ignore the "\r" and think that "c" is the 4th character
-  // we pass in compiled indices for speeding up the convertion
-  let offsetToPoint = (document, utf16indices, eolIndices, offset) => {
-    // UTF8 -> UTF16
-    let offset = Editor.Indices.convert(utf16indices, offset)
-    // LF -> CRLF
-    let offset = Editor.Indices.convert(eolIndices, offset)
-    // offset -> point
-    document->VSCode.TextDocument.positionAt(offset)
-  }
-
-  // one off slow conversion for srclocs
-  let offsetToPointSlow = (document, offset) => {
-    let text = Editor.Text.getAll(document)
-    let utf16indices = Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text))
-    // UTF8 -> UTF16
-    let offset = Editor.Indices.convert(utf16indices, offset)
-    // offset -> point
-    document->VSCode.TextDocument.positionAt(offset)
-  }
-
   let decorateHighlightings = (editor: VSCode.TextEditor.t, highlightings: array<Highlighting.t>): (
     array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     array<srcLoc>,
@@ -101,10 +78,7 @@ module Module: Module = {
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
 
-    // for fast UTF8 => UTF16 offset conversion
-    let utf16indices = Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text))
-    // for LF => CRLF => LF offset conversion
-    let eolIndices = Editor.Indices.make(Editor.computeCRLFIndices(text))
+    let offsetConverter = Agda.OffsetConverter.make(text)
 
     // convert offsets in Highlighting.t to Ranges
     let highlightings: array<(
@@ -113,12 +87,9 @@ module Module: Module = {
       option<(Highlighting.filepath, int)>,
     )> = highlightings->Array.map(highlighting => {
       // calculate the range of each highlighting
-      let range = {
-        let start = offsetToPoint(document, utf16indices, eolIndices, highlighting.start)
-        let end_ = offsetToPoint(document, utf16indices, eolIndices, highlighting.end_)
-
-        VSCode.Range.make(start, end_)
-      }
+      let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
+      let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
+      let range = Editor.Range.fromInterval(document, (start, end_))
       (range, highlighting.aspects, highlighting.source)
     })
     // array of Aspect & Range
@@ -231,10 +202,7 @@ module Module: Module = {
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
 
-    // for fast UTF8 => UTF16 offset conversion
-    let utf16indices = Editor.Indices.make(Editor.computeUTF16SurrogatePairIndices(text))
-    // for LF => CRLF => LF offset conversion
-    let eolIndices = Editor.Indices.make(Editor.computeCRLFIndices(text))
+    let offsetConverter = Agda.OffsetConverter.make(text)
 
     // convert offsets in Highlighting.t to Ranges
     let highlightings: array<(
@@ -243,12 +211,9 @@ module Module: Module = {
       option<(Highlighting.filepath, int)>,
     )> = highlightings->Array.map(highlighting => {
       // calculate the range of each highlighting
-      let range = {
-        let start = offsetToPoint(document, utf16indices, eolIndices, highlighting.start)
-        let end_ = offsetToPoint(document, utf16indices, eolIndices, highlighting.end_)
-
-        VSCode.Range.make(start, end_)
-      }
+      let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
+      let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
+      let range = Editor.Range.fromInterval(document, (start, end_))
       (range, highlighting.aspects, highlighting.source)
     })
     // array of Aspect & Range
@@ -378,8 +343,11 @@ module Module: Module = {
       self.srcLocs,
     )->Option.map(srcLoc =>
       VSCode.Workspace.openTextDocumentWithFileName(srcLoc.filepath)->Promise.map(document => {
-        let point = offsetToPointSlow(document, srcLoc.offset - 1)
-        [(srcLoc.range, srcLoc.filepath, point)]
+        let text = Editor.Text.getAll(document)
+        let offsetConverter = Agda.OffsetConverter.make(text)
+        let offset = Agda.OffsetConverter.convert(offsetConverter, srcLoc.offset - 1)
+        let position = Editor.Position.fromOffset(document, offset)
+        [(srcLoc.range, srcLoc.filepath, position)]
       })
     )
 }
