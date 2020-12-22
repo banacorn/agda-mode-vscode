@@ -182,6 +182,14 @@ module Aspect = {
   let toTokenTypeAndModifiers: t => (TokenType.t, option<array<TokenModifier.t>>) = x =>
     switch x {
     | Comment => (Comment, None)
+    | Keyword => (Keyword, None)
+    | Number => (Number, None)
+    | Symbol => (Keyword, None)
+    | PrimitiveType => (Type, None)
+    | Pragma => (Macro, None)
+    | Background => (Comment, None)
+    | Markup => (Label, None)
+    | Error => (Keyword, Some([Deprecated]))
     | _ => (Keyword, None)
     }
   // | Keyword

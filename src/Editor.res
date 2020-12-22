@@ -312,8 +312,7 @@ module Provider = {
     }
   }
 
-  let registerTestingProvider = (prodider, (tokenTypes, tokenModifiers)) => {
-    let documentSelector = [VSCode.StringOr.string("agda")]
+  let registerSemnaticTokenProvider = (prodider, (tokenTypes, tokenModifiers)) => {
     let semanticTokensLegend = Mock.SemanticTokensLegend.makeWithTokenModifiers(
       tokenTypes,
       tokenModifiers,
@@ -324,7 +323,16 @@ module Provider = {
       {
         provideDocumentSemanticTokens: (textDocument, _) => {
           let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-          let pushLegend = Mock.SemanticTokensBuilder.pushLegend(builder)
+          let pushLegend = (range, tokenType, tokenModifiers) => {
+            Mock.SemanticTokensBuilder.pushLegend(
+              builder,
+              range,
+              Highlighting.Aspect.TokenType.toString(tokenType),
+              tokenModifiers->Option.map(xs =>
+                xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
+              ),
+            )
+          }
           prodider(textDocument->TextDocument.fileName, pushLegend)->ProviderResult.map(() =>
             Mock.SemanticTokensBuilder.build(builder)
           )
@@ -332,13 +340,11 @@ module Provider = {
       }
     }
 
-    [
-      Mock.Languages.registerDocumentSemanticTokensProvider(
-        documentSelector,
-        documentSemanticTokensProvider,
-        semanticTokensLegend,
-      ),
-    ]
+    Mock.Languages.registerDocumentSemanticTokensProvider(
+      documentSelector,
+      documentSemanticTokensProvider,
+      semanticTokensLegend,
+    )
   }
 }
 

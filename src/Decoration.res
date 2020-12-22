@@ -27,6 +27,16 @@ module type Module = {
     t,
     VSCode.Position.t,
   ) => option<Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>>
+
+  let generateSemanticTokens: (
+    t,
+    VSCode.TextEditor.t,
+    (
+      VSCode.Range.t,
+      Highlighting.Aspect.TokenType.t,
+      option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
+    ) => unit,
+  ) => Promise.t<unit>
 }
 
 module Module: Module = {
@@ -192,52 +202,6 @@ module Module: Module = {
     ranges
   }
 
-  let _generateSemanticTokens = (
-    editor: VSCode.TextEditor.t,
-    highlightings: array<Highlighting.t>,
-    push: (VSCode.Range.t, string, option<array<string>>) => unit,
-  ): Promise.t<unit> => {
-    Js.log("GENERATE")
-    let document = VSCode.TextEditor.document(editor)
-    let text = Editor.Text.getAll(document)
-
-    let offsetConverter = Agda.OffsetConverter.make(text)
-
-    // convert offsets in Highlighting.t to Ranges
-    let highlightings: array<(
-      VSCode.Range.t,
-      array<Highlighting.Aspect.t>,
-      option<(Highlighting.filepath, int)>,
-    )> = highlightings->Array.map(highlighting => {
-      // calculate the range of each highlighting
-      let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
-      let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
-      let range = Editor.Range.fromInterval(document, (start, end_))
-      (range, highlighting.aspects, highlighting.source)
-    })
-    // array of Aspect & Range
-    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> =
-      highlightings
-      ->Array.map(((range, aspects, _)) =>
-        // pair the aspect with the range
-        aspects->Array.map(aspect => (aspect, range))
-      )
-      ->Array.concatMany
-
-    // convert Aspects to colors and collect them in the dict
-    aspects->Array.forEach(((aspect, range)) => {
-      // split the range so in case that it spans multiple lines
-      let ranges = lines(VSCode.TextEditor.document(editor), range)
-      let (tokenType, tokenModifier) = Highlighting.Aspect.toTokenTypeAndModifiers(aspect)
-      let tokenType = Highlighting.Aspect.TokenType.toString(tokenType)
-      let tokenModifier =
-        tokenModifier->Option.map(x => x->Array.map(Highlighting.Aspect.TokenModifier.toString))
-      ranges->Array.forEach(range => push(range, tokenType, tokenModifier))
-    })
-
-    Promise.resolved()
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -359,6 +323,52 @@ module Module: Module = {
         [(srcLoc.range, srcLoc.filepath, position)]
       })
     )
+
+  let generateSemanticTokens = (
+    self: t,
+    editor: VSCode.TextEditor.t,
+    pushToken: (
+      VSCode.Range.t,
+      Highlighting.Aspect.TokenType.t,
+      option<array<Highlighting.Aspect.TokenModifier.t>>,
+    ) => unit,
+  ): Promise.t<unit> => {
+    let document = VSCode.TextEditor.document(editor)
+    let text = Editor.Text.getAll(document)
+
+    let offsetConverter = Agda.OffsetConverter.make(text)
+
+    // convert offsets in Highlighting.t to Ranges
+    let highlightings: array<(
+      VSCode.Range.t,
+      array<Highlighting.Aspect.t>,
+      option<(Highlighting.filepath, int)>,
+    )> = self.highlightings->Array.map(highlighting => {
+      // calculate the range of each highlighting
+      let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
+      let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
+      let range = Editor.Range.fromInterval(document, (start, end_))
+      (range, highlighting.aspects, highlighting.source)
+    })
+    // array of Aspect & Range
+    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> =
+      highlightings
+      ->Array.map(((range, aspects, _)) =>
+        // pair the aspect with the range
+        aspects->Array.map(aspect => (aspect, range))
+      )
+      ->Array.concatMany
+
+    // convert Aspects to colors and collect them in the dict
+    aspects->Array.forEach(((aspect, range)) => {
+      // split the range so in case that it spans multiple lines
+      let ranges = lines(VSCode.TextEditor.document(editor), range)
+      let (tokenType, tokenModifiers) = Highlighting.Aspect.toTokenTypeAndModifiers(aspect)
+      ranges->Array.forEach(range => pushToken(range, tokenType, tokenModifiers))
+    })
+
+    Promise.resolved()
+  }
 }
 
 include Module
