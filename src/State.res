@@ -1,5 +1,52 @@
 open Belt
 
+// For throttling Requests send to Agda
+// 1 Request to Agda at a time
+module RequestQueue: {
+  type t
+  let make: unit => t
+  // only gets resolved after the Request has been handled
+  let push: (t, Request.t => Promise.t<unit>, Request.t) => Promise.t<unit>
+} = {
+  type t = {
+    queue: array<unit => Promise.t<unit>>,
+    mutable busy: bool,
+  }
+
+  let make = () => {
+    queue: [],
+    busy: false,
+  }
+
+  let rec kickStart = self =>
+    if self.busy {
+      // busy running, just leave it be
+      ()
+    } else {
+      // pop the front of the queue
+      switch Js.Array.shift(self.queue) {
+      | None => () // nothing to pop
+      | Some(thunk) =>
+        self.busy = true
+        thunk()->Promise.get(() => {
+          self.busy = false
+          kickStart(self)
+        })
+      }
+    }
+
+  // only gets resolved after the Request has been handled
+  let push = (self, sendRequestAndHandleResponses, request) => {
+    let (promise, resolve) = Promise.pending()
+    let thunk = () => sendRequestAndHandleResponses(request)->Promise.tap(resolve)
+    // push to the back of the queue
+    Js.Array.push(thunk, self.queue)->ignore
+    // kick start
+    kickStart(self)
+    promise
+  }
+}
+
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
@@ -13,8 +60,9 @@ type t = {
   mutable subscriptions: array<VSCode.Disposable.t>,
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
+  // Agda Request queue
+  mutable agdaRequestQueue: RequestQueue.t,
 }
-
 type state = t
 
 // control the scope of command key-binding
@@ -37,6 +85,8 @@ module type View = {
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
   let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
   let displayOutOfGoalError: state => Promise.t<unit>
+  let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
+
   // Input Method
   let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
   let updatePromptIM: (state, string) => Promise.t<unit>
@@ -63,6 +113,11 @@ module View: View = {
     )
   let displayOutOfGoalError = state =>
     display(state, Error("Out of goal"), Plain("Please place the cursor in a goal"))
+
+  let displayConnectionError = (state, error) => {
+    let (header, body) = Connection.Error.toString(error)
+    display(state, Error("Connection Error: " ++ header), Plain(body))
+  }
 
   // update the Input Method
   let updateIM = (state, event) => ViewController.sendEvent(state.view, InputMethod(event))
@@ -161,16 +216,12 @@ module Connection: Connection = {
   }
 
   // helper function of `executeTask`
-  let sendRequest = (
+  let sendRequestAndHandleResponses = (
     state: state,
     handleResponse: Response.t => Promise.t<unit>,
     request: Request.t,
   ): Promise.t<unit> => {
     // Js.log("<<< " ++ Request.toString(request))
-    let displayConnectionError = error => {
-      let (header, body) = Connection.Error.toString(error)
-      View.display(state, Error("Connection Error: " ++ header), Plain(body))
-    }
 
     // deferred responses are queued here
     let deferredLastResponses: array<(int, Response.t)> = []
@@ -180,7 +231,7 @@ module Connection: Connection = {
     let handle = ref(None)
     let agdaResponseListener: result<Connection.response, Connection.Error.t> => unit = x =>
       switch x {
-      | Error(error) => displayConnectionError(error)->ignore
+      | Error(error) => View.displayConnectionError(state, error)->ignore
       | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
         let body = Parser.Error.toString(error)
         View.display(state, Error("Internal Parse Error"), Plain(body))->ignore
@@ -235,11 +286,21 @@ module Connection: Connection = {
       | Ok(connection) =>
         handle := Some(connection.Connection.chan->Chan.on(agdaResponseListener))
         promise
-      | Error(error) => displayConnectionError(error)->Promise.flatMap(() => promise)
+      | Error(error) => View.displayConnectionError(state, error)->Promise.flatMap(() => promise)
       }
     )
     ->Promise.tap(() => handle.contents->Option.forEach(destroyListener => destroyListener()))
   }
+
+  let sendRequest = (
+    state: state,
+    handleResponse: Response.t => Promise.t<unit>,
+    request: Request.t,
+  ): Promise.t<unit> =>
+    state.agdaRequestQueue->RequestQueue.push(
+      sendRequestAndHandleResponses(state, handleResponse),
+      request,
+    )
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -276,5 +337,6 @@ let make = (extentionPath, chan, editor) => {
     promptIM: IM.make(chan),
     subscriptions: [],
     onRemoveFromRegistry: Chan.make(),
+    agdaRequestQueue: RequestQueue.make(),
   }
 }

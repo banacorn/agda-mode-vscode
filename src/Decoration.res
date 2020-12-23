@@ -232,8 +232,7 @@ module Module: Module = {
     self.tempFilePaths->Array.forEach(filepath => N.Fs.unlink(filepath, _ => ()))
     self.tempFilePaths = []
     self.highlightings = []
-    self.decorations->Array.forEach(((decoration, _)) => Editor.Decoration.destroy(decoration))
-    self.decorations = []
+    clear(self)
   }
 
   let redecorate = (self, editor) =>
