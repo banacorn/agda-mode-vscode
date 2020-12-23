@@ -1,19 +1,181 @@
 module type Module = {
   type t
 
-  let make: (string, VSCode.TextEditor.t) => t
+  let make: string => t
   let destroy: t => unit
 
   let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
   let sendRequest: (t, View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
   let onEvent: (t, View.EventFromView.t => unit) => VSCode.Disposable.t
 
-  let show: t => unit
-  let hide: t => unit
+  let reveal: t => unit
   let focus: t => unit
 }
 
 module Module: Module = {
+  module Panel: {
+    type t
+    // constructor / destructor
+    let make: (string, string) => t
+    let destroy: t => unit
+    // messaging
+    let send: (t, string) => Promise.t<bool>
+    let recv: (t, Js.Json.t => unit) => VSCode.Disposable.t
+    // events
+    let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
+    // methods
+    let reveal: t => unit
+    let focus: t => unit
+
+    // move the panel around
+    let moveToBottom: unit => unit
+    let _moveToRight: unit => unit
+  } = {
+    type t = VSCode.WebviewPanel.t
+
+    let makeHTML = (webview, extensionPath) => {
+      let extensionUri = VSCode.Uri.file(extensionPath)
+      // generates gibberish
+      let nonce = {
+        let text = ref("")
+        let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        let cardinality = Js.String.length(charaterSet)
+        for _ in 0 to 32 {
+          text :=
+            text.contents ++
+            Js.String.charAt(
+              Js.Math.floor(Js.Math.random() *. float_of_int(cardinality)),
+              charaterSet,
+            )
+        }
+        text.contents
+      }
+
+      let scriptUri =
+        VSCode.Webview.asWebviewUri(
+          webview,
+          VSCode.Uri.joinPath(extensionUri, ["dist", "view.bundle.js"]),
+        )->VSCode.Uri.toString
+
+      let cspSourceUri = VSCode.Webview.cspSource(webview)
+
+      let styleUri =
+        VSCode.Webview.asWebviewUri(
+          webview,
+          VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"]),
+        )->VSCode.Uri.toString
+
+      let codiconsUri =
+        VSCode.Webview.asWebviewUri(
+          webview,
+          VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.css"]),
+        )->VSCode.Uri.toString
+
+      let codiconsFontUri =
+        VSCode.Webview.asWebviewUri(
+          webview,
+          VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.ttf"]),
+        )->VSCode.Uri.toString
+
+      // Content-Security-Policy
+      let defaultSrc = "default-src 'none'; "
+      let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "
+      let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
+      let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
+      let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
+
+      j`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+        <meta name="theme-color" content="#000000">
+
+        <!--
+					Use a content security policy to only allow loading images from https or from our extension directory,
+					and only allow scripts that have a specific nonce.
+				-->
+        <meta http-equiv="Content-Security-Policy" content="$scp">
+
+        <title>React App</title>
+        <link href="$styleUri"    rel="stylesheet" type="text/css" >
+        <link href="$codiconsUri" rel="stylesheet" />
+      </head>
+      <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="root"></div>
+        <script nonce="$nonce" src="$scriptUri"></script>
+      </body>
+      </html>
+    `
+    }
+
+    let make = (title, extensionPath) => {
+      let distPath = Node.Path.join2(extensionPath, "dist")
+      let panel = VSCode.Window.createWebviewPanel(
+        "panel",
+        title,
+        {"preserveFocus": true, "viewColumn": 3},
+        // None,
+        Some(
+          VSCode.WebviewAndWebviewPanelOptions.make(
+            ~enableScripts=true,
+            // So that the view don't get wiped out when it's not in the foreground
+            ~retainContextWhenHidden=true,
+            // And restrict the webview to only loading content from our extension's `media` directory.
+            ~localResourceRoots=[VSCode.Uri.file(distPath)],
+            (),
+          ),
+        ),
+      )
+
+      let html = makeHTML(VSCode.WebviewPanel.webview(panel), extensionPath)
+      panel->VSCode.WebviewPanel.webview->VSCode.Webview.setHtml(html)
+
+      panel
+    }
+
+    let destroy = VSCode.WebviewPanel.dispose
+
+    let send = (panel, message) =>
+      panel->VSCode.WebviewPanel.webview->VSCode.Webview.postMessage(message)
+
+    let recv = (panel, callback) =>
+      panel->VSCode.WebviewPanel.webview->VSCode.Webview.onDidReceiveMessage(callback)
+
+    let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
+
+    let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
+    let focus = panel => panel->VSCode.WebviewPanel.reveal()
+
+    let _moveToRight = () => {
+      open VSCode.Commands
+      executeCommand(
+        #setEditorLayout({
+          orientation: 0,
+          groups: {
+            open Layout
+            [sized({groups: [simple], size: 0.5}), sized({groups: [simple], size: 0.5})]
+          },
+        }),
+      )->ignore
+    }
+
+    let moveToBottom = () => {
+      open VSCode.Commands
+      executeCommand(
+        #setEditorLayout({
+          orientation: 1,
+          groups: {
+            open Layout
+            [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
+          },
+        }),
+      )->ignore
+    }
+  }
+
   type status =
     | Initialized
     | Uninitialized(
@@ -22,9 +184,9 @@ module Module: Module = {
       )
 
   type t = {
-    panel: VSCode.WebviewPanel.t,
-    onResponseFromView: Chan.t<View.Response.t>,
-    onEventFromView: Chan.t<View.EventFromView.t>,
+    panel: Panel.t,
+    onResponse: Chan.t<View.Response.t>,
+    onEvent: Chan.t<View.EventFromView.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable status: status,
   }
@@ -59,17 +221,12 @@ module Module: Module = {
 
       switch requestOrEvent {
       | Request(_) =>
-        let promise = view.onResponseFromView->Chan.once
+        let promise = view.onResponse->Chan.once
         view.panel
-        ->VSCode.WebviewPanel.webview
-        ->VSCode.Webview.postMessage(stringified)
+        ->Panel.send(stringified)
         ->Promise.flatMap(_ => promise)
         ->Promise.map(res => Some(res))
-      | Event(_) =>
-        view.panel
-        ->VSCode.WebviewPanel.webview
-        ->VSCode.Webview.postMessage(stringified)
-        ->Promise.map(_ => None)
+      | Event(_) => view.panel->Panel.send(stringified)->Promise.map(_ => None)
       }
     }
 
@@ -85,149 +242,41 @@ module Module: Module = {
 
   let onEvent = (view, callback) =>
     // Handle events from the webview
-    view.onEventFromView->Chan.on(callback)->VSCode.Disposable.make
+    view.onEvent->Chan.on(callback)->VSCode.Disposable.make
 
-  let make = (extensionPath, editor) => {
-    let html = (distPath, styleUri, scriptUri, codiconUri) => {
-      let nonce = {
-        let text = ref("")
-        let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        let cardinality = Js.String.length(charaterSet)
-        for _ in 0 to 32 {
-          text :=
-            text.contents ++
-            Js.String.charAt(
-              Js.Math.floor(Js.Math.random() *. float_of_int(cardinality)),
-              charaterSet,
-            )
-        }
-        text.contents
-      }
-
-      let styleUri =
-        VSCode.Uri.file(Node.Path.join2(distPath, styleUri))->VSCode.Uri.with_(
-          VSCode.Uri.makeChange(~scheme="vscode-resource", ()),
-        )
-
-      let scriptUri =
-        VSCode.Uri.file(Node.Path.join2(distPath, scriptUri))->VSCode.Uri.with_(
-          VSCode.Uri.makeChange(~scheme="vscode-resource", ()),
-        )
-
-      let codiconUri =
-        VSCode.Uri.file(Node.Path.join2(distPath, codiconUri))->VSCode.Uri.with_(
-          VSCode.Uri.makeChange(~scheme="vscode-resource", ()),
-        )
-
-      let metaContent =
-        "font-src vscode-resource: ;default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-" ++
-        (nonce ++
-        "';style-src vscode-resource: 'unsafe-inline' http: https: data:;")
-
-      j`
-        <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
-                <meta name="theme-color" content="#000000">
-                <title>React App</title>
-                <link rel="stylesheet" type="text/css" href="$styleUri">
-                <link rel="stylesheet" type="text/css" href="$codiconUri">
-                <meta http-equiv="Content-Security-Policy" content="$metaContent">
-              </head>
-              <body>
-                <noscript>You need to enable JavaScript to run this app.</noscript>
-                <div id="root"></div>
-                <script nonce="$nonce" src="$scriptUri"></script>
-              </body>
-              </html>
-        `
-    }
-
-    let createPanel = editor => {
-      let distPath = Node.Path.join2(extensionPath, "dist")
-      let fileName = Node.Path.basename_ext(
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
-        ".agda",
-      )
-
-      let panel = VSCode.Window.createWebviewPanel(
-        "panel",
-        "Agda [" ++ (fileName ++ "]"),
-        {preserveFocus: true, viewColumn: 3},
-        // None,
-        Some(
-          VSCode.WebviewAndWebviewPanelOptions.make(
-            ~enableScripts=true,
-            // So that the view don't get wiped out when it's not in the foreground
-            ~retainContextWhenHidden=true,
-            // And restrict the webview to only loading content from our extension's `media` directory.
-            ~localResourceRoots=[VSCode.Uri.file(distPath)],
-            (),
-          ),
-        ),
-      )
-
-      panel
-      ->VSCode.WebviewPanel.webview
-      ->VSCode.Webview.setHtml(html(distPath, "style.css", "view.bundle.js", "codicon/codicon.css"))
-
-      panel
-    }
-
-    let moveToBottom = () => {
-      open VSCode.Commands
-      executeCommand(
-        #setEditorLayout({
-          orientation: 1,
-          groups: {
-            open Layout
-            [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
-          },
-        }),
-      )
-    }
-
-    // intantiate the panel
-    let panel = createPanel(editor)
-    moveToBottom() |> ignore
-
-    // array of Disposable.t
-    let subscriptions = []
-
-    // on message
-    // relay Webview.onDidReceiveMessage => onResponseFromView or onEventFromView
-    let onResponseFromView = Chan.make()
-    let onEventFromView = Chan.make()
-    panel
-    ->VSCode.WebviewPanel.webview
-    ->VSCode.Webview.onDidReceiveMessage(json =>
-      switch View.ResponseOrEventFromView.decode(json) {
-      | Response(res) => onResponseFromView->Chan.emit(res)
-      | Event(ev) => onEventFromView->Chan.emit(ev)
-      | exception e => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
-      }
-    )
-    ->Js.Array.push(subscriptions)
-    ->ignore
-
-    // on destroy
-    panel
-    ->VSCode.WebviewPanel.onDidDispose(() => onEventFromView->Chan.emit(Destroyed))
-    ->Js.Array.push(subscriptions)
-    ->ignore
-
+  let make = extensionPath => {
     let view = {
-      panel: panel,
-      subscriptions: subscriptions,
-      onResponseFromView: onResponseFromView,
-      onEventFromView: onEventFromView,
+      panel: Panel.make("Agda", extensionPath),
+      subscriptions: [],
+      onResponse: Chan.make(),
+      onEvent: Chan.make(),
       status: Uninitialized([], []),
     }
 
+    // Move the created panel to the bottom row
+    Panel.moveToBottom()
+
+    // on message
+    // relay Webview.onDidReceiveMessage => onResponse or onEvent
+    view.panel
+    ->Panel.recv(json =>
+      switch View.ResponseOrEventFromView.decode(json) {
+      | Response(res) => view.onResponse->Chan.emit(res)
+      | Event(ev) => view.onEvent->Chan.emit(ev)
+      | exception e => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
+      }
+    )
+    ->Js.Array.push(view.subscriptions)
+    ->ignore
+
+    // on destroy
+    view.panel
+    ->Panel.onDestroyed(() => view.onEvent->Chan.emit(Destroyed))
+    ->Js.Array.push(view.subscriptions)
+    ->ignore
+
     // when initialized, send the queued Requests & Events
-    view.onEventFromView
+    view.onEvent
     ->Chan.on(x =>
       switch x {
       | Initialized =>
@@ -263,15 +312,29 @@ module Module: Module = {
     // and in turns would trigger this function AGAIN
 
     // destroy the chan first, to prevent the aforementioned from happening
-    view.onResponseFromView->Chan.destroy
-    view.onEventFromView->Chan.destroy
-    view.panel->VSCode.WebviewPanel.dispose
+    view.onResponse->Chan.destroy
+    view.onEvent->Chan.destroy
+    view.panel->Panel.destroy
     view.subscriptions->Belt.Array.forEach(VSCode.Disposable.dispose)
   }
 
-  // show/hide
-  let show = view => view.panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
-  let hide = _view => ()
-  let focus = view => view.panel->VSCode.WebviewPanel.reveal()
+  // resolves the returned promise once the view has been destroyed
+  let _onceDestroyed = (view: t): Promise.t<unit> => {
+    let (promise, resolve) = Promise.pending()
+
+    let disposable = view.onEvent->Chan.on(response =>
+      switch response {
+      | Destroyed => resolve()
+      | _ => ()
+      }
+    )
+
+    promise->Promise.tap(disposable)
+  }
+
+  // show/focus
+  let reveal = view => view.panel->Panel.reveal
+  let focus = view => view.panel->Panel.focus
 }
+
 include Module

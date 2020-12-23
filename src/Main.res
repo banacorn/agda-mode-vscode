@@ -58,8 +58,8 @@ let activateWithoutContext = (disposables, extensionPath) => {
       }
     )
   }
-  onDidChangeActivation((prev, next) => {
-    prev->Option.flatMap(Registry.getByEditor)->Option.forEach(State.View.hide)
+  onDidChangeActivation((_prev, next) => {
+    // prev->Option.flatMap(Registry.getByEditor)->Option.forEach(State.View.hide)
     next
     ->Option.flatMap(Registry.getByEditor)
     ->Option.forEach(state =>
@@ -69,7 +69,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
         state.editor = editor
-        State.View.show(state)
+        State.View.reveal(state)
         State__Command.dispatchCommand(state, Refresh)->ignore
       })
       ->ignore

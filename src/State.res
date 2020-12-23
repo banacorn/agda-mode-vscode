@@ -79,8 +79,7 @@ module Context = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module type View = {
-  let show: state => unit
-  let hide: state => unit
+  let reveal: state => unit
   // display stuff
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
   let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
@@ -95,13 +94,9 @@ module type View = {
   let interruptPrompt: state => Promise.t<unit>
 }
 module View: View = {
-  let show = state => {
-    state.view->ViewController.show
+  let reveal = state => {
+    state.view->ViewController.reveal
     Context.setLoaded(true)
-  }
-  let hide = state => {
-    state.view->ViewController.hide
-    Context.setLoaded(false)
   }
 
   // display stuff
@@ -323,7 +318,7 @@ let destroy = state => {
 let make = (extentionPath, chan, editor) => {
   Context.setLoaded(true)
   // view initialization
-  let view = ViewController.make(extentionPath, editor)
+  let view = ViewController.make(extentionPath)
 
   {
     editor: editor,
