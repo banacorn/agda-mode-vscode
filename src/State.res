@@ -50,7 +50,6 @@ module RequestQueue: {
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
-  view: ViewController.t,
   mutable connection: option<Connection.t>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
@@ -79,45 +78,41 @@ module Context = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module type View = {
-  let reveal: state => unit
+  let reveal: unit => unit
   // display stuff
-  let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
-  let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
-  let displayOutOfGoalError: state => Promise.t<unit>
-  let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
+  let display: (View.Header.t, View.Body.t) => Promise.t<unit>
+  let displayEmacs: (View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
+  let displayOutOfGoalError: unit => Promise.t<unit>
+  let displayConnectionError: Connection.Error.t => Promise.t<unit>
 
   // Input Method
-  let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
-  let updatePromptIM: (state, string) => Promise.t<unit>
+  let updateIM: View.EventToView.InputMethod.t => Promise.t<unit>
+  let updatePromptIM: string => Promise.t<unit>
   // Prompt
   let prompt: (state, View.Header.t, View.Prompt.t, string => Promise.t<unit>) => Promise.t<unit>
-  let interruptPrompt: state => Promise.t<unit>
+  let interruptPrompt: unit => Promise.t<unit>
 }
 module View: View = {
-  let reveal = state => {
-    state.view->ViewController.reveal
+  let reveal = () => {
+    ViewController.reveal()
     Context.setLoaded(true)
   }
 
   // display stuff
-  let display = (state, header, body) => ViewController.sendEvent(state.view, Display(header, body))
-  let displayEmacs = (state, kind, header, body) =>
-    ViewController.sendEvent(
-      state.view,
-      Display(header, Emacs(kind, View.Header.toString(header), body)),
-    )
-  let displayOutOfGoalError = state =>
-    display(state, Error("Out of goal"), Plain("Please place the cursor in a goal"))
+  let display = (header, body) => ViewController.sendEvent(Display(header, body))
+  let displayEmacs = (kind, header, body) =>
+    ViewController.sendEvent(Display(header, Emacs(kind, View.Header.toString(header), body)))
+  let displayOutOfGoalError = () =>
+    display(Error("Out of goal"), Plain("Please place the cursor in a goal"))
 
-  let displayConnectionError = (state, error) => {
+  let displayConnectionError = error => {
     let (header, body) = Connection.Error.toString(error)
-    display(state, Error("Connection Error: " ++ header), Plain(body))
+    display(Error("Connection Error: " ++ header), Plain(body))
   }
 
   // update the Input Method
-  let updateIM = (state, event) => ViewController.sendEvent(state.view, InputMethod(event))
-  let updatePromptIM = (state, content) =>
-    ViewController.sendEvent(state.view, PromptIMUpdate(content))
+  let updateIM = event => ViewController.sendEvent(InputMethod(event))
+  let updatePromptIM = content => ViewController.sendEvent(PromptIMUpdate(content))
 
   // Header + Prompt
   let prompt = (
@@ -128,10 +123,10 @@ module View: View = {
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)
-    state.view->ViewController.focus
+    ViewController.focus()
 
     // send request to view
-    ViewController.sendRequest(state.view, Prompt(header, prompt), response =>
+    ViewController.sendRequest(Prompt(header, prompt), response =>
       switch response {
       | PromptSuccess(result) =>
         callbackOnPromptSuccess(result)->Promise.map(() => {
@@ -143,7 +138,7 @@ module View: View = {
       }
     )
   }
-  let interruptPrompt = state => ViewController.sendEvent(state.view, PromptInterrupt)
+  let interruptPrompt = () => ViewController.sendEvent(PromptInterrupt)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -226,10 +221,10 @@ module Connection: Connection = {
     let handle = ref(None)
     let agdaResponseListener: result<Connection.response, Connection.Error.t> => unit = x =>
       switch x {
-      | Error(error) => View.displayConnectionError(state, error)->ignore
+      | Error(error) => View.displayConnectionError(error)->ignore
       | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
         let body = Parser.Error.toString(error)
-        View.display(state, Error("Internal Parse Error"), Plain(body))->ignore
+        View.display(Error("Internal Parse Error"), Plain(body))->ignore
       | Ok(Yield(Ok(NonLast(response)))) =>
         // Js.log(">>> " ++ Response.toString(response))
         Lock.runNonLast(handleResponse(response))->ignore
@@ -281,7 +276,7 @@ module Connection: Connection = {
       | Ok(connection) =>
         handle := Some(connection.Connection.chan->Chan.on(agdaResponseListener))
         promise
-      | Error(error) => View.displayConnectionError(state, error)->Promise.flatMap(() => promise)
+      | Error(error) => View.displayConnectionError(error)->Promise.flatMap(() => promise)
       }
     )
     ->Promise.tap(() => handle.contents->Option.forEach(destroyListener => destroyListener()))
@@ -304,7 +299,7 @@ module Connection: Connection = {
 
 // construction/destruction
 let destroy = state => {
-  state.view->ViewController.destroy
+  ViewController.deactivate()
   state.onRemoveFromRegistry->Chan.emit()
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
@@ -318,12 +313,11 @@ let destroy = state => {
 let make = (extentionPath, chan, editor) => {
   Context.setLoaded(true)
   // view initialization
-  let view = ViewController.make(extentionPath)
+  ViewController.activate(extentionPath)
 
   {
     editor: editor,
     document: VSCode.TextEditor.document(editor),
-    view: view,
     connection: None,
     goals: [],
     decoration: Decoration.make(),

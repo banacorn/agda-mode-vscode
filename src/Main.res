@@ -69,7 +69,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
         state.editor = editor
-        State.View.reveal(state)
+        State.View.reveal()
         State__Command.dispatchCommand(state, Refresh)->ignore
       })
       ->ignore
@@ -87,11 +87,9 @@ let activateWithoutContext = (disposables, extensionPath) => {
     let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
 
     // listens to events from the view and relay them as Commands
-    state.view
-    ->ViewController.onEvent(event =>
+    ViewController.onEvent(event =>
       State__Command.dispatchCommand(state, EventFromView(event))->ignore
-    )
-    ->subscribe
+    )->subscribe
 
     // register event listeners for the input method
     VSCode.Window.onDidChangeTextEditorSelection(.event => {

@@ -188,7 +188,6 @@ module Module: Module = {
       | true => Promise.resolved()
       | false =>
         State.View.display(
-          state,
           Error("Goal-related Error"),
           Plain("Failed to modify the content of goal #" ++ string_of_int(goal.index)),
         )
@@ -310,7 +309,6 @@ module Module: Module = {
         Promise.resolved()
       | false =>
         State.View.display(
-          state,
           Error("Goal-related Error"),
           Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
         )
@@ -342,7 +340,6 @@ module Module: Module = {
         Promise.resolved()
       | false =>
         State.View.display(
-          state,
           Error("Goal-related Error"),
           Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
         )
@@ -363,7 +360,6 @@ module Module: Module = {
         Promise.resolved()
       | false =>
         State.View.display(
-          state,
           Error("Goal-related Error"),
           Plain("Unable to remove the boundary of goal #" ++ string_of_int(goal.index)),
         )

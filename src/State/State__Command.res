@@ -11,7 +11,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   let header = View.Header.Plain(Command.toString(command))
   switch command {
   | Load =>
-    State.View.display(state, Plain("Loading ..."), Nothing)
+    State.View.display(Plain("Loading ..."), Nothing)
     ->Promise.flatMap(() => {
       // save the document before loading
       VSCode.TextDocument.save(state.document)
@@ -46,7 +46,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     )
   | Give =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, "")) =>
       State.View.prompt(state, header, {
         body: None,
@@ -61,13 +61,13 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | Refine =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, _)) => sendAgdaRequest(Refine(goal))
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
       switch State__Goal.pointed(state) {
-      | None => State.View.displayOutOfGoalError(state)
+      | None => State.View.displayOutOfGoalError()
       | Some((goal, "")) =>
         State.View.prompt(state, header, {
           body: None,
@@ -79,13 +79,13 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | Auto =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, _)) => sendAgdaRequest(Auto(goal))
     }
   | Case => {
       let placeholder = Some("variable to case split:")
       switch State__Goal.pointed(state) {
-      | None => State.View.displayOutOfGoalError(state)
+      | None => State.View.displayOutOfGoalError()
       | Some((goal, "")) =>
         State.View.prompt(state, header, {
           body: Some("Please specify which variable you wish to split"),
@@ -103,7 +103,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
       switch State__Goal.pointed(state) {
-      | None => State.View.displayOutOfGoalError(state)
+      | None => State.View.displayOutOfGoalError()
       | Some((goal, "")) =>
         State.View.prompt(state, header, {
           body: None,
@@ -132,22 +132,22 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | Context(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, _)) => sendAgdaRequest(Context(normalization, goal))
     }
   | GoalType(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, _)) => sendAgdaRequest(GoalType(normalization, goal))
     }
   | GoalTypeAndContext(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, _)) => sendAgdaRequest(GoalTypeAndContext(normalization, goal))
     }
   | GoalTypeContextAndInferredType(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, "")) =>
       // fallback to `GoalTypeAndContext` when there's no content
       sendAgdaRequest(GoalTypeAndContext(normalization, goal))
@@ -157,7 +157,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, "")) =>
       State.View.prompt(state, header, {
         body: None,
@@ -234,7 +234,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
         State__InputMethod.deactivate(state)
       } else {
-        State.View.interruptPrompt(state)
+        State.View.interruptPrompt()
       }
     | JumpToTarget(link) =>
       Editor.focus(state.document)
@@ -264,7 +264,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
       State__InputMethod.deactivate(state)
     } else {
-      State.View.interruptPrompt(state)
+      State.View.interruptPrompt()
     }
   | InputMethod(Activate) => State__InputMethod.activateEditorIM(state)
   | InputMethod(InsertChar(char)) => State__InputMethod.insertChar(state, char)

@@ -3,34 +3,34 @@ open Belt
 
 open Response
 module DisplayInfo = {
-  let handle = (state, x) =>
+  let handle = x =>
     switch x {
     | Response.DisplayInfo.CompilationOk =>
-      State.View.display(state, Success("Compilation Done!"), Nothing)
-    | Constraints(None) => State.View.display(state, Plain("No Constraints"), Nothing)
-    | Constraints(Some(body)) => State.View.displayEmacs(state, Outputs, Plain("Constraints"), body)
-    | AllGoalsWarnings(header, "nil") => State.View.display(state, Success(header), Nothing)
+      State.View.display(Success("Compilation Done!"), Nothing)
+    | Constraints(None) => State.View.display(Plain("No Constraints"), Nothing)
+    | Constraints(Some(body)) => State.View.displayEmacs(Outputs, Plain("Constraints"), body)
+    | AllGoalsWarnings(header, "nil") => State.View.display(Success(header), Nothing)
     | AllGoalsWarnings(header, body) =>
-      State.View.displayEmacs(state, AllGoalsWarnings, Plain(header), body)
-    | Time(body) => State.View.displayEmacs(state, Text, Plain("Time"), body)
-    | Error(body) => State.View.displayEmacs(state, Error, Error("Error!"), body)
-    | Intro(body) => State.View.displayEmacs(state, Text, Plain("Intro"), body)
-    | Auto(body) => State.View.displayEmacs(state, Text, Plain("Auto"), body)
-    | ModuleContents(body) => State.View.displayEmacs(state, Text, Plain("Module Contents"), body)
-    | SearchAbout(body) => State.View.displayEmacs(state, SearchAbout, Plain("Search About"), body)
-    | WhyInScope(body) => State.View.displayEmacs(state, Text, Plain("Scope info"), body)
-    | NormalForm(body) => State.View.displayEmacs(state, Text, Plain("Normal form"), body)
-    | GoalType(body) => State.View.displayEmacs(state, GoalType, Plain("Goal and Context"), body)
-    | CurrentGoal(payload) => State.View.display(state, Plain("Current goal"), Plain(payload))
-    | InferredType(payload) => State.View.display(state, Plain("Inferred type"), Plain(payload))
-    | Context(body) => State.View.displayEmacs(state, Outputs, Plain("Context"), body)
+      State.View.displayEmacs(AllGoalsWarnings, Plain(header), body)
+    | Time(body) => State.View.displayEmacs(Text, Plain("Time"), body)
+    | Error(body) => State.View.displayEmacs(Error, Error("Error!"), body)
+    | Intro(body) => State.View.displayEmacs(Text, Plain("Intro"), body)
+    | Auto(body) => State.View.displayEmacs(Text, Plain("Auto"), body)
+    | ModuleContents(body) => State.View.displayEmacs(Text, Plain("Module Contents"), body)
+    | SearchAbout(body) => State.View.displayEmacs(SearchAbout, Plain("Search About"), body)
+    | WhyInScope(body) => State.View.displayEmacs(Text, Plain("Scope info"), body)
+    | NormalForm(body) => State.View.displayEmacs(Text, Plain("Normal form"), body)
+    | GoalType(body) => State.View.displayEmacs(GoalType, Plain("Goal and Context"), body)
+    | CurrentGoal(payload) => State.View.display(Plain("Current goal"), Plain(payload))
+    | InferredType(payload) => State.View.display(Plain("Inferred type"), Plain(payload))
+    | Context(body) => State.View.displayEmacs(Outputs, Plain("Context"), body)
     | HelperFunction(payload) =>
       VSCode.Env.clipboard
       ->VSCode.Clipboard.writeText(payload)
       ->Promise.flatMap(() =>
-        State.View.display(state, Plain("Helper function (copied to clipboard)"), Plain(payload))
+        State.View.display(Plain("Helper function (copied to clipboard)"), Plain(payload))
       )
-    | Version(payload) => State.View.display(state, Plain("Version"), Plain(payload))
+    | Version(payload) => State.View.display(Plain("Version"), Plain(payload))
     }
 }
 
@@ -92,7 +92,6 @@ let rec handle = (
     switch found[0] {
     | None =>
       State.View.display(
-        state,
         Error("Error: Give failed"),
         Plain("Cannot find goal #" ++ string_of_int(index)),
       )
@@ -113,7 +112,7 @@ let rec handle = (
     }
   | MakeCase(makeCaseType, lines) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.displayOutOfGoalError()
     | Some((goal, _)) =>
       switch makeCaseType {
       | Function => State__Goal.replaceWithLines(state, goal, lines)
@@ -138,15 +137,14 @@ let rec handle = (
     ->Promise.flatMap(_ => {
       let size = Array.length(solutions)
       if size == 0 {
-        State.View.display(state, Error("No solutions found"), Nothing)
+        State.View.display(Error("No solutions found"), Nothing)
       } else {
-        State.View.display(state, Success(string_of_int(size) ++ " goals solved"), Nothing)
+        State.View.display(Success(string_of_int(size) ++ " goals solved"), Nothing)
       }
     })
 
-  | DisplayInfo(info) => DisplayInfo.handle(state, info)
-  | RunningInfo(_verbosity, message) =>
-    State.View.display(state, Plain("Type-checking"), Plain(message))
+  | DisplayInfo(info) => DisplayInfo.handle(info)
+  | RunningInfo(_verbosity, message) => State.View.display(Plain("Type-checking"), Plain(message))
   | _ => Promise.resolved()
   }
 }

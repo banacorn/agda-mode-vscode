@@ -1,90 +1,78 @@
-module type Module = {
+open Belt
+
+// abstraction of a panel
+module Panel: {
   type t
-
-  let make: string => t
+  // constructor / destructor
+  let make: (string, string) => t
   let destroy: t => unit
-
-  let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
-  let sendRequest: (t, View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
-  let onEvent: (t, View.EventFromView.t => unit) => VSCode.Disposable.t
-
+  // messaging
+  let send: (t, string) => Promise.t<bool>
+  let recv: (t, Js.Json.t => unit) => VSCode.Disposable.t
+  // events
+  let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
+  // methods
   let reveal: t => unit
   let focus: t => unit
-}
 
-module Module: Module = {
-  module Panel: {
-    type t
-    // constructor / destructor
-    let make: (string, string) => t
-    let destroy: t => unit
-    // messaging
-    let send: (t, string) => Promise.t<bool>
-    let recv: (t, Js.Json.t => unit) => VSCode.Disposable.t
-    // events
-    let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
-    // methods
-    let reveal: t => unit
-    let focus: t => unit
+  // move the panel around
+  let moveToBottom: unit => unit
+  let _moveToRight: unit => unit
+} = {
+  type t = VSCode.WebviewPanel.t
 
-    // move the panel around
-    let moveToBottom: unit => unit
-    let _moveToRight: unit => unit
-  } = {
-    type t = VSCode.WebviewPanel.t
-
-    let makeHTML = (webview, extensionPath) => {
-      let extensionUri = VSCode.Uri.file(extensionPath)
-      // generates gibberish
-      let nonce = {
-        let text = ref("")
-        let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        let cardinality = Js.String.length(charaterSet)
-        for _ in 0 to 32 {
-          text :=
-            text.contents ++
-            Js.String.charAt(
-              Js.Math.floor(Js.Math.random() *. float_of_int(cardinality)),
-              charaterSet,
-            )
-        }
-        text.contents
+  let makeHTML = (webview, extensionPath) => {
+    let extensionUri = VSCode.Uri.file(extensionPath)
+    // generates gibberish
+    let nonce = {
+      let text = ref("")
+      let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+      let cardinality = Js.String.length(charaterSet)
+      for _ in 0 to 32 {
+        text :=
+          text.contents ++
+          Js.String.charAt(
+            Js.Math.floor(Js.Math.random() *. float_of_int(cardinality)),
+            charaterSet,
+          )
       }
+      text.contents
+    }
 
-      let scriptUri =
-        VSCode.Webview.asWebviewUri(
-          webview,
-          VSCode.Uri.joinPath(extensionUri, ["dist", "view.bundle.js"]),
-        )->VSCode.Uri.toString
+    let scriptUri =
+      VSCode.Webview.asWebviewUri(
+        webview,
+        VSCode.Uri.joinPath(extensionUri, ["dist", "view.bundle.js"]),
+      )->VSCode.Uri.toString
 
-      let cspSourceUri = VSCode.Webview.cspSource(webview)
+    let cspSourceUri = VSCode.Webview.cspSource(webview)
 
-      let styleUri =
-        VSCode.Webview.asWebviewUri(
-          webview,
-          VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"]),
-        )->VSCode.Uri.toString
+    let styleUri =
+      VSCode.Webview.asWebviewUri(
+        webview,
+        VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"]),
+      )->VSCode.Uri.toString
 
-      let codiconsUri =
-        VSCode.Webview.asWebviewUri(
-          webview,
-          VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.css"]),
-        )->VSCode.Uri.toString
+    let codiconsUri =
+      VSCode.Webview.asWebviewUri(
+        webview,
+        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.css"]),
+      )->VSCode.Uri.toString
 
-      let codiconsFontUri =
-        VSCode.Webview.asWebviewUri(
-          webview,
-          VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.ttf"]),
-        )->VSCode.Uri.toString
+    let codiconsFontUri =
+      VSCode.Webview.asWebviewUri(
+        webview,
+        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.ttf"]),
+      )->VSCode.Uri.toString
 
-      // Content-Security-Policy
-      let defaultSrc = "default-src 'none'; "
-      let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "
-      let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
-      let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
-      let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
+    // Content-Security-Policy
+    let defaultSrc = "default-src 'none'; "
+    let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "
+    let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
+    let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
+    let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
 
-      j`
+    j`
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -109,73 +97,91 @@ module Module: Module = {
       </body>
       </html>
     `
-    }
-
-    let make = (title, extensionPath) => {
-      let distPath = Node.Path.join2(extensionPath, "dist")
-      let panel = VSCode.Window.createWebviewPanel(
-        "panel",
-        title,
-        {"preserveFocus": true, "viewColumn": 3},
-        // None,
-        Some(
-          VSCode.WebviewAndWebviewPanelOptions.make(
-            ~enableScripts=true,
-            // So that the view don't get wiped out when it's not in the foreground
-            ~retainContextWhenHidden=true,
-            // And restrict the webview to only loading content from our extension's `media` directory.
-            ~localResourceRoots=[VSCode.Uri.file(distPath)],
-            (),
-          ),
-        ),
-      )
-
-      let html = makeHTML(VSCode.WebviewPanel.webview(panel), extensionPath)
-      panel->VSCode.WebviewPanel.webview->VSCode.Webview.setHtml(html)
-
-      panel
-    }
-
-    let destroy = VSCode.WebviewPanel.dispose
-
-    let send = (panel, message) =>
-      panel->VSCode.WebviewPanel.webview->VSCode.Webview.postMessage(message)
-
-    let recv = (panel, callback) =>
-      panel->VSCode.WebviewPanel.webview->VSCode.Webview.onDidReceiveMessage(callback)
-
-    let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
-
-    let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
-    let focus = panel => panel->VSCode.WebviewPanel.reveal()
-
-    let _moveToRight = () => {
-      open VSCode.Commands
-      executeCommand(
-        #setEditorLayout({
-          orientation: 0,
-          groups: {
-            open Layout
-            [sized({groups: [simple], size: 0.5}), sized({groups: [simple], size: 0.5})]
-          },
-        }),
-      )->ignore
-    }
-
-    let moveToBottom = () => {
-      open VSCode.Commands
-      executeCommand(
-        #setEditorLayout({
-          orientation: 1,
-          groups: {
-            open Layout
-            [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
-          },
-        }),
-      )->ignore
-    }
   }
 
+  let make = (title, extensionPath) => {
+    let distPath = Node.Path.join2(extensionPath, "dist")
+    let panel = VSCode.Window.createWebviewPanel(
+      "panel",
+      title,
+      {"preserveFocus": true, "viewColumn": 3},
+      // None,
+      Some(
+        VSCode.WebviewAndWebviewPanelOptions.make(
+          ~enableScripts=true,
+          // So that the view don't get wiped out when it's not in the foreground
+          ~retainContextWhenHidden=true,
+          // And restrict the webview to only loading content from our extension's `media` directory.
+          ~localResourceRoots=[VSCode.Uri.file(distPath)],
+          (),
+        ),
+      ),
+    )
+
+    let html = makeHTML(VSCode.WebviewPanel.webview(panel), extensionPath)
+    panel->VSCode.WebviewPanel.webview->VSCode.Webview.setHtml(html)
+
+    panel
+  }
+
+  let destroy = VSCode.WebviewPanel.dispose
+
+  let send = (panel, message) =>
+    panel->VSCode.WebviewPanel.webview->VSCode.Webview.postMessage(message)
+
+  let recv = (panel, callback) =>
+    panel->VSCode.WebviewPanel.webview->VSCode.Webview.onDidReceiveMessage(callback)
+
+  let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
+
+  let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
+  let focus = panel => panel->VSCode.WebviewPanel.reveal()
+
+  let _moveToRight = () => {
+    open VSCode.Commands
+    executeCommand(
+      #setEditorLayout({
+        orientation: 0,
+        groups: {
+          open Layout
+          [sized({groups: [simple], size: 0.5}), sized({groups: [simple], size: 0.5})]
+        },
+      }),
+    )->ignore
+  }
+
+  let moveToBottom = () => {
+    open VSCode.Commands
+    executeCommand(
+      #setEditorLayout({
+        orientation: 1,
+        groups: {
+          open Layout
+          [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
+        },
+      }),
+    )->ignore
+  }
+}
+
+// a thin layer on top of Panel
+module type PanelController = {
+  type t
+
+  let make: string => t
+  let destroy: t => unit
+
+  let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
+  let sendRequest: (t, View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
+  let onEvent: (t, View.EventFromView.t => unit) => VSCode.Disposable.t
+
+  let onceDestroyed: t => Promise.t<unit>
+
+  let reveal: t => unit
+  let focus: t => unit
+}
+
+module PanelController: PanelController = {
   type status =
     | Initialized
     | Uninitialized(
@@ -319,7 +325,7 @@ module Module: Module = {
   }
 
   // resolves the returned promise once the view has been destroyed
-  let _onceDestroyed = (view: t): Promise.t<unit> => {
+  let onceDestroyed = (view: t): Promise.t<unit> => {
     let (promise, resolve) = Promise.pending()
 
     let disposable = view.onEvent->Chan.on(response =>
@@ -337,4 +343,60 @@ module Module: Module = {
   let focus = view => view.panel->Panel.focus
 }
 
-include Module
+module type Controller = {
+  type t
+  // methods
+  let activate: string => unit
+  let deactivate: unit => unit
+  let isActivated: unit => bool
+
+  let sendRequest: (View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
+  let sendEvent: View.EventToView.t => Promise.t<unit>
+  let onEvent: (View.EventFromView.t => unit) => VSCode.Disposable.t
+
+  let reveal: unit => unit
+  let focus: unit => unit
+}
+module Controller: Controller = {
+  type t = ref<option<PanelController.t>>
+  let panel = ref(None)
+
+  let sendRequest = (req, callback) =>
+    switch panel.contents {
+    | None => Promise.resolved()
+    | Some(panel) => PanelController.sendRequest(panel, req, callback)
+    }
+  let sendEvent = event =>
+    switch panel.contents {
+    | None => Promise.resolved()
+    | Some(panel) => PanelController.sendEvent(panel, event)
+    }
+
+  let onEvent = callback =>
+    switch panel.contents {
+    | None => VSCode.Disposable.make(() => ())
+    | Some(panel) => panel->PanelController.onEvent(callback)
+    }
+
+  let activate = extensionPath => {
+    Js.log("CREATE")
+    let instance = PanelController.make(extensionPath)
+    panel := Some(instance)
+    // free the handle when the view has been forcibly destructed
+    PanelController.onceDestroyed(instance)->Promise.get(() => {
+      panel := None
+    })
+  }
+
+  let deactivate = () => {
+    panel.contents->Option.forEach(PanelController.destroy)
+    panel := None
+  }
+
+  let isActivated = () => panel.contents->Option.isSome
+
+  let reveal = () => panel.contents->Option.forEach(PanelController.reveal)
+  let focus = () => panel.contents->Option.forEach(PanelController.focus)
+}
+
+include Controller
