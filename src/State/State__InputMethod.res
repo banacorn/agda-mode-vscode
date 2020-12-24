@@ -28,7 +28,7 @@ module Module: Module = {
       let handle = kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          State.View.updateIM(Update(sequence, translation, index))
+          State.View.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
           let replacements = replacements->Array.map(((interval, text)) => {
             let range = Editor.Range.fromInterval(state.document, interval)
@@ -40,10 +40,10 @@ module Module: Module = {
           })
         | Activate =>
           State.Context.setIM(true)
-          State.View.updateIM(Activate)
+          State.View.updateIM(state, Activate)
         | Deactivate =>
           State.Context.setIM(false)
-          State.View.updateIM(Deactivate)
+          State.View.updateIM(state, Deactivate)
         }
       output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
     }
@@ -69,12 +69,12 @@ module Module: Module = {
     // so that we can calculate what has been changed
     let previous = ref("")
 
-    let handle = output => {
+    let handle = (state, output) => {
       open IM.Output
       let handle = kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          State.View.updateIM(Update(sequence, translation, index))
+          State.View.updateIM(state, Update(sequence, translation, index))
         | Rewrite(rewrites, f) =>
           // TODO, postpone calling f
           f()
@@ -94,18 +94,18 @@ module Module: Module = {
 
           // update stored <input>
           previous.contents = replaced.contents
-          {State.View.updatePromptIM(replaced.contents)}
+          {State.View.updatePromptIM(state, replaced.contents)}
         | Activate =>
-          State.View.updateIM(Activate)->Promise.flatMap(() =>
-            State.View.updatePromptIM(previous.contents)
+          State.View.updateIM(state, Activate)->Promise.flatMap(() =>
+            State.View.updatePromptIM(state, previous.contents)
           )
-        | Deactivate => State.View.updateIM(Deactivate)
+        | Deactivate => State.View.updateIM(state, Deactivate)
         }
       output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
     }
 
     let runAndHandle = (state: State.t, action): Promise.t<unit> =>
-      handle(IM.run(state.promptIM, None, action))
+      handle(state, IM.run(state.promptIM, None, action))
 
     let keyUpdate = (state: State.t, next) => {
       // devise the "change" made to the input box
@@ -145,7 +145,7 @@ module Module: Module = {
       // update stored <input>
       previous.contents = next
 
-      handle(output)
+      handle(state, output)
     }
 
     let insertChar = (state: State.t, char) => keyUpdate(state, previous.contents ++ char)
@@ -215,14 +215,14 @@ module Module: Module = {
           PromptIM.activate(state, input)
         )
       } else {
-        State.View.updatePromptIM(input)
+        State.View.updatePromptIM(state, input)
       }
     | Prompt => PromptIM.keyUpdate(state, input)
     | None =>
       if shouldActivatePromptIM(input) {
         PromptIM.activate(state, input)
       } else {
-        {State.View.updatePromptIM(input)}
+        {State.View.updatePromptIM(state, input)}
       }
     }
 

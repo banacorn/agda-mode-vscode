@@ -8,7 +8,7 @@ let isAgda = (filepath): bool => {
 }
 
 // invoked by `activate` below, with parameters for mocking the context when testing the extension
-let activateWithoutContext = (disposables, extensionPath) => {
+let activateWithoutContext = disposables => {
   // expose an Chan for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   Js.log("[ extention ] activate")
@@ -81,8 +81,7 @@ let activateWithoutContext = (disposables, extensionPath) => {
   // helper function for initializing a State
   let makeAndAddToRegistry = (editor, fileName) => {
     // not in the Registry, instantiate a State
-
-    let state = State.make(extensionPath, chan, editor)
+    let state = State.make(chan, editor)
 
     let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
 
@@ -207,6 +206,5 @@ let activateWithoutContext = (disposables, extensionPath) => {
 // this function is the entry point of the whole extension
 let activate = context => {
   let disposables = context->VSCode.ExtensionContext.subscriptions
-  let extensionPath = context->VSCode.ExtensionContext.extensionPath
-  activateWithoutContext(disposables, extensionPath)
+  activateWithoutContext(disposables)
 }

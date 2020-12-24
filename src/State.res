@@ -47,10 +47,14 @@ module RequestQueue: {
   }
 }
 
+type viewCache =
+  Event(View.EventToView.t) | Request(View.Request.t, View.Response.t => Promise.t<unit>)
+
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   mutable connection: option<Connection.t>,
+  mutable viewCache: option<viewCache>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,
@@ -78,41 +82,60 @@ module Context = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module type View = {
+  let activate: state => unit
   let reveal: unit => unit
   // display stuff
-  let display: (View.Header.t, View.Body.t) => Promise.t<unit>
-  let displayEmacs: (View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
-  let displayOutOfGoalError: unit => Promise.t<unit>
-  let displayConnectionError: Connection.Error.t => Promise.t<unit>
+  let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
+  let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
+  let displayOutOfGoalError: state => Promise.t<unit>
+  let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
 
   // Input Method
-  let updateIM: View.EventToView.InputMethod.t => Promise.t<unit>
-  let updatePromptIM: string => Promise.t<unit>
+  let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
+  let updatePromptIM: (state, string) => Promise.t<unit>
   // Prompt
   let prompt: (state, View.Header.t, View.Prompt.t, string => Promise.t<unit>) => Promise.t<unit>
-  let interruptPrompt: unit => Promise.t<unit>
+  let interruptPrompt: state => Promise.t<unit>
 }
+
 module View: View = {
+  let sendEvent = (state, event) => {
+    state.viewCache = Some(Event(event))
+    ViewController.sendEvent(event)
+  }
+  let sendRequest = (state, request, callback) => {
+    state.viewCache = Some(Request(request, callback))
+    ViewController.sendRequest(request, callback)
+  }
+
+  let activate = state =>
+    state.viewCache->Option.forEach(content =>
+      switch content {
+      | Event(event) => ViewController.sendEvent(event)->ignore
+      | Request(request, callback) => ViewController.sendRequest(request, callback)->ignore
+      }
+    )
+
   let reveal = () => {
     ViewController.reveal()
     Context.setLoaded(true)
   }
 
   // display stuff
-  let display = (header, body) => ViewController.sendEvent(Display(header, body))
-  let displayEmacs = (kind, header, body) =>
-    ViewController.sendEvent(Display(header, Emacs(kind, View.Header.toString(header), body)))
-  let displayOutOfGoalError = () =>
-    display(Error("Out of goal"), Plain("Please place the cursor in a goal"))
+  let display = (state, header, body) => sendEvent(state, Display(header, body))
+  let displayEmacs = (state, kind, header, body) =>
+    sendEvent(state, Display(header, Emacs(kind, View.Header.toString(header), body)))
+  let displayOutOfGoalError = state =>
+    display(state, Error("Out of goal"), Plain("Please place the cursor in a goal"))
 
-  let displayConnectionError = error => {
+  let displayConnectionError = (state, error) => {
     let (header, body) = Connection.Error.toString(error)
-    display(Error("Connection Error: " ++ header), Plain(body))
+    display(state, Error("Connection Error: " ++ header), Plain(body))
   }
 
   // update the Input Method
-  let updateIM = event => ViewController.sendEvent(InputMethod(event))
-  let updatePromptIM = content => ViewController.sendEvent(PromptIMUpdate(content))
+  let updateIM = (state, event) => sendEvent(state, InputMethod(event))
+  let updatePromptIM = (state, content) => sendEvent(state, PromptIMUpdate(content))
 
   // Header + Prompt
   let prompt = (
@@ -126,7 +149,7 @@ module View: View = {
     ViewController.focus()
 
     // send request to view
-    ViewController.sendRequest(Prompt(header, prompt), response =>
+    sendRequest(state, Prompt(header, prompt), response =>
       switch response {
       | PromptSuccess(result) =>
         callbackOnPromptSuccess(result)->Promise.map(() => {
@@ -138,7 +161,7 @@ module View: View = {
       }
     )
   }
-  let interruptPrompt = () => ViewController.sendEvent(PromptInterrupt)
+  let interruptPrompt = state => sendEvent(state, PromptInterrupt)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -221,10 +244,10 @@ module Connection: Connection = {
     let handle = ref(None)
     let agdaResponseListener: result<Connection.response, Connection.Error.t> => unit = x =>
       switch x {
-      | Error(error) => View.displayConnectionError(error)->ignore
+      | Error(error) => View.displayConnectionError(state, error)->ignore
       | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
         let body = Parser.Error.toString(error)
-        View.display(Error("Internal Parse Error"), Plain(body))->ignore
+        View.display(state, Error("Internal Parse Error"), Plain(body))->ignore
       | Ok(Yield(Ok(NonLast(response)))) =>
         // Js.log(">>> " ++ Response.toString(response))
         Lock.runNonLast(handleResponse(response))->ignore
@@ -276,7 +299,7 @@ module Connection: Connection = {
       | Ok(connection) =>
         handle := Some(connection.Connection.chan->Chan.on(agdaResponseListener))
         promise
-      | Error(error) => View.displayConnectionError(error)->Promise.flatMap(() => promise)
+      | Error(error) => View.displayConnectionError(state, error)->Promise.flatMap(() => promise)
       }
     )
     ->Promise.tap(() => handle.contents->Option.forEach(destroyListener => destroyListener()))
@@ -299,7 +322,6 @@ module Connection: Connection = {
 
 // construction/destruction
 let destroy = state => {
-  ViewController.deactivate()
   state.onRemoveFromRegistry->Chan.emit()
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
@@ -310,15 +332,14 @@ let destroy = state => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (extentionPath, chan, editor) => {
+let make = (chan, editor) => {
   Context.setLoaded(true)
-  // view initialization
-  ViewController.activate(extentionPath)
 
   {
     editor: editor,
     document: VSCode.TextEditor.document(editor),
     connection: None,
+    viewCache: None,
     goals: [],
     decoration: Decoration.make(),
     cursor: None,

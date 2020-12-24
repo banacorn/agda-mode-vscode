@@ -379,7 +379,6 @@ module Controller: Controller = {
     }
 
   let activate = extensionPath => {
-    Js.log("CREATE")
     let instance = PanelController.make(extensionPath)
     panel := Some(instance)
     // free the handle when the view has been forcibly destructed
