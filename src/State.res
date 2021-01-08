@@ -321,8 +321,10 @@ module Connection: Connection = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // construction/destruction
-let destroy = state => {
-  state.onRemoveFromRegistry->Chan.emit()
+let destroy = (state, alsoRemoveFromRegistry) => {
+  if alsoRemoveFromRegistry {
+    state.onRemoveFromRegistry->Chan.emit()
+  }
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
   state.decoration->Decoration.destroy

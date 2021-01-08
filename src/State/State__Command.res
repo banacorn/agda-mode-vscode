@@ -222,7 +222,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved()
-    | Destroyed => State.destroy(state)
+    | Destroyed => State.destroy(state, true)
     | InputMethod(InsertChar(char)) => dispatchCommand(InputMethod(InsertChar(char)))
     | InputMethod(ChooseSymbol(symbol)) => State__InputMethod.chooseSymbol(state, symbol)
     | PromptIMUpdate(MouseSelect(interval)) => State__InputMethod.select(state, [interval])
