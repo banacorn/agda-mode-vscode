@@ -36,6 +36,7 @@ module Indices: Indices = {
   //              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
   type t = {
     intervals: array<(int, int)>,
+    lastInterval: int,
     mutable cursor: int,
   }
 
@@ -80,15 +81,30 @@ module Indices: Indices = {
       }
       (leftEndpoint, rightEndpoint)
     })
-    {intervals: intervals, cursor: 0}
+
+    // 6003
+    let lastInterval =
+      intervals[Array.length(intervals) - 1]->Option.mapWithDefault(0, ((_, x)) => x + 1)
+
+    {
+      intervals: intervals,
+      lastInterval: lastInterval,
+      cursor: 0,
+    }
   }
 
-  let rec convert = (self, index) =>
+  let rec convert = (self, index) => {
     switch self.intervals[self.cursor] {
     | None =>
-      // happens when we have passed the last inverval
-      // return index + how many pairs it have skipped
-      index + self.cursor
+      // happens when we enter the last inverval
+      if index >= self.lastInterval {
+        // return index + how many pairs it have skipped
+        index + self.cursor
+      } else {
+        // reset the cursor to the beginning of the intervals
+        self.cursor = 0
+        convert(self, index)
+      }
     | Some((left, right)) =>
       if index < left {
         // reset the cursor to the beginning of the intervals
@@ -103,6 +119,7 @@ module Indices: Indices = {
         index + self.cursor
       }
     }
+  }
 
   let expose = self => (self.intervals, self.cursor)
 }

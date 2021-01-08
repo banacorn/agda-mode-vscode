@@ -5,6 +5,8 @@ module P = BsMocha.Promise
 
 open Common
 
+let issue7 = j`module Issue7 where\\n-- 𝕁\\na = {!   !}`
+
 let openEditorWithContent = content =>
   VSCode.Workspace.openTextDocumentWithOptions(
     Some({"content": content, "language": "agda"}),
@@ -36,6 +38,8 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\\na`),
         [0, 3, 7, 10, 14, 17, 19, 21],
       )
+      // Issue #7
+      Assert.deep_equal(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7), [23])
     })
   )
 
@@ -61,7 +65,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     })
   )
 
-  describe("Common.Indices.convert", () =>
+  describe("Common.Indices.convert", () => {
     it("should work", () => {
       open Indices
       let a = make(
@@ -85,7 +89,37 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       Assert.deep_equal(convert(a, 9), 17)
       Assert.deep_equal(a->expose->snd, 8)
     })
-  )
+
+    it("issue #7", () => {
+      open Indices
+      let a = make(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7))
+      Assert.deep_equal(convert(a, 0), 0)
+      Assert.deep_equal(convert(a, 6), 6)
+      Assert.deep_equal(convert(a, 14), 14)
+      Assert.deep_equal(convert(a, 19), 19)
+      Assert.deep_equal(convert(a, 20), 20)
+      Assert.deep_equal(a->expose->snd, 0)
+      Assert.deep_equal(convert(a, 24), 25)
+      Assert.deep_equal(a->expose->snd, 1)
+      Assert.deep_equal(convert(a, 27), 28)
+      Assert.deep_equal(convert(a, 28), 29)
+      Assert.deep_equal(convert(a, 29), 30)
+      Assert.deep_equal(convert(a, 36), 37)
+      Assert.deep_equal(a->expose->snd, 1)
+      Assert.deep_equal(convert(a, 0), 0)
+      Assert.deep_equal(a->expose->snd, 0) // the cursor should be reset to 0
+      Assert.deep_equal(convert(a, 6), 6)
+      Assert.deep_equal(convert(a, 7), 7)
+      Assert.deep_equal(convert(a, 14), 14)
+      Assert.deep_equal(convert(a, 19), 19)
+      Assert.deep_equal(convert(a, 20), 20)
+      Assert.deep_equal(a->expose->snd, 0)
+      Assert.deep_equal(convert(a, 24), 25)
+      Assert.deep_equal(a->expose->snd, 1)
+      Assert.deep_equal(convert(a, 0), 0)
+      Assert.deep_equal(a->expose->snd, 0) // the cursor should be reset to 0
+    })
+  })
 
   describe("Editor.toUTF8Offset", () => {
     P.it("should do it right", () =>
