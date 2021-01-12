@@ -147,6 +147,9 @@ let rec handle = (
   | DisplayInfo(info) => DisplayInfo.handle(state, info)
   | RunningInfo(_verbosity, message) =>
     State.View.display(state, Plain("Type-checking"), Plain(message))
+  | CompleteHighlightingAndMakePromptReappear =>
+    // apply decoration before handling Last Responses
+    Decoration.apply(state.decoration, state.editor)
   | _ => Promise.resolved()
   }
 }

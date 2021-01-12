@@ -127,6 +127,10 @@ type t =
   DoneAborting
   | // agda2-exit-done
   DoneExiting
+  | // CompleteHighlightingAndMakePromptReappear is not sent by Agda, but inserted by ourselves to indicate that
+  // all "non-last commands" have been handled, and the highlighting should be completed and prompt should reappear
+  // so that we can proceed to handle "last commands"
+  CompleteHighlightingAndMakePromptReappear
 
 let toString = x =>
   switch x {
@@ -157,6 +161,7 @@ let toString = x =>
   | ClearHighlighting => "ClearHighlighting"
   | DoneAborting => "DoneAborting"
   | DoneExiting => "DoneExiting"
+  | CompleteHighlightingAndMakePromptReappear => "CompleteHighlightingAndMakePromptReappear"
   }
 
 let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
@@ -199,7 +204,9 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       }
     | Some(A("agda2-give-action")) =>
       switch xs[1] {
-      | Some(A(index')) => int_of_string_opt(index')->Option.flatMap(i =>
+      | Some(A(index')) =>
+        int_of_string_opt(index')
+        ->Option.flatMap(i =>
           switch xs[2] {
           | Some(A("paren")) => Some(GiveAction(i, Paren))
           | Some(A("no-paren")) => Some(GiveAction(i, NoParen))
@@ -207,7 +214,8 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
           | Some(L(_)) => None
           | _ => None
           }
-        )->Option.mapWithDefault(err(6), x => Ok(x))
+        )
+        ->Option.mapWithDefault(err(6), x => Ok(x))
       | _ => err(7)
       }
     | Some(A("agda2-make-case-action")) =>

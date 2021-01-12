@@ -203,15 +203,12 @@ module Connection: Connection = {
       | Ok(response) => handleResponse(response)
       }
 
-    // apply decoration before handling Last Responses
-    let afterNonLastsDone = () => Decoration.apply(state.decoration, state.editor)
-
     state
     ->connect
     ->Promise.flatMap(x =>
       switch x {
       | Ok(connection) =>
-        let promise = Connection.onResponse(connection, handleResult, afterNonLastsDone)
+        let promise = Connection.onResponse(connection, handleResult)
         Connection.sendRequest(connection, state.document, request)
         promise
       | Error(error) => View.displayConnectionError(state, error)

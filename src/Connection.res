@@ -32,11 +32,7 @@ module type Module = {
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => unit
 
-  let onResponse: (
-    t,
-    result<Response.t, Error.t> => Promise.t<unit>,
-    unit => Promise.t<unit>,
-  ) => Promise.t<unit>
+  let onResponse: (t, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<unit>
 
   let sendRequest: (t, VSCode.TextDocument.t, Request.t) => unit
 }
@@ -260,7 +256,7 @@ module Module: Module = {
     connection.process.send(encoded)->ignore
   }
 
-  let onResponse = (connection, callback, callbackAfterNonLasts) => {
+  let onResponse = (connection, callback) => {
     // deferred responses are queued here
     let deferredLastResponses: array<(int, Response.t)> = []
 
@@ -283,12 +279,17 @@ module Module: Module = {
             deferredLastResponses,
           )->Array.map(snd)
 
+        // insert `CompleteHighlightingAndMakePromptReappear` handling Last Responses
+        Js.Array.unshift(
+          Response.CompleteHighlightingAndMakePromptReappear,
+          deferredLastResponses,
+        )->ignore
+
         // wait until all NonLast Responses are handled
         Lock.onceDone()
         // stop the Agda Response listener
         ->Promise.tap(stopListener)
-        // apply decoration before handling Last Responses
-        ->Promise.flatMap(callbackAfterNonLasts)
+        // start handling Last Responses
         ->Promise.map(() => deferredLastResponses->Array.map(res => callback(Ok(res))))
         ->Promise.flatMap(Util.oneByOne)
         ->ignore
