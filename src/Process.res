@@ -193,85 +193,127 @@ signal: $signal
     }
 }
 
-type output =
-  | Stdout(string)
-  | Stderr(string)
-  | Error(Error.t)
+module type Module = {
+  type output =
+    | Stdout(string)
+    | Stderr(string)
+    | Error(Error.t)
 
-type t = {
-  send: string => result<unit, Error.t>,
-  chan: Chan.t<output>,
-  disconnect: unit => Promise.t<unit>,
-  isConnected: unit => bool,
+  type t
+
+  let make: (string, array<string>) => t
+  let disconnect: t => Promise.t<unit>
+  let send: (t, string) => result<unit, Error.t>
+  let onData: (t, output => unit, unit) => unit
+  let isConnected: t => bool
 }
+module Module: Module = {
+  type output =
+    | Stdout(string)
+    | Stderr(string)
+    | Error(Error.t)
 
-type status =
-  | Connected(Nd.ChildProcess.t)
-  | Disconnecting(Promise.t<unit>)
-  | Disconnected
+  type status =
+    | Connected(Nd.ChildProcess.t)
+    | Disconnecting(Promise.t<unit>)
+    | Disconnected
 
-let make = (path, args): t => {
-  let chan = Chan.make()
-  let stderr = ref("")
-  // spawn the child process
-  let process = Nd.ChildProcess.spawn_(
-    "\"" ++ (path ++ "\""),
-    args,
-    Nd.ChildProcess.spawnOption(~shell=Nd.ChildProcess.Shell.bool(true), ()),
-  )
+  type t = {
+    chan: Chan.t<output>,
+    status: ref<status>,
+  }
 
-  // on `data` from `stdout`
-  process
-  |> Nd.ChildProcess.stdout
-  |> Nd.Stream.Readable.on(
-    #data(chunk => chan->Chan.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore),
-  )
-  |> ignore
+  let make = (path, args): t => {
+    let chan = Chan.make()
+    let stderr = ref("")
+    // spawn the child process
+    let process = Nd.ChildProcess.spawn_(
+      "\"" ++ (path ++ "\""),
+      args,
+      Nd.ChildProcess.spawnOption(~shell=Nd.ChildProcess.Shell.bool(true), ()),
+    )
 
-  // on `data` from `stderr`
-  process
-  |> Nd.ChildProcess.stderr
-  |> Nd.Stream.Readable.on(
-    #data(
-      chunk => {
-        chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
-        // store the latest message from stderr
-        stderr := Node.Buffer.toString(chunk)
-      },
-    ),
-  )
-  |> ignore
+    // on `data` from `stdout`
+    process
+    |> Nd.ChildProcess.stdout
+    |> Nd.Stream.Readable.on(
+      #data(chunk => chan->Chan.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore),
+    )
+    |> ignore
 
-  // on `close` from `stdin`
-  process
-  |> Nd.ChildProcess.stdin
-  |> Nd.Stream.Writable.on(
-    #close(() => chan->Chan.emit(Error(Error.ClosedByProcess(0, ""))) |> ignore),
-  )
-  |> ignore
-
-  // on errors and anomalies
-  process
-  |> Nd.ChildProcess.on(
-    #close((code, signal) => chan->Chan.emit(Error(ClosedByProcess(code, signal))) |> ignore),
-  )
-  |> Nd.ChildProcess.on(#disconnect(() => chan->Chan.emit(Error(DisconnectedByUser)) |> ignore))
-  |> Nd.ChildProcess.on(#error(exn => chan->Chan.emit(Error(ShellError(exn))) |> ignore))
-  |> Nd.ChildProcess.on(
-    #exit(
-      (code, signal) =>
-        if code != 0 {
-          //  returns the last message from stderr
-          chan->Chan.emit(Error(ExitedByProcess(code, signal, stderr.contents))) |> ignore
+    // on `data` from `stderr`
+    process
+    |> Nd.ChildProcess.stderr
+    |> Nd.Stream.Readable.on(
+      #data(
+        chunk => {
+          chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
+          // store the latest message from stderr
+          stderr := Node.Buffer.toString(chunk)
         },
-    ),
-  )
-  |> ignore
+      ),
+    )
+    |> ignore
 
-  let process = ref(Connected(process))
+    // on `close` from `stdin`
+    process
+    |> Nd.ChildProcess.stdin
+    |> Nd.Stream.Writable.on(
+      #close(() => chan->Chan.emit(Error(Error.ClosedByProcess(0, ""))) |> ignore),
+    )
+    |> ignore
 
-  let send = (request): result<unit, Error.t> =>
-    switch process.contents {
+    // on errors and anomalies
+    process
+    |> Nd.ChildProcess.on(
+      #close((code, signal) => chan->Chan.emit(Error(ClosedByProcess(code, signal))) |> ignore),
+    )
+    |> Nd.ChildProcess.on(#disconnect(() => chan->Chan.emit(Error(DisconnectedByUser)) |> ignore))
+    |> Nd.ChildProcess.on(#error(exn => chan->Chan.emit(Error(ShellError(exn))) |> ignore))
+    |> Nd.ChildProcess.on(
+      #exit(
+        (code, signal) =>
+          if code != 0 {
+            //  returns the last message from stderr
+            chan->Chan.emit(Error(ExitedByProcess(code, signal, stderr.contents))) |> ignore
+          },
+      ),
+    )
+    |> ignore
+
+    {chan: chan, status: ref(Connected(process))}
+  }
+
+  let disconnect = self =>
+    switch self.status.contents {
+    | Connected(process) =>
+      Js.log("Process.disconnect")
+      // set the status to "Disconnecting"
+      let (promise, resolve) = Promise.pending()
+      self.status := Disconnecting(promise)
+
+      // listen to the `exit` event
+      self.chan->Chan.on(x =>
+        switch x {
+        | Error(ExitedByProcess(_, _, _)) =>
+          self.chan->Chan.destroy
+          self.status := Disconnected
+          resolve()
+        | _ => ()
+        }
+      ) |> ignore
+
+      // trigger `exit`
+      Nd.ChildProcess.kill_("SIGTERM", process) |> ignore
+
+      // resolve on `exit`
+      promise
+    | Disconnecting(promise) => promise
+    | Disconnected => Promise.resolved()
+    }
+
+  let send = (self, request): result<unit, Error.t> =>
+    switch self.status.contents {
     | Connected(process) =>
       let payload = Node.Buffer.fromString(request ++ "\n")
       // write
@@ -281,39 +323,13 @@ let make = (path, args): t => {
     | _ => Error(Error.NotEstablishedYet)
     }
 
-  let disconnect = () =>
-    switch process.contents {
-    | Connected(process') =>
-      Js.log("Process.disconnect")
-      // set the status to "Disconnecting"
-      let (promise, resolve) = Promise.pending()
-      process := Disconnecting(promise)
+  let onData = (self, callback) => self.chan->Chan.on(callback)
 
-      // listen to the `exit` event
-      chan->Chan.on(x =>
-        switch x {
-        | Error(ExitedByProcess(_, _, _)) =>
-          chan->Chan.destroy
-          process := Disconnected
-          resolve()
-        | _ => ()
-        }
-      ) |> ignore
-
-      // trigger `exit`
-      Nd.ChildProcess.kill_("SIGTERM", process') |> ignore
-
-      // resolve on `exit`
-      promise
-    | Disconnecting(promise) => promise
-    | Disconnected => Promise.resolved()
-    }
-
-  let isConnected = () =>
-    switch process.contents {
+  let isConnected = self =>
+    switch self.status.contents {
     | Connected(_) => true
     | _ => false
     }
-
-  {send: send, disconnect: disconnect, chan: chan, isConnected: isConnected}
 }
+
+include Module

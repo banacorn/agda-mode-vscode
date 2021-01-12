@@ -129,7 +129,7 @@ module Module: Module = {
   }
 
   let destroy = self => {
-    self.process.disconnect() |> ignore
+    self.process->Process.disconnect |> ignore
     self.chan->Chan.destroy
     self.encountedFirstPrompt = false
   }
@@ -180,7 +180,8 @@ module Module: Module = {
 
     // listens to the "data" event on the stdout
     // The chunk may contain various fractions of the Agda output
-    let onData: Process.output => unit = x =>
+    // TODO: handle the destructor
+    let _destructor = self.process->Process.onData(x =>
       switch x {
       | Stdout(rawText) =>
         // split the raw text into pieces and feed it to the parser
@@ -188,8 +189,7 @@ module Module: Module = {
       | Stderr(_) => ()
       | Error(e) => self.chan->Chan.emit(Error(Process(e)))
       }
-
-    let _ = self.process.chan->Chan.on(onData)
+    )
   }
 
   let make = () => {
@@ -243,7 +243,7 @@ module Module: Module = {
       highlightingMethod,
       request,
     )
-    connection.process.send(encoded)->ignore
+    connection.process->Process.send(encoded)->ignore
   }
 
   let onResponse = (connection, callback) => {
