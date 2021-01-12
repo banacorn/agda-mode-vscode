@@ -175,10 +175,7 @@ module Connection: Connection = {
   // connect if not connected yet
   let connect = state =>
     switch state.connection {
-    | None =>
-      Connection.make(Config.getAgdaPath, Config.setAgdaPath)->Promise.tapOk(conn =>
-        state.connection = Some(conn)
-      )
+    | None => Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
     | Some(connection) => Promise.resolved(Ok(connection))
     }
   let disconnect = state =>

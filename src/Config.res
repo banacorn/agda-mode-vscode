@@ -2,6 +2,16 @@ open VSCode
 module VSRange = Range
 open Belt
 
+// Agda version
+let setAgdaVersion = path =>
+  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+    "agdaVersion",
+    path,
+    None,
+  )
+let getAgdaVersion = () =>
+  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get("agdaVersion")
+
 // Agda path
 let setAgdaPath = path =>
   Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(

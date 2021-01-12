@@ -697,6 +697,12 @@
 		"configuration": {
 			"title": "agda-mode",
 			"properties": {
+				"agdaMode.agdaVersion": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Name of the executable of Agda. For searching the path. Overwrite to override."
+				},
 				"agdaMode.agdaPath": {
 					"type": "string",
 					"default": "",
