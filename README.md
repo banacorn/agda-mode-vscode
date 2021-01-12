@@ -56,6 +56,7 @@ Take *infer type* for example:
 | compute normal form (default compute)   | <kbd>C-c</kbd> <kbd>C-n</kbd>   |
 | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd>   |
 | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd>   |
+| switch to a different Agda version      | <kbd>C-x</kbd> <kbd>C-s</kbd>   |
 
 ### Commands in context of a goal
 
@@ -86,7 +87,6 @@ Take *infer type* for example:
 | abort a command                         | <kbd>C-x</kbd> <kbd>C-a</kbd>   |
 | remove goals and highlighting           | <kbd>C-x</kbd> <kbd>C-d</kbd>   |
 | comment/uncomment rest of buffer        |                                 |
-| switch to a different Agda version      |                                 |
 
 
 ## Unicode Input

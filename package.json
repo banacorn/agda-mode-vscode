@@ -319,6 +319,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.switch-agda-version",
+				"title": "Switch to a different Agda version",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.escape",
 				"title": "Escape",
 				"category": "Agda"
@@ -645,6 +650,12 @@
 				"key": "ctrl+c ctrl+w",
 				"mac": "ctrl+c ctrl+w",
 				"when": "!editorHasSelection && agdaMode"
+			},
+			{
+				"command": "agda-mode.switch-agda-version",
+				"key": "ctrl+x ctrl+s",
+				"mac": "ctrl+x ctrl+s",
+				"when": "agdaMode"
 			},
 			{
 				"command": "agda-mode.escape",

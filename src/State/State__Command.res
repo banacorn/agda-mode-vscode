@@ -235,6 +235,9 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       }, expr => sendAgdaRequest(WhyInScope(expr, goal)))
     | Some((goal, expr)) => sendAgdaRequest(WhyInScope(expr, goal))
     }
+  | SwitchAgdaVersion =>
+    Js.log("SwitchAgdaVersion")
+    Promise.resolved()
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved()

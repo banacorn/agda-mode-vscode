@@ -92,6 +92,7 @@ type t =
   | ModuleContents(Normalization.t)
   | ComputeNormalForm(ComputeMode.t)
   | WhyInScope
+  | SwitchAgdaVersion
   | Escape
   | InputMethod(InputMethod.t)
 
@@ -150,6 +151,7 @@ let names: array<(t, string)> = [
   (ComputeNormalForm(IgnoreAbstract), "compute-normal-form[IgnoreAbstract]"),
   (ComputeNormalForm(UseShowInstance), "compute-normal-form[UseShowInstance]"),
   (WhyInScope, "why-in-scope"),
+  (SwitchAgdaVersion, "switch-agda-version"),
   (Escape, "escape"),
   (InputMethod(Activate), "input-symbol[Activate]"),
   (InputMethod(BrowseUp), "input-symbol[BrowseUp]"),
@@ -196,6 +198,7 @@ let toString = x =>
   | ComputeNormalForm(IgnoreAbstract) => "Compute normal form (IgnoreAbstract)"
   | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"
   | WhyInScope => "Why in scope"
+  | SwitchAgdaVersion => "Switch to a different Agda version"
   | EventFromView(_) => "Event from the view"
   | Refresh => "Refresh "
   | Escape => "Escape"
