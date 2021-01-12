@@ -186,117 +186,35 @@ module Connection: Connection = {
       Promise.resolved()
     }
 
-  // There are 2 kinds of Responses
-  //  NonLast Response :
-  //    * get handled first
-  //    * don't invoke `sendAgdaRequest`
-  //  Last Response :
-  //    * have priorities, those with the smallest priority number are executed first
-  //    * only get handled:
-  //        1. after prompt has reappeared
-  //        2. after all NonLast Responses
-  //        3. after all interactive highlighting is complete
-  //    * may invoke `sendAgdaRequest`
-
-  // This module makes sure that Last Responses are handled after NonLast Responses
-  module Lock: {
-    let runNonLast: Promise.t<'a> => Promise.t<'a>
-    let onceDone: unit => Promise.t<unit>
-  } = {
-    // keep the number of running NonLast Response
-    let tally = ref(0)
-    let allDone = Chan.make()
-    // NonLast Responses should fed here
-    let runNonLast = promise => {
-      tally := tally.contents + 1
-      promise->Promise.tap(_ => {
-        tally := tally.contents - 1
-        if tally.contents == 0 {
-          allDone->Chan.emit()
-        }
-      })
-    }
-    // gets resolved once there's no NonLast Responses running
-    let onceDone = () =>
-      if tally.contents == 0 {
-        Promise.resolved()
-      } else {
-        allDone->Chan.once
-      }
-  }
-
   // helper function of `executeTask`
   let sendRequestAndHandleResponses = (
     state: state,
     handleResponse: Response.t => Promise.t<unit>,
     request: Request.t,
   ): Promise.t<unit> => {
-    // Js.log("<<< " ++ Request.toString(request))
-
-    // deferred responses are queued here
-    let deferredLastResponses: array<(int, Response.t)> = []
-
     // this promise get resolved after all Responses has been received from Agda
-    let (promise, stopListener) = Promise.pending()
     let handle = ref(None)
-    let agdaResponseListener: result<Connection.response, Connection.Error.t> => unit = x =>
-      switch x {
-      | Error(error) => View.displayConnectionError(state, error)->ignore
-      | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
-        let body = Parser.Error.toString(error)
-        View.display(state, Error("Internal Parse Error"), Plain(body))->ignore
-      | Ok(Yield(Ok(NonLast(response)))) =>
-        // Js.log(">>> " ++ Response.toString(response))
-        Lock.runNonLast(handleResponse(response))->ignore
-      | Ok(Yield(Ok(Last(priority, response)))) =>
-        // Js.log(">>* " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
-        Js.Array.push((priority, response), deferredLastResponses)->ignore
-      | Ok(Stop) =>
-        // Js.log(">>| ")
-        // sort the deferred Responses by priority (ascending order)
-        let deferredLastResponses =
-          Js.Array.sortInPlaceWith(
-            (x, y) => compare(fst(x), fst(y)),
-            deferredLastResponses,
-          )->Array.map(snd)
 
-        // wait until all NonLast Responses are handled
-        Lock.onceDone()
-        // stop the Agda Response listener
-        ->Promise.tap(_ => stopListener())
-        // apply decoration before handling Last Responses
-        ->Promise.flatMap(_ => Decoration.apply(state.decoration, state.editor))
-        ->Promise.map(() => deferredLastResponses->Array.map(handleResponse))
-        ->Promise.flatMap(Util.oneByOne)
-        ->ignore
+    let handleResult = result =>
+      switch result {
+      | Error(error) =>
+        let (head, body) = Connection.Error.toString(error)
+        View.display(state, Error(head), Plain(body))
+      | Ok(response) => handleResponse(response)
       }
+
+    // apply decoration before handling Last Responses
+    let afterNonLastsDone = () => Decoration.apply(state.decoration, state.editor)
 
     state
     ->connect
-    ->Promise.mapOk(connection => {
-      let version = connection.metadata.version
-      let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
-      let libraryPath = Config.getLibraryPath()
-      let highlightingMethod = Config.getHighlightingMethod()
-      let backend = Config.getBackend()
-      let encoded = Request.encode(
-        state.document,
-        version,
-        filepath,
-        backend,
-        libraryPath,
-        highlightingMethod,
-        request,
-      )
-      Connection.send(encoded, connection)
-      connection
-    })
     ->Promise.flatMap(x =>
       switch x {
       | Ok(connection) =>
-        handle := Some(connection.Connection.chan->Chan.on(agdaResponseListener))
+        let promise = Connection.onResponse(connection, handleResult, afterNonLastsDone)
+        Connection.sendRequest(connection, state.document, request)
         promise
-      | Error(error) => View.displayConnectionError(state, error)->Promise.flatMap(() => promise)
+      | Error(error) => View.displayConnectionError(state, error)
       }
     )
     ->Promise.tap(() => handle.contents->Option.forEach(destroyListener => destroyListener()))

@@ -1,3 +1,15 @@
+// There are 2 kinds of Responses
+//  NonLast Response :
+//    * get handled first
+//    * don't invoke `sendAgdaRequest`
+//  Last Response :
+//    * have priorities, those with the smallest priority number are executed first
+//    * only get handled:
+//        1. after prompt has reappeared
+//        2. after all NonLast Responses
+//        3. after all interactive highlighting is complete
+//    * may invoke `sendAgdaRequest`
+
 open Belt
 
 module Error = {
@@ -5,83 +17,126 @@ module Error = {
     | PathSearch(Process.PathSearch.Error.t)
     | Validation(Process.Validation.Error.t)
     | Process(Process.Error.t)
+    | ResponseParseError(Parser.Error.t)
   let toString = x =>
     switch x {
     | PathSearch(e) => Process.PathSearch.Error.toString(e)
     | Validation(e) => Process.Validation.Error.toString(e)
     | Process(e) => Process.Error.toString(e)
+    | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
     }
 }
 
-@bs.module external untildify: string => string = "untildify"
+module type Module = {
+  type t
+  let make: unit => Promise.t<result<t, Error.t>>
+  let destroy: t => unit
 
-module Metadata = {
-  // supported protocol
-  // p.s. currently only the `EmacsOnly` kind is supported
-  module Protocol = {
-    type t =
-      | EmacsOnly
-      | EmacsAndJSON
-    let toString = x =>
-      switch x {
-      | EmacsOnly => "Emacs"
-      | EmacsAndJSON => "Emacs / JSON"
-      }
-  }
+  let onResponse: (
+    t,
+    result<Response.t, Error.t> => Promise.t<unit>,
+    unit => Promise.t<unit>,
+  ) => Promise.t<unit>
 
-  type t = {
-    path: string,
-    args: array<string>,
-    version: string,
-    protocol: Protocol.t,
-  }
-
-  // for making error report
-  let toString = self => {
-    let path = "* path: " ++ self.path
-    let args = "* args: " ++ Util.Pretty.array(self.args)
-    let version = "* version: " ++ self.version
-    let protocol = "* protocol: " ++ Protocol.toString(self.protocol)
-    let os = "* platform: " ++ N.OS.type_()
-
-    "## Parse Log" ++
-    ("\n" ++
-    (path ++
-    ("\n" ++
-    (args ++ ("\n" ++ (version ++ ("\n" ++ (protocol ++ ("\n" ++ (os ++ "\n"))))))))))
-  }
-
-  // a more sophiscated "make"
-  let make = (path, args): Promise.t<result<t, Error.t>> => {
-    let validator = (output): result<(string, Protocol.t), string> =>
-      switch Js.String.match_(%re("/Agda version (.*)/"), output) {
-      | None => Error("Cannot read Agda version")
-      | Some(match_) =>
-        switch match_[1] {
-        | None => Error("Cannot read Agda version")
-        | Some(version) =>
-          Ok((
-            version,
-            Js.Re.test_(%re("/--interaction-json/"), output)
-              ? Protocol.EmacsAndJSON
-              : Protocol.EmacsOnly,
-          ))
-        }
-      }
-    // normailize the path by replacing the tild "~/" with the absolute path of home directory
-    let path = untildify(path)
-    Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
-    ->Promise.mapOk(((version, protocol)) => {
-      path: path,
-      args: args,
-      version: version,
-      protocol: protocol,
-    })
-    ->Promise.mapError(e => Error.Validation(e))
-  }
+  let sendRequest: (t, VSCode.TextDocument.t, Request.t) => unit
 }
 
-module Module = {
+module Module: Module = {
+  // This module makes sure that Last Responses are handled after NonLast Responses
+  module Lock: {
+    let runNonLast: Promise.t<'a> => unit
+    let onceDone: unit => Promise.t<unit>
+  } = {
+    // keep the number of running NonLast Response
+    let tally = ref(0)
+    let allDone = Chan.make()
+    // NonLast Responses should fed here
+    let runNonLast = promise => {
+      tally := tally.contents + 1
+      promise->Promise.get(_ => {
+        tally := tally.contents - 1
+        if tally.contents == 0 {
+          allDone->Chan.emit()
+        }
+      })
+    }
+    // gets resolved once there's no NonLast Responses running
+    let onceDone = () =>
+      if tally.contents == 0 {
+        Promise.resolved()
+      } else {
+        allDone->Chan.once
+      }
+  }
+
+  @bs.module external untildify: string => string = "untildify"
+
+  module Metadata = {
+    // supported protocol
+    // p.s. currently only the `EmacsOnly` kind is supported
+    module Protocol = {
+      type t =
+        | EmacsOnly
+        | EmacsAndJSON
+      let toString = x =>
+        switch x {
+        | EmacsOnly => "Emacs"
+        | EmacsAndJSON => "Emacs / JSON"
+        }
+    }
+
+    type t = {
+      path: string,
+      args: array<string>,
+      version: string,
+      protocol: Protocol.t,
+    }
+
+    // for making error report
+    let _toString = self => {
+      let path = "* path: " ++ self.path
+      let args = "* args: " ++ Util.Pretty.array(self.args)
+      let version = "* version: " ++ self.version
+      let protocol = "* protocol: " ++ Protocol.toString(self.protocol)
+      let os = "* platform: " ++ N.OS.type_()
+
+      "## Parse Log" ++
+      ("\n" ++
+      (path ++
+      ("\n" ++
+      (args ++ ("\n" ++ (version ++ ("\n" ++ (protocol ++ ("\n" ++ (os ++ "\n"))))))))))
+    }
+
+    // a more sophiscated "make"
+    let make = (path, args): Promise.t<result<t, Error.t>> => {
+      let validator = (output): result<(string, Protocol.t), string> =>
+        switch Js.String.match_(%re("/Agda version (.*)/"), output) {
+        | None => Error("Cannot read Agda version")
+        | Some(match_) =>
+          switch match_[1] {
+          | None => Error("Cannot read Agda version")
+          | Some(version) =>
+            Ok((
+              version,
+              Js.Re.test_(%re("/--interaction-json/"), output)
+                ? Protocol.EmacsAndJSON
+                : Protocol.EmacsOnly,
+            ))
+          }
+        }
+      // normailize the path by replacing the tild "~/" with the absolute path of home directory
+      let path = untildify(path)
+      Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
+      ->Promise.mapOk(((version, protocol)) => {
+        path: path,
+        args: args,
+        version: version,
+        protocol: protocol,
+      })
+      ->Promise.mapError(e => Error.Validation(e))
+    }
+  }
+
   type response = Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>>
 
   type t = {
@@ -160,7 +215,6 @@ module Module = {
     // if there's no stored path, find one from the OS
     let getPath = (): Promise.t<result<string, Error.t>> => {
       let agdaVersion = Config.getAgdaVersion()->Option.mapWithDefault("agda", Js.String.trim)
-      Js.log("got " ++ agdaVersion)
       let storedPath = Config.getAgdaPath()->Option.mapWithDefault("", Js.String.trim)
       if storedPath == "" || storedPath == "." {
         Process.PathSearch.run(agdaVersion)
@@ -189,7 +243,65 @@ module Module = {
     ->Promise.tapOk(wire)
   }
 
-  let send = (request, self): unit => self.process.send(request)->ignore
+  let sendRequest = (connection, document, request): unit => {
+    let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
+    let libraryPath = Config.getLibraryPath()
+    let highlightingMethod = Config.getHighlightingMethod()
+    let backend = Config.getBackend()
+    let encoded = Request.encode(
+      document,
+      connection.metadata.version,
+      filepath,
+      backend,
+      libraryPath,
+      highlightingMethod,
+      request,
+    )
+    connection.process.send(encoded)->ignore
+  }
+
+  let onResponse = (connection, callback, callbackAfterNonLasts) => {
+    // deferred responses are queued here
+    let deferredLastResponses: array<(int, Response.t)> = []
+
+    // this promise get resolved after all Responses has been received from Agda
+    let (promise, stopListener) = Promise.pending()
+
+    let listener: result<response, Error.t> => unit = x =>
+      switch x {
+      | Error(error) => callback(Error(error))->ignore
+      | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
+        callback(Error(ResponseParseError(error)))->ignore
+      | Ok(Yield(Ok(NonLast(response)))) => Lock.runNonLast(callback(Ok(response)))
+      | Ok(Yield(Ok(Last(priority, response)))) =>
+        Js.Array.push((priority, response), deferredLastResponses)->ignore
+      | Ok(Stop) =>
+        // sort the deferred Responses by priority (ascending order)
+        let deferredLastResponses =
+          Js.Array.sortInPlaceWith(
+            (x, y) => compare(fst(x), fst(y)),
+            deferredLastResponses,
+          )->Array.map(snd)
+
+        // wait until all NonLast Responses are handled
+        Lock.onceDone()
+        // stop the Agda Response listener
+        ->Promise.tap(stopListener)
+        // apply decoration before handling Last Responses
+        ->Promise.flatMap(callbackAfterNonLasts)
+        ->Promise.map(() => deferredLastResponses->Array.map(res => callback(Ok(res))))
+        ->Promise.flatMap(Util.oneByOne)
+        ->ignore
+      }
+
+    let listenerHandle = ref(None)
+    // start listening for responses
+    listenerHandle := Some(connection.chan->Chan.on(listener))
+    // destroy the listener after all responses have been received
+    promise->Promise.tap(() =>
+      listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
+    )
+  }
 }
 
 include Module
