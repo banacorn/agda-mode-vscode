@@ -99,7 +99,7 @@ module Module: Module = {
 
   let setContent = (self, document, text) => {
     let innerRange = getInnerRange(self, document)
-    Editor.Text.replace(document, innerRange, " " ++ (text ++ " "))
+    Editor.Text.replace(document, innerRange, " " ++ text ++ " ")
   }
 
   let setCursor = (self, editor) => {
