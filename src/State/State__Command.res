@@ -54,9 +54,13 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         placeholder: Some("expression to give:"),
         value: None,
       }, expr =>
-        State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+        if expr == "" {
           sendAgdaRequest(Give(goal))
-        )
+        } else {
+          State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+            sendAgdaRequest(Give(goal))
+          )
+        }
       )
     | Some((goal, _)) => sendAgdaRequest(Give(goal))
     }
@@ -74,7 +78,15 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           body: None,
           placeholder: placeholder,
           value: None,
-        }, expr => {sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))})
+        }, expr =>
+          if expr == "" {
+            sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+          } else {
+            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+              sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+            )
+          }
+        )
       | Some((goal, expr)) => sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
       }
     }
