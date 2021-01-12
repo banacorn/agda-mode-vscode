@@ -237,7 +237,19 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | SwitchAgdaVersion =>
     Js.log("SwitchAgdaVersion")
-    Promise.resolved()
+    let oldAgdaVersion = Config.getAgdaVersion()
+    State.View.prompt(state, header, {
+      body: None,
+      placeholder: None,
+      value: Some(oldAgdaVersion),
+    }, expr => {
+      let oldAgdaPath = Config.getAgdaPath()
+      let newAgdaVersion = Js.String.trim(expr)
+      Config.setAgdaPath("")
+      ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
+      ->Promise.flatMap(() => State.Connection.disconnect(state))
+      ->Promise.flatMap(() => sendAgdaRequest(Load))
+    })
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved()

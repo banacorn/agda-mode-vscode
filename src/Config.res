@@ -10,7 +10,9 @@ let setAgdaVersion = path =>
     None,
   )
 let getAgdaVersion = () =>
-  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get("agdaVersion")
+  Workspace.getConfiguration(Some("agdaMode"), None)
+  ->WorkspaceConfiguration.get("agdaVersion")
+  ->Option.mapWithDefault("agda", Js.String.trim)
 
 // Agda path
 let setAgdaPath = path =>
@@ -20,7 +22,9 @@ let setAgdaPath = path =>
     None,
   )
 let getAgdaPath = () =>
-  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get("agdaPath")
+  Workspace.getConfiguration(Some("agdaMode"), None)
+  ->WorkspaceConfiguration.get("agdaPath")
+  ->Option.mapWithDefault("", Js.String.trim)
 
 // Library path
 let getLibraryPath = () => {

@@ -1,15 +1,3 @@
-// There are 2 kinds of Responses
-//  NonLast Response :
-//    * get handled first
-//    * don't invoke `sendAgdaRequest`
-//  Last Response :
-//    * have priorities, those with the smallest priority number are executed first
-//    * only get handled:
-//        1. after prompt has reappeared
-//        2. after all NonLast Responses
-//        3. after all interactive highlighting is complete
-//    * may invoke `sendAgdaRequest`
-
 open Belt
 
 module Error = {
@@ -31,9 +19,7 @@ module type Module = {
   type t
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => unit
-
   let onResponse: (t, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<unit>
-
   let sendRequest: (t, VSCode.TextDocument.t, Request.t) => unit
 }
 
@@ -207,12 +193,13 @@ module Module: Module = {
   }
 
   let make = () => {
-    // first, get the path from the config (stored in the Editor)
-    // if there's no stored path, find one from the OS
+    Js.log("Connection.make")
     let getPath = (): Promise.t<result<string, Error.t>> => {
-      let agdaVersion = Config.getAgdaVersion()->Option.mapWithDefault("agda", Js.String.trim)
-      let storedPath = Config.getAgdaPath()->Option.mapWithDefault("", Js.String.trim)
+      // first, get the path from the config (stored in the Editor)
+      let storedPath = Config.getAgdaPath()
       if storedPath == "" || storedPath == "." {
+        // if there's no stored path, find one from the OS (with the specified name)
+        let agdaVersion = Config.getAgdaVersion()
         Process.PathSearch.run(agdaVersion)
         ->Promise.mapOk(Js.String.trim)
         ->Promise.mapError(e => Error.PathSearch(e))
@@ -228,7 +215,10 @@ module Module: Module = {
     let args = ["--interaction"]
 
     getPath()
-    ->Promise.flatMapOk(path => Metadata.make(path, args))
+    ->Promise.flatMapOk(path => {
+      Js.log("trying to connect: " ++ path)
+      Metadata.make(path, args)
+    })
     ->Promise.flatMapOk(setPath)
     ->Promise.mapOk(metadata => {
       metadata: metadata,
@@ -263,6 +253,17 @@ module Module: Module = {
     // this promise get resolved after all Responses has been received from Agda
     let (promise, stopListener) = Promise.pending()
 
+    // There are 2 kinds of Responses
+    //  NonLast Response :
+    //    * get handled first
+    //    * don't invoke `sendAgdaRequest`
+    //  Last Response :
+    //    * have priorities, those with the smallest priority number are executed first
+    //    * only get handled:
+    //        1. after prompt has reappeared
+    //        2. after all NonLast Responses
+    //        3. after all interactive highlighting is complete
+    //    * may invoke `sendAgdaRequest`
     let listener: result<response, Error.t> => unit = x =>
       switch x {
       | Error(error) => callback(Error(error))->ignore

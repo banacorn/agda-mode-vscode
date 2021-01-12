@@ -109,7 +109,9 @@ module Validation = {
   let run = (path, validator: validator<'a>): Promise.t<result<'a, Error.t>> => {
     // parsing the parse error
     let parseError = (error: Js.Nullable.t<Js.Exn.t>): option<Error.t> =>
-      error->Js.Nullable.toOption->Option.map(err => {
+      error
+      ->Js.Nullable.toOption
+      ->Option.map(err => {
         let message = Option.getWithDefault(Js.Exn.message(err), "")
         if Js.Re.test_(%re("/No such file or directory/"), message) {
           Error.NotFound(err)
@@ -176,7 +178,7 @@ signal: $signal
     | DisconnectedByUser => ("Disconnected", "Connection disconnected by ourselves")
     | ShellError(error) => ("Socket error", Util.JsError.toString(error))
     | ExitedByProcess(code, signal, stderr) => (
-        "The process has crashed !",
+        "Agda has crashed !",
         j`exited with code: $code
   signal: $signal
   === message from stderr ===
@@ -282,6 +284,7 @@ let make = (path, args): t => {
   let disconnect = () =>
     switch process.contents {
     | Connected(process') =>
+      Js.log("Process.disconnect")
       // set the status to "Disconnecting"
       let (promise, resolve) = Promise.pending()
       process := Disconnecting(promise)
