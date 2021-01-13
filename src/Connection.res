@@ -18,7 +18,7 @@ module Error = {
 module type Module = {
   type t
   let make: unit => Promise.t<result<t, Error.t>>
-  let destroy: t => unit
+  let destroy: t => Promise.t<unit>
   let onResponse: (t, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<unit>
   let sendRequest: (t, VSCode.TextDocument.t, Request.t) => unit
 }
@@ -129,9 +129,9 @@ module Module: Module = {
   }
 
   let destroy = self => {
-    self.process->Process.disconnect |> ignore
     self.chan->Chan.destroy
     self.encountedFirstPrompt = false
+    self.process->Process.destroy
   }
 
   let wire = (self): unit => {
@@ -181,7 +181,7 @@ module Module: Module = {
     // listens to the "data" event on the stdout
     // The chunk may contain various fractions of the Agda output
     // TODO: handle the destructor
-    let _destructor = self.process->Process.onData(x =>
+    let _destructor = self.process->Process.onOutput(x =>
       switch x {
       | Stdout(rawText) =>
         // split the raw text into pieces and feed it to the parser
@@ -193,7 +193,6 @@ module Module: Module = {
   }
 
   let make = () => {
-    Js.log("Connection.make")
     let getPath = (): Promise.t<result<string, Error.t>> => {
       // first, get the path from the config (stored in the Editor)
       let storedPath = Config.getAgdaPath()
@@ -216,7 +215,6 @@ module Module: Module = {
 
     getPath()
     ->Promise.flatMapOk(path => {
-      Js.log("trying to connect: " ++ path)
       Metadata.make(path, args)
     })
     ->Promise.flatMapOk(setPath)

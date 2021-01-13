@@ -236,7 +236,6 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     | Some((goal, expr)) => sendAgdaRequest(WhyInScope(expr, goal))
     }
   | SwitchAgdaVersion =>
-    Js.log("SwitchAgdaVersion")
     let oldAgdaVersion = Config.getAgdaVersion()
     State.View.prompt(state, header, {
       body: None,
@@ -248,7 +247,33 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       Config.setAgdaPath("")
       ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
       ->Promise.flatMap(() => State.Connection.disconnect(state))
-      ->Promise.flatMap(() => sendAgdaRequest(Load))
+      ->Promise.flatMap(() =>
+        State.View.display(
+          state,
+          View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"),
+          View.Body.Nothing,
+        )
+      )
+      ->Promise.flatMap(() => State.Connection.connect(state))
+      ->Promise.flatMap(result =>
+        switch result {
+        | Error(error) =>
+          let (errorHeader, errorBody) = Connection.Error.toString(error)
+          let header = View.Header.Error(
+            "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
+          )
+          let body = View.Body.Plain(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)
+          Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
+            State.View.display(state, header, body)
+          )
+        | Ok(_) =>
+          State.View.display(
+            state,
+            View.Header.Success("Switched to '" ++ newAgdaVersion ++ "'"),
+            View.Body.Plain("Found '" ++ newAgdaVersion ++ "' at: " ++ Config.getAgdaPath()),
+          )
+        }
+      )
     })
   | EventFromView(event) =>
     switch event {

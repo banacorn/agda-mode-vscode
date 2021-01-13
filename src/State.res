@@ -168,11 +168,11 @@ module View: View = {
 //  Connection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module type Connection = {
+  let connect: state => Promise.t<result<Connection.t, Connection.Error.t>>
   let disconnect: state => Promise.t<unit>
   let sendRequest: (state, Response.t => Promise.t<unit>, Request.t) => Promise.t<unit>
 }
 module Connection: Connection = {
-  // connect if not connected yet
   let connect = state =>
     switch state.connection {
     | None => Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
@@ -182,8 +182,8 @@ module Connection: Connection = {
     switch state.connection {
     | None => Promise.resolved()
     | Some(connection) =>
+      state.connection = None
       Connection.destroy(connection)
-      Promise.resolved()
     }
 
   // helper function of `executeTask`

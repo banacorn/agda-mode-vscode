@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.2.4 - TBA
 
+### Added
+- #39: Switch to different versions of Agda
+
 ### Fixed
 - #7: Syntax highlighting not working after "wide" symbols in UTF-16
 - #41: Split cases without type the variable name, namely just hit the enter key cannot work at the first hit

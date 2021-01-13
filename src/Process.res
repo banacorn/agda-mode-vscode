@@ -200,11 +200,12 @@ module type Module = {
     | Error(Error.t)
 
   type t
-
+  // lifetime: same as the child process
   let make: (string, array<string>) => t
-  let disconnect: t => Promise.t<unit>
+  let destroy: t => Promise.t<unit>
+
   let send: (t, string) => result<unit, Error.t>
-  let onData: (t, output => unit, unit) => unit
+  let onOutput: (t, output => unit, unit) => unit
   let isConnected: t => bool
 }
 module Module: Module = {
@@ -220,7 +221,8 @@ module Module: Module = {
 
   type t = {
     chan: Chan.t<output>,
-    status: ref<status>,
+    mutable status: status,
+    mutable forcedExit: bool,
   }
 
   let make = (path, args): t => {
@@ -281,23 +283,24 @@ module Module: Module = {
     )
     |> ignore
 
-    {chan: chan, status: ref(Connected(process))}
+    {chan: chan, status: Connected(process), forcedExit: false}
   }
 
-  let disconnect = self =>
-    switch self.status.contents {
+  let destroy = self =>
+    switch self.status {
     | Connected(process) =>
-      Js.log("Process.disconnect")
       // set the status to "Disconnecting"
       let (promise, resolve) = Promise.pending()
-      self.status := Disconnecting(promise)
+      self.status = Disconnecting(promise)
+
+      self.forcedExit = true
 
       // listen to the `exit` event
       self.chan->Chan.on(x =>
         switch x {
         | Error(ExitedByProcess(_, _, _)) =>
           self.chan->Chan.destroy
-          self.status := Disconnected
+          self.status = Disconnected
           resolve()
         | _ => ()
         }
@@ -313,7 +316,7 @@ module Module: Module = {
     }
 
   let send = (self, request): result<unit, Error.t> =>
-    switch self.status.contents {
+    switch self.status {
     | Connected(process) =>
       let payload = Node.Buffer.fromString(request ++ "\n")
       // write
@@ -323,10 +326,21 @@ module Module: Module = {
     | _ => Error(Error.NotEstablishedYet)
     }
 
-  let onData = (self, callback) => self.chan->Chan.on(callback)
+  let onOutput = (self, callback) =>
+    self.chan->Chan.on(output =>
+      switch output {
+      | Error(Error.ExitedByProcess(_, _, _)) =>
+        if self.forcedExit {
+          self.forcedExit = false
+        } else {
+          callback(output)
+        }
+      | _ => callback(output)
+      }
+    )
 
   let isConnected = self =>
-    switch self.status.contents {
+    switch self.status {
     | Connected(_) => true
     | _ => false
     }
