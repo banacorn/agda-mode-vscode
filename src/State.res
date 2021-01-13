@@ -83,6 +83,7 @@ module Context = {
 
 module type View = {
   let activate: state => unit
+  let deactivate: unit => unit
   let reveal: unit => unit
   // display stuff
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
@@ -115,6 +116,8 @@ module View: View = {
       | Request(request, callback) => ViewController.sendRequest(request, callback)->ignore
       }
     )
+
+  let deactivate = () => ViewController.deactivate()
 
   let reveal = () => {
     ViewController.reveal()
@@ -242,6 +245,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.decoration->Decoration.destroy
   Context.setLoaded(false)
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
+  View.deactivate()
   state->Connection.disconnect
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
