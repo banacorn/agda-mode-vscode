@@ -26,6 +26,30 @@ let getAgdaPath = () =>
   ->WorkspaceConfiguration.get("agdaPath")
   ->Option.mapWithDefault("", Js.String.trim)
 
+// Panel mounting position
+type mountAt = Bottom | Right
+let setPanelMountingPosition = mountAt =>
+  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+    "panelMountPosition",
+    switch mountAt {
+    | Bottom => "bottom"
+    // | Left => "left"
+    | Right => "right"
+    },
+    None,
+  )
+let getPanelMountingPosition = () => {
+  let result =
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+      "panelMountPosition",
+    )
+  switch result {
+  // | Some("left") => Left
+  | Some("right") => Right
+  | _ => Bottom
+  }
+}
+
 // Library path
 let getLibraryPath = () => {
   let raw =

@@ -709,6 +709,16 @@
 					"scope": "machine-overridable",
 					"description": "Path to the executable of Agda, automatically inferred when possible. Overwrite to override."
 				},
+				"agdaMode.panelMountPosition": {
+					"type": "string",
+					"default": "bottom",
+					"enum": [
+						"bottom",
+						"right"
+					],
+					"scope": "machine-overridable",
+					"description": "Where to mount the panel"
+				},
 				"agdaMode.libraryPath": {
 					"type": "string",
 					"default": "",
