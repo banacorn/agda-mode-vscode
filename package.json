@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -21,11 +21,11 @@
 		"build": "npx bsb -clean-world && npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
 		"dev": "npm run build && webpack --mode development --watch & npx less-watch-compiler style/ dist/",
 		"vscode:prepublish": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
-		"test": "node lib/js/test/RunTestFromCLI.bs.js"
+		"test": "node lib/js/test/RunTestFromCLI.bs.js",
+		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
 		"bs-mocha": "^1.0.0",
-		"bs-platform": "^7.3.2",
 		"copy-webpack-plugin": "^6.0.3",
 		"glob": "^7.1.6",
 		"less-loader": "^5.0.0",
@@ -38,6 +38,7 @@
 	"dependencies": {
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"bs-nd": "^0.1.5",
+		"bs-platform": ">=8.4.2",
 		"bs-vscode": "github:banacorn/bs-vscode#v0.0.13",
 		"bs-webapi": "github:reasonml-community/bs-webapi-incubator#b3bbe0",
 		"compare-versions": "^3.5.1",
@@ -45,7 +46,7 @@
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-promise": ">=1.1.0",
-		"reason-react": "^0.9.1",
+		"reason-react": "github:banacorn/reason-react#d1c98ce",
 		"reason-react-update": "^2.0.0",
 		"untildify": "^4.0.0",
 		"vscode-codicons": "^0.0.7"
