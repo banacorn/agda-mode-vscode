@@ -12,7 +12,9 @@ let setAgdaVersion = path =>
 let getAgdaVersion = () =>
   Workspace.getConfiguration(Some("agdaMode"), None)
   ->WorkspaceConfiguration.get("agdaVersion")
-  ->Option.mapWithDefault("agda", Js.String.trim)
+  ->Option.map(Js.String.trim)
+  ->Option.flatMap(s => s == "" ? None : Some(s))
+  ->Option.getWithDefault("agda")
 
 // Agda path
 let setAgdaPath = path =>
