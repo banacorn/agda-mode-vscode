@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -25,6 +25,7 @@
 	},
 	"devDependencies": {
 		"bs-mocha": "^1.0.0",
+		"bs-platform": "^7.3.2",
 		"copy-webpack-plugin": "^6.0.3",
 		"glob": "^7.1.6",
 		"less-loader": "^5.0.0",
@@ -37,7 +38,6 @@
 	"dependencies": {
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"bs-nd": "^0.1.5",
-		"bs-platform": ">=8.4.2",
 		"bs-vscode": "github:banacorn/bs-vscode#v0.0.13",
 		"bs-webapi": "github:reasonml-community/bs-webapi-incubator#b3bbe0",
 		"compare-versions": "^3.5.1",
