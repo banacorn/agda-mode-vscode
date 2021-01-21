@@ -6,43 +6,32 @@ let isAgda = (filepath): bool => {
   Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), filepath)
 }
 
+// let shouldActivateExtension = () => {
+//   // there's a visible Agda file in the workplace
+//   let visible =
+//     VSCode.Window.visibleTextEditors
+//     ->Array.map(editor => editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName)
+//     ->Array.keep(isAgda)
+//     ->Array.length > 0
+//   // the view has not been activated
+//   let viewNotActivated = !ViewController.isActivated()
+//   visible && viewNotActivated
+// }
+
+let shouldDeactivateView = () => {
+  // Registry is not empty
+  let allClosed = Registry.size() === 0
+  // the view has been activated
+  let viewActivated = ViewController.isActivated()
+
+  allClosed && viewActivated
+}
+
 module EventHandler = {
-  let onActivateExtension = callback => {
-    // there's a visible Agda file in the workplace
-    let visible =
-      VSCode.Window.visibleTextEditors
-      ->Array.map(editor => editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName)
-      ->Array.keep(isAgda)
-      ->Array.length > 0
-    // should activate the view when there's a visible Agda file
-    let shouldAcitvateView = visible && !ViewController.isActivated()
-
-    if shouldAcitvateView {
-      callback()
-    }
-  }
-
-  let onDeactivateExtension = callback => {
-    // number of Agda States in the Registry
-    let openedCount = Registry.size()
-    // should deacitvate the view when all Agda States have been destroyed
-    let shouldDeacitvateView = openedCount === 0 && ViewController.isActivated()
-
-    if shouldDeacitvateView {
-      callback()
-    }
-  }
-
   let onOpenEditor = (_extensionPath, editor) => {
     let filePath = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
     // filter out ".agda.git" files
     if isAgda(filePath) {
-      // this callback will be invoked when the first editor is opened
-      onActivateExtension(() => {
-        // Client.start()->ignore
-        ()
-      })
-
       Registry.get(filePath)->Option.forEach(state => {
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
@@ -61,11 +50,10 @@ module EventHandler = {
     let filePath = VSCode.TextDocument.fileName(doc)
     if isAgda(filePath) {
       Registry.removeAndDestroy(filePath)
-      // this callback will be invoked after all editors have been closed
-      onDeactivateExtension(() => {
-        ViewController.deactivate()
-        // Client.stop()->ignore
-      })
+    }
+
+    if shouldDeactivateView() {
+      ViewController.deactivate()
     }
   }
 }
@@ -154,17 +142,20 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
 
 let activateWithoutContext = (subscriptions, extensionPath) => {
   let subscribe = x => x->Js.Array.push(subscriptions)->ignore
+  // Channel for testing, emits events when something has been completed,
+  // for example, when the input method has translated a key sequence into a symbol
+  let debugChan = Chan.make()
 
-  // on open
+  // on open editor
   VSCode.Window.activeTextEditor->Option.forEach(EventHandler.onOpenEditor(extensionPath))
   VSCode.Window.onDidChangeActiveTextEditor(.next =>
     next->Option.forEach(EventHandler.onOpenEditor(extensionPath))
   )->subscribe
 
-  // on close
+  // on close editor
   VSCode.Workspace.onDidCloseTextDocument(. EventHandler.onCloseEditor)->subscribe
 
-  // on trigger command
+  // on triggering commands
   let registerCommand = (name, callback) =>
     VSCode.Commands.registerCommand("agda-mode." ++ name, () =>
       VSCode.Window.activeTextEditor->Option.map(editor => {
@@ -173,11 +164,6 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
         callback(editor, fileName)
       })
     )
-
-  // Channel for testing, emits events when something has been completed,
-  // for example, when the input method has translated a key sequence into a symbol
-  let debugChan = Chan.make()
-
   Command.names->Array.forEach(((command, name)) =>
     registerCommand(name, (editor, fileName) =>
       if isAgda(fileName) {
