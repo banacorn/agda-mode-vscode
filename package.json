@@ -18,8 +18,8 @@
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"scripts": {
 		"clean": "npx bsb -clean-world",
-		"build": "npx bsb -clean-world && npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
-		"dev": "npm run build && webpack --mode development --watch & npx less-watch-compiler style/ dist/",
+		"build": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode development",
+		"dev": "webpack --mode development --watch & npx less-watch-compiler style/ dist/ & npx bsb -w",
 		"vscode:prepublish": "npx bsb -make-world && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js",
 		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
