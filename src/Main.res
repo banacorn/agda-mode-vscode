@@ -1,36 +1,41 @@
 open Belt
 
 // if end with '.agda' or '.lagda'
-let isAgda = (filepath): bool => {
-  let filepath = filepath->Parser.filepath
-  Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), filepath)
+let isAgda = (fileName): bool => {
+  let fileName = fileName->Parser.filepath
+  Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), fileName)
 }
 
-module EventHandler = {
-  let onOpenEditor = (_extensionPath, editor) => {
-    let filePath = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-    // filter out ".agda.git" files
-    if isAgda(filePath) {
-      Registry.get(filePath)->Option.forEach(state => {
-        // after switching tabs, the old editor would be "_disposed"
-        // we need to replace it with this new one
-        state.editor = editor
-        state.document = editor->VSCode.TextEditor.document
-        //
-        State__Command.dispatchCommand(state, Refresh)->ignore
-      })
-    }
+module Inputs: {
+  let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
+  let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
+  let onTriggerCommand: ((Command.t, VSCode.TextEditor.t) => Promise.t<unit>) => array<
+    VSCode.Disposable.t,
+  >
+} = {
+  let onOpenEditor = callback => {
+    VSCode.Window.activeTextEditor->Option.forEach(callback)
+    VSCode.Window.onDidChangeActiveTextEditor(.next => next->Option.forEach(callback))
   }
-
-  let onCloseEditor = doc => {
-    let filePath = VSCode.TextDocument.fileName(doc)
-    if isAgda(filePath) {
-      Registry.removeAndDestroy(filePath)
-    }
-    // deactivate the view accordingly
-    if Registry.size() == 0 && ViewController.isActivated() {
-      ViewController.deactivate()
-    }
+  let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(. callback)
+  // invoke the callback when:
+  //  1. the triggered command has prefix "agda-mode."
+  //  2. there's an active text edtior
+  //  3. the active text editor is an Agda file
+  let onTriggerCommand = callback => {
+    Command.names->Array.map(((command, name)) =>
+      VSCode.Commands.registerCommand("agda-mode." ++ name, () =>
+        VSCode.Window.activeTextEditor->Option.map(editor => {
+          let fileName =
+            editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+          if isAgda(fileName) {
+            callback(command, editor)
+          } else {
+            Promise.resolved()
+          }
+        })
+      )
+    )
   }
 }
 
@@ -42,6 +47,13 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
 
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, editor)
+
+  // remove it from the Registry if it requests to be destroyed
+  state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
+
+  ////////////////////////////////////////////////////////////////
+  // input events
+  ////////////////////////////////////////////////////////////////
 
   let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
 
@@ -67,9 +79,6 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
   })->subscribe
-
-  // remove it from the Registry if it requests to be destroyed
-  state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
 
   // definition provider for go-to-definition
   Editor.Provider.registerDefinitionProvider((fileName, position) => {
@@ -118,56 +127,51 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
 
 let activateWithoutContext = (subscriptions, extensionPath) => {
   let subscribe = x => x->Js.Array.push(subscriptions)->ignore
+  let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   let debugChan = Chan.make()
 
   // on open editor
-  VSCode.Window.activeTextEditor->Option.forEach(EventHandler.onOpenEditor(extensionPath))
-  VSCode.Window.onDidChangeActiveTextEditor(.next =>
-    next->Option.forEach(EventHandler.onOpenEditor(extensionPath))
-  )->subscribe
-
-  // on close editor
-  VSCode.Workspace.onDidCloseTextDocument(. EventHandler.onCloseEditor)->subscribe
+  Inputs.onOpenEditor(editor => {
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    // filter out ".agda.git" files
+    if isAgda(fileName) {
+      Registry.get(fileName)->Option.forEach(state => {
+        // after switching tabs, the old editor would be "_disposed"
+        // we need to replace it with this new one
+        state.editor = editor
+        state.document = editor->VSCode.TextEditor.document
+        //
+        State__Command.dispatchCommand(state, Refresh)->ignore
+      })
+    }
+  })->subscribe
 
   // on triggering commands
-  let registerCommand = (name, callback) =>
-    VSCode.Commands.registerCommand("agda-mode." ++ name, () =>
-      VSCode.Window.activeTextEditor->Option.map(editor => {
-        let fileName =
-          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
-        if isAgda(fileName) {
-          callback(editor, fileName)
-        } else {
-          Promise.resolved()
-        }
-      })
-    )
-  Command.names->Array.forEach(((command, name)) =>
-    registerCommand(name, (editor, fileName) => {
-      Js.log("[ command ] " ++ name)
-      // Commands like "Load", "InputMethod", "Quit", and "Restart" affects the Registry
-      switch command {
-      | Load
-      | InputMethod(Activate) =>
-        switch Registry.get(fileName) {
-        | None => makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
-        | Some(_) => () // already in the Registry, do nothing
-        }
-      | Quit => Registry.removeAndDestroy(fileName)
-      | Restart =>
-        Registry.removeAndDestroy(fileName)
-        makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
-      | _ => ()
-      }
-      // dispatch command
+  Inputs.onTriggerCommand((command, editor) => {
+    Js.log("[ command ] " ++ Command.toString(command))
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    // Commands like "Load", "InputMethod", "Quit", and "Restart" affects the Registry
+    switch command {
+    | Load
+    | InputMethod(Activate) =>
       switch Registry.get(fileName) {
-      | None => Promise.resolved()
-      | Some(state) => State__Command.dispatchCommand(state, command)
+      | None => makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
+      | Some(_) => () // already in the Registry, do nothing
       }
-    })->subscribe
-  )
+    | Quit => Registry.removeAndDestroy(fileName)
+    | Restart =>
+      Registry.removeAndDestroy(fileName)
+      makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
+    | _ => ()
+    }
+    // dispatch command
+    switch Registry.get(fileName) {
+    | None => Promise.resolved()
+    | Some(state) => State__Command.dispatchCommand(state, command)
+    }
+  })->subscribeMany
 
   // expose the channel for testing
   debugChan
