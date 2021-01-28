@@ -43,7 +43,7 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
   // see if the view should be activated
   let view = ViewController.Handle.make(extensionPath)
 
-  ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll())
+  ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, editor, view)
@@ -166,10 +166,10 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
   Inputs.onCloseDocument(document => {
     let filePath = VSCode.TextDocument.fileName(document)
     if isAgda(filePath) {
-      Registry.removeAndDestroy(filePath)
+      Registry.removeAndDestroy(filePath)->ignore
     }
     // deactivate the view accordingly
-    if Registry.size() == 0 {
+    if Registry.isEmpty() {
       ViewController.Handle.destroy()
     }
   })->subscribe
@@ -178,25 +178,35 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
   Inputs.onTriggerCommand((command, editor) => {
     Js.log("[ command ] " ++ Command.toString(command))
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-    // Commands like "Load", "InputMethod", "Quit", and "Restart" affects the Registry
+    // destroy
     switch command {
-    | Load
-    | InputMethod(Activate) =>
-      switch Registry.get(fileName) {
-      | None => makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
-      | Some(_) => () // already in the Registry, do nothing
-      }
-    | Quit => Registry.removeAndDestroy(fileName)
+    | Quit
     | Restart =>
       Registry.removeAndDestroy(fileName)
-      makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
-    | _ => ()
+    | _ => Promise.resolved()
     }
-    // dispatch command
-    switch Registry.get(fileName) {
-    | None => Promise.resolved()
-    | Some(state) => State__Command.dispatchCommand(state, command)
-    }
+    // make
+    ->Promise.flatMap(() =>
+      switch command {
+      | Load
+      | Restart
+      | InputMethod(Activate) =>
+        switch Registry.get(fileName) {
+        | None =>
+          makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
+          Promise.resolved()
+        | Some(_) => Promise.resolved() // already in the Registry, do nothing
+        }
+      | _ => Promise.resolved()
+      }
+    )
+    // dispatch
+    ->Promise.flatMap(() => {
+      switch Registry.get(fileName) {
+      | None => Promise.resolved()
+      | Some(state) => State__Command.dispatchCommand(state, command)
+      }
+    })
   })->subscribeMany
 
   // expose the channel for testing
