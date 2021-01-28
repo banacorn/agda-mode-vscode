@@ -41,12 +41,12 @@ module Inputs: {
 
 let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
   // see if the view should be activated
-  if !ViewController.isActivated() {
-    ViewController.activate(extensionPath)
-  }
+  let view = ViewController.Handle.make(extensionPath)
+
+  ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll())
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, editor)
+  let state = State.make(debugChan, editor, view)
 
   // remove it from the Registry if it requests to be destroyed
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -57,10 +57,24 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
 
   let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
 
-  // listens to events from the view and relay them as Commands
-  ViewController.onEvent(event =>
-    State__Command.dispatchCommand(state, EventFromView(event))->ignore
-  )->subscribe
+  let getCurrentEditor = () =>
+    switch VSCode.Window.activeTextEditor {
+    | Some(editor) => Some(editor)
+    | None => VSCode.Window.visibleTextEditors[0]
+    }
+
+  state.view
+  ->ViewController.onEvent(event => {
+    switch getCurrentEditor() {
+    | Some(editor') =>
+      let fileName' = editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+      if fileName' == fileName {
+        State__Command.dispatchCommand(state, Command.EventFromView(event))->ignore
+      }
+    | None => ()
+    }
+  })
+  ->subscribe
 
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(.event => {
@@ -145,6 +159,18 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
         //
         State__Command.dispatchCommand(state, Refresh)->ignore
       })
+    }
+  })->subscribe
+
+  // on close editor
+  Inputs.onCloseDocument(document => {
+    let filePath = VSCode.TextDocument.fileName(document)
+    if isAgda(filePath) {
+      Registry.removeAndDestroy(filePath)
+    }
+    // deactivate the view accordingly
+    if Registry.size() == 0 {
+      ViewController.Handle.destroy()
     }
   })->subscribe
 

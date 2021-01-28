@@ -346,59 +346,34 @@ module PanelController: PanelController = {
   let focus = view => view.panel->Panel.focus
 }
 
-module type Controller = {
-  type t
+module type Handle = {
   // methods
-  let activate: string => unit
-  let deactivate: unit => unit
-  let isActivated: unit => bool
-
-  let sendRequest: (View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
-  let sendEvent: View.EventToView.t => Promise.t<unit>
-  let onEvent: (View.EventFromView.t => unit) => VSCode.Disposable.t
-
-  let reveal: unit => unit
-  let focus: unit => unit
-}
-module Controller: Controller = {
-  type t = ref<option<PanelController.t>>
-  let panel = ref(None)
-
-  let sendRequest = (req, callback) =>
-    switch panel.contents {
-    | None => Promise.resolved()
-    | Some(panel) => PanelController.sendRequest(panel, req, callback)
-    }
-  let sendEvent = event =>
-    switch panel.contents {
-    | None => Promise.resolved()
-    | Some(panel) => PanelController.sendEvent(panel, event)
-    }
-
-  let onEvent = callback =>
-    switch panel.contents {
-    | None => VSCode.Disposable.make(() => ())
-    | Some(panel) => panel->PanelController.onEvent(callback)
-    }
-
-  let activate = extensionPath => {
-    let instance = PanelController.make(extensionPath)
-    panel := Some(instance)
-    // free the handle when the view has been forcibly destructed
-    PanelController.onceDestroyed(instance)->Promise.get(() => {
-      panel := None
-    })
-  }
-
-  let deactivate = () => {
-    panel.contents->Option.forEach(PanelController.destroy)
-    panel := None
-  }
-
-  let isActivated = () => panel.contents->Option.isSome
-
-  let reveal = () => panel.contents->Option.forEach(PanelController.reveal)
-  let focus = () => panel.contents->Option.forEach(PanelController.focus)
+  let make: string => PanelController.t
+  let destroy: unit => unit
 }
 
-include Controller
+module Handle: Handle = {
+  let handle: ref<option<PanelController.t>> = ref(None)
+  let chan = Chan.make()
+
+  let make = extensionPath =>
+    switch handle.contents {
+    | None =>
+      let panel = PanelController.make(extensionPath)
+      chan->Chan.emit(panel)
+      handle := Some(panel)
+      // free the handle when the view has been forcibly destructed
+      PanelController.onceDestroyed(panel)->Promise.get(() => {
+        handle := None
+      })
+      panel
+    | Some(panel) => panel
+    }
+
+  let destroy = () => {
+    handle.contents->Option.forEach(PanelController.destroy)
+    handle := None
+  }
+}
+
+include PanelController

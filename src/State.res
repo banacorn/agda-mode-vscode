@@ -53,6 +53,7 @@ type viewCache =
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
+  view: ViewController.t,
   mutable connection: option<Connection.t>,
   mutable viewCache: option<viewCache>,
   mutable goals: array<Goal.t>,
@@ -83,8 +84,7 @@ module Context = {
 
 module type View = {
   let activate: state => unit
-  let deactivate: unit => unit
-  let reveal: unit => unit
+  let reveal: state => unit
   // display stuff
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
   let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
@@ -102,25 +102,24 @@ module type View = {
 module View: View = {
   let sendEvent = (state, event) => {
     state.viewCache = Some(Event(event))
-    ViewController.sendEvent(event)
+    state.view->ViewController.sendEvent(event)
   }
   let sendRequest = (state, request, callback) => {
     state.viewCache = Some(Request(request, callback))
-    ViewController.sendRequest(request, callback)
+    state.view->ViewController.sendRequest(request, callback)
   }
 
   let activate = state =>
     state.viewCache->Option.forEach(content =>
       switch content {
-      | Event(event) => ViewController.sendEvent(event)->ignore
-      | Request(request, callback) => ViewController.sendRequest(request, callback)->ignore
+      | Event(event) => state.view->ViewController.sendEvent(event)->ignore
+      | Request(request, callback) =>
+        state.view->ViewController.sendRequest(request, callback)->ignore
       }
     )
 
-  let deactivate = () => ViewController.deactivate()
-
-  let reveal = () => {
-    ViewController.reveal()
+  let reveal = state => {
+    state.view->ViewController.reveal
     Context.setLoaded(true)
   }
 
@@ -149,7 +148,7 @@ module View: View = {
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)
-    ViewController.focus()
+    state.view->ViewController.focus
 
     // send request to view
     sendRequest(state, Prompt(header, prompt), response =>
@@ -245,18 +244,18 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.decoration->Decoration.destroy
   Context.setLoaded(false)
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  View.deactivate()
   state->Connection.disconnect
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, editor) => {
+let make = (chan, editor, view) => {
   Context.setLoaded(true)
 
   {
     editor: editor,
     document: VSCode.TextEditor.document(editor),
     connection: None,
+    view: view,
     viewCache: None,
     goals: [],
     decoration: Decoration.make(),

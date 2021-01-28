@@ -29,9 +29,8 @@ let removeAndDestroy = fileName => {
   get(fileName)->Option.forEach(state => State.destroy(state, false)->ignore)
   remove(fileName)
 }
-
-let contains = fileName => get(fileName)->Option.isSome
+let removeAndDestroyAll = () => {
+  dict->Js.Dict.keys->Array.forEach(removeAndDestroy)
+}
 
 let size = () => Js.Dict.keys(dict)->Array.length
-
-let keys = () => Js.Dict.keys(dict)
