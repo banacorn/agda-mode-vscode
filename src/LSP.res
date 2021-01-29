@@ -183,7 +183,7 @@ module Client: Client = {
     ->LanguageClient.onReady
     ->Promise.Js.toResult
     ->Promise.flatMapOk(() => {
-      self.client->LanguageClient.sendRequest("guacamole", data)->Promise.Js.toResult
+      self.client->LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
     })
 
   let destroy = self => {
@@ -197,7 +197,7 @@ module Client: Client = {
     let serverOptions =
       method == ViaTCP
         ? ServerOptions.makeWithStreamInfo(3000)
-        : ServerOptions.makeWithCommand("gcl")
+        : ServerOptions.makeWithCommand("als")
 
     let clientOptions = {
       // Register the server for plain text documents
@@ -207,7 +207,7 @@ module Client: Client = {
           {
             scheme: Some("file"),
             pattern: None,
-            language: Some("guacamole"),
+            language: Some("agda"),
           }
         }),
       ]
@@ -230,15 +230,15 @@ module Client: Client = {
               DoNotRestart
             },
           )
-        : ErrorHandler.makeDefault("Guacamole", 3)
+        : ErrorHandler.makeDefault("Agda", 3)
 
       LanguageClientOptions.make(documentSelector, synchronize, errorHandler)
     }
 
     // Create the language client
     let languageClient = LanguageClient.make(
-      "guacamoleLanguageServer",
-      "Guacamole Language Server",
+      "agdaLanguageServer",
+      "Agda Language Server",
       serverOptions,
       clientOptions,
     )
@@ -260,7 +260,7 @@ module Client: Client = {
         // NOTE: somehow `onNotification` gets called TWICE everytime
         // This flag is for filtering out half of the Notifications
         let flag = ref(true)
-        self.client->LanguageClient.onNotification("guacamole", json => {
+        self.client->LanguageClient.onNotification("agda", json => {
           if flag.contents {
             dataChan->Chan.emit(json)
             flag := false

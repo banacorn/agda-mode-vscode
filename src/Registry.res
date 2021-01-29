@@ -6,12 +6,9 @@ module Module: {
   let removeAndDestroyAll: unit => Promise.t<unit>
   let isEmpty: unit => bool
 
-  let onActivate: (unit => unit) => VSCode.Disposable.t
   let onDeactivate: (unit => unit) => VSCode.Disposable.t
 } = {
   open Belt
-
-  let willAddChan = Chan.make()
   let didRemoveChan = Chan.make()
 
   // a dictionary of FileName-State entries
@@ -23,9 +20,7 @@ module Module: {
   let add = (fileName, state) =>
     switch get(fileName) {
     | Some(_) => ()
-    | None =>
-      willAddChan->Chan.emit()
-      dict->Js.Dict.set(fileName, state)
+    | None => dict->Js.Dict.set(fileName, state)
     }
 
   // let rename = (oldName, newName) => {
@@ -55,15 +50,6 @@ module Module: {
   }
 
   let isEmpty = () => Js.Dict.keys(dict)->Array.length == 0
-
-  let onActivate = callback =>
-    willAddChan
-    ->Chan.on(() =>
-      if isEmpty() {
-        callback()
-      }
-    )
-    ->VSCode.Disposable.make
 
   let onDeactivate = callback =>
     didRemoveChan

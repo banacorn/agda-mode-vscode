@@ -39,13 +39,40 @@ module Inputs: {
   }
 }
 
-let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
-  let view = ViewController.Handle.make(extensionPath)
+let initialize = () =>
+  if Registry.isEmpty() {
+    // keybinding: so that most of the commands will work only after agda-mode:load
+    VSCode.Commands.setContext("agdaMode", true)->ignore
+    // start the Agda Language Server
+    if Config.useAgdaLanguageServer() {
+      Js.log("[LSP] Locating the language server ...")
+      LSP.find()->Promise.flatMap(result =>
+        switch result {
+        | Error(error) =>
+          // cannot find the Agda Language Server
+          Js.log("[LSP] " ++ snd(Connection.Error.toString(error)))
+          Promise.resolved(false)
+        | Ok(path) =>
+          Js.log("[LSP] Found server at: " ++ path)
+          let devMode = false
+          LSP.start(devMode)
+        }
+      )
+    } else {
+      Promise.resolved(false)
+    }
+  } else if Config.useAgdaLanguageServer() {
+    Promise.resolved(LSP.isConnected())
+  } else {
+    Promise.resolved(false)
+  }
 
+let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName, useAgdaLanguageServer) => {
+  let view = ViewController.Handle.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, editor, view)
+  let state = State.make(debugChan, editor, view, useAgdaLanguageServer)
 
   // remove it from the Registry if it requests to be destroyed
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -188,8 +215,10 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          makeAndAddToRegistry(debugChan, extensionPath, editor, fileName)
-          Promise.resolved()
+          initialize()->Promise.map(
+            makeAndAddToRegistry(debugChan, extensionPath, editor, fileName),
+          )
+
         | Some(_) => Promise.resolved() // already in the Registry, do nothing
         }
       | _ => Promise.resolved()
@@ -204,11 +233,11 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
     })
   })->subscribeMany
 
-  // before the first Agda file is about to be opened and loaded
-  Registry.onActivate(() => {
-    // keybinding: so that most of the commands will work only after agda-mode:load
-    VSCode.Commands.setContext("agdaMode", true)->ignore
-  })->subscribe
+  // // before the first Agda file is about to be opened and loaded
+  // Registry.onActivate(() => {
+  //   // keybinding: so that most of the commands will work only after agda-mode:load
+  //   VSCode.Commands.setContext("agdaMode", true)->ignore
+  // })->subscribe
 
   // after the last Agda file has benn closed
   Registry.onDeactivate(() => {

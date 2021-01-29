@@ -54,7 +54,7 @@ type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   view: ViewController.t,
-  mutable connection: option<Connection.t>,
+  mutable connection: option<Connection.Emacs.t>,
   mutable viewCache: option<viewCache>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
@@ -66,6 +66,8 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
   mutable agdaRequestQueue: RequestQueue.t,
+  // This flag is enabled if we can locate the Agda Language Server
+  useAgdaLanguageServer: bool,
 }
 type state = t
 
@@ -167,7 +169,7 @@ module View: View = {
 //  Connection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module type Connection = {
-  let connect: state => Promise.t<result<Connection.t, Connection.Error.t>>
+  let connect: state => Promise.t<result<Connection.Emacs.t, Connection.Error.t>>
   let disconnect: state => Promise.t<unit>
   let sendRequest: (state, Response.t => Promise.t<unit>, Request.t) => Promise.t<unit>
 }
@@ -175,23 +177,11 @@ module Connection: Connection = {
   let connect = state =>
     switch state.connection {
     | None =>
-      if Config.useAgdaLanguageServer() {
+      if state.useAgdaLanguageServer {
         Js.log("[LSP] Enabled")
-        LSP.find()->Promise.flatMap(result =>
-          switch result {
-          | Error(error) =>
-            // cannot find the Agda Language Server, fallback to the Agda executable
-            Js.log(Connection.Error.toString(error))
-            Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
-          | Ok(path) =>
-            Js.log("[LSP] Found server at: " ++ path)
-            LSP.start(false)->Promise.flatMap(_ =>
-              Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
-            )
-          }
-        )
+        Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
       } else {
-        Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
+        Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
       }
     | Some(connection) => Promise.resolved(Ok(connection))
     }
@@ -200,10 +190,9 @@ module Connection: Connection = {
     | None => Promise.resolved()
     | Some(connection) =>
       state.connection = None
-      Connection.destroy(connection)
+      Connection.Emacs.destroy(connection)
     }
 
-  // helper function of `executeTask`
   let sendRequestAndHandleResponses = (
     state: state,
     handleResponse: Response.t => Promise.t<unit>,
@@ -225,8 +214,8 @@ module Connection: Connection = {
     ->Promise.flatMap(x =>
       switch x {
       | Ok(connection) =>
-        let promise = Connection.onResponse(connection, handleResult)
-        Connection.sendRequest(connection, state.document, request)
+        let promise = Connection.Emacs.onResponse(connection, handleResult)
+        Connection.Emacs.sendRequest(connection, state.document, request)
         promise
       | Error(error) => View.displayConnectionError(state, error)
       }
@@ -262,7 +251,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, editor, view) => {
+let make = (chan, editor, view, useAgdaLanguageServer) => {
   {
     editor: editor,
     document: VSCode.TextEditor.document(editor),
@@ -277,5 +266,6 @@ let make = (chan, editor, view) => {
     subscriptions: [],
     onRemoveFromRegistry: Chan.make(),
     agdaRequestQueue: RequestQueue.make(),
+    useAgdaLanguageServer: useAgdaLanguageServer,
   }
 }
