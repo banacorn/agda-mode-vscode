@@ -5,8 +5,11 @@ module Module: {
   let removeAndDestroy: string => Promise.t<unit>
   let removeAndDestroyAll: unit => Promise.t<unit>
   let isEmpty: unit => bool
+  let onRemove: (unit => unit) => VSCode.Disposable.t
 } = {
   open Belt
+
+  let chan = Chan.make()
 
   // a dictionary of FileName-State entries
   let dict: Js.Dict.t<State.t> = Js.Dict.empty()
@@ -32,6 +35,7 @@ module Module: {
   let remove = fileName => {
     let delete_: (Js.Dict.t<'a>, string) => unit = %raw("function (dict, key) {delete dict[key]}")
     delete_(dict, fileName)
+    chan->Chan.emit()
   }
   let removeAndDestroy = fileName =>
     switch get(fileName) {
@@ -46,6 +50,8 @@ module Module: {
   }
 
   let isEmpty = () => Js.Dict.keys(dict)->Array.length == 0
+
+  let onRemove = callback => chan->Chan.on(callback)->VSCode.Disposable.make
 }
 
 include Module

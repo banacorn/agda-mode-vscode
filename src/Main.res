@@ -168,10 +168,6 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
     if isAgda(filePath) {
       Registry.removeAndDestroy(filePath)->ignore
     }
-    // deactivate the view accordingly
-    if Registry.isEmpty() {
-      ViewController.Handle.destroy()
-    }
   })->subscribe
 
   // on triggering commands
@@ -208,6 +204,13 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       }
     })
   })->subscribeMany
+
+  Registry.onRemove(() => {
+    // deactivate the view accordingly
+    if Registry.isEmpty() {
+      ViewController.Handle.destroy()
+    }
+  })->subscribe
 
   // expose the channel for testing
   debugChan
