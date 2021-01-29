@@ -9,14 +9,16 @@ module Decode = {
     | Contents(decoder<'a>)
     | TagOnly('a)
 
-  let sum = decoder => field("tag", string) |> andThen(tag =>
+  let sum = decoder =>
+    field("tag", string) |> andThen(tag =>
       switch decoder(tag) {
       | Contents(d) => field("contents", d)
       | TagOnly(d) => _ => d
       }
     )
 
-  let maybe: decoder<'a> => decoder<option<'a>> = decoder => sum(x =>
+  let maybe: decoder<'a> => decoder<option<'a>> = decoder =>
+    sum(x =>
       switch x {
       | "Just" => Contents(json => Some(decoder(json)))
       | _ => TagOnly(None)

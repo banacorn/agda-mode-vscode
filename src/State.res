@@ -174,7 +174,25 @@ module type Connection = {
 module Connection: Connection = {
   let connect = state =>
     switch state.connection {
-    | None => Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
+    | None =>
+      if Config.useAgdaLanguageServer() {
+        Js.log("[LSP] Enabled")
+        LSP.find()->Promise.flatMap(result =>
+          switch result {
+          | Error(error) =>
+            // cannot find the Agda Language Server, fallback to the Agda executable
+            Js.log(Connection.Error.toString(error))
+            Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
+          | Ok(path) =>
+            Js.log("[LSP] Found server at: " ++ path)
+            LSP.start(false)->Promise.flatMap(_ =>
+              Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
+            )
+          }
+        )
+      } else {
+        Connection.make()->Promise.tapOk(conn => state.connection = Some(conn))
+      }
     | Some(connection) => Promise.resolved(Ok(connection))
     }
   let disconnect = state =>

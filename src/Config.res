@@ -28,6 +28,18 @@ let getAgdaPath = () =>
   ->WorkspaceConfiguration.get("agdaPath")
   ->Option.mapWithDefault("", Js.String.trim)
 
+// Agda Language Server
+let useAgdaLanguageServer = () => {
+  let raw =
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+      "agdaLanguageServer",
+    )
+  switch raw {
+  | Some(true) => true
+  | _ => false
+  }
+}
+
 // Panel mounting position
 type mountAt = Bottom | Right
 let setPanelMountingPosition = mountAt =>
