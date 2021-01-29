@@ -40,7 +40,6 @@ module Inputs: {
 }
 
 let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName) => {
-  // see if the view should be activated
   let view = ViewController.Handle.make(extensionPath)
 
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
@@ -205,20 +204,18 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
     })
   })->subscribeMany
 
-  Registry.onWillAdd(() => {
-    if Registry.isEmpty() {
-      // most of the commands will work only after agda-mode:load
-      VSCode.Commands.setContext("agdaMode", true)->ignore
-    }
+  // before the first Agda file is about to be opened and loaded
+  Registry.onActivate(() => {
+    // keybinding: so that most of the commands will work only after agda-mode:load
+    VSCode.Commands.setContext("agdaMode", true)->ignore
   })->subscribe
 
-  Registry.onDidRemove(() => {
-    if Registry.isEmpty() {
-      // most of the commands will work only after agda-mode:load
-      VSCode.Commands.setContext("agdaMode", false)->ignore
-      // deactivate the view accordingly
-      ViewController.Handle.destroy()
-    }
+  // after the last Agda file has benn closed
+  Registry.onDeactivate(() => {
+    // keybinding: disable most of the command bindings
+    VSCode.Commands.setContext("agdaMode", false)->ignore
+    // deactivate the view accordingly
+    ViewController.Handle.destroy()
   })->subscribe
 
   // expose the channel for testing

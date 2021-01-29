@@ -5,8 +5,9 @@ module Module: {
   let removeAndDestroy: string => Promise.t<unit>
   let removeAndDestroyAll: unit => Promise.t<unit>
   let isEmpty: unit => bool
-  let onDidRemove: (unit => unit) => VSCode.Disposable.t
-  let onWillAdd: (unit => unit) => VSCode.Disposable.t
+
+  let onActivate: (unit => unit) => VSCode.Disposable.t
+  let onDeactivate: (unit => unit) => VSCode.Disposable.t
 } = {
   open Belt
 
@@ -55,8 +56,23 @@ module Module: {
 
   let isEmpty = () => Js.Dict.keys(dict)->Array.length == 0
 
-  let onDidRemove = callback => didRemoveChan->Chan.on(callback)->VSCode.Disposable.make
-  let onWillAdd = callback => willAddChan->Chan.on(callback)->VSCode.Disposable.make
+  let onActivate = callback =>
+    willAddChan
+    ->Chan.on(() =>
+      if isEmpty() {
+        callback()
+      }
+    )
+    ->VSCode.Disposable.make
+
+  let onDeactivate = callback =>
+    didRemoveChan
+    ->Chan.on(() =>
+      if isEmpty() {
+        callback()
+      }
+    )
+    ->VSCode.Disposable.make
 }
 
 include Module

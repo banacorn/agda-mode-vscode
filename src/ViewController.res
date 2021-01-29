@@ -354,13 +354,10 @@ module type Handle = {
 
 module Handle: Handle = {
   let handle: ref<option<PanelController.t>> = ref(None)
-  let chan = Chan.make()
-
   let make = extensionPath =>
     switch handle.contents {
     | None =>
       let panel = PanelController.make(extensionPath)
-      chan->Chan.emit(panel)
       handle := Some(panel)
       // free the handle when the view has been forcibly destructed
       PanelController.onceDestroyed(panel)->Promise.get(() => {
