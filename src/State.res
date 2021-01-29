@@ -71,8 +71,6 @@ type state = t
 
 // control the scope of command key-binding
 module Context = {
-  // most of the commands will work only after agda-mode:load
-  let setLoaded = value => VSCode.Commands.setContext("agdaMode", value)->ignore
   // input method related key-bindings
   let setPrompt = value => VSCode.Commands.setContext("agdaModePrompting", value)->ignore
   let setIM = value => VSCode.Commands.setContext("agdaModeTyping", value)->ignore
@@ -120,7 +118,6 @@ module View: View = {
 
   let reveal = state => {
     state.view->ViewController.reveal
-    Context.setLoaded(true)
   }
 
   // display stuff
@@ -242,15 +239,12 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
   state.decoration->Decoration.destroy
-  Context.setLoaded(false)
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   state->Connection.disconnect
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
 let make = (chan, editor, view) => {
-  Context.setLoaded(true)
-
   {
     editor: editor,
     document: VSCode.TextEditor.document(editor),

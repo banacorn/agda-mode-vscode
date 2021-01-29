@@ -24,7 +24,7 @@ module Inputs: {
   //  3. the active text editor is an Agda file
   let onTriggerCommand = callback => {
     Command.names->Array.map(((command, name)) =>
-      VSCode.Commands.registerCommand("agda-mode." ++ name, () =>
+      VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
         VSCode.Window.activeTextEditor->Option.map(editor => {
           let fileName =
             editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
@@ -34,7 +34,7 @@ module Inputs: {
             Promise.resolved()
           }
         })
-      )
+      })
     )
   }
 }
@@ -205,9 +205,18 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
     })
   })->subscribeMany
 
-  Registry.onRemove(() => {
-    // deactivate the view accordingly
+  Registry.onWillAdd(() => {
     if Registry.isEmpty() {
+      // most of the commands will work only after agda-mode:load
+      VSCode.Commands.setContext("agdaMode", true)->ignore
+    }
+  })->subscribe
+
+  Registry.onDidRemove(() => {
+    if Registry.isEmpty() {
+      // most of the commands will work only after agda-mode:load
+      VSCode.Commands.setContext("agdaMode", false)->ignore
+      // deactivate the view accordingly
       ViewController.Handle.destroy()
     }
   })->subscribe
