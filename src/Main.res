@@ -39,11 +39,13 @@ module Inputs: {
   }
 }
 
-let initiateConnection = () =>
+// TODO: refactor this
+let initiateConnection = (): Promise.t<result<State.connType, Connection.Error.t>> =>
   // before the first Agda file is about to be opened and loaded
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
     VSCode.Commands.setContext("agdaMode", true)->ignore
+
     // start the Agda Language Server
     if Config.useAgdaLanguageServer() {
       Js.log("[LSP] Locating the language server ...")
@@ -52,36 +54,47 @@ let initiateConnection = () =>
         | Error(error) =>
           // cannot find the Agda Language Server
           Js.log("[LSP] " ++ snd(Connection.Error.toString(error)))
-          Promise.resolved(None)
+          Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
         | Ok(path) =>
           Js.log("[LSP] Found server at: " ++ path)
           let devMode = false
-          LSP.start(devMode)
+          LSP.start(devMode)->Promise.flatMap(result =>
+            switch result {
+            | None => Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+            | Some(version) => Promise.resolved(Ok(State.LSP(version)))
+            }
+          )
         }
       )
     } else {
-      Promise.resolved(None)
+      Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
     }
   } else if Config.useAgdaLanguageServer() {
-    Promise.resolved(LSP.getVersion())
+    switch LSP.getVersion() {
+    | None => Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+    | Some(version) => Promise.resolved(Ok(State.LSP(version)))
+    }
   } else {
-    Promise.resolved(None)
+    Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
   }
 
 // TODO: rename `initialize2`
-let initialize2 = (debugChan, extensionPath, editor, fileName, lspConnectionResult) => {
+let initialize2 = (
+  debugChan,
+  extensionPath,
+  editor,
+  fileName,
+  connection: result<State.connType, Connection.Error.t>,
+) => {
   let view = ViewController.Handle.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
-  let useAgdaLanguageServer = switch lspConnectionResult {
-  | None => false
-  | Some(version) =>
-    Js.log("[LSP] Server version: " ++ version)
-    true
-  }
-
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, editor, view, useAgdaLanguageServer)
+  let connection = switch connection {
+  | Error(_) => State.Nothing
+  | Ok(conn) => conn
+  }
+  let state = State.make(debugChan, editor, view, connection)
 
   // remove it from the Registry if it requests to be destroyed
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -238,6 +251,14 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
         switch Registry.get(fileName) {
         | None =>
           initiateConnection()->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
+        // initiateConnection()->Promise.map(result =>
+        //   switch result {
+        //   | Error(error) =>
+        //     let (head, body) = Connection.Error.toString(error)
+        //     State.View.display(state, Error(head), Plain(body))
+        //   | Ok(conn) => initialize2(debugChan, extensionPath, editor, fileName, conn)
+        //   }
+        // )
         | Some(_) => Promise.resolved() // already in the Registry, do nothing
         }
       | _ => Promise.resolved()

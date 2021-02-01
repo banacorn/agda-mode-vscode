@@ -6,12 +6,14 @@ module Error = {
     | Validation(Process.Validation.Error.t)
     | Process(Process.Error.t)
     | ResponseParseError(Parser.Error.t)
+    | NotConnectedYet
   let toString = x =>
     switch x {
     | PathSearch(e) => Process.PathSearch.Error.toString(e)
     | Validation(e) => Process.Validation.Error.toString(e)
     | Process(e) => Process.Error.toString(e)
     | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
+    | NotConnectedYet => ("Connection not established yet", "")
     }
 }
 

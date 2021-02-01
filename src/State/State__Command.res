@@ -246,7 +246,6 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       let newAgdaVersion = Js.String.trim(expr)
       Config.setAgdaPath("")
       ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
-      ->Promise.flatMap(() => State.Connection.disconnect(state))
       ->Promise.flatMap(() =>
         State.View.display(
           state,
@@ -254,7 +253,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           View.Body.Nothing,
         )
       )
-      ->Promise.flatMap(() => State.Connection.connect(state))
+      ->Promise.flatMap(() => State.Connection.reconnect(state))
       ->Promise.flatMap(result =>
         switch result {
         | Error(error) =>

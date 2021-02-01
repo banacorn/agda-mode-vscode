@@ -47,6 +47,9 @@ module RequestQueue: {
   }
 }
 
+type connType = Emacs(Connection.Emacs.t) | LSP(LSP.Response.version) | Nothing
+// type connType = Emacs(Connection.Emacs.t) | LSP(LSP.Client.t, LSP.Response.version)
+
 type viewCache =
   Event(View.EventToView.t) | Request(View.Request.t, View.Response.t => Promise.t<unit>)
 
@@ -54,7 +57,7 @@ type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   view: ViewController.t,
-  mutable connection: option<Connection.Emacs.t>,
+  mutable connection: connType,
   mutable viewCache: option<viewCache>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
@@ -66,8 +69,6 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
   mutable agdaRequestQueue: RequestQueue.t,
-  // This flag is enabled if we can locate the Agda Language Server
-  useAgdaLanguageServer: bool,
 }
 type state = t
 
@@ -169,28 +170,43 @@ module View: View = {
 //  Connection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module type Connection = {
-  let connect: state => Promise.t<result<Connection.Emacs.t, Connection.Error.t>>
-  let disconnect: state => Promise.t<unit>
+  let reconnect: state => Promise.t<result<Connection.Emacs.t, Connection.Error.t>>
+  let destroy: state => Promise.t<unit>
   let sendRequest: (state, Response.t => Promise.t<unit>, Request.t) => Promise.t<unit>
 }
 module Connection: Connection = {
-  let connect = state =>
+  // let connect = state =>
+  //   switch state.connection {
+  //   | None =>
+  //     switch state.agdaLanguageServerVersion {
+  //     | None => Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
+  //     | Some(version) =>
+  //       Js.log("[LSP] Connecting with agda-" ++ version)
+  //       Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
+  //     }
+  //   | Some(connection) => Promise.resolved(Ok(connection))
+  //   }
+  // let disconnect = state =>
+  //   switch state.connection {
+  //   | None => Promise.resolved()
+  //   | Some(connection) =>
+  //     state.connection = None
+  //     Connection.Emacs.destroy(connection)
+  //   }
+
+  let reconnect = state =>
     switch state.connection {
-    | None =>
-      if state.useAgdaLanguageServer {
-        Js.log("[LSP] Enabled")
-        Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
-      } else {
-        Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
-      }
-    | Some(connection) => Promise.resolved(Ok(connection))
+    | Emacs(conn) =>
+      Connection.Emacs.destroy(conn)
+      ->Promise.flatMap(Connection.Emacs.make)
+      ->Promise.tapOk(conn => state.connection = Emacs(conn))
+    | _ => Promise.resolved(Error(Connection.Error.NotConnectedYet))
     }
-  let disconnect = state =>
+
+  let destroy = state =>
     switch state.connection {
-    | None => Promise.resolved()
-    | Some(connection) =>
-      state.connection = None
-      Connection.Emacs.destroy(connection)
+    | Emacs(conn) => conn->Connection.Emacs.destroy
+    | _ => Promise.resolved()
     }
 
   let sendRequestAndHandleResponses = (
@@ -209,18 +225,15 @@ module Connection: Connection = {
       | Ok(response) => handleResponse(response)
       }
 
-    state
-    ->connect
-    ->Promise.flatMap(x =>
-      switch x {
-      | Ok(connection) =>
-        let promise = Connection.Emacs.onResponse(connection, handleResult)
-        Connection.Emacs.sendRequest(connection, state.document, request)
-        promise
-      | Error(error) => View.displayConnectionError(state, error)
-      }
-    )
-    ->Promise.tap(() => handle.contents->Option.forEach(destroyListener => destroyListener()))
+    switch state.connection {
+    | Emacs(conn) =>
+      let promise = Connection.Emacs.onResponse(conn, handleResult)
+      Connection.Emacs.sendRequest(conn, state.document, request)
+      promise->Promise.tap(() =>
+        handle.contents->Option.forEach(destroyListener => destroyListener())
+      )
+    | _ => Promise.resolved()
+    }
   }
 
   let sendRequest = (
@@ -247,15 +260,15 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.goals->Array.forEach(Goal.destroy)
   state.decoration->Decoration.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state->Connection.disconnect
+  state->Connection.destroy
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, editor, view, useAgdaLanguageServer) => {
+let make = (chan, editor, view, connection) => {
   {
     editor: editor,
     document: VSCode.TextEditor.document(editor),
-    connection: None,
+    connection: connection,
     view: view,
     viewCache: None,
     goals: [],
@@ -266,6 +279,5 @@ let make = (chan, editor, view, useAgdaLanguageServer) => {
     subscriptions: [],
     onRemoveFromRegistry: Chan.make(),
     agdaRequestQueue: RequestQueue.make(),
-    useAgdaLanguageServer: useAgdaLanguageServer,
   }
 }
