@@ -39,8 +39,7 @@ module Inputs: {
   }
 }
 
-// TODO: rename `initialize1`
-let initialize1 = () =>
+let initiateConnection = () =>
   // before the first Agda file is about to be opened and loaded
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
@@ -64,7 +63,7 @@ let initialize1 = () =>
       Promise.resolved(None)
     }
   } else if Config.useAgdaLanguageServer() {
-    Promise.resolved(LSP.isConnected()->Option.map(version => ([], version)))
+    Promise.resolved(LSP.getVersion())
   } else {
     Promise.resolved(None)
   }
@@ -76,7 +75,7 @@ let initialize2 = (debugChan, extensionPath, editor, fileName, lspConnectionResu
 
   let useAgdaLanguageServer = switch lspConnectionResult {
   | None => false
-  | Some(_responses, version) =>
+  | Some(version) =>
     Js.log("[LSP] Server version: " ++ version)
     true
   }
@@ -238,7 +237,7 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          initialize1()->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
+          initiateConnection()->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
         | Some(_) => Promise.resolved() // already in the Registry, do nothing
         }
       | _ => Promise.resolved()

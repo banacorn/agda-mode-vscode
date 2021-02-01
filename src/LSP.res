@@ -287,9 +287,9 @@ module Request = {
 module Response = {
   type version = string
   type t =
-    | Initialize(version)
-    | Disconnected
+    | Initialize(option<version>)
     // from client
+    | NotConnectedYet
     | CannotEncodeRequest(string)
     | CannotDecodeResponse(string, Js.Json.t)
     // from server
@@ -301,7 +301,7 @@ module Response = {
   open Util.Decode
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
+    | "ResInitialize" => Contents(optional(string) |> map(version => Initialize(version)))
     | "ResCannotDecodeRequest" => Contents(string |> map(version => CannotDecodeRequest(version)))
     | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
     }
@@ -312,13 +312,13 @@ module type Module = {
   // methods
   let find: unit => Promise.t<result<string, Connection.Error.t>>
 
-  type queuedResponseAndVersion = option<(array<Response.t>, Response.version)>
-  let start: bool => Promise.t<queuedResponseAndVersion>
+  let start: bool => Promise.t<option<Response.version>>
   let stop: unit => Promise.t<unit>
   let sendRequest: Request.t => Promise.t<Response.t>
-  let changeMethod: method => Promise.t<queuedResponseAndVersion>
+  let changeMethod: method => Promise.t<option<Response.version>>
+  let getVersion: unit => option<Response.version>
   // predicate
-  let isConnected: unit => option<Response.version>
+  let isConnected: unit => bool
   // output
   // let onResponse: (Response.t => unit) => VSCode.Disposable.t
   let onError: (Js.Exn.t => unit) => VSCode.Disposable.t
@@ -331,12 +331,9 @@ module Module: Module = {
   let statusChan: Chan.t<status> = Chan.make()
   let methodChan: Chan.t<method> = Chan.make()
 
-  type queuedResponseAndVersion = option<(array<Response.t>, Response.version)>
-
   // for internal bookkeeping
   type state =
     | Disconnected
-    | Connecting(array<(Request.t, Response.t => unit)>, Promise.t<queuedResponseAndVersion>)
     | Connected(Client.t, Response.version)
 
   // internal states
@@ -362,11 +359,6 @@ module Module: Module = {
   let stop = () =>
     switch singleton.state {
     | Disconnected => Promise.resolved()
-    | Connecting(_) =>
-      // update the status
-      singleton.state = Disconnected
-      statusChan->Chan.emit(Disconnected)
-      Promise.resolved()
     | Connected(client, _version) =>
       // update the status
       singleton.state = Disconnected
@@ -400,11 +392,6 @@ module Module: Module = {
     // state
     switch singleton.state {
     | Disconnected =>
-      // update the status
-      let (promise, resolve) = Promise.pending()
-      singleton.state = Connecting([], promise)
-      statusChan->Chan.emit(Connecting)
-
       Client.make(devMode, method)->Promise.flatMap(result =>
         switch result {
         | Error(exn) =>
@@ -425,49 +412,28 @@ module Module: Module = {
           } else {
             singleton.state = Disconnected
             statusChan->Chan.emit(Disconnected)
-            resolve(None)
             Promise.resolved(None)
           }
         | Ok(client) =>
-          let queuedRequest = switch singleton.state {
-          | Disconnected => []
-          | Connecting(queued, _) => queued
-          | Connected(_) => []
-          }
-
-          let handleQueued = () => {
-            // handle the requests queued up when connecting
-            queuedRequest
-            ->Array.map(((request, resolve)) => {
-              sendRequestWithClient(client, request)->Promise.tap(resolve)
-            })
-            ->Util.oneByOne
-          }
-
           // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
           sendRequestWithClient(client, Initialize)->Promise.flatMap(response =>
             switch response {
             | CannotDecodeResponse(msg, json) => Promise.resolved(None)
             | CannotEncodeRequest(msg) => Promise.resolved(None)
-            | CannotDecodeRequest(msg) =>
-              Js.log(msg)
-              Promise.resolved(None)
-            | Disconnected => Promise.resolved(None)
-            | Initialize(version) =>
+            | CannotDecodeRequest(msg) => Promise.resolved(None)
+            | NotConnectedYet => Promise.resolved(None)
+            // the server cannot find Agda
+            | Initialize(None) => Promise.resolved(None)
+            | Initialize(Some(version)) =>
               // update the status
               singleton.state = Connected(client, version)
               statusChan->Chan.emit(Connected)
-              // handle the requests queued up when connecting
-              handleQueued()
-              ->Promise.map(responses => Some((responses, version)))
-              // resolve the `Connecting` status
-              ->Promise.tap(resolve)
+              Promise.resolved(Some(version))
             }
           )
         }
       )
-    | Connecting(_, promise) => promise
-    | Connected(_, version) => Promise.resolved(Some(([], version)))
+    | Connected(_, version) => Promise.resolved(Some(version))
     }
   }
 
@@ -478,11 +444,16 @@ module Module: Module = {
     startWithMethod(devMode, singleton.method)
   }
 
-  let isConnected = () =>
+  let getVersion = () =>
     switch singleton.state {
     | Disconnected => None
-    | Connecting(_, _) => None
     | Connected(_, version) => Some(version)
+    }
+
+  let isConnected = () =>
+    switch singleton.state {
+    | Disconnected => false
+    | Connected(_, version) => true
     }
 
   // let onResponse = handler => Client.onData(json => handler(decodeResponse(json)))
@@ -493,11 +464,7 @@ module Module: Module = {
   let sendRequest = request =>
     switch singleton.state {
     | Connected(client, _version) => sendRequestWithClient(client, request)
-    | Connecting(queue, _) =>
-      let (promise, resolve) = Promise.pending()
-      Js.Array.push((request, resolve), queue)->ignore
-      promise
-    | Disconnected => Promise.resolved(Response.Disconnected)
+    | Disconnected => Promise.resolved(Response.NotConnectedYet)
     }
 
   let changeMethod = method => {
