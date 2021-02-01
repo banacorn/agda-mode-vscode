@@ -163,9 +163,9 @@ module Module: Module = {
   let generateDiffs = (document: VSCode.TextDocument.t, indices: array<int>): array<
     SourceFile.Diff.t,
   > => {
-    let filePath = document->VSCode.TextDocument.fileName->Parser.filepath
+    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
     let source = Editor.Text.getAll(document)
-    SourceFile.parse(indices, filePath, source)
+    SourceFile.parse(indices, fileName, source)
   }
 
   // parse the whole source file and update the intervals of an array of Goal.t

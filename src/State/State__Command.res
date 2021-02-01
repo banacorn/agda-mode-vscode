@@ -299,9 +299,9 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       switch link {
       | ToLocation(NoLocation) => Promise.resolved()
       | ToLocation(Location(None, _ranges)) => Promise.resolved()
-      | ToLocation(Location(Some(filePath), ranges)) =>
+      | ToLocation(Location(Some(fileName), ranges)) =>
         // only select the ranges when it's on the same file
-        if path == filePath {
+        if path == fileName {
           let ranges = ranges->Array.map(Editor.Range.fromAgdaRange)
           Editor.Selection.setMany(state.editor, ranges)
         }

@@ -39,7 +39,9 @@ module Inputs: {
   }
 }
 
-let initialize = () =>
+// TODO: rename `initialize1`
+let initialize1 = () =>
+  // before the first Agda file is about to be opened and loaded
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
     VSCode.Commands.setContext("agdaMode", true)->ignore
@@ -67,7 +69,8 @@ let initialize = () =>
     Promise.resolved(false)
   }
 
-let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName, useAgdaLanguageServer) => {
+// TODO: rename `initialize2`
+let initialize2 = (debugChan, extensionPath, editor, fileName, useAgdaLanguageServer) => {
   let view = ViewController.Handle.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
@@ -165,6 +168,18 @@ let makeAndAddToRegistry = (debugChan, extensionPath, editor, fileName, useAgdaL
   Registry.add(fileName, state)
 }
 
+// TODO: rename `finalize`
+let finalize = () => {
+  // after the last Agda file has benn closed
+  if Registry.isEmpty() {
+    // keybinding: disable most of the command bindings
+    VSCode.Commands.setContext("agdaMode", false)->ignore
+    // deactivate the view accordingly
+    ViewController.Handle.destroy()
+  }
+  Promise.resolved()
+}
+
 let activateWithoutContext = (subscriptions, extensionPath) => {
   let subscribe = x => x->Js.Array.push(subscriptions)->ignore
   let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
@@ -190,9 +205,10 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
 
   // on close editor
   Inputs.onCloseDocument(document => {
-    let filePath = VSCode.TextDocument.fileName(document)
-    if isAgda(filePath) {
-      Registry.removeAndDestroy(filePath)->ignore
+    let fileName = VSCode.TextDocument.fileName(document)
+    if isAgda(fileName) {
+      Registry.removeAndDestroy(fileName)->ignore
+      finalize()->ignore
     }
   })->subscribe
 
@@ -204,7 +220,7 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
     switch command {
     | Quit
     | Restart =>
-      Registry.removeAndDestroy(fileName)
+      Registry.removeAndDestroy(fileName)->Promise.flatMap(finalize)
     | _ => Promise.resolved()
     }
     // make
@@ -215,9 +231,7 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          initialize()->Promise.map(
-            makeAndAddToRegistry(debugChan, extensionPath, editor, fileName),
-          )
+          initialize1()->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
 
         | Some(_) => Promise.resolved() // already in the Registry, do nothing
         }
@@ -232,20 +246,6 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       }
     })
   })->subscribeMany
-
-  // // before the first Agda file is about to be opened and loaded
-  // Registry.onActivate(() => {
-  //   // keybinding: so that most of the commands will work only after agda-mode:load
-  //   VSCode.Commands.setContext("agdaMode", true)->ignore
-  // })->subscribe
-
-  // after the last Agda file has benn closed
-  Registry.onDeactivate(() => {
-    // keybinding: disable most of the command bindings
-    VSCode.Commands.setContext("agdaMode", false)->ignore
-    // deactivate the view accordingly
-    ViewController.Handle.destroy()
-  })->subscribe
 
   // expose the channel for testing
   debugChan
