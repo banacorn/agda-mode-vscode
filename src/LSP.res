@@ -274,28 +274,51 @@ module Client: Client = {
   }
 }
 
+module Request = {
+  type t = Initialize
+
+  open! Json.Encode
+  let encode: encoder<t> = x =>
+    switch x {
+    | Initialize => object_(list{("tag", string("ReqInitialize"))})
+    }
+}
+
+module Response = {
+  type version = string
+  type t =
+    | Initialize(version)
+    | Disconnected
+    // from client
+    | CannotEncodeRequest(string)
+    | CannotDecodeResponse(string, Js.Json.t)
+    // from server
+    | CannotDecodeRequest(string)
+
+  let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
+
+  open Json.Decode
+  open Util.Decode
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
+    | "ResCannotDecodeRequest" => Contents(string |> map(version => CannotDecodeRequest(version)))
+    | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
+    }
+  )
+}
+
 module type Module = {
   // methods
   let find: unit => Promise.t<result<string, Connection.Error.t>>
 
-  // module LSP: {
-  //   let start: unit => Promise.t<result<string, Error.t>>
-  // } = {
-  //   let start = () => {
-  //     Process.PathSearch.run("als")
-  //     ->Promise.mapOk(Js.String.trim)
-  //     ->Promise.mapError(e => Error.PathSearch(e))
-  //   }
-  // }
-  // type status = Disconnected | Connecting | Connected
-  // type method = ViaStdIO | ViaTCP
-
-  let start: bool => Promise.t<bool>
+  type queuedResponseAndVersion = option<(array<Response.t>, Response.version)>
+  let start: bool => Promise.t<queuedResponseAndVersion>
   let stop: unit => Promise.t<unit>
-  let sendRequest: Js.Json.t => Promise.t<option<Js.Json.t>>
-  let changeMethod: method => Promise.t<bool>
+  let sendRequest: Request.t => Promise.t<Response.t>
+  let changeMethod: method => Promise.t<queuedResponseAndVersion>
   // predicate
-  let isConnected: unit => bool
+  let isConnected: unit => option<Response.version>
   // output
   // let onResponse: (Response.t => unit) => VSCode.Disposable.t
   let onError: (Js.Exn.t => unit) => VSCode.Disposable.t
@@ -308,11 +331,13 @@ module Module: Module = {
   let statusChan: Chan.t<status> = Chan.make()
   let methodChan: Chan.t<method> = Chan.make()
 
+  type queuedResponseAndVersion = option<(array<Response.t>, Response.version)>
+
   // for internal bookkeeping
   type state =
     | Disconnected
-    | Connecting(array<(Js.Json.t, option<Js.Json.t> => unit)>, Promise.t<bool>)
-    | Connected(Client.t)
+    | Connecting(array<(Request.t, Response.t => unit)>, Promise.t<queuedResponseAndVersion>)
+    | Connected(Client.t, Response.version)
 
   // internal states
   type singleton = {
@@ -342,7 +367,7 @@ module Module: Module = {
       singleton.state = Disconnected
       statusChan->Chan.emit(Disconnected)
       Promise.resolved()
-    | Connected(client) =>
+    | Connected(client, _version) =>
       // update the status
       singleton.state = Disconnected
       statusChan->Chan.emit(Disconnected)
@@ -359,14 +384,13 @@ module Module: Module = {
 
   let sendRequestWithClient = (client, request) => {
     client
-    ->Client.sendRequest(request)
+    ->Client.sendRequest(Request.encode(request))
     ->Promise.map(x =>
       switch x {
-      | Ok(json) => Some(json)
+      | Ok(json) => Response.decode(json)
       | Error(error) =>
         statusChan->Chan.emit(Disconnected)
-        None
-      // Some(Response.CannotSendRequest(Response.Error.fromJsError(error)))
+        Response.CannotEncodeRequest(Response.fromJsError(error))
       }
     )
   }
@@ -401,8 +425,8 @@ module Module: Module = {
           } else {
             singleton.state = Disconnected
             statusChan->Chan.emit(Disconnected)
-            resolve(false)
-            Promise.resolved(false)
+            resolve(None)
+            Promise.resolved(None)
           }
         | Ok(client) =>
           let queuedRequest = switch singleton.state {
@@ -410,23 +434,40 @@ module Module: Module = {
           | Connecting(queued, _) => queued
           | Connected(_) => []
           }
-          // resolve the `Connecting` status
-          resolve(true)
 
-          // update the status
-          singleton.state = Connected(client)
-          statusChan->Chan.emit(Connected)
-          // handle the requests queued up when connecting
-          queuedRequest
-          ->Array.map(((request, resolve)) => {
-            sendRequestWithClient(client, request)->Promise.tap(resolve)
-          })
-          ->Util.oneByOne
-          ->Promise.map(_ => true)
+          let handleQueued = () => {
+            // handle the requests queued up when connecting
+            queuedRequest
+            ->Array.map(((request, resolve)) => {
+              sendRequestWithClient(client, request)->Promise.tap(resolve)
+            })
+            ->Util.oneByOne
+          }
+
+          // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
+          sendRequestWithClient(client, Initialize)->Promise.flatMap(response =>
+            switch response {
+            | CannotDecodeResponse(msg, json) => Promise.resolved(None)
+            | CannotEncodeRequest(msg) => Promise.resolved(None)
+            | CannotDecodeRequest(msg) =>
+              Js.log(msg)
+              Promise.resolved(None)
+            | Disconnected => Promise.resolved(None)
+            | Initialize(version) =>
+              // update the status
+              singleton.state = Connected(client, version)
+              statusChan->Chan.emit(Connected)
+              // handle the requests queued up when connecting
+              handleQueued()
+              ->Promise.map(responses => Some((responses, version)))
+              // resolve the `Connecting` status
+              ->Promise.tap(resolve)
+            }
+          )
         }
       )
     | Connecting(_, promise) => promise
-    | Connected(_) => Promise.resolved(true)
+    | Connected(_, version) => Promise.resolved(Some(([], version)))
     }
   }
 
@@ -439,9 +480,9 @@ module Module: Module = {
 
   let isConnected = () =>
     switch singleton.state {
-    | Disconnected => false
-    | Connecting(_, _) => false
-    | Connected(_) => true
+    | Disconnected => None
+    | Connecting(_, _) => None
+    | Connected(_, version) => Some(version)
     }
 
   // let onResponse = handler => Client.onData(json => handler(decodeResponse(json)))
@@ -451,12 +492,12 @@ module Module: Module = {
 
   let sendRequest = request =>
     switch singleton.state {
-    | Connected(client) => sendRequestWithClient(client, request)
+    | Connected(client, _version) => sendRequestWithClient(client, request)
     | Connecting(queue, _) =>
       let (promise, resolve) = Promise.pending()
       Js.Array.push((request, resolve), queue)->ignore
       promise
-    | Disconnected => Promise.resolved(None)
+    | Disconnected => Promise.resolved(Response.Disconnected)
     }
 
   let changeMethod = method => {
@@ -468,7 +509,7 @@ module Module: Module = {
         start(singleton.devMode)
       })
     } else {
-      Promise.resolved(false)
+      Promise.resolved(None)
     }
   }
 }

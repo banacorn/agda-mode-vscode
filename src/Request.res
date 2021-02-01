@@ -159,8 +159,8 @@ let encode = (
     let content = Parser.userInput(expr)
 
     j`${commonPart(
-      NonInteractive,
-    )}( Cmd_elaborate_give $(normalization) $(index) noRange "$(content)" )`
+        NonInteractive,
+      )}( Cmd_elaborate_give $(normalization) $(index) noRange "$(content)" )`
 
   | Auto(goal) =>
     let index: string = string_of_int(goal.index)
@@ -186,8 +186,8 @@ let encode = (
     let content = Parser.userInput(expr)
 
     j`${commonPart(
-      NonInteractive,
-    )}( Cmd_helper_function $(normalization) $(index) noRange "$(content)" )`
+        NonInteractive,
+      )}( Cmd_helper_function $(normalization) $(index) noRange "$(content)" )`
 
   | InferType(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
@@ -222,8 +222,8 @@ let encode = (
     let content = Parser.userInput(expr)
 
     j`${commonPart(
-      NonInteractive,
-    )}( Cmd_goal_type_context_infer $(normalization) $(index) noRange "$(content)" )`
+        NonInteractive,
+      )}( Cmd_goal_type_context_infer $(normalization) $(index) noRange "$(content)" )`
 
   | GoalTypeContextAndCheckedType(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
@@ -231,8 +231,8 @@ let encode = (
     let content = Parser.userInput(expr)
 
     j`${commonPart(
-      NonInteractive,
-    )}( Cmd_goal_type_context_check $(normalization) $(index) noRange "$(content)" )`
+        NonInteractive,
+      )}( Cmd_goal_type_context_check $(normalization) $(index) noRange "$(content)" )`
 
   | ModuleContents(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
@@ -240,8 +240,8 @@ let encode = (
     let content = Parser.userInput(expr)
 
     j`${commonPart(
-      NonInteractive,
-    )}( Cmd_show_module_contents $(normalization) $(index) noRange "$(content)" )`
+        NonInteractive,
+      )}( Cmd_show_module_contents $(normalization) $(index) noRange "$(content)" )`
 
   | ModuleContentsGlobal(normalization, expr) =>
     let normalization: string = Command.Normalization.encode(normalization)
@@ -259,8 +259,8 @@ let encode = (
       j`${commonPart(NonInteractive)}( Cmd_compute $(computeMode) $(index) noRange "$(content)" )`
     } else {
       j`${commonPart(
-        NonInteractive,
-      )}( Cmd_compute $(ignoreAbstract) $(index) noRange "$(content)" )`
+          NonInteractive,
+        )}( Cmd_compute $(ignoreAbstract) $(index) noRange "$(content)" )`
     }
 
   | ComputeNormalFormGlobal(computeMode, expr) =>

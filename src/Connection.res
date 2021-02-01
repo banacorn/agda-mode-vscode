@@ -54,24 +54,10 @@ module Emacs: Emacs = {
   @bs.module external untildify: string => string = "untildify"
 
   module Metadata = {
-    // supported protocol
-    // p.s. currently only the `EmacsOnly` kind is supported
-    module Protocol = {
-      type t =
-        | EmacsOnly
-        | EmacsAndJSON
-      let toString = x =>
-        switch x {
-        | EmacsOnly => "Emacs"
-        | EmacsAndJSON => "Emacs / JSON"
-        }
-    }
-
     type t = {
       path: string,
       args: array<string>,
       version: string,
-      protocol: Protocol.t,
     }
 
     // for making error report
@@ -79,41 +65,31 @@ module Emacs: Emacs = {
       let path = "* path: " ++ self.path
       let args = "* args: " ++ Util.Pretty.array(self.args)
       let version = "* version: " ++ self.version
-      let protocol = "* protocol: " ++ Protocol.toString(self.protocol)
       let os = "* platform: " ++ N.OS.type_()
 
       "## Parse Log" ++
       ("\n" ++
-      (path ++
-      ("\n" ++
-      (args ++ ("\n" ++ (version ++ ("\n" ++ (protocol ++ ("\n" ++ (os ++ "\n"))))))))))
+      (path ++ ("\n" ++ (args ++ ("\n" ++ (version ++ ("\n" ++ (os ++ "\n"))))))))
     }
 
     // a more sophiscated "make"
     let make = (path, args): Promise.t<result<t, Error.t>> => {
-      let validator = (output): result<(string, Protocol.t), string> =>
+      let validator = (output): result<string, string> =>
         switch Js.String.match_(%re("/Agda version (.*)/"), output) {
         | None => Error("Cannot read Agda version")
         | Some(match_) =>
           switch match_[1] {
           | None => Error("Cannot read Agda version")
-          | Some(version) =>
-            Ok((
-              version,
-              Js.Re.test_(%re("/--interaction-json/"), output)
-                ? Protocol.EmacsAndJSON
-                : Protocol.EmacsOnly,
-            ))
+          | Some(version) => Ok(version)
           }
         }
       // normailize the path by replacing the tild "~/" with the absolute path of home directory
       let path = untildify(path)
       Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
-      ->Promise.mapOk(((version, protocol)) => {
+      ->Promise.mapOk(version => {
         path: path,
         args: args,
         version: version,
-        protocol: protocol,
       })
       ->Promise.mapError(e => Error.Validation(e))
     }
