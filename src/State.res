@@ -232,12 +232,26 @@ module Connection: Connection = {
       promise->Promise.tap(() =>
         handle.contents->Option.forEach(destroyListener => destroyListener())
       )
-    | LSP(_) =>
-      Connection.LSP.sendRequest(Js.Json.string("a"))->Promise.flatMap(result =>
+    | LSP(version) =>
+      // encode the Request to some string
+      let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
+      let libraryPath = Config.getLibraryPath()
+      let highlightingMethod = Config.getHighlightingMethod()
+      let backend = Config.getBackend()
+      let encoded = Request.encode(
+        state.document,
+        version,
+        filepath,
+        backend,
+        libraryPath,
+        highlightingMethod,
+        request,
+      )
+      Connection.LSP.sendRequest(encoded)->Promise.flatMap(result =>
         switch result {
         | Error(error) => View.displayConnectionError(state, error)
-        | Ok(json) =>
-          Js.log("Response: " ++ Js.Json.stringify(json))
+        | Ok(response) =>
+          Js.log("Response: " ++ response)
           Promise.resolved()
         }
       )

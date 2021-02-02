@@ -299,13 +299,13 @@ module Emacs: Emacs = {
 
 module LSP = {
   module LSPReq = {
-    type t = Initialize | Payload(Js.Json.t)
+    type t = Initialize | Payload(string)
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
       | Initialize => object_(list{("tag", string("ReqInitialize"))})
-      | Payload(json) => object_(list{("tag", string("ReqPayload")), ("contents", json)})
+      | Payload(raw) => object_(list{("tag", string("ReqPayload")), ("contents", raw |> string)})
       }
   }
 
@@ -313,7 +313,7 @@ module LSP = {
   module LSPRes = {
     type t =
       | Initialize(version)
-      | Payload(Js.Json.t)
+      | Payload(string)
       | ServerCannotDecodeRequest(string)
 
     let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
@@ -323,7 +323,7 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
-      | "ResPayload" => Contents(json => Payload(json))
+      | "ResPayload" => Contents(string |> map(payload => Payload(payload)))
       | "ResCannotDecodeRequest" =>
         Contents(string |> map(version => ServerCannotDecodeRequest(version)))
       | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
@@ -336,7 +336,7 @@ module LSP = {
     let find: unit => Promise.t<result<string, Error.t>>
     let start: bool => Promise.t<result<version, Error.t>>
     let stop: unit => Promise.t<unit>
-    let sendRequest: Js.Json.t => Promise.t<result<Js.Json.t, Error.t>>
+    let sendRequest: string => Promise.t<result<string, Error.t>>
     let changeMethod: LSP.method => Promise.t<result<option<version>, Error.t>>
     let getVersion: unit => option<version>
     // predicate
