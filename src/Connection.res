@@ -6,6 +6,7 @@ module Error = {
     | PathSearch(Process.PathSearch.Error.t)
     | Validation(Process.Validation.Error.t)
     | Process(Process.Error.t)
+    | LSPInternalError(string)
     | LSPConnection(Js.Exn.t)
     | LSPSendRequest(Js.Exn.t)
     | LSPClientCannotDecodeResponse(string, Js.Json.t)
@@ -17,6 +18,7 @@ module Error = {
     | PathSearch(e) => Process.PathSearch.Error.toString(e)
     | Validation(e) => Process.Validation.Error.toString(e)
     | Process(e) => Process.Error.toString(e)
+    | LSPInternalError(e) => ("LSP: Internal Error", e)
     | LSPConnection(e) => ("LSP: Connection Failed", Util.JsError.toString(e))
     | LSPSendRequest(e) => ("LSP: Cannot Send Request", Util.JsError.toString(e))
     | LSPClientCannotDecodeResponse(e, json) => (
@@ -296,20 +298,22 @@ module Emacs: Emacs = {
 }
 
 module LSP = {
-  module Request = {
-    type t = Initialize
+  module LSPReq = {
+    type t = Initialize | Payload(Js.Json.t)
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
       | Initialize => object_(list{("tag", string("ReqInitialize"))})
+      | Payload(json) => object_(list{("tag", string("ReqPayload")), ("contents", json)})
       }
   }
 
-  module Response = {
-    type version = string
+  type version = string
+  module LSPRes = {
     type t =
       | Initialize(version)
+      | Payload(Js.Json.t)
       | ServerCannotDecodeRequest(string)
 
     let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
@@ -319,6 +323,7 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
+      | "ResPayload" => Contents(json => Payload(json))
       | "ResCannotDecodeRequest" =>
         Contents(string |> map(version => ServerCannotDecodeRequest(version)))
       | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
@@ -329,11 +334,11 @@ module LSP = {
   module type Module = {
     // methods
     let find: unit => Promise.t<result<string, Error.t>>
-    let start: bool => Promise.t<result<Response.version, Error.t>>
+    let start: bool => Promise.t<result<version, Error.t>>
     let stop: unit => Promise.t<unit>
-    let sendRequest: Request.t => Promise.t<result<Response.t, Error.t>>
-    let changeMethod: LSP.method => Promise.t<result<option<Response.version>, Error.t>>
-    let getVersion: unit => option<Response.version>
+    let sendRequest: Js.Json.t => Promise.t<result<Js.Json.t, Error.t>>
+    let changeMethod: LSP.method => Promise.t<result<option<version>, Error.t>>
+    let getVersion: unit => option<version>
     // predicate
     let isConnected: unit => bool
     // output
@@ -350,7 +355,7 @@ module LSP = {
     // for internal bookkeeping
     type state =
       | Disconnected
-      | Connected(LSP.Client.t, Response.version)
+      | Connected(LSP.Client.t, version)
 
     // internal states
     type singleton = {
@@ -383,13 +388,13 @@ module LSP = {
         client->LSP.Client.destroy
       }
 
-    let sendRequestWithClient = (client, request): Promise.t<result<Response.t, Error.t>> => {
+    let sendRequestPrim = (client, request): Promise.t<result<LSPRes.t, Error.t>> => {
       client
-      ->LSP.Client.sendRequest(Request.encode(request))
+      ->LSP.Client.sendRequest(LSPReq.encode(request))
       ->Promise.map(x =>
         switch x {
         | Ok(json) =>
-          switch Response.decode(json) {
+          switch LSPRes.decode(json) {
           | response => Ok(response)
           | exception Json.Decode.DecodeError(msg) =>
             Error(Error.LSPClientCannotDecodeResponse(msg, json))
@@ -429,10 +434,14 @@ module LSP = {
             }
           | Ok(client) =>
             // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-            sendRequestWithClient(client, Initialize)->Promise.flatMapOk(response =>
+            sendRequestPrim(client, Initialize)->Promise.flatMapOk(response =>
               switch response {
               | ServerCannotDecodeRequest(msg) =>
                 Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(msg)))
+              | Payload(_) =>
+                Promise.resolved(
+                  Error(Error.LSPConnection(Js.Exn.raiseError("Got payload instead"))),
+                )
               | Initialize(version) =>
                 // update the status
                 singleton.state = Connected(client, version)
@@ -471,7 +480,16 @@ module LSP = {
 
     let sendRequest = request =>
       switch singleton.state {
-      | Connected(client, _version) => sendRequestWithClient(client, request)
+      | Connected(client, _version) =>
+        sendRequestPrim(client, Payload(request))->Promise.flatMapOk(result =>
+          switch result {
+          | Initialize(_) =>
+            Promise.resolved(Error(Error.LSPInternalError("Got Initialize when expecting Payload")))
+          | Payload(json) => Promise.resolved(Ok(json))
+          | ServerCannotDecodeRequest(e) =>
+            Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(e)))
+          }
+        )
       | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
       }
 
