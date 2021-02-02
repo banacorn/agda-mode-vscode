@@ -39,61 +39,52 @@ module Inputs: {
   }
 }
 
-// TODO: refactor this
-let initiateConnection = (): Promise.t<result<State.connType, Connection.Error.t>> =>
-  // before the first Agda file is about to be opened and loaded
+let initiateConnection = (): Promise.t<result<State.connType, Connection.Error.t>> => {
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
     VSCode.Commands.setContext("agdaMode", true)->ignore
+  }
 
-    // start the Agda Language Server
-    if Config.useAgdaLanguageServer() {
-      Js.log("[LSP] Locating the language server ...")
-      LSP.find()->Promise.flatMap(result =>
-        switch result {
-        | Error(error) =>
-          // cannot find the Agda Language Server
-          Js.log("[LSP] " ++ snd(Connection.Error.toString(error)))
-          Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
-        | Ok(path) =>
-          Js.log("[LSP] Found server at: " ++ path)
-          let devMode = false
-          LSP.start(devMode)->Promise.flatMap(result =>
-            switch result {
-            | None => Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
-            | Some(version) => Promise.resolved(Ok(State.LSP(version)))
-            }
-          )
-        }
-      )
+  let devMode = false
+  if Config.useAgdaLanguageServer() {
+    if Registry.isEmpty() {
+      // start the Agda Language Server
+      Connection.LSP.find()
+      ->Promise.flatMapOk(path => {
+        Js.log("[LSP] Found server at: " ++ path)
+        Connection.LSP.start(devMode)
+      })
+      ->Promise.mapOk(version => {
+        Js.log("[LSP] Initiated! Agda version: " ++ version)
+        State.LSP(version)
+      })
+      ->Promise.flatMapError(error => {
+        // failed to start the Agda Language Server, switch to the Agda executable instead
+        Js.log(
+          "[LSP] Connection failed, switching to the Agda executable instead: " ++
+          fst(Connection.Error.toString(error)) ++
+          "\n" ++
+          snd(Connection.Error.toString(error)),
+        )
+        Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+      })
     } else {
-      Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
-    }
-  } else if Config.useAgdaLanguageServer() {
-    switch LSP.getVersion() {
-    | None => Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
-    | Some(version) => Promise.resolved(Ok(State.LSP(version)))
+      switch Connection.LSP.getVersion() {
+      | None => Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+      | Some(version) => Promise.resolved(Ok(State.LSP(version)))
+      }
     }
   } else {
     Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
   }
+}
 
 // TODO: rename `initialize2`
-let initialize2 = (
-  debugChan,
-  extensionPath,
-  editor,
-  fileName,
-  connection: result<State.connType, Connection.Error.t>,
-) => {
+let initialize2 = (debugChan, extensionPath, editor, fileName, connection: State.connType) => {
   let view = ViewController.Handle.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
-  let connection = switch connection {
-  | Error(_) => State.Nothing
-  | Ok(conn) => conn
-  }
   let state = State.make(debugChan, editor, view, connection)
 
   // remove it from the Registry if it requests to be destroyed
@@ -250,7 +241,14 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          initiateConnection()->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
+          initiateConnection()
+          ->Promise.map(result =>
+            switch result {
+            | Error(error) => State.Nothing(error)
+            | Ok(conn) => conn
+            }
+          )
+          ->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
         // initiateConnection()->Promise.map(result =>
         //   switch result {
         //   | Error(error) =>

@@ -47,8 +47,8 @@ module RequestQueue: {
   }
 }
 
-type connType = Emacs(Connection.Emacs.t) | LSP(LSP.Response.version) | Nothing
-// type connType = Emacs(Connection.Emacs.t) | LSP(LSP.Client.t, LSP.Response.version)
+type connType =
+  Emacs(Connection.Emacs.t) | LSP(Connection.LSP.Response.version) | Nothing(Connection.Error.t)
 
 type viewCache =
   Event(View.EventToView.t) | Request(View.Request.t, View.Response.t => Promise.t<unit>)
@@ -232,7 +232,15 @@ module Connection: Connection = {
       promise->Promise.tap(() =>
         handle.contents->Option.forEach(destroyListener => destroyListener())
       )
-    | _ => Promise.resolved()
+    | LSP(version) =>
+      // LSP.sendRequest(request)->Promise.flatMap(result =>
+      //   switch result {
+      //   | Error(error) => View.displayConnectionError(error)
+      //   | pattern2 => expression
+      //   }
+      // )
+      Promise.resolved()
+    | Nothing(_) => Promise.resolved()
     }
   }
 

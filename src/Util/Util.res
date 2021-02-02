@@ -118,7 +118,7 @@ let rec oneByOne' = x =>
 let oneByOne = xs => oneByOne'(List.fromArray(xs))->Promise.map(List.toArray)
 
 module JsError = {
-  let toString = (_e: Js.Exn.t) => %raw("_e.toString()")
+  let toString = (_e: Js.Exn.t): string => %raw("_e.toString()")
 }
 
 module List = {
