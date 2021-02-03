@@ -6,6 +6,7 @@ module Error = {
     | PathSearch(Process.PathSearch.Error.t)
     | Validation(Process.Validation.Error.t)
     | Process(Process.Error.t)
+    | LSPCannotConnectDevServer
     | LSPInternalError(string)
     | LSPConnection(Js.Exn.t)
     | LSPSendRequest(Js.Exn.t)
@@ -18,6 +19,7 @@ module Error = {
     | PathSearch(e) => Process.PathSearch.Error.toString(e)
     | Validation(e) => Process.Validation.Error.toString(e)
     | Process(e) => Process.Error.toString(e)
+    | LSPCannotConnectDevServer => ("LSP: Cannot Connect to the Dev Server", "")
     | LSPInternalError(e) => ("LSP: Internal Error", e)
     | LSPConnection(e) => ("LSP: Connection Failed", Util.JsError.toString(e))
     | LSPSendRequest(e) => ("LSP: Cannot Send Request", Util.JsError.toString(e))
@@ -332,8 +334,14 @@ module LSP = {
   }
 
   module type Module = {
-    // methods
-    let find: unit => Promise.t<result<string, Error.t>>
+    module Handle: {
+      type t
+      let toString: t => string
+    }
+
+    // probe the machine to find the language server
+    let find: bool => Promise.t<result<Handle.t, Error.t>>
+
     let start: bool => Promise.t<result<version, Error.t>>
     let stop: unit => Promise.t<unit>
     let sendRequest: string => Promise.t<result<string, Error.t>>
@@ -348,6 +356,16 @@ module LSP = {
   }
 
   module Module: Module = {
+    module Handle = {
+      type t = StdIO(string) | TCP(int)
+      // for debugging
+      let toString = x =>
+        switch x {
+        | TCP(port) => "on port \"" ++ string_of_int(port) ++ "\""
+        | StdIO(path) => "on path \"" ++ path ++ "\""
+        }
+    }
+
     // for emitting events
     let statusChan: Chan.t<LSP.status> = Chan.make()
     let methodChan: Chan.t<LSP.method> = Chan.make()
@@ -370,11 +388,26 @@ module LSP = {
     }
 
     // locate the languege server
-    let find = () => {
-      Process.PathSearch.run("als")
-      ->Promise.mapOk(Js.String.trim)
-      ->Promise.mapError(e => Error.PathSearch(e))
-    }
+    let find = devMode =>
+      if devMode {
+        let port = 4000
+        let (promise, resolve) = Promise.pending()
+        // connect to port 4000, resolve `Ok()`` on success
+        let socket = N.Net.connect(port, () => resolve(Ok()))
+        // resolve `Error(LSPCannotConnectDevServer)` on error
+        socket
+        ->N.Net.Socket.on(#error(_exn => resolve(Error(Error.LSPCannotConnectDevServer))))
+        ->ignore
+        // destroy the connection afterwards
+        promise->Promise.mapOk(() => {
+          N.Net.Socket.destroy(socket)->ignore
+          Handle.TCP(port)
+        })
+      } else {
+        Process.PathSearch.run("als")
+        ->Promise.mapOk(path => Handle.StdIO(Js.String.trim(path)))
+        ->Promise.mapError(e => Error.PathSearch(e))
+      }
 
     // stop the LSP client
     let stop = () =>

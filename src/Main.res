@@ -48,12 +48,9 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
   if Config.useAgdaLanguageServer() {
     if Registry.isEmpty() {
       // start the Agda Language Server
-      Connection.LSP.find()
-      ->Promise.flatMapOk(path => {
-        Js.log("[LSP] Found server at: " ++ path)
-        if devMode {
-          Js.log("[LSP] Starting server in dev mode")
-        }
+      Connection.LSP.find(devMode)
+      ->Promise.flatMapOk(handle => {
+        Js.log("[LSP] Found server " ++ Connection.LSP.Handle.toString(handle))
         Connection.LSP.start(devMode)
       })
       ->Promise.mapOk(version => {
