@@ -342,10 +342,10 @@ module LSP = {
     // probe the machine to find the language server
     let find: bool => Promise.t<result<Handle.t, Error.t>>
 
-    let start: bool => Promise.t<result<version, Error.t>>
+    let start: Handle.t => Promise.t<result<version, Error.t>>
     let stop: unit => Promise.t<unit>
     let sendRequest: string => Promise.t<result<string, Error.t>>
-    let changeMethod: LSP.method => Promise.t<result<option<version>, Error.t>>
+    // let changeMethod: LSP.method => Promise.t<result<option<version>, Error.t>>
     let getVersion: unit => option<version>
     // predicate
     let isConnected: unit => bool
@@ -378,13 +378,11 @@ module LSP = {
     // internal states
     type singleton = {
       mutable state: state,
-      mutable method: LSP.method,
-      mutable devMode: bool,
+      mutable handle: option<Handle.t>,
     }
     let singleton: singleton = {
       state: Disconnected,
-      method: ViaStdIO,
-      devMode: false,
+      handle: None,
     }
 
     // locate the languege server
@@ -440,9 +438,14 @@ module LSP = {
     }
 
     // make and start the LSP client
-    let rec startWithMethod = (devMode, method) =>
+    let rec startWithHandle = handle =>
       switch singleton.state {
       | Disconnected =>
+        let (devMode, method) = switch handle {
+        | Handle.TCP(_) => (true, LSP.ViaTCP)
+        | StdIO(_) => (true, ViaStdIO)
+        }
+
         LSP.Client.make(devMode, method)->Promise.flatMap(result =>
           switch result {
           | Error(exn) =>
@@ -452,16 +455,19 @@ module LSP = {
                 Js.String.startsWith("connect ECONNREFUSED"),
               )
             let shouldSwitchToStdIO = isECONNREFUSED && method == ViaTCP
+
+            singleton.state = Disconnected
+            statusChan->Chan.emit(Disconnected)
+            singleton.handle = None
+
             if shouldSwitchToStdIO {
-              Js.log("Connecting via TCP failed, switch to StdIO")
-              singleton.method = ViaStdIO
-              methodChan->Chan.emit(ViaStdIO)
-              singleton.state = Disconnected
-              statusChan->Chan.emit(Disconnected)
-              startWithMethod(devMode, ViaStdIO)
+              Js.log("Connecting via TCP failed, trying to switch to StdIO")
+
+              find(false)->Promise.flatMapOk(handle => {
+                singleton.handle = Some(handle)
+                startWithHandle(handle)
+              })
             } else {
-              singleton.state = Disconnected
-              statusChan->Chan.emit(Disconnected)
               Promise.resolved(Error(Error.LSPConnection(exn)))
             }
           | Ok(client) =>
@@ -487,10 +493,9 @@ module LSP = {
       }
 
     // make and start the LSP client
-    let start = devMode => {
-      singleton.devMode = devMode
-      singleton.method = devMode ? ViaTCP : ViaStdIO
-      startWithMethod(devMode, singleton.method)
+    let start = handle => {
+      singleton.handle = Some(handle)
+      startWithHandle(handle)
     }
 
     let getVersion = () =>
@@ -525,18 +530,24 @@ module LSP = {
       | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
       }
 
-    let changeMethod = method => {
-      // update the state and reconfigure the connection
-      if singleton.method != method {
-        singleton.method = method
-        methodChan->Chan.emit(method)
-        stop()
-        ->Promise.flatMap(() => start(singleton.devMode))
-        ->Promise.mapOk(version => Some(version))
-      } else {
-        Promise.resolved(Ok(None))
-      }
-    }
+    // let changeMethod = method => {
+    //   // update the state and reconfigure the connection
+    //   let (changed, devMode) = switch singleton.handle {
+    //   | None => true
+    //   | Some(TCP(_)) => method != LSP.ViaTCP
+    //   | Some(StdIO(_)) => method != LSP.ViaStdIO
+    //   }
+
+    //   if changed {
+    //     singleton.handle = method
+    //     methodChan->Chan.emit(method)
+    //     stop()
+    //     ->Promise.flatMap(() => start(singleton.devMode))
+    //     ->Promise.mapOk(version => Some(version))
+    //   } else {
+    //     Promise.resolved(Ok(None))
+    //   }
+    // }
   }
   include Module
 }

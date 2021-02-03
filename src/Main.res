@@ -51,7 +51,7 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
       Connection.LSP.find(devMode)
       ->Promise.flatMapOk(handle => {
         Js.log("[LSP] Found server " ++ Connection.LSP.Handle.toString(handle))
-        Connection.LSP.start(devMode)
+        Connection.LSP.start(handle)
       })
       ->Promise.mapOk(version => {
         Js.log("[LSP] Initiated! Agda version: " ++ version)
