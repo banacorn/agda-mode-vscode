@@ -419,7 +419,6 @@ module LSP = {
                 Js.String.startsWith("connect ECONNREFUSED"),
               )
             let shouldSwitchToStdIO = isECONNREFUSED && method == ViaTCP
-
             if shouldSwitchToStdIO {
               Js.log("Connecting via TCP failed, switch to StdIO")
               singleton.method = ViaStdIO

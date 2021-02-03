@@ -39,19 +39,21 @@ module Inputs: {
   }
 }
 
-let initiateConnection = (): Promise.t<result<State.connType, Connection.Error.t>> => {
+let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.Error.t>> => {
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
     VSCode.Commands.setContext("agdaMode", true)->ignore
   }
 
-  let devMode = false
   if Config.useAgdaLanguageServer() {
     if Registry.isEmpty() {
       // start the Agda Language Server
       Connection.LSP.find()
       ->Promise.flatMapOk(path => {
         Js.log("[LSP] Found server at: " ++ path)
+        if devMode {
+          Js.log("[LSP] Starting server in dev mode")
+        }
         Connection.LSP.start(devMode)
       })
       ->Promise.mapOk(version => {
@@ -190,7 +192,7 @@ let finalize = () => {
   Promise.resolved()
 }
 
-let activateWithoutContext = (subscriptions, extensionPath) => {
+let activateWithoutContext = (subscriptions, extensionPath, devMode) => {
   let subscribe = x => x->Js.Array.push(subscriptions)->ignore
   let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
   // Channel for testing, emits events when something has been completed,
@@ -241,7 +243,7 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          initiateConnection()
+          initiateConnection(devMode)
           ->Promise.map(result =>
             switch result {
             | Error(error) => State.Nothing(error)
@@ -279,7 +281,9 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
 let activate = context => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
-  activateWithoutContext(subscriptions, extensionPath)
+  let devMode = VSCode.ExtensionContext.extensionMode(context) == VSCode.ExtensionMode.Development
+
+  activateWithoutContext(subscriptions, extensionPath, devMode)
 }
 
 let deactivate = () => ()

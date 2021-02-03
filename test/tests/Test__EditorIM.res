@@ -14,7 +14,8 @@ type setup = {
 let activateExtension = (fileName): Promise.t<setup> => {
   let disposables = []
   let extensionPath = Path.extensionPath()
-  let chan = Main.activateWithoutContext(disposables, extensionPath)
+  let devMode = false
+  let chan = Main.activateWithoutContext(disposables, extensionPath, devMode)
   VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)->map(editor => {
     editor: editor,
     chan: chan,

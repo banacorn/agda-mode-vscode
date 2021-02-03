@@ -190,11 +190,9 @@ module Client: Client = {
   }
 
   let make = (devMode, method) => {
-    // let emittedError = ref(false)
-
     let serverOptions =
       method == ViaTCP
-        ? ServerOptions.makeWithStreamInfo(3000)
+        ? ServerOptions.makeWithStreamInfo(4000)
         : ServerOptions.makeWithCommand("als")
 
     let clientOptions = {
@@ -217,7 +215,6 @@ module Client: Client = {
         ~ignoreChangeEvents=false,
         ~ignoreDeleteEvents=false,
       )
-
       let errorHandler: ErrorHandler.t = devMode
         ? ErrorHandler.make(
             ~error=(exn, _msg, _count) => {
