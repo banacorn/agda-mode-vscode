@@ -247,11 +247,11 @@ module Connection: Connection = {
         highlightingMethod,
         request,
       )
-      Connection.LSP.sendRequest(encoded)->Promise.flatMap(result =>
+      Connection.LSP.sendRequest(encoded, raw => Js.log(raw))->Promise.flatMap(result =>
         switch result {
         | Error(error) => View.displayConnectionError(state, error)
-        | Ok(response) =>
-          Js.log("Response: " ++ response)
+        | Ok() =>
+          Js.log("Command done")
           Promise.resolved()
         }
       )

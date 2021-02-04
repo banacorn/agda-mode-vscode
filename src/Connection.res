@@ -301,13 +301,13 @@ module Emacs: Emacs = {
 
 module LSP = {
   module LSPReq = {
-    type t = Initialize | Payload(string)
+    type t = Initialize | Command(string)
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
       | Initialize => object_(list{("tag", string("ReqInitialize"))})
-      | Payload(raw) => object_(list{("tag", string("ReqPayload")), ("contents", raw |> string)})
+      | Command(raw) => object_(list{("tag", string("ReqCommand")), ("contents", raw |> string)})
       }
   }
 
@@ -315,7 +315,8 @@ module LSP = {
   module LSPRes = {
     type t =
       | Initialize(version)
-      | Payload(string)
+      | Response(string)
+      | CommandDone
       | ServerCannotDecodeRequest(string)
 
     let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
@@ -325,7 +326,8 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
-      | "ResPayload" => Contents(string |> map(payload => Payload(payload)))
+      | "ResResponse" => Contents(string |> map(response => Response(response)))
+      | "ResCommandDone" => TagOnly(CommandDone)
       | "ResCannotDecodeRequest" =>
         Contents(string |> map(version => ServerCannotDecodeRequest(version)))
       | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
@@ -344,7 +346,8 @@ module LSP = {
 
     let start: Handle.t => Promise.t<result<version, Error.t>>
     let stop: unit => Promise.t<unit>
-    let sendRequest: string => Promise.t<result<string, Error.t>>
+    let sendRequest: (string, string => unit) => Promise.t<result<unit, Error.t>>
+    // let onResponse: (string => unit) => VSCode.Disposable.t
     // let changeMethod: LSP.method => Promise.t<result<option<version>, Error.t>>
     let getVersion: unit => option<version>
     // predicate
@@ -419,6 +422,17 @@ module LSP = {
         client->LSP.Client.destroy
       }
 
+    // let onResponse = callback => {
+    //   LSP.Client.onData(json => {
+    //     switch LSPRes.decode(json) {
+    //     | Response(raw) => callback(raw)
+    //     | _ => ()
+    //     | exception Json.Decode.DecodeError(_msg) => ()
+    //     // Error(Error.LSPClientCannotDecodeResponse(msg, json))
+    //     }
+    //   })
+    // }
+
     let sendRequestPrim = (client, request): Promise.t<result<LSPRes.t, Error.t>> => {
       client
       ->LSP.Client.sendRequest(LSPReq.encode(request))
@@ -476,9 +490,13 @@ module LSP = {
               switch response {
               | ServerCannotDecodeRequest(msg) =>
                 Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(msg)))
-              | Payload(_) =>
+              | Response(_) =>
                 Promise.resolved(
-                  Error(Error.LSPConnection(Js.Exn.raiseError("Got payload instead"))),
+                  Error(Error.LSPConnection(Js.Exn.raiseError("Got `Response` instead"))),
+                )
+              | CommandDone =>
+                Promise.resolved(
+                  Error(Error.LSPConnection(Js.Exn.raiseError("Got `CommandDone` instead"))),
                 )
               | Initialize(version) =>
                 // update the status
@@ -515,14 +533,27 @@ module LSP = {
     let onChangeStatus = callback => statusChan->Chan.on(callback)->VSCode.Disposable.make
     let onChangeMethod = callback => methodChan->Chan.on(callback)->VSCode.Disposable.make
 
-    let sendRequest = request =>
+    let sendRequest = (request, responseHandler) =>
       switch singleton.state {
       | Connected(client, _version) =>
-        sendRequestPrim(client, Payload(request))->Promise.flatMapOk(result =>
+        let subscription = LSP.Client.onData(json => {
+          switch LSPRes.decode(json) {
+          | Response(raw) => responseHandler(raw)
+          | _ => ()
+          | exception Json.Decode.DecodeError(_msg) => ()
+          // Error(Error.LSPClientCannotDecodeResponse(msg, json))
+          }
+        })
+        sendRequestPrim(client, Command(request))->Promise.flatMapOk(result =>
           switch result {
           | Initialize(_) =>
             Promise.resolved(Error(Error.LSPInternalError("Got Initialize when expecting Payload")))
-          | Payload(json) => Promise.resolved(Ok(json))
+          | Response(response) =>
+            Js.log(response)
+            Promise.resolved(Ok())
+          | CommandDone =>
+            subscription->VSCode.Disposable.dispose->ignore
+            Promise.resolved(Ok())
           | ServerCannotDecodeRequest(e) =>
             Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(e)))
           }
