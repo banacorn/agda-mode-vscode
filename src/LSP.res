@@ -252,17 +252,7 @@ module Client: Client = {
       switch result {
       | Error(error) => Error(error)
       | Ok() =>
-        // NOTE: somehow `onNotification` gets called TWICE everytime
-        // This flag is for filtering out half of the Notifications
-        let flag = ref(true)
-        self.client->LanguageClient.onNotification("agda", json => {
-          if flag.contents {
-            dataChan->Chan.emit(json)
-            flag := false
-          } else {
-            flag := true
-          }
-        })
+        self.client->LanguageClient.onNotification("agda", json => dataChan->Chan.emit(json))
         Ok(self)
       }
     )

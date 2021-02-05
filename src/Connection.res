@@ -315,7 +315,7 @@ module LSP = {
   module LSPRes = {
     type t =
       | Initialize(version)
-      | Response(string)
+      // | Response(string)
       | CommandDone
       | ServerCannotDecodeRequest(string)
 
@@ -326,11 +326,24 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
-      | "ResResponse" => Contents(string |> map(response => Response(response)))
+      // | "ResResponse" => Contents(string |> map(response => Response(response)))
       | "ResCommandDone" => TagOnly(CommandDone)
       | "ResCannotDecodeRequest" =>
         Contents(string |> map(version => ServerCannotDecodeRequest(version)))
       | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
+      }
+    )
+  }
+
+  module LSPNtf = {
+    type t = Response(string)
+
+    open Json.Decode
+    open Util.Decode
+    let decode: decoder<t> = sum(x =>
+      switch x {
+      | "LSPNtf" => Contents(string |> map(version => Response(version)))
+      | tag => raise(DecodeError("[LSP.Notification] Unknown constructor: " ++ tag))
       }
     )
   }
@@ -490,10 +503,10 @@ module LSP = {
               switch response {
               | ServerCannotDecodeRequest(msg) =>
                 Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(msg)))
-              | Response(_) =>
-                Promise.resolved(
-                  Error(Error.LSPConnection(Js.Exn.raiseError("Got `Response` instead"))),
-                )
+              // | Response(_) =>
+              //   Promise.resolved(
+              //     Error(Error.LSPConnection(Js.Exn.raiseError("Got `Response` instead"))),
+              //   )
               | CommandDone =>
                 Promise.resolved(
                   Error(Error.LSPConnection(Js.Exn.raiseError("Got `CommandDone` instead"))),
@@ -537,9 +550,11 @@ module LSP = {
       switch singleton.state {
       | Connected(client, _version) =>
         let subscription = LSP.Client.onData(json => {
-          switch LSPRes.decode(json) {
-          | Response(raw) => responseHandler(raw)
-          | _ => ()
+          Js.log("json: " ++ Js.Json.stringify(json))
+          switch LSPNtf.decode(json) {
+          | Response(raw) =>
+            Js.log("!!!!!")
+            responseHandler(raw)
           | exception Json.Decode.DecodeError(_msg) => ()
           // Error(Error.LSPClientCannotDecodeResponse(msg, json))
           }
@@ -547,10 +562,9 @@ module LSP = {
         sendRequestPrim(client, Command(request))->Promise.flatMapOk(result =>
           switch result {
           | Initialize(_) =>
-            Promise.resolved(Error(Error.LSPInternalError("Got Initialize when expecting Payload")))
-          | Response(response) =>
-            Js.log(response)
-            Promise.resolved(Ok())
+            Promise.resolved(
+              Error(Error.LSPInternalError("Got `Initialize` when expecting `CommandDone`")),
+            )
           | CommandDone =>
             subscription->VSCode.Disposable.dispose->ignore
             Promise.resolved(Ok())
