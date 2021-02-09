@@ -3,22 +3,65 @@ open Belt
 // TODO: sort these errors out
 module Error = {
   type t =
+    // probing "agda" or "als"
+    | CannotConnectViaStdIO(AgdaModeVscode.Process.PathSearch.Error.t)
+    | CannotConnectViaTCP(Js.Exn.t)
     | PathSearch(Process.PathSearch.Error.t)
     | Validation(Process.Validation.Error.t)
     | Process(Process.Error.t)
+    // LSP related
+    | ConnectionError(Js.Exn.t)
+    | CannotSendRequest(Js.Exn.t)
+    // Encoding / Decoding
+    | CannotDecodeResponse(string, Js.Json.t)
+    | CannotDecodeNotification(string, Js.Json.t)
+    | InitializationFailed
+    // TODO: refactor these
     | LSPCannotConnectDevServer
     | LSPInternalError(string)
     | LSPConnection(Js.Exn.t)
     | LSPSendRequest(Js.Exn.t)
     | LSPClientCannotDecodeResponse(string, Js.Json.t)
-    | LSPServerCannotDecodeRequest(string)
+    | CannotDecodeRequest(string)
     | ResponseParseError(Parser.Error.t)
     | NotConnectedYet
   let toString = x =>
     switch x {
+    | CannotConnectViaStdIO(e) =>
+      let (_header, body) = AgdaModeVscode.Process.PathSearch.Error.toString(e)
+      ("Cannot locate \"als\"", body ++ "\nPlease make sure that the executable is in the path")
+    | CannotConnectViaTCP(_) => (
+        "Cannot connect with the server",
+        "Please enter \":main -d\" in ghci",
+      )
     | PathSearch(e) => Process.PathSearch.Error.toString(e)
     | Validation(e) => Process.Validation.Error.toString(e)
     | Process(e) => Process.Error.toString(e)
+    | ConnectionError(exn) =>
+      let isECONNREFUSED =
+        Js.Exn.message(exn)->Option.mapWithDefault(
+          false,
+          Js.String.startsWith("connect ECONNREFUSED"),
+        )
+
+      isECONNREFUSED
+        ? ("LSP Connection Error", "Please enter \":main -d\" in ghci")
+        : ("LSP Client Error", Js.Exn.message(exn)->Option.getWithDefault(""))
+    | CannotSendRequest(exn) => (
+        "PANIC: Cannot send request",
+        "Please file an issue\n" ++ Js.Exn.message(exn)->Option.getWithDefault(""),
+      )
+    | CannotDecodeResponse(msg, json) => (
+        "PANIC: Cannot decode response",
+        "Please file an issue\n\n" ++ msg ++ "\n" ++ Json.stringify(json),
+      )
+    | CannotDecodeNotification(msg, json) => (
+        "PANIC: Cannot decode Notification",
+        "Please file an issue\n\n" ++ msg ++ "\n" ++ Json.stringify(json),
+      )
+    | CannotDecodeRequest(e) => ("LSP: Server Cannot Decode Request", e)
+    | InitializationFailed => ("LSP: InitializationFailed", "")
+
     | LSPCannotConnectDevServer => ("LSP: Cannot Connect to the Dev Server", "")
     | LSPInternalError(e) => ("LSP: Internal Error", e)
     | LSPConnection(e) => ("LSP: Connection Failed", Util.JsError.toString(e))
@@ -27,7 +70,6 @@ module Error = {
         "LSP: Client Cannot Decode Response",
         e ++ "\n" ++ Js.Json.stringify(json),
       )
-    | LSPServerCannotDecodeRequest(e) => ("LSP: Server Cannot Decode Request", e)
     // | LSPCannotDecodeRequest(e) => ("LSP: Cannot Decode Request", e)
     | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
     | NotConnectedYet => ("Connection not established yet", "")
@@ -300,6 +342,8 @@ module Emacs: Emacs = {
 }
 
 module LSP = {
+  type method = ViaStdIO(string, string) | ViaTCP(int)
+
   module LSPReq = {
     type t = Initialize | Command(string)
 
@@ -334,250 +378,298 @@ module LSP = {
     )
   }
 
+  // module LSPNtf = {
+  //   type t = Response(string)
+
+  //   open Json.Decode
+  //   open Util.Decode
+  //   let decode: decoder<t> = sum(x =>
+  //     switch x {
+  //     | "LSPNtf" => Contents(string |> map(version => Response(version)))
+  //     | tag => raise(DecodeError("[LSP.Notification] Unknown constructor: " ++ tag))
+  //     }
+  //   )
+  // }
+
   module LSPNtf = {
-    type t = Response(string)
+    type t = string
 
     open Json.Decode
-    open Util.Decode
-    let decode: decoder<t> = sum(x =>
-      switch x {
-      | "LSPNtf" => Contents(string |> map(version => Response(version)))
-      | tag => raise(DecodeError("[LSP.Notification] Unknown constructor: " ++ tag))
-      }
-    )
+    let decode: decoder<t> = string
   }
 
   module type Module = {
-    module Handle: {
-      type t
-      let toString: t => string
-    }
-
-    // probe the machine to find the language server
-    let find: bool => Promise.t<result<Handle.t, Error.t>>
-
-    let start: Handle.t => Promise.t<result<version, Error.t>>
+    // lifecycle
+    let start: bool => Promise.t<result<(version, method), Error.t>>
     let stop: unit => Promise.t<unit>
-    let sendRequest: (string, string => unit) => Promise.t<result<unit, Error.t>>
+    // messaging
+    let sendRequest: (string, LSPNtf.t => unit) => Promise.t<result<unit, Error.t>>
     let getVersion: unit => option<version>
+    let onError: (Error.t => unit) => VSCode.Disposable.t
     // predicate
     let isConnected: unit => bool
-    // output
-    let onError: (Js.Exn.t => unit) => VSCode.Disposable.t
   }
 
   module Module: Module = {
-    module Handle = {
-      type t = StdIO(string, string) | TCP(int)
-      // for debugging
-      let toString = x =>
-        switch x {
-        | TCP(port) => "on port \"" ++ string_of_int(port) ++ "\""
-        | StdIO(name, path) => "\"" ++ name ++ "\" on path \"" ++ path ++ "\""
+    module Client = {
+      open VSCode
+
+      type t = {
+        client: LSP.LanguageClient.t,
+        subscription: VSCode.Disposable.t,
+        method: method,
+      }
+
+      // for emitting errors
+      let errorChan: Chan.t<Js.Exn.t> = Chan.make()
+      // for emitting data
+      let dataChan: Chan.t<Js.Json.t> = Chan.make()
+
+      let onError = callback =>
+        errorChan->Chan.on(e => callback(Error.ConnectionError(e)))->VSCode.Disposable.make
+      let onResponse = callback => dataChan->Chan.on(callback)->VSCode.Disposable.make
+
+      let sendRequest = (self, data) =>
+        self.client
+        ->LSP.LanguageClient.onReady
+        ->Promise.Js.toResult
+        ->Promise.flatMapOk(() => {
+          self.client->LSP.LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
+        })
+        ->Promise.mapError(exn => Error.CannotSendRequest(exn))
+
+      let destroy = self => {
+        self.subscription->VSCode.Disposable.dispose->ignore
+        self.client->LSP.LanguageClient.stop->Promise.Js.toResult->Promise.map(_ => ())
+      }
+
+      let make = method => {
+        // let emittedError = ref(false)
+
+        let serverOptions = switch method {
+        | ViaTCP(port) => LSP.ServerOptions.makeWithStreamInfo(port)
+        | ViaStdIO(name, _path) => LSP.ServerOptions.makeWithCommand(name)
         }
+
+        let clientOptions = {
+          // Register the server for plain text documents
+          let documentSelector: DocumentSelector.t = [
+            StringOr.others({
+              open DocumentFilter
+              {
+                scheme: Some("file"),
+                pattern: None,
+                language: Some("agda"),
+              }
+            }),
+          ]
+
+          // Notify the server about file changes to '.clientrc files contained in the workspace
+          let synchronize: FileSystemWatcher.t = Workspace.createFileSystemWatcher(
+            %raw("'**/.clientrc'"),
+            ~ignoreCreateEvents=false,
+            ~ignoreChangeEvents=false,
+            ~ignoreDeleteEvents=false,
+          )
+
+          let errorHandler: LSP.ErrorHandler.t = LSP.ErrorHandler.make(
+            ~error=(exn, _msg, _count) => {
+              errorChan->Chan.emit(exn)
+              Shutdown
+            },
+            ~closed=() => {
+              DoNotRestart
+            },
+          )
+          LSP.LanguageClientOptions.make(documentSelector, synchronize, errorHandler)
+        }
+
+        // Create the language client
+        let languageClient = LSP.LanguageClient.make(
+          "agdaLanguageServer",
+          "Agda Language Server",
+          serverOptions,
+          clientOptions,
+        )
+
+        let self = {
+          client: languageClient,
+          subscription: languageClient->LSP.LanguageClient.start,
+          method: method,
+        }
+
+        // Let `LanguageClient.onReady` and `errorChan->Chan.once` race
+        Promise.race(list{
+          self.client->LSP.LanguageClient.onReady->Promise.Js.toResult,
+          errorChan->Chan.once->Promise.map(err => Error(err)),
+        })
+        ->Promise.map(result =>
+          switch result {
+          | Error(error) => Error(error)
+          | Ok() =>
+            // NOTE: somehow `onNotification` gets called TWICE everytime
+            // This flag is for filtering out half of the Notifications
+            let flag = ref(true)
+            self.client->LSP.LanguageClient.onNotification("agda", json => {
+              if flag.contents {
+                dataChan->Chan.emit(json)
+                flag := false
+              } else {
+                flag := true
+              }
+            })
+            Ok(self)
+          }
+        )
+        ->Promise.mapError(e => Error.ConnectionError(e))
+      }
     }
 
     // for internal bookkeeping
     type state =
       | Disconnected
-      | Connected(LSP.Client.t, version)
+      | Connected(Client.t, version)
+    // internal state singleton
+    let singleton: ref<state> = ref(Disconnected)
 
-    // internal states
-    type singleton = {
-      mutable state: state,
-      mutable handle: option<Handle.t>,
-    }
-    let singleton: singleton = {
-      state: Disconnected,
-      handle: None,
+    // stop the LSP client
+    let stop = () =>
+      switch singleton.contents {
+      | Disconnected => Promise.resolved()
+      | Connected(client, _version) =>
+        // update the status
+        singleton := Disconnected
+        // destroy the client
+        client->Client.destroy
+      }
+
+    // catches exceptions occured when decoding JSON values
+    let decodeResponse = (json: Js.Json.t): result<LSPRes.t, Error.t> =>
+      switch LSPRes.decode(json) {
+      | response => Ok(response)
+      | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
+      }
+
+    let decodeNotification = (json: Js.Json.t): result<LSPNtf.t, Error.t> =>
+      switch LSPNtf.decode(json) {
+      | notification => Ok(notification)
+      | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeNotification(msg, json))
+      }
+
+    // let onResponse = handler => Client.onResponse(json => handler(decodeResponse(json)))
+    let onError = Client.onError
+
+    let sendRequestPrim = (client, request): Promise.t<result<LSPRes.t, Error.t>> => {
+      client
+      ->Client.sendRequest(LSPReq.encode(request))
+      ->Promise.flatMapOk(json => Promise.resolved(decodeResponse(json)))
     }
 
-    // locate the languege server
-    let find = devMode =>
-      if devMode {
-        let port = 4000
+    // see if the server is available
+    let probe = (tryTCP, port, name) => {
+      // see if "als" is available
+      let probeStdIO = name => {
+        AgdaModeVscode.Process.PathSearch.run(name)
+        ->Promise.mapOk(path => ViaStdIO(name, Js.String.trim(path)))
+        ->Promise.mapError(e => Error.CannotConnectViaStdIO(e))
+      }
+      // see if the TCP port is available
+      let probeTCP = port => {
         let (promise, resolve) = Promise.pending()
-        // connect to port 4000, resolve `Ok()`` on success
+        // connect and resolve `Ok()`` on success
         let socket = N.Net.connect(port, () => resolve(Ok()))
-        // resolve `Error(LSPCannotConnectDevServer)` on error
+        // resolve `Error(CannotConnect(Js.Exn.t))` on error
         socket
-        ->N.Net.Socket.on(#error(_exn => resolve(Error(Error.LSPCannotConnectDevServer))))
+        ->N.Net.Socket.on(#error(exn => resolve(Error(Error.CannotConnectViaTCP(exn)))))
         ->ignore
         // destroy the connection afterwards
         promise->Promise.mapOk(() => {
           N.Net.Socket.destroy(socket)->ignore
-          Handle.TCP(port)
+          ViaTCP(port)
         })
+      }
+      if tryTCP {
+        probeTCP(port)->Promise.flatMapError(_ => probeStdIO(name))
       } else {
-        let name = "als"
-        Process.PathSearch.run(name)
-        ->Promise.mapOk(path => Handle.StdIO(name, Js.String.trim(path)))
-        ->Promise.mapError(e => Error.PathSearch(e))
+        probeStdIO(name)
       }
-
-    // stop the LSP client
-    let stop = () =>
-      switch singleton.state {
-      | Disconnected => Promise.resolved()
-      | Connected(client, _version) =>
-        // update the status
-        singleton.state = Disconnected
-        // destroy the client
-        client->LSP.Client.destroy
-      }
-
-    // let onResponse = callback => {
-    //   LSP.Client.onData(json => {
-    //     switch LSPRes.decode(json) {
-    //     | Response(raw) => callback(raw)
-    //     | _ => ()
-    //     | exception Json.Decode.DecodeError(_msg) => ()
-    //     // Error(Error.LSPClientCannotDecodeResponse(msg, json))
-    //     }
-    //   })
-    // }
-
-    let sendRequestPrim = (client, request): Promise.t<result<LSPRes.t, Error.t>> => {
-      client
-      ->LSP.Client.sendRequest(LSPReq.encode(request))
-      ->Promise.map(x =>
-        switch x {
-        | Ok(json) =>
-          switch LSPRes.decode(json) {
-          | response => Ok(response)
-          | exception Json.Decode.DecodeError(msg) =>
-            Error(Error.LSPClientCannotDecodeResponse(msg, json))
-          }
-        | Error(exn) => Error(Error.LSPSendRequest(exn))
-        }
-      )
     }
 
-    // make and start the LSP client
-    let rec startWithHandle = handle =>
-      switch singleton.state {
+    // start the LSP client
+    let start = tryTCP =>
+      switch singleton.contents {
       | Disconnected =>
-        let (devMode, method) = switch handle {
-        | Handle.TCP(_) => (true, LSP.ViaTCP)
-        | StdIO(_) => (true, ViaStdIO)
-        }
-
-        LSP.Client.make(devMode, method)->Promise.flatMap(result =>
+        probe(tryTCP, 4000, "als")
+        ->Promise.flatMapOk(Client.make)
+        ->Promise.flatMap(result =>
           switch result {
-          | Error(exn) =>
-            let isECONNREFUSED =
-              Js.Exn.message(exn)->Option.mapWithDefault(
-                false,
-                Js.String.startsWith("connect ECONNREFUSED"),
-              )
-            let shouldSwitchToStdIO = isECONNREFUSED && method == ViaTCP
-
-            singleton.state = Disconnected
-            singleton.handle = None
-
-            if shouldSwitchToStdIO {
-              Js.log("Connecting via TCP failed, trying to switch to StdIO")
-
-              find(false)->Promise.flatMapOk(handle => {
-                singleton.handle = Some(handle)
-                startWithHandle(handle)
-              })
-            } else {
-              Promise.resolved(Error(Error.LSPConnection(exn)))
-            }
+          | Error(error) =>
+            singleton.contents = Disconnected
+            Promise.resolved(Error(error))
           | Ok(client) =>
             // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
             sendRequestPrim(client, Initialize)->Promise.flatMapOk(response =>
               switch response {
               | ServerCannotDecodeRequest(msg) =>
-                Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(msg)))
-              // | Response(_) =>
-              //   Promise.resolved(
-              //     Error(Error.LSPConnection(Js.Exn.raiseError("Got `Response` instead"))),
-              //   )
-              | CommandDone =>
-                Promise.resolved(
-                  Error(Error.LSPConnection(Js.Exn.raiseError("Got `CommandDone` instead"))),
-                )
+                Promise.resolved(Error(Error.CannotDecodeRequest(msg)))
+              | CommandDone => Promise.resolved(Error(Error.InitializationFailed))
               | Initialize(version) =>
                 // update the status
-                singleton.state = Connected(client, version)
-                Promise.resolved(Ok(version))
+                singleton.contents = Connected(client, version)
+                Promise.resolved(Ok((version, client.method)))
               }
             )
           }
         )
-      | Connected(_, version) => Promise.resolved(Ok(version))
+      | Connected(client, version) => Promise.resolved(Ok((version, client.method)))
       }
 
-    // make and start the LSP client
-    let start = handle => {
-      singleton.handle = Some(handle)
-      startWithHandle(handle)
-    }
-
     let getVersion = () =>
-      switch singleton.state {
+      switch singleton.contents {
       | Disconnected => None
       | Connected(_, version) => Some(version)
       }
 
     let isConnected = () =>
-      switch singleton.state {
+      switch singleton.contents {
       | Disconnected => false
       | Connected(_, _version) => true
       }
 
-    // let onResponse = handler => Client.onData(json => handler(decodeResponse(json)))
-    let onError = LSP.Client.onError
-
-    let sendRequest = (request, responseHandler) =>
-      switch singleton.state {
+    let sendRequest = (request, notificationHandler) =>
+      switch singleton.contents {
       | Connected(client, _version) =>
-        let subscription = LSP.Client.onData(json => {
-          Js.log("json: " ++ Js.Json.stringify(json))
-          switch LSPNtf.decode(json) {
-          | Response(raw) =>
-            Js.log("!!!!!")
-            responseHandler(raw)
-          | exception Json.Decode.DecodeError(_msg) => ()
-          // Error(Error.LSPClientCannotDecodeResponse(msg, json))
+        let (promise, resolve) = Promise.pending()
+
+        // listens for notifications
+        let subscription = Client.onResponse(json => {
+          switch decodeNotification(json) {
+          | Ok(notification) => notificationHandler(notification)
+          | Error(error) =>
+            // resolve on Error to stop the listener
+            resolve(Error(error))
           }
         })
-        sendRequestPrim(client, Command(request))->Promise.flatMapOk(result =>
+
+        let stopListening = () => subscription->VSCode.Disposable.dispose->ignore
+
+        // sends `Command` and waits for `CommandDone`
+        sendRequestPrim(client, Command(request))
+        ->Promise.flatMapOk(result =>
           switch result {
-          | Initialize(_) =>
-            Promise.resolved(
-              Error(Error.LSPInternalError("Got `Initialize` when expecting `CommandDone`")),
-            )
-          | CommandDone =>
-            subscription->VSCode.Disposable.dispose->ignore
-            Promise.resolved(Ok())
-          | ServerCannotDecodeRequest(e) =>
-            Promise.resolved(Error(Error.LSPServerCannotDecodeRequest(e)))
+          | ServerCannotDecodeRequest(e) => Promise.resolved(Error(Error.CannotDecodeRequest(e)))
+          | Initialize(_) => Promise.resolved(Error(Error.InitializationFailed))
+          | CommandDone => Promise.resolved(Ok())
           }
         )
+        // stop listening for notifications
+        ->Promise.tap(_ => stopListening())
+        ->Promise.get(resolve)
+
+        // return the promise
+        promise
       | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
       }
-
-    // let changeMethod = method => {
-    //   // update the state and reconfigure the connection
-    //   let (changed, devMode) = switch singleton.handle {
-    //   | None => true
-    //   | Some(TCP(_)) => method != LSP.ViaTCP
-    //   | Some(StdIO(_)) => method != LSP.ViaStdIO
-    //   }
-
-    //   if changed {
-    //     singleton.handle = method
-    //     methodChan->Chan.emit(method)
-    //     stop()
-    //     ->Promise.flatMap(() => start(singleton.devMode))
-    //     ->Promise.mapOk(version => Some(version))
-    //   } else {
-    //     Promise.resolved(Ok(None))
-    //   }
-    // }
   }
   include Module
 }
