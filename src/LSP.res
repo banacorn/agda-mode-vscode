@@ -146,7 +146,6 @@ module LanguageClient = {
   external sendRequest: (t, string, Js.Json.t) => Promise.Js.t<'result, _> = "sendRequest"
 }
 
-type status = Disconnected | Connecting | Connected
 type method = ViaStdIO | ViaTCP
 
 module type Client = {

@@ -315,7 +315,6 @@ module LSP = {
   module LSPRes = {
     type t =
       | Initialize(version)
-      // | Response(string)
       | CommandDone
       | ServerCannotDecodeRequest(string)
 
@@ -360,31 +359,23 @@ module LSP = {
     let start: Handle.t => Promise.t<result<version, Error.t>>
     let stop: unit => Promise.t<unit>
     let sendRequest: (string, string => unit) => Promise.t<result<unit, Error.t>>
-    // let onResponse: (string => unit) => VSCode.Disposable.t
-    // let changeMethod: LSP.method => Promise.t<result<option<version>, Error.t>>
     let getVersion: unit => option<version>
     // predicate
     let isConnected: unit => bool
     // output
     let onError: (Js.Exn.t => unit) => VSCode.Disposable.t
-    let onChangeStatus: (LSP.status => unit) => VSCode.Disposable.t
-    let onChangeMethod: (LSP.method => unit) => VSCode.Disposable.t
   }
 
   module Module: Module = {
     module Handle = {
-      type t = StdIO(string) | TCP(int)
+      type t = StdIO(string, string) | TCP(int)
       // for debugging
       let toString = x =>
         switch x {
         | TCP(port) => "on port \"" ++ string_of_int(port) ++ "\""
-        | StdIO(path) => "on path \"" ++ path ++ "\""
+        | StdIO(name, path) => "\"" ++ name ++ "\" on path \"" ++ path ++ "\""
         }
     }
-
-    // for emitting events
-    let statusChan: Chan.t<LSP.status> = Chan.make()
-    let methodChan: Chan.t<LSP.method> = Chan.make()
 
     // for internal bookkeeping
     type state =
@@ -418,8 +409,9 @@ module LSP = {
           Handle.TCP(port)
         })
       } else {
-        Process.PathSearch.run("als")
-        ->Promise.mapOk(path => Handle.StdIO(Js.String.trim(path)))
+        let name = "als"
+        Process.PathSearch.run(name)
+        ->Promise.mapOk(path => Handle.StdIO(name, Js.String.trim(path)))
         ->Promise.mapError(e => Error.PathSearch(e))
       }
 
@@ -430,7 +422,6 @@ module LSP = {
       | Connected(client, _version) =>
         // update the status
         singleton.state = Disconnected
-        statusChan->Chan.emit(Disconnected)
         // destroy the client
         client->LSP.Client.destroy
       }
@@ -457,9 +448,7 @@ module LSP = {
           | exception Json.Decode.DecodeError(msg) =>
             Error(Error.LSPClientCannotDecodeResponse(msg, json))
           }
-        | Error(exn) =>
-          statusChan->Chan.emit(Disconnected)
-          Error(Error.LSPSendRequest(exn))
+        | Error(exn) => Error(Error.LSPSendRequest(exn))
         }
       )
     }
@@ -484,7 +473,6 @@ module LSP = {
             let shouldSwitchToStdIO = isECONNREFUSED && method == ViaTCP
 
             singleton.state = Disconnected
-            statusChan->Chan.emit(Disconnected)
             singleton.handle = None
 
             if shouldSwitchToStdIO {
@@ -514,7 +502,6 @@ module LSP = {
               | Initialize(version) =>
                 // update the status
                 singleton.state = Connected(client, version)
-                statusChan->Chan.emit(Connected)
                 Promise.resolved(Ok(version))
               }
             )
@@ -543,8 +530,6 @@ module LSP = {
 
     // let onResponse = handler => Client.onData(json => handler(decodeResponse(json)))
     let onError = LSP.Client.onError
-    let onChangeStatus = callback => statusChan->Chan.on(callback)->VSCode.Disposable.make
-    let onChangeMethod = callback => methodChan->Chan.on(callback)->VSCode.Disposable.make
 
     let sendRequest = (request, responseHandler) =>
       switch singleton.state {
