@@ -369,7 +369,6 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
-      // | "ResResponse" => Contents(string |> map(response => Response(response)))
       | "ResCommandDone" => TagOnly(CommandDone)
       | "ResCannotDecodeRequest" =>
         Contents(string |> map(version => ServerCannotDecodeRequest(version)))
@@ -378,24 +377,26 @@ module LSP = {
     )
   }
 
-  // module LSPNtf = {
-  //   type t = Response(string)
-
-  //   open Json.Decode
-  //   open Util.Decode
-  //   let decode: decoder<t> = sum(x =>
-  //     switch x {
-  //     | "LSPNtf" => Contents(string |> map(version => Response(version)))
-  //     | tag => raise(DecodeError("[LSP.Notification] Unknown constructor: " ++ tag))
-  //     }
-  //   )
-  // }
-
   module LSPNtf = {
-    type t = string
+    type t =
+      | Response(string)
+      | ResponseEnd
+
+    let toString = x =>
+      switch x {
+      | Response(s) => s
+      | ResponseEnd => "========"
+      }
 
     open Json.Decode
-    let decode: decoder<t> = string
+    open Util.Decode
+    let decode: decoder<t> = sum(x =>
+      switch x {
+      | "NtfResponse" => Contents(string |> map(version => Response(version)))
+      | "NtfResponseEnd" => TagOnly(ResponseEnd)
+      | tag => raise(DecodeError("[LSP.Notification] Unknown constructor: " ++ tag))
+      }
+    )
   }
 
   module type Module = {
@@ -403,7 +404,7 @@ module LSP = {
     let start: bool => Promise.t<result<(version, method), Error.t>>
     let stop: unit => Promise.t<unit>
     // messaging
-    let sendRequest: (string, LSPNtf.t => unit) => Promise.t<result<unit, Error.t>>
+    let sendRequest: (string, string => unit) => Promise.t<result<unit, Error.t>>
     let getVersion: unit => option<version>
     let onError: (Error.t => unit) => VSCode.Disposable.t
     // predicate
@@ -507,16 +508,9 @@ module LSP = {
           switch result {
           | Error(error) => Error(error)
           | Ok() =>
-            // NOTE: somehow `onNotification` gets called TWICE everytime
-            // This flag is for filtering out half of the Notifications
-            let flag = ref(true)
-            self.client->LSP.LanguageClient.onNotification("agda", json => {
-              if flag.contents {
-                dataChan->Chan.emit(json)
-                flag := false
-              } else {
-                flag := true
-              }
+            self.client->LSP.LanguageClient.onRequest("agda", json => {
+              dataChan->Chan.emit(json)
+              Promise.resolved()
             })
             Ok(self)
           }
@@ -639,35 +633,32 @@ module LSP = {
     let sendRequest = (request, notificationHandler) =>
       switch singleton.contents {
       | Connected(client, _version) =>
+        // waits for `ResponseEnd`
         let (promise, resolve) = Promise.pending()
 
         // listens for notifications
         let subscription = Client.onResponse(json => {
           switch decodeNotification(json) {
-          | Ok(notification) => notificationHandler(notification)
-          | Error(error) =>
-            // resolve on Error to stop the listener
-            resolve(Error(error))
+          | Ok(Response(responese)) => notificationHandler(responese)
+          | Ok(ResponseEnd) => resolve(Ok())
+          | Error(error) => resolve(Error(error))
           }
         })
 
-        let stopListening = () => subscription->VSCode.Disposable.dispose->ignore
+        let stopListeningForNotifications = () => subscription->VSCode.Disposable.dispose->ignore
 
-        // sends `Command` and waits for `CommandDone`
+        // sends `Command` and waits for `ResponseEnd`
         sendRequestPrim(client, Command(request))
         ->Promise.flatMapOk(result =>
           switch result {
           | ServerCannotDecodeRequest(e) => Promise.resolved(Error(Error.CannotDecodeRequest(e)))
           | Initialize(_) => Promise.resolved(Error(Error.InitializationFailed))
-          | CommandDone => Promise.resolved(Ok())
+          // waits for `ResponseEnd`
+          | CommandDone => promise
           }
         )
         // stop listening for notifications
-        ->Promise.tap(_ => stopListening())
-        ->Promise.get(resolve)
-
-        // return the promise
-        promise
+        ->Promise.tap(_ => stopListeningForNotifications())
       | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
       }
   }
