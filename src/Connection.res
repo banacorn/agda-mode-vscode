@@ -379,12 +379,14 @@ module LSP = {
 
   module LSPReaction = {
     type t =
-      | Reaction(string)
+      | ReactionNonLast(string)
+      | ReactionLast(int, string)
       | ReactionEnd
 
     let toString = x =>
       switch x {
-      | Reaction(s) => s
+      | ReactionNonLast(s) => s
+      | ReactionLast(i, s) => "[Last " ++ string_of_int(i) ++ "] " ++ s
       | ReactionEnd => "========"
       }
 
@@ -392,7 +394,9 @@ module LSP = {
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "Reaction" => Contents(string |> map(version => Reaction(version)))
+      | "ReactionNonLast" => Contents(string |> map(payload => ReactionNonLast(payload)))
+      | "ReactionLast" =>
+        Contents(pair(int, string) |> map(((priority, payload)) => ReactionLast(priority, payload)))
       | "ReactionEnd" => TagOnly(ReactionEnd)
       | tag => raise(DecodeError("[LSP.Reaction] Unknown constructor: " ++ tag))
       }
@@ -639,7 +643,8 @@ module LSP = {
         // listens for notifications
         let subscription = Client.onResponse(json => {
           switch decodeNotification(json) {
-          | Ok(Reaction(responese)) => notificationHandler(responese)
+          | Ok(ReactionNonLast(responese)) => notificationHandler(responese)
+          | Ok(ReactionLast(_priority, responese)) => notificationHandler(responese)
           | Ok(ReactionEnd) => resolve(Ok())
           | Error(error) => resolve(Error(error))
           }
