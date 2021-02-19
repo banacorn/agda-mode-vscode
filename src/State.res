@@ -48,7 +48,9 @@ module RequestQueue: {
 }
 
 type connType =
-  Emacs(Connection.Emacs.t) | LSP(Connection.LSP.version) | Nothing(Connection.Error.t)
+  | Emacs(Connection.Emacs.t, Connection.version)
+  | LSP(Connection.version)
+  | Nothing(Connection.Error.t)
 
 type viewCache =
   Event(View.EventToView.t) | Request(View.Request.t, View.Response.t => Promise.t<unit>)
@@ -196,16 +198,16 @@ module Connection: Connection = {
 
   let reconnect = state =>
     switch state.connection {
-    | Emacs(conn) =>
+    | Emacs(conn, version) =>
       Connection.Emacs.destroy(conn)
       ->Promise.flatMap(Connection.Emacs.make)
-      ->Promise.tapOk(conn => state.connection = Emacs(conn))
+      ->Promise.tapOk(conn => state.connection = Emacs(conn, version))
     | _ => Promise.resolved(Error(Connection.Error.NotConnectedYet))
     }
 
   let destroy = state =>
     switch state.connection {
-    | Emacs(conn) => conn->Connection.Emacs.destroy
+    | Emacs(conn, _) => conn->Connection.Emacs.destroy
     | _ => Promise.resolved()
     }
 
@@ -214,9 +216,6 @@ module Connection: Connection = {
     handleResponse: Response.t => Promise.t<unit>,
     request: Request.t,
   ): Promise.t<unit> => {
-    // this promise get resolved after all Responses has been received from Agda
-    let handle = ref(None)
-
     let handleResult = result =>
       switch result {
       | Error(error) =>
@@ -225,20 +224,13 @@ module Connection: Connection = {
       | Ok(response) => handleResponse(response)
       }
 
-    switch state.connection {
-    | Emacs(conn) =>
-      let promise = Connection.Emacs.onResponse(conn, handleResult)
-      Connection.Emacs.sendRequest(conn, state.document, request)
-      promise->Promise.tap(() =>
-        handle.contents->Option.forEach(destroyListener => destroyListener())
-      )
-    | LSP(version) =>
-      // encode the Request to some string
+    // encode the Request to some string
+    let encodeRequest = version => {
       let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
       let libraryPath = Config.getLibraryPath()
       let highlightingMethod = Config.getHighlightingMethod()
       let backend = Config.getBackend()
-      let encoded = Request.encode(
+      Request.encode(
         state.document,
         version,
         filepath,
@@ -247,7 +239,18 @@ module Connection: Connection = {
         highlightingMethod,
         request,
       )
-      Connection.LSP.sendRequest(encoded, raw => Js.log(raw))->Promise.flatMap(result =>
+    }
+
+    switch state.connection {
+    | Emacs(conn, version) =>
+      // this promise gets resolved after all Responses have been received and handled
+      let promise = Connection.Emacs.onResponse(conn, handleResult)
+      Connection.Emacs.sendRequest(conn, encodeRequest(version))
+      promise
+    | LSP(version) =>
+      Connection.LSP.sendRequest(encodeRequest(version), raw =>
+        Js.log(raw)
+      )->Promise.flatMap(result =>
         switch result {
         | Error(error) => View.displayConnectionError(state, error)
         | Ok() =>

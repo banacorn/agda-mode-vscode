@@ -71,16 +71,26 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
           "\n" ++
           snd(Connection.Error.toString(error)),
         )
-        Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+        Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
+          conn,
+          Connection.Emacs.getVersion(conn),
+        ))
       })
     } else {
       switch Connection.LSP.getVersion() {
-      | None => Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+      | None =>
+        Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
+          conn,
+          Connection.Emacs.getVersion(conn),
+        ))
       | Some(version) => Promise.resolved(Ok(State.LSP(version)))
       }
     }
   } else {
-    Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(conn))
+    Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
+      conn,
+      Connection.Emacs.getVersion(conn),
+    ))
   }
 }
 

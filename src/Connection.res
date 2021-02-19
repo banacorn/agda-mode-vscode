@@ -76,12 +76,15 @@ module Error = {
     }
 }
 
+type version = string
+
 module type Emacs = {
   type t
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   let onResponse: (t, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<unit>
-  let sendRequest: (t, VSCode.TextDocument.t, Request.t) => unit
+  let sendRequest: (t, string) => unit
+  let getVersion: t => string
 }
 
 module Emacs: Emacs = {
@@ -264,22 +267,7 @@ module Emacs: Emacs = {
     ->Promise.tapOk(wire)
   }
 
-  let sendRequest = (connection, document, request): unit => {
-    let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
-    let libraryPath = Config.getLibraryPath()
-    let highlightingMethod = Config.getHighlightingMethod()
-    let backend = Config.getBackend()
-    let encoded = Request.encode(
-      document,
-      connection.metadata.version,
-      filepath,
-      backend,
-      libraryPath,
-      highlightingMethod,
-      request,
-    )
-    connection.process->Process.send(encoded)->ignore
-  }
+  let sendRequest = (connection, encoded): unit => connection.process->Process.send(encoded)->ignore
 
   let onResponse = (connection, callback) => {
     // deferred responses are queued here
@@ -339,6 +327,8 @@ module Emacs: Emacs = {
       listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
     )
   }
+
+  let getVersion = conn => conn.metadata.version
 }
 
 module LSP = {
@@ -355,7 +345,6 @@ module LSP = {
       }
   }
 
-  type version = string
   module LSPRes = {
     type t =
       | Initialize(version)
@@ -548,13 +537,12 @@ module LSP = {
       | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
       }
 
-    let decodeNotification = (json: Js.Json.t): result<LSPReaction.t, Error.t> =>
+    let decodeReaction = (json: Js.Json.t): result<LSPReaction.t, Error.t> =>
       switch LSPReaction.decode(json) {
       | notification => Ok(notification)
       | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeNotification(msg, json))
       }
 
-    // let onResponse = handler => Client.onResponse(json => handler(decodeResponse(json)))
     let onError = Client.onError
 
     let sendRequestPrim = (client, request): Promise.t<result<LSPRes.t, Error.t>> => {
@@ -642,7 +630,7 @@ module LSP = {
 
         // listens for notifications
         let subscription = Client.onResponse(json => {
-          switch decodeNotification(json) {
+          switch decodeReaction(json) {
           | Ok(ReactionNonLast(responese)) => notificationHandler(responese)
           | Ok(ReactionLast(_priority, responese)) => notificationHandler(responese)
           | Ok(ReactionEnd) => resolve(Ok())
