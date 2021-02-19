@@ -97,7 +97,6 @@ module Scheduler: {
   let make: unit => t
   let runNonLast: (t, handler, Response.t) => unit
   let addLast: (t, int, Response.t) => unit
-  let onceDone: t => Promise.t<unit>
   let runLast: (t, handler) => unit
 } = {
   type t = {
@@ -114,10 +113,10 @@ module Scheduler: {
     deferredLastResponses: [],
   }
   // NonLast Responses should fed here
-  let runNonLast = (self, callback, response) => {
-    Js.log("[NonLast] " ++ Response.toString(response))
+  let runNonLast = (self, handler, response) => {
+    // Js.log("[NonLast] " ++ Response.toString(response))
     self.tally = self.tally + 1
-    callback(Ok(response))->Promise.get(_ => {
+    handler(Ok(response))->Promise.get(_ => {
       self.tally = self.tally - 1
       if self.tally == 0 {
         self.allDone->Chan.emit()
@@ -126,7 +125,7 @@ module Scheduler: {
   }
   // deferred (Last) Responses are queued here
   let addLast = (self, priority, response) => {
-    Js.log("[Add Last] " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
+    // Js.log("[Add Last] " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
     Js.Array.push((priority, response), self.deferredLastResponses)->ignore
   }
   // gets resolved once there's no NonLast Responses running
@@ -136,23 +135,26 @@ module Scheduler: {
     } else {
       self.allDone->Chan.once
     }
-  // handle Last Responses
-  let runLast = (self, callback) => {
-    // sort the deferred Responses by priority (ascending order)
-    let deferredLastResponses =
-      Js.Array.sortInPlaceWith(
-        (x, y) => compare(fst(x), fst(y)),
-        self.deferredLastResponses,
-      )->Array.map(snd)
+  // start handling Last Responses, after all NonLast Responses have been handled
+  let runLast = (self, handler) =>
+    self
+    ->onceDone
+    ->Promise.get(() => {
+      // sort the deferred Responses by priority (ascending order)
+      let deferredLastResponses =
+        Js.Array.sortInPlaceWith(
+          (x, y) => compare(fst(x), fst(y)),
+          self.deferredLastResponses,
+        )->Array.map(snd)
 
-    // insert `CompleteHighlightingAndMakePromptReappear` handling Last Responses
-    Js.Array.unshift(
-      Response.CompleteHighlightingAndMakePromptReappear,
-      deferredLastResponses,
-    )->ignore
+      // insert `CompleteHighlightingAndMakePromptReappear` handling Last Responses
+      Js.Array.unshift(
+        Response.CompleteHighlightingAndMakePromptReappear,
+        deferredLastResponses,
+      )->ignore
 
-    deferredLastResponses->Array.map(res => callback(Ok(res)))->Util.oneByOne->ignore
-  }
+      deferredLastResponses->Array.map(res => handler(Ok(res)))->Util.oneByOne->ignore
+    })
 }
 
 module type Emacs = {
@@ -343,13 +345,10 @@ module Emacs: Emacs = {
       | Ok(Yield(Ok(NonLast(response)))) => scheduler->Scheduler.runNonLast(callback, response)
       | Ok(Yield(Ok(Last(priority, response)))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
-        // wait until all NonLast Responses are handled
-        scheduler
-        ->Scheduler.onceDone
         // stop the Agda Response listener
-        ->Promise.tap(stopListener)
-        // start handling Last Responses
-        ->Promise.get(() => scheduler->Scheduler.runLast(callback))
+        stopListener()
+        // start handling Last Responses, after all NonLast Responses have been handled
+        scheduler->Scheduler.runLast(callback)
       }
 
     let listenerHandle = ref(None)
