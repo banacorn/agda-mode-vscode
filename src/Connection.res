@@ -359,7 +359,7 @@ module LSP = {
   module LSPRes = {
     type t =
       | Initialize(version)
-      | CommandDone
+      | Command
       | ServerCannotDecodeRequest(string)
 
     let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
@@ -369,7 +369,7 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
-      | "ResCommandDone" => TagOnly(CommandDone)
+      | "ResCommand" => TagOnly(Command)
       | "ResCannotDecodeRequest" =>
         Contents(string |> map(version => ServerCannotDecodeRequest(version)))
       | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
@@ -377,24 +377,24 @@ module LSP = {
     )
   }
 
-  module LSPNtf = {
+  module LSPReaction = {
     type t =
-      | Response(string)
-      | ResponseEnd
+      | Reaction(string)
+      | ReactionEnd
 
     let toString = x =>
       switch x {
-      | Response(s) => s
-      | ResponseEnd => "========"
+      | Reaction(s) => s
+      | ReactionEnd => "========"
       }
 
     open Json.Decode
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "NtfResponse" => Contents(string |> map(version => Response(version)))
-      | "NtfResponseEnd" => TagOnly(ResponseEnd)
-      | tag => raise(DecodeError("[LSP.Notification] Unknown constructor: " ++ tag))
+      | "Reaction" => Contents(string |> map(version => Reaction(version)))
+      | "ReactionEnd" => TagOnly(ReactionEnd)
+      | tag => raise(DecodeError("[LSP.Reaction] Unknown constructor: " ++ tag))
       }
     )
   }
@@ -544,8 +544,8 @@ module LSP = {
       | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
       }
 
-    let decodeNotification = (json: Js.Json.t): result<LSPNtf.t, Error.t> =>
-      switch LSPNtf.decode(json) {
+    let decodeNotification = (json: Js.Json.t): result<LSPReaction.t, Error.t> =>
+      switch LSPReaction.decode(json) {
       | notification => Ok(notification)
       | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeNotification(msg, json))
       }
@@ -606,7 +606,7 @@ module LSP = {
               switch response {
               | ServerCannotDecodeRequest(msg) =>
                 Promise.resolved(Error(Error.CannotDecodeRequest(msg)))
-              | CommandDone => Promise.resolved(Error(Error.InitializationFailed))
+              | Command => Promise.resolved(Error(Error.InitializationFailed))
               | Initialize(version) =>
                 // update the status
                 singleton.contents = Connected(client, version)
@@ -639,8 +639,8 @@ module LSP = {
         // listens for notifications
         let subscription = Client.onResponse(json => {
           switch decodeNotification(json) {
-          | Ok(Response(responese)) => notificationHandler(responese)
-          | Ok(ResponseEnd) => resolve(Ok())
+          | Ok(Reaction(responese)) => notificationHandler(responese)
+          | Ok(ReactionEnd) => resolve(Ok())
           | Error(error) => resolve(Error(error))
           }
         })
@@ -654,7 +654,7 @@ module LSP = {
           | ServerCannotDecodeRequest(e) => Promise.resolved(Error(Error.CannotDecodeRequest(e)))
           | Initialize(_) => Promise.resolved(Error(Error.InitializationFailed))
           // waits for `ResponseEnd`
-          | CommandDone => promise
+          | Command => promise
           }
         )
         // stop listening for notifications
