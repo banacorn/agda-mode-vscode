@@ -417,20 +417,23 @@ module LSP = {
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "ReactionNonLast" =>
+      | "ReactionHighlightingInfo" =>
         Contents(
-          string |> map(raw =>
-            switch Response.parseFromString(raw) {
-            | Error(e) => ReactionParseError(e)
-            | Ok(response) => ReactionNonLast(response)
+          string |> map(raw => {
+            switch Highlighting.tempParseFromString(raw) {
+            | None => ReactionParseError(Parser.Error.SExpression(-3, "ReactionHighlightingInfo"))
+            | Some(HighlightingInfoDirect(p, xs)) =>
+              ReactionNonLast(Response.HighlightingInfoDirect(p, xs))
+            | Some(HighlightingInfoIndirect(s)) =>
+              ReactionNonLast(Response.HighlightingInfoIndirect(s))
             }
-          ),
+          }),
         )
       | "ReactionDisplayInfo" =>
         Contents(
           string |> map(raw =>
             switch Response.DisplayInfo.parseFromString(raw) {
-            | None => ReactionParseError(Parser.Error.SExpression(-2, ""))
+            | None => ReactionParseError(Parser.Error.SExpression(-2, "ReactionDisplayInfo"))
             | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
             }
           ),
