@@ -473,6 +473,10 @@ module LSP = {
             Response.MakeCase(ExtendedLambda, payload),
           )),
         )
+      | "ReactionSolveAll" =>
+        Contents(
+          array(pair(int, string)) |> map(payloads => ReactionLast(2, Response.SolveAll(payloads))),
+        )
       | "ReactionJumpToError" =>
         Contents(
           pair(string, int) |> map(((filePath, offset)) => ReactionLast(
