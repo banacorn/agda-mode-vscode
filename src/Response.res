@@ -281,6 +281,18 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
   }
 }
 
+let parseFromString = (raw: string): result<t, Parser.Error.t> => {
+  let tokens = Parser.SExpression.parse(raw)
+  tokens[0]->Option.mapWithDefault(
+    Error(Parser.Error.SExpression(-1, "expecting a S-Expression")),
+    result =>
+      switch result {
+      | Error((i, e)) => Error(Parser.Error.SExpression(i, e))
+      | Ok(tokens) => parse(tokens)
+      },
+  )
+}
+
 module Prioritized = {
   type response = t
   type t =

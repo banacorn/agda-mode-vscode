@@ -400,14 +400,16 @@ module LSP = {
 
   module LSPReaction = {
     type t =
-      | ReactionNonLast(string)
-      | ReactionLast(int, string)
+      | ReactionNonLast(Response.t)
+      | ReactionLast(int, Response.t)
+      | ReactionParseError(Parser.Error.t)
       | ReactionEnd
 
     let toString = x =>
       switch x {
-      | ReactionNonLast(s) => s
-      | ReactionLast(i, s) => "[Last " ++ string_of_int(i) ++ "] " ++ s
+      | ReactionNonLast(s) => Response.toString(s)
+      | ReactionLast(i, s) => "[Last " ++ string_of_int(i) ++ "] " ++ Response.toString(s)
+      | ReactionParseError(e) => Parser.Error.toString(e)
       | ReactionEnd => "========"
       }
 
@@ -415,9 +417,24 @@ module LSP = {
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "ReactionNonLast" => Contents(string |> map(payload => ReactionNonLast(payload)))
+      | "ReactionNonLast" =>
+        Contents(
+          string |> map(raw =>
+            switch Response.parseFromString(raw) {
+            | Error(e) => ReactionParseError(e)
+            | Ok(response) => ReactionNonLast(response)
+            }
+          ),
+        )
       | "ReactionLast" =>
-        Contents(pair(int, string) |> map(((priority, payload)) => ReactionLast(priority, payload)))
+        Contents(
+          pair(int, string) |> map(((priority, raw)) =>
+            switch Response.parseFromString(raw) {
+            | Error(e) => ReactionParseError(e)
+            | Ok(response) => ReactionLast(priority, response)
+            }
+          ),
+        )
       | "ReactionEnd" => TagOnly(ReactionEnd)
       | tag => raise(DecodeError("[LSP.Reaction] Unknown constructor: " ++ tag))
       }
@@ -429,7 +446,7 @@ module LSP = {
     let start: bool => Promise.t<result<(version, method), Error.t>>
     let stop: unit => Promise.t<unit>
     // messaging
-    let sendRequest: (string, string => unit) => Promise.t<result<unit, Error.t>>
+    let sendRequest: (string, Scheduler.handler) => Promise.t<result<unit, Error.t>>
     let getVersion: unit => option<version>
     let onError: (Error.t => unit) => VSCode.Disposable.t
     // predicate
@@ -654,17 +671,20 @@ module LSP = {
       | Connected(_, _version) => true
       }
 
-    let sendRequest = (request, notificationHandler) =>
+    let sendRequest = (request, handler) =>
       switch singleton.contents {
       | Connected(client, _version) =>
+        let scheduler = Scheduler.make()
         // waits for `ResponseEnd`
-        let (promise, resolve) = Promise.pending()
+        let (waitForResponseEnd, resolve) = Promise.pending()
 
         // listens for notifications
         let subscription = Client.onResponse(json => {
           switch decodeReaction(json) {
-          | Ok(ReactionNonLast(responese)) => notificationHandler(responese)
-          | Ok(ReactionLast(_priority, responese)) => notificationHandler(responese)
+          | Ok(ReactionNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
+          | Ok(ReactionLast(priority, responese)) =>
+            scheduler->Scheduler.addLast(priority, responese)
+          | Ok(ReactionParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
           | Ok(ReactionEnd) => resolve(Ok())
           | Error(error) => resolve(Error(error))
           }
@@ -679,11 +699,15 @@ module LSP = {
           | ServerCannotDecodeRequest(e) => Promise.resolved(Error(Error.CannotDecodeRequest(e)))
           | Initialize(_) => Promise.resolved(Error(Error.InitializationFailed))
           // waits for `ResponseEnd`
-          | Command => promise
+          | Command => waitForResponseEnd
           }
         )
-        // stop listening for notifications
+        // stop listening for notifications once the Command
         ->Promise.tap(_ => stopListeningForNotifications())
+        ->Promise.tap(_ =>
+          // start handling Last Responses, after all NonLast Responses have been handled
+          scheduler->Scheduler.runLast(handler)
+        )
       | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
       }
   }

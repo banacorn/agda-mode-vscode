@@ -248,9 +248,7 @@ module Connection: Connection = {
       Connection.Emacs.sendRequest(conn, encodeRequest(version))
       promise
     | LSP(version) =>
-      Connection.LSP.sendRequest(encodeRequest(version), raw =>
-        Js.log(raw)
-      )->Promise.flatMap(result =>
+      Connection.LSP.sendRequest(encodeRequest(version), handleResult)->Promise.flatMap(result =>
         switch result {
         | Error(error) => View.displayConnectionError(state, error)
         | Ok() =>

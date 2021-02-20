@@ -1,12 +1,16 @@
 open Belt
 
-let split = s => s->Js.String.splitByRe(%re("/\\r\\n|\\n/"), _)->Array.map(x =>
+let split = s =>
+  s
+  ->Js.String.splitByRe(%re("/\\r\\n|\\n/"), _)
+  ->Array.map(x =>
     switch x {
     | None => None
     | Some("") => None
     | Some(chunk) => Some(chunk)
     }
-  )->Array.keepMap(x => x)
+  )
+  ->Array.keepMap(x => x)
 
 module Incr = {
   module Gen = {
@@ -197,7 +201,9 @@ module SExpression = {
   let parse = (input: string): array<result<t, (int, string)>> => {
     let resultAccum: ref<array<result<t, (int, string)>>> = ref([])
     let continuation = ref(None)
-    input->split->Array.forEach(line => {
+    input
+    ->split
+    ->Array.forEach(line => {
       // get the parsing continuation or initialize a new one
       let continue = continuation.contents->Option.getWithDefault(parseWithContinuation)
 
