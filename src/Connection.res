@@ -14,7 +14,7 @@ module Error = {
     | CannotSendRequest(Js.Exn.t)
     // Encoding / Decoding
     | CannotDecodeResponse(string, Js.Json.t)
-    | CannotDecodeNotification(string, Js.Json.t)
+    | CannotDecodeReaction(string, Js.Json.t)
     | InitializationFailed
     // TODO: refactor these
     | LSPCannotConnectDevServer
@@ -55,8 +55,8 @@ module Error = {
         "PANIC: Cannot decode response",
         "Please file an issue\n\n" ++ msg ++ "\n" ++ Json.stringify(json),
       )
-    | CannotDecodeNotification(msg, json) => (
-        "PANIC: Cannot decode Notification",
+    | CannotDecodeReaction(msg, json) => (
+        "PANIC: Cannot decode Response from the LSP Server",
         "Please file an issue\n\n" ++ msg ++ "\n" ++ Json.stringify(json),
       )
     | CannotDecodeRequest(e) => ("LSP: Server Cannot Decode Request", e)
@@ -399,6 +399,24 @@ module LSP = {
   }
 
   module LSPReaction = {
+    module DisplayInfo = {
+      type t =
+        | DisplayInfoTempGeneric(string)
+        | DisplayInfoOthers1
+        | DisplayInfoOthers2
+
+      open Json.Decode
+      open Util.Decode
+      let decode: decoder<t> = sum(x =>
+        switch x {
+        | "DisplayInfoTempGeneric" => Contents(string |> map(raw => DisplayInfoTempGeneric(raw)))
+        | "DisplayInfoOthers1" => TagOnly(DisplayInfoOthers1)
+        | "DisplayInfoOthers2" => TagOnly(DisplayInfoOthers2)
+        | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
+        }
+      )
+    }
+
     type t =
       | ReactionNonLast(Response.t)
       | ReactionLast(int, Response.t)
@@ -430,11 +448,19 @@ module LSP = {
           }),
         )
       | "ReactionDisplayInfo" =>
+        open DisplayInfo
         Contents(
-          string |> map(raw =>
-            switch Response.DisplayInfo.parseFromString(raw) {
-            | None => ReactionParseError(Parser.Error.SExpression(-2, "ReactionDisplayInfo"))
-            | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
+          DisplayInfo.decode |> map(info =>
+            switch info {
+            | DisplayInfoTempGeneric(raw) =>
+              switch Response.DisplayInfo.parseFromString(raw) {
+              | None => ReactionParseError(Parser.Error.SExpression(-2, "ReactionDisplayInfo"))
+              | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
+              }
+            | DisplayInfoOthers1 =>
+              ReactionParseError(Parser.Error.SExpression(-2, "DisplayInfoOthers1"))
+            | DisplayInfoOthers2 =>
+              ReactionParseError(Parser.Error.SExpression(-2, "DisplayInfoOthers2"))
             }
           ),
         )
@@ -640,8 +666,8 @@ module LSP = {
 
     let decodeReaction = (json: Js.Json.t): result<LSPReaction.t, Error.t> =>
       switch LSPReaction.decode(json) {
-      | notification => Ok(notification)
-      | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeNotification(msg, json))
+      | reaction => Ok(reaction)
+      | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeReaction(msg, json))
       }
 
     let onError = Client.onError
