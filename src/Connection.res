@@ -401,17 +401,15 @@ module LSP = {
   module LSPReaction = {
     module DisplayInfo = {
       type t =
-        | DisplayInfoTempGeneric(string)
-        | DisplayInfoOthers1
-        | DisplayInfoOthers2
+        | CompilationOk(string)
+        | TempGeneric(string)
 
       open Json.Decode
       open Util.Decode
       let decode: decoder<t> = sum(x =>
         switch x {
-        | "DisplayInfoTempGeneric" => Contents(string |> map(raw => DisplayInfoTempGeneric(raw)))
-        | "DisplayInfoOthers1" => TagOnly(DisplayInfoOthers1)
-        | "DisplayInfoOthers2" => TagOnly(DisplayInfoOthers2)
+        | "DisplayInfoCompilationOk" => Contents(string |> map(body => CompilationOk(body)))
+        | "DisplayInfoTempGeneric" => Contents(string |> map(raw => TempGeneric(raw)))
         | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
         }
       )
@@ -452,15 +450,16 @@ module LSP = {
         Contents(
           DisplayInfo.decode |> map(info =>
             switch info {
-            | DisplayInfoTempGeneric(raw) =>
+            | TempGeneric(raw) =>
               switch Response.DisplayInfo.parseFromString(raw) {
-              | None => ReactionParseError(Parser.Error.SExpression(-2, "ReactionDisplayInfo"))
+              | None => ReactionParseError(Parser.Error.SExpression(-2, "TempGeneric"))
               | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
               }
-            | DisplayInfoOthers1 =>
-              ReactionParseError(Parser.Error.SExpression(-2, "DisplayInfoOthers1"))
-            | DisplayInfoOthers2 =>
-              ReactionParseError(Parser.Error.SExpression(-2, "DisplayInfoOthers2"))
+            | CompilationOk(raw) =>
+              switch Response.DisplayInfo.parseFromString(raw) {
+              | None => ReactionParseError(Parser.Error.SExpression(-2, "CompilationOk"))
+              | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
+              }
             }
           ),
         )

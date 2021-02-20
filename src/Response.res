@@ -29,7 +29,7 @@ type makeCaseType =
 
 module DisplayInfo = {
   type t =
-    | CompilationOk
+    | CompilationOk(string)
     | Constraints(option<string>)
     | AllGoalsWarnings(string, string)
     // | AllGoalsWarnings(Emacs.AllGoalsWarnings.t)
@@ -49,7 +49,7 @@ module DisplayInfo = {
     | Version(string)
   let toString = x =>
     switch x {
-    | CompilationOk => "CompilationOk"
+    | CompilationOk(string) => "CompilationOk " ++ string
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
     | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title
@@ -74,7 +74,7 @@ module DisplayInfo = {
     | Some(A(rawPayload)) =>
       let payload = rawPayload |> Js.String.replaceByRe(%re("/\\\\r\\\\n|\\\\n/g"), "\n")
       switch xs[0] {
-      | Some(A("*Compilation result*")) => Some(CompilationOk)
+      | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>
         switch payload {
         | "nil" => Some(Constraints(None))
@@ -312,19 +312,6 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
     | _ => err(14)
     }
   }
-}
-
-// NOTE: TEMP
-let parseFromString = (raw: string): result<t, Parser.Error.t> => {
-  let tokens = Parser.SExpression.parse(raw)
-  tokens[0]->Option.mapWithDefault(
-    Error(Parser.Error.SExpression(-1, "expecting a S-Expression")),
-    result =>
-      switch result {
-      | Error((i, e)) => Error(Parser.Error.SExpression(i, e))
-      | Ok(tokens) => parse(tokens)
-      },
-  )
 }
 
 module Prioritized = {

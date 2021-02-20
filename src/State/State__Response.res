@@ -5,8 +5,8 @@ open Response
 module DisplayInfo = {
   let handle = (state, x) =>
     switch x {
-    | Response.DisplayInfo.CompilationOk =>
-      State.View.display(state, Success("Compilation Done!"), Nothing)
+    | Response.DisplayInfo.CompilationOk(body) =>
+      State.View.display(state, Success("Compilation result"), Plain(body))
     | Constraints(None) => State.View.display(state, Plain("No Constraints"), Nothing)
     | Constraints(Some(body)) => State.View.displayEmacs(state, Outputs, Plain("Constraints"), body)
     | AllGoalsWarnings(header, "nil") => State.View.display(state, Success(header), Nothing)
