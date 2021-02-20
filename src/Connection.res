@@ -426,6 +426,12 @@ module LSP = {
             }
           ),
         )
+      | "ReactionRunningInfo" =>
+        Contents(
+          pair(int, string) |> map(((verbosity, info)) => ReactionNonLast(
+            Response.RunningInfo(verbosity, info),
+          )),
+        )
       | "ReactionClearHighlightingTokenBased" =>
         TagOnly(ReactionNonLast(Response.ClearHighlighting))
       | "ReactionClearHighlightingNotOnlyTokenBased" =>
