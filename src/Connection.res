@@ -401,7 +401,7 @@ module LSP = {
   module LSPReaction = {
     module DisplayInfo = {
       type t =
-        | TempGeneric(string)
+        | Generic(string, string)
         | CompilationOk(string)
         | Auto(string)
         | Error'(string)
@@ -412,7 +412,8 @@ module LSP = {
       open Util.Decode
       let decode: decoder<t> = sum(x =>
         switch x {
-        | "DisplayInfoTempGeneric" => Contents(string |> map(raw => TempGeneric(raw)))
+        | "DisplayInfoGeneric" =>
+          Contents(pair(string, string) |> map(((header, body)) => Generic(header, body)))
         | "DisplayInfoCompilationOk" => Contents(string |> map(body => CompilationOk(body)))
         | "DisplayInfoAuto" => Contents(string |> map(body => Auto(body)))
         | "DisplayInfoError" => Contents(string |> map(body => Error'(body)))
@@ -458,11 +459,22 @@ module LSP = {
         Contents(
           DisplayInfo.decode |> map(info =>
             switch info {
-            | TempGeneric(raw) =>
-              switch Response.DisplayInfo.parseFromString(raw) {
-              | None => ReactionParseError(Parser.Error.SExpression(-2, "TempGeneric"))
-              | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
-              }
+            | Generic("*Constraints*", "nil") => ReactionNonLast(DisplayInfo(Constraints(None)))
+            | Generic("*Constraints*", body) =>
+              ReactionNonLast(DisplayInfo(Constraints(Some(body))))
+            | Generic("*Helper function*", body) =>
+              ReactionNonLast(DisplayInfo(HelperFunction(body)))
+            | Generic("*Search About*", body) => ReactionNonLast(DisplayInfo(SearchAbout(body)))
+            | Generic("*Inferred Type*", body) => ReactionNonLast(DisplayInfo(InferredType(body)))
+            | Generic("*Current Goal*", body) => ReactionNonLast(DisplayInfo(CurrentGoal(body)))
+            | Generic("*Goal type etc.*", body) => ReactionNonLast(DisplayInfo(GoalType(body)))
+            | Generic("*Module contents*", body) =>
+              ReactionNonLast(DisplayInfo(ModuleContents(body)))
+            | Generic("*Scope Info*", body) => ReactionNonLast(DisplayInfo(WhyInScope(body)))
+            | Generic("*Context*", body) => ReactionNonLast(DisplayInfo(Context(body)))
+            | Generic("*Intro*", body) => ReactionNonLast(DisplayInfo(Intro(body)))
+            | Generic("*Agda Version*", body) => ReactionNonLast(DisplayInfo(Version(body)))
+            | Generic(header, body) => ReactionNonLast(DisplayInfo(AllGoalsWarnings(header, body)))
             | CompilationOk(body) => ReactionNonLast(Response.DisplayInfo(CompilationOk(body)))
             | Auto(body) => ReactionNonLast(Response.DisplayInfo(Auto(body)))
             | Error'(body) => ReactionNonLast(Response.DisplayInfo(Error(body)))

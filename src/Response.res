@@ -98,23 +98,6 @@ module DisplayInfo = {
       }
     | _ => None
     }
-  // NOTE: TEMP
-  let parseFromString = (raw: string): option<t> => {
-    let tokens =
-      raw
-      ->Parser.SExpression.parse
-      ->Array.keepMap(result =>
-        switch result {
-        | Error(_) => None
-        | Ok(s) => Some(s)
-        }
-      )
-    switch tokens[0] {
-    | None => None
-    | Some(Parser.SExpression.L(xs)) => parse(Js.Array.sliceFrom(1, xs))
-    | Some(A(_)) => None
-    }
-  }
 }
 
 // Here's the corresponding datatype in Haskell:
