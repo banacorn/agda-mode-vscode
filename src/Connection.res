@@ -402,6 +402,7 @@ module LSP = {
     module DisplayInfo = {
       type t =
         | CompilationOk(string)
+        | Auto(string)
         | TempGeneric(string)
 
       open Json.Decode
@@ -409,6 +410,7 @@ module LSP = {
       let decode: decoder<t> = sum(x =>
         switch x {
         | "DisplayInfoCompilationOk" => Contents(string |> map(body => CompilationOk(body)))
+        | "DisplayInfoAuto" => Contents(string |> map(body => Auto(body)))
         | "DisplayInfoTempGeneric" => Contents(string |> map(raw => TempGeneric(raw)))
         | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
         }
@@ -455,11 +457,8 @@ module LSP = {
               | None => ReactionParseError(Parser.Error.SExpression(-2, "TempGeneric"))
               | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
               }
-            | CompilationOk(raw) =>
-              switch Response.DisplayInfo.parseFromString(raw) {
-              | None => ReactionParseError(Parser.Error.SExpression(-2, "CompilationOk"))
-              | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
-              }
+            | Auto(body) => ReactionNonLast(Response.DisplayInfo(Auto(body)))
+            | CompilationOk(body) => ReactionNonLast(Response.DisplayInfo(CompilationOk(body)))
             }
           ),
         )

@@ -32,7 +32,6 @@ module DisplayInfo = {
     | CompilationOk(string)
     | Constraints(option<string>)
     | AllGoalsWarnings(string, string)
-    // | AllGoalsWarnings(Emacs.AllGoalsWarnings.t)
     | Time(string)
     | Error(string)
     | Intro(string)
