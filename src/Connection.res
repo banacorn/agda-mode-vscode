@@ -426,6 +426,15 @@ module LSP = {
             }
           ),
         )
+      | "ReactionDisplayInfo" =>
+        Contents(
+          string |> map(raw =>
+            switch Response.DisplayInfo.parseFromString(raw) {
+            | None => ReactionParseError(Parser.Error.SExpression(-2, ""))
+            | Some(info) => ReactionNonLast(Response.DisplayInfo(info))
+            }
+          ),
+        )
       | "ReactionStatus" =>
         Contents(
           pair(bool, bool) |> map(((checked, displayImplicit)) => ReactionNonLast(
@@ -450,15 +459,6 @@ module LSP = {
           pair(int, Response.GiveAction.decode) |> map(((id, giveAction)) => ReactionNonLast(
             Response.GiveAction(id, giveAction),
           )),
-        )
-      | "ReactionLast" =>
-        Contents(
-          pair(int, string) |> map(((priority, raw)) =>
-            switch Response.parseFromString(raw) {
-            | Error(e) => ReactionParseError(e)
-            | Ok(response) => ReactionLast(priority, response)
-            }
-          ),
         )
       | "ReactionInteractionPoints" =>
         Contents(array(int) |> map(ids => ReactionLast(1, InteractionPoints(ids))))
