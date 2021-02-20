@@ -402,6 +402,7 @@ module LSP = {
     type t =
       | ReactionNonLast(Response.t)
       | ReactionLast(int, Response.t)
+      // | ReactionInteractionPoints(array<int>)
       | ReactionParseError(Parser.Error.t)
       | ReactionEnd
 
@@ -409,6 +410,8 @@ module LSP = {
       switch x {
       | ReactionNonLast(s) => Response.toString(s)
       | ReactionLast(i, s) => "[Last " ++ string_of_int(i) ++ "] " ++ Response.toString(s)
+      // | ReactionInteractionPoints(ids) =>
+      //   "InteractionPoints: " ++ ids->Array.map(string_of_int)->Util.Pretty.array
       | ReactionParseError(e) => Parser.Error.toString(e)
       | ReactionEnd => "========"
       }
@@ -435,6 +438,8 @@ module LSP = {
             }
           ),
         )
+      | "ReactionInteractionPoints" =>
+        Contents(array(int) |> map(ids => ReactionLast(1, InteractionPoints(ids))))
       | "ReactionEnd" => TagOnly(ReactionEnd)
       | tag => raise(DecodeError("[LSP.Reaction] Unknown constructor: " ++ tag))
       }
