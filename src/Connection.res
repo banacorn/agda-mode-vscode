@@ -460,6 +460,19 @@ module LSP = {
             }
           ),
         )
+      | "ReactionInteractionPoints" =>
+        Contents(array(int) |> map(ids => ReactionLast(1, InteractionPoints(ids))))
+      | "ReactionMakeCaseFunction" =>
+        Contents(
+          array(string) |> map(payload => ReactionLast(2, Response.MakeCase(Function, payload))),
+        )
+      | "ReactionMakeCaseExtendedLambda" =>
+        Contents(
+          array(string) |> map(payload => ReactionLast(
+            2,
+            Response.MakeCase(ExtendedLambda, payload),
+          )),
+        )
       | "ReactionJumpToError" =>
         Contents(
           pair(string, int) |> map(((filePath, offset)) => ReactionLast(
@@ -467,8 +480,6 @@ module LSP = {
             Response.JumpToError(filePath, offset),
           )),
         )
-      | "ReactionInteractionPoints" =>
-        Contents(array(int) |> map(ids => ReactionLast(1, InteractionPoints(ids))))
       | "ReactionEnd" => TagOnly(ReactionEnd)
       | tag => raise(DecodeError("[LSP.Reaction] Unknown constructor: " ++ tag))
       }
