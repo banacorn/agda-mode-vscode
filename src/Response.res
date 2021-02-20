@@ -5,10 +5,23 @@ type index = int
 
 module Token = Parser.SExpression
 
-type giveResult =
-  | Paren
-  | NoParen
-  | String(string)
+module GiveAction = {
+  type t =
+    | GiveParen
+    | GiveNoParen
+    | GiveString(string)
+
+  open Json.Decode
+  open Util.Decode
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "GiveString" => Contents(string |> map(s => GiveString(s)))
+    | "GiveParen" => TagOnly(GiveParen)
+    | "GiveNoParen" => TagOnly(GiveNoParen)
+    | tag => raise(DecodeError("[Response.GiveAction] Unknown constructor: " ++ tag))
+    }
+  )
+}
 
 type makeCaseType =
   | Function
@@ -109,7 +122,7 @@ type t =
   // agda2-goals-action
   | InteractionPoints(array<index>)
   // agda2-give-action
-  | GiveAction(index, giveResult)
+  | GiveAction(index, GiveAction.t)
   // agda2-make-case-action
   // agda2-make-case-action-extendlam
   | MakeCase(makeCaseType, array<string>)
@@ -146,9 +159,9 @@ let toString = x =>
   | JumpToError(filepath, n) => "JumpToError " ++ (filepath ++ (" " ++ string_of_int(n)))
   | InteractionPoints(points) =>
     "InteractionPoints " ++ points->Array.map(string_of_int)->Util.Pretty.array
-  | GiveAction(index, Paren) => "GiveAction " ++ (string_of_int(index) ++ " Paren")
-  | GiveAction(index, NoParen) => "GiveAction " ++ (string_of_int(index) ++ " NoParen")
-  | GiveAction(index, String(string)) =>
+  | GiveAction(index, GiveParen) => "GiveAction " ++ (string_of_int(index) ++ " Paren")
+  | GiveAction(index, GiveNoParen) => "GiveAction " ++ (string_of_int(index) ++ " NoParen")
+  | GiveAction(index, GiveString(string)) =>
     "GiveAction " ++ (string_of_int(index) ++ (" String " ++ string))
   | MakeCase(Function, payload) => "MakeCase Function " ++ Util.Pretty.array(payload)
   | MakeCase(ExtendedLambda, payload) => "MakeCase ExtendedLambda " ++ Util.Pretty.array(payload)
@@ -208,9 +221,9 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         int_of_string_opt(index')
         ->Option.flatMap(i =>
           switch xs[2] {
-          | Some(A("paren")) => Some(GiveAction(i, Paren))
-          | Some(A("no-paren")) => Some(GiveAction(i, NoParen))
-          | Some(A(result)) => Some(GiveAction(i, String(result)))
+          | Some(A("paren")) => Some(GiveAction(i, GiveParen))
+          | Some(A("no-paren")) => Some(GiveAction(i, GiveNoParen))
+          | Some(A(result)) => Some(GiveAction(i, GiveString(result)))
           | Some(L(_)) => None
           | _ => None
           }

@@ -429,6 +429,12 @@ module LSP = {
             }
           ),
         )
+      | "ReactionGiveAction" =>
+        Contents(
+          pair(int, Response.GiveAction.decode) |> map(((id, giveAction)) => ReactionNonLast(
+            Response.GiveAction(id, giveAction),
+          )),
+        )
       | "ReactionLast" =>
         Contents(
           pair(int, string) |> map(((priority, raw)) =>

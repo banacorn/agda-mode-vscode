@@ -98,14 +98,14 @@ let rec handle = (
       )
     | Some(goal) =>
       switch give {
-      | Paren =>
+      | GiveParen =>
         State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))->Promise.flatMap(() =>
           State__Goal.removeBoundaryAndDestroy(state, goal)
         )
-      | NoParen =>
+      | GiveNoParen =>
         // do nothing
         State__Goal.removeBoundaryAndDestroy(state, goal)
-      | String(content) =>
+      | GiveString(content) =>
         State__Goal.modify(state, goal, _ =>
           Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
         )->Promise.flatMap(() => State__Goal.removeBoundaryAndDestroy(state, goal))
