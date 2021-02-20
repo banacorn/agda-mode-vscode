@@ -426,6 +426,12 @@ module LSP = {
             }
           ),
         )
+      | "ReactionStatus" =>
+        Contents(
+          pair(bool, bool) |> map(((checked, displayImplicit)) => ReactionNonLast(
+            Response.Status(checked, displayImplicit),
+          )),
+        )
       | "ReactionRunningInfo" =>
         Contents(
           pair(int, string) |> map(((verbosity, info)) => ReactionNonLast(
@@ -453,6 +459,13 @@ module LSP = {
             | Ok(response) => ReactionLast(priority, response)
             }
           ),
+        )
+      | "ReactionJumpToError" =>
+        Contents(
+          pair(string, int) |> map(((filePath, offset)) => ReactionLast(
+            3,
+            Response.JumpToError(filePath, offset),
+          )),
         )
       | "ReactionInteractionPoints" =>
         Contents(array(int) |> map(ids => ReactionLast(1, InteractionPoints(ids))))

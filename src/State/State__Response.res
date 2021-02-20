@@ -50,7 +50,7 @@ let rec handle = (
   | ClearHighlighting =>
     state.decoration->Decoration.clear
     Promise.resolved()
-  | Status(_displayImplicit, _checked) =>
+  | Status(_checked, _displayImplicit) =>
     // display(
     //   "Status",
     //   Some(

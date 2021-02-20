@@ -113,8 +113,9 @@ type t =
   | HighlightingInfoIndirect(filepath)
   // agda2-status-action
   | Status(
-      bool, // Are implicit arguments displayed?
       // Has the module been successfully type checked?
+      bool,
+      // Are implicit arguments displayed?
       bool,
     )
   // agda2-maybe-goto
