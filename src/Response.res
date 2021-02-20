@@ -286,6 +286,8 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       | Some(A(message)) => Ok(RunningInfo(2, message))
       | _ => err(13)
       }
+    // NOTE: now there are 2 kinds of "agda2-highlight-clear", "TokenBased" and "NotOnlyTokenBased"
+    // We should do something about this
     | Some(A("agda2-highlight-clear")) => Ok(ClearHighlighting)
     | Some(A("agda2-abort-done")) => Ok(DoneAborting)
     | Some(A("agda2-exit-done")) => Ok(DoneExiting)

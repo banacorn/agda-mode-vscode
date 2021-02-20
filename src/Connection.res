@@ -426,6 +426,10 @@ module LSP = {
             }
           ),
         )
+      | "ReactionClearHighlightingTokenBased" =>
+        TagOnly(ReactionNonLast(Response.ClearHighlighting))
+      | "ReactionClearHighlightingNotOnlyTokenBased" =>
+        TagOnly(ReactionNonLast(Response.ClearHighlighting))
       | "ReactionClearRunningInfo" => TagOnly(ReactionNonLast(Response.ClearRunningInfo))
       | "ReactionDoneAborting" => TagOnly(ReactionNonLast(Response.DoneAborting))
       | "ReactionDoneExiting" => TagOnly(ReactionNonLast(Response.DoneExiting))
