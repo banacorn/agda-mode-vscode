@@ -444,14 +444,15 @@ module LSP = {
       switch x {
       | "ReactionHighlightingInfoDirect" =>
         Contents(
-          pair(bool, array(string)) |> map(((keepHighlighting, infos)) => {
-            let xs = Highlighting.tempParseFromStringDirect(infos)
-            ReactionNonLast(Response.HighlightingInfoDirect(keepHighlighting, xs))
+          Highlighting.Infos.decode |> map((Highlighting.Infos.Infos(keepHighlighting, infos)) => {
+            ReactionNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
           }),
         )
       | "ReactionHighlightingInfoIndirect" =>
         Contents(
-          string |> map(filePath => ReactionNonLast(Response.HighlightingInfoIndirect(filePath))),
+          string |> map(filePath => ReactionNonLast(
+            Response.HighlightingInfoIndirectJSON(filePath),
+          )),
         )
       | "ReactionDisplayInfo" =>
         open DisplayInfo

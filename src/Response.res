@@ -110,6 +110,7 @@ type t =
   | HighlightingInfoDirect(bool, array<Highlighting.t>)
   // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
+  | HighlightingInfoIndirectJSON(filepath)
   // agda2-status-action
   | Status(
       // Has the module been successfully type checked?
@@ -152,6 +153,7 @@ let toString = x =>
     ((keepHighlighting ? "Keep " : "Remove ") ++
     (" " ++ (annotations->Array.length->string_of_int ++ " annotations")))
   | HighlightingInfoIndirect(filepath) => "HighlightingInfoIndirect " ++ filepath
+  | HighlightingInfoIndirectJSON(filepath) => "HighlightingInfoIndirectJSON " ++ filepath
   | Status(displayed, checked) =>
     "Status: implicit arguments " ++
     ((displayed ? "displayed, " : "not displayed, ") ++

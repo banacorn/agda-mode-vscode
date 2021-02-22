@@ -45,6 +45,28 @@ module Decode = {
     } else {
       raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
     }
+
+  let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF, json) =>
+    if Js.Array.isArray(json) {
+      let source: array<Js.Json.t> = Obj.magic((json: Js.Json.t))
+      let length = Js.Array.length(source)
+      if length == 6 {
+        try (
+          decodeA(Js.Array.unsafe_get(source, 0)),
+          decodeB(Js.Array.unsafe_get(source, 1)),
+          decodeC(Js.Array.unsafe_get(source, 2)),
+          decodeD(Js.Array.unsafe_get(source, 3)),
+          decodeE(Js.Array.unsafe_get(source, 4)),
+          decodeF(Js.Array.unsafe_get(source, 5)),
+        ) catch {
+        | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple6"))
+        }
+      } else {
+        raise(DecodeError(j`Expected array of length 6, got array of length $length`))
+      }
+    } else {
+      raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
+    }
 }
 
 module Encode = {

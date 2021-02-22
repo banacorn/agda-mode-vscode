@@ -320,6 +320,8 @@ type t = {
   start: int, // agda offset
   end_: int, // agda offset
   aspects: array<Aspect.t>, // a list of names of aspects
+  isTokenBased: bool,
+  note: option<string>,
   source: option<(filepath, int)>, // The defining module and the position in that module
 }
 let toString = self =>
@@ -345,6 +347,8 @@ let parse: Token.t => option<t> = x =>
             start: start - 1,
             end_: end_ - 1,
             aspects: flatten(aspects)->Array.map(Aspect.parse),
+            isTokenBased: false, // NOTE: fix this
+            note: None, // NOTE: fix this
             source: Some((filepath, index)),
           })
         )
@@ -356,6 +360,8 @@ let parse: Token.t => option<t> = x =>
           start: start - 1,
           end_: end_ - 1,
           aspects: flatten(aspects)->Array.map(Aspect.parse),
+          isTokenBased: false, // NOTE: fix this
+          note: None, // NOTE: fix this
           source: None,
         })
       )
@@ -365,6 +371,8 @@ let parse: Token.t => option<t> = x =>
           start: start - 1,
           end_: end_ - 1,
           aspects: flatten(aspects)->Array.map(Aspect.parse),
+          isTokenBased: false, // NOTE: fix this
+          note: None, // NOTE: fix this
           source: None,
         })
       )
@@ -373,19 +381,31 @@ let parse: Token.t => option<t> = x =>
   }
 let parseDirectHighlightings: array<Token.t> => array<t> = tokens =>
   tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
-let parseIndirectHighlightings: array<Token.t> => array<t> = tokens =>
-  tokens->Js.Array.sliceFrom(1, _)->Array.map(parse)->Array.keepMap(x => x)
 
-let tempParseFromStringDirect = (infos: array<string>): array<t> => {
-  let parseToken = raw =>
-    raw
-    ->Parser.SExpression.parse
-    ->Array.keepMap(result =>
-      switch result {
-      | Error(_) => None
-      | Ok(s) => Some(s)
-      }
-    )
-  let parseTokens = raws => raws->Array.map(parseToken)->Array.concatMany
-  parseDirectHighlightings(parseTokens(infos))
+open Json.Decode
+let decode: decoder<t> = Util.Decode.tuple6(
+  int,
+  int,
+  array(string),
+  bool,
+  optional(string),
+  optional(pair(string, int)),
+) |> map(((start, end_, aspects, isTokenBased, note, source)) => {
+  start: start - 1,
+  end_: end_ - 1,
+  aspects: aspects->Array.map(Aspect.parse),
+  isTokenBased: isTokenBased,
+  note: note,
+  source: source,
+})
+
+module Infos = {
+  type t = Infos(bool, array<t>)
+  let decode: decoder<t> =
+    pair(bool, array(decode)) |> map(((keepHighlighting, xs)) => Infos(keepHighlighting, xs))
+
+  let toInfos = x =>
+    switch x {
+    | Infos(_, xs) => xs
+    }
 }

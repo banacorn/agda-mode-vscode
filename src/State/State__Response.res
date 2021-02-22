@@ -41,11 +41,14 @@ let rec handle = (
 ): Promise.t<unit> => {
   let sendAgdaRequest = State.Connection.sendRequest(state, handle(state, dispatchCommand))
   switch response {
-  | HighlightingInfoDirect(_remove, annotations) =>
+  | HighlightingInfoDirect(_keep, annotations) =>
     state.decoration->Decoration.addViaPipe(annotations)
     Promise.resolved()
   | HighlightingInfoIndirect(filepath) =>
     state.decoration->Decoration.addViaFile(filepath)
+    Promise.resolved()
+  | HighlightingInfoIndirectJSON(filepath) =>
+    state.decoration->Decoration.addViaJSONFile(filepath)
     Promise.resolved()
   | ClearHighlighting =>
     state.decoration->Decoration.clear

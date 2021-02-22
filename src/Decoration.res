@@ -15,6 +15,7 @@ module type Module = {
   // adding decorations
   let addViaPipe: (t, array<Highlighting.t>) => unit
   let addViaFile: (t, string) => unit
+  let addViaJSONFile: (t, string) => unit
   // applying decorations
   let apply: (t, VSCode.TextEditor.t) => Promise.t<unit>
   // removing decorations
@@ -205,9 +206,20 @@ module Module: Module = {
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
+  module Format = {
+    type t =
+      | Emacs(string)
+      | JSON(string)
+    let toFilepath = format =>
+      switch format {
+      | Emacs(filepath) => filepath
+      | JSON(filepath) => filepath
+      }
+  }
+
   type t = {
     // from AddViaFile
-    mutable tempFilePaths: array<string>,
+    mutable tempFilePaths: array<Format.t>,
     // from AddViaPipe
     mutable highlightings: array<Highlighting.t>,
     // after Apply
@@ -229,7 +241,9 @@ module Module: Module = {
   }
 
   let destroy = self => {
-    self.tempFilePaths->Array.forEach(filepath => N.Fs.unlink(filepath, _ => ()))
+    self.tempFilePaths->Array.forEach(format => {
+      N.Fs.unlink(Format.toFilepath(format), _ => ())
+    })
     self.tempFilePaths = []
     self.highlightings = []
     clear(self)
@@ -243,11 +257,14 @@ module Module: Module = {
   let addViaPipe = (self, highlightings) =>
     self.highlightings = Array.concat(self.highlightings, highlightings)
 
-  let addViaFile = (self, filepath) => Js.Array.push(filepath, self.tempFilePaths)->ignore
+  let addViaFile = (self, filepath) =>
+    Js.Array.push(Format.Emacs(filepath), self.tempFilePaths)->ignore
+  let addViaJSONFile = (self, filepath) =>
+    Js.Array.push(Format.JSON(filepath), self.tempFilePaths)->ignore
 
   let readFile = N.Util.promisify(N.Fs.readFile)
 
-  let readAndParse = (filepath): Promise.t<array<Highlighting.t>> =>
+  let readAndParseEmacs = (filepath): Promise.t<Highlighting.Infos.t> =>
     readFile(. filepath)
     ->Promise.Js.fromBsPromise
     ->Promise.Js.toResult
@@ -255,34 +272,50 @@ module Module: Module = {
       switch x {
       | Ok(content) =>
         open! Parser.SExpression
-        let expressions = content->Node.Buffer.toString->Parser.SExpression.parse
-        // TODO: we should do something about these parse errors
-        let _parseErrors: array<(int, string)> = expressions->Array.keepMap(x =>
-          switch x {
-          | Error(error) => Some(error)
-          | Ok(_) => None
-          }
-        )
-        expressions
-        ->Array.keepMap(x =>
-          switch x {
-          | Error(_) => None // filter errors out
-          | Ok(L(xs)) => Some(Highlighting.parseIndirectHighlightings(xs))
-          | Ok(_) => Some([])
-          }
-        )
-        ->Array.concatMany
+        let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(content))[0] {
+        | Some(Ok(L(xs))) => xs
+        | _ => []
+        }
+        // keepHighlighting
+        let keepHighlighting = switch tokens[0] {
+        | Some(A("remove")) => false
+        | _ => true
+        }
+        let infos = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Highlighting.parse)
+        Highlighting.Infos.Infos(keepHighlighting, infos)
       // TODO: we should do something about these parse errors
-      | Error(_err) => []
+      | Error(_err) => Highlighting.Infos.Infos(true, [])
       }
     )
+
+  let readAndParseJSON = (filepath): Promise.t<Highlighting.Infos.t> =>
+    readFile(. filepath)
+    ->Promise.Js.fromBsPromise
+    ->Promise.Js.toResult
+    ->Promise.map(x =>
+      switch x {
+      | Ok(buffer) =>
+        let raw = Node.Buffer.toString(buffer)
+        switch Js.Json.parseExn(raw) {
+        | exception _e => Highlighting.Infos.Infos(true, [])
+        | json => Highlighting.Infos.decode(json)
+        }
+      | Error(_err) => Highlighting.Infos.Infos(true, [])
+      }
+    )
+
+  let readAndParse = format =>
+    switch format {
+    | Format.Emacs(filepath) => readAndParseEmacs(filepath)
+    | JSON(filepath) => readAndParseJSON(filepath)
+    }
 
   // .tempFilePaths ====> .highlightings
   let readTempFiles = self =>
     self.tempFilePaths
     ->Array.map(readAndParse)
     ->Promise.allArray
-    ->Promise.map(Array.concatMany)
+    ->Promise.map(xs => xs->Array.map(Highlighting.Infos.toInfos)->Array.concatMany)
     ->Promise.map(highlightings => {
       self.highlightings = Array.concat(self.highlightings, highlightings)
       self.tempFilePaths = []
