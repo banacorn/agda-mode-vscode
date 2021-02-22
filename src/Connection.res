@@ -442,17 +442,16 @@ module LSP = {
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "ReactionHighlightingInfo" =>
+      | "ReactionHighlightingInfoDirect" =>
         Contents(
-          string |> map(raw => {
-            switch Highlighting.tempParseFromString(raw) {
-            | None => ReactionParseError(Parser.Error.SExpression(-3, "ReactionHighlightingInfo"))
-            | Some(HighlightingInfoDirect(p, xs)) =>
-              ReactionNonLast(Response.HighlightingInfoDirect(p, xs))
-            | Some(HighlightingInfoIndirect(s)) =>
-              ReactionNonLast(Response.HighlightingInfoIndirect(s))
-            }
+          pair(bool, array(string)) |> map(((keepHighlighting, infos)) => {
+            let xs = Highlighting.tempParseFromStringDirect(infos)
+            ReactionNonLast(Response.HighlightingInfoDirect(keepHighlighting, xs))
           }),
+        )
+      | "ReactionHighlightingInfoIndirect" =>
+        Contents(
+          string |> map(filePath => ReactionNonLast(Response.HighlightingInfoIndirect(filePath))),
         )
       | "ReactionDisplayInfo" =>
         open DisplayInfo

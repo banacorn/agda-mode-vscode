@@ -376,14 +376,8 @@ let parseDirectHighlightings: array<Token.t> => array<t> = tokens =>
 let parseIndirectHighlightings: array<Token.t> => array<t> = tokens =>
   tokens->Js.Array.sliceFrom(1, _)->Array.map(parse)->Array.keepMap(x => x)
 
-type temp =
-  // agda2-highlight-add-annotations
-  | HighlightingInfoDirect(bool, array<t>)
-  // agda2-highlight-load-and-delete-action
-  | HighlightingInfoIndirect(filepath)
-
-let tempParseFromString = (raw: string): option<temp> => {
-  let tokens =
+let tempParseFromStringDirect = (infos: array<string>): array<t> => {
+  let parseToken = raw =>
     raw
     ->Parser.SExpression.parse
     ->Array.keepMap(result =>
@@ -392,24 +386,6 @@ let tempParseFromString = (raw: string): option<temp> => {
       | Ok(s) => Some(s)
       }
     )
-  switch tokens[0] {
-  | None => None
-  | Some(Parser.SExpression.L(xs)) =>
-    switch xs[0] {
-    | Some(A("agda2-highlight-add-annotations")) =>
-      let annotations = parseDirectHighlightings(xs)
-      switch xs[1] {
-      | Some(A("remove")) => Some(HighlightingInfoDirect(false, annotations))
-      | Some(A("nil")) => Some(HighlightingInfoDirect(true, annotations))
-      | _ => Some(HighlightingInfoDirect(true, []))
-      }
-    | Some(A("agda2-highlight-load-and-delete-action")) =>
-      switch xs[1] {
-      | Some(A(filepath)) => Some(HighlightingInfoIndirect(filepath))
-      | _ => None
-      }
-    | _ => None
-    }
-  | Some(_) => None
-  }
+  let parseTokens = raws => raws->Array.map(parseToken)->Array.concatMany
+  parseDirectHighlightings(parseTokens(infos))
 }
