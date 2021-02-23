@@ -4,6 +4,7 @@ open Component
 let make = (~body: View.Body.t) =>
   switch body {
   | Nothing => <> </>
+  | RichText => <> </>
   | Plain(payload) =>
     let items = [Item.PlainText(Text.parse(payload))]
     <div className="agda-mode-body">

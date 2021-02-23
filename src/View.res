@@ -123,9 +123,13 @@ module Body = {
   }
 
   type t =
+    // No content, Header only
     | Nothing
+    // Plain text only
     | Plain(string)
+    // Formatted by `formatWarningsAndErrors` for Emacs consumption
     | Emacs(Emacs.t, string, string)
+    | RichText
 
   open Json.Decode
   open Util.Decode
@@ -156,6 +160,7 @@ module Body = {
         ("tag", string("Emacs")),
         ("contents", (kind, header, body) |> tuple3(Emacs.encode, string, string)),
       })
+    | RichText => object_(list{("tag", string("RichText"))})
     }
 }
 

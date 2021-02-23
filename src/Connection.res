@@ -402,6 +402,7 @@ module LSP = {
     module DisplayInfo = {
       type t =
         | Generic(string, string)
+        | AllGoalsWarnings(string, string, string, string)
         | CompilationOk(string)
         | Auto(string)
         | Error'(string)
@@ -414,6 +415,15 @@ module LSP = {
         switch x {
         | "DisplayInfoGeneric" =>
           Contents(pair(string, string) |> map(((header, body)) => Generic(header, body)))
+        | "DisplayInfoAllGoalsWarnings" =>
+          Contents(
+            tuple4(string, string, string, string) |> map(((
+              header,
+              goals,
+              warnings,
+              errors,
+            )) => AllGoalsWarnings(header, goals, warnings, errors)),
+          )
         | "DisplayInfoCompilationOk" => Contents(string |> map(body => CompilationOk(body)))
         | "DisplayInfoAuto" => Contents(string |> map(body => Auto(body)))
         | "DisplayInfoError" => Contents(string |> map(body => Error'(body)))
@@ -475,6 +485,12 @@ module LSP = {
             | Generic("*Intro*", body) => ReactionNonLast(DisplayInfo(Intro(body)))
             | Generic("*Agda Version*", body) => ReactionNonLast(DisplayInfo(Version(body)))
             | Generic(header, body) => ReactionNonLast(DisplayInfo(AllGoalsWarnings(header, body)))
+            | AllGoalsWarnings(header, goals, warnings, errors) =>
+              Js.log(header)
+              Js.log(goals)
+              Js.log(warnings)
+              Js.log(errors)
+              ReactionNonLast(Response.DisplayInfo(CompilationOk("AllGoalsWarnings")))
             | CompilationOk(body) => ReactionNonLast(Response.DisplayInfo(CompilationOk(body)))
             | Auto(body) => ReactionNonLast(Response.DisplayInfo(Auto(body)))
             | Error'(body) => ReactionNonLast(Response.DisplayInfo(Error(body)))
