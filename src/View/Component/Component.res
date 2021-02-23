@@ -1,6 +1,4 @@
 open Belt
-module Link = Component__Link
-module Location = Component__Location
 open React
 
 // <Text> represents a mixed array of Strings & Locations
@@ -8,14 +6,16 @@ module Text = {
   module Segment = {
     type t =
       | PlainText(string, option<array<string>>)
+      | Icon(string)
       | Link(string, option<array<string>>, bool, bool, View.Link.t)
-      | Location(Common.Agda.Location.t)
+      | Location(Common.Agda.Location.t, bool)
 
     let toString = x =>
       switch x {
       | PlainText(s, _) => s
+      | Icon(s) => "[Icon " ++ s ++ "]"
       | Link(s, _, _, _, _) => s
-      | Location(r) => Common.Agda.Location.toString(r)
+      | Location(r, _) => Common.Agda.Location.toString(r)
       }
   }
   type t = Text(array<Segment.t>)
@@ -25,6 +25,7 @@ module Text = {
     }
   let concatMany = xs => Text(xs->Array.map(toSegments)->Array.concatMany)
   // smart constructors
+  let empty = Text([])
   let plainText = (~className=?, s) => Text([Segment.PlainText(s, className)])
   let link = (text, ~jump=true, ~hover=false, ~className=?, loc) => Text([
     Segment.Link(text, className, jump, hover, View.Link.ToLocation(loc)),
@@ -32,6 +33,8 @@ module Text = {
   let hole = (text, ~jump=true, ~hover=false, ~className=?, holeIndex) => Text([
     Segment.Link(text, className, jump, hover, View.Link.ToHole(holeIndex)),
   ])
+  let location = (location, abbr) => Text([Segment.Location(location, abbr)])
+
   // serialize
   let toString = (Text(segments)) => segments->Array.map(Segment.toString)->Js.Array.joinWith("", _)
   // from string
@@ -47,7 +50,7 @@ module Text = {
       | 1 =>
         token
         ->Common.Agda.Location.parse
-        ->Option.mapWithDefault(Segment.PlainText(token, None), x => Segment.Location(x))
+        ->Option.mapWithDefault(Segment.PlainText(token, None), x => Segment.Location(x, false))
       | _ => PlainText(token, None)
       }
     )
@@ -65,6 +68,7 @@ module Text = {
           <span key={string_of_int(i)} className={className->Array.joinWith(" ", x => x)}>
             {string(plainText)}
           </span>
+        | Icon(kind) => <div className={"codicon codicon-" ++ kind} />
         | Link(text, None, jump, hover, target) =>
           <Component__Link key={string_of_int(i)} jump hover target>
             {string(text)}
@@ -74,7 +78,15 @@ module Text = {
           <Component__Link key={string_of_int(i)} jump hover className target>
             {string(text)}
           </Component__Link>
-        | Location(location) => <Location key={string_of_int(i)} location />
+        | Location(location, true) =>
+          <Component__Link key={string_of_int(i)} jump=true target=View.Link.ToLocation(location)>
+            <div className="codicon codicon-link" />
+          </Component__Link>
+        | Location(location, false) =>
+          <Component__Link key={string_of_int(i)} jump=true target=View.Link.ToLocation(location)>
+            <div className="codicon codicon-link" />
+            {string(Common.Agda.Location.toString(location))}
+          </Component__Link>
         }
       )
       ->React.array}
@@ -196,7 +208,9 @@ module OutputConstraint = {
   @react.component
   let make = (~value: t, ~location: option<Common.Agda.Location.t>) => {
     let location = Option.mapWithDefault(location, null, location =>
-      <Location location abbr=true />
+      <Component__Link jump=true target=View.Link.ToLocation(location)>
+        <div className="codicon codicon-link" />
+      </Component__Link>
     )
     switch value {
     | OfType(e, t) =>
