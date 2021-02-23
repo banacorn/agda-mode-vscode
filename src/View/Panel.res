@@ -8,7 +8,7 @@ let make = (
   ~onEventFromView: Chan.t<Common.EventFromView.t>,
 ) => {
   let (header, setHeader) = React.useState(() => View.Header.Plain("File not loaded yet"))
-  let (body, setBody) = React.useState(() => View.Body.Nothing)
+  let (body, setBody) = React.useState(() => [])
   // save Header & Body up
   // so that we can restore them if the prompt is interrupted
   let savedHeaderAndBody = React.useRef(None)
@@ -45,7 +45,7 @@ let make = (
     | Prompt(header', {body: body', placeholder, value}) =>
       // set the view
       setHeader(_ => header')
-      setBody(_ => Nothing)
+      setBody(_ => [])
       setPrompt(_ => Some((body', placeholder, value)))
 
       let (promise, resolve) = Promise.pending()
@@ -96,7 +96,7 @@ let make = (
           prompting
         />
       </div>
-      <Body body />
+      <Body items=body />
     </section>
   </Component__Link.Provider>
 }

@@ -56,13 +56,13 @@ module Panel: {
     let codiconsUri =
       VSCode.Webview.asWebviewUri(
         webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.css"]),
+        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"]),
       )->VSCode.Uri.toString
 
     let codiconsFontUri =
       VSCode.Webview.asWebviewUri(
         webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon.ttf"]),
+        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.ttf"]),
       )->VSCode.Uri.toString
 
     // Content-Security-Policy

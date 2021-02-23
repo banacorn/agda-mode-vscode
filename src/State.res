@@ -90,7 +90,7 @@ module type View = {
   let reveal: state => unit
   // display stuff
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
-  let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
+  // let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
   let displayOutOfGoalError: state => Promise.t<unit>
   let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
 
@@ -127,14 +127,18 @@ module View: View = {
 
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))
-  let displayEmacs = (state, kind, header, body) =>
-    sendEvent(state, Display(header, Emacs(kind, View.Header.toString(header), body)))
+  // let displayEmacs = (state, kind, header, body) =>
+  //   sendEvent(state, Display(header, Emacs(kind, View.Header.toString(header), body)))
   let displayOutOfGoalError = state =>
-    display(state, Error("Out of goal"), Plain("Please place the cursor in a goal"))
+    display(
+      state,
+      Error("Out of goal"),
+      [Component.Item.plainText("Please place the cursor in a goal")],
+    )
 
   let displayConnectionError = (state, error) => {
     let (header, body) = Connection.Error.toString(error)
-    display(state, Error("Connection Error: " ++ header), Plain(body))
+    display(state, Error("Connection Error: " ++ header), [Component.Item.plainText(body)])
   }
 
   // update the Input Method
@@ -220,7 +224,7 @@ module Connection: Connection = {
       switch result {
       | Error(error) =>
         let (head, body) = Connection.Error.toString(error)
-        View.display(state, Error(head), Plain(body))
+        View.display(state, Error(head), [Component.Item.plainText(body)])
       | Ok(response) => handleResponse(response)
       }
 

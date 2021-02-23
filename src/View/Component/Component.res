@@ -270,6 +270,8 @@ module Item = {
     | Labeled(string, string, Text.t)
     | Unlabeled(Text.t)
 
+  let plainText = s => Unlabeled(Text.plainText(s))
+
   @react.component
   let make = (~item: t) =>
     switch item {

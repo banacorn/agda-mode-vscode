@@ -6,31 +6,61 @@ module DisplayInfo = {
   let handle = (state, x) =>
     switch x {
     | Response.DisplayInfo.CompilationOk(body) =>
-      State.View.display(state, Success("Compilation result"), Plain(body))
-    | Constraints(None) => State.View.display(state, Plain("No Constraints"), Nothing)
-    | Constraints(Some(body)) => State.View.displayEmacs(state, Outputs, Plain("Constraints"), body)
-    | AllGoalsWarnings(header, "nil") => State.View.display(state, Success(header), Nothing)
+      State.View.display(state, Success("Compilation result"), [Component.Item.plainText(body)])
+    | Constraints(None) => State.View.display(state, Plain("No Constraints"), [])
+    | Constraints(Some(body)) =>
+      let items = Emacs__Parser2.parseOutputs(body)
+      State.View.display(state, Plain("Constraints"), items)
+    | AllGoalsWarnings(header, "nil") => State.View.display(state, Success(header), [])
     | AllGoalsWarnings(header, body) =>
-      State.View.displayEmacs(state, AllGoalsWarnings, Plain(header), body)
-    | Time(body) => State.View.displayEmacs(state, Text, Plain("Time"), body)
-    | Error(body) => State.View.displayEmacs(state, Error, Error("Error!"), body)
-    | Intro(body) => State.View.displayEmacs(state, Text, Plain("Intro"), body)
-    | Auto(body) => State.View.displayEmacs(state, Text, Plain("Auto"), body)
-    | ModuleContents(body) => State.View.displayEmacs(state, Text, Plain("Module Contents"), body)
-    | SearchAbout(body) => State.View.displayEmacs(state, SearchAbout, Plain("Search About"), body)
-    | WhyInScope(body) => State.View.displayEmacs(state, Text, Plain("Scope info"), body)
-    | NormalForm(body) => State.View.displayEmacs(state, Text, Plain("Normal form"), body)
-    | GoalType(body) => State.View.displayEmacs(state, GoalType, Plain("Goal and Context"), body)
-    | CurrentGoal(payload) => State.View.display(state, Plain("Current goal"), Plain(payload))
-    | InferredType(payload) => State.View.display(state, Plain("Inferred type"), Plain(payload))
-    | Context(body) => State.View.displayEmacs(state, Outputs, Plain("Context"), body)
+      let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
+      State.View.display(state, Plain(header), items)
+    | Time(body) =>
+      let items = Emacs__Parser2.parseTextWithLocation(body)
+      State.View.display(state, Plain("Time"), items)
+    | Error(body) =>
+      let items = Emacs__Parser2.parseError(body)
+      State.View.display(state, Error("Error"), items)
+    | Intro(body) =>
+      let items = Emacs__Parser2.parseTextWithLocation(body)
+      State.View.display(state, Plain("Intro"), items)
+    | Auto(body) =>
+      let items = Emacs__Parser2.parseTextWithLocation(body)
+      State.View.display(state, Plain("Auto"), items)
+    | ModuleContents(body) =>
+      let items = Emacs__Parser2.parseTextWithLocation(body)
+      State.View.display(state, Plain("Module Contents"), items)
+    | SearchAbout(body) =>
+      let items = Emacs__Parser2.parseSearchAbout(body)
+      State.View.display(state, Plain("Search About"), items)
+    | WhyInScope(body) =>
+      let items = Emacs__Parser2.parseTextWithLocation(body)
+      State.View.display(state, Plain("Scope info"), items)
+    | NormalForm(body) =>
+      let items = Emacs__Parser2.parseTextWithLocation(body)
+      State.View.display(state, Plain("Normal form"), items)
+    | GoalType(body) =>
+      let items = Emacs__Parser2.parseGoalType(body)
+      State.View.display(state, Plain("Goal and Context"), items)
+    | CurrentGoal(payload) =>
+      State.View.display(state, Plain("Current goal"), [Component.Item.plainText(payload)])
+    | InferredType(payload) =>
+      State.View.display(state, Plain("Inferred type"), [Component.Item.plainText(payload)])
+    | Context(body) =>
+      let items = Emacs__Parser2.parseOutputs(body)
+      State.View.display(state, Plain("Context"), items)
     | HelperFunction(payload) =>
       VSCode.Env.clipboard
       ->VSCode.Clipboard.writeText(payload)
       ->Promise.flatMap(() =>
-        State.View.display(state, Plain("Helper function (copied to clipboard)"), Plain(payload))
+        State.View.display(
+          state,
+          Plain("Helper function (copied to clipboard)"),
+          [Component.Item.plainText(payload)],
+        )
       )
-    | Version(payload) => State.View.display(state, Plain("Version"), Plain(payload))
+    | Version(payload) =>
+      State.View.display(state, Plain("Version"), [Component.Item.plainText(payload)])
     }
 }
 
@@ -97,7 +127,7 @@ let rec handle = (
       State.View.display(
         state,
         Error("Error: Give failed"),
-        Plain("Cannot find goal #" ++ string_of_int(index)),
+        [Component.Item.plainText("Cannot find goal #" ++ string_of_int(index))],
       )
     | Some(goal) =>
       switch give {
@@ -141,15 +171,15 @@ let rec handle = (
     ->Promise.flatMap(_ => {
       let size = Array.length(solutions)
       if size == 0 {
-        State.View.display(state, Error("No solutions found"), Nothing)
+        State.View.display(state, Error("No solutions found"), [])
       } else {
-        State.View.display(state, Success(string_of_int(size) ++ " goals solved"), Nothing)
+        State.View.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
     })
 
   | DisplayInfo(info) => DisplayInfo.handle(state, info)
   | RunningInfo(_verbosity, message) =>
-    State.View.display(state, Plain("Type-checking"), Plain(message))
+    State.View.display(state, Plain("Type-checking"), [Component.Item.plainText(message)])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
     Decoration.apply(state.decoration, state.editor)

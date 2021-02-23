@@ -190,7 +190,11 @@ module Module: Module = {
         State.View.display(
           state,
           Error("Goal-related Error"),
-          Plain("Failed to modify the content of goal #" ++ string_of_int(goal.index)),
+          [
+            Component.Item.plainText(
+              "Failed to modify the content of goal #" ++ string_of_int(goal.index),
+            ),
+          ],
         )
       }
     )
@@ -312,7 +316,11 @@ module Module: Module = {
         State.View.display(
           state,
           Error("Goal-related Error"),
-          Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
+          [
+            Component.Item.plainText(
+              "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
+            ),
+          ],
         )
       }
     )
@@ -344,7 +352,11 @@ module Module: Module = {
         State.View.display(
           state,
           Error("Goal-related Error"),
-          Plain("Unable to replace the lines of goal #" ++ string_of_int(goal.index)),
+          [
+            Component.Item.plainText(
+              "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
+            ),
+          ],
         )
       }
     )
@@ -365,7 +377,11 @@ module Module: Module = {
         State.View.display(
           state,
           Error("Goal-related Error"),
-          Plain("Unable to remove the boundary of goal #" ++ string_of_int(goal.index)),
+          [
+            Component.Item.plainText(
+              "Unable to remove the boundary of goal #" ++ string_of_int(goal.index),
+            ),
+          ],
         )
       }
     )

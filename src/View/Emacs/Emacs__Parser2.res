@@ -195,7 +195,7 @@ let parseOutputs: string => array<Item.t> = raw => {
   ->Array.map(output => Item.Unlabeled(Output.toText(output)))
 }
 
-let parseText: string => array<Item.t> = raw => [Item.Unlabeled(Text.parse(raw))]
+let parseTextWithLocation: string => array<Item.t> = raw => [Item.Unlabeled(Text.parse(raw))]
 
 let parseSearchAbout: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)

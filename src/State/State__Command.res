@@ -11,7 +11,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   let header = View.Header.Plain(Command.toString(command))
   switch command {
   | Load =>
-    State.View.display(state, Plain("Loading ..."), Nothing)
+    State.View.display(state, Plain("Loading ..."), [])
     ->Promise.flatMap(() => {
       // save the document before loading
       VSCode.TextDocument.save(state.document)
@@ -247,11 +247,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       Config.setAgdaPath("")
       ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
       ->Promise.flatMap(() =>
-        State.View.display(
-          state,
-          View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"),
-          View.Body.Nothing,
-        )
+        State.View.display(state, View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"), [])
       )
       ->Promise.flatMap(() => State.Connection.reconnect(state))
       ->Promise.flatMap(result =>
@@ -261,7 +257,10 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           let header = View.Header.Error(
             "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
           )
-          let body = View.Body.Plain(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)
+          let body = [
+            Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
+          ]
+          // View.Body.Plain(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)
           Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
             State.View.display(state, header, body)
           )
@@ -269,7 +268,11 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           State.View.display(
             state,
             View.Header.Success("Switched to '" ++ newAgdaVersion ++ "'"),
-            View.Body.Plain("Found '" ++ newAgdaVersion ++ "' at: " ++ Config.getAgdaPath()),
+            [
+              Component.Item.plainText(
+                "Found '" ++ newAgdaVersion ++ "' at: " ++ Config.getAgdaPath(),
+              ),
+            ],
           )
         }
       )

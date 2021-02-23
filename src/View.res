@@ -86,84 +86,44 @@ module Prompt = {
     }
 }
 module Body = {
-  module Emacs = {
-    type t =
-      | Outputs
-      | AllGoalsWarnings
-      | GoalType
-      | SearchAbout
-      | Error
-      | Text
+  type t = array<Component.Item.t>
+  //   // Plain text only
+  //   // | Plain(string)
+  //   // Formatted by `formatWarningsAndErrors` for Emacs consumption
+  //   // | Emacs(Emacs.t, string, string)
+  //   | Items(array<Component.Item.t>)
 
-    open Json.Decode
-    open Util.Decode
+  // open Json.Decode
+  // open Util.Decode
 
-    let decode: decoder<t> = sum(x =>
-      switch x {
-      | "Outputs" => TagOnly(Outputs)
-      | "AllGoalsWarnings" => TagOnly(AllGoalsWarnings)
-      | "GoalType" => TagOnly(GoalType)
-      | "SearchAbout" => TagOnly(SearchAbout)
-      | "Error" => TagOnly(Error)
-      | "Text" => TagOnly(Text)
-      | tag => raise(DecodeError("[Body.Emacs] Unknown constructor: " ++ tag))
-      }
-    )
+  // let decode: decoder<t> = sum(x =>
+  //   switch x {
+  //   // | "Plain" => Contents(string |> map(text => Plain(text)))
+  //   // | "Emacs" =>
+  //   //   Contents(
+  //   //     tuple3(Emacs.decode, string, string) |> map(((kind, header, body)) => Emacs(
+  //   //       kind,
+  //   //       header,
+  //   //       body,
+  //   //     )),
+  //   //   )
+  //   | "Items" => Contents(array(Component.Item.decode) |> map(items => Items(items)))
+  //   | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag))
+  //   }
+  // )
 
-    open! Json.Encode
-    let encode: encoder<t> = x =>
-      switch x {
-      | Outputs => object_(list{("tag", string("Outputs"))})
-      | AllGoalsWarnings => object_(list{("tag", string("AllGoalsWarnings"))})
-      | GoalType => object_(list{("tag", string("GoalType"))})
-      | SearchAbout => object_(list{("tag", string("SearchAbout"))})
-      | Error => object_(list{("tag", string("Error"))})
-      | Text => object_(list{("tag", string("Text"))})
-      }
-  }
-
-  type t =
-    // No content, Header only
-    | Nothing
-    // Plain text only
-    | Plain(string)
-    // Formatted by `formatWarningsAndErrors` for Emacs consumption
-    | Emacs(Emacs.t, string, string)
-    | Items(array<Component.Item.t>)
-
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "Nothing" => TagOnly(Nothing)
-    | "Plain" => Contents(string |> map(text => Plain(text)))
-    | "Emacs" =>
-      Contents(
-        tuple3(Emacs.decode, string, string) |> map(((kind, header, body)) => Emacs(
-          kind,
-          header,
-          body,
-        )),
-      )
-    | "Items" => Contents(array(Component.Item.decode) |> map(items => Items(items)))
-    | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag))
-    }
-  )
-
-  open! Json.Encode
-  let encode: encoder<t> = x =>
-    switch x {
-    | Nothing => object_(list{("tag", string("Nothing"))})
-    | Plain(text) => object_(list{("tag", string("Plain")), ("contents", text |> string)})
-    | Emacs(kind, header, body) =>
-      object_(list{
-        ("tag", string("Emacs")),
-        ("contents", (kind, header, body) |> tuple3(Emacs.encode, string, string)),
-      })
-    | Items(items) =>
-      object_(list{("tag", string("Items")), ("contents", items |> array(Component.Item.encode))})
-    }
+  // open! Json.Encode
+  // let encode: encoder<t> = x =>
+  //   switch x {
+  //   // | Plain(text) => object_(list{("tag", string("Plain")), ("contents", text |> string)})
+  //   // | Emacs(kind, header, body) =>
+  //   //   object_(list{
+  //   //     ("tag", string("Emacs")),
+  //   //     ("contents", (kind, header, body) |> tuple3(Emacs.encode, string, string)),
+  //   //   })
+  //   | Items(items) =>
+  //     object_(list{("tag", string("Items")), ("contents", items |> array(Component.Item.encode))})
+  //   }
 }
 
 module EventToView = {
@@ -231,7 +191,12 @@ module EventToView = {
   let decode: decoder<t> = sum(x =>
     switch x {
     | "Display" =>
-      Contents(pair(Header.decode, Body.decode) |> map(((header, body)) => Display(header, body)))
+      Contents(
+        pair(Header.decode, array(Component.Item.decode)) |> map(((header, body)) => Display(
+          header,
+          body,
+        )),
+      )
     | "PromptInterrupt" => TagOnly(PromptInterrupt)
     | "PromptIMUpdate" => Contents(string |> map(text => PromptIMUpdate(text)))
     | "InputMethod" => Contents(InputMethod.decode |> map(x => InputMethod(x)))
@@ -245,7 +210,7 @@ module EventToView = {
     | Display(header, body) =>
       object_(list{
         ("tag", string("Display")),
-        ("contents", (header, body) |> pair(Header.encode, Body.encode)),
+        ("contents", (header, body) |> pair(Header.encode, array(Component.Item.encode))),
       })
     | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
     | PromptIMUpdate(text) =>
