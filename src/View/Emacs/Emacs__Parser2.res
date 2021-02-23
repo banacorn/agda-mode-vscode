@@ -48,7 +48,9 @@ let parseError: string => array<Item.t> = raw => {
   ->Emacs__Parser.Dict.partite(((_, i)) => i === 0 ? Some("errors") : None)
   ->partiteWarningsOrErrors("errors")
   ->Js.Dict.get("errors")
-  ->Option.mapWithDefault([], entries => entries->Array.map(entry => Item.Error(Text.parse(entry))))
+  ->Option.mapWithDefault([], entries =>
+    entries->Array.map(entry => Item.Labeled("Error", "error", Text.parse(entry)))
+  )
 }
 
 let parseGoalType: string => array<Item.t> = raw => {
@@ -83,22 +85,22 @@ let parseGoalType: string => array<Item.t> = raw => {
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
       ->Expr.parse
-      ->Option.mapWithDefault([], expr => [Item.Goal(Expr.toText(expr))])
+      ->Option.mapWithDefault([], expr => [Item.Labeled("Goal", "special", Expr.toText(expr))])
     | "have" =>
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
       ->Expr.parse
-      ->Option.mapWithDefault([], expr => [Item.Have(Expr.toText(expr))])
+      ->Option.mapWithDefault([], expr => [Item.Labeled("Have", "special", Expr.toText(expr))])
     | "interactionMetas" =>
       lines
       ->Array.map(Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Output(output))
+      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
     | "hiddenMetas" =>
       lines
       ->Array.map(Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Output(output))
+      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
     | _ => []
     }
   )
@@ -167,18 +169,18 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
   ->Js.Dict.entries
   ->Array.map(((key, lines)) =>
     switch key {
-    | "warnings" => lines->Array.map(line => Item.Warning(Text.parse(line)))
-    | "errors" => lines->Array.map(line => Item.Error(Text.parse(line)))
+    | "warnings" => lines->Array.map(line => Item.Labeled("Warning", "warning", Text.parse(line)))
+    | "errors" => lines->Array.map(line => Item.Labeled("Error", "error", Text.parse(line)))
     | "interactionMetas" =>
       lines
       ->Array.map(Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Output(output))
+      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
     | "hiddenMetas" =>
       lines
       ->Array.map(Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Output(output))
+      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
     | _ => []
     }
   )
@@ -187,10 +189,13 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
 
 let parseOutputs: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)->Emacs__Parser.unindent
-  lines->Array.map(Output.parse)->Array.keepMap(x => x)->Array.map(output => Item.Output(output))
+  lines
+  ->Array.map(Output.parse)
+  ->Array.keepMap(x => x)
+  ->Array.map(output => Item.Unlabeled(Output.toText(output)))
 }
 
-let parseText: string => array<Item.t> = raw => [Item.PlainText(Text.parse(raw))]
+let parseText: string => array<Item.t> = raw => [Item.Unlabeled(Text.parse(raw))]
 
 let parseSearchAbout: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)
@@ -201,17 +206,17 @@ let parseSearchAbout: string => array<Item.t> = raw => {
     ->Emacs__Parser.unindent
     ->Array.map(Output.parse)
     ->Array.keepMap(x => x)
-    ->Array.map(output => Item.Output(output))
+    ->Array.map(output => Item.Unlabeled(Output.toText(output)))
 
   let target = lines[0]->Option.map(Js.String.sliceToEnd(~from=18))
   switch target {
-  | None => [Item.PlainText(Text.parse("Don't know what to search about"))]
+  | None => [Item.Unlabeled(Text.parse("Don't know what to search about"))]
   | Some(target) =>
     if Array.length(outputs) == 0 {
-      [Item.PlainText(Text.parse("There are no definitions about " ++ target))]
+      [Item.Unlabeled(Text.parse("There are no definitions about " ++ target))]
     } else {
       [
-        [Item.PlainText(Text.parse("Definitions about " ++ (target ++ ":")))],
+        [Item.Unlabeled(Text.parse("Definitions about " ++ (target ++ ":")))],
         outputs,
       ]->Array.concatMany
     }

@@ -6,7 +6,7 @@ let make = (~body: View.Body.t) =>
   | Nothing => <> </>
   | RichText => <> </>
   | Plain(payload) =>
-    let items = [Item.PlainText(Text.parse(payload))]
+    let items = [Item.Unlabeled(Text.parse(payload))]
     <div className="agda-mode-body">
       <ul>
         {items->Array.mapWithIndex((i, item) => <Item key={string_of_int(i)} item />)->React.array}

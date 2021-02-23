@@ -9,14 +9,6 @@ module Text = {
       | Icon(string)
       | Link(string, option<array<string>>, bool, bool, View.Link.t)
       | Location(Common.Agda.Location.t, bool)
-
-    let toString = x =>
-      switch x {
-      | PlainText(s, _) => s
-      | Icon(s) => "[Icon " ++ s ++ "]"
-      | Link(s, _, _, _, _) => s
-      | Location(r, _) => Common.Agda.Location.toString(r)
-      }
   }
   type t = Text(array<Segment.t>)
   let toSegments = x =>
@@ -34,9 +26,6 @@ module Text = {
     Segment.Link(text, className, jump, hover, View.Link.ToHole(holeIndex)),
   ])
   let location = (location, abbr) => Text([Segment.Location(location, abbr)])
-
-  // serialize
-  let toString = (Text(segments)) => segments->Array.map(Segment.toString)->Js.Array.joinWith("", _)
   // from string
   let parse = raw =>
     raw
@@ -99,12 +88,6 @@ module Term = {
     | Plain(string)
     | QuestionMark(int)
     | Underscore(string)
-  let toString = x =>
-    switch x {
-    | Plain(string) => string
-    | QuestionMark(int) => "?" ++ string_of_int(int)
-    | Underscore(string) => "_" ++ string
-    }
   let toText = x =>
     switch x {
     | Plain(string) => Text.plainText(~className=["expr"], string)
@@ -118,25 +101,10 @@ module Term = {
       )
     | Underscore(string) => Text.plainText(~className=["expr underscore"], "_" ++ string)
     }
-
-  // let jump = true
-  // let hover = true
-
-  // @react.component
-  // let make = (~term: t) =>
-  //   switch term {
-  //   | Plain(s) => <span className="expr"> {string(s)} </span>
-  //   | QuestionMark(i) =>
-  //     <Link className=list{"expr", "question-mark"} jump hover target=View.Link.ToHole(i)>
-  //       {string("?" ++ string_of_int(i))}
-  //     </Link>
-  //   | Underscore(s) => <span className="expr underscore"> {string(s)} </span>
-  //   }
 }
 
 module Expr = {
   type t = array<Term.t>
-  let toString = xs => xs->Array.map(Term.toString)->Js.String.concatMany(" ")
   let parse = raw =>
     raw
     ->Js.String.trim
@@ -157,15 +125,6 @@ module Expr = {
     ->(x => Some(x))
 
   let toText = xs => xs->Array.map(Term.toText)->Text.concatMany
-
-  // @react.component
-  // let make = (~expr: t) => {
-  //   <span>
-  //     {expr
-  //     ->Array.mapWithIndex((i, term) => <Text key={string_of_int(i)} text={Term.toText(term)} />)
-  //     ->React.array}
-  //   </span>
-  // }
 }
 
 module OutputConstraint = {
@@ -174,14 +133,6 @@ module OutputConstraint = {
     | JustType(Text.t)
     | JustSort(Text.t)
     | Others(Text.t)
-
-  let toString = x =>
-    switch x {
-    | OfType(e, t) => Text.toString(e) ++ (" : " ++ Text.toString(t))
-    | JustType(t) => Text.toString(t)
-    | JustSort(t) => Text.toString(t)
-    | Others(t) => Text.toString(t)
-    }
 
   let parseOfType =
     %re("/^([^\\:]*) \\: ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
@@ -205,46 +156,19 @@ module OutputConstraint = {
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
-  @react.component
-  let make = (~value: t, ~location: option<Common.Agda.Location.t>) => {
-    let location = Option.mapWithDefault(location, null, location =>
-      <Component__Link jump=true target=View.Link.ToLocation(location)>
-        <div className="codicon codicon-link" />
-      </Component__Link>
-    )
+  let toText = (value, location) => {
+    let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
     switch value {
-    | OfType(e, t) =>
-      <li className="unlabeled-item">
-        <div className="item-content">
-          <Text text=e /> {string(" : ")} <Text text=t /> location
-        </div>
-      </li>
-    | JustType(e) =>
-      <li className="unlabeled-item">
-        <div className="item-content"> {string("Type ")} <Text text=e /> location </div>
-      </li>
-    | JustSort(e) =>
-      <li className="unlabeled-item">
-        <div className="item-content"> {string("Sort ")} <Text text=e /> location </div>
-      </li>
-    | Others(e) =>
-      <li className="unlabeled-item">
-        <div className="item-content"> <Text text=e /> location </div>
-      </li>
+    | OfType(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])
+    | JustType(e) => Text.concatMany([Text.plainText("Type "), e, location])
+    | JustSort(e) => Text.concatMany([Text.plainText("Sort "), e, location])
+    | Others(e) => Text.concatMany([e, location])
     }
   }
 }
 
 module Output = {
   type t = Output(OutputConstraint.t, option<Common.Agda.Location.t>)
-  let toString = x =>
-    switch x {
-    | Output(c, None) => "Output " ++ OutputConstraint.toString(c)
-    | Output(c, Some(location)) =>
-      "Output " ++
-      (OutputConstraint.toString(c) ++
-      (" " ++ Common.Agda.Location.toString(location)))
-    }
 
   let parseOutputWithoutLocation = raw =>
     raw->OutputConstraint.parse->Option.map(x => Output(x, None))
@@ -269,57 +193,26 @@ module Output = {
     }
   }
 
-  @react.component
-  let make = (~value: t) => {
+  let toText = value => {
     let Output(oc, location) = value
-    <OutputConstraint value=oc location />
+    OutputConstraint.toText(oc, location)
   }
 }
 
 module Item = {
   type t =
-    | PlainText(Text.t)
-    | Error(Text.t)
-    | Warning(Text.t)
-    | Goal(Text.t)
-    | Have(Text.t)
-    | Output(Output.t)
-
-  let toString = x =>
-    switch x {
-    | PlainText(text) => "Item [PlainText] " ++ Text.toString(text)
-    | Error(text) => "Item [Error] " ++ Text.toString(text)
-    | Warning(text) => "Item [Warning] " ++ Text.toString(text)
-    | Goal(text) => "Item [Goal] " ++ Text.toString(text)
-    | Have(text) => "Item [Have] " ++ Text.toString(text)
-    | Output(output) => "Item [Output] " ++ Output.toString(output)
-    }
+    | Labeled(string, string, Text.t)
+    | Unlabeled(Text.t)
 
   @react.component
   let make = (~item: t) =>
     switch item {
-    | PlainText(text) =>
-      <li className="labeled-item"> <div className="item-content"> <Text text /> </div> </li>
-    | Error(text) =>
-      <li className="labeled-item error">
-        <div className="item-label"> {string("Error")} </div>
+    | Labeled(label, style, text) =>
+      <li className={"labeled-item " ++ style}>
+        <div className="item-label"> {string(label)} </div>
         <div className="item-content"> <Text text /> </div>
       </li>
-    | Warning(text) =>
-      <li className="labeled-item warning">
-        <div className="item-label"> {string("Warning")} </div>
-        <div className="item-content"> <Text text /> </div>
-      </li>
-    | Goal(text) =>
-      <li className="labeled-item special">
-        <div className="item-label"> {string("Goal")} </div>
-        <div className="item-content"> <Text text /> </div>
-      </li>
-    | Have(text) =>
-      <li className="labeled-item special">
-        <div className="item-label"> {string("Have")} </div>
-        <div className="item-content"> <Text text /> </div>
-      </li>
-    | Output(value) => <Output value />
+    | Unlabeled(text) =>
+      <li className="unlabeled-item"> <div className="item-content"> <Text text /> </div> </li>
     }
 }
