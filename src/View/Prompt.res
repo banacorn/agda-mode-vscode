@@ -6,7 +6,7 @@ let make = (
   ~inputMethodActivated: bool,
   ~prompt: option<(option<string>, option<string>, option<string>)>,
   ~onSubmit: option<string> => unit,
-  ~onUpdatePromptIM: View.EventFromView.PromptIMUpdate.t => unit,
+  ~onUpdatePromptIM: Common.EventFromView.PromptIMUpdate.t => unit,
 ) =>
   switch prompt {
   | Some((body, placeholder, value)) =>
@@ -20,7 +20,7 @@ let make = (
     // for navigating around symbol candidates
     let onKeyUp = event => {
       let arrowKey = switch ReactEvent.Keyboard.key(event) {
-      | "ArrowUp" => Some(View.EventFromView.PromptIMUpdate.BrowseUp)
+      | "ArrowUp" => Some(Common.EventFromView.PromptIMUpdate.BrowseUp)
       | "ArrowDown" => Some(BrowseDown)
       | "ArrowLeft" => Some(BrowseLeft)
       | "ArrowRight" => Some(BrowseRight)
@@ -84,11 +84,11 @@ let make = (
           value
           ref={ReactDOMRe.Ref.callbackDomRef(ref => {
             // Update mouse selection in <input>
-            ref->Js.Nullable.toOption->Option.forEach(input => {
+            ref
+            ->Js.Nullable.toOption
+            ->Option.forEach(input => {
               selectionInterval->Option.forEach(((start, end_)) => {
-                let setSelectionRange = %raw(
-                  `(elem, start, end_) => elem.setSelectionRange(start, end_)`
-                )
+                let setSelectionRange = %raw(`(elem, start, end_) => elem.setSelectionRange(start, end_)`)
                 input->setSelectionRange(start, end_)->ignore
               })
             })

@@ -1,4 +1,4 @@
-let chan: Chan.t<View.EventFromView.t> = Chan.make()
+let chan: Chan.t<Common.EventFromView.t> = Chan.make()
 let eventContext = React.createContext(chan)
 
 module Provider = {
@@ -13,7 +13,7 @@ module Provider = {
 
 @react.component
 let make = (
-  ~target=View.Link.ToLocation(NoLocation),
+  ~target=Common.Link.ToLocation(NoLocation),
   ~jump=false,
   ~hover=false,
   ~className=list{},
@@ -23,8 +23,8 @@ let make = (
   | ToLocation(NoLocation)
   | ToLocation(Location(_, [])) =>
     None
-  | ToHole(index) => Some(View.Link.ToHole(index))
-  | ToLocation(location) => Some(View.Link.ToLocation(location))
+  | ToHole(index) => Some(Common.Link.ToHole(index))
+  | ToLocation(location) => Some(Common.Link.ToLocation(location))
   }
 
   let link = React.useContext(eventContext)
@@ -37,15 +37,15 @@ let make = (
       className={String.concat(" ", list{"component-link", ...className})}
       onClick={_ =>
         if jump {
-          link->Chan.emit(View.EventFromView.JumpToTarget(t))
+          link->Chan.emit(Common.EventFromView.JumpToTarget(t))
         }}
       onMouseOver={_ =>
         if hover {
-          link->Chan.emit(View.EventFromView.MouseOver(t))
+          link->Chan.emit(Common.EventFromView.MouseOver(t))
         }}
       onMouseOut={_ =>
         if hover {
-          link->Chan.emit(View.EventFromView.MouseOut(t))
+          link->Chan.emit(Common.EventFromView.MouseOut(t))
         }}>
       children
     </span>

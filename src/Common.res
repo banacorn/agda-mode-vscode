@@ -503,3 +503,141 @@ module Agda = {
     }
   }
 }
+
+module Link = {
+  type t =
+    | ToLocation(Agda.Location.t)
+    | ToHole(int)
+
+  open Json.Decode
+  open Util.Decode
+
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "ToLocation" => Contents(Agda.Location.decode |> map(range => ToLocation(range)))
+    | "ToHole" => Contents(int |> map(index => ToHole(index)))
+    | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
+    }
+  )
+
+  open! Json.Encode
+  let encode: encoder<t> = x =>
+    switch x {
+    | ToLocation(range) =>
+      object_(list{("tag", string("ToLocation")), ("contents", range |> Agda.Location.encode)})
+    | ToHole(index) => object_(list{("tag", string("ToHole")), ("contents", index |> int)})
+    }
+}
+
+module EventFromView = {
+  module InputMethod = {
+    type t =
+      | InsertChar(string)
+      | ChooseSymbol(string)
+
+    open Json.Decode
+    open Util.Decode
+
+    let decode: decoder<t> = sum(x =>
+      switch x {
+      | "InsertChar" => Contents(string |> map(char => InsertChar(char)))
+      | "ChooseSymbol" => Contents(string |> map(char => ChooseSymbol(char)))
+      | tag => raise(DecodeError("[EventFromView.InputMethod] Unknown constructor: " ++ tag))
+      }
+    )
+
+    open! Json.Encode
+    let encode: encoder<t> = x =>
+      switch x {
+      | InsertChar(char) =>
+        object_(list{("tag", string("InsertChar")), ("contents", char |> string)})
+      | ChooseSymbol(symbol) =>
+        object_(list{("tag", string("ChooseSymbol")), ("contents", symbol |> string)})
+      }
+  }
+
+  module PromptIMUpdate = {
+    type t =
+      | MouseSelect(Interval.t)
+      | KeyUpdate(string)
+      | BrowseUp
+      | BrowseDown
+      | BrowseLeft
+      | BrowseRight
+      | Escape
+
+    open Json.Decode
+    open Util.Decode
+
+    let decode: decoder<t> = sum(x =>
+      switch x {
+      | "MouseSelect" => Contents(Interval.decode |> map(interval => MouseSelect(interval)))
+      | "KeyUpdate" => Contents(string |> map(char => KeyUpdate(char)))
+      | "BrowseUp" => TagOnly(BrowseUp)
+      | "BrowseDown" => TagOnly(BrowseDown)
+      | "BrowseLeft" => TagOnly(BrowseLeft)
+      | "BrowseRight" => TagOnly(BrowseRight)
+      | "Escape" => TagOnly(Escape)
+      | tag => raise(DecodeError("[EventFromView.Prompt] Unknown constructor: " ++ tag))
+      }
+    )
+
+    open! Json.Encode
+    let encode: encoder<t> = x =>
+      switch x {
+      | MouseSelect(interval) =>
+        object_(list{("tag", string("MouseSelect")), ("contents", interval |> Interval.encode)})
+      | KeyUpdate(char) => object_(list{("tag", string("KeyUpdate")), ("contents", char |> string)})
+      | BrowseUp => object_(list{("tag", string("BrowseUp"))})
+      | BrowseDown => object_(list{("tag", string("BrowseDown"))})
+      | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
+      | BrowseRight => object_(list{("tag", string("BrowseRight"))})
+      | Escape => object_(list{("tag", string("Escape"))})
+      }
+  }
+
+  type t =
+    | Initialized
+    | Destroyed
+    | InputMethod(InputMethod.t)
+    | PromptIMUpdate(PromptIMUpdate.t)
+    | JumpToTarget(Link.t)
+    | MouseOver(Link.t)
+    | MouseOut(Link.t)
+
+  open Json.Decode
+  open Util.Decode
+
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "Initialized" => TagOnly(Initialized)
+    | "Destroyed" => TagOnly(Destroyed)
+    | "InputMethod" => Contents(InputMethod.decode |> map(action => InputMethod(action)))
+    | "PromptIMUpdate" => Contents(PromptIMUpdate.decode |> map(action => PromptIMUpdate(action)))
+    | "JumpToTarget" => Contents(Link.decode |> map(link => JumpToTarget(link)))
+    | "MouseOver" => Contents(Link.decode |> map(link => MouseOver(link)))
+    | "MouseOut" => Contents(Link.decode |> map(link => MouseOut(link)))
+    | tag => raise(DecodeError("[Response.EventFromView] Unknown constructor: " ++ tag))
+    }
+  )
+
+  open! Json.Encode
+  let encode: encoder<t> = x =>
+    switch x {
+    | Initialized => object_(list{("tag", string("Initialized"))})
+    | Destroyed => object_(list{("tag", string("Destroyed"))})
+    | InputMethod(action) =>
+      object_(list{("tag", string("InputMethod")), ("contents", action |> InputMethod.encode)})
+    | PromptIMUpdate(action) =>
+      object_(list{
+        ("tag", string("PromptIMUpdate")),
+        ("contents", action |> PromptIMUpdate.encode),
+      })
+    | JumpToTarget(link) =>
+      object_(list{("tag", string("JumpToTarget")), ("contents", link |> Link.encode)})
+    | MouseOver(link) =>
+      object_(list{("tag", string("MouseOver")), ("contents", link |> Link.encode)})
+    | MouseOut(link) =>
+      object_(list{("tag", string("MouseOut")), ("contents", link |> Link.encode)})
+    }
+}

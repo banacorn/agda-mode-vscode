@@ -5,7 +5,7 @@ let make = (
   ~onRequest: Chan.t<View.Request.t>,
   ~onEventToView: Chan.t<View.EventToView.t>,
   ~onResponse: Chan.t<View.Response.t>,
-  ~onEventFromView: Chan.t<View.EventFromView.t>,
+  ~onEventFromView: Chan.t<Common.EventFromView.t>,
 ) => {
   let (header, setHeader) = React.useState(() => View.Header.Plain("File not loaded yet"))
   let (body, setBody) = React.useState(() => View.Body.Nothing)
@@ -13,7 +13,8 @@ let make = (
   // so that we can restore them if the prompt is interrupted
   let savedHeaderAndBody = React.useRef(None)
   let saveHeaderAndBody = (header, body) => savedHeaderAndBody.current = Some((header, body))
-  let restoreHeaderAndBody = () => savedHeaderAndBody.current->Option.forEach(((header, body)) => {
+  let restoreHeaderAndBody = () =>
+    savedHeaderAndBody.current->Option.forEach(((header, body)) => {
       setHeader(_ => header)
       setBody(_ => body)
     })
@@ -30,7 +31,8 @@ let make = (
   }, [])
 
   let promptResponseResolver = React.useRef(None)
-  let onSubmit = result => promptResponseResolver.current->Option.forEach(resolve => {
+  let onSubmit = result =>
+    promptResponseResolver.current->Option.forEach(resolve => {
       setPrompt(_ => None)
       resolve(result)
       promptResponseResolver.current = None
@@ -61,7 +63,8 @@ let make = (
   Hook.on(onEventToView, event =>
     switch event {
     | InputMethod(action) => runInputMethodAction(action)
-    | PromptIMUpdate(text) => setPrompt(x =>
+    | PromptIMUpdate(text) =>
+      setPrompt(x =>
         switch x {
         | Some((body, placeholder, _)) => Some((body, placeholder, Some(text)))
         | None => None

@@ -4,7 +4,6 @@ open Component
 let make = (~body: View.Body.t) =>
   switch body {
   | Nothing => <> </>
-  | RichText => <> </>
   | Plain(payload) =>
     let items = [Item.Unlabeled(Text.parse(payload))]
     <div className="agda-mode-body">
@@ -21,6 +20,12 @@ let make = (~body: View.Body.t) =>
     | Error => Emacs__Parser2.parseError(body)
     | Text => Emacs__Parser2.parseText(body)
     }
+    <div className="agda-mode-body">
+      <ul>
+        {items->Array.mapWithIndex((i, item) => <Item key={string_of_int(i)} item />)->React.array}
+      </ul>
+    </div>
+  | Items(items) =>
     <div className="agda-mode-body">
       <ul>
         {items->Array.mapWithIndex((i, item) => <Item key={string_of_int(i)} item />)->React.array}

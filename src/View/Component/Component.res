@@ -7,8 +7,66 @@ module Text = {
     type t =
       | PlainText(string, option<array<string>>)
       | Icon(string)
-      | Link(string, option<array<string>>, bool, bool, View.Link.t)
+      | Link(string, option<array<string>>, bool, bool, Common.Link.t)
       | Location(Common.Agda.Location.t, bool)
+
+    open! Json.Decode
+    open Util.Decode
+
+    let decode: decoder<t> = sum(x =>
+      switch x {
+      | "PlainText" =>
+        Contents(
+          pair(string, optional(array(string))) |> map(((s, className)) => PlainText(s, className)),
+        )
+      | "Icon" => Contents(string |> map(kind => Icon(kind)))
+      | "Link" =>
+        Contents(
+          tuple5(string, optional(array(string)), bool, bool, Common.Link.decode) |> map(((
+            s,
+            className,
+            jump,
+            hover,
+            link,
+          )) => Link(s, className, jump, hover, link)),
+        )
+      | "Location" =>
+        Contents(
+          pair(Common.Agda.Location.decode, bool) |> map(((loc, abbr)) => Location(loc, abbr)),
+        )
+      | tag => raise(DecodeError("[Component.Text] Unknown constructor: " ++ tag))
+      }
+    )
+
+    open! Json.Encode
+    let encode: encoder<t> = x =>
+      switch x {
+      | PlainText(s, className) =>
+        object_(list{
+          ("tag", string("PlainText")),
+          ("contents", (s, className) |> pair(string, nullable(array(string)))),
+        })
+      | Icon(kind) => object_(list{("tag", string("Icon")), ("contents", kind |> string)})
+      | Link(s, className, jump, hover, link) =>
+        object_(list{
+          ("tag", string("Link")),
+          (
+            "contents",
+            (s, className, jump, hover, link) |> Util.Encode.tuple5(
+              string,
+              nullable(array(string)),
+              bool,
+              bool,
+              Common.Link.encode,
+            ),
+          ),
+        })
+      | Location(loc, abbr) =>
+        object_(list{
+          ("tag", string("Location")),
+          ("contents", (loc, abbr) |> pair(Common.Agda.Location.encode, bool)),
+        })
+      }
   }
   type t = Text(array<Segment.t>)
   let toSegments = x =>
@@ -20,10 +78,10 @@ module Text = {
   let empty = Text([])
   let plainText = (~className=?, s) => Text([Segment.PlainText(s, className)])
   let link = (text, ~jump=true, ~hover=false, ~className=?, loc) => Text([
-    Segment.Link(text, className, jump, hover, View.Link.ToLocation(loc)),
+    Segment.Link(text, className, jump, hover, Common.Link.ToLocation(loc)),
   ])
   let hole = (text, ~jump=true, ~hover=false, ~className=?, holeIndex) => Text([
-    Segment.Link(text, className, jump, hover, View.Link.ToHole(holeIndex)),
+    Segment.Link(text, className, jump, hover, Common.Link.ToHole(holeIndex)),
   ])
   let location = (location, abbr) => Text([Segment.Location(location, abbr)])
   // from string
@@ -68,11 +126,11 @@ module Text = {
             {string(text)}
           </Component__Link>
         | Location(location, true) =>
-          <Component__Link key={string_of_int(i)} jump=true target=View.Link.ToLocation(location)>
+          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToLocation(location)>
             <div className="codicon codicon-link" />
           </Component__Link>
         | Location(location, false) =>
-          <Component__Link key={string_of_int(i)} jump=true target=View.Link.ToLocation(location)>
+          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToLocation(location)>
             <div className="codicon codicon-link" />
             {string(Common.Agda.Location.toString(location))}
           </Component__Link>
@@ -81,6 +139,14 @@ module Text = {
       ->React.array}
     </span>
   }
+
+  open! Json.Decode
+  let decode: decoder<t> = array(Segment.decode) |> map(segments => Text(segments))
+  open! Json.Encode
+  let encode: encoder<t> = x =>
+    switch x {
+    | Text(segments) => segments |> array(Segment.encode)
+    }
 }
 
 module Term = {
@@ -214,5 +280,35 @@ module Item = {
       </li>
     | Unlabeled(text) =>
       <li className="unlabeled-item"> <div className="item-content"> <Text text /> </div> </li>
+    }
+
+  open! Json.Decode
+  open Util.Decode
+
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "Labeled" =>
+      Contents(
+        tuple3(string, string, Text.decode) |> map(((label, style, text)) => Labeled(
+          label,
+          style,
+          text,
+        )),
+      )
+    | "Unlabeled" => Contents(Text.decode |> map(text => Unlabeled(text)))
+    | tag => raise(DecodeError("[Component.Item] Unknown constructor: " ++ tag))
+    }
+  )
+
+  open! Json.Encode
+  let encode: encoder<t> = x =>
+    switch x {
+    | Labeled(label, style, text) =>
+      object_(list{
+        ("tag", string("Labeled")),
+        ("contents", (label, style, text) |> tuple3(string, string, Text.encode)),
+      })
+    | Unlabeled(text) =>
+      object_(list{("tag", string("Unlabeled")), ("contents", text |> Text.encode)})
     }
 }

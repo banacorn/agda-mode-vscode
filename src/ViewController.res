@@ -173,7 +173,7 @@ module type PanelController = {
 
   let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
   let sendRequest: (t, View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
-  let onEvent: (t, View.EventFromView.t => unit) => VSCode.Disposable.t
+  let onEvent: (t, Common.EventFromView.t => unit) => VSCode.Disposable.t
 
   let onceDestroyed: t => Promise.t<unit>
 
@@ -192,7 +192,7 @@ module PanelController: PanelController = {
   type t = {
     panel: Panel.t,
     onResponse: Chan.t<View.Response.t>,
-    onEvent: Chan.t<View.EventFromView.t>,
+    onEvent: Chan.t<Common.EventFromView.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable status: status,
   }

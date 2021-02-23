@@ -86,7 +86,7 @@ type t =
   | Context(Normalization.t)
   | GoalType(Normalization.t)
   | GoalTypeAndContext(Normalization.t)
-  | EventFromView(View.EventFromView.t)
+  | EventFromView(Common.EventFromView.t)
   | GoalTypeContextAndInferredType(Normalization.t)
   | GoalTypeContextAndCheckedType(Normalization.t)
   | ModuleContents(Normalization.t)
