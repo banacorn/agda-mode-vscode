@@ -83,12 +83,12 @@ let parseGoalType: string => array<Item.t> = raw => {
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
       ->Expr.parse
-      ->Option.mapWithDefault([], expr => [Item.Goal(expr)])
+      ->Option.mapWithDefault([], expr => [Item.Goal(Expr.toText(expr))])
     | "have" =>
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
       ->Expr.parse
-      ->Option.mapWithDefault([], expr => [Item.Have(expr)])
+      ->Option.mapWithDefault([], expr => [Item.Have(Expr.toText(expr))])
     | "interactionMetas" =>
       lines
       ->Array.map(Output.parseOutputWithoutLocation)
