@@ -45,7 +45,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
 
   describe("Common.Indices.make", () =>
     it("should work", () => {
-      open Indices
+      open Agda.Indices
       Assert.deep_equal(
         j`𝐀𝐀𝐀𝐀\\n𝐀𝐀𝐀𝐀`
         ->Agda.OffsetConverter.computeUTF16SurrogatePairIndices
@@ -67,7 +67,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
 
   describe("Common.Indices.convert", () => {
     it("should work", () => {
-      open Indices
+      open Agda.Indices
       let a = make(
         Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀𝐀𝐀𝐀\\n𝐀𝐀𝐀𝐀`),
       )
@@ -91,7 +91,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     })
 
     it("issue #7", () => {
-      open Indices
+      open Agda.Indices
       let a = make(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7))
       Assert.deep_equal(convert(a, 0), 0)
       Assert.deep_equal(convert(a, 6), 6)
@@ -148,8 +148,8 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         let f = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
         let g = n =>
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c\\na`)
-          ->Common.Indices.make
-          ->Common.Indices.convert(n)
+          ->Common.Agda.Indices.make
+          ->Common.Agda.Indices.convert(n)
         Assert.equal(f(g(0)), 0)
         Assert.equal(f(g(1)), 1)
         Assert.equal(f(g(2)), 2)
@@ -171,8 +171,8 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       ->Promise.map(textEditor => {
         let f = n =>
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c\\na`)
-          ->Common.Indices.make
-          ->Common.Indices.convert(n)
+          ->Common.Agda.Indices.make
+          ->Common.Agda.Indices.convert(n)
         let g = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
         Assert.equal(f(g(0)), 0)
         Assert.equal(f(g(2)), 2)

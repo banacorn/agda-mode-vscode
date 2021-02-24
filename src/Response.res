@@ -31,6 +31,13 @@ module DisplayInfo = {
   type t =
     | CompilationOk(string)
     | Constraints(option<string>)
+    | AllGoalsWarningsLSP(
+        string,
+        array<string>,
+        array<(string, Common.Agda.Range.t)>,
+        string,
+        string,
+      )
     | AllGoalsWarnings(string, string)
     | Time(string)
     | Error(string)
@@ -52,6 +59,8 @@ module DisplayInfo = {
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
     | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title
+    | AllGoalsWarningsLSP(header, _goals, _metas, _warnings, _errors) =>
+      "[LSP] AllGoalsWarnings " ++ header
     | Time(string) => "Time " ++ string
     | Error(string) => "Error " ++ string
     | Intro(string) => "Intro " ++ string

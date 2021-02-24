@@ -15,6 +15,12 @@ module DisplayInfo = {
     | AllGoalsWarnings(header, body) =>
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
       State.View.display(state, Plain(header), items)
+    | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
+      Js.log(goals)
+      Js.log(metas)
+      Js.log(warnings)
+      Js.log(errors)
+      State.View.display(state, Plain(header), [])
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
       State.View.display(state, Plain("Time"), items)

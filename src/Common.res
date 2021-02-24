@@ -3,127 +3,6 @@
 //  VSCode imports should not be allowed in this module, otherwise it would contaminate the view
 //
 
-module Offset = {
-  type t = int
-
-  let decode = Json.Decode.int
-  let encode = Json.Encode.int
-}
-
-module Interval = {
-  type t = (int, int)
-
-  let contains = (interval, offset) => {
-    let (start, end_) = interval
-    start <= offset && offset <= end_
-  }
-
-  let decode = Json.Decode.pair(Json.Decode.int, Json.Decode.int)
-  let encode = Json.Encode.pair(Json.Encode.int, Json.Encode.int)
-}
-
-module type Indices = {
-  type t
-  let make: array<int> => t
-  let convert: (t, int) => int
-  // expose the intervals for testing
-  let expose: t => (array<(int, int)>, int)
-}
-
-module Indices: Indices = {
-  open Belt
-  //    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
-  //              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
-  type t = {
-    intervals: array<(int, int)>,
-    lastInterval: int,
-    mutable cursor: int,
-  }
-
-  // compiles an array of UTF-8 based offset intervals
-  // for faster UTF-8 => UTF-16 convertion
-  let make = (indicesUTF16: array<int>): t => {
-    //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
-
-    //        UTF-8       UTF-16
-    //        --------------------
-    //        5999        5999
-    //        6000        6000           <
-    //                    6001
-    //        6001        6002
-    //        6002        6003           <
-    //                    6004
-    //        6003        6005
-
-    //  When converting from a UTF-8 based index, say, `6003`,
-    //  we need to know how many surrogate pairs are there before `6003`
-
-    //  Here's what we have computed:
-    //    * UTF-16 based indices of surrogate pairs: [6000, 6003]
-
-    //  Here's what we are going to compute next:
-    //    * UTF-8 based indices of surrogate pairs: [6000, 6002]
-    //    * intervals of UTF-8 based indices [(0, 6000), (6001, 6002)]
-
-    //  NOTE: the last interval (6003, ...) will not be included
-
-    //  indicesUTF16 = [6000, 6003]
-
-    // [6000, 6002]
-    let indicesUTF8 = indicesUTF16->Array.mapWithIndex((i, x) => x - i)
-
-    // [(0, 6000), (6001, 6002)]
-    let intervals = indicesUTF8->Array.mapWithIndex((i, rightEndpoint) => {
-      let leftEndpoint = switch indicesUTF8[i - 1] {
-      | Some(x) => x + 1
-      // first interval
-      | None => 0
-      }
-      (leftEndpoint, rightEndpoint)
-    })
-
-    // 6003
-    let lastInterval =
-      intervals[Array.length(intervals) - 1]->Option.mapWithDefault(0, ((_, x)) => x + 1)
-
-    {
-      intervals: intervals,
-      lastInterval: lastInterval,
-      cursor: 0,
-    }
-  }
-
-  let rec convert = (self, index) => {
-    switch self.intervals[self.cursor] {
-    | None =>
-      // happens when we enter the last inverval
-      if index >= self.lastInterval {
-        // return index + how many pairs it have skipped
-        index + self.cursor
-      } else {
-        // reset the cursor to the beginning of the intervals
-        self.cursor = 0
-        convert(self, index)
-      }
-    | Some((left, right)) =>
-      if index < left {
-        // reset the cursor to the beginning of the intervals
-        self.cursor = 0
-        convert(self, index)
-      } else if index > right {
-        // move the cursor a tad right
-        self.cursor = self.cursor + 1
-        convert(self, index)
-      } else {
-        // index + how many pairs it have skipped
-        index + self.cursor
-      }
-    }
-  }
-
-  let expose = self => (self.intervals, self.cursor)
-}
-
 module Agda = {
   module Position = {
     type t = {
@@ -408,10 +287,112 @@ module Agda = {
       }
   }
 
+  module type Indices = {
+    type t
+    let make: array<int> => t
+    let convert: (t, int) => int
+    // expose the intervals for testing
+    let expose: t => (array<(int, int)>, int)
+  }
+
+  module Indices: Indices = {
+    open Belt
+    //    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
+    //              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
+    type t = {
+      intervals: array<(int, int)>,
+      lastInterval: int,
+      mutable cursor: int,
+    }
+
+    // compiles an array of UTF-8 based offset intervals
+    // for faster UTF-8 => UTF-16 convertion
+    let make = (indicesUTF16: array<int>): t => {
+      //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
+
+      //        UTF-8       UTF-16
+      //        --------------------
+      //        5999        5999
+      //        6000        6000           <
+      //                    6001
+      //        6001        6002
+      //        6002        6003           <
+      //                    6004
+      //        6003        6005
+
+      //  When converting from a UTF-8 based index, say, `6003`,
+      //  we need to know how many surrogate pairs are there before `6003`
+
+      //  Here's what we have computed:
+      //    * UTF-16 based indices of surrogate pairs: [6000, 6003]
+
+      //  Here's what we are going to compute next:
+      //    * UTF-8 based indices of surrogate pairs: [6000, 6002]
+      //    * intervals of UTF-8 based indices [(0, 6000), (6001, 6002)]
+
+      //  NOTE: the last interval (6003, ...) will not be included
+
+      //  indicesUTF16 = [6000, 6003]
+
+      // [6000, 6002]
+      let indicesUTF8 = indicesUTF16->Array.mapWithIndex((i, x) => x - i)
+
+      // [(0, 6000), (6001, 6002)]
+      let intervals = indicesUTF8->Array.mapWithIndex((i, rightEndpoint) => {
+        let leftEndpoint = switch indicesUTF8[i - 1] {
+        | Some(x) => x + 1
+        // first interval
+        | None => 0
+        }
+        (leftEndpoint, rightEndpoint)
+      })
+
+      // 6003
+      let lastInterval =
+        intervals[Array.length(intervals) - 1]->Option.mapWithDefault(0, ((_, x)) => x + 1)
+
+      {
+        intervals: intervals,
+        lastInterval: lastInterval,
+        cursor: 0,
+      }
+    }
+
+    let rec convert = (self, index) => {
+      switch self.intervals[self.cursor] {
+      | None =>
+        // happens when we enter the last inverval
+        if index >= self.lastInterval {
+          // return index + how many pairs it have skipped
+          index + self.cursor
+        } else {
+          // reset the cursor to the beginning of the intervals
+          self.cursor = 0
+          convert(self, index)
+        }
+      | Some((left, right)) =>
+        if index < left {
+          // reset the cursor to the beginning of the intervals
+          self.cursor = 0
+          convert(self, index)
+        } else if index > right {
+          // move the cursor a tad right
+          self.cursor = self.cursor + 1
+          convert(self, index)
+        } else {
+          // index + how many pairs it have skipped
+          index + self.cursor
+        }
+      }
+    }
+
+    let expose = self => (self.intervals, self.cursor)
+  }
+
   module type OffsetConverter = {
     type t
     let make: string => t
-    let convert: (t, int) => Offset.t
+    let convert: (t, int) => int
 
     // for testing
     let characterWidth: string => int
@@ -527,6 +508,20 @@ module Link = {
       object_(list{("tag", string("ToLocation")), ("contents", range |> Agda.Location.encode)})
     | ToHole(index) => object_(list{("tag", string("ToHole")), ("contents", index |> int)})
     }
+}
+
+// NOTE: This is not related to VSCode or Agda
+// NOTE: eliminate this
+module Interval = {
+  type t = (int, int)
+
+  let contains = (interval, offset) => {
+    let (start, end_) = interval
+    start <= offset && offset <= end_
+  }
+
+  let decode = Json.Decode.pair(Json.Decode.int, Json.Decode.int)
+  let encode = Json.Encode.pair(Json.Encode.int, Json.Encode.int)
 }
 
 module EventFromView = {
