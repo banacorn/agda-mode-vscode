@@ -738,9 +738,7 @@ module LSP = {
         // connect and resolve `Ok()`` on success
         let socket = N.Net.connect(port, () => resolve(Ok()))
         // resolve `Error(CannotConnect(Js.Exn.t))` on error
-        socket
-        ->N.Net.Socket.on(#error(exn => resolve(Error(Error.CannotConnectViaTCP(exn)))))
-        ->ignore
+        socket->N.Net.Socket.on(#error(exn => resolve(Error(exn))))->ignore
         // destroy the connection afterwards
         promise->Promise.mapOk(() => {
           N.Net.Socket.destroy(socket)->ignore
@@ -748,7 +746,13 @@ module LSP = {
         })
       }
       if tryTCP {
-        probeTCP(port)->Promise.flatMapError(_ => probeStdIO(name))
+        probeTCP(port)->Promise.flatMapError(error => {
+          Js.log2(
+            "Got the following error when trying to connect to the Agda language server via TCP:",
+            error,
+          )
+          probeStdIO(name)
+        })
       } else {
         probeStdIO(name)
       }
@@ -758,7 +762,7 @@ module LSP = {
     let start = tryTCP =>
       switch singleton.contents {
       | Disconnected =>
-        probe(tryTCP, 4000, "als")
+        probe(tryTCP, 4096, "als")
         ->Promise.flatMapOk(Client.make)
         ->Promise.flatMap(result =>
           switch result {
