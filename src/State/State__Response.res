@@ -20,7 +20,13 @@ module DisplayInfo = {
       Js.log(metas)
       Js.log(warnings)
       Js.log(errors)
-      State.View.display(state, Plain(header), [])
+      let metas =
+        metas
+        ->Array.map(((oc, raw, range)) => [
+          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None)),
+        ])
+        ->Array.concatMany
+      State.View.display(state, Plain(header), Array.concatMany([metas]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
       State.View.display(state, Plain("Time"), items)

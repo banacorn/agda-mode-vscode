@@ -61,7 +61,7 @@ module NMII = {
     | NamedMeta("", int)
     | NamedMeta("_", int) =>
       Text.plainText(string_of_int(int))
-    | NamedMeta(string, int) => Text.plainText(string ++ string_of_int(int))
+    | NamedMeta(string, int) => Text.plainText("_" ++ string ++ string_of_int(int))
     | InteractionId(int) => Text.plainText("?" ++ string_of_int(int))
     }
   }
@@ -165,7 +165,7 @@ module OutputConstraint = {
     | OfType(name, expr) =>
       Text.concatMany([NMII.toText(name), Text.plainText(" : "), Text.plainText(expr)])
     | JustType(name) => Text.concatMany([Text.plainText("Type "), NMII.toText(name)])
-    | JustSort(name) => Text.concatMany([Text.plainText("Type "), NMII.toText(name)])
+    | JustSort(name) => Text.concatMany([Text.plainText("Sort "), NMII.toText(name)])
     | CmpInType(cmp, expr, name1, name2) =>
       Text.concatMany([cmpToText(cmp, name1, name2), Text.plainText(" : "), Text.plainText(expr)])
     | CmpElim(polarities, expr, names1, names2) =>

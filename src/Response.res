@@ -34,7 +34,7 @@ module DisplayInfo = {
     | AllGoalsWarningsLSP(
         string,
         array<string>,
-        array<(string, Common.AgdaRange.t)>,
+        array<(Agda.OutputConstraint.t, string, Common.AgdaRange.t)>,
         string,
         string,
       )
