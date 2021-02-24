@@ -6,7 +6,7 @@ let partiteMetas = xs =>
   xs->Dict.split("metas", (rawMetas: array<string>) => {
     let metas = unindent(rawMetas)
     let indexOfHiddenMetas =
-      metas->Array.getIndexBy(s => Component.Output.parseOutputWithLocation(s)->Option.isSome)
+      metas->Array.getIndexBy(s => Agda.Output.parseOutputWithLocation(s)->Option.isSome)
     metas->Dict.partite(((_, i)) =>
       switch indexOfHiddenMetas {
       | Some(n) =>
@@ -32,7 +32,7 @@ let partiteWarningsOrErrors = (xs, key) =>
   xs->Dict.update(key, (raw: array<string>) => {
     let hasDelimeter = raw[0]->Option.flatMap(Js.String.match_(%re("/^\\u2014{4}/")))->Option.isSome
     let lines = hasDelimeter ? Js.Array.sliceFrom(1, raw) : raw
-    let markWarningStart = line => line->Common.Agda.Range.parse->Option.isSome
+    let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
     /* If the previous warning of error ends with "at", then we have to glue it back */
     let glueBack = xs =>
       xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome
@@ -84,23 +84,23 @@ let parseGoalType: string => array<Item.t> = raw => {
     | "goal" =>
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
-      ->Expr.parse
-      ->Option.mapWithDefault([], expr => [Item.Labeled("Goal", "special", Expr.toText(expr))])
+      ->Agda.Expr.parse
+      ->Option.mapWithDefault([], expr => [Item.Labeled("Goal", "special", Agda.Expr.toText(expr))])
     | "have" =>
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
-      ->Expr.parse
-      ->Option.mapWithDefault([], expr => [Item.Labeled("Have", "special", Expr.toText(expr))])
+      ->Agda.Expr.parse
+      ->Option.mapWithDefault([], expr => [Item.Labeled("Have", "special", Agda.Expr.toText(expr))])
     | "interactionMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithoutLocation)
+      ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.toText(output)))
     | "hiddenMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithLocation)
+      ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.toText(output)))
     | _ => []
     }
   )
@@ -173,14 +173,14 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     | "errors" => lines->Array.map(line => Item.Labeled("Error", "error", Text.parse(line)))
     | "interactionMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithoutLocation)
+      ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.toText(output)))
     | "hiddenMetas" =>
       lines
-      ->Array.map(Output.parseOutputWithLocation)
+      ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Output.toText(output)))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.toText(output)))
     | _ => []
     }
   )
@@ -190,9 +190,9 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
 let parseOutputs: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)->Emacs__Parser.unindent
   lines
-  ->Array.map(Output.parse)
+  ->Array.map(Agda.Output.parse)
   ->Array.keepMap(x => x)
-  ->Array.map(output => Item.Unlabeled(Output.toText(output)))
+  ->Array.map(output => Item.Unlabeled(Agda.Output.toText(output)))
 }
 
 let parseTextWithLocation: string => array<Item.t> = raw => [Item.Unlabeled(Text.parse(raw))]
@@ -204,9 +204,9 @@ let parseSearchAbout: string => array<Item.t> = raw => {
     ->Js.Array.sliceFrom(1, _)
     ->Array.map(Js.String.sliceToEnd(~from=2))
     ->Emacs__Parser.unindent
-    ->Array.map(Output.parse)
+    ->Array.map(Agda.Output.parse)
     ->Array.keepMap(x => x)
-    ->Array.map(output => Item.Unlabeled(Output.toText(output)))
+    ->Array.map(output => Item.Unlabeled(Agda.Output.toText(output)))
 
   let target = lines[0]->Option.map(Js.String.sliceToEnd(~from=18))
   switch target {

@@ -2,12 +2,14 @@ open VSCode
 module VSRange = Range
 open Belt
 
+open Common
+
 module Position = {
   let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
 
   let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
 
-  let fromAgdaPosition = (position: Common.Agda.Position.t) =>
+  let fromAgdaPosition = (position: AgdaPosition.t) =>
     VSCode.Position.make(position.line - 1, position.col - 1)
 }
 
@@ -22,7 +24,7 @@ module Range = {
     Position.toOffset(document, VSCode.Range.end_(range)),
   )
 
-  let fromAgdaInterval = (range: Common.Agda.Interval.t) =>
+  let fromAgdaInterval = (range: AgdaInterval.t) =>
     VSCode.Range.make(Position.fromAgdaPosition(range.start), Position.fromAgdaPosition(range.end_))
 }
 
@@ -351,5 +353,5 @@ module Provider = {
 let toUTF8Offset = (document, offset) => {
   let range = VSRange.make(VSCode.Position.make(0, 0), document->TextDocument.positionAt(offset)) // start // end
   let text = document->TextDocument.getText(Some(range))
-  Common.Agda.OffsetConverter.characterWidth(text)
+  Agda.OffsetConverter.characterWidth(text)
 }

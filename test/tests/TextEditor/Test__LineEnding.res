@@ -3,7 +3,6 @@ module Assert = BsMocha.Assert
 module P = BsMocha.Promise
 
 open VSCode
-open Common
 
 let openEditorWithContent = content =>
   Workspace.openTextDocumentWithOptions(

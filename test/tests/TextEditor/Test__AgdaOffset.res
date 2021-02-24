@@ -3,8 +3,6 @@ open! BsMocha.Mocha
 module Assert = BsMocha.Assert
 module P = BsMocha.Promise
 
-open Common
-
 let issue7 = j`module Issue7 where\\n-- 𝕁\\na = {!   !}`
 
 let openEditorWithContent = content =>
@@ -15,7 +13,7 @@ let openEditorWithContent = content =>
   )
 
 describe("Conversion between Agda Offsets and Editor Offsets", () => {
-  describe("Common.Agda.OffsetConverter.characterWidth", () => {
+  describe("Agda.OffsetConverter.characterWidth", () => {
     it("should calculate the width of some grapheme cluster", () => {
       let expected = 1
       let actual = Agda.OffsetConverter.characterWidth(j`𝐀`)
@@ -28,7 +26,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     })
   })
 
-  describe("Common.Agda.OffsetConverter.computeUTF16SurrogatePairIndices", () =>
+  describe("Agda.OffsetConverter.computeUTF16SurrogatePairIndices", () =>
     it("should work", () => {
       Assert.deep_equal(
         Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀𝐀𝐀𝐀\\n𝐀𝐀𝐀𝐀`),
@@ -148,8 +146,8 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         let f = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
         let g = n =>
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c\\na`)
-          ->Common.Agda.Indices.make
-          ->Common.Agda.Indices.convert(n)
+          ->Agda.Indices.make
+          ->Agda.Indices.convert(n)
         Assert.equal(f(g(0)), 0)
         Assert.equal(f(g(1)), 1)
         Assert.equal(f(g(2)), 2)
@@ -171,8 +169,8 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       ->Promise.map(textEditor => {
         let f = n =>
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(j`𝐀a𝐁bb𝐂c\\na`)
-          ->Common.Agda.Indices.make
-          ->Common.Agda.Indices.convert(n)
+          ->Agda.Indices.make
+          ->Agda.Indices.convert(n)
         let g = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
         Assert.equal(f(g(0)), 0)
         Assert.equal(f(g(2)), 2)

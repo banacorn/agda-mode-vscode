@@ -405,7 +405,7 @@ module LSP = {
         | AllGoalsWarnings(
             string,
             array<string>,
-            array<(string, Common.Agda.Range.t)>,
+            array<(string, Common.AgdaRange.t)>,
             string,
             string,
           )
@@ -426,7 +426,7 @@ module LSP = {
             tuple5(
               string,
               array(string),
-              array(pair(string, Common.Agda.Range.decode)),
+              array(pair(string, Common.AgdaRange.decode)),
               string,
               string,
             ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
