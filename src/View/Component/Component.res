@@ -146,10 +146,6 @@ module Text = {
     }
 }
 
-// module Expr = {
-//   let toText = xs => xs->Array.map(Term.toText)->Text.concatMany
-// }
-
 module Item = {
   type t =
     | Labeled(string, string, Text.t)

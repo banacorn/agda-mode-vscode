@@ -50,12 +50,89 @@ module Expr = {
   let toText = xs => xs->Array.map(Term.toText)->Text.concatMany
 }
 
-module OutputConstraint = {
+// NamedMeta or InteractionId
+module NMII = {
   type t =
-    | OfType(Text.t, Text.t)
-    | JustType(Text.t)
-    | JustSort(Text.t)
-    | Others(Text.t)
+    | NamedMeta(string, int)
+    | InteractionId(int)
+
+  let toText = value => {
+    switch value {
+    | NamedMeta("", int)
+    | NamedMeta("_", int) =>
+      Text.plainText(string_of_int(int))
+    | NamedMeta(string, int) => Text.plainText(string ++ string_of_int(int))
+    | InteractionId(int) => Text.plainText("?" ++ string_of_int(int))
+    }
+  }
+
+  open Json.Decode
+  open Util.Decode
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "NamedMeta" => Contents(pair(string, int) |> map(((name, id)) => NamedMeta(name, id)))
+    | "InteractionId" => Contents(int |> map(id => InteractionId(id)))
+    | tag => raise(DecodeError("[Agda.NMII] Unknown constructor: " ++ tag))
+    }
+  )
+}
+
+// Polarity
+module Polarity = {
+  type t =
+    | Covariant
+    | Contravariant
+    | Invariant
+    | Nonvariant
+
+  let toText = value => {
+    switch value {
+    | Covariant => Text.plainText(" + ")
+    | Contravariant => Text.plainText(" - ")
+    | Invariant => Text.plainText(" * ")
+    | Nonvariant => Text.plainText(" _ ")
+    }
+  }
+  open Json.Decode
+  open Util.Decode
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "Covariant" => TagOnly(Covariant)
+    | "Contravariant" => TagOnly(Contravariant)
+    | "Invariant" => TagOnly(Invariant)
+    | "Nonvariant" => TagOnly(Nonvariant)
+    | tag => raise(DecodeError("[Agda.Polarity] Unknown constructor: " ++ tag))
+    }
+  )
+}
+
+module OutputConstraint = {
+  // CmpEq: true / CmpLeq: false
+  type comparison = bool
+  type rec t =
+    | OfType(NMII.t, string)
+    | JustType(NMII.t)
+    | JustSort(NMII.t)
+    | CmpInType(bool, string, NMII.t, NMII.t)
+    | CmpElim(array<Polarity.t>, string, array<NMII.t>, array<NMII.t>)
+    | CmpTypes(bool, NMII.t, NMII.t)
+    | CmpLevels(bool, NMII.t, NMII.t)
+    | CmpTeles(bool, NMII.t, NMII.t)
+    | CmpSorts(bool, NMII.t, NMII.t)
+    | Guard(t, int)
+    | Assign(NMII.t, string)
+    | TypedAssign(NMII.t, string, string)
+    | PostponedCheckArgs(NMII.t, array<string>, string, string)
+    | IsEmptyType(string)
+    | SizeLtSat(string)
+    | FindInstanceOF(NMII.t, string, array<(string, string)>)
+    | PTSInstance(NMII.t, NMII.t)
+    | PostponedCheckFunDef(string, string)
+    // NOTE: legacy constructors
+    | OfType'(Text.t, Text.t)
+    | JustType'(Text.t)
+    | JustSort'(Text.t)
+    | Others'(Text.t)
 
   let parseOfType =
     %re("/^([^\\:]*) \\: ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
@@ -64,30 +141,208 @@ module OutputConstraint = {
       ->Option.flatMap(type_ =>
         captured
         ->Emacs__Parser.at(1, Expr.parse)
-        ->Option.flatMap(term => Some(OfType(Expr.toText(term), Expr.toText(type_))))
+        ->Option.flatMap(term => Some(OfType'(Expr.toText(term), Expr.toText(type_))))
       )
     )
   let parseJustType =
     %re("/^Type ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType(Expr.toText(type_)))
+      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType'(Expr.toText(type_)))
     )
   let parseJustSort =
     %re("/^Sort ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort(Expr.toText(sort)))
+      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort'(Expr.toText(sort)))
     )
-  let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others(Expr.toText(raw')))
+  let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others'(Expr.toText(raw')))
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
-  let toText = (value, location) => {
+  let rec toText = (value, location) => {
     let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
+
+    let cmpToText = (cmp, a, b) =>
+      Text.concatMany([NMII.toText(a), Text.plainText(cmp ? " = " : " =< "), NMII.toText(b)])
     switch value {
-    | OfType(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])
-    | JustType(e) => Text.concatMany([Text.plainText("Type "), e, location])
-    | JustSort(e) => Text.concatMany([Text.plainText("Sort "), e, location])
-    | Others(e) => Text.concatMany([e, location])
+    | OfType(name, expr) =>
+      Text.concatMany([NMII.toText(name), Text.plainText(" : "), Text.plainText(expr)])
+    | JustType(name) => Text.concatMany([Text.plainText("Type "), NMII.toText(name)])
+    | JustSort(name) => Text.concatMany([Text.plainText("Type "), NMII.toText(name)])
+    | CmpInType(cmp, expr, name1, name2) =>
+      Text.concatMany([cmpToText(cmp, name1, name2), Text.plainText(" : "), Text.plainText(expr)])
+    | CmpElim(polarities, expr, names1, names2) =>
+      let polarities = polarities->Array.map(Polarity.toText)->Text.concatMany
+      let names1 = names1->Array.map(NMII.toText)->Text.concatMany
+      let names2 = names2->Array.map(NMII.toText)->Text.concatMany
+      Text.concatMany([names1, polarities, names2, Text.plainText(" : "), Text.plainText(expr)])
+    | CmpTypes(cmp, name1, name2) => cmpToText(cmp, name1, name2)
+    | CmpLevels(cmp, name1, name2) => cmpToText(cmp, name1, name2)
+    | CmpTeles(cmp, name1, name2) => cmpToText(cmp, name1, name2)
+    | CmpSorts(cmp, name1, name2) => cmpToText(cmp, name1, name2)
+    | Guard(self, pid) =>
+      Text.concatMany([
+        toText(self, None),
+        Text.plainText("(blocked by problem "),
+        Text.plainText(string_of_int(pid)),
+        Text.plainText(")"),
+      ])
+    | Assign(name, expr) =>
+      Text.concatMany([NMII.toText(name), Text.plainText(" := "), Text.plainText(expr)])
+    | TypedAssign(name, expr1, expr2) =>
+      Text.concatMany([
+        NMII.toText(name),
+        Text.plainText(" := "),
+        Text.plainText(expr1),
+        Text.plainText(" :? "),
+        Text.plainText(expr2),
+      ])
+    | PostponedCheckArgs(name, exprs, t0, t1) =>
+      let t0 = Text.concatMany([
+        Text.plainText("(_"),
+        Text.plainText(" : "),
+        Text.plainText(t0),
+        Text.plainText(")"),
+      ])
+      let exprs = exprs->Array.map(expr => Text.plainText(" (" ++ expr ++ ")"))->Text.concatMany
+      Text.concatMany([
+        NMII.toText(name),
+        Text.plainText(" := "),
+        t0,
+        exprs,
+        Text.plainText(" : "),
+        Text.plainText(t1),
+      ])
+    | IsEmptyType(expr) => Text.concatMany([Text.plainText("Is empty: "), Text.plainText(expr)])
+    | SizeLtSat(expr) =>
+      Text.concatMany([Text.plainText("Not empty type of sizes: "), Text.plainText(expr)])
+    | FindInstanceOF(name, expr, pairs) =>
+      let line1 = Text.concatMany([
+        Text.plainText("Resolve instance argument "),
+        NMII.toText(name),
+        Text.plainText(" : "),
+        Text.plainText(expr),
+      ])
+      let pairs =
+        pairs
+        ->Array.map(((s, t)) =>
+          Text.concatMany([
+            Text.plainText(s),
+            Text.plainText(" : "),
+            Text.plainText(t),
+            Text.plainText(" \n"),
+          ])
+        )
+        ->Text.concatMany
+      let line2 = Text.concatMany([Text.plainText(" \nCandidate: "), pairs])
+      Text.concatMany([line1, line2])
+    | PTSInstance(a, b) =>
+      Text.concatMany([
+        Text.plainText("PTS instance for ("),
+        NMII.toText(a),
+        Text.plainText(" , "),
+        NMII.toText(b),
+        Text.plainText(")"),
+      ])
+    | PostponedCheckFunDef(a, b) => Text.plainText("Check definition of " ++ a ++ " : " ++ b)
+    | OfType'(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])
+    | JustType'(e) => Text.concatMany([Text.plainText("Type "), e, location])
+    | JustSort'(e) => Text.concatMany([Text.plainText("Sort "), e, location])
+    | Others'(e) => Text.concatMany([e, location])
     }
   }
+
+  open Json.Decode
+  open Util.Decode
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "OfType" => Contents(pair(NMII.decode, string) |> map(((name, expr)) => OfType(name, expr)))
+    | "JustType" => Contents(NMII.decode |> map(name => JustType(name)))
+    | "JustSort" => Contents(NMII.decode |> map(name => JustSort(name)))
+    | "CmpInType" =>
+      Contents(
+        tuple4(bool, string, NMII.decode, NMII.decode) |> map(((
+          cmp,
+          expr,
+          name1,
+          name2,
+        )) => CmpInType(cmp, expr, name1, name2)),
+      )
+    | "CmpElim" =>
+      Contents(
+        tuple4(array(Polarity.decode), string, array(NMII.decode), array(NMII.decode)) |> map(((
+          polarities,
+          expr,
+          names1,
+          names2,
+        )) => CmpElim(polarities, expr, names1, names2)),
+      )
+    | "CmpTypes" =>
+      Contents(
+        tuple3(bool, NMII.decode, NMII.decode) |> map(((cmp, name1, name2)) => CmpTypes(
+          cmp,
+          name1,
+          name2,
+        )),
+      )
+    | "CmpLevels" =>
+      Contents(
+        tuple3(bool, NMII.decode, NMII.decode) |> map(((cmp, name1, name2)) => CmpLevels(
+          cmp,
+          name1,
+          name2,
+        )),
+      )
+    | "CmpTeles" =>
+      Contents(
+        tuple3(bool, NMII.decode, NMII.decode) |> map(((cmp, name1, name2)) => CmpTeles(
+          cmp,
+          name1,
+          name2,
+        )),
+      )
+    | "CmpSorts" =>
+      Contents(
+        tuple3(bool, NMII.decode, NMII.decode) |> map(((cmp, name1, name2)) => CmpSorts(
+          cmp,
+          name1,
+          name2,
+        )),
+      )
+    // TODO, complete decoding "Guard"
+    | "Guard" => raise(DecodeError("[Agda.OutputConstraint] Guard decoding not implemented yet"))
+    | "Assign" => Contents(pair(NMII.decode, string) |> map(((name, expr)) => Assign(name, expr)))
+    | "TypedAssign" =>
+      Contents(
+        tuple3(NMII.decode, string, string) |> map(((name, expr1, expr2)) => TypedAssign(
+          name,
+          expr1,
+          expr2,
+        )),
+      )
+    | "PostponedCheckArgs" =>
+      Contents(
+        tuple4(NMII.decode, array(string), string, string) |> map(((
+          name,
+          exprs,
+          expr1,
+          expr2,
+        )) => PostponedCheckArgs(name, exprs, expr1, expr2)),
+      )
+    | "IsEmptyType" => Contents(string |> map(expr => IsEmptyType(expr)))
+    | "SizeLtSat" => Contents(string |> map(expr => SizeLtSat(expr)))
+    | "FindInstanceOF" =>
+      Contents(
+        tuple3(NMII.decode, string, array(pair(string, string))) |> map(((
+          name,
+          expr,
+          pairs,
+        )) => FindInstanceOF(name, expr, pairs)),
+      )
+    | "PTSInstance" =>
+      Contents(pair(NMII.decode, NMII.decode) |> map(((name1, name2)) => PTSInstance(name1, name2)))
+    | "PostponedCheckFunDef" =>
+      Contents(pair(string, string) |> map(((a, b)) => PostponedCheckFunDef(a, b)))
+    | tag => raise(DecodeError("[Agda.OutputConstraint] Unknown constructor: " ++ tag))
+    }
+  )
 }
 
 module Output = {
