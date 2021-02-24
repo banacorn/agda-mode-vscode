@@ -6,7 +6,7 @@
 module Agda = {
   module Position = {
     type t = {
-      pos: option<int>,
+      pos: int,
       line: int,
       col: int,
     }
@@ -18,7 +18,7 @@ module Agda = {
       switch x {
       | "Position" =>
         Contents(
-          tuple3(optional(int), int, int) |> map(((pos, line, col)) => {
+          tuple3(int, int, int) |> map(((pos, line, col)) => {
             pos: pos,
             line: line,
             col: col,
@@ -34,12 +34,12 @@ module Agda = {
       | {pos, line, col} =>
         object_(list{
           ("tag", string("Position")),
-          ("contents", (pos, line, col) |> tuple3(nullable(int), int, int)),
+          ("contents", (pos, line, col) |> tuple3(int, int, int)),
         })
       }
   }
 
-  module Range = {
+  module Interval = {
     type t = {
       start: Position.t,
       end_: Position.t,
@@ -99,10 +99,10 @@ module Agda = {
       }
   }
 
-  module Location = {
+  module Range = {
     type t =
-      | NoLocation
-      | Location(option<string>, array<Range.t>)
+      | NoRange
+      | Range(option<string>, array<Interval.t>)
 
     let parse = %re(
       /* |  different row                    |    same row            | */
@@ -126,17 +126,17 @@ module Agda = {
             ->flatten
             ->flatMap(int_of_string_opt)
             ->flatMap(colEnd => Some(
-              Location(
+              Range(
                 srcFile,
                 [
                   {
                     start: {
-                      pos: None,
+                      pos: 0,
                       line: row,
                       col: colStart,
                     },
                     end_: {
-                      pos: None,
+                      pos: 0,
                       line: row,
                       col: colEnd,
                     },
@@ -163,17 +163,17 @@ module Agda = {
               ->flatten
               ->flatMap(int_of_string_opt)
               ->flatMap(colEnd => Some(
-                Location(
+                Range(
                   srcFile,
                   [
                     {
                       start: {
-                        pos: None,
+                        pos: 0,
                         line: rowStart,
                         col: colStart,
                       },
                       end_: {
-                        pos: None,
+                        pos: 0,
                         line: rowEnd,
                         col: colEnd,
                       },
@@ -188,20 +188,20 @@ module Agda = {
     })
 
     let fuse = (a: t, b: t): t => {
-      open Range
+      open Interval
 
       let mergeTouching = (l, e, s, r) =>
         Belt.List.concat(Belt.List.concat(l, list{{start: e.start, end_: s.end_}}), r)
 
       let rec fuseSome = (s1, r1, s2, r2) => {
         let r1' = Util.List.dropWhile(x => x.end_.pos <= s2.end_.pos, r1)
-        helpFuse(r1', list{Range.fuse(s1, s2), ...r2})
+        helpFuse(r1', list{Interval.fuse(s1, s2), ...r2})
       }
       and outputLeftPrefix = (s1, r1, s2, is2) => {
         let (r1', r1'') = Util.List.span(s => s.end_.pos < s2.start.pos, r1)
         Belt.List.concat(Belt.List.concat(list{s1}, r1'), helpFuse(r1'', is2))
       }
-      and helpFuse = (a: Belt.List.t<Range.t>, b: Belt.List.t<Range.t>) =>
+      and helpFuse = (a: Belt.List.t<Interval.t>, b: Belt.List.t<Interval.t>) =>
         switch (a, Belt.List.reverse(a), b, Belt.List.reverse(b)) {
         | (list{}, _, _, _) => a
         | (_, _, list{}, _) => b
@@ -223,37 +223,32 @@ module Agda = {
           } else {
             fuseSome(s2, r2, s1, r1)
           }
-        | _ => failwith("something wrong with Location::fuse")
+        | _ => failwith("something wrong with Range::fuse")
         }
       switch (a, b) {
-      | (NoLocation, r2) => r2
-      | (r1, NoLocation) => r1
-      | (Location(f, r1), Location(_, r2)) =>
-        Location(f, helpFuse(Belt.List.fromArray(r1), Belt.List.fromArray(r2))->Belt.List.toArray)
+      | (NoRange, r2) => r2
+      | (r1, NoRange) => r1
+      | (Range(f, r1), Range(_, r2)) =>
+        Range(f, helpFuse(Belt.List.fromArray(r1), Belt.List.fromArray(r2))->Belt.List.toArray)
       }
     }
 
-    // hiding Range from Belt
-    module Range' = Range
-    open! Belt
-    module BeltRange = Range
-    module Range = Range'
-
+    open Belt
     let toString = (self: t): string =>
       switch self {
-      | NoLocation => ""
-      | Location(None, xs) =>
+      | NoRange => ""
+      | Range(None, xs) =>
         switch (xs[0], xs[Array.length(xs) - 1]) {
-        | (Some(first), Some(last)) => Range.toString({start: first.start, end_: last.end_})
+        | (Some(first), Some(last)) => Interval.toString({start: first.start, end_: last.end_})
         | _ => ""
         }
 
-      | Location(Some(filepath), []) => filepath
-      | Location(Some(filepath), xs) =>
+      | Range(Some(filepath), []) => filepath
+      | Range(Some(filepath), xs) =>
         filepath ++
         (":" ++
         switch (xs[0], xs[Array.length(xs) - 1]) {
-        | (Some(first), Some(last)) => Range.toString({start: first.start, end_: last.end_})
+        | (Some(first), Some(last)) => Interval.toString({start: first.start, end_: last.end_})
         | _ => ""
         })
       }
@@ -263,27 +258,27 @@ module Agda = {
 
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "Location" =>
+      | "Range" =>
         Contents(
-          pair(optional(string), array(Range.decode)) |> map(((source, intervals)) => Location(
+          pair(optional(string), array(Interval.decode)) |> map(((source, intervals)) => Range(
             source,
             intervals,
           )),
         )
-      | "NoLocation" => TagOnly(NoLocation)
-      | tag => raise(DecodeError("[Agda.Location] Unknown constructor: " ++ tag))
+      | "NoRange" => TagOnly(NoRange)
+      | tag => raise(DecodeError("[Agda.Range] Unknown constructor: " ++ tag))
       }
     )
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
-      | Location(source, intervals) =>
+      | Range(source, intervals) =>
         object_(list{
-          ("tag", string("Location")),
-          ("contents", (source, intervals) |> pair(nullable(string), array(Range.encode))),
+          ("tag", string("Range")),
+          ("contents", (source, intervals) |> pair(nullable(string), array(Interval.encode))),
         })
-      | NoLocation => object_(list{("tag", string("NoLocation"))})
+      | NoRange => object_(list{("tag", string("NoRange"))})
       }
   }
 
@@ -487,7 +482,7 @@ module Agda = {
 
 module Link = {
   type t =
-    | ToLocation(Agda.Location.t)
+    | ToRange(Agda.Range.t)
     | ToHole(int)
 
   open Json.Decode
@@ -495,7 +490,7 @@ module Link = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "ToLocation" => Contents(Agda.Location.decode |> map(range => ToLocation(range)))
+    | "ToRange" => Contents(Agda.Range.decode |> map(range => ToRange(range)))
     | "ToHole" => Contents(int |> map(index => ToHole(index)))
     | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
     }
@@ -504,8 +499,8 @@ module Link = {
   open! Json.Encode
   let encode: encoder<t> = x =>
     switch x {
-    | ToLocation(range) =>
-      object_(list{("tag", string("ToLocation")), ("contents", range |> Agda.Location.encode)})
+    | ToRange(range) =>
+      object_(list{("tag", string("ToRange")), ("contents", range |> Agda.Range.encode)})
     | ToHole(index) => object_(list{("tag", string("ToHole")), ("contents", index |> int)})
     }
 }

@@ -8,7 +8,7 @@ module Text = {
       | PlainText(string, option<array<string>>)
       | Icon(string)
       | Link(string, option<array<string>>, bool, bool, Common.Link.t)
-      | Location(Common.Agda.Location.t, bool)
+      | Location(Common.Agda.Range.t, bool)
 
     open! Json.Decode
     open Util.Decode
@@ -31,9 +31,7 @@ module Text = {
           )) => Link(s, className, jump, hover, link)),
         )
       | "Location" =>
-        Contents(
-          pair(Common.Agda.Location.decode, bool) |> map(((loc, abbr)) => Location(loc, abbr)),
-        )
+        Contents(pair(Common.Agda.Range.decode, bool) |> map(((loc, abbr)) => Location(loc, abbr)))
       | tag => raise(DecodeError("[Component.Text] Unknown constructor: " ++ tag))
       }
     )
@@ -64,7 +62,7 @@ module Text = {
       | Location(loc, abbr) =>
         object_(list{
           ("tag", string("Location")),
-          ("contents", (loc, abbr) |> pair(Common.Agda.Location.encode, bool)),
+          ("contents", (loc, abbr) |> pair(Common.Agda.Range.encode, bool)),
         })
       }
   }
@@ -78,7 +76,7 @@ module Text = {
   let empty = Text([])
   let plainText = (~className=?, s) => Text([Segment.PlainText(s, className)])
   let link = (text, ~jump=true, ~hover=false, ~className=?, loc) => Text([
-    Segment.Link(text, className, jump, hover, Common.Link.ToLocation(loc)),
+    Segment.Link(text, className, jump, hover, Common.Link.ToRange(loc)),
   ])
   let hole = (text, ~jump=true, ~hover=false, ~className=?, holeIndex) => Text([
     Segment.Link(text, className, jump, hover, Common.Link.ToHole(holeIndex)),
@@ -96,7 +94,7 @@ module Text = {
       switch mod(i, 2) {
       | 1 =>
         token
-        ->Common.Agda.Location.parse
+        ->Common.Agda.Range.parse
         ->Option.mapWithDefault(Segment.PlainText(token, None), x => Segment.Location(x, false))
       | _ => PlainText(token, None)
       }
@@ -126,13 +124,12 @@ module Text = {
             {string(text)}
           </Component__Link>
         | Location(location, true) =>
-          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToLocation(location)>
+          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToRange(location)>
             <div className="codicon codicon-link" />
           </Component__Link>
         | Location(location, false) =>
-          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToLocation(location)>
-            <div className="codicon codicon-link" />
-            {string(Common.Agda.Location.toString(location))}
+          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToRange(location)>
+            <div className="codicon codicon-link" /> {string(Common.Agda.Range.toString(location))}
           </Component__Link>
         }
       )
@@ -234,7 +231,7 @@ module OutputConstraint = {
 }
 
 module Output = {
-  type t = Output(OutputConstraint.t, option<Common.Agda.Location.t>)
+  type t = Output(OutputConstraint.t, option<Common.Agda.Range.t>)
 
   let parseOutputWithoutLocation = raw =>
     raw->OutputConstraint.parse->Option.map(x => Output(x, None))
@@ -245,7 +242,7 @@ module Output = {
     ->Option.flatMap(x => x)
     ->Option.flatMap(OutputConstraint.parse)
     ->Option.map(oc => {
-      let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(Common.Agda.Location.parse)
+      let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(Common.Agda.Range.parse)
       Output(oc, r)
     })
   )

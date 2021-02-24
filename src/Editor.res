@@ -22,7 +22,7 @@ module Range = {
     Position.toOffset(document, VSCode.Range.end_(range)),
   )
 
-  let fromAgdaRange = (range: Common.Agda.Range.t) =>
+  let fromAgdaInterval = (range: Common.Agda.Interval.t) =>
     VSCode.Range.make(Position.fromAgdaPosition(range.start), Position.fromAgdaPosition(range.end_))
 }
 
