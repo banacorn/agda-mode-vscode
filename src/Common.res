@@ -6,36 +6,22 @@
 module Agda = {
   module Position = {
     type t = {
-      pos: int,
       line: int,
       col: int,
+      pos: int,
     }
 
     open Json.Decode
-    open Util.Decode
-
-    let decode: decoder<t> = sum(x =>
-      switch x {
-      | "Position" =>
-        Contents(
-          tuple3(int, int, int) |> map(((pos, line, col)) => {
-            pos: pos,
-            line: line,
-            col: col,
-          }),
-        )
-      | tag => raise(DecodeError("[Agda.Position] Unknown constructor: " ++ tag))
-      }
-    )
+    let decode: decoder<t> = tuple3(int, int, int) |> map(((line, col, pos)) => {
+      line: line,
+      col: col,
+      pos: pos,
+    })
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
-      | {pos, line, col} =>
-        object_(list{
-          ("tag", string("Position")),
-          ("contents", (pos, line, col) |> tuple3(int, int, int)),
-        })
+      | {line, col, pos} => (line, col, pos) |> tuple3(int, int, int)
       }
   }
 
@@ -73,29 +59,15 @@ module Agda = {
       }
 
     open Json.Decode
-    open Util.Decode
-
-    let decode: decoder<t> = sum(x =>
-      switch x {
-      | "Range" =>
-        Contents(
-          pair(Position.decode, Position.decode) |> map(((start, end_)) => {
-            start: start,
-            end_: end_,
-          }),
-        )
-      | tag => raise(DecodeError("[Agda.Range] Unknown constructor: " ++ tag))
-      }
-    )
+    let decode: decoder<t> = pair(Position.decode, Position.decode) |> map(((start, end_)) => {
+      start: start,
+      end_: end_,
+    })
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
-      | {start, end_} =>
-        object_(list{
-          ("tag", string("Range")),
-          ("contents", (start, end_) |> pair(Position.encode, Position.encode)),
-        })
+      | {start, end_} => (start, end_) |> pair(Position.encode, Position.encode)
       }
   }
 
