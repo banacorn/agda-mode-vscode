@@ -404,7 +404,7 @@ module LSP = {
         | Generic(string, string)
         | AllGoalsWarnings(
             string,
-            array<string>,
+            array<(Agda.OutputConstraint.t, string)>,
             array<(Agda.OutputConstraint.t, string, Common.AgdaRange.t)>,
             string,
             string,
@@ -425,7 +425,7 @@ module LSP = {
           Contents(
             tuple5(
               string,
-              array(string),
+              array(pair(Agda.OutputConstraint.decode, string)),
               array(tuple3(Agda.OutputConstraint.decode, string, Common.AgdaRange.decode)),
               string,
               string,

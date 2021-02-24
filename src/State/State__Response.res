@@ -16,17 +16,22 @@ module DisplayInfo = {
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
       State.View.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
-      Js.log(goals)
-      Js.log(metas)
       Js.log(warnings)
       Js.log(errors)
+      let goals =
+        goals
+        ->Array.map(((oc, raw)) => [
+          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None)),
+          Component.Item.Unlabeled(Component.Text.plainText("[raw] " ++ raw)),
+        ])
+        ->Array.concatMany
       let metas =
         metas
         ->Array.map(((oc, raw, range)) => [
           Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None)),
         ])
         ->Array.concatMany
-      State.View.display(state, Plain(header), Array.concatMany([metas]))
+      State.View.display(state, Plain(header), Array.concatMany([goals, metas]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
       State.View.display(state, Plain("Time"), items)
