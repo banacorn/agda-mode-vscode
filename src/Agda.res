@@ -109,25 +109,43 @@ module Polarity = {
   )
 }
 
+module Comparison = {
+  type t = CmpEq | CmpLeq
+
+  let toText = value => {
+    switch value {
+    | CmpEq => Text.plainText(" = ")
+    | CmpLeq => Text.plainText(" =< ")
+    }
+  }
+  open Json.Decode
+  open Util.Decode
+  let decode: decoder<t> = sum(x =>
+    switch x {
+    | "CmpEq" => TagOnly(CmpEq)
+    | "CmpLeq" => TagOnly(CmpLeq)
+    | tag => raise(DecodeError("[Agda.Comparison] Unknown constructor: " ++ tag))
+    }
+  )
+}
+
 module OutputConstraint: {
-  type comparison = bool
   type t<'b>
   let parse: string => option<t<InteractionId.t>>
   let toText: ('b => Text.t, t<'b>, option<Common.AgdaRange.t>) => Text.t
   let decode: Json.Decode.decoder<'b> => Json.Decode.decoder<t<'b>>
 } = {
   // CmpEq: true / CmpLeq: false
-  type comparison = bool
   type rec t<'b> =
     | OfType('b, string)
     | JustType('b)
     | JustSort('b)
-    | CmpInType(bool, string, 'b, 'b)
+    | CmpInType(Comparison.t, string, 'b, 'b)
     | CmpElim(array<Polarity.t>, string, array<'b>, array<'b>)
-    | CmpTypes(bool, 'b, 'b)
-    | CmpLevels(bool, 'b, 'b)
-    | CmpTeles(bool, 'b, 'b)
-    | CmpSorts(bool, 'b, 'b)
+    | CmpTypes(Comparison.t, 'b, 'b)
+    | CmpLevels(Comparison.t, 'b, 'b)
+    | CmpTeles(Comparison.t, 'b, 'b)
+    | CmpSorts(Comparison.t, 'b, 'b)
     | Guard(t<'b>, int)
     | Assign('b, string)
     | TypedAssign('b, string, string)
@@ -169,7 +187,7 @@ module OutputConstraint: {
     let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
 
     let cmpToText = (cmp, a, b) =>
-      Text.concatMany([idToText(a), Text.plainText(cmp ? " = " : " =< "), idToText(b)])
+      Text.concatMany([idToText(a), Comparison.toText(cmp), idToText(b)])
     switch value {
     | OfType(name, expr) =>
       Text.concatMany([idToText(name), Text.plainText(" : "), Text.plainText(expr)])
@@ -270,12 +288,12 @@ module OutputConstraint: {
       | "JustSort" => Contents(decodeID |> map(name => JustSort(name)))
       | "CmpInType" =>
         Contents(
-          tuple4(bool, string, decodeID, decodeID) |> map(((cmp, expr, name1, name2)) => CmpInType(
+          tuple4(Comparison.decode, string, decodeID, decodeID) |> map(((
             cmp,
             expr,
             name1,
             name2,
-          )),
+          )) => CmpInType(cmp, expr, name1, name2)),
         )
       | "CmpElim" =>
         Contents(
@@ -288,7 +306,7 @@ module OutputConstraint: {
         )
       | "CmpTypes" =>
         Contents(
-          tuple3(bool, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpTypes(
+          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpTypes(
             cmp,
             name1,
             name2,
@@ -296,7 +314,7 @@ module OutputConstraint: {
         )
       | "CmpLevels" =>
         Contents(
-          tuple3(bool, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpLevels(
+          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpLevels(
             cmp,
             name1,
             name2,
@@ -304,7 +322,7 @@ module OutputConstraint: {
         )
       | "CmpTeles" =>
         Contents(
-          tuple3(bool, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpTeles(
+          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpTeles(
             cmp,
             name1,
             name2,
@@ -312,7 +330,7 @@ module OutputConstraint: {
         )
       | "CmpSorts" =>
         Contents(
-          tuple3(bool, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpSorts(
+          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpSorts(
             cmp,
             name1,
             name2,
