@@ -154,16 +154,41 @@ module Item = {
   let plainText = s => Unlabeled(Text.plainText(s), None)
 
   @react.component
-  let make = (~item: t) =>
+  let make = (~item: t) => {
+    let (revealRaw, setRevealRaw) = React.useState(_ => false)
+
+    let onClickRevealRaw = _ => setRevealRaw(state => !state)
+    Js.log(revealRaw)
+
     switch item {
     | Labeled(label, style, text, _raw) =>
       <li className={"labeled-item " ++ style}>
         <div className="item-label"> {string(label)} </div>
         <div className="item-content"> <Text text /> </div>
       </li>
-    | Unlabeled(text, _raw) =>
-      <li className="unlabeled-item"> <div className="item-content"> <Text text /> </div> </li>
+    | Unlabeled(text, raw) =>
+      let content = switch raw {
+      | Some(raw) => revealRaw ? <Text text={Text.plainText(raw)} /> : <Text text />
+      | None => <Text text />
+      }
+
+      let revealRawButton = switch raw {
+      | Some(_) =>
+        revealRaw
+          ? <div className="item-raw-button active" onClick=onClickRevealRaw>
+              <div className="codicon codicon-code" />
+            </div>
+          : <div className="item-raw-button" onClick=onClickRevealRaw>
+              <div className="codicon codicon-code" />
+            </div>
+      | None => <> </>
+      }
+
+      <li className="unlabeled-item">
+        <div className="item-content"> {content} </div> {revealRawButton}
+      </li>
     }
+  }
 
   open! Json.Decode
   open Util.Decode

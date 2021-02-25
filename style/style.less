@@ -22,8 +22,8 @@
 // we need this container for overcoming the width problem of fixed elements
 .agda-mode-header-container {
     position: fixed;
-    width: 100%; // this 100% percentage is relative to the viewport rather than its parent
-    left: 0;    // stick it to the viewport
+    width   : 100%; // this 100% percentage is relative to the viewport rather than its parent
+    left    : 0; // stick it to the viewport
 }
 
 .agda-mode-keyboard {
@@ -35,7 +35,8 @@
     // position
     //  default: stick to the top 
     //  prompting: normal flow
-    position  : absolute;
+    position: absolute;
+
     &.prompting {
         position: relative;
     }
@@ -57,11 +58,12 @@
         padding    : @padding 0;
         min-height : 2rem;
         line-height: 2rem;
+
         .agda-mode-keyboard-sequence {
-            padding      : 0rem @padding;
-            flex-grow    : 100;
-            background   : @body-background;
-            font-weight  : bold;
+            padding    : 0rem @padding;
+            flex-grow  : 100;
+            background : @body-background;
+            font-weight: bold;
         }
 
         .agda-mode-keyboard-candidates {
@@ -74,10 +76,10 @@
     }
 
     .agda-mode-keyboard-suggestions {
-        max-width: 100%;
-        display  : flex;
-        flex-wrap: wrap;
-        padding-bottom  : @padding;
+        max-width     : 100%;
+        display       : flex;
+        flex-wrap     : wrap;
+        padding-bottom: @padding;
     }
 
     .agda-mode-key {
@@ -109,17 +111,17 @@
 }
 
 .agda-mode-header {
-    
-    height : @header-height;
-    
-    margin: 0 @root-padding;
+
+    height: @header-height;
+
+    margin : 0 @root-padding;
     padding: @padding*0.5 0;
-    
+
     // create a shadow at the bottom of the <Header>
     box-shadow: @header-background 0px 3px 3px;
-    
+
     background: @header-background;
-    
+
     line-height: @header-height;
     font-size  : 150%;
     font-weight: bold;
@@ -154,8 +156,8 @@
     line-height: @line-height;
 
     li {
-        margin: @padding 0;
-        padding: @padding/2 @padding;
+        margin    : @padding 0;
+        padding   : @padding/2 @padding;
         background: @body-background;
 
         border-left: @left-border-width solid @body-background;
@@ -169,28 +171,67 @@
 
     li .item-content {
         white-space: pre-wrap;
-        order: 1;
-        flex-grow: 1;
+        order      : 1;
+        flex-grow  : 1;
     }
+
+    li .item-raw-button {
+        order: 1;
+
+        flex-grow: 0;
+
+        font-variant: small-caps;
+        text-align  : right;
+
+        color: @foreground-subtle;
+
+        &:hover {
+            cursor: pointer;
+            color : @foreground-highlight
+        }
+
+        &.active {
+            cursor: pointer;
+            color : @warning
+        }
+    }
+
     li .item-label {
         order: 2;
 
         font-variant: small-caps;
-        font-weight: bolder;
-        text-align: right;
+        font-weight : bolder;
+        text-align  : right;
     }
 
-    li.special .item-label { color: @success }
-    li.special { border-color: @success }
-    li.warning .item-label { color: @warning }
-    li.warning { border-color: @warning }
-    li.error .item-label { color: @error }
-    li.error { border-color: @error }
-        
+    li.special .item-label {
+        color: @success
+    }
+
+    li.special {
+        border-color: @success
+    }
+
+    li.warning .item-label {
+        color: @warning
+    }
+
+    li.warning {
+        border-color: @warning
+    }
+
+    li.error .item-label {
+        color: @error
+    }
+
+    li.error {
+        border-color: @error
+    }
+
     ul {
         list-style: none;
-        padding: 0px;
-        margin: 0px;
+        padding   : 0px;
+        margin    : 0px;
     }
 
 }
@@ -198,14 +239,14 @@
 // the total height of .agda-mode-prompt should be the same as @header-height
 .agda-mode-prompt {
     white-space: pre;
-    padding: 0 @padding @padding @padding;
-    
+    padding    : 0 @padding @padding @padding;
+
     input {
         // Issue #31 - make the input box larger
-        width: calc(100% - @padding * 2);
-        font-size  : 150%;
-        padding: @padding;
-        height: 1rem;
+        width    : calc(100% - @padding * 2);
+        font-size: 150%;
+        padding  : @padding;
+        height   : 1rem;
 
         background-color: @input-background;
         border          : none;
@@ -223,12 +264,13 @@
     color: @link;
 
     .codicon-link::after {
-        content: " ";
+        content    : " ";
         white-space: pre;
     }
 }
+
 .component-link:hover {
-    color: @link-hover;
-    cursor: pointer;
+    color          : @link-hover;
+    cursor         : pointer;
     text-decoration: underline;
 }

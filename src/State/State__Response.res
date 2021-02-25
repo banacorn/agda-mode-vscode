@@ -21,14 +21,13 @@ module DisplayInfo = {
       let goals =
         goals
         ->Array.map(((oc, raw)) => [
-          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), None),
-          Component.Item.Unlabeled(Component.Text.plainText("[raw] " ++ raw), None),
+          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), Some(raw)),
         ])
         ->Array.concatMany
       let metas =
         metas
         ->Array.map(((oc, raw, range)) => [
-          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), None),
+          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), Some(raw)),
         ])
         ->Array.concatMany
       State.View.display(state, Plain(header), Array.concatMany([goals, metas]))
