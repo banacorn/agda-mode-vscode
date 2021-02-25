@@ -63,13 +63,7 @@ module NamedMeta = {
   }
 
   open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "NamedMeta" => Contents(pair(string, int) |> map(((name, id)) => NamedMeta(name, id)))
-    | tag => raise(DecodeError("[Agda.NamedMeta] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode: decoder<t> = pair(string, int) |> map(((name, id)) => NamedMeta(name, id))
 }
 
 // InteractionId
@@ -83,13 +77,7 @@ module InteractionId = {
   }
 
   open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "InteractionId" => Contents(int |> map(id => InteractionId(id)))
-    | tag => raise(DecodeError("[Agda.InteractionId] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode: decoder<t> = int |> map(id => InteractionId(id))
 }
 
 // Polarity
