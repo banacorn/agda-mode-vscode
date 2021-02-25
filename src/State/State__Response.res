@@ -7,6 +7,17 @@ module DisplayInfo = {
     switch x {
     | Response.DisplayInfo.CompilationOk(body) =>
       State.View.display(state, Success("Compilation result"), [Component.Item.plainText(body)])
+    | CompilationOkLSP(warnings, errors) =>
+      let message = [Component.Item.plainText("The module was successfully compiled.")]
+      let errors =
+        errors->Array.map(raw => Component.Item.error(Component.Text.plainText(raw), Some(raw)))
+      let warnings =
+        warnings->Array.map(raw => Component.Item.warning(Component.Text.plainText(raw), Some(raw)))
+      State.View.display(
+        state,
+        Success("Compilation result"),
+        Array.concatMany([message, errors, warnings]),
+      )
     | Constraints(None) => State.View.display(state, Plain("No Constraints"), [])
     | Constraints(Some(body)) =>
       let items = Emacs__Parser2.parseOutputs(body)
@@ -16,8 +27,6 @@ module DisplayInfo = {
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
       State.View.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
-      Js.log(warnings)
-      Js.log(errors)
       let goals =
         goals
         ->Array.map(((oc, raw)) => [

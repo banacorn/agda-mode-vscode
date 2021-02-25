@@ -30,7 +30,9 @@ type makeCaseType =
 module DisplayInfo = {
   type t =
     | CompilationOk(string)
+    | CompilationOkLSP(array<string>, array<string>)
     | Constraints(option<string>)
+    | AllGoalsWarnings(string, string)
     | AllGoalsWarningsLSP(
         string,
         array<(Agda.OutputConstraint.t, string)>,
@@ -38,7 +40,6 @@ module DisplayInfo = {
         array<string>,
         array<string>,
       )
-    | AllGoalsWarnings(string, string)
     | Time(string)
     | Error(string)
     | Intro(string)
@@ -56,6 +57,7 @@ module DisplayInfo = {
   let toString = x =>
     switch x {
     | CompilationOk(string) => "CompilationOk " ++ string
+    | CompilationOkLSP(_warnings, _errors) => "[LSP] CompilationOk"
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
     | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title

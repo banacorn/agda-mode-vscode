@@ -402,6 +402,7 @@ module LSP = {
     module DisplayInfo = {
       type t =
         | Generic(string, string)
+        | CompilationOk(array<string>, array<string>)
         | AllGoalsWarnings(
             string,
             array<(Agda.OutputConstraint.t, string)>,
@@ -409,7 +410,6 @@ module LSP = {
             array<string>,
             array<string>,
           )
-        | CompilationOk(string)
         | Auto(string)
         | Error'(string)
         | Time(string)
@@ -437,7 +437,13 @@ module LSP = {
               errors,
             )),
           )
-        | "DisplayInfoCompilationOk" => Contents(string |> map(body => CompilationOk(body)))
+        | "DisplayInfoCompilationOk" =>
+          Contents(
+            pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
+              warnings,
+              errors,
+            )),
+          )
         | "DisplayInfoAuto" => Contents(string |> map(body => Auto(body)))
         | "DisplayInfoError" => Contents(string |> map(body => Error'(body)))
         | "DisplayInfoTime" => Contents(string |> map(body => Time(body)))
@@ -502,7 +508,8 @@ module LSP = {
               ReactionNonLast(
                 Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
               )
-            | CompilationOk(body) => ReactionNonLast(Response.DisplayInfo(CompilationOk(body)))
+            | CompilationOk(warnings, errors) =>
+              ReactionNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
             | Auto(body) => ReactionNonLast(Response.DisplayInfo(Auto(body)))
             | Error'(body) => ReactionNonLast(Response.DisplayInfo(Error(body)))
             | Time(body) => ReactionNonLast(Response.DisplayInfo(Time(body)))
