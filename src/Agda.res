@@ -272,7 +272,9 @@ module OutputConstraint: {
 
   open Json.Decode
   open Util.Decode
-  let decode: decoder<'b> => decoder<t<'b>> = decodeID =>
+  // extra gymnastics to bypass OCaml's limitations on recursion
+  let rec decode': decoder<'b> => decoder<t<'b>> = decodeId => decode(decodeId)
+  and decode: decoder<'b> => decoder<t<'b>> = decodeID =>
     sum(x =>
       switch x {
       | "OfType" => Contents(pair(decodeID, string) |> map(((name, expr)) => OfType(name, expr)))
@@ -328,8 +330,7 @@ module OutputConstraint: {
             name2,
           )),
         )
-      // TODO, complete decoding "Guard"
-      | "Guard" => raise(DecodeError("[Agda.OutputConstraint] Guard decoding not implemented yet"))
+      | "Guard" => Contents(pair(decode'(decodeID), int) |> map(((oc, pid)) => Guard(oc, pid)))
       | "Assign" => Contents(pair(decodeID, string) |> map(((name, expr)) => Assign(name, expr)))
       | "TypedAssign" =>
         Contents(
