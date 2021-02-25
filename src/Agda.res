@@ -62,7 +62,7 @@ module NMII = {
     | NamedMeta("_", int) =>
       Text.plainText(string_of_int(int))
     | NamedMeta(string, int) => Text.plainText("_" ++ string ++ string_of_int(int))
-    | InteractionId(int) => Text.plainText("?" ++ string_of_int(int))
+    | InteractionId(index) => Text.hole("?" ++ string_of_int(index), index)
     }
   }
 

@@ -30,7 +30,11 @@ module DisplayInfo = {
           Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), Some(raw)),
         ])
         ->Array.concatMany
-      State.View.display(state, Plain(header), Array.concatMany([goals, metas]))
+      let errors =
+        errors->Array.map(raw => Component.Item.error(Component.Text.plainText(raw), Some(raw)))
+      let warnings =
+        warnings->Array.map(raw => Component.Item.warning(Component.Text.plainText(raw), Some(raw)))
+      State.View.display(state, Plain(header), Array.concatMany([goals, metas, errors, warnings]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
       State.View.display(state, Plain("Time"), items)

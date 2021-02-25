@@ -35,8 +35,8 @@ module DisplayInfo = {
         string,
         array<(Agda.OutputConstraint.t, string)>,
         array<(Agda.OutputConstraint.t, string, Common.AgdaRange.t)>,
-        string,
-        string,
+        array<string>,
+        array<string>,
       )
     | AllGoalsWarnings(string, string)
     | Time(string)

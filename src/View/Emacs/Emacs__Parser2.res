@@ -49,7 +49,7 @@ let parseError: string => array<Item.t> = raw => {
   ->partiteWarningsOrErrors("errors")
   ->Js.Dict.get("errors")
   ->Option.mapWithDefault([], entries =>
-    entries->Array.map(entry => Item.Labeled("Error", "error", Text.parse(entry), None))
+    entries->Array.map(entry => Item.error(Text.parse(entry), None))
   )
 }
 
@@ -173,9 +173,8 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
   ->Js.Dict.entries
   ->Array.map(((key, lines)) =>
     switch key {
-    | "warnings" =>
-      lines->Array.map(line => Item.Labeled("Warning", "warning", Text.parse(line), None))
-    | "errors" => lines->Array.map(line => Item.Labeled("Error", "error", Text.parse(line), None))
+    | "warnings" => lines->Array.map(line => Item.warning(Text.parse(line), None))
+    | "errors" => lines->Array.map(line => Item.error(Text.parse(line), None))
     | "interactionMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)

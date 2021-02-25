@@ -152,27 +152,22 @@ module Item = {
     | Unlabeled(Text.t, option<string>) // body // raw string
 
   let plainText = s => Unlabeled(Text.plainText(s), None)
+  let error = (s, raw) => Labeled("Error", "error", s, raw)
+  let warning = (s, raw) => Labeled("Warning", "warning", s, raw)
 
   @react.component
   let make = (~item: t) => {
     let (revealRaw, setRevealRaw) = React.useState(_ => false)
 
     let onClickRevealRaw = _ => setRevealRaw(state => !state)
-    Js.log(revealRaw)
 
-    switch item {
-    | Labeled(label, style, text, _raw) =>
-      <li className={"labeled-item " ++ style}>
-        <div className="item-label"> {string(label)} </div>
-        <div className="item-content"> <Text text /> </div>
-      </li>
-    | Unlabeled(text, raw) =>
-      let content = switch raw {
+    let content = (text, raw) =>
+      switch raw {
       | Some(raw) => revealRaw ? <Text text={Text.plainText(raw)} /> : <Text text />
       | None => <Text text />
       }
-
-      let revealRawButton = switch raw {
+    let revealRawButton = raw =>
+      switch raw {
       | Some(_) =>
         revealRaw
           ? <div className="item-raw-button active" onClick=onClickRevealRaw>
@@ -183,9 +178,16 @@ module Item = {
             </div>
       | None => <> </>
       }
-
+    switch item {
+    | Labeled(label, style, text, raw) =>
+      <li className={"labeled-item " ++ style}>
+        <div className="item-label"> {string(label)} </div>
+        <div className="item-content"> {content(text, raw)} </div>
+        {revealRawButton(raw)}
+      </li>
+    | Unlabeled(text, raw) =>
       <li className="unlabeled-item">
-        <div className="item-content"> {content} </div> {revealRawButton}
+        <div className="item-content"> {content(text, raw)} </div> {revealRawButton(raw)}
       </li>
     }
   }

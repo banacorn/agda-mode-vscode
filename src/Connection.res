@@ -406,8 +406,8 @@ module LSP = {
             string,
             array<(Agda.OutputConstraint.t, string)>,
             array<(Agda.OutputConstraint.t, string, Common.AgdaRange.t)>,
-            string,
-            string,
+            array<string>,
+            array<string>,
           )
         | CompilationOk(string)
         | Auto(string)
@@ -427,8 +427,8 @@ module LSP = {
               string,
               array(pair(Agda.OutputConstraint.decode, string)),
               array(tuple3(Agda.OutputConstraint.decode, string, Common.AgdaRange.decode)),
-              string,
-              string,
+              array(string),
+              array(string),
             ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
               header,
               goals,
