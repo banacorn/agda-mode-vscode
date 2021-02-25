@@ -148,20 +148,20 @@ module Text = {
 
 module Item = {
   type t =
-    | Labeled(string, string, Text.t)
-    | Unlabeled(Text.t)
+    | Labeled(string, string, Text.t, option<string>) // label // style // body // raw string
+    | Unlabeled(Text.t, option<string>) // body // raw string
 
-  let plainText = s => Unlabeled(Text.plainText(s))
+  let plainText = s => Unlabeled(Text.plainText(s), None)
 
   @react.component
   let make = (~item: t) =>
     switch item {
-    | Labeled(label, style, text) =>
+    | Labeled(label, style, text, _raw) =>
       <li className={"labeled-item " ++ style}>
         <div className="item-label"> {string(label)} </div>
         <div className="item-content"> <Text text /> </div>
       </li>
-    | Unlabeled(text) =>
+    | Unlabeled(text, _raw) =>
       <li className="unlabeled-item"> <div className="item-content"> <Text text /> </div> </li>
     }
 
@@ -172,13 +172,15 @@ module Item = {
     switch x {
     | "Labeled" =>
       Contents(
-        tuple3(string, string, Text.decode) |> map(((label, style, text)) => Labeled(
+        tuple4(string, string, Text.decode, optional(string)) |> map(((
           label,
           style,
           text,
-        )),
+          raw,
+        )) => Labeled(label, style, text, raw)),
       )
-    | "Unlabeled" => Contents(Text.decode |> map(text => Unlabeled(text)))
+    | "Unlabeled" =>
+      Contents(pair(Text.decode, optional(string)) |> map(((text, raw)) => Unlabeled(text, raw)))
     | tag => raise(DecodeError("[Component.Item] Unknown constructor: " ++ tag))
     }
   )
@@ -186,12 +188,18 @@ module Item = {
   open! Json.Encode
   let encode: encoder<t> = x =>
     switch x {
-    | Labeled(label, style, text) =>
+    | Labeled(label, style, text, raw) =>
       object_(list{
         ("tag", string("Labeled")),
-        ("contents", (label, style, text) |> tuple3(string, string, Text.encode)),
+        (
+          "contents",
+          (label, style, text, raw) |> tuple4(string, string, Text.encode, nullable(string)),
+        ),
       })
-    | Unlabeled(text) =>
-      object_(list{("tag", string("Unlabeled")), ("contents", text |> Text.encode)})
+    | Unlabeled(text, raw) =>
+      object_(list{
+        ("tag", string("Unlabeled")),
+        ("contents", (text, raw) |> pair(Text.encode, nullable(string))),
+      })
     }
 }
