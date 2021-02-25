@@ -405,8 +405,8 @@ module LSP = {
         | CompilationOk(array<string>, array<string>)
         | AllGoalsWarnings(
             string,
-            array<(Agda.OutputConstraint.t, string)>,
-            array<(Agda.OutputConstraint.t, string, Common.AgdaRange.t)>,
+            array<(Agda.OutputConstraint.t<Agda.InteractionId.t>, string)>,
+            array<(Agda.OutputConstraint.t<Agda.NamedMeta.t>, string, Common.AgdaRange.t)>,
             array<string>,
             array<string>,
           )
@@ -425,8 +425,14 @@ module LSP = {
           Contents(
             tuple5(
               string,
-              array(pair(Agda.OutputConstraint.decode, string)),
-              array(tuple3(Agda.OutputConstraint.decode, string, Common.AgdaRange.decode)),
+              array(pair(Agda.OutputConstraint.decode(Agda.InteractionId.decode), string)),
+              array(
+                tuple3(
+                  Agda.OutputConstraint.decode(Agda.NamedMeta.decode),
+                  string,
+                  Common.AgdaRange.decode,
+                ),
+              ),
               array(string),
               array(string),
             ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(

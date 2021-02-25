@@ -30,13 +30,19 @@ module DisplayInfo = {
       let goals =
         goals
         ->Array.map(((oc, raw)) => [
-          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), Some(raw)),
+          Component.Item.Unlabeled(
+            Agda.OutputConstraint.toText(Agda.InteractionId.toText, oc, None),
+            Some(raw),
+          ),
         ])
         ->Array.concatMany
       let metas =
         metas
         ->Array.map(((oc, raw, range)) => [
-          Component.Item.Unlabeled(Agda.OutputConstraint.toText(oc, None), Some(raw)),
+          Component.Item.Unlabeled(
+            Agda.OutputConstraint.toText(Agda.NamedMeta.toText, oc, None),
+            Some(raw),
+          ),
         ])
         ->Array.concatMany
       let errors =
