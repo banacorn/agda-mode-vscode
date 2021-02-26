@@ -61,8 +61,35 @@ let make = (
         ReactEvent.Form.target(event)["selectionStart"],
         ReactEvent.Form.target(event)["selectionEnd"],
       )))
+      Js.log("change: " ++ value)
       onUpdatePromptIM(KeyUpdate(value))
     }
+
+    // analysis the input box
+    let inputRef = React.useRef(Js.Nullable.null)
+    React.useEffect(() => {
+      // Update mouse selection in <input>
+      inputRef.current
+      ->Js.Nullable.toOption
+      ->Option.forEach(input => {
+        selectionInterval->Option.forEach(((start, end_)) => {
+          let setSelectionRange = %raw(`(elem, start, end_) => elem.setSelectionRange(start, end_)`)
+          input->setSelectionRange(start, end_)->ignore
+        })
+      })
+
+      // HACK
+      // somehow focus() won't work on some machines (?)
+      // delay focus() 100ms to regain focus
+      Js.Global.setTimeout(() => {
+        inputRef.current
+        ->Js.Nullable.toOption
+        ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
+        ->Option.forEach(Webapi.Dom.HtmlElement.focus)
+        ()
+      }, 100)->ignore
+      None
+    })
 
     let onSubmit = _event => {
       onUpdatePromptIM(Escape)
@@ -82,29 +109,7 @@ let make = (
           onMouseUp
           onChange
           value
-          ref={ReactDOMRe.Ref.callbackDomRef(ref => {
-            // Update mouse selection in <input>
-            ref
-            ->Js.Nullable.toOption
-            ->Option.forEach(input => {
-              selectionInterval->Option.forEach(((start, end_)) => {
-                let setSelectionRange = %raw(`(elem, start, end_) => elem.setSelectionRange(start, end_)`)
-                input->setSelectionRange(start, end_)->ignore
-              })
-            })
-
-            // HACK
-            // somehow focus() won't work on some machines (?)
-            // delay focus() 100ms to regain focus
-            Js.Global.setTimeout(() => {
-              ref
-              ->Js.Nullable.toOption
-              ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
-              ->Option.forEach(Webapi.Dom.HtmlElement.focus)
-              ()
-            }, 100)->ignore
-            ()
-          })}
+          ref={ReactDOMRe.Ref.domRef(inputRef)}
         />
       </form>
     </div>

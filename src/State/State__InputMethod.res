@@ -92,9 +92,9 @@ module Module: Module = {
 
           rewrites->Array.forEach(replace)
 
-          // update stored <input>
+          // update the stored content and notify the view
           previous.contents = replaced.contents
-          {State.View.updatePromptIM(state, replaced.contents)}
+          State.View.updatePromptIM(state, replaced.contents)
         | Activate =>
           State.View.updateIM(state, Activate)->Promise.flatMap(() =>
             State.View.updatePromptIM(state, previous.contents)
