@@ -61,7 +61,6 @@ let make = (
         ReactEvent.Form.target(event)["selectionStart"],
         ReactEvent.Form.target(event)["selectionEnd"],
       )))
-      Js.log("change: " ++ value)
       onUpdatePromptIM(KeyUpdate(value))
     }
 

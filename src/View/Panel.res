@@ -33,7 +33,6 @@ let make = (
   let promptResponseResolver = React.useRef(None)
   let onSubmit = result =>
     promptResponseResolver.current->Option.forEach(resolve => {
-      Js.log("[Panel] Submit")
       setPrompt(_ => None)
       resolve(result)
       promptResponseResolver.current = None
@@ -44,7 +43,6 @@ let make = (
   Hook.recv(onRequest, onResponse, msg =>
     switch msg {
     | Prompt(header', {body: body', placeholder, value}) =>
-      Js.log("[Panel] Prompt")
       // set the view
       setHeader(_ => header')
       setBody(_ => [])
@@ -66,7 +64,6 @@ let make = (
     switch event {
     | InputMethod(action) => runInputMethodAction(action)
     | PromptIMUpdate(text) =>
-      Js.log("[Panel] PromptIMUpdate: " ++ text)
       setPrompt(x =>
         switch x {
         | Some((body, placeholder, _)) => Some((body, placeholder, Some(text)))
@@ -74,7 +71,6 @@ let make = (
         }
       )
     | PromptInterrupt =>
-      Js.log("[Panel] PromptInterrupt")
       onSubmit(None)
       setPrompt(_ => None)
       restoreHeaderAndBody()

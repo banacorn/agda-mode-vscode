@@ -109,7 +109,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             sendAgdaRequest(Case(goal))
           } else {
             // place the queried expression in the goal
-            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
+            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(_ =>
               sendAgdaRequest(Case(goal))
             )
           }

@@ -183,9 +183,11 @@ module Module: Module = {
   let modify = (state: State.t, goal, f) => {
     updateIntervals(state)
     let content = Goal.getContent(goal, state.document)
-    Goal.setContent(goal, state.document, f(content))->Promise.flatMap(x =>
+    Goal.setContent(goal, state.document, f(content))->Promise.flatMap(x => {
       switch x {
-      | true => Promise.resolved()
+      | true =>
+        updateIntervals(state)
+        Promise.resolved()
       | false =>
         State.View.display(
           state,
@@ -197,8 +199,9 @@ module Module: Module = {
           ],
         )
       }
-    )
+    })
   }
+
   let next = (state: State.t): Promise.t<unit> => {
     updateIntervals(state)
 
