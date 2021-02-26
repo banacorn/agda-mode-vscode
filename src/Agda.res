@@ -137,7 +137,7 @@ module OutputConstraint: {
 } = {
   // CmpEq: true / CmpLeq: false
   type rec t<'b> =
-    | OfType('b, string)
+    | OfType('b, RichText.t)
     | JustType('b)
     | JustSort('b)
     | CmpInType(Comparison.t, string, 'b, 'b)
@@ -190,7 +190,7 @@ module OutputConstraint: {
       Text.concatMany([idToText(a), Comparison.toText(cmp), idToText(b)])
     switch value {
     | OfType(name, expr) =>
-      Text.concatMany([idToText(name), Text.plainText(" : "), Text.plainText(expr)])
+      Text.concatMany([idToText(name), Text.plainText(" : "), RichText.toText(expr)])
     | JustType(name) => Text.concatMany([Text.plainText("Type "), idToText(name)])
     | JustSort(name) => Text.concatMany([Text.plainText("Sort "), idToText(name)])
     | CmpInType(cmp, expr, name1, name2) =>
@@ -283,7 +283,8 @@ module OutputConstraint: {
   and decode: decoder<'b> => decoder<t<'b>> = decodeID =>
     sum(x =>
       switch x {
-      | "OfType" => Contents(pair(decodeID, string) |> map(((name, expr)) => OfType(name, expr)))
+      | "OfType" =>
+        Contents(pair(decodeID, RichText.decode) |> map(((name, expr)) => OfType(name, expr)))
       | "JustType" => Contents(decodeID |> map(name => JustType(name)))
       | "JustSort" => Contents(decodeID |> map(name => JustSort(name)))
       | "CmpInType" =>
