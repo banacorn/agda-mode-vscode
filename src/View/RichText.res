@@ -1,9 +1,28 @@
 open Belt
+module type Module = {
+  type t
+  // constructors
+  let text: string => t
+  let concatMany: array<t> => t
+
+  // React component
+  let make: (~value: t) => React.element
+
+  // JSON encoding/decoding
+  let decode: Js.Json.t => t
+  let encode: t => Js.Json.t
+}
+
 module Module = {
   module Attributes = {
     type t = {
       link: option<Common.Link.t>,
       icon: option<string>,
+    }
+
+    let empty = {
+      link: None,
+      icon: None,
     }
 
     open! Json.Decode
@@ -23,22 +42,6 @@ module Module = {
   module Element = {
     type t = Elem(string, Attributes.t)
 
-    // NOTE: revamp this after removing Text
-    let toText = x => {
-      open Component.Text
-      switch x {
-      | Elem(text, attrs) =>
-        switch attrs.link {
-        | Some(link) => Text([Segment.Link(text, None, true, false, link)])
-        | None =>
-          switch attrs.icon {
-          | Some(kind) => Text([Segment.Icon(kind)])
-          | None => plainText(text)
-          }
-        }
-      }
-    }
-
     open! Json.Decode
     let decode: decoder<t> = pair(string, Attributes.decode) |> map(((s, attrs)) => Elem(s, attrs))
 
@@ -51,10 +54,56 @@ module Module = {
 
   type t = RichText(array<Element.t>)
 
-  let toText = x =>
-    switch x {
-    | RichText(elems) => elems->Array.map(Element.toText)->Component.Text.concatMany
-    }
+  let text = s => RichText([Elem(s, Attributes.empty)])
+  let hole = (s, i) => RichText([
+    Elem(
+      s,
+      {
+        link: Some(Common.Link.ToHole(i)),
+        icon: None,
+      },
+    ),
+  ])
+
+  let concatMany = xs => RichText(
+    xs
+    ->Array.map(x =>
+      switch x {
+      | RichText(xs) => xs
+      }
+    )
+    ->Array.concatMany,
+  )
+
+  //   let toText = x =>
+  //     switch x {
+  //     | RichText(elems) => elems->Array.map(Element.toText)->Component.Text.concatMany
+  //     }
+
+  let make = (~value: t) => {
+    let RichText(elements) = value
+    <span>
+      {elements
+      ->Array.mapWithIndex((i, x) =>
+        switch x {
+        | Elem(text, attributes) =>
+          switch attributes.link {
+          | Some(target) =>
+            <Component__Link key={string_of_int(i)} jump=true hover=false target>
+              {React.string(text)}
+            </Component__Link>
+          | None =>
+            switch attributes.icon {
+            | Some(kind) => <div key={string_of_int(i)} className={"codicon codicon-" ++ kind} />
+            | None => <span key={string_of_int(i)}> {React.string(text)} </span>
+            }
+          }
+        }
+      )
+      ->React.array}
+    </span>
+  }
+
   open! Json.Decode
   let decode: decoder<t> = array(Element.decode) |> map(elems => RichText(elems))
 
@@ -65,3 +114,6 @@ module Module = {
     }
 }
 include Module
+
+@react.component
+let make = (~value: t) => Module.make(~value)

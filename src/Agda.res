@@ -62,6 +62,15 @@ module NamedMeta = {
     }
   }
 
+  let render = value => {
+    switch value {
+    | NamedMeta("", int)
+    | NamedMeta("_", int) =>
+      RichText.text(string_of_int(int))
+    | NamedMeta(string, int) => RichText.text("_" ++ string ++ string_of_int(int))
+    }
+  }
+
   open Json.Decode
   let decode: decoder<t> = pair(string, int) |> map(((name, id)) => NamedMeta(name, id))
 }
@@ -73,6 +82,12 @@ module InteractionId = {
   let toText = value => {
     switch value {
     | InteractionId(index) => Text.hole("?" ++ string_of_int(index), index)
+    }
+  }
+
+  let render = value => {
+    switch value {
+    | InteractionId(index) => RichText.hole("?" ++ string_of_int(index), index)
     }
   }
 
@@ -132,7 +147,7 @@ module Comparison = {
 module OutputConstraint: {
   type t<'b>
   let parse: string => option<t<InteractionId.t>>
-  let toText: ('b => Text.t, t<'b>, option<Common.AgdaRange.t>) => Text.t
+  let toText: ('b => Text.t, 'b => RichText.t, t<'b>, option<Common.AgdaRange.t>) => Text.t
   let decode: Json.Decode.decoder<'b> => Json.Decode.decoder<t<'b>>
 } = {
   // CmpEq: true / CmpLeq: false
@@ -183,14 +198,14 @@ module OutputConstraint: {
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
-  let rec toText = (idToText, value, location) => {
+  let rec toText = (idToText, renderId, value, location) => {
     let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
 
     let cmpToText = (cmp, a, b) =>
       Text.concatMany([idToText(a), Comparison.toText(cmp), idToText(b)])
     switch value {
     | OfType(name, expr) =>
-      Text.concatMany([idToText(name), Text.plainText(" : "), RichText.toText(expr)])
+      RichText.concatMany([renderId(name), RichText.text(" : "), expr])->Text.fromRichText
     | JustType(name) => Text.concatMany([Text.plainText("Type "), idToText(name)])
     | JustSort(name) => Text.concatMany([Text.plainText("Sort "), idToText(name)])
     | CmpInType(cmp, expr, name1, name2) =>
@@ -206,7 +221,7 @@ module OutputConstraint: {
     | CmpSorts(cmp, name1, name2) => cmpToText(cmp, name1, name2)
     | Guard(self, pid) =>
       Text.concatMany([
-        toText(idToText, self, None),
+        toText(idToText, renderId, self, None),
         Text.plainText("(blocked by problem "),
         Text.plainText(string_of_int(pid)),
         Text.plainText(")"),
@@ -402,9 +417,9 @@ module Output = {
     }
   }
 
-  let toText = (idToText, value) => {
+  let toText = (idToText, renderId, value) => {
     let Output(oc, location) = value
-    OutputConstraint.toText(idToText, oc, location)
+    OutputConstraint.toText(idToText, renderId, oc, location)
   }
 }
 

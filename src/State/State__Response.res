@@ -31,7 +31,12 @@ module DisplayInfo = {
         goals
         ->Array.map(((oc, raw)) => [
           Component.Item.Unlabeled(
-            Agda.OutputConstraint.toText(Agda.InteractionId.toText, oc, None),
+            Agda.OutputConstraint.toText(
+              Agda.InteractionId.toText,
+              Agda.InteractionId.render,
+              oc,
+              None,
+            ),
             Some(raw),
           ),
         ])
@@ -40,7 +45,7 @@ module DisplayInfo = {
         metas
         ->Array.map(((oc, raw, range)) => [
           Component.Item.Unlabeled(
-            Agda.OutputConstraint.toText(Agda.NamedMeta.toText, oc, None),
+            Agda.OutputConstraint.toText(Agda.NamedMeta.toText, Agda.NamedMeta.render, oc, None),
             Some(raw),
           ),
         ])

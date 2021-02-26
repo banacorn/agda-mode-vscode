@@ -10,6 +10,21 @@ module Text = {
       | Link(string, option<array<string>>, bool, bool, Common.Link.t)
       | Location(Common.AgdaRange.t, bool)
 
+    let fromElement = x => {
+      open RichText.Element
+      switch x {
+      | Elem(text, attrs) =>
+        switch attrs.link {
+        | Some(link) => Link(text, None, true, false, link)
+        | None =>
+          switch attrs.icon {
+          | Some(kind) => Icon(kind)
+          | None => PlainText(text, None)
+          }
+        }
+      }
+    }
+
     open! Json.Decode
     open Util.Decode
 
@@ -82,6 +97,14 @@ module Text = {
     Segment.Link(text, className, jump, hover, Common.Link.ToHole(holeIndex)),
   ])
   let location = (location, abbr) => Text([Segment.Location(location, abbr)])
+
+  let fromRichText = x => {
+    open RichText
+    switch x {
+    | RichText(elements) => Text(elements->Array.map(Segment.fromElement))
+    }
+  }
+
   // from string
   let parse = raw =>
     raw
@@ -150,8 +173,10 @@ module Item = {
   type t =
     | Labeled(string, string, Text.t, option<string>) // label // style // body // raw string
     | Unlabeled(Text.t, option<string>) // body // raw string
+    | Unlabeled'(RichText.t, option<string>) // body // raw string
 
   let plainText = s => Unlabeled(Text.plainText(s), None)
+  let plainText' = s => Unlabeled'(RichText.text(s), None)
   let error = (s, raw) => Labeled("Error", "error", s, raw)
   let warning = (s, raw) => Labeled("Warning", "warning", s, raw)
 
@@ -186,6 +211,15 @@ module Item = {
         {revealRawButton(raw)}
       </li>
     | Unlabeled(text, raw) =>
+      <li className="unlabeled-item">
+        <div className="item-content"> {content(text, raw)} </div> {revealRawButton(raw)}
+      </li>
+    | Unlabeled'(text, raw) =>
+      let content = (value, raw) =>
+        switch raw {
+        | Some(raw) => revealRaw ? <RichText value={RichText.text(raw)} /> : <RichText value />
+        | None => <RichText value />
+        }
       <li className="unlabeled-item">
         <div className="item-content"> {content(text, raw)} </div> {revealRawButton(raw)}
       </li>
@@ -227,6 +261,11 @@ module Item = {
       object_(list{
         ("tag", string("Unlabeled")),
         ("contents", (text, raw) |> pair(Text.encode, nullable(string))),
+      })
+    | Unlabeled'(text, raw) =>
+      object_(list{
+        ("tag", string("Unlabeled")),
+        ("contents", (text, raw) |> pair(RichText.encode, nullable(string))),
       })
     }
 }
