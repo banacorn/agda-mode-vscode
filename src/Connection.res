@@ -821,6 +821,7 @@ module LSP = {
 
         // listens for notifications
         let subscription = Client.onResponse(json => {
+          Js.log(json)
           switch decodeReaction(json) {
           | Ok(ReactionNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
           | Ok(ReactionLast(priority, responese)) =>
