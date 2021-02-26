@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - #49: Case split ignores variables when hole has too few spaces
 - #47: Ctrl-X doesn't work as cut with agda-mode 
+- #42: ^C ^{space} chord not working
 
 ## v0.2.7 - 2021-01-17
 
