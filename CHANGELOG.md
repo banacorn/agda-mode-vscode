@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.2.8 - 2021-02-26
 
+### Added
+- Preliminarily support for [Agda Language Server](https://github.com/banacorn/agda-language-server).
+
 ### Fixed
 - #49: Case split ignores variables when hole has too few spaces
 - #47: Ctrl-X doesn't work as cut with agda-mode 
