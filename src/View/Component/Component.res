@@ -25,6 +25,28 @@ module Text = {
       }
     }
 
+    let toElements = x => {
+      open RichText.Element
+      open RichText.Attributes
+      switch x {
+      | PlainText(text, _className) => [Elem(text, empty)]
+      | Icon(kind) => [Elem("", {icon: Some(kind), link: None})]
+      | Link(text, _className, _jump, _hover, target) => [
+          Elem(text, {icon: None, link: Some(target)}),
+        ]
+      | Location(range, true) => [
+          Elem("", {icon: Some("link"), link: Some(Common.Link.ToRange(range))}),
+        ]
+      | Location(range, false) => [
+          Elem("", {icon: Some("link"), link: Some(Common.Link.ToRange(range))}),
+          Elem(
+            Common.AgdaRange.toString(range),
+            {icon: Some("link"), link: Some(Common.Link.ToRange(range))},
+          ),
+        ]
+      }
+    }
+
     open! Json.Decode
     open Util.Decode
 
@@ -102,6 +124,13 @@ module Text = {
     open RichText
     switch x {
     | RichText(elements) => Text(elements->Array.map(Segment.fromElement))
+    }
+  }
+
+  let toRichText = x => {
+    open RichText
+    switch x {
+    | Text(segments) => RichText(segments->Array.map(Segment.toElements)->Array.concatMany)
     }
   }
 
@@ -242,6 +271,10 @@ module Item = {
       )
     | "Unlabeled" =>
       Contents(pair(Text.decode, optional(string)) |> map(((text, raw)) => Unlabeled(text, raw)))
+    | "Unlabeled'" =>
+      Contents(
+        pair(RichText.decode, optional(string)) |> map(((text, raw)) => Unlabeled'(text, raw)),
+      )
     | tag => raise(DecodeError("[Component.Item] Unknown constructor: " ++ tag))
     }
   )
@@ -264,7 +297,7 @@ module Item = {
       })
     | Unlabeled'(text, raw) =>
       object_(list{
-        ("tag", string("Unlabeled")),
+        ("tag", string("Unlabeled'")),
         ("contents", (text, raw) |> pair(RichText.encode, nullable(string))),
       })
     }

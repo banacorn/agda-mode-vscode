@@ -84,7 +84,7 @@ module Module = {
     let RichText(elements) = value
     <span>
       {elements
-      ->Array.mapWithIndex((i, x) =>
+      ->Array.mapWithIndex((i, x) => {
         switch x {
         | Elem(text, attributes) =>
           switch attributes.link {
@@ -99,7 +99,7 @@ module Module = {
             }
           }
         }
-      )
+      })
       ->React.array}
     </span>
   }

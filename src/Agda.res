@@ -147,7 +147,7 @@ module Comparison = {
 module OutputConstraint: {
   type t<'b>
   let parse: string => option<t<InteractionId.t>>
-  let toText: ('b => Text.t, 'b => RichText.t, t<'b>, option<Common.AgdaRange.t>) => Text.t
+  let render: ('b => Text.t, 'b => RichText.t, t<'b>, option<Common.AgdaRange.t>) => RichText.t
   let decode: Json.Decode.decoder<'b> => Json.Decode.decoder<t<'b>>
 } = {
   // CmpEq: true / CmpLeq: false
@@ -198,36 +198,52 @@ module OutputConstraint: {
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
-  let rec toText = (idToText, renderId, value, location) => {
+  let rec render = (idToText, renderId, value, location) => {
     let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
 
     let cmpToText = (cmp, a, b) =>
       Text.concatMany([idToText(a), Comparison.toText(cmp), idToText(b)])
     switch value {
-    | OfType(text) => text->Text.fromRichText
+    | OfType(text) => text
     // RichText.concatMany([renderId(name), RichText.text(" : "), expr])->Text.fromRichText
-    | JustType(name) => Text.concatMany([Text.plainText("Type "), idToText(name)])
-    | JustSort(name) => Text.concatMany([Text.plainText("Sort "), idToText(name)])
+    | JustType(name) => Text.concatMany([Text.plainText("Type "), idToText(name)])->Text.toRichText
+    | JustSort(name) => Text.concatMany([Text.plainText("Sort "), idToText(name)])->Text.toRichText
     | CmpInType(cmp, expr, name1, name2) =>
-      Text.concatMany([cmpToText(cmp, name1, name2), Text.plainText(" : "), Text.plainText(expr)])
+      Text.concatMany([
+        cmpToText(cmp, name1, name2),
+        Text.plainText(" : "),
+        Text.plainText(expr),
+      ])->Text.toRichText
     | CmpElim(polarities, expr, names1, names2) =>
       let polarities = polarities->Array.map(Polarity.toText)->Text.concatMany
       let names1 = names1->Array.map(idToText)->Text.concatMany
       let names2 = names2->Array.map(idToText)->Text.concatMany
-      Text.concatMany([names1, polarities, names2, Text.plainText(" : "), Text.plainText(expr)])
-    | CmpTypes(cmp, name1, name2) => cmpToText(cmp, name1, name2)
-    | CmpLevels(cmp, name1, name2) => cmpToText(cmp, name1, name2)
-    | CmpTeles(cmp, name1, name2) => cmpToText(cmp, name1, name2)
-    | CmpSorts(cmp, name1, name2) => cmpToText(cmp, name1, name2)
-    | Guard(self, pid) =>
       Text.concatMany([
-        toText(idToText, renderId, self, None),
-        Text.plainText("(blocked by problem "),
-        Text.plainText(string_of_int(pid)),
-        Text.plainText(")"),
+        names1,
+        polarities,
+        names2,
+        Text.plainText(" : "),
+        Text.plainText(expr),
+      ])->Text.toRichText
+    | CmpTypes(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
+    | CmpLevels(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
+    | CmpTeles(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
+    | CmpSorts(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
+    | Guard(self, pid) =>
+      RichText.concatMany([
+        render(idToText, renderId, self, None),
+        Text.concatMany([
+          Text.plainText("(blocked by problem "),
+          Text.plainText(string_of_int(pid)),
+          Text.plainText(")"),
+        ])->Text.toRichText,
       ])
     | Assign(name, expr) =>
-      Text.concatMany([idToText(name), Text.plainText(" := "), Text.plainText(expr)])
+      Text.concatMany([
+        idToText(name),
+        Text.plainText(" := "),
+        Text.plainText(expr),
+      ])->Text.toRichText
     | TypedAssign(name, expr1, expr2) =>
       Text.concatMany([
         idToText(name),
@@ -235,7 +251,7 @@ module OutputConstraint: {
         Text.plainText(expr1),
         Text.plainText(" :? "),
         Text.plainText(expr2),
-      ])
+      ])->Text.toRichText
     | PostponedCheckArgs(name, exprs, t0, t1) =>
       let t0 = Text.concatMany([
         Text.plainText("(_"),
@@ -251,10 +267,14 @@ module OutputConstraint: {
         exprs,
         Text.plainText(" : "),
         Text.plainText(t1),
-      ])
-    | IsEmptyType(expr) => Text.concatMany([Text.plainText("Is empty: "), Text.plainText(expr)])
+      ])->Text.toRichText
+    | IsEmptyType(expr) =>
+      Text.concatMany([Text.plainText("Is empty: "), Text.plainText(expr)])->Text.toRichText
     | SizeLtSat(expr) =>
-      Text.concatMany([Text.plainText("Not empty type of sizes: "), Text.plainText(expr)])
+      Text.concatMany([
+        Text.plainText("Not empty type of sizes: "),
+        Text.plainText(expr),
+      ])->Text.toRichText
     | FindInstanceOF(name, expr, pairs) =>
       let line1 = Text.concatMany([
         Text.plainText("Resolve instance argument "),
@@ -274,7 +294,7 @@ module OutputConstraint: {
         )
         ->Text.concatMany
       let line2 = Text.concatMany([Text.plainText(" \nCandidate: "), pairs])
-      Text.concatMany([line1, line2])
+      Text.concatMany([line1, line2])->Text.toRichText
     | PTSInstance(a, b) =>
       Text.concatMany([
         Text.plainText("PTS instance for ("),
@@ -282,12 +302,13 @@ module OutputConstraint: {
         Text.plainText(" , "),
         idToText(b),
         Text.plainText(")"),
-      ])
-    | PostponedCheckFunDef(a, b) => Text.plainText("Check definition of " ++ a ++ " : " ++ b)
-    | OfType'(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])
-    | JustType'(e) => Text.concatMany([Text.plainText("Type "), e, location])
-    | JustSort'(e) => Text.concatMany([Text.plainText("Sort "), e, location])
-    | Others'(e) => Text.concatMany([e, location])
+      ])->Text.toRichText
+    | PostponedCheckFunDef(a, b) =>
+      Text.plainText("Check definition of " ++ a ++ " : " ++ b)->Text.toRichText
+    | OfType'(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])->Text.toRichText
+    | JustType'(e) => Text.concatMany([Text.plainText("Type "), e, location])->Text.toRichText
+    | JustSort'(e) => Text.concatMany([Text.plainText("Sort "), e, location])->Text.toRichText
+    | Others'(e) => Text.concatMany([e, location])->Text.toRichText
     }
   }
 
@@ -416,9 +437,9 @@ module Output = {
     }
   }
 
-  let toText = (idToText, renderId, value) => {
+  let render = (idToText, renderId, value) => {
     let Output(oc, location) = value
-    OutputConstraint.toText(idToText, renderId, oc, location)
+    OutputConstraint.render(idToText, renderId, oc, location)
   }
 }
 

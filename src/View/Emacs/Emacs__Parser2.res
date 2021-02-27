@@ -99,16 +99,16 @@ let parseGoalType: string => array<Item.t> = raw => {
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(
-        Agda.Output.toText(Agda.InteractionId.toText, Agda.InteractionId.render, output),
+      ->Array.map(output => Item.Unlabeled'(
+        Agda.Output.render(Agda.InteractionId.toText, Agda.InteractionId.render, output),
         None,
       ))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(
-        Agda.Output.toText(Agda.InteractionId.toText, Agda.InteractionId.render, output),
+      ->Array.map(output => Item.Unlabeled'(
+        Agda.Output.render(Agda.InteractionId.toText, Agda.InteractionId.render, output),
         None,
       ))
     | _ => []
@@ -185,16 +185,16 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(
-        Agda.Output.toText(Agda.InteractionId.toText, Agda.InteractionId.render, output),
+      ->Array.map(output => Item.Unlabeled'(
+        Agda.Output.render(Agda.InteractionId.toText, Agda.InteractionId.render, output),
         None,
       ))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(
-        Agda.Output.toText(Agda.InteractionId.toText, Agda.InteractionId.render, output),
+      ->Array.map(output => Item.Unlabeled'(
+        Agda.Output.render(Agda.InteractionId.toText, Agda.InteractionId.render, output),
         None,
       ))
     | _ => []
@@ -208,8 +208,8 @@ let parseOutputs: string => array<Item.t> = raw => {
   lines
   ->Array.map(Agda.Output.parse)
   ->Array.keepMap(x => x)
-  ->Array.map(output => Item.Unlabeled(
-    Agda.Output.toText(Agda.InteractionId.toText, Agda.InteractionId.render, output),
+  ->Array.map(output => Item.Unlabeled'(
+    Agda.Output.render(Agda.InteractionId.toText, Agda.InteractionId.render, output),
     None,
   ))
 }
@@ -225,8 +225,8 @@ let parseSearchAbout: string => array<Item.t> = raw => {
     ->Emacs__Parser.unindent
     ->Array.map(Agda.Output.parse)
     ->Array.keepMap(x => x)
-    ->Array.map(output => Item.Unlabeled(
-      Agda.Output.toText(Agda.InteractionId.toText, Agda.InteractionId.render, output),
+    ->Array.map(output => Item.Unlabeled'(
+      Agda.Output.render(Agda.InteractionId.toText, Agda.InteractionId.render, output),
       None,
     ))
 
