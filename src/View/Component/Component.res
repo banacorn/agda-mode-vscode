@@ -10,20 +10,20 @@ module Text = {
       | Link(string, option<array<string>>, bool, bool, Common.Link.t)
       | Location(Common.AgdaRange.t, bool)
 
-    let fromElement = x => {
-      open RichText.Element
-      switch x {
-      | Elem(text, attrs) =>
-        switch attrs.link {
-        | Some(link) => Link(text, None, true, false, link)
-        | None =>
-          switch attrs.icon {
-          | Some(kind) => Icon(kind)
-          | None => PlainText(text, None)
-          }
-        }
-      }
-    }
+    // let fromElement = x => {
+    //   open RichText.Element
+    //   switch x {
+    //   | Elem(text, attrs) =>
+    //     switch attrs.link {
+    //     | Some(link) => Link(text, None, true, false, link)
+    //     | None =>
+    //       switch attrs.icon {
+    //       | Some(kind) => Icon(kind)
+    //       | None => PlainText(text, None)
+    //       }
+    //     }
+    //   }
+    // }
 
     let toElements = x => {
       open RichText.Element
@@ -35,13 +35,13 @@ module Text = {
           Elem(text, {icon: None, link: Some(target)}),
         ]
       | Location(range, true) => [
-          Elem("", {icon: Some("link"), link: Some(Common.Link.ToRange(range))}),
+          Elem("", {icon: Some("link"), link: Some(Common.Link.SrcLoc(range))}),
         ]
       | Location(range, false) => [
-          Elem("", {icon: Some("link"), link: Some(Common.Link.ToRange(range))}),
+          Elem("", {icon: Some("link"), link: Some(Common.Link.SrcLoc(range))}),
           Elem(
             Common.AgdaRange.toString(range),
-            {icon: Some("link"), link: Some(Common.Link.ToRange(range))},
+            {icon: Some("link"), link: Some(Common.Link.SrcLoc(range))},
           ),
         ]
       }
@@ -113,19 +113,19 @@ module Text = {
   let empty = Text([])
   let plainText = (~className=?, s) => Text([Segment.PlainText(s, className)])
   let link = (text, ~jump=true, ~hover=false, ~className=?, loc) => Text([
-    Segment.Link(text, className, jump, hover, Common.Link.ToRange(loc)),
+    Segment.Link(text, className, jump, hover, Common.Link.SrcLoc(loc)),
   ])
   let hole = (text, ~jump=true, ~hover=false, ~className=?, holeIndex) => Text([
-    Segment.Link(text, className, jump, hover, Common.Link.ToHole(holeIndex)),
+    Segment.Link(text, className, jump, hover, Common.Link.Hole(holeIndex)),
   ])
   let location = (location, abbr) => Text([Segment.Location(location, abbr)])
 
-  let fromRichText = x => {
-    open RichText
-    switch x {
-    | RichText(elements) => Text(elements->Array.map(Segment.fromElement))
-    }
-  }
+  // let fromRichText = x => {
+  //   open RichText
+  //   switch x {
+  //   | RichText(elements) => Text(elements->Array.map(Segment.fromElement))
+  //   }
+  // }
 
   let toRichText = x => {
     open RichText
@@ -176,11 +176,11 @@ module Text = {
             {string(text)}
           </Component__Link>
         | Location(location, true) =>
-          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToRange(location)>
+          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.SrcLoc(location)>
             <div className="codicon codicon-link" />
           </Component__Link>
         | Location(location, false) =>
-          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.ToRange(location)>
+          <Component__Link key={string_of_int(i)} jump=true target=Common.Link.SrcLoc(location)>
             <div className="codicon codicon-link" /> {string(Common.AgdaRange.toString(location))}
           </Component__Link>
         }

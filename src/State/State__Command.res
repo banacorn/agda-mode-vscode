@@ -299,16 +299,16 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       Editor.focus(state.document)
       let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
       switch link {
-      | ToRange(NoRange) => Promise.resolved()
-      | ToRange(Range(None, _intervals)) => Promise.resolved()
-      | ToRange(Range(Some(fileName), intervals)) =>
+      | SrcLoc(NoRange) => Promise.resolved()
+      | SrcLoc(Range(None, _intervals)) => Promise.resolved()
+      | SrcLoc(Range(Some(fileName), intervals)) =>
         // only select the ranges when it's on the same file
         if path == fileName {
           let ranges = intervals->Array.map(Editor.Range.fromAgdaInterval)
           Editor.Selection.setMany(state.editor, ranges)
         }
         Promise.resolved()
-      | ToHole(index) =>
+      | Hole(index) =>
         let goal = Js.Array.find((goal: Goal.t) => goal.index == index, state.goals)
         switch goal {
         | None => ()

@@ -59,7 +59,7 @@ module Module = {
     Elem(
       s,
       {
-        link: Some(Common.Link.ToHole(i)),
+        link: Some(Common.Link.Hole(i)),
         icon: None,
       },
     ),
@@ -74,11 +74,6 @@ module Module = {
     )
     ->Array.concatMany,
   )
-
-  //   let toText = x =>
-  //     switch x {
-  //     | RichText(elems) => elems->Array.map(Element.toText)->Component.Text.concatMany
-  //     }
 
   let make = (~value: t) => {
     let RichText(elements) = value

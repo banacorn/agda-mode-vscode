@@ -258,16 +258,16 @@ module AgdaRange = {
 
 module Link = {
   type t =
-    | ToRange(AgdaRange.t)
-    | ToHole(int)
+    | SrcLoc(AgdaRange.t)
+    | Hole(int)
 
   open Json.Decode
   open Util.Decode
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "ToRange" => Contents(AgdaRange.decode |> map(range => ToRange(range)))
-    | "ToHole" => Contents(int |> map(index => ToHole(index)))
+    | "SrcLoc" => Contents(AgdaRange.decode |> map(range => SrcLoc(range)))
+    | "Hole" => Contents(int |> map(index => Hole(index)))
     | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
     }
   )
@@ -275,9 +275,9 @@ module Link = {
   open! Json.Encode
   let encode: encoder<t> = x =>
     switch x {
-    | ToRange(range) =>
-      object_(list{("tag", string("ToRange")), ("contents", range |> AgdaRange.encode)})
-    | ToHole(index) => object_(list{("tag", string("ToHole")), ("contents", index |> int)})
+    | SrcLoc(range) =>
+      object_(list{("tag", string("SrcLoc")), ("contents", range |> AgdaRange.encode)})
+    | Hole(index) => object_(list{("tag", string("Hole")), ("contents", index |> int)})
     }
 }
 

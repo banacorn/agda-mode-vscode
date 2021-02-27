@@ -13,18 +13,18 @@ module Provider = {
 
 @react.component
 let make = (
-  ~target=Common.Link.ToRange(NoRange),
+  ~target=Common.Link.SrcLoc(NoRange),
   ~jump=false,
   ~hover=false,
   ~className=list{},
   ~children,
 ) => {
   let sanitizedTarget = switch target {
-  | ToRange(NoRange)
-  | ToRange(Range(_, [])) =>
+  | SrcLoc(NoRange)
+  | SrcLoc(Range(_, [])) =>
     None
-  | ToHole(index) => Some(Common.Link.ToHole(index))
-  | ToRange(range) => Some(Common.Link.ToRange(range))
+  | Hole(index) => Some(Common.Link.Hole(index))
+  | SrcLoc(range) => Some(Common.Link.SrcLoc(range))
   }
 
   let link = React.useContext(eventContext)

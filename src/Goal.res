@@ -123,7 +123,7 @@ module Module: Module = {
     let endPart = j`$(endIndex') $(endRow) $(endColumn)`
 
     if Util.Version.gte(version, "2.5.1") {
-      j`(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])` // after 2.5.1
+      j`(intervalsSrcLoc (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])` // after 2.5.1
     } else {
       j`(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])` // before (not including) 2.5.1
     }
