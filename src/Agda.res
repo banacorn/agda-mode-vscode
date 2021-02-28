@@ -147,30 +147,9 @@ module Comparison = {
 module OutputConstraint: {
   type t<'b>
   let parse: string => option<t<InteractionId.t>>
-  let render: ('b => Text.t, 'b => RichText.t, t<'b>, option<Common.AgdaRange.t>) => RichText.t
-  let decode: Json.Decode.decoder<'b> => Json.Decode.decoder<t<'b>>
+  let render: (t<'b>, option<Common.AgdaRange.t>) => RichText.t
 } = {
-  // CmpEq: true / CmpLeq: false
   type rec t<'b> =
-    | OfType(RichText.t)
-    | JustType('b)
-    | JustSort('b)
-    | CmpInType(Comparison.t, string, 'b, 'b)
-    | CmpElim(array<Polarity.t>, string, array<'b>, array<'b>)
-    | CmpTypes(Comparison.t, 'b, 'b)
-    | CmpLevels(Comparison.t, 'b, 'b)
-    | CmpTeles(Comparison.t, 'b, 'b)
-    | CmpSorts(Comparison.t, 'b, 'b)
-    | Guard(t<'b>, int)
-    | Assign('b, string)
-    | TypedAssign('b, string, string)
-    | PostponedCheckArgs('b, array<string>, string, string)
-    | IsEmptyType(string)
-    | SizeLtSat(string)
-    | FindInstanceOF('b, string, array<(string, string)>)
-    | PTSInstance('b, 'b)
-    | PostponedCheckFunDef(string, string)
-    // NOTE: legacy constructors
     | OfType'(Text.t, Text.t)
     | JustType'(Text.t)
     | JustSort'(Text.t)
@@ -198,216 +177,15 @@ module OutputConstraint: {
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
-  let rec render = (idToText, renderId, value, location) => {
+  let render = (value, location) => {
     let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
-
-    let cmpToText = (cmp, a, b) =>
-      Text.concatMany([idToText(a), Comparison.toText(cmp), idToText(b)])
     switch value {
-    | OfType(text) => text
-    // RichText.concatMany([renderId(name), RichText.text(" : "), expr])->Text.fromRichText
-    | JustType(name) => Text.concatMany([Text.plainText("Type "), idToText(name)])->Text.toRichText
-    | JustSort(name) => Text.concatMany([Text.plainText("Sort "), idToText(name)])->Text.toRichText
-    | CmpInType(cmp, expr, name1, name2) =>
-      Text.concatMany([
-        cmpToText(cmp, name1, name2),
-        Text.plainText(" : "),
-        Text.plainText(expr),
-      ])->Text.toRichText
-    | CmpElim(polarities, expr, names1, names2) =>
-      let polarities = polarities->Array.map(Polarity.toText)->Text.concatMany
-      let names1 = names1->Array.map(idToText)->Text.concatMany
-      let names2 = names2->Array.map(idToText)->Text.concatMany
-      Text.concatMany([
-        names1,
-        polarities,
-        names2,
-        Text.plainText(" : "),
-        Text.plainText(expr),
-      ])->Text.toRichText
-    | CmpTypes(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
-    | CmpLevels(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
-    | CmpTeles(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
-    | CmpSorts(cmp, name1, name2) => cmpToText(cmp, name1, name2)->Text.toRichText
-    | Guard(self, pid) =>
-      RichText.concatMany([
-        render(idToText, renderId, self, None),
-        Text.concatMany([
-          Text.plainText("(blocked by problem "),
-          Text.plainText(string_of_int(pid)),
-          Text.plainText(")"),
-        ])->Text.toRichText,
-      ])
-    | Assign(name, expr) =>
-      Text.concatMany([
-        idToText(name),
-        Text.plainText(" := "),
-        Text.plainText(expr),
-      ])->Text.toRichText
-    | TypedAssign(name, expr1, expr2) =>
-      Text.concatMany([
-        idToText(name),
-        Text.plainText(" := "),
-        Text.plainText(expr1),
-        Text.plainText(" :? "),
-        Text.plainText(expr2),
-      ])->Text.toRichText
-    | PostponedCheckArgs(name, exprs, t0, t1) =>
-      let t0 = Text.concatMany([
-        Text.plainText("(_"),
-        Text.plainText(" : "),
-        Text.plainText(t0),
-        Text.plainText(")"),
-      ])
-      let exprs = exprs->Array.map(expr => Text.plainText(" (" ++ expr ++ ")"))->Text.concatMany
-      Text.concatMany([
-        idToText(name),
-        Text.plainText(" := "),
-        t0,
-        exprs,
-        Text.plainText(" : "),
-        Text.plainText(t1),
-      ])->Text.toRichText
-    | IsEmptyType(expr) =>
-      Text.concatMany([Text.plainText("Is empty: "), Text.plainText(expr)])->Text.toRichText
-    | SizeLtSat(expr) =>
-      Text.concatMany([
-        Text.plainText("Not empty type of sizes: "),
-        Text.plainText(expr),
-      ])->Text.toRichText
-    | FindInstanceOF(name, expr, pairs) =>
-      let line1 = Text.concatMany([
-        Text.plainText("Resolve instance argument "),
-        idToText(name),
-        Text.plainText(" : "),
-        Text.plainText(expr),
-      ])
-      let pairs =
-        pairs
-        ->Array.map(((s, t)) =>
-          Text.concatMany([
-            Text.plainText(s),
-            Text.plainText(" : "),
-            Text.plainText(t),
-            Text.plainText(" \n"),
-          ])
-        )
-        ->Text.concatMany
-      let line2 = Text.concatMany([Text.plainText(" \nCandidate: "), pairs])
-      Text.concatMany([line1, line2])->Text.toRichText
-    | PTSInstance(a, b) =>
-      Text.concatMany([
-        Text.plainText("PTS instance for ("),
-        idToText(a),
-        Text.plainText(" , "),
-        idToText(b),
-        Text.plainText(")"),
-      ])->Text.toRichText
-    | PostponedCheckFunDef(a, b) =>
-      Text.plainText("Check definition of " ++ a ++ " : " ++ b)->Text.toRichText
     | OfType'(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])->Text.toRichText
     | JustType'(e) => Text.concatMany([Text.plainText("Type "), e, location])->Text.toRichText
     | JustSort'(e) => Text.concatMany([Text.plainText("Sort "), e, location])->Text.toRichText
     | Others'(e) => Text.concatMany([e, location])->Text.toRichText
     }
   }
-
-  open Json.Decode
-  open Util.Decode
-  // extra gymnastics to bypass OCaml's limitations on recursion
-  let rec decode': decoder<'b> => decoder<t<'b>> = decodeId => decode(decodeId)
-  and decode: decoder<'b> => decoder<t<'b>> = decodeID =>
-    sum(x =>
-      switch x {
-      | "OfType" => Contents(RichText.decode |> map(text => OfType(text)))
-      | "JustType" => Contents(decodeID |> map(name => JustType(name)))
-      | "JustSort" => Contents(decodeID |> map(name => JustSort(name)))
-      | "CmpInType" =>
-        Contents(
-          tuple4(Comparison.decode, string, decodeID, decodeID) |> map(((
-            cmp,
-            expr,
-            name1,
-            name2,
-          )) => CmpInType(cmp, expr, name1, name2)),
-        )
-      | "CmpElim" =>
-        Contents(
-          tuple4(array(Polarity.decode), string, array(decodeID), array(decodeID)) |> map(((
-            polarities,
-            expr,
-            names1,
-            names2,
-          )) => CmpElim(polarities, expr, names1, names2)),
-        )
-      | "CmpTypes" =>
-        Contents(
-          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpTypes(
-            cmp,
-            name1,
-            name2,
-          )),
-        )
-      | "CmpLevels" =>
-        Contents(
-          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpLevels(
-            cmp,
-            name1,
-            name2,
-          )),
-        )
-      | "CmpTeles" =>
-        Contents(
-          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpTeles(
-            cmp,
-            name1,
-            name2,
-          )),
-        )
-      | "CmpSorts" =>
-        Contents(
-          tuple3(Comparison.decode, decodeID, decodeID) |> map(((cmp, name1, name2)) => CmpSorts(
-            cmp,
-            name1,
-            name2,
-          )),
-        )
-      | "Guard" => Contents(pair(decode'(decodeID), int) |> map(((oc, pid)) => Guard(oc, pid)))
-      | "Assign" => Contents(pair(decodeID, string) |> map(((name, expr)) => Assign(name, expr)))
-      | "TypedAssign" =>
-        Contents(
-          tuple3(decodeID, string, string) |> map(((name, expr1, expr2)) => TypedAssign(
-            name,
-            expr1,
-            expr2,
-          )),
-        )
-      | "PostponedCheckArgs" =>
-        Contents(
-          tuple4(decodeID, array(string), string, string) |> map(((
-            name,
-            exprs,
-            expr1,
-            expr2,
-          )) => PostponedCheckArgs(name, exprs, expr1, expr2)),
-        )
-      | "IsEmptyType" => Contents(string |> map(expr => IsEmptyType(expr)))
-      | "SizeLtSat" => Contents(string |> map(expr => SizeLtSat(expr)))
-      | "FindInstanceOF" =>
-        Contents(
-          tuple3(decodeID, string, array(pair(string, string))) |> map(((
-            name,
-            expr,
-            pairs,
-          )) => FindInstanceOF(name, expr, pairs)),
-        )
-      | "PTSInstance" =>
-        Contents(pair(decodeID, decodeID) |> map(((name1, name2)) => PTSInstance(name1, name2)))
-      | "PostponedCheckFunDef" =>
-        Contents(pair(string, string) |> map(((a, b)) => PostponedCheckFunDef(a, b)))
-      | tag => raise(DecodeError("[Agda.OutputConstraint] Unknown constructor: " ++ tag))
-      }
-    )
 }
 
 module Output = {
@@ -437,9 +215,9 @@ module Output = {
     }
   }
 
-  let render = (idToText, renderId, value) => {
+  let render = value => {
     let Output(oc, location) = value
-    OutputConstraint.render(idToText, renderId, oc, location)
+    OutputConstraint.render(oc, location)
   }
 }
 
