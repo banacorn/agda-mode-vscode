@@ -9,10 +9,9 @@ module DisplayInfo = {
       State.View.display(state, Success("Compilation result"), [Component.Item.plainText(body)])
     | CompilationOkLSP(warnings, errors) =>
       let message = [Component.Item.plainText("The module was successfully compiled.")]
-      let errors =
-        errors->Array.map(raw => Component.Item.error(Component.Text.plainText(raw), Some(raw)))
+      let errors = errors->Array.map(raw => Component.Item.error(RichText.string(raw), Some(raw)))
       let warnings =
-        warnings->Array.map(raw => Component.Item.warning(Component.Text.plainText(raw), Some(raw)))
+        warnings->Array.map(raw => Component.Item.warning(RichText.string(raw), Some(raw)))
       State.View.display(
         state,
         Success("Compilation result"),
@@ -28,17 +27,14 @@ module DisplayInfo = {
       State.View.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
       let goals =
-        goals
-        ->Array.map(((oc, raw)) => [Component.Item.Unlabeled'(oc, Some(raw))])
-        ->Array.concatMany
+        goals->Array.map(((oc, raw)) => [Component.Item.Unlabeled(oc, Some(raw))])->Array.concatMany
       let metas =
         metas
-        ->Array.map(((oc, raw, range)) => [Component.Item.Unlabeled'(oc, Some(raw))])
+        ->Array.map(((oc, raw, range)) => [Component.Item.Unlabeled(oc, Some(raw))])
         ->Array.concatMany
-      let errors =
-        errors->Array.map(raw => Component.Item.error(Component.Text.plainText(raw), Some(raw)))
+      let errors = errors->Array.map(raw => Component.Item.error(RichText.string(raw), Some(raw)))
       let warnings =
-        warnings->Array.map(raw => Component.Item.warning(Component.Text.plainText(raw), Some(raw)))
+        warnings->Array.map(raw => Component.Item.warning(RichText.string(raw), Some(raw)))
       State.View.display(state, Plain(header), Array.concatMany([goals, metas, errors, warnings]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)

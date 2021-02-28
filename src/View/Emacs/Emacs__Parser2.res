@@ -49,7 +49,7 @@ let parseError: string => array<Item.t> = raw => {
   ->partiteWarningsOrErrors("errors")
   ->Js.Dict.get("errors")
   ->Option.mapWithDefault([], entries =>
-    entries->Array.map(entry => Item.error(Text.parse(entry), None))
+    entries->Array.map(entry => Item.error(RichText.parse(entry), None))
   )
 }
 
@@ -86,25 +86,25 @@ let parseGoalType: string => array<Item.t> = raw => {
       ->Js.String.sliceToEnd(~from=5, _)
       ->Agda.Expr.parse
       ->Option.mapWithDefault([], expr => [
-        Item.Labeled("Goal", "special", Agda.Expr.toText(expr), None),
+        Item.Labeled("Goal", "special", Agda.Expr.render(expr), None),
       ])
     | "have" =>
       Js.Array.joinWith("\n", lines)
       ->Js.String.sliceToEnd(~from=5, _)
       ->Agda.Expr.parse
       ->Option.mapWithDefault([], expr => [
-        Item.Labeled("Have", "special", Agda.Expr.toText(expr), None),
+        Item.Labeled("Have", "special", Agda.Expr.render(expr), None),
       ])
     | "interactionMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled'(Agda.Output.render(output), None))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled'(Agda.Output.render(output), None))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None))
     | _ => []
     }
   )
@@ -173,18 +173,18 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
   ->Js.Dict.entries
   ->Array.map(((key, lines)) =>
     switch key {
-    | "warnings" => lines->Array.map(line => Item.warning(Text.parse(line), None))
-    | "errors" => lines->Array.map(line => Item.error(Text.parse(line), None))
+    | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
+    | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
     | "interactionMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled'(Agda.Output.render(output), None))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled'(Agda.Output.render(output), None))
+      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None))
     | _ => []
     }
   )
@@ -196,10 +196,12 @@ let parseOutputs: string => array<Item.t> = raw => {
   lines
   ->Array.map(Agda.Output.parse)
   ->Array.keepMap(x => x)
-  ->Array.map(output => Item.Unlabeled'(Agda.Output.render(output), None))
+  ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None))
 }
 
-let parseTextWithLocation: string => array<Item.t> = raw => [Item.Unlabeled(Text.parse(raw), None)]
+let parseTextWithLocation: string => array<Item.t> = raw => [
+  Item.Unlabeled(RichText.parse(raw), None),
+]
 
 let parseSearchAbout: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)
@@ -210,17 +212,17 @@ let parseSearchAbout: string => array<Item.t> = raw => {
     ->Emacs__Parser.unindent
     ->Array.map(Agda.Output.parse)
     ->Array.keepMap(x => x)
-    ->Array.map(output => Item.Unlabeled'(Agda.Output.render(output), None))
+    ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None))
 
   let target = lines[0]->Option.map(Js.String.sliceToEnd(~from=18))
   switch target {
-  | None => [Item.Unlabeled(Text.parse("Don't know what to search about"), None)]
+  | None => [Item.Unlabeled(RichText.parse("Don't know what to search about"), None)]
   | Some(target) =>
     if Array.length(outputs) == 0 {
-      [Item.Unlabeled(Text.parse("There are no definitions about " ++ target), None)]
+      [Item.Unlabeled(RichText.parse("There are no definitions about " ++ target), None)]
     } else {
       [
-        [Item.Unlabeled(Text.parse("Definitions about " ++ (target ++ ":")), None)],
+        [Item.Unlabeled(RichText.parse("Definitions about " ++ (target ++ ":")), None)],
         outputs,
       ]->Array.concatMany
     }

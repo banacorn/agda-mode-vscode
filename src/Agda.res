@@ -3,7 +3,6 @@
 //  VSCode imports should not be allowed in this module, otherwise it would contaminate the view
 //
 
-open Component
 open Belt
 
 module Term = {
@@ -12,18 +11,11 @@ module Term = {
     | QuestionMark(int)
     | Underscore(string)
 
-  let toText = x =>
+  let render = x =>
     switch x {
-    | Plain(string) => Text.plainText(~className=["expr"], string)
-    | QuestionMark(i) =>
-      Text.hole(
-        "?" ++ string_of_int(i),
-        ~className=["expr", "question-mark"],
-        ~jump=true,
-        ~hover=true,
-        i,
-      )
-    | Underscore(string) => Text.plainText(~className=["expr underscore"], "_" ++ string)
+    | Plain(string) => RichText.string(string)
+    | QuestionMark(i) => RichText.hole(i)
+    | Underscore(string) => RichText.string("_" ++ string)
     }
 }
 
@@ -47,113 +39,19 @@ module Expr = {
     )
     ->Array.keepMap(x => x)
     ->(x => Some(x))
-  let toText = xs => xs->Array.map(Term.toText)->Text.concatMany
-}
-
-module NamedMeta = {
-  type t = NamedMeta(string, int)
-
-  let toText = value => {
-    switch value {
-    | NamedMeta("", int)
-    | NamedMeta("_", int) =>
-      Text.plainText(string_of_int(int))
-    | NamedMeta(string, int) => Text.plainText("_" ++ string ++ string_of_int(int))
-    }
-  }
-
-  let render = value => {
-    switch value {
-    | NamedMeta("", int)
-    | NamedMeta("_", int) =>
-      RichText.text(string_of_int(int))
-    | NamedMeta(string, int) => RichText.text("_" ++ string ++ string_of_int(int))
-    }
-  }
-
-  open Json.Decode
-  let decode: decoder<t> = pair(string, int) |> map(((name, id)) => NamedMeta(name, id))
-}
-
-// InteractionId
-module InteractionId = {
-  type t = InteractionId(int)
-
-  let toText = value => {
-    switch value {
-    | InteractionId(index) => Text.hole("?" ++ string_of_int(index), index)
-    }
-  }
-
-  let render = value => {
-    switch value {
-    | InteractionId(index) => RichText.hole("?" ++ string_of_int(index), index)
-    }
-  }
-
-  open Json.Decode
-  let decode: decoder<t> = int |> map(id => InteractionId(id))
-}
-
-// Polarity
-module Polarity = {
-  type t =
-    | Covariant
-    | Contravariant
-    | Invariant
-    | Nonvariant
-
-  let toText = value => {
-    switch value {
-    | Covariant => Text.plainText(" + ")
-    | Contravariant => Text.plainText(" - ")
-    | Invariant => Text.plainText(" * ")
-    | Nonvariant => Text.plainText(" _ ")
-    }
-  }
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "Covariant" => TagOnly(Covariant)
-    | "Contravariant" => TagOnly(Contravariant)
-    | "Invariant" => TagOnly(Invariant)
-    | "Nonvariant" => TagOnly(Nonvariant)
-    | tag => raise(DecodeError("[Agda.Polarity] Unknown constructor: " ++ tag))
-    }
-  )
-}
-
-module Comparison = {
-  type t = CmpEq | CmpLeq
-
-  let toText = value => {
-    switch value {
-    | CmpEq => Text.plainText(" = ")
-    | CmpLeq => Text.plainText(" =< ")
-    }
-  }
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "CmpEq" => TagOnly(CmpEq)
-    | "CmpLeq" => TagOnly(CmpLeq)
-    | tag => raise(DecodeError("[Agda.Comparison] Unknown constructor: " ++ tag))
-    }
-  )
+  let render = xs => xs->Array.map(Term.render)->RichText.concatMany
 }
 
 module OutputConstraint: {
-  type t<'b>
-  let parse: string => option<t<InteractionId.t>>
-  let render: (t<'b>, option<Common.AgdaRange.t>) => RichText.t
+  type t
+  let parse: string => option<t>
+  let render: (t, option<Common.AgdaRange.t>) => RichText.t
 } = {
-  type rec t<'b> =
-    | OfType'(Text.t, Text.t)
-    | JustType'(Text.t)
-    | JustSort'(Text.t)
-    | Others'(Text.t)
+  type rec t =
+    | OfType'(RichText.t, RichText.t)
+    | JustType'(RichText.t)
+    | JustSort'(RichText.t)
+    | Others'(RichText.t)
 
   let parseOfType =
     %re("/^([^\\:]*) \\: ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
@@ -162,34 +60,35 @@ module OutputConstraint: {
       ->Option.flatMap(type_ =>
         captured
         ->Emacs__Parser.at(1, Expr.parse)
-        ->Option.flatMap(term => Some(OfType'(Expr.toText(term), Expr.toText(type_))))
+        ->Option.flatMap(term => Some(OfType'(Expr.render(term), Expr.render(type_))))
       )
     )
   let parseJustType =
     %re("/^Type ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType'(Expr.toText(type_)))
+      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType'(Expr.render(type_)))
     )
   let parseJustSort =
     %re("/^Sort ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort'(Expr.toText(sort)))
+      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort'(Expr.render(sort)))
     )
-  let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others'(Expr.toText(raw')))
+  let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others'(Expr.render(raw')))
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
   let render = (value, location) => {
-    let location = location->Option.mapWithDefault(Text.empty, loc => Text.location(loc, true))
+    open RichText
+    let location = location->Option.mapWithDefault(empty, loc => srcLoc(loc))
     switch value {
-    | OfType'(e, t) => Text.concatMany([e, Text.plainText(" : "), t, location])->Text.toRichText
-    | JustType'(e) => Text.concatMany([Text.plainText("Type "), e, location])->Text.toRichText
-    | JustSort'(e) => Text.concatMany([Text.plainText("Sort "), e, location])->Text.toRichText
-    | Others'(e) => Text.concatMany([e, location])->Text.toRichText
+    | OfType'(e, t) => concatMany([e, string(" : "), t, location])
+    | JustType'(e) => concatMany([string("Type "), e, location])
+    | JustSort'(e) => concatMany([string("Sort "), e, location])
+    | Others'(e) => concatMany([e, location])
     }
   }
 }
 
 module Output = {
-  type t<'b> = Output(OutputConstraint.t<'b>, option<Common.AgdaRange.t>)
+  type t = Output(OutputConstraint.t, option<Common.AgdaRange.t>)
 
   // parsing serialized data
   let parseOutputWithoutLocation = raw =>

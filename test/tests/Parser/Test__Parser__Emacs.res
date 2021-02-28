@@ -12,7 +12,7 @@ module Assert = BsMocha.Assert
 // Not in scope:
 //   c at 1,1-2
 // when scope checking c |j};
-//       let actual = Text.parse(input);
+//       let actual = RichText.parse(input);
 //       let expected = Component.Text.Text([||]);
 //       Assert.equal(expected, actual);
 //     })

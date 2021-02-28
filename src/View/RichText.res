@@ -54,12 +54,29 @@ module Module = {
 
   type t = RichText(array<Element.t>)
 
-  let text = s => RichText([Elem(s, Attributes.empty)])
-  let hole = (s, i) => RichText([
+  let empty = RichText([])
+  let string = s => RichText([Elem(s, Attributes.empty)])
+  let hole = i => RichText([
     Elem(
-      s,
+      "?" ++ string_of_int(i),
       {
         link: Some(Common.Link.Hole(i)),
+        icon: None,
+      },
+    ),
+  ])
+  let srcLoc = range => RichText([
+    Elem(
+      "",
+      {
+        link: None,
+        icon: Some("link"),
+      },
+    ),
+    Elem(
+      Common.AgdaRange.toString(range),
+      {
+        link: Some(Common.Link.SrcLoc(range)),
         icon: None,
       },
     ),
@@ -74,6 +91,22 @@ module Module = {
     )
     ->Array.concatMany,
   )
+
+  // from string
+  let parse = raw =>
+    raw
+    ->Js.String.splitByRe(
+      %re("/([^\\(\\)\\s]+\\:(?:\\d+\\,\\d+\\-\\d+\\,\\d+|\\d+\\,\\d+\\-\\d+))/"),
+      _,
+    )
+    ->Array.keepMap(x => x)
+    ->Array.mapWithIndex((i, token) =>
+      switch mod(i, 2) {
+      | 1 => token->Common.AgdaRange.parse->Option.mapWithDefault(string(token), loc => srcLoc(loc))
+      | _ => string(token)
+      }
+    )
+    ->concatMany
 
   let make = (~value: t) => {
     let RichText(elements) = value
