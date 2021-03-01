@@ -2,6 +2,31 @@ open Belt
 
 // TODO: sort these errors out
 module Error = {
+  module LSP = {
+    module CommandErr = {
+      type t =
+        | CannotDecodeJSON(string)
+        | CannotParseCommand(string)
+
+      let toString = x =>
+        switch x {
+        | CannotDecodeJSON(s) => "Cannot decode JSON: \n" ++ s
+        | CannotParseCommand(s) => "Cannot read IOTCM: \n" ++ s
+        }
+
+      open Json.Decode
+      open Util.Decode
+      let decode: decoder<t> = sum(x =>
+        switch x {
+        | "CmdErrCannotDecodeJSON" => Contents(string |> map(version => CannotDecodeJSON(version)))
+        | "CmdErrCannotParseCommand" =>
+          Contents(string |> map(version => CannotParseCommand(version)))
+        | tag => raise(DecodeError("[LSP.CommandErr] Unknown constructor: " ++ tag))
+        }
+      )
+    }
+  }
+
   type t =
     // probing "agda" or "als"
     | CannotConnectViaStdIO(AgdaModeVscode.Process.PathSearch.Error.t)
@@ -17,6 +42,7 @@ module Error = {
     | CannotDecodeReaction(string, Js.Json.t)
     | InitializationFailed
     // TODO: refactor these
+    | LSPCommandError(LSP.CommandErr.t)
     | LSPCannotConnectDevServer
     | LSPInternalError(string)
     | LSPConnection(Js.Exn.t)
@@ -62,6 +88,7 @@ module Error = {
     | CannotDecodeRequest(e) => ("LSP: Server Cannot Decode Request", e)
     | InitializationFailed => ("LSP: InitializationFailed", "")
 
+    | LSPCommandError(e) => ("[LSP] Cannot Send Command", LSP.CommandErr.toString(e))
     | LSPCannotConnectDevServer => ("LSP: Cannot Connect to the Dev Server", "")
     | LSPInternalError(e) => ("LSP: Internal Error", e)
     | LSPConnection(e) => ("LSP: Connection Failed", Util.JsError.toString(e))
@@ -366,22 +393,21 @@ module Emacs: Emacs = {
 module LSP = {
   type method = ViaStdIO(string, string) | ViaTCP(int)
 
-  module LSPReq = {
-    type t = Initialize | Command(string)
+  module CommandReq = {
+    type t = SYN | Command(string)
 
     open! Json.Encode
     let encode: encoder<t> = x =>
       switch x {
-      | Initialize => object_(list{("tag", string("ReqInitialize"))})
-      | Command(raw) => object_(list{("tag", string("ReqCommand")), ("contents", raw |> string)})
+      | SYN => object_(list{("tag", string("CmdReqSYN"))})
+      | Command(raw) => object_(list{("tag", string("CmdReq")), ("contents", raw |> string)})
       }
   }
 
-  module LSPRes = {
+  module CommandRes = {
     type t =
-      | Initialize(version)
-      | Command
-      | ServerCannotDecodeRequest(string)
+      | ACK(version)
+      | Result(option<Error.LSP.CommandErr.t>)
 
     let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
 
@@ -389,11 +415,9 @@ module LSP = {
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "ResInitialize" => Contents(string |> map(version => Initialize(version)))
-      | "ResCommand" => TagOnly(Command)
-      | "ResCannotDecodeRequest" =>
-        Contents(string |> map(version => ServerCannotDecodeRequest(version)))
-      | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
+      | "CmdResACK" => Contents(string |> map(version => ACK(version)))
+      | "CmdRes" => Contents(optional(Error.LSP.CommandErr.decode) |> map(error => Result(error)))
+      | tag => raise(DecodeError("[LSP.CommandRes] Unknown constructor: " ++ tag))
       }
     )
   }
@@ -711,8 +735,8 @@ module LSP = {
       }
 
     // catches exceptions occured when decoding JSON values
-    let decodeResponse = (json: Js.Json.t): result<LSPRes.t, Error.t> =>
-      switch LSPRes.decode(json) {
+    let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
+      switch CommandRes.decode(json) {
       | response => Ok(response)
       | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
       }
@@ -725,10 +749,10 @@ module LSP = {
 
     let onError = Client.onError
 
-    let sendRequestPrim = (client, request): Promise.t<result<LSPRes.t, Error.t>> => {
+    let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
       client
-      ->Client.sendRequest(LSPReq.encode(request))
-      ->Promise.flatMapOk(json => Promise.resolved(decodeResponse(json)))
+      ->Client.sendRequest(CommandReq.encode(request))
+      ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
     }
 
     // see if the server is available
@@ -778,12 +802,10 @@ module LSP = {
             Promise.resolved(Error(error))
           | Ok(client) =>
             // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-            sendRequestPrim(client, Initialize)->Promise.flatMapOk(response =>
+            sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
               switch response {
-              | ServerCannotDecodeRequest(msg) =>
-                Promise.resolved(Error(Error.CannotDecodeRequest(msg)))
-              | Command => Promise.resolved(Error(Error.InitializationFailed))
-              | Initialize(version) =>
+              | Result(_) => Promise.resolved(Error(Error.InitializationFailed))
+              | ACK(version) =>
                 // update the status
                 singleton.contents = Connected(client, version)
                 Promise.resolved(Ok((version, client.method)))
@@ -831,10 +853,10 @@ module LSP = {
         sendRequestPrim(client, Command(request))
         ->Promise.flatMapOk(result =>
           switch result {
-          | ServerCannotDecodeRequest(e) => Promise.resolved(Error(Error.CannotDecodeRequest(e)))
-          | Initialize(_) => Promise.resolved(Error(Error.InitializationFailed))
+          | ACK(_) => Promise.resolved(Error(Error.InitializationFailed))
+          | Result(Some(error)) => Promise.resolved(Error(Error.LSPCommandError(error)))
           // waits for `ResponseEnd`
-          | Command => waitForResponseEnd
+          | Result(None) => waitForResponseEnd
           }
         )
         // stop listening for notifications once the Command

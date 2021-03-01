@@ -5,7 +5,6 @@ module Item = {
     | Labeled(string, string, RichText.t, option<string>) // label // style // body // raw string
     | Unlabeled(RichText.t, option<string>) // body // raw string
 
-  // let plainText = s => Unlabeled(Text.plainText(s), None)
   let plainText = s => Unlabeled(RichText.string(s), None)
   let error = (s, raw) => Labeled("Error", "error", s, raw)
   let warning = (s, raw) => Labeled("Warning", "warning", s, raw)
