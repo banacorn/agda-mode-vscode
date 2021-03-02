@@ -268,10 +268,18 @@
         content    : " ";
         white-space: pre;
     }
+
+    &.component-hole {
+        color: @hole;
+    }
 }
 
 .component-link:hover {
     color          : @link-hover;
     cursor         : pointer;
     text-decoration: underline;
+
+    &.component-hole {
+        color: @hole-hover;
+    }
 }

@@ -16,7 +16,7 @@ let make = (
   ~target=Common.Link.SrcLoc(NoRange),
   ~jump=false,
   ~hover=false,
-  ~className=list{},
+  ~className=[],
   ~children,
 ) => {
   let sanitizedTarget = switch target {
@@ -28,6 +28,7 @@ let make = (
   }
 
   let link = React.useContext(eventContext)
+  let className = Belt.List.fromArray(className)
 
   switch sanitizedTarget {
   | None =>

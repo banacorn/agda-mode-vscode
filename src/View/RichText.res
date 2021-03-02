@@ -1,4 +1,5 @@
 open Belt
+
 module type Module = {
   type t
   // constructors
@@ -17,17 +18,20 @@ module Module = {
   module Attributes = {
     type t = {
       link: option<Common.Link.t>,
+      classNames: array<string>,
       icon: option<string>,
     }
 
     let empty = {
       link: None,
+      classNames: [],
       icon: None,
     }
 
     open! Json.Decode
     let decode: decoder<t> = json => {
       link: json |> field("attrLink", optional(Common.Link.decode)),
+      classNames: json |> field("attrClassNames", array(string)),
       icon: json |> field("attrIcon", optional(string)),
     }
 
@@ -35,6 +39,7 @@ module Module = {
     let encode: encoder<t> = x =>
       object_(list{
         ("attrLink", x.link |> nullable(Common.Link.encode)),
+        ("attrClassNames", x.classNames |> array(string)),
         ("attrIcon", x.icon |> nullable(string)),
       })
   }
@@ -61,6 +66,7 @@ module Module = {
       "?" ++ string_of_int(i),
       {
         link: Some(Common.Link.Hole(i)),
+        classNames: [],
         icon: None,
       },
     ),
@@ -70,6 +76,7 @@ module Module = {
       "",
       {
         link: None,
+        classNames: [],
         icon: Some("link"),
       },
     ),
@@ -77,6 +84,7 @@ module Module = {
       Common.AgdaRange.toString(range),
       {
         link: Some(Common.Link.SrcLoc(range)),
+        classNames: [],
         icon: None,
       },
     ),
@@ -117,7 +125,8 @@ module Module = {
         | Elem(text, attributes) =>
           switch attributes.link {
           | Some(target) =>
-            <Component__Link key={string_of_int(i)} jump=true hover=false target>
+            <Component__Link
+              key={string_of_int(i)} className=attributes.classNames jump=true hover=false target>
               {React.string(text)}
             </Component__Link>
           | None =>

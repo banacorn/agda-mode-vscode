@@ -266,8 +266,8 @@ module Link = {
 
   let decode: decoder<t> = sum(x =>
     switch x {
-    | "SrcLoc" => Contents(AgdaRange.decode |> map(range => SrcLoc(range)))
-    | "Hole" => Contents(int |> map(index => Hole(index)))
+    | "LinkRange" => Contents(AgdaRange.decode |> map(range => SrcLoc(range)))
+    | "LinkHole" => Contents(int |> map(index => Hole(index)))
     | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
     }
   )
@@ -276,8 +276,8 @@ module Link = {
   let encode: encoder<t> = x =>
     switch x {
     | SrcLoc(range) =>
-      object_(list{("tag", string("SrcLoc")), ("contents", range |> AgdaRange.encode)})
-    | Hole(index) => object_(list{("tag", string("Hole")), ("contents", index |> int)})
+      object_(list{("tag", string("LinkRange")), ("contents", range |> AgdaRange.encode)})
+    | Hole(index) => object_(list{("tag", string("LinkHole")), ("contents", index |> int)})
     }
 }
 
