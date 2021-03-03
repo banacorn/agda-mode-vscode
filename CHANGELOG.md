@@ -5,8 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
-## v0.2.8 - 2021-02-26
+## v0.2.8 - 2021-03-03
 
 ### Added
 - Preliminarily support for [Agda Language Server](https://github.com/banacorn/agda-language-server).
@@ -14,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - #49: Case split ignores variables when hole has too few spaces
 - #47: Ctrl-X doesn't work as cut with agda-mode 
+- #45: Cannot copy text from the Agda window
+- #44: Goto definition won't work on Windows
 - #42: ^C ^{space} chord not working
 
 ## v0.2.7 - 2021-01-17
