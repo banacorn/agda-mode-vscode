@@ -1,9 +1,10 @@
 .DS_Store
 *.vsix
 
-# editor
-.vscode
+# Editor
+# NOTE: Exceptions like launch.json should be placed ahead
 !.vscode/launch.json
+.vscode
 .vscode-test
 
 # OCaml
