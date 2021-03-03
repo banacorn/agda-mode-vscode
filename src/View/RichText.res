@@ -66,7 +66,7 @@ module Module = {
       "?" ++ string_of_int(i),
       {
         link: Some(Common.Link.Hole(i)),
-        classNames: [],
+        classNames: ["component-link component-hole"],
         icon: None,
       },
     ),
@@ -84,7 +84,7 @@ module Module = {
       Common.AgdaRange.toString(range),
       {
         link: Some(Common.Link.SrcLoc(range)),
-        classNames: [],
+        classNames: ["component-link component-location"],
         icon: None,
       },
     ),
