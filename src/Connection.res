@@ -3,6 +3,7 @@ open Belt
 // TODO: sort these errors out
 module Error = {
   module LSP = {
+    // Errors when sending Command to the server
     module CommandErr = {
       type t =
         | CannotDecodeJSON(string)
@@ -25,6 +26,44 @@ module Error = {
         }
       )
     }
+
+    type t =
+      // Errors originated from the LSP client within
+      | Connection(Js.Exn.t)
+      // Errors when sending Command to ther server
+      | SendCommand(CommandErr.t)
+      // Cannot initialize the connection
+      | Initialize
+      // Parsing / Decoding
+      | CannotDecodeCommandRes(string, Js.Json.t)
+      | CannotDecodeResponse(string, Js.Json.t)
+
+    let toString = error =>
+      switch error {
+      | Connection(exn) =>
+        let isECONNREFUSED =
+          Js.Exn.message(exn)->Option.mapWithDefault(
+            false,
+            Js.String.startsWith("connect ECONNREFUSED"),
+          )
+
+        isECONNREFUSED
+          ? ("[LSP] Connection Error", "Please enter \":main -d\" in ghci")
+          : (
+              "[LSP] Client Internal Connection Error",
+              Js.Exn.message(exn)->Option.getWithDefault(""),
+            )
+      | SendCommand(e) => ("[LSP] Cannot Send Command", CommandErr.toString(e))
+      | Initialize => ("[LSP] Cannot Initialize Connection", "")
+      | CannotDecodeCommandRes(msg, json) => (
+          "[LSP] Cannot Send Command",
+          "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Json.stringify(json),
+        )
+      | CannotDecodeResponse(msg, json) => (
+          "[LSP] Cannot Parse Response",
+          "Cannot decode responses from the server" ++ msg ++ "\n" ++ Json.stringify(json),
+        )
+      }
   }
 
   type t =
@@ -35,20 +74,8 @@ module Error = {
     | Validation(Process.Validation.Error.t)
     | Process(Process.Error.t)
     // LSP related
-    | ConnectionError(Js.Exn.t)
-    | CannotSendRequest(Js.Exn.t)
-    // Encoding / Decoding
-    | CannotDecodeResponse(string, Js.Json.t)
-    | CannotDecodeReaction(string, Js.Json.t)
-    | InitializationFailed
-    // TODO: refactor these
-    | LSPCommandError(LSP.CommandErr.t)
-    | LSPCannotConnectDevServer
-    | LSPInternalError(string)
-    | LSPConnection(Js.Exn.t)
-    | LSPSendRequest(Js.Exn.t)
-    | LSPClientCannotDecodeResponse(string, Js.Json.t)
-    | CannotDecodeRequest(string)
+    | LSP(LSP.t)
+    // Emacs S-expression parse error
     | ResponseParseError(Parser.Error.t)
     | NotConnectedYet
   let toString = x =>
@@ -63,41 +90,7 @@ module Error = {
     | PathSearch(e) => Process.PathSearch.Error.toString(e)
     | Validation(e) => Process.Validation.Error.toString(e)
     | Process(e) => Process.Error.toString(e)
-    | ConnectionError(exn) =>
-      let isECONNREFUSED =
-        Js.Exn.message(exn)->Option.mapWithDefault(
-          false,
-          Js.String.startsWith("connect ECONNREFUSED"),
-        )
-
-      isECONNREFUSED
-        ? ("LSP Connection Error", "Please enter \":main -d\" in ghci")
-        : ("LSP Client Error", Js.Exn.message(exn)->Option.getWithDefault(""))
-    | CannotSendRequest(exn) => (
-        "PANIC: Cannot send request",
-        "Please file an issue\n" ++ Js.Exn.message(exn)->Option.getWithDefault(""),
-      )
-    | CannotDecodeResponse(msg, json) => (
-        "PANIC: Cannot decode response",
-        "Please file an issue\n\n" ++ msg ++ "\n" ++ Json.stringify(json),
-      )
-    | CannotDecodeReaction(msg, json) => (
-        "PANIC: Cannot decode Response from the LSP Server",
-        "Please file an issue\n\n" ++ msg ++ "\n" ++ Json.stringify(json),
-      )
-    | CannotDecodeRequest(e) => ("LSP: Server Cannot Decode Request", e)
-    | InitializationFailed => ("LSP: InitializationFailed", "")
-
-    | LSPCommandError(e) => ("[LSP] Cannot Send Command", LSP.CommandErr.toString(e))
-    | LSPCannotConnectDevServer => ("LSP: Cannot Connect to the Dev Server", "")
-    | LSPInternalError(e) => ("LSP: Internal Error", e)
-    | LSPConnection(e) => ("LSP: Connection Failed", Util.JsError.toString(e))
-    | LSPSendRequest(e) => ("LSP: Cannot Send Request", Util.JsError.toString(e))
-    | LSPClientCannotDecodeResponse(e, json) => (
-        "LSP: Client Cannot Decode Response",
-        e ++ "\n" ++ Js.Json.stringify(json),
-      )
-    // | LSPCannotDecodeRequest(e) => ("LSP: Cannot Decode Request", e)
+    | LSP(e) => LSP.toString(e)
     | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
     | NotConnectedYet => ("Connection not established yet", "")
     }
@@ -624,7 +617,7 @@ module LSP = {
       let dataChan: Chan.t<Js.Json.t> = Chan.make()
 
       let onError = callback =>
-        errorChan->Chan.on(e => callback(Error.ConnectionError(e)))->VSCode.Disposable.make
+        errorChan->Chan.on(e => callback(Error.LSP(Connection(e))))->VSCode.Disposable.make
       let onResponse = callback => dataChan->Chan.on(callback)->VSCode.Disposable.make
 
       let sendRequest = (self, data) =>
@@ -634,7 +627,7 @@ module LSP = {
         ->Promise.flatMapOk(() => {
           self.client->LSP.LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
         })
-        ->Promise.mapError(exn => Error.CannotSendRequest(exn))
+        ->Promise.mapError(exn => Error.LSP(Connection(exn)))
 
       let destroy = self => {
         self.subscription->VSCode.Disposable.dispose->ignore
@@ -642,8 +635,6 @@ module LSP = {
       }
 
       let make = method => {
-        // let emittedError = ref(false)
-
         let serverOptions = switch method {
         | ViaTCP(port) => LSP.ServerOptions.makeWithStreamInfo(port)
         | ViaStdIO(name, _path) => LSP.ServerOptions.makeWithCommand(name)
@@ -700,10 +691,9 @@ module LSP = {
         Promise.race(list{
           self.client->LSP.LanguageClient.onReady->Promise.Js.toResult,
           errorChan->Chan.once->Promise.map(err => Error(err)),
-        })
-        ->Promise.map(result =>
+        })->Promise.map(result =>
           switch result {
-          | Error(error) => Error(error)
+          | Error(error) => Error(Error.LSP(Connection(error)))
           | Ok() =>
             self.client->LSP.LanguageClient.onRequest("agda", json => {
               dataChan->Chan.emit(json)
@@ -712,7 +702,6 @@ module LSP = {
             Ok(self)
           }
         )
-        ->Promise.mapError(e => Error.ConnectionError(e))
       }
     }
 
@@ -738,13 +727,14 @@ module LSP = {
     let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
       switch CommandRes.decode(json) {
       | response => Ok(response)
-      | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
+      | exception Json.Decode.DecodeError(msg) =>
+        Error(Error.LSP(CannotDecodeCommandRes(msg, json)))
       }
 
     let decodeReaction = (json: Js.Json.t): result<LSPReaction.t, Error.t> =>
       switch LSPReaction.decode(json) {
       | reaction => Ok(reaction)
-      | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeReaction(msg, json))
+      | exception Json.Decode.DecodeError(msg) => Error(Error.LSP(CannotDecodeResponse(msg, json)))
       }
 
     let onError = Client.onError
@@ -804,7 +794,7 @@ module LSP = {
             // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
             sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
               switch response {
-              | Result(_) => Promise.resolved(Error(Error.InitializationFailed))
+              | Result(_) => Promise.resolved(Error(Error.LSP(Initialize)))
               | ACK(version) =>
                 // update the status
                 singleton.contents = Connected(client, version)
@@ -853,8 +843,8 @@ module LSP = {
         sendRequestPrim(client, Command(request))
         ->Promise.flatMapOk(result =>
           switch result {
-          | ACK(_) => Promise.resolved(Error(Error.InitializationFailed))
-          | Result(Some(error)) => Promise.resolved(Error(Error.LSPCommandError(error)))
+          | ACK(_) => Promise.resolved(Error(Error.LSP(Initialize)))
+          | Result(Some(error)) => Promise.resolved(Error(Error.LSP(SendCommand(error))))
           // waits for `ResponseEnd`
           | Result(None) => waitForResponseEnd
           }
