@@ -15,78 +15,82 @@ module type Module = {
 }
 
 module Module = {
-  module Attributes = {
-    type t = {
-      link: option<Common.Link.t>,
-      classNames: array<string>,
-      icon: option<string>,
-    }
-
-    let empty = {
-      link: None,
-      classNames: [],
-      icon: None,
-    }
+  module ClassNames = {
+    type t = array<string>
 
     open! Json.Decode
-    let decode: decoder<t> = json => {
-      link: json |> field("attrLink", optional(Common.Link.decode)),
-      classNames: json |> field("attrClassNames", array(string)),
-      icon: json |> field("attrIcon", optional(string)),
-    }
+    let decode: decoder<t> = array(string)
 
     open! Json.Encode
-    let encode: encoder<t> = x =>
-      object_(list{
-        ("attrLink", x.link |> nullable(Common.Link.encode)),
-        ("attrClassNames", x.classNames |> array(string)),
-        ("attrIcon", x.icon |> nullable(string)),
-      })
+    let encode: encoder<t> = array(string)
   }
 
-  module Element = {
-    type t = Elem(string, Attributes.t)
+  module Inline = {
+    type rec t =
+      | Icon(string, ClassNames.t)
+      | Text(string, ClassNames.t)
+      | Link(Common.AgdaRange.t, array<t>, ClassNames.t)
+      | Hole(int)
 
     open! Json.Decode
-    let decode: decoder<t> = pair(string, Attributes.decode) |> map(((s, attrs)) => Elem(s, attrs))
+    open Util.Decode
+    let rec decode: unit => decoder<t> = () =>
+      sum(x =>
+        switch x {
+        | "Icon" => Contents(pair(string, ClassNames.decode) |> map(((s, cs)) => Icon(s, cs)))
+        | "Text" => Contents(pair(string, ClassNames.decode) |> map(((s, cs)) => Text(s, cs)))
+        | "Link" =>
+          Contents(
+            tuple3(Common.AgdaRange.decode, array(decode()), ClassNames.decode) |> map(((
+              r,
+              s,
+              cs,
+            )) => Link(r, s, cs)),
+          )
+
+        | "Hole" => Contents(int |> map(i => Hole(i)))
+        | tag => raise(DecodeError("[RichText.Inline] Unknown constructor: " ++ tag))
+        }
+      )
+    let decode = decode()
 
     open! Json.Encode
-    let encode: encoder<t> = x =>
+    let rec encode: encoder<t> = x =>
       switch x {
-      | Elem(s, attrs) => (s, attrs) |> pair(string, Attributes.encode)
+      | Icon(s, cs) =>
+        object_(list{
+          ("tag", string("Icon")),
+          ("contents", (s, cs) |> pair(string, ClassNames.encode)),
+        })
+
+      | Text(s, cs) =>
+        object_(list{
+          ("tag", string("Text")),
+          ("contents", (s, cs) |> pair(string, ClassNames.encode)),
+        })
+
+      | Link(r, s, cs) =>
+        object_(list{
+          ("tag", string("Link")),
+          (
+            "contents",
+            (r, s, cs) |> tuple3(Common.AgdaRange.encode, array(encode), ClassNames.encode),
+          ),
+        })
+
+      | Hole(i) => object_(list{("tag", string("Hole")), ("contents", i |> int)})
       }
   }
-
-  type t = RichText(array<Element.t>)
+  type t = RichText(array<Inline.t>)
 
   let empty = RichText([])
-  let string = s => RichText([Elem(s, Attributes.empty)])
-  let hole = i => RichText([
-    Elem(
-      "?" ++ string_of_int(i),
-      {
-        link: Some(Common.Link.Hole(i)),
-        classNames: ["component-link component-hole"],
-        icon: None,
-      },
-    ),
-  ])
+  let string = s => RichText([Text(s, [])])
+  let hole = i => RichText([Hole(i)])
   let srcLoc = range => RichText([
-    Elem(
-      "",
-      {
-        link: None,
-        classNames: [],
-        icon: Some("link"),
-      },
-    ),
-    Elem(
-      Common.AgdaRange.toString(range),
-      {
-        link: Some(Common.Link.SrcLoc(range)),
-        classNames: ["component-link component-location"],
-        icon: None,
-      },
+    Link(
+      range,
+      [Icon("link ", []), Text(Common.AgdaRange.toString(range), [])],
+      ["component-link component-hole"],
     ),
   ])
 
@@ -100,7 +104,7 @@ module Module = {
     ->Array.concatMany,
   )
 
-  // from string
+  // from string by Emacs
   let parse = raw =>
     raw
     ->Js.String.splitByRe(
@@ -116,25 +120,32 @@ module Module = {
     )
     ->concatMany
 
-  let make = (~value: t) => {
+  let rec make = (~value: t) => {
     let RichText(elements) = value
     <span>
       {elements
       ->Array.mapWithIndex((i, x) => {
         switch x {
-        | Elem(text, attributes) =>
-          switch attributes.link {
-          | Some(target) =>
-            <Component__Link
-              key={string_of_int(i)} className=attributes.classNames jump=true hover=false target>
-              {React.string(text)}
-            </Component__Link>
-          | None =>
-            switch attributes.icon {
-            | Some(kind) => <div key={string_of_int(i)} className={"codicon codicon-" ++ kind} />
-            | None => <span key={string_of_int(i)}> {React.string(text)} </span>
-            }
-          }
+        | Text(text, className) =>
+          let className = {String.concat(" ", List.fromArray(className))}
+          <span className key={string_of_int(i)}> {React.string(text)} </span>
+        | Icon(kind, className) =>
+          let className = Array.concat(["codicon", "codicon-" ++ kind], className)
+          let className = {String.concat(" ", List.fromArray(className))}
+          <div className key={string_of_int(i)} />
+        | Link(range, children, className) =>
+          let className = Array.concat(["component-link", "component-location"], className)
+          let child = make(~value=RichText(children))
+          <Component__Link
+            key={string_of_int(i)} className jump=true hover=false target=Common.Link.SrcLoc(range)>
+            {child}
+          </Component__Link>
+        | Hole(index) =>
+          let className = ["component-link", "component-hole"]
+          <Component__Link
+            key={string_of_int(i)} className jump=true hover=false target=Common.Link.Hole(index)>
+            {React.string(string_of_int(index))}
+          </Component__Link>
         }
       })
       ->React.array}
@@ -142,12 +153,12 @@ module Module = {
   }
 
   open! Json.Decode
-  let decode: decoder<t> = array(Element.decode) |> map(elems => RichText(elems))
+  let decode: decoder<t> = array(Inline.decode) |> map(elems => RichText(elems))
 
   open! Json.Encode
   let encode: encoder<t> = x =>
     switch x {
-    | RichText(elemss) => elemss |> array(Element.encode)
+    | RichText(elemss) => elemss |> array(Inline.encode)
     }
 }
 include Module

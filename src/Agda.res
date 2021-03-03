@@ -15,7 +15,7 @@ module Term = {
     switch x {
     | Plain(string) => RichText.string(string)
     | QuestionMark(i) => RichText.hole(i)
-    | Underscore(string) => RichText.string("_" ++ string)
+    | Underscore(string) => RichText.string(string)
     }
 }
 
@@ -79,10 +79,10 @@ module OutputConstraint: {
     open RichText
     let location = location->Option.mapWithDefault(empty, loc => srcLoc(loc))
     switch value {
-    | OfType'(e, t) => concatMany([e, string(" : "), t, location])
-    | JustType'(e) => concatMany([string("Type "), e, location])
-    | JustSort'(e) => concatMany([string("Sort "), e, location])
-    | Others'(e) => concatMany([e, location])
+    | OfType'(e, t) => concatMany([e, string(" : "), t, string(" "), location])
+    | JustType'(e) => concatMany([string("Type "), e, string(" "), location])
+    | JustSort'(e) => concatMany([string("Sort "), e, string(" "), location])
+    | Others'(e) => concatMany([e, string(" "), location])
     }
   }
 }
