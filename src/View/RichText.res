@@ -144,7 +144,7 @@ module Module = {
           let className = ["component-link", "component-hole"]
           <Component__Link
             key={string_of_int(i)} className jump=true hover=false target=Common.Link.Hole(index)>
-            {React.string(string_of_int(index))}
+            {React.string("?" ++ string_of_int(index))}
           </Component__Link>
         }
       })
