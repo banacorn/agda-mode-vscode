@@ -134,7 +134,7 @@ module Module = {
           let className = {String.concat(" ", List.fromArray(className))}
           <div className key={string_of_int(i)} />
         | Link(range, children, className) =>
-          let className = Array.concat(["component-link", "component-location"], className)
+          let className = Array.concat(["component-link"], className)
           let child = make(~value=RichText(children))
           <Component__Link
             key={string_of_int(i)} className jump=true hover=false target=Common.Link.SrcLoc(range)>
