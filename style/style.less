@@ -167,6 +167,14 @@
         }
 
         display: flex;
+
+
+        &:hover {
+            .item-raw-button {
+                visibility: visible;
+            }
+        }
+
     }
 
     li .item-content {
@@ -175,7 +183,12 @@
         flex-grow  : 1;
     }
 
+    // the button that shows "raw Emacs string" when clicked
+    // only be visible when the parent <li> is hovered, or when it was clicked
     li .item-raw-button {
+        visibility: hidden;
+
+
         order    : 1;
         flex-grow: 0;
 
@@ -190,6 +203,9 @@
         }
 
         &.active {
+            // make the button visible when clicked
+            visibility: visible;
+
             cursor: pointer;
             color : @warning
         }
