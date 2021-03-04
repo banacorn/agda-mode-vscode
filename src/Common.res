@@ -261,6 +261,11 @@ module Link = {
     | SrcLoc(AgdaRange.t)
     | Hole(int)
 
+  let toString = x => switch x {
+    | SrcLoc(range) => AgdaRange.toString(range)
+    | Hole(int) => "?" ++ string_of_int(int)
+  }
+
   open Json.Decode
   open Util.Decode
 

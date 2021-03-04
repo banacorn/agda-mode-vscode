@@ -31,15 +31,15 @@ let make = (
   let className = Belt.List.fromArray(className)
 
   switch sanitizedTarget {
-  | None =>
-    <span className={String.concat(" ", list{"component-link", ...className})}> children </span>
+  | None => <span className={String.concat(" ", className)} > children </span>
   | Some(t) =>
     <span
       className={String.concat(" ", list{"component-link", ...className})}
-      onClick={_ =>
+      onClick={_ => {
         if jump {
           link->Chan.emit(Common.EventFromView.JumpToTarget(t))
-        }}
+        }
+      }}
       onMouseOver={_ =>
         if hover {
           link->Chan.emit(Common.EventFromView.MouseOver(t))
