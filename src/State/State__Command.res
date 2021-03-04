@@ -49,22 +49,18 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     switch State__Goal.pointed(state) {
     | None => State.View.displayOutOfGoalError(state)
     | Some((goal, "")) =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: Some("expression to give:"),
-          value: None,
-        },
-        expr =>
-          if expr == "" {
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: Some("expression to give:"),
+        value: None,
+      }, expr =>
+        if expr == "" {
+          sendAgdaRequest(Give(goal))
+        } else {
+          State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
             sendAgdaRequest(Give(goal))
-          } else {
-            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
-              sendAgdaRequest(Give(goal))
-            )
-          },
+          )
+        }
       )
     | Some((goal, _)) => sendAgdaRequest(Give(goal))
     }
@@ -78,22 +74,18 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       switch State__Goal.pointed(state) {
       | None => State.View.displayOutOfGoalError(state)
       | Some((goal, "")) =>
-        State.View.prompt(
-          state,
-          header,
-          {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          },
-          expr =>
-            if expr == "" {
+        State.View.prompt(state, header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr =>
+          if expr == "" {
+            sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+          } else {
+            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
               sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
-            } else {
-              State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(() =>
-                sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
-              )
-            },
+            )
+          }
         )
       | Some((goal, expr)) => sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
       }
@@ -108,23 +100,19 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       switch State__Goal.pointed(state) {
       | None => State.View.displayOutOfGoalError(state)
       | Some((goal, "")) =>
-        State.View.prompt(
-          state,
-          header,
-          {
-            body: Some("Please specify which variable you wish to split"),
-            placeholder: placeholder,
-            value: None,
-          },
-          expr =>
-            if expr == "" {
+        State.View.prompt(state, header, {
+          body: Some("Please specify which variable you wish to split"),
+          placeholder: placeholder,
+          value: None,
+        }, expr =>
+          if expr == "" {
+            sendAgdaRequest(Case(goal))
+          } else {
+            // place the queried expression in the goal
+            State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(_ =>
               sendAgdaRequest(Case(goal))
-            } else {
-              // place the queried expression in the goal
-              State__Goal.modify(state, goal, _ => expr)->Promise.flatMap(_ =>
-                sendAgdaRequest(Case(goal))
-              )
-            },
+            )
+          }
         )
       | Some((goal, _)) => sendAgdaRequest(Case(goal))
       }
@@ -134,16 +122,11 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       switch State__Goal.pointed(state) {
       | None => State.View.displayOutOfGoalError(state)
       | Some((goal, "")) =>
-        State.View.prompt(
-          state,
-          header,
-          {
-            body: None,
-            placeholder: placeholder,
-            value: None,
-          },
-          expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
-        )
+        State.View.prompt(state, header, {
+          body: None,
+          placeholder: placeholder,
+          value: None,
+        }, expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)))
       | Some((goal, expr)) => sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
       }
     }
@@ -151,27 +134,17 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     let placeholder = Some("expression to infer:")
     switch State__Goal.pointed(state) {
     | None =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)))
     | Some((goal, "")) =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(InferType(normalization, expr, goal)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(InferType(normalization, expr, goal)))
     | Some((goal, expr)) => sendAgdaRequest(InferType(normalization, expr, goal))
     }
   | Context(normalization) =>
@@ -203,16 +176,11 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     switch State__Goal.pointed(state) {
     | None => State.View.displayOutOfGoalError(state)
     | Some((goal, "")) =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)))
     | Some((goal, expr)) =>
       sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
     }
@@ -220,134 +188,95 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     let placeholder = Some("module name:")
     switch State__Goal.pointed(state) {
     | None =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)))
     | Some((goal, "")) =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)))
     | Some((goal, expr)) => sendAgdaRequest(ModuleContents(normalization, expr, goal))
     }
   | ComputeNormalForm(computeMode) =>
     let placeholder = Some("expression to normalize:")
     switch State__Goal.pointed(state) {
     | None =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)))
     | Some((goal, "")) =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)))
     | Some((goal, expr)) => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal))
     }
   | WhyInScope =>
     let placeholder = Some("name:")
     switch State__Goal.pointed(state) {
     | None =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(WhyInScopeGlobal(expr)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(WhyInScopeGlobal(expr)))
     | Some((goal, "")) =>
-      State.View.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(WhyInScope(expr, goal)),
-      )
+      State.View.prompt(state, header, {
+        body: None,
+        placeholder: placeholder,
+        value: None,
+      }, expr => sendAgdaRequest(WhyInScope(expr, goal)))
     | Some((goal, expr)) => sendAgdaRequest(WhyInScope(expr, goal))
     }
   | SwitchAgdaVersion =>
     let oldAgdaVersion = Config.getAgdaVersion()
-    State.View.prompt(
-      state,
-      header,
-      {
-        body: None,
-        placeholder: None,
-        value: Some(oldAgdaVersion),
-      },
-      expr => {
-        let oldAgdaPath = Config.getAgdaPath()
-        let newAgdaVersion = Js.String.trim(expr)
-        Config.setAgdaPath("")
-        ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
-        ->Promise.flatMap(() =>
+    State.View.prompt(state, header, {
+      body: None,
+      placeholder: None,
+      value: Some(oldAgdaVersion),
+    }, expr => {
+      let oldAgdaPath = Config.getAgdaPath()
+      let newAgdaVersion = Js.String.trim(expr)
+      Config.setAgdaPath("")
+      ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
+      ->Promise.flatMap(() =>
+        State.View.display(state, View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"), [])
+      )
+      ->Promise.flatMap(() => State.Connection.reconnect(state))
+      ->Promise.flatMap(result =>
+        switch result {
+        | Error(error) =>
+          let (errorHeader, errorBody) = Connection.Error.toString(error)
+          let header = View.Header.Error(
+            "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
+          )
+          let body = [
+            Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
+          ]
+          // View.Body.Plain(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)
+          Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
+            State.View.display(state, header, body)
+          )
+        | Ok(_) =>
           State.View.display(
             state,
-            View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"),
-            [],
+            View.Header.Success("Switched to '" ++ newAgdaVersion ++ "'"),
+            [
+              Component.Item.plainText(
+                "Found '" ++ newAgdaVersion ++ "' at: " ++ Config.getAgdaPath(),
+              ),
+            ],
           )
-        )
-        ->Promise.flatMap(() => State.Connection.reconnect(state))
-        ->Promise.flatMap(result =>
-          switch result {
-          | Error(error) =>
-            let (errorHeader, errorBody) = Connection.Error.toString(error)
-            let header = View.Header.Error(
-              "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
-            )
-            let body = [
-              Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
-            ]
-            // View.Body.Plain(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)
-            Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
-              State.View.display(state, header, body)
-            )
-          | Ok(_) =>
-            State.View.display(
-              state,
-              View.Header.Success("Switched to '" ++ newAgdaVersion ++ "'"),
-              [
-                Component.Item.plainText(
-                  "Found '" ++ newAgdaVersion ++ "' at: " ++ Config.getAgdaPath(),
-                ),
-              ],
-            )
-          }
-        )
-      },
-    )
+        }
+      )
+    })
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved()
@@ -393,7 +322,12 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         // only select the ranges when it's on the same file
         if removeRoot(path) == removeRoot(fileName) {
           let ranges = intervals->Array.map(Editor.Range.fromAgdaInterval)
+          // set cursor selections
           Editor.Selection.setMany(state.editor, ranges)
+          // scroll to that part of the document
+          ranges[0]->Option.forEach(range => {
+            state.editor->VSCode.TextEditor.revealRange(range, None)
+          })
         }
         Promise.resolved()
       | Hole(index) =>

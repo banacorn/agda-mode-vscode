@@ -103,9 +103,13 @@ module Module: Module = {
   }
 
   let setCursor = (self, editor) => {
+    let document = VSCode.TextEditor.document(editor)
     let (start, _) = self.interval
-    let position = Editor.Position.fromOffset(editor->VSCode.TextEditor.document, start + 3)
+    let position = Editor.Position.fromOffset(document, start + 3)
     Editor.Cursor.set(editor, position)
+    // scroll to that part of the document
+    let range = Editor.Range.fromInterval(document, self.interval)
+    editor->VSCode.TextEditor.revealRange(range, None)
   }
 
   let buildHaskellRange = (self, document, version, filepath: string) => {
