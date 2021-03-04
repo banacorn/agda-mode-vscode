@@ -415,7 +415,7 @@ module LSP = {
     )
   }
 
-  module LSPReaction = {
+  module LSPResponse = {
     module DisplayInfo = {
       type t =
         | Generic(string, string)
@@ -471,120 +471,120 @@ module LSP = {
     }
 
     type t =
-      | ReactionNonLast(Response.t)
-      | ReactionLast(int, Response.t)
-      | ReactionParseError(Parser.Error.t)
-      | ReactionEnd
+      | ResponseNonLast(Response.t)
+      | ResponseLast(int, Response.t)
+      | ResponseParseError(Parser.Error.t)
+      | ResponseEnd
 
     let toString = x =>
       switch x {
-      | ReactionNonLast(s) => Response.toString(s)
-      | ReactionLast(i, s) => "[Last " ++ string_of_int(i) ++ "] " ++ Response.toString(s)
-      | ReactionParseError(e) => Parser.Error.toString(e)
-      | ReactionEnd => "========"
+      | ResponseNonLast(s) => Response.toString(s)
+      | ResponseLast(i, s) => "[Last " ++ string_of_int(i) ++ "] " ++ Response.toString(s)
+      | ResponseParseError(e) => Parser.Error.toString(e)
+      | ResponseEnd => "========"
       }
 
     open Json.Decode
     open Util.Decode
     let decode: decoder<t> = sum(x =>
       switch x {
-      | "ReactionHighlightingInfoDirect" =>
+      | "ResponseHighlightingInfoDirect" =>
         Contents(
           Highlighting.Infos.decode |> map((Highlighting.Infos.Infos(keepHighlighting, infos)) => {
-            ReactionNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
+            ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
           }),
         )
-      | "ReactionHighlightingInfoIndirect" =>
+      | "ResponseHighlightingInfoIndirect" =>
         Contents(
-          string |> map(filePath => ReactionNonLast(
+          string |> map(filePath => ResponseNonLast(
             Response.HighlightingInfoIndirectJSON(filePath),
           )),
         )
-      | "ReactionDisplayInfo" =>
+      | "ResponseDisplayInfo" =>
         open DisplayInfo
         Contents(
           DisplayInfo.decode |> map(info =>
             switch info {
-            | Generic("*Constraints*", "nil") => ReactionNonLast(DisplayInfo(Constraints(None)))
+            | Generic("*Constraints*", "nil") => ResponseNonLast(DisplayInfo(Constraints(None)))
             | Generic("*Constraints*", body) =>
-              ReactionNonLast(DisplayInfo(Constraints(Some(body))))
+              ResponseNonLast(DisplayInfo(Constraints(Some(body))))
             | Generic("*Helper function*", body) =>
-              ReactionNonLast(DisplayInfo(HelperFunction(body)))
-            | Generic("*Search About*", body) => ReactionNonLast(DisplayInfo(SearchAbout(body)))
-            | Generic("*Inferred Type*", body) => ReactionNonLast(DisplayInfo(InferredType(body)))
-            | Generic("*Current Goal*", body) => ReactionNonLast(DisplayInfo(CurrentGoal(body)))
-            | Generic("*Goal type etc.*", body) => ReactionNonLast(DisplayInfo(GoalType(body)))
+              ResponseNonLast(DisplayInfo(HelperFunction(body)))
+            | Generic("*Search About*", body) => ResponseNonLast(DisplayInfo(SearchAbout(body)))
+            | Generic("*Inferred Type*", body) => ResponseNonLast(DisplayInfo(InferredType(body)))
+            | Generic("*Current Goal*", body) => ResponseNonLast(DisplayInfo(CurrentGoal(body)))
+            | Generic("*Goal type etc.*", body) => ResponseNonLast(DisplayInfo(GoalType(body)))
             | Generic("*Module contents*", body) =>
-              ReactionNonLast(DisplayInfo(ModuleContents(body)))
-            | Generic("*Scope Info*", body) => ReactionNonLast(DisplayInfo(WhyInScope(body)))
-            | Generic("*Context*", body) => ReactionNonLast(DisplayInfo(Context(body)))
-            | Generic("*Intro*", body) => ReactionNonLast(DisplayInfo(Intro(body)))
-            | Generic("*Agda Version*", body) => ReactionNonLast(DisplayInfo(Version(body)))
-            | Generic(header, body) => ReactionNonLast(DisplayInfo(AllGoalsWarnings(header, body)))
+              ResponseNonLast(DisplayInfo(ModuleContents(body)))
+            | Generic("*Scope Info*", body) => ResponseNonLast(DisplayInfo(WhyInScope(body)))
+            | Generic("*Context*", body) => ResponseNonLast(DisplayInfo(Context(body)))
+            | Generic("*Intro*", body) => ResponseNonLast(DisplayInfo(Intro(body)))
+            | Generic("*Agda Version*", body) => ResponseNonLast(DisplayInfo(Version(body)))
+            | Generic(header, body) => ResponseNonLast(DisplayInfo(AllGoalsWarnings(header, body)))
             | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
-              ReactionNonLast(
+              ResponseNonLast(
                 Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
               )
             | CompilationOk(warnings, errors) =>
-              ReactionNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
-            | Auto(body) => ReactionNonLast(Response.DisplayInfo(Auto(body)))
-            | Error'(body) => ReactionNonLast(Response.DisplayInfo(Error(body)))
-            | Time(body) => ReactionNonLast(Response.DisplayInfo(Time(body)))
-            | NormalForm(body) => ReactionNonLast(Response.DisplayInfo(NormalForm(body)))
+              ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
+            | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))
+            | Error'(body) => ResponseNonLast(Response.DisplayInfo(Error(body)))
+            | Time(body) => ResponseNonLast(Response.DisplayInfo(Time(body)))
+            | NormalForm(body) => ResponseNonLast(Response.DisplayInfo(NormalForm(body)))
             }
           ),
         )
-      | "ReactionStatus" =>
+      | "ResponseStatus" =>
         Contents(
-          pair(bool, bool) |> map(((checked, displayImplicit)) => ReactionNonLast(
+          pair(bool, bool) |> map(((checked, displayImplicit)) => ResponseNonLast(
             Response.Status(checked, displayImplicit),
           )),
         )
-      | "ReactionRunningInfo" =>
+      | "ResponseRunningInfo" =>
         Contents(
-          pair(int, string) |> map(((verbosity, info)) => ReactionNonLast(
+          pair(int, string) |> map(((verbosity, info)) => ResponseNonLast(
             Response.RunningInfo(verbosity, info),
           )),
         )
-      | "ReactionClearHighlightingTokenBased" =>
-        TagOnly(ReactionNonLast(Response.ClearHighlighting))
-      | "ReactionClearHighlightingNotOnlyTokenBased" =>
-        TagOnly(ReactionNonLast(Response.ClearHighlighting))
-      | "ReactionClearRunningInfo" => TagOnly(ReactionNonLast(Response.ClearRunningInfo))
-      | "ReactionDoneAborting" => TagOnly(ReactionNonLast(Response.DoneAborting))
-      | "ReactionDoneExiting" => TagOnly(ReactionNonLast(Response.DoneExiting))
-      | "ReactionGiveAction" =>
+      | "ResponseClearHighlightingTokenBased" =>
+        TagOnly(ResponseNonLast(Response.ClearHighlighting))
+      | "ResponseClearHighlightingNotOnlyTokenBased" =>
+        TagOnly(ResponseNonLast(Response.ClearHighlighting))
+      | "ResponseClearRunningInfo" => TagOnly(ResponseNonLast(Response.ClearRunningInfo))
+      | "ResponseDoneAborting" => TagOnly(ResponseNonLast(Response.DoneAborting))
+      | "ResponseDoneExiting" => TagOnly(ResponseNonLast(Response.DoneExiting))
+      | "ResponseGiveAction" =>
         Contents(
-          pair(int, Response.GiveAction.decode) |> map(((id, giveAction)) => ReactionNonLast(
+          pair(int, Response.GiveAction.decode) |> map(((id, giveAction)) => ResponseNonLast(
             Response.GiveAction(id, giveAction),
           )),
         )
-      | "ReactionInteractionPoints" =>
-        Contents(array(int) |> map(ids => ReactionLast(1, InteractionPoints(ids))))
-      | "ReactionMakeCaseFunction" =>
+      | "ResponseInteractionPoints" =>
+        Contents(array(int) |> map(ids => ResponseLast(1, InteractionPoints(ids))))
+      | "ResponseMakeCaseFunction" =>
         Contents(
-          array(string) |> map(payload => ReactionLast(2, Response.MakeCase(Function, payload))),
+          array(string) |> map(payload => ResponseLast(2, Response.MakeCase(Function, payload))),
         )
-      | "ReactionMakeCaseExtendedLambda" =>
+      | "ResponseMakeCaseExtendedLambda" =>
         Contents(
-          array(string) |> map(payload => ReactionLast(
+          array(string) |> map(payload => ResponseLast(
             2,
             Response.MakeCase(ExtendedLambda, payload),
           )),
         )
-      | "ReactionSolveAll" =>
+      | "ResponseSolveAll" =>
         Contents(
-          array(pair(int, string)) |> map(payloads => ReactionLast(2, Response.SolveAll(payloads))),
+          array(pair(int, string)) |> map(payloads => ResponseLast(2, Response.SolveAll(payloads))),
         )
-      | "ReactionJumpToError" =>
+      | "ResponseJumpToError" =>
         Contents(
-          pair(string, int) |> map(((filePath, offset)) => ReactionLast(
+          pair(string, int) |> map(((filePath, offset)) => ResponseLast(
             3,
             Response.JumpToError(filePath, offset),
           )),
         )
-      | "ReactionEnd" => TagOnly(ReactionEnd)
-      | tag => raise(DecodeError("[LSP.Reaction] Unknown constructor: " ++ tag))
+      | "ResponseEnd" => TagOnly(ResponseEnd)
+      | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
       }
     )
   }
@@ -731,8 +731,8 @@ module LSP = {
         Error(Error.LSP(CannotDecodeCommandRes(msg, json)))
       }
 
-    let decodeReaction = (json: Js.Json.t): result<LSPReaction.t, Error.t> =>
-      switch LSPReaction.decode(json) {
+    let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
+      switch LSPResponse.decode(json) {
       | reaction => Ok(reaction)
       | exception Json.Decode.DecodeError(msg) => Error(Error.LSP(CannotDecodeResponse(msg, json)))
       }
@@ -827,12 +827,12 @@ module LSP = {
 
         // listens for notifications
         let subscription = Client.onResponse(json => {
-          switch decodeReaction(json) {
-          | Ok(ReactionNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
-          | Ok(ReactionLast(priority, responese)) =>
+          switch decodeResponse(json) {
+          | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
+          | Ok(ResponseLast(priority, responese)) =>
             scheduler->Scheduler.addLast(priority, responese)
-          | Ok(ReactionParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
-          | Ok(ReactionEnd) => resolve(Ok())
+          | Ok(ResponseParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
+          | Ok(ResponseEnd) => resolve(Ok())
           | Error(error) => resolve(Error(error))
           }
         })
