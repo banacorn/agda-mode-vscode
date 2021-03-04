@@ -427,6 +427,7 @@ module LSP = {
             array<string>,
             array<string>,
           )
+        | CurrentGoal((RichText.t, string))
         | Auto(string)
         | Error'(string)
         | Time(string)
@@ -454,6 +455,8 @@ module LSP = {
               errors,
             )),
           )
+        | "DisplayInfoCurrentGoal" =>
+          Contents(pair(RichText.decode, string) |> map(body => CurrentGoal(body)))
         | "DisplayInfoCompilationOk" =>
           Contents(
             pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
@@ -512,7 +515,6 @@ module LSP = {
               ResponseNonLast(DisplayInfo(HelperFunction(body)))
             | Generic("*Search About*", body) => ResponseNonLast(DisplayInfo(SearchAbout(body)))
             | Generic("*Inferred Type*", body) => ResponseNonLast(DisplayInfo(InferredType(body)))
-            | Generic("*Current Goal*", body) => ResponseNonLast(DisplayInfo(CurrentGoal(body)))
             | Generic("*Goal type etc.*", body) => ResponseNonLast(DisplayInfo(GoalType(body)))
             | Generic("*Module contents*", body) =>
               ResponseNonLast(DisplayInfo(ModuleContents(body)))
@@ -525,6 +527,7 @@ module LSP = {
               ResponseNonLast(
                 Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
               )
+            | CurrentGoal((text, raw)) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(text, raw)))
             | CompilationOk(warnings, errors) =>
               ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
             | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))

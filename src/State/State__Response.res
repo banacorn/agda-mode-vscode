@@ -30,7 +30,7 @@ module DisplayInfo = {
         goals->Array.map(((oc, raw)) => [Component.Item.Unlabeled(oc, Some(raw))])->Array.concatMany
       let metas =
         metas
-        ->Array.map(((oc, raw, range)) => [Component.Item.Unlabeled(oc, Some(raw))])
+        ->Array.map(((oc, raw, _range)) => [Component.Item.Unlabeled(oc, Some(raw))])
         ->Array.concatMany
       let errors = errors->Array.map(raw => Component.Item.error(RichText.string(raw), Some(raw)))
       let warnings =
@@ -63,8 +63,10 @@ module DisplayInfo = {
     | GoalType(body) =>
       let items = Emacs__Parser2.parseGoalType(body)
       State.View.display(state, Plain("Goal and Context"), items)
+    | CurrentGoalLSP(text, raw) =>
+      State.View.display(state, Plain("Current Goal"), [Component.Item.Unlabeled(text, Some(raw))])
     | CurrentGoal(payload) =>
-      State.View.display(state, Plain("Current goal"), [Component.Item.plainText(payload)])
+      State.View.display(state, Plain("Current Goal"), [Component.Item.plainText(payload)])
     | InferredType(payload) =>
       State.View.display(state, Plain("Inferred type"), [Component.Item.plainText(payload)])
     | Context(body) =>

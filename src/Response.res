@@ -50,6 +50,7 @@ module DisplayInfo = {
     | NormalForm(string)
     | GoalType(string)
     | CurrentGoal(string)
+    | CurrentGoalLSP(RichText.t, string)
     | InferredType(string)
     | Context(string)
     | HelperFunction(string)
@@ -73,6 +74,7 @@ module DisplayInfo = {
     | NormalForm(string) => "NormalForm " ++ string
     | GoalType(string) => "GoalType " ++ string
     | CurrentGoal(string) => "CurrentGoal " ++ string
+    | CurrentGoalLSP(_, raw) => "[LSP] CurrentGoal " ++ raw
     | InferredType(string) => "InferredType " ++ string
     | Context(string) => "Context " ++ string
     | HelperFunction(string) => "HelperFunction " ++ string
