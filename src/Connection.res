@@ -428,6 +428,7 @@ module LSP = {
             array<string>,
           )
         | CurrentGoal((RichText.t, string))
+        | InferredType((RichText.t, string))
         | Auto(string)
         | Error'(string)
         | Time(string)
@@ -457,6 +458,8 @@ module LSP = {
           )
         | "DisplayInfoCurrentGoal" =>
           Contents(pair(RichText.decode, string) |> map(body => CurrentGoal(body)))
+        | "DisplayInfoInferredType" =>
+          Contents(pair(RichText.decode, string) |> map(body => InferredType(body)))
         | "DisplayInfoCompilationOk" =>
           Contents(
             pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
@@ -528,6 +531,7 @@ module LSP = {
                 Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
               )
             | CurrentGoal((text, raw)) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(text, raw)))
+            | InferredType((text, raw)) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(text, raw)))
             | CompilationOk(warnings, errors) =>
               ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
             | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))

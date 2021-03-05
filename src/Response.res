@@ -52,6 +52,7 @@ module DisplayInfo = {
     | CurrentGoal(string)
     | CurrentGoalLSP(RichText.t, string)
     | InferredType(string)
+    | InferredTypeLSP(RichText.t, string)
     | Context(string)
     | HelperFunction(string)
     | Version(string)
@@ -76,6 +77,7 @@ module DisplayInfo = {
     | CurrentGoal(string) => "CurrentGoal " ++ string
     | CurrentGoalLSP(_, raw) => "[LSP] CurrentGoal " ++ raw
     | InferredType(string) => "InferredType " ++ string
+    | InferredTypeLSP(_, raw) => "InferredType " ++ raw
     | Context(string) => "Context " ++ string
     | HelperFunction(string) => "HelperFunction " ++ string
     | Version(string) => "Version " ++ string

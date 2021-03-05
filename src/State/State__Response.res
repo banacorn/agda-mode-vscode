@@ -69,6 +69,8 @@ module DisplayInfo = {
       State.View.display(state, Plain("Current Goal"), [Component.Item.plainText(payload)])
     | InferredType(payload) =>
       State.View.display(state, Plain("Inferred type"), [Component.Item.plainText(payload)])
+    | InferredTypeLSP(text, raw) =>
+      State.View.display(state, Plain("Inferred type"), [Component.Item.Unlabeled(text, Some(raw))])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
       State.View.display(state, Plain("Context"), items)
