@@ -156,11 +156,9 @@
     line-height: @line-height;
 
     li {
+        // dimensions
         margin    : @padding 0;
         padding   : @padding/2 @padding;
-        background: @body-background;
-
-        border-left: @left-border-width solid @body-background;
 
         &:first-of-type {
             margin-top: 0;
@@ -168,13 +166,27 @@
 
         display: flex;
 
-
         &:hover {
             .item-raw-button {
                 visibility: visible;
             }
         }
 
+    }
+
+    li.unlabeled-item,
+    li.labeled-item {
+        // background & border
+        background: @body-background;
+        border-left: @left-border-width solid @body-background;
+    }
+
+    li.header-item {
+        margin    : 0;
+        padding   : 0;
+        h3 {
+            margin: 0;
+        }
     }
 
     li .item-content {
