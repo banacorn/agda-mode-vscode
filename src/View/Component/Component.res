@@ -53,11 +53,11 @@ module Item = {
     switch x {
     | "Labeled" =>
       Contents(
-        tuple4(string, string, RichText.decode, optional(string)) |> map(((
-          label,
-          style,
+        tuple4(RichText.decode, optional(string), string, string, ) |> map(((
           text,
           raw,
+          label,
+          style,
         )) => Labeled(label, style, text, raw)),
       )
     | "Unlabeled" =>
@@ -71,12 +71,12 @@ module Item = {
   open! Json.Encode
   let encode: encoder<t> = x =>
     switch x {
-    | Labeled(label, style, text, raw) =>
+    | Labeled( label, style, text, raw) =>
       object_(list{
         ("tag", string("Labeled")),
         (
           "contents",
-          (label, style, text, raw) |> tuple4(string, string, RichText.encode, nullable(string)),
+          (text, raw, label, style) |> tuple4(RichText.encode, nullable(string), string, string),
         ),
       })
     | Unlabeled(text, raw) =>

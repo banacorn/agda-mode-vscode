@@ -418,7 +418,7 @@ module LSP = {
   module LSPResponse = {
     module DisplayInfo = {
       type t =
-        | Generic(string, string)
+        | Generic(string, array<Component.Item.t>)
         | CompilationOk(array<string>, array<string>)
         | AllGoalsWarnings(
             string,
@@ -427,8 +427,8 @@ module LSP = {
             array<string>,
             array<string>,
           )
-        | CurrentGoal((RichText.t, string))
-        | InferredType((RichText.t, string))
+        | CurrentGoal(Component.Item.t)
+        | InferredType(Component.Item.t)
         | Auto(string)
         | Error'(string)
         | Time(string)
@@ -439,7 +439,7 @@ module LSP = {
       let decode: decoder<t> = sum(x =>
         switch x {
         | "DisplayInfoGeneric" =>
-          Contents(pair(string, string) |> map(((header, body)) => Generic(header, body)))
+          Contents(pair(string, array(Component.Item.decode)) |> map(((header, itmes)) => Generic(header, itmes)))
         | "DisplayInfoAllGoalsWarnings" =>
           Contents(
             tuple5(
@@ -457,9 +457,9 @@ module LSP = {
             )),
           )
         | "DisplayInfoCurrentGoal" =>
-          Contents(pair(RichText.decode, string) |> map(body => CurrentGoal(body)))
+          Contents(Component.Item.decode |> map(body => CurrentGoal(body)))
         | "DisplayInfoInferredType" =>
-          Contents(pair(RichText.decode, string) |> map(body => InferredType(body)))
+          Contents(Component.Item.decode |> map(body => InferredType(body)))
         | "DisplayInfoCompilationOk" =>
           Contents(
             pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
@@ -511,27 +511,27 @@ module LSP = {
         Contents(
           DisplayInfo.decode |> map(info =>
             switch info {
-            | Generic("*Constraints*", "nil") => ResponseNonLast(DisplayInfo(Constraints(None)))
-            | Generic("*Constraints*", body) =>
-              ResponseNonLast(DisplayInfo(Constraints(Some(body))))
-            | Generic("*Helper function*", body) =>
-              ResponseNonLast(DisplayInfo(HelperFunction(body)))
-            | Generic("*Search About*", body) => ResponseNonLast(DisplayInfo(SearchAbout(body)))
-            | Generic("*Inferred Type*", body) => ResponseNonLast(DisplayInfo(InferredType(body)))
-            | Generic("*Goal type etc.*", body) => ResponseNonLast(DisplayInfo(GoalType(body)))
-            | Generic("*Module contents*", body) =>
-              ResponseNonLast(DisplayInfo(ModuleContents(body)))
-            | Generic("*Scope Info*", body) => ResponseNonLast(DisplayInfo(WhyInScope(body)))
-            | Generic("*Context*", body) => ResponseNonLast(DisplayInfo(Context(body)))
-            | Generic("*Intro*", body) => ResponseNonLast(DisplayInfo(Intro(body)))
-            | Generic("*Agda Version*", body) => ResponseNonLast(DisplayInfo(Version(body)))
-            | Generic(header, body) => ResponseNonLast(DisplayInfo(AllGoalsWarnings(header, body)))
+            // | Generic("*Constraints*", "nil") => ResponseNonLast(DisplayInfo(Constraints(None)))
+            | Generic(header, body) =>
+              ResponseNonLast(DisplayInfo(Generic(header, body)))
+            // | Generic("*Helper function*", body) =>
+            //   ResponseNonLast(DisplayInfo(HelperFunction(body)))
+            // | Generic("*Search About*", body) => ResponseNonLast(DisplayInfo(SearchAbout(body)))
+            // | Generic("*Inferred Type*", body) => ResponseNonLast(DisplayInfo(InferredType(body)))
+            // | Generic("*Goal type etc.*", body) => ResponseNonLast(DisplayInfo(GoalType(body)))
+            // | Generic("*Module contents*", body) =>
+              // ResponseNonLast(DisplayInfo(ModuleContents(body)))
+            // | Generic("*Scope Info*", body) => ResponseNonLast(DisplayInfo(WhyInScope(body)))
+            // | Generic("*Context*", body) => ResponseNonLast(DisplayInfo(Context(body)))
+            // | Generic("*Intro*", body) => ResponseNonLast(DisplayInfo(Intro(body)))
+            // | Generic("*Agda Version*", body) => ResponseNonLast(DisplayInfo(Version(body)))
+            // | Generic(header, body) => ResponseNonLast(DisplayInfo(AllGoalsWarnings(header, body)))
             | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
               ResponseNonLast(
                 Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
               )
-            | CurrentGoal((text, raw)) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(text, raw)))
-            | InferredType((text, raw)) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(text, raw)))
+            | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(item)))
+            | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(item)))
             | CompilationOk(warnings, errors) =>
               ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
             | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))

@@ -29,6 +29,7 @@ type makeCaseType =
 
 module DisplayInfo = {
   type t =
+    | Generic(string, array<Component.Item.t>)
     | CompilationOk(string)
     | CompilationOkLSP(array<string>, array<string>)
     | Constraints(option<string>)
@@ -50,14 +51,15 @@ module DisplayInfo = {
     | NormalForm(string)
     | GoalType(string)
     | CurrentGoal(string)
-    | CurrentGoalLSP(RichText.t, string)
+    | CurrentGoalLSP(Component.Item.t)
     | InferredType(string)
-    | InferredTypeLSP(RichText.t, string)
+    | InferredTypeLSP(Component.Item.t)
     | Context(string)
     | HelperFunction(string)
     | Version(string)
   let toString = x =>
     switch x {
+    | Generic(header, _body) => header
     | CompilationOk(string) => "CompilationOk " ++ string
     | CompilationOkLSP(_warnings, _errors) => "[LSP] CompilationOk"
     | Constraints(None) => "Constraints"
@@ -75,9 +77,9 @@ module DisplayInfo = {
     | NormalForm(string) => "NormalForm " ++ string
     | GoalType(string) => "GoalType " ++ string
     | CurrentGoal(string) => "CurrentGoal " ++ string
-    | CurrentGoalLSP(_, raw) => "[LSP] CurrentGoal " ++ raw
+    | CurrentGoalLSP(_item) => "[LSP] CurrentGoal"
     | InferredType(string) => "InferredType " ++ string
-    | InferredTypeLSP(_, raw) => "InferredType " ++ raw
+    | InferredTypeLSP(_item) => "InferredType "
     | Context(string) => "Context " ++ string
     | HelperFunction(string) => "HelperFunction " ++ string
     | Version(string) => "Version " ++ string

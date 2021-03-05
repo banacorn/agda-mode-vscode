@@ -5,7 +5,9 @@ open Response
 module DisplayInfo = {
   let handle = (state, x) =>
     switch x {
-    | Response.DisplayInfo.CompilationOk(body) =>
+    | Response.DisplayInfo.Generic(header, body) =>
+      State.View.display(state, Plain(header), body)
+    | CompilationOk(body) =>
       State.View.display(state, Success("Compilation result"), [Component.Item.plainText(body)])
     | CompilationOkLSP(warnings, errors) =>
       let message = [Component.Item.plainText("The module was successfully compiled.")]
@@ -63,14 +65,12 @@ module DisplayInfo = {
     | GoalType(body) =>
       let items = Emacs__Parser2.parseGoalType(body)
       State.View.display(state, Plain("Goal and Context"), items)
-    | CurrentGoalLSP(text, raw) =>
-      State.View.display(state, Plain("Current Goal"), [Component.Item.Unlabeled(text, Some(raw))])
+    | CurrentGoalLSP(item) => State.View.display(state, Plain("Current Goal"), [item])
     | CurrentGoal(payload) =>
       State.View.display(state, Plain("Current Goal"), [Component.Item.plainText(payload)])
     | InferredType(payload) =>
       State.View.display(state, Plain("Inferred type"), [Component.Item.plainText(payload)])
-    | InferredTypeLSP(text, raw) =>
-      State.View.display(state, Plain("Inferred type"), [Component.Item.Unlabeled(text, Some(raw))])
+    | InferredTypeLSP(item) => State.View.display(state, Plain("Inferred type"), [item])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
       State.View.display(state, Plain("Context"), items)
