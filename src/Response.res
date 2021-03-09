@@ -36,8 +36,8 @@ module DisplayInfo = {
     | AllGoalsWarnings(string, string)
     | AllGoalsWarningsLSP(
         string,
-        array<(RichText.t, string)>,
-        array<(RichText.t, string, Common.AgdaRange.t)>,
+        array<Component.Item.t>,
+        array<Component.Item.t>,
         array<string>,
         array<string>,
       )

@@ -2,14 +2,13 @@ open React
 
 module Item = {
   type t =
-    | Labeled(string, string, RichText.t, option<string>) // label // style // body // raw string
-    | Unlabeled(RichText.t, option<string>) // body // raw string
-    // | HorizontalRule // <hr>
+    | Labeled(string, string, RichText.t, option<string>, option<Common.AgdaRange.t>) // label // style // body // raw string // range
+    | Unlabeled(RichText.t, option<string>, option<Common.AgdaRange.t>) // body // raw string
     | Header(string) // <h1>
 
-  let plainText = s => Unlabeled(RichText.string(s), None)
-  let error = (s, raw) => Labeled("Error", "error", s, raw)
-  let warning = (s, raw) => Labeled("Warning", "warning", s, raw)
+  let plainText = s => Unlabeled(RichText.string(s), None, None)
+  let error = (s, raw) => Labeled("Error", "error", s, raw, None)
+  let warning = (s, raw) => Labeled("Warning", "warning", s, raw, None)
 
   @react.component
   let make = (~item: t) => {
@@ -35,13 +34,13 @@ module Item = {
       | None => <> </>
       }
     switch item {
-    | Labeled(label, style, text, raw) =>
+    | Labeled(label, style, text, raw, _range) =>
       <li className={"labeled-item " ++ style}>
         <div className="item-label"> {string(label)} </div>
         <div className="item-content"> {content(text, raw)} </div>
         {revealRawButton(raw)}
       </li>
-    | Unlabeled(text, raw) =>
+    | Unlabeled(text, raw, _range) =>
       <li className="unlabeled-item">
         <div className="item-content"> {content(text, raw)} </div> {revealRawButton(raw)}
       </li>
@@ -57,40 +56,40 @@ module Item = {
     switch x {
     | "Labeled" =>
       Contents(
-        tuple4(RichText.decode, optional(string), string, string) |> map(((
+        tuple5(RichText.decode, optional(string), optional(Common.AgdaRange.decode), string, string ) |> map(((
           text,
           raw,
+          range,
           label,
           style,
-        )) => Labeled(label, style, text, raw)),
+        )) => Labeled(label, style, text, raw, range)),
       )
     | "Unlabeled" =>
       Contents(
-        pair(RichText.decode, optional(string)) |> map(((text, raw)) => Unlabeled(text, raw)),
+        tuple3(RichText.decode, optional(string), optional(Common.AgdaRange.decode)) |> map(((text, raw, range)) => Unlabeled(text, raw, range)),
       )
-    // | "HorizontalRule" => TagOnly(HorizontalRule)
     | "Header" => Contents(string |> map(s => Header(s)))
     | tag => raise(DecodeError("[Component.Item] Unknown constructor: " ++ tag))
     }
   )
 
   open! Json.Encode
+  open! Util.Encode
   let encode: encoder<t> = x =>
     switch x {
-    | Labeled(label, style, text, raw) =>
+    | Labeled(label, style, text, raw, range) =>
       object_(list{
         ("tag", string("Labeled")),
         (
           "contents",
-          (text, raw, label, style) |> tuple4(RichText.encode, nullable(string), string, string),
+          (text, raw, range, label, style) |> tuple5(RichText.encode, nullable(string), nullable(Common.AgdaRange.encode), string, string),
         ),
       })
-    | Unlabeled(text, raw) =>
+    | Unlabeled(text, raw, range) =>
       object_(list{
         ("tag", string("Unlabeled")),
-        ("contents", (text, raw) |> pair(RichText.encode, nullable(string))),
+        ("contents", (text, raw, range) |> tuple3(RichText.encode, nullable(string), nullable(Common.AgdaRange.encode))),
       })
-    // | HorizontalRule => object_(list{("tag", string("HorizontalRule"))})
     | Header(s) => object_(list{("tag", string("Header")), ("contents", s |> string)})
     }
 }

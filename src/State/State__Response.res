@@ -28,12 +28,6 @@ module DisplayInfo = {
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
       State.View.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
-      let goals =
-        goals->Array.map(((oc, raw)) => [Component.Item.Unlabeled(oc, Some(raw))])->Array.concatMany
-      let metas =
-        metas
-        ->Array.map(((oc, raw, _range)) => [Component.Item.Unlabeled(oc, Some(raw))])
-        ->Array.concatMany
       let errors = errors->Array.map(raw => Component.Item.error(RichText.string(raw), Some(raw)))
       let warnings =
         warnings->Array.map(raw => Component.Item.warning(RichText.string(raw), Some(raw)))
