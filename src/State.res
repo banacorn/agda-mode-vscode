@@ -93,7 +93,8 @@ module type View = {
   // let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
   let displayOutOfGoalError: state => Promise.t<unit>
   let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
-
+  // set status (on the right of the header)
+  let setStatus: (state, string) => Promise.t<unit>
   // Input Method
   let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
   let updatePromptIM: (state, string) => Promise.t<unit>
@@ -140,6 +141,8 @@ module View: View = {
     let (header, body) = Connection.Error.toString(error)
     display(state, Error("Connection Error: " ++ header), [Component.Item.plainText(body)])
   }
+
+  let setStatus = (state, text) => sendEvent(state, SetStatus(text))
 
   // update the Input Method
   let updateIM = (state, event) => sendEvent(state, InputMethod(event))
@@ -205,7 +208,10 @@ module Connection: Connection = {
     | Emacs(conn, version) =>
       Connection.Emacs.destroy(conn)
       ->Promise.flatMap(Connection.Emacs.make)
-      ->Promise.tapOk(conn => state.connection = Emacs(conn, version))
+      ->Promise.flatMapOk(conn => {
+        state.connection = Emacs(conn, version)
+        View.setStatus(state, "emacs")->Promise.map(_ => Ok(conn))
+      })
     | _ => Promise.resolved(Error(Connection.Error.NotConnectedYet))
     }
 

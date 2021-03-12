@@ -179,6 +179,7 @@ module EventToView = {
 
   type t =
     | Display(Header.t, Body.t)
+    | SetStatus(string)
     | PromptInterrupt
     | PromptIMUpdate(string)
     | InputMethod(InputMethod.t)
@@ -197,6 +198,7 @@ module EventToView = {
           body,
         )),
       )
+    | "SetStatus" => Contents(string |> map(text => SetStatus(text)))
     | "PromptInterrupt" => TagOnly(PromptInterrupt)
     | "PromptIMUpdate" => Contents(string |> map(text => PromptIMUpdate(text)))
     | "InputMethod" => Contents(InputMethod.decode |> map(x => InputMethod(x)))
@@ -212,6 +214,8 @@ module EventToView = {
         ("tag", string("Display")),
         ("contents", (header, body) |> pair(Header.encode, array(Component.Item.encode))),
       })
+    | SetStatus(text) =>
+      object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
     | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
     | PromptIMUpdate(text) =>
       object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})

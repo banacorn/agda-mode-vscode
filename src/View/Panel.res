@@ -8,6 +8,7 @@ let make = (
   ~onEventFromView: Chan.t<Common.EventFromView.t>,
 ) => {
   let (header, setHeader) = React.useState(() => View.Header.Plain("File not loaded yet"))
+  let (status, setStatus) = React.useState(() => "")
   let (body, setBody) = React.useState(() => [])
   // save Header & Body up
   // so that we can restore them if the prompt is interrupted
@@ -79,13 +80,14 @@ let make = (
       saveHeaderAndBody(header, body)
       setHeader(_ => header)
       setBody(_ => body)
+    | SetStatus(text) => setStatus(_ => text)
     }
   )
 
   <Component__Link.Provider value=onEventFromView>
     <section className="agda-mode native-key-bindings" tabIndex={-1}>
       <div className="agda-mode-header-container">
-        <Header header />
+        <Header header status />
         <Prompt
           inputMethodActivated={Option.isSome(inputMethodState)} prompt onUpdatePromptIM onSubmit
         />
