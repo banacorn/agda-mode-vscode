@@ -313,3 +313,18 @@
         color: @hole-hover;
     }
 }
+
+.component-horz {
+    display: inline-flex;
+    flex-wrap: wrap;
+}
+
+// seperate each .component-horz-item
+.component-horz-item {
+    margin-right: 1ch
+}
+
+// but not the last one
+.component-horz-item:last-of-type {
+    margin-right: 0
+}
