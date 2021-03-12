@@ -31,6 +31,8 @@ module Module = {
       | Text(string, ClassNames.t)
       | Link(Common.AgdaRange.t, array<t>, ClassNames.t)
       | Hole(int)
+      | Horz(array<array<t>>)
+      | Vert(array<array<t>>)
 
     open! Json.Decode
     open Util.Decode
@@ -43,12 +45,13 @@ module Module = {
           Contents(
             tuple3(Common.AgdaRange.decode, array(decode()), ClassNames.decode) |> map(((
               r,
-              s,
+              xs,
               cs,
-            )) => Link(r, s, cs)),
+            )) => Link(r, xs, cs)),
           )
-
-        | "Hole" => Contents(int |> map(i => Hole(i)))
+        | "Hole" => Contents(int |> map(s => Hole(s)))
+        | "Horz" => Contents(array(array(decode())) |> map(xs => Horz(xs)))
+        | "Vert" => Contents(array(array(decode())) |> map(xs => Vert(xs)))
         | tag => raise(DecodeError("[RichText.Inline] Unknown constructor: " ++ tag))
         }
       )
@@ -79,6 +82,8 @@ module Module = {
         })
 
       | Hole(i) => object_(list{("tag", string("Hole")), ("contents", i |> int)})
+      | Horz(xs) => object_(list{("tag", string("Horz")), ("contents", xs |> array(array(encode)))})
+      | Vert(xs) => object_(list{("tag", string("Vert")), ("contents", xs |> array(array(encode)))})
       }
   }
   type t = RichText(array<Inline.t>)
@@ -145,6 +150,16 @@ module Module = {
             key={string_of_int(i)} className jump=true hover=false target=Common.Link.Hole(index)>
             {React.string("?" ++ string_of_int(index))}
           </Component__Link>
+        | Horz(elements) =>
+          let children = elements->Array.map(element => 
+          <span className="component-horz-item"> {make(~value=RichText(element))} </span>
+          )
+          <span className="component-horz" key={string_of_int(i)}> {React.array(children)} </span>
+        | Vert(elements) =>
+          let children = elements->Array.map(element => 
+          <span className="component-vert-item"> {make(~value=RichText(element))} </span>
+          )
+          <span className="component-vert" key={string_of_int(i)}> {React.array(children)} </span>
         }
       })
       ->React.array}
