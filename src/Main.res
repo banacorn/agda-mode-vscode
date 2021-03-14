@@ -61,7 +61,7 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
             version,
           )
         }
-        State.LSP(version)
+        State.LSP(version, method)
       })
       ->Promise.flatMapError(error => {
         // failed to start the Agda Language Server, switch to the Agda executable instead
@@ -83,7 +83,7 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
           conn,
           Connection.Emacs.getVersion(conn),
         ))
-      | Some(version) => Promise.resolved(Ok(State.LSP(version)))
+      | Some((version, method)) => Promise.resolved(Ok(State.LSP(version, method)))
       }
     }
   } else {
@@ -94,13 +94,20 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
   }
 }
 
-// TODO: rename `initialize2`
-let initialize2 = (debugChan, extensionPath, editor, fileName, connection: State.connType) => {
+let initialize = (debugChan, extensionPath, editor, fileName, connection: State.connType) => {
   let view = ViewController.Handle.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, editor, view, connection)
+
+  // display the connection status
+  switch connection {
+  | Emacs(_, _) => State.View.setStatus(state, "Emacs")
+  | LSP(_, ViaStdIO(_, _)) => State.View.setStatus(state, "LSP")
+  | LSP(_, ViaTCP(_)) => State.View.setStatus(state, "LSP (TCP)")
+  | Nothing(_) => State.View.setStatus(state, "")
+  }->ignore
 
   // remove it from the Registry if it requests to be destroyed
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -263,15 +270,7 @@ let activateWithoutContext = (subscriptions, extensionPath, devMode) => {
             | Ok(conn) => conn
             }
           )
-          ->Promise.map(initialize2(debugChan, extensionPath, editor, fileName))
-        // initiateConnection()->Promise.map(result =>
-        //   switch result {
-        //   | Error(error) =>
-        //     let (head, body) = Connection.Error.toString(error)
-        //     State.View.display(state, Error(head), Plain(body))
-        //   | Ok(conn) => initialize2(debugChan, extensionPath, editor, fileName, conn)
-        //   }
-        // )
+          ->Promise.map(initialize(debugChan, extensionPath, editor, fileName))
         | Some(_) => Promise.resolved() // already in the Registry, do nothing
         }
       | _ => Promise.resolved()
