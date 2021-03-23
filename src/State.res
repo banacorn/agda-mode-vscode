@@ -49,7 +49,7 @@ module RequestQueue: {
 
 type connType =
   | Emacs(Connection.Emacs.t, Connection.version)
-  | LSP(Connection.version)
+  | LSP(Connection.version, Connection.LSP.method)
   | Nothing(Connection.Error.t)
 
 type viewCache =
@@ -257,7 +257,7 @@ module Connection: Connection = {
       let promise = Connection.Emacs.onResponse(conn, handleResult)
       Connection.Emacs.sendRequest(conn, encodeRequest(version))
       promise
-    | LSP(version) =>
+    | LSP(version, _viaTCP) =>
       Connection.LSP.sendRequest(encodeRequest(version), handleResult)->Promise.flatMap(result =>
         switch result {
         | Error(error) => View.displayConnectionError(state, error)
@@ -299,19 +299,17 @@ let destroy = (state, alsoRemoveFromRegistry) => {
 }
 
 let make = (chan, editor, view, connection) => {
-  {
-    editor: editor,
-    document: VSCode.TextEditor.document(editor),
-    connection: connection,
-    view: view,
-    viewCache: None,
-    goals: [],
-    decoration: Decoration.make(),
-    cursor: None,
-    editorIM: IM.make(chan),
-    promptIM: IM.make(chan),
-    subscriptions: [],
-    onRemoveFromRegistry: Chan.make(),
-    agdaRequestQueue: RequestQueue.make(),
-  }
+  editor: editor,
+  document: VSCode.TextEditor.document(editor),
+  connection: connection,
+  view: view,
+  viewCache: None,
+  goals: [],
+  decoration: Decoration.make(),
+  cursor: None,
+  editorIM: IM.make(chan),
+  promptIM: IM.make(chan),
+  subscriptions: [],
+  onRemoveFromRegistry: Chan.make(),
+  agdaRequestQueue: RequestQueue.make(),
 }

@@ -594,7 +594,7 @@ module LSP = {
     let stop: unit => Promise.t<unit>
     // messaging
     let sendRequest: (string, Scheduler.handler) => Promise.t<result<unit, Error.t>>
-    let getVersion: unit => option<version>
+    let getVersion: unit => option<(version, method)>
     let onError: (Error.t => unit) => VSCode.Disposable.t
     // predicate
     let isConnected: unit => bool
@@ -808,7 +808,7 @@ module LSP = {
     let getVersion = () =>
       switch singleton.contents {
       | Disconnected => None
-      | Connected(_, version) => Some(version)
+      | Connected(client, version) => Some((version, client.method))
       }
 
     let isConnected = () =>
