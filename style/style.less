@@ -321,9 +321,20 @@
     }
 }
 
+
+@indent: 2ch;
+
+// the parent container of a Horizontal grouping 
 .component-horz {
-    display: inline-flex;
-    flex-wrap: wrap;
+    // so that we can set paddings
+    display: inline-block;
+    // use padding-left to indent every child
+    padding-left: @indent;
+}
+
+// but don't indent the first child
+.component-horz-item:first-of-type {
+    margin-left: -@indent;
 }
 
 // seperate each .component-horz-item
@@ -331,7 +342,7 @@
     margin-right: 1ch
 }
 
-// but not the last one
+// don't set margin on the last child
 .component-horz-item:last-of-type {
-    margin-right: 0
+    margin-right: 0;
 }
