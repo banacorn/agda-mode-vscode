@@ -10,17 +10,50 @@ module Parens = {
     let onMouseOut = _ => setActivated(_ => false)
     let onClick = _ => setContracted(x => !x)
     <>
-      <span className onMouseOver onMouseOut onClick>
-        {React.string("(")}
-      </span>
+      <span className onMouseOver onMouseOut onClick> {React.string("(")} </span>
       {contracted ? {React.string("..")} : children}
-      <span className onMouseOver onMouseOut onClick>
-        {React.string(")")}
-      </span>
+      <span className onMouseOver onMouseOut onClick> {React.string(")")} </span>
     </>
   }
 }
 
+// TODO: for PrHz, refactor this
+module Parens2 = {
+  @react.component
+  let make = (~payload) => {
+    // states
+    let (activated, setActivated) = React.useState(_ => false)
+    let (contracted, setContracted) = React.useState(_ => false)
+    // event handlers
+    let onMouseOver = _ => setActivated(_ => true)
+    let onMouseOut = _ => setActivated(_ => false)
+    let onClick = _ => setContracted(x => !x)
+    // the opening parenthesis
+    let openParenClassName =
+      "component-horz-item component-parentheses" ++ (activated ? " activated" : "")
+    let openParen =
+      <span className=openParenClassName onMouseOver onMouseOut onClick> {React.string("(")} </span>
+    // the closing parenthesis
+    let closeParenClassName =
+      "component-horz-item component-parentheses compact" ++ (activated ? " activated" : "")
+    let closeParen =
+      <span className=closeParenClassName onMouseOver onMouseOut onClick>
+        {React.string(")")}
+      </span>
+
+    // display only "(..)" when its contracted
+    if contracted {
+      <span className="component-horz">
+        <span className=openParenClassName onMouseOver onMouseOut onClick>
+          {React.string("(..)")}
+        </span>
+      </span>
+    } else {
+      let children = Array.concatMany([[openParen], payload, [closeParen]])
+      <span className="component-horz"> {React.array(children)} </span>
+    }
+  }
+}
 
 module type Module = {
   type t
@@ -56,6 +89,8 @@ module Module = {
       | Horz(array<array<t>>)
       | Vert(array<array<t>>)
       | Parn(array<t>)
+      // refactor PrHz
+      | PrHz(array<array<t>>)
 
     open! Json.Decode
     open Util.Decode
@@ -76,6 +111,7 @@ module Module = {
         | "Horz" => Contents(array(array(decode())) |> map(xs => Horz(xs)))
         | "Vert" => Contents(array(array(decode())) |> map(xs => Vert(xs)))
         | "Parn" => Contents(array(decode()) |> map(x => Parn(x)))
+        | "PrHz" => Contents(array(array(decode())) |> map(xs => PrHz(xs)))
         | tag => raise(DecodeError("[RichText.Inline] Unknown constructor: " ++ tag))
         }
       )
@@ -109,6 +145,7 @@ module Module = {
       | Horz(xs) => object_(list{("tag", string("Horz")), ("contents", xs |> array(array(encode)))})
       | Vert(xs) => object_(list{("tag", string("Vert")), ("contents", xs |> array(array(encode)))})
       | Parn(x) => object_(list{("tag", string("Parn")), ("contents", x |> array(encode))})
+      | PrHz(xs) => object_(list{("tag", string("PrHz")), ("contents", xs |> array(array(encode)))})
       }
   }
   type t = RichText(array<Inline.t>)
@@ -188,6 +225,16 @@ module Module = {
             )
           <span className="component-vert" key={string_of_int(i)}> {React.array(children)} </span>
         | Parn(element) => <Parens> {make(~value=RichText(element))} </Parens>
+        | PrHz(elements) =>
+          let children =
+            elements->Array.mapWithIndex((index, element) =>
+              index == 0
+                ? <span className="component-horz-item compact">
+                    {make(~value=RichText(element))}
+                  </span>
+                : <span className="component-horz-item"> {make(~value=RichText(element))} </span>
+            )
+          <Parens2 payload=children />
         }
       })
       ->React.array}

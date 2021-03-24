@@ -341,7 +341,12 @@
 
 // seperate each .component-horz-item
 .component-horz-item {
-    margin-left: 1ch
+    margin-left: 1ch;
+
+    // no margin, for parentheses around other horz-items
+    &.compact {
+        margin-left: 0
+    }
 }
 
 // for styling parentheses
