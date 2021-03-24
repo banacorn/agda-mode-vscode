@@ -1,5 +1,27 @@
 open Belt
 
+module Parens = {
+  @react.component
+  let make = (~children) => {
+    let (activated, setActivated) = React.useState(_ => false)
+    let (contracted, setContracted) = React.useState(_ => false)
+    let className = activated ? "component-parentheses activated" : "component-parentheses"
+    let onMouseOver = _ => setActivated(_ => true)
+    let onMouseOut = _ => setActivated(_ => false)
+    let onClick = _ => setContracted(x => !x)
+    <>
+      <span className onMouseOver onMouseOut onClick>
+        {React.string("(")}
+      </span>
+      {contracted ? {React.string("..")} : children}
+      <span className onMouseOver onMouseOut onClick>
+        {React.string(")")}
+      </span>
+    </>
+  }
+}
+
+
 module type Module = {
   type t
   // constructors
@@ -33,6 +55,7 @@ module Module = {
       | Hole(int)
       | Horz(array<array<t>>)
       | Vert(array<array<t>>)
+      | Parn(array<t>)
 
     open! Json.Decode
     open Util.Decode
@@ -52,6 +75,7 @@ module Module = {
         | "Hole" => Contents(int |> map(s => Hole(s)))
         | "Horz" => Contents(array(array(decode())) |> map(xs => Horz(xs)))
         | "Vert" => Contents(array(array(decode())) |> map(xs => Vert(xs)))
+        | "Parn" => Contents(array(decode()) |> map(x => Parn(x)))
         | tag => raise(DecodeError("[RichText.Inline] Unknown constructor: " ++ tag))
         }
       )
@@ -84,6 +108,7 @@ module Module = {
       | Hole(i) => object_(list{("tag", string("Hole")), ("contents", i |> int)})
       | Horz(xs) => object_(list{("tag", string("Horz")), ("contents", xs |> array(array(encode)))})
       | Vert(xs) => object_(list{("tag", string("Vert")), ("contents", xs |> array(array(encode)))})
+      | Parn(x) => object_(list{("tag", string("Parn")), ("contents", x |> array(encode))})
       }
   }
   type t = RichText(array<Inline.t>)
@@ -151,15 +176,18 @@ module Module = {
             {React.string("?" ++ string_of_int(index))}
           </Component__Link>
         | Horz(elements) =>
-          let children = elements->Array.map(element => 
-          <span className="component-horz-item"> {make(~value=RichText(element))} </span>
-          )
+          let children =
+            elements->Array.map(element =>
+              <span className="component-horz-item"> {make(~value=RichText(element))} </span>
+            )
           <span className="component-horz" key={string_of_int(i)}> {React.array(children)} </span>
         | Vert(elements) =>
-          let children = elements->Array.map(element => 
-          <span className="component-vert-item"> {make(~value=RichText(element))} </span>
-          )
+          let children =
+            elements->Array.map(element =>
+              <span className="component-vert-item"> {make(~value=RichText(element))} </span>
+            )
           <span className="component-vert" key={string_of_int(i)}> {React.array(children)} </span>
+        | Parn(element) => <Parens> {make(~value=RichText(element))} </Parens>
         }
       })
       ->React.array}

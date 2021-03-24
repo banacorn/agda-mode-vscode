@@ -343,3 +343,19 @@
 .component-horz-item {
     margin-left: 1ch
 }
+
+// for styling parentheses
+.component-parentheses {
+    color: @foreground-subtle;
+    
+    &.activated {
+        cursor: ew-resize;
+        color: @warning;
+        font-weight: bolder;
+    }
+}
+
+// for delimiters like "|"
+.delimiter {
+    color: @foreground-subtle
+}
