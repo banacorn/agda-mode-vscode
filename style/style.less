@@ -138,11 +138,11 @@
         color: @warning
     }
 
-    .agda-mode-header-status { 
-        color: @foreground-subtle;
-        font-size: 50%;
+    .agda-mode-header-status {
+        color       : @foreground-subtle;
+        font-size   : 50%;
         font-variant: small-caps;
-        float: right
+        float       : right
     }
 }
 
@@ -164,8 +164,8 @@
 
     li {
         // dimensions
-        margin    : @padding 0;
-        padding   : @padding/2 @padding;
+        margin : @padding 0;
+        padding: @padding/2 @padding;
 
         &:first-of-type {
             margin-top: 0;
@@ -184,13 +184,14 @@
     li.unlabeled-item,
     li.labeled-item {
         // background & border
-        background: @body-background;
+        background : @body-background;
         border-left: @left-border-width solid @body-background;
     }
 
     li.header-item {
-        margin    : 0;
-        padding   : 0;
+        margin : 0;
+        padding: 0;
+
         h3 {
             margin: 0;
         }
@@ -326,23 +327,19 @@
 
 // the parent container of a Horizontal grouping 
 .component-horz {
-    display: inline-flex;
-    flex-wrap: wrap;
+    // so that we can set paddings
+    display     : inline-flex;
+    flex-wrap   : wrap;
     // use padding-left to indent every child
-    padding-left: @indent;
+    padding-left: @indent - 1ch;
 }
 
 // but don't indent the first child
 .component-horz-item:first-of-type {
-    margin-left: -@indent;
+    margin-left: -(@indent - 1ch);
 }
 
 // seperate each .component-horz-item
 .component-horz-item {
-    margin-right: 1ch
-}
-
-// don't set margin on the last child
-.component-horz-item:last-of-type {
-    margin-right: 0;
+    margin-left: 1ch
 }
