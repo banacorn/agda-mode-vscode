@@ -7,7 +7,7 @@ module type Module = {
   type version = string
   type status = Emacs(version, string) | LSP(version, LSP.method)
   // lifecycle
-  let start: (bool, bool) => Promise.t<result<status, Connection__Error.t>>
+  let start: (bool, bool) => Promise.t<result<status, Error.t>>
   let stop: unit => Promise.t<unit>
   // messaging
   let sendRequest: (
@@ -15,7 +15,7 @@ module type Module = {
     bool,
     VSCode.TextDocument.t,
     Request.t,
-    result<Response.t, Connection__Error.t> => Promise.t<unit>,
+    result<Response.t, Error.t> => Promise.t<unit>,
   ) => Promise.t<result<status, Error.t>>
 }
 
@@ -43,25 +43,17 @@ module Module: Module = {
     | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
     | None =>
       if useLSP {
-        LSP.make(viaTCP)->Promise.map(result =>
-          switch result {
-          | Ok(conn) =>
-            let (version, method) = LSP.getStatus(conn)
-            singleton := Some(LSP(conn))
-            Ok(LSP(version, method))
-          | Error(error) => Error(Error.LSP(error))
-          }
-        )
+        LSP.make(viaTCP)->Promise.mapOk(conn => {
+          let (version, method) = LSP.getStatus(conn)
+          singleton := Some(LSP(conn))
+          LSP(version, method)
+        })
       } else {
-        Emacs.make()->Promise.map(result =>
-          switch result {
-          | Ok(conn) =>
-            singleton := Some(Emacs(conn))
-            let (version, path) = Emacs.getStatus(conn)
-            Ok(Emacs(version, path))
-          | Error(error) => Error(error)
-          }
-        )
+        Emacs.make()->Promise.mapOk(conn => {
+          singleton := Some(Emacs(conn))
+          let (version, path) = Emacs.getStatus(conn)
+          Emacs(version, path)
+        })
       }
     }
 
@@ -90,17 +82,9 @@ module Module: Module = {
 
     switch singleton.contents {
     | Some(LSP(conn)) =>
-      let handlerLSP = result =>
-        switch result {
-        | Error(error) => handler(Error(Error.LSP(error)))
-        | Ok(response) => handler(Ok(response))
-        }
       let (version, _method) = LSP.getStatus(conn)
-      LSP.sendRequest(conn, encodeRequest(document, version), handlerLSP)->Promise.map(result =>
-        switch result {
-        | Ok() => Ok(toStatus(LSP(conn)))
-        | Error(error) => Error(Error.LSP(error))
-        }
+      LSP.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
+        toStatus(LSP(conn))
       )
     | Some(Emacs(conn)) =>
       let (version, _path) = Emacs.getStatus(conn)
