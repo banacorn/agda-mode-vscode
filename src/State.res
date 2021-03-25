@@ -88,8 +88,7 @@ module type View = {
   // let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
   let displayOutOfGoalError: state => Promise.t<unit>
   let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
-  // set status (on the right of the header)
-  let setStatus: (state, string) => Promise.t<unit>
+  let displayConnectionStatus: (state, Connection.status) => Promise.t<unit>
   // Input Method
   let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
   let updatePromptIM: (state, string) => Promise.t<unit>
@@ -137,7 +136,13 @@ module View: View = {
     display(state, Error("Connection Error: " ++ header), [Component.Item.plainText(body)])
   }
 
-  let setStatus = (state, text) => sendEvent(state, SetStatus(text))
+  // display connection status
+  let displayConnectionStatus = (state, status) =>
+    switch status {
+    | Connection.Emacs(_) => sendEvent(state, SetStatus("Emacs"))
+    | LSP(ViaStdIO(_, _), _) => sendEvent(state, SetStatus("LSP"))
+    | LSP(ViaTCP(_), _) => sendEvent(state, SetStatus("LSP (TCP)"))
+    }
 
   // update the Input Method
   let updateIM = (state, event) => sendEvent(state, InputMethod(event))
@@ -315,10 +320,16 @@ let sendRequest = (
         View.display(state, Error(head), [Component.Item.plainText(body)])
       | Ok(response) => handler(response)
       }
-    Connection.sendRequest(Config.useAgdaLanguageServer(), state.devMode, state.document, request, handleResult)->Promise.flatMap(result =>
+    Connection.sendRequest(
+      Config.useAgdaLanguageServer(),
+      state.devMode,
+      state.document,
+      request,
+      handleResult,
+    )->Promise.flatMap(result =>
       switch result {
       | Error(error) => View.displayConnectionError(state, error)
-      | Ok() => Promise.resolved()
+      | Ok(status) => View.displayConnectionStatus(state, status)
       }
     )
   }

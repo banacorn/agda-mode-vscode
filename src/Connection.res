@@ -11,13 +11,14 @@ module type Module = {
   let reconnect: unit => Promise.t<unit>
   let stop: unit => Promise.t<unit>
   // messaging
+  // let getStatus: unit => option<status>
   let sendRequest: (
     bool,
     bool,
     VSCode.TextDocument.t,
     Request.t,
     result<Response.t, Connection__Error.t> => Promise.t<unit>,
-  ) => Promise.t<result<unit, Error.t>>
+  ) => Promise.t<result<status, Error.t>>
 }
 
 module Module: Module = {
@@ -28,14 +29,20 @@ module Module: Module = {
   type version = string
   type status = Emacs(version) | LSP(LSP.method, version)
 
+  // connection -> status
+  let toStatus = (conn: connection): status =>
+    switch conn {
+    | LSP(conn) =>
+      let (method, version) = LSP.getStatus(conn)
+      LSP(method, version)
+    | Emacs(conn) =>
+      let version = Emacs.getVersion(conn)
+      Emacs(version)
+    }
+
   let start = (useLSP, viaTCP) =>
     switch singleton.contents {
-    | Some(LSP(conn)) =>
-      let (method, version) = LSP.getStatus(conn)
-      Promise.resolved(Ok(LSP(method, version)))
-    | Some(Emacs(conn)) =>
-      let version = Emacs.getVersion(conn)
-      Promise.resolved(Ok(Emacs(version)))
+    | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
     | None =>
       if useLSP {
         LSP.make(viaTCP)->Promise.map(result =>
@@ -71,6 +78,8 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
+  // let getStatus = () =>singleton.contents->Option.map(toStatus)
+
   let rec sendRequest = (useLSP, viaTCP, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
@@ -91,13 +100,13 @@ module Module: Module = {
       let (_method, version) = LSP.getStatus(conn)
       LSP.sendRequest(conn, encodeRequest(document, version), handlerLSP)->Promise.map(result =>
         switch result {
-        | Ok() => Ok()
+        | Ok() => Ok(toStatus(LSP(conn)))
         | Error(error) => Error(Error.LSP(error))
         }
       )
     | Some(Emacs(conn)) =>
       let version = Emacs.getVersion(conn)
-      Emacs.sendRequest(conn, encodeRequest(document, version), handler)
+      Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() => toStatus(Emacs(conn)))
     | None =>
       start(useLSP, viaTCP)->Promise.flatMapOk(_ =>
         sendRequest(useLSP, viaTCP, document, request, handler)
