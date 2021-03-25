@@ -287,7 +287,7 @@ module type Module = {
   let destroy: t => Promise.t<unit>
   // messaging
   let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
-  let getStatus: t => (method, version)
+  let getStatus: t => (version, method)
 
   // others
   // let getVersion: unit => option<(version, method)>
@@ -312,8 +312,8 @@ module Module: Module = {
     // for emitting data
     let dataChan: Chan.t<Js.Json.t> = Chan.make()
 
-    let onError = callback =>
-      errorChan->Chan.on(e => callback(Error.Connection(e)))->VSCode.Disposable.make
+    // let onError = callback =>
+    //   errorChan->Chan.on(e => callback(Error.Connection(e)))->VSCode.Disposable.make
     let onResponse = callback => dataChan->Chan.on(callback)->VSCode.Disposable.make
 
     let sendRequest = (self, data) =>
@@ -483,46 +483,7 @@ module Module: Module = {
   // destroy the client
   let destroy = self => self.client->Client.destroy
 
-  let getStatus = self => (self.method, self.version)
-
-  // // start the LSP client
-  // let start = tryTCP =>
-  //   switch singleton.contents {
-  //   | Disconnected =>
-  //     probe(tryTCP, 4096, "als")
-  //     ->Promise.flatMapOk(Client.make)
-  //     ->Promise.flatMap(result =>
-  //       switch result {
-  //       | Error(error) =>
-  //         singleton.contents = Disconnected
-  //         Promise.resolved(Error(error))
-  //       | Ok(client) =>
-  //         // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-  //         sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
-  //           switch response {
-  //           | Result(_) => Promise.resolved(Error(Error.Initialize))
-  //           | ACK(version) =>
-  //             // update the status
-  //             singleton.contents = Connected(client, version)
-  //             Promise.resolved(Ok((version, client.method)))
-  //           }
-  //         )
-  //       }
-  //     )
-  //   | Connected(client, version) => Promise.resolved(Ok((version, client.method)))
-  //   }
-
-  // let getVersion = () =>
-  //   switch singleton.contents {
-  //   | Disconnected => None
-  //   | Connected(client, version) => Some((version, client.method))
-  //   }
-
-  // let isConnected = () =>
-  //   switch singleton.contents {
-  //   | Disconnected => false
-  //   | Connected(_, _version) => true
-  //   }
+  let getStatus = self => (self.version, self.method)
 
   let sendRequest = (self, request, handler) => {
     let scheduler = Scheduler.make()

@@ -140,8 +140,8 @@ module View: View = {
   let displayConnectionStatus = (state, status) =>
     switch status {
     | Connection.Emacs(_) => sendEvent(state, SetStatus("Emacs"))
-    | LSP(ViaStdIO(_, _), _) => sendEvent(state, SetStatus("LSP"))
-    | LSP(ViaTCP(_), _) => sendEvent(state, SetStatus("LSP (TCP)"))
+    | LSP(_, ViaStdIO(_, _)) => sendEvent(state, SetStatus("LSP"))
+    | LSP(_, ViaTCP(_)) => sendEvent(state, SetStatus("LSP (TCP)"))
     }
 
   // update the Input Method
@@ -174,134 +174,6 @@ module View: View = {
   }
   let interruptPrompt = state => sendEvent(state, PromptInterrupt)
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  Connection
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// module type Connection = {
-//   // let reconnect: state => Promise.t<result<Connection.Emacs.t, Connection.Error.t>>
-//   // let destroy: state => Promise.t<unit>
-//   // let sendRequest: (state, Response.t => Promise.t<unit>, Request.t) => Promise.t<unit>
-// }
-// module Connection: Connection = {
-//   // let connect = state =>
-//   //   switch state.connection {
-//   //   | None =>
-//   //     switch state.agdaLanguageServerVersion {
-//   //     | None => Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
-//   //     | Some(version) =>
-//   //       Js.log("[LSP] Connecting with agda-" ++ version)
-//   //       Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
-//   //     }
-//   //   | Some(connection) => Promise.resolved(Ok(connection))
-//   //   }
-//   // let disconnect = state =>
-//   //   switch state.connection {
-//   //   | None => Promise.resolved()
-//   //   | Some(connection) =>
-//   //     state.connection = None
-//   //     Connection.Emacs.destroy(connection)
-//   //   }
-
-//   // let reconnect = state =>
-//   //   switch state.connection {
-//   //   | Emacs(conn, version) =>
-//   //     Connection.Emacs.destroy(conn)
-//   //     ->Promise.flatMap(Connection.Emacs.make)
-//   //     ->Promise.flatMapOk(conn => {
-//   //       state.connection = Emacs(conn, version)
-//   //       View.setStatus(state, "emacs")->Promise.map(_ => Ok(conn))
-//   //     })
-//   //   | _ => Promise.resolved(Error(Connection.Error.NotConnectedYet))
-//   //   }
-
-//   // let destroy = state =>
-//   //   switch state.connection {
-//   //   | Emacs(conn, _) => conn->Connection.Emacs.destroy
-//   //   | _ => Promise.resolved()
-//   //   }
-
-//   // let sendRequestAndHandleResponses = (
-//   //   state: state,
-//   //   handleResponse: Response.t => Promise.t<unit>,
-//   //   request: Request.t,
-//   // ): Promise.t<unit> => {
-//   //   let handleResult = result =>
-//   //     switch result {
-//   //     | Error(error) =>
-//   //       let (head, body) = Connection.Error.toString(error)
-//   //       View.display(state, Error(head), [Component.Item.plainText(body)])
-//   //     | Ok(response) => handleResponse(response)
-//   //     }
-//   //   let handleResultLSP = result =>
-//   //     switch result {
-//   //     | Error(error) => handleResult(Error(Connection.Error.LSP(error)))
-//   //     | Ok(response) => handleResult(Ok(response))
-//   //     }
-
-//   //   // encode the Request to some string
-//   //   let encodeRequest = version => {
-//   //     let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
-//   //     let libraryPath = Config.getLibraryPath()
-//   //     let highlightingMethod = Config.getHighlightingMethod()
-//   //     let backend = Config.getBackend()
-//   //     Request.encode(
-//   //       state.document,
-//   //       version,
-//   //       filepath,
-//   //       backend,
-//   //       libraryPath,
-//   //       highlightingMethod,
-//   //       request,
-//   //     )
-//   //   }
-
-//   //   switch state.connection {
-//   //   | Emacs(conn, version) =>
-//   //     // this promise gets resolved after all Responses have been received and handled
-//   //     Connection.Emacs.sendRequest(conn, encodeRequest(version), handleResult)->Promise.flatMap(result =>
-//   //       switch result {
-//   //       | Error(error) => View.displayConnectionError(state, error)
-//   //       | Ok() => Promise.resolved()
-//   //       }
-//   //     )
-//   //   | LSP(version, _viaTCP) =>
-//   //     Connection.LSP.sendRequest(encodeRequest(version), handleResultLSP)->Promise.flatMap(result =>
-//   //       switch result {
-//   //       | Error(error) => View.displayConnectionError(state, Connection.Error.LSP(error))
-//   //       | Ok() => Promise.resolved()
-//   //       }
-//   //     )
-//   //   | Nothing(error) => View.displayConnectionError(state, error)
-//   //   }
-//   // }
-
-//   let sendRequestAndHandleResponses = (state, request, handler) => {
-//     let handleResult = result =>
-//       switch result {
-//       | Error(error) =>
-//         let (head, body) = Connection.Error.toString(error)
-//         View.display(state, Error(head), [Component.Item.plainText(body)])
-//       | Ok(response) => handler(response)
-//       }
-//     Connection.sendRequest(state.document, request, handleResult)->Promise.flatMap(result =>
-//       switch result {
-//       | Error(error) => View.displayConnectionError(state, error)
-//       | Ok() => Promise.resolved()
-//       }
-//     )
-//   }
-
-//   let sendRequest = (
-//     state: state,
-//     handleResponse: Response.t => Promise.t<unit>,
-//     request: Request.t,
-//   ): Promise.t<unit> =>
-//     state.agdaRequestQueue->RequestQueue.push(
-//       request => sendRequestAndHandleResponses(state, request, handleResponse),
-//       request,
-//     )
-// }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  State

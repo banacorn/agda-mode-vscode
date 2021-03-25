@@ -235,48 +235,64 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       }, expr => sendAgdaRequest(WhyInScope(expr, goal)))
     | Some((goal, expr)) => sendAgdaRequest(WhyInScope(expr, goal))
     }
-  | SwitchAgdaVersion => Promise.resolved()
-    // let oldAgdaVersion = Config.getAgdaVersion()
-    // State.View.prompt(state, header, {
-    //   body: None,
-    //   placeholder: None,
-    //   value: Some(oldAgdaVersion),
-    // }, expr => {
-    //   let oldAgdaPath = Config.getAgdaPath()
-    //   let newAgdaVersion = Js.String.trim(expr)
-    //   Config.setAgdaPath("")
-    //   ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
-    //   ->Promise.flatMap(() =>
-    //     State.View.display(state, View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"), [])
-    //   )
-    //   ->Promise.flatMap(() => Connection.reconnect(state))
-    //   ->Promise.flatMap(result =>
-    //     switch result {
-    //     | Error(error) =>
-    //       let (errorHeader, errorBody) = Connection.Error.toString(error)
-    //       let header = View.Header.Error(
-    //         "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
-    //       )
-    //       let body = [
-    //         Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
-    //       ]
-    //       // View.Body.Plain(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)
-    //       Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
-    //         State.View.display(state, header, body)
-    //       )
-    //     | Ok(_) =>
-    //       State.View.display(
-    //         state,
-    //         View.Header.Success("Switched to '" ++ newAgdaVersion ++ "'"),
-    //         [
-    //           Component.Item.plainText(
-    //             "Found '" ++ newAgdaVersion ++ "' at: " ++ Config.getAgdaPath(),
-    //           ),
-    //         ],
-    //       )
-    //     }
-    //   )
-    // })
+  | SwitchAgdaVersion => 
+    // preserve the original version, in case the new one fails
+    let oldAgdaVersion = Config.getAgdaVersion()
+    // prompt the user for the new version
+    State.View.prompt(state, header, {
+      body: None,
+      placeholder: None,
+      value: Some(oldAgdaVersion),
+    }, expr => {
+      let oldAgdaPath = Config.getAgdaPath()
+      let newAgdaVersion = Js.String.trim(expr)
+      // don't connect to the LSP server
+      let useLSP = false
+
+      Config.setAgdaPath("")
+      ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
+      ->Promise.flatMap(() =>
+        State.View.display(state, View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"), [])
+      )
+      ->Promise.flatMap(Connection.stop)
+      ->Promise.flatMap(() => Connection.start(useLSP, state.devMode))
+      ->Promise.flatMap(result =>
+        switch result {
+        | Ok(Emacs(version, path)) =>
+          State.View.display(
+            state,
+            View.Header.Success("Switched to '" ++ version ++ "'"),
+            [
+              Component.Item.plainText(
+                "Found '" ++ newAgdaVersion ++ "' at: " ++ path,
+              ),
+            ],
+          )
+        | Ok(LSP(version, _)) => 
+          // should not happen
+          State.View.display(
+            state,
+            View.Header.Success("Panic, Switched to LSP server '" ++ version ++ "'"),
+            [
+              Component.Item.plainText(
+                "Should have switched to an Agda executable, please file an issue",
+              ),
+            ],
+          )
+        | Error(error) =>
+          let (errorHeader, errorBody) = Connection.Error.toString(error)
+          let header = View.Header.Error(
+            "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
+          )
+          let body = [
+            Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
+          ]
+          Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
+            State.View.display(state, header, body)
+          )
+        }
+      )
+    })
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved()

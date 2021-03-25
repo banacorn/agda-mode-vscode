@@ -10,7 +10,7 @@ module type Module = {
   let destroy: t => Promise.t<unit>
   // messaging
   let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
-  let getVersion: t => string
+  let getStatus: t => (string, string)
 }
 
 module Module: Module = {
@@ -213,7 +213,7 @@ module Module: Module = {
     sendRequestPrim(conn, request)
     promise->Promise.map(() => Ok())
   }
-  let getVersion = conn => conn.metadata.version
+  let getStatus = conn => (conn.metadata.version, conn.metadata.path)
 
 }
 

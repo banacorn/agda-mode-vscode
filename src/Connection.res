@@ -5,13 +5,11 @@ module LSP = Connection__LSP
 
 module type Module = {
   type version = string
-  type status = Emacs(version) | LSP(LSP.method, version)
+  type status = Emacs(version, string) | LSP(version, LSP.method)
   // lifecycle
   let start: (bool, bool) => Promise.t<result<status, Connection__Error.t>>
-  let reconnect: unit => Promise.t<unit>
   let stop: unit => Promise.t<unit>
   // messaging
-  // let getStatus: unit => option<status>
   let sendRequest: (
     bool,
     bool,
@@ -27,17 +25,17 @@ module Module: Module = {
   let singleton: ref<option<connection>> = ref(None)
 
   type version = string
-  type status = Emacs(version) | LSP(LSP.method, version)
+  type status = Emacs(version, string) | LSP(version, LSP.method)
 
   // connection -> status
   let toStatus = (conn: connection): status =>
     switch conn {
     | LSP(conn) =>
-      let (method, version) = LSP.getStatus(conn)
-      LSP(method, version)
+      let (version, method) = LSP.getStatus(conn)
+      LSP(version, method)
     | Emacs(conn) =>
-      let version = Emacs.getVersion(conn)
-      Emacs(version)
+      let (version, path) = Emacs.getStatus(conn)
+      Emacs(version, path)
     }
 
   let start = (useLSP, viaTCP) =>
@@ -48,9 +46,9 @@ module Module: Module = {
         LSP.make(viaTCP)->Promise.map(result =>
           switch result {
           | Ok(conn) =>
-            let (method, version) = LSP.getStatus(conn)
+            let (version, method) = LSP.getStatus(conn)
             singleton := Some(LSP(conn))
-            Ok(LSP(method, version))
+            Ok(LSP(version, method))
           | Error(error) => Error(Error.LSP(error))
           }
         )
@@ -59,8 +57,8 @@ module Module: Module = {
           switch result {
           | Ok(conn) =>
             singleton := Some(Emacs(conn))
-            let version = Emacs.getVersion(conn)
-            Ok(Emacs(version))
+            let (version, path) = Emacs.getStatus(conn)
+            Ok(Emacs(version, path))
           | Error(error) => Error(error)
           }
         )
@@ -97,7 +95,7 @@ module Module: Module = {
         | Error(error) => handler(Error(Error.LSP(error)))
         | Ok(response) => handler(Ok(response))
         }
-      let (_method, version) = LSP.getStatus(conn)
+      let (version, _method) = LSP.getStatus(conn)
       LSP.sendRequest(conn, encodeRequest(document, version), handlerLSP)->Promise.map(result =>
         switch result {
         | Ok() => Ok(toStatus(LSP(conn)))
@@ -105,16 +103,16 @@ module Module: Module = {
         }
       )
     | Some(Emacs(conn)) =>
-      let version = Emacs.getVersion(conn)
-      Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() => toStatus(Emacs(conn)))
+      let (version, _path) = Emacs.getStatus(conn)
+      Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
+        toStatus(Emacs(conn))
+      )
     | None =>
       start(useLSP, viaTCP)->Promise.flatMapOk(_ =>
         sendRequest(useLSP, viaTCP, document, request, handler)
       )
     }
   }
-
-  let reconnect = () => Promise.resolved()
 }
 
 include Module
