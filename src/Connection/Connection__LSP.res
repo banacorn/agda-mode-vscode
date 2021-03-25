@@ -281,6 +281,12 @@ module LSPResponse = {
 }
 
 module type Module = {
+  type t
+  // lifecycle
+  let make: bool => Promise.t<result<t, Error.t>>
+  let destroy: t => Promise.t<unit>
+  
+
   // lifecycle
   let start: bool => Promise.t<result<(version, method), Error.t>>
   let stop: unit => Promise.t<unit>
@@ -396,43 +402,10 @@ module Module: Module = {
     }
   }
 
-  // for internal bookkeeping
-  type state =
-    | Disconnected
-    | Connected(Client.t, version)
-  // internal state singleton
-  let singleton: ref<state> = ref(Disconnected)
-
-  // stop the LSP client
-  let stop = () =>
-    switch singleton.contents {
-    | Disconnected => Promise.resolved()
-    | Connected(client, _version) =>
-      // update the status
-      singleton := Disconnected
-      // destroy the client
-      client->Client.destroy
-    }
-
-  // catches exceptions occured when decoding JSON values
-  let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
-    switch CommandRes.decode(json) {
-    | response => Ok(response)
-    | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeCommandRes(msg, json))
-    }
-
-  let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
-    switch LSPResponse.decode(json) {
-    | reaction => Ok(reaction)
-    | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
-    }
-
-  let onError = Client.onError
-
-  let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
-    client
-    ->Client.sendRequest(CommandReq.encode(request))
-    ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
+  type t = {
+    client: Client.t,
+    version: version,
+    method: method,
   }
 
   // see if the server is available
@@ -468,6 +441,66 @@ module Module: Module = {
       probeStdIO(name)
     }
   }
+  // catches exceptions occured when decoding JSON values
+  let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
+    switch CommandRes.decode(json) {
+    | response => Ok(response)
+    | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeCommandRes(msg, json))
+    }
+
+  let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
+    switch LSPResponse.decode(json) {
+    | reaction => Ok(reaction)
+    | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
+    }
+
+  let onError = Client.onError
+
+  let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
+    client
+    ->Client.sendRequest(CommandReq.encode(request))
+    ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
+  }
+
+  // start the LSP client
+  let make = tryTCP =>
+    probe(tryTCP, 4096, "als")
+    ->Promise.flatMapOk(Client.make)
+    ->Promise.flatMap(result =>
+      switch result {
+      | Error(error) => Promise.resolved(Error(error))
+      | Ok(client) =>
+        // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
+        sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
+          switch response {
+          | Result(_) => Promise.resolved(Error(Error.Initialize))
+          | ACK(version) =>
+            Promise.resolved(Ok({client: client, version: version, method: client.method}))
+          }
+        )
+      }
+    )
+
+  // destroy the client
+  let destroy = self => self.client->Client.destroy
+
+  // for internal bookkeeping
+  type state =
+    | Disconnected
+    | Connected(Client.t, version)
+  // internal state singleton
+  let singleton: ref<state> = ref(Disconnected)
+
+  // stop the LSP client
+  let stop = () =>
+    switch singleton.contents {
+    | Disconnected => Promise.resolved()
+    | Connected(client, _version) =>
+      // update the status
+      singleton := Disconnected
+      // destroy the client
+      client->Client.destroy
+    }
 
   // start the LSP client
   let start = tryTCP =>
