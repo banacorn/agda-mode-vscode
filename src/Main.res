@@ -67,9 +67,9 @@ let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.
         // failed to start the Agda Language Server, switch to the Agda executable instead
         Js.log(
           "[LSP] Connection failed, switching to the Agda executable instead: " ++
-          fst(Connection.Error.toString(error)) ++
+          fst(Connection.LSP.Error.toString(error)) ++
           "\n" ++
-          snd(Connection.Error.toString(error)),
+          snd(Connection.LSP.Error.toString(error)),
         )
         Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
           conn,

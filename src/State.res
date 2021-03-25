@@ -233,6 +233,11 @@ module Connection: Connection = {
         View.display(state, Error(head), [Component.Item.plainText(body)])
       | Ok(response) => handleResponse(response)
       }
+    let handleResultLSP = result =>
+      switch result {
+      | Error(error) => handleResult(Error(Connection.Error.LSP(error)))
+      | Ok(response) => handleResult(Ok(response))
+      }
 
     // encode the Request to some string
     let encodeRequest = version => {
@@ -258,9 +263,9 @@ module Connection: Connection = {
       Connection.Emacs.sendRequest(conn, encodeRequest(version))
       promise
     | LSP(version, _viaTCP) =>
-      Connection.LSP.sendRequest(encodeRequest(version), handleResult)->Promise.flatMap(result =>
+      Connection.LSP.sendRequest(encodeRequest(version), handleResultLSP)->Promise.flatMap(result =>
         switch result {
-        | Error(error) => View.displayConnectionError(state, error)
+        | Error(error) => View.displayConnectionError(state, Connection.Error.LSP(error))
         | Ok() => Promise.resolved()
         }
       )
