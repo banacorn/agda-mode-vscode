@@ -68,8 +68,6 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
-  // let getStatus = () =>singleton.contents->Option.map(toStatus)
-
   let rec sendRequest = (useLSP, viaTCP, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {

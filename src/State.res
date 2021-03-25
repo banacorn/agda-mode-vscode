@@ -185,11 +185,9 @@ let sendRequest = (
   request: Request.t,
 ): Promise.t<unit> => {
   let sendRequestAndHandleResponses = (state, request, handler) => {
-    let handleResult = result =>
+    let onResponse = result =>
       switch result {
-      | Error(error) =>
-        let (head, body) = Connection.Error.toString(error)
-        View.display(state, Error(head), [Component.Item.plainText(body)])
+      | Error(error) => View.displayConnectionError(state, error)
       | Ok(response) => handler(response)
       }
     Connection.sendRequest(
@@ -197,7 +195,7 @@ let sendRequest = (
       state.devMode,
       state.document,
       request,
-      handleResult,
+      onResponse,
     )->Promise.flatMap(result =>
       switch result {
       | Error(error) => View.displayConnectionError(state, error)
