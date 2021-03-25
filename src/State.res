@@ -261,12 +261,10 @@ module Connection: Connection = {
       Connection.LSP.sendRequest(encodeRequest(version), handleResult)->Promise.flatMap(result =>
         switch result {
         | Error(error) => View.displayConnectionError(state, error)
-        | Ok() =>
-          Js.log("Command done")
-          Promise.resolved()
+        | Ok() => Promise.resolved()
         }
       )
-    | Nothing(_) => Promise.resolved()
+    | Nothing(error) => View.displayConnectionError(state, error)
     }
   }
 
