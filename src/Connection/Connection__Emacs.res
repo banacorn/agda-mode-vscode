@@ -138,7 +138,10 @@ module Module: Module = {
       if storedPath == "" || storedPath == "." {
         // if there's no stored path, find one from the OS (with the specified name)
         let agdaVersion = Config.getAgdaVersion()
-        Process.PathSearch.run(agdaVersion)
+        Process.PathSearch.run(
+          agdaVersion,
+          "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings."
+        )
         ->Promise.mapOk(Js.String.trim)
         ->Promise.mapError(e => Error.PathSearch(e))
       } else {
@@ -214,7 +217,6 @@ module Module: Module = {
     promise->Promise.map(() => Ok())
   }
   let getStatus = conn => (conn.metadata.version, conn.metadata.path)
-
 }
 
 include Module

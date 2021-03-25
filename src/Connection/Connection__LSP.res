@@ -1,8 +1,6 @@
 module Scheduler = Connection__Scheduler
 module Error = Connection__Error
 
-
-
 type method = ViaStdIO(string, string) | ViaTCP(int)
 type version = string
 
@@ -29,7 +27,8 @@ module CommandRes = {
   let decode: decoder<t> = sum(x =>
     switch x {
     | "CmdResACK" => Contents(string |> map(version => ACK(version)))
-    | "CmdRes" => Contents(optional(Connection__LSP__Error.CommandErr.decode) |> map(error => Result(error)))
+    | "CmdRes" =>
+      Contents(optional(Connection__LSP__Error.CommandErr.decode) |> map(error => Result(error)))
     | tag => raise(DecodeError("[LSP.CommandRes] Unknown constructor: " ++ tag))
     }
   )
@@ -328,7 +327,10 @@ module Module: Module = {
   let probe = (tryTCP, port, name) => {
     // see if "als" is available
     let probeStdIO = name => {
-      AgdaModeVscode.Process.PathSearch.run(name)
+      AgdaModeVscode.Process.PathSearch.run(
+        name,
+        "Please make sure that the language server is installed on the path",
+      )
       ->Promise.mapOk(path => ViaStdIO(name, Js.String.trim(path)))
       ->Promise.mapError(e => Connection__Error.PathSearch(e))
     }
@@ -337,8 +339,10 @@ module Module: Module = {
       let (promise, resolve) = Promise.pending()
       // connect and resolve `Ok()`` on success
       let socket = N.Net.connect(port, () => resolve(Ok()))
-      // resolve `Error(CannotConnect(Js.Exn.t))` on error
-      socket->N.Net.Socket.on(#error(exn => resolve(Error(exn))))->ignore
+      // resolve an error
+      socket
+      ->N.Net.Socket.on(#error(exn => resolve(Error(Connection__Error.PortSearch(port, exn)))))
+      ->ignore
       // destroy the connection afterwards
       promise->Promise.mapOk(() => {
         N.Net.Socket.destroy(socket)->ignore
@@ -410,7 +414,7 @@ module Module: Module = {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
-      | Ok(ResponseParseError(e)) => resolve(Error(Error.LSP(ResponseParseError(e))))
+      | Ok(ResponseParseError(e)) => resolve(Error(Connection__Error.ResponseParseError(e)))
       | Ok(ResponseEnd) => resolve(Ok())
       | Error(error) => resolve(Error(error))
       }

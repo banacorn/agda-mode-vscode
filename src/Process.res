@@ -18,15 +18,11 @@ module PathSearch = {
           "Auto search failed",
           j`currently auto path searching is not supported on $(os)`,
         )
-      | NotFound(name, msg) => (
-          "Auto search failed when looking for \"" ++ (name ++ "\""),
-          j`If you know where the executable of Agda is located, please fill it in "agdaMode.agdaPath" in the Settings.
-The system responded with the following message $(msg)`,
-        )
+      | NotFound(name, msg) => ("Auto search failed when looking for \"" ++ name ++ "\"", msg)
       }
   }
 
-  let run = (name): Promise.t<result<string, Error.t>> => {
+  let run = (name, errMsgIfNotFound): Promise.t<result<string, Error.t>> => {
     let (promise, resolve) = Promise.pending()
 
     // reject if the process hasn't responded for more than 1 second
@@ -51,20 +47,26 @@ The system responded with the following message $(msg)`,
         // error
         error
         ->Js.Nullable.toOption
-        ->Option.forEach(err =>
-          resolve(Error(Error.NotFound(name, Option.getWithDefault(Js.Exn.message(err), ""))))
-        )
+        ->Option.forEach(err => {
+          let msg = switch Js.Exn.message(err) {
+          | None => errMsgIfNotFound
+          | Some(err) => errMsgIfNotFound ++ "\nError message from the system:\n" ++ err
+          }
+          resolve(Error(Error.NotFound(name, msg)))
+        })
 
         // stderr
         let stderr = Node.Buffer.toString(stderr)
         if stderr != "" {
-          resolve(Error(NotFound(name, stderr)))
+          let msg = errMsgIfNotFound ++ "\nError message from stderr:\n" ++ stderr
+          resolve(Error(NotFound(name, msg)))
         }
 
         // stdout
         let stdout = Node.Buffer.toString(stdout)->String.trim
         if stdout == "" {
-          resolve(Error(NotFound(name, "")))
+          let msg = errMsgIfNotFound ++ "\nstdout is empty"
+          resolve(Error(NotFound(name, msg)))
         } else {
           resolve(Ok(stdout))
         }
