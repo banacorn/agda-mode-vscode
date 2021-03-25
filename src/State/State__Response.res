@@ -88,7 +88,7 @@ let rec handle = (
   dispatchCommand: Command.t => Promise.t<unit>,
   response: Response.t,
 ): Promise.t<unit> => {
-  let sendAgdaRequest = State.Connection.sendRequest(state, handle(state, dispatchCommand))
+  let sendAgdaRequest = State.sendRequest(state, handle(state, dispatchCommand))
   switch response {
   | HighlightingInfoDirect(_keep, annotations) =>
     state.decoration->Decoration.addViaPipe(annotations)

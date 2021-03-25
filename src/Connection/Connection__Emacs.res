@@ -5,10 +5,11 @@ module Scheduler = Connection__Scheduler
 
 module type Module = {
   type t
+  // lifecycle
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
-  let onResponse: (t, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<unit>
-  let sendRequest: (t, string) => unit
+  // messaging
+  let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
   let getVersion: t => string
 }
 
@@ -165,9 +166,9 @@ module Module: Module = {
     ->Promise.tapOk(wire)
   }
 
-  let sendRequest = (connection, encoded): unit => connection.process->Process.send(encoded)->ignore
+  let sendRequestPrim = (conn, encoded): unit => conn.process->Process.send(encoded)->ignore
 
-  let onResponse = (connection, callback) => {
+  let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()
     // this promise get resolved after all Responses has been received from Agda
     let (promise, stopListener) = Promise.pending()
@@ -199,14 +200,21 @@ module Module: Module = {
 
     let listenerHandle = ref(None)
     // start listening for responses
-    listenerHandle := Some(connection.chan->Chan.on(listener))
+    listenerHandle := Some(conn.chan->Chan.on(listener))
     // destroy the listener after all responses have been received
     promise->Promise.tap(() =>
       listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
     )
   }
 
+  let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {
+    // this promise gets resolved after all Responses have been received and handled
+    let promise = onResponse(conn, handler)
+    sendRequestPrim(conn, request)
+    promise->Promise.map(() => Ok())
+  }
   let getVersion = conn => conn.metadata.version
+
 }
 
 include Module

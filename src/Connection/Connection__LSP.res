@@ -285,17 +285,16 @@ module type Module = {
   // lifecycle
   let make: bool => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
-  
-
-  // lifecycle
-  let start: bool => Promise.t<result<(version, method), Error.t>>
-  let stop: unit => Promise.t<unit>
   // messaging
-  let sendRequest: (string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
-  let getVersion: unit => option<(version, method)>
-  let onError: (Error.t => unit) => VSCode.Disposable.t
-  // predicate
-  let isConnected: unit => bool
+  let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
+  let getStatus: t => (method, version)
+
+  // others
+  // let getVersion: unit => option<(version, method)>
+  // let start: bool => Promise.t<result<(version, method), Error.t>>
+  // let stop: unit => Promise.t<unit> // others
+  // let onError: (Error.t => unit) => VSCode.Disposable.t
+  // let isConnected: unit => bool
 }
 
 module Module: Module = {
@@ -454,7 +453,7 @@ module Module: Module = {
     | exception Json.Decode.DecodeError(msg) => Error(Error.CannotDecodeResponse(msg, json))
     }
 
-  let onError = Client.onError
+  // let onError = Client.onError
 
   let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
     client
@@ -484,100 +483,81 @@ module Module: Module = {
   // destroy the client
   let destroy = self => self.client->Client.destroy
 
-  // for internal bookkeeping
-  type state =
-    | Disconnected
-    | Connected(Client.t, version)
-  // internal state singleton
-  let singleton: ref<state> = ref(Disconnected)
+  let getStatus = self => (self.method, self.version)
 
-  // stop the LSP client
-  let stop = () =>
-    switch singleton.contents {
-    | Disconnected => Promise.resolved()
-    | Connected(client, _version) =>
-      // update the status
-      singleton := Disconnected
-      // destroy the client
-      client->Client.destroy
-    }
+  // // start the LSP client
+  // let start = tryTCP =>
+  //   switch singleton.contents {
+  //   | Disconnected =>
+  //     probe(tryTCP, 4096, "als")
+  //     ->Promise.flatMapOk(Client.make)
+  //     ->Promise.flatMap(result =>
+  //       switch result {
+  //       | Error(error) =>
+  //         singleton.contents = Disconnected
+  //         Promise.resolved(Error(error))
+  //       | Ok(client) =>
+  //         // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
+  //         sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
+  //           switch response {
+  //           | Result(_) => Promise.resolved(Error(Error.Initialize))
+  //           | ACK(version) =>
+  //             // update the status
+  //             singleton.contents = Connected(client, version)
+  //             Promise.resolved(Ok((version, client.method)))
+  //           }
+  //         )
+  //       }
+  //     )
+  //   | Connected(client, version) => Promise.resolved(Ok((version, client.method)))
+  //   }
 
-  // start the LSP client
-  let start = tryTCP =>
-    switch singleton.contents {
-    | Disconnected =>
-      probe(tryTCP, 4096, "als")
-      ->Promise.flatMapOk(Client.make)
-      ->Promise.flatMap(result =>
-        switch result {
-        | Error(error) =>
-          singleton.contents = Disconnected
-          Promise.resolved(Error(error))
-        | Ok(client) =>
-          // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-          sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
-            switch response {
-            | Result(_) => Promise.resolved(Error(Error.Initialize))
-            | ACK(version) =>
-              // update the status
-              singleton.contents = Connected(client, version)
-              Promise.resolved(Ok((version, client.method)))
-            }
-          )
-        }
-      )
-    | Connected(client, version) => Promise.resolved(Ok((version, client.method)))
-    }
+  // let getVersion = () =>
+  //   switch singleton.contents {
+  //   | Disconnected => None
+  //   | Connected(client, version) => Some((version, client.method))
+  //   }
 
-  let getVersion = () =>
-    switch singleton.contents {
-    | Disconnected => None
-    | Connected(client, version) => Some((version, client.method))
-    }
+  // let isConnected = () =>
+  //   switch singleton.contents {
+  //   | Disconnected => false
+  //   | Connected(_, _version) => true
+  //   }
 
-  let isConnected = () =>
-    switch singleton.contents {
-    | Disconnected => false
-    | Connected(_, _version) => true
-    }
+  let sendRequest = (self, request, handler) => {
+    let scheduler = Scheduler.make()
+    // waits for `ResponseEnd`
+    let (waitForResponseEnd, resolve) = Promise.pending()
 
-  let sendRequest = (request, handler) =>
-    switch singleton.contents {
-    | Connected(client, _version) =>
-      let scheduler = Scheduler.make()
+    // listens for notifications
+    let subscription = Client.onResponse(json => {
+      switch decodeResponse(json) {
+      | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
+      | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
+      | Ok(ResponseParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
+      | Ok(ResponseEnd) => resolve(Ok())
+      | Error(error) => resolve(Error(error))
+      }
+    })
+
+    let stopListeningForNotifications = () => subscription->VSCode.Disposable.dispose->ignore
+
+    // sends `Command` and waits for `ResponseEnd`
+    sendRequestPrim(self.client, Command(request))
+    ->Promise.flatMapOk(result =>
+      switch result {
+      | ACK(_) => Promise.resolved(Error(Error.Initialize))
+      | Result(Some(error)) => Promise.resolved(Error(Error.SendCommand(error)))
       // waits for `ResponseEnd`
-      let (waitForResponseEnd, resolve) = Promise.pending()
-
-      // listens for notifications
-      let subscription = Client.onResponse(json => {
-        switch decodeResponse(json) {
-        | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
-        | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
-        | Ok(ResponseParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
-        | Ok(ResponseEnd) => resolve(Ok())
-        | Error(error) => resolve(Error(error))
-        }
-      })
-
-      let stopListeningForNotifications = () => subscription->VSCode.Disposable.dispose->ignore
-
-      // sends `Command` and waits for `ResponseEnd`
-      sendRequestPrim(client, Command(request))
-      ->Promise.flatMapOk(result =>
-        switch result {
-        | ACK(_) => Promise.resolved(Error(Error.Initialize))
-        | Result(Some(error)) => Promise.resolved(Error(Error.SendCommand(error)))
-        // waits for `ResponseEnd`
-        | Result(None) => waitForResponseEnd
-        }
-      )
-      // stop listening for notifications once the Command
-      ->Promise.tap(_ => stopListeningForNotifications())
-      ->Promise.tap(_ =>
-        // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler->Scheduler.runLast(handler)
-      )
-    | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
-    }
+      | Result(None) => waitForResponseEnd
+      }
+    )
+    // stop listening for notifications once the Command
+    ->Promise.tap(_ => stopListeningForNotifications())
+    ->Promise.tap(_ =>
+      // start handling Last Responses, after all NonLast Responses have been handled
+      scheduler->Scheduler.runLast(handler)
+    )
+  }
 }
 include Module

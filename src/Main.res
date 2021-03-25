@@ -39,75 +39,96 @@ module Inputs: {
   }
 }
 
-let initiateConnection = (devMode): Promise.t<result<State.connType, Connection.Error.t>> => {
+// let initiateConnection = (devMode): Promise.t<result<Connection.status, Connection.Error.t>> => {
+//   // if Registry.isEmpty() {
+//   //   // keybinding: so that most of the commands will work only after agda-mode:load
+//   //   VSCode.Commands.setContext("agdaMode", true)->ignore
+//   // }
+//   // Connection.start(Config.useAgdaLanguageServer(), devMode)
+//   // ->Promise.map(result =>
+//   //   switch result {
+//   //   | Ok(LSP(ViaStdIO(_, path), version)) =>
+//   //     // Js.log("LSP Server started via stdio on \"" ++ path ++ "\". Agda version: " ++ version)
+//   //     Ok()
+//   //   | Ok(LSP(ViaTCP(port), version)) =>
+//   //     // Js.log(
+//   //     //   "LSP Server started via TCP on port " ++
+//   //     //   string_of_int(port) ++
+//   //     //   ". Agda version: " ++
+//   //     //   version,
+//   //     // )
+//   //   | Ok(Emacs(version)) => Js.log("Emacs connection established: " ++ version)
+//   //   | Error(error) => Js.log(error)
+//   //   }
+//   // )
+
+//   // if Config.useAgdaLanguageServer() {
+//   //   if Registry.isEmpty() {
+//   //     // start the Agda Language Server
+//   //     Connection.LSP.start(devMode)
+//   //     ->Promise.mapOk(((version, method)) => {
+//   //       switch method {
+//   //       | ViaStdIO(_, path) =>
+//   //         Js.log("[LSP] Server started via stdio on \"" ++ path ++ "\". Agda version: " ++ version)
+//   //       | ViaTCP(port) =>
+//   //         Js.log(
+//   //           "[LSP] Server started via TCP on port " ++
+//   //           string_of_int(port) ++
+//   //           ". Agda version: " ++
+//   //           version,
+//   //         )
+//   //       }
+//   //       State.LSP(version, method)
+//   //     })
+//   //     ->Promise.flatMapError(error => {
+//   //       // failed to start the Agda Language Server, switch to the Agda executable instead
+//   //       Js.log(
+//   //         "[LSP] Connection failed, switching to the Agda executable instead: " ++
+//   //         fst(Connection.LSP.Error.toString(error)) ++
+//   //         "\n" ++
+//   //         snd(Connection.LSP.Error.toString(error)),
+//   //       )
+//   //       Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
+//   //         conn,
+//   //         Connection.Emacs.getVersion(conn),
+//   //       ))
+//   //     })
+//   //   } else {
+//   //     switch Connection.LSP.getVersion() {
+//   //     | None =>
+//   //       Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
+//   //         conn,
+//   //         Connection.Emacs.getVersion(conn),
+//   //       ))
+//   //     | Some((version, method)) => Promise.resolved(Ok(State.LSP(version, method)))
+//   //     }
+//   //   }
+//   // } else {
+//   //   Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
+//   //     conn,
+//   //     Connection.Emacs.getVersion(conn),
+//   //   ))
+//   // }
+// }
+
+let initialize = (debugChan, extensionPath, editor, fileName, devMode) => {
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
     VSCode.Commands.setContext("agdaMode", true)->ignore
   }
 
-  if Config.useAgdaLanguageServer() {
-    if Registry.isEmpty() {
-      // start the Agda Language Server
-      Connection.LSP.start(devMode)
-      ->Promise.mapOk(((version, method)) => {
-        switch method {
-        | ViaStdIO(_, path) =>
-          Js.log("[LSP] Server started via stdio on \"" ++ path ++ "\". Agda version: " ++ version)
-        | ViaTCP(port) =>
-          Js.log(
-            "[LSP] Server started via TCP on port " ++
-            string_of_int(port) ++
-            ". Agda version: " ++
-            version,
-          )
-        }
-        State.LSP(version, method)
-      })
-      ->Promise.flatMapError(error => {
-        // failed to start the Agda Language Server, switch to the Agda executable instead
-        Js.log(
-          "[LSP] Connection failed, switching to the Agda executable instead: " ++
-          fst(Connection.LSP.Error.toString(error)) ++
-          "\n" ++
-          snd(Connection.LSP.Error.toString(error)),
-        )
-        Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
-          conn,
-          Connection.Emacs.getVersion(conn),
-        ))
-      })
-    } else {
-      switch Connection.LSP.getVersion() {
-      | None =>
-        Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
-          conn,
-          Connection.Emacs.getVersion(conn),
-        ))
-      | Some((version, method)) => Promise.resolved(Ok(State.LSP(version, method)))
-      }
-    }
-  } else {
-    Connection.Emacs.make()->Promise.mapOk(conn => State.Emacs(
-      conn,
-      Connection.Emacs.getVersion(conn),
-    ))
-  }
-}
-
-let initialize = (debugChan, extensionPath, editor, fileName, connection: State.connType) => {
   let view = ViewController.Handle.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, editor, view, connection)
+  let state = State.make(debugChan, editor, view, devMode)
 
-  // display the connection status
-  switch connection {
-  | Emacs(_, _) => State.View.setStatus(state, "Emacs")
-  | LSP(_, ViaStdIO(_, _)) => State.View.setStatus(state, "LSP")
-  | LSP(_, ViaTCP(_)) => State.View.setStatus(state, "LSP (TCP)")
-  | Nothing(_) => State.View.setStatus(state, "")
-  }->ignore
+  // // display the connection status
+  // switch connectionStatus {
+  // | Emacs(_) => State.View.setStatus(state, "Emacs")
+  // | LSP(ViaStdIO(_, _), _) => State.View.setStatus(state, "LSP")
+  // | LSP(ViaTCP(_), _) => State.View.setStatus(state, "LSP (TCP)")
+  // }->ignore
 
   // remove it from the Registry if it requests to be destroyed
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -197,7 +218,7 @@ let initialize = (debugChan, extensionPath, editor, fileName, connection: State.
   // }, (tokenTypes, tokenModifiers))->subscribe
 
   // add this state to the Registry
-  Registry.add(fileName, state)
+  state
 }
 
 // TODO: rename `finalize`
@@ -256,24 +277,18 @@ let activateWithoutContext = (subscriptions, extensionPath, devMode) => {
     | _ => Promise.resolved()
     }
     // make
-    ->Promise.flatMap(() =>
+    ->Promise.tap(() =>
       switch command {
       | Load
       | Restart
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          initiateConnection(devMode)
-          ->Promise.map(result =>
-            switch result {
-            | Error(error) => State.Nothing(error)
-            | Ok(conn) => conn
-            }
-          )
-          ->Promise.map(initialize(debugChan, extensionPath, editor, fileName))
-        | Some(_) => Promise.resolved() // already in the Registry, do nothing
+          let state = initialize(debugChan, extensionPath, editor, fileName, devMode)
+          Registry.add(fileName, state)
+        | Some(_) => () // already in the Registry, do nothing
         }
-      | _ => Promise.resolved()
+      | _ => ()
       }
     )
     // dispatch

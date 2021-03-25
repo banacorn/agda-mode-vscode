@@ -47,19 +47,14 @@ module RequestQueue: {
   }
 }
 
-type connType =
-  | Emacs(Connection.Emacs.t, Connection.version)
-  | LSP(Connection.version, Connection.LSP.method)
-  | Nothing(Connection.Error.t)
-
 type viewCache =
   Event(View.EventToView.t) | Request(View.Request.t, View.Response.t => Promise.t<unit>)
 
 type t = {
+  devMode: bool,
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   view: ViewController.t,
-  mutable connection: connType,
   mutable viewCache: option<viewCache>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
@@ -178,115 +173,161 @@ module View: View = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Connection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-module type Connection = {
-  let reconnect: state => Promise.t<result<Connection.Emacs.t, Connection.Error.t>>
-  let destroy: state => Promise.t<unit>
-  let sendRequest: (state, Response.t => Promise.t<unit>, Request.t) => Promise.t<unit>
-}
-module Connection: Connection = {
-  // let connect = state =>
-  //   switch state.connection {
-  //   | None =>
-  //     switch state.agdaLanguageServerVersion {
-  //     | None => Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
-  //     | Some(version) =>
-  //       Js.log("[LSP] Connecting with agda-" ++ version)
-  //       Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
-  //     }
-  //   | Some(connection) => Promise.resolved(Ok(connection))
-  //   }
-  // let disconnect = state =>
-  //   switch state.connection {
-  //   | None => Promise.resolved()
-  //   | Some(connection) =>
-  //     state.connection = None
-  //     Connection.Emacs.destroy(connection)
-  //   }
+// module type Connection = {
+//   // let reconnect: state => Promise.t<result<Connection.Emacs.t, Connection.Error.t>>
+//   // let destroy: state => Promise.t<unit>
+//   // let sendRequest: (state, Response.t => Promise.t<unit>, Request.t) => Promise.t<unit>
+// }
+// module Connection: Connection = {
+//   // let connect = state =>
+//   //   switch state.connection {
+//   //   | None =>
+//   //     switch state.agdaLanguageServerVersion {
+//   //     | None => Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
+//   //     | Some(version) =>
+//   //       Js.log("[LSP] Connecting with agda-" ++ version)
+//   //       Connection.Emacs.make()->Promise.tapOk(conn => state.connection = Some(conn))
+//   //     }
+//   //   | Some(connection) => Promise.resolved(Ok(connection))
+//   //   }
+//   // let disconnect = state =>
+//   //   switch state.connection {
+//   //   | None => Promise.resolved()
+//   //   | Some(connection) =>
+//   //     state.connection = None
+//   //     Connection.Emacs.destroy(connection)
+//   //   }
 
-  let reconnect = state =>
-    switch state.connection {
-    | Emacs(conn, version) =>
-      Connection.Emacs.destroy(conn)
-      ->Promise.flatMap(Connection.Emacs.make)
-      ->Promise.flatMapOk(conn => {
-        state.connection = Emacs(conn, version)
-        View.setStatus(state, "emacs")->Promise.map(_ => Ok(conn))
-      })
-    | _ => Promise.resolved(Error(Connection.Error.NotConnectedYet))
-    }
+//   // let reconnect = state =>
+//   //   switch state.connection {
+//   //   | Emacs(conn, version) =>
+//   //     Connection.Emacs.destroy(conn)
+//   //     ->Promise.flatMap(Connection.Emacs.make)
+//   //     ->Promise.flatMapOk(conn => {
+//   //       state.connection = Emacs(conn, version)
+//   //       View.setStatus(state, "emacs")->Promise.map(_ => Ok(conn))
+//   //     })
+//   //   | _ => Promise.resolved(Error(Connection.Error.NotConnectedYet))
+//   //   }
 
-  let destroy = state =>
-    switch state.connection {
-    | Emacs(conn, _) => conn->Connection.Emacs.destroy
-    | _ => Promise.resolved()
-    }
+//   // let destroy = state =>
+//   //   switch state.connection {
+//   //   | Emacs(conn, _) => conn->Connection.Emacs.destroy
+//   //   | _ => Promise.resolved()
+//   //   }
 
-  let sendRequestAndHandleResponses = (
-    state: state,
-    handleResponse: Response.t => Promise.t<unit>,
-    request: Request.t,
-  ): Promise.t<unit> => {
+//   // let sendRequestAndHandleResponses = (
+//   //   state: state,
+//   //   handleResponse: Response.t => Promise.t<unit>,
+//   //   request: Request.t,
+//   // ): Promise.t<unit> => {
+//   //   let handleResult = result =>
+//   //     switch result {
+//   //     | Error(error) =>
+//   //       let (head, body) = Connection.Error.toString(error)
+//   //       View.display(state, Error(head), [Component.Item.plainText(body)])
+//   //     | Ok(response) => handleResponse(response)
+//   //     }
+//   //   let handleResultLSP = result =>
+//   //     switch result {
+//   //     | Error(error) => handleResult(Error(Connection.Error.LSP(error)))
+//   //     | Ok(response) => handleResult(Ok(response))
+//   //     }
+
+//   //   // encode the Request to some string
+//   //   let encodeRequest = version => {
+//   //     let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
+//   //     let libraryPath = Config.getLibraryPath()
+//   //     let highlightingMethod = Config.getHighlightingMethod()
+//   //     let backend = Config.getBackend()
+//   //     Request.encode(
+//   //       state.document,
+//   //       version,
+//   //       filepath,
+//   //       backend,
+//   //       libraryPath,
+//   //       highlightingMethod,
+//   //       request,
+//   //     )
+//   //   }
+
+//   //   switch state.connection {
+//   //   | Emacs(conn, version) =>
+//   //     // this promise gets resolved after all Responses have been received and handled
+//   //     Connection.Emacs.sendRequest(conn, encodeRequest(version), handleResult)->Promise.flatMap(result =>
+//   //       switch result {
+//   //       | Error(error) => View.displayConnectionError(state, error)
+//   //       | Ok() => Promise.resolved()
+//   //       }
+//   //     )
+//   //   | LSP(version, _viaTCP) =>
+//   //     Connection.LSP.sendRequest(encodeRequest(version), handleResultLSP)->Promise.flatMap(result =>
+//   //       switch result {
+//   //       | Error(error) => View.displayConnectionError(state, Connection.Error.LSP(error))
+//   //       | Ok() => Promise.resolved()
+//   //       }
+//   //     )
+//   //   | Nothing(error) => View.displayConnectionError(state, error)
+//   //   }
+//   // }
+
+//   let sendRequestAndHandleResponses = (state, request, handler) => {
+//     let handleResult = result =>
+//       switch result {
+//       | Error(error) =>
+//         let (head, body) = Connection.Error.toString(error)
+//         View.display(state, Error(head), [Component.Item.plainText(body)])
+//       | Ok(response) => handler(response)
+//       }
+//     Connection.sendRequest(state.document, request, handleResult)->Promise.flatMap(result =>
+//       switch result {
+//       | Error(error) => View.displayConnectionError(state, error)
+//       | Ok() => Promise.resolved()
+//       }
+//     )
+//   }
+
+//   let sendRequest = (
+//     state: state,
+//     handleResponse: Response.t => Promise.t<unit>,
+//     request: Request.t,
+//   ): Promise.t<unit> =>
+//     state.agdaRequestQueue->RequestQueue.push(
+//       request => sendRequestAndHandleResponses(state, request, handleResponse),
+//       request,
+//     )
+// }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  State
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let sendRequest = (
+  state: state,
+  handleResponse: Response.t => Promise.t<unit>,
+  request: Request.t,
+): Promise.t<unit> => {
+  let sendRequestAndHandleResponses = (state, request, handler) => {
     let handleResult = result =>
       switch result {
       | Error(error) =>
         let (head, body) = Connection.Error.toString(error)
         View.display(state, Error(head), [Component.Item.plainText(body)])
-      | Ok(response) => handleResponse(response)
+      | Ok(response) => handler(response)
       }
-    let handleResultLSP = result =>
+    Connection.sendRequest(Config.useAgdaLanguageServer(), state.devMode, state.document, request, handleResult)->Promise.flatMap(result =>
       switch result {
-      | Error(error) => handleResult(Error(Connection.Error.LSP(error)))
-      | Ok(response) => handleResult(Ok(response))
+      | Error(error) => View.displayConnectionError(state, error)
+      | Ok() => Promise.resolved()
       }
-
-    // encode the Request to some string
-    let encodeRequest = version => {
-      let filepath = state.document->VSCode.TextDocument.fileName->Parser.filepath
-      let libraryPath = Config.getLibraryPath()
-      let highlightingMethod = Config.getHighlightingMethod()
-      let backend = Config.getBackend()
-      Request.encode(
-        state.document,
-        version,
-        filepath,
-        backend,
-        libraryPath,
-        highlightingMethod,
-        request,
-      )
-    }
-
-    switch state.connection {
-    | Emacs(conn, version) =>
-      // this promise gets resolved after all Responses have been received and handled
-      let promise = Connection.Emacs.onResponse(conn, handleResult)
-      Connection.Emacs.sendRequest(conn, encodeRequest(version))
-      promise
-    | LSP(version, _viaTCP) =>
-      Connection.LSP.sendRequest(encodeRequest(version), handleResultLSP)->Promise.flatMap(result =>
-        switch result {
-        | Error(error) => View.displayConnectionError(state, Connection.Error.LSP(error))
-        | Ok() => Promise.resolved()
-        }
-      )
-    | Nothing(error) => View.displayConnectionError(state, error)
-    }
+    )
   }
 
-  let sendRequest = (
-    state: state,
-    handleResponse: Response.t => Promise.t<unit>,
-    request: Request.t,
-  ): Promise.t<unit> =>
-    state.agdaRequestQueue->RequestQueue.push(
-      sendRequestAndHandleResponses(state, handleResponse),
-      request,
-    )
+  state.agdaRequestQueue->RequestQueue.push(
+    request => sendRequestAndHandleResponses(state, request, handleResponse),
+    request,
+  )
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  State
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // construction/destruction
 let destroy = (state, alsoRemoveFromRegistry) => {
@@ -297,14 +338,13 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.goals->Array.forEach(Goal.destroy)
   state.decoration->Decoration.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state->Connection.destroy
+  Connection.stop()
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, editor, view, connection) => {
+let make = (chan, editor, view, devMode) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
-  connection: connection,
   view: view,
   viewCache: None,
   goals: [],
@@ -315,4 +355,5 @@ let make = (chan, editor, view, connection) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
+  devMode: devMode
 }
