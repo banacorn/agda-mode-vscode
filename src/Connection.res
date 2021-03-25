@@ -1,101 +1,5 @@
 open Belt
 
-// TODO: sort these errors out
-module Error = {
-  module LSP = {
-    // Errors when sending Command to the server
-    module CommandErr = {
-      type t =
-        | CannotDecodeJSON(string)
-        | CannotParseCommand(string)
-
-      let toString = x =>
-        switch x {
-        | CannotDecodeJSON(s) => "Cannot decode JSON: \n" ++ s
-        | CannotParseCommand(s) => "Cannot read IOTCM: \n" ++ s
-        }
-
-      open Json.Decode
-      open Util.Decode
-      let decode: decoder<t> = sum(x =>
-        switch x {
-        | "CmdErrCannotDecodeJSON" => Contents(string |> map(version => CannotDecodeJSON(version)))
-        | "CmdErrCannotParseCommand" =>
-          Contents(string |> map(version => CannotParseCommand(version)))
-        | tag => raise(DecodeError("[LSP.CommandErr] Unknown constructor: " ++ tag))
-        }
-      )
-    }
-
-    type t =
-      // Errors originated from the LSP client within
-      | Connection(Js.Exn.t)
-      // Errors when sending Command to ther server
-      | SendCommand(CommandErr.t)
-      // Cannot initialize the connection
-      | Initialize
-      // Parsing / Decoding
-      | CannotDecodeCommandRes(string, Js.Json.t)
-      | CannotDecodeResponse(string, Js.Json.t)
-
-    let toString = error =>
-      switch error {
-      | Connection(exn) =>
-        let isECONNREFUSED =
-          Js.Exn.message(exn)->Option.mapWithDefault(
-            false,
-            Js.String.startsWith("connect ECONNREFUSED"),
-          )
-
-        isECONNREFUSED
-          ? ("[LSP] Connection Error", "Please enter \":main -d\" in ghci")
-          : (
-              "[LSP] Client Internal Connection Error",
-              Js.Exn.message(exn)->Option.getWithDefault(""),
-            )
-      | SendCommand(e) => ("[LSP] Cannot Send Command", CommandErr.toString(e))
-      | Initialize => ("[LSP] Cannot Initialize Connection", "")
-      | CannotDecodeCommandRes(msg, json) => (
-          "[LSP] Cannot Send Command",
-          "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Json.stringify(json),
-        )
-      | CannotDecodeResponse(msg, json) => (
-          "[LSP] Cannot Parse Response",
-          "Cannot decode responses from the server" ++ msg ++ "\n" ++ Json.stringify(json),
-        )
-      }
-  }
-
-  type t =
-    // probing "agda" or "als"
-    | CannotConnectViaStdIO(AgdaModeVscode.Process.PathSearch.Error.t)
-    | CannotConnectViaTCP(Js.Exn.t)
-    | PathSearch(Process.PathSearch.Error.t)
-    | Validation(Process.Validation.Error.t)
-    | Process(Process.Error.t)
-    // LSP related
-    | LSP(LSP.t)
-    // Emacs S-expression parse error
-    | ResponseParseError(Parser.Error.t)
-    | NotConnectedYet
-  let toString = x =>
-    switch x {
-    | CannotConnectViaStdIO(e) =>
-      let (_header, body) = AgdaModeVscode.Process.PathSearch.Error.toString(e)
-      ("Cannot locate \"als\"", body ++ "\nPlease make sure that the executable is in the path")
-    | CannotConnectViaTCP(_) => (
-        "Cannot connect with the server",
-        "Please enter \":main -d\" in ghci",
-      )
-    | PathSearch(e) => Process.PathSearch.Error.toString(e)
-    | Validation(e) => Process.Validation.Error.toString(e)
-    | Process(e) => Process.Error.toString(e)
-    | LSP(e) => LSP.toString(e)
-    | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
-    | NotConnectedYet => ("Connection not established yet", "")
-    }
-}
-
 type version = string
 
 // This module makes sure that Last Responses are handled after NonLast Responses
@@ -113,7 +17,7 @@ type version = string
 //    * may invoke `sendAgdaRequest`
 module Scheduler: {
   type t
-  type handler = result<Response.t, Error.t> => Promise.t<unit>
+  type handler = result<Response.t, Connection__Error.t> => Promise.t<unit>
   let make: unit => t
   let runNonLast: (t, handler, Response.t) => unit
   let addLast: (t, int, Response.t) => unit
@@ -125,7 +29,7 @@ module Scheduler: {
     allDone: Chan.t<unit>,
     deferredLastResponses: array<(int, Response.t)>,
   }
-  type handler = result<Response.t, Error.t> => Promise.t<unit>
+  type handler = result<Response.t, Connection__Error.t> => Promise.t<unit>
 
   let make = () => {
     tally: 0,
@@ -179,9 +83,9 @@ module Scheduler: {
 
 module type Emacs = {
   type t
-  let make: unit => Promise.t<result<t, Error.t>>
+  let make: unit => Promise.t<result<t, Connection__Error.t>>
   let destroy: t => Promise.t<unit>
-  let onResponse: (t, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<unit>
+  let onResponse: (t, result<Response.t, Connection__Error.t> => Promise.t<unit>) => Promise.t<unit>
   let sendRequest: (t, string) => unit
   let getVersion: t => string
 }
@@ -209,7 +113,7 @@ module Emacs: Emacs = {
     }
 
     // a more sophiscated "make"
-    let make = (path, args): Promise.t<result<t, Error.t>> => {
+    let make = (path, args): Promise.t<result<t, Connection__Error.t>> => {
       let validator = (output): result<string, string> =>
         switch Js.String.match_(%re("/Agda version (.*)/"), output) {
         | None => Error("Cannot read Agda version")
@@ -227,7 +131,7 @@ module Emacs: Emacs = {
         args: args,
         version: version,
       })
-      ->Promise.mapError(e => Error.Validation(e))
+      ->Promise.mapError(e => Connection__Error.Validation(e))
     }
   }
 
@@ -236,7 +140,7 @@ module Emacs: Emacs = {
   type t = {
     metadata: Metadata.t,
     process: Process.t,
-    chan: Chan.t<result<response, Error.t>>,
+    chan: Chan.t<result<response, Connection__Error.t>>,
     mutable encountedFirstPrompt: bool,
   }
 
@@ -305,7 +209,7 @@ module Emacs: Emacs = {
   }
 
   let make = () => {
-    let getPath = (): Promise.t<result<string, Error.t>> => {
+    let getPath = (): Promise.t<result<string, Connection__Error.t>> => {
       // first, get the path from the config (stored in the Editor)
       let storedPath = Config.getAgdaPath()
       if storedPath == "" || storedPath == "." {
@@ -313,14 +217,14 @@ module Emacs: Emacs = {
         let agdaVersion = Config.getAgdaVersion()
         Process.PathSearch.run(agdaVersion)
         ->Promise.mapOk(Js.String.trim)
-        ->Promise.mapError(e => Error.PathSearch(e))
+        ->Promise.mapError(e => Connection__Error.PathSearch(e))
       } else {
         Promise.resolved(Ok(storedPath))
       }
     }
 
     // store the path in the editor config
-    let setPath = (metadata: Metadata.t): Promise.t<result<Metadata.t, Error.t>> =>
+    let setPath = (metadata: Metadata.t): Promise.t<result<Metadata.t, Connection__Error.t>> =>
       Config.setAgdaPath(metadata.path)->Promise.map(() => Ok(metadata))
 
     let args = ["--interaction"]
@@ -357,7 +261,7 @@ module Emacs: Emacs = {
     //        2. after all NonLast Responses
     //        3. after all interactive highlighting is complete
     //    * may invoke `sendAgdaRequest`
-    let listener: result<response, Error.t> => unit = x =>
+    let listener: result<response, Connection__Error.t> => unit = x =>
       switch x {
       | Error(error) => callback(Error(error))->ignore
       | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
@@ -400,7 +304,7 @@ module LSP = {
   module CommandRes = {
     type t =
       | ACK(version)
-      | Result(option<Error.LSP.CommandErr.t>)
+      | Result(option<Connection__Error.LSP.CommandErr.t>)
 
     let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
 
@@ -409,7 +313,7 @@ module LSP = {
     let decode: decoder<t> = sum(x =>
       switch x {
       | "CmdResACK" => Contents(string |> map(version => ACK(version)))
-      | "CmdRes" => Contents(optional(Error.LSP.CommandErr.decode) |> map(error => Result(error)))
+      | "CmdRes" => Contents(optional(Connection__Error.LSP.CommandErr.decode) |> map(error => Result(error)))
       | tag => raise(DecodeError("[LSP.CommandRes] Unknown constructor: " ++ tag))
       }
     )
@@ -590,12 +494,12 @@ module LSP = {
 
   module type Module = {
     // lifecycle
-    let start: bool => Promise.t<result<(version, method), Error.t>>
+    let start: bool => Promise.t<result<(version, method), Connection__Error.t>>
     let stop: unit => Promise.t<unit>
     // messaging
-    let sendRequest: (string, Scheduler.handler) => Promise.t<result<unit, Error.t>>
+    let sendRequest: (string, Scheduler.handler) => Promise.t<result<unit, Connection__Error.t>>
     let getVersion: unit => option<(version, method)>
-    let onError: (Error.t => unit) => VSCode.Disposable.t
+    let onError: (Connection__Error.t => unit) => VSCode.Disposable.t
     // predicate
     let isConnected: unit => bool
   }
@@ -616,7 +520,7 @@ module LSP = {
       let dataChan: Chan.t<Js.Json.t> = Chan.make()
 
       let onError = callback =>
-        errorChan->Chan.on(e => callback(Error.LSP(Connection(e))))->VSCode.Disposable.make
+        errorChan->Chan.on(e => callback(Connection__Error.LSP(Connection(e))))->VSCode.Disposable.make
       let onResponse = callback => dataChan->Chan.on(callback)->VSCode.Disposable.make
 
       let sendRequest = (self, data) =>
@@ -626,7 +530,7 @@ module LSP = {
         ->Promise.flatMapOk(() => {
           self.client->LSP.LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
         })
-        ->Promise.mapError(exn => Error.LSP(Connection(exn)))
+        ->Promise.mapError(exn => Connection__Error.LSP(Connection(exn)))
 
       let destroy = self => {
         self.subscription->VSCode.Disposable.dispose->ignore
@@ -692,7 +596,7 @@ module LSP = {
           errorChan->Chan.once->Promise.map(err => Error(err)),
         })->Promise.map(result =>
           switch result {
-          | Error(error) => Error(Error.LSP(Connection(error)))
+          | Error(error) => Error(Connection__Error.LSP(Connection(error)))
           | Ok() =>
             self.client->LSP.LanguageClient.onRequest("agda", json => {
               dataChan->Chan.emit(json)
@@ -723,22 +627,22 @@ module LSP = {
       }
 
     // catches exceptions occured when decoding JSON values
-    let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
+    let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Connection__Error.t> =>
       switch CommandRes.decode(json) {
       | response => Ok(response)
       | exception Json.Decode.DecodeError(msg) =>
-        Error(Error.LSP(CannotDecodeCommandRes(msg, json)))
+        Error(Connection__Error.LSP(CannotDecodeCommandRes(msg, json)))
       }
 
-    let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
+    let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Connection__Error.t> =>
       switch LSPResponse.decode(json) {
       | reaction => Ok(reaction)
-      | exception Json.Decode.DecodeError(msg) => Error(Error.LSP(CannotDecodeResponse(msg, json)))
+      | exception Json.Decode.DecodeError(msg) => Error(Connection__Error.LSP(CannotDecodeResponse(msg, json)))
       }
 
     let onError = Client.onError
 
-    let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
+    let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Connection__Error.t>> => {
       client
       ->Client.sendRequest(CommandReq.encode(request))
       ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
@@ -750,7 +654,7 @@ module LSP = {
       let probeStdIO = name => {
         AgdaModeVscode.Process.PathSearch.run(name)
         ->Promise.mapOk(path => ViaStdIO(name, Js.String.trim(path)))
-        ->Promise.mapError(e => Error.CannotConnectViaStdIO(e))
+        ->Promise.mapError(e => Connection__Error.CannotConnectViaStdIO(e))
       }
       // see if the TCP port is available
       let probeTCP = port => {
@@ -793,7 +697,7 @@ module LSP = {
             // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
             sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
               switch response {
-              | Result(_) => Promise.resolved(Error(Error.LSP(Initialize)))
+              | Result(_) => Promise.resolved(Error(Connection__Error.LSP(Initialize)))
               | ACK(version) =>
                 // update the status
                 singleton.contents = Connected(client, version)
@@ -830,7 +734,7 @@ module LSP = {
           | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
           | Ok(ResponseLast(priority, responese)) =>
             scheduler->Scheduler.addLast(priority, responese)
-          | Ok(ResponseParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
+          | Ok(ResponseParseError(e)) => resolve(Error(Connection__Error.ResponseParseError(e)))
           | Ok(ResponseEnd) => resolve(Ok())
           | Error(error) => resolve(Error(error))
           }
@@ -842,8 +746,8 @@ module LSP = {
         sendRequestPrim(client, Command(request))
         ->Promise.flatMapOk(result =>
           switch result {
-          | ACK(_) => Promise.resolved(Error(Error.LSP(Initialize)))
-          | Result(Some(error)) => Promise.resolved(Error(Error.LSP(SendCommand(error))))
+          | ACK(_) => Promise.resolved(Error(Connection__Error.LSP(Initialize)))
+          | Result(Some(error)) => Promise.resolved(Error(Connection__Error.LSP(SendCommand(error))))
           // waits for `ResponseEnd`
           | Result(None) => waitForResponseEnd
           }
@@ -854,8 +758,11 @@ module LSP = {
           // start handling Last Responses, after all NonLast Responses have been handled
           scheduler->Scheduler.runLast(handler)
         )
-      | Disconnected => Promise.resolved(Error(Error.NotConnectedYet))
+      | Disconnected => Promise.resolved(Error(Connection__Error.NotConnectedYet))
       }
   }
   include Module
 }
+
+
+module Error = Connection__Error
