@@ -160,18 +160,10 @@ module Module: Module = {
     Editor.reveal(state.editor, range)
   }
 
-  let generateDiffs = (document: VSCode.TextDocument.t, indices: array<int>): array<
-    SourceFile.Diff.t,
-  > => {
-    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    let source = Editor.Text.getAll(document)
-    SourceFile.parse(indices, fileName, source)
-  }
-
   // parse the whole source file and update the intervals of an array of Goal.t
   let updateIntervals = (state: State.t) => {
     let indices = state.goals->Array.map(goal => goal.index)
-    let diffs = generateDiffs(state.document, indices)
+    let diffs = Goal.generateDiffs(state.document, indices)
     diffs->Array.forEachWithIndex((i, diff) =>
       switch state.goals[i] {
       | None => () // do nothing :|
@@ -263,8 +255,39 @@ module Module: Module = {
   let instantiate = (state: State.t, indices) => {
     // destroy all existing goals
     state.goals->Array.forEach(Goal.destroy)
+
+    // get ther cursor position before editing the text buffer
+    // so that we can place the cursor inside a goal later
+    let selection = VSCode.TextEditor.selection(state.editor)
+    let cursorStart = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.start(selection))
+    let cursorEnd = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection))
+
     // instantiate new ones
     Goal.makeMany(state.editor, indices)->Promise.map(goals => {
+
+      goals->Array.forEach(goal => {
+        // if there's a cursor that touches the hole's "boundary"
+        // 
+        //                 {! some hole !}
+        //                 ^^           ^^
+        // 
+        //  move the cursor inside the hole
+        // 
+        //                 {! some hole !}
+        //                    ^
+        // 
+        let (left, right) = goal.interval 
+        let touched = 
+            (left <= cursorStart && cursorStart <= left + 2) || 
+            (right - 2 <= cursorStart && cursorStart <= right) || 
+            (left <= cursorEnd && cursorEnd <= left + 2) || 
+            (right - 2 <= cursorEnd && cursorEnd <= right)
+
+        if touched {
+          Goal.setCursor(goal, state.editor)
+        }
+      })
+
       state.goals = goals
     })
   }

@@ -10,6 +10,8 @@ module type Module = {
 
   // helper function for building strings for Agda
   let buildHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
+  // 
+  let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
   let makeMany: (VSCode.TextEditor.t, array<int>) => Promise.t<array<t>>
   // get the content inside the hole
@@ -70,6 +72,7 @@ module Module: Module = {
 
     Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
       diffs->Array.map(diff => {
+        // decorate the hole 
         let (decorationBackground, decorationIndex) = Decoration.decorateHole(
           editor,
           diff.modifiedInterval,

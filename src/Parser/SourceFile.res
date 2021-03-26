@@ -59,7 +59,10 @@ module Lexer = {
     let f = (token: Token.t) =>
       if token.kind === source {
         let cursor = ref(fst(token.range))
-        token.content->Js.String.splitByRe(regex, _)->Array.keepMap(x => x)->Array.map(content => {
+        token.content
+        ->Js.String.splitByRe(regex, _)
+        ->Array.keepMap(x => x)
+        ->Array.map(content => {
           let kind = Js.Re.test_(regex, content) ? target : source
           let cursorOld = cursor.contents
           cursor := cursor.contents + String.length(content)
@@ -128,7 +131,10 @@ module Literate = {
     Js.String.match_(
       %re("/(.*(?:\\r\\n|[\\n\\v\\f\\r\\x85\\u2028\\u2029])?)/g"),
       raw,
-    )->Option.mapWithDefault([], lines => lines->Array.keep(x => x != "")->Array.map(line => {
+    )->Option.mapWithDefault([], lines =>
+      lines
+      ->Array.keep(x => x != "")
+      ->Array.map(line => {
         // [\s\.\;\{\}\(\)\@]
         let cursorOld = cursor.contents
         cursor := cursor.contents + String.length(line)
@@ -138,14 +144,17 @@ module Literate = {
           range: (cursorOld, cursor.contents),
           kind: Literate,
         }
-      }))
+      })
+    )
   }
 
   // find and mark some tokens as AgdaRaw/Literate
   let markWithRules = (begin_, end_, raw) => {
     let previous = ref(false)
     let current = ref(false)
-    raw->toTokens->Array.map(token => {
+    raw
+    ->toTokens
+    ->Array.map(token => {
       open Token
       let {content, range} = token
 
@@ -259,11 +268,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     let newContent = if actualSpaces < requiredSpaces {
       let padding = Js.String.repeat(requiredSpaces - actualSpaces, "")
 
-      Js.String.replaceByRe(
-        %re("/\\{!.*!\\}/"),
-        "{!" ++ (content ++ (padding ++ "!}")),
-        token.content,
-      )
+      Js.String.replaceByRe(%re("/\\{!.*!\\}/"), "{!" ++ content ++ padding ++ "!}", token.content)
     } else {
       token.content
     }
@@ -280,7 +285,8 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
   let originalHoles = original->Array.keep(isHole)
   let modifiedHoles = modified->Array.keep(isHole)
 
-  originalHoles->Array.mapWithIndex((idx, token: Token.t) =>
+  originalHoles
+  ->Array.mapWithIndex((idx, token: Token.t) =>
     switch (modifiedHoles[idx], indices[idx]) {
     | (Some(modifiedHole), Some(index)) =>
       let (start, _) = modifiedHole.range
@@ -293,5 +299,6 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
       })
     | _ => None
     }
-  )->Array.keepMap(x => x)
+  )
+  ->Array.keepMap(x => x)
 }
