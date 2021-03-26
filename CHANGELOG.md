@@ -6,13 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## v0.2.11 - TBA
+## v0.2.11 - 2021-03-26
 
 ### Added 
 - #52: Enhancement: Move cursor to first new hole after case split/refine 
 
 ### Fixed 
 - #53: Stuck when the Agda path is wrong 
+- #50: Cannot auto focus on the input box 
+- View not refreshed when switching between loaded files
 
 ## v0.2.10 - 2021-03-25
 
