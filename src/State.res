@@ -168,6 +168,9 @@ module View: View = {
     Context.setPrompt(true)
     state.view->ViewController.focus
 
+    // keep the cached view so that we can restore it if the prompt is aborted
+    let previouslyCachedView = state.viewCache
+
     // send request to view
     sendRequest(state, Prompt(header, prompt), response =>
       switch response {
@@ -177,7 +180,10 @@ module View: View = {
           Context.setPrompt(false)
           state.document->Editor.focus
         })
-      | PromptInterrupted => Promise.resolved()
+      | PromptInterrupted => 
+        // restore the previously cached view
+        restoreCachedView(state, previouslyCachedView)
+        Promise.resolved()
       }
     )
   }
