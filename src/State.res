@@ -47,17 +47,50 @@ module RequestQueue: {
   }
 }
 
-// cache the lastest stuff display in the view
-type viewCache =
-  | Display(View.Header.t, View.Body.t)
-  | Prompt(View.Header.t, View.Prompt.t, View.Response.t => Promise.t<unit>)
+// cache the stuff previously displayed in the view, so that we can restore them later
+module ViewCache = {
+  type t = {
+    mutable display: option<(View.Header.t, View.Body.t)>,
+    mutable prompt: option<(View.Header.t, View.Prompt.t, View.Response.t => Promise.t<unit>)>,
+  }
+
+  let make = () => {
+    display: None,
+    prompt: None,
+  }
+
+  let cacheEvent = (self, event: View.EventToView.t) =>
+    switch event {
+    // cache the event only when it's a "Display"
+    | Display(header, body) => self.display = Some((header, body))
+    | _ => ()
+    }
+
+  let cacheRequest = (self, event: View.Request.t, callback) =>
+    switch event {
+    | Prompt(header, prompt) => self.prompt = Some(header, prompt, callback)
+    }
+
+  let clearPrompt = self => self.prompt = None
+
+  // if there's no Prompt, then restore Display instead
+  let restore = (self, view) =>
+    switch self.prompt {
+    | Some((header, prompt, callback)) =>
+      view->ViewController.sendRequest(Prompt(header, prompt), callback)->ignore
+    | None =>
+      self.display->Option.forEach(((header, body)) =>
+        view->ViewController.sendEvent(Display(header, body))->ignore
+      )
+    }
+}
 
 type t = {
   devMode: bool,
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   view: ViewController.t,
-  mutable viewCache: option<viewCache>,
+  viewCache: ViewCache.t,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,
@@ -101,31 +134,15 @@ module type View = {
 
 module View: View = {
   let sendEvent = (state, event: View.EventToView.t) => {
-    // cache the event if it's a "Display"
-    switch event {
-    | Display(header, body) => state.viewCache = Some(Display(header, body))
-    | _ => ()
-    }
+    state.viewCache->ViewCache.cacheEvent(event)
     state.view->ViewController.sendEvent(event)
   }
   let sendRequest = (state, request: View.Request.t, callback) => {
-    // cache the request if it's a "Prompt"
-    switch request {
-    | Prompt(header, prompt) => state.viewCache = Some(Prompt(header, prompt, callback))
-    }
+    state.viewCache->ViewCache.cacheRequest(request, callback)
     state.view->ViewController.sendRequest(request, callback)
   }
 
-  let restoreCachedView = (state, cachedView) =>
-    cachedView->Option.forEach(content =>
-      switch content {
-      | Display(header, body) => state.view->ViewController.sendEvent(Display(header, body))->ignore
-      | Prompt(header, prompt, callback) =>
-        state.view->ViewController.sendRequest(Prompt(header, prompt), callback)->ignore
-      }
-    )
-
-  let activate = state => restoreCachedView(state, state.viewCache)
+  let activate = state => ViewCache.restore(state.viewCache, state.view)
 
   let reveal = state => {
     state.view->ViewController.reveal
@@ -168,26 +185,40 @@ module View: View = {
     Context.setPrompt(true)
     state.view->ViewController.focus
 
-    // keep the cached view so that we can restore it if the prompt is aborted
-    let previouslyCachedView = state.viewCache
-
     // send request to view
     sendRequest(state, Prompt(header, prompt), response =>
       switch response {
       | PromptSuccess(result) =>
         callbackOnPromptSuccess(result)->Promise.map(() => {
-          // put the focus back to the editor after prompting
           Context.setPrompt(false)
-          state.document->Editor.focus
+          // put the focus back to the editor after prompting
+          Editor.focus(state.document)
+          // prompt success, clear the cached prompt
+          ViewCache.clearPrompt(state.viewCache)
         })
-      | PromptInterrupted => 
+      | PromptInterrupted =>
+        Context.setPrompt(false)
+        // put the focus back to the editor after prompting
+        Editor.focus(state.document)
+        // prompt interrupted, clear the cached prompt
+        ViewCache.clearPrompt(state.viewCache)
         // restore the previously cached view
-        restoreCachedView(state, previouslyCachedView)
+        ViewCache.restore(state.viewCache, state.view)
         Promise.resolved()
       }
     )
   }
-  let interruptPrompt = state => sendEvent(state, PromptInterrupt)
+
+  let interruptPrompt = state =>
+    sendEvent(state, PromptInterrupt)->Promise.tap(() => {
+      Context.setPrompt(false)
+      // put the focus back to the editor after prompting
+      Editor.focus(state.document)
+      // prompt interrupted, clear the cached prompt
+      ViewCache.clearPrompt(state.viewCache)
+      // restore the previously cached view
+      ViewCache.restore(state.viewCache, state.view)
+    })
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -242,7 +273,7 @@ let make = (chan, editor, view, devMode) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
   view: view,
-  viewCache: None,
+  viewCache: ViewCache.make(),
   goals: [],
   decoration: Decoration.make(),
   cursor: None,
