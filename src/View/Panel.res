@@ -43,11 +43,16 @@ let make = (
   // on receiving View Requests
   Hook.recv(onRequest, onResponse, msg =>
     switch msg {
-    | Prompt(header', {body: body', placeholder, value}) =>
+    | Prompt(header', {body, placeholder, value}) =>
       // set the view
       setHeader(_ => header')
       setBody(_ => [])
-      setPrompt(_ => Some((body', placeholder, value)))
+      // don't erase the value in <input>
+      setPrompt(previous => switch previous {
+      | None => Some((body, placeholder, value))
+      | Some((_, _, None)) => Some((body, placeholder, value))
+      | Some((_, _, Some(oldValue))) => Some((body, placeholder, Some(oldValue)))
+      })
 
       let (promise, resolve) = Promise.pending()
       promptResponseResolver.current = Some(resolve)
