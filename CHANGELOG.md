@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.2.11 - TBA
 
+### Added 
+- #52: Enhancement: Move cursor to first new hole after case split/refine 
+
 ### Fixed 
 - #53: Stuck when the Agda path is wrong 
 

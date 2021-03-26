@@ -307,13 +307,18 @@ module Module: Module = {
     pointedGoals[0]->Option.map(goal => (goal, Goal.getContent(goal, state.document)))
   }
 
-  // let caseSimple = (state: State.t, local, global): Promise.t<unit> => {
-  //   updateIntervals(state)
-  //   switch pointingAt(state) {
-  //   | None => global
-  //   | Some(goal) => local(goal)
-  //   }
-  // }
+  let placeCursorAtFirstNewGoal = (state: State.t, rewriteText, rewriteRange) => {
+    // locate the first new goal and place the cursor there
+    let splittedLines = Js.String.split("\n", rewriteText)
+    splittedLines[0]->Option.forEach(line => {
+      let col = Js.String.length(line) - 1
+      let lastChar = Js.String.charAt(col, line)
+      if lastChar == "?" {
+        let position = VSCode.Position.translate(VSCode.Range.start(rewriteRange), 0, col)
+        Editor.Cursor.set(state.editor, position)
+      }
+    })
+  }
 
   // Replace definition of extended lambda with new clauses
 
@@ -336,7 +341,10 @@ module Module: Module = {
     Editor.Text.replace(state.document, rewriteRange, rewriteText)->Promise.flatMap(x =>
       switch x {
       | true =>
+        // destroy the old goal 
         Goal.destroy(goal)
+        // locate the first new goal and place the cursor there
+        placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
         Promise.resolved()
       | false =>
         State.View.display(
@@ -372,7 +380,10 @@ module Module: Module = {
     Editor.Text.replace(state.document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
       switch x {
       | true =>
+        // destroy the old goal 
         Goal.destroy(goal)
+        // locate the first new goal and place the cursor there
+        placeCursorAtFirstNewGoal(state, indentedLines, rangeToBeReplaced)
         Promise.resolved()
       | false =>
         State.View.display(
