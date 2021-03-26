@@ -1,5 +1,13 @@
 # agda-mode on VS Code
 
+[![Visual Studio Marketplace Tag](https://vsmarketplacebadge.apphb.com/version/banacorn.agda-mode.svg)](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode)
+[![Visual Studio Marketplace Downloads](https://img.shields.io/visual-studio-marketplace/d/banacorn.agda-mode)](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode)
+[![Visual Studio Marketplace Installs](https://vsmarketplacebadge.apphb.com/installs-short/banacorn.agda-mode.svg)](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode)
+[![Visual Studio Marketplace Rating](https://vsmarketplacebadge.apphb.com/rating-short/banacorn.agda-mode.svg)](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode)
+
+
+
+
 Feedbacks, issues, and PRs all welcome!
 
 ## Installation
