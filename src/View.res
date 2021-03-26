@@ -184,6 +184,15 @@ module EventToView = {
     | PromptIMUpdate(string)
     | InputMethod(InputMethod.t)
 
+  let toString = x =>
+    switch x {
+    | Display(header, _body) => "Display " ++ Header.toString(header)
+    | SetStatus(status) => "SetStatus " ++ status
+    | PromptInterrupt => "PromptInterrupt"
+    | PromptIMUpdate(s) => "PromptIMUpdate " ++ s
+    | InputMethod(_) => "InputMethod"
+    }
+
   // JSON encode/decode
 
   open Json.Decode
@@ -214,8 +223,7 @@ module EventToView = {
         ("tag", string("Display")),
         ("contents", (header, body) |> pair(Header.encode, array(Component.Item.encode))),
       })
-    | SetStatus(text) =>
-      object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
+    | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
     | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
     | PromptIMUpdate(text) =>
       object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})
@@ -226,6 +234,11 @@ module EventToView = {
 
 module Request = {
   type t = Prompt(Header.t, Prompt.t)
+
+  let toString = x =>
+    switch x {
+    | Prompt(header, _) => "Prompt " ++ Header.toString(header)
+    }
 
   // JSON encode/decode
 
@@ -257,6 +270,12 @@ module RequestOrEventToView = {
   type t =
     | Request(Request.t)
     | Event(EventToView.t)
+
+  let toString = x =>
+    switch x {
+    | Request(req) => Request.toString(req)
+    | Event(ev) => EventToView.toString(ev)
+    }
 
   // JSON encode/decode
 

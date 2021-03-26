@@ -47,8 +47,10 @@ module RequestQueue: {
   }
 }
 
+// cache the lastest stuff display in the view
 type viewCache =
-  Event(View.EventToView.t) | Request(View.Request.t, View.Response.t => Promise.t<unit>)
+  | Display(View.Header.t, View.Body.t)
+  | Prompt(View.Header.t, View.Prompt.t, View.Response.t => Promise.t<unit>)
 
 type t = {
   devMode: bool,
@@ -98,23 +100,32 @@ module type View = {
 }
 
 module View: View = {
-  let sendEvent = (state, event) => {
-    state.viewCache = Some(Event(event))
+  let sendEvent = (state, event: View.EventToView.t) => {
+    // cache the event if it's a "Display"
+    switch event {
+    | Display(header, body) => state.viewCache = Some(Display(header, body))
+    | _ => ()
+    }
     state.view->ViewController.sendEvent(event)
   }
-  let sendRequest = (state, request, callback) => {
-    state.viewCache = Some(Request(request, callback))
+  let sendRequest = (state, request: View.Request.t, callback) => {
+    // cache the request if it's a "Prompt"
+    switch request {
+    | Prompt(header, prompt) => state.viewCache = Some(Prompt(header, prompt, callback))
+    }
     state.view->ViewController.sendRequest(request, callback)
   }
 
-  let activate = state =>
-    state.viewCache->Option.forEach(content =>
+  let restoreCachedView = (state, cachedView) =>
+    cachedView->Option.forEach(content =>
       switch content {
-      | Event(event) => state.view->ViewController.sendEvent(event)->ignore
-      | Request(request, callback) =>
-        state.view->ViewController.sendRequest(request, callback)->ignore
+      | Display(header, body) => state.view->ViewController.sendEvent(Display(header, body))->ignore
+      | Prompt(header, prompt, callback) =>
+        state.view->ViewController.sendRequest(Prompt(header, prompt), callback)->ignore
       }
     )
+
+  let activate = state => restoreCachedView(state, state.viewCache)
 
   let reveal = state => {
     state.view->ViewController.reveal
@@ -122,8 +133,6 @@ module View: View = {
 
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))
-  // let displayEmacs = (state, kind, header, body) =>
-  //   sendEvent(state, Display(header, Emacs(kind, View.Header.toString(header), body)))
   let displayOutOfGoalError = state =>
     display(
       state,
@@ -236,5 +245,5 @@ let make = (chan, editor, view, devMode) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
-  devMode: devMode
+  devMode: devMode,
 }
