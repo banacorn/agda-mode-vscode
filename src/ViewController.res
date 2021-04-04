@@ -260,7 +260,7 @@ module PanelController: PanelController = {
     }
 
     // Move the created panel to the bottom row
-    switch Config.getPanelMountingPosition() {
+    switch Config.View.getPanelMountingPosition() {
     | Bottom => Panel.moveToBottom()
     | Right => ()
     }

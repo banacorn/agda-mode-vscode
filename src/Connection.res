@@ -73,7 +73,7 @@ module Module: Module = {
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
       let libraryPath = Config.getLibraryPath()
-      let highlightingMethod = Config.getHighlightingMethod()
+      let highlightingMethod = Config.Highlighting.getHighlightingMethod()
       let backend = Config.getBackend()
       Request.encode(document, version, filepath, backend, libraryPath, highlightingMethod, request)
     }

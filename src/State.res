@@ -237,7 +237,7 @@ let sendRequest = (
       | Ok(response) => handler(response)
       }
     Connection.sendRequest(
-      Config.useAgdaLanguageServer(),
+      Config.Connection.useAgdaLanguageServer(),
       state.devMode,
       state.document,
       request,

@@ -2,68 +2,71 @@ open VSCode
 module VSRange = Range
 open Belt
 
-// Agda version
-let setAgdaVersion = path =>
-  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-    "agdaVersion",
-    path,
-    None,
-  )
-let getAgdaVersion = () =>
-  Workspace.getConfiguration(Some("agdaMode"), None)
-  ->WorkspaceConfiguration.get("agdaVersion")
-  ->Option.map(Js.String.trim)
-  ->Option.flatMap(s => s == "" ? None : Some(s))
-  ->Option.getWithDefault("agda")
-
-// Agda path
-let setAgdaPath = path =>
-  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-    "agdaPath",
-    path,
-    None,
-  )
-let getAgdaPath = () =>
-  Workspace.getConfiguration(Some("agdaMode"), None)
-  ->WorkspaceConfiguration.get("agdaPath")
-  ->Option.mapWithDefault("", Js.String.trim)
-
-// Agda Language Server
-let useAgdaLanguageServer = () => {
-  let raw =
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-      "agdaLanguageServer",
+module Connection = {
+  // Agda version
+  let setAgdaVersion = path =>
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+      "connection.agdaVersion",
+      path,
+      None,
     )
-  switch raw {
-  | Some(true) => true
-  | _ => false
+  let getAgdaVersion = () =>
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.get("connection.agdaVersion")
+    ->Option.map(Js.String.trim)
+    ->Option.flatMap(s => s == "" ? None : Some(s))
+    ->Option.getWithDefault("agda")
+
+  // Agda path
+  let setAgdaPath = path =>
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+      "connection.agdaPath",
+      path,
+      None,
+    )
+  let getAgdaPath = () =>
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.get("connection.agdaPath")
+    ->Option.mapWithDefault("", Js.String.trim)
+
+  // Agda Language Server
+  let useAgdaLanguageServer = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "connection.agdaLanguageServer",
+      )
+    switch raw {
+    | Some(true) => true
+    | _ => false
+    }
   }
 }
 
-// Panel mounting position
-type mountAt = Bottom | Right
-let setPanelMountingPosition = mountAt =>
-  Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-    "panelMountPosition",
-    switch mountAt {
-    | Bottom => "bottom"
-    // | Left => "left"
-    | Right => "right"
-    },
-    None,
-  )
-let getPanelMountingPosition = () => {
-  let result =
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-      "panelMountPosition",
+module View = {
+  // Panel mounting position
+  type mountAt = Bottom | Right
+  let setPanelMountingPosition = mountAt =>
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+      "view.panelMountPosition",
+      switch mountAt {
+      | Bottom => "bottom"
+      // | Left => "left"
+      | Right => "right"
+      },
+      None,
     )
-  switch result {
-  // | Some("left") => Left
-  | Some("right") => Right
-  | _ => Bottom
+  let getPanelMountingPosition = () => {
+    let result =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "view.panelMountPosition",
+      )
+    switch result {
+    // | Some("left") => Left
+    | Some("right") => Right
+    | _ => Bottom
+    }
   }
 }
-
 // Library path
 let getLibraryPath = () => {
   let raw =
@@ -73,26 +76,29 @@ let getLibraryPath = () => {
   // split by comma, and clean them up
   Js.String.split(",", raw)->Array.keep(x => x !== "")->Array.map(Parser.filepath)
 }
-// Highlighting method
-let getHighlightingMethod = () => {
-  let raw =
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-      "highlighting.IPC",
-    )
-  switch raw {
-  | Some("Standard input/output") => true
-  | _ => false
+
+module Highlighting = {
+  // Highlighting method
+  let getHighlightingMethod = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "highlighting.IPC",
+      )
+    switch raw {
+    | Some("Standard input/output") => true
+    | _ => false
+    }
   }
-}
-// Semantic Highlighting
-let getSemanticHighlighting = () => {
-  let raw =
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-      "highlighting.semanticToken",
-    )
-  switch raw {
-  | Some(true) => true
-  | _ => false
+  // Semantic Highlighting
+  let getSemanticHighlighting = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "highlighting.semanticToken",
+      )
+    switch raw {
+    | Some(true) => true
+    | _ => false
+    }
   }
 }
 

@@ -333,7 +333,7 @@ module Module: Module = {
   let apply = (self, editor) =>
     readTempFiles(self)->Promise.map(() => {
       // only apply decorations when Semantic Highlighting is off
-      if Config.getSemanticHighlighting() {
+      if Config.Highlighting.getSemanticHighlighting() {
         ()
       } else {
         applyHighlightings(self, editor)

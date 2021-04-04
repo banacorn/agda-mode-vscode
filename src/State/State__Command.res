@@ -237,20 +237,20 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
   | SwitchAgdaVersion => 
     // preserve the original version, in case the new one fails
-    let oldAgdaVersion = Config.getAgdaVersion()
+    let oldAgdaVersion = Config.Connection.getAgdaVersion()
     // prompt the user for the new version
     State.View.prompt(state, header, {
       body: None,
       placeholder: None,
       value: Some(oldAgdaVersion),
     }, expr => {
-      let oldAgdaPath = Config.getAgdaPath()
+      let oldAgdaPath = Config.Connection.getAgdaPath()
       let newAgdaVersion = Js.String.trim(expr)
       // don't connect to the LSP server
       let useLSP = false
 
-      Config.setAgdaPath("")
-      ->Promise.flatMap(() => Config.setAgdaVersion(newAgdaVersion))
+      Config.Connection.setAgdaPath("")
+      ->Promise.flatMap(() => Config.Connection.setAgdaVersion(newAgdaVersion))
       ->Promise.flatMap(() =>
         State.View.display(state, View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"), [])
       )
@@ -287,7 +287,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           let body = [
             Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
           ]
-          Config.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
+          Config.Connection.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
             State.View.display(state, header, body)
           )
         }

@@ -134,10 +134,10 @@ module Module: Module = {
   let make = () => {
     let getPath = (): Promise.t<result<string, Error.t>> => {
       // first, get the path from the config (stored in the Editor)
-      let storedPath = Config.getAgdaPath()
+      let storedPath = Config.Connection.getAgdaPath()
       if storedPath == "" || storedPath == "." {
         // if there's no stored path, find one from the OS (with the specified name)
-        let agdaVersion = Config.getAgdaVersion()
+        let agdaVersion = Config.Connection.getAgdaVersion()
         Process.PathSearch.run(
           agdaVersion,
           "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings."
@@ -151,7 +151,7 @@ module Module: Module = {
 
     // store the path in the editor config
     let setPath = (metadata: Metadata.t): Promise.t<result<Metadata.t, Error.t>> =>
-      Config.setAgdaPath(metadata.path)->Promise.map(() => Ok(metadata))
+      Config.Connection.setAgdaPath(metadata.path)->Promise.map(() => Ok(metadata))
 
     let args = ["--interaction"]
 
