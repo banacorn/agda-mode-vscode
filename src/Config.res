@@ -40,6 +40,17 @@ module Connection = {
     | _ => false
     }
   }
+  // Agda Language Server port
+  let getAgdaLanguageServerPort = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "connection.agdaLanguageServerPort",
+      )
+    switch raw {
+    | Some(port) => port
+    | _ => 4096
+    }
+  }
 }
 
 module View = {

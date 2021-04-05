@@ -324,7 +324,7 @@ module Module: Module = {
   }
 
   // see if the server is available
-  let probe = (tryTCP, port, name) => {
+  let probe = (tryTCP, name) => {
     // see if "als" is available
     let probeStdIO = name => {
       AgdaModeVscode.Process.PathSearch.run(
@@ -350,7 +350,8 @@ module Module: Module = {
       })
     }
     if tryTCP {
-      probeTCP(port)->Promise.flatMapError(error => {
+      let portNumber = Config.Connection.getAgdaLanguageServerPort()
+      probeTCP(portNumber)->Promise.flatMapError(error => {
         Js.log2(
           "Got the following error when trying to connect to the Agda language server via TCP:",
           error,
@@ -382,7 +383,7 @@ module Module: Module = {
 
   // start the LSP client
   let make = tryTCP =>
-    probe(tryTCP, 4096, "als")
+    probe(tryTCP, "als")
     ->Promise.flatMapOk(Client.make)
     ->Promise.flatMap(result =>
       switch result {
