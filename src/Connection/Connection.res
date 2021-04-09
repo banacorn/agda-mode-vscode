@@ -53,7 +53,7 @@ module Module: Module = {
           singleton := Some(Emacs(conn))
           let (version, path) = Emacs.getStatus(conn)
           Emacs(version, path)
-        })
+        })->Promise.mapError(error => Error.Emacs(error))
       }
     }
 
@@ -87,9 +87,10 @@ module Module: Module = {
       )->Promise.mapError(error => Error.LSP(error))
     | Some(Emacs(conn)) =>
       let (version, _path) = Emacs.getStatus(conn)
+      let handler = x => x->Util.Result.mapError(err => Error.Emacs(err))->handler
       Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
         toStatus(Emacs(conn))
-      )
+      )->Promise.mapError(error => Error.Emacs(error))
     | None =>
       start(useLSP, viaTCP)->Promise.flatMapOk(_ =>
         sendRequest(useLSP, viaTCP, document, request, handler)

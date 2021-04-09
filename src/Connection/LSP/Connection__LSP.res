@@ -225,7 +225,7 @@ module Module: Module = {
   let probe = (tryTCP, name) => {
     // see if "als" is available
     let probeStdIO = name => {
-      AgdaModeVscode.Process.PathSearch.run(
+      Connection__Process.PathSearch.run(
         name,
         "Please make sure that the language server is installed on the path",
       )

@@ -1,6 +1,6 @@
 open Belt
 
-module Error = Connection__Error
+module Error = Connection__Emacs__Error
 module Scheduler = Connection__Scheduler
 
 module type Module = {
@@ -48,7 +48,7 @@ module Module: Module = {
         }
       // normailize the path by replacing the tild "~/" with the absolute path of home directory
       let path = untildify(path)
-      Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
+      Connection__Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
       ->Promise.mapOk(version => {
         path: path,
         args: args,
@@ -62,7 +62,7 @@ module Module: Module = {
 
   type t = {
     metadata: Metadata.t,
-    process: Process.t,
+    process: Connection__Process.t,
     chan: Chan.t<result<response, Error.t>>,
     mutable encountedFirstPrompt: bool,
   }
@@ -70,7 +70,7 @@ module Module: Module = {
   let destroy = self => {
     self.chan->Chan.destroy
     self.encountedFirstPrompt = false
-    self.process->Process.destroy
+    self.process->Connection__Process.destroy
   }
 
   let wire = (self): unit => {
@@ -120,7 +120,7 @@ module Module: Module = {
     // listens to the "data" event on the stdout
     // The chunk may contain various fractions of the Agda output
     // TODO: handle the destructor
-    let _destructor = self.process->Process.onOutput(x =>
+    let _destructor = self.process->Connection__Process.onOutput(x =>
       switch x {
       | Stdout(rawText) =>
         // split the raw text into pieces and feed it to the parser
@@ -138,7 +138,7 @@ module Module: Module = {
       if storedPath == "" || storedPath == "." {
         // if there's no stored path, find one from the OS (with the specified name)
         let agdaVersion = Config.Connection.getAgdaVersion()
-        Process.PathSearch.run(
+        Connection__Process.PathSearch.run(
           agdaVersion,
           "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings."
         )
@@ -162,14 +162,14 @@ module Module: Module = {
     ->Promise.flatMapOk(setPath)
     ->Promise.mapOk(metadata => {
       metadata: metadata,
-      process: Process.make(metadata.path, metadata.args),
+      process: Connection__Process.make(metadata.path, metadata.args),
       chan: Chan.make(),
       encountedFirstPrompt: false,
     })
     ->Promise.tapOk(wire)
   }
 
-  let sendRequestPrim = (conn, encoded): unit => conn.process->Process.send(encoded)->ignore
+  let sendRequestPrim = (conn, encoded): unit => conn.process->Connection__Process.send(encoded)->ignore
 
   let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()

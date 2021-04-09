@@ -26,7 +26,7 @@ module CommandErr = {
 
 type t =
   // cannot find Agda or the language server in the path
-  | PathSearch(Process.PathSearch.Error.t)
+  | PathSearch(Connection__Process.PathSearch.Error.t)
   // cannot find the language server on localhost
   | PortSearch(int, Js.Exn.t)
   // Errors originated from the LSP client within
@@ -43,7 +43,7 @@ type t =
 
 let toString = error =>
   switch error {
-  | PathSearch(e) => Process.PathSearch.Error.toString(e)
+  | PathSearch(e) => Connection__Process.PathSearch.Error.toString(e)
   | PortSearch(port, e) => (
       "Cannot connect with the dev server on port " ++ string_of_int(port),
       "Did you forget to enter \":main -d\" in ghci?\n" ++ Util.JsError.toString(e),
