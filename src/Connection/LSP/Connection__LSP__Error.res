@@ -25,6 +25,10 @@ module CommandErr = {
 }
 
 type t =
+  // cannot find Agda or the language server in the path
+  | PathSearch(Process.PathSearch.Error.t)
+  // cannot find the language server on localhost
+  | PortSearch(int, Js.Exn.t)
   // Errors originated from the LSP client within
   | Connection(Js.Exn.t)
   // Errors when sending Command to ther server
@@ -35,10 +39,15 @@ type t =
   | CannotDecodeCommandRes(string, Js.Json.t)
   | CannotDecodeResponse(string, Js.Json.t)
   // S-expression parse error
-  // | ResponseParseError(Parser.Error.t)
+  | ResponseParseError(Parser.Error.t)
 
 let toString = error =>
   switch error {
+  | PathSearch(e) => Process.PathSearch.Error.toString(e)
+  | PortSearch(port, e) => (
+      "Cannot connect with the dev server on port " ++ string_of_int(port),
+      "Did you forget to enter \":main -d\" in ghci?\n" ++ Util.JsError.toString(e),
+    )
   | Connection(exn) =>
     let isECONNREFUSED =
       Js.Exn.message(exn)->Option.mapWithDefault(
@@ -59,4 +68,5 @@ let toString = error =>
       "[LSP] Cannot Parse Response",
       "Cannot decode responses from the server" ++ msg ++ "\n" ++ Json.stringify(json),
     )
+  | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
   }

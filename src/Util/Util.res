@@ -1,5 +1,13 @@
 open Belt
 
+
+module Result = {
+  let mapError = x => f => switch x {
+  | Error(e) => Error(f(e))
+  | Ok(v) => Ok(v)
+  }
+}
+
 exception Error(string)
 
 module Decode = {

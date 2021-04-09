@@ -1,7 +1,8 @@
 module Scheduler = Connection__Scheduler
-module Error = Connection__Error
+module Client = Connection__LSP__Client
+module Error = Connection__LSP__Error
 
-type method = ViaStdIO(string, string) | ViaTCP(int)
+// type method = ViaStdIO(string, string) | ViaTCP(int)
 type version = string
 
 module CommandReq = {
@@ -210,117 +211,14 @@ module type Module = {
   let destroy: t => Promise.t<unit>
   // messaging
   let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
-  let getStatus: t => (version, method)
+  let getStatus: t => (version, Client.method)
 }
 
 module Module: Module = {
-  module Client = {
-    open VSCode
-
-    type t = {
-      client: LSP.LanguageClient.t,
-      subscription: VSCode.Disposable.t,
-      method: method,
-    }
-
-    // for emitting errors
-    let errorChan: Chan.t<Js.Exn.t> = Chan.make()
-    // for emitting data
-    let dataChan: Chan.t<Js.Json.t> = Chan.make()
-
-    // let onError = callback =>
-    //   errorChan->Chan.on(e => callback(Error.Connection(e)))->VSCode.Disposable.make
-    let onResponse = callback => dataChan->Chan.on(callback)->VSCode.Disposable.make
-
-    let sendRequest = (self, data) =>
-      self.client
-      ->LSP.LanguageClient.onReady
-      ->Promise.Js.toResult
-      ->Promise.flatMapOk(() => {
-        self.client->LSP.LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
-      })
-      ->Promise.mapError(exn => Error.LSP(Connection(exn)))
-
-    let destroy = self => {
-      self.subscription->VSCode.Disposable.dispose->ignore
-      self.client->LSP.LanguageClient.stop->Promise.Js.toResult->Promise.map(_ => ())
-    }
-
-    let make = method => {
-      let serverOptions = switch method {
-      | ViaTCP(port) => LSP.ServerOptions.makeWithStreamInfo(port)
-      | ViaStdIO(name, _path) => LSP.ServerOptions.makeWithCommand(name)
-      }
-
-      let clientOptions = {
-        // Register the server for plain text documents
-        let documentSelector: DocumentSelector.t = [
-          StringOr.others({
-            open DocumentFilter
-            {
-              scheme: Some("file"),
-              pattern: None,
-              language: Some("agda"),
-            }
-          }),
-        ]
-
-        // Notify the server about file changes to '.clientrc files contained in the workspace
-        let synchronize: FileSystemWatcher.t = Workspace.createFileSystemWatcher(
-          %raw("'**/.clientrc'"),
-          ~ignoreCreateEvents=false,
-          ~ignoreChangeEvents=false,
-          ~ignoreDeleteEvents=false,
-        )
-
-        let errorHandler: LSP.ErrorHandler.t = LSP.ErrorHandler.make(
-          ~error=(exn, _msg, _count) => {
-            errorChan->Chan.emit(exn)
-            Shutdown
-          },
-          ~closed=() => {
-            DoNotRestart
-          },
-        )
-        LSP.LanguageClientOptions.make(documentSelector, synchronize, errorHandler)
-      }
-
-      // Create the language client
-      let languageClient = LSP.LanguageClient.make(
-        "agdaLanguageServer",
-        "Agda Language Server",
-        serverOptions,
-        clientOptions,
-      )
-
-      let self = {
-        client: languageClient,
-        subscription: languageClient->LSP.LanguageClient.start,
-        method: method,
-      }
-
-      // Let `LanguageClient.onReady` and `errorChan->Chan.once` race
-      Promise.race(list{
-        self.client->LSP.LanguageClient.onReady->Promise.Js.toResult,
-        errorChan->Chan.once->Promise.map(err => Error(err)),
-      })->Promise.map(result =>
-        switch result {
-        | Error(error) => Error(Error.LSP(Connection(error)))
-        | Ok() =>
-          self.client->LSP.LanguageClient.onRequest("agda", json => {
-            dataChan->Chan.emit(json)
-            Promise.resolved()
-          })
-          Ok(self)
-        }
-      )
-    }
-  }
-
   type t = {
     client: Client.t,
     version: version,
-    method: method,
+    method: Client.method,
   }
 
   // see if the server is available
@@ -331,8 +229,8 @@ module Module: Module = {
         name,
         "Please make sure that the language server is installed on the path",
       )
-      ->Promise.mapOk(path => ViaStdIO(name, Js.String.trim(path)))
-      ->Promise.mapError(e => Connection__Error.PathSearch(e))
+      ->Promise.mapOk(path => Client.ViaStdIO(name, Js.String.trim(path)))
+      ->Promise.mapError(e => Error.PathSearch(e))
     }
     // see if the TCP port is available
     let probeTCP = port => {
@@ -340,13 +238,11 @@ module Module: Module = {
       // connect and resolve `Ok()`` on success
       let socket = N.Net.connect(port, () => resolve(Ok()))
       // resolve an error
-      socket
-      ->N.Net.Socket.on(#error(exn => resolve(Error(Connection__Error.PortSearch(port, exn)))))
-      ->ignore
+      socket->N.Net.Socket.on(#error(exn => resolve(Error(Error.PortSearch(port, exn)))))->ignore
       // destroy the connection afterwards
       promise->Promise.mapOk(() => {
         N.Net.Socket.destroy(socket)->ignore
-        ViaTCP(port)
+        Client.ViaTCP(port)
       })
     }
     if tryTCP {
@@ -366,13 +262,13 @@ module Module: Module = {
   let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
     switch CommandRes.decode(json) {
     | response => Ok(response)
-    | exception Json.Decode.DecodeError(msg) => Error(Error.LSP(CannotDecodeCommandRes(msg, json)))
+    | exception Json.Decode.DecodeError(msg) => Error(CannotDecodeCommandRes(msg, json))
     }
 
   let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
     switch LSPResponse.decode(json) {
     | reaction => Ok(reaction)
-    | exception Json.Decode.DecodeError(msg) => Error(Error.LSP(CannotDecodeResponse(msg, json)))
+    | exception Json.Decode.DecodeError(msg) => Error(CannotDecodeResponse(msg, json))
     }
 
   let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
@@ -385,19 +281,15 @@ module Module: Module = {
   let make = tryTCP =>
     probe(tryTCP, "als")
     ->Promise.flatMapOk(Client.make)
-    ->Promise.flatMap(result =>
-      switch result {
-      | Error(error) => Promise.resolved(Error(error))
-      | Ok(client) =>
-        // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-        sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
-          switch response {
-          | Result(_) => Promise.resolved(Error(Error.LSP(Initialize)))
-          | ACK(version) =>
-            Promise.resolved(Ok({client: client, version: version, method: client.method}))
-          }
-        )
-      }
+    ->Promise.flatMapOk(client =>
+      // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
+      sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
+        switch response {
+        | Result(_) => Promise.resolved(Error(Error.Initialize))
+        | ACK(version) =>
+          Promise.resolved(Ok({client: client, version: version, method: Client.getMethod(client)}))
+        }
+      )
     )
 
   // destroy the client
@@ -415,7 +307,7 @@ module Module: Module = {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
-      | Ok(ResponseParseError(e)) => resolve(Error(Connection__Error.ResponseParseError(e)))
+      | Ok(ResponseParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
       | Ok(ResponseEnd) => resolve(Ok())
       | Error(error) => resolve(Error(error))
       }
@@ -427,8 +319,8 @@ module Module: Module = {
     sendRequestPrim(self.client, Command(request))
     ->Promise.flatMapOk(result =>
       switch result {
-      | ACK(_) => Promise.resolved(Error(Error.LSP(Initialize)))
-      | Result(Some(error)) => Promise.resolved(Error(Error.LSP(SendCommand(error))))
+      | ACK(_) => Promise.resolved(Error(Error.Initialize))
+      | Result(Some(error)) => Promise.resolved(Error(Error.SendCommand(error)))
       // waits for `ResponseEnd`
       | Result(None) => waitForResponseEnd
       }

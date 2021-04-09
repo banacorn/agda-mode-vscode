@@ -5,7 +5,7 @@ module LSP = Connection__LSP
 
 module type Module = {
   type version = string
-  type status = Emacs(version, string) | LSP(version, LSP.method)
+  type status = Emacs(version, string) | LSP(version, LSP.Client.method)
   // lifecycle
   let start: (bool, bool) => Promise.t<result<status, Error.t>>
   let stop: unit => Promise.t<unit>
@@ -25,7 +25,7 @@ module Module: Module = {
   let singleton: ref<option<connection>> = ref(None)
 
   type version = string
-  type status = Emacs(version, string) | LSP(version, LSP.method)
+  type status = Emacs(version, string) | LSP(version, LSP.Client.method)
 
   // connection -> status
   let toStatus = (conn: connection): status =>
@@ -47,7 +47,7 @@ module Module: Module = {
           let (version, method) = LSP.getStatus(conn)
           singleton := Some(LSP(conn))
           LSP(version, method)
-        })
+        })->Promise.mapError(error => Error.LSP(error))
       } else {
         Emacs.make()->Promise.mapOk(conn => {
           singleton := Some(Emacs(conn))
@@ -81,9 +81,10 @@ module Module: Module = {
     switch singleton.contents {
     | Some(LSP(conn)) =>
       let (version, _method) = LSP.getStatus(conn)
+      let handler = x => x->Util.Result.mapError(err => Error.LSP(err))->handler
       LSP.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
         toStatus(LSP(conn))
-      )
+      )->Promise.mapError(error => Error.LSP(error))
     | Some(Emacs(conn)) =>
       let (version, _path) = Emacs.getStatus(conn)
       Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
