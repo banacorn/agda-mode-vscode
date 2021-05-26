@@ -29,6 +29,13 @@ module Connection = {
     ->WorkspaceConfiguration.get("connection.agdaPath")
     ->Option.mapWithDefault("", Js.String.trim)
 
+  // Agda command-line options
+  let getCommandLineOptions = () =>
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.get("connection.commandLineOptions")
+    ->Option.mapWithDefault([], s => Js.String.split(" ", Js.String.trim(s)))
+    ->Array.keep(s => Js.String.trim(s) != "")
+
   // Agda Language Server
   let useAgdaLanguageServer = () => {
     let raw =

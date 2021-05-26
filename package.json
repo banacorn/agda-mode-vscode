@@ -711,6 +711,12 @@
 					"scope": "machine-overridable",
 					"description": "Path to the executable of Agda, automatically inferred when possible. Overwrite to override."
 				},
+				"agdaMode.connection.commandLineOptions": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Command-line options to the Agda executable, seperated with spaces, e.g. \"--without-K --safe\""
+				},
 				"agdaMode.connection.agdaLanguageServer": {
 					"type": "boolean",
 					"default": false,
