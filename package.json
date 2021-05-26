@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.2.11",
+	"version": "0.2.12",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -728,6 +728,12 @@
 					"default": 4096,
 					"scope": "machine-overridable",
 					"description": "Port number for the \"Agda Language Server\""
+				},
+				"agdaMode.connection.agdaLanguageServerOptions": {
+					"type": "boolean",
+					"default": false,
+					"scope": "machine-overridable",
+					"description": "Command-line options to the Agda Language Server (placeholder, not implemented yet)"
 				},
 				"agdaMode.view.panelMountPosition": {
 					"type": "string",

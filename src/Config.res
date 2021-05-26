@@ -58,6 +58,14 @@ module Connection = {
     | _ => 4096
     }
   }
+
+  // Agda Language Server command-line options
+  let getCommandLineOptions = () =>
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.get("connection.agdaLanguageServerOptions")
+    ->Option.mapWithDefault([], s => Js.String.split(" ", Js.String.trim(s)))
+    ->Array.keep(s => Js.String.trim(s) != "")
+
 }
 
 module View = {
