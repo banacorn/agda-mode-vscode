@@ -110,9 +110,8 @@ module Regex = {
   let orgEnd = %re("/\\#\\+end\\_src/i")
 
   let comment = %re(
-    "/(--[^\\r\\n]*[\\r\\n])|(\\{-(?:[^-]|[\\r\\n]|(?:-+(?:[^-\\}]|[\\r\\n])))*-+\\})/"
+    "/((?<=^|[\\s\"\\_\\;\\.\\(\\)\\{\\}\\@])--[^\\r\\n]*(?:\\r|\\n|$))|(\\{-(?:[^-]|[\\r\\n]|(?:-+(?:[^-\\}]|[\\r\\n])))*-+\\})/"
   )
-
   // // https://agda.readthedocs.io/en/v2.6.1/language/lexical-structure.html#keywords-and-special-symbols
   // let specialSymbol = [%re "/[\.\;\{\}\(\)\@\"]/"];
 

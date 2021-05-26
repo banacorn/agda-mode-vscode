@@ -2,32 +2,17 @@ open Belt
 open! BsMocha.Mocha
 open Test__Util
 
-
 module Js' = Js
-open Promise
 module Js = Js'
 
 module Assert = BsMocha.Assert
-module P = BsMocha.Promise
 
-// let makeTextEditor = content =>
-//   VSCode.Workspace.openTextDocumentWithOptions(
-//     Some({"content": content, "language": "agda"}),
-//   )->Promise.flatMap(textDocument => VSCode.Window.showTextDocumentWithShowOptions(textDocument, None))
-
-// let forGoal = (goals, index, callback) =>
-//   switch goals[index] {
-//   | None =>
-//     Assert.fail("failed to instantiate goal #" ++ string_of_int(index))
-//     Promise.resolved()
-//   | Some(goal) => callback(goal)
-//   }
-
-describe("State__Goal.caseSplitAux", () =>
-  // let lines = [|{j|Z + y = ?|j}, {j|S x + y = ?|j}|];
+describe("State__Goal.caseSplitAux", () => {
   Q.it("should calculate the infomation needed for case splitting correctly", () =>
-    VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(Path.asset("CaseSplit.agda")), None)
-    ->Promise.flatMap(editor => {
+    VSCode.Window.showTextDocumentWithUri(
+      VSCode.Uri.file(Path.asset("CaseSplit.agda")),
+      None,
+    )->Promise.flatMap(editor => {
       let document = VSCode.TextEditor.document(editor)
       Goal.makeMany(editor, [0, 1, 2, 3, 4, 5, 6, 7, 8])
       ->Promise.map(goals =>
@@ -41,8 +26,8 @@ describe("State__Goal.caseSplitAux", () =>
           (inWhereClause, indentWidth, Editor.Text.get(document, rewriteRange))
         })
       )
-      ->Promise.map(results =>
-        Ok(Assert.deep_equal(
+      ->Promise.map(results => Ok(
+        Assert.deep_equal(
           results,
           [
             (false, 9, j`x → {!   !}`),
@@ -55,8 +40,8 @@ describe("State__Goal.caseSplitAux", () =>
             (true, 2, j`y → {!   !}`),
             (false, 13, j`x → {!   !}`),
           ],
-        ))
-      )
+        ),
+      ))
     })
   )
-)
+})

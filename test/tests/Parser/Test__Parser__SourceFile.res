@@ -18,7 +18,34 @@ describe("when parsing file paths", () =>
 )
 
 if onUnix {
-  describe("when parsing source files (Unix only)", () =>
+  describe("when parsing source files (Unix only)", () => {
+    describe("Regex.comment", () => {
+      it("should work", () => {
+        open SourceFile
+        let match = Js.String.search(Regex.comment)
+        Assert.equal(match("no comment"), -1)
+        Assert.equal(match("no comment\n"), -1)
+        Assert.equal(match("-- comment"), 0)
+        Assert.equal(match("-- comment with newline\n"), 0)
+      })
+
+      it("should work when \"--\" is placed immediately after some text (issue #56)", () => {
+        open SourceFile
+        let match = Js.String.search(Regex.comment)
+        Assert.equal(match("a -- comment after some text"), 2)
+        Assert.equal(match("a-- comment placed immediately after some text"), -1)
+        Assert.equal(match("_-- comment placed immediately after name parts"), 1)
+        Assert.equal(match(";-- comment placed immediately after name parts"), 1)
+        Assert.equal(match(".-- comment placed immediately after name parts"), 1)
+        Assert.equal(match("\"-- comment placed immediately after name parts"), 1)
+        Assert.equal(match("(-- comment placed immediately after name parts"), 1)
+        Assert.equal(match(")-- comment placed immediately after name parts"), 1)
+        Assert.equal(match("{-- comment placed immediately after name parts"), 1)
+        Assert.equal(match("}-- comment placed immediately after name parts"), 1)
+        Assert.equal(match("@-- comment placed immediately after name parts"), 1)
+      })
+    })
+
     Golden.getGoldenFilepathsSync(
       "../../../../test/tests/Parser/SourceFile",
     )->Array.forEach(filepath =>
@@ -31,5 +58,5 @@ if onUnix {
         )
       )
     )
-  )
+  })
 }
