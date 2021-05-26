@@ -182,12 +182,15 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
+  let activationKey = Config.InputMethod.getActivationKey()
+
   let activateEditorIM = (state: State.t): Promise.t<unit> =>
     switch isActivated(state) {
     | Editor =>
-      // already activated, insert backslash "\" instead
+      
+      // already activated, insert the activation key (default: "\") instead
       Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-        Editor.Text.insert(state.document, point, "\\")->ignore
+        Editor.Text.insert(state.document, point, activationKey)->ignore
       )
       // and then deactivate it
       EditorIM.deactivate(state)
@@ -202,8 +205,8 @@ module Module: Module = {
       EditorIM.activate(state)
     }
 
-  // activate the prompt IM when the user typed a backslash "/"
-  let shouldActivatePromptIM = input => Js.String.endsWith("\\", input)
+  // activate the prompt IM when the user typed the activation key (default: "\")
+  let shouldActivatePromptIM = input => Js.String.endsWith(activationKey, input)
 
   let keyUpdatePromptIM = (state: State.t, input) =>
     switch isActivated(state) {

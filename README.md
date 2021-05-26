@@ -94,11 +94,15 @@ Press backslash "\\" and you should see a keyboard popping up in the panel, with
 
 Unicode input also works in the input prompt, though it's a bit less powerful.
 
+If you are having trouble typing the backslash "\\", you can change it by:
+1. Go to "Preferences: Open Keyboard Shortcurs" and configure the keybinding of "Agda: Activate input method" (`agda-mode.input-symbol[Activate]`).
+2. Go to "Settings > Agda Mode > Input Method: Activation Key" and replace it with the same keybinding as above. 
+
 ## Troubleshooting
 
 ### Agda files won't load, commands don't work
 
-Please open the "Keyboard Shortcuts" tool (<kbd>C-k</kbd> + <kbd>C-s</kbd>) and see if any other extensions are fighting for the same key combinations. 
+Please go to "Preferences: Open Keyboard Shortcurs" and see if any other extensions are fighting for the same key combinations. 
 
 ### "Give" command not working on macOS
 

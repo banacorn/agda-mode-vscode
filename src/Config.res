@@ -124,3 +124,20 @@ let getBackend = () => {
   | _ => "GHCNoMain"
   }
 }
+
+module InputMethod = {
+  let getActivationKey = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "inputMethod.activationKey",
+      )
+    switch raw {
+    | Some(s) =>
+      switch Js.String.substrAtMost(~from=0, ~length=1, s) {
+      | "" => "\\"
+      | key => key
+      }
+    | _ => "\\"
+    }
+  }
+}

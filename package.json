@@ -765,6 +765,12 @@
 					],
 					"scope": "machine-overridable",
 					"description": "Backend target"
+				},
+				"agdaMode.inputMethod.activationKey": {
+					"type": "string",
+					"default": "\\",
+					"scope": "machine-overridable",
+					"description": "Key for activating Unicode input method"
 				}
 			}
 		}
