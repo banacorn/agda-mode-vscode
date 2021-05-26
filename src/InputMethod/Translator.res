@@ -5,7 +5,7 @@ external rawTable: Js.Dict.t<array<string>> = "default"
 // trie
 
 type rec trie = {
-  symbol: array<string>,
+  symbols: array<string>,
   subTrie: Js.Dict.t<trie>,
 }
 @bs.module("./../../../../asset/keymap.js")
@@ -14,7 +14,7 @@ external rawKeymapObject: {.} = "default"
 open Belt
 
 let rec fromObject = (obj: {.}): trie => {
-  let symbol = %raw(`
+  let symbols = %raw(`
     obj[">>"] || []
   `)
   let subTrie =
@@ -25,14 +25,14 @@ let rec fromObject = (obj: {.}): trie => {
       obj[key]
     `))))
     ->Js.Dict.fromArray
-  {symbol: symbol, subTrie: subTrie}
+  {symbols: symbols, subTrie: subTrie}
 }
 
 let keymap = fromObject(rawKeymapObject)
 
 let toKeySuggestions = (trie: trie): array<string> => Js.Dict.keys(trie.subTrie)
 
-let toCandidateSymbols = (trie: trie): array<string> => trie.symbol
+let toCandidateSymbols = (trie: trie): array<string> => trie.symbols
 
 // see if the key sequence is in the keymap
 // returns (KeySuggestions, CandidateSymbols)
@@ -88,7 +88,6 @@ let translate = (input: string): translation => {
   // ->Extension.extendKeySuggestions(input);
 
   let candidateSymbols = trie->Option.mapWithDefault([], toCandidateSymbols)
-  // |> Extension.extendCandidateSymbols(input);
 
   {
     symbol: candidateSymbols[0],

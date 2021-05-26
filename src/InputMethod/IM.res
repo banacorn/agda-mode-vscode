@@ -290,16 +290,18 @@ module Module: Module = {
 
           // destroy the instance when:
           //  1. interval length is 0
-          //  2. no further possible transition
-          if fst(instance.interval) == snd(instance.interval) {
+          //  2. no further possible transition and there is 0 or 1 candidate symbol
+          let intervalLengthIs0 = fst(instance.interval) == snd(instance.interval)
+          let numberOfCandidateSymbols = Array.length(buffer.translation.candidateSymbols)
+
+          let shouldDestroy =
+            intervalLengthIs0 || (!buffer.translation.further && numberOfCandidateSymbols <= 1)
+          if shouldDestroy {
             Instance.destroy(instance)
             None
-          } else if buffer.translation.further {
+          } else {
             instance.buffer = buffer
             Some(instance)
-          } else {
-            Instance.destroy(instance)
-            None
           }
         }
       )
