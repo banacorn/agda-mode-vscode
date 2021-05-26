@@ -188,7 +188,7 @@ let activateWithoutContext = (subscriptions, extensionPath, devMode) => {
 
   // on triggering commands
   Inputs.onTriggerCommand((command, editor) => {
-    Js.log("[ command ] " ++ Command.toString(command))
+    // Js.log("[ command ] " ++ Command.toString(command))
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
     // destroy
     switch command {
