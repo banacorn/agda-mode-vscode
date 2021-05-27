@@ -730,8 +730,8 @@
 					"description": "Port number for the \"Agda Language Server\""
 				},
 				"agdaMode.connection.agdaLanguageServerOptions": {
-					"type": "boolean",
-					"default": false,
+					"type": "string",
+					"default": "",
 					"scope": "machine-overridable",
 					"description": "Command-line options to the Agda Language Server (placeholder, not implemented yet)"
 				},

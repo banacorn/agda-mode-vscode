@@ -153,7 +153,8 @@ module Module: Module = {
     let setPath = (metadata: Metadata.t): Promise.t<result<Metadata.t, Error.t>> =>
       Config.Connection.setAgdaPath(metadata.path)->Promise.map(() => Ok(metadata))
 
-    let args = Js.Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
+    // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me
+    let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
 
     getPath()
     ->Promise.flatMapOk(path => {
