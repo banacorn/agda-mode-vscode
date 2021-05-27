@@ -7,7 +7,7 @@ module.exports = [
         entry: './lib/js/src/View/ViewMain.bs.js',
         output: {
             path: path.join(__dirname, 'dist'),
-            filename: 'view.bundle.js',
+            filename: 'bundled-view.js',
             libraryTarget: 'window',
         },
         devtool: 'source-map',

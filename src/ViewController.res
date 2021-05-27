@@ -42,7 +42,7 @@ module Panel: {
     let scriptUri =
       VSCode.Webview.asWebviewUri(
         webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "view.bundle.js"]),
+        VSCode.Uri.joinPath(extensionUri, ["dist", "bundled-view.js"]),
       )->VSCode.Uri.toString
 
     let cspSourceUri = VSCode.Webview.cspSource(webview)
