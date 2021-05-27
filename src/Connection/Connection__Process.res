@@ -162,27 +162,38 @@ module Validation = {
 module Error = {
   type exitCode = int
   type signal = string
+  type path = string
+  type args = array<string>
   type t =
-    | ClosedByProcess(exitCode, signal) // on `close`
+    | ClosedByProcess(path, args, exitCode, signal) // on `close`
     | DisconnectedByUser // on `disconnect
     | ShellError(Js.Exn.t) // on `error`
-    | ExitedByProcess(exitCode, signal, string) // on 'exit`
+    | ExitedByProcess(path, args, exitCode, signal, string) // on 'exit`
     | NotEstablishedYet
 
   let toString = x =>
     switch x {
-    | ClosedByProcess(code, signal) => (
+    | ClosedByProcess(path, args, code, signal) =>
+      let args = args->Array.joinWith(" ", x => x)
+      (
         "Socket closed by process",
         j`exited with code: $code
 signal: $signal
+path: $path
+args: $args
 `,
       )
     | DisconnectedByUser => ("Disconnected", "Connection disconnected by ourselves")
     | ShellError(error) => ("Socket error", Util.JsError.toString(error))
-    | ExitedByProcess(code, signal, stderr) => (
+    | ExitedByProcess(path, args, code, signal, stderr) =>
+      let args = args->Array.joinWith(" ", x => x)
+
+      (
         "Agda has crashed !",
         j`exited with code: $code
   signal: $signal
+  path: $path
+  args: $args
   === message from stderr ===
   $stderr
   `,
@@ -263,14 +274,17 @@ module Module: Module = {
     process
     |> Nd.ChildProcess.stdin
     |> Nd.Stream.Writable.on(
-      #close(() => chan->Chan.emit(Error(Error.ClosedByProcess(0, ""))) |> ignore),
+      #close(() => chan->Chan.emit(Error(Error.ClosedByProcess(path, args, 0, ""))) |> ignore),
     )
     |> ignore
 
     // on errors and anomalies
     process
     |> Nd.ChildProcess.on(
-      #close((code, signal) => chan->Chan.emit(Error(ClosedByProcess(code, signal))) |> ignore),
+      #close(
+        (code, signal) =>
+          chan->Chan.emit(Error(ClosedByProcess(path, args, code, signal))) |> ignore,
+      ),
     )
     |> Nd.ChildProcess.on(#disconnect(() => chan->Chan.emit(Error(DisconnectedByUser)) |> ignore))
     |> Nd.ChildProcess.on(#error(exn => chan->Chan.emit(Error(ShellError(exn))) |> ignore))
@@ -279,7 +293,7 @@ module Module: Module = {
         (code, signal) =>
           if code != 0 {
             //  returns the last message from stderr
-            chan->Chan.emit(Error(ExitedByProcess(code, signal, stderr.contents))) |> ignore
+            chan->Chan.emit(Error(ExitedByProcess(path, args, code, signal, stderr.contents))) |> ignore
           },
       ),
     )
@@ -300,7 +314,7 @@ module Module: Module = {
       // listen to the `exit` event
       self.chan->Chan.on(x =>
         switch x {
-        | Error(ExitedByProcess(_, _, _)) =>
+        | Error(ExitedByProcess(_, _, _, _, _)) =>
           self.chan->Chan.destroy
           self.status = Disconnected
           resolve()
@@ -331,7 +345,7 @@ module Module: Module = {
   let onOutput = (self, callback) =>
     self.chan->Chan.on(output =>
       switch output {
-      | Error(Error.ExitedByProcess(_, _, _)) =>
+      | Error(Error.ExitedByProcess(_, _, _, _, _)) =>
         if self.forcedExit {
           self.forcedExit = false
         } else {
