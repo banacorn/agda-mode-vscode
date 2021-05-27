@@ -140,7 +140,7 @@ module Module: Module = {
         let agdaVersion = Config.Connection.getAgdaVersion()
         Connection__Process.PathSearch.run(
           agdaVersion,
-          "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings."
+          "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings.",
         )
         ->Promise.mapOk(Js.String.trim)
         ->Promise.mapError(e => Error.PathSearch(e))
@@ -161,16 +161,21 @@ module Module: Module = {
       Metadata.make(path, args)
     })
     ->Promise.flatMapOk(setPath)
-    ->Promise.mapOk(metadata => {
-      metadata: metadata,
-      process: Connection__Process.make(metadata.path, metadata.args),
-      chan: Chan.make(),
-      encountedFirstPrompt: false,
-    })
+    ->Promise.flatMapOk(metadata =>
+      Connection__Process.make(metadata.path, metadata.args)->Promise.mapOk(process => {
+        {
+          metadata: metadata,
+          process: process,
+          chan: Chan.make(),
+          encountedFirstPrompt: false,
+        }
+      })->Promise.mapError(e => Connection__Emacs__Error.Process(e))
+    )
     ->Promise.tapOk(wire)
   }
 
-  let sendRequestPrim = (conn, encoded): unit => conn.process->Connection__Process.send(encoded)->ignore
+  let sendRequestPrim = (conn, encoded): unit =>
+    conn.process->Connection__Process.send(encoded)->ignore
 
   let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()

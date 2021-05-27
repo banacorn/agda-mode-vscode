@@ -212,9 +212,16 @@ module type Module = {
     | Stderr(string)
     | Error(Error.t)
 
+  // // lifecycle
+  // let make: unit => Promise.t<result<t, Error.t>>
+  // let destroy: t => Promise.t<unit>
+  // // messaging
+  // let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
+  // let getStatus: t => (string, string)
+
   type t
   // lifetime: same as the child process
-  let make: (string, array<string>) => t
+  let make: (string, array<string>) => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
 
   let send: (t, string) => result<unit, Error.t>
@@ -238,7 +245,7 @@ module Module: Module = {
     mutable forcedExit: bool,
   }
 
-  let make = (path, args): t => {
+  let make = (path, args) => {
     let chan = Chan.make()
     let stderr = ref("")
     // spawn the child process
@@ -299,7 +306,7 @@ module Module: Module = {
     )
     |> ignore
 
-    {chan: chan, status: Connected(process), forcedExit: false}
+    Promise.resolved(Ok({chan: chan, status: Connected(process), forcedExit: false}))
   }
 
   let destroy = self =>
