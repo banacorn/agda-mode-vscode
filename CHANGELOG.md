@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## v0.2.13 - 2021-05-27
+
+### Fixed 
+- #59: After upgraded to 0.2.12, Agda-mode is refuse to load Agda files by C-c C-l
+- #57: Option to add command-line flags to agda executable 
+
 ## v0.2.12 - 2021-05-26
 
 ### Fixed 
