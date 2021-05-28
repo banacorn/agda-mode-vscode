@@ -43,17 +43,21 @@ module Module: Module = {
     | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
     | None =>
       if useLSP {
-        LSP.make(viaTCP)->Promise.mapOk(conn => {
+        LSP.make(viaTCP)
+        ->Promise.mapOk(conn => {
           let (version, method) = LSP.getInfo(conn)
           singleton := Some(LSP(conn))
           LSP(version, method)
-        })->Promise.mapError(error => Error.LSP(error))
+        })
+        ->Promise.mapError(error => Error.LSP(error))
       } else {
-        Emacs.make()->Promise.mapOk(conn => {
+        Emacs.make()
+        ->Promise.mapOk(conn => {
           singleton := Some(Emacs(conn))
           let (version, path) = Emacs.getInfo(conn)
           Emacs(version, path)
-        })->Promise.mapError(error => Error.Emacs(error))
+        })
+        ->Promise.mapError(error => Error.Emacs(error))
       }
     }
 
@@ -82,15 +86,22 @@ module Module: Module = {
     | Some(LSP(conn)) =>
       let (version, _method) = LSP.getInfo(conn)
       let handler = x => x->Util.Result.mapError(err => Error.LSP(err))->handler
-      LSP.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
-        toStatus(LSP(conn))
-      )->Promise.mapError(error => Error.LSP(error))
+      LSP.sendRequest(conn, encodeRequest(document, version), handler)
+      ->Promise.mapOk(() => toStatus(LSP(conn)))
+      ->Promise.flatMapError(error => {
+        // stop the connection on error
+        stop()->Promise.map(() => Error(Error.LSP(error)))
+      })
+
     | Some(Emacs(conn)) =>
       let (version, _path) = Emacs.getInfo(conn)
       let handler = x => x->Util.Result.mapError(err => Error.Emacs(err))->handler
-      Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
-        toStatus(Emacs(conn))
-      )->Promise.mapError(error => Error.Emacs(error))
+      Emacs.sendRequest(conn, encodeRequest(document, version), handler)
+      ->Promise.mapOk(() => toStatus(Emacs(conn)))
+      ->Promise.flatMapError(error => {
+        // stop the connection on error
+        stop()->Promise.map(() => Error(Error.Emacs(error)))
+      })
     | None =>
       start(useLSP, viaTCP)->Promise.flatMapOk(_ =>
         sendRequest(useLSP, viaTCP, document, request, handler)

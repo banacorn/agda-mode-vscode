@@ -79,10 +79,7 @@ module type Module = {
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
-  let sendRequest2: (
-    t,
-    string
-  ) => unit
+  let sendRequest2: (t, string) => unit
 
   let sendRequest: (
     t,
@@ -93,12 +90,10 @@ module type Module = {
 }
 
 module Module: Module = {
-  type response = Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>>
-
   type t = {
     procInfo: ProcInfo.t,
     process: Connection__Process.t,
-    chan: Chan.t<result<response, Error.t>>,
+    chan: Chan.t<result<Parser.Incr.Gen.t<Response.Prioritized.t>, Error.t>>,
     mutable encountedFirstPrompt: bool,
   }
 
@@ -130,9 +125,10 @@ module Module: Module = {
     )
 
     // resolves the requests in the queue
-    let handleResponse = (res: response) =>
+    let handleResponse = (res: Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>>) =>
       switch res {
-      | Yield(x) => self.chan->Chan.emit(Ok(Yield(x)))
+      | Yield(Ok(response)) => self.chan->Chan.emit(Ok(Yield(response)))
+      | Yield(Error(parseError)) => self.chan->Chan.emit(Error(ResponseParseError(parseError)))
       | Stop =>
         if self.encountedFirstPrompt {
           self.chan->Chan.emit(Ok(Stop))
@@ -156,9 +152,9 @@ module Module: Module = {
           Js.log("stdout: " ++ rawText)
           // split the raw text into pieces and feed it to the parser
           rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
-        | Stderr(e) => Js.log("stderr: " ++ e)
+        | Stderr(_) => ()
         | Event(e) =>
-          Js.log2("event: ", Connection__Process.Event.toString(e))
+          // Js.log2("event: ", Connection__Process.Event.toString(e))
           self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some
@@ -186,7 +182,6 @@ module Module: Module = {
     ->Promise.tapOk(wire)
   }
 
-
   let sendRequestPrim = (conn, encoded): unit =>
     conn.process->Connection__Process.send(encoded)->ignore
 
@@ -208,17 +203,18 @@ module Module: Module = {
     //        2. after all NonLast Responses
     //        3. after all interactive highlighting is complete
     //    * may invoke `sendAgdaRequest`
-    let listener: result<response, Error.t> => unit = x =>
+    let listener: result<Parser.Incr.Gen.t<Response.Prioritized.t>, Error.t> => unit = x =>
       switch x {
-      | Error(error) => callback(Error(error))->ignore
-      | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
-        callback(Error(ResponseParseError(error)))->ignore
-      | Ok(Yield(Ok(NonLast(response)))) =>
+      | Error(error) =>
+        // stop the Agda Response listener
+        stopListener(Error(error))
+        callback(Error(error))->ignore
+      | Ok(Yield(NonLast(response))) =>
         scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
-      | Ok(Yield(Ok(Last(priority, response)))) => scheduler->Scheduler.addLast(priority, response)
+      | Ok(Yield(Last(priority, response))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
         // stop the Agda Response listener
-        stopListener()
+        stopListener(Ok())
         // start handling Last Responses, after all NonLast Responses have been handled
         scheduler->Scheduler.runLast(response => callback(Ok(response)))
       }
@@ -227,7 +223,7 @@ module Module: Module = {
     let listenerHandle = ref(None)
     listenerHandle := Some(conn.chan->Chan.on(listener))
     // destroy the listener after all responses have been received
-    promise->Promise.tap(() =>
+    promise->Promise.tap(_ =>
       listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
     )
   }
@@ -236,7 +232,7 @@ module Module: Module = {
     // this promise gets resolved after all Responses have been received and handled
     let promise = onResponse(conn, handler)
     sendRequestPrim(conn, request)
-    promise->Promise.map(() => Ok())
+    promise
   }
 
   let getInfo = conn => (conn.procInfo.version, conn.procInfo.path)
