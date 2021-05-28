@@ -79,6 +79,11 @@ module type Module = {
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
+  let sendRequest2: (
+    t,
+    string
+  ) => unit
+
   let sendRequest: (
     t,
     string,
@@ -181,8 +186,11 @@ module Module: Module = {
     ->Promise.tapOk(wire)
   }
 
+
   let sendRequestPrim = (conn, encoded): unit =>
     conn.process->Connection__Process.send(encoded)->ignore
+
+  let sendRequest2 = sendRequestPrim
 
   let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()

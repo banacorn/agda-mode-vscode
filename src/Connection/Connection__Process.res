@@ -169,7 +169,6 @@ module Event = {
     | DisconnectedByUser // on `disconnect
     | ShellError(Js.Exn.t) // on `error`
     | ExitedByProcess(path, args, exitCode, signal, string) // on 'exit`
-    | NotEstablishedYet
 
   let toString = x =>
     switch x {
@@ -198,11 +197,6 @@ args: $args
   $stderr
   `,
       )
-
-    | NotEstablishedYet => (
-        "Connection not established yet",
-        "Please establish the connection first",
-      )
     }
 }
 
@@ -212,7 +206,7 @@ module type Module = {
   let make: (string, array<string>) => t
   let destroy: t => Promise.t<unit>
   // messaging
-  let send: (t, string) => result<unit, Event.t>
+  let send: (t, string) => bool
   // events
   type output =
     | Stdout(string)
@@ -329,16 +323,22 @@ module Module: Module = {
     | Destroyed => Promise.resolved()
     }
 
-  let send = (self, request): result<unit, Event.t> =>
+  let send = (self, request): bool => {
     switch self.status {
     | Created(process) =>
-      let payload = Node.Buffer.fromString(request ++ "\n")
-      // write
-      process |> Nd.ChildProcess.stdin |> Nd.Stream.Writable.write(payload) |> ignore
-
-      Ok()
-    | _ => Error(NotEstablishedYet)
+      // HACK: somehow `Nd.Stream.Writable.writable` is undefined
+      //        read `Nd.ChildProcess.connected` instead
+      if Nd.ChildProcess.connected(process) {
+        let payload = Node.Buffer.fromString(request ++ "\n")
+        process |> Nd.ChildProcess.stdin |> Nd.Stream.Writable.write(payload) |> ignore
+        true
+      } else {
+        false
+      }
+    // do nothing
+    | _ => false
     }
+  }
 
   let onOutput = (self, callback) =>
     self.chan->Chan.on(output =>
