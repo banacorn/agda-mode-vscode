@@ -122,10 +122,9 @@ module Module: Module = {
     // TODO: handle the destructor
     let _destructor = self.process->Connection__Process.onOutput(x =>
       switch x {
-      | Stdout(rawText) =>
+      | Ok(rawText) =>
         // split the raw text into pieces and feed it to the parser
         rawText->Parser.split->Array.forEach(Parser.Incr.feed(pipeline))
-      | Stderr(_) => ()
       | Error(e) => self.chan->Chan.emit(Error(Process(e)))
       }
     )
@@ -207,8 +206,8 @@ module Module: Module = {
         scheduler->Scheduler.runLast(callback)
       }
 
-    let listenerHandle = ref(None)
     // start listening for responses
+    let listenerHandle = ref(None)
     listenerHandle := Some(conn.chan->Chan.on(listener))
     // destroy the listener after all responses have been received
     promise->Promise.tap(() =>

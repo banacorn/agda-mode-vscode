@@ -207,40 +207,25 @@ args: $args
 }
 
 module type Module = {
-  type output =
-    | Stdout(string)
-    | Stderr(string)
-    | Error(Error.t)
-
-  // // lifecycle
-  // let make: unit => Promise.t<result<t, Error.t>>
-  // let destroy: t => Promise.t<unit>
-  // // messaging
-  // let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
-  // let getStatus: t => (string, string)
-
   type t
   // lifetime: same as the child process
   let make: (string, array<string>) => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
-
+  // messaging 
   let send: (t, string) => result<unit, Error.t>
-  let onOutput: (t, output => unit, unit) => unit
+  // events 
+  let onOutput: (t, result<string, Error.t> => unit, unit) => unit
+  // properties
   let isConnected: t => bool
 }
 module Module: Module = {
-  type output =
-    | Stdout(string)
-    | Stderr(string)
-    | Error(Error.t)
-
   type status =
     | Connected(Nd.ChildProcess.t)
     | Disconnecting(Promise.t<unit>)
     | Disconnected
 
   type t = {
-    chan: Chan.t<output>,
+    chan: Chan.t<result<string, Error.t>>,
     mutable status: status,
     mutable forcedExit: bool,
   }
@@ -259,7 +244,7 @@ module Module: Module = {
     process
     |> Nd.ChildProcess.stdout
     |> Nd.Stream.Readable.on(
-      #data(chunk => chan->Chan.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore),
+      #data(chunk => chan->Chan.emit(Ok(Node.Buffer.toString(chunk))) |> ignore),
     )
     |> ignore
 
@@ -269,7 +254,7 @@ module Module: Module = {
     |> Nd.Stream.Readable.on(
       #data(
         chunk => {
-          chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
+          // chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
           // store the latest message from stderr
           stderr := Node.Buffer.toString(chunk)
         },
