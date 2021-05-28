@@ -115,7 +115,7 @@
     height: @header-height;
 
     margin : 0 @root-padding;
-    padding: @padding*0.5 0;
+    padding: calc(@padding/2) 0;
 
     // create a shadow at the bottom of the <Header>
     box-shadow: @header-background 0px 3px 3px;
@@ -150,7 +150,7 @@
 
     @line-height: 1.5rem;
 
-    padding-top: @header-height + @padding;
+    padding-top: calc(@header-height + @padding);
 
     white-space: pre;
 
@@ -165,7 +165,7 @@
     li {
         // dimensions
         margin : @padding 0;
-        padding: @padding/2 @padding;
+        padding: calc(@padding/2) @padding;
 
         &:first-of-type {
             margin-top: 0;
@@ -234,7 +234,7 @@
     li .item-label {
         order: 2;
 
-        margin-left: @padding/2;
+        margin-left: calc(@padding/2);
 
         font-variant: small-caps;
         font-weight : bolder;
@@ -331,12 +331,12 @@
     display     : inline-flex;
     flex-wrap   : wrap;
     // use padding-left to indent every child
-    padding-left: @indent - 1ch;
+    padding-left: calc(@indent - 1ch);
 }
 
 // but don't indent the first child
 .component-horz-item:first-of-type {
-    margin-left: -(@indent - 1ch);
+    margin-left: calc(-(@indent - 1ch));
 }
 
 // seperate each .component-horz-item

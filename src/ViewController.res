@@ -59,17 +59,19 @@ module Panel: {
         VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"]),
       )->VSCode.Uri.toString
 
-    let codiconsFontUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.ttf"]),
-      )->VSCode.Uri.toString
+    // let codiconsFontUri =
+    //   VSCode.Webview.asWebviewUri(
+    //     webview,
+    //     VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.ttf"]),
+    //   )->VSCode.Uri.toString
 
     // Content-Security-Policy
     let defaultSrc = "default-src 'none'; "
     let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "
-    let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
-    let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
+    let styleSrc = "style-src " ++ cspSourceUri ++ "; "
+    // let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
+    let fontSrc = "font-src " ++ cspSourceUri ++ "; "
+    // let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
     let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
 
     j`
