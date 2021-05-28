@@ -15,11 +15,10 @@ open Belt
 //    * may invoke `sendAgdaRequest`
 module Module: {
   type t
-  type handler<'error> = result<Response.t, 'error> => Promise.t<unit>
   let make: unit => t
-  let runNonLast: (t, handler<'error>, Response.t) => unit
   let addLast: (t, int, Response.t) => unit
-  let runLast: (t, handler<'error>) => unit
+  let runNonLast: (t, Response.t => Promise.t<unit>, Response.t) => unit
+  let runLast: (t, Response.t => Promise.t<unit>) => unit
 } = {
   type t = {
     // keep the number of running NonLast Response
@@ -27,8 +26,6 @@ module Module: {
     allDone: Chan.t<unit>,
     deferredLastResponses: array<(int, Response.t)>,
   }
-  type handler<'error> = result<Response.t, 'error> => Promise.t<unit>
-
   let make = () => {
     tally: 0,
     allDone: Chan.make(),
@@ -38,7 +35,7 @@ module Module: {
   let runNonLast = (self, handler, response) => {
     // Js.log("[NonLast] " ++ Response.toString(response))
     self.tally = self.tally + 1
-    handler(Ok(response))->Promise.get(_ => {
+    handler((response))->Promise.get(_ => {
       self.tally = self.tally - 1
       if self.tally == 0 {
         self.allDone->Chan.emit()
@@ -75,7 +72,7 @@ module Module: {
         deferredLastResponses,
       )->ignore
 
-      deferredLastResponses->Array.map(res => handler(Ok(res)))->Util.oneByOne->ignore
+      deferredLastResponses->Array.map(res => handler((res)))->Util.oneByOne->ignore
     })
 }
 

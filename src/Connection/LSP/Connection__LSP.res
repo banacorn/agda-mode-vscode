@@ -210,7 +210,7 @@ module type Module = {
   let make: bool => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
-  let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
+  let sendRequest: (t, string, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<result<unit, Error.t>>
   let getStatus: t => (version, Client.method)
 }
 
@@ -298,12 +298,15 @@ module Module: Module = {
   let getStatus = self => (self.version, self.method)
 
   let sendRequest = (self, request, handler) => {
+    let handler = response => handler(Ok(response))
+    
     let scheduler = Scheduler.make()
     // waits for `ResponseEnd`
     let (waitForResponseEnd, resolve) = Promise.pending()
 
     // listens for notifications
     let subscription = Client.onResponse(json => {
+      
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)

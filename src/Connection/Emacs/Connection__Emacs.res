@@ -9,7 +9,7 @@ module type Module = {
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
-  let sendRequest: (t, string, Scheduler.handler<Error.t>) => Promise.t<result<unit, Error.t>>
+  let sendRequest: (t, string, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<result<unit, Error.t>>
   let getStatus: t => (string, string)
 }
 
@@ -197,13 +197,13 @@ module Module: Module = {
       | Error(error) => callback(Error(error))->ignore
       | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
         callback(Error(ResponseParseError(error)))->ignore
-      | Ok(Yield(Ok(NonLast(response)))) => scheduler->Scheduler.runNonLast(callback, response)
+      | Ok(Yield(Ok(NonLast(response)))) => scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
       | Ok(Yield(Ok(Last(priority, response)))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
         // stop the Agda Response listener
         stopListener()
         // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler->Scheduler.runLast(callback)
+        scheduler->Scheduler.runLast(response => callback(Ok(response)))
       }
 
     // start listening for responses
