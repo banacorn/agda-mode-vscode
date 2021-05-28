@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.2.13",
+	"version": "0.2.14",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
