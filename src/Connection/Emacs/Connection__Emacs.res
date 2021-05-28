@@ -149,12 +149,18 @@ module Module: Module = {
       Connection__Process.onOutput(self.process, x =>
         switch x {
         | Stdout(rawText) =>
-          Js.log("stdout: " ++ rawText)
-          // split the raw text into pieces and feed it to the parser
-          rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
-        | Stderr(_) => ()
+          // sometimes Agda would return error messages from STDOUT
+          if Js.String.startsWith("Error:", rawText) {
+            Js.log("stdout: " ++ rawText)
+            self.chan->Chan.emit(Error(AgdaError(rawText)))
+          } else {
+            Js.log("stdout OK: " ++ rawText)
+            // split the raw text into pieces and feed it to the parser
+            rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
+          }
+        | Stderr(e) => Js.log2("stderr: ", e)
         | Event(e) =>
-          // Js.log2("event: ", Connection__Process.Event.toString(e))
+          Js.log2("event: ", Connection__Process.Event.toString(e))
           self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some
