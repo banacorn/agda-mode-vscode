@@ -79,8 +79,6 @@ module type Module = {
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
-  let sendRequest2: (t, string) => unit
-
   let sendRequest: (
     t,
     string,
@@ -151,10 +149,8 @@ module Module: Module = {
         | Stdout(rawText) =>
           // sometimes Agda would return error messages from STDOUT
           if Js.String.startsWith("Error:", rawText) {
-            Js.log("stdout: " ++ rawText)
             self.chan->Chan.emit(Error(AgdaError(rawText)))
           } else {
-            Js.log("stdout OK: " ++ rawText)
             // split the raw text into pieces and feed it to the parser
             rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
           }
@@ -187,11 +183,6 @@ module Module: Module = {
     })
     ->Promise.tapOk(wire)
   }
-
-  let sendRequestPrim = (conn, encoded): unit =>
-    conn.process->Connection__Process.send(encoded)->ignore
-
-  let sendRequest2 = sendRequestPrim
 
   let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()
@@ -237,7 +228,7 @@ module Module: Module = {
   let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {
     // this promise gets resolved after all Responses have been received and handled
     let promise = onResponse(conn, handler)
-    sendRequestPrim(conn, request)
+    Connection__Process.send(conn.process, request)->ignore 
     promise
   }
 

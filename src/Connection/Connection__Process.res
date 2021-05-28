@@ -292,7 +292,6 @@ module Module: Module = {
       ),
     )
     |> ignore
-
     {chan: chan, status: Created(process)}
   }
 
@@ -326,16 +325,9 @@ module Module: Module = {
   let send = (self, request): bool => {
     switch self.status {
     | Created(process) =>
-      // HACK: somehow `Nd.Stream.Writable.writable` is undefined
-      //        read `Nd.ChildProcess.connected` instead
-      if Nd.ChildProcess.connected(process) {
-        let payload = Node.Buffer.fromString(request ++ "\n")
-        process |> Nd.ChildProcess.stdin |> Nd.Stream.Writable.write(payload) |> ignore
-        true
-      } else {
-        false
-      }
-    // do nothing
+      let payload = Node.Buffer.fromString(request ++ "\n")
+      process |> Nd.ChildProcess.stdin |> Nd.Stream.Writable.write(payload) |> ignore
+      true
     | _ => false
     }
   }
