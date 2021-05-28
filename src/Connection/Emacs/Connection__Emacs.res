@@ -116,10 +116,9 @@ module Module: Module = {
     //      yield
     //      yield
     //      stop
-
     let toResponse = Parser.Incr.Gen.flatMap(x =>
       switch x {
-      | Error(parseError) => Parser.Incr.Gen.Yield(Error(parseError))
+      | Error((no, e)) => Parser.Incr.Gen.Yield(Error(Parser.Error.SExpression(no, e)))
       | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Gen.Stop
       | Ok(tokens) => Parser.Incr.Gen.Yield(Response.Prioritized.parse(tokens))
       }
@@ -138,27 +137,26 @@ module Module: Module = {
         }
       }
 
-    let mapError = x => Parser.Incr.Gen.map(x =>
-        switch x {
-        | Ok(x) => Ok(x)
-        | Error((no, e)) => Error(Parser.Error.SExpression(no, e))
-        }
-      , x)
-
-    let pipeline = Parser.SExpression.makeIncr(x => x->mapError->toResponse->handleResponse)
+    // incremental S-expression
+    let incrParser = Parser.SExpression.makeIncr(x => x->toResponse->handleResponse)
 
     // listens to the "data" event on the stdout
     // The chunk may contain various fractions of the Agda output
-    // TODO: handle the destructor
-    let _destructor = self.process->Connection__Process.onOutput(x =>
-      switch x {
-      | Stdout(rawText) =>
-        // split the raw text into pieces and feed it to the parser
-        rawText->Parser.split->Array.forEach(Parser.Incr.feed(pipeline))
-      | Stderr(_) => ()
-      | Event(e) => self.chan->Chan.emit(Error(Process(e)))
-      }
-    )
+    // TODO: handle the `listenerHandle`
+    let listenerHandle = ref(None)
+    listenerHandle :=
+      Connection__Process.onOutput(self.process, x =>
+        switch x {
+        | Stdout(rawText) =>
+          Js.log("stdout: " ++ rawText)
+          // split the raw text into pieces and feed it to the parser
+          rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
+        | Stderr(e) => Js.log("stderr: " ++ e)
+        | Event(e) =>
+          Js.log2("event: ", Connection__Process.Event.toString(e))
+          self.chan->Chan.emit(Error(Process(e)))
+        }
+      )->Some
   }
 
   let make = () => {
@@ -174,14 +172,12 @@ module Module: Module = {
       ProcInfo.make(path, args)
     })
     ->Promise.flatMapOk(persistPathInConfig)
-    ->Promise.mapOk(procInfo =>
-      {
-        procInfo: procInfo,
-        process: Connection__Process.make(procInfo.path, procInfo.args),
-        chan: Chan.make(),
-        encountedFirstPrompt: false,
-      }
-    )
+    ->Promise.mapOk(procInfo => {
+      procInfo: procInfo,
+      process: Connection__Process.make(procInfo.path, procInfo.args),
+      chan: Chan.make(),
+      encountedFirstPrompt: false,
+    })
     ->Promise.tapOk(wire)
   }
 
