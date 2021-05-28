@@ -211,7 +211,7 @@ module type Module = {
   let destroy: t => Promise.t<unit>
   // messaging
   let sendRequest: (t, string, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<result<unit, Error.t>>
-  let getStatus: t => (version, Client.method)
+  let getInfo: t => (version, Client.method)
 }
 
 module Module: Module = {
@@ -295,7 +295,7 @@ module Module: Module = {
   // destroy the client
   let destroy = self => self.client->Client.destroy
 
-  let getStatus = self => (self.version, self.method)
+  let getInfo = self => (self.version, self.method)
 
   let sendRequest = (self, request, handler) => {
     let handler = response => handler(Ok(response))

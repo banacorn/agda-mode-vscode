@@ -31,10 +31,10 @@ module Module: Module = {
   let toStatus = (conn: connection): status =>
     switch conn {
     | LSP(conn) =>
-      let (version, method) = LSP.getStatus(conn)
+      let (version, method) = LSP.getInfo(conn)
       LSP(version, method)
     | Emacs(conn) =>
-      let (version, path) = Emacs.getStatus(conn)
+      let (version, path) = Emacs.getInfo(conn)
       Emacs(version, path)
     }
 
@@ -44,14 +44,14 @@ module Module: Module = {
     | None =>
       if useLSP {
         LSP.make(viaTCP)->Promise.mapOk(conn => {
-          let (version, method) = LSP.getStatus(conn)
+          let (version, method) = LSP.getInfo(conn)
           singleton := Some(LSP(conn))
           LSP(version, method)
         })->Promise.mapError(error => Error.LSP(error))
       } else {
         Emacs.make()->Promise.mapOk(conn => {
           singleton := Some(Emacs(conn))
-          let (version, path) = Emacs.getStatus(conn)
+          let (version, path) = Emacs.getInfo(conn)
           Emacs(version, path)
         })->Promise.mapError(error => Error.Emacs(error))
       }
@@ -80,13 +80,13 @@ module Module: Module = {
 
     switch singleton.contents {
     | Some(LSP(conn)) =>
-      let (version, _method) = LSP.getStatus(conn)
+      let (version, _method) = LSP.getInfo(conn)
       let handler = x => x->Util.Result.mapError(err => Error.LSP(err))->handler
       LSP.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
         toStatus(LSP(conn))
       )->Promise.mapError(error => Error.LSP(error))
     | Some(Emacs(conn)) =>
-      let (version, _path) = Emacs.getStatus(conn)
+      let (version, _path) = Emacs.getInfo(conn)
       let handler = x => x->Util.Result.mapError(err => Error.Emacs(err))->handler
       Emacs.sendRequest(conn, encodeRequest(document, version), handler)->Promise.mapOk(() =>
         toStatus(Emacs(conn))

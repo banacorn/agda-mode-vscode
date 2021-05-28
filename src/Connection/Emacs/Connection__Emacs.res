@@ -3,20 +3,6 @@ open Belt
 module Error = Connection__Emacs__Error
 module Scheduler = Connection__Scheduler
 
-module type Module = {
-  type t
-  // lifecycle
-  let make: unit => Promise.t<result<t, Error.t>>
-  let destroy: t => Promise.t<unit>
-  // messaging
-  let sendRequest: (
-    t,
-    string,
-    result<Response.t, Error.t> => Promise.t<unit>,
-  ) => Promise.t<result<unit, Error.t>>
-  let getStatus: t => (string, string)
-}
-
 module ProcInfo: {
   type t = {
     path: string,
@@ -85,6 +71,20 @@ module ProcInfo: {
     ("\n" ++
     (path ++ ("\n" ++ (args ++ ("\n" ++ (version ++ ("\n" ++ (os ++ "\n"))))))))
   }
+}
+
+module type Module = {
+  type t
+  // lifecycle
+  let make: unit => Promise.t<result<t, Error.t>>
+  let destroy: t => Promise.t<unit>
+  // messaging
+  let sendRequest: (
+    t,
+    string,
+    result<Response.t, Error.t> => Promise.t<unit>,
+  ) => Promise.t<result<unit, Error.t>>
+  let getInfo: t => (string, string)
 }
 
 module Module: Module = {
@@ -237,7 +237,8 @@ module Module: Module = {
     sendRequestPrim(conn, request)
     promise->Promise.map(() => Ok())
   }
-  let getStatus = conn => (conn.procInfo.version, conn.procInfo.path)
+  
+  let getInfo = conn => (conn.procInfo.version, conn.procInfo.path)
 }
 
 include Module
