@@ -209,23 +209,33 @@ args: $args
 module type Module = {
   type t
   // lifetime: same as the child process
-  let make: (string, array<string>) => Promise.t<result<t, Error.t>>
+  let make: (string, array<string>) => t 
   let destroy: t => Promise.t<unit>
-  // messaging 
+  // messaging
   let send: (t, string) => result<unit, Error.t>
-  // events 
-  let onOutput: (t, result<string, Error.t> => unit, unit) => unit
+  // events
+  type output =
+    | Stdout(string)
+    | Stderr(string)
+    | Event(Error.t)
+  let onOutput: (t, output => unit, unit) => unit
   // properties
   let isConnected: t => bool
 }
 module Module: Module = {
+  type output =
+    | Stdout(string)
+    | Stderr(string)
+    | Event(Error.t)
+
+  // internal status
   type status =
     | Connected(Nd.ChildProcess.t)
     | Disconnecting(Promise.t<unit>)
     | Disconnected
 
   type t = {
-    chan: Chan.t<result<string, Error.t>>,
+    chan: Chan.t<output>,
     mutable status: status,
     mutable forcedExit: bool,
   }
@@ -244,7 +254,7 @@ module Module: Module = {
     process
     |> Nd.ChildProcess.stdout
     |> Nd.Stream.Readable.on(
-      #data(chunk => chan->Chan.emit(Ok(Node.Buffer.toString(chunk))) |> ignore),
+      #data(chunk => chan->Chan.emit(Stdout(Node.Buffer.toString(chunk))) |> ignore),
     )
     |> ignore
 
@@ -254,7 +264,7 @@ module Module: Module = {
     |> Nd.Stream.Readable.on(
       #data(
         chunk => {
-          // chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
+          chan->Chan.emit(Stderr(Node.Buffer.toString(chunk))) |> ignore
           // store the latest message from stderr
           stderr := Node.Buffer.toString(chunk)
         },
@@ -266,7 +276,12 @@ module Module: Module = {
     process
     |> Nd.ChildProcess.stdin
     |> Nd.Stream.Writable.on(
-      #close(() => chan->Chan.emit(Error(Error.ClosedByProcess(path, args, 0, ""))) |> ignore),
+      #close(
+        () => {
+          Js.log("stdin closed")
+          chan->Chan.emit(Event(Error.ClosedByProcess(path, args, 0, ""))) |> ignore
+        },
+      ),
     )
     |> ignore
 
@@ -274,24 +289,41 @@ module Module: Module = {
     process
     |> Nd.ChildProcess.on(
       #close(
-        (code, signal) =>
-          chan->Chan.emit(Error(ClosedByProcess(path, args, code, signal))) |> ignore,
+        (code, signal) => {
+          Js.log("close")
+          chan->Chan.emit(Event(ClosedByProcess(path, args, code, signal))) |> ignore
+        },
       ),
     )
-    |> Nd.ChildProcess.on(#disconnect(() => chan->Chan.emit(Error(DisconnectedByUser)) |> ignore))
-    |> Nd.ChildProcess.on(#error(exn => chan->Chan.emit(Error(ShellError(exn))) |> ignore))
+    |> Nd.ChildProcess.on(
+      #disconnect(
+        () => {
+          Js.log("disconnect")
+          chan->Chan.emit(Event(DisconnectedByUser)) |> ignore
+        },
+      ),
+    )
+    |> Nd.ChildProcess.on(
+      #error(
+        exn => {
+          Js.log("error")
+          chan->Chan.emit(Event(ShellError(exn))) |> ignore
+        },
+      ),
+    )
     |> Nd.ChildProcess.on(
       #exit(
         (code, signal) =>
           if code != 0 {
             //  returns the last message from stderr
-            chan->Chan.emit(Error(ExitedByProcess(path, args, code, signal, stderr.contents))) |> ignore
+            chan->Chan.emit(Event(ExitedByProcess(path, args, code, signal, stderr.contents)))
+              |> ignore
           },
       ),
     )
     |> ignore
 
-    Promise.resolved(Ok({chan: chan, status: Connected(process), forcedExit: false}))
+    {chan: chan, status: Connected(process), forcedExit: false}
   }
 
   let destroy = self =>
@@ -306,7 +338,7 @@ module Module: Module = {
       // listen to the `exit` event
       self.chan->Chan.on(x =>
         switch x {
-        | Error(ExitedByProcess(_, _, _, _, _)) =>
+        | Event(ExitedByProcess(_, _, _, _, _)) =>
           self.chan->Chan.destroy
           self.status = Disconnected
           resolve()
@@ -337,7 +369,7 @@ module Module: Module = {
   let onOutput = (self, callback) =>
     self.chan->Chan.on(output =>
       switch output {
-      | Error(Error.ExitedByProcess(_, _, _, _, _)) =>
+      | Event(Error.ExitedByProcess(_, _, _, _, _)) =>
         if self.forcedExit {
           self.forcedExit = false
         } else {

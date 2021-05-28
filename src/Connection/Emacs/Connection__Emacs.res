@@ -10,7 +10,7 @@ module ProcInfo: {
     version: string,
   }
   let make: (string, array<string>) => Promise.t<result<t, Error.t>>
-  let findPath: unit => Promise.t<result<string, Error.t>> 
+  let findPath: unit => Promise.t<result<string, Error.t>>
   let toString: t => string
 } = {
   type t = {
@@ -152,10 +152,11 @@ module Module: Module = {
     // TODO: handle the destructor
     let _destructor = self.process->Connection__Process.onOutput(x =>
       switch x {
-      | Ok(rawText) =>
+      | Stdout(rawText) =>
         // split the raw text into pieces and feed it to the parser
         rawText->Parser.split->Array.forEach(Parser.Incr.feed(pipeline))
-      | Error(e) => self.chan->Chan.emit(Error(Process(e)))
+      | Stderr(_) => ()
+      | Event(e) => self.chan->Chan.emit(Error(Process(e)))
       }
     )
   }
@@ -173,17 +174,13 @@ module Module: Module = {
       ProcInfo.make(path, args)
     })
     ->Promise.flatMapOk(persistPathInConfig)
-    ->Promise.flatMapOk(procInfo =>
-      Connection__Process.make(procInfo.path, procInfo.args)
-      ->Promise.mapOk(process => {
-        {
-          procInfo: procInfo,
-          process: process,
-          chan: Chan.make(),
-          encountedFirstPrompt: false,
-        }
-      })
-      ->Promise.mapError(e => Connection__Emacs__Error.Process(e))
+    ->Promise.mapOk(procInfo =>
+      {
+        procInfo: procInfo,
+        process: Connection__Process.make(procInfo.path, procInfo.args),
+        chan: Chan.make(),
+        encountedFirstPrompt: false,
+      }
     )
     ->Promise.tapOk(wire)
   }
@@ -237,7 +234,7 @@ module Module: Module = {
     sendRequestPrim(conn, request)
     promise->Promise.map(() => Ok())
   }
-  
+
   let getInfo = conn => (conn.procInfo.version, conn.procInfo.path)
 }
 
