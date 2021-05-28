@@ -9,59 +9,89 @@ module type Module = {
   let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
-  let sendRequest: (t, string, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<result<unit, Error.t>>
+  let sendRequest: (
+    t,
+    string,
+    result<Response.t, Error.t> => Promise.t<unit>,
+  ) => Promise.t<result<unit, Error.t>>
   let getStatus: t => (string, string)
 }
 
-module Module: Module = {
-  @bs.module external untildify: string => string = "untildify"
+module ProcInfo: {
+  type t = {
+    path: string,
+    args: array<string>,
+    version: string,
+  }
+  let make: (string, array<string>) => Promise.t<result<t, Error.t>>
+  let findPath: unit => Promise.t<result<string, Error.t>> 
+  let toString: t => string
+} = {
+  type t = {
+    path: string,
+    args: array<string>,
+    version: string,
+  }
 
-  module Metadata = {
-    type t = {
-      path: string,
-      args: array<string>,
-      version: string,
-    }
+  @module external untildify: string => string = "untildify"
 
-    // for making error report
-    let _toString = self => {
-      let path = "* path: " ++ self.path
-      let args = "* args: " ++ Util.Pretty.array(self.args)
-      let version = "* version: " ++ self.version
-      let os = "* platform: " ++ N.OS.type_()
-
-      "## Parse Log" ++
-      ("\n" ++
-      (path ++ ("\n" ++ (args ++ ("\n" ++ (version ++ ("\n" ++ (os ++ "\n"))))))))
-    }
-
-    // a more sophiscated "make"
-    let make = (path, args): Promise.t<result<t, Error.t>> => {
-      let validator = (output): result<string, string> =>
-        switch Js.String.match_(%re("/Agda version (.*)/"), output) {
+  // a more sophiscated "make"
+  let make = (path, args): Promise.t<result<t, Error.t>> => {
+    let validator = (output): result<string, string> =>
+      switch Js.String.match_(%re("/Agda version (.*)/"), output) {
+      | None => Error("Cannot read Agda version")
+      | Some(match_) =>
+        switch match_[1] {
         | None => Error("Cannot read Agda version")
-        | Some(match_) =>
-          switch match_[1] {
-          | None => Error("Cannot read Agda version")
-          | Some(version) => Ok(version)
-          }
+        | Some(version) => Ok(version)
         }
-      // normailize the path by replacing the tild "~/" with the absolute path of home directory
-      let path = untildify(path)
-      Connection__Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
-      ->Promise.mapOk(version => {
-        path: path,
-        args: args,
-        version: version,
-      })
-      ->Promise.mapError(e => Error.Validation(e))
+      }
+    // normailize the path by replacing the tild "~/" with the absolute path of home directory
+    let path = untildify(path)
+    Connection__Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
+    ->Promise.mapOk(version => {
+      path: path,
+      args: args,
+      version: version,
+    })
+    ->Promise.mapError(e => Error.Validation(e))
+  }
+
+  let findPath = () => {
+    // first, get the path from the config (stored in the Editor)
+    let storedPath = Config.Connection.getAgdaPath()
+    if storedPath == "" || storedPath == "." {
+      // if there's no stored path, find one from the OS (with the specified name)
+      let agdaVersion = Config.Connection.getAgdaVersion()
+      Connection__Process.PathSearch.run(
+        agdaVersion,
+        "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings.",
+      )
+      ->Promise.mapOk(Js.String.trim)
+      ->Promise.mapError(e => Error.PathSearch(e))
+    } else {
+      Promise.resolved(Ok(storedPath))
     }
   }
 
+  // for making error report
+  let toString = self => {
+    let path = "* path: " ++ self.path
+    let args = "* args: " ++ Util.Pretty.array(self.args)
+    let version = "* version: " ++ self.version
+    let os = "* platform: " ++ N.OS.type_()
+
+    "## Parse Log" ++
+    ("\n" ++
+    (path ++ ("\n" ++ (args ++ ("\n" ++ (version ++ ("\n" ++ (os ++ "\n"))))))))
+  }
+}
+
+module Module: Module = {
   type response = Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>>
 
   type t = {
-    metadata: Metadata.t,
+    procInfo: ProcInfo.t,
     process: Connection__Process.t,
     chan: Chan.t<result<response, Error.t>>,
     mutable encountedFirstPrompt: bool,
@@ -131,44 +161,29 @@ module Module: Module = {
   }
 
   let make = () => {
-    let getPath = (): Promise.t<result<string, Error.t>> => {
-      // first, get the path from the config (stored in the Editor)
-      let storedPath = Config.Connection.getAgdaPath()
-      if storedPath == "" || storedPath == "." {
-        // if there's no stored path, find one from the OS (with the specified name)
-        let agdaVersion = Config.Connection.getAgdaVersion()
-        Connection__Process.PathSearch.run(
-          agdaVersion,
-          "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings.",
-        )
-        ->Promise.mapOk(Js.String.trim)
-        ->Promise.mapError(e => Error.PathSearch(e))
-      } else {
-        Promise.resolved(Ok(storedPath))
-      }
-    }
-
     // store the path in the editor config
-    let setPath = (metadata: Metadata.t): Promise.t<result<Metadata.t, Error.t>> =>
-      Config.Connection.setAgdaPath(metadata.path)->Promise.map(() => Ok(metadata))
+    let persistPathInConfig = (procInfo: ProcInfo.t): Promise.t<result<ProcInfo.t, Error.t>> =>
+      Config.Connection.setAgdaPath(procInfo.path)->Promise.map(() => Ok(procInfo))
 
-    // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me
+    // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
     let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
 
-    getPath()
+    ProcInfo.findPath()
     ->Promise.flatMapOk(path => {
-      Metadata.make(path, args)
+      ProcInfo.make(path, args)
     })
-    ->Promise.flatMapOk(setPath)
-    ->Promise.flatMapOk(metadata =>
-      Connection__Process.make(metadata.path, metadata.args)->Promise.mapOk(process => {
+    ->Promise.flatMapOk(persistPathInConfig)
+    ->Promise.flatMapOk(procInfo =>
+      Connection__Process.make(procInfo.path, procInfo.args)
+      ->Promise.mapOk(process => {
         {
-          metadata: metadata,
+          procInfo: procInfo,
           process: process,
           chan: Chan.make(),
           encountedFirstPrompt: false,
         }
-      })->Promise.mapError(e => Connection__Emacs__Error.Process(e))
+      })
+      ->Promise.mapError(e => Connection__Emacs__Error.Process(e))
     )
     ->Promise.tapOk(wire)
   }
@@ -197,7 +212,8 @@ module Module: Module = {
       | Error(error) => callback(Error(error))->ignore
       | Ok(Parser.Incr.Gen.Yield(Error(error))) =>
         callback(Error(ResponseParseError(error)))->ignore
-      | Ok(Yield(Ok(NonLast(response)))) => scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
+      | Ok(Yield(Ok(NonLast(response)))) =>
+        scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
       | Ok(Yield(Ok(Last(priority, response)))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
         // stop the Agda Response listener
@@ -221,7 +237,7 @@ module Module: Module = {
     sendRequestPrim(conn, request)
     promise->Promise.map(() => Ok())
   }
-  let getStatus = conn => (conn.metadata.version, conn.metadata.path)
+  let getStatus = conn => (conn.procInfo.version, conn.procInfo.path)
 }
 
 include Module
