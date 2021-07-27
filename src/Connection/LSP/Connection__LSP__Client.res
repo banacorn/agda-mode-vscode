@@ -111,8 +111,9 @@ module Module: Module = {
       switch result {
       | Error(error) => Error(Error.Connection(error))
       | Ok() =>
-        self.client->LSP.LanguageClient.onNotification("agda", json => {
+        self.client->LSP.LanguageClient.onRequest("agda", json => {
           dataChan->Chan.emit(json)
+          Promise.resolved()
         })
         Ok(self)
       }

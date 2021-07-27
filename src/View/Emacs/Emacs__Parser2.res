@@ -99,12 +99,12 @@ let parseGoalType: string => array<Item.t> = raw => {
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None, None))
+      ->Array.map(output => Agda.Output.renderItem(output))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None, None))
+      ->Array.map(output => Agda.Output.renderItem(output))
     | _ => []
     }
   )
@@ -168,7 +168,7 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     ->partiteWarningsOrErrors("warnings")
     ->partiteWarningsOrErrors("errors")
 
-  // convert entries in the dictionary to Items for render
+  // convert entries in the dictionary to Items for rendering
   dictionary
   ->Js.Dict.entries
   ->Array.map(((key, lines)) =>
@@ -179,12 +179,12 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None, None))
+      ->Array.map(output => Agda.Output.renderItem(output))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
-      ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None, None))
+      ->Array.map(output => Agda.Output.renderItem(output))
     | _ => []
     }
   )
@@ -196,7 +196,7 @@ let parseOutputs: string => array<Item.t> = raw => {
   lines
   ->Array.map(Agda.Output.parse)
   ->Array.keepMap(x => x)
-  ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None, None))
+  ->Array.map(output => Agda.Output.renderItem(output))
 }
 
 let parseTextWithLocation: string => array<Item.t> = raw => [
@@ -212,7 +212,7 @@ let parseSearchAbout: string => array<Item.t> = raw => {
     ->Emacs__Parser.unindent
     ->Array.map(Agda.Output.parse)
     ->Array.keepMap(x => x)
-    ->Array.map(output => Item.Unlabeled(Agda.Output.render(output), None, None))
+    ->Array.map(output => Agda.Output.renderItem(output))
 
   let target = lines[0]->Option.map(Js.String.sliceToEnd(~from=18))
   switch target {

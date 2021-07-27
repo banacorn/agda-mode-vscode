@@ -42,10 +42,11 @@ module Expr = {
   let render = xs => xs->Array.map(Term.render)->RichText.concatMany
 }
 
+
 module OutputConstraint: {
   type t
   let parse: string => option<t>
-  let render: (t, option<Common.AgdaRange.t>) => RichText.t
+  let renderItem: (t, option<Common.AgdaRange.t>) => Component.Item.t
 } = {
   type rec t =
     | OfType'(RichText.t, RichText.t)
@@ -75,15 +76,15 @@ module OutputConstraint: {
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
-  let render = (value, location) => {
-    open RichText
-    let location = location->Option.mapWithDefault(empty, loc => srcLoc(loc))
-    switch value {
-    | OfType'(e, t) => concatMany([e, string(" : "), t, string(" "), location])
-    | JustType'(e) => concatMany([string("Type "), e, string(" "), location])
-    | JustSort'(e) => concatMany([string("Sort "), e, string(" "), location])
-    | Others'(e) => concatMany([e, string(" "), location])
+  let renderItem = (value, location) => {
+    open !RichText
+    let inlines = switch value {
+    | OfType'(e, t) => concatMany([e, string(" : "), t])
+    | JustType'(e) => concatMany([string("Type "), e])
+    | JustSort'(e) => concatMany([string("Sort "), e])
+    | Others'(e) => concatMany([e])
     }
+    Component.Item.Unlabeled(inlines, None, location)
   }
 }
 
@@ -114,9 +115,9 @@ module Output = {
     }
   }
 
-  let render = value => {
+  let renderItem = value => {
     let Output(oc, location) = value
-    OutputConstraint.render(oc, location)
+    OutputConstraint.renderItem(oc, location)
   }
 }
 
