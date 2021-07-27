@@ -211,20 +211,12 @@ module AgdaRange = {
   let toString = (self: t): string =>
     switch self {
     | NoRange => ""
-    | Range(None, xs) =>
+    | Range(Some(filepath), []) => filepath
+    | Range(_, xs) =>
       switch (xs[0], xs[Array.length(xs) - 1]) {
       | (Some(first), Some(last)) => AgdaInterval.toString({start: first.start, end_: last.end_})
       | _ => ""
       }
-
-    | Range(Some(filepath), []) => filepath
-    | Range(Some(filepath), xs) =>
-      filepath ++
-      (":" ++
-      switch (xs[0], xs[Array.length(xs) - 1]) {
-      | (Some(first), Some(last)) => AgdaInterval.toString({start: first.start, end_: last.end_})
-      | _ => ""
-      })
     }
 
   open Json.Decode
