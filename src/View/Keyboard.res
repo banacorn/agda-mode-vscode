@@ -1,4 +1,4 @@
-open ReasonReact
+open React
 open Belt
 
 type state = {

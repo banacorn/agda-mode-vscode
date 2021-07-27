@@ -108,7 +108,7 @@ let make = (
           onMouseUp
           onChange
           value
-          ref={ReactDOMRe.Ref.domRef(inputRef)}
+          ref={ReactDOM.Ref.domRef(inputRef)}
         />
       </form>
     </div>

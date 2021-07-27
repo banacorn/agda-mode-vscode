@@ -27,9 +27,10 @@
     "bs-vscode",
     "bs-webapi",
     "bs-nd",
+    "language-server-mule",
     "reason-promise",
-    "reason-react",
-    "reason-react-update"
+    "@rescript/react",
+    "reason-nodejs"
   ],
   "bs-dev-dependencies": [
     "bs-mocha",
@@ -38,6 +39,5 @@
   "ppx-flags": [],
   "bsc-flags": [
     "-bs-g"
-  ],
-  "refmt": 3
+  ]
 }

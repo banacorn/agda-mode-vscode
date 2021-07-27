@@ -1,4 +1,4 @@
-open ReasonReact
+open React
 
 @react.component
 let make = (~header: View.Header.t, ~status: string) => {

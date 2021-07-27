@@ -83,23 +83,24 @@ module Encode = {
     jsonArray([encodeA(a), encodeB(b), encodeC(c), encodeD(d), encodeE(e)])
 }
 
+module React' = React 
 module React = {
-  open ReasonReact
+  open React'
 
   let manyIn = (elems, elem) =>
     ReactDOMRe.createDOMElementVariadic(elem, ~props=ReactDOMRe.domProps(), elems)
 
   let manyIn2 = (elems, elem, props) => ReactDOMRe.createDOMElementVariadic(elem, ~props, elems)
 
-  let sepBy' = (item: list<reactElement>, sep: reactElement) =>
+  let sepBy' = (item: list<element>, sep: element) =>
     switch item {
     | list{} => <> </>
     | list{x} => x
     | list{x, ...xs} => list{x, ...List.map(xs, i => <> sep i </>)}->List.toArray->manyIn("span")
     }
-  let sepBy = (sep: reactElement, xs) => xs->List.fromArray->sepBy'(sep)
+  let sepBy = (sep: element, xs) => xs->List.fromArray->sepBy'(sep)
 
-  let enclosedBy = (front: reactElement, back: reactElement, item: reactElement) => <>
+  let enclosedBy = (front: element, back: element, item: element) => <>
     front {string(" ")} item {string(" ")} back
   </>
 
