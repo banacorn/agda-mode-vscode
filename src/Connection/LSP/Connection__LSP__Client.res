@@ -1,6 +1,6 @@
 module Scheduler = Connection__Scheduler
 module Error = Connection__LSP__Error
-module Binding = Connection__LSP__Binding
+module LSP = LanguageServerMule.LSP
 
 type method = ViaStdIO(string, string) | ViaTCP(int)
 type version = string
@@ -22,7 +22,7 @@ module Module: Module = {
   open VSCode
 
   type t = {
-    client: Binding.LanguageClient.t,
+    client: LSP.LanguageClient.t,
     subscription: VSCode.Disposable.t,
     method: method,
   }
@@ -38,22 +38,22 @@ module Module: Module = {
 
   let sendRequest = (self, data) =>
     self.client
-    ->Binding.LanguageClient.onReady
+    ->LSP.LanguageClient.onReady
     ->Promise.Js.toResult
     ->Promise.flatMapOk(() => {
-      self.client->Binding.LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
+      self.client->LSP.LanguageClient.sendRequest("agda", data)->Promise.Js.toResult
     })
     ->Promise.mapError(exn => Error.Connection(exn))
 
   let destroy = self => {
     self.subscription->VSCode.Disposable.dispose->ignore
-    self.client->Binding.LanguageClient.stop->Promise.Js.toResult->Promise.map(_ => ())
+    self.client->LSP.LanguageClient.stop->Promise.Js.toResult->Promise.map(_ => ())
   }
 
   let make = method => {
     let serverOptions = switch method {
-    | ViaTCP(port) => Binding.ServerOptions.makeWithStreamInfo(port)
-    | ViaStdIO(name, _path) => Binding.ServerOptions.makeWithCommand(name)
+    | ViaTCP(port) => LSP.ServerOptions.makeWithStreamInfo(port, "localhost")
+    | ViaStdIO(name, _path) => LSP.ServerOptions.makeWithCommand(name)
     }
 
     let clientOptions = {
@@ -77,7 +77,7 @@ module Module: Module = {
         ~ignoreDeleteEvents=false,
       )
 
-      let errorHandler: Binding.ErrorHandler.t = Binding.ErrorHandler.make(
+      let errorHandler: LSP.ErrorHandler.t = LSP.ErrorHandler.make(
         ~error=(exn, _msg, _count) => {
           errorChan->Chan.emit(exn)
           Shutdown
@@ -86,11 +86,11 @@ module Module: Module = {
           DoNotRestart
         },
       )
-      Binding.LanguageClientOptions.make(documentSelector, synchronize, errorHandler)
+      LSP.LanguageClientOptions.make(documentSelector, synchronize, errorHandler)
     }
 
     // Create the language client
-    let languageClient = Binding.LanguageClient.make(
+    let languageClient = LSP.LanguageClient.make(
       "agdaLanguageServer",
       "Agda Language Server",
       serverOptions,
@@ -99,21 +99,20 @@ module Module: Module = {
 
     let self = {
       client: languageClient,
-      subscription: languageClient->Binding.LanguageClient.start,
+      subscription: languageClient->LSP.LanguageClient.start,
       method: method,
     }
 
     // Let `LanguageClient.onReady` and `errorChan->Chan.once` race
     Promise.race(list{
-      self.client->Binding.LanguageClient.onReady->Promise.Js.toResult,
+      self.client->LSP.LanguageClient.onReady->Promise.Js.toResult,
       errorChan->Chan.once->Promise.map(err => Error(err)),
     })->Promise.map(result =>
       switch result {
       | Error(error) => Error(Error.Connection(error))
       | Ok() =>
-        self.client->Binding.LanguageClient.onRequest("agda", json => {
+        self.client->LSP.LanguageClient.onNotification("agda", json => {
           dataChan->Chan.emit(json)
-          Promise.resolved()
         })
         Ok(self)
       }
