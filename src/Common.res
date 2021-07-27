@@ -212,9 +212,15 @@ module AgdaRange = {
     switch self {
     | NoRange => ""
     | Range(Some(filepath), []) => filepath
-    | Range(_, xs) =>
+    | Range(None, xs) =>
       switch (xs[0], xs[Array.length(xs) - 1]) {
       | (Some(first), Some(last)) => AgdaInterval.toString({start: first.start, end_: last.end_})
+      | _ => ""
+      }
+    | Range(Some(filepath), xs) =>
+      switch (xs[0], xs[Array.length(xs) - 1]) {
+      | (Some(first), Some(last)) =>
+        filepath ++ ":" ++ AgdaInterval.toString({start: first.start, end_: last.end_})
       | _ => ""
       }
     }
@@ -253,10 +259,11 @@ module Link = {
     | SrcLoc(AgdaRange.t)
     | Hole(int)
 
-  let toString = x => switch x {
+  let toString = x =>
+    switch x {
     | SrcLoc(range) => AgdaRange.toString(range)
     | Hole(int) => "?" ++ string_of_int(int)
-  }
+    }
 
   open Json.Decode
   open Util.Decode

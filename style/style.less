@@ -208,9 +208,10 @@
     li .item-raw-button {
         visibility: hidden;
 
-
         order    : 1;
         flex-grow: 0;
+
+        padding-left: 1ch;
 
         font-variant: small-caps;
         text-align  : right;
@@ -228,6 +229,23 @@
 
             cursor: pointer;
             color : @warning
+        }
+    }
+
+    // the button that shows allow users to jump to some location
+    li .item-location-button {
+        order    : 2;
+        flex-grow: 0;
+
+        padding-left: 1ch;
+
+        font-variant: small-caps;
+        text-align  : right;
+
+
+        &:hover {
+            cursor: pointer;
+            color : @foreground-highlight
         }
     }
 

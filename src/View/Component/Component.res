@@ -33,6 +33,18 @@ module Item = {
             </div>
       | None => <> </>
       }
+    let locationButton = location =>
+      switch location {
+      | Some(location) =>
+        <Component__Link
+          className=["item-location-button"]
+          jump=true
+          hover=false
+          target=Common.Link.SrcLoc(location)>
+          <div className="codicon codicon-link" />
+        </Component__Link>
+      | None => <> </>
+      }
     switch item {
     | Labeled(label, style, text, raw, _range) =>
       <li className={"labeled-item " ++ style}>
@@ -40,9 +52,11 @@ module Item = {
         <div className="item-content"> {content(text, raw)} </div>
         {revealRawButton(raw)}
       </li>
-    | Unlabeled(text, raw, _range) =>
+    | Unlabeled(text, raw, range) =>
       <li className="unlabeled-item">
-        <div className="item-content"> {content(text, raw)} </div> {revealRawButton(raw)}
+        <div className="item-content"> {content(text, raw)} </div>
+        {revealRawButton(raw)}
+        {locationButton(range)}
       </li>
     // | HorizontalRule => <li className="horizontalRule-item"></li>
     | Header(s) => <li className="header-item"> <h3> {string(s)} </h3> </li>
@@ -56,17 +70,21 @@ module Item = {
     switch x {
     | "Labeled" =>
       Contents(
-        tuple5(RichText.decode, optional(string), optional(Common.AgdaRange.decode), string, string ) |> map(((
-          text,
-          raw,
-          range,
-          label,
-          style,
-        )) => Labeled(label, style, text, raw, range)),
+        tuple5(
+          RichText.decode,
+          optional(string),
+          optional(Common.AgdaRange.decode),
+          string,
+          string,
+        ) |> map(((text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
       )
     | "Unlabeled" =>
       Contents(
-        tuple3(RichText.decode, optional(string), optional(Common.AgdaRange.decode)) |> map(((text, raw, range)) => Unlabeled(text, raw, range)),
+        tuple3(RichText.decode, optional(string), optional(Common.AgdaRange.decode)) |> map(((
+          text,
+          raw,
+          range,
+        )) => Unlabeled(text, raw, range)),
       )
     | "Header" => Contents(string |> map(s => Header(s)))
     | tag => raise(DecodeError("[Component.Item] Unknown constructor: " ++ tag))
@@ -82,13 +100,26 @@ module Item = {
         ("tag", string("Labeled")),
         (
           "contents",
-          (text, raw, range, label, style) |> tuple5(RichText.encode, nullable(string), nullable(Common.AgdaRange.encode), string, string),
+          (text, raw, range, label, style) |> tuple5(
+            RichText.encode,
+            nullable(string),
+            nullable(Common.AgdaRange.encode),
+            string,
+            string,
+          ),
         ),
       })
     | Unlabeled(text, raw, range) =>
       object_(list{
         ("tag", string("Unlabeled")),
-        ("contents", (text, raw, range) |> tuple3(RichText.encode, nullable(string), nullable(Common.AgdaRange.encode))),
+        (
+          "contents",
+          (text, raw, range) |> tuple3(
+            RichText.encode,
+            nullable(string),
+            nullable(Common.AgdaRange.encode),
+          ),
+        ),
       })
     | Header(s) => object_(list{("tag", string("Header")), ("contents", s |> string)})
     }
