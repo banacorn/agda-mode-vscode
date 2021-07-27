@@ -29,15 +29,15 @@ type makeCaseType =
 
 module DisplayInfo = {
   type t =
-    | Generic(string, array<Component.Item.t>)
+    | Generic(string, array<Item.t>)
     | CompilationOk(string)
     | CompilationOkLSP(array<string>, array<string>)
     | Constraints(option<string>)
     | AllGoalsWarnings(string, string)
     | AllGoalsWarningsLSP(
         string,
-        array<Component.Item.t>,
-        array<Component.Item.t>,
+        array<Item.t>,
+        array<Item.t>,
         array<string>,
         array<string>,
       )
@@ -51,9 +51,9 @@ module DisplayInfo = {
     | NormalForm(string)
     | GoalType(string)
     | CurrentGoal(string)
-    | CurrentGoalLSP(Component.Item.t)
+    | CurrentGoalLSP(Item.t)
     | InferredType(string)
-    | InferredTypeLSP(Component.Item.t)
+    | InferredTypeLSP(Item.t)
     | Context(string)
     | HelperFunction(string)
     | Version(string)

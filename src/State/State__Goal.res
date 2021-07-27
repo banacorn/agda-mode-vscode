@@ -185,7 +185,7 @@ module Module: Module = {
           state,
           Error("Goal-related Error"),
           [
-            Component.Item.plainText(
+            Item.plainText(
               "Failed to modify the content of goal #" ++ string_of_int(goal.index),
             ),
           ],
@@ -351,7 +351,7 @@ module Module: Module = {
           state,
           Error("Goal-related Error"),
           [
-            Component.Item.plainText(
+            Item.plainText(
               "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
             ),
           ],
@@ -390,7 +390,7 @@ module Module: Module = {
           state,
           Error("Goal-related Error"),
           [
-            Component.Item.plainText(
+            Item.plainText(
               "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
             ),
           ],
@@ -415,7 +415,7 @@ module Module: Module = {
           state,
           Error("Goal-related Error"),
           [
-            Component.Item.plainText(
+            Item.plainText(
               "Unable to remove the boundary of goal #" ++ string_of_int(goal.index),
             ),
           ],

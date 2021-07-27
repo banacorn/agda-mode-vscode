@@ -46,7 +46,7 @@ module Expr = {
 module OutputConstraint: {
   type t
   let parse: string => option<t>
-  let renderItem: (t, option<Common.AgdaRange.t>) => Component.Item.t
+  let renderItem: (t, option<Common.AgdaRange.t>) => Item.t
 } = {
   type rec t =
     | OfType'(RichText.t, RichText.t)
@@ -84,7 +84,7 @@ module OutputConstraint: {
     | JustSort'(e) => concatMany([string("Sort "), e])
     | Others'(e) => concatMany([e])
     }
-    Component.Item.Unlabeled(inlines, None, location)
+    Item.Unlabeled(inlines, None, location)
   }
 }
 

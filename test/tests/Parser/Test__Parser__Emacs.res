@@ -3,7 +3,6 @@ open! Belt
 
 module Assert = BsMocha.Assert
 
-// open Component;
 
 // describe_only("when parsing DisplayInfo", () => {
 //   describe("Text", () => {

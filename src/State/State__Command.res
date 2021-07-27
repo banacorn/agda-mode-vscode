@@ -263,7 +263,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             state,
             View.Header.Success("Switched to '" ++ version ++ "'"),
             [
-              Component.Item.plainText(
+              Item.plainText(
                 "Found '" ++ newAgdaVersion ++ "' at: " ++ path,
               ),
             ],
@@ -274,7 +274,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             state,
             View.Header.Success("Panic, Switched to LSP server '" ++ version ++ "'"),
             [
-              Component.Item.plainText(
+              Item.plainText(
                 "Should have switched to an Agda executable, please file an issue",
               ),
             ],
@@ -285,7 +285,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
           )
           let body = [
-            Component.Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
+            Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath),
           ]
           Config.Connection.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
             State.View.display(state, header, body)

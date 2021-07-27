@@ -8,12 +8,12 @@ module DisplayInfo = {
     | Response.DisplayInfo.Generic(header, body) =>
       State.View.display(state, Plain(header), body)
     | CompilationOk(body) =>
-      State.View.display(state, Success("Compilation result"), [Component.Item.plainText(body)])
+      State.View.display(state, Success("Compilation result"), [Item.plainText(body)])
     | CompilationOkLSP(warnings, errors) =>
-      let message = [Component.Item.plainText("The module was successfully compiled.")]
-      let errors = errors->Array.map(raw => Component.Item.error(RichText.string(raw), Some(raw)))
+      let message = [Item.plainText("The module was successfully compiled.")]
+      let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings =
-        warnings->Array.map(raw => Component.Item.warning(RichText.string(raw), Some(raw)))
+        warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
       State.View.display(
         state,
         Success("Compilation result"),
@@ -28,9 +28,9 @@ module DisplayInfo = {
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
       State.View.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
-      let errors = errors->Array.map(raw => Component.Item.error(RichText.string(raw), Some(raw)))
+      let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings =
-        warnings->Array.map(raw => Component.Item.warning(RichText.string(raw), Some(raw)))
+        warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
       State.View.display(state, Plain(header), Array.concatMany([goals, metas, errors, warnings]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
@@ -61,9 +61,9 @@ module DisplayInfo = {
       State.View.display(state, Plain("Goal and Context"), items)
     | CurrentGoalLSP(item) => State.View.display(state, Plain("Current Goal"), [item])
     | CurrentGoal(payload) =>
-      State.View.display(state, Plain("Current Goal"), [Component.Item.plainText(payload)])
+      State.View.display(state, Plain("Current Goal"), [Item.plainText(payload)])
     | InferredType(payload) =>
-      State.View.display(state, Plain("Inferred type"), [Component.Item.plainText(payload)])
+      State.View.display(state, Plain("Inferred type"), [Item.plainText(payload)])
     | InferredTypeLSP(item) => State.View.display(state, Plain("Inferred type"), [item])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
@@ -75,11 +75,11 @@ module DisplayInfo = {
         State.View.display(
           state,
           Plain("Helper function (copied to clipboard)"),
-          [Component.Item.plainText(payload)],
+          [Item.plainText(payload)],
         )
       )
     | Version(payload) =>
-      State.View.display(state, Plain("Version"), [Component.Item.plainText(payload)])
+      State.View.display(state, Plain("Version"), [Item.plainText(payload)])
     }
 }
 
@@ -146,7 +146,7 @@ let rec handle = (
       State.View.display(
         state,
         Error("Error: Give failed"),
-        [Component.Item.plainText("Cannot find goal #" ++ string_of_int(index))],
+        [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
       )
     | Some(goal) =>
       switch give {
@@ -198,7 +198,7 @@ let rec handle = (
 
   | DisplayInfo(info) => DisplayInfo.handle(state, info)
   | RunningInfo(_verbosity, message) =>
-    State.View.display(state, Plain("Type-checking"), [Component.Item.plainText(message)])
+    State.View.display(state, Plain("Type-checking"), [Item.plainText(message)])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
     Decoration.apply(state.decoration, state.editor)

@@ -86,12 +86,12 @@ module Prompt = {
     }
 }
 module Body = {
-  type t = array<Component.Item.t>
+  type t = array<Item.t>
   //   // Plain text only
   //   // | Plain(string)
   //   // Formatted by `formatWarningsAndErrors` for Emacs consumption
   //   // | Emacs(Emacs.t, string, string)
-  //   | Items(array<Component.Item.t>)
+  //   | Items(array<Item.t>)
 
   // open Json.Decode
   // open Util.Decode
@@ -107,7 +107,7 @@ module Body = {
   //   //       body,
   //   //     )),
   //   //   )
-  //   | "Items" => Contents(array(Component.Item.decode) |> map(items => Items(items)))
+  //   | "Items" => Contents(array(Item.decode) |> map(items => Items(items)))
   //   | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag))
   //   }
   // )
@@ -122,7 +122,7 @@ module Body = {
   //   //     ("contents", (kind, header, body) |> tuple3(Emacs.encode, string, string)),
   //   //   })
   //   | Items(items) =>
-  //     object_(list{("tag", string("Items")), ("contents", items |> array(Component.Item.encode))})
+  //     object_(list{("tag", string("Items")), ("contents", items |> array(Item.encode))})
   //   }
 }
 
@@ -202,7 +202,7 @@ module EventToView = {
     switch x {
     | "Display" =>
       Contents(
-        pair(Header.decode, array(Component.Item.decode)) |> map(((header, body)) => Display(
+        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Display(
           header,
           body,
         )),
@@ -221,7 +221,7 @@ module EventToView = {
     | Display(header, body) =>
       object_(list{
         ("tag", string("Display")),
-        ("contents", (header, body) |> pair(Header.encode, array(Component.Item.encode))),
+        ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
       })
     | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
     | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})

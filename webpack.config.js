@@ -4,7 +4,7 @@ const CopyPlugin = require('copy-webpack-plugin');
 module.exports = [
     {
         target: "node",
-        entry: './lib/js/src/View/ViewMain.bs.js',
+        entry: './lib/js/src/View/Root.bs.js',
         output: {
             path: path.join(__dirname, 'dist'),
             filename: 'bundled-view.js',

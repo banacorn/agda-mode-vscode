@@ -154,12 +154,12 @@ module View: View = {
     display(
       state,
       Error("Out of goal"),
-      [Component.Item.plainText("Please place the cursor in a goal")],
+      [Item.plainText("Please place the cursor in a goal")],
     )
 
   let displayConnectionError = (state, error) => {
     let (header, body) = Connection.Error.toString(error)
-    display(state, Error("Connection Error: " ++ header), [Component.Item.plainText(body)])
+    display(state, Error("Connection Error: " ++ header), [Item.plainText(body)])
   }
 
   // display connection status

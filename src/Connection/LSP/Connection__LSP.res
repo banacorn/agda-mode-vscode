@@ -38,17 +38,17 @@ module CommandRes = {
 module LSPResponse = {
   module DisplayInfo = {
     type t =
-      | Generic(string, array<Component.Item.t>)
+      | Generic(string, array<Item.t>)
       | CompilationOk(array<string>, array<string>)
       | AllGoalsWarnings(
           string,
-          array<Component.Item.t>,
-          array<Component.Item.t>,
+          array<Item.t>,
+          array<Item.t>,
           array<string>,
           array<string>,
         )
-      | CurrentGoal(Component.Item.t)
-      | InferredType(Component.Item.t)
+      | CurrentGoal(Item.t)
+      | InferredType(Item.t)
       | Auto(string)
       | Error'(string)
       | Time(string)
@@ -60,7 +60,7 @@ module LSPResponse = {
       switch x {
       | "DisplayInfoGeneric" =>
         Contents(
-          pair(string, array(Component.Item.decode)) |> map(((header, itmes)) => Generic(
+          pair(string, array(Item.decode)) |> map(((header, itmes)) => Generic(
             header,
             itmes,
           )),
@@ -69,8 +69,8 @@ module LSPResponse = {
         Contents(
           tuple5(
             string,
-            array(Component.Item.decode),
-            array(Component.Item.decode),
+            array(Item.decode),
+            array(Item.decode),
             array(string),
             array(string),
           ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
@@ -82,9 +82,9 @@ module LSPResponse = {
           )),
         )
       | "DisplayInfoCurrentGoal" =>
-        Contents(Component.Item.decode |> map(body => CurrentGoal(body)))
+        Contents(Item.decode |> map(body => CurrentGoal(body)))
       | "DisplayInfoInferredType" =>
-        Contents(Component.Item.decode |> map(body => InferredType(body)))
+        Contents(Item.decode |> map(body => InferredType(body)))
       | "DisplayInfoCompilationOk" =>
         Contents(
           pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(

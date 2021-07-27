@@ -89,7 +89,7 @@ let make = (
     }
   )
 
-  <Component__Link.Provider value=onEventFromView>
+  <Link.Provider value=onEventFromView>
     <section className="agda-mode native-key-bindings" tabIndex={-1}>
       <div className="agda-mode-header-container">
         <Header header status />
@@ -105,5 +105,5 @@ let make = (
       </div>
       <Body items=body />
     </section>
-  </Component__Link.Provider>
+  </Link.Provider>
 }

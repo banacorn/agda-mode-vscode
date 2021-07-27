@@ -202,16 +202,16 @@ module Module = {
           <div className key={string_of_int(i)} />
         | Link(range, children, className) =>
           let child = make(~value=RichText(children))
-          <Component__Link
+          <Link
             key={string_of_int(i)} className jump=true hover=false target=Common.Link.SrcLoc(range)>
             {child}
-          </Component__Link>
+          </Link>
         | Hole(index) =>
           let className = ["component-link", "component-hole"]
-          <Component__Link
+          <Link
             key={string_of_int(i)} className jump=true hover=false target=Common.Link.Hole(index)>
             {React.string("?" ++ string_of_int(index))}
-          </Component__Link>
+          </Link>
         | Horz(elements) =>
           let children =
             elements->Array.map(element =>

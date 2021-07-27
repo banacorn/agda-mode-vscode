@@ -1,5 +1,4 @@
 open Belt
-open Component
 @react.component
 let make = (~items: View.Body.t) =>
   switch items {

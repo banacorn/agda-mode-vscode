@@ -1,6 +1,5 @@
 open Emacs__Parser
 open Belt
-open Component
 
 let partiteMetas = xs =>
   xs->Dict.split("metas", (rawMetas: array<string>) => {
