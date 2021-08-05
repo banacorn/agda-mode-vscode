@@ -2,6 +2,8 @@ open VSCode
 module VSRange = Range
 open Belt
 
+let version = "v0.2.14"
+
 module Connection = {
   // Agda version
   let setAgdaVersion = path =>

@@ -1,5 +1,5 @@
 module Scheduler = Connection__Scheduler
-module Client = Connection__LSP__Client
+module Client = LanguageServerMule.Client.LSP
 module Error = Connection__LSP__Error
 
 // type method = ViaStdIO(string, string) | ViaTCP(int)
@@ -40,13 +40,7 @@ module LSPResponse = {
     type t =
       | Generic(string, array<Item.t>)
       | CompilationOk(array<string>, array<string>)
-      | AllGoalsWarnings(
-          string,
-          array<Item.t>,
-          array<Item.t>,
-          array<string>,
-          array<string>,
-        )
+      | AllGoalsWarnings(string, array<Item.t>, array<Item.t>, array<string>, array<string>)
       | CurrentGoal(Item.t)
       | InferredType(Item.t)
       | Auto(string)
@@ -60,10 +54,7 @@ module LSPResponse = {
       switch x {
       | "DisplayInfoGeneric" =>
         Contents(
-          pair(string, array(Item.decode)) |> map(((header, itmes)) => Generic(
-            header,
-            itmes,
-          )),
+          pair(string, array(Item.decode)) |> map(((header, itmes)) => Generic(header, itmes)),
         )
       | "DisplayInfoAllGoalsWarnings" =>
         Contents(
@@ -81,10 +72,8 @@ module LSPResponse = {
             errors,
           )),
         )
-      | "DisplayInfoCurrentGoal" =>
-        Contents(Item.decode |> map(body => CurrentGoal(body)))
-      | "DisplayInfoInferredType" =>
-        Contents(Item.decode |> map(body => InferredType(body)))
+      | "DisplayInfoCurrentGoal" => Contents(Item.decode |> map(body => CurrentGoal(body)))
+      | "DisplayInfoInferredType" => Contents(Item.decode |> map(body => InferredType(body)))
       | "DisplayInfoCompilationOk" =>
         Contents(
           pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
@@ -205,59 +194,70 @@ module LSPResponse = {
 }
 
 module type Module = {
-  type t
+  type t = {
+    client: Client.t,
+    version: version,
+    method: LanguageServerMule.Method.t,
+  }
   // lifecycle
-  let make: bool => Promise.t<result<t, Error.t>>
+  let make: unit => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
-  let sendRequest: (t, string, result<Response.t, Error.t> => Promise.t<unit>) => Promise.t<result<unit, Error.t>>
-  let getInfo: t => (version, Client.method)
+  let sendRequest: (
+    t,
+    string,
+    result<Response.t, Error.t> => Promise.t<unit>,
+  ) => Promise.t<result<unit, Error.t>>
 }
 
 module Module: Module = {
   type t = {
     client: Client.t,
     version: version,
-    method: Client.method,
+    method: LanguageServerMule.Method.t,
   }
 
   // see if the server is available
-  let probe = (tryTCP, name) => {
-    // see if "als" is available
-    let probeStdIO = name => {
-      Connection__Process.PathSearch.run(
-        name,
-        "Please make sure that the language server is installed on the path",
-      )
-      ->Promise.mapOk(path => Client.ViaStdIO(name, Js.String.trim(path)))
-      ->Promise.mapError(e => Error.PathSearch(e))
-    }
-    // see if the TCP port is available
-    let probeTCP = port => {
-      let (promise, resolve) = Promise.pending()
-      // connect and resolve `Ok()`` on success
-      let socket = N.Net.connect(port, () => resolve(Ok()))
-      // resolve an error
-      socket->N.Net.Socket.on(#error(exn => resolve(Error(Error.PortSearch(port, exn)))))->ignore
-      // destroy the connection afterwards
-      promise->Promise.mapOk(() => {
-        N.Net.Socket.destroy(socket)->ignore
-        Client.ViaTCP(port)
-      })
-    }
-    if tryTCP {
-      let portNumber = Config.Connection.getAgdaLanguageServerPort()
-      probeTCP(portNumber)->Promise.flatMapError(error => {
-        Js.log2(
-          "Got the following error when trying to connect to the Agda language server via TCP:",
-          error,
-        )
-        probeStdIO(name)
-      })
-    } else {
-      probeStdIO(name)
-    }
-  }
+
+  // let probe = (tryTCP, name) => {
+  //   // see if "als" is available
+  //   let probeStdIO = name => {
+  //     Connection__Process.PathSearch.run(
+  //       name,
+  //       "Please make sure that the language server is installed on the path",
+  //     )
+  //     ->Promise.mapOk(path => LanguageServerMule.Method..ViaStdIO(name, Js.String.trim(path)))
+  //     ->Promise.mapError(e => Error.PathSearch(e))
+  //   }
+  //   // see if the TCP port is available
+  //   let probeTCP = port => {
+  //     let (promise, resolve) = Promise.pending()
+  //     // connect and resolve `Ok()`` on success
+  //     let socket = N.Net.connect(port, () => resolve(Ok()))
+  //     // resolve an error
+  //     socket->N.Net.Socket.on(#error(exn => resolve(Error(Error.PortSearch(port, exn)))))->ignore
+  //     // destroy the connection afterwards
+  //     promise->Promise.mapOk(() => {
+  //       N.Net.Socket.destroy(socket)->ignore
+  //       Client.ViaTCP(port)
+  //     })
+  //   }
+  //   if tryTCP {
+  //     let portNumber = Config.Connection.getAgdaLanguageServerPort()
+  //     probeTCP(portNumber)->Promise.flatMapError(error => {
+  //       Js.log2(
+  //         "Got the following error when trying to connect to the Agda language server via TCP:",
+  //         error,
+  //       )
+  //       probeStdIO(name)
+  //     })
+  //   } else {
+  //     probeStdIO(name)
+  //   }
+  // }
+
+  let probe = Connection__Probe.probe
+
   // catches exceptions occured when decoding JSON values
   let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
     switch CommandRes.decode(json) {
@@ -274,14 +274,40 @@ module Module: Module = {
   let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
     client
     ->Client.sendRequest(CommandReq.encode(request))
+    ->Promise.mapError(exn => Error.Connection(exn))
     ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
   }
 
   // start the LSP client
-  let make = tryTCP =>
-    probe(tryTCP, "als")
-    ->Promise.flatMapOk(Client.make)
-    ->Promise.flatMapOk(client =>
+  let make = () =>
+    probe("als", _ => ())
+    ->Promise.flatMap(((result, errors)) =>
+      switch result {
+      | None => Promise.resolved(Error(Error.CannotAcquireHandle(errors)))
+      | Some(client) => Promise.resolved(Ok(client))
+      }
+    )
+    ->Promise.flatMapOk(method => {
+      Client.make(
+        "agda",
+        "Agda Language Server",
+        method,
+      )->Promise.mapError(e => Error.ConnectionError(e))
+    })
+    ->Promise.flatMapOk(client => {
+      // let subsriptions = []
+      // // pipe error and notifications
+      // client
+      // ->Client.onNotification(json => {
+      //   notificationChan->Chan.emit(decodeResponse(json))
+      // })
+      // ->Js.Array.push(subsriptions)
+      // ->ignore
+      // client
+      // ->Client.onError(error => errorChan->Chan.emit(Error.ConnectionError(error)))
+      // ->Js.Array.push(subsriptions)
+      // ->ignore
+
       // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
       sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
         switch response {
@@ -290,23 +316,24 @@ module Module: Module = {
           Promise.resolved(Ok({client: client, version: version, method: Client.getMethod(client)}))
         }
       )
-    )
+    })
 
   // destroy the client
   let destroy = self => self.client->Client.destroy
 
-  let getInfo = self => (self.version, self.method)
+  // let getInfo = self => (self.version, self.method)
 
   let sendRequest = (self, request, handler) => {
     let handler = response => handler(Ok(response))
-    
+
     let scheduler = Scheduler.make()
     // waits for `ResponseEnd`
     let (waitForResponseEnd, resolve) = Promise.pending()
 
-    // listens for notifications
-    let subscription = Client.onResponse(json => {
-      
+    // listens for responses from Agda
+    // Note: the listener for `Client.onRequest` should be disposed at once
+    self.client
+    ->Client.onRequest(json => {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
@@ -314,22 +341,21 @@ module Module: Module = {
       | Ok(ResponseEnd) => resolve(Ok())
       | Error(error) => resolve(Error(error))
       }
+      Promise.resolved(Ok(Js_json.null))
     })
-
-    let stopListeningForNotifications = () => subscription->VSCode.Disposable.dispose->ignore
+    ->VSCode.Disposable.dispose
+    ->ignore
 
     // sends `Command` and waits for `ResponseEnd`
     sendRequestPrim(self.client, Command(request))
-    ->Promise.flatMapOk(result =>
+    ->Promise.flatMapOk(result => {
       switch result {
       | ACK(_) => Promise.resolved(Error(Error.Initialize))
       | Result(Some(error)) => Promise.resolved(Error(Error.SendCommand(error)))
       // waits for `ResponseEnd`
       | Result(None) => waitForResponseEnd
       }
-    )
-    // stop listening for notifications once the Command
-    ->Promise.tap(_ => stopListeningForNotifications())
+    })
     ->Promise.tap(_ =>
       // start handling Last Responses, after all NonLast Responses have been handled
       scheduler->Scheduler.runLast(handler)

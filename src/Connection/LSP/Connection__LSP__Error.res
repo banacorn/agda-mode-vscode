@@ -31,6 +31,10 @@ type t =
   | PortSearch(int, Js.Exn.t)
   // Errors originated from the LSP client within
   | Connection(Js.Exn.t)
+  // server probing
+  | CannotAcquireHandle(array<LanguageServerMule.Source.Error.t>)
+  // connection
+  | ConnectionError(Js.Exn.t)
   // Errors when sending Command to ther server
   | SendCommand(CommandErr.t)
   // Cannot initialize the connection
@@ -58,6 +62,21 @@ let toString = error =>
     isECONNREFUSED
       ? ("[LSP] Connection Error", "Please enter \":main -d\" in ghci")
       : ("[LSP] Client Internal Connection Error", Js.Exn.message(exn)->Option.getWithDefault(""))
+  | CannotAcquireHandle(es) => (
+      "Cannot connect with \"als\"",
+      "Here are the error messages from all the attempts: \n" ++
+      es->Array.map(LanguageServerMule.Source.Error.toString)->Js.Array2.joinWith("\n"),
+    )
+  | ConnectionError(exn) =>
+    let isECONNREFUSED =
+      Js.Exn.message(exn)->Option.mapWithDefault(
+        false,
+        Js.String.startsWith("connect ECONNREFUSED"),
+      )
+
+    isECONNREFUSED
+      ? ("LSP Connection Error", "Please enter \":main -d\" in ghci")
+      : ("LSP Client Error", Js.Exn.message(exn)->Option.getWithDefault(""))
   | SendCommand(e) => ("[LSP] Cannot Send Command", CommandErr.toString(e))
   | Initialize => ("[LSP] Cannot Initialize Connection", "")
   | CannotDecodeCommandRes(msg, json) => (
