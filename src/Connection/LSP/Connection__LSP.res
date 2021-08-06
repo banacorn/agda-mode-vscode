@@ -2,7 +2,6 @@ module Scheduler = Connection__Scheduler
 module Client = LanguageServerMule.Client.LSP
 module Error = Connection__LSP__Error
 
-// type method = ViaStdIO(string, string) | ViaTCP(int)
 type version = string
 
 module CommandReq = {
@@ -216,45 +215,6 @@ module Module: Module = {
     version: version,
     method: LanguageServerMule.Method.t,
   }
-
-  // see if the server is available
-
-  // let probe = (tryTCP, name) => {
-  //   // see if "als" is available
-  //   let probeStdIO = name => {
-  //     Connection__Process.PathSearch.run(
-  //       name,
-  //       "Please make sure that the language server is installed on the path",
-  //     )
-  //     ->Promise.mapOk(path => LanguageServerMule.Method..ViaStdIO(name, Js.String.trim(path)))
-  //     ->Promise.mapError(e => Error.PathSearch(e))
-  //   }
-  //   // see if the TCP port is available
-  //   let probeTCP = port => {
-  //     let (promise, resolve) = Promise.pending()
-  //     // connect and resolve `Ok()`` on success
-  //     let socket = N.Net.connect(port, () => resolve(Ok()))
-  //     // resolve an error
-  //     socket->N.Net.Socket.on(#error(exn => resolve(Error(Error.PortSearch(port, exn)))))->ignore
-  //     // destroy the connection afterwards
-  //     promise->Promise.mapOk(() => {
-  //       N.Net.Socket.destroy(socket)->ignore
-  //       Client.ViaTCP(port)
-  //     })
-  //   }
-  //   if tryTCP {
-  //     let portNumber = Config.Connection.getAgdaLanguageServerPort()
-  //     probeTCP(portNumber)->Promise.flatMapError(error => {
-  //       Js.log2(
-  //         "Got the following error when trying to connect to the Agda language server via TCP:",
-  //         error,
-  //       )
-  //       probeStdIO(name)
-  //     })
-  //   } else {
-  //     probeStdIO(name)
-  //   }
-  // }
 
   let probe = Connection__Probe.probe
 

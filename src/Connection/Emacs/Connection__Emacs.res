@@ -2,6 +2,7 @@ open Belt
 
 module Error = Connection__Emacs__Error
 module Scheduler = Connection__Scheduler
+module Process = LanguageServerMule.Client.Process
 
 module ProcInfo: {
   type t = {
@@ -90,7 +91,7 @@ module type Module = {
 module Module: Module = {
   type t = {
     procInfo: ProcInfo.t,
-    process: Connection__Process.t,
+    process: Process.t,
     chan: Chan.t<result<Parser.Incr.Gen.t<Response.Prioritized.t>, Error.t>>,
     mutable encountedFirstPrompt: bool,
   }
@@ -98,7 +99,7 @@ module Module: Module = {
   let destroy = self => {
     self.chan->Chan.destroy
     self.encountedFirstPrompt = false
-    self.process->Connection__Process.destroy
+    self.process->Process.destroy
   }
 
   let wire = (self): unit => {
@@ -143,8 +144,9 @@ module Module: Module = {
     // The chunk may contain various fractions of the Agda output
     // TODO: handle the `listenerHandle`
     let listenerHandle = ref(None)
+
     listenerHandle :=
-      Connection__Process.onOutput(self.process, x =>
+      Process.onOutput(self.process, x =>
         switch x {
         | Stdout(rawText) =>
           // sometimes Agda would return error messages from STDOUT
@@ -156,7 +158,7 @@ module Module: Module = {
           }
         | Stderr(e) => Js.log2("stderr: ", e)
         | Event(e) =>
-          Js.log2("event: ", Connection__Process.Event.toString(e))
+          Js.log2("event: ", Process.Event.toString(e))
           self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some
@@ -177,7 +179,7 @@ module Module: Module = {
     ->Promise.flatMapOk(persistPathInConfig)
     ->Promise.mapOk(procInfo => {
       procInfo: procInfo,
-      process: Connection__Process.make(procInfo.path, procInfo.args),
+      process: Process.make(procInfo.path, procInfo.args),
       chan: Chan.make(),
       encountedFirstPrompt: false,
     })
@@ -228,7 +230,7 @@ module Module: Module = {
   let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {
     // this promise gets resolved after all Responses have been received and handled
     let promise = onResponse(conn, handler)
-    Connection__Process.send(conn.process, request)->ignore 
+    Process.send(conn.process, request)->ignore 
     promise
   }
 
