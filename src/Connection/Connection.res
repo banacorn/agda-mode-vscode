@@ -7,11 +7,10 @@ module type Module = {
   type version = string
   type status = Emacs(version, string) | LSP(version, LanguageServerMule.Method.t)
   // lifecycle
-  let start: (bool, bool) => Promise.t<result<status, Error.t>>
+  let start: bool => Promise.t<result<status, Error.t>>
   let stop: unit => Promise.t<unit>
   // messaging
   let sendRequest: (
-    bool,
     bool,
     VSCode.TextDocument.t,
     Request.t,
@@ -30,21 +29,23 @@ module Module: Module = {
   // connection -> status
   let toStatus = (conn: connection): status =>
     switch conn {
-    | LSP(conn) =>
-      LSP(conn.version, LanguageServerMule.Client.LSP.getMethod(conn.client))
+    | LSP(conn) => LSP(conn.version, LanguageServerMule.Client.LSP.getMethod(conn.client))
     | Emacs(conn) =>
       let (version, path) = Emacs.getInfo(conn)
       Emacs(version, path)
     }
 
-  let start = (useLSP, viaTCP) =>
+  let start = useLSP =>
     switch singleton.contents {
     | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
     | None =>
       if useLSP {
         LSP.make()
         ->Promise.mapOk(conn => {
-          let (version, method) = (conn.version, LanguageServerMule.Client.LSP.getMethod(conn.client))
+          let (version, method) = (
+            conn.version,
+            LanguageServerMule.Client.LSP.getMethod(conn.client),
+          )
           singleton := Some(LSP(conn))
           LSP(version, method)
         })
@@ -71,7 +72,7 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
-  let rec sendRequest = (useLSP, viaTCP, document, request, handler) => {
+  let rec sendRequest = (useLSP, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -100,10 +101,7 @@ module Module: Module = {
         // stop the connection on error
         stop()->Promise.map(() => Error(Error.Emacs(error)))
       })
-    | None =>
-      start(useLSP, viaTCP)->Promise.flatMapOk(_ =>
-        sendRequest(useLSP, viaTCP, document, request, handler)
-      )
+    | None => start(useLSP)->Promise.flatMapOk(_ => sendRequest(useLSP, document, request, handler))
     }
   }
 }

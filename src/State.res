@@ -86,7 +86,6 @@ module ViewCache = {
 }
 
 type t = {
-  devMode: bool,
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   view: ViewController.t,
@@ -238,7 +237,6 @@ let sendRequest = (
       }
     Connection.sendRequest(
       Config.Connection.useAgdaLanguageServer(),
-      state.devMode,
       state.document,
       request,
       onResponse,
@@ -269,7 +267,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, editor, view, devMode) => {
+let make = (chan, editor, view) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
   view: view,
@@ -282,5 +280,4 @@ let make = (chan, editor, view, devMode) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
-  devMode: devMode,
 }

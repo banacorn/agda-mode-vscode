@@ -255,7 +255,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         State.View.display(state, View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"), [])
       )
       ->Promise.flatMap(Connection.stop)
-      ->Promise.flatMap(() => Connection.start(useLSP, state.devMode))
+      ->Promise.flatMap(() => Connection.start(useLSP))
       ->Promise.flatMap(result =>
         switch result {
         | Ok(Emacs(version, path)) =>
