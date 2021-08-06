@@ -44,7 +44,7 @@ let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
 
 // see if the server is available
 // priorities: TCP => Prebuilt => StdIO
-let probe = (globalStoragePath, onDownload) => {
+let probeLSP = (globalStoragePath, onDownload) => {
   let port = Config.Connection.getAgdaLanguageServerPort()
   let name = "als"
 
@@ -61,5 +61,11 @@ let probe = (globalStoragePath, onDownload) => {
       cacheID: Config.version,
     }),
     Source.FromPath(name),
+  ])
+}
+
+let probeEmacs = () => {
+  Source.Module.searchUntilSuccess([
+    Source.FromPath("agda"),
   ])
 }

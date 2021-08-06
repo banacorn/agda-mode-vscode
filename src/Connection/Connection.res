@@ -40,7 +40,21 @@ module Module: Module = {
     | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
     | None =>
       if useLSP {
-        LSP.make()
+        Connection__Probe.probeLSP("als", _ => ())
+        ->Promise.flatMap(((result, errors)) =>
+          switch result {
+          | None => Promise.resolved(Error(LSP.Error.CannotAcquireHandle(errors)))
+          | Some(method) => Promise.resolved(Ok(method))
+          }
+        )
+        ->Promise.flatMapOk(method => {
+          LSP.Client.make(
+            "agda",
+            "Agda Language Server",
+            method,
+          )->Promise.mapError(e => LSP.Error.ConnectionError(e))
+        })
+        ->Promise.flatMapOk(LSP.make)
         ->Promise.mapOk(conn => {
           let (version, method) = (
             conn.version,
@@ -51,7 +65,14 @@ module Module: Module = {
         })
         ->Promise.mapError(error => Error.LSP(error))
       } else {
-        Emacs.make()
+        Connection__Probe.probeEmacs()
+        ->Promise.flatMap(((result, errors)) =>
+          switch result {
+          | None => Promise.resolved(Error(Emacs.Error.CannotAcquireHandle(errors)))
+          | Some(method) => Promise.resolved(Ok(method))
+          }
+        )
+        ->Promise.flatMapOk(Emacs.make)
         ->Promise.mapOk(conn => {
           singleton := Some(Emacs(conn))
           let (version, path) = Emacs.getInfo(conn)

@@ -11,7 +11,7 @@ module ProcInfo: {
     version: string,
   }
   let make: (string, array<string>) => Promise.t<result<t, Error.t>>
-  let findPath: unit => Promise.t<result<string, Error.t>>
+  // let findPath: unit => Promise.t<result<string, Error.t>>
   let toString: t => string
 } = {
   type t = {
@@ -44,22 +44,22 @@ module ProcInfo: {
     ->Promise.mapError(e => Error.Validation(e))
   }
 
-  let findPath = () => {
-    // first, get the path from the config (stored in the Editor)
-    let storedPath = Config.Connection.getAgdaPath()
-    if storedPath == "" || storedPath == "." {
-      // if there's no stored path, find one from the OS (with the specified name)
-      let agdaVersion = Config.Connection.getAgdaVersion()
-      Connection__Process.PathSearch.run(
-        agdaVersion,
-        "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings.",
-      )
-      ->Promise.mapOk(Js.String.trim)
-      ->Promise.mapError(e => Error.PathSearch(e))
-    } else {
-      Promise.resolved(Ok(storedPath))
-    }
-  }
+  // let findPath = () => {
+  //   // first, get the path from the config (stored in the Editor)
+  //   let storedPath = Config.Connection.getAgdaPath()
+  //   if storedPath == "" || storedPath == "." {
+  //     // if there's no stored path, find one from the OS (with the specified name)
+  //     let agdaVersion = Config.Connection.getAgdaVersion()
+  //     Connection__Process.PathSearch.run(
+  //       agdaVersion,
+  //       "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings.",
+  //     )
+  //     ->Promise.mapOk(Js.String.trim)
+  //     ->Promise.mapError(e => Error.PathSearch(e))
+  //   } else {
+  //     Promise.resolved(Ok(storedPath))
+  //   }
+  // }
 
   // for making error report
   let toString = self => {
@@ -77,7 +77,7 @@ module ProcInfo: {
 module type Module = {
   type t
   // lifecycle
-  let make: unit => Promise.t<result<t, Error.t>>
+  let make: LanguageServerMule.Method.t => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
   let sendRequest: (
@@ -164,27 +164,30 @@ module Module: Module = {
       )->Some
   }
 
-  let make = () => {
-    // store the path in the editor config
-    let persistPathInConfig = (procInfo: ProcInfo.t): Promise.t<result<ProcInfo.t, Error.t>> =>
-      Config.Connection.setAgdaPath(procInfo.path)->Promise.map(() => Ok(procInfo))
+  let make = method =>
+    switch method {
+    | LanguageServerMule.Method.ViaTCP(_) => Promise.resolved(Error(Error.ConnectionViaTCPNotSupported))
+    | ViaStdIO(path, _) =>
+      // store the path in the editor config
+      let persistPathInConfig = (procInfo: ProcInfo.t): Promise.t<result<ProcInfo.t, Error.t>> =>
+        Config.Connection.setAgdaPath(procInfo.path)->Promise.map(() => Ok(procInfo))
 
-    // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
-    let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
+      // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
+      let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
 
-    ProcInfo.findPath()
-    ->Promise.flatMapOk(path => {
+      // ProcInfo.findPath()
+      // ->Promise.flatMapOk(path => {
+      // })
       ProcInfo.make(path, args)
-    })
-    ->Promise.flatMapOk(persistPathInConfig)
-    ->Promise.mapOk(procInfo => {
-      procInfo: procInfo,
-      process: Process.make(procInfo.path, procInfo.args),
-      chan: Chan.make(),
-      encountedFirstPrompt: false,
-    })
-    ->Promise.tapOk(wire)
-  }
+      ->Promise.flatMapOk(persistPathInConfig)
+      ->Promise.mapOk(procInfo => {
+        procInfo: procInfo,
+        process: Process.make(procInfo.path, procInfo.args),
+        chan: Chan.make(),
+        encountedFirstPrompt: false,
+      })
+      ->Promise.tapOk(wire)
+    }
 
   let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()
@@ -230,7 +233,7 @@ module Module: Module = {
   let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {
     // this promise gets resolved after all Responses have been received and handled
     let promise = onResponse(conn, handler)
-    Process.send(conn.process, request)->ignore 
+    Process.send(conn.process, request)->ignore
     promise
   }
 

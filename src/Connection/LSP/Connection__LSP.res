@@ -199,7 +199,7 @@ module type Module = {
     method: LanguageServerMule.Method.t,
   }
   // lifecycle
-  let make: unit => Promise.t<result<t, Error.t>>
+  let make: Client.t => Promise.t<result<t, Error.t>>
   let destroy: t => Promise.t<unit>
   // messaging
   let sendRequest: (
@@ -215,8 +215,6 @@ module Module: Module = {
     version: version,
     method: LanguageServerMule.Method.t,
   }
-
-  let probe = Connection__Probe.probe
 
   // catches exceptions occured when decoding JSON values
   let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
@@ -239,44 +237,28 @@ module Module: Module = {
   }
 
   // start the LSP client
-  let make = () =>
-    probe("als", _ => ())
-    ->Promise.flatMap(((result, errors)) =>
-      switch result {
-      | None => Promise.resolved(Error(Error.CannotAcquireHandle(errors)))
-      | Some(client) => Promise.resolved(Ok(client))
+  let make = client =>
+    // let subsriptions = []
+    // // pipe error and notifications
+    // client
+    // ->Client.onNotification(json => {
+    //   notificationChan->Chan.emit(decodeResponse(json))
+    // })
+    // ->Js.Array.push(subsriptions)
+    // ->ignore
+    // client
+    // ->Client.onError(error => errorChan->Chan.emit(Error.ConnectionError(error)))
+    // ->Js.Array.push(subsriptions)
+    // ->ignore
+
+    // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
+    sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
+      switch response {
+      | Result(_) => Promise.resolved(Error(Error.Initialize))
+      | ACK(version) =>
+        Promise.resolved(Ok({client: client, version: version, method: Client.getMethod(client)}))
       }
     )
-    ->Promise.flatMapOk(method => {
-      Client.make(
-        "agda",
-        "Agda Language Server",
-        method,
-      )->Promise.mapError(e => Error.ConnectionError(e))
-    })
-    ->Promise.flatMapOk(client => {
-      // let subsriptions = []
-      // // pipe error and notifications
-      // client
-      // ->Client.onNotification(json => {
-      //   notificationChan->Chan.emit(decodeResponse(json))
-      // })
-      // ->Js.Array.push(subsriptions)
-      // ->ignore
-      // client
-      // ->Client.onError(error => errorChan->Chan.emit(Error.ConnectionError(error)))
-      // ->Js.Array.push(subsriptions)
-      // ->ignore
-
-      // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-      sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
-        switch response {
-        | Result(_) => Promise.resolved(Error(Error.Initialize))
-        | ACK(version) =>
-          Promise.resolved(Ok({client: client, version: version, method: Client.getMethod(client)}))
-        }
-      )
-    })
 
   // destroy the client
   let destroy = self => self.client->Client.destroy
