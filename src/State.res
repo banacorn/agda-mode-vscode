@@ -100,6 +100,7 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
   mutable agdaRequestQueue: RequestQueue.t,
+  globalStoragePath: string,
 }
 type state = t
 
@@ -150,11 +151,7 @@ module View: View = {
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))
   let displayOutOfGoalError = state =>
-    display(
-      state,
-      Error("Out of goal"),
-      [Item.plainText("Please place the cursor in a goal")],
-    )
+    display(state, Error("Out of goal"), [Item.plainText("Please place the cursor in a goal")])
 
   let displayConnectionError = (state, error) => {
     let (header, body) = Connection.Error.toString(error)
@@ -236,6 +233,7 @@ let sendRequest = (
       | Ok(response) => handler(response)
       }
     Connection.sendRequest(
+      state.globalStoragePath,
       Config.Connection.useAgdaLanguageServer(),
       state.document,
       request,
@@ -267,7 +265,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, editor, view) => {
+let make = (chan, globalStoragePath, editor, view) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
   view: view,
@@ -280,4 +278,5 @@ let make = (chan, editor, view) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
+  globalStoragePath: globalStoragePath,
 }

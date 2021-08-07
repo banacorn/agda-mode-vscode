@@ -39,7 +39,7 @@ module Inputs: {
   }
 }
 
-let initialize = (debugChan, extensionPath, editor, fileName) => {
+let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
   if Registry.isEmpty() {
     // keybinding: so that most of the commands will work only after agda-mode:load
     VSCode.Commands.setContext("agdaMode", true)->ignore
@@ -49,7 +49,7 @@ let initialize = (debugChan, extensionPath, editor, fileName) => {
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, editor, view)
+  let state = State.make(debugChan, globalStoragePath, editor, view)
 
   // remove it from the Registry if it requests to be destroyed
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -154,7 +154,7 @@ let finalize = () => {
   Promise.resolved()
 }
 
-let activateWithoutContext = (subscriptions, extensionPath) => {
+let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) => {
   let subscribe = x => x->Js.Array.push(subscriptions)->ignore
   let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
   // Channel for testing, emits events when something has been completed,
@@ -205,7 +205,7 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          let state = initialize(debugChan, extensionPath, editor, fileName)
+          let state = initialize(debugChan, extensionPath, globalStoragePath, editor, fileName)
           Registry.add(fileName, state)
         | Some(_) => () // already in the Registry, do nothing
         }
@@ -229,8 +229,9 @@ let activateWithoutContext = (subscriptions, extensionPath) => {
 let activate = context => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
+  let globalStoragePath = VSCode.ExtensionContext.globalStoragePath(context)
 
-  activateWithoutContext(subscriptions, extensionPath)
+  activateWithoutContext(subscriptions, extensionPath, globalStoragePath)
 }
 
 let deactivate = () => ()

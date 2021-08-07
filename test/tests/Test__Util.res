@@ -22,6 +22,15 @@ module Path = {
     }
   }
 
+  // replacement of ExtensionContext.globalStoragePath as ExtensionContext.t is out ofreach
+  let globalStoragePath = () => {
+    let dirname: option<string> = %bs.node(__dirname)
+    switch dirname {
+    | None => Node.Process.cwd()
+    | Some(dirname) => Node.Path.resolve(dirname, "../../../../globalStoragePath")
+    }
+  }
+
   let asset = filepath => Node.Path.join([extensionPath(), "test/tests/assets", filepath])
 }
 
@@ -120,7 +129,7 @@ module Golden = {
     // [@bs.module "diff"]
     // external lines: (string, string) => array(t) = "diffLines";
 
-    @bs.module("diff")
+    @module("diff")
     external wordsWithSpace_: (string, string) => array<changeObject> = "diffWordsWithSpace"
 
     let fromChangeObject = obj =>
