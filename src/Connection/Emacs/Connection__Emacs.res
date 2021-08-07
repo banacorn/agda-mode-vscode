@@ -24,24 +24,39 @@ module ProcInfo: {
 
   // a more sophiscated "make"
   let make = (path, args): Promise.t<result<t, Error.t>> => {
-    let validator = (output): result<string, string> =>
-      switch Js.String.match_(%re("/Agda version (.*)/"), output) {
-      | None => Error("Cannot read Agda version")
-      | Some(match_) =>
-        switch match_[1] {
-        | None => Error("Cannot read Agda version")
-        | Some(version) => Ok(version)
-        }
-      }
     // normailize the path by replacing the tild "~/" with the absolute path of home directory
     let path = untildify(path)
-    Connection__Process.Validation.run("\"" ++ (path ++ "\" -V"), validator)
-    ->Promise.mapOk(version => {
-      path: path,
-      args: args,
-      version: version,
-    })
-    ->Promise.mapError(e => Error.Validation(e))
+
+    let process = Process.make(path, ["-V"])
+    let (promise, resolve) = Promise.pending()
+
+    let handle = process->Process.onOutput(output =>
+      switch output {
+      | Process.Stdout(output) =>
+        switch Js.String.match_(%re("/Agda version (.*)/"), output) {
+        | None => resolve(Error("Cannot read Agda version"))
+        | Some(match_) =>
+          switch match_[1] {
+          | None => resolve(Error("Cannot read Agda version"))
+          | Some(version) =>
+            resolve(
+              Ok({
+                path: path,
+                args: args,
+                version: version,
+              }),
+            )
+          }
+        }
+      | Process.Stderr(err) =>
+        resolve(Error("Message from stderr when validating the program:\n" ++ err))
+      | Process.Event(e) =>
+        resolve(
+          Error("Something occured when validating the program:\n" ++ Process.Event.toString(e)),
+        )
+      }
+    )
+    promise->Promise.tap(_ => handle())->Promise.mapError(e => Error.Validation(e))
   }
 
   // let findPath = () => {
@@ -166,7 +181,8 @@ module Module: Module = {
 
   let make = method =>
     switch method {
-    | LanguageServerMule.Method.ViaTCP(_) => Promise.resolved(Error(Error.ConnectionViaTCPNotSupported))
+    | LanguageServerMule.Method.ViaTCP(_) =>
+      Promise.resolved(Error(Error.ConnectionViaTCPNotSupported))
     | ViaStdIO(path, _) =>
       // store the path in the editor config
       let persistPathInConfig = (procInfo: ProcInfo.t): Promise.t<result<ProcInfo.t, Error.t>> =>

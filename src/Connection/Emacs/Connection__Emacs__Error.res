@@ -8,7 +8,7 @@ type t =
   // server probing
   | CannotAcquireHandle(array<LanguageServerMule.Source.Error.t>)
   // the found program is not Agda
-  | Validation(Connection__Process.Validation.Error.t)
+  | Validation(string)
   // Child process related error
   | Process(Process.Event.t)
   // Agda is not happy
@@ -26,7 +26,7 @@ let toString = x =>
       "Here are the error messages from all the attempts: \n" ++
       es->Array.map(LanguageServerMule.Source.Error.toString)->Js.Array2.joinWith("\n"),
     )
-  | Validation(e) => Connection__Process.Validation.Error.toString(e)
+  | Validation(e) => ("Validation Error", e)
   | Process(e) => ("Process Error", Process.Event.toString(e))
   | AgdaError(s) => ("Agda Error", s)
   | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
