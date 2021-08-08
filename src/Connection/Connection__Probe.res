@@ -60,12 +60,14 @@ let probeLSP = (globalStoragePath, onDownload) => {
       cacheInvalidateExpirationSecs: 86400,
       cacheID: Config.version,
     }),
-    Source.FromPath(name),
+    Source.FromCommand(name),
   ])
 }
 
 let probeEmacs = () => {
+  let storedPath = Config.Connection.getAgdaPath()
   Source.Module.searchUntilSuccess([
-    Source.FromPath("agda"),
+    Source.FromFile(storedPath),
+    Source.FromCommand("agda"),
   ])
 }

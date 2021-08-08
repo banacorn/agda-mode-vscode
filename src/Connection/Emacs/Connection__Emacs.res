@@ -11,7 +11,6 @@ module ProcInfo: {
     version: string,
   }
   let make: (string, array<string>) => Promise.t<result<t, Error.t>>
-  // let findPath: unit => Promise.t<result<string, Error.t>>
   let toString: t => string
 } = {
   type t = {
@@ -58,23 +57,6 @@ module ProcInfo: {
     )
     promise->Promise.tap(_ => handle())->Promise.mapError(e => Error.Validation(e))
   }
-
-  // let findPath = () => {
-  //   // first, get the path from the config (stored in the Editor)
-  //   let storedPath = Config.Connection.getAgdaPath()
-  //   if storedPath == "" || storedPath == "." {
-  //     // if there's no stored path, find one from the OS (with the specified name)
-  //     let agdaVersion = Config.Connection.getAgdaVersion()
-  //     Connection__Process.PathSearch.run(
-  //       agdaVersion,
-  //       "If you know where the executable of Agda is located, please fill it in \"agdaMode.agdaPath\" in the Settings.",
-  //     )
-  //     ->Promise.mapOk(Js.String.trim)
-  //     ->Promise.mapError(e => Error.PathSearch(e))
-  //   } else {
-  //     Promise.resolved(Ok(storedPath))
-  //   }
-  // }
 
   // for making error report
   let toString = self => {
