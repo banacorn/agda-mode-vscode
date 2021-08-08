@@ -2,7 +2,7 @@ open VSCode
 module VSRange = Range
 open Belt
 
-let version = "v0.2.14"
+let version = "v0.2.15"
 
 module Connection = {
   // Agda version

@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.2.14",
+	"version": "0.2.15",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -44,7 +44,7 @@
 		"bs-webapi": ">=0.19.0",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
-		"language-server-mule": "github:banacorn/agda-mode-vscode#f743a36",
+		"language-server-mule": "github:banacorn/language-server-mule#f743a36",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-promise": ">=1.1.0",
