@@ -56,6 +56,7 @@ Take *infer type* for example:
 | compute normal form (ignore abstract)   | <kbd>C-u</kbd> <kbd>C-n</kbd> |
 | compute normal form (use show instance) | <kbd>C-y</kbd> <kbd>C-n</kbd> |
 | switch to a different Agda version      | <kbd>C-x</kbd> <kbd>C-s</kbd> |
+| Unicode symbol input sequences lookup   | <kbd>C-x</kbd> <kbd>C-=</kbd> |
 
 ### Commands in context of a goal
 
@@ -102,7 +103,8 @@ If you are having trouble typing the backslash "\\", you can change it by:
 
 ### Agda files won't load, commands don't work
 
-Please go to "Preferences: Open Keyboard Shortcurs" and see if any other extensions are fighting for the same key combinations. 
+Please go to "Preferences: Open Keyboard Shortcurs" and see if any extension is fighting for the same key combo. 
+You're probably a victim of the [*Vim* extension](https://marketplace.visualstudio.com/items?itemName=vscodevim.vim). 
 
 ### "Give" command not working on macOS
 
