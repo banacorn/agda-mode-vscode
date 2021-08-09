@@ -44,18 +44,17 @@ module Module: Module = {
         Connection__Probe.probeLSP(globalStoragePath, _ => ())
         ->Promise.flatMap(((result, errors)) =>
           switch result {
-          | None => Promise.resolved(Error(LSP.Error.CannotAcquireHandle(errors)))
+          | None =>
+            Promise.resolved(Error(Error.CannotAcquireHandle("Agda Language Server", errors)))
           | Some(method) => Promise.resolved(Ok(method))
           }
         )
         ->Promise.flatMapOk(method => {
-          LSP.Client.make(
-            "agda",
-            "Agda Language Server",
-            method,
-          )->Promise.mapError(e => LSP.Error.ConnectionError(e))
+          LSP.Client.make("agda", "Agda Language Server", method)
+          ->Promise.mapError(e => LSP.Error.ConnectionError(e))
+          ->Promise.flatMapOk(LSP.make)
+          ->Promise.mapError(error => Error.LSP(error))
         })
-        ->Promise.flatMapOk(LSP.make)
         ->Promise.mapOk(conn => {
           let (version, method) = (
             conn.version,
@@ -64,22 +63,22 @@ module Module: Module = {
           singleton := Some(LSP(conn))
           LSP(version, method)
         })
-        ->Promise.mapError(error => Error.LSP(error))
       } else {
         Connection__Probe.probeEmacs()
         ->Promise.flatMap(((result, errors)) =>
           switch result {
-          | None => Promise.resolved(Error(Emacs.Error.CannotAcquireHandle(errors)))
+          | None => Promise.resolved(Error(Error.CannotAcquireHandle("Agda", errors)))
           | Some(method) => Promise.resolved(Ok(method))
           }
         )
-        ->Promise.flatMapOk(Emacs.make)
+        ->Promise.flatMapOk(method =>
+          Emacs.make(method)->Promise.mapError(error => Error.Emacs(error))
+        )
         ->Promise.mapOk(conn => {
           singleton := Some(Emacs(conn))
           let (version, path) = Emacs.getInfo(conn)
           Emacs(version, path)
         })
-        ->Promise.mapError(error => Error.Emacs(error))
       }
     }
 

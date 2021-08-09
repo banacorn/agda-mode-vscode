@@ -153,9 +153,8 @@ module Module: Module = {
             // split the raw text into pieces and feed it to the parser
             rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
           }
-        | Stderr(e) => Js.log2("stderr: ", e)
+        | Stderr(_) => ()
         | Event(e) =>
-          Js.log2("event: ", Process.Event.toString(e))
           self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some

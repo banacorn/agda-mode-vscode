@@ -232,7 +232,7 @@ module Module: Module = {
   let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
     client
     ->Client.sendRequest(CommandReq.encode(request))
-    ->Promise.mapError(exn => Error.Connection(exn))
+    ->Promise.mapError(exn => Error.ConnectionError(exn))
     ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
   }
 
