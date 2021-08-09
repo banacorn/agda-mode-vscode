@@ -95,6 +95,7 @@ type t =
   | SwitchAgdaVersion
   | Escape
   | InputMethod(InputMethod.t)
+  | LookupSymbol
 
 // for registering Keybindings
 let names: array<(t, string)> = [
@@ -160,6 +161,7 @@ let names: array<(t, string)> = [
   (InputMethod(BrowseLeft), "input-symbol[BrowseLeft]"),
   (InputMethod(InsertChar("{")), "input-symbol[InsertOpenCurlyBraces]"),
   (InputMethod(InsertChar("(")), "input-symbol[InsertOpenParenthesis]"),
+  (LookupSymbol, "lookup-symbol")
 ]
 
 // for human
@@ -203,4 +205,5 @@ let toString = x =>
   | Refresh => "Refresh "
   | Escape => "Escape"
   | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action)
+  | LookupSymbol => "Lookup Unicode symbol input sequence"
   }

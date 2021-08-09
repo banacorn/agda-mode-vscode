@@ -427,5 +427,47 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | InputMethod(BrowseDown) => State__InputMethod.moveDown(state)
   | InputMethod(BrowseLeft) => State__InputMethod.moveLeft(state)
   | InputMethod(BrowseRight) => State__InputMethod.moveRight(state)
+  | LookupSymbol =>
+
+    // get the selected text
+    // query the user instead if no text is selected
+    let (promise, resolve) = Promise.pending()
+    let selectedText =
+      Editor.Text.get(state.document, Editor.Selection.get(state.editor))->Js.String.trim
+    if selectedText == "" {
+      State.View.prompt(
+        state,
+        View.Header.Plain("Lookup Unicode Symbol Input Sequence"),
+        {body: None, placeholder: Some("symbol to lookup:"), value: None},
+        input => {
+          resolve(Js.String.trim(input))
+          Promise.resolved()
+        },
+      )->ignore
+    } else {
+      resolve(selectedText)
+    }
+
+    // lookup and display 
+    promise->Promise.flatMap(input => {
+      let sequences = Translator.lookup(input)->Option.getWithDefault([])
+      if Js.Array.length(sequences) == 0 {
+        State.View.display(
+          state,
+          View.Header.Warning("No Input Sequences Found for \"" ++ selectedText ++ "\""),
+          [],
+        )
+      } else {
+        State.View.display(
+          state,
+          View.Header.Success(
+            string_of_int(Js.Array.length(sequences)) ++
+            " Input Sequences Found for \"" ++
+            selectedText ++ "\"",
+          ),
+          sequences->Array.map(sequence => Item.plainText(sequence)),
+        )
+      }
+    })
   }
 }

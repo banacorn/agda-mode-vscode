@@ -13,6 +13,9 @@ let make = (
     let placeholder = placeholder->Option.getWithDefault("")
     let value = value->Option.getWithDefault("")
 
+    // set focus only for the first time
+    let (hasFocused, setHasFocused) = React.useState(_ => false)
+
     // preserves mouse selection
     let (selectionInterval, setSelectionInterval) = React.useState(_ => None)
 
@@ -81,10 +84,14 @@ let make = (
       // somehow focus() won't work on some machines (?)
       // delay focus() 100ms to regain focus
       Js.Global.setTimeout(() => {
-        inputRef.current
-        ->Js.Nullable.toOption
-        ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
-        ->Option.forEach(Webapi.Dom.HtmlElement.focus)
+        if !hasFocused {
+          inputRef.current
+          ->Js.Nullable.toOption
+          ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
+          ->Option.forEach(Webapi.Dom.HtmlElement.focus)
+          // only set focus for the first open 
+          setHasFocused(_ => true)
+        }
         ()
       }, 100)->ignore
       None

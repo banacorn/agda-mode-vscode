@@ -336,6 +336,11 @@
 				"command": "agda-mode.input-symbol[Activate]",
 				"title": "Activate input method",
 				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.lookup-symbol",
+				"title": "Lookup Unicode symbol input sequence",
+				"category": "Agda"
 			}
 		],
 		"keybindings": [
@@ -696,6 +701,11 @@
 				"command": "agda-mode.input-symbol[InsertOpenParenthesis]",
 				"key": "shift+9",
 				"when": "agdaMode && agdaModeTyping"
+			},
+			{
+				"command": "agda-mode.lookup-symbol",
+				"key": "ctrl+x ctrl+=",
+				"when": "agdaMode && !terminalFocus"
 			}
 		],
 		"configuration": {
