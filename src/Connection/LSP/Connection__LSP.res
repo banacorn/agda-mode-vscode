@@ -273,8 +273,7 @@ module Module: Module = {
     let (waitForResponseEnd, resolve) = Promise.pending()
 
     // listens for responses from Agda
-    // Note: the listener for `Client.onRequest` should be disposed at once
-    self.client
+    let stopListeningForNotifications = self.client
     ->Client.onRequest(json => {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
@@ -285,8 +284,6 @@ module Module: Module = {
       }
       Promise.resolved(Ok(Js_json.null))
     })
-    ->VSCode.Disposable.dispose
-    ->ignore
 
     // sends `Command` and waits for `ResponseEnd`
     sendRequestPrim(self.client, Command(request))
@@ -298,6 +295,8 @@ module Module: Module = {
       | Result(None) => waitForResponseEnd
       }
     })
+    // stop listening for requests from server once `ResponseEnd` arrived
+    ->Promise.tap(_ => stopListeningForNotifications->VSCode.Disposable.dispose)
     ->Promise.tap(_ =>
       // start handling Last Responses, after all NonLast Responses have been handled
       scheduler->Scheduler.runLast(handler)
