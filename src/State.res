@@ -120,7 +120,7 @@ module type View = {
   let reveal: state => unit
   // display stuff
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
-  // let displayEmacs: (state, View.Body.Emacs.t, View.Header.t, string) => Promise.t<unit>
+  let displayInAppendMode: (state, View.Header.t, View.Body.t) => Promise.t<unit>
   let displayOutOfGoalError: state => Promise.t<unit>
   let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
   let displayConnectionStatus: (state, Connection.status) => Promise.t<unit>
@@ -150,6 +150,8 @@ module View: View = {
 
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))
+  let displayInAppendMode = (state, header, body) => sendEvent(state, Append(header, body))
+
   let displayOutOfGoalError = state =>
     display(state, Error("Out of goal"), [Item.plainText("Please place the cursor in a goal")])
 

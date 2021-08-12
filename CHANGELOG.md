@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - #61: `C-u C-x =` command not working
 
+### Changed
+- Append instead of flush when displaying RunningInfo
+
 ## v0.2.15 - 2021-08-08
 
 ### Changed

@@ -179,6 +179,7 @@ module EventToView = {
 
   type t =
     | Display(Header.t, Body.t)
+    | Append(Header.t, Body.t) // append instead of flushing the old Body.t
     | SetStatus(string)
     | PromptInterrupt
     | PromptIMUpdate(string)
@@ -187,6 +188,7 @@ module EventToView = {
   let toString = x =>
     switch x {
     | Display(header, _body) => "Display " ++ Header.toString(header)
+    | Append(header, _body) => "Append " ++ Header.toString(header)
     | SetStatus(status) => "SetStatus " ++ status
     | PromptInterrupt => "PromptInterrupt"
     | PromptIMUpdate(s) => "PromptIMUpdate " ++ s
@@ -202,10 +204,11 @@ module EventToView = {
     switch x {
     | "Display" =>
       Contents(
-        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Display(
-          header,
-          body,
-        )),
+        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Display(header, body)),
+      )
+    | "Append" =>
+      Contents(
+        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Append(header, body)),
       )
     | "SetStatus" => Contents(string |> map(text => SetStatus(text)))
     | "PromptInterrupt" => TagOnly(PromptInterrupt)
@@ -221,6 +224,12 @@ module EventToView = {
     | Display(header, body) =>
       object_(list{
         ("tag", string("Display")),
+        ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+      })
+
+    | Append(header, body) =>
+      object_(list{
+        ("tag", string("Append")),
         ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
       })
     | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})

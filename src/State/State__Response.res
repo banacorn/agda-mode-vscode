@@ -1,19 +1,22 @@
 // from Agda Response to Tasks
 open Belt
 
+let removeTrailingNewline = string =>
+  Js.String.endsWith("\\n", string)
+    ? Js.String.slice(~from=0, ~to_=Js.String.length(string) - 2, string)
+    : string
+
 open Response
 module DisplayInfo = {
   let handle = (state, x) =>
     switch x {
-    | Response.DisplayInfo.Generic(header, body) =>
-      State.View.display(state, Plain(header), body)
+    | Response.DisplayInfo.Generic(header, body) => State.View.display(state, Plain(header), body)
     | CompilationOk(body) =>
       State.View.display(state, Success("Compilation result"), [Item.plainText(body)])
     | CompilationOkLSP(warnings, errors) =>
       let message = [Item.plainText("The module was successfully compiled.")]
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
-      let warnings =
-        warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
+      let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
       State.View.display(
         state,
         Success("Compilation result"),
@@ -29,8 +32,7 @@ module DisplayInfo = {
       State.View.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
-      let warnings =
-        warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
+      let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
       State.View.display(state, Plain(header), Array.concatMany([goals, metas, errors, warnings]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
@@ -78,8 +80,7 @@ module DisplayInfo = {
           [Item.plainText(payload)],
         )
       )
-    | Version(payload) =>
-      State.View.display(state, Plain("Version"), [Item.plainText(payload)])
+    | Version(payload) => State.View.display(state, Plain("Version"), [Item.plainText(payload)])
     }
 }
 
@@ -197,8 +198,10 @@ let rec handle = (
     })
 
   | DisplayInfo(info) => DisplayInfo.handle(state, info)
+  | RunningInfo(1, message) =>
+    State.View.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(removeTrailingNewline(message))])
   | RunningInfo(_verbosity, message) =>
-    State.View.display(state, Plain("Type-checking"), [Item.plainText(message)])
+    State.View.displayInAppendMode(state, Plain("Debug"), [Item.plainText(removeTrailingNewline(message))])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
     Decoration.apply(state.decoration, state.editor)

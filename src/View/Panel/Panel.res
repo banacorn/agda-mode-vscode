@@ -48,11 +48,13 @@ let make = (
       setHeader(_ => header')
       setBody(_ => [])
       // don't erase the value in <input>
-      setPrompt(previous => switch previous {
-      | None => Some((body, placeholder, value))
-      | Some((_, _, None)) => Some((body, placeholder, value))
-      | Some((_, _, Some(oldValue))) => Some((body, placeholder, Some(oldValue)))
-      })
+      setPrompt(previous =>
+        switch previous {
+        | None => Some((body, placeholder, value))
+        | Some((_, _, None)) => Some((body, placeholder, value))
+        | Some((_, _, Some(oldValue))) => Some((body, placeholder, Some(oldValue)))
+        }
+      )
 
       let (promise, resolve) = Promise.pending()
       promptResponseResolver.current = Some(resolve)
@@ -85,6 +87,11 @@ let make = (
       saveHeaderAndBody(header, body)
       setHeader(_ => header)
       setBody(_ => body)
+    | Append(header, body) =>
+      onSubmit(None)
+      saveHeaderAndBody(header, body)
+      setHeader(_ => header)
+      setBody(old => Array.concat(old, body)) // append instead of flush
     | SetStatus(text) => setStatus(_ => text)
     }
   )
