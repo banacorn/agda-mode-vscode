@@ -1,9 +1,8 @@
 open State__Type
 
-
 module type Module = {
-  let activate: state => unit
-  let reveal: state => unit
+  // restore panel content after the corresponding editor was activated
+  let restore: state => unit
   // display stuff
   let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
   let displayInAppendMode: (state, View.Header.t, View.Body.t) => Promise.t<unit>
@@ -28,11 +27,7 @@ module Module: Module = {
     state.view->ViewController.sendRequest(request, callback)
   }
 
-  let activate = state => ViewCache.restore(state.viewCache, state.view)
-
-  let reveal = state => {
-    state.view->ViewController.reveal
-  }
+  let restore = state => ViewCache.restore(state.viewCache, state.view)
 
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))

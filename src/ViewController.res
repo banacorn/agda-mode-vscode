@@ -1,5 +1,5 @@
-// abstraction of a panel
-module Panel: {
+// abstraction of a VS Code WebviewPanel
+module WebviewPanel: {
   type t
   // constructor / destructor
   let make: (string, string) => t
@@ -164,7 +164,7 @@ module Panel: {
   }
 }
 
-// a thin layer on top of Panel
+// a thin layer on top of WebviewPanel
 module type PanelController = {
   type t
 
@@ -190,7 +190,7 @@ module PanelController: PanelController = {
       )
 
   type t = {
-    panel: Panel.t,
+    panel: WebviewPanel.t,
     onResponse: Chan.t<View__Type.Response.t>,
     onEvent: Chan.t<View__Type.EventFromView.t>,
     subscriptions: array<VSCode.Disposable.t>,
@@ -229,10 +229,10 @@ module PanelController: PanelController = {
       | Request(_) =>
         let promise = view.onResponse->Chan.once
         view.panel
-        ->Panel.send(stringified)
+        ->WebviewPanel.send(stringified)
         ->Promise.flatMap(_ => promise)
         ->Promise.map(res => Some(res))
-      | Event(_) => view.panel->Panel.send(stringified)->Promise.map(_ => None)
+      | Event(_) => view.panel->WebviewPanel.send(stringified)->Promise.map(_ => None)
       }
     }
 
@@ -252,7 +252,7 @@ module PanelController: PanelController = {
 
   let make = extensionPath => {
     let view = {
-      panel: Panel.make("Agda", extensionPath),
+      panel: WebviewPanel.make("Agda", extensionPath),
       subscriptions: [],
       onResponse: Chan.make(),
       onEvent: Chan.make(),
@@ -261,14 +261,14 @@ module PanelController: PanelController = {
 
     // Move the created panel to the bottom row
     switch Config.View.getPanelMountingPosition() {
-    | Bottom => Panel.moveToBottom()
+    | Bottom => WebviewPanel.moveToBottom()
     | Right => ()
     }
 
     // on message
     // relay Webview.onDidReceiveMessage => onResponse or onEvent
     view.panel
-    ->Panel.recv(json =>
+    ->WebviewPanel.recv(json =>
       switch View__Type.ResponseOrEventFromView.decode(json) {
       | Response(res) => view.onResponse->Chan.emit(res)
       | Event(ev) => view.onEvent->Chan.emit(ev)
@@ -280,7 +280,7 @@ module PanelController: PanelController = {
 
     // on destroy
     view.panel
-    ->Panel.onDestroyed(() => view.onEvent->Chan.emit(Destroyed))
+    ->WebviewPanel.onDestroyed(() => view.onEvent->Chan.emit(Destroyed))
     ->Js.Array.push(view.subscriptions)
     ->ignore
 
@@ -323,7 +323,7 @@ module PanelController: PanelController = {
     // destroy the chan first, to prevent the aforementioned from happening
     view.onResponse->Chan.destroy
     view.onEvent->Chan.destroy
-    view.panel->Panel.destroy
+    view.panel->WebviewPanel.destroy
     view.subscriptions->Belt.Array.forEach(VSCode.Disposable.dispose)
   }
 
@@ -342,8 +342,8 @@ module PanelController: PanelController = {
   }
 
   // show/focus
-  let reveal = view => view.panel->Panel.reveal
-  let focus = view => view.panel->Panel.focus
+  let reveal = view => view.panel->WebviewPanel.reveal
+  let focus = view => view.panel->WebviewPanel.focus
 }
 
 include PanelController

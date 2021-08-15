@@ -24,7 +24,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | Restart => dispatchCommand(Load)
   | Refresh =>
     state.decoration->Decoration.redecorate(state.editor)
-    State.View.activate(state)
+    State.View.restore(state)
     State__Goal.redecorate(state)
     Promise.resolved()
   | Compile => sendAgdaRequest(Compile)
