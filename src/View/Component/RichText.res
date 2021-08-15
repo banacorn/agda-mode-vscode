@@ -203,13 +203,13 @@ module Module = {
         | Link(range, children, className) =>
           let child = make(~value=RichText(children))
           <Link
-            key={string_of_int(i)} className jump=true hover=false target=Common.Link.SrcLoc(range)>
+            key={string_of_int(i)} className jump=true hover=false target=Link.SrcLoc(range)>
             {child}
           </Link>
         | Hole(index) =>
           let className = ["component-link", "component-hole"]
           <Link
-            key={string_of_int(i)} className jump=true hover=false target=Common.Link.Hole(index)>
+            key={string_of_int(i)} className jump=true hover=false target=Link.Hole(index)>
             {React.string("?" ++ string_of_int(index))}
           </Link>
         | Horz(elements) =>

@@ -15,10 +15,8 @@ module Header = {
     | Error(string) => string
     }
 
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "Plain" => Contents(string |> map(text => Plain(text)))
     | "Success" => Contents(string |> map(text => Success(text)))
@@ -26,16 +24,17 @@ module Header = {
     | "Error" => Contents(string |> map(text => Error(text)))
     | tag => raise(DecodeError("[Header] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | Plain(text) => object_(list{("tag", string("Plain")), ("contents", text |> string)})
     | Success(text) => object_(list{("tag", string("Success")), ("contents", text |> string)})
     | Warning(text) => object_(list{("tag", string("Warning")), ("contents", text |> string)})
     | Error(text) => object_(list{("tag", string("Error")), ("contents", text |> string)})
     }
+  }
 }
 
 module Prompt = {
@@ -46,11 +45,8 @@ module Prompt = {
   }
 
   // JSON encode/decode
-
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "Prompt" =>
       Contents(
@@ -66,10 +62,10 @@ module Prompt = {
       )
     | tag => raise(DecodeError("[Prompt] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | {body, placeholder, value} =>
       object_(list{
@@ -84,46 +80,10 @@ module Prompt = {
         ),
       })
     }
+  }
 }
 module Body = {
   type t = array<Item.t>
-  //   // Plain text only
-  //   // | Plain(string)
-  //   // Formatted by `formatWarningsAndErrors` for Emacs consumption
-  //   // | Emacs(Emacs.t, string, string)
-  //   | Items(array<Item.t>)
-
-  // open Json.Decode
-  // open Util.Decode
-
-  // let decode: decoder<t> = sum(x =>
-  //   switch x {
-  //   // | "Plain" => Contents(string |> map(text => Plain(text)))
-  //   // | "Emacs" =>
-  //   //   Contents(
-  //   //     tuple3(Emacs.decode, string, string) |> map(((kind, header, body)) => Emacs(
-  //   //       kind,
-  //   //       header,
-  //   //       body,
-  //   //     )),
-  //   //   )
-  //   | "Items" => Contents(array(Item.decode) |> map(items => Items(items)))
-  //   | tag => raise(DecodeError("[Body] Unknown constructor: " ++ tag))
-  //   }
-  // )
-
-  // open! Json.Encode
-  // let encode: encoder<t> = x =>
-  //   switch x {
-  //   // | Plain(text) => object_(list{("tag", string("Plain")), ("contents", text |> string)})
-  //   // | Emacs(kind, header, body) =>
-  //   //   object_(list{
-  //   //     ("tag", string("Emacs")),
-  //   //     ("contents", (kind, header, body) |> tuple3(Emacs.encode, string, string)),
-  //   //   })
-  //   | Items(items) =>
-  //     object_(list{("tag", string("Items")), ("contents", items |> array(Item.encode))})
-  //   }
 }
 
 module EventToView = {
@@ -137,10 +97,8 @@ module EventToView = {
       | BrowseDown
       | BrowseLeft
 
-    open Json.Decode
-    open Util.Decode
-
-    let decode: decoder<t> = sum(x =>
+    let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+      open Json.Decode
       switch x {
       | "Activate" => TagOnly(Activate)
       | "Deactivate" => TagOnly(Deactivate)
@@ -158,10 +116,10 @@ module EventToView = {
       | "BrowseLeft" => TagOnly(BrowseLeft)
       | tag => raise(DecodeError("[EventToView.InputMethod] Unknown constructor: " ++ tag))
       }
-    )
+    })
 
-    open! Json.Encode
-    let encode: encoder<t> = x =>
+    let encode: Json.Encode.encoder<t> = x => {
+      open Json.Encode
       switch x {
       | Activate => object_(list{("tag", string("Activate"))})
       | Deactivate => object_(list{("tag", string("Deactivate"))})
@@ -175,6 +133,7 @@ module EventToView = {
       | BrowseDown => object_(list{("tag", string("BrowseDown"))})
       | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
       }
+    }
   }
 
   type t =
@@ -196,11 +155,8 @@ module EventToView = {
     }
 
   // JSON encode/decode
-
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "Display" =>
       Contents(
@@ -216,10 +172,10 @@ module EventToView = {
     | "InputMethod" => Contents(InputMethod.decode |> map(x => InputMethod(x)))
     | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | Display(header, body) =>
       object_(list{
@@ -239,6 +195,7 @@ module EventToView = {
     | InputMethod(payload) =>
       object_(list{("tag", string("InputMethod")), ("contents", payload |> InputMethod.encode)})
     }
+  }
 }
 
 module Request = {
@@ -250,11 +207,8 @@ module Request = {
     }
 
   // JSON encode/decode
-
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "Prompt" =>
       Contents(
@@ -262,10 +216,10 @@ module Request = {
       )
     | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | Prompt(header, prompt) =>
       object_(list{
@@ -273,6 +227,7 @@ module Request = {
         ("contents", (header, prompt) |> pair(Header.encode, Prompt.encode)),
       })
     }
+  }
 }
 
 module RequestOrEventToView = {
@@ -287,26 +242,24 @@ module RequestOrEventToView = {
     }
 
   // JSON encode/decode
-
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "Request" => Contents(Request.decode |> map(x => Request(x)))
     | "Event" => Contents(EventToView.decode |> map(x => Event(x)))
     | tag => raise(DecodeError("[RequestOrEventToView] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | Request(payload) =>
       object_(list{("tag", string("Request")), ("contents", payload |> Request.encode)})
     | Event(payload) =>
       object_(list{("tag", string("Event")), ("contents", payload |> EventToView.encode)})
     }
+  }
 }
 
 module Response = {
@@ -314,24 +267,133 @@ module Response = {
     | PromptSuccess(string)
     | PromptInterrupted
 
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "PromptSuccess" => Contents(string |> map(result => PromptSuccess(result)))
     | "PromptInterrupted" => TagOnly(PromptInterrupted)
     | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | PromptSuccess(result) =>
       object_(list{("tag", string("PromptSuccess")), ("contents", result |> string)})
     | PromptInterrupted => object_(list{("tag", string("PromptInterrupted"))})
     }
+  }
+}
+
+module EventFromView = {
+  module InputMethod = {
+    type t =
+      | InsertChar(string)
+      | ChooseSymbol(string)
+
+    let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+      open Json.Decode
+      switch x {
+      | "InsertChar" => Contents(string |> map(char => InsertChar(char)))
+      | "ChooseSymbol" => Contents(string |> map(char => ChooseSymbol(char)))
+      | tag => raise(DecodeError("[EventFromView.InputMethod] Unknown constructor: " ++ tag))
+      }
+    })
+
+    open! Json.Encode
+    let encode: Json.Encode.encoder<t> = x =>
+      switch x {
+      | InsertChar(char) =>
+        object_(list{("tag", string("InsertChar")), ("contents", char |> string)})
+      | ChooseSymbol(symbol) =>
+        object_(list{("tag", string("ChooseSymbol")), ("contents", symbol |> string)})
+      }
+  }
+
+  module PromptIMUpdate = {
+    type t =
+      | MouseSelect(Interval.t)
+      | KeyUpdate(string)
+      | BrowseUp
+      | BrowseDown
+      | BrowseLeft
+      | BrowseRight
+      | Escape
+
+    open Json.Decode
+
+    let decode: Json.Decode.decoder<t> = Util.Decode.sum(x =>
+      switch x {
+      | "MouseSelect" => Contents(Interval.decode |> map(interval => MouseSelect(interval)))
+      | "KeyUpdate" => Contents(string |> map(char => KeyUpdate(char)))
+      | "BrowseUp" => TagOnly(BrowseUp)
+      | "BrowseDown" => TagOnly(BrowseDown)
+      | "BrowseLeft" => TagOnly(BrowseLeft)
+      | "BrowseRight" => TagOnly(BrowseRight)
+      | "Escape" => TagOnly(Escape)
+      | tag => raise(DecodeError("[EventFromView.Prompt] Unknown constructor: " ++ tag))
+      }
+    )
+
+    open! Json.Encode
+    let encode: Json.Encode.encoder<t> = x =>
+      switch x {
+      | MouseSelect(interval) =>
+        object_(list{("tag", string("MouseSelect")), ("contents", interval |> Interval.encode)})
+      | KeyUpdate(char) => object_(list{("tag", string("KeyUpdate")), ("contents", char |> string)})
+      | BrowseUp => object_(list{("tag", string("BrowseUp"))})
+      | BrowseDown => object_(list{("tag", string("BrowseDown"))})
+      | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
+      | BrowseRight => object_(list{("tag", string("BrowseRight"))})
+      | Escape => object_(list{("tag", string("Escape"))})
+      }
+  }
+
+  type t =
+    | Initialized
+    | Destroyed
+    | InputMethod(InputMethod.t)
+    | PromptIMUpdate(PromptIMUpdate.t)
+
+  let chan: Chan.t<t> = Chan.make()
+  let eventContext = React.createContext(chan)
+
+  module Provider = {
+    let makeProps = (~value, ~children, ()) =>
+      {
+        "value": value,
+        "children": children,
+      }
+
+    let make = React.Context.provider(eventContext)
+  }
+
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
+    switch x {
+    | "Initialized" => TagOnly(Initialized)
+    | "Destroyed" => TagOnly(Destroyed)
+    | "InputMethod" => Contents(InputMethod.decode |> map(action => InputMethod(action)))
+    | "PromptIMUpdate" => Contents(PromptIMUpdate.decode |> map(action => PromptIMUpdate(action)))
+    | tag => raise(DecodeError("[EventFromView] Unknown constructor: " ++ tag))
+    }
+  })
+
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
+    switch x {
+    | Initialized => object_(list{("tag", string("Initialized"))})
+    | Destroyed => object_(list{("tag", string("Destroyed"))})
+    | InputMethod(action) =>
+      object_(list{("tag", string("InputMethod")), ("contents", action |> InputMethod.encode)})
+    | PromptIMUpdate(action) =>
+      object_(list{
+        ("tag", string("PromptIMUpdate")),
+        ("contents", action |> PromptIMUpdate.encode),
+      })
+    }
+  }
 }
 
 module ResponseOrEventFromView = {
@@ -340,24 +402,22 @@ module ResponseOrEventFromView = {
     | Event(EventFromView.t)
 
   // JSON encode/decode
-
-  open Json.Decode
-  open Util.Decode
-
-  let decode: decoder<t> = sum(x =>
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
     switch x {
     | "Response" => Contents(Response.decode |> map(x => Response(x)))
     | "Event" => Contents(EventFromView.decode |> map(x => Event(x)))
     | tag => raise(DecodeError("[ResponseOrEventFromView] Unknown constructor: " ++ tag))
     }
-  )
+  })
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
     switch x {
     | Response(payload) =>
       object_(list{("tag", string("Response")), ("contents", payload |> Response.encode)})
     | Event(payload) =>
       object_(list{("tag", string("Event")), ("contents", payload |> EventFromView.encode)})
     }
+  }
 }

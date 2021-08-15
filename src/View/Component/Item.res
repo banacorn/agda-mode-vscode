@@ -39,7 +39,7 @@ let make = (~item: t) => {
         className=["item-location-button"]
         jump=true
         hover=false
-        target=Common.Link.SrcLoc(location)>
+        target=Link.SrcLoc(location)>
         <div className="codicon codicon-link" />
       </Link>
     | None => <> </>

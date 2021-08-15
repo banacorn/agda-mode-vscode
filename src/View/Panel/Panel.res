@@ -5,7 +5,7 @@ let make = (
   ~onRequest: Chan.t<View.Request.t>,
   ~onEventToView: Chan.t<View.EventToView.t>,
   ~onResponse: Chan.t<View.Response.t>,
-  ~onEventFromView: Chan.t<Common.EventFromView.t>,
+  ~onEventFromView: Chan.t<View.EventFromView.t>,
 ) => {
   let (header, setHeader) = React.useState(() => View.Header.Plain("File not loaded yet"))
   let (status, setStatus) = React.useState(() => "")
@@ -96,7 +96,7 @@ let make = (
     }
   )
 
-  <Link.Provider value=onEventFromView>
+  <View.EventFromView.Provider value=onEventFromView>
     <section className="agda-mode native-key-bindings" tabIndex={-1}>
       <div className="agda-mode-header-container">
         <Header header status />
@@ -112,5 +112,5 @@ let make = (
       </div>
       <Body items=body />
     </section>
-  </Link.Provider>
+  </View.EventFromView.Provider>
 }
