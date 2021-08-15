@@ -1,5 +1,3 @@
-open Belt
-
 // abstraction of a panel
 module Panel: {
   type t
@@ -173,9 +171,9 @@ module type PanelController = {
   let make: string => t
   let destroy: t => unit
 
-  let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
-  let sendRequest: (t, View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
-  let onEvent: (t, View.EventFromView.t => unit) => VSCode.Disposable.t
+  let sendEvent: (t, View__Type.EventToView.t) => Promise.t<unit>
+  let sendRequest: (t, View__Type.Request.t, View__Type.Response.t => Promise.t<unit>) => Promise.t<unit>
+  let onEvent: (t, View__Type.EventFromView.t => unit) => VSCode.Disposable.t
 
   let onceDestroyed: t => Promise.t<unit>
 
@@ -187,14 +185,14 @@ module PanelController: PanelController = {
   type status =
     | Initialized
     | Uninitialized(
-        array<(View.Request.t, View.ResponseOrEventFromView.t => unit)>,
-        array<View.EventToView.t>,
+        array<(View__Type.Request.t, View__Type.ResponseOrEventFromView.t => unit)>,
+        array<View__Type.EventToView.t>,
       )
 
   type t = {
     panel: Panel.t,
-    onResponse: Chan.t<View.Response.t>,
-    onEvent: Chan.t<View.EventFromView.t>,
+    onResponse: Chan.t<View__Type.Response.t>,
+    onEvent: Chan.t<View__Type.EventFromView.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable status: status,
   }
@@ -203,7 +201,7 @@ module PanelController: PanelController = {
   let send = (view, requestOrEvent) =>
     switch view.status {
     | Uninitialized(queuedRequests, queuedEvents) =>
-      open View.RequestOrEventToView
+      open View__Type.RequestOrEventToView
       switch requestOrEvent {
       | Request(req) =>
         let (promise, resolve) = Promise.pending()
@@ -212,7 +210,7 @@ module PanelController: PanelController = {
             req,
             x =>
               switch x {
-              | View.ResponseOrEventFromView.Event(_) => resolve(None)
+              | View__Type.ResponseOrEventFromView.Event(_) => resolve(None)
               | Response(res) => resolve(Some(res))
               },
           ),
@@ -224,8 +222,8 @@ module PanelController: PanelController = {
         Promise.resolved(None)
       }
     | Initialized =>
-      open View.RequestOrEventToView
-      let stringified = Js.Json.stringify(View.RequestOrEventToView.encode(requestOrEvent))
+      open View__Type.RequestOrEventToView
+      let stringified = Js.Json.stringify(View__Type.RequestOrEventToView.encode(requestOrEvent))
 
       switch requestOrEvent {
       | Request(_) =>
@@ -239,9 +237,9 @@ module PanelController: PanelController = {
     }
 
   let sendEvent = (view, event) =>
-    send(view, View.RequestOrEventToView.Event(event))->Promise.map(_ => ())
+    send(view, View__Type.RequestOrEventToView.Event(event))->Promise.map(_ => ())
   let sendRequest = (view, request, callback) =>
-    send(view, View.RequestOrEventToView.Request(request))->Promise.flatMap(x =>
+    send(view, View__Type.RequestOrEventToView.Request(request))->Promise.flatMap(x =>
       switch x {
       | None => Promise.resolved()
       | Some(response) => callback(response)
@@ -271,7 +269,7 @@ module PanelController: PanelController = {
     // relay Webview.onDidReceiveMessage => onResponse or onEvent
     view.panel
     ->Panel.recv(json =>
-      switch View.ResponseOrEventFromView.decode(json) {
+      switch View__Type.ResponseOrEventFromView.decode(json) {
       | Response(res) => view.onResponse->Chan.emit(res)
       | Event(ev) => view.onEvent->Chan.emit(ev)
       | exception e => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
@@ -295,15 +293,15 @@ module PanelController: PanelController = {
         | Uninitialized(queuedRequests, queuedEvents) =>
           view.status = Initialized
           queuedRequests->Belt.Array.forEach(((req, resolve)) =>
-            send(view, View.RequestOrEventToView.Request(req))->Promise.get(x =>
+            send(view, View__Type.RequestOrEventToView.Request(req))->Promise.get(x =>
               switch x {
               | None => ()
-              | Some(res) => resolve(View.ResponseOrEventFromView.Response(res))
+              | Some(res) => resolve(View__Type.ResponseOrEventFromView.Response(res))
               }
             )
           )
           queuedEvents->Belt.Array.forEach(event =>
-            send(view, View.RequestOrEventToView.Event(event))->ignore
+            send(view, View__Type.RequestOrEventToView.Event(event))->ignore
           )
         | Initialized => ()
         }
@@ -319,7 +317,7 @@ module PanelController: PanelController = {
 
   let destroy = view => {
     // if we invoke `view.panel->WebviewPanel.dispose` first,
-    // this would trigger `View.ResponseOrEventFromView.Event(Destroyed)`
+    // this would trigger `View__Type.ResponseOrEventFromView__Type.Event(Destroyed)`
     // and in turns would trigger this function AGAIN
 
     // destroy the chan first, to prevent the aforementioned from happening
@@ -346,33 +344,6 @@ module PanelController: PanelController = {
   // show/focus
   let reveal = view => view.panel->Panel.reveal
   let focus = view => view.panel->Panel.focus
-}
-
-module type Handle = {
-  // methods
-  let make: string => PanelController.t
-  let destroy: unit => unit
-}
-
-module Handle: Handle = {
-  let handle: ref<option<PanelController.t>> = ref(None)
-  let make = extensionPath =>
-    switch handle.contents {
-    | None =>
-      let panel = PanelController.make(extensionPath)
-      handle := Some(panel)
-      // free the handle when the view has been forcibly destructed
-      PanelController.onceDestroyed(panel)->Promise.get(() => {
-        handle := None
-      })
-      panel
-    | Some(panel) => panel
-    }
-
-  let destroy = () => {
-    handle.contents->Option.forEach(PanelController.destroy)
-    handle := None
-  }
 }
 
 include PanelController

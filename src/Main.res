@@ -45,7 +45,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     VSCode.Commands.setContext("agdaMode", true)->ignore
   }
 
-  let view = ViewController.Handle.make(extensionPath)
+  let view = View.Panel.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
@@ -149,7 +149,7 @@ let finalize = () => {
     // keybinding: disable most of the command bindings
     VSCode.Commands.setContext("agdaMode", false)->ignore
     // deactivate the view accordingly
-    ViewController.Handle.destroy()
+    View.Panel.destroy()
   }
   Promise.resolved()
 }
