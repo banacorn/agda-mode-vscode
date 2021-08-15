@@ -6,6 +6,31 @@ let isAgda = (fileName): bool => {
   Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), fileName)
 }
 
+module PanelSingleton: {
+  // methods
+  let make: string => ViewController.t
+  let destroy: unit => unit
+} = {
+  let handle: ref<option<ViewController.t>> = ref(None)
+  let make = extensionPath =>
+    switch handle.contents {
+    | None =>
+      let panel = ViewController.make(extensionPath)
+      handle := Some(panel)
+      // free the handle when the view has been forcibly destructed
+      ViewController.onceDestroyed(panel)->Promise.get(() => {
+        handle := None
+      })
+      panel
+    | Some(panel) => panel
+    }
+
+  let destroy = () => {
+    handle.contents->Option.forEach(ViewController.destroy)
+    handle := None
+  }
+}
+
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
@@ -45,7 +70,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     VSCode.Commands.setContext("agdaMode", true)->ignore
   }
 
-  let view = View.Panel.make(extensionPath)
+  let view = PanelSingleton.make(extensionPath)
   ViewController.onceDestroyed(view)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
@@ -149,7 +174,7 @@ let finalize = () => {
     // keybinding: disable most of the command bindings
     VSCode.Commands.setContext("agdaMode", false)->ignore
     // deactivate the view accordingly
-    View.Panel.destroy()
+    PanelSingleton.destroy()
   }
   Promise.resolved()
 }
