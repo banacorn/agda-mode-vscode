@@ -181,7 +181,7 @@ module Module: Module = {
         updateIntervals(state)
         Promise.resolved()
       | false =>
-        State.View.display(
+        State.View.Panel.display(
           state,
           Error("Goal-related Error"),
           [
@@ -347,7 +347,7 @@ module Module: Module = {
         placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
         Promise.resolved()
       | false =>
-        State.View.display(
+        State.View.Panel.display(
           state,
           Error("Goal-related Error"),
           [
@@ -386,7 +386,7 @@ module Module: Module = {
         placeCursorAtFirstNewGoal(state, indentedLines, rangeToBeReplaced)
         Promise.resolved()
       | false =>
-        State.View.display(
+        State.View.Panel.display(
           state,
           Error("Goal-related Error"),
           [
@@ -411,7 +411,7 @@ module Module: Module = {
         Goal.destroy(goal)
         Promise.resolved()
       | false =>
-        State.View.display(
+        State.View.Panel.display(
           state,
           Error("Goal-related Error"),
           [

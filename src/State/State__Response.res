@@ -10,77 +10,77 @@ open Response
 module DisplayInfo = {
   let handle = (state, x) =>
     switch x {
-    | Response.DisplayInfo.Generic(header, body) => State.View.display(state, Plain(header), body)
+    | Response.DisplayInfo.Generic(header, body) => State.View.Panel.display(state, Plain(header), body)
     | CompilationOk(body) =>
-      State.View.display(state, Success("Compilation result"), [Item.plainText(body)])
+      State.View.Panel.display(state, Success("Compilation result"), [Item.plainText(body)])
     | CompilationOkLSP(warnings, errors) =>
       let message = [Item.plainText("The module was successfully compiled.")]
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
-      State.View.display(
+      State.View.Panel.display(
         state,
         Success("Compilation result"),
         Array.concatMany([message, errors, warnings]),
       )
-    | Constraints(None) => State.View.display(state, Plain("No Constraints"), [])
+    | Constraints(None) => State.View.Panel.display(state, Plain("No Constraints"), [])
     | Constraints(Some(body)) =>
       let items = Emacs__Parser2.parseOutputs(body)
-      State.View.display(state, Plain("Constraints"), items)
-    | AllGoalsWarnings(header, "nil") => State.View.display(state, Success(header), [])
+      State.View.Panel.display(state, Plain("Constraints"), items)
+    | AllGoalsWarnings(header, "nil") => State.View.Panel.display(state, Success(header), [])
     | AllGoalsWarnings(header, body) =>
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
-      State.View.display(state, Plain(header), items)
+      State.View.Panel.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
-      State.View.display(state, Plain(header), Array.concatMany([goals, metas, errors, warnings]))
+      State.View.Panel.display(state, Plain(header), Array.concatMany([goals, metas, errors, warnings]))
     | Time(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
-      State.View.display(state, Plain("Time"), items)
+      State.View.Panel.display(state, Plain("Time"), items)
     | Error(body) =>
       let items = Emacs__Parser2.parseError(body)
-      State.View.display(state, Error("Error"), items)
+      State.View.Panel.display(state, Error("Error"), items)
     | Intro(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
-      State.View.display(state, Plain("Intro"), items)
+      State.View.Panel.display(state, Plain("Intro"), items)
     | Auto(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
-      State.View.display(state, Plain("Auto"), items)
+      State.View.Panel.display(state, Plain("Auto"), items)
     | ModuleContents(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
-      State.View.display(state, Plain("Module Contents"), items)
+      State.View.Panel.display(state, Plain("Module Contents"), items)
     | SearchAbout(body) =>
       let items = Emacs__Parser2.parseSearchAbout(body)
-      State.View.display(state, Plain("Search About"), items)
+      State.View.Panel.display(state, Plain("Search About"), items)
     | WhyInScope(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
-      State.View.display(state, Plain("Scope info"), items)
+      State.View.Panel.display(state, Plain("Scope info"), items)
     | NormalForm(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
-      State.View.display(state, Plain("Normal form"), items)
+      State.View.Panel.display(state, Plain("Normal form"), items)
     | GoalType(body) =>
       let items = Emacs__Parser2.parseGoalType(body)
-      State.View.display(state, Plain("Goal and Context"), items)
-    | CurrentGoalLSP(item) => State.View.display(state, Plain("Current Goal"), [item])
+      State.View.Panel.display(state, Plain("Goal and Context"), items)
+    | CurrentGoalLSP(item) => State.View.Panel.display(state, Plain("Current Goal"), [item])
     | CurrentGoal(payload) =>
-      State.View.display(state, Plain("Current Goal"), [Item.plainText(payload)])
+      State.View.Panel.display(state, Plain("Current Goal"), [Item.plainText(payload)])
     | InferredType(payload) =>
-      State.View.display(state, Plain("Inferred type"), [Item.plainText(payload)])
-    | InferredTypeLSP(item) => State.View.display(state, Plain("Inferred type"), [item])
+      State.View.Panel.display(state, Plain("Inferred type"), [Item.plainText(payload)])
+    | InferredTypeLSP(item) => State.View.Panel.display(state, Plain("Inferred type"), [item])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
-      State.View.display(state, Plain("Context"), items)
+      State.View.Panel.display(state, Plain("Context"), items)
     | HelperFunction(payload) =>
       VSCode.Env.clipboard
       ->VSCode.Clipboard.writeText(payload)
       ->Promise.flatMap(() =>
-        State.View.display(
+        State.View.Panel.display(
           state,
           Plain("Helper function (copied to clipboard)"),
           [Item.plainText(payload)],
         )
       )
-    | Version(payload) => State.View.display(state, Plain("Version"), [Item.plainText(payload)])
+    | Version(payload) => State.View.Panel.display(state, Plain("Version"), [Item.plainText(payload)])
     }
 }
 
@@ -144,7 +144,7 @@ let rec handle = (
     let found = state.goals->Array.keep(goal => goal.index == index)
     switch found[0] {
     | None =>
-      State.View.display(
+      State.View.Panel.display(
         state,
         Error("Error: Give failed"),
         [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
@@ -166,7 +166,7 @@ let rec handle = (
     }
   | MakeCase(makeCaseType, lines) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)
     | Some((goal, _)) =>
       switch makeCaseType {
       | Function => State__Goal.replaceWithLines(state, goal, lines)
@@ -191,17 +191,17 @@ let rec handle = (
     ->Promise.flatMap(_ => {
       let size = Array.length(solutions)
       if size == 0 {
-        State.View.display(state, Error("No solutions found"), [])
+        State.View.Panel.display(state, Error("No solutions found"), [])
       } else {
-        State.View.display(state, Success(string_of_int(size) ++ " goals solved"), [])
+        State.View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
     })
 
   | DisplayInfo(info) => DisplayInfo.handle(state, info)
   | RunningInfo(1, message) =>
-    State.View.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(removeTrailingNewline(message))])
+    State.View.Panel.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(removeTrailingNewline(message))])
   | RunningInfo(_verbosity, message) =>
-    State.View.displayInAppendMode(state, Plain("Debug"), [Item.plainText(removeTrailingNewline(message))])
+    State.View.Panel.displayInAppendMode(state, Plain("Debug"), [Item.plainText(removeTrailingNewline(message))])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
     Decoration.apply(state.decoration, state.editor)

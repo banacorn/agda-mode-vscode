@@ -57,12 +57,6 @@ module WebviewPanel: {
         VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"]),
       )->VSCode.Uri.toString
 
-    // let codiconsFontUri =
-    //   VSCode.Webview.asWebviewUri(
-    //     webview,
-    //     VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.ttf"]),
-    //   )->VSCode.Uri.toString
-
     // Content-Security-Policy
     let defaultSrc = "default-src 'none'; "
     let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "

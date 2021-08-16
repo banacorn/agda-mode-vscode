@@ -1,6 +1,7 @@
 open State__Type
+open Belt
 
-module type Module = {
+module type Panel = {
   // restore panel content after the corresponding editor was activated
   let restore: state => unit
   // display stuff
@@ -17,7 +18,7 @@ module type Module = {
   let interruptPrompt: state => Promise.t<unit>
 }
 
-module Module: Module = {
+module Panel: Panel = {
   let sendEvent = (state, event: View.EventToView.t) => {
     state.panelCache->ViewCache.cacheEvent(event)
     state.panel->WebviewPanel.sendEvent(event)
@@ -100,4 +101,30 @@ module Module: Module = {
     })
 }
 
-include Module
+module type DebugBuffer = {
+  // lifecycle
+  let start: state => unit
+  let destroy: state => unit
+  // restore panel content after the corresponding editor was activated
+  let restore: state => unit
+  let reveal: state => unit
+}
+
+module DebugBuffer: DebugBuffer = {
+  let start = state =>
+    switch state.debugBuffer {
+    | None =>
+      let debugBuffer = WebviewPanel.make("Agda Debug Buffer", state.extensionPath)
+      // on destroyed
+      WebviewPanel.onceDestroyed(debugBuffer)->Promise.get(() => {
+        state.debugBuffer = None
+      })
+      state.debugBuffer = Some(debugBuffer)
+    | Some(_) => ()
+    }
+  let destroy = state => state.debugBuffer->Option.forEach(WebviewPanel.destroy)
+
+  let restore = state =>
+    state.debugBuffer->Option.forEach(ViewCache.restore(state.debugBufferCache))
+  let reveal = state => state.debugBuffer->Option.forEach(WebviewPanel.reveal)
+}

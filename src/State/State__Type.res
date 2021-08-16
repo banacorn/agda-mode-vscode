@@ -92,7 +92,7 @@ type t = {
   mutable document: VSCode.TextDocument.t,
   panel: WebviewPanel.t,
   panelCache: ViewCache.t,
-  debugBuffer: option<WebviewPanel.t>,
+  mutable debugBuffer: option<WebviewPanel.t>,
   debugBufferCache: ViewCache.t,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
@@ -105,6 +105,7 @@ type t = {
   // Agda Request queue
   mutable agdaRequestQueue: RequestQueue.t,
   globalStoragePath: string,
+  extensionPath: string,
 }
 type state = t
 

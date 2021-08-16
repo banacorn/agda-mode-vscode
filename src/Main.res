@@ -101,7 +101,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   WebviewPanel.onceDestroyed(panel)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, globalStoragePath, editor, panel)
+  let state = State.make(debugChan, globalStoragePath, extensionPath, editor, panel)
 
   // remove it from the Registry on request 
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))

@@ -7,7 +7,7 @@ let make = (
   ~onResponse: Chan.t<View.Response.t>,
   ~onEventFromView: Chan.t<View.EventFromView.t>,
 ) => {
-  let (header, setHeader) = React.useState(() => View.Header.Plain("File not loaded yet"))
+  let (header, setHeader) = React.useState(() => View.Header.Plain("Loading ..."))
   let (status, setStatus) = React.useState(() => "")
   let (body, setBody) = React.useState(() => [])
   // save Header & Body up

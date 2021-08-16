@@ -17,7 +17,7 @@ let sendRequest = (
   let sendRequestAndHandleResponses = (state, request, handler) => {
     let onResponse = result =>
       switch result {
-      | Error(error) => View.displayConnectionError(state, error)
+      | Error(error) => View.Panel.displayConnectionError(state, error)
       | Ok(response) => handler(response)
       }
     Connection.sendRequest(
@@ -28,8 +28,8 @@ let sendRequest = (
       onResponse,
     )->Promise.flatMap(result =>
       switch result {
-      | Error(error) => View.displayConnectionError(state, error)
-      | Ok(status) => View.displayConnectionStatus(state, status)
+      | Error(error) => View.Panel.displayConnectionError(state, error)
+      | Ok(status) => View.Panel.displayConnectionStatus(state, status)
       }
     )
   }
@@ -53,7 +53,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, globalStoragePath, editor, panel) => {
+let make = (chan, globalStoragePath, extensionPath, editor, panel) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
   panel: panel,
@@ -69,4 +69,5 @@ let make = (chan, globalStoragePath, editor, panel) => {
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
   globalStoragePath: globalStoragePath,
+  extensionPath: extensionPath
 }
