@@ -19,15 +19,15 @@ module type Module = {
 
 module Module: Module = {
   let sendEvent = (state, event: View.EventToView.t) => {
-    state.viewCache->ViewCache.cacheEvent(event)
-    state.view->ViewController.sendEvent(event)
+    state.panelCache->ViewCache.cacheEvent(event)
+    state.panel->WebviewPanel.sendEvent(event)
   }
   let sendRequest = (state, request: View.Request.t, callback) => {
-    state.viewCache->ViewCache.cacheRequest(request, callback)
-    state.view->ViewController.sendRequest(request, callback)
+    state.panelCache->ViewCache.cacheRequest(request, callback)
+    state.panel->WebviewPanel.sendRequest(request, callback)
   }
 
-  let restore = state => ViewCache.restore(state.viewCache, state.view)
+  let restore = state => ViewCache.restore(state.panelCache, state.panel)
 
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))
@@ -62,7 +62,7 @@ module Module: Module = {
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)
-    state.view->ViewController.focus
+    state.panel->WebviewPanel.focus
 
     // send request to view
     sendRequest(state, Prompt(header, prompt), response =>
@@ -73,16 +73,16 @@ module Module: Module = {
           // put the focus back to the editor after prompting
           Editor.focus(state.document)
           // prompt success, clear the cached prompt
-          ViewCache.clearPrompt(state.viewCache)
+          ViewCache.clearPrompt(state.panelCache)
         })
       | PromptInterrupted =>
         Context.setPrompt(false)
         // put the focus back to the editor after prompting
         Editor.focus(state.document)
         // prompt interrupted, clear the cached prompt
-        ViewCache.clearPrompt(state.viewCache)
+        ViewCache.clearPrompt(state.panelCache)
         // restore the previously cached view
-        ViewCache.restore(state.viewCache, state.view)
+        ViewCache.restore(state.panelCache, state.panel)
         Promise.resolved()
       }
     )
@@ -94,9 +94,9 @@ module Module: Module = {
       // put the focus back to the editor after prompting
       Editor.focus(state.document)
       // prompt interrupted, clear the cached prompt
-      ViewCache.clearPrompt(state.viewCache)
+      ViewCache.clearPrompt(state.panelCache)
       // restore the previously cached view
-      ViewCache.restore(state.viewCache, state.view)
+      ViewCache.restore(state.panelCache, state.panel)
     })
 }
 

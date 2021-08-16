@@ -428,7 +428,6 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | InputMethod(BrowseLeft) => State__InputMethod.moveLeft(state)
   | InputMethod(BrowseRight) => State__InputMethod.moveRight(state)
   | LookupSymbol =>
-
     // get the selected text
     // query the user instead if no text is selected
     let (promise, resolve) = Promise.pending()
@@ -448,7 +447,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       resolve(selectedText)
     }
 
-    // lookup and display 
+    // lookup and display
     promise->Promise.flatMap(input => {
       let sequences = Translator.lookup(input)->Option.getWithDefault([])
       if Js.Array.length(sequences) == 0 {
@@ -469,5 +468,11 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         )
       }
     })
+  | OpenDebugBuffer => Js.log("OPEN")
+    Promise.resolved()
+    // switch state.debugBuffer {
+    // | Some(debugBuffer) => expression
+    // | pattern2 => expression
+    // }
   }
 }

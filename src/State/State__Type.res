@@ -78,10 +78,10 @@ module ViewCache = {
   let restore = (self, view) =>
     switch self.prompt {
     | Some((header, prompt, callback)) =>
-      view->ViewController.sendRequest(Prompt(header, prompt), callback)->ignore
+      view->WebviewPanel.sendRequest(Prompt(header, prompt), callback)->ignore
     | None =>
       self.display->Option.forEach(((header, body)) =>
-        view->ViewController.sendEvent(Display(header, body))->ignore
+        view->WebviewPanel.sendEvent(Display(header, body))->ignore
       )
     }
 }
@@ -90,8 +90,10 @@ module ViewCache = {
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
-  view: ViewController.t,
-  viewCache: ViewCache.t,
+  panel: WebviewPanel.t,
+  panelCache: ViewCache.t,
+  debugBuffer: option<WebviewPanel.t>,
+  debugBufferCache: ViewCache.t,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,

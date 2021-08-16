@@ -96,6 +96,7 @@ type t =
   | Escape
   | InputMethod(InputMethod.t)
   | LookupSymbol
+  | OpenDebugBuffer
 
 // for registering Keybindings
 let names: array<(t, string)> = [
@@ -161,7 +162,8 @@ let names: array<(t, string)> = [
   (InputMethod(BrowseLeft), "input-symbol[BrowseLeft]"),
   (InputMethod(InsertChar("{")), "input-symbol[InsertOpenCurlyBraces]"),
   (InputMethod(InsertChar("(")), "input-symbol[InsertOpenParenthesis]"),
-  (LookupSymbol, "lookup-symbol")
+  (LookupSymbol, "lookup-symbol"),
+  (OpenDebugBuffer, "open-debug-buffer")
 ]
 
 // for human
@@ -206,4 +208,5 @@ let toString = x =>
   | Escape => "Escape"
   | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action)
   | LookupSymbol => "Lookup Unicode symbol input sequence"
+  | OpenDebugBuffer => "Open debug buffer"
   }

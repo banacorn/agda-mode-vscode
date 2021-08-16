@@ -168,7 +168,7 @@ module WebviewPanel: {
 module type Module = {
   type t
 
-  let make: string => t
+  let make: (string, string) => t
   let destroy: t => unit
 
   let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
@@ -250,9 +250,9 @@ module Module: Module = {
     // Handle events from the webview
     view.onEvent->Chan.on(callback)->VSCode.Disposable.make
 
-  let make = extensionPath => {
+  let make = (title, extensionPath) => {
     let view = {
-      panel: WebviewPanel.make("Agda", extensionPath),
+      panel: WebviewPanel.make(title, extensionPath),
       subscriptions: [],
       onResponse: Chan.make(),
       onEvent: Chan.make(),
