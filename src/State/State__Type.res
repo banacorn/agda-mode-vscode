@@ -93,7 +93,7 @@ type t = {
   panel: WebviewPanel.t,
   panelCache: ViewCache.t,
   mutable debugBuffer: option<WebviewPanel.t>,
-  debugBufferCache: ViewCache.t,
+  mutable runningInfoLog: array<(int, string)>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,

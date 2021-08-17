@@ -21,7 +21,10 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       )
     })
   | Quit => Promise.resolved()
-  | Restart => dispatchCommand(Load)
+  | Restart =>
+    // clear the RunningInfo log
+    state.runningInfoLog = []
+    dispatchCommand(Load)
   | Refresh =>
     state.decoration->Decoration.redecorate(state.editor)
     State.View.Panel.restore(state)
@@ -474,6 +477,5 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | OpenDebugBuffer =>
     State.View.DebugBuffer.start(state)
     State.View.DebugBuffer.reveal(state)
-    Promise.resolved()
   }
 }

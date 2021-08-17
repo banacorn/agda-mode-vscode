@@ -59,7 +59,7 @@ let make = (chan, globalStoragePath, extensionPath, editor, panel) => {
   panel: panel,
   panelCache: ViewCache.make(),
   debugBuffer: None,
-  debugBufferCache: ViewCache.make(),
+  runningInfoLog: [],
   goals: [],
   decoration: Decoration.make(),
   cursor: None,

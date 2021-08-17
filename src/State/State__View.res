@@ -106,8 +106,11 @@ module type DebugBuffer = {
   let start: state => unit
   let destroy: state => unit
   // restore panel content after the corresponding editor was activated
-  let restore: state => unit
-  let reveal: state => unit
+  // let restore: state => unit
+  let reveal: state => Promise.t<unit>
+  // display
+  let display: (state, array<(int, string)>) => Promise.t<unit>
+  let displayInAppendMode: (state, array<(int, string)>) => Promise.t<unit>
 }
 
 module DebugBuffer: DebugBuffer = {
@@ -124,7 +127,35 @@ module DebugBuffer: DebugBuffer = {
     }
   let destroy = state => state.debugBuffer->Option.forEach(WebviewPanel.destroy)
 
-  let restore = state =>
-    state.debugBuffer->Option.forEach(ViewCache.restore(state.debugBufferCache))
-  let reveal = state => state.debugBuffer->Option.forEach(WebviewPanel.reveal)
+  let sendEvent = (state, event: View.EventToView.t) => 
+    state.debugBuffer->Option.mapWithDefault(Promise.resolved(), x => x->WebviewPanel.sendEvent(event))
+
+  let display = (state, msgs) => {
+    let header = View.Header.Plain("Agda Debug Buffer")
+    let body = msgs->Array.map(((verbosity, msg)) => {
+      let verbosity = string_of_int(verbosity)
+      let style = ""
+      let body = RichText.string(msg)
+      Item.Labeled(verbosity, style, body, None, None)
+    })
+    sendEvent(state, Display(header, body))
+  }
+  let displayInAppendMode = (state, msgs) => {
+    let header = View.Header.Plain("Agda Debug Buffer")
+    let body = msgs->Array.map(((verbosity, msg)) => {
+      let verbosity = string_of_int(verbosity)
+      let style = ""
+      let body = RichText.string(msg)
+      Item.Labeled(verbosity, style, body, None, None)
+    })
+    sendEvent(state, Append(header, body))
+  }
+
+  let reveal = state =>
+    switch state.debugBuffer {
+    | None => Promise.resolved()
+    | Some(debugBuffer) =>
+      WebviewPanel.reveal(debugBuffer)
+      display(state, state.runningInfoLog)
+    }
 }
