@@ -52,7 +52,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, globalStoragePath, extensionPath, editor)
 
-  // remove it from the Registry on request 
+  // remove it from the Registry on request
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
 
   ////////////////////////////////////////////////////////////////
@@ -67,8 +67,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     | None => VSCode.Window.visibleTextEditors[0]
     }
 
-  state->
-  State.View.Panel.get
+  state
+  ->State.View.Panel.get
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
@@ -145,14 +145,17 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
 }
 
 // TODO: rename `finalize`
-let finalize = () => {
+let finalize = isRestart => {
   // after the last Agda file has benn closed
   if Registry.isEmpty() {
     // keybinding: disable most of the command bindings
     VSCode.Commands.setContext("agdaMode", false)->ignore
     // destroy views accordingly
     Singleton.Panel.destroy()
-    Singleton.DebugBuffer.destroy()
+    // don't destroy the DebugBuffer singleton if it's a Restart
+    if !isRestart {
+      Singleton.DebugBuffer.destroy()
+    }
   }
   Promise.resolved()
 }
@@ -185,7 +188,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     let fileName = VSCode.TextDocument.fileName(document)
     if isAgda(fileName) {
       Registry.removeAndDestroy(fileName)->ignore
-      finalize()->ignore
+      finalize(false)->ignore
     }
   })->subscribe
 
@@ -195,9 +198,8 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
     // destroy
     switch command {
-    | Quit
-    | Restart =>
-      Registry.removeAndDestroy(fileName)->Promise.flatMap(finalize)
+    | Quit => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(false))
+    | Restart => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(true))
     | _ => Promise.resolved()
     }
     // make

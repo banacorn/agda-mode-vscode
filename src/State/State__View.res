@@ -107,6 +107,7 @@ module Panel: Panel = {
 module type DebugBuffer = {
   // lifecycle of the singleton
   let make: state => WebviewPanel.t
+  let exists: unit => bool 
   let destroy: unit => unit
   // all of the following methods will not have any effect if the singleton does not exist
   // let reveal: state => Promise.t<unit>
@@ -119,6 +120,7 @@ module type DebugBuffer = {
 
 module DebugBuffer: DebugBuffer = {
   let make = state => Singleton.DebugBuffer.make(state.extensionPath)
+  let exists = () => Singleton.DebugBuffer.get()->Option.isSome
   let destroy = Singleton.DebugBuffer.destroy
 
   let sendEvent = (event: View.EventToView.t) =>
