@@ -1,12 +1,12 @@
-open Belt 
+open Belt
 
 module Panel: {
   // methods
-  let get: string => WebviewPanel.t
+  let make: string => WebviewPanel.t
   let destroy: unit => unit
 } = {
   let handle: ref<option<WebviewPanel.t>> = ref(None)
-  let get = extensionPath =>
+  let make = extensionPath =>
     switch handle.contents {
     | None =>
       let panel = WebviewPanel.make("Agda", extensionPath)
@@ -26,12 +26,13 @@ module Panel: {
 }
 
 module DebugBuffer: {
-  // methods
-  let get: string => WebviewPanel.t
+  let get: unit => option<WebviewPanel.t>
+  let make: string => WebviewPanel.t
   let destroy: unit => unit
 } = {
   let handle: ref<option<WebviewPanel.t>> = ref(None)
-  let get = extensionPath =>
+  let get = () => handle.contents
+  let make = extensionPath =>
     switch handle.contents {
     | None =>
       let panel = WebviewPanel.make("Agda Debug Buffer", extensionPath)

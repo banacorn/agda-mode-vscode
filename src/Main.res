@@ -45,7 +45,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     VSCode.Commands.setContext("agdaMode", true)->ignore
   }
 
-  let panel = Singleton.Panel.get(extensionPath)
+  let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 

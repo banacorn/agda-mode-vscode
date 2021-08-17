@@ -57,7 +57,6 @@ let make = (chan, globalStoragePath, extensionPath, editor) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
-  debugBuffer: None,
   runningInfoLog: [],
   goals: [],
   decoration: Decoration.make(),

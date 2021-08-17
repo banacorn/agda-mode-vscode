@@ -8,7 +8,8 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   let header = View.Header.Plain(Command.toString(command))
   switch command {
   | Load =>
-    State.View.Panel.display(state, Plain("Loading ..."), [])
+    State.View.DebugBuffer.restore(state)
+    ->Promise.flatMap(() => State.View.Panel.display(state, Plain("Loading ..."), []))
     ->Promise.flatMap(() => {
       // save the document before loading
       VSCode.TextDocument.save(state.document)
@@ -29,7 +30,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     state.decoration->Decoration.redecorate(state.editor)
     State.View.Panel.restore(state)
     State__Goal.redecorate(state)
-    Promise.resolved()
+    State.View.DebugBuffer.restore(state)
   | Compile => sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)
   | ShowConstraints => sendAgdaRequest(ShowConstraints)
@@ -475,7 +476,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       }
     })
   | OpenDebugBuffer =>
-    State.View.DebugBuffer.start(state)
+    State.View.DebugBuffer.make(state)->ignore
     State.View.DebugBuffer.reveal(state)
   }
 }

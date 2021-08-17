@@ -91,7 +91,6 @@ type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   panelCache: ViewCache.t,
-  mutable debugBuffer: option<WebviewPanel.t>,
   mutable runningInfoLog: array<(int, string)>,
   mutable goals: array<Goal.t>,
   mutable decoration: Decoration.t,

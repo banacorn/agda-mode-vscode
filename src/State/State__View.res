@@ -20,7 +20,7 @@ module type Panel = {
 }
 
 module Panel: Panel = {
-  let get = state => Singleton.Panel.get(state.extensionPath)
+  let get = state => Singleton.Panel.make(state.extensionPath)
 
   let sendEvent = (state, event: View.EventToView.t) => {
     state.panelCache->ViewCache.cacheEvent(event)
@@ -105,37 +105,28 @@ module Panel: Panel = {
 }
 
 module type DebugBuffer = {
-  // lifecycle
-  let start: state => unit
-  let destroy: state => unit
-  // restore panel content after the corresponding editor was activated
-  // let restore: state => unit
+  // lifecycle of the singleton
+  let make: state => WebviewPanel.t
+  let destroy: unit => unit
+  // all of the following methods will not have any effect if the singleton does not exist
+  // let reveal: state => Promise.t<unit>
+  let display: array<(int, string)> => Promise.t<unit>
+  let displayInAppendMode: array<(int, string)> => Promise.t<unit>
   let reveal: state => Promise.t<unit>
-  // display
-  let display: (state, array<(int, string)>) => Promise.t<unit>
-  let displayInAppendMode: (state, array<(int, string)>) => Promise.t<unit>
+  // restore panel content after the corresponding editor was activated
+  let restore: state => Promise.t<unit>
 }
 
 module DebugBuffer: DebugBuffer = {
-  let start = state =>
-    switch state.debugBuffer {
-    | None =>
-      let debugBuffer = WebviewPanel.make("Agda Debug Buffer", state.extensionPath)
-      // on destroyed
-      WebviewPanel.onceDestroyed(debugBuffer)->Promise.get(() => {
-        state.debugBuffer = None
-      })
-      state.debugBuffer = Some(debugBuffer)
-    | Some(_) => ()
-    }
-  let destroy = state => state.debugBuffer->Option.forEach(WebviewPanel.destroy)
+  let make = state => Singleton.DebugBuffer.make(state.extensionPath)
+  let destroy = Singleton.DebugBuffer.destroy
 
-  let sendEvent = (state, event: View.EventToView.t) =>
-    state.debugBuffer->Option.mapWithDefault(Promise.resolved(), x =>
+  let sendEvent = (event: View.EventToView.t) =>
+    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolved(), x =>
       x->WebviewPanel.sendEvent(event)
     )
 
-  let display = (state, msgs) => {
+  let display = msgs => {
     let header = View.Header.Plain("Agda Debug Buffer")
     let body = msgs->Array.map(((verbosity, msg)) => {
       let verbosity = string_of_int(verbosity)
@@ -143,9 +134,9 @@ module DebugBuffer: DebugBuffer = {
       let body = RichText.string(msg)
       Item.Labeled(verbosity, style, body, None, None)
     })
-    sendEvent(state, Display(header, body))
+    sendEvent(Display(header, body))
   }
-  let displayInAppendMode = (state, msgs) => {
+  let displayInAppendMode = msgs => {
     let header = View.Header.Plain("Agda Debug Buffer")
     let body = msgs->Array.map(((verbosity, msg)) => {
       let verbosity = string_of_int(verbosity)
@@ -153,14 +144,14 @@ module DebugBuffer: DebugBuffer = {
       let body = RichText.string(msg)
       Item.Labeled(verbosity, style, body, None, None)
     })
-    sendEvent(state, Append(header, body))
+    sendEvent(Append(header, body))
   }
 
   let reveal = state =>
-    switch state.debugBuffer {
-    | None => Promise.resolved()
-    | Some(debugBuffer) =>
+    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolved(), debugBuffer => {
       WebviewPanel.reveal(debugBuffer)
-      display(state, state.runningInfoLog)
-    }
+      display(state.runningInfoLog)
+    })
+
+  let restore = state => display(state.runningInfoLog)
 }

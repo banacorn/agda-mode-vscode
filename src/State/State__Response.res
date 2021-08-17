@@ -208,11 +208,11 @@ let rec handle = (
       state,
       Plain("Type-checking"),
       [Item.plainText(message)],
-    )->Promise.flatMap(() => State.View.DebugBuffer.displayInAppendMode(state, [(1, message)]))
+    )->Promise.flatMap(() => State.View.DebugBuffer.displayInAppendMode([(1, message)]))
   | RunningInfo(verbosity, message) =>
     let message = removeNewlines(message)
     state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
-    State.View.DebugBuffer.displayInAppendMode(state, [(verbosity, message)])
+    State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
     Decoration.apply(state.decoration, state.editor)
