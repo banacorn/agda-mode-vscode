@@ -6,57 +6,6 @@ let isAgda = (fileName): bool => {
   Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), fileName)
 }
 
-module PanelSingleton: {
-  // methods
-  let make: string => WebviewPanel.t
-  let destroy: unit => unit
-} = {
-  let handle: ref<option<WebviewPanel.t>> = ref(None)
-  let make = extensionPath =>
-    switch handle.contents {
-    | None =>
-      let panel = WebviewPanel.make("Agda", extensionPath)
-      handle := Some(panel)
-      // free the handle when the view has been forcibly destructed
-      WebviewPanel.onceDestroyed(panel)->Promise.get(() => {
-        handle := None
-      })
-      panel
-    | Some(panel) => panel
-    }
-
-  let destroy = () => {
-    handle.contents->Option.forEach(WebviewPanel.destroy)
-    handle := None
-  }
-}
-
-
-module DebugBufferSingleton: {
-  // methods
-  let make: string => WebviewPanel.t
-  let destroy: unit => unit
-} = {
-  let handle: ref<option<WebviewPanel.t>> = ref(None)
-  let make = extensionPath =>
-    switch handle.contents {
-    | None =>
-      let panel = WebviewPanel.make("Agda Debug Buffer", extensionPath)
-      handle := Some(panel)
-      // free the handle when the view has been forcibly destructed
-      WebviewPanel.onceDestroyed(panel)->Promise.get(() => {
-        handle := None
-      })
-      panel
-    | Some(panel) => panel
-    }
-
-  let destroy = () => {
-    handle.contents->Option.forEach(WebviewPanel.destroy)
-    handle := None
-  }
-}
-
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
@@ -96,12 +45,12 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     VSCode.Commands.setContext("agdaMode", true)->ignore
   }
 
-  let panel = PanelSingleton.make(extensionPath)
+  let panel = Singleton.Panel.get(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, globalStoragePath, extensionPath, editor, panel)
+  let state = State.make(debugChan, globalStoragePath, extensionPath, editor)
 
   // remove it from the Registry on request 
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -118,7 +67,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     | None => VSCode.Window.visibleTextEditors[0]
     }
 
-  state.panel
+  state->
+  State.View.Panel.get
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
@@ -201,8 +151,8 @@ let finalize = () => {
     // keybinding: disable most of the command bindings
     VSCode.Commands.setContext("agdaMode", false)->ignore
     // destroy views accordingly
-    PanelSingleton.destroy()
-    DebugBufferSingleton.destroy()
+    Singleton.Panel.destroy()
+    Singleton.DebugBuffer.destroy()
   }
   Promise.resolved()
 }

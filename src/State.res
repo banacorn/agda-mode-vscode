@@ -53,10 +53,9 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, globalStoragePath, extensionPath, editor, panel) => {
+let make = (chan, globalStoragePath, extensionPath, editor) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
-  panel: panel,
   panelCache: ViewCache.make(),
   debugBuffer: None,
   runningInfoLog: [],

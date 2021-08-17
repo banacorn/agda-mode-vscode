@@ -2,6 +2,7 @@ open State__Type
 open Belt
 
 module type Panel = {
+  let get: state => WebviewPanel.t
   // restore panel content after the corresponding editor was activated
   let restore: state => unit
   // display stuff
@@ -19,16 +20,18 @@ module type Panel = {
 }
 
 module Panel: Panel = {
+  let get = state => Singleton.Panel.get(state.extensionPath)
+
   let sendEvent = (state, event: View.EventToView.t) => {
     state.panelCache->ViewCache.cacheEvent(event)
-    state.panel->WebviewPanel.sendEvent(event)
+    state->get->WebviewPanel.sendEvent(event)
   }
   let sendRequest = (state, request: View.Request.t, callback) => {
     state.panelCache->ViewCache.cacheRequest(request, callback)
-    state.panel->WebviewPanel.sendRequest(request, callback)
+    state->get->WebviewPanel.sendRequest(request, callback)
   }
 
-  let restore = state => ViewCache.restore(state.panelCache, state.panel)
+  let restore = state => ViewCache.restore(state.panelCache, state->get)
 
   // display stuff
   let display = (state, header, body) => sendEvent(state, Display(header, body))
@@ -63,7 +66,7 @@ module Panel: Panel = {
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)
-    state.panel->WebviewPanel.focus
+    state->get->WebviewPanel.focus
 
     // send request to view
     sendRequest(state, Prompt(header, prompt), response =>
@@ -83,7 +86,7 @@ module Panel: Panel = {
         // prompt interrupted, clear the cached prompt
         ViewCache.clearPrompt(state.panelCache)
         // restore the previously cached view
-        ViewCache.restore(state.panelCache, state.panel)
+        ViewCache.restore(state.panelCache, state->get)
         Promise.resolved()
       }
     )
@@ -97,7 +100,7 @@ module Panel: Panel = {
       // prompt interrupted, clear the cached prompt
       ViewCache.clearPrompt(state.panelCache)
       // restore the previously cached view
-      ViewCache.restore(state.panelCache, state.panel)
+      ViewCache.restore(state.panelCache, state->get)
     })
 }
 
@@ -127,8 +130,10 @@ module DebugBuffer: DebugBuffer = {
     }
   let destroy = state => state.debugBuffer->Option.forEach(WebviewPanel.destroy)
 
-  let sendEvent = (state, event: View.EventToView.t) => 
-    state.debugBuffer->Option.mapWithDefault(Promise.resolved(), x => x->WebviewPanel.sendEvent(event))
+  let sendEvent = (state, event: View.EventToView.t) =>
+    state.debugBuffer->Option.mapWithDefault(Promise.resolved(), x =>
+      x->WebviewPanel.sendEvent(event)
+    )
 
   let display = (state, msgs) => {
     let header = View.Header.Plain("Agda Debug Buffer")

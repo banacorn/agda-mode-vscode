@@ -90,7 +90,6 @@ module ViewCache = {
 type t = {
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
-  panel: WebviewPanel.t,
   panelCache: ViewCache.t,
   mutable debugBuffer: option<WebviewPanel.t>,
   mutable runningInfoLog: array<(int, string)>,
