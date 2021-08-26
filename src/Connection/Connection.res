@@ -7,11 +7,16 @@ module type Module = {
   type version = string
   type status = Emacs(version, string) | LSP(version, LanguageServerMule.Method.t)
   // lifecycle
-  let start: (string, bool) => Promise.t<result<status, Error.t>>
+  let start: (
+    string,
+    bool,
+    LanguageServerMule.Source.GitHub.Download.Event.t => unit,
+  ) => Promise.t<result<status, Error.t>>
   let stop: unit => Promise.t<unit>
   // messaging
   let sendRequest: (
     string,
+    LanguageServerMule.Source.GitHub.Download.Event.t => unit,
     bool,
     VSCode.TextDocument.t,
     Request.t,
@@ -36,12 +41,12 @@ module Module: Module = {
       Emacs(version, path)
     }
 
-  let start = (globalStoragePath, useLSP) =>
+  let start = (globalStoragePath, useLSP, onDownload) =>
     switch singleton.contents {
     | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
     | None =>
       if useLSP {
-        Connection__Probe.probeLSP(globalStoragePath, _ => ())
+        Connection__Probe.probeLSP(globalStoragePath, onDownload)
         ->Promise.flatMap(((result, errors)) =>
           switch result {
           | None =>
@@ -93,7 +98,7 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
-  let rec sendRequest = (globalStoragePath, useLSP, document, request, handler) => {
+  let rec sendRequest = (globalStoragePath, onDownload, useLSP, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -123,8 +128,8 @@ module Module: Module = {
         stop()->Promise.map(() => Error(Error.Emacs(error)))
       })
     | None =>
-      start(globalStoragePath, useLSP)->Promise.flatMapOk(_ =>
-        sendRequest(globalStoragePath, useLSP, document, request, handler)
+      start(globalStoragePath, useLSP, onDownload)->Promise.flatMapOk(_ =>
+        sendRequest(globalStoragePath, onDownload, useLSP, document, request, handler)
       )
     }
   }

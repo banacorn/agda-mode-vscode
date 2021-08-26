@@ -329,7 +329,9 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           )
         )
         ->Promise.flatMap(Connection.stop)
-        ->Promise.flatMap(() => Connection.start(state.globalStoragePath, useLSP))
+        ->Promise.flatMap(() =>
+          Connection.start(state.globalStoragePath, useLSP, State.onDownload(state))
+        )
         ->Promise.flatMap(result =>
           switch result {
           | Ok(Emacs(version, path)) =>

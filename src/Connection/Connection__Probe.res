@@ -1,39 +1,46 @@
+module Version = Util.Version
 open LanguageServerMule
 open Source.GitHub
 open Belt
 
 let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
+
+  // CURRENT RANGE: [v0.1, v0.2)
   let chooseRelease = (releases: array<Release.t>) => {
-    let matched = releases->Array.keep(release => release.tagName == Config.version)
+    let lowerBound = "v0.1.0.0"
+    let upperBound = "v0.2.0.0"
+    let withinBound = x => {
+      let lower = Version.compare(x, lowerBound)
+      let upper = Version.compare(x, upperBound)
+      (lower == Version.EQ || lower == Version.GT) && upper == Version.LT
+    }
+
+    Js.log2("releases", releases->Array.map(release => release.tagName))
+
+    let matched = releases->Array.keep(release => withinBound(release.tagName))
+    Js.log2("matched", matched)
     matched[0]
   }
 
-  let toFileName = (release: Release.t, asset: Asset.t) => {
-    // take the "macos" part from names like "gcl-macos.zip"
-    let osName = Js.String2.slice(asset.name, ~from=4, ~to_=-4)
-    // the file name of the language server
-    release.tagName ++ "-" ++ osName
-  }
-
   let chooseAsset = (release: Release.t) => {
-    // expected asset name
+    // expected suffix of asset name
     let os = Node_process.process["platform"]
-    let expectedName = switch os {
-    | "darwin" => Some("gcl-macos.zip")
-    | "linux" => Some("gcl-ubuntu.zip")
-    | "win32" => Some("gcl-windows.zip")
+    let expectedSuffix = switch os {
+    | "darwin" => Some("macos.zip")
+    | "linux" => Some("ubuntu.zip")
+    | "win32" => Some("windows.zip")
     | _others => None
     }
 
     // find the corresponding asset
-    expectedName
-    ->Option.flatMap(name => {
-      let matched = release.assets->Array.keep(asset => asset.name == name)
+    expectedSuffix
+    ->Option.flatMap(suffix => {
+      let matched = release.assets->Array.keep(asset => Js.String2.endsWith(asset.name, suffix))
       matched[0]
     })
     ->Option.map(asset => {
       Target.srcUrl: asset.url,
-      fileName: toFileName(release, asset),
+      fileName: release.tagName ++ "-" ++ os,
       release: release,
       asset: asset,
     })
@@ -66,8 +73,5 @@ let probeLSP = (globalStoragePath, onDownload) => {
 
 let probeEmacs = () => {
   let storedPath = Config.Connection.getAgdaPath()
-  Source.Module.searchUntilSuccess([
-    Source.FromFile(storedPath),
-    Source.FromCommand("agda"),
-  ])
+  Source.Module.searchUntilSuccess([Source.FromFile(storedPath), Source.FromCommand("agda")])
 }

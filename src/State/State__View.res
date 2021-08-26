@@ -10,6 +10,7 @@ module type Panel = {
   let displayInAppendMode: (state, View.Header.t, View.Body.t) => Promise.t<unit>
   let displayOutOfGoalError: state => Promise.t<unit>
   let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
+  let displayStatus: (state, string) => Promise.t<unit>
   let displayConnectionStatus: (state, Connection.status) => Promise.t<unit>
   // Input Method
   let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
@@ -46,11 +47,12 @@ module Panel: Panel = {
   }
 
   // display connection status
+  let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
   let displayConnectionStatus = (state, status) =>
     switch status {
-    | Connection.Emacs(_) => sendEvent(state, SetStatus("Emacs"))
-    | LSP(_, ViaStdIO(_, _)) => sendEvent(state, SetStatus("LSP"))
-    | LSP(_, ViaTCP(_)) => sendEvent(state, SetStatus("LSP (TCP)"))
+    | Connection.Emacs(_) => displayStatus(state, "Emacs")
+    | LSP(_, ViaStdIO(_, _)) => displayStatus(state, "LSP")
+    | LSP(_, ViaTCP(_)) => displayStatus(state, "LSP (TCP)")
     }
 
   // update the Input Method
@@ -107,7 +109,7 @@ module Panel: Panel = {
 module type DebugBuffer = {
   // lifecycle of the singleton
   let make: state => WebviewPanel.t
-  let exists: unit => bool 
+  let exists: unit => bool
   let destroy: unit => unit
   // all of the following methods will not have any effect if the singleton does not exist
   // let reveal: state => Promise.t<unit>
