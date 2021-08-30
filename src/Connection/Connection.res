@@ -5,7 +5,9 @@ module LSP = Connection__LSP
 
 module type Module = {
   type version = string
-  type status = Emacs(version, string) | LSP(version, LanguageServerMule.Method.t)
+  type status =
+    | Emacs(version, string) // version of Agda, path of executable
+    | LSP(version, LanguageServerMule.Method.t) // version of Agda, method of connection
   // lifecycle
   let start: (
     string,
@@ -30,7 +32,9 @@ module Module: Module = {
   let singleton: ref<option<connection>> = ref(None)
 
   type version = string
-  type status = Emacs(version, string) | LSP(version, LanguageServerMule.Method.t)
+  type status =
+    | Emacs(version, string) // version of Agda, path of executable
+    | LSP(version, LanguageServerMule.Method.t) // version of Agda, method of connection
 
   // connection -> status
   let toStatus = (conn: connection): status =>

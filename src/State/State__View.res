@@ -51,7 +51,8 @@ module Panel: Panel = {
   let displayConnectionStatus = (state, status) =>
     switch status {
     | Connection.Emacs(_) => displayStatus(state, "Emacs")
-    | LSP(version, ViaCommand(_, _, _, LanguageServerMule.Method.FromGitHub(_))) => displayStatus(state, "ALS prebuilt v" ++ version)
+    | LSP(version, ViaCommand(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
+      displayStatus(state, "ALS prebuilt " ++ release.tagName ++ " (Agda v" ++ version ++ ")")
     | LSP(version, ViaCommand(_)) => displayStatus(state, "ALS v" ++ version)
     | LSP(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
     }

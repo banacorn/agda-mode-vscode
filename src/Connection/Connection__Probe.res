@@ -51,9 +51,13 @@ let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
   chooseRelease(releases)->Option.flatMap(chooseAsset)
 }
 
-let chooseExecutableToChmod = (assetPath: string, _target: Target.t): option<string> => Some(
-  NodeJs.Path.join2(assetPath, "als"),
-)
+let recoverFromDownload = ((path, target)) => {
+  let execPath = NodeJs.Path.join2(path, "als")
+  let assetPath = NodeJs.Path.join2(path, "data")
+  let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
+  let options = Client__LSP__Binding.ExecutableOptions.make(~env, ())
+  chmodExecutable(execPath)->Promise.mapOk(_ => (execPath, [], Some(options), target))
+}
 
 // see if the server is available
 // priorities: TCP => Prebuilt => StdIO
@@ -63,13 +67,14 @@ let probeLSP = (globalStoragePath, onDownload) => {
 
   Source.Module.searchUntilSuccess([
     Source.FromTCP(port, "localhost"),
-    Source.FromGitHub2({
+    Source.FromGitHub({
       username: "banacorn",
       repository: "agda-language-server",
       userAgent: "agda-mode-vscode",
       globalStoragePath: globalStoragePath,
       chooseFromReleases: chooseFromReleases,
       onDownload: onDownload,
+      recoverFromDownload: recoverFromDownload,
       log: Js.log,
       cacheInvalidateExpirationSecs: 86400,
     }),
