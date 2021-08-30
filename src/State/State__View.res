@@ -51,8 +51,9 @@ module Panel: Panel = {
   let displayConnectionStatus = (state, status) =>
     switch status {
     | Connection.Emacs(_) => displayStatus(state, "Emacs")
-    | LSP(_, ViaStdIO(_, _)) => displayStatus(state, "LSP")
-    | LSP(_, ViaTCP(_)) => displayStatus(state, "LSP (TCP)")
+    | LSP(version, ViaCommand(_, _, _, LanguageServerMule.Method.FromGitHub(_))) => displayStatus(state, "ALS prebuilt v" ++ version)
+    | LSP(version, ViaCommand(_)) => displayStatus(state, "ALS v" ++ version)
+    | LSP(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
     }
 
   // update the Input Method

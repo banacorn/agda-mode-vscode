@@ -4,7 +4,6 @@ open Source.GitHub
 open Belt
 
 let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
-
   // CURRENT RANGE: [v0.1, v0.2)
   let chooseRelease = (releases: array<Release.t>) => {
     let lowerBound = "v0.1.0.0"
@@ -14,12 +13,15 @@ let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
       let upper = Version.compare(x, upperBound)
       (lower == Version.EQ || lower == Version.GT) && upper == Version.LT
     }
-
-    Js.log2("releases", releases->Array.map(release => release.tagName))
-
     let matched = releases->Array.keep(release => withinBound(release.tagName))
-    Js.log2("matched", matched)
-    matched[0]
+    let compare = (x: Release.t, y: Release.t) =>
+      switch Version.compare(x.tagName, y.tagName) {
+      | Version.GT => -1
+      | Version.EQ => 0
+      | Version.LT => 1
+      }
+    let sorted = Js.Array.sortInPlaceWith(compare, matched)
+    sorted[0]
   }
 
   let chooseAsset = (release: Release.t) => {
@@ -49,6 +51,10 @@ let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
   chooseRelease(releases)->Option.flatMap(chooseAsset)
 }
 
+let chooseExecutableToChmod = (assetPath: string, _target: Target.t): option<string> => Some(
+  NodeJs.Path.join2(assetPath, "als"),
+)
+
 // see if the server is available
 // priorities: TCP => Prebuilt => StdIO
 let probeLSP = (globalStoragePath, onDownload) => {
@@ -57,15 +63,15 @@ let probeLSP = (globalStoragePath, onDownload) => {
 
   Source.Module.searchUntilSuccess([
     Source.FromTCP(port, "localhost"),
-    Source.FromGitHub({
+    Source.FromGitHub2({
       username: "banacorn",
       repository: "agda-language-server",
       userAgent: "agda-mode-vscode",
       globalStoragePath: globalStoragePath,
       chooseFromReleases: chooseFromReleases,
       onDownload: onDownload,
+      log: Js.log,
       cacheInvalidateExpirationSecs: 86400,
-      cacheID: Config.version,
     }),
     Source.FromCommand(name),
   ])

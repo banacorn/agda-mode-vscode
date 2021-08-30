@@ -12,6 +12,7 @@ type t = t
 let onDownload = (state, event) => {
   open LanguageServerMule.Source.GitHub.Download.Event
   switch event {
+  | Start => View.Panel.displayStatus(state, "Start downloading")->ignore
   | Progress(accum, total) =>
     // if the file is larger than 10MB than we use MB as the unit
     let message =
@@ -25,7 +26,7 @@ let onDownload = (state, event) => {
           " KB / " ++
           string_of_int(total / 1024) ++ " MB )"
     View.Panel.displayStatus(state, message)->ignore
-  | _ => ()
+  | Finish => View.Panel.displayStatus(state, "Downloaded")->ignore
   }
 }
 

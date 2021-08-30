@@ -154,8 +154,7 @@ module Module: Module = {
             rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
           }
         | Stderr(_) => ()
-        | Event(e) =>
-          self.chan->Chan.emit(Error(Process(e)))
+        | Event(e) => self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some
   }
@@ -164,7 +163,7 @@ module Module: Module = {
     switch method {
     | LanguageServerMule.Method.ViaTCP(_) =>
       Promise.resolved(Error(Error.ConnectionViaTCPNotSupported))
-    | ViaStdIO(path, _) =>
+    | ViaCommand(path, _, _, _) =>
       // store the path in the editor config
       let persistPathInConfig = (procInfo: ProcInfo.t): Promise.t<result<ProcInfo.t, Error.t>> =>
         Config.Connection.setAgdaPath(procInfo.path)->Promise.map(() => Ok(procInfo))
@@ -172,9 +171,6 @@ module Module: Module = {
       // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
       let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
 
-      // ProcInfo.findPath()
-      // ->Promise.flatMapOk(path => {
-      // })
       ProcInfo.make(path, args)
       ->Promise.flatMapOk(persistPathInConfig)
       ->Promise.mapOk(procInfo => {
