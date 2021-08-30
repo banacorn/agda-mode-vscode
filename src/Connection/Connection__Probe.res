@@ -56,7 +56,11 @@ let recoverFromDownload = ((path, target)) => {
   let assetPath = NodeJs.Path.join2(path, "data")
   let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
   let options = Client__LSP__Binding.ExecutableOptions.make(~env, ())
-  chmodExecutable(execPath)->Promise.mapOk(_ => (execPath, [], Some(options), target))
+  // chmod only works on *nix machines
+  switch Node_process.process["platform"] {
+  | "win32" => Promise.resolved(Ok((execPath, [], Some(options), target))) // no need of chmod on Windows
+  | _others => chmodExecutable(execPath)->Promise.mapOk(_ => (execPath, [], Some(options), target))
+  }
 }
 
 // see if the server is available
