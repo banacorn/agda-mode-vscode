@@ -5,19 +5,23 @@
 [![Visual Studio Marketplace Installs](https://vsmarketplacebadge.apphb.com/installs-short/banacorn.agda-mode.svg)](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode)
 [![Visual Studio Marketplace Rating](https://vsmarketplacebadge.apphb.com/rating-short/banacorn.agda-mode.svg)](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode)
 
-
-
-
-Feedbacks, issues, and PRs all welcome!
+https://user-images.githubusercontent.com/797844/131360426-db58e264-84ee-4a56-8ade-3df8321f410b.mov
 
 ## Installation
 
-1. Make sure that you have [agda](https://agda.readthedocs.io/en/latest/getting-started/installation.html) properly installed (to check this in your terminal, type `agda` and see if it's on your machine).
-2. Open an Agda file and you should be able to load it by typing <kbd>C-c</kbd> <kbd>C-l</kbd>.
+If you have [Agda](https://agda.readthedocs.io/en/latest/getting-started/installation.html) properly installed (to check this in your terminal, type `agda` and see if it's on your machine). Open an Agda file and you should be able to load it by typing <kbd>C-c</kbd> <kbd>C-l</kbd>.
 
-## Agda Language Server 
+It's okay if you don't have Agda installed, just proceed to the next section and check out our experimental language server for Agda.
 
-The [language server](https://github.com/banacorn/agda-language-server) is still under heavy development, but if you want to try it out, please follow [these instructions](https://github.com/banacorn/agda-language-server#can-i-try-it-now). You should see "LSP" instead of "Emacs" on the top right of the panel if it worked.
+## [Agda Language Server](https://github.com/banacorn/agda-language-server)
+
+Simply enable `agdaMode.connection.agdaLanguageServer` in the settings, and then hit *restart* <kbd>C-x</kbd> <kbd>C-r</kbd>. 
+
+The language server should be downloaded and installed within seconds.
+
+<img width="658" alt="截圖 2021-08-30 下午10 22 29" src="https://user-images.githubusercontent.com/797844/131354393-6a7e2a39-ae3a-4b1c-b7c9-9e89c283407e.png">
+
+Prebuilt binaries for the language server are available on Windows, macOS, and Ubuntu.
 
 ## Commands
 
