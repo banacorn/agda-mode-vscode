@@ -190,16 +190,10 @@ module Aspect = {
     | Background => (Comment, None)
     | Markup => (Label, None)
     | Error => (Keyword, Some([Deprecated]))
+    | String => (String, None)
+    | ConstructorInductive => (Class, None)
     | _ => (Keyword, None)
     }
-  // | Keyword
-  // | String
-  // | Number
-  // | Symbol
-  // | PrimitiveType
-  // | Pragma
-  // | Background
-  // | Markup
   // // the OtherAspect part
   // | Error
   // | DottedPattern

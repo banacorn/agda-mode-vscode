@@ -38,19 +38,20 @@
 		"bs-platform": ">=7.0.0"
 	},
 	"dependencies": {
+		"@flatten-js/interval-tree": "^1.0.14",
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
+		"@rescript/react": "^0.10.3",
 		"bs-nd": "^0.1.5",
-		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.17",
 		"bs-webapi": ">=0.19.0",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"language-server-mule": "github:banacorn/language-server-mule#v0.2.0",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
-		"reason-promise": ">=1.1.0",
-		"@rescript/react": "^0.10.3",
 		"reason-nodejs": "github:banacorn/reason-nodejs#temp",
+		"reason-promise": ">=1.1.0",
 		"rescript": "^9.1.4",
+		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.17",
 		"untildify": "^4.0.0",
 		"vscode-codicons": "^0.0.7"
 	},

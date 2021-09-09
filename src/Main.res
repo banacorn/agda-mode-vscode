@@ -125,20 +125,26 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   // })->subscribe
 
   // these two arrays are called "legends"
-  // let tokenTypes = Highlighting.Aspect.TokenType.enumurate
-  // let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
+  let tokenTypes = Highlighting.Aspect.TokenType.enumurate
+  let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
 
-  // Editor.Provider.registerSemnaticTokenProvider((fileName, pushToken) => {
-  //   let useSemanticHighlighting = Config.getSemanticHighlighting()
-  //   let document = VSCode.TextEditor.document(editor)
-  //   let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
+  Editor.Provider.registerSemnaticTokenProvider((fileName, pushToken) => {
+    let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
+    let document = VSCode.TextEditor.document(editor)
+    let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
 
-  //   if useSemanticHighlighting && fileName == currentFileName {
-  //     Some(Decoration.generateSemanticTokens(state.decoration, state.editor, pushToken))
-  //   } else {
-  //     None
-  //   }
-  // }, (tokenTypes, tokenModifiers))->subscribe
+
+    if useSemanticHighlighting && fileName == currentFileName {
+      let tokens = Decoration.generateSemanticTokens(state.decoration, state.editor)
+      tokens->Array.slice(~offset=0, ~len=10)->Array.forEach(((range, tokenTypes, tokenModifiers)) =>
+        pushToken(range, tokenTypes, tokenModifiers)
+      )
+      // Some(Decoration.generateSemanticTokens(state.decoration, state.editor, pushToken))
+      Some(Promise.resolved())
+    } else {
+      None
+    }
+  }, (tokenTypes, tokenModifiers))->subscribe
 
   // add this state to the Registry
   state
