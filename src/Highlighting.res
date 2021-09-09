@@ -53,6 +53,49 @@ module Aspect = {
     | // when the second field of Aspect.Name is True
     Operator
 
+  let toString = x =>
+    switch x {
+    // the Aspect part
+    | Comment => "Comment"
+    | Keyword => "Keyword"
+    | String => "String"
+    | Number => "Number"
+    | Symbol => "Symbol"
+    | PrimitiveType => "PrimitiveType"
+    | Pragma => "Pragma"
+    | Background => "Background"
+    | Markup => "Markup"
+    // the OtherAspect part
+    | Error => "Error"
+    | DottedPattern => "DottedPattern"
+    | UnsolvedMeta => "UnsolvedMeta"
+    | UnsolvedConstraint => "UnsolvedConstraint"
+    | TerminationProblem => "TerminationProblem"
+    | PositivityProblem => "PositivityProblem"
+    | Deadcode => "Deadcode"
+    | CoverageProblem => "CoverageProblem"
+    | IncompletePattern => "IncompletePattern"
+    | TypeChecks => "TypeChecks"
+    | CatchallClause => "CatchallClause"
+    | ConfluenceProblem => "ConfluenceProblem"
+    // the NameKind part
+    | Bound => "Bound"
+    | Generalizable => "Generalizable"
+    | ConstructorInductive => "ConstructorInductive"
+    | ConstructorCoInductive => "ConstructorCoInductive"
+    | Datatype => "Datatype"
+    | Field => "Field"
+    | Function => "Function"
+    | Module => "Module"
+    | Postulate => "Postulate"
+    | Primitive => "Primitive"
+    | Record => "Record"
+    | Argument => "Argument"
+    | Macro => "Macro"
+    // when the second field of Aspect.Name is True
+    | Operator => "Operator"
+    }
+
   // namespace
   // type, class, enum, interface, struct, typeParameter
   // parameter, variable, property, enumMember, event
@@ -179,20 +222,47 @@ module Aspect = {
     ]
   }
 
-  let toTokenTypeAndModifiers: t => (TokenType.t, option<array<TokenModifier.t>>) = x =>
+  let toTokenTypeAndModifiers: t => option<(TokenType.t, array<TokenModifier.t>)> = x =>
     switch x {
-    | Comment => (Comment, None)
-    | Keyword => (Keyword, None)
-    | Number => (Number, None)
-    | Symbol => (Keyword, None)
-    | PrimitiveType => (Type, None)
-    | Pragma => (Macro, None)
-    | Background => (Comment, None)
-    | Markup => (Label, None)
-    | Error => (Keyword, Some([Deprecated]))
-    | String => (String, None)
-    | ConstructorInductive => (Class, None)
-    | _ => (Keyword, None)
+    // the Aspect part
+    | Comment => Some((Comment, []))
+    | Keyword => Some((Keyword, []))
+    | String => Some(String, [])
+    | Number => Some((Number, []))
+    | Symbol => None
+    | PrimitiveType => Some((Type, []))
+    | Pragma => Some((Macro, []))
+    | Background => None
+    | Markup => Some((Label, []))
+    // the OtherAspect part
+    | Error => None
+    | DottedPattern => None
+    | UnsolvedMeta => None
+    | UnsolvedConstraint => None
+    | TerminationProblem => None
+    | PositivityProblem => None
+    | Deadcode => None
+    | CoverageProblem => None
+    | IncompletePattern => None
+    | TypeChecks => None
+    | CatchallClause => None
+    | ConfluenceProblem => None
+    // the NameKind part
+    | Bound => Some(Variable, [])
+    | Generalizable => Some(Variable, [])
+    | ConstructorInductive => Some(EnumMember, [])
+    | ConstructorCoInductive => Some(EnumMember, [])
+    | Datatype => Some(Type, [])
+    | Field => Some(Member, [])
+    | Function => Some(Function, [])
+    | Module => Some(Namespace, [])
+    | Postulate => Some(Function, [])
+    | Primitive => Some(String, [])
+    | Record => Some(Struct, [])
+    | Argument => Some(Parameter, [])
+    | Macro => Some(Macro, [])
+    // when the second field of Aspect.Name is True
+    | Operator => Some(Operator, [])
     }
   // // the OtherAspect part
   // | Error

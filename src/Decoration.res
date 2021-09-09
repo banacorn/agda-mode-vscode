@@ -29,7 +29,7 @@ module type Module = {
     VSCode.Position.t,
   ) => option<Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>>
 
-  let generateSemanticTokens: (
+  let convertToSemanticTokens: (
     t,
     VSCode.TextEditor.t,
   ) => array<(
@@ -362,14 +362,14 @@ module Module: Module = {
       })
     )
 
-  let generateSemanticTokens = (self: t, editor: VSCode.TextEditor.t) => {
+  let convertToSemanticTokens = (self: t, editor: VSCode.TextEditor.t) => {
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
 
     let offsetConverter = Agda.OffsetConverter.make(text)
 
     let intervalTree = IntervalTree.make()
-    Js.log2("highlightings", Array.length(self.highlightings))
+    Js.log2("Number of highlightings: ", Array.length(self.highlightings))
 
     self.highlightings->Array.forEach(highlighting => {
       // calculate the range of each highlighting
@@ -377,13 +377,28 @@ module Module: Module = {
       let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
       let range = Editor.Range.fromInterval(document, (start, end_))
       // insert [start, end_) to the interval tree
-      intervalTree->IntervalTree.insert((start, end_ - 1), (range, highlighting.aspects))->ignore
+      let alreadyExists = intervalTree->IntervalTree.intersectAny((start, end_ - 1))
+      if !alreadyExists {
+        intervalTree->IntervalTree.insert((start, end_ - 1), (range, highlighting.aspects))->ignore
+      }
     })
 
     intervalTree
     ->IntervalTree.items
     ->Array.map(item => {
       let (range, aspects) = item["value"]
+      Js.log4(
+        item["key"],
+        (
+          VSCode.Position.line(VSCode.Range.start(range)),
+          VSCode.Position.character(VSCode.Range.start(range)),
+        ),
+        (
+          VSCode.Position.line(VSCode.Range.end_(range)),
+          VSCode.Position.character(VSCode.Range.end_(range)),
+        ),
+        aspects->Array.map(Highlighting.Aspect.toString),
+      )
       // split the range in case that it spans multiple lines
       let ranges = lines(VSCode.TextEditor.document(editor), range)
       ranges->Array.map(range => (range, aspects))
@@ -393,12 +408,9 @@ module Module: Module = {
       let tokenTypeAccum = []
       let tokenModifiersAccum = []
       // convert Aspects to TokenType and TokenModifiers
-      aspects->Array.forEach(aspect => {
-        let (tokenType, tokenModifiers) = Highlighting.Aspect.toTokenTypeAndModifiers(aspect)
-        let tokenModifiers = switch tokenModifiers {
-        | None => []
-        | Some(modifiers) => modifiers
-        }
+      aspects
+      ->Array.keepMap(Highlighting.Aspect.toTokenTypeAndModifiers)
+      ->Array.forEach(((tokenType, tokenModifiers)) => {
         Js.Array2.push(tokenTypeAccum, tokenType)->ignore
         Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore
       })

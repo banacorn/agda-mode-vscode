@@ -135,8 +135,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
 
 
     if useSemanticHighlighting && fileName == currentFileName {
-      let tokens = Decoration.generateSemanticTokens(state.decoration, state.editor)
-      tokens->Array.slice(~offset=0, ~len=10)->Array.forEach(((range, tokenTypes, tokenModifiers)) =>
+      let tokens = Decoration.convertToSemanticTokens(state.decoration, state.editor)
+      tokens->Array.forEach(((range, tokenTypes, tokenModifiers)) =>
         pushToken(range, tokenTypes, tokenModifiers)
       )
       // Some(Decoration.generateSemanticTokens(state.decoration, state.editor, pushToken))
