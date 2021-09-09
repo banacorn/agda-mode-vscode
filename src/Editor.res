@@ -251,44 +251,71 @@ module Provider = {
     module SemanticsTokens = {
       type t
       // constructors
-      @bs.module("vscode") @bs.new
+      @module("vscode") @new
       external make: array<int> => t = "SemanticsTokens"
-      @bs.module("vscode") @bs.new
+      @module("vscode") @new
       external makeWithResultId: (array<int>, string) => t = "SemanticsTokens"
       // properties
-      @bs.get external data: t => array<int> = "data"
-      @bs.get external resultId: t => option<string> = "resultId"
+      @get external data: t => array<int> = "data"
+      @get external resultId: t => option<string> = "resultId"
+    }
+
+    // https://code.visualstudio.com/api/references/vscode-api#SemanticTokensEdit
+    module SemanticTokensEdit = {
+      type t
+      // constructors
+      @module("vscode") @new
+      external make: (int, int) => t = "SemanticTokensEdit"
+      @module("vscode") @new
+      external makeWithData: (int, int, array<int>) => t = "SemanticTokensEdit"
+      // properties
+      @get external data: t => option<array<int>> = "data"
+      @get external deleteCount: t => int = "deleteCount"
+      @get external start: t => int = "start"
+    }
+
+    // https://code.visualstudio.com/api/references/vscode-api#SemanticTokensEdits
+    module SemanticTokensEdits = {
+      type t
+      // constructors
+      @module("vscode") @new
+      external make: (array<SemanticTokensEdit.t>) => t = "SemanticTokensEdits"
+      @module("vscode") @new
+      external makeWithResultId: (array<SemanticTokensEdit.t>, string) => t = "SemanticTokensEdits"
+      // properties
+      @get external edits: t => array<SemanticTokensEdit.t> = "edits"
+      @get external resultId: t => option<string> = "resultId"
     }
 
     // https://code.visualstudio.com/api/references/vscode-api#SemanticTokensLegend
     module SemanticTokensLegend = {
       type t
       // constructors
-      @bs.module("vscode") @bs.new
+      @module("vscode") @new
       external make: array<string> => t = "SemanticTokensLegend"
-      @bs.module("vscode") @bs.new
+      @module("vscode") @new
       external makeWithTokenModifiers: (array<string>, array<string>) => t = "SemanticTokensLegend"
       // properties
-      @bs.get
+      @get
       external tokenModifiers: t => array<string> = "tokenModifiers"
-      @bs.get external tokenTypes: t => array<string> = "tokenTypes"
+      @get external tokenTypes: t => array<string> = "tokenTypes"
     }
 
     // https://code.visualstudio.com/api/references/vscode-api#SemanticTokensBuilder
     module SemanticTokensBuilder = {
       type t
       // constructors
-      @bs.module("vscode") @bs.new
+      @module("vscode") @new
       external make: unit => t = "SemanticTokensBuilder"
-      @bs.module("vscode") @bs.new
+      @module("vscode") @new
       external makeWithLegend: SemanticTokensLegend.t => t = "SemanticTokensBuilder"
       // methods
-      @bs.send external build: t => SemanticsTokens.t = "build"
-      @bs.send
+      @send external build: t => SemanticsTokens.t = "build"
+      @send
       external buildWithResultId: (t, string) => SemanticsTokens.t = "build"
-      @bs.send
+      @send
       external push: (t, int, int, int, int, option<int>) => unit = "push"
-      @bs.send
+      @send
       external pushLegend: (t, VSRange.t, string, option<array<string>>) => unit = "push"
     }
 
@@ -305,7 +332,7 @@ module Provider = {
     }
 
     module Languages = {
-      @bs.module("vscode") @bs.scope("languages")
+      @module("vscode") @scope("languages")
       external registerDocumentSemanticTokensProvider: (
         DocumentSelector.t,
         DocumentSemanticTokensProvider.t,
@@ -314,7 +341,10 @@ module Provider = {
     }
   }
 
-  let registerSemnaticTokenProvider = (prodider, (tokenTypes, tokenModifiers)) => {
+  let registerSemnaticTokenProvider = (
+    provideDocumentSemanticTokens,
+    (tokenTypes, tokenModifiers),
+  ) => {
     let semanticTokensLegend = Mock.SemanticTokensLegend.makeWithTokenModifiers(
       tokenTypes,
       tokenModifiers,
@@ -335,9 +365,12 @@ module Provider = {
               ),
             )
           }
-          prodider(textDocument->TextDocument.fileName, pushLegend)->ProviderResult.map(() =>
+          provideDocumentSemanticTokens(
+            textDocument->TextDocument.fileName,
+            pushLegend,
+          )->ProviderResult.map(() => {
             Mock.SemanticTokensBuilder.build(builder)
-          )
+          })
         },
       }
     }

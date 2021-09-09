@@ -133,13 +133,11 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     let document = VSCode.TextEditor.document(editor)
     let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
 
-
     if useSemanticHighlighting && fileName == currentFileName {
       let tokens = Decoration.convertToSemanticTokens(state.decoration, state.editor)
       tokens->Array.forEach(((range, tokenTypes, tokenModifiers)) =>
         pushToken(range, tokenTypes, tokenModifiers)
       )
-      // Some(Decoration.generateSemanticTokens(state.decoration, state.editor, pushToken))
       Some(Promise.resolved())
     } else {
       None

@@ -387,18 +387,18 @@ module Module: Module = {
     ->IntervalTree.items
     ->Array.map(item => {
       let (range, aspects) = item["value"]
-      Js.log4(
-        item["key"],
-        (
-          VSCode.Position.line(VSCode.Range.start(range)),
-          VSCode.Position.character(VSCode.Range.start(range)),
-        ),
-        (
-          VSCode.Position.line(VSCode.Range.end_(range)),
-          VSCode.Position.character(VSCode.Range.end_(range)),
-        ),
-        aspects->Array.map(Highlighting.Aspect.toString),
-      )
+      // Js.log4(
+      //   item["key"],
+      //   (
+      //     VSCode.Position.line(VSCode.Range.start(range)),
+      //     VSCode.Position.character(VSCode.Range.start(range)),
+      //   ),
+      //   (
+      //     VSCode.Position.line(VSCode.Range.end_(range)),
+      //     VSCode.Position.character(VSCode.Range.end_(range)),
+      //   ),
+      //   aspects->Array.map(Highlighting.Aspect.toString),
+      // )
       // split the range in case that it spans multiple lines
       let ranges = lines(VSCode.TextEditor.document(editor), range)
       ranges->Array.map(range => (range, aspects))
