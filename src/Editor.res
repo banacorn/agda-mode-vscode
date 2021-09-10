@@ -279,7 +279,7 @@ module Provider = {
       type t
       // constructors
       @module("vscode") @new
-      external make: (array<SemanticTokensEdit.t>) => t = "SemanticTokensEdits"
+      external make: array<SemanticTokensEdit.t> => t = "SemanticTokensEdits"
       @module("vscode") @new
       external makeWithResultId: (array<SemanticTokensEdit.t>, string) => t = "SemanticTokensEdits"
       // properties
@@ -323,11 +323,36 @@ module Provider = {
     module DocumentSemanticTokensProvider = {
       // missing: onDidChangeSemanticTokens
       // missing: provideDocumentSemanticTokensEdits
+
+      type provideDocumentSemanticTokens = (
+        TextDocument.t,
+        CancellationToken.t,
+      ) => ProviderResult.t<SemanticsTokens.t>
+
+      type provideDocumentSemanticTokensEdits = (
+        TextDocument.t,
+        string,
+        CancellationToken.t,
+      ) => ProviderResult.t<
+        @unwrap
+        [
+          | #SemanticsTokens(SemanticsTokens.t)
+          | #SemanticTokensEdits(SemanticTokensEdits.t)
+        ],
+      >
+
       type t = {
-        provideDocumentSemanticTokens: (
-          TextDocument.t,
-          CancellationToken.t,
-        ) => ProviderResult.t<SemanticsTokens.t>,
+        provideDocumentSemanticTokens: option<provideDocumentSemanticTokens>,
+        provideDocumentSemanticTokensEdits: option<provideDocumentSemanticTokensEdits>,
+      }
+
+      let make = (
+        ~provideDocumentSemanticTokens: option<provideDocumentSemanticTokens>=?,
+        ~provideDocumentSemanticTokensEdits: option<provideDocumentSemanticTokensEdits>=?,
+        (),
+      ) => {
+        provideDocumentSemanticTokens: provideDocumentSemanticTokens,
+        provideDocumentSemanticTokensEdits: provideDocumentSemanticTokensEdits,
       }
     }
 
@@ -350,30 +375,28 @@ module Provider = {
       tokenModifiers,
     )
 
-    let documentSemanticTokensProvider = {
-      open Mock.DocumentSemanticTokensProvider
-      {
-        provideDocumentSemanticTokens: (textDocument, _) => {
-          let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-          let pushLegend = (range, tokenType, tokenModifiers) => {
-            Mock.SemanticTokensBuilder.pushLegend(
-              builder,
-              range,
-              Highlighting.Aspect.TokenType.toString(tokenType),
-              tokenModifiers->Option.map(xs =>
-                xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
-              ),
-            )
-          }
-          provideDocumentSemanticTokens(
-            textDocument->TextDocument.fileName,
-            pushLegend,
-          )->ProviderResult.map(() => {
-            Mock.SemanticTokensBuilder.build(builder)
-          })
-        },
-      }
-    }
+    let documentSemanticTokensProvider = Mock.DocumentSemanticTokensProvider.make(
+      ~provideDocumentSemanticTokensEdits=(textDocument, _previousResultID, _cancel) => {
+        let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+        let pushLegend = (range, tokenType, tokenModifiers) => {
+          Mock.SemanticTokensBuilder.pushLegend(
+            builder,
+            range,
+            Highlighting.Aspect.TokenType.toString(tokenType),
+            tokenModifiers->Option.map(xs =>
+              xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
+            ),
+          )
+        }
+        provideDocumentSemanticTokens(
+          textDocument->TextDocument.fileName,
+          pushLegend,
+        )->ProviderResult.map(() => {
+          #SemanticsTokens(Mock.SemanticTokensBuilder.build(builder))
+        })
+      },
+      (),
+    )
 
     Mock.Languages.registerDocumentSemanticTokensProvider(
       documentSelector,
