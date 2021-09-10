@@ -111,34 +111,23 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     }
   })->subscribe
 
-  // hover provider
-  // Editor.Provider.registerHoverProvider((fileName, point) => {
-  //   // only provide source location, when the filename matched
-  //   let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
 
-  //   if fileName == currentFileName {
-  //     let range = VSCode.Range.make(point, point)
-  //     Some(Promise.resolved(([""], range)))
-  //   } else {
-  //     None
-  //   }
-  // })->subscribe
-
+  
   // these two arrays are called "legends"
   let tokenTypes = Highlighting.Aspect.TokenType.enumurate
   let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
 
-  Editor.Provider.registerSemnaticTokenProvider((fileName, pushToken) => {
+  Editor.Provider.registerDocumentSemanticTokensProvider((fileName, pushToken) => {
     let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
     let document = VSCode.TextEditor.document(editor)
     let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
 
     if useSemanticHighlighting && fileName == currentFileName {
-      let tokens = Decoration.convertToSemanticTokens(state.decoration, state.editor)
-      tokens->Array.forEach(((range, tokenTypes, tokenModifiers)) =>
-        pushToken(range, tokenTypes, tokenModifiers)
-      )
-      Some(Promise.resolved())
+        let tokens = Decoration.convertToSemanticTokens(state.decoration, state.editor)
+        tokens->Array.forEach(((range, tokenTypes, tokenModifiers)) =>
+          pushToken(range, tokenTypes, tokenModifiers)
+        )
+        Some(Promise.resolved())
     } else {
       None
     }

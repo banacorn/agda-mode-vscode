@@ -366,10 +366,11 @@ module Module: Module = {
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
 
+
     let offsetConverter = Agda.OffsetConverter.make(text)
 
     let intervalTree = IntervalTree.make()
-    Js.log2("Number of highlightings: ", Array.length(self.highlightings))
+    // Js.log2("Number of highlightings: ", Array.length(self.highlightings))
 
     self.highlightings->Array.forEach(highlighting => {
       // calculate the range of each highlighting
