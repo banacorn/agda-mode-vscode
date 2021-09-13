@@ -116,7 +116,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
-    Js.log("PROVIDE")
+    Js.log("REQUEST")
     let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
     let isCurrentFile = {
       let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -126,27 +126,28 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     }
 
     if useSemanticHighlighting && isCurrentFile {
-      let tokens = Decoration.SemanticHighlighting.resetOrUpdate(state.decoration, state.editor)
+      Decoration.SemanticHighlighting.get(state.decoration)
+      ->Promise.map(tokens => {
+        open Editor.Provider.Mock
 
-      open Editor.Provider.Mock
-
-      let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-        tokenTypes,
-        tokenModifiers,
-      )
-      let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-      tokens->Array.forEach(({range, type_, modifiers}) =>
-        SemanticTokensBuilder.pushLegend(
-          builder,
-          Decoration.SemanticToken.SingleLineRange.toVsCodeRange(range),
-          Highlighting.Aspect.TokenType.toString(type_),
-          modifiers->Option.map(xs =>
-            xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
-          ),
+        let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
+          tokenTypes,
+          tokenModifiers,
         )
-      )
-      Some(Promise.resolved(SemanticTokensBuilder.build(builder)))
+        let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+
+        tokens.contents->Array.forEach(({range, type_, modifiers}) => {
+          SemanticTokensBuilder.pushLegend(
+            builder,
+            Decoration.SemanticToken.SingleLineRange.toVsCodeRange(range),
+            Highlighting.Aspect.TokenType.toString(type_),
+            modifiers->Option.map(xs => xs->Array.map(Highlighting.Aspect.TokenModifier.toString)),
+          )
+        })
+
+        SemanticTokensBuilder.build(builder)
+      })
+      ->Some
     } else {
       None
     }
@@ -201,9 +202,9 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   })->subscribe
 
   // on TextDocumentChangeEvent
-  // updates positions of semantic highlighting tokens accordingly 
-  VSCode.Workspace.onDidChangeTextDocument(. (event: VSCode.TextDocumentChangeEvent.t) => {
-    // find the corresponding State 
+  // updates positions of semantic highlighting tokens accordingly
+  VSCode.Workspace.onDidChangeTextDocument(.(event: VSCode.TextDocumentChangeEvent.t) => {
+    // find the corresponding State
     let document = event->VSCode.TextDocumentChangeEvent.document
     let fileName = document->VSCode.TextDocument.fileName
     if isAgda(fileName) {
@@ -211,7 +212,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
         Decoration.SemanticHighlighting.update(state.decoration, event)
       })
     }
-
   })->subscribe
 
   // on close editor

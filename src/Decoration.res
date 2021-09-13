@@ -52,9 +52,8 @@ module type Module = {
   // accumulated TextDocumentChangeEvents
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
-    let reset: t => unit
-    let get: t => array<SemanticToken.t>
-    let resetOrUpdate: (t, VSCode.TextEditor.t) => array<SemanticToken.t>
+    let get: t => Promise.t<ref<array<SemanticToken.t>>>
+    let apply: (t, VSCode.TextEditor.t) => array<SemanticToken.t>
   }
 }
 
@@ -296,17 +295,20 @@ module Module: Module = {
     // source locations
     mutable srcLocs: array<srcLoc>,
     // Semantic Tokens
-    mutable semanticTokens: array<SemanticToken.t>,
-    mutable hasChangedSinceLastReset: bool,
+    semanticTokens: Promise.t<ref<array<SemanticToken.t>>>,
+    resolveSemanticTokens: ref<array<SemanticToken.t>> => unit,
   }
 
   let make = () => {
-    tempFilePaths: [],
-    highlightings: [],
-    decorations: [],
-    srcLocs: [],
-    semanticTokens: [],
-    hasChangedSinceLastReset: false,
+    let (promise, resolve) = Promise.pending()
+    {
+      tempFilePaths: [],
+      highlightings: [],
+      decorations: [],
+      srcLocs: [],
+      semanticTokens: promise,
+      resolveSemanticTokens: resolve,
+    }
   }
 
   let clear = self => {
@@ -404,16 +406,6 @@ module Module: Module = {
     self.decorations = Array.concat(self.decorations, decorations)
   }
 
-  let apply = (self, editor) =>
-    readTempFiles(self)->Promise.map(() => {
-      // only apply decorations when Semantic Highlighting is off
-      if Config.Highlighting.getSemanticHighlighting() {
-        ()
-      } else {
-        applyHighlightings(self, editor)
-      }
-    })
-
   let lookupSrcLoc = (self, point): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>,
   > =>
@@ -431,7 +423,7 @@ module Module: Module = {
     )
 
   module SemanticHighlighting = {
-    module Action = {
+    module Change = {
       type action =
         // tokens BEFORE where the change happens
         | NoOp
@@ -498,6 +490,7 @@ module Module: Module = {
         } else if VSCode.Range.containsRange(removedRange, tokenRange) {
           Remove
         } else if token.range.line == VSCode.Position.line(VSCode.Range.end_(removedRange)) {
+          Js.log3("MOVE", token->SemanticToken.toString, (lineDelta, columnDelta))
           Move(lineDelta, columnDelta)
         } else {
           MoveLinesOnly(lineDelta)
@@ -533,8 +526,7 @@ module Module: Module = {
     }
 
     let update = (self, event) => {
-      self.hasChangedSinceLastReset = true
-
+      Js.log("UPDATE")
       let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
       let applyChange = (
@@ -543,21 +535,24 @@ module Module: Module = {
       ) =>
         tokens
         ->Array.map(token => {
-          let action = Action.classify(change, token)
-          Action.apply(token, action)
+          let action = Change.classify(change, token)
+          Change.apply(token, action)
         })
         ->Array.concatMany
 
-      changes->Array.forEach(change => {
-        self.semanticTokens = applyChange(self.semanticTokens, change)
+      // read from the cached
+      self.semanticTokens->Promise.get(semanticTokensRef => {
+        changes->Array.forEach(change => {
+          semanticTokensRef := applyChange(semanticTokensRef.contents, change)
+        })
+        // update the cache
+        self.resolveSemanticTokens(semanticTokensRef)
       })
     }
 
-    let reset = self => self.hasChangedSinceLastReset = false
+    let get = (self: t) => self.semanticTokens
 
-    let get = self => self.semanticTokens
-
-    let fromHighlightingInfos = (self: t, editor: VSCode.TextEditor.t) => {
+    let apply = (self: t, editor: VSCode.TextEditor.t) => {
       let document = VSCode.TextEditor.document(editor)
       let text = Editor.Text.getAll(document)
 
@@ -610,19 +605,21 @@ module Module: Module = {
         })
 
       // update cached semantic tokens
-      self.semanticTokens = tokens
-      self.hasChangedSinceLastReset = false
+      self.resolveSemanticTokens(ref(tokens))
 
       tokens
     }
-
-    let resetOrUpdate = (self, editor) =>
-      if self.hasChangedSinceLastReset {
-        self.semanticTokens
-      } else {
-        fromHighlightingInfos(self, editor)
-      }
   }
+
+  let apply = (self, editor) =>
+    readTempFiles(self)->Promise.map(() => {
+      // only apply decorations when Semantic Highlighting is off
+      if Config.Highlighting.getSemanticHighlighting() {
+        SemanticHighlighting.apply(self, editor)->ignore
+      } else {
+        applyHighlightings(self, editor)
+      }
+    })
 }
 
 include Module
