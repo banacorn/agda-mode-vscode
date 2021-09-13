@@ -94,10 +94,10 @@ module Module: Module = {
     (background, index)
   }
 
-  let decorateHighlightings = (editor: VSCode.TextEditor.t, highlightings: array<Highlighting.t>): (
-    array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
-    array<srcLoc>,
-  ) => {
+  let decorateHighlightings = (
+    editor: VSCode.TextEditor.t,
+    highlightings: IntervalTree.t<Highlighting.t>,
+  ): (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<srcLoc>) => {
     // Js.Console.timeStart("$$$ Decoration / aspects")
     // Js.Console.timeStart("$$$ Decoration / aspects / offset conversion")
 
@@ -111,7 +111,8 @@ module Module: Module = {
       VSCode.Range.t,
       array<Highlighting.Aspect.t>,
       option<(Highlighting.filepath, int)>,
-    )> = highlightings->Array.map(highlighting => {
+    )> = IntervalTree.items(highlightings)->Array.map(item => {
+      let highlighting = item["value"]
       // calculate the range of each highlighting
       let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
       let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
@@ -289,7 +290,7 @@ module Module: Module = {
     // from AddViaFile
     mutable tempFilePaths: array<Format.t>,
     // from AddViaPipe
-    mutable highlightings: array<Highlighting.t>,
+    mutable highlightings: IntervalTree.t<Highlighting.t>,
     // after Apply
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // source locations
@@ -303,7 +304,7 @@ module Module: Module = {
     let (promise, resolve) = Promise.pending()
     {
       tempFilePaths: [],
-      highlightings: [],
+      highlightings: IntervalTree.make(),
       decorations: [],
       srcLocs: [],
       semanticTokens: promise,
@@ -321,7 +322,7 @@ module Module: Module = {
       N.Fs.unlink(Format.toFilepath(format), _ => ())
     })
     self.tempFilePaths = []
-    self.highlightings = []
+    self.highlightings = IntervalTree.make()
     clear(self)
   }
 
@@ -330,8 +331,18 @@ module Module: Module = {
       Editor.Decoration.decorate(editor, decoration, ranges)
     )
 
-  let addViaPipe = (self, highlightings) =>
-    self.highlightings = Array.concat(self.highlightings, highlightings)
+  // insert to an IntervalTree
+  let addViaPipe = (self, highlightings: array<Highlighting.t>) => {
+    highlightings->Array.forEach(highlighting => {
+      let alreadyExists =
+        self.highlightings->IntervalTree.intersectAny((highlighting.start, highlighting.end_ - 1))
+      if !alreadyExists {
+        self.highlightings
+        ->IntervalTree.insert((highlighting.start, highlighting.end_ - 1), highlighting)
+        ->ignore
+      }
+    })
+  }
 
   let addViaFile = (self, filepath) =>
     Js.Array.push(Format.Emacs(filepath), self.tempFilePaths)->ignore
@@ -393,7 +404,7 @@ module Module: Module = {
     ->Promise.allArray
     ->Promise.map(xs => xs->Array.map(Highlighting.Infos.toInfos)->Array.concatMany)
     ->Promise.map(highlightings => {
-      self.highlightings = Array.concat(self.highlightings, highlightings)
+      addViaPipe(self, highlightings)
       self.tempFilePaths = []
     })
 
@@ -401,7 +412,7 @@ module Module: Module = {
   let applyHighlightings = (self, editor) => {
     let (decorations, srcLocs) = decorateHighlightings(editor, self.highlightings)
 
-    self.highlightings = []
+    self.highlightings = IntervalTree.make()
     self.srcLocs = srcLocs
     self.decorations = Array.concat(self.decorations, decorations)
   }
@@ -553,38 +564,29 @@ module Module: Module = {
     let get = (self: t) => self.semanticTokens
 
     let apply = (self: t, editor: VSCode.TextEditor.t) => {
+      Js.log2("APPLY FROM HIGHLIGHTINGS", self.highlightings->IntervalTree.size)
       let document = VSCode.TextEditor.document(editor)
       let text = Editor.Text.getAll(document)
 
       let offsetConverter = Agda.OffsetConverter.make(text)
 
-      let intervalTree = IntervalTree.make()
-
-      self.highlightings->Array.forEach(highlighting => {
-        // calculate the range of each highlighting
-        let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
-        let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
-        let range = Editor.Range.fromInterval(document, (start, end_))
-        // insert [start, end_) to the interval tree
-        let alreadyExists = intervalTree->IntervalTree.intersectAny((start, end_ - 1))
-        if !alreadyExists {
-          intervalTree
-          ->IntervalTree.insert((start, end_ - 1), (range, highlighting.aspects))
-          ->ignore
-        }
-      })
-
       let tokens =
-        intervalTree
+        self.highlightings
         ->IntervalTree.items
         ->Array.map(item => {
-          let (range, aspects) = item["value"]
+          let highlighting = item["value"]
+
+          // calculate the range of each highlighting
+          let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
+          let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
+          let range = Editor.Range.fromInterval(document, (start, end_))
+
           // split the range in case that it spans multiple lines
           let ranges = SemanticToken.SingleLineRange.splitRange(
             VSCode.TextEditor.document(editor),
             range,
           )
-          ranges->Array.map(range => (range, aspects))
+          ranges->Array.map(range => (range, highlighting.aspects))
         })
         ->Array.concatMany
         ->Array.keepMap(((range, aspects)) => {
@@ -616,6 +618,7 @@ module Module: Module = {
       // only apply decorations when Semantic Highlighting is off
       if Config.Highlighting.getSemanticHighlighting() {
         SemanticHighlighting.apply(self, editor)->ignore
+        self.highlightings = IntervalTree.make()
       } else {
         applyHighlightings(self, editor)
       }
