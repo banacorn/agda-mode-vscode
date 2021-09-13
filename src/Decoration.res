@@ -52,8 +52,9 @@ module type Module = {
   // accumulated TextDocumentChangeEvents
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
+    let reset: t => unit
     let get: t => array<SemanticToken.t>
-    let reset: (t, VSCode.TextEditor.t) => array<SemanticToken.t>
+    let resetOrUpdate: (t, VSCode.TextEditor.t) => array<SemanticToken.t>
   }
 }
 
@@ -294,8 +295,9 @@ module Module: Module = {
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // source locations
     mutable srcLocs: array<srcLoc>,
-    // accumulated TextDocumentChangeEvents
+    // Semantic Tokens
     mutable semanticTokens: array<SemanticToken.t>,
+    mutable hasChangedSinceLastReset: bool,
   }
 
   let make = () => {
@@ -304,6 +306,7 @@ module Module: Module = {
     decorations: [],
     srcLocs: [],
     semanticTokens: [],
+    hasChangedSinceLastReset: false,
   }
 
   let clear = self => {
@@ -428,26 +431,139 @@ module Module: Module = {
     )
 
   module SemanticHighlighting = {
+    module Action = {
+      type action =
+        // tokens BEFORE where the change happens
+        | NoOp
+        // tokens WITHIN where the change removes
+        | Remove
+        // tokens AFTER where the change happens, but on the same line
+        | Move(int, int) // delta of LINE, delta of COLUMN
+        // tokens AFTER where the change happens, but not on the same line
+        | MoveLinesOnly(int) // delta of LINE
+
+      // what should we do to this token?
+      let classify = (change, token: SemanticToken.t) => {
+        // tokens WITHIN this range should be removed
+        let removedRange = change->VSCode.TextDocumentContentChangeEvent.range
+
+        let (lineDelta, columnDelta) = {
+          // +1 line for each linebreak ('\n', '\r', and '\r\n')
+          // -1 line for each line in `removedRange`
+          // +1 column for each charactor after the last linebreak
+          // -1 column for each charactor in `removedRange`
+
+          let regex = %re("/\\r\\n|\\r|\\n/")
+          let lines = Js.String.splitByRe(regex, change->VSCode.TextDocumentContentChangeEvent.text)
+
+          let lineDetalOfRemovedRange =
+            VSCode.Position.line(VSCode.Range.end_(removedRange)) -
+            VSCode.Position.line(VSCode.Range.start(removedRange))
+          let lineDelta = Array.length(lines) - 1 - lineDetalOfRemovedRange
+
+          if lineDelta > 0 {
+            // to the next line
+            (lineDelta, -VSCode.Position.character(VSCode.Range.end_(removedRange)))
+          } else if lineDelta < 0 {
+            // to the previous line
+            let columnDelta =
+              VSCode.Position.character(VSCode.Range.end_(removedRange)) -
+              VSCode.Position.character(VSCode.Range.start(removedRange))
+            (lineDelta, -columnDelta)
+          } else {
+            // stays on the same line
+            let columnDeltaOfRemovedRange =
+              VSCode.Position.character(VSCode.Range.end_(removedRange)) -
+              VSCode.Position.character(VSCode.Range.start(removedRange))
+
+            let columnDelta = switch lines[lineDelta] {
+            | Some(Some(line)) =>
+              // number of characters after the last linebreak
+              String.length(line) - columnDeltaOfRemovedRange
+            | _ => 0
+            }
+            (0, columnDelta)
+          }
+        }
+
+        let tokenRange = token.range->SemanticToken.SingleLineRange.toVsCodeRange
+
+        if (
+          VSCode.Position.isBeforeOrEqual(
+            VSCode.Range.end_(tokenRange),
+            VSCode.Range.start(removedRange),
+          )
+        ) {
+          NoOp
+        } else if VSCode.Range.containsRange(removedRange, tokenRange) {
+          Remove
+        } else if token.range.line == VSCode.Position.line(VSCode.Range.end_(removedRange)) {
+          Move(lineDelta, columnDelta)
+        } else {
+          MoveLinesOnly(lineDelta)
+        }
+      }
+
+      let apply = (token: SemanticToken.t, action) =>
+        switch action {
+        | NoOp => [token]
+        | Remove => []
+        | Move(lineDelta, columnDelta) => [
+            {
+              ...token,
+              range: {
+                line: token.range.line + lineDelta,
+                column: (
+                  fst(token.range.column) + columnDelta,
+                  snd(token.range.column) + columnDelta,
+                ),
+              },
+            },
+          ]
+        | MoveLinesOnly(lineDelta) => [
+            {
+              ...token,
+              range: {
+                line: token.range.line + lineDelta,
+                column: token.range.column,
+              },
+            },
+          ]
+        }
+    }
+
     let update = (self, event) => {
+      self.hasChangedSinceLastReset = true
+
       let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
-      let applyChange = (tokens, change: VSCode.TextDocumentContentChangeEvent.t) => {
-        Js.log(tokens->Array.map(SemanticToken.toString))
-        Js.log(change)
-        ()
-      }
-      changes->Array.forEach(applyChange(self.semanticTokens))
+      let applyChange = (
+        tokens: array<SemanticToken.t>,
+        change: VSCode.TextDocumentContentChangeEvent.t,
+      ) =>
+        tokens
+        ->Array.map(token => {
+          let action = Action.classify(change, token)
+          Action.apply(token, action)
+        })
+        ->Array.concatMany
+
+      changes->Array.forEach(change => {
+        self.semanticTokens = applyChange(self.semanticTokens, change)
+      })
     }
+
+    let reset = self => self.hasChangedSinceLastReset = false
+
     let get = self => self.semanticTokens
 
-    let reset = (self: t, editor: VSCode.TextEditor.t) => {
+    let fromHighlightingInfos = (self: t, editor: VSCode.TextEditor.t) => {
       let document = VSCode.TextEditor.document(editor)
       let text = Editor.Text.getAll(document)
 
       let offsetConverter = Agda.OffsetConverter.make(text)
 
       let intervalTree = IntervalTree.make()
-      // Js.log2("Number of highlightings: ", Array.length(self.highlightings))
 
       self.highlightings->Array.forEach(highlighting => {
         // calculate the range of each highlighting
@@ -495,9 +611,17 @@ module Module: Module = {
 
       // update cached semantic tokens
       self.semanticTokens = tokens
+      self.hasChangedSinceLastReset = false
 
       tokens
     }
+
+    let resetOrUpdate = (self, editor) =>
+      if self.hasChangedSinceLastReset {
+        self.semanticTokens
+      } else {
+        fromHighlightingInfos(self, editor)
+      }
   }
 }
 

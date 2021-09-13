@@ -126,7 +126,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     }
 
     if useSemanticHighlighting && isCurrentFile {
-      let tokens = Decoration.SemanticHighlighting.reset(state.decoration, state.editor)
+      let tokens = Decoration.SemanticHighlighting.resetOrUpdate(state.decoration, state.editor)
 
       open Editor.Provider.Mock
 
@@ -208,7 +208,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     let fileName = document->VSCode.TextDocument.fileName
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
-        let changes = event->VSCode.TextDocumentChangeEvent.contentChanges
         Decoration.SemanticHighlighting.update(state.decoration, event)
       })
     }
