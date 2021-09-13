@@ -501,7 +501,6 @@ module Module: Module = {
         } else if VSCode.Range.containsRange(removedRange, tokenRange) {
           Remove
         } else if token.range.line == VSCode.Position.line(VSCode.Range.end_(removedRange)) {
-          Js.log3("MOVE", token->SemanticToken.toString, (lineDelta, columnDelta))
           Move(lineDelta, columnDelta)
         } else {
           MoveLinesOnly(lineDelta)
@@ -537,7 +536,6 @@ module Module: Module = {
     }
 
     let update = (self, event) => {
-      Js.log("UPDATE")
       let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
       let applyChange = (
@@ -553,6 +551,7 @@ module Module: Module = {
 
       // read from the cached
       self.semanticTokens->Promise.get(semanticTokensRef => {
+        Js.log2("UPDATE", Array.length(semanticTokensRef.contents))
         changes->Array.forEach(change => {
           semanticTokensRef := applyChange(semanticTokensRef.contents, change)
         })
@@ -606,8 +605,13 @@ module Module: Module = {
           })
         })
 
+      Js.log2("DEPOSIT", tokens->Array.map(SemanticToken.toString))
+      // trigger and resolve
+      self.resolveSemanticTokens(ref([]))
       // update cached semantic tokens
-      self.resolveSemanticTokens(ref(tokens))
+      self.semanticTokens->Promise.get(semanticTokensRef => {
+        semanticTokensRef := tokens
+      })
 
       tokens
     }

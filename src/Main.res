@@ -116,7 +116,6 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
-    Js.log("REQUEST")
     let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
     let isCurrentFile = {
       let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -127,7 +126,9 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
 
     if useSemanticHighlighting && isCurrentFile {
       Decoration.SemanticHighlighting.get(state.decoration)
-      ->Promise.map(tokens => {
+      ->Promise.map(tokensRef => {
+
+        Js.log2("WITHDRAW", tokensRef.contents->Array.map(Decoration.SemanticToken.toString))
         open Editor.Provider.Mock
 
         let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
@@ -136,7 +137,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
         )
         let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
 
-        tokens.contents->Array.forEach(({range, type_, modifiers}) => {
+        tokensRef.contents->Array.forEach(({range, type_, modifiers}) => {
           SemanticTokensBuilder.pushLegend(
             builder,
             Decoration.SemanticToken.SingleLineRange.toVsCodeRange(range),
