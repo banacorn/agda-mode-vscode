@@ -2,6 +2,15 @@ open Common
 module type Module = {
   type t
 
+  module SemanticToken: {
+    type t = {
+      range: VSCode.Range.t,
+      type_: Highlighting.Aspect.TokenType.t,
+      modifiers: option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
+    }
+    let toString: t => string
+  }
+
   let make: unit => t
   let destroy: t => unit
 
@@ -29,21 +38,12 @@ module type Module = {
     VSCode.Position.t,
   ) => option<Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>>
 
-  let convertToSemanticTokens: (
-    t,
-    VSCode.TextEditor.t,
-  ) => array<(
-    VSCode.Range.t,
-    Highlighting.Aspect.TokenType.t,
-    option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
-  )>
-
-  // (
-  //   VSCode.Range.t,
-  //   Highlighting.Aspect.TokenType.t,
-  //   option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
-  // ) => unit,
-  // Promise.t<unit>
+  // accumulated TextDocumentChangeEvents
+  module SemanticHighlighting: {
+    let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
+    let get: t => array<SemanticToken.t>
+    let reset: (t, VSCode.TextEditor.t) => array<SemanticToken.t>
+  }
 }
 
 module Module: Module = {
@@ -223,6 +223,31 @@ module Module: Module = {
       }
   }
 
+  module SemanticToken = {
+    type t = {
+      range: VSCode.Range.t,
+      type_: Highlighting.Aspect.TokenType.t,
+      modifiers: option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
+    }
+
+    let toString = token => {
+      let range = token.range
+      let tokenType = token.type_->Highlighting.Aspect.TokenType.toString
+      let modifiers =
+        token.modifiers->Option.mapWithDefault([], xs =>
+          xs->Array.map(AgdaModeVscode.Highlighting.Aspect.TokenModifier.toString)
+        )->Util.Pretty.array
+
+      "(" ++
+      string_of_int(VSCode.Position.line(VSCode.Range.start(range)))
+      ++ ", " ++ string_of_int(VSCode.Position.character(VSCode.Range.start(range)))
+      ++ ") (" ++ 
+      string_of_int(VSCode.Position.line(VSCode.Range.end_(range)))
+      ++ ", " ++ string_of_int(VSCode.Position.character(VSCode.Range.end_(range)))
+      ++ ") " ++ tokenType ++ " " ++ modifiers
+    }
+  }
+
   type t = {
     // from AddViaFile
     mutable tempFilePaths: array<Format.t>,
@@ -232,6 +257,8 @@ module Module: Module = {
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // source locations
     mutable srcLocs: array<srcLoc>,
+    // accumulated TextDocumentChangeEvents
+    mutable semanticTokens: array<SemanticToken.t>,
   }
 
   let make = () => {
@@ -239,6 +266,7 @@ module Module: Module = {
     highlightings: [],
     decorations: [],
     srcLocs: [],
+    semanticTokens: [],
   }
 
   let clear = self => {
@@ -362,61 +390,74 @@ module Module: Module = {
       })
     )
 
-  let convertToSemanticTokens = (self: t, editor: VSCode.TextEditor.t) => {
-    let document = VSCode.TextEditor.document(editor)
-    let text = Editor.Text.getAll(document)
+  module SemanticHighlighting = {
+    let update = (self, event) => {
+      let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
-
-    let offsetConverter = Agda.OffsetConverter.make(text)
-
-    let intervalTree = IntervalTree.make()
-    // Js.log2("Number of highlightings: ", Array.length(self.highlightings))
-
-    self.highlightings->Array.forEach(highlighting => {
-      // calculate the range of each highlighting
-      let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
-      let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
-      let range = Editor.Range.fromInterval(document, (start, end_))
-      // insert [start, end_) to the interval tree
-      let alreadyExists = intervalTree->IntervalTree.intersectAny((start, end_ - 1))
-      if !alreadyExists {
-        intervalTree->IntervalTree.insert((start, end_ - 1), (range, highlighting.aspects))->ignore
+      let applyChange = (tokens, change: VSCode.TextDocumentContentChangeEvent.t) => {
+        Js.log(tokens->Array.map(SemanticToken.toString))
+        Js.log(change)
+        ()
       }
-    })
+      changes->Array.forEach(applyChange(self.semanticTokens))
+    }
+    let get = self => self.semanticTokens
 
-    intervalTree
-    ->IntervalTree.items
-    ->Array.map(item => {
-      let (range, aspects) = item["value"]
-      // Js.log4(
-      //   item["key"],
-      //   (
-      //     VSCode.Position.line(VSCode.Range.start(range)),
-      //     VSCode.Position.character(VSCode.Range.start(range)),
-      //   ),
-      //   (
-      //     VSCode.Position.line(VSCode.Range.end_(range)),
-      //     VSCode.Position.character(VSCode.Range.end_(range)),
-      //   ),
-      //   aspects->Array.map(Highlighting.Aspect.toString),
-      // )
-      // split the range in case that it spans multiple lines
-      let ranges = lines(VSCode.TextEditor.document(editor), range)
-      ranges->Array.map(range => (range, aspects))
-    })
-    ->Array.concatMany
-    ->Array.keepMap(((range, aspects)) => {
-      let tokenTypeAccum = []
-      let tokenModifiersAccum = []
-      // convert Aspects to TokenType and TokenModifiers
-      aspects
-      ->Array.keepMap(Highlighting.Aspect.toTokenTypeAndModifiers)
-      ->Array.forEach(((tokenType, tokenModifiers)) => {
-        Js.Array2.push(tokenTypeAccum, tokenType)->ignore
-        Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore
+    let reset = (self: t, editor: VSCode.TextEditor.t) => {
+      let document = VSCode.TextEditor.document(editor)
+      let text = Editor.Text.getAll(document)
+
+      let offsetConverter = Agda.OffsetConverter.make(text)
+
+      let intervalTree = IntervalTree.make()
+      // Js.log2("Number of highlightings: ", Array.length(self.highlightings))
+
+      self.highlightings->Array.forEach(highlighting => {
+        // calculate the range of each highlighting
+        let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
+        let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
+        let range = Editor.Range.fromInterval(document, (start, end_))
+        // insert [start, end_) to the interval tree
+        let alreadyExists = intervalTree->IntervalTree.intersectAny((start, end_ - 1))
+        if !alreadyExists {
+          intervalTree
+          ->IntervalTree.insert((start, end_ - 1), (range, highlighting.aspects))
+          ->ignore
+        }
       })
-      tokenTypeAccum[0]->Option.map(tokenType => (range, tokenType, Some(tokenModifiersAccum)))
-    })
+
+      let tokens =
+        intervalTree
+        ->IntervalTree.items
+        ->Array.map(item => {
+          let (range, aspects) = item["value"]
+          // split the range in case that it spans multiple lines
+          let ranges = lines(VSCode.TextEditor.document(editor), range)
+          ranges->Array.map(range => (range, aspects))
+        })
+        ->Array.concatMany
+        ->Array.keepMap(((range, aspects)) => {
+          let tokenTypeAccum = []
+          let tokenModifiersAccum = []
+          // convert Aspects to TokenType and TokenModifiers
+          aspects
+          ->Array.keepMap(Highlighting.Aspect.toTokenTypeAndModifiers)
+          ->Array.forEach(((tokenType, tokenModifiers)) => {
+            Js.Array2.push(tokenTypeAccum, tokenType)->ignore
+            Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore
+          })
+          tokenTypeAccum[0]->Option.map(type_ => {
+            SemanticToken.range: range,
+            type_: type_,
+            modifiers: Some(tokenModifiersAccum),
+          })
+        })
+
+      // update cached semantic tokens
+      self.semanticTokens = tokens
+
+      tokens
+    }
   }
 }
 

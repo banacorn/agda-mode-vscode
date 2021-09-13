@@ -365,46 +365,52 @@ module Provider = {
     }
   }
 
-  let registerDocumentSemanticTokensProvider = (provider, (tokenTypes, tokenModifiers)) => {
+  let registerDocumentSemanticTokensProvider = (
+        ~provideDocumentSemanticTokens: Mock.DocumentSemanticTokensProvider.provideDocumentSemanticTokens,
+    (tokenTypes, tokenModifiers)) => {
+
+    let documentSemanticTokensProvider = Mock.DocumentSemanticTokensProvider.make(
+      ~provideDocumentSemanticTokens=provideDocumentSemanticTokens,
+      // =(textDocument, _cancel) => {
+      //   let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+      //   let pushLegend = (range, tokenType, tokenModifiers) => {
+      //     Mock.SemanticTokensBuilder.pushLegend(
+      //       builder,
+      //       range,
+      //       Highlighting.Aspect.TokenType.toString(tokenType),
+      //       tokenModifiers->Option.map(xs =>
+      //         xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
+      //       ),
+      //     )
+      //   }
+      //   provider(textDocument->TextDocument.fileName, pushLegend)->ProviderResult.map(() => {
+      //     Mock.SemanticTokensBuilder.build(builder)
+      //   })
+      // },
+      // NOTE: this provider is never invokes somehow
+      // ~provideDocumentSemanticTokensEdits=None,
+      // ~provideDocumentSemanticTokensEdits=(textDocument, _previousResultID, _cancel) => {
+      //   let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+      //   let pushLegend = (range, tokenType, tokenModifiers) => {
+      //     Mock.SemanticTokensBuilder.pushLegend(
+      //       builder,
+      //       range,
+      //       Highlighting.Aspect.TokenType.toString(tokenType),
+      //       tokenModifiers->Option.map(xs =>
+      //         xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
+      //       ),
+      //     )
+      //   }
+      //   provider(textDocument->TextDocument.fileName, pushLegend)->ProviderResult.map(() => {
+      //     #SemanticsTokens(Mock.SemanticTokensBuilder.build(builder))
+      //   })
+      // },
+      (),
+    )
+
     let semanticTokensLegend = Mock.SemanticTokensLegend.makeWithTokenModifiers(
       tokenTypes,
       tokenModifiers,
-    )
-
-    let documentSemanticTokensProvider = Mock.DocumentSemanticTokensProvider.make(
-      ~provideDocumentSemanticTokens=(textDocument, _cancel) => {
-        let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-        let pushLegend = (range, tokenType, tokenModifiers) => {
-          Mock.SemanticTokensBuilder.pushLegend(
-            builder,
-            range,
-            Highlighting.Aspect.TokenType.toString(tokenType),
-            tokenModifiers->Option.map(xs =>
-              xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
-            ),
-          )
-        }
-        provider(textDocument->TextDocument.fileName, pushLegend)->ProviderResult.map(() => {
-          Mock.SemanticTokensBuilder.build(builder)
-        })
-      },
-      ~provideDocumentSemanticTokensEdits=(textDocument, _previousResultID, _cancel) => {
-        let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-        let pushLegend = (range, tokenType, tokenModifiers) => {
-          Mock.SemanticTokensBuilder.pushLegend(
-            builder,
-            range,
-            Highlighting.Aspect.TokenType.toString(tokenType),
-            tokenModifiers->Option.map(xs =>
-              xs->Array.map(Highlighting.Aspect.TokenModifier.toString)
-            ),
-          )
-        }
-        provider(textDocument->TextDocument.fileName, pushLegend)->ProviderResult.map(() => {
-          #SemanticsTokens(Mock.SemanticTokensBuilder.build(builder))
-        })
-      },
-      (),
     )
 
     Mock.Languages.registerDocumentSemanticTokensProvider(
