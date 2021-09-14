@@ -1,26 +1,101 @@
 open Common
-module type Module = {
-  type t
+open Belt
 
-  module SemanticToken: {
-    // a Range that does not span multiple lines
-    module SingleLineRange: {
-      type t = {
-        line: int,
-        column: (int, int),
-      }
-      let toString: t => string
-      let toVsCodeRange: t => VSCode.Range.t
-      let splitRange: (VSCode.TextDocument.t, VSCode.Range.t) => array<t>
-    }
-
+// Tokens for Semantic Highlighting 
+module type SemanticToken = {
+  // a Range that does not span multiple lines
+  module SingleLineRange: {
     type t = {
-      range: SingleLineRange.t,
-      type_: Highlighting.Aspect.TokenType.t,
-      modifiers: option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
+      line: int,
+      column: (int, int),
     }
     let toString: t => string
+    let toVsCodeRange: t => VSCode.Range.t
+    let splitRange: (VSCode.TextDocument.t, VSCode.Range.t) => array<t>
   }
+
+  type t = {
+    range: SingleLineRange.t,
+    type_: Highlighting.Agda.Aspect.TokenType.t,
+    modifiers: option<array<Highlighting.Agda.Aspect.TokenModifier.t>>,
+  }
+  let toString: t => string
+}
+
+module SemanticToken = {
+  // a Range that does not span multiple lines
+  module SingleLineRange = {
+    type t = {
+      line: int,
+      column: (int, int),
+    }
+
+    let toString = ({line, column}) =>
+      string_of_int(line) ++ ":" ++ string_of_int(fst(column)) ++ "-" ++ string_of_int(snd(column))
+
+    let toVsCodeRange = ({line, column}) =>
+      VSCode.Range.make(
+        VSCode.Position.make(line, fst(column)),
+        VSCode.Position.make(line, snd(column)),
+      )
+
+    // split a single range into multiple ranges that only occupies single lines
+    let splitRange = (doc: VSCode.TextDocument.t, range: VSCode.Range.t): array<t> => {
+      open VSCode.Range
+      open VSCode.Position
+      let startingLine = line(start(range))
+      let endingLine = line(end_(range))
+
+      let ranges = []
+      for i in startingLine to endingLine {
+        let startingPoint = if i == startingLine {
+          start(range)
+        } else {
+          VSCode.Position.make(i, 0)
+        }
+        let endingPoint = if i == endingLine {
+          end_(range)
+        } else {
+          let offset = doc->VSCode.TextDocument.offsetAt(VSCode.Position.make(i + 1, 0)) - 1
+          doc->VSCode.TextDocument.positionAt(offset)
+        }
+        Js.Array.push(
+          {
+            line: VSCode.Position.line(startingPoint),
+            column: (
+              VSCode.Position.character(startingPoint),
+              VSCode.Position.character(endingPoint),
+            ),
+          },
+          ranges,
+        )->ignore
+      }
+      ranges
+    }
+  }
+
+  type t = {
+    range: SingleLineRange.t,
+    type_: Highlighting.Agda.Aspect.TokenType.t,
+    modifiers: option<array<Highlighting.Agda.Aspect.TokenModifier.t>>,
+  }
+
+  let toString = token => {
+    // let range = token.range
+    let tokenType = token.type_->Highlighting.Agda.Aspect.TokenType.toString
+    let modifiers =
+      token.modifiers
+      ->Option.mapWithDefault([], xs =>
+        xs->Array.map(Highlighting.Agda.Aspect.TokenModifier.toString)
+      )
+      ->Util.Pretty.array
+
+    "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ " " ++ modifiers
+  }
+}
+
+module type Module = {
+  type t
 
   let make: unit => t
   let destroy: t => unit
@@ -33,7 +108,7 @@ module type Module = {
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
   // adding decorations
-  let addViaPipe: (t, array<Highlighting.t>) => unit
+  let addViaPipe: (t, array<Highlighting.Agda.Info.t>) => unit
   let addViaFile: (t, string) => unit
   let addViaJSONFile: (t, string) => unit
   // applying decorations
@@ -47,9 +122,8 @@ module type Module = {
   let lookupSrcLoc: (
     t,
     VSCode.Position.t,
-  ) => option<Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>>
+  ) => option<Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>>
 
-  // accumulated TextDocumentChangeEvents
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
     let get: t => Promise.t<ref<array<SemanticToken.t>>>
@@ -58,13 +132,12 @@ module type Module = {
 }
 
 module Module: Module = {
-  open Belt
 
   type srcLoc = {
     // range of the reference
     range: VSCode.Range.t,
     // file/offset of the source
-    filepath: Highlighting.filepath,
+    filepath: Highlighting.Agda.Info.filepath,
     offset: int,
   }
 
@@ -96,7 +169,7 @@ module Module: Module = {
 
   let decorateHighlightings = (
     editor: VSCode.TextEditor.t,
-    highlightings: IntervalTree.t<Highlighting.t>,
+    infos: IntervalTree.t<Highlighting.Agda.Info.t>,
   ): (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<srcLoc>) => {
     // Js.Console.timeStart("$$$ Decoration / aspects")
     // Js.Console.timeStart("$$$ Decoration / aspects / offset conversion")
@@ -106,12 +179,12 @@ module Module: Module = {
 
     let offsetConverter = Agda.OffsetConverter.make(text)
 
-    // convert offsets in Highlighting.t to Ranges
-    let highlightings: array<(
+    // convert offsets in Info.t to Ranges
+    let infos: array<(
       VSCode.Range.t,
-      array<Highlighting.Aspect.t>,
-      option<(Highlighting.filepath, int)>,
-    )> = IntervalTree.items(highlightings)->Array.map(item => {
+      array<Highlighting.Agda.Aspect.t>,
+      option<(Highlighting.Agda.Info.filepath, int)>,
+    )> = IntervalTree.items(infos)->Array.map(item => {
       let highlighting = item["value"]
       // calculate the range of each highlighting
       let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
@@ -120,8 +193,8 @@ module Module: Module = {
       (range, highlighting.aspects, highlighting.source)
     })
     // array of Aspect & Range
-    let aspects: array<(Highlighting.Aspect.t, VSCode.Range.t)> =
-      highlightings
+    let aspects: array<(Highlighting.Agda.Aspect.t, VSCode.Range.t)> =
+      infos
       ->Array.map(((range, aspects, _)) =>
         // pair the aspect with the range
         aspects->Array.map(aspect => (aspect, range))
@@ -132,7 +205,7 @@ module Module: Module = {
     // Js.Console.timeStart("$$$ Decoration / aspects / scrlocs conversion")
 
     // array of Range & source location
-    let srcLocs: array<srcLoc> = highlightings->Array.keepMap(((range, _, source)) =>
+    let srcLocs: array<srcLoc> = infos->Array.keepMap(((range, _, source)) =>
       source->Option.map(((filepath, offset)) => {
         range: range,
         filepath: filepath,
@@ -147,7 +220,7 @@ module Module: Module = {
     let backgroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
     let foregroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
 
-    let addFaceToDict = (face: Highlighting.face, range) =>
+    let addFaceToDict = (face: Highlighting.Agda.Aspect.face, range) =>
       switch face {
       | Background(color) =>
         switch Js.Dict.get(backgroundColorDict, color) {
@@ -166,7 +239,7 @@ module Module: Module = {
 
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
-      let style = Highlighting.Aspect.toStyle(aspect)
+      let style = Highlighting.Agda.Aspect.toStyle(aspect)
       switch style {
       | Noop => ()
       | Themed(light, dark) =>
@@ -210,87 +283,11 @@ module Module: Module = {
       }
   }
 
-  module SemanticToken = {
-    // a Range that does not span multiple lines
-    module SingleLineRange = {
-      type t = {
-        line: int,
-        column: (int, int),
-      }
-
-      let toString = ({line, column}) =>
-        string_of_int(line) ++
-        ":" ++
-        string_of_int(fst(column)) ++
-        "-" ++
-        string_of_int(snd(column))
-
-      let toVsCodeRange = ({line, column}) =>
-        VSCode.Range.make(
-          VSCode.Position.make(line, fst(column)),
-          VSCode.Position.make(line, snd(column)),
-        )
-
-      // split a single range into multiple ranges that only occupies single lines
-      let splitRange = (doc: VSCode.TextDocument.t, range: VSCode.Range.t): array<t> => {
-        open VSCode.Range
-        open VSCode.Position
-        let startingLine = line(start(range))
-        let endingLine = line(end_(range))
-
-        let ranges = []
-        for i in startingLine to endingLine {
-          let startingPoint = if i == startingLine {
-            start(range)
-          } else {
-            VSCode.Position.make(i, 0)
-          }
-          let endingPoint = if i == endingLine {
-            end_(range)
-          } else {
-            let offset = doc->VSCode.TextDocument.offsetAt(VSCode.Position.make(i + 1, 0)) - 1
-            doc->VSCode.TextDocument.positionAt(offset)
-          }
-          Js.Array.push(
-            {
-              line: VSCode.Position.line(startingPoint),
-              column: (
-                VSCode.Position.character(startingPoint),
-                VSCode.Position.character(endingPoint),
-              ),
-            },
-            ranges,
-          )->ignore
-        }
-        ranges
-      }
-    }
-
-    type t = {
-      range: SingleLineRange.t,
-      type_: Highlighting.Aspect.TokenType.t,
-      modifiers: option<array<AgdaModeVscode.Highlighting.Aspect.TokenModifier.t>>,
-    }
-
-    let toString = token => {
-      // let range = token.range
-      let tokenType = token.type_->Highlighting.Aspect.TokenType.toString
-      let modifiers =
-        token.modifiers
-        ->Option.mapWithDefault([], xs =>
-          xs->Array.map(AgdaModeVscode.Highlighting.Aspect.TokenModifier.toString)
-        )
-        ->Util.Pretty.array
-
-      "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ " " ++ modifiers
-    }
-  }
-
   type t = {
     // from AddViaFile
     mutable tempFilePaths: array<Format.t>,
     // from AddViaPipe
-    mutable highlightings: IntervalTree.t<Highlighting.t>,
+    mutable infos: IntervalTree.t<Highlighting.Agda.Info.t>,
     // after Apply
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // source locations
@@ -304,7 +301,7 @@ module Module: Module = {
     let (promise, resolve) = Promise.pending()
     {
       tempFilePaths: [],
-      highlightings: IntervalTree.make(),
+      infos: IntervalTree.make(),
       decorations: [],
       srcLocs: [],
       semanticTokens: promise,
@@ -322,7 +319,7 @@ module Module: Module = {
       N.Fs.unlink(Format.toFilepath(format), _ => ())
     })
     self.tempFilePaths = []
-    self.highlightings = IntervalTree.make()
+    self.infos = IntervalTree.make()
     clear(self)
   }
 
@@ -332,13 +329,13 @@ module Module: Module = {
     )
 
   // insert to an IntervalTree
-  let addViaPipe = (self, highlightings: array<Highlighting.t>) => {
-    highlightings->Array.forEach(highlighting => {
+  let addViaPipe = (self, infos: array<Highlighting.Agda.Info.t>) => {
+    infos->Array.forEach(info => {
       let alreadyExists =
-        self.highlightings->IntervalTree.intersectAny((highlighting.start, highlighting.end_ - 1))
+        self.infos->IntervalTree.intersectAny((info.start, info.end_ - 1))
       if !alreadyExists {
-        self.highlightings
-        ->IntervalTree.insert((highlighting.start, highlighting.end_ - 1), highlighting)
+        self.infos
+        ->IntervalTree.insert((info.start, info.end_ - 1), info)
         ->ignore
       }
     })
@@ -351,7 +348,7 @@ module Module: Module = {
 
   let readFile = N.Util.promisify(N.Fs.readFile)
 
-  let readAndParseEmacs = (filepath): Promise.t<Highlighting.Infos.t> =>
+  let readAndParseEmacs = (filepath): Promise.t<Highlighting.Agda.Infos.t> =>
     readFile(. filepath)
     ->Promise.Js.fromBsPromise
     ->Promise.Js.toResult
@@ -368,14 +365,14 @@ module Module: Module = {
         | Some(A("remove")) => false
         | _ => true
         }
-        let infos = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Highlighting.parse)
-        Highlighting.Infos.Infos(keepHighlighting, infos)
+        let infos = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Highlighting.Agda.Info.parse)
+        Highlighting.Agda.Infos.Infos(keepHighlighting, infos)
       // TODO: we should do something about these parse errors
-      | Error(_err) => Highlighting.Infos.Infos(true, [])
+      | Error(_err) => Highlighting.Agda.Infos.Infos(true, [])
       }
     )
 
-  let readAndParseJSON = (filepath): Promise.t<Highlighting.Infos.t> =>
+  let readAndParseJSON = (filepath): Promise.t<Highlighting.Agda.Infos.t> =>
     readFile(. filepath)
     ->Promise.Js.fromBsPromise
     ->Promise.Js.toResult
@@ -384,10 +381,10 @@ module Module: Module = {
       | Ok(buffer) =>
         let raw = Node.Buffer.toString(buffer)
         switch Js.Json.parseExn(raw) {
-        | exception _e => Highlighting.Infos.Infos(true, [])
-        | json => Highlighting.Infos.decode(json)
+        | exception _e => Highlighting.Agda.Infos.Infos(true, [])
+        | json => Highlighting.Agda.Infos.decode(json)
         }
-      | Error(_err) => Highlighting.Infos.Infos(true, [])
+      | Error(_err) => Highlighting.Agda.Infos.Infos(true, [])
       }
     )
 
@@ -397,28 +394,28 @@ module Module: Module = {
     | JSON(filepath) => readAndParseJSON(filepath)
     }
 
-  // .tempFilePaths ====> .highlightings
+  // .tempFilePaths ====> .infos
   let readTempFiles = self =>
     self.tempFilePaths
     ->Array.map(readAndParse)
     ->Promise.allArray
-    ->Promise.map(xs => xs->Array.map(Highlighting.Infos.toInfos)->Array.concatMany)
-    ->Promise.map(highlightings => {
-      addViaPipe(self, highlightings)
+    ->Promise.map(xs => xs->Array.map(Highlighting.Agda.Infos.toInfos)->Array.concatMany)
+    ->Promise.map(infos => {
+      addViaPipe(self, infos)
       self.tempFilePaths = []
     })
 
-  // .highlightings ====> .decorations
+  // .infos ====> .decorations
   let applyHighlightings = (self, editor) => {
-    let (decorations, srcLocs) = decorateHighlightings(editor, self.highlightings)
+    let (decorations, srcLocs) = decorateHighlightings(editor, self.infos)
 
-    self.highlightings = IntervalTree.make()
+    self.infos = IntervalTree.make()
     self.srcLocs = srcLocs
     self.decorations = Array.concat(self.decorations, decorations)
   }
 
   let lookupSrcLoc = (self, point): option<
-    Promise.t<array<(VSCode.Range.t, Highlighting.filepath, VSCode.Position.t)>>,
+    Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
   > =>
     Js.Array.find(
       (srcLoc: srcLoc) => VSCode.Range.contains(srcLoc.range, point),
@@ -575,7 +572,7 @@ module Module: Module = {
       let offsetConverter = Agda.OffsetConverter.make(text)
 
       let tokens =
-        self.highlightings
+        self.infos
         ->IntervalTree.items
         ->Array.map(item => {
           let highlighting = item["value"]
@@ -598,7 +595,7 @@ module Module: Module = {
           let tokenModifiersAccum = []
           // convert Aspects to TokenType and TokenModifiers
           aspects
-          ->Array.keepMap(Highlighting.Aspect.toTokenTypeAndModifiers)
+          ->Array.keepMap(Highlighting.Agda.Aspect.toTokenTypeAndModifiers)
           ->Array.forEach(((tokenType, tokenModifiers)) => {
             Js.Array2.push(tokenTypeAccum, tokenType)->ignore
             Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore
@@ -632,7 +629,7 @@ module Module: Module = {
       // only apply decorations when Semantic Highlighting is off
       if Config.Highlighting.getSemanticHighlighting() {
         SemanticHighlighting.apply(self, editor)->ignore
-        self.highlightings = IntervalTree.make()
+        self.infos = IntervalTree.make()
       } else {
         applyHighlightings(self, editor)
       }

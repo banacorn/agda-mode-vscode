@@ -1,0 +1,1 @@
+module Agda = Highlighting__Agda

@@ -112,8 +112,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   })->subscribe
 
   // these two arrays are called "legends"
-  let tokenTypes = Highlighting.Aspect.TokenType.enumurate
-  let tokenModifiers = Highlighting.Aspect.TokenModifier.enumurate
+  let tokenTypes = Highlighting.Agda.Aspect.TokenType.enumurate
+  let tokenModifiers = Highlighting.Agda.Aspect.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
     let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
@@ -140,8 +140,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
           SemanticTokensBuilder.pushLegend(
             builder,
             Decoration.SemanticToken.SingleLineRange.toVsCodeRange(range),
-            Highlighting.Aspect.TokenType.toString(type_),
-            modifiers->Option.map(xs => xs->Array.map(Highlighting.Aspect.TokenModifier.toString)),
+            Highlighting.Agda.Aspect.TokenType.toString(type_),
+            modifiers->Option.map(xs => xs->Array.map(Highlighting.Agda.Aspect.TokenModifier.toString)),
           )
         })
 

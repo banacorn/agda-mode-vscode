@@ -1,16 +1,16 @@
 open Belt
 
-// https://www.gnu.org/software/emacs/manual/html_node/emacs/Faces.html
-type face =
-  | Background(string)
-  | Foreground(string)
-
-type style =
-  | Noop // don't do anything
-  | Themed(face, face) // under light & dark themes
-
 // https://github.com/agda/agda/blob/master/src/full/Agda/Interaction/Highlighting/Precise.hs
 module Aspect = {
+  // https://www.gnu.org/software/emacs/manual/html_node/emacs/Faces.html
+  type face =
+    | Background(string)
+    | Foreground(string)
+
+  type style =
+    | Noop // don't do anything
+    | Themed(face, face) // under light & dark themes
+
   // a mix of Aspect, OtherAspect and NameKind
   type t =
     | // the Aspect part
@@ -379,94 +379,101 @@ module Aspect = {
 
 module Token = Parser.SExpression
 open Token
-type filepath = string
-type t = {
-  start: int, // agda offset
-  end_: int, // agda offset
-  aspects: array<Aspect.t>, // a list of names of aspects
-  isTokenBased: bool,
-  note: option<string>,
-  source: option<(filepath, int)>, // The defining module and the position in that module
-}
-let toString = self =>
-  "Annotation " ++
-  (string_of_int(self.start) ++
-  (" " ++
-  (string_of_int(self.end_) ++
-  (" " ++
-  (Util.Pretty.list(List.fromArray(self.aspects)) ++
-  switch self.source {
-  | None => ""
-  | Some((s, i)) => s ++ (" " ++ string_of_int(i))
-  })))))
-let parse: Token.t => option<t> = x =>
-  switch x {
-  | A(_) => None
-  | L(xs) =>
-    switch xs {
-    | [A(start'), A(end_'), aspects, _, _, L([A(filepath), _, A(index')])] =>
-      int_of_string_opt(start')->Option.flatMap(start =>
-        int_of_string_opt(end_')->Option.flatMap(end_ =>
-          int_of_string_opt(index')->Option.map(index => {
+
+module Info = {
+  type filepath = string
+  type t = {
+    start: int, // agda offset
+    end_: int, // agda offset
+    aspects: array<Aspect.t>, // a list of names of aspects
+    isTokenBased: bool,
+    note: option<string>,
+    source: option<(filepath, int)>, // The defining module and the position in that module
+  }
+  let toString = self =>
+    "Annotation " ++
+    (string_of_int(self.start) ++
+    (" " ++
+    (string_of_int(self.end_) ++
+    (" " ++
+    (Util.Pretty.list(List.fromArray(self.aspects)) ++
+    switch self.source {
+    | None => ""
+    | Some((s, i)) => s ++ (" " ++ string_of_int(i))
+    })))))
+  let parse: Token.t => option<t> = x =>
+    switch x {
+    | A(_) => None
+    | L(xs) =>
+      switch xs {
+      | [A(start'), A(end_'), aspects, _, _, L([A(filepath), _, A(index')])] =>
+        int_of_string_opt(start')->Option.flatMap(start =>
+          int_of_string_opt(end_')->Option.flatMap(end_ =>
+            int_of_string_opt(index')->Option.map(index => {
+              start: start - 1,
+              end_: end_ - 1,
+              aspects: flatten(aspects)->Array.map(Aspect.parse),
+              isTokenBased: false, // NOTE: fix this
+              note: None, // NOTE: fix this
+              source: Some((filepath, index)),
+            })
+          )
+        )
+
+      | [A(start'), A(end_'), aspects] =>
+        int_of_string_opt(start')->Option.flatMap(start =>
+          int_of_string_opt(end_')->Option.map(end_ => {
             start: start - 1,
             end_: end_ - 1,
             aspects: flatten(aspects)->Array.map(Aspect.parse),
             isTokenBased: false, // NOTE: fix this
             note: None, // NOTE: fix this
-            source: Some((filepath, index)),
+            source: None,
           })
         )
-      )
-
-    | [A(start'), A(end_'), aspects] =>
-      int_of_string_opt(start')->Option.flatMap(start =>
-        int_of_string_opt(end_')->Option.map(end_ => {
-          start: start - 1,
-          end_: end_ - 1,
-          aspects: flatten(aspects)->Array.map(Aspect.parse),
-          isTokenBased: false, // NOTE: fix this
-          note: None, // NOTE: fix this
-          source: None,
-        })
-      )
-    | [A(start'), A(end_'), aspects, _] =>
-      int_of_string_opt(start')->Option.flatMap(start =>
-        int_of_string_opt(end_')->Option.map(end_ => {
-          start: start - 1,
-          end_: end_ - 1,
-          aspects: flatten(aspects)->Array.map(Aspect.parse),
-          isTokenBased: false, // NOTE: fix this
-          note: None, // NOTE: fix this
-          source: None,
-        })
-      )
-    | _ => None
+      | [A(start'), A(end_'), aspects, _] =>
+        int_of_string_opt(start')->Option.flatMap(start =>
+          int_of_string_opt(end_')->Option.map(end_ => {
+            start: start - 1,
+            end_: end_ - 1,
+            aspects: flatten(aspects)->Array.map(Aspect.parse),
+            isTokenBased: false, // NOTE: fix this
+            note: None, // NOTE: fix this
+            source: None,
+          })
+        )
+      | _ => None
+      }
     }
-  }
-let parseDirectHighlightings: array<Token.t> => array<t> = tokens =>
-  tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
+  let parseDirectHighlightings: array<Token.t> => array<t> = tokens =>
+    tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
 
-open Json.Decode
-let decode: decoder<t> = Util.Decode.tuple6(
-  int,
-  int,
-  array(string),
-  bool,
-  optional(string),
-  optional(pair(string, int)),
-) |> map(((start, end_, aspects, isTokenBased, note, source)) => {
-  start: start - 1,
-  end_: end_ - 1,
-  aspects: aspects->Array.map(Aspect.parse),
-  isTokenBased: isTokenBased,
-  note: note,
-  source: source,
-})
+  let decode: Json.Decode.decoder<t> = {
+    open Json.Decode
+    Util.Decode.tuple6(
+      int,
+      int,
+      array(string),
+      bool,
+      optional(string),
+      optional(pair(string, int)),
+    ) |> map(((start, end_, aspects, isTokenBased, note, source)) => {
+      start: start - 1,
+      end_: end_ - 1,
+      aspects: aspects->Array.map(Aspect.parse),
+      isTokenBased: isTokenBased,
+      note: note,
+      source: source,
+    })
+  }
+}
 
 module Infos = {
-  type t = Infos(bool, array<t>)
-  let decode: decoder<t> =
-    pair(bool, array(decode)) |> map(((keepHighlighting, xs)) => Infos(keepHighlighting, xs))
+  type t = Infos(bool, array<Info.t>)
+  let decode: Json.Decode.decoder<t> = {
+    open Json.Decode
+    pair(bool, array(Info.decode)) |> map(((keepHighlighting, xs)) => Infos(keepHighlighting, xs))
+  }
 
   let toInfos = x =>
     switch x {
