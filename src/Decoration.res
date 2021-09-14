@@ -438,7 +438,7 @@ module Module: Module = {
       type action =
         // tokens BEFORE where the change happens
         | NoOp
-        // tokens WITHIN where the change removes
+        // tokens WITHIN where the change removes or destroys
         | Remove
         // tokens AFTER where the change happens, but on the same line
         | Move(int, int) // delta of LINE, delta of COLUMN
@@ -498,7 +498,17 @@ module Module: Module = {
           )
         ) {
           NoOp
-        } else if VSCode.Range.containsRange(removedRange, tokenRange) {
+        } else if (
+          VSCode.Range.containsRange(removedRange, tokenRange) ||
+          (VSCode.Position.isBefore(
+            VSCode.Range.start(tokenRange),
+            VSCode.Range.start(removedRange),
+          ) &&
+          VSCode.Position.isAfter(
+            VSCode.Range.end_(tokenRange),
+            VSCode.Range.end_(removedRange),
+          ))
+        ) {
           Remove
         } else if token.range.line == VSCode.Position.line(VSCode.Range.end_(removedRange)) {
           Move(lineDelta, columnDelta)
