@@ -128,7 +128,6 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
       Decoration.SemanticHighlighting.get(state.decoration)
       ->Promise.map(tokensRef => {
 
-        Js.log2("WITHDRAW", tokensRef.contents->Array.map(Decoration.SemanticToken.toString))
         open Editor.Provider.Mock
 
         let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(

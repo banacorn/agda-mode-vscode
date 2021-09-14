@@ -296,8 +296,8 @@ module Module: Module = {
     // source locations
     mutable srcLocs: array<srcLoc>,
     // Semantic Tokens
-    semanticTokens: Promise.t<ref<array<SemanticToken.t>>>,
-    resolveSemanticTokens: ref<array<SemanticToken.t>> => unit,
+    mutable semanticTokens: Promise.t<ref<array<SemanticToken.t>>>,
+    mutable resolveSemanticTokens: ref<array<SemanticToken.t>> => unit,
   }
 
   let make = () => {
@@ -504,10 +504,7 @@ module Module: Module = {
             VSCode.Range.start(tokenRange),
             VSCode.Range.start(removedRange),
           ) &&
-          VSCode.Position.isAfter(
-            VSCode.Range.end_(tokenRange),
-            VSCode.Range.end_(removedRange),
-          ))
+          VSCode.Position.isAfter(VSCode.Range.end_(tokenRange), VSCode.Range.end_(removedRange)))
         ) {
           Remove
         } else if token.range.line == VSCode.Position.line(VSCode.Range.end_(removedRange)) {
@@ -561,7 +558,6 @@ module Module: Module = {
 
       // read from the cached
       self.semanticTokens->Promise.get(semanticTokensRef => {
-        Js.log2("UPDATE", Array.length(semanticTokensRef.contents))
         changes->Array.forEach(change => {
           semanticTokensRef := applyChange(semanticTokensRef.contents, change)
         })
@@ -573,7 +569,6 @@ module Module: Module = {
     let get = (self: t) => self.semanticTokens
 
     let apply = (self: t, editor: VSCode.TextEditor.t) => {
-      Js.log2("APPLY FROM HIGHLIGHTINGS", self.highlightings->IntervalTree.size)
       let document = VSCode.TextEditor.document(editor)
       let text = Editor.Text.getAll(document)
 
@@ -615,13 +610,18 @@ module Module: Module = {
           })
         })
 
-      Js.log2("DEPOSIT", tokens->Array.map(SemanticToken.toString))
-      // trigger and resolve
-      self.resolveSemanticTokens(ref([]))
-      // update cached semantic tokens
-      self.semanticTokens->Promise.get(semanticTokensRef => {
-        semanticTokensRef := tokens
-      })
+      if Array.length(tokens) == 0 {
+        let (promise, resolve) = Promise.pending()
+        self.semanticTokens = promise
+        self.resolveSemanticTokens = resolve
+      } else {
+        // trigger and resolve
+        self.resolveSemanticTokens(ref(tokens))
+        // update cached semantic tokens
+        self.semanticTokens->Promise.get(semanticTokensRef => {
+          semanticTokensRef := tokens
+        })
+      }
 
       tokens
     }
