@@ -264,36 +264,8 @@ module Aspect = {
     // when the second field of Aspect.Name is True
     | Operator => Some(Operator, [])
     }
-  // // the OtherAspect part
-  // | Error
-  // | DottedPattern
-  // | UnsolvedMeta
-  // | UnsolvedConstraint
-  // | TerminationProblem
-  // | PositivityProblem
-  // | Deadcode
-  // | CoverageProblem
-  // | IncompletePattern
-  // | TypeChecks
-  // | CatchallClause
-  // | ConfluenceProblem
-  // // the NameKind part
-  // | Bound
-  // | Generalizable
-  // | ConstructorInductive
-  // | ConstructorCoInductive
-  // | Datatype
-  // | Field
-  // | Function
-  // | Module
-  // | Postulate
-  // | Primitive
-  // | Record
-  // | Argument
-  // | Macro
-  // // when the second field of Aspect.Name is True
-  // | Operator;
-
+  
+  
   let parse = x =>
     switch x {
     | "comment" => Comment

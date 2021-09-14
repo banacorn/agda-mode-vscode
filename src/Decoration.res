@@ -1,99 +1,6 @@
 open Common
 open Belt
 
-// Tokens for Semantic Highlighting 
-module type SemanticToken = {
-  // a Range that does not span multiple lines
-  module SingleLineRange: {
-    type t = {
-      line: int,
-      column: (int, int),
-    }
-    let toString: t => string
-    let toVsCodeRange: t => VSCode.Range.t
-    let splitRange: (VSCode.TextDocument.t, VSCode.Range.t) => array<t>
-  }
-
-  type t = {
-    range: SingleLineRange.t,
-    type_: Highlighting.Agda.Aspect.TokenType.t,
-    modifiers: option<array<Highlighting.Agda.Aspect.TokenModifier.t>>,
-  }
-  let toString: t => string
-}
-
-module SemanticToken = {
-  // a Range that does not span multiple lines
-  module SingleLineRange = {
-    type t = {
-      line: int,
-      column: (int, int),
-    }
-
-    let toString = ({line, column}) =>
-      string_of_int(line) ++ ":" ++ string_of_int(fst(column)) ++ "-" ++ string_of_int(snd(column))
-
-    let toVsCodeRange = ({line, column}) =>
-      VSCode.Range.make(
-        VSCode.Position.make(line, fst(column)),
-        VSCode.Position.make(line, snd(column)),
-      )
-
-    // split a single range into multiple ranges that only occupies single lines
-    let splitRange = (doc: VSCode.TextDocument.t, range: VSCode.Range.t): array<t> => {
-      open VSCode.Range
-      open VSCode.Position
-      let startingLine = line(start(range))
-      let endingLine = line(end_(range))
-
-      let ranges = []
-      for i in startingLine to endingLine {
-        let startingPoint = if i == startingLine {
-          start(range)
-        } else {
-          VSCode.Position.make(i, 0)
-        }
-        let endingPoint = if i == endingLine {
-          end_(range)
-        } else {
-          let offset = doc->VSCode.TextDocument.offsetAt(VSCode.Position.make(i + 1, 0)) - 1
-          doc->VSCode.TextDocument.positionAt(offset)
-        }
-        Js.Array.push(
-          {
-            line: VSCode.Position.line(startingPoint),
-            column: (
-              VSCode.Position.character(startingPoint),
-              VSCode.Position.character(endingPoint),
-            ),
-          },
-          ranges,
-        )->ignore
-      }
-      ranges
-    }
-  }
-
-  type t = {
-    range: SingleLineRange.t,
-    type_: Highlighting.Agda.Aspect.TokenType.t,
-    modifiers: option<array<Highlighting.Agda.Aspect.TokenModifier.t>>,
-  }
-
-  let toString = token => {
-    // let range = token.range
-    let tokenType = token.type_->Highlighting.Agda.Aspect.TokenType.toString
-    let modifiers =
-      token.modifiers
-      ->Option.mapWithDefault([], xs =>
-        xs->Array.map(Highlighting.Agda.Aspect.TokenModifier.toString)
-      )
-      ->Util.Pretty.array
-
-    "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ " " ++ modifiers
-  }
-}
-
 module type Module = {
   type t
 
@@ -122,17 +29,21 @@ module type Module = {
   let lookupSrcLoc: (
     t,
     VSCode.Position.t,
-  ) => option<Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>>
+  ) => option<
+    Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
+  >
 
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
-    let get: t => Promise.t<ref<array<SemanticToken.t>>>
-    let apply: (t, VSCode.TextEditor.t) => array<SemanticToken.t>
+    let get: t => Promise.t<ref<array<Highlighting.SemanticToken.t>>>
+    let convert: (
+      VSCode.TextEditor.t,
+      array<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
+    ) => array<Highlighting.SemanticToken.t>
   }
 }
 
 module Module: Module = {
-
   type srcLoc = {
     // range of the reference
     range: VSCode.Range.t,
@@ -167,53 +78,37 @@ module Module: Module = {
     (background, index)
   }
 
-  let decorateHighlightings = (
+  // helper function for tagging IntervalTree.t<Info.t> with Ranges calculated from offsets
+  let toArrayWithRange = (
     editor: VSCode.TextEditor.t,
     infos: IntervalTree.t<Highlighting.Agda.Info.t>,
-  ): (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<srcLoc>) => {
-    // Js.Console.timeStart("$$$ Decoration / aspects")
-    // Js.Console.timeStart("$$$ Decoration / aspects / offset conversion")
-
+  ): array<(Highlighting.Agda.Info.t, VSCode.Range.t)> => {
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
-
+    // table for speeding up the offset-Range conversion
     let offsetConverter = Agda.OffsetConverter.make(text)
 
-    // convert offsets in Info.t to Ranges
-    let infos: array<(
-      VSCode.Range.t,
-      array<Highlighting.Agda.Aspect.t>,
-      option<(Highlighting.Agda.Info.filepath, int)>,
-    )> = IntervalTree.items(infos)->Array.map(item => {
-      let highlighting = item["value"]
-      // calculate the range of each highlighting
-      let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
-      let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
+    IntervalTree.items(infos)->Array.map(item => {
+      let info = item["value"]
+      // calculate the range of each info
+      let start = Agda.OffsetConverter.convert(offsetConverter, info.start)
+      let end_ = Agda.OffsetConverter.convert(offsetConverter, info.end_)
       let range = Editor.Range.fromInterval(document, (start, end_))
-      (range, highlighting.aspects, highlighting.source)
+      (info, range)
     })
-    // array of Aspect & Range
+  }
+
+  let toDecorations = (
+    infosWithRanges: array<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
+    editor: VSCode.TextEditor.t,
+  ): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
     let aspects: array<(Highlighting.Agda.Aspect.t, VSCode.Range.t)> =
-      infos
-      ->Array.map(((range, aspects, _)) =>
+      infosWithRanges
+      ->Array.map(((info, range)) =>
         // pair the aspect with the range
-        aspects->Array.map(aspect => (aspect, range))
+        info.aspects->Array.map(aspect => (aspect, range))
       )
       ->Array.concatMany
-
-    // Js.Console.timeEnd("$$$ Decoration / aspects / offset conversion")
-    // Js.Console.timeStart("$$$ Decoration / aspects / scrlocs conversion")
-
-    // array of Range & source location
-    let srcLocs: array<srcLoc> = infos->Array.keepMap(((range, _, source)) =>
-      source->Option.map(((filepath, offset)) => {
-        range: range,
-        filepath: filepath,
-        offset: offset,
-      })
-    )
-    // Js.Console.timeEnd("$$$ Decoration / aspects / scrlocs conversion")
-    // Js.Console.timeStart("$$$ Decoration / aspects / dict bundling")
 
     // dictionaries of color-ranges mapping
     // speed things up by aggregating decorations of the same kind
@@ -233,9 +128,6 @@ module Module: Module = {
         | Some(ranges) => Js.Array.push(range, ranges)->ignore
         }
       }
-    // Js.Console.timeEnd("$$$ Decoration / aspects / dict bundling")
-    // Js.Console.timeEnd("$$$ Decoration / aspects")
-    // Js.Console.timeStart("$$$ Decoration / dicts")
 
     // convert Aspects to colors and collect them in the dict
     aspects->Array.forEach(((aspect, range)) => {
@@ -251,8 +143,7 @@ module Module: Module = {
         }
       }
     })
-    // Js.Console.timeEnd("$$$ Decoration / dicts")
-    // Js.Console.timeStart("$$$ Decoration / apply")
+
     // decorate with colors stored in the dicts
     let backgroundDecorations =
       Js.Dict.entries(backgroundColorDict)->Array.map(((color, ranges)) => (
@@ -264,9 +155,8 @@ module Module: Module = {
         Editor.Decoration.decorateTextWithColor(editor, color, ranges),
         ranges,
       ))
-    // Js.Console.timeEnd("$$$ Decoration / apply")
     // return decorations
-    (Js.Array.concat(backgroundDecorations, foregroundDecorations), srcLocs)
+    Js.Array.concat(backgroundDecorations, foregroundDecorations)
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -293,8 +183,8 @@ module Module: Module = {
     // source locations
     mutable srcLocs: array<srcLoc>,
     // Semantic Tokens
-    mutable semanticTokens: Promise.t<ref<array<SemanticToken.t>>>,
-    mutable resolveSemanticTokens: ref<array<SemanticToken.t>> => unit,
+    mutable semanticTokens: Promise.t<ref<array<Highlighting.SemanticToken.t>>>,
+    mutable resolveSemanticTokens: ref<array<Highlighting.SemanticToken.t>> => unit,
   }
 
   let make = () => {
@@ -331,12 +221,9 @@ module Module: Module = {
   // insert to an IntervalTree
   let addViaPipe = (self, infos: array<Highlighting.Agda.Info.t>) => {
     infos->Array.forEach(info => {
-      let alreadyExists =
-        self.infos->IntervalTree.intersectAny((info.start, info.end_ - 1))
+      let alreadyExists = self.infos->IntervalTree.intersectAny((info.start, info.end_ - 1))
       if !alreadyExists {
-        self.infos
-        ->IntervalTree.insert((info.start, info.end_ - 1), info)
-        ->ignore
+        self.infos->IntervalTree.insert((info.start, info.end_ - 1), info)->ignore
       }
     })
   }
@@ -406,11 +293,8 @@ module Module: Module = {
     })
 
   // .infos ====> .decorations
-  let applyHighlightings = (self, editor) => {
-    let (decorations, srcLocs) = decorateHighlightings(editor, self.infos)
-
-    self.infos = IntervalTree.make()
-    self.srcLocs = srcLocs
+  let applyHighlightings = (self, editor, infosWithRanges) => {
+    let decorations = toDecorations(infosWithRanges, editor)
     self.decorations = Array.concat(self.decorations, decorations)
   }
 
@@ -443,7 +327,7 @@ module Module: Module = {
         | MoveLinesOnly(int) // delta of LINE
 
       // what should we do to this token?
-      let classify = (change, token: SemanticToken.t) => {
+      let classify = (change, token: Highlighting.SemanticToken.t) => {
         // tokens WITHIN this range should be removed
         let removedRange = change->VSCode.TextDocumentContentChangeEvent.range
 
@@ -486,7 +370,7 @@ module Module: Module = {
           }
         }
 
-        let tokenRange = token.range->SemanticToken.SingleLineRange.toVsCodeRange
+        let tokenRange = token.range->Highlighting.SemanticToken.SingleLineRange.toVsCodeRange
 
         if (
           VSCode.Position.isBeforeOrEqual(
@@ -511,7 +395,7 @@ module Module: Module = {
         }
       }
 
-      let apply = (token: SemanticToken.t, action) =>
+      let apply = (token: Highlighting.SemanticToken.t, action) =>
         switch action {
         | NoOp => [token]
         | Remove => []
@@ -543,7 +427,7 @@ module Module: Module = {
       let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
       let applyChange = (
-        tokens: array<SemanticToken.t>,
+        tokens: array<Highlighting.SemanticToken.t>,
         change: VSCode.TextDocumentContentChangeEvent.t,
       ) =>
         tokens
@@ -565,32 +449,19 @@ module Module: Module = {
 
     let get = (self: t) => self.semanticTokens
 
-    let apply = (self: t, editor: VSCode.TextEditor.t) => {
-      let document = VSCode.TextEditor.document(editor)
-      let text = Editor.Text.getAll(document)
-
-      let offsetConverter = Agda.OffsetConverter.make(text)
-
+    let convert = (editor: VSCode.TextEditor.t, infosWithRanges) => {
       let tokens =
-        self.infos
-        ->IntervalTree.items
-        ->Array.map(item => {
-          let highlighting = item["value"]
-
-          // calculate the range of each highlighting
-          let start = Agda.OffsetConverter.convert(offsetConverter, highlighting.start)
-          let end_ = Agda.OffsetConverter.convert(offsetConverter, highlighting.end_)
-          let range = Editor.Range.fromInterval(document, (start, end_))
-
+        infosWithRanges
+        ->Array.map(((info: Highlighting.Agda.Info.t, range)) => {
           // split the range in case that it spans multiple lines
-          let ranges = SemanticToken.SingleLineRange.splitRange(
+          let ranges = Highlighting.SemanticToken.SingleLineRange.splitRange(
             VSCode.TextEditor.document(editor),
             range,
           )
-          ranges->Array.map(range => (range, highlighting.aspects))
+          ranges->Array.map(range => (info.aspects, range))
         })
         ->Array.concatMany
-        ->Array.keepMap(((range, aspects)) => {
+        ->Array.keepMap(((aspects, range)) => {
           let tokenTypeAccum = []
           let tokenModifiersAccum = []
           // convert Aspects to TokenType and TokenModifiers
@@ -601,24 +472,11 @@ module Module: Module = {
             Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore
           })
           tokenTypeAccum[0]->Option.map(type_ => {
-            SemanticToken.range: range,
+            Highlighting.SemanticToken.range: range,
             type_: type_,
             modifiers: Some(tokenModifiersAccum),
           })
         })
-
-      if Array.length(tokens) == 0 {
-        let (promise, resolve) = Promise.pending()
-        self.semanticTokens = promise
-        self.resolveSemanticTokens = resolve
-      } else {
-        // trigger and resolve
-        self.resolveSemanticTokens(ref(tokens))
-        // update cached semantic tokens
-        self.semanticTokens->Promise.get(semanticTokensRef => {
-          semanticTokensRef := tokens
-        })
-      }
 
       tokens
     }
@@ -626,13 +484,39 @@ module Module: Module = {
 
   let apply = (self, editor) =>
     readTempFiles(self)->Promise.map(() => {
-      // only apply decorations when Semantic Highlighting is off
+      let infosWithRanges = toArrayWithRange(editor, self.infos)
+
+      // update source locations
+      self.srcLocs =
+        infosWithRanges->Array.keepMap(((info, range)) =>
+          info.source->Option.map(((filepath, offset)) => {
+            range: range,
+            filepath: filepath,
+            offset: offset,
+          })
+        )
+
       if Config.Highlighting.getSemanticHighlighting() {
-        SemanticHighlighting.apply(self, editor)->ignore
-        self.infos = IntervalTree.make()
+        let tokens = SemanticHighlighting.convert(editor, infosWithRanges)
+        // renew promise when there are no tokens 
+        if Array.length(tokens) == 0 {
+          let (promise, resolve) = Promise.pending()
+          self.semanticTokens = promise
+          self.resolveSemanticTokens = resolve
+        } else {
+          // resolve to complete the request for semantic tokens  
+          self.resolveSemanticTokens(ref(tokens))
+          // update cached semantic tokens
+          self.semanticTokens->Promise.get(semanticTokensRef => {
+            semanticTokensRef := tokens
+          })
+        }
       } else {
-        applyHighlightings(self, editor)
+        applyHighlightings(self, editor, infosWithRanges)
       }
+
+      // remove old infos
+      self.infos = IntervalTree.make()
     })
 }
 

@@ -139,7 +139,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
         tokensRef.contents->Array.forEach(({range, type_, modifiers}) => {
           SemanticTokensBuilder.pushLegend(
             builder,
-            Decoration.SemanticToken.SingleLineRange.toVsCodeRange(range),
+            Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
             Highlighting.Agda.Aspect.TokenType.toString(type_),
             modifiers->Option.map(xs => xs->Array.map(Highlighting.Agda.Aspect.TokenModifier.toString)),
           )
