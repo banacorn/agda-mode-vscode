@@ -459,7 +459,7 @@ module Module: Module = {
           let tokenModifiersAccum = []
           // convert Aspects to TokenType and TokenModifiers
           aspects
-          ->Array.keepMap(Highlighting.Agda.Aspect.toTokenTypeAndModifiers)
+          ->Array.keepMap(Highlighting.SemanticToken.fromAspect)
           ->Array.forEach(((tokenType, tokenModifiers)) => {
             Js.Array2.push(tokenTypeAccum, tokenType)->ignore
             Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore

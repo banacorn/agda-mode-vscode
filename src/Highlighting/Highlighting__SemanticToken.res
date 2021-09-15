@@ -1,6 +1,217 @@
 open Belt
 
-open Highlighting__Agda
+// VS Code Token type
+// https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-classification
+module TokenType = {
+  type t =
+    | Namespace
+    | Type
+    | Class
+    | Enum
+    | Interface
+    | Struct
+    | TypeParameter
+    | Parameter
+    | Variable
+    | Property
+    | EnumMember
+    | Event
+    | Function
+    | Member
+    | Macro
+    | Label
+    | Comment
+    | String
+    | Keyword
+    | Number
+    | Regexp
+    | Operator
+
+  let toString = x =>
+    switch x {
+    | Namespace => "namespace"
+    | Type => "type"
+    | Class => "class"
+    | Enum => "enum"
+    | Interface => "interface"
+    | Struct => "struct"
+    | TypeParameter => "typeParameter"
+    | Parameter => "parameter"
+    | Variable => "variable"
+    | Property => "property"
+    | EnumMember => "enumMember"
+    | Event => "event"
+    | Function => "function"
+    | Member => "member"
+    | Macro => "macro"
+    | Label => "label"
+    | Comment => "comment"
+    | String => "string"
+    | Keyword => "keyword"
+    | Number => "number"
+    | Regexp => "regexp"
+    | Operator => "operator"
+    }
+
+  let enumurate = [
+    "namespace",
+    "type",
+    "class",
+    "enum",
+    "interface",
+    "struct",
+    "typeParameter",
+    "parameter",
+    "variable",
+    "property",
+    "enumMember",
+    "event",
+    "function",
+    "member",
+    "macro",
+    "label",
+    "comment",
+    "string",
+    "keyword",
+    "number",
+    "regexp",
+    "operator",
+  ]
+}
+
+// VS Code Token modifier
+// https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-classification
+module TokenModifier = {
+  type t =
+    | Declaration
+    | Readonly
+    | Static
+    | Deprecated
+    | Abstract
+    | Async
+    | Modification
+    | Documentation
+    | DefaultLibrary
+
+  let toString = x =>
+    switch x {
+    | Declaration => "declaration"
+    | Readonly => "readonly"
+    | Static => "static"
+    | Deprecated => "deprecated"
+    | Abstract => "abstract"
+    | Async => "async"
+    | Modification => "modification"
+    | Documentation => "documentation"
+    | DefaultLibrary => "defaultLibrary"
+    }
+
+  let enumurate = [
+    "declaration",
+    "readonly",
+    "static",
+    "deprecated",
+    "abstract",
+    "async",
+    "modification",
+    "documentation",
+    "defaultLibrary",
+  ]
+}
+let fromAspect2: Highlighting__Agda.Aspect.t => (
+  option<TokenType.t>, // Type of Semantic Token
+  array<TokenModifier.t>, // Modifiers of Semantic Token
+  option<(string, string)>, // background decoration colors of light/dark themes
+) = x => {
+  // helper constructor
+  let typeOnly = (t: TokenType.t) => (Some(t), [], None)
+  let nothing = (None, [], None)
+  let backgroundOnly = (light, dark) => (None, [], Some(light, dark))
+
+  switch x {
+  // the Aspect part
+  | Comment => typeOnly(Comment)
+  | Keyword => typeOnly(Keyword)
+  | String => typeOnly(String)
+  | Number => typeOnly(Number)
+  | Symbol => nothing // we choose not to color Symbols for aesthetic reasons
+  | PrimitiveType => typeOnly(Type)
+  | Pragma => nothing
+  | Background => nothing
+  | Markup => nothing
+  // the OtherAspect part
+  | Error => (None, [Deprecated], None)
+  | DottedPattern => nothing
+  | UnsolvedMeta => backgroundOnly("#FFFF00", "#806B00")
+  | UnsolvedConstraint => backgroundOnly("#FFA07A", "#802400")
+  | TerminationProblem => backgroundOnly("#FFA07A", "#802400")
+  | PositivityProblem => backgroundOnly("#CD853F", "#803F00")
+  | Deadcode => backgroundOnly("#A9A9A9", "#808080")
+  | CoverageProblem => backgroundOnly("#F5DEB3", "#805300")
+  | IncompletePattern => backgroundOnly("#800080", "#800080")
+  | TypeChecks => nothing
+  | CatchallClause => backgroundOnly("#F5F5F5", "#404040")
+  | ConfluenceProblem => backgroundOnly("#FFC0CB", "#800080")
+  // the NameKind part
+  | Bound => typeOnly(Variable)
+  | Generalizable => typeOnly(Variable)
+  | ConstructorInductive => typeOnly(EnumMember,)
+  | ConstructorCoInductive => typeOnly(EnumMember,)
+  | Datatype => typeOnly(Type)
+  | Field => typeOnly(Member)
+  | Function => typeOnly(Function)
+  | Module => typeOnly(Namespace)
+  | Postulate => typeOnly(Function)
+  | Primitive => typeOnly(String)
+  | Record => typeOnly(Struct)
+  | Argument => typeOnly(Parameter)
+  | Macro => typeOnly(Macro)
+  // when the second field of Aspect.Name is True
+  | Operator => typeOnly(Operator)
+  }
+}
+let fromAspect: Highlighting__Agda.Aspect.t => option<(TokenType.t, array<TokenModifier.t>)> = x =>
+  switch x {
+  // the Aspect part
+  | Comment => Some((Comment, []))
+  | Keyword => Some((Keyword, []))
+  | String => Some(String, [])
+  | Number => Some((Number, []))
+  | Symbol => None
+  | PrimitiveType => Some((Type, []))
+  | Pragma => Some((Macro, []))
+  | Background => None
+  | Markup => Some((Label, []))
+  // the OtherAspect part
+  | Error => None
+  | DottedPattern => None
+  | UnsolvedMeta => None
+  | UnsolvedConstraint => None
+  | TerminationProblem => None
+  | PositivityProblem => None
+  | Deadcode => None
+  | CoverageProblem => None
+  | IncompletePattern => None
+  | TypeChecks => None
+  | CatchallClause => None
+  | ConfluenceProblem => None
+  // the NameKind part
+  | Bound => Some(Variable, [])
+  | Generalizable => Some(Variable, [])
+  | ConstructorInductive => Some(EnumMember, [])
+  | ConstructorCoInductive => Some(EnumMember, [])
+  | Datatype => Some(Type, [])
+  | Field => Some(Member, [])
+  | Function => Some(Function, [])
+  | Module => Some(Namespace, [])
+  | Postulate => Some(Function, [])
+  | Primitive => Some(String, [])
+  | Record => Some(Struct, [])
+  | Argument => Some(Parameter, [])
+  | Macro => Some(Macro, [])
+  // when the second field of Aspect.Name is True
+  | Operator => Some(Operator, [])
+  }
 
 // Tokens for Semantic Highlighting
 module type Module = {
@@ -17,8 +228,8 @@ module type Module = {
 
   type t = {
     range: SingleLineRange.t,
-    type_: Aspect.TokenType.t,
-    modifiers: option<array<Aspect.TokenModifier.t>>,
+    type_: TokenType.t,
+    modifiers: option<array<TokenModifier.t>>,
   }
   let toString: t => string
 }
@@ -77,16 +288,16 @@ module Module: Module = {
 
   type t = {
     range: SingleLineRange.t,
-    type_: Aspect.TokenType.t,
-    modifiers: option<array<Aspect.TokenModifier.t>>,
+    type_: TokenType.t,
+    modifiers: option<array<TokenModifier.t>>,
   }
 
   let toString = token => {
     // let range = token.range
-    let tokenType = token.type_->Aspect.TokenType.toString
+    let tokenType = token.type_->TokenType.toString
     let modifiers =
       token.modifiers
-      ->Option.mapWithDefault([], xs => xs->Array.map(Aspect.TokenModifier.toString))
+      ->Option.mapWithDefault([], xs => xs->Array.map(TokenModifier.toString))
       ->Util.Pretty.array
 
     "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ " " ++ modifiers
