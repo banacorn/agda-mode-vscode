@@ -118,15 +118,18 @@ module TokenModifier = {
     "defaultLibrary",
   ]
 }
-let fromAspect2: Highlighting__Agda.Aspect.t => (
-  option<TokenType.t>, // Type of Semantic Token
-  array<TokenModifier.t>, // Modifiers of Semantic Token
-  option<(string, string)>, // background decoration colors of light/dark themes
+
+let fromAspect: Highlighting__Agda.Aspect.t => (
+  (option<TokenType.t>, array<TokenModifier.t>), // Type of Semantic Token // Modifiers of Semantic Token
+  option<Highlighting__Decoration.t>, // background decoration colors of light/dark themes
 ) = x => {
   // helper constructor
-  let typeOnly = (t: TokenType.t) => (Some(t), [], None)
-  let nothing = (None, [], None)
-  let backgroundOnly = (light, dark) => (None, [], Some(light, dark))
+  let typeOnly = (t: TokenType.t) => ((Some(t), []), None)
+  let nothing = ((None, []), None)
+  let backgroundOnly = (light, dark) => (
+    (None, []),
+    Some({Highlighting__Decoration.light: Background(light), dark: Background(dark)}),
+  )
 
   switch x {
   // the Aspect part
@@ -140,7 +143,7 @@ let fromAspect2: Highlighting__Agda.Aspect.t => (
   | Background => nothing
   | Markup => nothing
   // the OtherAspect part
-  | Error => (None, [Deprecated], None)
+  | Error => ((None, [Deprecated]), None)
   | DottedPattern => nothing
   | UnsolvedMeta => backgroundOnly("#FFFF00", "#806B00")
   | UnsolvedConstraint => backgroundOnly("#FFA07A", "#802400")
@@ -155,8 +158,8 @@ let fromAspect2: Highlighting__Agda.Aspect.t => (
   // the NameKind part
   | Bound => typeOnly(Variable)
   | Generalizable => typeOnly(Variable)
-  | ConstructorInductive => typeOnly(EnumMember,)
-  | ConstructorCoInductive => typeOnly(EnumMember,)
+  | ConstructorInductive => typeOnly(EnumMember)
+  | ConstructorCoInductive => typeOnly(EnumMember)
   | Datatype => typeOnly(Type)
   | Field => typeOnly(Member)
   | Function => typeOnly(Function)
@@ -170,48 +173,6 @@ let fromAspect2: Highlighting__Agda.Aspect.t => (
   | Operator => typeOnly(Operator)
   }
 }
-let fromAspect: Highlighting__Agda.Aspect.t => option<(TokenType.t, array<TokenModifier.t>)> = x =>
-  switch x {
-  // the Aspect part
-  | Comment => Some((Comment, []))
-  | Keyword => Some((Keyword, []))
-  | String => Some(String, [])
-  | Number => Some((Number, []))
-  | Symbol => None
-  | PrimitiveType => Some((Type, []))
-  | Pragma => Some((Macro, []))
-  | Background => None
-  | Markup => Some((Label, []))
-  // the OtherAspect part
-  | Error => None
-  | DottedPattern => None
-  | UnsolvedMeta => None
-  | UnsolvedConstraint => None
-  | TerminationProblem => None
-  | PositivityProblem => None
-  | Deadcode => None
-  | CoverageProblem => None
-  | IncompletePattern => None
-  | TypeChecks => None
-  | CatchallClause => None
-  | ConfluenceProblem => None
-  // the NameKind part
-  | Bound => Some(Variable, [])
-  | Generalizable => Some(Variable, [])
-  | ConstructorInductive => Some(EnumMember, [])
-  | ConstructorCoInductive => Some(EnumMember, [])
-  | Datatype => Some(Type, [])
-  | Field => Some(Member, [])
-  | Function => Some(Function, [])
-  | Module => Some(Namespace, [])
-  | Postulate => Some(Function, [])
-  | Primitive => Some(String, [])
-  | Record => Some(Struct, [])
-  | Argument => Some(Parameter, [])
-  | Macro => Some(Macro, [])
-  // when the second field of Aspect.Name is True
-  | Operator => Some(Operator, [])
-  }
 
 // Tokens for Semantic Highlighting
 module type Module = {

@@ -36,7 +36,10 @@ module type Module = {
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
     let get: t => Promise.t<ref<array<Highlighting.SemanticToken.t>>>
-    let convert: (t, VSCode.TextEditor.t) => array<Highlighting.SemanticToken.t>
+    let toSemanticTokensAndDecorations: (
+      t,
+      VSCode.TextEditor.t,
+    ) => (array<Highlighting.SemanticToken.t>, array<(Editor.Decoration.t, array<VSCode.Range.t>)>)
   }
 }
 
@@ -86,7 +89,7 @@ module Module: Module = {
     })
   }
 
-  let toDecorations = (
+  let fromInfostoDecorations = (
     infosWithRanges: IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
     editor: VSCode.TextEditor.t,
   ): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
@@ -99,54 +102,16 @@ module Module: Module = {
       )
       ->Array.concatMany
 
-    // dictionaries of color-ranges mapping
-    // speed things up by aggregating decorations of the same kind
-    let backgroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
-    let foregroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
+    
+    Js.log2("aspects: ", aspects->Array.map(((a, _)) => a->Highlighting.Agda.Aspect.toString))
 
-    let addFaceToDict = (face: Highlighting.Agda.Aspect.face, range) =>
-      switch face {
-      | Background(color) =>
-        switch Js.Dict.get(backgroundColorDict, color) {
-        | None => Js.Dict.set(backgroundColorDict, color, [range])
-        | Some(ranges) => Js.Array.push(range, ranges)->ignore
-        }
-      | Foreground(color) =>
-        switch Js.Dict.get(foregroundColorDict, color) {
-        | None => Js.Dict.set(foregroundColorDict, color, [range])
-        | Some(ranges) => Js.Array.push(range, ranges)->ignore
-        }
-      }
-
-    // convert Aspects to colors and collect them in the dict
-    aspects->Array.forEach(((aspect, range)) => {
-      let style = Highlighting.Agda.Aspect.toStyle(aspect)
-      switch style {
-      | Noop => ()
-      | Themed(light, dark) =>
-        let theme = VSCode.Window.activeColorTheme->VSCode.ColorTheme.kind
-        if theme == VSCode.ColorThemeKind.Dark {
-          addFaceToDict(dark, range)
-        } else {
-          addFaceToDict(light, range)
-        }
-      }
-    })
-
-    // decorate with colors stored in the dicts
-    let backgroundDecorations =
-      Js.Dict.entries(backgroundColorDict)->Array.map(((color, ranges)) => (
-        Editor.Decoration.highlightBackgroundWithColor(editor, color, ranges),
-        ranges,
-      ))
-    let foregroundDecorations =
-      Js.Dict.entries(foregroundColorDict)->Array.map(((color, ranges)) => (
-        Editor.Decoration.decorateTextWithColor(editor, color, ranges),
-        ranges,
-      ))
-    // return decorations
-    Js.Array.concat(backgroundDecorations, foregroundDecorations)
+    aspects
+    ->Array.keepMap(((aspect, range)) =>
+      Highlighting.Decoration.fromAspect(aspect)->Option.map(x => (x, range))
+    )
+    ->Highlighting.Decoration.toVSCodeDecorations(editor)
   }
+
 
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -212,6 +177,8 @@ module Module: Module = {
       let alreadyExists = self.infos->IntervalTree.intersectAny((info.start, info.end_ - 1))
       if !alreadyExists {
         self.infos->IntervalTree.insert((info.start, info.end_ - 1), info)->ignore
+      } else {
+        Js.log2(info, info.aspects->Array.map(Highlighting.Agda.Aspect.toString))
       }
     })
   }
@@ -279,12 +246,6 @@ module Module: Module = {
       addViaPipe(self, infos)
       self.tempFilePaths = []
     })
-
-  // .infos ====> .decorations
-  let applyHighlightings = (self, editor) => {
-    let decorations = toDecorations(self.infosWithRanges, editor)
-    self.decorations = Array.concat(self.decorations, decorations)
-  }
 
   let lookupSrcLoc = (self, offset): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
@@ -441,8 +402,8 @@ module Module: Module = {
 
     let get = (self: t) => self.semanticTokens
 
-    let convert = (self: t, editor: VSCode.TextEditor.t) => {
-      let tokens =
+    let toSemanticTokensAndDecorations = (self: t, editor: VSCode.TextEditor.t) => {
+      let (tokens, backgrounds) =
         self.infosWithRanges
         ->IntervalTree.elems
         ->Array.map(((info: Highlighting.Agda.Info.t, range)) => {
@@ -455,23 +416,28 @@ module Module: Module = {
         })
         ->Array.concatMany
         ->Array.keepMap(((aspects, range)) => {
-          let tokenTypeAccum = []
-          let tokenModifiersAccum = []
-          // convert Aspects to TokenType and TokenModifiers
-          aspects
-          ->Array.keepMap(Highlighting.SemanticToken.fromAspect)
-          ->Array.forEach(((tokenType, tokenModifiers)) => {
-            Js.Array2.push(tokenTypeAccum, tokenType)->ignore
-            Js.Array2.pushMany(tokenModifiersAccum, tokenModifiers)->ignore
-          })
-          tokenTypeAccum[0]->Option.map(type_ => {
-            Highlighting.SemanticToken.range: range,
-            type_: type_,
-            modifiers: Some(tokenModifiersAccum),
-          })
-        })
+          // convert Aspects to TokenType / TokenModifiers / Backgrounds
+          let (tokenTypeAndModifiers, backgrounds) =
+            aspects->Array.map(Highlighting.SemanticToken.fromAspect)->Array.unzip
+          let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Array.unzip
+          // merge TokenType / TokenModifiers / Backgrounds
+          let tokenTypes = tokenTypes->Array.keepMap(x => x)
+          let tokenModifiers = tokenModifiers->Array.concatMany
+          let backgrounds = backgrounds->Array.keepMap(x => x->Option.map(x => (x,  Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range))))
 
-      tokens
+          // only 1 TokenType is allowed, so we take the first one
+          let token = tokenTypes[0]->Option.map(tokenType => {
+            Highlighting.SemanticToken.range: range,
+            type_: tokenType,
+            modifiers: Some(tokenModifiers),
+          })
+          Some(token, backgrounds)
+        })
+        ->Array.unzip
+      let tokens = tokens->Array.keepMap(x => x)
+      let backgrounds = backgrounds->Array.concatMany->Highlighting.Decoration.toVSCodeDecorations(editor)
+
+      (tokens, backgrounds)
     }
   }
 
@@ -480,7 +446,12 @@ module Module: Module = {
       self.infosWithRanges = tagWithRange(editor, self.infos)
 
       if Config.Highlighting.getSemanticHighlighting() {
-        let tokens = SemanticHighlighting.convert(self, editor)
+        let (tokens, decorations) = SemanticHighlighting.toSemanticTokensAndDecorations(
+          self,
+          editor,
+        )
+        self.decorations = Array.concat(self.decorations, decorations)
+
         // renew promise when there are no tokens
         if Array.length(tokens) == 0 {
           let (promise, resolve) = Promise.pending()
@@ -495,7 +466,8 @@ module Module: Module = {
           })
         }
       } else {
-        applyHighlightings(self, editor)
+        let decorations = fromInfostoDecorations(self.infosWithRanges, editor)
+        self.decorations = Array.concat(self.decorations, decorations)
       }
 
       // remove old infos

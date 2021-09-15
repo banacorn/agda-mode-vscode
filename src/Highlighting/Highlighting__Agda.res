@@ -2,15 +2,6 @@ open Belt
 
 // https://github.com/agda/agda/blob/master/src/full/Agda/Interaction/Highlighting/Precise.hs
 module Aspect = {
-  // https://www.gnu.org/software/emacs/manual/html_node/emacs/Faces.html
-  type face =
-    | Background(string)
-    | Foreground(string)
-
-  type style =
-    | Noop // don't do anything
-    | Themed(face, face) // under light & dark themes
-
   // a mix of Aspect, OtherAspect and NameKind
   type t =
     | // the Aspect part
@@ -96,14 +87,6 @@ module Aspect = {
     | Operator => "Operator"
     }
 
-  // namespace
-  // type, class, enum, interface, struct, typeParameter
-  // parameter, variable, property, enumMember, event
-  // function, member, macro
-  // label
-  // comment, string, keyword, number, regexp, operator
-
-  
   let parse = x =>
     switch x {
     | "comment" => Comment
@@ -147,44 +130,7 @@ module Aspect = {
     | _ => Operator
     }
 
-  let toStyle = x =>
-    switch x {
-    | Comment => Themed(Foreground("#B0B0B0"), Foreground("#505050"))
-    | Keyword => Themed(Foreground("#CD6600"), Foreground("#FF9932"))
-    | String => Themed(Foreground("#B22222"), Foreground("#DD4D4D"))
-    | Number => Themed(Foreground("#800080"), Foreground("#9010E0"))
-    | Symbol => Themed(Foreground("#404040"), Foreground("#BFBFBF"))
-    | PrimitiveType => Themed(Foreground("#0000CD"), Foreground("#8080FF"))
-    | Pragma => Noop
-    | Background => Noop
-    | Markup => Noop
-    | Error => Themed(Foreground("#FF0000"), Foreground("#FF0000"))
-    | DottedPattern => Noop
-    | UnsolvedMeta => Themed(Background("#FFFF00"), Background("#806B00"))
-    | UnsolvedConstraint => Themed(Background("#FFFF00"), Background("#806B00"))
-    | TerminationProblem => Themed(Background("#FFA07A"), Background("#802400"))
-    | PositivityProblem => Themed(Background("#CD853F"), Background("#803F00"))
-    | Deadcode => Themed(Background("#A9A9A9"), Background("#808080"))
-    | CoverageProblem => Themed(Background("#F5DEB3"), Background("#805300"))
-    | IncompletePattern => Themed(Background("#800080"), Background("#800080"))
-    | TypeChecks => Noop
-    | CatchallClause => Themed(Background("#F5F5F5"), Background("#404040"))
-    | ConfluenceProblem => Themed(Background("#FFC0CB"), Background("#800080"))
-    | Bound => Noop
-    | Generalizable => Noop
-    | ConstructorInductive => Themed(Foreground("#008B00"), Foreground("#29CC29"))
-    | ConstructorCoInductive => Themed(Foreground("#996600"), Foreground("#FFEA75"))
-    | Datatype => Themed(Foreground("#0000CD"), Foreground("#8080FF"))
-    | Field => Themed(Foreground("#EE1289"), Foreground("#F570B7"))
-    | Function => Themed(Foreground("#0000CD"), Foreground("#8080FF"))
-    | Module => Themed(Foreground("#800080"), Foreground("#CD80FF"))
-    | Postulate => Themed(Foreground("#0000CD"), Foreground("#8080FF"))
-    | Primitive => Themed(Foreground("#0000CD"), Foreground("#8080FF"))
-    | Record => Themed(Foreground("#0000CD"), Foreground("#8080FF"))
-    | Argument => Noop
-    | Macro => Themed(Foreground("#458B74"), Foreground("#73BAA2"))
-    | Operator => Noop
-    }
+  
 }
 
 module Token = Parser.SExpression
