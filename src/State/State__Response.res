@@ -215,7 +215,7 @@ let rec handle = (
     State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
-    Decoration.apply(state.decoration, state.editor)
+    Decoration.applyAndClear(state.decoration, state.editor)
   | _ => Promise.resolved()
   }
 }

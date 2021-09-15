@@ -14,13 +14,13 @@ module type Module = {
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
-  // adding decorations
+  // add Agda highlighting infos
   let addViaPipe: (t, array<Highlighting.Agda.Info.t>) => unit
   let addViaFile: (t, string) => unit
   let addViaJSONFile: (t, string) => unit
-  // applying decorations
-  let apply: (t, VSCode.TextEditor.t) => Promise.t<unit>
-  // removing decorations
+  // apply Agda highlighting infos
+  let applyAndClear: (t, VSCode.TextEditor.t) => Promise.t<unit>
+  // remove Agda highlighting infos
   let clear: t => unit
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
@@ -28,7 +28,7 @@ module type Module = {
   // LSP
   let lookupSrcLoc: (
     t,
-    VSCode.Position.t,
+    int,
   ) => option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
   >
@@ -36,22 +36,11 @@ module type Module = {
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
     let get: t => Promise.t<ref<array<Highlighting.SemanticToken.t>>>
-    let convert: (
-      VSCode.TextEditor.t,
-      array<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
-    ) => array<Highlighting.SemanticToken.t>
+    let convert: (t, VSCode.TextEditor.t) => array<Highlighting.SemanticToken.t>
   }
 }
 
 module Module: Module = {
-  type srcLoc = {
-    // range of the reference
-    range: VSCode.Range.t,
-    // file/offset of the source
-    filepath: Highlighting.Agda.Info.filepath,
-    offset: int,
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -79,17 +68,16 @@ module Module: Module = {
   }
 
   // helper function for tagging IntervalTree.t<Info.t> with Ranges calculated from offsets
-  let toArrayWithRange = (
+  let tagWithRange = (
     editor: VSCode.TextEditor.t,
     infos: IntervalTree.t<Highlighting.Agda.Info.t>,
-  ): array<(Highlighting.Agda.Info.t, VSCode.Range.t)> => {
+  ): IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)> => {
     let document = VSCode.TextEditor.document(editor)
     let text = Editor.Text.getAll(document)
     // table for speeding up the offset-Range conversion
     let offsetConverter = Agda.OffsetConverter.make(text)
 
-    IntervalTree.items(infos)->Array.map(item => {
-      let info = item["value"]
+    infos->IntervalTree.map((info, _) => {
       // calculate the range of each info
       let start = Agda.OffsetConverter.convert(offsetConverter, info.start)
       let end_ = Agda.OffsetConverter.convert(offsetConverter, info.end_)
@@ -99,11 +87,12 @@ module Module: Module = {
   }
 
   let toDecorations = (
-    infosWithRanges: array<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
+    infosWithRanges: IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
     editor: VSCode.TextEditor.t,
   ): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
     let aspects: array<(Highlighting.Agda.Aspect.t, VSCode.Range.t)> =
       infosWithRanges
+      ->IntervalTree.elems
       ->Array.map(((info, range)) =>
         // pair the aspect with the range
         info.aspects->Array.map(aspect => (aspect, range))
@@ -174,14 +163,13 @@ module Module: Module = {
   }
 
   type t = {
-    // from AddViaFile
+    // from addViaFile/addViaJSONFile
     mutable tempFilePaths: array<Format.t>,
-    // from AddViaPipe
+    // from addViaPipe
     mutable infos: IntervalTree.t<Highlighting.Agda.Info.t>,
-    // after Apply
+    mutable infosWithRanges: IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
+    // Decorations
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
-    // source locations
-    mutable srcLocs: array<srcLoc>,
     // Semantic Tokens
     mutable semanticTokens: Promise.t<ref<array<Highlighting.SemanticToken.t>>>,
     mutable resolveSemanticTokens: ref<array<Highlighting.SemanticToken.t>> => unit,
@@ -192,8 +180,8 @@ module Module: Module = {
     {
       tempFilePaths: [],
       infos: IntervalTree.make(),
+      infosWithRanges: IntervalTree.make(),
       decorations: [],
-      srcLocs: [],
       semanticTokens: promise,
       resolveSemanticTokens: resolve,
     }
@@ -293,26 +281,30 @@ module Module: Module = {
     })
 
   // .infos ====> .decorations
-  let applyHighlightings = (self, editor, infosWithRanges) => {
-    let decorations = toDecorations(infosWithRanges, editor)
+  let applyHighlightings = (self, editor) => {
+    let decorations = toDecorations(self.infosWithRanges, editor)
     self.decorations = Array.concat(self.decorations, decorations)
   }
 
-  let lookupSrcLoc = (self, point): option<
+  let lookupSrcLoc = (self, offset): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
-  > =>
-    Js.Array.find(
-      (srcLoc: srcLoc) => VSCode.Range.contains(srcLoc.range, point),
-      self.srcLocs,
-    )->Option.map(srcLoc =>
-      VSCode.Workspace.openTextDocumentWithFileName(srcLoc.filepath)->Promise.map(document => {
+  > => {
+    let matched = self.infosWithRanges->IntervalTree.search((offset - 1, offset))
+    // returns the first matching srcloc
+    matched[0]
+    ->Option.flatMap(((info, range)) =>
+      info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
+    )
+    ->Option.map(((range, filepath, offset)) => {
+      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.map(document => {
         let text = Editor.Text.getAll(document)
         let offsetConverter = Agda.OffsetConverter.make(text)
-        let offset = Agda.OffsetConverter.convert(offsetConverter, srcLoc.offset - 1)
+        let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
         let position = Editor.Position.fromOffset(document, offset)
-        [(srcLoc.range, srcLoc.filepath, position)]
+        [(range, filepath, position)]
       })
-    )
+    })
+  }
 
   module SemanticHighlighting = {
     module Change = {
@@ -449,9 +441,10 @@ module Module: Module = {
 
     let get = (self: t) => self.semanticTokens
 
-    let convert = (editor: VSCode.TextEditor.t, infosWithRanges) => {
+    let convert = (self: t, editor: VSCode.TextEditor.t) => {
       let tokens =
-        infosWithRanges
+        self.infosWithRanges
+        ->IntervalTree.elems
         ->Array.map(((info: Highlighting.Agda.Info.t, range)) => {
           // split the range in case that it spans multiple lines
           let ranges = Highlighting.SemanticToken.SingleLineRange.splitRange(
@@ -482,29 +475,19 @@ module Module: Module = {
     }
   }
 
-  let apply = (self, editor) =>
+  let applyAndClear = (self, editor) =>
     readTempFiles(self)->Promise.map(() => {
-      let infosWithRanges = toArrayWithRange(editor, self.infos)
-
-      // update source locations
-      self.srcLocs =
-        infosWithRanges->Array.keepMap(((info, range)) =>
-          info.source->Option.map(((filepath, offset)) => {
-            range: range,
-            filepath: filepath,
-            offset: offset,
-          })
-        )
+      self.infosWithRanges = tagWithRange(editor, self.infos)
 
       if Config.Highlighting.getSemanticHighlighting() {
-        let tokens = SemanticHighlighting.convert(editor, infosWithRanges)
-        // renew promise when there are no tokens 
+        let tokens = SemanticHighlighting.convert(self, editor)
+        // renew promise when there are no tokens
         if Array.length(tokens) == 0 {
           let (promise, resolve) = Promise.pending()
           self.semanticTokens = promise
           self.resolveSemanticTokens = resolve
         } else {
-          // resolve to complete the request for semantic tokens  
+          // resolve to complete the request for semantic tokens
           self.resolveSemanticTokens(ref(tokens))
           // update cached semantic tokens
           self.semanticTokens->Promise.get(semanticTokensRef => {
@@ -512,7 +495,7 @@ module Module: Module = {
           })
         }
       } else {
-        applyHighlightings(self, editor, infosWithRanges)
+        applyHighlightings(self, editor)
       }
 
       // remove old infos

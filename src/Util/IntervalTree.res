@@ -43,6 +43,8 @@ external searchAndMap: (t<'a>, array<(int, int)>, ('a, (int, int)) => 'b) => arr
 // Returns items in ascendant keys order (getter)
 @get external items: t<'a> => array<{"key": (int, int), "value": 'a}> = "items"
 
+let elems = (self: t<'a>): array<'a> => items(self)->Belt.Array.map(item => item["value"])
+
 // Enables to traverse the whole tree and perform operation for each item
 @send external forEach: (t<'a>, ((int, int), 'a) => unit) => unit = "forEach"
 
