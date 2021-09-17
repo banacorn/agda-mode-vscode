@@ -95,15 +95,12 @@ module Module: Module = {
   ): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
     let aspects: array<(Highlighting.Agda.Aspect.t, VSCode.Range.t)> =
       infosWithRanges
-      ->IntervalTree.elems
+      ->IntervalTree.values
       ->Array.map(((info, range)) =>
         // pair the aspect with the range
         info.aspects->Array.map(aspect => (aspect, range))
       )
       ->Array.concatMany
-
-    
-    Js.log2("aspects: ", aspects->Array.map(((a, _)) => a->Highlighting.Agda.Aspect.toString))
 
     aspects
     ->Array.keepMap(((aspect, range)) =>
@@ -112,26 +109,14 @@ module Module: Module = {
     ->Highlighting.Decoration.toVSCodeDecorations(editor)
   }
 
-
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
-  module Format = {
-    type t =
-      | Emacs(string)
-      | JSON(string)
-    let toFilepath = format =>
-      switch format {
-      | Emacs(filepath) => filepath
-      | JSON(filepath) => filepath
-      }
-  }
+  open Highlighting.Agda
 
   type t = {
-    // from addViaFile/addViaJSONFile
-    mutable tempFilePaths: array<Format.t>,
     // from addViaPipe
-    mutable infos: IntervalTree.t<Highlighting.Agda.Info.t>,
+    mutable infos: Infos.t,
     mutable infosWithRanges: IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
     // Decorations
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
@@ -143,8 +128,7 @@ module Module: Module = {
   let make = () => {
     let (promise, resolve) = Promise.pending()
     {
-      tempFilePaths: [],
-      infos: IntervalTree.make(),
+      infos: Infos.make(),
       infosWithRanges: IntervalTree.make(),
       decorations: [],
       semanticTokens: promise,
@@ -158,11 +142,7 @@ module Module: Module = {
   }
 
   let destroy = self => {
-    self.tempFilePaths->Array.forEach(format => {
-      N.Fs.unlink(Format.toFilepath(format), _ => ())
-    })
-    self.tempFilePaths = []
-    self.infos = IntervalTree.make()
+    Infos.destroy(self.infos)
     clear(self)
   }
 
@@ -172,80 +152,13 @@ module Module: Module = {
     )
 
   // insert to an IntervalTree
-  let addViaPipe = (self, infos: array<Highlighting.Agda.Info.t>) => {
-    infos->Array.forEach(info => {
-      let alreadyExists = self.infos->IntervalTree.intersectAny((info.start, info.end_ - 1))
-      if !alreadyExists {
-        self.infos->IntervalTree.insert((info.start, info.end_ - 1), info)->ignore
-      } else {
-        Js.log2(info, info.aspects->Array.map(Highlighting.Agda.Aspect.toString))
-      }
-    })
-  }
+  let addViaPipe = (self, infos) => Infos.insert(self.infos, infos)
 
-  let addViaFile = (self, filepath) =>
-    Js.Array.push(Format.Emacs(filepath), self.tempFilePaths)->ignore
-  let addViaJSONFile = (self, filepath) =>
-    Js.Array.push(Format.JSON(filepath), self.tempFilePaths)->ignore
-
-  let readFile = N.Util.promisify(N.Fs.readFile)
-
-  let readAndParseEmacs = (filepath): Promise.t<Highlighting.Agda.Infos.t> =>
-    readFile(. filepath)
-    ->Promise.Js.fromBsPromise
-    ->Promise.Js.toResult
-    ->Promise.map(x =>
-      switch x {
-      | Ok(content) =>
-        open! Parser.SExpression
-        let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(content))[0] {
-        | Some(Ok(L(xs))) => xs
-        | _ => []
-        }
-        // keepHighlighting
-        let keepHighlighting = switch tokens[0] {
-        | Some(A("remove")) => false
-        | _ => true
-        }
-        let infos = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Highlighting.Agda.Info.parse)
-        Highlighting.Agda.Infos.Infos(keepHighlighting, infos)
-      // TODO: we should do something about these parse errors
-      | Error(_err) => Highlighting.Agda.Infos.Infos(true, [])
-      }
-    )
-
-  let readAndParseJSON = (filepath): Promise.t<Highlighting.Agda.Infos.t> =>
-    readFile(. filepath)
-    ->Promise.Js.fromBsPromise
-    ->Promise.Js.toResult
-    ->Promise.map(x =>
-      switch x {
-      | Ok(buffer) =>
-        let raw = Node.Buffer.toString(buffer)
-        switch Js.Json.parseExn(raw) {
-        | exception _e => Highlighting.Agda.Infos.Infos(true, [])
-        | json => Highlighting.Agda.Infos.decode(json)
-        }
-      | Error(_err) => Highlighting.Agda.Infos.Infos(true, [])
-      }
-    )
-
-  let readAndParse = format =>
-    switch format {
-    | Format.Emacs(filepath) => readAndParseEmacs(filepath)
-    | JSON(filepath) => readAndParseJSON(filepath)
-    }
+  let addViaFile = (self, filepath) => Infos.addEmacsFilePath(self.infos, filepath)
+  let addViaJSONFile = (self, filepath) => Infos.addJSONFilePath(self.infos, filepath)
 
   // .tempFilePaths ====> .infos
-  let readTempFiles = self =>
-    self.tempFilePaths
-    ->Array.map(readAndParse)
-    ->Promise.allArray
-    ->Promise.map(xs => xs->Array.map(Highlighting.Agda.Infos.toInfos)->Array.concatMany)
-    ->Promise.map(infos => {
-      addViaPipe(self, infos)
-      self.tempFilePaths = []
-    })
+  let readTempFiles = self => Infos.readTempFiles(self.infos)
 
   let lookupSrcLoc = (self, offset): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
@@ -405,7 +318,7 @@ module Module: Module = {
     let toSemanticTokensAndDecorations = (self: t, editor: VSCode.TextEditor.t) => {
       let (tokens, backgrounds) =
         self.infosWithRanges
-        ->IntervalTree.elems
+        ->IntervalTree.values
         ->Array.map(((info: Highlighting.Agda.Info.t, range)) => {
           // split the range in case that it spans multiple lines
           let ranges = Highlighting.SemanticToken.SingleLineRange.splitRange(
@@ -423,7 +336,13 @@ module Module: Module = {
           // merge TokenType / TokenModifiers / Backgrounds
           let tokenTypes = tokenTypes->Array.keepMap(x => x)
           let tokenModifiers = tokenModifiers->Array.concatMany
-          let backgrounds = backgrounds->Array.keepMap(x => x->Option.map(x => (x,  Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range))))
+          let backgrounds =
+            backgrounds->Array.keepMap(x =>
+              x->Option.map(x => (
+                x,
+                Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
+              ))
+            )
 
           // only 1 TokenType is allowed, so we take the first one
           let token = tokenTypes[0]->Option.map(tokenType => {
@@ -435,7 +354,8 @@ module Module: Module = {
         })
         ->Array.unzip
       let tokens = tokens->Array.keepMap(x => x)
-      let backgrounds = backgrounds->Array.concatMany->Highlighting.Decoration.toVSCodeDecorations(editor)
+      let backgrounds =
+        backgrounds->Array.concatMany->Highlighting.Decoration.toVSCodeDecorations(editor)
 
       (tokens, backgrounds)
     }
@@ -443,7 +363,7 @@ module Module: Module = {
 
   let applyAndClear = (self, editor) =>
     readTempFiles(self)->Promise.map(() => {
-      self.infosWithRanges = tagWithRange(editor, self.infos)
+      self.infosWithRanges = tagWithRange(editor, self.infos.infos)
 
       if Config.Highlighting.getSemanticHighlighting() {
         let (tokens, decorations) = SemanticHighlighting.toSemanticTokensAndDecorations(
@@ -471,7 +391,7 @@ module Module: Module = {
       }
 
       // remove old infos
-      self.infos = IntervalTree.make()
+      self.infos = Infos.make()
     })
 }
 

@@ -9,8 +9,27 @@ type t<'a>
 external make: unit => t<'a> = "default"
 
 ////////////////////////////////////////////////////////////////////////////////
-// Properties & Methods
+// Properties
 ////////////////////////////////////////////////////////////////////////////////
+
+// Returns number of items stored in the tree (getter)
+@get external size: t<'a> => int = "size"
+
+// Returns tree keys in ascendant order (getter)
+@get external keys: t<'a> => array<(int, int)> = "keys"
+
+// Return array of values in the ascending keys order
+@get external values: t<'a> => array<'a> = "values"
+
+// Returns items in ascendant keys order (getter)
+@get external items: t<'a> => array<{"key": (int, int), "value": 'a}> = "items"
+
+////////////////////////////////////////////////////////////////////////////////
+// Methods
+////////////////////////////////////////////////////////////////////////////////
+
+// Returns true if tree is empty
+@send external isEmpty: t<'a> => bool = "isEmpty"
 
 // Insert new item into the tree. Key is an interval object or pair of numbers [low, high].
 // Value may represent any value or reference to any object. If value omitted, tree will store and retrieve keys as values.
@@ -19,10 +38,17 @@ external make: unit => t<'a> = "default"
 
 // Method returns true if item {key, value} exists in the tree.
 // Method may be useful if need to support unique items.
-@send external exist: (t<'a>, (int, int), 'a) => bool = "exist"
+@send external exist: (t<'a>, (int, int)) => bool = "exist"
+
+// Method returns true if item {key, value} exists in the tree.
+// Method may be useful if need to support unique items.
+@send external existWithValue: (t<'a>, (int, int), 'a) => bool = "exist"
 
 // Removes item from the tree. Returns true if item was actually deleted, false if not found.
-@send external remove: (t<'a>, (int, int), 'a) => bool = "remove"
+@send external remove: (t<'a>, (int, int)) => bool = "remove"
+
+// Removes item from the tree. Returns true if item was actually deleted, false if not found.
+@send external removeWithValue: (t<'a>, (int, int), 'a) => bool = "remove"
 
 // Returns array of values which keys intersected with given interval.
 @send external search: (t<'a>, (int, int)) => array<'a> = "search"
@@ -33,17 +59,6 @@ external searchAndMap: (t<'a>, array<(int, int)>, ('a, (int, int)) => 'b) => arr
 
 // Returns true if intersection between given and any interval stored in the tree found
 @send external intersectAny: (t<'a>, (int, int)) => bool = "intersect_any"
-
-// Returns number of items stored in the tree (getter)
-@get external size: t<'a> => int = "size"
-
-// Returns tree keys in ascendant order (getter)
-@get external keys: t<'a> => array<(int, int)> = "keys"
-
-// Returns items in ascendant keys order (getter)
-@get external items: t<'a> => array<{"key": (int, int), "value": 'a}> = "items"
-
-let elems = (self: t<'a>): array<'a> => items(self)->Belt.Array.map(item => item["value"])
 
 // Enables to traverse the whole tree and perform operation for each item
 @send external forEach: (t<'a>, ((int, int), 'a) => unit) => unit = "forEach"

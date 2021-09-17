@@ -129,8 +129,6 @@ module Aspect = {
     | "operator" => Operator
     | _ => Operator
     }
-
-  
 }
 
 module Token = Parser.SExpression
@@ -225,14 +223,128 @@ module Info = {
 }
 
 module Infos = {
-  type t = Infos(bool, array<Info.t>)
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
-    pair(bool, array(Info.decode)) |> map(((keepHighlighting, xs)) => Infos(keepHighlighting, xs))
+  module Format = {
+    type t =
+      | Emacs(string)
+      | JSON(string)
+    let toFilepath = format =>
+      switch format {
+      | Emacs(filepath) => filepath
+      | JSON(filepath) => filepath
+      }
   }
 
-  let toInfos = x =>
-    switch x {
-    | Infos(_, xs) => xs
+  // request from Agda to add new highlighting infos
+  module AddNewInfos = {
+    // removeTokenBasedHighlighting:
+    //    Should token-based highlighting be removed in conjunction with
+    //    the application of new highlighting (in order to reduce the risk of flicker)?
+    type t = AddNewInfos(bool, array<Info.t>) // removeTokenBasedHighlighting, highlighting infos
+
+    let decode: Json.Decode.decoder<t> = {
+      open Json.Decode
+      pair(bool, array(Info.decode)) |> map(((keepHighlighting, xs)) => AddNewInfos(
+        keepHighlighting,
+        xs,
+      ))
     }
+
+    let parseEmacs = (buffer): t => {
+      open! Parser.SExpression
+      let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(buffer))[0] {
+      | Some(Ok(L(xs))) => xs
+      | _ => []
+      }
+      // RemoveTokenBasedHighlighting
+      let removeTokenBasedHighlighting = switch tokens[0] {
+      | Some(A("remove")) => true
+      | _ => false
+      }
+      let infos = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Info.parse)
+      AddNewInfos(removeTokenBasedHighlighting, infos)
+    }
+
+    let parseJSON = (buffer): t => {
+      let raw = Node.Buffer.toString(buffer)
+      switch Js.Json.parseExn(raw) {
+      | exception _e => AddNewInfos(false, [])
+      | json => decode(json)
+      }
+    }
+
+    let readAndParse = format => {
+      N.Util.promisify(N.Fs.readFile)(. Format.toFilepath(format))
+      ->Promise.Js.fromBsPromise
+      ->Promise.Js.toResult
+      ->Promise.map(x =>
+        switch x {
+        | Ok(buffer) =>
+          switch format {
+          | Emacs(_) => parseEmacs(buffer)
+          | JSON(_) => parseJSON(buffer)
+          }
+        | Error(_err) => AddNewInfos(false, [])
+        }
+      )
+    }
+
+    let toInfos = x =>
+      switch x {
+      | AddNewInfos(_removeTokenBasedHighlighting, xs) => xs
+      }
+  }
+
+  type t = {
+    // from addEmacsFilePath/addJSONFilePath
+    mutable tempFilePaths: array<Format.t>,
+    // Infos indexed by Range
+    mutable infos: IntervalTree.t<Info.t>,
+  }
+
+  let make = () => {
+    tempFilePaths: [],
+    infos: IntervalTree.make(),
+  }
+
+  let addEmacsFilePath = (self, filepath) =>
+    Js.Array.push(Format.Emacs(filepath), self.tempFilePaths)->ignore
+  let addJSONFilePath = (self, filepath) =>
+    Js.Array.push(Format.JSON(filepath), self.tempFilePaths)->ignore
+
+  // insert a bunch of Infos
+  // merge Aspects with the existing Info that occupies the same Range
+  let insert = (self, infos: array<Info.t>) => {
+    infos->Array.forEach(info => {
+      let existing = self.infos->IntervalTree.search((info.start, info.end_ - 1))
+      switch existing[0] {
+      | None => self.infos->IntervalTree.insert((info.start, info.end_ - 1), info)->ignore
+      | Some(old) =>
+        // merge Aspects
+        self.infos->IntervalTree.remove((info.start, info.end_ - 1))->ignore
+        let new = {
+          ...old,
+          aspects: Array.concat(old.aspects, info.aspects),
+        }
+        self.infos->IntervalTree.insert((info.start, info.end_ - 1), new)->ignore
+      }
+    })
+  }
+
+  let readTempFiles = self =>
+    self.tempFilePaths
+    ->Array.map(AddNewInfos.readAndParse)
+    ->Promise.allArray
+    ->Promise.map(xs => xs->Array.map(AddNewInfos.toInfos)->Array.concatMany)
+    ->Promise.map(infos => {
+      insert(self, infos)
+      self.tempFilePaths = []
+    })
+
+  let destroy = self => {
+    self.tempFilePaths->Array.forEach(format => {
+      N.Fs.unlink(Format.toFilepath(format), _ => ())
+    })
+    self.infos = IntervalTree.make()
+  }
+
 }

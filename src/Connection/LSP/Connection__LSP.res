@@ -109,7 +109,7 @@ module LSPResponse = {
     switch x {
     | "ResponseHighlightingInfoDirect" =>
       Contents(
-        Highlighting.Agda.Infos.decode |> map((Highlighting.Agda.Infos.Infos(keepHighlighting, infos)) => {
+        Highlighting.Agda.Infos.AddNewInfos.decode |> map((Highlighting.Agda.Infos.AddNewInfos.AddNewInfos(keepHighlighting, infos)) => {
           ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
         }),
       )
