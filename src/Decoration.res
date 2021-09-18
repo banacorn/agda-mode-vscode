@@ -117,7 +117,7 @@ module Module: Module = {
   let clear = self => {
     // reset Infos
     self.infos = Infos.make()
-    // remove Decorations 
+    // remove Decorations
     self.decorations->Array.forEach(((decoration, _)) => Editor.Decoration.destroy(decoration))
     self.decorations = []
   }
@@ -141,11 +141,9 @@ module Module: Module = {
   let lookupSrcLoc = (self, offset): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
   > => {
-    Js.log(self.infos)
-    let matched = self.infos->Infos.get->AVLTree.find(offset)
-    Js.log3("lookupSrcLoc", matched, self.infos->Infos.get->AVLTree.count)
-    // returns the first matching srcloc
-    matched
+    self.infos
+    ->Infos.get
+    ->AVLTree.lowerBound(offset)
     ->Option.flatMap(((info, range)) =>
       info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
     )
@@ -344,7 +342,6 @@ module Module: Module = {
 
   let apply = (self, editor) =>
     Infos.readTempFiles(self.infos, editor)->Promise.map(() => {
-      Js.log("APPLY")
       if Config.Highlighting.getSemanticHighlighting() {
         let (tokens, decorations) = SemanticHighlighting.toSemanticTokensAndDecorations(
           self,
