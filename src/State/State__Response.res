@@ -95,7 +95,7 @@ let rec handle = (
   let sendAgdaRequest = State.sendRequest(state, handle(state, dispatchCommand))
   switch response {
   | HighlightingInfoDirect(_keep, annotations) =>
-    state.decoration->Decoration.addViaPipe(annotations)
+    state.decoration->Decoration.addViaPipe(state.editor, annotations)
     Promise.resolved()
   | HighlightingInfoIndirect(filepath) =>
     state.decoration->Decoration.addViaFile(filepath)

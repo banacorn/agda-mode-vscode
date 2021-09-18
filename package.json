@@ -38,7 +38,7 @@
 		"bs-platform": ">=7.0.0"
 	},
 	"dependencies": {
-		"@flatten-js/interval-tree": "^1.0.14",
+		"@datastructures-js/binary-search-tree": "^4.3.0",
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"@rescript/react": "^0.10.3",
 		"bs-nd": "^0.1.5",

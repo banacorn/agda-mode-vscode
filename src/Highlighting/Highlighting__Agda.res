@@ -297,13 +297,13 @@ module Infos = {
   type t = {
     // from addEmacsFilePath/addJSONFilePath
     mutable tempFilePaths: array<Format.t>,
-    // Infos indexed by Range
-    mutable infos: IntervalTree.t<Info.t>,
+    // Infos indexed by the starting offset
+    mutable infos: AVLTree.t<(Info.t, VSCode.Range.t)>,
   }
 
   let make = () => {
     tempFilePaths: [],
-    infos: IntervalTree.make(),
+    infos: AVLTree.make(),
   }
 
   let addEmacsFilePath = (self, filepath) =>
@@ -313,30 +313,43 @@ module Infos = {
 
   // insert a bunch of Infos
   // merge Aspects with the existing Info that occupies the same Range
-  let insert = (self, infos: array<Info.t>) => {
+  let insert = (self, editor, infos: array<Info.t>) => {
     infos->Array.forEach(info => {
-      let existing = self.infos->IntervalTree.search((info.start, info.end_ - 1))
-      switch existing[0] {
-      | None => self.infos->IntervalTree.insert((info.start, info.end_ - 1), info)->ignore
-      | Some(old) =>
+      let existing = self.infos->AVLTree.find(info.start)
+      switch existing {
+      | None =>
+        let document = editor->VSCode.TextEditor.document
+        let text = Editor.Text.getAll(document)
+        let offsetConverter = Agda.OffsetConverter.make(text)
+        let start = Editor.Position.fromOffset(
+          document,
+          Agda.OffsetConverter.convert(offsetConverter, info.start),
+        )
+        let end_ = Editor.Position.fromOffset(
+          document,
+          Agda.OffsetConverter.convert(offsetConverter, info.end_),
+        )
+        let range = VSCode.Range.make(start, end_)
+        self.infos->AVLTree.insert(info.start, (info, range))->ignore
+      | Some((old, range)) =>
         // merge Aspects
-        self.infos->IntervalTree.remove((info.start, info.end_ - 1))->ignore
+        self.infos->AVLTree.remove(info.start)->ignore
         let new = {
           ...old,
           aspects: Array.concat(old.aspects, info.aspects),
         }
-        self.infos->IntervalTree.insert((info.start, info.end_ - 1), new)->ignore
+        self.infos->AVLTree.insert(info.start, (new, range))->ignore
       }
     })
   }
 
-  let readTempFiles = self =>
+  let readTempFiles = (self, editor) =>
     self.tempFilePaths
     ->Array.map(AddNewInfos.readAndParse)
     ->Promise.allArray
     ->Promise.map(xs => xs->Array.map(AddNewInfos.toInfos)->Array.concatMany)
     ->Promise.map(infos => {
-      insert(self, infos)
+      insert(self, editor, infos)
       self.tempFilePaths = []
     })
 
@@ -344,7 +357,8 @@ module Infos = {
     self.tempFilePaths->Array.forEach(format => {
       N.Fs.unlink(Format.toFilepath(format), _ => ())
     })
-    self.infos = IntervalTree.make()
+    self.infos = AVLTree.make()
   }
 
+  let get = self => self.infos
 }

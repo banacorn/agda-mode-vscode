@@ -15,7 +15,7 @@ module type Module = {
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
   // add Agda highlighting infos
-  let addViaPipe: (t, array<Highlighting.Agda.Info.t>) => unit
+  let addViaPipe: (t, VSCode.TextEditor.t, array<Highlighting.Agda.Info.t>) => unit
   let addViaFile: (t, string) => unit
   let addViaJSONFile: (t, string) => unit
   // apply Agda highlighting infos
@@ -25,7 +25,6 @@ module type Module = {
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
 
-  // LSP
   let lookupSrcLoc: (
     t,
     int,
@@ -70,32 +69,13 @@ module Module: Module = {
     (background, index)
   }
 
-  // helper function for tagging IntervalTree.t<Info.t> with Ranges calculated from offsets
-  let tagWithRange = (
-    editor: VSCode.TextEditor.t,
-    infos: IntervalTree.t<Highlighting.Agda.Info.t>,
-  ): IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)> => {
-    let document = VSCode.TextEditor.document(editor)
-    let text = Editor.Text.getAll(document)
-    // table for speeding up the offset-Range conversion
-    let offsetConverter = Agda.OffsetConverter.make(text)
-
-    infos->IntervalTree.map((info, _) => {
-      // calculate the range of each info
-      let start = Agda.OffsetConverter.convert(offsetConverter, info.start)
-      let end_ = Agda.OffsetConverter.convert(offsetConverter, info.end_)
-      let range = Editor.Range.fromInterval(document, (start, end_))
-      (info, range)
-    })
-  }
-
   let fromInfostoDecorations = (
-    infosWithRanges: IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
+    infosWithRanges: AVLTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
     editor: VSCode.TextEditor.t,
   ): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
     let aspects: array<(Highlighting.Agda.Aspect.t, VSCode.Range.t)> =
       infosWithRanges
-      ->IntervalTree.values
+      ->AVLTree.toArray
       ->Array.map(((info, range)) =>
         // pair the aspect with the range
         info.aspects->Array.map(aspect => (aspect, range))
@@ -117,7 +97,6 @@ module Module: Module = {
   type t = {
     // from addViaPipe
     mutable infos: Infos.t,
-    mutable infosWithRanges: IntervalTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
     // Decorations
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // Semantic Tokens
@@ -129,7 +108,6 @@ module Module: Module = {
     let (promise, resolve) = Promise.pending()
     {
       infos: Infos.make(),
-      infosWithRanges: IntervalTree.make(),
       decorations: [],
       semanticTokens: promise,
       resolveSemanticTokens: resolve,
@@ -151,21 +129,19 @@ module Module: Module = {
       Editor.Decoration.decorate(editor, decoration, ranges)
     )
 
-  // insert to an IntervalTree
-  let addViaPipe = (self, infos) => Infos.insert(self.infos, infos)
+  // insert to an AVLTree
+  let addViaPipe = (self, editor, infos) => Infos.insert(self.infos, editor, infos)
 
   let addViaFile = (self, filepath) => Infos.addEmacsFilePath(self.infos, filepath)
   let addViaJSONFile = (self, filepath) => Infos.addJSONFilePath(self.infos, filepath)
 
-  // .tempFilePaths ====> .infos
-  let readTempFiles = self => Infos.readTempFiles(self.infos)
-
   let lookupSrcLoc = (self, offset): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
   > => {
-    let matched = self.infosWithRanges->IntervalTree.search((offset - 1, offset))
+    let matched = self.infos->Infos.get->AVLTree.find(offset)
+    Js.log3("lookupSrcLoc", matched, self.infos->Infos.get->AVLTree.count)
     // returns the first matching srcloc
-    matched[0]
+    matched
     ->Option.flatMap(((info, range)) =>
       info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
     )
@@ -317,8 +293,9 @@ module Module: Module = {
 
     let toSemanticTokensAndDecorations = (self: t, editor: VSCode.TextEditor.t) => {
       let (tokens, backgrounds) =
-        self.infosWithRanges
-        ->IntervalTree.values
+        self.infos
+        ->Infos.get
+        ->AVLTree.toArray
         ->Array.map(((info: Highlighting.Agda.Info.t, range)) => {
           // split the range in case that it spans multiple lines
           let ranges = Highlighting.SemanticToken.SingleLineRange.splitRange(
@@ -362,9 +339,7 @@ module Module: Module = {
   }
 
   let applyAndClear = (self, editor) =>
-    readTempFiles(self)->Promise.map(() => {
-      self.infosWithRanges = tagWithRange(editor, self.infos.infos)
-
+    Infos.readTempFiles(self.infos, editor)->Promise.map(() => {
       if Config.Highlighting.getSemanticHighlighting() {
         let (tokens, decorations) = SemanticHighlighting.toSemanticTokensAndDecorations(
           self,
@@ -386,7 +361,7 @@ module Module: Module = {
           })
         }
       } else {
-        let decorations = fromInfostoDecorations(self.infosWithRanges, editor)
+        let decorations = fromInfostoDecorations(self.infos->Infos.get, editor)
         self.decorations = Array.concat(self.decorations, decorations)
       }
 
