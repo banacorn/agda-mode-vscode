@@ -23,9 +23,9 @@ external make: unit => t<'a> = "BinarySearchTree"
 
 @send external has: (t<'a>, int) => bool = "has"
 
-@send external _find: (t<'a>, int) => Js.nullable<Node.t<'a>> = "find"
+@send external find: (t<'a>, int) => Js.nullable<Node.t<'a>> = "find"
 let find = (self: t<'a>, key: int): option<'a> =>
-  self->_find(key)->Js.Nullable.toOption->Option.map(Node.getValue)
+  self->find(key)->Js.Nullable.toOption->Option.map(Node.getValue)
 
 @send external max: t<'a> => Js.nullable<Node.t<'a>> = "max"
 let max = (self: t<'a>): option<'a> => self->max->Js.Nullable.toOption->Option.map(Node.getValue)

@@ -334,9 +334,13 @@ module Infos = {
       | Some((old, range)) =>
         // merge Aspects
         self.infos->AVLTree.remove(info.start)->ignore
+        // often the new aspects would look exactly like the old ones
+        // don't duplicate them in that case
+        let newAspects =
+          old.aspects == info.aspects ? old.aspects : Array.concat(old.aspects, info.aspects)
         let new = {
           ...old,
-          aspects: Array.concat(old.aspects, info.aspects),
+          aspects: newAspects,
         }
         self.infos->AVLTree.insert(info.start, (new, range))->ignore
       }
