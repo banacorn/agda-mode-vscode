@@ -19,7 +19,7 @@ module type Module = {
   let addViaFile: (t, string) => unit
   let addViaJSONFile: (t, string) => unit
   // apply Agda highlighting infos
-  let applyAndClear: (t, VSCode.TextEditor.t) => Promise.t<unit>
+  let apply: (t, VSCode.TextEditor.t) => Promise.t<unit>
   // remove Agda highlighting infos
   let clear: t => unit
   // redecorate everything after the TextEditor has been replaced
@@ -115,6 +115,9 @@ module Module: Module = {
   }
 
   let clear = self => {
+    // reset Infos
+    self.infos = Infos.make()
+    // remove Decorations 
     self.decorations->Array.forEach(((decoration, _)) => Editor.Decoration.destroy(decoration))
     self.decorations = []
   }
@@ -138,6 +141,7 @@ module Module: Module = {
   let lookupSrcLoc = (self, offset): option<
     Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
   > => {
+    Js.log(self.infos)
     let matched = self.infos->Infos.get->AVLTree.find(offset)
     Js.log3("lookupSrcLoc", matched, self.infos->Infos.get->AVLTree.count)
     // returns the first matching srcloc
@@ -338,8 +342,9 @@ module Module: Module = {
     }
   }
 
-  let applyAndClear = (self, editor) =>
+  let apply = (self, editor) =>
     Infos.readTempFiles(self.infos, editor)->Promise.map(() => {
+      Js.log("APPLY")
       if Config.Highlighting.getSemanticHighlighting() {
         let (tokens, decorations) = SemanticHighlighting.toSemanticTokensAndDecorations(
           self,
@@ -364,9 +369,6 @@ module Module: Module = {
         let decorations = fromInfostoDecorations(self.infos->Infos.get, editor)
         self.decorations = Array.concat(self.decorations, decorations)
       }
-
-      // remove old infos
-      self.infos = Infos.make()
     })
 }
 
