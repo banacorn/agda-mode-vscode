@@ -112,43 +112,44 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     }
   })->subscribe
 
+  // add this state to the Registry
+  state
+}
+
+let registerDocumentSemanticTokensProvider = () => {
   // these two arrays are called "legends"
   let tokenTypes = Highlighting.SemanticToken.TokenType.enumurate
   let tokenModifiers = Highlighting.SemanticToken.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
     let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
-    let isCurrentFile = {
-      let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-      let currentDocument = VSCode.TextEditor.document(editor)
-      let currentFileName = currentDocument->VSCode.TextDocument.fileName->Parser.filepath
-      fileName == currentFileName
-    }
+    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
 
-    if useSemanticHighlighting && isCurrentFile {
-      Decoration.SemanticHighlighting.get(state.decoration)
-      ->Promise.map(tokensRef => {
+    if useSemanticHighlighting {
+      Registry.get(fileName)->Option.map(state => {
+        Decoration.SemanticHighlighting.get(state.decoration)->Promise.map(tokensRef => {
+          open Editor.Provider.Mock
 
-        open Editor.Provider.Mock
-
-        let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-          tokenTypes,
-          tokenModifiers,
-        )
-        let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-        tokensRef.contents->Array.forEach(({range, type_, modifiers}) => {
-          SemanticTokensBuilder.pushLegend(
-            builder,
-            Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
-            Highlighting.SemanticToken.TokenType.toString(type_),
-            modifiers->Option.map(xs => xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString)),
+          let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
+            tokenTypes,
+            tokenModifiers,
           )
-        })
+          let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
 
-        SemanticTokensBuilder.build(builder)
+          tokensRef.contents->Array.forEach(({range, type_, modifiers}) => {
+            SemanticTokensBuilder.pushLegend(
+              builder,
+              Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
+              Highlighting.SemanticToken.TokenType.toString(type_),
+              modifiers->Option.map(xs =>
+                xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString)
+              ),
+            )
+          })
+
+          SemanticTokensBuilder.build(builder)
+        })
       })
-      ->Some
     } else {
       None
     }
@@ -157,10 +158,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   Editor.Provider.registerDocumentSemanticTokensProvider(
     ~provideDocumentSemanticTokens,
     (tokenTypes, tokenModifiers),
-  )->subscribe
-
-  // add this state to the Registry
-  state
+  )
 }
 
 // TODO: rename `finalize`
@@ -257,6 +255,9 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       }
     })
   })->subscribeMany
+
+  // registerDocumentSemanticTokensProvider
+  registerDocumentSemanticTokensProvider()->subscribe
 
   // expose the channel for testing
   debugChan
