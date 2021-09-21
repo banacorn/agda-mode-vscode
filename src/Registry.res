@@ -5,38 +5,59 @@ module Module: {
   let removeAndDestroy: string => Promise.t<unit>
   let removeAndDestroyAll: unit => Promise.t<unit>
   let isEmpty: unit => bool
+
+  let requestSemanticTokens: string => Promise.t<array<Highlighting.SemanticToken.t>>
 } = {
   open Belt
 
-  // a dictionary of FileName-State entries
-  let dict: Js.Dict.t<State.t> = Js.Dict.empty()
+  module Status = {
+    type tokens = array<Highlighting.SemanticToken.t>
 
-  let get = fileName => dict->Js.Dict.get(fileName)
+    type t =
+      // Waiting for Semantic Tokens, but the State has not been initiated yet
+      | PendingInit(Promise.t<tokens>, tokens => unit)
+      // State has been initiated yet
+      | Initialized(State.t)
 
-  // do nothing if the state already exists
-  let add = (fileName, state) =>
-    switch get(fileName) {
-    | Some(_) => ()
-    | None => dict->Js.Dict.set(fileName, state)
+    let getState = status =>
+      switch status {
+      | PendingInit(_promise, _resolve) => None
+      | Initialized(state) => Some(state)
+      }
+  }
+
+  // A dictionary of FileName-Status entries
+  let dict: Js.Dict.t<Status.t> = Js.Dict.empty()
+
+  // Private helper that returns Status
+  let get' = fileName => dict->Js.Dict.get(fileName)
+  // Public getter that returns State
+  let get = fileName => get'(fileName)->Option.flatMap(Status.getState)
+
+  // Adds an instantiated State to the Registry
+  let add = (fileName, state: State.t) =>
+    switch get'(fileName) {
+    | Some(PendingInit(_, resolve)) =>
+      // Fulfill the request for Semantic Tokens
+      state.decoration->Decoration.SemanticHighlighting.requestTokens->Promise.get(resolve)
+    | Some(Initialized(_)) => () // do nothing
+    | None => dict->Js.Dict.set(fileName, Initialized(state))
     }
 
-  // let rename = (oldName, newName) => {
-  //   let delete_: (Js.Dict.t<'a>, string) => unit = %raw("function (dict, key) {delete dict[key]}")
-  //   get(oldName)->Option.forEach(state => {
-  //     delete_(dict, oldName)
-  //     add(newName, state)
-  //   })
-  // }
-
-  // remove the entry (but without triggering .destroy() )
+  // Removes the entry (but without triggering State.destroy() )
   let remove = fileName => {
     let delete_: (Js.Dict.t<'a>, string) => unit = %raw("function (dict, key) {delete dict[key]}")
     delete_(dict, fileName)
   }
+
   let removeAndDestroy = fileName =>
-    switch get(fileName) {
+    switch get'(fileName) {
     | None => Promise.resolved()
-    | Some(state) =>
+    | Some(PendingInit(_promise, resolve)) =>
+      remove(fileName)
+      resolve([])
+      Promise.resolved()
+    | Some(Initialized(state)) =>
       remove(fileName)
       State.destroy(state, false)
     }
@@ -46,6 +67,18 @@ module Module: {
   }
 
   let isEmpty = () => Js.Dict.keys(dict)->Array.length == 0
+
+  // Requesting Semantic Tokens
+  // add PendingInit(_) to the Registry if the entry has not been created yet 
+  let requestSemanticTokens = fileName =>
+    switch get'(fileName) {
+    | Some(PendingInit(promise, _resolve)) => promise
+    | Some(Initialized(state)) => state.decoration->Decoration.SemanticHighlighting.requestTokens
+    | None =>
+      let (promise, resolve) = Promise.pending()
+      dict->Js.Dict.set(fileName, PendingInit(promise, resolve))
+      promise
+    }
 }
 
 include Module

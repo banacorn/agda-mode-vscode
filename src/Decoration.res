@@ -39,6 +39,8 @@ module type Module = {
       t,
       VSCode.TextEditor.t,
     ) => (array<Highlighting.SemanticToken.t>, array<(Editor.Decoration.t, array<VSCode.Range.t>)>)
+
+    let requestTokens: t => Promise.t<array<Highlighting.SemanticToken.t>>
   }
 }
 
@@ -338,6 +340,8 @@ module Module: Module = {
 
       (tokens, backgrounds)
     }
+
+    let requestTokens = (self: t) => Promise.resolved([])
   }
 
   let apply = (self, editor) =>
