@@ -39,7 +39,7 @@ module Module: {
     switch get'(fileName) {
     | Some(PendingInit(_, resolve)) =>
       // Fulfill the request for Semantic Tokens
-      state.decoration->Decoration.SemanticHighlighting.requestTokens->Promise.get(resolve)
+      state.decoration->Decoration.SemanticHighlighting.requestSemanticTokens->Promise.get(resolve)
     | Some(Initialized(_)) => () // do nothing
     | None => dict->Js.Dict.set(fileName, Initialized(state))
     }
@@ -73,7 +73,7 @@ module Module: {
   let requestSemanticTokens = fileName =>
     switch get'(fileName) {
     | Some(PendingInit(promise, _resolve)) => promise
-    | Some(Initialized(state)) => state.decoration->Decoration.SemanticHighlighting.requestTokens
+    | Some(Initialized(state)) => state.decoration->Decoration.SemanticHighlighting.requestSemanticTokens
     | None =>
       let (promise, resolve) = Promise.pending()
       dict->Js.Dict.set(fileName, PendingInit(promise, resolve))

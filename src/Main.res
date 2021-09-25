@@ -124,8 +124,6 @@ let registerDocumentSemanticTokensProvider = () => {
   let provideDocumentSemanticTokens = (document, _cancel) => {
     let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    Js.log("REQ: " ++ fileName)
-
     if useSemanticHighlighting {
       Registry.requestSemanticTokens(fileName)
       ->Promise.map(tokens => {
@@ -234,7 +232,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     let fileName = document->VSCode.TextDocument.fileName
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
-        Js.log("UPDATE: " ++ fileName)
         Decoration.SemanticHighlighting.update(state.decoration, event)
       })
     }

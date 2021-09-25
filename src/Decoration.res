@@ -34,13 +34,12 @@ module type Module = {
 
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
-    let get: t => Promise.t<ref<array<Highlighting.SemanticToken.t>>>
     let toSemanticTokensAndDecorations: (
       t,
       VSCode.TextEditor.t,
     ) => (array<Highlighting.SemanticToken.t>, array<(Editor.Decoration.t, array<VSCode.Range.t>)>)
 
-    let requestTokens: t => Promise.t<array<Highlighting.SemanticToken.t>>
+    let requestSemanticTokens: t => Promise.t<array<Highlighting.SemanticToken.t>>
   }
 }
 
@@ -102,18 +101,17 @@ module Module: Module = {
     // Decorations
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // Semantic Tokens
-    mutable semanticTokens: Promise.t<ref<array<Highlighting.SemanticToken.t>>>,
-    mutable resolveSemanticTokens: ref<array<Highlighting.SemanticToken.t>> => unit,
+    mutable semanticTokens: array<Highlighting.SemanticToken.t>,
+    mutable updated: bool,
+    mutable requestsForTokens: array<array<Highlighting.SemanticToken.t> => unit>,
   }
 
   let make = () => {
-    let (promise, resolve) = Promise.pending()
-    {
-      infos: Infos.make(),
-      decorations: [],
-      semanticTokens: promise,
-      resolveSemanticTokens: resolve,
-    }
+    infos: Infos.make(),
+    decorations: [],
+    semanticTokens: [],
+    updated: false,
+    requestsForTokens: [],
   }
 
   let clear = self => {
@@ -158,6 +156,19 @@ module Module: Module = {
         [(range, filepath, position)]
       })
     })
+  }
+
+  let resolveRequestsForTokens = (isUpdate, self) => {
+    // resolve all promises waiting for tokens
+    self.requestsForTokens->Array.forEach(resolve => resolve(self.semanticTokens))
+
+    if isUpdate {
+      self.updated = true
+    } else {
+      self.updated = false
+    }
+    // clear the queue
+    self.requestsForTokens = []
   }
 
   module SemanticHighlighting = {
@@ -236,6 +247,8 @@ module Module: Module = {
           Remove
         } else if token.range.line == VSCode.Position.line(VSCode.Range.end_(removedRange)) {
           Move(lineDelta, columnDelta)
+        } else if lineDelta == 0 {
+          NoOp
         } else {
           MoveLinesOnly(lineDelta)
         }
@@ -283,17 +296,12 @@ module Module: Module = {
         })
         ->Array.concatMany
 
-      // read from the cached
-      self.semanticTokens->Promise.get(semanticTokensRef => {
-        changes->Array.forEach(change => {
-          semanticTokensRef := applyChange(semanticTokensRef.contents, change)
-        })
-        // update the cache
-        self.resolveSemanticTokens(semanticTokensRef)
+      // apply changes to the cached tokens
+      changes->Array.forEach(change => {
+        self.semanticTokens = applyChange(self.semanticTokens, change)
       })
+      resolveRequestsForTokens(true, self)
     }
-
-    let get = (self: t) => self.semanticTokens
 
     let toSemanticTokensAndDecorations = (self: t, editor: VSCode.TextEditor.t) => {
       let (tokens, backgrounds) =
@@ -341,7 +349,15 @@ module Module: Module = {
       (tokens, backgrounds)
     }
 
-    let requestTokens = (self: t) => Promise.resolved([])
+    let requestSemanticTokens = (self: t) => {
+      if self.updated {
+        Promise.resolved(self.semanticTokens)
+      } else {
+        let (promise, resolve) = Promise.pending()
+        Js.Array.push(resolve, self.requestsForTokens)->ignore
+        promise
+      }
+    }
   }
 
   let apply = (self, editor) =>
@@ -351,21 +367,9 @@ module Module: Module = {
           self,
           editor,
         )
+        self.semanticTokens = tokens
+        resolveRequestsForTokens(false, self)
         self.decorations = Array.concat(self.decorations, decorations)
-
-        // renew promise when there are no tokens
-        if Array.length(tokens) == 0 {
-          let (promise, resolve) = Promise.pending()
-          self.semanticTokens = promise
-          self.resolveSemanticTokens = resolve
-        } else {
-          // resolve to complete the request for semantic tokens
-          self.resolveSemanticTokens(ref(tokens))
-          // update cached semantic tokens
-          self.semanticTokens->Promise.get(semanticTokensRef => {
-            semanticTokensRef := tokens
-          })
-        }
       } else {
         let decorations = fromInfostoDecorations(self.infos->Infos.get, editor)
         self.decorations = Array.concat(self.decorations, decorations)
