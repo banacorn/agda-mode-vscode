@@ -106,7 +106,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     let offset = Editor.Position.toOffset(state.document, position)
 
     if fileName == currentFileName {
-      state.decoration->Decoration.lookupSrcLoc(offset)
+      state.tokens->Tokens.lookupSrcLoc(offset)
     } else {
       None
     }

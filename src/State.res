@@ -81,6 +81,7 @@ let make = (chan, globalStoragePath, extensionPath, editor) => {
   panelCache: ViewCache.make(),
   runningInfoLog: [],
   goals: [],
+  tokens: Tokens.make(),
   decoration: Decoration.make(),
   cursor: None,
   editorIM: IM.make(chan),

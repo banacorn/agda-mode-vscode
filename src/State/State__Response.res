@@ -95,15 +95,16 @@ let rec handle = (
   let sendAgdaRequest = State.sendRequest(state, handle(state, dispatchCommand))
   switch response {
   | HighlightingInfoDirect(_keep, annotations) =>
-    state.decoration->Decoration.addViaPipe(state.editor, annotations)
+    state.tokens->Tokens.insert(state.editor, annotations)
     Promise.resolved()
   | HighlightingInfoIndirect(filepath) =>
-    state.decoration->Decoration.addViaFile(filepath)
+    state.tokens->Tokens.addEmacsFilePath(filepath)
     Promise.resolved()
   | HighlightingInfoIndirectJSON(filepath) =>
-    state.decoration->Decoration.addViaJSONFile(filepath)
+    state.tokens->Tokens.addJSONFilePath(filepath)
     Promise.resolved()
   | ClearHighlighting =>
+    state.tokens ->Tokens.clear
     state.decoration->Decoration.clear
     Promise.resolved()
   | Status(_checked, _displayImplicit) =>
@@ -215,7 +216,7 @@ let rec handle = (
     State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
-    Decoration.apply(state.decoration, state.editor)
+    Decoration.apply(state.decoration, state.tokens, state.editor)
   | _ => Promise.resolved()
   }
 }

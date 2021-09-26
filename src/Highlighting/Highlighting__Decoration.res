@@ -10,7 +10,7 @@ type t = {
   dark: face,
 }
 
-let fromAspect = (x: Highlighting__Agda.Aspect.t): option<t> =>
+let fromAspect = (x: Tokens.Aspect.t): option<t> =>
   switch x {
   | Comment =>
     Some({

@@ -124,7 +124,7 @@ module DisplayInfo = {
 
 type t =
   // agda2-highlight-add-annotations
-  | HighlightingInfoDirect(bool, array<Highlighting.Agda.Info.t>)
+  | HighlightingInfoDirect(bool, array<Tokens.Token.t>)
   // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
   | HighlightingInfoIndirectJSON(filepath)
@@ -203,7 +203,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
   | L(xs) =>
     switch xs[0] {
     | Some(A("agda2-highlight-add-annotations")) =>
-      let annotations = Highlighting.Agda.Info.parseDirectHighlightings(xs)
+      let annotations = Tokens.Token.parseDirectHighlightings(xs)
       switch xs[1] {
       | Some(A("remove")) => Ok(HighlightingInfoDirect(false, annotations))
       | Some(A("nil")) => Ok(HighlightingInfoDirect(true, annotations))

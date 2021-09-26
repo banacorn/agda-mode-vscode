@@ -14,28 +14,15 @@ module type Module = {
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
-  // add Agda highlighting infos
-  let addViaPipe: (t, VSCode.TextEditor.t, array<Highlighting.Agda.Info.t>) => unit
-  let addViaFile: (t, string) => unit
-  let addViaJSONFile: (t, string) => unit
-  // apply Agda highlighting infos
-  let apply: (t, VSCode.TextEditor.t) => Promise.t<unit>
-  // remove Agda highlighting infos
+  let apply: (t, Tokens.t, VSCode.TextEditor.t) => Promise.t<unit>
   let clear: t => unit
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
 
-  let lookupSrcLoc: (
-    t,
-    int,
-  ) => option<
-    Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
-  >
-
   module SemanticHighlighting: {
     let update: (t, VSCode.TextDocumentChangeEvent.t) => unit
-    let toSemanticTokensAndDecorations: (
-      t,
+    let fromTokens: (
+      Tokens.t,
       VSCode.TextEditor.t,
     ) => (array<Highlighting.SemanticToken.t>, array<(Editor.Decoration.t, array<VSCode.Range.t>)>)
 
@@ -71,11 +58,11 @@ module Module: Module = {
   }
 
   let fromInfostoDecorations = (
-    infosWithRanges: AVLTree.t<(Highlighting.Agda.Info.t, VSCode.Range.t)>,
+    tokensWithRanges: AVLTree.t<(Tokens.Token.t, VSCode.Range.t)>,
     editor: VSCode.TextEditor.t,
   ): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
-    let aspects: array<(Highlighting.Agda.Aspect.t, VSCode.Range.t)> =
-      infosWithRanges
+    let aspects: array<(Tokens.Aspect.t, VSCode.Range.t)> =
+      tokensWithRanges
       ->AVLTree.toArray
       ->Array.map(((info, range)) =>
         // pair the aspect with the range
@@ -93,11 +80,7 @@ module Module: Module = {
   ////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////////////
 
-  open Highlighting.Agda
-
   type t = {
-    // from addViaPipe
-    mutable infos: Infos.t,
     // Decorations
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // Semantic Tokens
@@ -107,7 +90,6 @@ module Module: Module = {
   }
 
   let make = () => {
-    infos: Infos.make(),
     decorations: [],
     semanticTokens: [],
     updated: false,
@@ -115,15 +97,13 @@ module Module: Module = {
   }
 
   let clear = self => {
-    // reset Infos
-    self.infos = Infos.make()
     // remove Decorations
     self.decorations->Array.forEach(((decoration, _)) => Editor.Decoration.destroy(decoration))
     self.decorations = []
   }
 
   let destroy = self => {
-    Infos.destroy(self.infos)
+    // Tokens.destroy(self.infos)
     clear(self)
   }
 
@@ -133,30 +113,6 @@ module Module: Module = {
     )
 
   // insert to an AVLTree
-  let addViaPipe = (self, editor, infos) => Infos.insert(self.infos, editor, infos)
-
-  let addViaFile = (self, filepath) => Infos.addEmacsFilePath(self.infos, filepath)
-  let addViaJSONFile = (self, filepath) => Infos.addJSONFilePath(self.infos, filepath)
-
-  let lookupSrcLoc = (self, offset): option<
-    Promise.t<array<(VSCode.Range.t, Highlighting.Agda.Info.filepath, VSCode.Position.t)>>,
-  > => {
-    self.infos
-    ->Infos.get
-    ->AVLTree.lowerBound(offset)
-    ->Option.flatMap(((info, range)) =>
-      info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
-    )
-    ->Option.map(((range, filepath, offset)) => {
-      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.map(document => {
-        let text = Editor.Text.getAll(document)
-        let offsetConverter = Agda.OffsetConverter.make(text)
-        let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
-        let position = Editor.Position.fromOffset(document, offset)
-        [(range, filepath, position)]
-      })
-    })
-  }
 
   let resolveRequestsForTokens = (isUpdate, self) => {
     // resolve all promises waiting for tokens
@@ -167,6 +123,7 @@ module Module: Module = {
     } else {
       self.updated = false
     }
+
     // clear the queue
     self.requestsForTokens = []
   }
@@ -303,12 +260,12 @@ module Module: Module = {
       resolveRequestsForTokens(true, self)
     }
 
-    let toSemanticTokensAndDecorations = (self: t, editor: VSCode.TextEditor.t) => {
-      let (tokens, backgrounds) =
-        self.infos
-        ->Infos.get
+    let fromTokens = (tokens, editor: VSCode.TextEditor.t) => {
+      let (semanticTokens, decorations) =
+        tokens
+        ->Tokens.get
         ->AVLTree.toArray
-        ->Array.map(((info: Highlighting.Agda.Info.t, range)) => {
+        ->Array.map(((info: Tokens.Token.t, range)) => {
           // split the range in case that it spans multiple lines
           let ranges = Highlighting.SemanticToken.SingleLineRange.splitRange(
             VSCode.TextEditor.document(editor),
@@ -342,11 +299,11 @@ module Module: Module = {
           Some(token, backgrounds)
         })
         ->Array.unzip
-      let tokens = tokens->Array.keepMap(x => x)
-      let backgrounds =
-        backgrounds->Array.concatMany->Highlighting.Decoration.toVSCodeDecorations(editor)
+      let semanticTokens = semanticTokens->Array.keepMap(x => x)
+      let decorations =
+        decorations->Array.concatMany->Highlighting.Decoration.toVSCodeDecorations(editor)
 
-      (tokens, backgrounds)
+      (semanticTokens, decorations)
     }
 
     let requestSemanticTokens = (self: t) => {
@@ -360,18 +317,18 @@ module Module: Module = {
     }
   }
 
-  let apply = (self, editor) =>
-    Infos.readTempFiles(self.infos, editor)->Promise.map(() => {
+  let apply = (self, tokens, editor) =>
+    Tokens.readTempFiles(tokens, editor)->Promise.map(() => {
       if Config.Highlighting.getSemanticHighlighting() {
-        let (tokens, decorations) = SemanticHighlighting.toSemanticTokensAndDecorations(
-          self,
+        let (semanticTokens, decorations) = SemanticHighlighting.fromTokens(
+          tokens,
           editor,
         )
-        self.semanticTokens = tokens
+        self.semanticTokens = semanticTokens
         resolveRequestsForTokens(false, self)
         self.decorations = Array.concat(self.decorations, decorations)
       } else {
-        let decorations = fromInfostoDecorations(self.infos->Infos.get, editor)
+        let decorations = fromInfostoDecorations(tokens->Tokens.get, editor)
         self.decorations = Array.concat(self.decorations, decorations)
       }
     })

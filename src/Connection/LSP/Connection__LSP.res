@@ -109,7 +109,7 @@ module LSPResponse = {
     switch x {
     | "ResponseHighlightingInfoDirect" =>
       Contents(
-        Highlighting.Agda.Infos.AddNewInfos.decode |> map((Highlighting.Agda.Infos.AddNewInfos.AddNewInfos(keepHighlighting, infos)) => {
+        Tokens.decodeHighlightingInfoDirect |> map(((keepHighlighting, infos)) => {
           ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
         }),
       )
@@ -273,8 +273,7 @@ module Module: Module = {
     let (waitForResponseEnd, resolve) = Promise.pending()
 
     // listens for responses from Agda
-    let stopListeningForNotifications = self.client
-    ->Client.onRequest(json => {
+    let stopListeningForNotifications = self.client->Client.onRequest(json => {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)

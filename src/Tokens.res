@@ -131,10 +131,9 @@ module Aspect = {
     }
 }
 
-module Token = Parser.SExpression
-open Token
-
-module Info = {
+// information of Tokens from Agda
+module Token = {
+  open Parser.SExpression
   type filepath = string
   type t = {
     start: int, // agda offset
@@ -155,7 +154,7 @@ module Info = {
     | None => ""
     | Some((s, i)) => s ++ (" " ++ string_of_int(i))
     })))))
-  let parse: Token.t => option<t> = x =>
+  let parse: Parser.SExpression.t => option<t> = x =>
     switch x {
     | A(_) => None
     | L(xs) =>
@@ -199,7 +198,7 @@ module Info = {
       | _ => None
       }
     }
-  let parseDirectHighlightings: array<Token.t> => array<t> = tokens =>
+  let parseDirectHighlightings: array<Parser.SExpression.t> => array<t> = tokens =>
     tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
 
   let decode: Json.Decode.decoder<t> = {
@@ -222,8 +221,28 @@ module Info = {
   }
 }
 
-module Infos = {
-  module Format = {
+module type Module = {
+  type t
+
+  let make: unit => t
+
+  let decodeHighlightingInfoDirect: Json.Decode.decoder<(bool, array<Token.t>)>
+  let get: t => AVLTree.t<(Token.t, VSCode.Range.t)>
+
+  let addEmacsFilePath: (t, string) => unit
+  let addJSONFilePath: (t, string) => unit
+  let readTempFiles: (t, VSCode.TextEditor.t) => Promise.promise<unit>
+  let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
+  let clear: t => unit
+
+  let lookupSrcLoc: (
+    t,
+    int,
+  ) => option<Promise.t<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
+}
+
+module Module: Module = {
+  module TempFile = {
     type t =
       | Emacs(string)
       | JSON(string)
@@ -234,88 +253,29 @@ module Infos = {
       }
   }
 
-  // request from Agda to add new highlighting infos
-  module AddNewInfos = {
-    // removeTokenBasedHighlighting:
-    //    Should token-based highlighting be removed in conjunction with
-    //    the application of new highlighting (in order to reduce the risk of flicker)?
-    type t = AddNewInfos(bool, array<Info.t>) // removeTokenBasedHighlighting, highlighting infos
-
-    let decode: Json.Decode.decoder<t> = {
-      open Json.Decode
-      pair(bool, array(Info.decode)) |> map(((keepHighlighting, xs)) => AddNewInfos(
-        keepHighlighting,
-        xs,
-      ))
-    }
-
-    let parseEmacs = (buffer): t => {
-      open! Parser.SExpression
-      let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(buffer))[0] {
-      | Some(Ok(L(xs))) => xs
-      | _ => []
-      }
-      // RemoveTokenBasedHighlighting
-      let removeTokenBasedHighlighting = switch tokens[0] {
-      | Some(A("remove")) => true
-      | _ => false
-      }
-      let infos = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Info.parse)
-      AddNewInfos(removeTokenBasedHighlighting, infos)
-    }
-
-    let parseJSON = (buffer): t => {
-      let raw = Node.Buffer.toString(buffer)
-      switch Js.Json.parseExn(raw) {
-      | exception _e => AddNewInfos(false, [])
-      | json => decode(json)
-      }
-    }
-
-    let readAndParse = format => {
-      N.Util.promisify(N.Fs.readFile)(. Format.toFilepath(format))
-      ->Promise.Js.fromBsPromise
-      ->Promise.Js.toResult
-      ->Promise.map(x =>
-        switch x {
-        | Ok(buffer) =>
-          switch format {
-          | Emacs(_) => parseEmacs(buffer)
-          | JSON(_) => parseJSON(buffer)
-          }
-        | Error(_err) => AddNewInfos(false, [])
-        }
-      )
-    }
-
-    let toInfos = x =>
-      switch x {
-      | AddNewInfos(_removeTokenBasedHighlighting, xs) => xs
-      }
-  }
-
   type t = {
     // from addEmacsFilePath/addJSONFilePath
-    mutable tempFilePaths: array<Format.t>,
-    // Infos indexed by the starting offset
-    mutable infos: AVLTree.t<(Info.t, VSCode.Range.t)>,
+    mutable tempFiles: array<TempFile.t>,
+    // Tokens indexed by the starting offset
+    mutable tokens: AVLTree.t<(Token.t, VSCode.Range.t)>,
   }
 
   let make = () => {
-    tempFilePaths: [],
-    infos: AVLTree.make(),
+    tempFiles: [],
+    tokens: AVLTree.make(),
   }
 
-  let addEmacsFilePath = (self, filepath) =>
-    Js.Array.push(Format.Emacs(filepath), self.tempFilePaths)->ignore
-  let addJSONFilePath = (self, filepath) =>
-    Js.Array.push(Format.JSON(filepath), self.tempFilePaths)->ignore
+  // decode Response from Agda or from temp files
+  let decodeHighlightingInfoDirect: Json.Decode.decoder<(bool, array<Token.t>)> = {
+    open Json.Decode
+    pair(bool, array(Token.decode)) |> map(((keepHighlighting, xs)) => (keepHighlighting, xs))
+  }
 
-  // insert a bunch of Infos
-  // merge Aspects with the existing Info that occupies the same Range
-  let insert = (self, editor, infos: array<Info.t>) => {
-    infos->Array.forEach(info => {
-      let existing = self.infos->AVLTree.find(info.start)
+  // insert a bunch of Tokens
+  // merge Aspects with the existing Token that occupies the same Range
+  let insert = (self, editor, tokens: array<Token.t>) => {
+    tokens->Array.forEach(info => {
+      let existing = self.tokens->AVLTree.find(info.start)
       switch existing {
       | None =>
         let document = editor->VSCode.TextEditor.document
@@ -330,10 +290,10 @@ module Infos = {
           Agda.OffsetConverter.convert(offsetConverter, info.end_),
         )
         let range = VSCode.Range.make(start, end_)
-        self.infos->AVLTree.insert(info.start, (info, range))->ignore
+        self.tokens->AVLTree.insert(info.start, (info, range))->ignore
       | Some((old, range)) =>
         // merge Aspects
-        self.infos->AVLTree.remove(info.start)->ignore
+        self.tokens->AVLTree.remove(info.start)->ignore
         // often the new aspects would look exactly like the old ones
         // don't duplicate them in that case
         let newAspects =
@@ -342,27 +302,89 @@ module Infos = {
           ...old,
           aspects: newAspects,
         }
-        self.infos->AVLTree.insert(info.start, (new, range))->ignore
+        self.tokens->AVLTree.insert(info.start, (new, range))->ignore
       }
     })
   }
 
-  let readTempFiles = (self, editor) =>
-    self.tempFilePaths
-    ->Array.map(AddNewInfos.readAndParse)
-    ->Promise.allArray
-    ->Promise.map(xs => xs->Array.map(AddNewInfos.toInfos)->Array.concatMany)
-    ->Promise.map(infos => {
-      insert(self, editor, infos)
-      self.tempFilePaths = []
-    })
+  let addEmacsFilePath = (self, filepath) =>
+    Js.Array.push(TempFile.Emacs(filepath), self.tempFiles)->ignore
+  let addJSONFilePath = (self, filepath) =>
+    Js.Array.push(TempFile.JSON(filepath), self.tempFiles)->ignore
 
-  let destroy = self => {
-    self.tempFilePaths->Array.forEach(format => {
-      N.Fs.unlink(Format.toFilepath(format), _ => ())
+  // read temp files and add Tokens added from "addEmacsFilePath" or "addJSONFilePath"
+  let readTempFiles = (self, editor) => {
+    let readAndParseTempFile = format => {
+      N.Util.promisify(N.Fs.readFile)(. TempFile.toFilepath(format))
+      ->Promise.Js.fromBsPromise
+      ->Promise.Js.toResult
+      ->Promise.map(x =>
+        switch x {
+        | Ok(buffer) =>
+          switch format {
+          | Emacs(_) =>
+            let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(buffer))[0] {
+            | Some(Ok(L(xs))) => xs
+            | _ => []
+            }
+            // RemoveTokenBasedHighlighting
+            let removeTokenBasedHighlighting = switch tokens[0] {
+            | Some(A("remove")) => true
+            | _ => false
+            }
+            let tokens = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Token.parse)
+            (removeTokenBasedHighlighting, tokens)
+          | JSON(_) =>
+            let raw = Node.Buffer.toString(buffer)
+            switch Js.Json.parseExn(raw) {
+            | exception _e => (false, [])
+            | json => decodeHighlightingInfoDirect(json)
+            }
+          }
+        | Error(_err) => (false, [])
+        }
+      )
+    }
+
+    // read and parse and concat them
+    self.tempFiles
+    ->Array.map(readAndParseTempFile)
+    ->Promise.allArray
+    ->Promise.map(xs => xs->Array.map(snd)->Array.concatMany)
+    ->Promise.map(tokens => {
+      insert(self, editor, tokens)
+      self.tempFiles = []
     })
-    self.infos = AVLTree.make()
   }
 
-  let get = self => self.infos
+  let clear = self => {
+    // delete all unhandded temp files
+    self.tempFiles->Array.forEach(format => {
+      N.Fs.unlink(TempFile.toFilepath(format), _ => ())
+    })
+    self.tokens = AVLTree.make()
+  }
+
+  let get = self => self.tokens
+
+  let lookupSrcLoc = (self, offset): option<
+    Promise.t<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
+  > => {
+    self.tokens
+    ->AVLTree.lowerBound(offset)
+    ->Option.flatMap(((info, range)) =>
+      info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
+    )
+    ->Option.map(((range, filepath, offset)) => {
+      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.map(document => {
+        let text = Editor.Text.getAll(document)
+        let offsetConverter = Agda.OffsetConverter.make(text)
+        let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
+        let position = Editor.Position.fromOffset(document, offset)
+        [(range, filepath, position)]
+      })
+    })
+  }
 }
+
+include Module

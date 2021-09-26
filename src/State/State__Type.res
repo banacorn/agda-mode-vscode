@@ -93,6 +93,7 @@ type t = {
   panelCache: ViewCache.t,
   mutable runningInfoLog: array<(int, string)>,
   mutable goals: array<Goal.t>,
+  tokens: Tokens.t,
   mutable decoration: Decoration.t,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,

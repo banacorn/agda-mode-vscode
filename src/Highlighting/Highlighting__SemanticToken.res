@@ -119,7 +119,7 @@ module TokenModifier = {
   ]
 }
 
-let fromAspect: Highlighting__Agda.Aspect.t => (
+let fromAspect: Tokens.Aspect.t => (
   (option<TokenType.t>, array<TokenModifier.t>), // Type of Semantic Token // Modifiers of Semantic Token
   option<Highlighting__Decoration.t>, // background decoration colors of light/dark themes
 ) = x => {
