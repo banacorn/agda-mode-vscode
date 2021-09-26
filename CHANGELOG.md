@@ -5,10 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.0 - TBA
+## v0.3.0 - 2021-09-26
+
+### Added
+- Syntax highlighting with theme colors!
 
 ### Fixed
 - #67: Version changing doesn't seem to work
+- #34: Links don't work in the error messages
 - #23: Allow to change highlighting colors?
 - #19: Highlight stuff using theme colors
 

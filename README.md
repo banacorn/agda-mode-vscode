@@ -103,6 +103,12 @@ If you are having trouble typing the backslash "\\", you can change it by:
 1. Go to "Preferences: Open Keyboard Shortcurs" and configure the keybinding of "Agda: Activate input method" (`agda-mode.input-symbol[Activate]`).
 2. Go to "Settings > Agda Mode > Input Method: Activation Key" and replace it with the same keybinding as above. 
 
+## Syntax Highlighting 
+
+Colors for syntax highlighting are fixed for the moment.
+If you want to use theme colors instead, enable `agdaMode.highlighting.semanticToken` in the settings.
+This experimental feature will be set as default once it's stable enough.
+
 ## Debug Buffer 
 
 Execute `Agda: Open Debug Buffer` in the *Command Palette* to open it.
