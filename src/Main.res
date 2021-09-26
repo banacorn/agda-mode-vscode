@@ -72,7 +72,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
-      let fileName' = editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+      let fileName' = editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
       if fileName' == fileName {
         State__Command.dispatchCommand(state, Command.EventFromView(event))->ignore
       }
@@ -210,7 +210,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   // on open editor
   Inputs.onOpenEditor(editor => {
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
     // filter out ".agda.git" files
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
@@ -229,7 +229,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   VSCode.Workspace.onDidChangeTextDocument(.(event: VSCode.TextDocumentChangeEvent.t) => {
     // find the corresponding State
     let document = event->VSCode.TextDocumentChangeEvent.document
-    let fileName = document->VSCode.TextDocument.fileName
+    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
         state.highlighting->Highlighting.updateSemanticHighlighting(event)
@@ -239,7 +239,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   // on close editor
   Inputs.onCloseDocument(document => {
-    let fileName = VSCode.TextDocument.fileName(document)
+    let fileName = VSCode.TextDocument.fileName(document)->Parser.filepath
     if isAgda(fileName) {
       Registry.removeAndDestroy(fileName)->ignore
       finalize(false)->ignore
@@ -249,7 +249,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   // on triggering commands
   Inputs.onTriggerCommand((command, editor) => {
     // Js.log("[ command ] " ++ Command.toString(command))
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
     // destroy
     switch command {
     | Quit => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(false))

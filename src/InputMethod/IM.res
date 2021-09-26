@@ -30,8 +30,8 @@ module Input = {
 
   let fromTextDocumentChangeEvent = (editor, event) => {
     // see if the change event happened in this TextEditor
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName->Parser.filepath
     if fileName == eventFileName {
       // TextDocumentContentChangeEvent.t => Buffer.change
       event
