@@ -96,21 +96,32 @@ let make = (
     }
   )
 
-  <View.EventFromView.Provider value=onEventFromView>
-    <section className="agda-mode native-key-bindings" tabIndex={-1}>
-      <div className="agda-mode-header-container">
-        <Header header status />
-        <Prompt
-          inputMethodActivated={Option.isSome(inputMethodState)} prompt onUpdatePromptIM onSubmit
-        />
-        <Keyboard
-          state=inputMethodState
-          onInsertChar={char => onEventFromView->Chan.emit(InputMethod(InsertChar(char)))}
-          onChooseSymbol={symbol => onEventFromView->Chan.emit(InputMethod(ChooseSymbol(symbol)))}
-          prompting
-        />
-      </div>
-      <Body items=body />
-    </section>
-  </View.EventFromView.Provider>
+  // relay events from <Link.Event.Provider> to `onEventFromView`
+  let onLinkEvent: Chan.t<Link.Event.t> = Chan.make()
+  let _ = onLinkEvent->Chan.on(event =>
+    switch event {
+    | JumpToTarget(link) => onEventFromView->Chan.emit(JumpToTarget(link))
+    | _ => ()
+    }
+  )
+
+  <Link.Event.Provider value=onLinkEvent>
+    <View.EventFromView.Provider value=onEventFromView>
+      <section className="agda-mode native-key-bindings" tabIndex={-1}>
+        <div className="agda-mode-header-container">
+          <Header header status />
+          <Prompt
+            inputMethodActivated={Option.isSome(inputMethodState)} prompt onUpdatePromptIM onSubmit
+          />
+          <Keyboard
+            state=inputMethodState
+            onInsertChar={char => onEventFromView->Chan.emit(InputMethod(InsertChar(char)))}
+            onChooseSymbol={symbol => onEventFromView->Chan.emit(InputMethod(ChooseSymbol(symbol)))}
+            prompting
+          />
+        </div>
+        <Body items=body />
+      </section>
+    </View.EventFromView.Provider>
+  </Link.Event.Provider>
 }

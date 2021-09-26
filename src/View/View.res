@@ -355,6 +355,7 @@ module EventFromView = {
     | Destroyed
     | InputMethod(InputMethod.t)
     | PromptIMUpdate(PromptIMUpdate.t)
+    | JumpToTarget(Link.t)
 
   let chan: Chan.t<t> = Chan.make()
   let eventContext = React.createContext(chan)
@@ -376,6 +377,7 @@ module EventFromView = {
     | "Destroyed" => TagOnly(Destroyed)
     | "InputMethod" => Contents(InputMethod.decode |> map(action => InputMethod(action)))
     | "PromptIMUpdate" => Contents(PromptIMUpdate.decode |> map(action => PromptIMUpdate(action)))
+    | "JumpToTarget" => Contents(Link.decode |> map(link => JumpToTarget(link)))
     | tag => raise(DecodeError("[EventFromView] Unknown constructor: " ++ tag))
     }
   })
@@ -391,6 +393,11 @@ module EventFromView = {
       object_(list{
         ("tag", string("PromptIMUpdate")),
         ("contents", action |> PromptIMUpdate.encode),
+      })
+    | JumpToTarget(link) =>
+      object_(list{
+        ("tag", string("JumpToTarget")),
+        ("contents", link |> Link.encode),
       })
     }
   }

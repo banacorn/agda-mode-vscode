@@ -384,51 +384,49 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
       } else {
         State.View.Panel.interruptPrompt(state)
       }
-    // | JumpToTarget(link) =>
-    //   Editor.focus(state.document)
-    //   let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
-    //   switch link {
-    //   | SrcLoc(NoRange) => Promise.resolved()
-    //   | SrcLoc(Range(None, _intervals)) => Promise.resolved()
-    //   | SrcLoc(Range(Some(fileName), intervals)) =>
-    //     let fileName = Parser.filepath(fileName)
-    //     // Issue #44
-    //     //  In Windows, paths from Agda start from something like "c://" while they are "C://" from VS Code
-    //     //  We need to remove the root from the path before comparing them
-    //     let removeRoot = path => {
-    //       let obj = Node_path.parse(path)
-    //       let rootLength = String.length(obj["root"])
-    //       let newDir = Js.String.sliceToEnd(~from=rootLength, obj["dir"])
-    //       let newObj = {
-    //         "root": "",
-    //         "dir": newDir,
-    //         "ext": obj["ext"],
-    //         "name": obj["name"],
-    //         "base": obj["base"],
-    //       }
-    //       Node_path.format(newObj)
-    //     }
-    //     // only select the ranges when it's on the same file
-    //     if removeRoot(path) == removeRoot(fileName) {
-    //       let ranges = intervals->Array.map(Editor.Range.fromAgdaInterval)
-    //       // set cursor selections
-    //       Editor.Selection.setMany(state.editor, ranges)
-    //       // scroll to that part of the document
-    //       ranges[0]->Option.forEach(range => {
-    //         state.editor->VSCode.TextEditor.revealRange(range, None)
-    //       })
-    //     }
-    //     Promise.resolved()
-    //   | Hole(index) =>
-    //     let goal = Js.Array.find((goal: Goal.t) => goal.index == index, state.goals)
-    //     switch goal {
-    //     | None => ()
-    //     | Some(goal) => Goal.setCursor(goal, state.editor)
-    //     }
-    //     Promise.resolved()
-    //   }
-    // | MouseOver(_) => Promise.resolved()
-    // | MouseOut(_) => Promise.resolved()
+    | JumpToTarget(link) =>
+      Editor.focus(state.document)
+      let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
+      switch link {
+      | SrcLoc(NoRange) => Promise.resolved()
+      | SrcLoc(Range(None, _intervals)) => Promise.resolved()
+      | SrcLoc(Range(Some(fileName), intervals)) =>
+        let fileName = Parser.filepath(fileName)
+        // Issue #44
+        //  In Windows, paths from Agda start from something like "c://" while they are "C://" from VS Code
+        //  We need to remove the root from the path before comparing them
+        let removeRoot = path => {
+          let obj = Node_path.parse(path)
+          let rootLength = String.length(obj["root"])
+          let newDir = Js.String.sliceToEnd(~from=rootLength, obj["dir"])
+          let newObj = {
+            "root": "",
+            "dir": newDir,
+            "ext": obj["ext"],
+            "name": obj["name"],
+            "base": obj["base"],
+          }
+          Node_path.format(newObj)
+        }
+        // only select the ranges when it's on the same file
+        if removeRoot(path) == removeRoot(fileName) {
+          let ranges = intervals->Array.map(Editor.Range.fromAgdaInterval)
+          // set cursor selections
+          Editor.Selection.setMany(state.editor, ranges)
+          // scroll to that part of the document
+          ranges[0]->Option.forEach(range => {
+            state.editor->VSCode.TextEditor.revealRange(range, None)
+          })
+        }
+        Promise.resolved()
+      | Hole(index) =>
+        let goal = Js.Array.find((goal: Goal.t) => goal.index == index, state.goals)
+        switch goal {
+        | None => ()
+        | Some(goal) => Goal.setCursor(goal, state.editor)
+        }
+        Promise.resolved()
+      }
     }
   | Escape =>
     if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
