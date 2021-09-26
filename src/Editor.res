@@ -5,6 +5,11 @@ open Belt
 open Common
 
 module Position = {
+  let toString = position =>
+    string_of_int(VSCode.Position.line(position)) ++
+    ":" ++
+    string_of_int(VSCode.Position.character(position))
+
   let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
 
   let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
@@ -14,6 +19,23 @@ module Position = {
 }
 
 module Range = {
+  let toString = range => {
+    let start = VSCode.Range.start(range)
+    let end = VSCode.Range.end_(range)
+    if VSCode.Position.line(start) == VSCode.Position.line(end) {
+      string_of_int(VSCode.Position.line(start)) ++
+      ":" ++
+      string_of_int(VSCode.Position.character(start)) ++
+      "-" ++
+      string_of_int(VSCode.Position.character(end))
+    } else {
+      Position.toString(start) ++ "-" ++ Position.toString(end)
+    }
+  }
+  // string_of_int(VSCode.Position.line(position)) ++
+  // ":" ++
+  // string_of_int(VSCode.Position.character(position))
+
   let fromInterval = (document, interval) =>
     VSCode.Range.make(
       Position.fromOffset(document, fst(interval)),
@@ -366,11 +388,11 @@ module Provider = {
   }
 
   let registerDocumentSemanticTokensProvider = (
-        ~provideDocumentSemanticTokens: Mock.DocumentSemanticTokensProvider.provideDocumentSemanticTokens,
-    (tokenTypes, tokenModifiers)) => {
-
+    ~provideDocumentSemanticTokens: Mock.DocumentSemanticTokensProvider.provideDocumentSemanticTokens,
+    (tokenTypes, tokenModifiers),
+  ) => {
     let documentSemanticTokensProvider = Mock.DocumentSemanticTokensProvider.make(
-      ~provideDocumentSemanticTokens=provideDocumentSemanticTokens,
+      ~provideDocumentSemanticTokens,
       // =(textDocument, _cancel) => {
       //   let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
       //   let pushLegend = (range, tokenType, tokenModifiers) => {
