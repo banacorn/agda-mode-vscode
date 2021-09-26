@@ -40,6 +40,8 @@ module Module: {
     | Some(PendingInit(_, resolve)) =>
       // Fulfill the request for Semantic Tokens
       state.highlighting->Highlighting.requestSemanticTokens->Promise.get(resolve)
+      // set the entry as Initialized
+      dict->Js.Dict.set(fileName, Initialized(state))
     | Some(Initialized(_)) => () // do nothing
     | None => dict->Js.Dict.set(fileName, Initialized(state))
     }
@@ -69,7 +71,7 @@ module Module: {
   let isEmpty = () => Js.Dict.keys(dict)->Array.length == 0
 
   // Requesting Semantic Tokens
-  // add PendingInit(_) to the Registry if the entry has not been created yet 
+  // add PendingInit(_) to the Registry if the entry has not been created yet
   let requestSemanticTokens = fileName =>
     switch get'(fileName) {
     | Some(PendingInit(promise, _resolve)) => promise
