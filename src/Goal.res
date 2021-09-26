@@ -73,7 +73,7 @@ module Module: Module = {
     Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
       diffs->Array.map(diff => {
         // decorate the hole 
-        let (decorationBackground, decorationIndex) = Decoration.decorateHole(
+        let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
           editor,
           diff.modifiedInterval,
           diff.index,

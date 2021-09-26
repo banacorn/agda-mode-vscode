@@ -69,7 +69,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   }
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Array.forEach(Goal.destroy)
-  state.decoration->Decoration.destroy
+  state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   Connection.stop()
   // TODO: delete files in `.indirectHighlightingFileNames`
@@ -82,7 +82,7 @@ let make = (chan, globalStoragePath, extensionPath, editor) => {
   runningInfoLog: [],
   goals: [],
   tokens: Tokens.make(),
-  decoration: Decoration.make(),
+  highlighting: Highlighting.make(),
   cursor: None,
   editorIM: IM.make(chan),
   promptIM: IM.make(chan),

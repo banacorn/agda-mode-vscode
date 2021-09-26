@@ -105,7 +105,7 @@ let rec handle = (
     Promise.resolved()
   | ClearHighlighting =>
     state.tokens ->Tokens.clear
-    state.decoration->Decoration.clear
+    state.highlighting->Highlighting.clear
     Promise.resolved()
   | Status(_checked, _displayImplicit) =>
     // display(
@@ -216,7 +216,7 @@ let rec handle = (
     State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
-    Decoration.apply(state.decoration, state.tokens, state.editor)
+    Highlighting.apply(state.highlighting, state.tokens, state.editor)
   | _ => Promise.resolved()
   }
 }

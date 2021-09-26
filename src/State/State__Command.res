@@ -27,7 +27,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     state.runningInfoLog = []
     dispatchCommand(Load)
   | Refresh =>
-    state.decoration->Decoration.redecorate(state.editor)
+    state.highlighting->Highlighting.redecorate(state.editor)
     State.View.Panel.restore(state)
     State__Goal.redecorate(state)
     State.View.DebugBuffer.restore(state)

@@ -119,61 +119,6 @@ module TokenModifier = {
   ]
 }
 
-let fromAspect: Tokens.Aspect.t => (
-  (option<TokenType.t>, array<TokenModifier.t>), // Type of Semantic Token // Modifiers of Semantic Token
-  option<Highlighting__Decoration.t>, // background decoration colors of light/dark themes
-) = x => {
-  // helper constructor
-  let typeOnly = (t: TokenType.t) => ((Some(t), []), None)
-  let nothing = ((None, []), None)
-  let backgroundOnly = (light, dark) => (
-    (None, []),
-    Some({Highlighting__Decoration.light: Background(light), dark: Background(dark)}),
-  )
-
-  switch x {
-  // the Aspect part
-  | Comment => typeOnly(Comment)
-  | Keyword => typeOnly(Keyword)
-  | String => typeOnly(String)
-  | Number => typeOnly(Number)
-  | Symbol => nothing // we choose not to color Symbols for aesthetic reasons
-  | PrimitiveType => typeOnly(Type)
-  | Pragma => nothing
-  | Background => nothing
-  | Markup => nothing
-  // the OtherAspect part
-  | Error => ((None, [Deprecated]), None)
-  | DottedPattern => nothing
-  | UnsolvedMeta => backgroundOnly("#FFFF00", "#806B00")
-  | UnsolvedConstraint => backgroundOnly("#FFA07A", "#802400")
-  | TerminationProblem => backgroundOnly("#FFA07A", "#802400")
-  | PositivityProblem => backgroundOnly("#CD853F", "#803F00")
-  | Deadcode => backgroundOnly("#A9A9A9", "#808080")
-  | CoverageProblem => backgroundOnly("#F5DEB3", "#805300")
-  | IncompletePattern => backgroundOnly("#800080", "#800080")
-  | TypeChecks => nothing
-  | CatchallClause => backgroundOnly("#F5F5F5", "#404040")
-  | ConfluenceProblem => backgroundOnly("#FFC0CB", "#800080")
-  // the NameKind part
-  | Bound => typeOnly(Variable)
-  | Generalizable => typeOnly(Variable)
-  | ConstructorInductive => typeOnly(EnumMember)
-  | ConstructorCoInductive => typeOnly(EnumMember)
-  | Datatype => typeOnly(Type)
-  | Field => typeOnly(Member)
-  | Function => typeOnly(Function)
-  | Module => typeOnly(Namespace)
-  | Postulate => typeOnly(Function)
-  | Primitive => typeOnly(String)
-  | Record => typeOnly(Struct)
-  | Argument => typeOnly(Parameter)
-  | Macro => typeOnly(Macro)
-  // when the second field of Aspect.Name is True
-  | Operator => typeOnly(Operator)
-  }
-}
-
 // Tokens for Semantic Highlighting
 module type Module = {
   // a Range that does not span multiple lines

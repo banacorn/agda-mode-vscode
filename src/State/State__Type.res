@@ -94,7 +94,7 @@ type t = {
   mutable runningInfoLog: array<(int, string)>,
   mutable goals: array<Goal.t>,
   tokens: Tokens.t,
-  mutable decoration: Decoration.t,
+  mutable highlighting: Highlighting.t,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,
   promptIM: IM.t,

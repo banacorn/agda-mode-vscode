@@ -149,7 +149,7 @@ let registerDocumentSemanticTokensProvider = () => {
         SemanticTokensBuilder.build(builder)
       })
       ->(x => Some(x))
-
+    } else {
       // Registry.get(fileName)->Option.map(state => {
       //   Decoration.SemanticHighlighting.get(state.decoration)->Promise.map(tokensRef => {
       //     open Editor.Provider.Mock
@@ -174,7 +174,7 @@ let registerDocumentSemanticTokensProvider = () => {
       //     SemanticTokensBuilder.build(builder)
       //   })
       // })
-    } else {
+
       None
     }
   }
@@ -232,7 +232,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     let fileName = document->VSCode.TextDocument.fileName
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
-        Decoration.SemanticHighlighting.update(state.decoration, event)
+        state.highlighting->Highlighting.updateSemanticHighlighting(event)
       })
     }
   })->subscribe
