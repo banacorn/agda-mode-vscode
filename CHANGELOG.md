@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.3.0 - TBA
 
 ### Fixed
-- #19: Highlight stuff using theme colors
+- #67: Version changing doesn't seem to work
 - #23: Allow to change highlighting colors?
+- #19: Highlight stuff using theme colors
 
 ## v0.2.18 - 2021-08-30
 

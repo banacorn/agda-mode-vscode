@@ -76,7 +76,9 @@ module Module: Module = {
         Connection__Probe.probeEmacs()
         ->Promise.flatMap(((result, errors)) =>
           switch result {
-          | None => Promise.resolved(Error(Error.CannotAcquireHandle("Agda", errors)))
+          | None =>
+            let name = Config.Connection.getAgdaVersion()
+            Promise.resolved(Error(Error.CannotAcquireHandle(name, errors)))
           | Some(method) => Promise.resolved(Ok(method))
           }
         )

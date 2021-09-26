@@ -320,6 +320,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         let useLSP = false
 
         Config.Connection.setAgdaPath("")
+        // set the name of executable to `newAgdaVersion` in the settings
         ->Promise.flatMap(() => Config.Connection.setAgdaVersion(newAgdaVersion))
         ->Promise.flatMap(() =>
           State.View.Panel.display(
@@ -328,6 +329,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             [],
           )
         )
+        // stop the old connection
         ->Promise.flatMap(Connection.stop)
         ->Promise.flatMap(() =>
           Connection.start(state.globalStoragePath, useLSP, State.onDownload(state))
@@ -335,11 +337,15 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         ->Promise.flatMap(result =>
           switch result {
           | Ok(Emacs(version, path)) =>
-            State.View.Panel.display(
-              state,
-              View.Header.Success("Switched to '" ++ version ++ "'"),
-              [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
+            // update the connection status
+            State.View.Panel.displayStatus(state, "Emacs v" ++ version)->Promise.flatMap(() =>
+              State.View.Panel.display(
+                state,
+                View.Header.Success("Switched to version '" ++ version ++ "'"),
+                [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
+              )
             )
+
           | Ok(LSP(version, _)) =>
             // should not happen
             State.View.Panel.display(

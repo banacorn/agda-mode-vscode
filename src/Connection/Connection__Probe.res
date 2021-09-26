@@ -88,5 +88,6 @@ let probeLSP = (globalStoragePath, onDownload) => {
 
 let probeEmacs = () => {
   let storedPath = Config.Connection.getAgdaPath()
-  Source.Module.searchUntilSuccess([Source.FromFile(storedPath), Source.FromCommand("agda")])
+  let storedName = Config.Connection.getAgdaVersion()
+  Source.Module.searchUntilSuccess([Source.FromFile(storedPath), Source.FromCommand(storedName)])
 }

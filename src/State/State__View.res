@@ -50,7 +50,7 @@ module Panel: Panel = {
   let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
   let displayConnectionStatus = (state, status) =>
     switch status {
-    | Connection.Emacs(_) => displayStatus(state, "Emacs")
+    | Connection.Emacs(version, _) => displayStatus(state, "Emacs v" ++ version)
     | LSP(version, ViaCommand(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
       displayStatus(state, "ALS prebuilt " ++ release.tagName ++ " (Agda v" ++ version ++ ")")
     | LSP(version, ViaCommand(_)) => displayStatus(state, "ALS v" ++ version)
