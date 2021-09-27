@@ -434,7 +434,18 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     } else {
       State.View.Panel.interruptPrompt(state)
     }
-  | InputMethod(Activate) => State__InputMethod.activateEditorIM(state)
+  | InputMethod(Activate) =>
+    if Config.InputMethod.getEnable() {
+      State__InputMethod.activateEditorIM(state)
+    } else {
+      // insert the activation key (default: "\") instead
+      let activationKey = Config.InputMethod.getActivationKey()
+      Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
+        Editor.Text.insert(state.document, point, activationKey)->ignore
+      )
+      Promise.resolved()
+    }
+
   | InputMethod(InsertChar(char)) => State__InputMethod.insertChar(state, char)
   | InputMethod(BrowseUp) => State__InputMethod.moveUp(state)
   | InputMethod(BrowseDown) => State__InputMethod.moveDown(state)

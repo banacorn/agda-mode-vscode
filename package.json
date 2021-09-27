@@ -796,6 +796,12 @@
 					"scope": "machine-overridable",
 					"description": "Backend target"
 				},
+				"agdaMode.inputMethod.enable": {
+					"type": "boolean",
+					"default": true,
+					"scope": "machine-overridable",
+					"description": "Enable Unicode input method"
+				},
 				"agdaMode.inputMethod.activationKey": {
 					"type": "string",
 					"default": "\\",

@@ -65,7 +65,6 @@ module Connection = {
     ->WorkspaceConfiguration.get("connection.agdaLanguageServerOptions")
     ->Option.mapWithDefault([], s => Js.String.split(" ", Js.String.trim(s)))
     ->Array.keep(s => Js.String.trim(s) != "")
-
 }
 
 module View = {
@@ -141,6 +140,17 @@ let getBackend = () => {
 }
 
 module InputMethod = {
+  let getEnable = () => {
+    let raw =
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+        "inputMethod.enable",
+      )
+    switch raw {
+    | Some(true) => true
+    | Some(false) => false
+    | _ => true // enabled by default
+    }
+  }
   let getActivationKey = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
