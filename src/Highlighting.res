@@ -62,14 +62,14 @@ module Module: Module = {
     // Semantic Tokens
     mutable semanticTokens: array<SemanticToken.t>,
     mutable updated: bool,
-    mutable requestsForTokens: array<array<SemanticToken.t> => unit>,
+    mutable requestForTokens: option<array<SemanticToken.t> => unit>,
   }
 
   let make = () => {
     decorations: [],
     semanticTokens: [],
     updated: false,
-    requestsForTokens: [],
+    requestForTokens: None,
   }
 
   let clear = self => {
@@ -88,20 +88,15 @@ module Module: Module = {
       Editor.Decoration.decorate(editor, decoration, ranges)
     )
 
-  // insert to an AVLTree
-
   let resolveRequestsForTokens = (isUpdate, self) => {
-    // resolve all promises waiting for tokens
-    self.requestsForTokens->Array.forEach(resolve => resolve(self.semanticTokens))
+    self.updated = isUpdate
 
-    if isUpdate {
-      self.updated = true
-    } else {
-      self.updated = false
-    }
-
-    // clear the queue
-    self.requestsForTokens = []
+    self.requestForTokens->Option.forEach(resolve => {
+      if !isUpdate {
+        resolve(self.semanticTokens)
+        self.requestForTokens = None
+      }
+    })
   }
 
   module Change = {
@@ -240,7 +235,7 @@ module Module: Module = {
       Promise.resolved(self.semanticTokens)
     } else {
       let (promise, resolve) = Promise.pending()
-      Js.Array.push(resolve, self.requestsForTokens)->ignore
+      self.requestForTokens = Some(resolve)
       promise
     }
   }
