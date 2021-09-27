@@ -114,15 +114,16 @@ module Highlighting = {
     | _ => false
     }
   }
-  // Semantic Highlighting
-  let getSemanticHighlighting = () => {
+  // Highlight stuff with theme colors (LSP Semantic Highlighting)
+  let getHighlightWithThemeColors = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-        "highlighting.semanticToken",
+        "highlighting.getHighlightWithThemeColors",
       )
     switch raw {
     | Some(true) => true
-    | _ => false
+    | Some(false) => false
+    | _ => true
     }
   }
 }

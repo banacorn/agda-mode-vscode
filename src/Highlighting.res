@@ -242,7 +242,7 @@ module Module: Module = {
 
   let apply = (self, tokens, editor) =>
     Tokens.readTempFiles(tokens, editor)->Promise.map(() => {
-      if Config.Highlighting.getSemanticHighlighting() {
+      if Config.Highlighting.getHighlightWithThemeColors() {
         let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
         self.semanticTokens = semanticTokens
         resolveRequestsForTokens(false, self)

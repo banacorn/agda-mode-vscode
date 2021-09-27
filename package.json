@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -779,11 +779,11 @@
 					"scope": "machine-overridable",
 					"description": "How agda-mode receives highlighting information from Agda. Via either standard input/output or temporary files (which may require frequent disk access)."
 				},
-				"agdaMode.highlighting.semanticToken": {
+				"agdaMode.highlighting.getHighlightWithThemeColors": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "machine-overridable",
-					"description": "Enable \"Semantic Highlighting\" (experimental)."
+					"description": "Highlight stuff with theme colors"
 				},
 				"agdaMode.backend": {
 					"type": "string",

@@ -122,7 +122,7 @@ let registerDocumentSemanticTokensProvider = () => {
   let tokenModifiers = Highlighting.SemanticToken.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
-    let useSemanticHighlighting = Config.Highlighting.getSemanticHighlighting()
+    let useSemanticHighlighting = Config.Highlighting.getHighlightWithThemeColors()
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
     if useSemanticHighlighting {
       Registry.requestSemanticTokens(fileName)
