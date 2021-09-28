@@ -18,39 +18,21 @@ let activateExtension = (fileName): Promise.t<(VSCode.TextEditor.t, State__Type.
 }
 
 describe("Tokens", ~timeout=10000, () => {
-  Q.it_only("should receive tokens from Agda", () => {
+  Q.it("should receive tokens from Agda", () => {
     let filepath = Path.asset("GotoDefinition.agda")
+    activateExtension(filepath)
+    ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
+    ->Promise.flatMap(state => {
+      switch state {
+      | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
+      | Some(state) =>
+        let tokens =
+          state.tokens
+          ->Tokens.toArray
+          ->Belt.Array.map(((token, range)) =>
+            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          )
 
-    let (promise, resolve) = Promise.pending()
-    activateExtension(filepath)->Promise.flatMap(((_editor, channels)) => {
-      let subscription = ref(None)
-      subscription :=
-        Some(
-          channels.response->Chan.on(response =>
-            switch response {
-            | CompleteHighlightingAndMakePromptReappear =>
-              // stop listening to `onResponse`
-              subscription.contents->Belt.Option.forEach(x => x())
-              resolve(Ok())
-            | _ => ()
-            }
-          ),
-        )
-      executeCommand("agda-mode.load")
-      ->Promise.flatMap(state => {
-        switch state {
-        | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
-        | Some(state) =>
-          promise->Promise.mapOk(() => {
-            state.tokens
-            ->Tokens.toArray
-            ->Belt.Array.map(((token, range)) =>
-              Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
-            )
-          })
-        }
-      })
-      ->Promise.flatMapOk(tokens => {
         A.deep_equal(
           tokens,
           [
@@ -84,7 +66,7 @@ describe("Tokens", ~timeout=10000, () => {
             "6:8-15 Token (92, 99) [34]",
           ],
         )
-      })
+      }
     })
   })
 })
