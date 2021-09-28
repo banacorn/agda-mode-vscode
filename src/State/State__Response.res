@@ -92,6 +92,9 @@ let rec handle = (
   dispatchCommand: Command.t => Promise.t<unit>,
   response: Response.t,
 ): Promise.t<unit> => {
+  // pipe Response for testing
+  state.channels.response->Chan.emit(response)
+
   let sendAgdaRequest = State.sendRequest(state, handle(state, dispatchCommand))
   switch response {
   | HighlightingInfoDirect(_keep, annotations) =>
@@ -104,7 +107,7 @@ let rec handle = (
     state.tokens->Tokens.addJSONFilePath(filepath)
     Promise.resolved()
   | ClearHighlighting =>
-    state.tokens ->Tokens.clear
+    state.tokens->Tokens.clear
     state.highlighting->Highlighting.clear
     Promise.resolved()
   | Status(_checked, _displayImplicit) =>

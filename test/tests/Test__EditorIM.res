@@ -15,10 +15,10 @@ let activateExtension = (fileName): Promise.t<setup> => {
   let disposables = []
   let extensionPath = Path.extensionPath()
   let globalStoragePath = Path.globalStoragePath()
-  let chan = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
+  let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
   VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)->map(editor => {
     editor: editor,
-    chan: chan,
+    chan: channels.inputMethod,
   })
 }
 

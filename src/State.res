@@ -75,7 +75,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (chan, globalStoragePath, extensionPath, editor) => {
+let make = (channels, globalStoragePath, extensionPath, editor) => {
   editor: editor,
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
@@ -84,11 +84,12 @@ let make = (chan, globalStoragePath, extensionPath, editor) => {
   tokens: Tokens.make(),
   highlighting: Highlighting.make(),
   cursor: None,
-  editorIM: IM.make(chan),
-  promptIM: IM.make(chan),
+  editorIM: IM.make(channels.inputMethod),
+  promptIM: IM.make(channels.inputMethod),
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
   globalStoragePath: globalStoragePath,
   extensionPath: extensionPath,
+  channels: channels,
 }

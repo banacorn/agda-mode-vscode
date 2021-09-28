@@ -207,7 +207,10 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
-  let debugChan = Chan.make()
+  let channels = {
+    State__Type.inputMethod: Chan.make(),
+    response: Chan.make(),
+  }
 
   // on open editor
   Inputs.onOpenEditor(editor => {
@@ -264,7 +267,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       | InputMethod(Activate) =>
         switch Registry.get(fileName) {
         | None =>
-          let state = initialize(debugChan, extensionPath, globalStoragePath, editor, fileName)
+          let state = initialize(channels, extensionPath, globalStoragePath, editor, fileName)
           Registry.add(fileName, state)
         | Some(_) => () // already in the Registry, do nothing
         }
@@ -284,7 +287,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   registerDocumentSemanticTokensProvider()->subscribe
 
   // expose the channel for testing
-  debugChan
+  channels
 }
 
 // this function is the entry point of the whole extension

@@ -1,5 +1,4 @@
-
-open Belt 
+open Belt
 
 // For throttling Requests send to Agda
 // 1 Request to Agda at a time
@@ -86,6 +85,10 @@ module ViewCache = {
     }
 }
 
+type channels = {
+  inputMethod: Chan.t<IM.Log.t>,
+  response: Chan.t<Response.t>,
+}
 
 type t = {
   mutable editor: VSCode.TextEditor.t,
@@ -105,6 +108,7 @@ type t = {
   mutable agdaRequestQueue: RequestQueue.t,
   globalStoragePath: string,
   extensionPath: string,
+  channels: channels,
 }
 type state = t
 

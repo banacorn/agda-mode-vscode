@@ -18,8 +18,7 @@ describe("Connection", ~timeout=10000, () => {
     let globalStoragePath = Path.globalStoragePath()
     let useLSP = true
 
-    Connection.start(globalStoragePath, useLSP, _ => ())
-    ->Promise.mapError(e => {
+    Connection.start(globalStoragePath, useLSP, _ => ())->Promise.mapError(e => {
       let (header, body) = Connection.Error.toString(e)
       Exn(header ++ "\n" ++ body)
     })

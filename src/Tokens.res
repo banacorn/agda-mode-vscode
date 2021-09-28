@@ -15,16 +15,16 @@ module Token = {
     source: option<(filepath, int)>, // The defining module and the position in that module
   }
   let toString = self =>
-    "Annotation " ++
-    (string_of_int(self.start) ++
-    (" " ++
-    (string_of_int(self.end_) ++
-    (" " ++
-    (Util.Pretty.list(List.fromArray(self.aspects)) ++
+    "Token (" ++
+    string_of_int(self.start) ++
+    ", " ++
+    string_of_int(self.end_) ++
+    ") " ++
+    Util.Pretty.list(List.fromArray(self.aspects)) ++
     switch self.source {
     | None => ""
-    | Some((s, i)) => s ++ (" " ++ string_of_int(i))
-    })))))
+    | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
+    }
   let parse: Parser.SExpression.t => option<t> = x =>
     switch x {
     | A(_) => None
@@ -103,6 +103,8 @@ module type Module = {
   let readTempFiles: (t, VSCode.TextEditor.t) => Promise.promise<unit>
   let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
   let clear: t => unit
+
+  let toArray: t => array<(Token.t, VSCode.Range.t)>
 
   let lookupSrcLoc: (
     t,
