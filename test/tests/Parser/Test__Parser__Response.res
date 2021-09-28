@@ -1,6 +1,5 @@
 open Belt
 open BsMocha.Mocha
-open BsMocha
 open Js.Promise
 
 open! Test__Parser__SExpression

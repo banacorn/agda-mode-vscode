@@ -9,7 +9,7 @@ let isAgda = (fileName): bool => {
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
-  let onTriggerCommand: ((Command.t, VSCode.TextEditor.t) => Promise.t<unit>) => array<
+  let onTriggerCommand: ((Command.t, VSCode.TextEditor.t) => Promise.t<option<State.t>>) => array<
     VSCode.Disposable.t,
   >
 } = {
@@ -31,7 +31,7 @@ module Inputs: {
           if isAgda(fileName) {
             callback(command, editor)
           } else {
-            Promise.resolved()
+            Promise.resolved(None)
           }
         })
       })
@@ -72,7 +72,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
-      let fileName' = editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+      let fileName' =
+        editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
       if fileName' == fileName {
         State__Command.dispatchCommand(state, Command.EventFromView(event))->ignore
       }
@@ -248,7 +249,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   // on triggering commands
   Inputs.onTriggerCommand((command, editor) => {
-    // Js.log("[ command ] " ++ Command.toString(command))
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
     // destroy
     switch command {
@@ -274,8 +274,8 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     // dispatch
     ->Promise.flatMap(() => {
       switch Registry.get(fileName) {
-      | None => Promise.resolved()
-      | Some(state) => State__Command.dispatchCommand(state, command)
+      | None => Promise.resolved(None)
+      | Some(state) => State__Command.dispatchCommand(state, command)->Promise.map(_ => Some(state))
       }
     })
   })->subscribeMany

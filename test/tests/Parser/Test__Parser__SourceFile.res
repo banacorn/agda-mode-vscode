@@ -1,8 +1,6 @@
 open Belt
 open BsMocha.Mocha
-open BsMocha
 open Js.Promise
-
 open Test__Util
 
 describe("when parsing file paths", () =>

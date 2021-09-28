@@ -1,3 +1,8 @@
+# Testing 
+test/globalStoragePath
+*.agdai
+
+
 .DS_Store
 *.vsix
 

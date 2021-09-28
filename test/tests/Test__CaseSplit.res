@@ -2,11 +2,6 @@ open Belt
 open! BsMocha.Mocha
 open Test__Util
 
-module Js' = Js
-module Js = Js'
-
-module Assert = BsMocha.Assert
-
 describe("State__Goal.caseSplitAux", () => {
   Q.it("should calculate the infomation needed for case splitting correctly", () =>
     VSCode.Window.showTextDocumentWithUri(

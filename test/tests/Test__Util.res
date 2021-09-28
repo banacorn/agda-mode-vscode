@@ -1,4 +1,5 @@
 open Belt
+module Assert = BsMocha.Assert
 
 open Js.Promise
 
@@ -27,7 +28,9 @@ module Path = {
     let dirname: option<string> = %bs.node(__dirname)
     switch dirname {
     | None => Node.Process.cwd()
-    | Some(dirname) => Node.Path.resolve(dirname, "../../../../globalStoragePath")
+    | Some(dirname) =>
+      // this directory should be ignored by git
+      Node.Path.resolve(dirname, "../../../../test/globalStoragePath")
     }
   }
 
