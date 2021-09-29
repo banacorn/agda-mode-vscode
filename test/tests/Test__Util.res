@@ -37,33 +37,34 @@ module Path = {
   let asset = filepath => Node.Path.join([extensionPath(), "test/tests/assets", filepath])
 }
 
-module Temp = {
-  // to prevent an extension from being activated twice
-  let activationSingleton = ref(None)
+// to prevent an extension from being activated twice
+let activationSingleton = ref(None)
 
-  let activateExtension = (): State__Type.channels => {
-    switch activationSingleton.contents {
-    | None =>
-      // activate the extension
-      let disposables = []
-      let extensionPath = Path.extensionPath()
-      let globalStoragePath = Path.globalStoragePath()
-      let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
-      // store the singleton of activation
-      activationSingleton := Some(channels)
-      channels
-    | Some(channels) => channels
-    }
-  }
-
-  let openFile = (fileName): Promise.t<VSCode.TextEditor.t> =>
-    VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
-
-  let activateExtensionAndOpenFile = fileName => {
-    let channels = activateExtension()
-    openFile(fileName)->Promise.map(editor => (editor, channels))
+let activateExtension = (): State__Type.channels => {
+  switch activationSingleton.contents {
+  | None =>
+    // activate the extension
+    let disposables = []
+    let extensionPath = Path.extensionPath()
+    let globalStoragePath = Path.globalStoragePath()
+    let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
+    // store the singleton of activation
+    activationSingleton := Some(channels)
+    channels
+  | Some(channels) => channels
   }
 }
+
+let openFile = (fileName): Promise.t<VSCode.TextEditor.t> =>
+  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
+
+let activateExtensionAndOpenFile = fileName => {
+  let channels = activateExtension()
+  openFile(fileName)->Promise.map(editor => (editor, channels))
+}
+
+@module("vscode") @scope("commands")
+external executeCommand: string => Promise.t<option<State.t>> = "executeCommand"
 
 let wait = ms => {
   let (promise, resolve) = Promise.pending()
@@ -110,6 +111,12 @@ module A = {
 
   let deep_strict_equal = (expected, actual) =>
     switch BsMocha.Assert.deep_strict_equal(actual, expected) {
+    | () => Ok()
+    | exception exn => Error(exn)
+    }->Promise.resolved
+
+  let fail = v =>
+    switch BsMocha.Assert.fail(v) {
     | () => Ok()
     | exception exn => Error(exn)
     }->Promise.resolved

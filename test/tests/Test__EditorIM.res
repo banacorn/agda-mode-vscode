@@ -95,8 +95,7 @@ describe("Input Method (Editor)", () => {
   let setup = ref(None)
 
   Q.before(() => {
-    let channels = Temp.activateExtension()
-    Temp.openFile(Path.asset("InputMethod.agda"))->map(editor => {
+    activateExtensionAndOpenFile(Path.asset("InputMethod.agda"))->map(((editor, channels)) => {
       setup := Some({editor, channels})
       Ok()
     })
@@ -110,7 +109,7 @@ describe("Input Method (Editor)", () => {
         let document = VSCode.TextEditor.document(setup.editor)
         IM.activate(setup, ())
         ->flatMapOk(IM.deep_equal([Activate]))
-        ->flatMapOk(() => IM.insertChar(setup, "l"))
+        ->flatMapOk(_ => IM.insertChar(setup, "l"))
         ->flatMapOk(IM.deep_equal([RewriteIssued([((0, 1), j`←`)]), UpdateView, RewriteApplied]))
         ->flatMapOk(() => A.equal(j`←`, Editor.Text.getAll(document)))
         ->flatMapOk(() => IM.insertChar(setup, "a"))

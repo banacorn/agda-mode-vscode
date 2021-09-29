@@ -1,25 +1,45 @@
 open! BsMocha.Mocha
 open Test__Util
 
-@module("vscode") @scope("commands")
-external executeCommand: string => Promise.t<option<State.t>> = "executeCommand"
-
 describe("Tokens", ~timeout=10000, () => {
-  Q.it("should receive tokens from Agda", () => {
+  let tokens = ref(None)
+
+  let acquire = () =>
+    switch tokens.contents {
+    | None => Promise.resolved(Error(Exn("Cannot acquire tokens")))
+    | Some(tokens) => Promise.resolved(Ok(tokens))
+    }
+
+  Q.before(() => {
     let filepath = Path.asset("GotoDefinition.agda")
-    Temp.activateExtensionAndOpenFile(filepath)
+    activateExtensionAndOpenFile(filepath)
     ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
     ->Promise.flatMap(state => {
       switch state {
       | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
       | Some(state) =>
-        let tokens =
-          state.tokens
-          ->Tokens.toArray
-          ->Belt.Array.map(((token, range)) =>
-            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+        tokens :=
+          Some(
+            state.tokens
+            ->Tokens.toArray
+            ->Belt.Array.map(((token, range)) =>
+              Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+            ),
           )
+        Promise.resolved(Ok())
+      }
+    })
+  })
 
+  describe("GotoDefinition.agda", () => {
+    Q.it("should produce 28 tokens", () => {
+      acquire()->Promise.flatMapOk(tokens => {
+        A.deep_equal(28, Array.length(tokens))
+      })
+    })
+
+    Q.it("should produce correct tokens", () => {
+      acquire()->Promise.flatMapOk(tokens => {
         A.deep_equal(
           tokens,
           [
@@ -53,7 +73,7 @@ describe("Tokens", ~timeout=10000, () => {
             "6:8-15 Token (92, 99) [34]",
           ],
         )
-      }
+      })
     })
   })
 })
