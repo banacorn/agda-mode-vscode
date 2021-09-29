@@ -17,7 +17,7 @@ describe("Tokens", ~timeout=10000, () => {
     ->Promise.flatMap(state => {
       switch state {
       | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
-      | Some(state) =>
+      | Some(Ok(state)) =>
         tokens :=
           Some(
             state.tokens
@@ -27,6 +27,9 @@ describe("Tokens", ~timeout=10000, () => {
             ),
           )
         Promise.resolved(Ok())
+      | Some(Error(error)) =>
+        let (header, body) = Connection.Error.toString(error)
+        Promise.resolved(Error(Exn(header ++ "\n" ++ body)))
       }
     })
   })

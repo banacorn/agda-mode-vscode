@@ -9,9 +9,9 @@ let isAgda = (fileName): bool => {
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
-  let onTriggerCommand: ((Command.t, VSCode.TextEditor.t) => Promise.t<option<State.t>>) => array<
-    VSCode.Disposable.t,
-  >
+  let onTriggerCommand: (
+    (Command.t, VSCode.TextEditor.t) => Promise.t<option<result<State.t, Connection.Error.t>>>
+  ) => array<VSCode.Disposable.t>
 } = {
   let onOpenEditor = callback => {
     VSCode.Window.activeTextEditor->Option.forEach(callback)
@@ -278,7 +278,13 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     ->Promise.flatMap(() => {
       switch Registry.get(fileName) {
       | None => Promise.resolved(None)
-      | Some(state) => State__Command.dispatchCommand(state, command)->Promise.map(_ => Some(state))
+      | Some(state) =>
+        State__Command.dispatchCommand(state, command)->Promise.map(result =>
+          switch result {
+          | Error(error) => Some(Error(error))
+          | Ok() => Some(Ok(state))
+          }
+        )
       }
     })
   })->subscribeMany

@@ -86,7 +86,7 @@ let activateExtensionAndOpenFile = fileName => {
 }
 
 @module("vscode") @scope("commands")
-external executeCommand: string => Promise.t<option<State.t>> = "executeCommand"
+external executeCommand: string => Promise.t<option<result<State.t, Connection.Error.t>>> = "executeCommand"
 
 let wait = ms => {
   let (promise, resolve) = Promise.pending()
