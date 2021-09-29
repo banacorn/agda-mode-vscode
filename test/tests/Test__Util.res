@@ -5,6 +5,28 @@ open Js.Promise
 
 exception Exn(string)
 
+// wrapper around BsMocha's Assertions
+let runner: (unit => unit) => Promise.promise<result<unit, exn>> = %raw(` function(f) {
+    var tmp
+    try {
+      f()
+      tmp = {
+        TAG: 0,
+        _0: undefined,
+        [Symbol.for("name")]: "Ok"
+      };
+    }
+    catch (raw_exn){
+      tmp = 
+        {
+          TAG: 1,
+          _0: raw_exn,
+          [Symbol.for("name")]: "Error"
+        };
+    }
+    return $$Promise.resolved(tmp);
+  }`)
+
 module Path = {
   let toAbsolute = filepath => {
     let dirname: option<string> = %bs.node(__dirname)
@@ -97,29 +119,11 @@ module Q = {
 }
 
 module A = {
-  let equal = (expected, actual) =>
-    switch BsMocha.Assert.equal(actual, expected) {
-    | () => Ok()
-    | exception exn => Error(exn)
-    }->Promise.resolved
-
-  let deep_equal = (expected, actual) =>
-    switch BsMocha.Assert.deep_equal(actual, expected) {
-    | () => Ok()
-    | exception exn => Error(exn)
-    }->Promise.resolved
-
+  let equal = (expected, actual) => runner(() => BsMocha.Assert.equal(actual, expected))
+  let deep_equal = (expected, actual) => runner(() => BsMocha.Assert.deep_equal(actual, expected))
   let deep_strict_equal = (expected, actual) =>
-    switch BsMocha.Assert.deep_strict_equal(actual, expected) {
-    | () => Ok()
-    | exception exn => Error(exn)
-    }->Promise.resolved
-
-  let fail = v =>
-    switch BsMocha.Assert.fail(v) {
-    | () => Ok()
-    | exception exn => Error(exn)
-    }->Promise.resolved
+    runner(() => BsMocha.Assert.deep_strict_equal(actual, expected))
+  let fail = value => runner(() => BsMocha.Assert.fail(value))
 }
 
 module Strings = {
