@@ -3,13 +3,13 @@ open Belt
 // For throttling Requests send to Agda
 // 1 Request to Agda at a time
 module RequestQueue: {
-  type t
-  let make: unit => t
+  type t<'a>
+  let make: unit => t<'a>
   // only gets resolved after the Request has been handled
-  let push: (t, Request.t => Promise.t<unit>, Request.t) => Promise.t<unit>
+  let push: (t<'a>, Request.t => Promise.t<'a>, Request.t) => Promise.t<'a>
 } = {
-  type t = {
-    queue: array<unit => Promise.t<unit>>,
+  type t<'a> = {
+    queue: array<unit => Promise.t<'a>>,
     mutable busy: bool,
   }
 
@@ -28,7 +28,7 @@ module RequestQueue: {
       | None => () // nothing to pop
       | Some(thunk) =>
         self.busy = true
-        thunk()->Promise.get(() => {
+        thunk()->Promise.get(_ => {
           self.busy = false
           kickStart(self)
         })
@@ -105,7 +105,7 @@ type t = {
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
-  mutable agdaRequestQueue: RequestQueue.t,
+  mutable agdaRequestQueue: RequestQueue.t<unit>,
   globalStoragePath: string,
   extensionPath: string,
   channels: channels,

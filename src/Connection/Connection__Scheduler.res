@@ -14,13 +14,13 @@ open Belt
 //        3. after all interactive highlighting is complete
 //    * may invoke `sendAgdaRequest`
 module Module: {
-  type t
-  let make: unit => t
-  let addLast: (t, int, Response.t) => unit
-  let runNonLast: (t, Response.t => Promise.t<unit>, Response.t) => unit
-  let runLast: (t, Response.t => Promise.t<unit>) => unit
+  type t<'a>
+  let make: unit => t<'a>
+  let addLast: (t<'a>, int, Response.t) => unit
+  let runNonLast: (t<'a>, Response.t => Promise.t<'a>, Response.t) => unit
+  let runLast: (t<'a>, Response.t => Promise.t<'a>) => unit
 } = {
-  type t = {
+  type t<'a> = {
     // keep the number of running NonLast Response
     mutable tally: int,
     allDone: Chan.t<unit>,
