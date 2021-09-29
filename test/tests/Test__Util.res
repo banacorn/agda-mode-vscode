@@ -37,6 +37,34 @@ module Path = {
   let asset = filepath => Node.Path.join([extensionPath(), "test/tests/assets", filepath])
 }
 
+module Temp = {
+  // to prevent an extension from being activated twice
+  let activationSingleton = ref(None)
+
+  let activateExtension = (): State__Type.channels => {
+    switch activationSingleton.contents {
+    | None =>
+      // activate the extension
+      let disposables = []
+      let extensionPath = Path.extensionPath()
+      let globalStoragePath = Path.globalStoragePath()
+      let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
+      // store the singleton of activation
+      activationSingleton := Some(channels)
+      channels
+    | Some(channels) => channels
+    }
+  }
+
+  let openFile = (fileName): Promise.t<VSCode.TextEditor.t> =>
+    VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
+
+  let activateExtensionAndOpenFile = fileName => {
+    let channels = activateExtension()
+    openFile(fileName)->Promise.map(editor => (editor, channels))
+  }
+}
+
 let wait = ms => {
   let (promise, resolve) = Promise.pending()
   Js.Global.setTimeout(resolve, ms)->ignore

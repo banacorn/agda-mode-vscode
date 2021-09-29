@@ -1,18 +1,18 @@
 open! BsMocha.Mocha
 open Test__Util
 
-@module("vscode") @scope("commands")
-external executeCommand: string => Promise.t<option<State.t>> = "executeCommand"
+// @module("vscode") @scope("commands")
+// external executeCommand: string => Promise.t<option<State.t>> = "executeCommand"
 
-let activateExtension = (fileName): Promise.t<VSCode.TextEditor.t> => {
-  // 1. activate the extension
-  let disposables = []
-  let extensionPath = Path.extensionPath()
-  let globalStoragePath = Path.globalStoragePath()
-  let _ = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
-  // 2. open some editor
-  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
-}
+// let activateExtension = (fileName): Promise.t<VSCode.TextEditor.t> => {
+//   // 1. activate the extension
+//   let disposables = []
+//   let extensionPath = Path.extensionPath()
+//   let globalStoragePath = Path.globalStoragePath()
+//   let _ = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
+//   // 2. open some editor
+//   VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
+// }
 describe("Connection", ~timeout=10000, () => {
   Q.it("should download the language server", () => {
     let globalStoragePath = Path.globalStoragePath()

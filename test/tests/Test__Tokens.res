@@ -4,23 +4,10 @@ open Test__Util
 @module("vscode") @scope("commands")
 external executeCommand: string => Promise.t<option<State.t>> = "executeCommand"
 
-let activateExtension = (fileName): Promise.t<(VSCode.TextEditor.t, State__Type.channels)> => {
-  // 1. activate the extension
-  let disposables = []
-  let extensionPath = Path.extensionPath()
-  let globalStoragePath = Path.globalStoragePath()
-  let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
-  // 2. open some editor
-  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)->Promise.map(editor => (
-    editor,
-    channels,
-  ))
-}
-
 describe("Tokens", ~timeout=10000, () => {
   Q.it("should receive tokens from Agda", () => {
     let filepath = Path.asset("GotoDefinition.agda")
-    activateExtension(filepath)
+    Temp.activateExtensionAndOpenFile(filepath)
     ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
     ->Promise.flatMap(state => {
       switch state {

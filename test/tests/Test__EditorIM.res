@@ -8,18 +8,7 @@ module Js = Js'
 
 type setup = {
   editor: VSCode.TextEditor.t,
-  chan: Chan.t<IM.Log.t>,
-}
-
-let activateExtension = (fileName): Promise.t<setup> => {
-  let disposables = []
-  let extensionPath = Path.extensionPath()
-  let globalStoragePath = Path.globalStoragePath()
-  let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
-  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)->map(editor => {
-    editor: editor,
-    chan: channels.inputMethod,
-  })
+  channels: State__Type.channels,
 }
 
 let acquire = setup =>
@@ -39,9 +28,9 @@ module IM = {
   let equal = (xs: IM.Log.t) => A.equal(xs)
   let deep_equal = (xs: IM.Log.t) => A.deep_equal(xs)
 
-  let wait = setup => setup.chan->Chan.once->Promise.map(x => Ok(x))
+  let wait = setup => setup.channels.inputMethod->Chan.once->Promise.map(x => Ok(x))
   let wait2nd = setup =>
-    setup.chan->Chan.once->Promise.flatMap(_ => setup.chan->Chan.once)->Promise.map(x => Ok(x))
+    setup.channels.inputMethod->Chan.once->Promise.flatMap(_ => setup.channels.inputMethod->Chan.once)->Promise.map(x => Ok(x))
 
   let activate = (setup, ~positions=?, ()) => {
     let promise = wait(setup)
@@ -105,12 +94,13 @@ module IM = {
 describe("Input Method (Editor)", () => {
   let setup = ref(None)
 
-  Q.before(() =>
-    activateExtension(Path.asset("InputMethod.agda"))->map(value => {
-      setup := Some(value)
+  Q.before(() => {
+    let channels = Temp.activateExtension()
+    Temp.openFile(Path.asset("InputMethod.agda"))->map(editor => {
+      setup := Some({editor, channels})
       Ok()
     })
-  )
+  })
 
   Q.after_each(() => acquire(setup)->mapOk(cleanup))
 
