@@ -89,9 +89,9 @@ module DisplayInfo = {
 
 let rec handle = (
   state: State.t,
-  dispatchCommand: Command.t => Promise.t<unit>,
+  dispatchCommand: Command.t => Promise.t<result<unit, Connection.Error.t>>,
   response: Response.t,
-): Promise.t<unit> => {
+): Promise.t<result<unit, Connection.Error.t>> => {
   // pipe Response for testing
   state.channels.response->Chan.emit(response)
 
@@ -99,17 +99,17 @@ let rec handle = (
   switch response {
   | HighlightingInfoDirect(_keep, annotations) =>
     state.tokens->Tokens.insert(state.editor, annotations)
-    Promise.resolved()
+    Promise.resolved(Ok())
   | HighlightingInfoIndirect(filepath) =>
     state.tokens->Tokens.addEmacsFilePath(filepath)
-    Promise.resolved()
+    Promise.resolved(Ok())
   | HighlightingInfoIndirectJSON(filepath) =>
     state.tokens->Tokens.addJSONFilePath(filepath)
-    Promise.resolved()
+    Promise.resolved(Ok())
   | ClearHighlighting =>
     state.tokens->Tokens.clear
     state.highlighting->Highlighting.clear
-    Promise.resolved()
+    Promise.resolved(Ok())
   | Status(_checked, _displayImplicit) =>
     // display(
     //   "Status",
@@ -120,7 +120,7 @@ let rec handle = (
     //     ++ string_of_bool(displayImplicit),
     //   ),
     // ),
-    Promise.resolved()
+    Promise.resolved(Ok())
 
   // if (displayImplicit || checked) {
   //   [
@@ -145,8 +145,8 @@ let rec handle = (
       let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
       Editor.Cursor.set(state.editor, point)
     }
-    Promise.resolved()
-  | InteractionPoints(indices) => State__Goal.instantiate(state, indices)
+    Promise.resolved(Ok())
+  | InteractionPoints(indices) => State__Goal.instantiate(state, indices)->Promise.map(() => Ok())
   | GiveAction(index, give) =>
     let found = state.goals->Array.keep(goal => goal.index == index)
     switch found[0] {
@@ -155,25 +155,25 @@ let rec handle = (
         state,
         Error("Error: Give failed"),
         [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
-      )
+      )->Promise.map(() => Ok())
     | Some(goal) =>
       switch give {
       | GiveParen =>
-        State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))->Promise.flatMap(() =>
-          State__Goal.removeBoundaryAndDestroy(state, goal)
-        )
+        State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))
+        ->Promise.flatMap(() => State__Goal.removeBoundaryAndDestroy(state, goal))
+        ->Promise.map(() => Ok())
       | GiveNoParen =>
         // do nothing
-        State__Goal.removeBoundaryAndDestroy(state, goal)
+        State__Goal.removeBoundaryAndDestroy(state, goal)->Promise.map(() => Ok())
       | GiveString(content) =>
-        State__Goal.modify(state, goal, _ =>
-          Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
-        )->Promise.flatMap(() => State__Goal.removeBoundaryAndDestroy(state, goal))
+        State__Goal.modify(state, goal, _ => Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content))
+        ->Promise.flatMap(() => State__Goal.removeBoundaryAndDestroy(state, goal))
+        ->Promise.map(() => Ok())
       }
     }
   | MakeCase(makeCaseType, lines) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, _)) =>
       switch makeCaseType {
       | Function => State__Goal.replaceWithLines(state, goal, lines)
@@ -181,10 +181,10 @@ let rec handle = (
       }->Promise.flatMap(() => dispatchCommand(Load))
     }
   | SolveAll(solutions) =>
-    let solveOne = ((index, solution)): Promise.t<unit> => {
+    let solveOne = ((index, solution)): Promise.t<result<unit, Connection.Error.t>> => {
       let goals = state.goals->Array.keep(goal => goal.index == index)
       switch goals[0] {
-      | None => Promise.resolved()
+      | None => Promise.resolved(Ok())
       | Some(goal) =>
         State__Goal.modify(state, goal, _ => solution)->Promise.flatMap(() =>
           sendAgdaRequest(Give(goal))
@@ -203,23 +203,22 @@ let rec handle = (
         State.View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
     })
+    ->Promise.map(() => Ok())
 
-  | DisplayInfo(info) => DisplayInfo.handle(state, info)
+  | DisplayInfo(info) => DisplayInfo.handle(state, info)->Promise.map(() => Ok())
   | RunningInfo(1, message) =>
     let message = removeNewlines(message)
     state.runningInfoLog->Js.Array2.push((1, message))->ignore
-    State.View.Panel.displayInAppendMode(
-      state,
-      Plain("Type-checking"),
-      [Item.plainText(message)],
-    )->Promise.flatMap(() => State.View.DebugBuffer.displayInAppendMode([(1, message)]))
+    State.View.Panel.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(message)])
+    ->Promise.flatMap(() => State.View.DebugBuffer.displayInAppendMode([(1, message)]))
+    ->Promise.map(() => Ok())
   | RunningInfo(verbosity, message) =>
     let message = removeNewlines(message)
     state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
-    State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
+    State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])->Promise.map(()=>Ok())
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
-    Highlighting.apply(state.highlighting, state.tokens, state.editor)
-  | _ => Promise.resolved()
+    Highlighting.apply(state.highlighting, state.tokens, state.editor)->Promise.map(()=>Ok())
+  | _ => Promise.resolved(Ok())
   }
 }

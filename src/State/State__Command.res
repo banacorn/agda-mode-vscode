@@ -2,7 +2,9 @@ open Belt
 open Command
 
 // from Editor Command to Tasks
-let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
+let rec dispatchCommand = (state: State.t, command): Promise.t<
+  result<unit, Connection.Error.t>,
+> => {
   let dispatchCommand = dispatchCommand(state)
   let sendAgdaRequest = State.sendRequest(state, State__Response.handle(state, dispatchCommand))
   let header = View.Header.Plain(Command.toString(command))
@@ -21,7 +23,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         sendAgdaRequest(Load)
       )
     })
-  | Quit => Promise.resolved()
+  | Quit => Promise.resolved(Ok())
   | Restart =>
     // clear the RunningInfo log
     state.runningInfoLog = []
@@ -30,7 +32,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     state.highlighting->Highlighting.redecorate(state.editor)
     State.View.Panel.restore(state)
     State__Goal.redecorate(state)
-    State.View.DebugBuffer.restore(state)
+    State.View.DebugBuffer.restore(state)->Promise.map(() => Ok())
   | Compile => sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)
   | ShowConstraints => sendAgdaRequest(ShowConstraints)
@@ -40,18 +42,18 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     | Some((goal, _)) => sendAgdaRequest(SolveConstraints(normalization, goal))
     }
   | ShowGoals => sendAgdaRequest(ShowGoals)
-  | NextGoal => State__Goal.next(state)
-  | PreviousGoal => State__Goal.previous(state)
+  | NextGoal => State__Goal.next(state)->Promise.map(() => Ok())
+  | PreviousGoal => State__Goal.previous(state)->Promise.map(() => Ok())
   | SearchAbout(normalization) =>
     State.View.Panel.prompt(
       state,
       header,
       {body: None, placeholder: Some("name:"), value: None},
       expr => sendAgdaRequest(SearchAbout(normalization, expr)),
-    )
+    )->Promise.map(() => Ok())
   | Give =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, "")) =>
       State.View.Panel.prompt(
         state,
@@ -69,18 +71,18 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
               sendAgdaRequest(Give(goal))
             )
           },
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, _)) => sendAgdaRequest(Give(goal))
     }
   | Refine =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, _)) => sendAgdaRequest(Refine(goal))
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
       switch State__Goal.pointed(state) {
-      | None => State.View.Panel.displayOutOfGoalError(state)
+      | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
       | Some((goal, "")) =>
         State.View.Panel.prompt(
           state,
@@ -98,19 +100,19 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
                 sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
               )
             },
-        )
+        )->Promise.map(() => Ok())
       | Some((goal, expr)) => sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
       }
     }
   | Auto =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, _)) => sendAgdaRequest(Auto(goal))
     }
   | Case => {
       let placeholder = Some("variable to case split:")
       switch State__Goal.pointed(state) {
-      | None => State.View.Panel.displayOutOfGoalError(state)
+      | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
       | Some((goal, "")) =>
         State.View.Panel.prompt(
           state,
@@ -129,14 +131,14 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
                 sendAgdaRequest(Case(goal))
               )
             },
-        )
+        )->Promise.map(() => Ok())
       | Some((goal, _)) => sendAgdaRequest(Case(goal))
       }
     }
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
       switch State__Goal.pointed(state) {
-      | None => State.View.Panel.displayOutOfGoalError(state)
+      | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
       | Some((goal, "")) =>
         State.View.Panel.prompt(
           state,
@@ -147,7 +149,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             value: None,
           },
           expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
-        )
+        )->Promise.map(() => Ok())
       | Some((goal, expr)) => sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
       }
     }
@@ -164,7 +166,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, "")) =>
       State.View.Panel.prompt(
         state,
@@ -175,27 +177,27 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(InferType(normalization, expr, goal)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, expr)) => sendAgdaRequest(InferType(normalization, expr, goal))
     }
   | Context(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, _)) => sendAgdaRequest(Context(normalization, goal))
     }
   | GoalType(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, _)) => sendAgdaRequest(GoalType(normalization, goal))
     }
   | GoalTypeAndContext(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, _)) => sendAgdaRequest(GoalTypeAndContext(normalization, goal))
     }
   | GoalTypeContextAndInferredType(normalization) =>
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, "")) =>
       // fallback to `GoalTypeAndContext` when there's no content
       sendAgdaRequest(GoalTypeAndContext(normalization, goal))
@@ -205,7 +207,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
     switch State__Goal.pointed(state) {
-    | None => State.View.Panel.displayOutOfGoalError(state)
+    | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
     | Some((goal, "")) =>
       State.View.Panel.prompt(
         state,
@@ -216,7 +218,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, expr)) =>
       sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
     }
@@ -233,7 +235,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, "")) =>
       State.View.Panel.prompt(
         state,
@@ -244,7 +246,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, expr)) => sendAgdaRequest(ModuleContents(normalization, expr, goal))
     }
   | ComputeNormalForm(computeMode) =>
@@ -260,7 +262,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, "")) =>
       State.View.Panel.prompt(
         state,
@@ -271,7 +273,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, expr)) => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal))
     }
   | WhyInScope =>
@@ -287,7 +289,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(WhyInScopeGlobal(expr)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, "")) =>
       State.View.Panel.prompt(
         state,
@@ -298,7 +300,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           value: None,
         },
         expr => sendAgdaRequest(WhyInScope(expr, goal)),
-      )
+      )->Promise.map(() => Ok())
     | Some((goal, expr)) => sendAgdaRequest(WhyInScope(expr, goal))
     }
   | SwitchAgdaVersion =>
@@ -338,13 +340,15 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
           switch result {
           | Ok(Emacs(version, path)) =>
             // update the connection status
-            State.View.Panel.displayStatus(state, "Emacs v" ++ version)->Promise.flatMap(() =>
+            State.View.Panel.displayStatus(state, "Emacs v" ++ version)
+            ->Promise.flatMap(() =>
               State.View.Panel.display(
                 state,
                 View.Header.Success("Switched to version '" ++ version ++ "'"),
                 [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
               )
             )
+            ->Promise.map(() => Ok())
 
           | Ok(LSP(version, _)) =>
             // should not happen
@@ -352,44 +356,47 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
               state,
               View.Header.Success("Panic, Switched to LSP server '" ++ version ++ "'"),
               [Item.plainText("Should have switched to an Agda executable, please file an issue")],
-            )
+            )->Promise.map(() => Ok())
           | Error(error) =>
             let (errorHeader, errorBody) = Connection.Error.toString(error)
             let header = View.Header.Error(
               "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
             )
             let body = [Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ oldAgdaPath)]
-            Config.Connection.setAgdaPath(oldAgdaPath)->Promise.flatMap(() =>
-              State.View.Panel.display(state, header, body)
-            )
+            Config.Connection.setAgdaPath(oldAgdaPath)
+            ->Promise.flatMap(() => State.View.Panel.display(state, header, body))
+            ->Promise.map(() => Ok())
           }
         )
       },
-    )
+    )->Promise.map(() => Ok())
   | EventFromView(event) =>
     switch event {
-    | Initialized => Promise.resolved()
-    | Destroyed => State.destroy(state, true)
+    | Initialized => Promise.resolved(Ok())
+    | Destroyed => State.destroy(state, true)->Promise.map(() => Ok())
     | InputMethod(InsertChar(char)) => dispatchCommand(InputMethod(InsertChar(char)))
-    | InputMethod(ChooseSymbol(symbol)) => State__InputMethod.chooseSymbol(state, symbol)
-    | PromptIMUpdate(MouseSelect(interval)) => State__InputMethod.select(state, [interval])
-    | PromptIMUpdate(KeyUpdate(input)) => State__InputMethod.keyUpdatePromptIM(state, input)
+    | InputMethod(ChooseSymbol(symbol)) =>
+      State__InputMethod.chooseSymbol(state, symbol)->Promise.map(() => Ok())
+    | PromptIMUpdate(MouseSelect(interval)) =>
+      State__InputMethod.select(state, [interval])->Promise.map(() => Ok())
+    | PromptIMUpdate(KeyUpdate(input)) =>
+      State__InputMethod.keyUpdatePromptIM(state, input)->Promise.map(() => Ok())
     | PromptIMUpdate(BrowseUp) => dispatchCommand(InputMethod(BrowseUp))
     | PromptIMUpdate(BrowseDown) => dispatchCommand(InputMethod(BrowseDown))
     | PromptIMUpdate(BrowseLeft) => dispatchCommand(InputMethod(BrowseLeft))
     | PromptIMUpdate(BrowseRight) => dispatchCommand(InputMethod(BrowseRight))
     | PromptIMUpdate(Escape) =>
       if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
-        State__InputMethod.deactivate(state)
+        State__InputMethod.deactivate(state)->Promise.map(() => Ok())
       } else {
-        State.View.Panel.interruptPrompt(state)
+        State.View.Panel.interruptPrompt(state)->Promise.map(() => Ok())
       }
     | JumpToTarget(link) =>
       Editor.focus(state.document)
       let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
       switch link {
-      | SrcLoc(NoRange) => Promise.resolved()
-      | SrcLoc(Range(None, _intervals)) => Promise.resolved()
+      | SrcLoc(NoRange) => Promise.resolved(Ok())
+      | SrcLoc(Range(None, _intervals)) => Promise.resolved(Ok())
       | SrcLoc(Range(Some(fileName), intervals)) =>
         let fileName = Parser.filepath(fileName)
         // Issue #44
@@ -418,39 +425,40 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
             state.editor->VSCode.TextEditor.revealRange(range, None)
           })
         }
-        Promise.resolved()
+        Promise.resolved(Ok())
       | Hole(index) =>
         let goal = Js.Array.find((goal: Goal.t) => goal.index == index, state.goals)
         switch goal {
         | None => ()
         | Some(goal) => Goal.setCursor(goal, state.editor)
         }
-        Promise.resolved()
+        Promise.resolved(Ok())
       }
     }
   | Escape =>
     if state.editorIM->IM.isActivated || state.promptIM->IM.isActivated {
-      State__InputMethod.deactivate(state)
+      State__InputMethod.deactivate(state)->Promise.map(() => Ok())
     } else {
-      State.View.Panel.interruptPrompt(state)
+      State.View.Panel.interruptPrompt(state)->Promise.map(() => Ok())
     }
   | InputMethod(Activate) =>
     if Config.InputMethod.getEnable() {
-      State__InputMethod.activateEditorIM(state)
+      State__InputMethod.activateEditorIM(state)->Promise.map(() => Ok())
     } else {
       // insert the activation key (default: "\") instead
       let activationKey = Config.InputMethod.getActivationKey()
       Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
         Editor.Text.insert(state.document, point, activationKey)->ignore
       )
-      Promise.resolved()
+      Promise.resolved(Ok())
     }
 
-  | InputMethod(InsertChar(char)) => State__InputMethod.insertChar(state, char)
-  | InputMethod(BrowseUp) => State__InputMethod.moveUp(state)
-  | InputMethod(BrowseDown) => State__InputMethod.moveDown(state)
-  | InputMethod(BrowseLeft) => State__InputMethod.moveLeft(state)
-  | InputMethod(BrowseRight) => State__InputMethod.moveRight(state)
+  | InputMethod(InsertChar(char)) =>
+    State__InputMethod.insertChar(state, char)->Promise.map(() => Ok())
+  | InputMethod(BrowseUp) => State__InputMethod.moveUp(state)->Promise.map(() => Ok())
+  | InputMethod(BrowseDown) => State__InputMethod.moveDown(state)->Promise.map(() => Ok())
+  | InputMethod(BrowseLeft) => State__InputMethod.moveLeft(state)->Promise.map(() => Ok())
+  | InputMethod(BrowseRight) => State__InputMethod.moveRight(state)->Promise.map(() => Ok())
   | LookupSymbol =>
     // get the selected text
     // query the user instead if no text is selected
@@ -464,7 +472,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         {body: None, placeholder: Some("symbol to lookup:"), value: None},
         input => {
           resolve(Js.String.trim(input))
-          Promise.resolved()
+          Promise.resolved(Ok())
         },
       )->ignore
     } else {
@@ -472,7 +480,8 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
     }
 
     // lookup and display
-    promise->Promise.flatMap(input => {
+    promise
+    ->Promise.flatMap(input => {
       let sequences = Translator.lookup(input)->Option.getWithDefault([])
       if Js.Array.length(sequences) == 0 {
         State.View.Panel.display(
@@ -492,8 +501,9 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<unit> => {
         )
       }
     })
+    ->Promise.map(() => Ok())
   | OpenDebugBuffer =>
     State.View.DebugBuffer.make(state)->ignore
-    State.View.DebugBuffer.reveal(state)
+    State.View.DebugBuffer.reveal(state)->Promise.map(() => Ok())
   }
 }

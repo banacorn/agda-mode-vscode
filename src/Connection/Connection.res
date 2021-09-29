@@ -104,7 +104,14 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
-  let rec sendRequest = (globalStoragePath, onDownload, useLSP, document, request, handler) => {
+  let rec sendRequest = (
+    globalStoragePath,
+    onDownload,
+    useLSP,
+    document,
+    request,
+    handler,
+  ) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath

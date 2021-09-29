@@ -16,7 +16,12 @@ module type Panel = {
   let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
   let updatePromptIM: (state, string) => Promise.t<unit>
   // Prompt
-  let prompt: (state, View.Header.t, View.Prompt.t, string => Promise.t<unit>) => Promise.t<unit>
+  let prompt: (
+    state,
+    View.Header.t,
+    View.Prompt.t,
+    string => Promise.t<result<unit, Connection.Error.t>>,
+  ) => Promise.t<unit>
   let interruptPrompt: state => Promise.t<unit>
 }
 
@@ -66,7 +71,7 @@ module Panel: Panel = {
     state,
     header,
     prompt,
-    callbackOnPromptSuccess: string => Promise.t<unit>,
+    callbackOnPromptSuccess: string => Promise.t<result<unit, Connection.Error.t>>,
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)
@@ -76,7 +81,7 @@ module Panel: Panel = {
     sendRequest(state, Prompt(header, prompt), response =>
       switch response {
       | PromptSuccess(result) =>
-        callbackOnPromptSuccess(result)->Promise.map(() => {
+        callbackOnPromptSuccess(result)->Promise.map(_ => {
           Context.setPrompt(false)
           // put the focus back to the editor after prompting
           Editor.focus(state.document)

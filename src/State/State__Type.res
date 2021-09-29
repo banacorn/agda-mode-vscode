@@ -105,7 +105,7 @@ type t = {
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
-  mutable agdaRequestQueue: RequestQueue.t<unit>,
+  mutable agdaRequestQueue: RequestQueue.t<result<unit, Connection.Error.t>>,
   globalStoragePath: string,
   extensionPath: string,
   channels: channels,

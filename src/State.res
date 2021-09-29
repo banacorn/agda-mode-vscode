@@ -32,14 +32,24 @@ let onDownload = (state, event) => {
 
 let sendRequest = (
   state: state,
-  handleResponse: Response.t => Promise.t<unit>,
+  handleResponse: Response.t => Promise.t<result<unit, Connection.Error.t>>,
   request: Request.t,
-): Promise.t<unit> => {
-  let sendRequestAndHandleResponses = (state, request, handler) => {
+): Promise.t<result<unit, Connection.Error.t>> => {
+  let sendRequestAndHandleResponses = (
+    state,
+    request,
+    handler: Response.t => Promise.t<result<unit, Connection.Error.t>>,
+  ): Promise.t<result<unit, Connection.Error.t>> => {
     let onResponse = result =>
       switch result {
       | Error(error) => View.Panel.displayConnectionError(state, error)
-      | Ok(response) => handler(response)
+      | Ok(response) =>
+        handler(response)->Promise.flatMap(result =>
+          switch result {
+          | Error(error) => View.Panel.displayConnectionError(state, error)
+          | Ok() => Promise.resolved()
+          }
+        )
       }
     Connection.sendRequest(
       state.globalStoragePath,
@@ -50,8 +60,9 @@ let sendRequest = (
       onResponse,
     )->Promise.flatMap(result =>
       switch result {
-      | Error(error) => View.Panel.displayConnectionError(state, error)
-      | Ok(status) => View.Panel.displayConnectionStatus(state, status)
+      | Error(error) =>
+        View.Panel.displayConnectionError(state, error)->Promise.map(() => Error(error))
+      | Ok(status) => View.Panel.displayConnectionStatus(state, status)->Promise.map(() => Ok())
       }
     )
   }
