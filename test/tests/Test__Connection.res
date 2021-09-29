@@ -6,9 +6,12 @@ describe("Connection", ~timeout=10000, () => {
     let globalStoragePath = Path.globalStoragePath()
     let useLSP = true
 
-    Connection.start(globalStoragePath, useLSP, _ => ())->Promise.mapError(e => {
+    Connection.start(globalStoragePath, useLSP, _ => ())
+    ->Promise.mapOk(_ => ())
+    ->Promise.flatMapError(e => {
       let (header, body) = Connection.Error.toString(e)
-      Exn(header ++ "\n" ++ body)
+      let message = header ++ "\n" ++ body
+      A.fail(message)
     })
     // ->Promise.tapOk(status => {
     //   let msg = switch status {
