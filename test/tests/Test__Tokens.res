@@ -13,7 +13,28 @@ describe("Tokens", ~timeout=10000, () => {
   Q.before(() => {
     let filepath = Path.asset("GotoDefinition.agda")
     activateExtensionAndOpenFile(filepath)
-    ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
+    ->Promise.flatMap(((_, channels)) => {
+      let (promise, resolve) = Promise.pending()
+
+      let subscription = ref(None)
+      subscription :=
+        Some(
+          channels.response->Chan.on(response =>
+            switch response {
+            | CompleteHighlightingAndMakePromptReappear =>
+              Js.log("CompleteHighlightingAndMakePromptReappear")
+              subscription.contents->Belt.Option.forEach(f => f())
+              resolve()
+            | _ => ()
+            }
+          ),
+        )
+
+      executeCommand("agda-mode.load")->Promise.flatMap(state => {
+        Js.log("SOME THING WRONG WITH load RESOLVING PERMATURELY")
+        promise->Promise.map(() => state)
+      })
+    })
     ->Promise.flatMap(state => {
       switch state {
       | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
