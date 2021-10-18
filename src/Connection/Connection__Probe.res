@@ -3,8 +3,40 @@ open LanguageServerMule
 open Source.GitHub
 open Belt
 
-let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
-  // CURRENT RANGE: [v0.1, v0.2)
+module Platform = {
+  module GetOs = {
+    type t = {"os": string, "dist": string, "codename": string, "release": string}
+
+    @module
+    external getos: (t => unit) => unit = "getos"
+
+    let runAsPromise = (): Promise.t<t> => {
+      let (promise, resolve) = Promise.pending()
+      getos(resolve)
+      promise
+    }
+  }
+
+  type t = Windows | MacOS | Ubuntu | Others
+
+  let determine = () =>
+    switch Node_process.process["platform"] {
+    | "darwin" => Promise.resolved(MacOS)
+    | "linux" =>
+      // determine the distro
+      GetOs.runAsPromise()->Promise.map(result =>
+        switch result["dist"] {
+        | "Ubuntu" => Ubuntu
+        | _ => Others
+        }
+      )
+    | "win32" => Promise.resolved(Windows)
+    | _others => Promise.resolved(Others)
+    }
+}
+
+let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): option<Target.t> => {
+  // CURRENTLY ACCEPTED RANGE OF ALS: [v0.1, v0.2)
   let chooseRelease = (releases: array<Release.t>) => {
     let lowerBound = "v0.1.0.0"
     let upperBound = "v0.2.0.0"
@@ -26,12 +58,11 @@ let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
 
   let chooseAsset = (release: Release.t) => {
     // expected suffix of asset name
-    let os = Node_process.process["platform"]
-    let expectedSuffix = switch os {
-    | "darwin" => Some("macos.zip")
-    | "linux" => Some("ubuntu.zip")
-    | "win32" => Some("windows.zip")
-    | _others => None
+    let expectedSuffix = switch platform {
+    | MacOS => Some("macos.zip")
+    | Ubuntu => Some("ubuntu.zip")
+    | Windows => Some("windows.zip")
+    | Others => None
     }
 
     // find the corresponding asset
@@ -42,7 +73,7 @@ let chooseFromReleases = (releases: array<Release.t>): option<Target.t> => {
     })
     ->Option.map(asset => {
       Target.srcUrl: asset.url,
-      fileName: release.tagName ++ "-" ++ os,
+      fileName: release.tagName ++ "-" ++ Node_process.process["platform"],
       release: release,
       asset: asset,
     })
@@ -69,21 +100,23 @@ let probeLSP = (globalStoragePath, onDownload) => {
   let port = Config.Connection.getAgdaLanguageServerPort()
   let name = "als"
 
-  Source.Module.searchUntilSuccess([
-    Source.FromTCP(port, "localhost"),
-    Source.FromGitHub({
-      username: "banacorn",
-      repository: "agda-language-server",
-      userAgent: "agda-mode-vscode",
-      globalStoragePath: globalStoragePath,
-      chooseFromReleases: chooseFromReleases,
-      onDownload: onDownload,
-      recoverFromDownload: recoverFromDownload,
-      log: Js.log,
-      cacheInvalidateExpirationSecs: 86400,
-    }),
-    Source.FromCommand(name),
-  ])
+  Platform.determine()->Promise.flatMap(platform =>
+    Source.Module.searchUntilSuccess([
+      Source.FromTCP(port, "localhost"),
+      Source.FromGitHub({
+        username: "banacorn",
+        repository: "agda-language-server",
+        userAgent: "agda-mode-vscode",
+        globalStoragePath: globalStoragePath,
+        chooseFromReleases: chooseFromReleases(platform),
+        onDownload: onDownload,
+        recoverFromDownload: recoverFromDownload,
+        log: Js.log,
+        cacheInvalidateExpirationSecs: 86400,
+      }),
+      Source.FromCommand(name),
+    ])
+  )
 }
 
 let probeEmacs = () => {
