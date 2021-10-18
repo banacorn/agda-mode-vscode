@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed 
 - #73: Prevent Linux distro other than Ubuntu from downloading prebuilt ALS
+- #71: Prefer locally installed language server binary over bundled als
 
 ## v0.3.2 - 2021-09-27
 

@@ -102,7 +102,11 @@ let probeLSP = (globalStoragePath, onDownload) => {
 
   Platform.determine()->Promise.flatMap(platform =>
     Source.Module.searchUntilSuccess([
+      // when developing ALS, use `:main -p` in GHCi to open a port on localhost
       Source.FromTCP(port, "localhost"),
+      // #71: Prefer locally installed language server binary over bundled als
+      // https://github.com/banacorn/agda-mode-vscode/issues/71
+      Source.FromCommand(name),
       Source.FromGitHub({
         username: "banacorn",
         repository: "agda-language-server",
@@ -114,7 +118,6 @@ let probeLSP = (globalStoragePath, onDownload) => {
         log: Js.log,
         cacheInvalidateExpirationSecs: 86400,
       }),
-      Source.FromCommand(name),
     ])
   )
 }
