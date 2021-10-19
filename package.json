@@ -100,6 +100,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.toggle-display-of-irrelevant-arguments",
+				"title": "Toggle display of irrelevant arguments",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.show-constraints",
 				"title": "Show constraints",
 				"category": "Agda"
@@ -389,6 +394,12 @@
 				"command": "agda-mode.toggle-display-of-implicit-arguments",
 				"key": "ctrl+x ctrl+h",
 				"mac": "ctrl+x ctrl+h",
+				"when": "agdaMode && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.toggle-display-of-irrelevant-arguments",
+				"key": "ctrl+x ctrl+i",
+				"mac": "ctrl+x ctrl+i",
 				"when": "agdaMode && !editorHasSelection && editorTextFocus"
 			},
 			{

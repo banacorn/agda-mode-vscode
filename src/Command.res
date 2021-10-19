@@ -70,6 +70,7 @@ type t =
   | Refresh
   | Compile
   | ToggleDisplayOfImplicitArguments
+  | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
   | SolveConstraints(Normalization.t)
   | ShowGoals
@@ -105,6 +106,7 @@ let names: array<(t, string)> = [
   (Restart, "restart"),
   (Compile, "compile"),
   (ToggleDisplayOfImplicitArguments, "toggle-display-of-implicit-arguments"),
+  (ToggleDisplayOfIrrelevantArguments, "toggle-display-of-irrelevant-arguments"),
   (ShowConstraints, "show-constraints"),
   (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
   (SolveConstraints(Instantiated), "solve-constraints[Instantiated]"),
@@ -174,6 +176,7 @@ let toString = x =>
   | Restart => "Restart"
   | Compile => "Compile"
   | ToggleDisplayOfImplicitArguments => "Toggle display of hidden arguments"
+  | ToggleDisplayOfIrrelevantArguments => "Toggle display of irrelevant arguments"
   | ShowConstraints => "Show constraints"
   | SolveConstraints(normalization) => "Solve constraints " ++ Normalization.toString(normalization)
   | ShowGoals => "Show goals"

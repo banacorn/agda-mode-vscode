@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.3.3 - TBA
 
+### Added
+- #72: Feature request: Toggle display of irrelevant arguments
+
 ### Fixed 
 - #73: Prevent Linux distro other than Ubuntu from downloading prebuilt ALS
 - #71: Prefer locally installed language server binary over bundled als

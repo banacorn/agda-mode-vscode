@@ -4,6 +4,7 @@ type t =
   | Load
   | Compile
   | ToggleDisplayOfImplicitArguments
+  | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
   | SolveConstraints(Command.Normalization.t, Goal.t)
   | SolveConstraintsGlobal(Command.Normalization.t)
@@ -34,6 +35,7 @@ let toString = x =>
   | Load => "Load"
   | Compile => "Compile"
   | ToggleDisplayOfImplicitArguments => "ToggleDisplayOfImplicitArguments"
+  | ToggleDisplayOfIrrelevantArguments => "ToggleDisplayOfIrrelevantArguments"
   | ShowConstraints => "ShowConstraints"
   | SolveConstraints(_, _) => "SolveConstraints"
   | SolveConstraintsGlobal(_) => "SolveConstraintsGlobal"
@@ -114,6 +116,8 @@ let encode = (
     }
 
   | ToggleDisplayOfImplicitArguments => j`${commonPart(NonInteractive)}( ToggleImplicitArgs )`
+  
+  | ToggleDisplayOfIrrelevantArguments => j`${commonPart(NonInteractive)}( ToggleIrrelevantArgs )`
 
   | ShowConstraints => j`${commonPart(NonInteractive)}( Cmd_constraints )`
 

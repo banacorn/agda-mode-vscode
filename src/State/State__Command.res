@@ -35,6 +35,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
     State.View.DebugBuffer.restore(state)->Promise.map(() => Ok())
   | Compile => sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => sendAgdaRequest(ToggleDisplayOfImplicitArguments)
+  | ToggleDisplayOfIrrelevantArguments => sendAgdaRequest(ToggleDisplayOfIrrelevantArguments)
   | ShowConstraints => sendAgdaRequest(ShowConstraints)
   | SolveConstraints(normalization) =>
     switch State__Goal.pointed(state) {
