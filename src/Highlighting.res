@@ -191,8 +191,8 @@ module Module: Module = {
             range: {
               line: token.range.line + lineDelta,
               column: (
-                fst(token.range.column) + columnDelta,
-                snd(token.range.column) + columnDelta,
+                abs(fst(token.range.column) + columnDelta),
+                abs(snd(token.range.column) + columnDelta),
               ),
             },
           },
