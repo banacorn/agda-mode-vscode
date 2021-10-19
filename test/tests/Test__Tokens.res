@@ -1,7 +1,7 @@
 open! BsMocha.Mocha
 open Test__Util
 
-describe("Tokens", ~timeout=10000, () => {
+describe_skip("Tokens", ~timeout=10000, () => {
   let tokens = ref(None)
 
   let acquire = () =>
