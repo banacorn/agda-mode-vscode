@@ -82,15 +82,21 @@ let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): opt
   chooseRelease(releases)->Option.flatMap(chooseAsset)
 }
 
-let recoverFromDownload = ((path, target)) => {
+let afterDownload = (fromCached, (path, target)) => {
   let execPath = NodeJs.Path.join2(path, "als")
-  let assetPath = NodeJs.Path.join2(path, "data")
-  let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
-  let options = Client__LSP__Binding.ExecutableOptions.make(~env, ())
-  // chmod only works on *nix machines
-  switch Node_process.process["platform"] {
-  | "win32" => Promise.resolved(Ok((execPath, [], Some(options), target))) // no need of chmod on Windows
-  | _others => chmodExecutable(execPath)->Promise.mapOk(_ => (execPath, [], Some(options), target))
+  if fromCached {
+    // already chmod after download
+    Promise.resolved(Ok((execPath, [], None, target)))
+  } else {
+    let assetPath = NodeJs.Path.join2(path, "data")
+    let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
+    let options = Client__LSP__Binding.ExecutableOptions.make(~env, ())
+    // chmod only works on *nix machines
+    switch Node_process.process["platform"] {
+    | "win32" => Promise.resolved(Ok((execPath, [], Some(options), target))) // no need of chmod on Windows
+    | _others =>
+      chmodExecutable(execPath)->Promise.mapOk(_ => (execPath, [], Some(options), target))
+    }
   }
 }
 
@@ -114,7 +120,7 @@ let probeLSP = (globalStoragePath, onDownload) => {
         globalStoragePath: globalStoragePath,
         chooseFromReleases: chooseFromReleases(platform),
         onDownload: onDownload,
-        recoverFromDownload: recoverFromDownload,
+        afterDownload: afterDownload,
         log: Js.log,
         cacheInvalidateExpirationSecs: 86400,
       }),

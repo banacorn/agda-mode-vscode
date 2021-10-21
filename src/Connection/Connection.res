@@ -27,6 +27,20 @@ module type Module = {
 }
 
 module Module: Module = {
+  module InitOptions = {
+    type t = {commandLineOptions: array<string>}
+
+    let encode: Json.Encode.encoder<t> = x => {
+      open Json.Encode
+      object_(list{("commandLineOptions", x.commandLineOptions |> array(string))})
+    }
+
+    let getFromConfig = () =>
+      {
+        commandLineOptions: Config.Connection.getCommandLineOptions(),
+      }->encode
+  }
+
   // internal state singleton
   type connection = Emacs(Emacs.t) | LSP(LSP.t)
   let singleton: ref<option<connection>> = ref(None)
@@ -59,7 +73,7 @@ module Module: Module = {
           }
         )
         ->Promise.flatMapOk(method => {
-          LSP.Client.make("agda", "Agda Language Server", method)
+          LSP.Client.make("agda", "Agda Language Server", method, InitOptions.getFromConfig())
           ->Promise.mapError(e => LSP.Error.ConnectionError(e))
           ->Promise.flatMapOk(LSP.make)
           ->Promise.mapError(error => Error.LSP(error))
@@ -104,14 +118,7 @@ module Module: Module = {
     | None => Promise.resolved()
     }
 
-  let rec sendRequest = (
-    globalStoragePath,
-    onDownload,
-    useLSP,
-    document,
-    request,
-    handler,
-  ) => {
+  let rec sendRequest = (globalStoragePath, onDownload, useLSP, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath

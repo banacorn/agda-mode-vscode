@@ -46,7 +46,7 @@
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"getos": "^3.2.1",
-		"language-server-mule": "github:banacorn/language-server-mule#v0.2.0",
+		"language-server-mule": "github:banacorn/language-server-mule#v0.2.3",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-nodejs": "github:banacorn/reason-nodejs#temp",
@@ -745,25 +745,19 @@
 					"type": "string",
 					"default": "",
 					"scope": "machine-overridable",
-					"description": "Command-line options to the Agda executable, seperated with spaces, e.g. \"--without-K --safe\""
+					"description": "Command-line options for Agda or Agda Language Server, delimited by space, like you would in terminal, e.g. \"--without-K --safe\""
 				},
 				"agdaMode.connection.agdaLanguageServer": {
 					"type": "boolean",
 					"default": false,
 					"scope": "machine-overridable",
-					"description": "Connect to the \"Agda Language Server\" (experimental)."
+					"description": "Connect to Agda Language Server (experimental)."
 				},
 				"agdaMode.connection.agdaLanguageServerPort": {
 					"type": "number",
 					"default": 4096,
 					"scope": "machine-overridable",
-					"description": "Port number for the \"Agda Language Server\""
-				},
-				"agdaMode.connection.agdaLanguageServerOptions": {
-					"type": "string",
-					"default": "",
-					"scope": "machine-overridable",
-					"description": "Command-line options to the Agda Language Server (placeholder, not implemented yet)"
+					"description": "Port number for Agda Language Server (for the ease of development)"
 				},
 				"agdaMode.view.panelMountPosition": {
 					"type": "string",

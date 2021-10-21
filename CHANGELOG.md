@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.3.3 - TBA
 
 ### Added
+- Allow user to suuply command-line options to both Agda & ALS 
 - #72: Feature request: Toggle display of irrelevant arguments
 
 ### Fixed 
