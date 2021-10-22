@@ -36,10 +36,10 @@ module Platform = {
 }
 
 let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): option<Target.t> => {
-  // CURRENTLY ACCEPTED RANGE OF ALS: [v0.1, v0.2)
+  // CURRENTLY ACCEPTED RANGE OF ALS: [v0.2, v0.3)
   let chooseRelease = (releases: array<Release.t>) => {
-    let lowerBound = "v0.1.0.0"
-    let upperBound = "v0.2.0.0"
+    let lowerBound = "v0.2.0.0"
+    let upperBound = "v0.3.0.0"
     let withinBound = x => {
       let lower = Version.compare(x, lowerBound)
       let upper = Version.compare(x, upperBound)
