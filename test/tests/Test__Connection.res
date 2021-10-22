@@ -1,7 +1,7 @@
 open! BsMocha.Mocha
 open Test__Util
 
-describe("Connection", ~timeout=10000, () => {
+describe_skip("Connection", ~timeout=10000, () => {
   Q.it("should download the language server", () => {
     let globalStoragePath = Path.globalStoragePath()
     let useLSP = true
