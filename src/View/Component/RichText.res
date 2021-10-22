@@ -202,26 +202,28 @@ module Module = {
           <div className key={string_of_int(i)} />
         | Link(range, children, className) =>
           let child = make(~value=RichText(children))
-          <Link
-            key={string_of_int(i)} className jump=true hover=false target=Link.SrcLoc(range)>
+          <Link key={string_of_int(i)} className jump=true hover=false target=Link.SrcLoc(range)>
             {child}
           </Link>
         | Hole(index) =>
           let className = ["component-link", "component-hole"]
-          <Link
-            key={string_of_int(i)} className jump=true hover=false target=Link.Hole(index)>
+          <Link key={string_of_int(i)} className jump=true hover=false target=Link.Hole(index)>
             {React.string("?" ++ string_of_int(index))}
           </Link>
         | Horz(elements) =>
           let children =
-            elements->Array.map(element =>
-              <span className="component-horz-item"> {make(~value=RichText(element))} </span>
+            elements->Array.mapWithIndex((j, element) =>
+              <span className="component-horz-item" key={string_of_int(j)}>
+                {make(~value=RichText(element))}
+              </span>
             )
           <span className="component-horz" key={string_of_int(i)}> {React.array(children)} </span>
         | Vert(elements) =>
           let children =
-            elements->Array.map(element =>
-              <span className="component-vert-item"> {make(~value=RichText(element))} </span>
+            elements->Array.mapWithIndex((j, element) =>
+              <span className="component-vert-item" key={string_of_int(j)}>
+                {make(~value=RichText(element))}
+              </span>
             )
           <span className="component-vert" key={string_of_int(i)}> {React.array(children)} </span>
         | Parn(element) => <Parens> {make(~value=RichText(element))} </Parens>
