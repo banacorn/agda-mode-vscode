@@ -48,6 +48,7 @@ Take *infer type* for example:
 | quit                                    | <kbd>C-c</kbd> <kbd>C-q</kbd> |
 | quit and restart                        | <kbd>C-x</kbd> <kbd>C-r</kbd> |
 | toggle display of hidden arguments      | <kbd>C-x</kbd> <kbd>C-h</kbd> |
+| toggle display of irrelevant arguments  | <kbd>C-x</kbd> <kbd>C-i</kbd> |
 | show constraints                        | <kbd>C-c</kbd> <kbd>C-=</kbd> |
 | solve constraints 🎚                     | <kbd>C-c</kbd> <kbd>C-s</kbd> |
 | show all goals                          | <kbd>C-c</kbd> <kbd>C-?</kbd> |

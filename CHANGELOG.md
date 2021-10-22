@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.3 - TBA
+## v0.3.3 - 2021-10-22
 
 ### Added
 - Allow user to suuply command-line options to both Agda & ALS 
@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed 
 - #73: Prevent Linux distro other than Ubuntu from downloading prebuilt ALS
 - #71: Prefer locally installed language server binary over bundled als
+- #70: syntax highlighting not working for block comment {- -}
 
 ## v0.3.2 - 2021-09-27
 
