@@ -23,7 +23,7 @@ module type Module = {
   let redecorate: (t, VSCode.TextEditor.t) => unit
 
   let updateSemanticHighlighting: (t, VSCode.TextDocumentChangeEvent.t) => unit
-  let requestSemanticTokens: t => Promise.t<array<SemanticToken.t>>
+  let getSemanticTokens: t => array<SemanticToken.t>
 }
 
 module Module: Module = {
@@ -61,15 +61,11 @@ module Module: Module = {
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // Semantic Tokens
     mutable semanticTokens: array<SemanticToken.t>,
-    mutable updated: bool,
-    mutable requestForTokens: option<array<SemanticToken.t> => unit>,
   }
 
   let make = () => {
     decorations: [],
     semanticTokens: [],
-    updated: false,
-    requestForTokens: None,
   }
 
   let clear = self => {
@@ -87,17 +83,6 @@ module Module: Module = {
     self.decorations->Array.forEach(((decoration, ranges)) =>
       Editor.Decoration.decorate(editor, decoration, ranges)
     )
-
-  let resolveRequestsForTokens = (isUpdate, self) => {
-    self.updated = isUpdate
-
-    self.requestForTokens->Option.forEach(resolve => {
-      if !isUpdate {
-        resolve(self.semanticTokens)
-        self.requestForTokens = None
-      }
-    })
-  }
 
   module Change = {
     type action =
@@ -209,6 +194,30 @@ module Module: Module = {
       }
   }
 
+  // trigger TextDocumentChangeEvent by inserting and then deleteing a space " " at the end of the file
+  let triggerDocumentChangeEvent = editor => {
+    let document = editor->VSCode.TextEditor.document
+    let lineCount = document->VSCode.TextDocument.lineCount
+    let lastLine = document->VSCode.TextDocument.lineAt(lineCount - 1)
+    let insertPosition = lastLine->VSCode.TextLine.range->VSCode.Range.end_
+    let deleteRange = VSCode.Range.make(
+      insertPosition,
+      VSCode.Position.translate(insertPosition, 0, 1),
+    )
+
+    // insert a space
+    Editor.Text.batchInsert'(editor, [insertPosition], " ")
+    ->Promise.flatMap(succeed =>
+      if succeed {
+        // delete that space
+        Editor.Text.batchReplace'(editor, [(deleteRange, "")])
+      } else {
+        Promise.resolved(false)
+      }
+    )
+    ->Promise.map(_ => ())
+  }
+
   let updateSemanticHighlighting = (self, event) => {
     let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
@@ -227,31 +236,25 @@ module Module: Module = {
     changes->Array.forEach(change => {
       self.semanticTokens = applyChange(self.semanticTokens, change)
     })
-    resolveRequestsForTokens(true, self)
   }
 
-  let requestSemanticTokens = (self: t) => {
-    if self.updated {
-      Promise.resolved(self.semanticTokens)
-    } else {
-      let (promise, resolve) = Promise.pending()
-      self.requestForTokens = Some(resolve)
-      promise
-    }
-  }
+  let getSemanticTokens = (self: t) => self.semanticTokens
 
-  let apply = (self, tokens, editor) =>
-    Tokens.readTempFiles(tokens, editor)->Promise.map(() => {
+  let apply = (self, tokens, editor) => {
+    Tokens.readTempFiles(tokens, editor)->Promise.flatMap(() => {
       if Config.Highlighting.getHighlightWithThemeColors() {
         let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
         self.semanticTokens = semanticTokens
-        resolveRequestsForTokens(false, self)
         self.decorations = Array.concat(self.decorations, decorations)
+        // apply cached tokens to the editor, by making a change to the file
+        triggerDocumentChangeEvent(editor)
       } else {
         let decorations = Tokens.toDecorations(tokens, editor)
         self.decorations = Array.concat(self.decorations, decorations)
+        Promise.resolved()
       }
     })
+  }
 }
 
 include Module

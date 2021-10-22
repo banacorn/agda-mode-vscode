@@ -40,7 +40,7 @@ module Module: {
     | Some(PendingInit(_, resolve)) =>
       // Js.log("[ add ][ PendingInit ]" ++ fileName)
       // Fulfill the request for Semantic Tokens
-      state.highlighting->Highlighting.requestSemanticTokens->Promise.get(resolve)
+      state.highlighting->Highlighting.getSemanticTokens->resolve
       // set the entry as Initialized
       dict->Js.Dict.set(fileName, Initialized(state))
     | Some(Initialized(_)) =>
@@ -85,7 +85,7 @@ module Module: {
       promise
     | Some(Initialized(state)) =>
       // Js.log("[ req ][ Initialized ]" ++ fileName)
-      state.highlighting->Highlighting.requestSemanticTokens
+      state.highlighting->Highlighting.getSemanticTokens->Promise.resolved
     | None =>
       // Js.log("[ req ][ None ]" ++ fileName)
       let (promise, resolve) = Promise.pending()
