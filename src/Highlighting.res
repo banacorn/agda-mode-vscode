@@ -215,6 +215,8 @@ module Module: Module = {
         Promise.resolved(false)
       }
     )
+    // save after messing with the file
+    ->Promise.flatMap(_ => VSCode.TextDocument.save(document))
     ->Promise.map(_ => ())
   }
 
