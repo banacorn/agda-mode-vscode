@@ -84,20 +84,20 @@ let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): opt
 
 let afterDownload = (fromCached, (path, target)) => {
   let execPath = NodeJs.Path.join2(path, "als")
-  if fromCached {
-    // already chmod after download
-    Promise.resolved(Ok((execPath, [], None, target)))
-  } else {
+  // include "Agda_datadir" in the environment variable
+  let options = {
     let assetPath = NodeJs.Path.join2(path, "data")
     let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
-    let options = Client__LSP__Binding.ExecutableOptions.make(~env, ())
-    // chmod only works on *nix machines
-    switch Node_process.process["platform"] {
-    | "win32" => Promise.resolved(Ok((execPath, [], Some(options), target))) // no need of chmod on Windows
-    | _others =>
-      chmodExecutable(execPath)->Promise.mapOk(_ => (execPath, [], Some(options), target))
-    }
+    Client__LSP__Binding.ExecutableOptions.make(~env, ())
   }
+  // because it should've been chmod'ed after download
+  // because there's no need of chmod'ing on Windows
+  let shouldChmod777 = !fromCached && Node_process.process["platform"] != "win32"
+  if shouldChmod777 {
+    chmodExecutable(execPath)->Promise.map(_ => ())
+  } else {
+    Promise.resolved()
+  }->Promise.map(() => Ok((execPath, [], Some(options), target)))
 }
 
 // see if the server is available
