@@ -205,12 +205,26 @@ module Module: Module = {
       VSCode.Position.translate(insertPosition, 0, 1),
     )
 
+    // // insert a space
+    // Editor.Text.batchInsert'(editor, [insertPosition], " ")
+    // ->Promise.flatMap(succeed =>
+    //   if succeed {
+    //     // delete that space
+    //     Editor.Text.batchReplace'(editor, [(deleteRange, "")])
+    //   } else {
+    //     Promise.resolved(false)
+    //   }
+    // )
+    // // save after messing with the file
+    // ->Promise.flatMap(_ => VSCode.TextDocument.save(document))
+    // ->Promise.map(_ => ())
+
     // insert a space
-    Editor.Text.batchInsert'(editor, [insertPosition], " ")
+    Editor.Text.insert(document, insertPosition, " ")
     ->Promise.flatMap(succeed =>
       if succeed {
         // delete that space
-        Editor.Text.batchReplace'(editor, [(deleteRange, "")])
+        Editor.Text.replace(document, deleteRange, "")
       } else {
         Promise.resolved(false)
       }
