@@ -61,8 +61,8 @@ describe("Tokens", ~timeout=10000, () => {
 
   Q.before(() => {
     let filepath = Path.asset("GotoDefinition.agda")
-    // Config.Connection.setUseAgdaLanguageServer(false)
-    // ->Promise.flatMap(() => activateExtensionAndOpenFile(filepath))
+
+    Config.inTestingMode := true;
     Config.Connection.setAgdaVersion("agda")
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
     ->Promise.flatMap(() => GetAgda.run("agda"))

@@ -2,32 +2,57 @@ open VSCode
 module VSRange = Range
 open Belt
 
+// this flag should be set as TRUE when testing
+let inTestingMode = ref(false)
+
 module Connection = {
+  // in testing mode, configs are read and written from here instead
+  let agdaVersionInTestingMode = ref("agda")
+  let agdaPathInTestingMode = ref("")
+  let useAgdaLanguageServerInTestingMode = ref(false)
+
   // Agda version
   let setAgdaVersion = path =>
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-      "connection.agdaVersion",
-      path,
-      None,
-    )
+    if inTestingMode.contents {
+      agdaVersionInTestingMode := path
+      Promise.resolved()
+    } else {
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaVersion", path, None)
+    }
+
   let getAgdaVersion = () =>
-    Workspace.getConfiguration(Some("agdaMode"), None)
-    ->WorkspaceConfiguration.get("connection.agdaVersion")
-    ->Option.map(Js.String.trim)
-    ->Option.flatMap(s => s == "" ? None : Some(s))
-    ->Option.getWithDefault("agda")
+    if inTestingMode.contents {
+      agdaVersionInTestingMode.contents
+    } else {
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("connection.agdaVersion")
+      ->Option.map(Js.String.trim)
+      ->Option.flatMap(s => s == "" ? None : Some(s))
+      ->Option.getWithDefault("agda")
+    }
 
   // Agda path
   let setAgdaPath = path =>
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-      "connection.agdaPath",
-      path,
-      None,
-    )
+    if inTestingMode.contents {
+      agdaPathInTestingMode := path
+      Promise.resolved()
+    } else {
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaPath", path, None)
+    }
   let getAgdaPath = () =>
-    Workspace.getConfiguration(Some("agdaMode"), None)
-    ->WorkspaceConfiguration.get("connection.agdaPath")
-    ->Option.mapWithDefault("", Js.String.trim)
+    if inTestingMode.contents {
+      agdaPathInTestingMode.contents
+    } else {
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("connection.agdaPath")
+      ->Option.mapWithDefault("", Js.String.trim)
+    }
 
   // Agda command-line options
   let getCommandLineOptions = () =>
@@ -37,22 +62,29 @@ module Connection = {
     ->Array.keep(s => Js.String.trim(s) != "")
 
   // Agda Language Server
-  let getUseAgdaLanguageServer = () => {
-    let raw =
-      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-        "connection.agdaLanguageServer",
-      )
-    switch raw {
-    | Some(true) => true
-    | _ => false
+  let getUseAgdaLanguageServer = () =>
+    if inTestingMode.contents {
+      useAgdaLanguageServerInTestingMode.contents
+    } else {
+      let raw =
+        Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+          "connection.agdaLanguageServer",
+        )
+      switch raw {
+      | Some(true) => true
+      | _ => false
+      }
     }
-  }
-  let setUseAgdaLanguageServer = (b: bool) =>
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-      "connection.agdaLanguageServer",
-      b,
-      None,
-    )
+  let setUseAgdaLanguageServer = (mode: bool) =>
+    if inTestingMode.contents {
+      useAgdaLanguageServerInTestingMode := mode
+      Promise.resolved()
+    } else {
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaLanguageServer", mode, None)
+    }
   // Agda Language Server port
   let getAgdaLanguageServerPort = () => {
     let raw =
