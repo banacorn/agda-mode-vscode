@@ -15,13 +15,34 @@ jobs:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
 
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: Checkout
+
+    - name: 📥 Checkout repository
       uses: actions/checkout@v2
 
-    - name: Install Node.js
+    # things to be cached/restored:
+
+    - name: 💾 Cache stack global package db
+      id:   stack-global
+      uses: actions/cache@v2
+      with:
+        path: ~/.stack
+        key: ${{ runner.os }}-stack-global-after20210110-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-global-after202110110
+
+    - name: 💾 Cache stack-installed programs in ~/.local/bin
+      id:   stack-programs
+      uses: actions/cache@v2
+      with:
+        path: ~/.local/bin
+        key: ${{ runner.os }}-stack-programs-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-programs
+
+    # actions:
+
+    - name: ⏬ Install Node.js
       uses: actions/setup-node@v1
       with:
         node-version: 10.x
@@ -48,18 +69,15 @@ jobs:
       # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
       # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
 
-
-    - name: Install Dependencies
+    - name: ⏬ Install Dependencies
       run: |
         stack install Agda-2.6.2
         which agda
+        echo %PATH%
         npm install
       
-    - name: Build stuff 
+    - name: 🔨 Build stuff 
       run: npm run build
       
-    - name: Run tests
+    - name: 🚗 Run tests
       run: npm test
-      # uses: GabrielBB/xvfb-action@v1.2
-      # with:
-      #   run: npm test
