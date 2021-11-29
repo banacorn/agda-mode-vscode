@@ -82,7 +82,7 @@ module type Module = {
     string,
     result<Response.t, Error.t> => Promise.t<unit>,
   ) => Promise.t<result<unit, Error.t>>
-  let getInfo: t => (string, string)
+  let getInfo: t => (string, string) // version and path 
 }
 
 module Module: Module = {

@@ -6,13 +6,13 @@ open Js.Promise
 exception Exn(string)
 
 // wrapper around BsMocha's Assertions
-let runner: (unit => unit) => Promise.promise<result<unit, exn>> = %raw(` function(f) {
+let runner: (unit => unit) => Promise.promise<result<'a, exn>> = %raw(` function(f) {
     var tmp
     try {
-      f()
+      var result = f();
       tmp = {
         TAG: 0,
-        _0: undefined,
+        _0: result,
         [Symbol.for("name")]: "Ok"
       };
     }
@@ -26,6 +26,7 @@ let runner: (unit => unit) => Promise.promise<result<unit, exn>> = %raw(` functi
     }
     return $$Promise.resolved(tmp);
   }`)
+
 
 module Path = {
   let toAbsolute = filepath => {

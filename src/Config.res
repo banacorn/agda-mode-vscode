@@ -37,7 +37,7 @@ module Connection = {
     ->Array.keep(s => Js.String.trim(s) != "")
 
   // Agda Language Server
-  let useAgdaLanguageServer = () => {
+  let getUseAgdaLanguageServer = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
         "connection.agdaLanguageServer",
@@ -47,6 +47,12 @@ module Connection = {
     | _ => false
     }
   }
+  let setUseAgdaLanguageServer = (b: bool) =>
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+      "connection.agdaLanguageServer",
+      b,
+      None,
+    )
   // Agda Language Server port
   let getAgdaLanguageServerPort = () => {
     let raw =

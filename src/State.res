@@ -54,7 +54,7 @@ let sendRequest = (
     Connection.sendRequest(
       state.globalStoragePath,
       onDownload(state),
-      Config.Connection.useAgdaLanguageServer(),
+      Config.Connection.getUseAgdaLanguageServer(),
       state.document,
       request,
       onResponse,

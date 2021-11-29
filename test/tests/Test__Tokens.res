@@ -1,7 +1,56 @@
 open! BsMocha.Mocha
 open Test__Util
+open LanguageServerMule.Source
+open Belt
 
-describe_skip("Tokens", ~timeout=10000, () => {
+type setup = ref<option<Connection.Emacs.t>>
+
+// module for acquire Agda for testing
+module GetAgda = {
+  module Error = {
+    type t =
+      | LanguageServerMuleErrors(array<Error.t>)
+      | EmacsConnectionError(Connection.Emacs.Error.t)
+    let toString = x =>
+      switch x {
+      | LanguageServerMuleErrors(errors) =>
+        Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
+      | EmacsConnectionError(error) =>
+        let (header, body) = Connection.Emacs.Error.toString(error)
+        "EmacsConnectionError: " ++ header ++ ": " ++ body
+      }
+  }
+
+  let run = command =>
+    Module.searchUntilSuccess([FromCommand(command)])
+    ->Promise.flatMap(((result, errors)) =>
+      switch result {
+      | None => Promise.resolved(Error(Error.LanguageServerMuleErrors(errors)))
+      | Some(method) => Promise.resolved(Ok(method))
+      }
+    )
+    ->Promise.flatMapOk(method =>
+      Connection.Emacs.make(method)->Promise.mapError(error => Error.EmacsConnectionError(error))
+    )
+    ->Promise.flatMapError(error =>
+      A.fail("Unable to acquire \"Agda\" for testing: " ++ Error.toString(error))
+    )
+}
+
+let acquire = setup =>
+  switch setup.contents {
+  | None => A.fail("Cannot acquire the setup")
+  | Some(setup) => Promise.resolved(Ok(setup))
+  }
+
+let cleanup = (setup: setup) => {
+  switch setup.contents {
+  | None => Promise.resolved()
+  | Some(conn) => Connection.Emacs.destroy(conn)
+  }
+}
+
+describe("Tokens", ~timeout=10000, () => {
   let tokens = ref(None)
 
   let acquire = () =>
@@ -12,8 +61,14 @@ describe_skip("Tokens", ~timeout=10000, () => {
 
   Q.before(() => {
     let filepath = Path.asset("GotoDefinition.agda")
-    activateExtensionAndOpenFile(filepath)
-    ->Promise.flatMap(((_, channels)) => {
+    // Config.Connection.setUseAgdaLanguageServer(false)
+    // ->Promise.flatMap(() => activateExtensionAndOpenFile(filepath))
+    Config.Connection.setAgdaVersion("agda")
+    ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
+    ->Promise.flatMap(() => GetAgda.run("agda"))
+    ->Promise.flatMapOk(_ => activateExtensionAndOpenFile(filepath)->Promise.map(x => Ok(x)))
+    // activateExtensionAndOpenFile(filepath)
+    ->Promise.flatMapOk(((_, channels)) => {
       let (promise, resolve) = Promise.pending()
 
       let subscription = ref(None)
@@ -22,20 +77,19 @@ describe_skip("Tokens", ~timeout=10000, () => {
           channels.response->Chan.on(response =>
             switch response {
             | CompleteHighlightingAndMakePromptReappear =>
-              Js.log("CompleteHighlightingAndMakePromptReappear")
+              // Js.log("CompleteHighlightingAndMakePromptReappear")
               subscription.contents->Belt.Option.forEach(f => f())
               resolve()
             | _ => ()
             }
           ),
         )
-
       executeCommand("agda-mode.load")->Promise.flatMap(state => {
-        Js.log("SOME THING WRONG WITH load RESOLVING PERMATURELY")
-        promise->Promise.map(() => state)
+        // Js.log("SOME THING WRONG WITH load RESOLVING PERMATURELY")
+        promise->Promise.map(() => Ok(state))
       })
     })
-    ->Promise.flatMap(state => {
+    ->Promise.flatMapOk(state => {
       switch state {
       | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
       | Some(Ok(state)) =>
