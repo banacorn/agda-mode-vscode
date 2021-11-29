@@ -20,13 +20,40 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
+
     - name: Install Node.js
       uses: actions/setup-node@v1
       with:
         node-version: 10.x
 
+    - name: ⏬ Install stack (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        mkdir -p ~/.local/bin
+        export PATH=~/.local/bin:$PATH
+        # curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
+        if [[ ! -x ~/.local/bin/stack ]]; then curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
+        stack --version
+
+    - name: ⏬ Install stack (Windows)
+      if: matrix.os == 'windows-latest'
+      # this step is needed to get stack.exe into PATH, for now
+      run: |
+        curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
+        7z x stack.zip stack.exe
+        which stack
+        stack --version
+        which ./stack
+        ./stack --version
+      # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
+      # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
+
+
     - name: Install Dependencies
-      run: npm install
+      run: |
+        stack install Agda-2.6.2
+        which agda
+        npm install
       
     - name: Build stuff 
       run: npm run build
