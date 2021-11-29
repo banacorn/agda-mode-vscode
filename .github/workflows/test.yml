@@ -69,11 +69,20 @@ jobs:
       # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
       # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
 
-    - name: ⏬ Install Dependencies
+    - name: ⏬ Install Agda (macOS)
+      if: matrix.os == 'macos-latest'
       run: |
         stack install Agda-2.6.2
-        which agda
-        echo %PATH%
+
+    - name: ⏬ Install Agda (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        stack install Agda-2.6.2
+        cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\tools\ghc-9.2.1\bin
+
+
+    - name: ⏬ Install NPM Dependencies
+      run: |
         npm install
       
     - name: 🔨 Build stuff 
