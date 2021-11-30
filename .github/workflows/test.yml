@@ -55,6 +55,7 @@ jobs:
         # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
         if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
+        stack path --bin-path
 
     - name: ⏬ Install stack (Windows)
       if: matrix.os == 'windows-latest'
@@ -73,13 +74,15 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         stack install Agda-2.6.2
+        echo $PATH
+        which agda
 
     - name: ⏬ Install Agda (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         stack install Agda-2.6.2
         cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\tools\ghc-9.2.1\bin
-
+        which agda
 
     - name: ⏬ Install NPM Dependencies
       run: |

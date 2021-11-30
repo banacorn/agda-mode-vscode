@@ -5,8 +5,8 @@ open Belt
 
 type setup = ref<option<Connection.Emacs.t>>
 
-// module for acquire Agda for testing
-module GetAgda = {
+// module for checking if Agda is present in PATH
+module Agda = {
   module Error = {
     type t =
       | LanguageServerMuleErrors(array<Error.t>)
@@ -21,20 +21,18 @@ module GetAgda = {
       }
   }
 
-  let run = command =>
+  let exists = command =>
     Module.searchUntilSuccess([FromCommand(command)])
     ->Promise.flatMap(((result, errors)) =>
       switch result {
-      | None => Promise.resolved(Error(Error.LanguageServerMuleErrors(errors)))
-      | Some(method) => Promise.resolved(Ok(method))
+      | None => Promise.resolved(Error(errors))
+      | Some(_method) => Promise.resolved(Ok())
       }
     )
-    ->Promise.flatMapOk(method =>
-      Connection.Emacs.make(method)->Promise.mapError(error => Error.EmacsConnectionError(error))
-    )
-    ->Promise.flatMapError(error =>
-      A.fail("Unable to acquire \"Agda\" for testing: " ++ Error.toString(error))
-    )
+    ->Promise.flatMapError(errors => {
+      let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
+      A.fail("Cannot find \"Agda\" in PATH: " ++ msg)
+    })
 }
 
 let acquire = setup =>
@@ -62,12 +60,11 @@ describe("Tokens", ~timeout=10000, () => {
   Q.before(() => {
     let filepath = Path.asset("GotoDefinition.agda")
 
-    Config.inTestingMode := true;
+    Config.inTestingMode := true
     Config.Connection.setAgdaVersion("agda")
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
-    ->Promise.flatMap(() => GetAgda.run("agda"))
+    ->Promise.flatMap(() => Agda.exists("agda"))
     ->Promise.flatMapOk(_ => activateExtensionAndOpenFile(filepath)->Promise.map(x => Ok(x)))
-    // activateExtensionAndOpenFile(filepath)
     ->Promise.flatMapOk(((_, channels)) => {
       let (promise, resolve) = Promise.pending()
 
