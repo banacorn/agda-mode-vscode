@@ -48,48 +48,27 @@ let cleanup = (setup: setup) => {
   }
 }
 
-describe_skip("Tokens", ~timeout=10000, () => {
+describe("Tokens", ~timeout=10000, () => {
   let tokens = ref(None)
 
   let acquire = () =>
     switch tokens.contents {
-    | None => Promise.resolved(Error(Exn("Cannot acquire tokens")))
+    | None => A.fail("Cannot acquire tokens")
     | Some(tokens) => Promise.resolved(Ok(tokens))
     }
 
   Q.before(() => {
     let filepath = Path.asset("GotoDefinition.agda")
-
+    // setting the environment
     Config.inTestingMode := true
     Config.Connection.setAgdaVersion("agda")
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
     ->Promise.flatMap(() => Agda.exists("agda"))
     ->Promise.flatMap(_ => activateExtensionAndOpenFile(filepath)->Promise.map(x => Ok(x)))
-    ->Promise.flatMapOk(((_, channels)) => {
-      let (promise, resolve) = Promise.pending()
-
-      let subscription = ref(None)
-      subscription :=
-        Some(
-          channels.response->Chan.on(response =>
-            switch response {
-            | CompleteHighlightingAndMakePromptReappear =>
-              // Js.log("CompleteHighlightingAndMakePromptReappear")
-              subscription.contents->Belt.Option.forEach(f => f())
-              resolve()
-            | _response => ()
-              // Js.log(Response.toString(response))
-            }
-          ),
-        )
-      executeCommand("agda-mode.load")->Promise.flatMap(state => {
-        // Js.log("Load complete")
-        promise->Promise.map(() => Ok(state))
-      })
-    })
+    ->Promise.flatMapOk(_ => executeCommand("agda-mode.load")->Promise.map(state => Ok(state)))
     ->Promise.flatMapOk(state => {
       switch state {
-      | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
+      | None => A.fail("Cannot load " ++ filepath)
       | Some(Ok(state)) =>
         tokens :=
           Some(
@@ -102,18 +81,12 @@ describe_skip("Tokens", ~timeout=10000, () => {
         Promise.resolved(Ok())
       | Some(Error(error)) =>
         let (header, body) = Connection.Error.toString(error)
-        Promise.resolved(Error(Exn(header ++ "\n" ++ body)))
+        A.fail(header ++ "\n" ++ body)
       }
     })
   })
 
   describe("GotoDefinition.agda", () => {
-    Q.it("should produce 28 tokens", () => {
-      acquire()->Promise.flatMapOk(tokens => {
-        A.deep_equal(28, Array.length(tokens))
-      })
-    })
-
     Q.it("should produce correct tokens", () => {
       acquire()->Promise.flatMapOk(tokens => {
         A.deep_equal(
@@ -147,7 +120,7 @@ describe_skip("Tokens", ~timeout=10000, () => {
             "6:6-7 Token (90, 91) [4]",
             "6:8-15 Token (92, 99) [34]",
           ],
-          tokens
+          tokens,
         )
       })
     })

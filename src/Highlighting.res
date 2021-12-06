@@ -257,19 +257,17 @@ module Module: Module = {
   let getSemanticTokens = (self: t) => self.semanticTokens
 
   let apply = (self, tokens, editor) => {
-    Tokens.readTempFiles(tokens, editor)->Promise.flatMap(() => {
-      if Config.Highlighting.getHighlightWithThemeColors() {
-        let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
-        self.semanticTokens = semanticTokens
-        self.decorations = Array.concat(self.decorations, decorations)
-        // apply cached tokens to the editor, by making a change to the file
-        triggerDocumentChangeEvent(editor)
-      } else {
-        let decorations = Tokens.toDecorations(tokens, editor)
-        self.decorations = Array.concat(self.decorations, decorations)
-        Promise.resolved()
-      }
-    })
+    if Config.Highlighting.getHighlightWithThemeColors() {
+      let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
+      self.semanticTokens = semanticTokens
+      self.decorations = Array.concat(self.decorations, decorations)
+      // apply cached tokens to the editor, by making a change to the file
+      triggerDocumentChangeEvent(editor)
+    } else {
+      let decorations = Tokens.toDecorations(tokens, editor)
+      self.decorations = Array.concat(self.decorations, decorations)
+      Promise.resolved()
+    }
   }
 }
 

@@ -215,10 +215,13 @@ let rec handle = (
   | RunningInfo(verbosity, message) =>
     let message = removeNewlines(message)
     state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
-    State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])->Promise.map(()=>Ok())
+    State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])->Promise.map(() => Ok())
   | CompleteHighlightingAndMakePromptReappear =>
     // apply decoration before handling Last Responses
-    Highlighting.apply(state.highlighting, state.tokens, state.editor)->Promise.map(()=>Ok())
+
+    Tokens.readTempFiles(state.tokens, state.editor)->Promise.flatMap(() => {
+      Highlighting.apply(state.highlighting, state.tokens, state.editor)->Promise.map(() => Ok())
+    })
   | _ => Promise.resolved(Ok())
   }
 }
