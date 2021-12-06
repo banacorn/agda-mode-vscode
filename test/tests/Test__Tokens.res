@@ -83,7 +83,7 @@ describe("Tokens", ~timeout=10000, () => {
           ),
         )
       executeCommand("agda-mode.load")->Promise.flatMap(state => {
-        // Js.log("Load complete")
+        Js.log("Load complete")
         promise->Promise.map(() => Ok(state))
       })
     })

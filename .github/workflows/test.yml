@@ -97,7 +97,9 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: | 
         # adding (stack path --local-bin) to the PATH 
-        set PATH=%PATH%;(stack path --local-bin)
+        # set PATH=%PATH%;(stack path --local-bin)
+        
+        PATH %PATH%;(stack path --local-bin)
         which agda
 
         npm test
