@@ -220,6 +220,7 @@ let rec handle = (
     // apply decoration before handling Last Responses
 
     Tokens.readTempFiles(state.tokens, state.editor)->Promise.flatMap(() => {
+      Js.log2("FUCK", state.tokens->Tokens.toArray);
       Highlighting.apply(state.highlighting, state.tokens, state.editor)->Promise.map(() => Ok())
     })
   | _ => Promise.resolved(Ok())
