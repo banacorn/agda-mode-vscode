@@ -20,7 +20,7 @@ module Token = {
     ", " ++
     string_of_int(self.end_) ++
     ") " ++
-    Util.Pretty.list(List.fromArray(self.aspects)) ++
+    Util.Pretty.list(List.fromArray( Array.map(self.aspects, Aspect.toString))) ++
     switch self.source {
     | None => ""
     | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"

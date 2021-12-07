@@ -96,9 +96,7 @@ jobs:
     - name: 🚗 Run tests (Windows)
       if: matrix.os == 'windows-latest'
       run: | 
-        # adding (stack path --local-bin) to the PATH 
-        set PATH=%PATH%;(stack path --local-bin)
-        echo %PATH%
+        # move (stack path --local-bin) to somewhere in the PATH 
+        cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\Rust\.cargo\bin
         which agda
-
         npm test
