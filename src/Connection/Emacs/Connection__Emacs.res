@@ -82,7 +82,7 @@ module type Module = {
     string,
     result<Response.t, Error.t> => Promise.t<unit>,
   ) => Promise.t<result<unit, Error.t>>
-  let getInfo: t => (string, string) // version and path 
+  let getInfo: t => (string, string) // version and path
 }
 
 module Module: Module = {
@@ -185,7 +185,8 @@ module Module: Module = {
   let onResponse = (conn, callback) => {
     let scheduler = Scheduler.make()
     // this promise get resolved after all Responses has been received from Agda
-    let (promise, stopListener) = Promise.pending()
+    let (responsePromise, stopResponseListener) = Promise.pending()
+    let (responseHandlingPromise, allResponsesHaveBeenHandled) = Promise.pending()
 
     // There are 2 kinds of Responses
     //  NonLast Response :
@@ -202,25 +203,33 @@ module Module: Module = {
       switch x {
       | Error(error) =>
         // stop the Agda Response listener
-        stopListener(Error(error))
+        stopResponseListener(Error(error))
         callback(Error(error))->ignore
       | Ok(Yield(NonLast(response))) =>
         scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
       | Ok(Yield(Last(priority, response))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
         // stop the Agda Response listener
-        stopListener(Ok())
+        stopResponseListener(Ok())
         // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler->Scheduler.runLast(response => callback(Ok(response)))
+        scheduler
+        ->Scheduler.runLast(response => {
+          callback(Ok(response))
+          // resolve the `responseHandlingPromise` after all Last Responses have been handled
+        })
+        ->Promise.get(allResponsesHaveBeenHandled)
       }
 
     // start listening for responses
     let listenerHandle = ref(None)
     listenerHandle := Some(conn.chan->Chan.on(listener))
     // destroy the listener after all responses have been received
-    promise->Promise.tap(_ =>
+    responsePromise
+    ->Promise.tap(_ =>
       listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
     )
+    // wait until all Responses have been handled
+    ->Promise.flatMap(result => responseHandlingPromise->Promise.map(() => result))
   }
 
   let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {

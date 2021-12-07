@@ -234,7 +234,7 @@ module Module: Module = {
       self.tempFiles = []
     })
   }
-
+  
   let clear = self => {
     // delete all unhandded temp files
     self.tempFiles->Array.forEach(format => {

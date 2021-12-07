@@ -18,7 +18,7 @@ module Module: {
   let make: unit => t<'a>
   let addLast: (t<'a>, int, Response.t) => unit
   let runNonLast: (t<'a>, Response.t => Promise.t<'a>, Response.t) => unit
-  let runLast: (t<'a>, Response.t => Promise.t<'a>) => unit
+  let runLast: (t<'a>, Response.t => Promise.t<'a>) => Promise.t<unit>
 } = {
   type t<'a> = {
     // keep the number of running NonLast Response
@@ -55,10 +55,11 @@ module Module: {
       self.allDone->Chan.once
     }
   // start handling Last Responses, after all NonLast Responses have been handled
+  // returns a promise that resolves after all Last Responses have been handled
   let runLast = (self, handler) =>
     self
     ->onceDone
-    ->Promise.get(() => {
+    ->Promise.flatMap(() => {
       // sort the deferred Responses by priority (ascending order)
       let deferredLastResponses =
         Js.Array.sortInPlaceWith(
@@ -72,7 +73,7 @@ module Module: {
         deferredLastResponses,
       )->ignore
 
-      deferredLastResponses->Array.map(res => handler((res)))->Util.oneByOne->ignore
+      deferredLastResponses->Array.map(res => handler((res)))->Util.oneByOne->Promise.map(_ => ())
     })
 }
 

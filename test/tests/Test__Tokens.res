@@ -74,16 +74,13 @@ describe("Tokens", ~timeout=10000, () => {
           channels.response->Chan.on(response =>
             switch response {
             | CompleteHighlightingAndMakePromptReappear =>
-              Js.log("CompleteHighlightingAndMakePromptReappear")
               subscription.contents->Belt.Option.forEach(f => f())
               resolve()
             | _response => ()
-              Js.log(Response.toString(response))
             }
           ),
         )
       executeCommand("agda-mode.load")->Promise.flatMap(state => {
-        Js.log("Load complete")
         promise->Promise.map(() => Ok(state))
       })
     })
@@ -147,7 +144,7 @@ describe("Tokens", ~timeout=10000, () => {
             "6:6-7 Token (90, 91) [4]",
             "6:8-15 Token (92, 99) [34]",
           ],
-          tokens
+          tokens,
         )
       })
     })
