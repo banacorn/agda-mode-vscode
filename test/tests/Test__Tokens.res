@@ -65,25 +65,7 @@ describe("Tokens", ~timeout=10000, () => {
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
     ->Promise.flatMap(() => Agda.exists("agda"))
     ->Promise.flatMap(_ => activateExtensionAndOpenFile(filepath)->Promise.map(x => Ok(x)))
-    ->Promise.flatMapOk(((_, channels)) => {
-      let (promise, resolve) = Promise.pending()
-
-      let subscription = ref(None)
-      subscription :=
-        Some(
-          channels.response->Chan.on(response =>
-            switch response {
-            | CompleteHighlightingAndMakePromptReappear =>
-              subscription.contents->Belt.Option.forEach(f => f())
-              resolve()
-            | _response => ()
-            }
-          ),
-        )
-      executeCommand("agda-mode.load")->Promise.flatMap(state => {
-        promise->Promise.map(() => Ok(state))
-      })
-    })
+    ->Promise.flatMapOk(_ => executeCommand("agda-mode.load")->Promise.map(state => Ok(state)))
     ->Promise.flatMapOk(state => {
       switch state {
       | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
