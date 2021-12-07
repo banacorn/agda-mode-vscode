@@ -1,6 +1,7 @@
 // https://github.com/agda/agda/blob/master/src/full/Agda/Interaction/Highlighting/Precise.hs
 // a mix of Aspect, OtherAspect and NameKind
 type t =
+  | Hole
   | // the Aspect part
   Comment
   | Keyword
@@ -43,6 +44,7 @@ type t =
 
 let toString = x =>
   switch x {
+  | Hole => "Hole"
   // the Aspect part
   | Comment => "Comment"
   | Keyword => "Keyword"
@@ -86,6 +88,7 @@ let toString = x =>
 
 let parse = x =>
   switch x {
+  | "hole" => Hole
   | "comment" => Comment
   | "keyword" => Keyword
   | "string" => String
@@ -124,11 +127,12 @@ let parse = x =>
   | "macro" => Macro
 
   | "operator" => Operator
-  | _ => Operator
+  | _others => Operator
   }
 
 let toDecoration = (x: t): option<Highlighting__Decoration.t> =>
   switch x {
+  | Hole => None 
   | Comment =>
     Some({
       light: Foreground("#B0B0B0"),
@@ -286,6 +290,7 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   )
 
   switch x {
+  | Hole => nothing
   // the Aspect part
   | Comment => typeOnly(Comment)
   | Keyword => typeOnly(Keyword)
