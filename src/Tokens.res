@@ -25,6 +25,8 @@ module Token = {
     | None => ""
     | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
     }
+  
+  // from SExpression
   let parse: Parser.SExpression.t => option<t> = x =>
     switch x {
     | A(_) => None
@@ -69,9 +71,12 @@ module Token = {
       | _ => None
       }
     }
+
+  // from SExpression
   let parseDirectHighlightings: array<Parser.SExpression.t> => array<t> = tokens =>
     tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
 
+  // from JSON
   let decode: Json.Decode.decoder<t> = {
     open Json.Decode
     Util.Decode.tuple6(
@@ -90,14 +95,18 @@ module Token = {
       source: source,
     })
   }
+
+  // from JSON
+  let decodeResponseHighlightingInfoDirect: Json.Decode.decoder<(bool, array<t>)> = {
+    open Json.Decode
+    pair(bool, array(decode)) |> map(((keepHighlighting, xs)) => (keepHighlighting, xs))
+  }
 }
 
 module type Module = {
   type t
 
   let make: unit => t
-
-  let decodeHighlightingInfoDirect: Json.Decode.decoder<(bool, array<Token.t>)>
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
   let readTempFiles: (t, VSCode.TextEditor.t) => Promise.promise<unit>
@@ -120,11 +129,6 @@ module type Module = {
 
 module Module: Module = {
   // decode Response from Agda or from temp files
-  let decodeHighlightingInfoDirect: Json.Decode.decoder<(bool, array<Token.t>)> = {
-    open Json.Decode
-    pair(bool, array(Token.decode)) |> map(((keepHighlighting, xs)) => (keepHighlighting, xs))
-  }
-
   module TempFile = {
     type t =
       | Emacs(string)
@@ -160,7 +164,7 @@ module Module: Module = {
             let raw = Node.Buffer.toString(buffer)
             switch Js.Json.parseExn(raw) {
             | exception _e => (false, [])
-            | json => decodeHighlightingInfoDirect(json)
+            | json => Token.decodeResponseHighlightingInfoDirect(json)
             }
           }
         | Error(_err) => (false, [])
@@ -234,7 +238,7 @@ module Module: Module = {
       self.tempFiles = []
     })
   }
-  
+
   let clear = self => {
     // delete all unhandded temp files
     self.tempFiles->Array.forEach(format => {

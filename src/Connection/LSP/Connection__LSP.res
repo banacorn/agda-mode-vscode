@@ -109,7 +109,7 @@ module LSPResponse = {
     switch x {
     | "ResponseHighlightingInfoDirect" =>
       Contents(
-        Tokens.decodeHighlightingInfoDirect |> map(((keepHighlighting, infos)) => {
+        Tokens.Token.decodeResponseHighlightingInfoDirect |> map(((keepHighlighting, infos)) => {
           ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
         }),
       )
