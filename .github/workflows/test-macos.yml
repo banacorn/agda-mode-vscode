@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: CI (macOS)
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -11,7 +11,7 @@ jobs:
   # This workflow contains a single job called "build"
   build:
     runs-on: macos-latest
-    
+
     steps:
 
     - name: 📥 Checkout repository
@@ -68,7 +68,6 @@ jobs:
       run: npm run build
       
     - name: 🚗 Run tests
-      if: matrix.os == 'macos-latest'
       run: | 
         # adding $(stack path --local-bin) to the PATH 
         PATH=$(stack path --local-bin):$PATH

@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: CI (Windows)
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -75,7 +75,6 @@ jobs:
       run: npm run build
 
     - name: 🚗 Run tests (Windows)
-      if: matrix.os == 'windows-latest'
       run: | 
         # move (stack path --local-bin) to somewhere in the PATH 
         cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\Rust\.cargo\bin
