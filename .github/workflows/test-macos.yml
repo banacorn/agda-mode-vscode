@@ -10,11 +10,8 @@ on: [push, pull_request]
 jobs:
   # This workflow contains a single job called "build"
   build:
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-
+    runs-on: macos-latest
+    
     steps:
 
     - name: 📥 Checkout repository
@@ -30,7 +27,6 @@ jobs:
         key: ${{ runner.os }}-stack-global-after20210110-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-global-after202110110
-
     - name: 💾 Cache stack-installed programs in ~/.local/bin
       id:   stack-programs
       uses: actions/cache@v2
@@ -39,6 +35,13 @@ jobs:
         key: ${{ runner.os }}-stack-programs-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-programs
+    - name: 💾 Cache .stack-work
+      uses: actions/cache@v2
+      with:
+        path: .stack-work
+        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-work
 
     # actions:
 
@@ -47,8 +50,7 @@ jobs:
       with:
         node-version: 10.x
 
-    - name: ⏬ Install stack (macOS)
-      if: matrix.os == 'macos-latest'
+    - name: ⏬ Install stack
       run: |
         mkdir -p ~/.local/bin
         export PATH=~/.local/bin:$PATH        
@@ -56,26 +58,7 @@ jobs:
         if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
 
-
-    - name: ⏬ Install stack (Windows)
-      if: matrix.os == 'windows-latest'
-      # this step is needed to get stack.exe into PATH, for now
-      run: |
-        curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
-        7z x stack.zip stack.exe
-        which stack
-        stack --version
-        which ./stack
-        ./stack --version
-      # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
-      # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
-
-    - name: ⏬ Install Agda (macOS)
-      if: matrix.os == 'macos-latest'
-      run: stack install Agda-2.6.2
-
-    - name: ⏬ Install Agda (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: ⏬ Install Agda
       run: stack install Agda-2.6.2
 
     - name: ⏬ Install NPM Dependencies
@@ -84,19 +67,11 @@ jobs:
     - name: 🔨 Build stuff 
       run: npm run build
       
-    - name: 🚗 Run tests (macOS)
+    - name: 🚗 Run tests
       if: matrix.os == 'macos-latest'
       run: | 
         # adding $(stack path --local-bin) to the PATH 
         PATH=$(stack path --local-bin):$PATH
         which agda
         
-        npm test
-
-    - name: 🚗 Run tests (Windows)
-      if: matrix.os == 'windows-latest'
-      run: | 
-        # move (stack path --local-bin) to somewhere in the PATH 
-        cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\Rust\.cargo\bin
-        which agda
         npm test
