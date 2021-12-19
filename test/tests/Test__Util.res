@@ -355,20 +355,61 @@ module Agda = {
       A.fail("Cannot find \"Agda\" in PATH: " ++ msg)
     })
 
-  // let load = () => {
+  type t = {
+    // ready: Promise.t<unit>,
+    filepath: string,
+    channels: State__Type.channels,
+  }
 
-  //   executeCommand("agda-mode.load")->Promise.flatMap(result =>
-  //     switch result {
-  //     | None => A.fail("Cannot load")
-  //     | Some(Ok(state)) =>
-  //       promise->Promise.map(() => {
-  //         disposable() // stop listening to responses
-  //         Ok(state)
-  //       })
-  //     | Some(Error(error)) =>
-  //       let (header, body) = Connection.Error.toString(error)
-  //       A.fail(header ++ "\n" ++ body)
-  //     }
-  //   )
-  // }
+  let make = (~als=false, filepath) => {
+    // for mocking Configs
+    Config.inTestingMode := true
+    // set name for searching Agda
+    Config.Connection.setAgdaVersion("agda")
+    ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(als))
+    ->Promise.flatMap(() => exists("agda"))
+    ->Promise.map(_ => {
+      filepath: Path.asset(filepath),
+      channels: activateExtension(),
+    })
+  }
+
+  let load = self => {
+    let (promise, resolve) = Promise.pending()
+
+    // agda-mode:load is consider finished
+    // when `CompleteHighlightingAndMakePromptReappear` has been handled
+    let disposable = self.channels.responseHandled->Chan.on(response => {
+      switch response {
+      | CompleteHighlightingAndMakePromptReappear => resolve()
+      | _ => ()
+      }
+    })
+
+    executeCommand("agda-mode.load")->Promise.flatMap(result =>
+      switch result {
+      | None => A.fail("Cannot load " ++ self.filepath)
+      | Some(Ok(state)) =>
+        promise->Promise.map(() => {
+          disposable() // stop listening to responses
+          Ok(self, state)
+        })
+      | Some(Error(error)) =>
+        let (header, body) = Connection.Error.toString(error)
+        A.fail(header ++ "\n" ++ body)
+      }
+    )
+  }
+
+  let case = ((self, _)) => {
+    executeCommand("agda-mode.case")->Promise.flatMap(result =>
+      switch result {
+      | None => A.fail("Cannot case split " ++ self.filepath)
+      | Some(Ok(state)) => Promise.resolved(Ok(self, state))
+      | Some(Error(error)) =>
+        let (header, body) = Connection.Error.toString(error)
+        A.fail(header ++ "\n" ++ body)
+      }
+    )
+  }
 }
