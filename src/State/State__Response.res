@@ -92,11 +92,8 @@ let rec handle = (
   dispatchCommand: Command.t => Promise.t<result<unit, Connection.Error.t>>,
   response: Response.t,
 ): Promise.t<result<unit, Connection.Error.t>> => {
-  // pipe Response for testing
-  state.channels.response->Chan.emit(response)
-
   let sendAgdaRequest = State.sendRequest(state, handle(state, dispatchCommand))
-  switch response {
+  let handleResponse = switch response {
   | HighlightingInfoDirect(_keep, annotations) =>
     state.tokens->Tokens.insert(state.editor, annotations)
     Promise.resolved(Ok())
@@ -223,4 +220,9 @@ let rec handle = (
     })
   | _ => Promise.resolved(Ok())
   }
+
+  handleResponse->Promise.tapOk(() => {
+    // emit Response when it's been handled 
+    state.channels.responseHandled->Chan.emit(response)
+  })
 }

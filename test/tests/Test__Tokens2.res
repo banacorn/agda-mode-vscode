@@ -48,16 +48,14 @@ let cleanup = (setup: setup) => {
   }
 }
 
-describe_skip("Tokens", ~timeout=10000, () => {
+describe("Tokens", ~timeout=10000, () => {
   let channels = ref(None)
-
   let acquire = filepath => {
     switch channels.contents {
     | None => A.fail("Cannot activate the extension")
     | Some(channels) =>
       let (promise, resolve) = Promise.pending()
-      let disposable = channels.State__Type.response->Chan.on(response =>{
-        Js.log(response => Response.toString(response))
+      let disposable = channels.State__Type.responseHandled->Chan.on(response =>{
         switch response {
         | CompleteHighlightingAndMakePromptReappear => resolve()
         | _ => ()
@@ -72,7 +70,6 @@ describe_skip("Tokens", ~timeout=10000, () => {
         | Some(Ok(state)) =>
           promise->Promise.map(() => {
             disposable() // stop listening to responses
-            Js.log(state.tokens)
             Ok(state)
           })
         | Some(Error(error)) =>

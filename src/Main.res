@@ -209,7 +209,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   // for example, when the input method has translated a key sequence into a symbol
   let channels = {
     State__Type.inputMethod: Chan.make(),
-    response: Chan.make(),
+    responseHandled: Chan.make(),
   }
 
   // on open editor

@@ -87,7 +87,8 @@ module ViewCache = {
 
 type channels = {
   inputMethod: Chan.t<IM.Log.t>,
-  response: Chan.t<Response.t>,
+  // emits when a Response has been handled
+  responseHandled: Chan.t<Response.t>,
 }
 
 type t = {
