@@ -48,53 +48,72 @@ let cleanup = (setup: setup) => {
   }
 }
 
-describe_skip("Tokens", ~timeout=10000, () => {
-  let tokens = ref(None)
+describe("Tokens", ~timeout=10000, () => {
+  let channels = ref(None)
 
-  let acquire = () =>
-    switch tokens.contents {
-    | None => Promise.resolved(Error(Exn("Cannot acquire tokens")))
-    | Some(tokens) => Promise.resolved(Ok(tokens))
+  let acquire = filepath => {
+    switch channels.contents {
+    | None => A.fail("Cannot activate the extension")
+    | Some(channels) =>
+      let (promise, resolve) = Promise.pending()
+      let disposable = channels.State__Type.response->Chan.on(response =>{
+        Js.log(response => Response.toString(response))
+        switch response {
+        | CompleteHighlightingAndMakePromptReappear => resolve()
+        | _ => ()
+        }
+      })
+      let filepath = Path.asset(filepath)
+      openFile(filepath)
+      ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
+      ->Promise.flatMap(result =>
+        switch result {
+        | None => A.fail("Cannot load " ++ filepath)
+        | Some(Ok(state)) =>
+          promise->Promise.map(() => {
+            disposable() // stop listening to responses
+            Js.log(state.tokens)
+            Ok(state)
+          })
+        | Some(Error(error)) =>
+          let (header, body) = Connection.Error.toString(error)
+          A.fail(header ++ "\n" ++ body)
+        }
+      )
     }
+  }
 
   Q.before(() => {
-    let filepath = Path.asset("GotoDefinition.agda")
-
     Config.inTestingMode := true
     Config.Connection.setAgdaVersion("agda")
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
     ->Promise.flatMap(() => Agda.exists("agda"))
-    ->Promise.flatMap(_ => activateExtensionAndOpenFile(filepath)->Promise.map(x => Ok(x)))
-    ->Promise.flatMapOk(_ => executeCommand("agda-mode.load")->Promise.map(state => Ok(state)))
-    ->Promise.flatMapOk(state => {
-      switch state {
-      | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
-      | Some(Ok(state)) =>
-        tokens :=
-          Some(
-            state.tokens
-            ->Tokens.toArray
-            ->Belt.Array.map(((token, range)) =>
-              Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
-            ),
-          )
-        Promise.resolved(Ok())
-      | Some(Error(error)) =>
-        let (header, body) = Connection.Error.toString(error)
-        Promise.resolved(Error(Exn(header ++ "\n" ++ body)))
-      }
+    ->Promise.tap(_ => {
+      channels := Some(activateExtension())
     })
   })
 
   describe("GotoDefinition.agda", () => {
     Q.it("should produce 28 tokens", () => {
-      acquire()->Promise.flatMapOk(tokens => {
+      acquire("GotoDefinition.agda")->Promise.flatMapOk(state => {
+        let tokens =
+          state.tokens
+          ->Tokens.toArray
+          ->Belt.Array.map(((token, range)) =>
+            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          )
         A.deep_equal(28, Array.length(tokens))
       })
     })
 
     Q.it("should produce correct tokens", () => {
-      acquire()->Promise.flatMapOk(tokens => {
+      acquire("GotoDefinition.agda")->Promise.flatMapOk(state => {
+        let tokens =
+          state.tokens
+          ->Tokens.toArray
+          ->Belt.Array.map(((token, range)) =>
+            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          )
         A.deep_equal(
           [
             "0:0-6 Token (0, 6) [Keyword]",
