@@ -48,7 +48,7 @@ let cleanup = (setup: setup) => {
   }
 }
 
-describe("Tokens", ~timeout=10000, () => {
+describe_skip("Tokens", ~timeout=10000, () => {
   let channels = ref(None)
 
   let acquire = filepath => {
