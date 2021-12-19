@@ -18,7 +18,7 @@ module Module: {
   let make: unit => t<'a>
   let addLast: (t<'a>, int, Response.t) => unit
   let runNonLast: (t<'a>, Response.t => Promise.t<'a>, Response.t) => unit
-  let runLast: (t<'a>, Response.t => Promise.t<'a>) => Promise.t<unit>
+  let runLast: (t<'a>, Response.t => Promise.t<'a>) => unit
 } = {
   type t<'a> = {
     // keep the number of running NonLast Response
@@ -35,7 +35,7 @@ module Module: {
   let runNonLast = (self, handler, response) => {
     // Js.log("[NonLast] " ++ Response.toString(response))
     self.tally = self.tally + 1
-    handler((response))->Promise.get(_ => {
+    handler(response)->Promise.get(_ => {
       self.tally = self.tally - 1
       if self.tally == 0 {
         self.allDone->Chan.emit()
@@ -55,11 +55,10 @@ module Module: {
       self.allDone->Chan.once
     }
   // start handling Last Responses, after all NonLast Responses have been handled
-  // returns a promise that resolves after all Last Responses have been handled
   let runLast = (self, handler) =>
     self
     ->onceDone
-    ->Promise.flatMap(() => {
+    ->Promise.get(() => {
       // sort the deferred Responses by priority (ascending order)
       let deferredLastResponses =
         Js.Array.sortInPlaceWith(
@@ -67,13 +66,13 @@ module Module: {
           self.deferredLastResponses,
         )->Array.map(snd)
 
-      // insert `CompleteHighlightingAndMakePromptReappear` handling Last Responses
+      // insert `CompleteHighlightingAndMakePromptReappear` after handling Last Responses
       Js.Array.unshift(
         Response.CompleteHighlightingAndMakePromptReappear,
         deferredLastResponses,
       )->ignore
 
-      deferredLastResponses->Array.map(res => handler((res)))->Util.oneByOne->Promise.map(_ => ())
+      deferredLastResponses->Array.map(res => handler(res))->Util.oneByOne->ignore
     })
 }
 

@@ -266,10 +266,6 @@ module Module: Module = {
   // let getInfo = self => (self.version, self.method)
 
   let sendRequest = (self, request, handler) => {
-    // this promise get resolved after all Responses has been handled
-    let (responseHandlingPromise, allResponsesHaveBeenHandled) = Promise.pending()
-
-
     let handler = response => handler(Ok(response))
 
     let scheduler = Scheduler.make()
@@ -302,8 +298,8 @@ module Module: Module = {
     ->Promise.tap(_ => stopListeningForNotifications->VSCode.Disposable.dispose)
     ->Promise.tap(_ =>
       // start handling Last Responses, after all NonLast Responses have been handled
-      scheduler->Scheduler.runLast(handler)->Promise.get(allResponsesHaveBeenHandled)
-    )->Promise.flatMap(result => responseHandlingPromise->Promise.map(() => result))
+      scheduler->Scheduler.runLast(handler)
+    )
   }
 }
 include Module

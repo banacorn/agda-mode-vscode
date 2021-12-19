@@ -186,7 +186,6 @@ module Module: Module = {
     let scheduler = Scheduler.make()
     // this promise get resolved after all Responses has been received from Agda
     let (responsePromise, stopResponseListener) = Promise.pending()
-    let (responseHandlingPromise, allResponsesHaveBeenHandled) = Promise.pending()
 
     // There are 2 kinds of Responses
     //  NonLast Response :
@@ -217,7 +216,6 @@ module Module: Module = {
           callback(Ok(response))
           // resolve the `responseHandlingPromise` after all Last Responses have been handled
         })
-        ->Promise.get(allResponsesHaveBeenHandled)
       }
 
     // start listening for responses
@@ -228,8 +226,6 @@ module Module: Module = {
     ->Promise.tap(_ =>
       listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
     )
-    // wait until all Responses have been handled
-    ->Promise.flatMap(result => responseHandlingPromise->Promise.map(() => result))
   }
 
   let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {
