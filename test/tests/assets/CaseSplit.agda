@@ -23,4 +23,4 @@ g1 = λ where
   y → {!   !}
 
 issue16 : ℕ → ℕ
-issue16 = λ {x → ? }
+issue16 = λ {x → {!   !} }

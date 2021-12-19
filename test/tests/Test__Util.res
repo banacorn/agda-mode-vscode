@@ -27,7 +27,6 @@ let runner: (unit => unit) => Promise.promise<result<'a, exn>> = %raw(` function
     return $$Promise.resolved(tmp);
   }`)
 
-
 module Path = {
   let toAbsolute = filepath => {
     let dirname: option<string> = %bs.node(__dirname)
@@ -87,7 +86,8 @@ let activateExtensionAndOpenFile = fileName => {
 }
 
 @module("vscode") @scope("commands")
-external executeCommand: string => Promise.t<option<result<State.t, Connection.Error.t>>> = "executeCommand"
+external executeCommand: string => Promise.t<option<result<State.t, Connection.Error.t>>> =
+  "executeCommand"
 
 let wait = ms => {
   let (promise, resolve) = Promise.pending()
@@ -324,4 +324,51 @@ module Golden = {
 let onUnix = switch N.OS.type_() {
 | "Windows_NT" => false
 | _ => true
+}
+
+// module for checking if Agda is present in PATH
+module Agda = {
+  module Error = {
+    type t =
+      | LanguageServerMuleErrors(array<LanguageServerMule.Source.Error.t>)
+      | EmacsConnectionError(Connection.Emacs.Error.t)
+    let toString = x =>
+      switch x {
+      | LanguageServerMuleErrors(errors) =>
+        Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
+      | EmacsConnectionError(error) =>
+        let (header, body) = Connection.Emacs.Error.toString(error)
+        "EmacsConnectionError: " ++ header ++ ": " ++ body
+      }
+  }
+
+  let exists = command =>
+    LanguageServerMule.Source.Module.searchUntilSuccess([FromCommand(command)])
+    ->Promise.flatMap(((result, errors)) =>
+      switch result {
+      | None => Promise.resolved(Error(errors))
+      | Some(_method) => Promise.resolved(Ok())
+      }
+    )
+    ->Promise.flatMapError(errors => {
+      let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
+      A.fail("Cannot find \"Agda\" in PATH: " ++ msg)
+    })
+
+  // let load = () => {
+
+  //   executeCommand("agda-mode.load")->Promise.flatMap(result =>
+  //     switch result {
+  //     | None => A.fail("Cannot load")
+  //     | Some(Ok(state)) =>
+  //       promise->Promise.map(() => {
+  //         disposable() // stop listening to responses
+  //         Ok(state)
+  //       })
+  //     | Some(Error(error)) =>
+  //       let (header, body) = Connection.Error.toString(error)
+  //       A.fail(header ++ "\n" ++ body)
+  //     }
+  //   )
+  // }
 }

@@ -1,39 +1,8 @@
 open! BsMocha.Mocha
-open Test__Util
-open LanguageServerMule.Source
+open! Test__Util
 open Belt
 
 type setup = ref<option<Connection.Emacs.t>>
-
-// module for checking if Agda is present in PATH
-module Agda = {
-  module Error = {
-    type t =
-      | LanguageServerMuleErrors(array<Error.t>)
-      | EmacsConnectionError(Connection.Emacs.Error.t)
-    let toString = x =>
-      switch x {
-      | LanguageServerMuleErrors(errors) =>
-        Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
-      | EmacsConnectionError(error) =>
-        let (header, body) = Connection.Emacs.Error.toString(error)
-        "EmacsConnectionError: " ++ header ++ ": " ++ body
-      }
-  }
-
-  let exists = command =>
-    Module.searchUntilSuccess([FromCommand(command)])
-    ->Promise.flatMap(((result, errors)) =>
-      switch result {
-      | None => Promise.resolved(Error(errors))
-      | Some(_method) => Promise.resolved(Ok())
-      }
-    )
-    ->Promise.flatMapError(errors => {
-      let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
-      A.fail("Cannot find \"Agda\" in PATH: " ++ msg)
-    })
-}
 
 let acquire = setup =>
   switch setup.contents {
