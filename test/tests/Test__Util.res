@@ -406,8 +406,17 @@ module Agda = {
     )
   }
 
-  let case = ((self, _)) => {
+  let case = (cursorAndPayload, (self, state: State__Type.t)) => {
     openFile(self.filepath)
+    ->Promise.flatMap(editor =>
+      switch cursorAndPayload {
+      | None => Promise.resolved(false)
+      | Some(cursor, payload) =>
+        Editor.Text.insert(state.document, cursor, payload)->Promise.tap(_ =>
+          Editor.Cursor.set(editor, cursor)
+        )
+      }
+    )
     ->Promise.flatMap(_ => executeCommand("agda-mode.case"))
     ->Promise.flatMap(result =>
       switch result {
@@ -419,4 +428,28 @@ module Agda = {
       }
     )
   }
+}
+
+// store file content before testing so that we can restore it later
+let readFile = (filepath, var) => {
+  openFile(filepath)->Promise.map(editor => {
+    var := Editor.Text.getAll(VSCode.TextEditor.document(editor))
+    Ok()
+  })
+}
+
+let restoreFile = (filepath, var) => {
+  openFile(filepath)
+  ->Promise.flatMap(editor => {
+    let document = VSCode.TextEditor.document(editor)
+    let lineCount = document->VSCode.TextDocument.lineCount
+    let replaceRange = VSCode.Range.make(
+      VSCode.Position.make(0, 0),
+      VSCode.Position.make(lineCount, 0),
+    )
+    Editor.Text.replace(document, replaceRange, var.contents)->Promise.flatMap(_ =>
+      VSCode.TextDocument.save(document)
+    )
+  })
+  ->Promise.map(_ => Ok())
 }

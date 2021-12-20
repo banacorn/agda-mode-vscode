@@ -222,7 +222,7 @@ let rec handle = (
   }
 
   handleResponse->Promise.tapOk(() => {
-    // emit Response when it's been handled 
+    // emit Response when it's been handled
     state.channels.responseHandled->Chan.emit(response)
   })
 }

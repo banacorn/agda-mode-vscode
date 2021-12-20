@@ -2,10 +2,10 @@ open Belt
 open! BsMocha.Mocha
 open! Test__Util
 
-describe("Dry run State__Goal.caseSplitAux", () => {
+describe("State__Goal.caseSplitAux dry run", () => {
   Q.it("should calculate the infomation needed for case splitting correctly", () =>
     VSCode.Window.showTextDocumentWithUri(
-      VSCode.Uri.file(Path.asset("CaseSplit.agda")),
+      VSCode.Uri.file(Path.asset("CaseSplit1.agda")),
       None,
     )->Promise.flatMap(editor => {
       let document = VSCode.TextEditor.document(editor)
@@ -41,41 +41,19 @@ describe("Dry run State__Goal.caseSplitAux", () => {
   )
 })
 
-describe("Integration test", () => {
-  let context = Agda.make("CaseSplit.agda")
+describe_skip("Integration test", () => {
+  let context = Agda.make("CaseSplit2.agda")
+  let fileContent = ref("")
 
-  Q.it("should calculate the infomation needed for case splitting correctly", () =>
+  Q.before(() => readFile(Path.asset("CaseSplit2.agda"), fileContent))
+  Q.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
+
+  Q.it("should have more goals after splitting", () => {
     context
     ->Promise.flatMap(Agda.load)
-    ->Promise.flatMapOk(Agda.case)
+    ->Promise.flatMapOk(Agda.case(Some(VSCode.Position.make(7, 16), "x")))
     ->Promise.mapOk(((_, state)) => {
-      let results = state.goals->Array.map(goal => {
-        // convert `rewriteRange` to text in that range because range offsets are different on different OSs
-        let (inWhereClause, indentWidth, rewriteRange) = State__Goal.caseSplitAux(
-          state.document,
-          goal,
-        )
-        let rewriteRange = VSCode.Range.make(
-          VSCode.TextDocument.positionAt(state.document, fst(rewriteRange)),
-          VSCode.TextDocument.positionAt(state.document, snd(rewriteRange)),
-        )
-        (inWhereClause, indentWidth, Editor.Text.get(state.document, rewriteRange))
-      })
-
-      Assert.deep_equal(
-        results,
-        [
-          (false, 9, j`x → {!   !}`),
-          (false, 23, j`y → {!   !}`),
-          (false, 4, j`x → {!   !}`),
-          (false, 4, j`y → {!   !}`),
-          (true, 13, j`x → {!   !}`),
-          (true, 13, j`y → {!   !}`),
-          (true, 2, j`x → {!   !}`),
-          (true, 2, j`y → {!   !}`),
-          (false, 13, j`x → {!   !}`),
-        ],
-      )
+      Assert.deep_equal(Array.length(state.goals), 10)
     })
-  )
+  })
 })
