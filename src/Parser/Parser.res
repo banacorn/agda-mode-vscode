@@ -232,9 +232,11 @@ module Error = {
   let toString = x =>
     switch x {
     | SExpression(errno, string) =>
-      "Parse error code: S" ++ (string_of_int(errno) ++ (" \"" ++ (string ++ "\"")))
+      "Something went wrong when parsing S-expressions. Error code: S" ++
+      (string_of_int(errno) ++
+      (" \"" ++ (string ++ "\"")))
     | Response(errno, sexpr) =>
-      "Parse error code: R" ++
+      "Perhaps the underlying protocol used by Agda for communicating with agda-mode has changed.\nPlease report which version of Agda you are using.\nError code: R" ++
       (string_of_int(errno) ++
       (" \"" ++ (SExpression.toString(sexpr) ++ "\"")))
     }
