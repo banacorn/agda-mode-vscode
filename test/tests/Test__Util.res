@@ -362,6 +362,7 @@ module Agda = {
   }
 
   let make = (~als=false, filepath) => {
+    let filepath = Path.asset(filepath)
     // for mocking Configs
     Config.inTestingMode := true
     // set name for searching Agda
@@ -369,7 +370,7 @@ module Agda = {
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(als))
     ->Promise.flatMap(() => exists("agda"))
     ->Promise.map(_ => {
-      filepath: Path.asset(filepath),
+      filepath: filepath,
       channels: activateExtension(),
     })
   }
@@ -386,7 +387,9 @@ module Agda = {
       }
     })
 
-    executeCommand("agda-mode.load")->Promise.flatMap(result =>
+    openFile(self.filepath)
+    ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
+    ->Promise.flatMap(result =>
       switch result {
       | None => A.fail("Cannot load " ++ self.filepath)
       | Some(Ok(state)) =>
@@ -394,6 +397,8 @@ module Agda = {
           disposable() // stop listening to responses
           Ok(self, state)
         })
+      // Promise.resolved(Ok(self, state))
+
       | Some(Error(error)) =>
         let (header, body) = Connection.Error.toString(error)
         A.fail(header ++ "\n" ++ body)
@@ -402,7 +407,9 @@ module Agda = {
   }
 
   let case = ((self, _)) => {
-    executeCommand("agda-mode.case")->Promise.flatMap(result =>
+    openFile(self.filepath)
+    ->Promise.flatMap(_ => executeCommand("agda-mode.case"))
+    ->Promise.flatMap(result =>
       switch result {
       | None => A.fail("Cannot case split " ++ self.filepath)
       | Some(Ok(state)) => Promise.resolved(Ok(self, state))

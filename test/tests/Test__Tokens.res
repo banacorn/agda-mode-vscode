@@ -2,68 +2,34 @@ open! BsMocha.Mocha
 open! Test__Util
 open Belt
 
-type setup = ref<option<Connection.Emacs.t>>
-
-let acquire = setup =>
-  switch setup.contents {
-  | None => A.fail("Cannot acquire the setup")
-  | Some(setup) => Promise.resolved(Ok(setup))
-  }
-
-let cleanup = (setup: setup) => {
-  switch setup.contents {
-  | None => Promise.resolved()
-  | Some(conn) => Connection.Emacs.destroy(conn)
-  }
-}
-
-describe_skip("Tokens", ~timeout=10000, () => {
-  let tokens = ref(None)
-
-  let acquire = () =>
-    switch tokens.contents {
-    | None => Promise.resolved(Error(Exn("Cannot acquire tokens")))
-    | Some(tokens) => Promise.resolved(Ok(tokens))
-    }
-
-  Q.before(() => {
-    let filepath = Path.asset("GotoDefinition.agda")
-
-    Config.inTestingMode := true
-    Config.Connection.setAgdaVersion("agda")
-    ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(false))
-    ->Promise.flatMap(() => Agda.exists("agda"))
-    ->Promise.flatMap(_ => activateExtensionAndOpenFile(filepath)->Promise.map(x => Ok(x)))
-    ->Promise.flatMapOk(_ => executeCommand("agda-mode.load")->Promise.map(state => Ok(state)))
-    ->Promise.flatMapOk(state => {
-      switch state {
-      | None => Promise.resolved(Error(Exn("Cannot load " ++ filepath)))
-      | Some(Ok(state)) =>
-        tokens :=
-          Some(
-            state.tokens
-            ->Tokens.toArray
-            ->Belt.Array.map(((token, range)) =>
-              Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
-            ),
-          )
-        Promise.resolved(Ok())
-      | Some(Error(error)) =>
-        let (header, body) = Connection.Error.toString(error)
-        Promise.resolved(Error(Exn(header ++ "\n" ++ body)))
-      }
-    })
-  })
+describe("Tokens", ~timeout=10000, () => {
+  let context = Agda.make("GotoDefinition.agda")
 
   describe("GotoDefinition.agda", () => {
     Q.it("should produce 28 tokens", () => {
-      acquire()->Promise.flatMapOk(tokens => {
+      context
+      ->Promise.flatMap(Agda.load)
+      ->Promise.flatMapOk(((_, state)) => {
+        let tokens =
+          state.tokens
+          ->Tokens.toArray
+          ->Belt.Array.map(((token, range)) =>
+            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          )
         A.deep_equal(28, Array.length(tokens))
       })
     })
 
     Q.it("should produce correct tokens", () => {
-      acquire()->Promise.flatMapOk(tokens => {
+      context
+      ->Promise.flatMap(Agda.load)
+      ->Promise.flatMapOk(((_, state)) => {
+        let tokens =
+          state.tokens
+          ->Tokens.toArray
+          ->Belt.Array.map(((token, range)) =>
+            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          )
         A.deep_equal(
           [
             "0:0-6 Token (0, 6) [Keyword]",
