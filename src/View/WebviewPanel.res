@@ -11,7 +11,6 @@ module WebviewPanel: {
   let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
   // methods
   let reveal: t => unit
-  let focus: t => unit
 
   // move the panel around
   let moveToBottom: unit => unit
@@ -129,7 +128,6 @@ module WebviewPanel: {
   let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
 
   let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
-  let focus = panel => panel->VSCode.WebviewPanel.reveal()
 
   // let moveToLeft = () => {
   //   open VSCode.Commands
@@ -172,7 +170,6 @@ module type Module = {
   let onceDestroyed: t => Promise.t<unit>
 
   let reveal: t => unit
-  let focus: t => unit
 }
 
 module Module: Module = {
@@ -337,7 +334,6 @@ module Module: Module = {
 
   // show/focus
   let reveal = view => view.panel->WebviewPanel.reveal
-  let focus = view => view.panel->WebviewPanel.focus
 }
 
 include Module

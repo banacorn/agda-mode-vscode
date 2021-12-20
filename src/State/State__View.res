@@ -75,7 +75,6 @@ module Panel: Panel = {
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)
-    state->get->WebviewPanel.focus
 
     // send request to view
     sendRequest(state, Prompt(header, prompt), response =>
