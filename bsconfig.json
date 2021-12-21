@@ -25,7 +25,7 @@
   "bs-dependencies": [
     "@glennsl/bs-json",
     "rescript-vscode",
-    "bs-webapi",
+    "rescript-webapi",
     "bs-nd",
     "language-server-mule",
     "reason-promise",
