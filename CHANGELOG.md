@@ -3,7 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)## v0.3.6 - 2021-10-29
+
+## v0.3.7 - 2021-12-21
+
+### Fixed 
+- #75: Connection Error: Internal Parse Error
+- #81: Command '..' not found
+- #82: Panel reloading on multiple commands
+- #84: Can't type into the input prompts
 
 ## v0.3.6 - 2021-10-29
 

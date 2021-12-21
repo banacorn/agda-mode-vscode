@@ -23,6 +23,18 @@ The language server should be downloaded and installed within seconds.
 
 Prebuilt binaries for the language server are available on Windows, macOS, and Ubuntu.
 
+### Extension Activation
+
+To activate the extension, open an Agda file, and trigger either of these 2 commands:
+
+| Command                       |            Keymap             |
+| :---------------------------- | :---------------------------: |
+| load                          | <kbd>C-c</kbd> <kbd>C-l</kbd> |
+| activate unicode input method |         <kbd>\\</kbd>         |
+
+See the next section for the exhaustive list of other commands.
+You will get `command ... not found` if you try to trigger other commands without activating the extension first.
+
 ## Commands
 
 * <kbd>C-c</kbd> stands for "press <kbd>Ctrl</kbd> and <kbd>c</kbd> at the same time"
