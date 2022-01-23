@@ -8,11 +8,17 @@ module Platform = {
     type t = {"os": string, "dist": string, "codename": string, "release": string}
 
     @module
-    external getos: (t => unit) => unit = "getos"
+    external getos: (('e, t) => unit) => unit = "getos"
 
-    let runAsPromise = (): Promise.t<t> => {
-      let (promise, resolve) = Promise.pending()
-      getos(resolve)
+    let runAsPromise = (): Promise.Js.t<t, 'e> => {
+      let (promise, resolve, reject) = Promise.Js.pending()
+      getos((e, os) => {
+        let e = Js.Nullable.toOption(e);
+        switch e {
+            | Some(e) => reject(e)
+            | None => resolve(os)
+        }
+      })
       promise
     }
   }
