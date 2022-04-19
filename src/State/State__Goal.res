@@ -17,7 +17,10 @@ module type Module = {
 module Module: Module = {
   // return an array of Offsets of Goals
   let getOffsets = (state: State.t): array<int> =>
-    state.goals->Array.map(goal => fst(goal.interval) + 3)
+    state.goals->Array.map(goal => {
+      let (from, to) = goal.interval
+      from + (to - from)/2
+    })
 
   // There are two kinds of lambda abstraction
   //  1.  λ { x → ? }
