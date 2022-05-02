@@ -19,7 +19,7 @@ module Module: Module = {
   let getOffsets = (state: State.t): array<int> =>
     state.goals->Array.map(goal => {
       let (from, to) = goal.interval
-      from + (to - from)/2
+      from + min(3, (to - from)/2)
     })
 
   // There are two kinds of lambda abstraction
