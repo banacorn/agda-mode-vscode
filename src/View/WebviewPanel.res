@@ -145,13 +145,18 @@ module WebviewPanel: {
   let moveToBottom = () => {
     open VSCode.Commands
     executeCommand(
-      #setEditorLayout({
-        orientation: 1,
-        groups: {
-          open Layout
-          [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
-        },
-      }),
+      #setEditorLayout(
+        %raw(`{
+          orientation: 1,
+          groups: [{ size: 0.3 }, { size: 0.7 }]
+        }`)
+        // {
+        // orientation: 1,
+        // groups: {
+        //   open Layout
+        //   [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
+        // },
+      ),
     )->ignore
   }
 }
