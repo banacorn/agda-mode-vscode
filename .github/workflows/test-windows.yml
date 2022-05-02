@@ -66,7 +66,11 @@ jobs:
       # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
 
     - name: ⏬ Install Agda
-      run: stack install --resolver lts-18.2 Agda-2.6.2
+      run: |
+        stack install --resolver lts-18.2 Agda-2.6.2
+        # copy Agda (stack path --local-bin) to somewhere in the PATH
+        cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\ghcup\bin
+        which agda
 
     - name: ⏬ Install NPM Dependencies
       run: npm install
@@ -75,8 +79,4 @@ jobs:
       run: npm run build
 
     - name: 🚗 Run tests (Windows)
-      run: | 
-        # move (stack path --local-bin) to somewhere in the PATH 
-        cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\Rust\.cargo\bin
-        which agda
-        npm test
+      run: npm test
