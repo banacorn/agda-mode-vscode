@@ -148,7 +148,7 @@ module WebviewPanel: {
       #setEditorLayout(
         %raw(`{
           orientation: 1,
-          groups: [{ size: 0.3 }, { size: 0.7 }]
+          groups: [{ size: 0.7 }, { size: 0.3 }]
         }`)
         // {
         // orientation: 1,
