@@ -8,7 +8,7 @@ type t =
   | ShowConstraints
   | SolveConstraints(Command.Normalization.t, Goal.t)
   | SolveConstraintsGlobal(Command.Normalization.t)
-  | ShowGoals
+  | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
   | Give(Goal.t)
   | Refine(Goal.t)
@@ -39,7 +39,7 @@ let toString = x =>
   | ShowConstraints => "ShowConstraints"
   | SolveConstraints(_, _) => "SolveConstraints"
   | SolveConstraintsGlobal(_) => "SolveConstraintsGlobal"
-  | ShowGoals => "ShowGoals"
+  | ShowGoals(_) => "ShowGoals"
   | SearchAbout(_, _) => "SearchAbout"
   | Give(_) => "Give"
   | Refine(_) => "Refine"
@@ -116,7 +116,7 @@ let encode = (
     }
 
   | ToggleDisplayOfImplicitArguments => j`${commonPart(NonInteractive)}( ToggleImplicitArgs )`
-  
+
   | ToggleDisplayOfIrrelevantArguments => j`${commonPart(NonInteractive)}( ToggleIrrelevantArgs )`
 
   | ShowConstraints => j`${commonPart(NonInteractive)}( Cmd_constraints )`
@@ -131,8 +131,15 @@ let encode = (
     let normalization = Command.Normalization.encode(normalization)
     j`${commonPart(NonInteractive)}( Cmd_solveAll $(normalization) )`
 
-  | ShowGoals => j`${commonPart(NonInteractive)}( Cmd_metas )`
-
+  | ShowGoals(normalization) =>
+    let normalization = Command.Normalization.encode(normalization)
+    // `Cmd_metas` contains `Rewrite` after v2.6.2
+    // Issue #88 (https://github.com/banacorn/agda-mode-vscode/issues/88)
+    if Util.Version.gte(version, "2.6.2") {
+      j`${commonPart(NonInteractive)}( Cmd_metas $(normalization) )`
+    } else {
+      j`${commonPart(NonInteractive)}( Cmd_metas )`
+    }
   | SearchAbout(normalization, expr) =>
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)

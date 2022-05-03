@@ -42,7 +42,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
     | None => sendAgdaRequest(SolveConstraintsGlobal(normalization))
     | Some((goal, _)) => sendAgdaRequest(SolveConstraints(normalization, goal))
     }
-  | ShowGoals => sendAgdaRequest(ShowGoals)
+  | ShowGoals(normalization) => sendAgdaRequest(ShowGoals(normalization))
   | NextGoal => State__Goal.next(state)->Promise.map(() => Ok())
   | PreviousGoal => State__Goal.previous(state)->Promise.map(() => Ok())
   | SearchAbout(normalization) =>

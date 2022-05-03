@@ -124,8 +124,18 @@
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.show-goals",
-				"title": "Show goals",
+				"command": "agda-mode.show-goals[Simplified]",
+				"title": "Show goals (simplified)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.show-goals[Instantiated]",
+				"title": "Show goals (instantiated)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.show-goals[Normalised]",
+				"title": "Show goals (normalised)",
 				"category": "Agda"
 			},
 			{
@@ -426,15 +436,39 @@
 				"when": "agdaMode"
 			},
 			{
-				"command": "agda-mode.show-goals",
+				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+c ctrl+?",
 				"mac": "ctrl+c ctrl+?",
 				"when": "agdaMode && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.show-goals",
+				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+c ctrl+shift+/",
 				"mac": "ctrl+c ctrl+shift+/",
+				"when": "agdaMode && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-goals[Instantiated]",
+				"key": "ctrl+u ctrl+?",
+				"mac": "ctrl+u ctrl+?",
+				"when": "agdaMode && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-goals[Instantiated]",
+				"key": "ctrl+u ctrl+shift+/",
+				"mac": "ctrl+u ctrl+shift+/",
+				"when": "agdaMode && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-goals[Normalised]",
+				"key": "ctrl+y ctrl+?",
+				"mac": "ctrl+y ctrl+?",
+				"when": "agdaMode && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-goals[Normalised]",
+				"key": "ctrl+y ctrl+shift+/",
+				"mac": "ctrl+y ctrl+shift+/",
 				"when": "agdaMode && !editorHasSelection && editorTextFocus"
 			},
 			{

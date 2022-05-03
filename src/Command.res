@@ -73,7 +73,7 @@ type t =
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
   | SolveConstraints(Normalization.t)
-  | ShowGoals
+  | ShowGoals(Normalization.t)
   | NextGoal
   | PreviousGoal
   | SearchAbout(Normalization.t)
@@ -111,7 +111,9 @@ let names: array<(t, string)> = [
   (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
   (SolveConstraints(Instantiated), "solve-constraints[Instantiated]"),
   (SolveConstraints(Normalised), "solve-constraints[Normalised]"),
-  (ShowGoals, "show-goals"),
+  (ShowGoals(Simplified), "show-goals[Simplified]"),
+  (ShowGoals(Instantiated), "show-goals[Instantiated]"),
+  (ShowGoals(Normalised), "show-goals[Normalised]"),
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
   (SearchAbout(Simplified), "search-about[Simplified]"),
@@ -179,7 +181,7 @@ let toString = x =>
   | ToggleDisplayOfIrrelevantArguments => "Toggle display of irrelevant arguments"
   | ShowConstraints => "Show constraints"
   | SolveConstraints(normalization) => "Solve constraints " ++ Normalization.toString(normalization)
-  | ShowGoals => "Show goals"
+  | ShowGoals(normalization) => "Show goals" ++ Normalization.toString(normalization)
   | NextGoal => "Next goal"
   | PreviousGoal => "Previous goal"
   | SearchAbout(normalization) => "Search about " ++ Normalization.toString(normalization)
