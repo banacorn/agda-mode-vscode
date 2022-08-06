@@ -15,7 +15,7 @@ It's okay if you don't have Agda installed, just proceed to the next section and
 
 ## [Agda Language Server](https://github.com/banacorn/agda-language-server)
 
-Simply enable `agdaMode.connection.agdaLanguageServer` in the settings, and then hit *restart* <kbd>C-x</kbd> <kbd>C-r</kbd>. 
+Simply enable `agdaMode.connection.agdaLanguageServer` in the settings, and then hit *restart* <kbd>C-x</kbd> <kbd>C-r</kbd>.
 
 The language server should be downloaded and installed within seconds.
 
@@ -107,22 +107,22 @@ Take *infer type* for example:
 
 ## Unicode Input
 
-Pretty much the same like on Emacs. 
-Press backslash "\\" and you should see a keyboard popping up in the panel, with key suggestions and symbol candidates. Use arrow keys to explore and navigate between the candidates (if there's any). 
+Pretty much the same like on Emacs.
+Press backslash "\\" and you should see a keyboard popping up in the panel, with key suggestions and symbol candidates. Use arrow keys to explore and navigate between the candidates (if there's any).
 
 Unicode input also works in the input prompt, though it's a bit less powerful.
 
 If you are having trouble typing the backslash "\\", you can change it by:
 1. Go to "Preferences: Open Keyboard Shortcuts" and configure the keybinding of "Agda: Activate input method" (`agda-mode.input-symbol[Activate]`).
-2. Go to "Settings > Agda Mode > Input Method: Activation Key" and replace it with the same keybinding as above. 
+2. Go to "Settings > Agda Mode > Input Method: Activation Key" and replace it with the same keybinding as above.
 
 Cancel `agdaMode.inputMethod.enable` in the settings to disable the input method.
 
-## Syntax Highlighting 
+## Syntax Highlighting
 
 Cancel `agdaMode.highlighting.getHighlightWithThemeColors` in the settings if you want to fallback to the old way of highlighting stuff with fixed colors.
 
-## Debug Buffer 
+## Debug Buffer
 
 Execute `Agda: Open Debug Buffer` in the *Command Palette* to open it.
 The number at the end of each message indicates its verbosity.
@@ -131,8 +131,8 @@ The number at the end of each message indicates its verbosity.
 
 ### Agda files won't load, commands don't work
 
-Please go to "Preferences: Open Keyboard Shortcuts" and see if any extension is fighting for the same key combo. 
-You're probably a victim of the [*Vim* extension](https://marketplace.visualstudio.com/items?itemName=vscodevim.vim). 
+Please go to "Preferences: Open Keyboard Shortcuts" and see if any extension is fighting for the same key combo.
+You're probably a victim of the [*Vim* extension](https://marketplace.visualstudio.com/items?itemName=vscodevim.vim).
 
 ### "Give" command not working on macOS
 
