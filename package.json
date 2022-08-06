@@ -3,7 +3,7 @@
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
 	"publisher": "banacorn",
-	"version": "0.3.9",
+	"version": "0.3.10",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -799,7 +799,6 @@
 						"bottom",
 						"right"
 					],
-					"scope": "machine-overridable",
 					"description": "Where to mount the panel"
 				},
 				"agdaMode.libraryPath": {
@@ -821,7 +820,6 @@
 				"agdaMode.highlighting.getHighlightWithThemeColors": {
 					"type": "boolean",
 					"default": true,
-					"scope": "machine-overridable",
 					"description": "Highlight stuff with theme colors"
 				},
 				"agdaMode.backend": {
@@ -838,13 +836,11 @@
 				"agdaMode.inputMethod.enable": {
 					"type": "boolean",
 					"default": true,
-					"scope": "machine-overridable",
 					"description": "Enable Unicode input method"
 				},
 				"agdaMode.inputMethod.activationKey": {
 					"type": "string",
 					"default": "\\",
-					"scope": "machine-overridable",
 					"description": "Key for activating Unicode input method"
 				}
 			}
