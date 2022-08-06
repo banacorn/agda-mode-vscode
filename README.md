@@ -113,7 +113,7 @@ Press backslash "\\" and you should see a keyboard popping up in the panel, with
 Unicode input also works in the input prompt, though it's a bit less powerful.
 
 If you are having trouble typing the backslash "\\", you can change it by:
-1. Go to "Preferences: Open Keyboard Shortcurs" and configure the keybinding of "Agda: Activate input method" (`agda-mode.input-symbol[Activate]`).
+1. Go to "Preferences: Open Keyboard Shortcuts" and configure the keybinding of "Agda: Activate input method" (`agda-mode.input-symbol[Activate]`).
 2. Go to "Settings > Agda Mode > Input Method: Activation Key" and replace it with the same keybinding as above. 
 
 Cancel `agdaMode.inputMethod.enable` in the settings to disable the input method.
@@ -131,7 +131,7 @@ The number at the end of each message indicates its verbosity.
 
 ### Agda files won't load, commands don't work
 
-Please go to "Preferences: Open Keyboard Shortcurs" and see if any extension is fighting for the same key combo. 
+Please go to "Preferences: Open Keyboard Shortcuts" and see if any extension is fighting for the same key combo. 
 You're probably a victim of the [*Vim* extension](https://marketplace.visualstudio.com/items?itemName=vscodevim.vim). 
 
 ### "Give" command not working on macOS
