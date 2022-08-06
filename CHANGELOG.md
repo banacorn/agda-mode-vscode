@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed 
 - #105: Case Split not working by [@stepchowfun](https://github.com/stepchowfun).
+- #109: Remove "machine-overridable" scope from some settings by [@kzvi](https://github.com/kzvi).
 
 
 ## v0.3.9 - 2022-05-05 
