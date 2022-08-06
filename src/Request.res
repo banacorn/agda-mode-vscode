@@ -150,7 +150,7 @@ let encode = (
   // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
   | Give(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)
+    let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
     if Util.Version.gte(version, "2.5.3") {
       j`${commonPart(NonInteractive)}( Cmd_give WithoutForce $(index) $(range) "$(content)" )`
@@ -160,7 +160,7 @@ let encode = (
 
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)
+    let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
     j`${commonPart(NonInteractive)}( Cmd_refine_or_intro False $(index) $(range) "$(content)" )`
 
@@ -175,7 +175,7 @@ let encode = (
 
   | Auto(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)
+    let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
     if Util.Version.gte(version, "2.6.0.1") {
       // after 2.6.0.1
@@ -187,7 +187,7 @@ let encode = (
 
   | Case(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)
+    let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
     j`${commonPart(NonInteractive)}( Cmd_make_case $(index) $(range) "$(content)" )`
 

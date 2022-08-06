@@ -97,7 +97,7 @@ module Module: Module = {
 
   let getContent = (self, document) => {
     let innerRange = getInnerRange(self, document)
-    Editor.Text.get(document, innerRange)->Parser.userInput
+    Editor.Text.get(document, innerRange)->Js.String.trim
   }
 
   let setContent = (self, document, text) => {
