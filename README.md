@@ -83,7 +83,7 @@ Take *infer type* for example:
 | refine                                  |  <kbd>C-c</kbd> <kbd>C-r</kbd>  |
 | elaborate and give 🎚                    |  <kbd>C-c</kbd> <kbd>C-m</kbd>  |
 | auto                                    |  <kbd>C-c</kbd> <kbd>C-a</kbd>  |
-| case split                              |  <kbd>C-y</kbd> <kbd>C-c</kbd>  |
+| case split                              |  <kbd>C-c</kbd> <kbd>C-c</kbd>  |
 | compute helper function type and copy 🎚 |  <kbd>C-y</kbd> <kbd>C-h</kbd>  |
 | goal type 🎚                             |  <kbd>C-c</kbd> <kbd>C-t</kbd>  |
 | context (environment) 🎚                 |  <kbd>C-c</kbd> <kbd>C-e</kbd>  |
