@@ -189,25 +189,29 @@ module Module: Module = {
   // merge Aspects with the existing Token that occupies the same Range
   let insert = (self, editor, tokens: array<Token.t>) => {
     tokens->Array.forEach(info => {
-      let existing = self.tokens->AVLTree.find(info.start)
+      let document = editor->VSCode.TextEditor.document
+      let text = Editor.Text.getAll(document)
+      let offsetConverter = Agda.OffsetConverter.make(text)
+      let startOffset = Agda.OffsetConverter.convert(offsetConverter, info.start)
+      let existing = self.tokens->AVLTree.find(startOffset)
       switch existing {
       | None =>
-        let document = editor->VSCode.TextEditor.document
-        let text = Editor.Text.getAll(document)
-        let offsetConverter = Agda.OffsetConverter.make(text)
+
+        
         let start = Editor.Position.fromOffset(
           document,
-          Agda.OffsetConverter.convert(offsetConverter, info.start),
+          startOffset,
         )
+
         let end_ = Editor.Position.fromOffset(
           document,
           Agda.OffsetConverter.convert(offsetConverter, info.end_),
         )
         let range = VSCode.Range.make(start, end_)
-        self.tokens->AVLTree.insert(info.start, (info, range))->ignore
+        self.tokens->AVLTree.insert(startOffset, (info, range))->ignore
       | Some((old, range)) =>
         // merge Aspects
-        self.tokens->AVLTree.remove(info.start)->ignore
+        self.tokens->AVLTree.remove(startOffset)->ignore
         // often the new aspects would look exactly like the old ones
         // don't duplicate them in that case
         let newAspects =
@@ -216,7 +220,7 @@ module Module: Module = {
           ...old,
           aspects: newAspects,
         }
-        self.tokens->AVLTree.insert(info.start, (new, range))->ignore
+        self.tokens->AVLTree.insert(startOffset, (new, range))->ignore
       }
     })
   }

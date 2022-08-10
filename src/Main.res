@@ -104,9 +104,10 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   Editor.Provider.registerDefinitionProvider((fileName, position) => {
     // only provide source location, when the filename matched
     let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
+    let normalizedFileName = Parser.filepath(fileName)
     let offset = Editor.Position.toOffset(state.document, position)
 
-    if fileName == currentFileName {
+    if normalizedFileName == currentFileName {
       state.tokens->Tokens.lookupSrcLoc(offset)
     } else {
       None

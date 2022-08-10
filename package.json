@@ -19,7 +19,7 @@
 	"scripts": {
 		"clean": "npx rescript clean",
 		"build": "npx rescript build -with-deps && npx lessc style/style.less dist/style.css && webpack --mode development",
-		"dev": "npx less-watch-compiler style/ dist/ & webpack --mode development --watch",
+		"dev": "npx less-watch-compiler style/ dist/ && webpack --mode development --watch",
 		"vscode:prepublish": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js",
 		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
