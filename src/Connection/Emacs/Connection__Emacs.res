@@ -164,15 +164,10 @@ module Module: Module = {
     | LanguageServerMule.Method.ViaTCP(_) =>
       Promise.resolved(Error(Error.ConnectionViaTCPNotSupported))
     | ViaCommand(path, _, _, _) =>
-      // store the path in the editor config
-      let persistPathInConfig = (procInfo: ProcInfo.t): Promise.t<result<ProcInfo.t, Error.t>> =>
-        Config.Connection.setAgdaPath(procInfo.path)->Promise.map(() => Ok(procInfo))
-
       // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
       let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
 
       ProcInfo.make(path, args)
-      ->Promise.flatMapOk(persistPathInConfig)
       ->Promise.mapOk(procInfo => {
         procInfo: procInfo,
         process: Process.make(procInfo.path, procInfo.args),
