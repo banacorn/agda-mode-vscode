@@ -6,12 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 
+## v0.3.11 - 2022-08-11
+
+### Fixed 
+- #112: Don't store the agda path in the config by [@ncfavier](https://github.com/ncfavier).
+- #114: Fix typos of 'Shortcuts' in documentation by [@pragma-](https://github.com/pragma-).
+- #115: [ fix ] "go to definition" on Windows by [@mz71](https://github.com/mz71).
+
 ## v0.3.10 - 2022-08-06
 
 ### Fixed 
 - #105: Case Split not working by [@stepchowfun](https://github.com/stepchowfun).
 - #109: Remove "machine-overridable" scope from some settings by [@kzvi](https://github.com/kzvi).
-
 
 ## v0.3.9 - 2022-05-05 
 
