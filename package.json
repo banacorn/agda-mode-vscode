@@ -844,7 +844,18 @@
 					"description": "Key for activating Unicode input method"
 				}
 			}
-		}
+		},
+		"grammars": [
+		    {
+				"language": "agda",
+				"scopeName": "source.agda",
+				"path": "./syntaxes/agda.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.haskell": "haskell",
+					"meta.embedded.block.javascript": "javascript"
+				}
+		    }
+		]
 	},
 	"__metadata": {
 		"id": "50315a05-1d1b-44bf-9e2c-be33d1c4a77e",
