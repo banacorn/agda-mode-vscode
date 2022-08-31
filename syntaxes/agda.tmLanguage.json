@@ -60,7 +60,7 @@
                     }
                 },
                 {
-                    "match": "\\s+(=)\\s+(data)\\s+([[:alpha:]][\\w'\\.]*)\\s+\\(\\s*(?:([[:alpha:]][\\w'\\.]*)((?:\\s*(\\|)\\s*([[:alpha:]][\\w'\\.]*))*))?\\s*\\)\\s+",
+                    "match": "\\s+(=)\\s+(data)\\s+([[:alpha:]][\\w'\\.]*)\\s+\\((\\s*(?:[[:alpha:]][\\w'\\.]*(?:\\s*\\|\\s*[[:alpha:]][\\w'\\.]*)*)?\\s*)\\)\\s+",
                     "captures": {
                         "1": {
                             "name": "punctuation.separator.eq.agda"
@@ -72,16 +72,16 @@
                             "name": "entity.name.type.haskell"
                         },
                         "4": {
-                            "name": "constant.other.haskell"
-                        },
-                        "6": {
-                            "name": "punctuation.separator.pipe.agda"
-                        },
-                        "7": {
-                            "name": "constant.other.haskell"
-                        },
-                        "5": {
-                            "name": "constant.other.haskell"
+                            "patterns": [
+                                {
+                                    "match": "[[:alpha:]][\\w'\\.]*",
+                                    "name": "constant.other.haskell"
+                                },
+                                {
+                                    "match": "\\|",
+                                    "name": "punctuation.separator.pipe.agda"
+                                }
+                            ]
                         }
                     }
                 },
