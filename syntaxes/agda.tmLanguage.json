@@ -155,8 +155,11 @@
 				"2": {
 					"name": "keyword.other.preprocessor.pragma.agda.compile"
 				},
-				"4": {
+				"3": {
 					"name": "keyword.other.preprocessor.pragma.agda.js"
+				},
+                "5": {
+					"name": "punctuation.separator.eq.agda"
 				}
 			},
 			"endCaptures": {
