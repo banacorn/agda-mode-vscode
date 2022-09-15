@@ -60,21 +60,12 @@
                     }
                 },
                 {
-                    "match": "\\s+(=)\\s+(data)\\s+([[:alpha:]][\\w'\\.]*)\\s+(\\()(\\s*(?:[[:alpha:]][\\w'\\.]*(?:\\s*\\|\\s*[[:alpha:]][\\w'\\.]*)*)?\\s*)(\\))\\s+",
-                    "captures": {
-                        "1": {
-                            "name": "punctuation.separator.eq.agda"
-                        },
-                        "2": {
-                            "name": "keyword.other.preprocessor.pragma.agda.data"
-                        },
-                        "3": {
-                            "name": "entity.name.type.haskell"
-                        },
-                        "4": {
-                            "name": "punctuation.section.parens.begin.agda"
-                        },
-                        "5": {
+                    "begin": "\\s+(=)\\s+(data)\\s+([[:alpha:]][\\w'\\.]*)",
+                    "end": "(?=#-})",
+                    "patterns": [
+                        {
+                            "begin": "(?:^|\\s+)(\\()",
+                            "end": "(\\))(?:$|\\s+)",
                             "patterns": [
                                 {
                                     "match": "[[:alpha:]][\\w'\\.]*",
@@ -84,22 +75,39 @@
                                     "match": "\\|",
                                     "name": "punctuation.separator.pipe.agda"
                                 }
-                            ]
-                        },
-                        "6": {
-                            "name": "punctuation.section.parens.end.agda"
+                            ],
+                            "beginCaptures": {
+                                "1": {
+                                    "name": "punctuation.section.parens.begin.agda"
+                                }
+                            },
+                            "endCaptures": {
+                                "1": {
+                                    "name": "punctuation.section.parens.end.agda"
+                                }
+                            }
                         }
-                    }
-                },
-                {
-                    "match": "\\s+(=)\\s(.*)(?=#-})",
-                    "captures": {
+                    ],
+                    "beginCaptures": {
                         "1": {
                             "name": "punctuation.separator.eq.agda"
                         },
                         "2": {
-                            "name": "meta.embedded.block.haskell",
-                            "patterns": [ { "include": "source.haskell" } ]
+                            "name": "keyword.other.preprocessor.pragma.agda.data"
+                        },
+                        "3": {
+                            "name": "entity.name.type.haskell"
+                        }
+                    }
+                },
+                {
+                    "begin": "\\s+(=)\\s",
+                    "end": "(?=#-})",
+                    "name": "meta.embedded.block.haskell",
+                    "patterns": [ { "include": "source.haskell" } ],
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.separator.eq.agda"
                         }
                     }
                 }
