@@ -72,6 +72,14 @@
 				"configuration": "./language-configuration.json"
 			}
 		],
+		"grammars": [
+			{
+				"language": "agda",
+				"scopeName": "text.html.markdown",
+				"path": "./syntaxes/markdown.tmLanguage.json",
+				"injectTo": ["source.agda"]
+			}
+		],
 		"commands": [
 			{
 				"command": "agda-mode.load",
