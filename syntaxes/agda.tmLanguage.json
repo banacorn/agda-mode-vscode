@@ -46,7 +46,7 @@
                     }
                 },
                 {
-                    "match": "\\s+(=)\\s+(type)\\s+([[:alpha:]][\\w'\\.]*)\\s+",
+                    "match": "\\s+(=)\\s+(type)\\s+((?:[^\\W_]|')[\\w'\\.]*)\\s+",
                     "captures": {
                         "1": {
                             "name": "punctuation.separator.eq.agda"
@@ -60,7 +60,7 @@
                     }
                 },
                 {
-                    "begin": "\\s+(=)\\s+(data)\\s+([[:alpha:]][\\w'\\.]*)",
+                    "begin": "\\s+(=)\\s+(data)\\s+((?:[^\\W_]|')[\\w'\\.]*)",
                     "end": "(?=#-})",
                     "patterns": [
                         {
