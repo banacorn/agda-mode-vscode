@@ -1,0 +1,180 @@
+{
+    "scopeName": "source.agda",
+    "patterns": [
+        { "include": "#foreign_ghc" },
+        { "include": "#compile_ghc" },
+        { "include": "#foreign_js" },
+        { "include": "#compile_js" }
+    ],
+    "repository": {
+        "foreign_ghc": {
+            "begin": "({-#)\\s+(FOREIGN)\\s+(GHC)\\s+",
+            "end": "(#-})",
+            "name": "meta.embedded.block.haskell meta.preprocessor.agda",
+            "patterns": [ { "include": "source.haskell" } ],
+            "beginCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.begin.agda"
+				},
+				"2": {
+					"name": "keyword.other.preprocessor.pragma.agda.foreign"
+				},
+				"3": {
+					"name": "keyword.other.preprocessor.pragma.agda.ghc"
+				}
+			},
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.end.agda"
+				}
+			}
+        },
+        "compile_ghc": {
+            "begin": "({-#)\\s+(COMPILE)\\s+(GHC)\\s+([^\\s\\.;{}\\(\\)@\"]+(?:\\.[^\\s\\.;{}\\(\\)@\"]+)*)",
+            "end": "(#-})",
+            "name": "meta.preprocessor.agda",
+            "patterns": [
+                {
+                    "match": "\\s+(as)\\s+([[:alpha:]][\\w']*)\\s+",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.other.preprocessor.pragma.agda.as"
+                        },
+                        "2": {
+                            "name": "entity.name.function.haskell"
+                        }
+                    }
+                },
+                {
+                    "match": "\\s+(=)\\s+(type)\\s+((?:[^\\W_]|')[\\w'\\.]*)\\s+",
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.separator.eq.agda"
+                        },
+                        "2": {
+                            "name": "keyword.other.preprocessor.pragma.agda.type"
+                        },
+                        "3": {
+                            "name": "entity.name.type.haskell"
+                        }
+                    }
+                },
+                {
+                    "begin": "\\s+(=)\\s+(data)\\s+((?:[^\\W_]|')[\\w'\\.]*)",
+                    "end": "(?=#-})",
+                    "patterns": [
+                        {
+                            "begin": "(?:^|\\s+)(\\()",
+                            "end": "(\\))(?:$|\\s+)",
+                            "patterns": [
+                                {
+                                    "match": "[[:alpha:]][\\w'\\.]*",
+                                    "name": "constant.other.haskell"
+                                },
+                                {
+                                    "match": "\\|",
+                                    "name": "punctuation.separator.pipe.agda"
+                                }
+                            ],
+                            "beginCaptures": {
+                                "1": {
+                                    "name": "punctuation.section.parens.begin.agda"
+                                }
+                            },
+                            "endCaptures": {
+                                "1": {
+                                    "name": "punctuation.section.parens.end.agda"
+                                }
+                            }
+                        }
+                    ],
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.separator.eq.agda"
+                        },
+                        "2": {
+                            "name": "keyword.other.preprocessor.pragma.agda.data"
+                        },
+                        "3": {
+                            "name": "entity.name.type.haskell"
+                        }
+                    }
+                },
+                {
+                    "begin": "\\s+(=)\\s",
+                    "end": "(?=#-})",
+                    "name": "meta.embedded.block.haskell",
+                    "patterns": [ { "include": "source.haskell" } ],
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.separator.eq.agda"
+                        }
+                    }
+                }
+            ],
+            "beginCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.begin.agda"
+				},
+				"2": {
+					"name": "keyword.other.preprocessor.pragma.agda.compile"
+				},
+				"3": {
+					"name": "keyword.other.preprocessor.pragma.agda.ghc"
+				}
+			},
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.end.agda"
+				}
+			}
+        },
+        "foreign_js": {
+            "begin": "({-#)\\s+(FOREIGN)\\s+(JS)\\s+",
+            "end": "(#-})",
+            "name": "meta.embedded.block.javascript meta.preprocessor.agda",
+            "patterns": [ { "include": "source.js" } ],
+            "beginCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.begin.agda"
+				},
+				"2": {
+					"name": "keyword.other.preprocessor.pragma.agda.foreign"
+				},
+				"3": {
+					"name": "keyword.other.preprocessor.pragma.agda.js"
+				}
+			},
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.end.agda"
+				}
+			}
+        },
+        "compile_js": {
+            "begin": "({-#)\\s+(COMPILE)\\s+(JS)\\s+([^\\s\\.;{}\\(\\)@\"]+(?:\\.[^\\s\\.;{}\\(\\)@\"]+)*)\\s+(=)\\s+",
+            "end": "(#-})",
+            "name": "meta.embedded.block.javascript meta.preprocessor.agda",
+            "patterns": [ { "include": "source.js" } ],
+            "beginCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.begin.agda"
+				},
+				"2": {
+					"name": "keyword.other.preprocessor.pragma.agda.compile"
+				},
+				"3": {
+					"name": "keyword.other.preprocessor.pragma.agda.js"
+				},
+                "5": {
+					"name": "punctuation.separator.eq.agda"
+				}
+			},
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.preprocessor.end.agda"
+				}
+			}
+        }
+    }
+}
