@@ -2,6 +2,7 @@
 	"name": "agda-mode",
 	"displayName": "agda-mode",
 	"description": "agda-mode on vscode",
+	"icon": "asset/logo.png",
 	"publisher": "banacorn",
 	"version": "0.3.11",
 	"engines": {
@@ -69,15 +70,11 @@
 				"aliases": [
 					"Agda"
 				],
-				"configuration": "./language-configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "agda",
-				"scopeName": "text.html.markdown",
-				"path": "./syntaxes/markdown.tmLanguage.json",
-				"injectTo": ["source.agda"]
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./asset/dark.png",
+					"light": "./asset/light.png"
+				}
 			}
 		],
 		"commands": [
@@ -854,7 +851,7 @@
 			}
 		},
 		"grammars": [
-		    {
+			{
 				"language": "agda",
 				"scopeName": "source.agda",
 				"path": "./syntaxes/agda.tmLanguage.json",
@@ -862,7 +859,13 @@
 					"meta.embedded.block.haskell": "haskell",
 					"meta.embedded.block.javascript": "javascript"
 				}
-		    }
+			},
+			{
+				"language": "agda",
+				"scopeName": "text.html.markdown",
+				"path": "./syntaxes/markdown.tmLanguage.json",
+				"injectTo": ["source.agda"]
+			}
 		]
 	},
 	"__metadata": {
