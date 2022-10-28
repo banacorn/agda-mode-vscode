@@ -72,14 +72,6 @@
 				"configuration": "./language-configuration.json"
 			}
 		],
-		"grammars": [
-			{
-				"language": "agda",
-				"scopeName": "text.html.markdown",
-				"path": "./syntaxes/markdown.tmLanguage.json",
-				"injectTo": ["source.agda"]
-			}
-		],
 		"commands": [
 			{
 				"command": "agda-mode.load",
@@ -854,7 +846,7 @@
 			}
 		},
 		"grammars": [
-		    {
+			{
 				"language": "agda",
 				"scopeName": "source.agda",
 				"path": "./syntaxes/agda.tmLanguage.json",
@@ -862,7 +854,15 @@
 					"meta.embedded.block.haskell": "haskell",
 					"meta.embedded.block.javascript": "javascript"
 				}
-		    }
+			},
+			{
+				"language": "agda",
+				"scopeName": "text.html.markdown",
+				"path": "./syntaxes/markdown.tmLanguage.json",
+				"injectTo": [
+					"source.agda"
+				]
+			}
 		]
 	},
 	"__metadata": {
