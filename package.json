@@ -45,7 +45,7 @@
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"getos": "^3.2.1",
-		"language-server-mule": "github:banacorn/language-server-mule#v0.2.3",
+		"language-server-mule": "github:banacorn/language-server-mule#731475993ee538218cb12c501b12b0ef21e0c821",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-nodejs": "github:banacorn/reason-nodejs#temp",
