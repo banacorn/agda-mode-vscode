@@ -25,14 +25,14 @@
 		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
-		"bs-mocha": "^1.0.0",
+		"bs-mocha": "^0.4.0",
 		"copy-webpack-plugin": "^6.0.3",
 		"glob": "^7.1.6",
 		"less": "^4.1.1",
 		"less-loader": "^7.0.2",
 		"less-watch-compiler": "^1.14.6",
-		"mocha": "^7.1.2",
-		"vscode-test": "^1.3.0",
+		"mocha": "^10.2.0",
+		"@vscode/test-electron": "^2.3.0",
 		"webpack": "^5.0.0",
 		"webpack-cli": "^4.2.0"
 	},
@@ -41,7 +41,6 @@
 		"@glennsl/bs-json": "github:banacorn/bs-json#0c900d3",
 		"@rescript/react": "^0.10.3",
 		"bs-nd": "^0.1.5",
-		"rescript-webapi": ">=0.2.0",
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"getos": "^3.2.1",
@@ -52,8 +51,9 @@
 		"reason-promise": ">=1.1.0",
 		"rescript": "^9.1.4",
 		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.17",
+		"rescript-webapi": ">=0.2.0",
 		"untildify": "^4.0.0",
-		"vscode-codicons": "^0.0.7"
+		"@vscode/codicons": "^0.0.32"
 	},
 	"contributes": {
 		"languages": [
@@ -75,9 +75,12 @@
 		"grammars": [
 			{
 				"language": "agda",
-				"scopeName": "text.html.markdown",
-				"path": "./syntaxes/markdown.tmLanguage.json",
-				"injectTo": ["source.agda"]
+				"scopeName": "source.agda",
+				"path": "./syntaxes/agda.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.haskell": "haskell",
+					"meta.embedded.block.javascript": "javascript"
+				}
 			}
 		],
 		"commands": [
@@ -852,18 +855,7 @@
 					"description": "Key for activating Unicode input method"
 				}
 			}
-		},
-		"grammars": [
-		    {
-				"language": "agda",
-				"scopeName": "source.agda",
-				"path": "./syntaxes/agda.tmLanguage.json",
-				"embeddedLanguages": {
-					"meta.embedded.block.haskell": "haskell",
-					"meta.embedded.block.javascript": "javascript"
-				}
-		    }
-		]
+		}
 	},
 	"__metadata": {
 		"id": "50315a05-1d1b-44bf-9e2c-be33d1c4a77e",
