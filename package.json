@@ -81,6 +81,12 @@
 					"meta.embedded.block.haskell": "haskell",
 					"meta.embedded.block.javascript": "javascript"
 				}
+		    },
+			{
+				"language": "agda",
+				"scopeName": "text.html.markdown",
+				"path": "./syntaxes/markdown.tmLanguage.json",
+				"injectTo": ["source.agda"]
 			}
 		],
 		"commands": [
