@@ -1,4 +1,4 @@
-# Testing 
+# Testing
 test/globalStoragePath
 *.agdai
 
@@ -8,8 +8,6 @@ test/globalStoragePath
 
 # Editor
 # NOTE: Exceptions like launch.json should be placed ahead
-!.vscode/launch.json
-.vscode
 .vscode-test
 
 # OCaml
