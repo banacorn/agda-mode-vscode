@@ -3,14 +3,41 @@
 	"tasks": [
 		{
 			"type": "npm",
+			"script": "clean",
+			"problemMatcher": [],
+			"label": "clean"
+		},
+		{
+			"type": "npm",
 			"script": "build",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
 			"problemMatcher": [],
-			"label": "npm: build",
-			"detail": "npx rescript build -with-deps && npx lessc style/style.less dist/style.css && webpack --mode development"
+			"label": "build"
+		},
+		{
+			"type": "npm",
+			"script": "vscode:prepublish",
+			"problemMatcher": [],
+			"label": "vscode:prepublish"
+		},
+		{
+			"type": "npm",
+			"script": "test",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "test"
+		},
+		{
+			"type": "npm",
+			"script": "vfx-dry-run",
+			"problemMatcher": [],
+			"label": "vfx-dry-run"
 		}
 	]
 }
