@@ -60,21 +60,71 @@
 		"languages": [
 			{
 				"id": "agda",
-				"extensions": [
-					".agda",
-					".lagda",
-					".lagda.md",
-					".lagda.rst",
-					".lagda.tex"
-				],
-				"aliases": [
-					"Agda"
-				],
+				"extensions": [".agda"],
+				"aliases": ["Agda"],
 				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
 				}
+			},
+			{
+				"id": "lagda-md",
+				"extensions": [".lagda.md"],
+				"aliases": ["Literate Agda (markdown)"],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./asset/dark.png",
+					"light": "./asset/light.png"
+				}
+			},			{
+				"id": "lagda-tex",
+				"extensions": [".lagda.tex", ".lagda"],
+				"aliases": ["Literate Agda (TeX)"],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./asset/dark.png",
+					"light": "./asset/light.png"
+				}
+			},
+			{
+				"id": "lagda-rst",
+				"extensions": [".lagda.rst"],
+				"aliases": ["Literate Agda (reStructuredText)"],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./asset/dark.png",
+					"light": "./asset/light.png"
+				}
+			}
+		],
+		"grammars": [
+			{
+				"language": "agda",
+				"scopeName": "source.agda",
+				"path": "./syntaxes/agda.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.haskell": "haskell",
+					"meta.embedded.block.javascript": "javascript"
+				}
+			},
+			{
+				"language": "lagda-md",
+				"scopeName": "source.markdown",
+				"path": "./syntaxes/markdown.tmLanguage.json",
+				"injectTo": ["source.agda"]
+			},
+			{
+				"language": "lagda-rst",
+				"scopeName": "source.restructuredtext",
+				"path": "./syntaxes/restructuredtext.tmLanguage.json",
+				"injectTo": ["source.agda"]
+			},
+			{
+				"language": "lagda-tex",
+				"scopeName": "source.tex",
+				"path": "./syntaxes/tex.tmLanguage.json",
+				"injectTo": ["source.agda"]
 			}
 		],
 		"commands": [
@@ -374,394 +424,394 @@
 				"command": "agda-mode.load",
 				"key": "ctrl+c ctrl+l",
 				"mac": "ctrl+c ctrl+l",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+q",
 				"mac": "ctrl+c ctrl+q",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.restart",
 				"key": "ctrl+x ctrl+r",
 				"mac": "ctrl+x ctrl+r",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.compile",
 				"key": "ctrl+x ctrl+c",
 				"mac": "ctrl+x ctrl+c",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.toggle-display-of-implicit-arguments",
 				"key": "ctrl+x ctrl+h",
 				"mac": "ctrl+x ctrl+h",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.toggle-display-of-irrelevant-arguments",
 				"key": "ctrl+x ctrl+i",
 				"mac": "ctrl+x ctrl+i",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-constraints",
 				"key": "ctrl+c ctrl+=",
 				"mac": "ctrl+c ctrl+=",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Simplified]",
 				"key": "ctrl+c ctrl+s",
 				"mac": "ctrl+c ctrl+s",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Instantiated]",
 				"key": "ctrl+u ctrl+s",
 				"mac": "ctrl+u ctrl+s",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Normalised]",
 				"key": "ctrl+y ctrl+s",
 				"mac": "ctrl+y ctrl+s",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+c ctrl+?",
 				"mac": "ctrl+c ctrl+?",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+c ctrl+shift+/",
 				"mac": "ctrl+c ctrl+shift+/",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Instantiated]",
 				"key": "ctrl+u ctrl+?",
 				"mac": "ctrl+u ctrl+?",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Instantiated]",
 				"key": "ctrl+u ctrl+shift+/",
 				"mac": "ctrl+u ctrl+shift+/",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Normalised]",
 				"key": "ctrl+y ctrl+?",
 				"mac": "ctrl+y ctrl+?",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Normalised]",
 				"key": "ctrl+y ctrl+shift+/",
 				"mac": "ctrl+y ctrl+shift+/",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.next-goal",
 				"key": "ctrl+c ctrl+f",
 				"mac": "ctrl+c ctrl+f",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.search-about[Simplified]",
 				"key": "ctrl+c ctrl+z",
 				"mac": "ctrl+c ctrl+z",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.search-about[Instantiated]",
 				"key": "ctrl+u ctrl+z",
 				"mac": "ctrl+u ctrl+z",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.search-about[Normalised]",
 				"key": "ctrl+y ctrl+z",
 				"mac": "ctrl+y ctrl+z",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.give",
 				"key": "ctrl+c ctrl+space",
 				"mac": "ctrl+c ctrl+space",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.refine",
 				"key": "ctrl+c ctrl+r",
 				"mac": "ctrl+c ctrl+r",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Simplified]",
 				"key": "ctrl+c ctrl+m",
 				"mac": "ctrl+c ctrl+m",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Instantiated]",
 				"key": "ctrl+u ctrl+m",
 				"mac": "ctrl+u ctrl+m",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Normalised]",
 				"key": "ctrl+y ctrl+m",
 				"mac": "ctrl+y ctrl+m",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.auto",
 				"key": "ctrl+c ctrl+a",
 				"mac": "ctrl+c ctrl+a",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.case",
 				"key": "ctrl+c ctrl+c",
 				"mac": "ctrl+c ctrl+c",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Simplified]",
 				"key": "ctrl+c ctrl+h",
 				"mac": "ctrl+c ctrl+h",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Instantiated]",
 				"key": "ctrl+u ctrl+h",
 				"mac": "ctrl+u ctrl+h",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Normalised]",
 				"key": "ctrl+y ctrl+h",
 				"mac": "ctrl+y ctrl+h",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"key": "ctrl+c ctrl+t",
 				"mac": "ctrl+c ctrl+t",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type[Instantiated]",
 				"key": "ctrl+u ctrl+t",
 				"mac": "ctrl+u ctrl+t",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type[Normalised]",
 				"key": "ctrl+y ctrl+t",
 				"mac": "ctrl+y ctrl+t",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.context[Simplified]",
 				"key": "ctrl+c ctrl+e",
 				"mac": "ctrl+c ctrl+e",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.context[Instantiated]",
 				"key": "ctrl+u ctrl+e",
 				"mac": "ctrl+u ctrl+e",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.context[Normalised]",
 				"key": "ctrl+y ctrl+e",
 				"mac": "ctrl+y ctrl+e",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.infer-type[Simplified]",
 				"key": "ctrl+c ctrl+d",
 				"mac": "ctrl+c ctrl+d",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.infer-type[Instantiated]",
 				"key": "ctrl+u ctrl+d",
 				"mac": "ctrl+u ctrl+d",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.infer-type[Normalised]",
 				"key": "ctrl+y ctrl+d",
 				"mac": "ctrl+y ctrl+d",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Simplified]",
 				"key": "ctrl+c ctrl+,",
 				"mac": "ctrl+c ctrl+,",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Instantiated]",
 				"key": "ctrl+u ctrl+,",
 				"mac": "ctrl+u ctrl+,",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Normalised]",
 				"key": "ctrl+y ctrl+,",
 				"mac": "ctrl+y ctrl+,",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
 				"key": "ctrl+c ctrl+.",
 				"mac": "ctrl+c ctrl+.",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
 				"key": "ctrl+u ctrl+.",
 				"mac": "ctrl+u ctrl+.",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
 				"key": "ctrl+y ctrl+.",
 				"mac": "ctrl+y ctrl+.",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
 				"key": "ctrl+c ctrl+;",
 				"mac": "ctrl+c ctrl+;",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
 				"key": "ctrl+u ctrl+;",
 				"mac": "ctrl+u ctrl+;",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
 				"key": "ctrl+y ctrl+;",
 				"mac": "ctrl+y ctrl+;",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.module-contents[Simplified]",
 				"key": "ctrl+c ctrl+o",
 				"mac": "ctrl+c ctrl+o",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.module-contents[Instantiated]",
 				"key": "ctrl+u ctrl+o",
 				"mac": "ctrl+u ctrl+o",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.module-contents[Normalised]",
 				"key": "ctrl+y ctrl+o",
 				"mac": "ctrl+y ctrl+o",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[DefaultCompute]",
 				"key": "ctrl+c ctrl+n",
 				"mac": "ctrl+c ctrl+n",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
 				"key": "ctrl+u ctrl+n",
 				"mac": "ctrl+u ctrl+n",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[UseShowInstance]",
 				"key": "ctrl+y ctrl+n",
 				"mac": "ctrl+y ctrl+n",
-				"when": "editorLangId == agda"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
 				"command": "agda-mode.why-in-scope",
 				"key": "ctrl+c ctrl+w",
 				"mac": "ctrl+c ctrl+w",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.switch-agda-version",
 				"key": "ctrl+x ctrl+s",
 				"mac": "ctrl+x ctrl+s",
-				"when": "editorLangId == agda && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",
-				"when": "editorLangId == agda && agdaModePrompting || agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModePrompting || agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseUp]",
 				"key": "up",
-				"when": "editorLangId == agda && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseRight]",
 				"key": "right",
-				"when": "editorLangId == agda && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseDown]",
 				"key": "down",
-				"when": "editorLangId == agda && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseLeft]",
 				"key": "left",
-				"when": "editorLangId == agda && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[InsertOpenCurlyBraces]",
 				"key": "shift+[",
-				"when": "editorLangId == agda && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[InsertOpenParenthesis]",
 				"key": "shift+9",
-				"when": "editorLangId == agda && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.lookup-symbol",
 				"key": "ctrl+x ctrl+=",
-				"when": "editorLangId == agda && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
 			}
 		],
 		"configuration": {
@@ -849,24 +899,7 @@
 					"description": "Key for activating Unicode input method"
 				}
 			}
-		},
-		"grammars": [
-			{
-				"language": "agda",
-				"scopeName": "source.agda",
-				"path": "./syntaxes/agda.tmLanguage.json",
-				"embeddedLanguages": {
-					"meta.embedded.block.haskell": "haskell",
-					"meta.embedded.block.javascript": "javascript"
-				}
-			},
-			{
-				"language": "agda",
-				"scopeName": "text.html.markdown",
-				"path": "./syntaxes/markdown.tmLanguage.json",
-				"injectTo": ["source.agda"]
-			}
-		]
+		}
 	},
 	"__metadata": {
 		"id": "50315a05-1d1b-44bf-9e2c-be33d1c4a77e",
