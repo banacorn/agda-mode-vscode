@@ -4,7 +4,7 @@
 	"description": "agda-mode on vscode",
 	"icon": "asset/logo.png",
 	"publisher": "banacorn",
-	"version": "0.3.12",
+	"version": "0.3.13",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -60,8 +60,12 @@
 		"languages": [
 			{
 				"id": "agda",
-				"extensions": [".agda"],
-				"aliases": ["Agda"],
+				"extensions": [
+					".agda"
+				],
+				"aliases": [
+					"Agda"
+				],
 				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
@@ -70,17 +74,27 @@
 			},
 			{
 				"id": "lagda-md",
-				"extensions": [".lagda.md"],
-				"aliases": ["Literate Agda (markdown)"],
+				"extensions": [
+					".lagda.md"
+				],
+				"aliases": [
+					"Literate Agda (markdown)"
+				],
 				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
 				}
-			},			{
+			},
+			{
 				"id": "lagda-tex",
-				"extensions": [".lagda.tex", ".lagda"],
-				"aliases": ["Literate Agda (TeX)"],
+				"extensions": [
+					".lagda.tex",
+					".lagda"
+				],
+				"aliases": [
+					"Literate Agda (TeX)"
+				],
 				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
@@ -89,8 +103,12 @@
 			},
 			{
 				"id": "lagda-rst",
-				"extensions": [".lagda.rst"],
-				"aliases": ["Literate Agda (reStructuredText)"],
+				"extensions": [
+					".lagda.rst"
+				],
+				"aliases": [
+					"Literate Agda (reStructuredText)"
+				],
 				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
@@ -112,19 +130,25 @@
 				"language": "lagda-md",
 				"scopeName": "source.markdown",
 				"path": "./syntaxes/markdown.tmLanguage.json",
-				"injectTo": ["source.agda"]
+				"injectTo": [
+					"source.agda"
+				]
 			},
 			{
 				"language": "lagda-rst",
 				"scopeName": "source.restructuredtext",
 				"path": "./syntaxes/restructuredtext.tmLanguage.json",
-				"injectTo": ["source.agda"]
+				"injectTo": [
+					"source.agda"
+				]
 			},
 			{
 				"language": "lagda-tex",
 				"scopeName": "source.tex",
 				"path": "./syntaxes/tex.tmLanguage.json",
-				"injectTo": ["source.agda"]
+				"injectTo": [
+					"source.agda"
+				]
 			}
 		],
 		"commands": [
