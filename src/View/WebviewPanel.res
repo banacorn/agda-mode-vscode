@@ -11,10 +11,6 @@ module WebviewPanel: {
   let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
   // methods
   let reveal: t => unit
-
-  // move the panel around
-  let moveToBottom: unit => unit
-  // let moveToLeft: unit => unit
 } = {
   type t = VSCode.WebviewPanel.t
 
@@ -97,7 +93,7 @@ module WebviewPanel: {
     let panel = VSCode.Window.createWebviewPanel(
       "panel",
       title,
-      {"preserveFocus": true, "viewColumn": 3},
+      {"preserveFocus": true, "viewColumn": 8},
       // None,
       Some(
         VSCode.WebviewAndWebviewPanelOptions.make(
@@ -128,37 +124,6 @@ module WebviewPanel: {
   let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
 
   let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
-
-  // let moveToLeft = () => {
-  //   open VSCode.Commands
-  //   executeCommand(
-  //     #setEditorLayout({
-  //       orientation: 0,
-  //       groups: {
-  //         open Layout
-  //         [sized({groups: [simple], size: 0.5}), sized({groups: [simple], size: 0.5})]
-  //       },
-  //     }),
-  //   )->ignore
-  // }
-
-  let moveToBottom = () => {
-    open VSCode.Commands
-    executeCommand(
-      #setEditorLayout(
-        %raw(`{
-          orientation: 1,
-          groups: [{ size: 0.7 }, { size: 0.3 }]
-        }`)
-        // {
-        // orientation: 1,
-        // groups: {
-        //   open Layout
-        //   [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
-        // },
-      ),
-    )->ignore
-  }
 }
 
 // a thin layer on top of WebviewPanel
@@ -247,20 +212,42 @@ module Module: Module = {
     view.onEvent->Chan.on(callback)->VSCode.Disposable.make
 
   let make = (title, extensionPath) => {
+    open VSCode.Commands
+
+    //Before creating WebviewPanel, update layout by configuration or current layout
+    getEditorLayout()
+    ->Promise.get(layout => {
+      let mountingPosition = Config.View.getPanelMountingPosition()
+      let orientation = layout.orientation
+      let groups = layout.groups
+
+      executeCommand(
+        #setEditorLayout({
+            orientation: switch ((Belt.Array.length(groups), mountingPosition), orientation) {
+                         //  if there's only one grid, see the configuration
+                         | ((1, Bottom), _) => 1
+                         | ((1, Right ), _) => 0
+                         //  else see the current layout's orientation
+                         | (_, 0)           => 1
+                         | (_, 1)           => 0
+                         | _                => 0
+                         },
+            groups: {
+              open Layout
+              [sized({groups: groups, size: 0.6}), sized({groups: [simple], size: 0.4})]
+            }
+        }),
+      )->ignore
+    })->ignore
+
     let view = {
-      panel: WebviewPanel.make(title, extensionPath),
-      subscriptions: [],
-      onResponse: Chan.make(),
-      onEvent: Chan.make(),
-      status: Uninitialized([], []),
-    }
-
-    // Move the created panel to the bottom row
-    switch Config.View.getPanelMountingPosition() {
-    | Bottom => WebviewPanel.moveToBottom()
-    | Right => ()
-    }
-
+          panel: WebviewPanel.make(title, extensionPath),
+          subscriptions: [],
+          onResponse: Chan.make(),
+          onEvent: Chan.make(),
+          status: Uninitialized([], []),
+        }
+    
     // on message
     // relay Webview.onDidReceiveMessage => onResponse or onEvent
     view.panel
