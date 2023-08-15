@@ -13,21 +13,23 @@
         {
           "open": "\"",
           "close": "\"",
-          "notIn": ["string"]
+          "notIn": ["comment", "string"]
         },
         {
           "open": "{!",
-          "close": "!}"
+          "close": "!}",
+          "notIn": ["comment", "string"]
         },
         {
           "open": "{-#",
           "close": "#-}",
-          "notIn": ["comment"]
+          "notIn": ["comment", "string"]
             
         },
         {
           "open": "⦃",
-          "close": "⦄"
+          "close": "⦄",
+          "notIn": ["comment", "string"]
         }
     ],
     "surroundingPairs": [
