@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1700px" height="1700px" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>logotype</title>
+    <desc>Simplified Agda Logo.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <!-- <rect id="white-background" fill="#FFFFFF" x="0" y="0" width="1700" height="1700"></rect> -->
+        <g id="black-logotypes">
+            <g id="logo" transform="translate(250,370)">
+                <path d="M1050,50 L700,400" id="wing" stroke="#000000" stroke-width="144" stroke-linecap="round" stroke-linejoin="round"></path>
+                <!-- <path d="M1150,20 L950,220" id="tail-middle" stroke="#000000" stroke-width="120" stroke-linecap="round" stroke-linejoin="round"></path> -->
+                <!-- <path d="M620,0 L420,200" id="head-middle" stroke="#000000" stroke-width="120" stroke-linecap="round" stroke-linejoin="round"></path> -->
+                <path d="M400,-2.84217094e-13 L0,400 L200,400 L200,600 C200,820 380,1000 600,1000 C820,1000 1000,820 1000,600 L1000,400 L1200,200" id="body" stroke="#000000" stroke-width="144" stroke-linecap="round" stroke-linejoin="round"></path>
+            </g>
+        </g>
+    </g>
+</svg>

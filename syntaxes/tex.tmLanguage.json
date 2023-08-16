@@ -1,0 +1,6 @@
+{
+    "scopeName": "source.tex",
+    "patterns": [
+        { "include": "text.tex" }
+    ]
+}
