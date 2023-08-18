@@ -81,19 +81,48 @@ let encode: Json.Encode.encoder<translation> = translation => {
   })
 }
 
+type state = {
+  lastTranslation: translation,
+  candidateIndex: int,
+}
+
 /* converts characters to symbol, and tells if there's any further possible combinations */
-let translate = (input: string): translation => {
+let translate = (input: string, state: option<state>): translation => {
   let trie = isInKeymap(input)
   let keySuggestions = trie->Option.mapWithDefault([], toKeySuggestions)
   // ->Extension.extendKeySuggestions(input);
-
+  let further = Array.length(keySuggestions) != 0
   let candidateSymbols = trie->Option.mapWithDefault([], toCandidateSymbols)
+  
+  let symbol = candidateSymbols[0]
+  let last = Js.String.sliceToEnd(~from = -1, input)->Belt.Int.fromString
+  open Belt.Option
+  // If user inputs a number and the new sequence can not be translated into symbols, 
+  // this number may be the index of candidateSymbols
+  if isSome(last) &&
+     symbol == None &&
+     isSome(state) && Array.length(getExn(state).lastTranslation.candidateSymbols) != 0 {
 
-  {
-    symbol: candidateSymbols[0],
-    further: Array.length(keySuggestions) != 0,
-    keySuggestions: keySuggestions,
-    candidateSymbols: candidateSymbols,
+    let state = getExn(state)
+    let cycle_Zplus = n => if n == 0 {
+      9
+    } else {
+      n - 1
+    }
+    let index = cycle_Zplus(getExn(last)) + state.candidateIndex / 10 * 10
+    {
+      symbol: state.lastTranslation.candidateSymbols[min(index, Array.length(state.lastTranslation.candidateSymbols) - 1)],
+      further: further,
+      keySuggestions: keySuggestions,
+      candidateSymbols: candidateSymbols,
+    }
+  } else {
+    {
+      symbol: symbol,
+      further: further,
+      keySuggestions: keySuggestions,
+      candidateSymbols: candidateSymbols, 
+    }
   }
 }
 let initialTranslation = translate("")
