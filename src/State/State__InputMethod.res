@@ -187,13 +187,16 @@ module Module: Module = {
   let activateEditorIM = (state: State.t): Promise.t<unit> =>
     switch isActivated(state) {
     | Editor =>
-      
-      // already activated, insert the activation key (default: "\") instead
-      Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-        Editor.Text.insert(state.document, point, activationKey)->ignore
-      )
-      // and then deactivate it
+      // Input method is already activated.
+      // If buffer is empty, insert the activation key (default: "\")
+      if state.editorIM->IM.bufferIsEmpty {
+        Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
+          Editor.Text.insert(state.document, point, activationKey)->ignore
+        )
+      }
+      // else reactivate it
       EditorIM.deactivate(state)
+      ->Promise.flatMap(() => EditorIM.activate(state))
     | Prompt =>
       // deactivate the prompt IM
       PromptIM.deactivate(state)->Promise.flatMap(() => {

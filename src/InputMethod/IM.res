@@ -84,6 +84,11 @@ module type Module = {
   let make: Chan.t<Log.t> => t
   let isActivated: t => bool
 
+  // To enable input '\' in editor, 
+  // we need to check whether buffer is empty when input method is activated
+  // (Actually, we don't need this function, but I somehow can't get field instances from IM.t in State__InputMethod.res)
+  let bufferIsEmpty: t => bool
+
   let run: (t, option<VSCode.TextEditor.t>, Input.t) => Output.t
   // let deviseChange: (t, string, string) => option<Input.t>
 }
@@ -311,6 +316,11 @@ module Module: Module = {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////
+
+  let bufferIsEmpty = (im: t): bool => {
+    open Buffer
+    im.instances->Array.every(instance => instance.buffer->isEmpty)
+  }
 
   let isActivated = self => self.activated
 
