@@ -453,12 +453,12 @@
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.quit",
