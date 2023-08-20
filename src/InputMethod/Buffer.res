@@ -17,7 +17,7 @@ type t = {
 let make = () => {
   symbol: None,
   tail: "",
-  translation: Translator.translate(""),
+  translation: Translator.translate("", None),
   candidateIndex: 0,
 }
 
@@ -88,7 +88,7 @@ let update = (self, start, change: change): (t, option<string>) => {
     beforeInsertedText ++ (change.insertedText ++ afterInsertedText)
   }
 
-  let translation = Translator.translate(newSequence)
+  let translation = Translator.translate(newSequence, Some({lastTranslation: self.translation, candidateIndex: self.candidateIndex}))
   switch translation.symbol {
   | None =>
     if translation.further {
