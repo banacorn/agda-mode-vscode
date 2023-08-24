@@ -4,13 +4,13 @@
 
 @root-padding: 20px; // the left/right padding of the root housing element
 
-@padding: 1rem;
+@padding: .3rem;
 
-@header-height: 2rem;
+@header-height: 1rem;
 
 @left-border-width: 0.2rem;
 
-// vscode: removes focus outline  
+// vscode: removes focus outline
 *:focus {
     outline: none;
 }
@@ -33,7 +33,7 @@
     margin: 0 @root-padding;
 
     // position
-    //  default: stick to the top 
+    //  default: stick to the top
     //  prompting: normal flow
     position: absolute;
 
@@ -118,12 +118,12 @@
     padding: calc(@padding/2) 0;
 
     // create a shadow at the bottom of the <Header>
-    box-shadow: @header-background 0px 3px 3px;
+    // box-shadow: @header-background 0px 3px 3px;
 
     background: @header-background;
 
     line-height: @header-height;
-    font-size  : 150%;
+    font-size  : 125%;
     font-weight: bold;
 
     &.success {
@@ -148,14 +148,14 @@
 
 .agda-mode-body {
 
-    @line-height: 1.5rem;
+    @line-height: 1rem;
 
     padding-top: calc(@header-height + @padding);
 
     white-space: pre;
 
     font-family: var(--vscode-editor-font-family);
-    font-size  : 125%;
+    font-size  : 100%;
     line-height: @line-height;
 
     .codicon {
@@ -288,7 +288,6 @@
         padding   : 0px;
         margin    : 0px;
     }
-
 }
 
 // the total height of .agda-mode-prompt should be the same as @header-height
@@ -299,7 +298,7 @@
     input {
         // Issue #31 - make the input box larger
         width    : calc(100% - @padding * 2);
-        font-size: 150%;
+        font-size: 100%;
         padding  : @padding;
         height   : 1rem;
 
@@ -343,7 +342,7 @@
 
 @indent: 2ch;
 
-// the parent container of a Horizontal grouping 
+// the parent container of a Horizontal grouping
 .component-horz {
     // so that we can set paddings
     display     : inline-flex;
@@ -370,7 +369,7 @@
 // for styling parentheses
 .component-parentheses {
     color: @foreground-subtle;
-    
+
     &.activated {
         cursor: ew-resize;
         color: @warning;
