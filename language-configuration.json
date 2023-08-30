@@ -42,5 +42,28 @@
     ["{{", "}}"],
     ["⦃", "⦄"]
   ],
-  "wordPattern": "[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+"
+  "wordPattern": "[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+",
+  "onEnterRules": [
+    {
+      // Indent if a line ends with any of `=` `:` `⦃`
+      "beforeText": "[\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"][=:⦃]\\s*$",
+      "action": {
+        "indent": "indent"
+      }
+    },
+    {
+      // Indent if a line starts with any of the following words
+      "beforeText": "^\\s*(module|data|record)($|[\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"])",
+      "action": {
+        "indent": "indent"
+      }
+    },
+    {
+      // Indent if a line ends with any of the following keywords
+      "beforeText": "(^|\\s)(abstract|constructor|import|infix[lr]?|field|instance|interleaved|macro|mutual|opaque|open|pattern|postulate|primitive|private|syntax|tactic|variable)\\s*$",
+      "action": {
+        "indent": "indent"
+      }
+    }
+  ]
 }
