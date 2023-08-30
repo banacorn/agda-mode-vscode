@@ -46,7 +46,7 @@
   "onEnterRules": [
     {
       // Indent if a line ends with any of `=` `:` `⦃`
-      "beforeText": "[\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]([=:⦃]\\s*$",
+      "beforeText": "[\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"][=:⦃]\\s*$",
       "action": {
         "indent": "indent"
       }
