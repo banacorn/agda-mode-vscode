@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.4.1 - 2023-09-04
+
+### Changed
+
+- #161: Compact UI by [@fredrik-bakke](https://github.com/fredrik-bakke)
+### Added
+
+- #163: Define auto indentation rules by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #151: Update language configuration by [@fredrik-bakke](https://github.com/fredrik-bakke)
+### Fixed
+
+- #155: Re #79: Disable activating input method inside the search box by [@vic0103520](https://github.com/vic0103520)
+- #154: Fix issue #76: Input method is reactivated after entering a backslash… by [@vic0103520](https://github.com/vic0103520)
+- #153: Fix issue #117: Allow numeric input to complete ambiguous key bindings by [@vic0103520](https://github.com/vic0103520)
 ## v0.4.0 - 2023-08-02
 
 The version number v0.4.0 was bumped by accident.
