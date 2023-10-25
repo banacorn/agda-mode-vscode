@@ -23,6 +23,8 @@ module type Panel = {
     string => Promise.t<result<unit, Connection.Error.t>>,
   ) => Promise.t<unit>
   let interruptPrompt: state => Promise.t<unit>
+  // Style
+  let setFontSize: (state, string) => Promise.t<unit>
 }
 
 module Panel: Panel = {
@@ -65,6 +67,8 @@ module Panel: Panel = {
   // update the Input Method
   let updateIM = (state, event) => sendEvent(state, InputMethod(event))
   let updatePromptIM = (state, content) => sendEvent(state, PromptIMUpdate(content))
+
+  let setFontSize = (state, fontSize) => sendEvent(state, ConfigurationChange(fontSize))
 
   // Header + Prompt
   let prompt = (

@@ -25,6 +25,8 @@ let make = (
 
   let (inputMethodState, runInputMethodAction) = React.useReducer(Keyboard.reducer, None)
 
+  let setFontSize = %raw(` function (n) { document.documentElement.style.setProperty("--agdaMode-buffer-font-size", n + "px"); } `)
+  
   // emit event Initialized on mount
   React.useEffect1(() => {
     onEventFromView->Chan.emit(Initialized)
@@ -93,6 +95,9 @@ let make = (
       setHeader(_ => header)
       setBody(old => Array.concat(old, body)) // append instead of flush
     | SetStatus(text) => setStatus(_ => text)
+    | ConfigurationChange(n) => 
+      onSubmit(None)
+      setFontSize(n)
     }
   )
 

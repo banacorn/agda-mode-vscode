@@ -51,6 +51,8 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
 
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, globalStoragePath, extensionPath, editor)
+  // Set panel's font size by configuration
+  state->State__View.Panel.setFontSize(Config.Buffer.getFontSize())->ignore
 
   // remove it from the Registry on request
   state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
@@ -239,6 +241,24 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       Registry.get(fileName)->Option.forEach(state => {
         state.highlighting->Highlighting.updateSemanticHighlighting(event)
       })
+    }
+  })->subscribe
+
+  VSCode.Workspace.onDidChangeConfiguration(.(event: VSCode.ConfigurationChangeEvent.t) => {
+    let getFileName = editor => editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    let state = Array.reduce(VSCode.Window.visibleTextEditors, None, (state, editor) => { switch state {
+                                                                                          | None => editor->getFileName->Registry.get
+                                                                                          | _ => state
+                                                                                          }})                                                                                          
+    let fontSizeChanged = event->VSCode.ConfigurationChangeEvent.affectsConfiguration("agdaMode.buffer.fontSize", #Others(None))
+    
+    if fontSizeChanged {
+      Js.log("configuration change")
+      let size = Config.Buffer.getFontSize()
+      switch state {
+      | Some(state) => state->State__View.Panel.setFontSize(size)->ignore
+      | None => () 
+      }
     }
   })->subscribe
 
