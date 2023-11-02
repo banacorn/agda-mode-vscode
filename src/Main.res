@@ -246,6 +246,9 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   VSCode.Workspace.onDidChangeConfiguration(.(event: VSCode.ConfigurationChangeEvent.t) => {
     let getFileName = editor => editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    // Maybe we should check active editor
+    // or define some methods to send events without state since changing style is irrelevant to states of eidtors
+    // (Currently, sending an event to the webview has to get the view from a state and send the event with the view)
     let state = Array.reduce(VSCode.Window.visibleTextEditors, None, (state, editor) => { switch state {
                                                                                           | None => editor->getFileName->Registry.get
                                                                                           | _ => state
@@ -253,7 +256,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     let fontSizeChanged = event->VSCode.ConfigurationChangeEvent.affectsConfiguration("agdaMode.buffer.fontSize", #Others(None))
     
     if fontSizeChanged {
-      Js.log("configuration change")
       let size = Config.Buffer.getFontSize()
       switch state {
       | Some(state) => state->State__View.Panel.setFontSize(size)->ignore
