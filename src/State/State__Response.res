@@ -205,10 +205,7 @@ let rec handle = (
   | DisplayInfo(info) => DisplayInfo.handle(state, info)->Promise.map(() => Ok())
   | RunningInfo(1, message) =>
     let message = removeNewlines(message)
-    state.runningInfoLog->Js.Array2.push((1, message))->ignore
-    State.View.Panel.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(message)])
-    ->Promise.flatMap(() => State.View.DebugBuffer.displayInAppendMode([(1, message)]))
-    ->Promise.map(() => Ok())
+    State.View.Panel.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(message)])->Promise.map(() => Ok())
   | RunningInfo(verbosity, message) =>
     let message = removeNewlines(message)
     state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore

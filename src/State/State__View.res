@@ -138,21 +138,17 @@ module DebugBuffer: DebugBuffer = {
 
   let display = msgs => {
     let header = View.Header.Plain("Agda Debug Buffer")
-    let body = msgs->Array.map(((verbosity, msg)) => {
-      let verbosity = string_of_int(verbosity)
-      let style = ""
+    let body = msgs->Array.map(((_, msg)) => {
       let body = RichText.string(msg)
-      Item.Labeled(verbosity, style, body, None, None)
+      Item.Unlabeled(body, None, None)
     })
     sendEvent(Display(header, body))
   }
   let displayInAppendMode = msgs => {
     let header = View.Header.Plain("Agda Debug Buffer")
-    let body = msgs->Array.map(((verbosity, msg)) => {
-      let verbosity = string_of_int(verbosity)
-      let style = ""
+    let body = msgs->Array.map(((_, msg)) => {
       let body = RichText.string(msg)
-      Item.Labeled(verbosity, style, body, None, None)
+      Item.Unlabeled(body, None, None)
     })
     sendEvent(Append(header, body))
   }
