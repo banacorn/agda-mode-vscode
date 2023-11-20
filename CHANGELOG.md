@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.4.2 - 2023-11-20
+- #167: Make the font size of Agda buffer the same as editors
+- #166: Improve debug buffer: Not printing modules checked and verbosity now
+
 ## v0.4.1 - 2023-09-04
 
 ### Changed
