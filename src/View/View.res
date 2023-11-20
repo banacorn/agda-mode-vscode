@@ -143,6 +143,7 @@ module EventToView = {
     | PromptInterrupt
     | PromptIMUpdate(string)
     | InputMethod(InputMethod.t)
+    | ConfigurationChange(string)
 
   let toString = x =>
     switch x {
@@ -152,6 +153,7 @@ module EventToView = {
     | PromptInterrupt => "PromptInterrupt"
     | PromptIMUpdate(s) => "PromptIMUpdate " ++ s
     | InputMethod(_) => "InputMethod"
+    | ConfigurationChange(_) => "ConfigurationChange"
     }
 
   // JSON encode/decode
@@ -170,6 +172,7 @@ module EventToView = {
     | "PromptInterrupt" => TagOnly(PromptInterrupt)
     | "PromptIMUpdate" => Contents(string |> map(text => PromptIMUpdate(text)))
     | "InputMethod" => Contents(InputMethod.decode |> map(x => InputMethod(x)))
+    | "ConfigurationChange" => Contents(string |> map(size => ConfigurationChange(size)))
     | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
     }
   })
@@ -194,6 +197,7 @@ module EventToView = {
       object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})
     | InputMethod(payload) =>
       object_(list{("tag", string("InputMethod")), ("contents", payload |> InputMethod.encode)})
+    | ConfigurationChange(size) => object_(list{("tag", string("ConfigurationChange")), ("contents", size |> string)})
     }
   }
 }
