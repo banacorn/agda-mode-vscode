@@ -200,7 +200,7 @@ module type Module = {
   }
   // lifecycle
   let make: Client.t => Promise.t<result<t, Error.t>>
-  let destroy: t => Promise.t<unit>
+  let destroy: t => Promise.t<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     t,
@@ -232,6 +232,7 @@ module Module: Module = {
   let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
     client
     ->Client.sendRequest(CommandReq.encode(request))
+    ->Util.P.toPromise
     ->Promise.mapError(exn => Error.ConnectionError(exn))
     ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
   }
@@ -255,13 +256,13 @@ module Module: Module = {
     sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
       switch response {
       | Result(_) => Promise.resolved(Error(Error.Initialize))
-      | ACK(version) =>
-        Promise.resolved(Ok({client: client, version: version, method: Client.getMethod(client)}))
+      | ACK(version) => Promise.resolved(Ok({client, version, method: Client.getMethod(client)}))
       }
     )
 
   // destroy the client
-  let destroy = self => self.client->Client.destroy
+  let destroy = self =>
+    self.client->Client.destroy->Util.P.toPromise->Promise.mapError(e => Error.ConnectionError(e))
 
   // let getInfo = self => (self.version, self.method)
 
@@ -273,7 +274,7 @@ module Module: Module = {
     let (waitForResponseEnd, resolve) = Promise.pending()
 
     // listens for responses from Agda
-    let stopListeningForNotifications = self.client->Client.onRequest(json => {
+    let stopListeningForNotifications = self.client->Client.onRequest(async json => {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
@@ -281,7 +282,7 @@ module Module: Module = {
       | Ok(ResponseEnd) => resolve(Ok())
       | Error(error) => resolve(Error(error))
       }
-      Promise.resolved(Ok(Js_json.null))
+      Ok(Js_json.null)
     })
 
     // sends `Command` and waits for `ResponseEnd`

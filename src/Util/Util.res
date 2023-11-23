@@ -1,11 +1,11 @@
 open Belt
 
-
 module Result = {
-  let mapError = x => f => switch x {
-  | Error(e) => Error(f(e))
-  | Ok(v) => Ok(v)
-  }
+  let mapError = (x, f) =>
+    switch x {
+    | Error(e) => Error(f(e))
+    | Ok(v) => Ok(v)
+    }
 }
 
 exception Error(string)
@@ -83,7 +83,7 @@ module Encode = {
     jsonArray([encodeA(a), encodeB(b), encodeC(c), encodeD(d), encodeE(e)])
 }
 
-module React' = React 
+module React' = React
 module React = {
   open React'
 
@@ -96,12 +96,25 @@ module React = {
     switch item {
     | list{} => <> </>
     | list{x} => x
-    | list{x, ...xs} => list{x, ...List.map(xs, i => <> sep i </>)}->List.toArray->manyIn("span")
+    | list{x, ...xs} =>
+      list{
+        x,
+        ...List.map(xs, i => <>
+          sep
+          i
+        </>),
+      }
+      ->List.toArray
+      ->manyIn("span")
     }
   let sepBy = (sep: element, xs) => xs->List.fromArray->sepBy'(sep)
 
   let enclosedBy = (front: element, back: element, item: element) => <>
-    front {string(" ")} item {string(" ")} back
+    front
+    {string(" ")}
+    item
+    {string(" ")}
+    back
   </>
 
   let when_ = (p, className) => p ? " " ++ className : ""
@@ -118,7 +131,7 @@ module Version = {
     | EQ
     | GT
 
-  @bs.module
+  @module
   external compareVersionsPrim: (string, string) => int = "compare-versions"
   let trim = Js.String.replaceByRe(%re("/-.*/"), "")
   let compare = (a, b) =>
@@ -174,4 +187,19 @@ module List = {
         list{x, ...xs}
       }
     }
+}
+
+module P = {
+  external toJsExn: Js.Promise.error => Js.Exn.t = "%identity"
+
+  let toPromise = (p: promise<result<'a, Js.Exn.t>>): Promise.t<result<'a, Js.Exn.t>> => {
+    p
+      ->Promise.Js.fromBsPromise
+      ->Promise.Js.toResult
+      ->Promise.map(x => switch x {
+        | Ok(Ok(x)) => Ok(x)
+        | Ok(Error(e)) => Error(e)
+        | Error(e) => Error(toJsExn(e))
+        })
+  }
 }

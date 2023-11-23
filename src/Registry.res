@@ -67,7 +67,7 @@ module Module: {
       Promise.resolved()
     | Some(Initialized(state)) =>
       remove(fileName)
-      State.destroy(state, false)
+      State.destroy(state, false)->Promise.map(_ => ())
     }
 
   let removeAndDestroyAll = () => {

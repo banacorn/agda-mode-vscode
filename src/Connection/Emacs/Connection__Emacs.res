@@ -37,7 +37,8 @@ module ProcInfo: {
         | Some(match_) =>
           switch match_[1] {
           | None => resolve(Error("Cannot read Agda version"))
-          | Some(version) =>
+          | Some(None) => resolve(Error("Cannot read Agda version"))
+          | Some(Some(version)) =>
             resolve(
               Ok({
                 path: path,

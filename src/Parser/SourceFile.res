@@ -67,7 +67,7 @@ module Lexer = {
           let cursorOld = cursor.contents
           cursor := cursor.contents + String.length(content)
           open Token
-          {content: content, range: (cursorOld, cursor.contents), kind: kind}
+          {content, range: (cursorOld, cursor.contents), kind}
         })
       } else {
         [token]
@@ -85,9 +85,9 @@ module Lexer = {
       let result = {
         open Token
         {
-          content: content,
+          content,
           range: (start + delta.contents, end_ + delta.contents + lengthDiff),
-          kind: kind,
+          kind,
         }
       }
       delta := delta.contents + lengthDiff
@@ -132,7 +132,13 @@ module Literate = {
       raw,
     )->Option.mapWithDefault([], lines =>
       lines
-      ->Array.keep(x => x != "")
+      ->Array.map(x =>
+        switch x {
+        | None => ""
+        | Some(s) => s
+        }
+      )
+      ->Array.keep(s => s != "")
       ->Array.map(line => {
         // [\s\.\;\{\}\(\)\@]
         let cursorOld = cursor.contents
@@ -173,7 +179,7 @@ module Literate = {
 
       let kind = insideAgda ? AgdaRaw : Literate
 
-      {content: content, kind: kind, range: range}
+      {content, kind, range}
     })
   }
 
@@ -260,7 +266,13 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     let actualSpaces =
       content
       ->Js.String.match_(%re("/\\s*$/"), _)
-      ->Option.flatMap(matches => matches[0]->Option.map(Js.String.length))
+      ->Option.flatMap(matches =>
+        switch matches[0] {
+        | None => None
+        | Some(None) => None
+        | Some(Some(s)) => Some(Js.String.length(s))
+        }
+      )
       ->Option.getWithDefault(0)
 
     /* make room for the index, if there's not enough space */
@@ -290,7 +302,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     | (Some(modifiedHole), Some(index)) =>
       let (start, _) = modifiedHole.range
       Some({
-        Diff.index: index,
+        Diff.index,
         originalInterval: (start, start + String.length(token.content)),
         modifiedInterval: modifiedHole.range,
         content: modifiedHole.content,

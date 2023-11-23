@@ -14,7 +14,7 @@ module type Module = {
     bool,
     LanguageServerMule.Source.GitHub.Download.Event.t => unit,
   ) => Promise.t<result<status, Error.t>>
-  let stop: unit => Promise.t<unit>
+  let stop: unit => Promise.t<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     string,
@@ -74,6 +74,7 @@ module Module: Module = {
         )
         ->Promise.flatMapOk(method => {
           LSP.Client.make("agda", "Agda Language Server", method, InitOptions.getFromConfig())
+          ->Util.P.toPromise
           ->Promise.mapError(e => LSP.Error.ConnectionError(e))
           ->Promise.flatMapOk(LSP.make)
           ->Promise.mapError(error => Error.LSP(error))
@@ -109,13 +110,13 @@ module Module: Module = {
 
   let stop = () =>
     switch singleton.contents {
-    | Some(LSP(conn)) =>
-      singleton := None
-      LSP.destroy(conn)
+    | None => Promise.resolved(Ok())
     | Some(Emacs(conn)) =>
       singleton := None
-      Emacs.destroy(conn)
-    | None => Promise.resolved()
+      Emacs.destroy(conn)->Promise.map(() => Ok())
+    | Some(LSP(conn)) =>
+      singleton := None
+      LSP.destroy(conn)->Promise.mapError(err => Error.LSP(err))
     }
 
   let rec sendRequest = (globalStoragePath, onDownload, useLSP, document, request, handler) => {
@@ -135,7 +136,7 @@ module Module: Module = {
       ->Promise.mapOk(() => toStatus(LSP(conn)))
       ->Promise.flatMapError(error => {
         // stop the connection on error
-        stop()->Promise.map(() => Error(Error.LSP(error)))
+        stop()->Promise.map(_ => Error(Error.LSP(error)))
       })
 
     | Some(Emacs(conn)) =>
@@ -145,7 +146,9 @@ module Module: Module = {
       ->Promise.mapOk(() => toStatus(Emacs(conn)))
       ->Promise.flatMapError(error => {
         // stop the connection on error
-        stop()->Promise.map(() => Error(Error.Emacs(error)))
+        stop()
+        // ->Promise.mapError(err => Error.LSP(err))
+        ->Promise.map(_ => Error(Error.Emacs(error)))
       })
     | None =>
       start(globalStoragePath, useLSP, onDownload)->Promise.flatMapOk(_ =>

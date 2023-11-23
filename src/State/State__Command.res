@@ -90,7 +90,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
           header,
           {
             body: None,
-            placeholder: placeholder,
+            placeholder,
             value: None,
           },
           expr =>
@@ -120,7 +120,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
           header,
           {
             body: Some("Please specify which variable you wish to split"),
-            placeholder: placeholder,
+            placeholder,
             value: None,
           },
           expr =>
@@ -146,7 +146,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
           header,
           {
             body: None,
-            placeholder: placeholder,
+            placeholder,
             value: None,
           },
           expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
@@ -163,7 +163,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)),
@@ -174,7 +174,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(InferType(normalization, expr, goal)),
@@ -215,7 +215,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
@@ -232,7 +232,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)),
@@ -243,7 +243,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
@@ -259,7 +259,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)),
@@ -270,7 +270,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
@@ -286,7 +286,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(WhyInScopeGlobal(expr)),
@@ -297,7 +297,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         header,
         {
           body: None,
-          placeholder: placeholder,
+          placeholder,
           value: None,
         },
         expr => sendAgdaRequest(WhyInScope(expr, goal)),
@@ -334,7 +334,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
         )
         // stop the old connection
         ->Promise.flatMap(Connection.stop)
-        ->Promise.flatMap(() =>
+        ->Promise.flatMap(_ =>
           Connection.start(state.globalStoragePath, useLSP, State.onDownload(state))
         )
         ->Promise.flatMap(result =>
@@ -342,12 +342,13 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
           | Ok(Emacs(version, path)) =>
             // update the connection status
             State.View.Panel.displayStatus(state, "Emacs v" ++ version)
-            ->Promise.flatMap(() =>
-              State.View.Panel.display(
-                state,
-                View.Header.Success("Switched to version '" ++ version ++ "'"),
-                [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
-              )
+            ->Promise.flatMap(
+              () =>
+                State.View.Panel.display(
+                  state,
+                  View.Header.Success("Switched to version '" ++ version ++ "'"),
+                  [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
+                ),
             )
             ->Promise.map(() => Ok())
 
@@ -374,7 +375,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
   | EventFromView(event) =>
     switch event {
     | Initialized => Promise.resolved(Ok())
-    | Destroyed => State.destroy(state, true)->Promise.map(() => Ok())
+    | Destroyed => State.destroy(state, true)
     | InputMethod(InsertChar(char)) => dispatchCommand(InputMethod(InsertChar(char)))
     | InputMethod(ChooseSymbol(symbol)) =>
       State__InputMethod.chooseSymbol(state, symbol)->Promise.map(() => Ok())
@@ -416,6 +417,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
           }
           Node_path.format(newObj)
         }
+
         // only select the ranges when it's on the same file
         if removeRoot(path) == removeRoot(fileName) {
           let ranges = intervals->Array.map(Editor.Range.fromAgdaInterval)

@@ -26,11 +26,10 @@
     "@glennsl/bs-json",
     "rescript-vscode",
     "rescript-webapi",
-    "bs-nd",
     "language-server-mule",
     "reason-promise",
     "@rescript/react",
-    "reason-nodejs"
+    "rescript-nodejs"
   ],
   "bs-dev-dependencies": [
     "bs-mocha",
