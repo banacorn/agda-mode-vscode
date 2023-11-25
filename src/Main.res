@@ -3,7 +3,7 @@ open Belt
 // if end with '.agda' or '.lagda'
 let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
-  Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), fileName)
+  Js.Re.test_(%re("/\.agda$|\.lagda/i"), fileName)
 }
 
 module Inputs: {
@@ -22,21 +22,22 @@ module Inputs: {
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
   //  3. the active text editor is an Agda file
-  let onTriggerCommand = callback => {
+  let onTriggerCommand = callback =>
     Command.names->Array.map(((command, name)) =>
       VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
-        VSCode.Window.activeTextEditor->Option.map(editor => {
-          let fileName =
-            editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
-          if isAgda(fileName) {
-            callback(command, editor)
-          } else {
-            Promise.resolved(None)
-          }
-        })
+        VSCode.Window.activeTextEditor->Option.map(
+          editor => {
+            let fileName =
+              editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+            if isAgda(fileName) {
+              callback(command, editor)
+            } else {
+              Promise.resolved(None)
+            }
+          },
+        )
       })
     )
-  }
 }
 
 let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
@@ -142,8 +143,8 @@ let registerDocumentSemanticTokensProvider = () => {
             builder,
             Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
             Highlighting.SemanticToken.TokenType.toString(type_),
-            modifiers->Option.map(xs =>
-              xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString)
+            modifiers->Option.map(
+              xs => xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString),
             ),
           )
         })
@@ -195,6 +196,7 @@ let finalize = isRestart => {
     VSCode.Commands.setContext("agdaMode", false)->ignore
     // destroy views accordingly
     Singleton.Panel.destroy()
+
     // don't destroy the DebugBuffer singleton if it's a Restart
     if !isRestart {
       Singleton.DebugBuffer.destroy()
@@ -216,6 +218,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   // on open editor
   Inputs.onOpenEditor(editor => {
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+
     // filter out ".agda.git" files
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
@@ -280,11 +283,12 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       switch Registry.get(fileName) {
       | None => Promise.resolved(None)
       | Some(state) =>
-        State__Command.dispatchCommand(state, command)->Promise.map(result =>
-          switch result {
-          | Error(error) => Some(Error(error))
-          | Ok() => Some(Ok(state))
-          }
+        State__Command.dispatchCommand(state, command)->Promise.map(
+          result =>
+            switch result {
+            | Error(error) => Some(Error(error))
+            | Ok() => Some(Ok(state))
+            },
         )
       }
     })
