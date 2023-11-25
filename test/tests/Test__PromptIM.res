@@ -52,7 +52,7 @@
 
 // describe_only("Input Method (Prompt)", () => {
 //   describe("Insertion", () => {
-//     // it(j`test`, () => {
+//     // it(`test`, () => {
 //     //   activateExtensionAndLoad()->get(chan => {
 //     //     Js.log("chan")
 //     //     ()
@@ -61,25 +61,25 @@
 //     //   })
 //     // })
 
-//     // it(j`should translate "\\bn" to "𝕟"`, () => {
+//     // it(`should translate "\\bn" to "𝕟"`, () => {
 //     //   let promptIM = PromptIM.make()
 
 //     //   promptIM->PromptIM.activate("")
 
-//     //   promptIM->testPromptIMUpdate(~input=j`b`, ~output=j`♭`, ())
-//     //   promptIM->testPromptIMUpdate(~input=j`♭n`, ~output=j`𝕟`, ~command=Deactivate, ())
+//     //   promptIM->testPromptIMUpdate(~input=`b`, ~output=`♭`, ())
+//     //   promptIM->testPromptIMUpdate(~input=`♭n`, ~output=`𝕟`, ~command=Deactivate, ())
 //     // })
 
-//     // it(j`should translate "garbage \\\\bn" to "garbage 𝕟"`, () => {
+//     // it(`should translate "garbage \\\\bn" to "garbage 𝕟"`, () => {
 //     //   let promptIM = PromptIM.make()
 
 //     //   promptIM->PromptIM.activate("garbage ")
 
-//     //   promptIM->testPromptIMUpdate(~input=j`garbage b`, ~output=j`garbage ♭`, ())
+//     //   promptIM->testPromptIMUpdate(~input=`garbage b`, ~output=`garbage ♭`, ())
 
 //     //   promptIM->testPromptIMUpdate(
-//     //     ~input=j`garbage ♭n`,
-//     //     ~output=j`garbage 𝕟`,
+//     //     ~input=`garbage ♭n`,
+//     //     ~output=`garbage 𝕟`,
 //     //     ~command=Deactivate,
 //     //     (),
 //     //   )
@@ -87,24 +87,24 @@
 //     ()
 //   })
 
-//   //   describe("Backspacing", () => it(j`should work just fine`, () => {
+//   //   describe("Backspacing", () => it(`should work just fine`, () => {
 //   //       let promptIM = PromptIM.make()
 
 //   //       promptIM->PromptIM.activate("")
 
-//   //       promptIM->testPromptIMUpdate(~input=j`l`, ~output=j`←`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`←a`, ~output=j`←a`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`←am`, ~output=j`←am`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`←amb`, ~output=j`←amb`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`←ambd`, ~output=j`←ambd`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`←ambda`, ~output=j`λ`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j``, ~output=j`lambd`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`lamb`, ~output=j`lamb`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`lambd`, ~output=j`lambd`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`lambda`, ~output=j`λ`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`λb`, ~output=j`λb`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`λba`, ~output=j`λba`, ())
-//   //       promptIM->testPromptIMUpdate(~input=j`λbar`, ~output=j`ƛ`, ~command=Deactivate, ())
+//   //       promptIM->testPromptIMUpdate(~input=`l`, ~output=`←`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`←a`, ~output=`←a`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`←am`, ~output=`←am`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`←amb`, ~output=`←amb`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`←ambd`, ~output=`←ambd`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`←ambda`, ~output=`λ`, ())
+//   //       promptIM->testPromptIMUpdate(~input=``, ~output=`lambd`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`lamb`, ~output=`lamb`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`lambd`, ~output=`lambd`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`lambda`, ~output=`λ`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`λb`, ~output=`λb`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`λba`, ~output=`λba`, ())
+//   //       promptIM->testPromptIMUpdate(~input=`λbar`, ~output=`ƛ`, ~command=Deactivate, ())
 //   //     }))
 // })
 

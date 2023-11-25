@@ -48,7 +48,9 @@ module Decode = {
         | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple5"))
         }
       } else {
-        raise(DecodeError(j`Expected array of length 5, got array of length $length`))
+        raise(
+          DecodeError(`Expected array of length 5, got array of length ${Int.toString(length)}`),
+        )
       }
     } else {
       raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
@@ -70,7 +72,9 @@ module Decode = {
         | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple6"))
         }
       } else {
-        raise(DecodeError(j`Expected array of length 6, got array of length $length`))
+        raise(
+          DecodeError(`Expected array of length 6, got array of length ${Int.toString(length)}`),
+        )
       }
     } else {
       raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
@@ -194,12 +198,14 @@ module P = {
 
   let toPromise = (p: promise<result<'a, Js.Exn.t>>): Promise.t<result<'a, Js.Exn.t>> => {
     p
-      ->Promise.Js.fromBsPromise
-      ->Promise.Js.toResult
-      ->Promise.map(x => switch x {
-        | Ok(Ok(x)) => Ok(x)
-        | Ok(Error(e)) => Error(e)
-        | Error(e) => Error(toJsExn(e))
-        })
+    ->Promise.Js.fromBsPromise
+    ->Promise.Js.toResult
+    ->Promise.map(x =>
+      switch x {
+      | Ok(Ok(x)) => Ok(x)
+      | Ok(Error(e)) => Error(e)
+      | Error(e) => Error(toJsExn(e))
+      }
+    )
   }
 }

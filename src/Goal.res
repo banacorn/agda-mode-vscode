@@ -10,7 +10,7 @@ module type Module = {
 
   // helper function for building strings for Agda
   let buildHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
-  // 
+  //
   let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
   let makeMany: (VSCode.TextEditor.t, array<int>) => Promise.t<array<t>>
@@ -72,7 +72,7 @@ module Module: Module = {
 
     Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
       diffs->Array.map(diff => {
-        // decorate the hole 
+        // decorate the hole
         let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
           editor,
           diff.modifiedInterval,
@@ -81,8 +81,8 @@ module Module: Module = {
         {
           index: diff.index,
           interval: diff.modifiedInterval,
-          decorationBackground: decorationBackground,
-          decorationIndex: decorationIndex,
+          decorationBackground,
+          decorationIndex,
         }
       })
     })
@@ -123,16 +123,16 @@ module Module: Module = {
     let startIndex = string_of_int(start + 3)
     let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
     let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
-    let startPart = j`$(startIndex) $(startRow) $(startColumn)`
+    let startPart = `${startIndex} ${startRow} ${startColumn}`
     let endIndex' = string_of_int(end_ - 3)
     let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
     let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
-    let endPart = j`$(endIndex') $(endRow) $(endColumn)`
+    let endPart = `${endIndex'} ${endRow} ${endColumn}`
 
     if Util.Version.gte(version, "2.5.1") {
-      j`(intervalsToRange (Just (mkAbsolute "$(filepath)")) [Interval (Pn () $(startPart)) (Pn () $(endPart))])` // after 2.5.1
+      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1
     } else {
-      j`(Range [Interval (Pn (Just (mkAbsolute "$(filepath)")) $(startPart)) (Pn (Just (mkAbsolute "$(filepath)")) $(endPart))])` // before (not including) 2.5.1
+      `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
     }
   }
 

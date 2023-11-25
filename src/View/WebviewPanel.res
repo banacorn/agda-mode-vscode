@@ -65,7 +65,7 @@ module WebviewPanel: {
     // let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
     let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
 
-    j`
+    `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -77,16 +77,16 @@ module WebviewPanel: {
 					Use a content security policy to only allow loading images from https or from our extension directory,
 					and only allow scripts that have a specific nonce.
 				-->
-        <meta http-equiv="Content-Security-Policy" content="$scp">
+        <meta http-equiv="Content-Security-Policy" content="${scp}">
 
         <title>React App</title>
-        <link href="$styleUri"    rel="stylesheet" type="text/css" >
-        <link href="$codiconsUri" rel="stylesheet" />
+        <link href="${styleUri}"    rel="stylesheet" type="text/css" >
+        <link href="${codiconsUri}" rel="stylesheet" />
       </head>
       <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
-        <script nonce="$nonce" src="$scriptUri"></script>
+        <script nonce="${nonce}" src="${scriptUri}"></script>
       </body>
       </html>
     `
@@ -149,7 +149,7 @@ module WebviewPanel: {
         %raw(`{
           orientation: 1,
           groups: [{ size: 0.7 }, { size: 0.3 }]
-        }`)
+        }`),
         // {
         // orientation: 1,
         // groups: {
@@ -289,11 +289,12 @@ module Module: Module = {
         | Uninitialized(queuedRequests, queuedEvents) =>
           view.status = Initialized
           queuedRequests->Belt.Array.forEach(((req, resolve)) =>
-            send(view, View.RequestOrEventToView.Request(req))->Promise.get(x =>
-              switch x {
-              | None => ()
-              | Some(res) => resolve(View.ResponseOrEventFromView.Response(res))
-              }
+            send(view, View.RequestOrEventToView.Request(req))->Promise.get(
+              x =>
+                switch x {
+                | None => ()
+                | Some(res) => resolve(View.ResponseOrEventFromView.Response(res))
+                },
             )
           )
           queuedEvents->Belt.Array.forEach(event =>

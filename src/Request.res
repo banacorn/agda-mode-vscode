@@ -103,47 +103,48 @@ let encode = (
   switch request {
   | Load =>
     if Util.Version.gte(version, "2.5.0") {
-      j`${commonPart(NonInteractive)}( Cmd_load "$(filepath)" [] )`
+      `${commonPart(NonInteractive)}( Cmd_load "${filepath}" [] )`
     } else {
-      j`${commonPart(NonInteractive)}( Cmd_load "$(filepath)" [$(libraryPath)] )`
+      `${commonPart(NonInteractive)}( Cmd_load "${filepath}" [${libraryPath}] )`
     }
 
   | Compile =>
     if Util.Version.gte(version, "2.5.0") {
-      j`${commonPart(NonInteractive)}( Cmd_compile $(backend) "$(filepath)" [] )`
+      `${commonPart(NonInteractive)}( Cmd_compile ${backend} "${filepath}" [] )`
     } else {
-      j`${commonPart(NonInteractive)}( Cmd_compile $(backend) "$(filepath)" [$(libraryPath)] )`
+      `${commonPart(NonInteractive)}( Cmd_compile ${backend} "${filepath}" [${libraryPath}] )`
     }
 
-  | ToggleDisplayOfImplicitArguments => j`${commonPart(NonInteractive)}( ToggleImplicitArgs )`
+  | ToggleDisplayOfImplicitArguments => `${commonPart(NonInteractive)}( ToggleImplicitArgs )`
 
-  | ToggleDisplayOfIrrelevantArguments => j`${commonPart(NonInteractive)}( ToggleIrrelevantArgs )`
+  | ToggleDisplayOfIrrelevantArguments => `${commonPart(NonInteractive)}( ToggleIrrelevantArgs )`
 
-  | ShowConstraints => j`${commonPart(NonInteractive)}( Cmd_constraints )`
+  | ShowConstraints => `${commonPart(NonInteractive)}( Cmd_constraints )`
 
   | SolveConstraints(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
     let index = string_of_int(goal.index)
 
-    j`${commonPart(NonInteractive)}( Cmd_solveOne $(normalization) $(index) noRange "" )`
+    `${commonPart(NonInteractive)}( Cmd_solveOne ${normalization} ${index} noRange "" )`
 
   | SolveConstraintsGlobal(normalization) =>
     let normalization = Command.Normalization.encode(normalization)
-    j`${commonPart(NonInteractive)}( Cmd_solveAll $(normalization) )`
+    `${commonPart(NonInteractive)}( Cmd_solveAll ${normalization} )`
 
   | ShowGoals(normalization) =>
     let normalization = Command.Normalization.encode(normalization)
+
     // `Cmd_metas` contains `Rewrite` after v2.6.2
     // Issue #88 (https://github.com/banacorn/agda-mode-vscode/issues/88)
     if Util.Version.gte(version, "2.6.2") {
-      j`${commonPart(NonInteractive)}( Cmd_metas $(normalization) )`
+      `${commonPart(NonInteractive)}( Cmd_metas ${normalization} )`
     } else {
-      j`${commonPart(NonInteractive)}( Cmd_metas )`
+      `${commonPart(NonInteractive)}( Cmd_metas )`
     }
   | SearchAbout(normalization, expr) =>
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
-    j`${commonPart(NonInteractive)}( Cmd_search_about_toplevel $(normalization) "$(content)" )`
+    `${commonPart(NonInteractive)}( Cmd_search_about_toplevel ${normalization} "${content}" )`
 
   // Related issue and commit of agda/agda
   // https://github.com/agda/agda/issues/2730
@@ -153,25 +154,25 @@ let encode = (
     let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
     if Util.Version.gte(version, "2.5.3") {
-      j`${commonPart(NonInteractive)}( Cmd_give WithoutForce $(index) $(range) "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_give WithoutForce ${index} ${range} "${content}" )`
     } else {
-      j`${commonPart(NonInteractive)}( Cmd_give $(index) $(range) "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_give ${index} ${range} "${content}" )`
     }
 
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
     let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
-    j`${commonPart(NonInteractive)}( Cmd_refine_or_intro False $(index) $(range) "$(content)" )`
+    `${commonPart(NonInteractive)}( Cmd_refine_or_intro False ${index} ${range} "${content}" )`
 
   | ElaborateAndGive(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(
+    `${commonPart(
         NonInteractive,
-      )}( Cmd_elaborate_give $(normalization) $(index) noRange "$(content)" )`
+      )}( Cmd_elaborate_give ${normalization} ${index} noRange "${content}" )`
 
   | Auto(goal) =>
     let index: string = string_of_int(goal.index)
@@ -179,86 +180,86 @@ let encode = (
     let range: string = buildRange(goal)
     if Util.Version.gte(version, "2.6.0.1") {
       // after 2.6.0.1
-      j`${commonPart(NonInteractive)}( Cmd_autoOne $(index) $(range) "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
     } else {
       // the old way
-      j`${commonPart(NonInteractive)}( Cmd_auto $(index) $(range) "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
     }
 
   | Case(goal) =>
     let index: string = string_of_int(goal.index)
     let content: string = Goal.getContent(goal, document)->Parser.userInput
     let range: string = buildRange(goal)
-    j`${commonPart(NonInteractive)}( Cmd_make_case $(index) $(range) "$(content)" )`
+    `${commonPart(NonInteractive)}( Cmd_make_case ${index} ${range} "${content}" )`
 
   | HelperFunctionType(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(
+    `${commonPart(
         NonInteractive,
-      )}( Cmd_helper_function $(normalization) $(index) noRange "$(content)" )`
+      )}( Cmd_helper_function ${normalization} ${index} noRange "${content}" )`
 
   | InferType(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
-    j`${commonPart(NonInteractive)}( Cmd_infer $(normalization) $(index) noRange "$(content)" )`
+    `${commonPart(NonInteractive)}( Cmd_infer ${normalization} ${index} noRange "${content}" )`
 
   | InferTypeGlobal(normalization, expr) =>
     let normalization = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(None)}( Cmd_infer_toplevel $(normalization) "$(content)" )`
+    `${commonPart(None)}( Cmd_infer_toplevel ${normalization} "${content}" )`
 
   | Context(normalization, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
-    j`${commonPart(NonInteractive)}( Cmd_context $(normalization) $(index) noRange "" )`
+    `${commonPart(NonInteractive)}( Cmd_context ${normalization} ${index} noRange "" )`
 
   | GoalType(normalization, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
-    j`${commonPart(NonInteractive)}( Cmd_goal_type $(normalization) $(index) noRange "" )`
+    `${commonPart(NonInteractive)}( Cmd_goal_type ${normalization} ${index} noRange "" )`
 
   | GoalTypeAndContext(normalization, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
-    j`${commonPart(NonInteractive)}( Cmd_goal_type_context $(normalization) $(index) noRange "" )`
+    `${commonPart(NonInteractive)}( Cmd_goal_type_context ${normalization} ${index} noRange "" )`
 
   | GoalTypeContextAndInferredType(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(
+    `${commonPart(
         NonInteractive,
-      )}( Cmd_goal_type_context_infer $(normalization) $(index) noRange "$(content)" )`
+      )}( Cmd_goal_type_context_infer ${normalization} ${index} noRange "${content}" )`
 
   | GoalTypeContextAndCheckedType(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(
+    `${commonPart(
         NonInteractive,
-      )}( Cmd_goal_type_context_check $(normalization) $(index) noRange "$(content)" )`
+      )}( Cmd_goal_type_context_check ${normalization} ${index} noRange "${content}" )`
 
   | ModuleContents(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(
+    `${commonPart(
         NonInteractive,
-      )}( Cmd_show_module_contents $(normalization) $(index) noRange "$(content)" )`
+      )}( Cmd_show_module_contents ${normalization} ${index} noRange "${content}" )`
 
   | ModuleContentsGlobal(normalization, expr) =>
     let normalization: string = Command.Normalization.encode(normalization)
     let content = Parser.userInput(expr)
 
-    j`${commonPart(None)}( Cmd_show_module_contents_toplevel $(normalization) "$(content)" )`
+    `${commonPart(None)}( Cmd_show_module_contents_toplevel ${normalization} "${content}" )`
 
   | ComputeNormalForm(computeMode, expr, goal) =>
     let index: string = string_of_int(goal.index)
@@ -267,11 +268,9 @@ let encode = (
     let content: string = Parser.userInput(expr)
 
     if Util.Version.gte(version, "2.5.2") {
-      j`${commonPart(NonInteractive)}( Cmd_compute $(computeMode) $(index) noRange "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_compute ${computeMode} ${index} noRange "${content}" )`
     } else {
-      j`${commonPart(
-          NonInteractive,
-        )}( Cmd_compute $(ignoreAbstract) $(index) noRange "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_compute ${ignoreAbstract} ${index} noRange "${content}" )`
     }
 
   | ComputeNormalFormGlobal(computeMode, expr) =>
@@ -280,19 +279,19 @@ let encode = (
     let content = Parser.userInput(expr)
 
     if Util.Version.gte(version, "2.5.2") {
-      j`${commonPart(NonInteractive)}( Cmd_compute_toplevel $(computeMode) "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_compute_toplevel ${computeMode} "${content}" )`
     } else {
-      j`${commonPart(NonInteractive)}( Cmd_compute_toplevel $(ignoreAbstract) "$(content)" )`
+      `${commonPart(NonInteractive)}( Cmd_compute_toplevel ${ignoreAbstract} "${content}" )`
     }
 
   | WhyInScope(expr, goal) =>
     let index: string = string_of_int(goal.index)
     let content: string = Parser.userInput(expr)
 
-    j`${commonPart(NonInteractive)}( Cmd_why_in_scope $(index) noRange "$(content)" )`
+    `${commonPart(NonInteractive)}( Cmd_why_in_scope ${index} noRange "${content}" )`
 
   | WhyInScopeGlobal(expr) =>
     let content = Parser.userInput(expr)
-    j`${commonPart(None)}( Cmd_why_in_scope_toplevel "$(content)" )`
+    `${commonPart(None)}( Cmd_why_in_scope_toplevel "${content}" )`
   }
 }
