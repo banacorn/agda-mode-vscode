@@ -55,7 +55,7 @@ module OutputConstraint: {
     | Others'(RichText.t)
 
   let parseOfType =
-    %re("/^([^\\:]*) \\: ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
+    %re("/^([^\\:]*) \\: ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
       captured
       ->Emacs__Parser.at(2, Expr.parse)
       ->Option.flatMap(type_ =>
@@ -95,7 +95,7 @@ module Output = {
   let parseOutputWithoutLocation = raw =>
     raw->OutputConstraint.parse->Option.map(x => Output(x, None))
   let parseOutputWithLocation = %re(
-    "/((?:\\n|.)*\\S+)\\s*\\[ at ([^\\]]+) \\]/"
+    "/((?:\\n|.)*\\S+)\\s*\[ at ([^\\]]+) \]/"
   )->Emacs__Parser.captures(captured =>
     captured[1]
     ->Option.flatMap(x => x)
