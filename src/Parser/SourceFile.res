@@ -1,3 +1,5 @@
+// All RegExps in this file has been updated to work with ReScript v10.1.4
+
 open Belt
 open Common
 
@@ -9,13 +11,13 @@ module FileType = {
     | LiterateMarkdown
     | LiterateOrg
   let parse = filepath =>
-    if Js.Re.test_(%re("/\\.lagda\\.rst$/i"), Parser.filepath(filepath)) {
+    if Js.Re.test_(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
       LiterateRST
-    } else if Js.Re.test_(%re("/\\.lagda\\.md$/i"), Parser.filepath(filepath)) {
+    } else if Js.Re.test_(%re("/\.lagda\.md$/i"), Parser.filepath(filepath)) {
       LiterateMarkdown
-    } else if Js.Re.test_(%re("/\\.lagda\\.tex$|\\.lagda$/i"), Parser.filepath(filepath)) {
+    } else if Js.Re.test_(%re("/\.lagda\.tex$|\.lagda$/i"), Parser.filepath(filepath)) {
       LiterateTeX
-    } else if Js.Re.test_(%re("/\\.lagda\\.org$/i"), Parser.filepath(filepath)) {
+    } else if Js.Re.test_(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
       LiterateOrg
     } else {
       Agda
@@ -101,26 +103,30 @@ module Lexer = {
 }
 
 module Regex = {
-  let texBegin = %re("/\\\\begin\\{code\\}.*/")
-  let texEnd = %re("/\\\\end\\{code\\}.*/")
-  let markdown = %re("/\\`\\`\\`(agda)?/")
-  let rstBegin = %re("/\\:\\:/")
-  let rstEnd = %re("/^[^\\s]/")
-  let orgBegin = %re("/\\#\\+begin\\_src agda2/i")
-  let orgEnd = %re("/\\#\\+end\\_src/i")
+  let texBegin = %re("/\\\\begin\{code\}.*/")
+  let texEnd = %re("/\\\\end\{code\}.*/")
+  let markdown = %re("/\`\`\`(agda)?/")
+  let rstBegin = %re("/\:\:/")
+  let rstEnd = %re("/^[^\s]/")
+  let orgBegin = %re("/\#\+begin\_src agda2/i")
+  let orgEnd = %re("/\#\+end\_src/i")
 
   let comment = %re(
-    "/((?<=^|[\\s\"\\_\\;\\.\\(\\)\\{\\}\\@])--[^\\r\\n]*(?:\\r|\\n|$))|(\\{-(?:[^-]|[\\r\\n]|(?:-+(?:[^-\\}]|[\\r\\n])))*-+\\})/"
+    "/((?<=^|[\s\"\_\;\.\(\)\{\}\@])--[^\r\n]*(?:\r|\n|$))|(\{-(?:[^-]|[\r\n]|(?:-+(?:[^-\}]|[\r\n])))*-+\})/"
   )
   // // https://agda.readthedocs.io/en/v2.6.1/language/lexical-structure.html#keywords-and-special-symbols
   // let specialSymbol = [%re "/[\.\;\{\}\(\)\@\"]/"];
 
-  let goalBracket = %re("/(\\{\\!(?:(?!\\!\\})(?:.|\\s))*\\!\\})/")
-  let goalQuestionMarkRaw = %re(
-    "/([\\s\\(\\{\\_\\;\\.\\\"@]|^)(\\?)([\\s\\)\\}\\_\\;\\.\\\"@]|$)/gm"
-  )
-  let goalQuestionMark = %re("/(\\?)/")
-  let goalBracketContent = %re("/\\{\\!((?:(?!\\!\\})(?:.|\\s))*)\\!\\}/")
+  // for regular holes: {! content !}
+  let goalBracket = %re("/(\{\!(?:(?!\!\})(?:.|\s))*\!\})/")
+  // for question marks (with specialSymbols around), e.g.:
+  //    (?)
+  //    .?@
+  let goalQuestionMarkRaw = %re("/([\s\(\{\_\;\.\\\"@]|^)(\?)([\s\)\}\_\;\.\\\"@]|$)/gm")
+  // for question marks: ?
+  let goalQuestionMark = %re("/(\?)/")
+  // for content inside {! !}
+  let goalBracketContent = %re("/\{\!((?:(?!\!\})(?:.|\s))*)\!\}/")
 }
 
 module Literate = {
@@ -128,7 +134,7 @@ module Literate = {
   let toTokens = (raw: string): Lexer.t => {
     let cursor = ref(0)
     Js.String.match_(
-      %re("/(.*(?:\\r\\n|[\\n\\v\\f\\r\\x85\\u2028\\u2029])?)/g"),
+      %re("/(.*(?:\r\n|[\n\v\f\r\x85\u2028\u2029])?)/g"),
       raw,
     )->Option.mapWithDefault([], lines =>
       lines
@@ -265,7 +271,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
       ->Option.getWithDefault("")
     let actualSpaces =
       content
-      ->Js.String.match_(%re("/\\s*$/"), _)
+      ->Js.String.match_(%re("/\s*$/"), _)
       ->Option.flatMap(matches =>
         switch matches[0] {
         | None => None
@@ -279,7 +285,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     let newContent = if actualSpaces < requiredSpaces {
       let padding = Js.String.repeat(requiredSpaces - actualSpaces, "")
 
-      Js.String.replaceByRe(%re("/\\{!.*!\\}/"), "{!" ++ content ++ padding ++ "!}", token.content)
+      Js.String.replaceByRe(%re("/\{!.*!\}/"), "{!" ++ content ++ padding ++ "!}", token.content)
     } else {
       token.content
     }
