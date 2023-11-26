@@ -174,10 +174,15 @@ module Module = {
   // from string by Emacs
   // Regex updated to v10.1.4
   let parse = raw =>
-    // ranges at odd indices
-    // other tokens at even indices
+    // after Js.String.splitByRe
+    //  tokens captured by the regex will be placed at odd indices
+    //  and the rest will be placed at even indices
+    // 3 kinds of tokens are captured as AgdaRange:
+    //  1. filepath:line,column-line,column
+    //  2. filepath:line,column-column
+    //  3. filepath:line,column
     raw
-    ->Js.String.splitByRe(%re("/([^\(\)\s]+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+))/"), _)
+    ->Js.String.splitByRe(%re("/([^\(\)\s]+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+))/"), _)
     ->Array.keepMap(x => x)
     ->Array.mapWithIndex((i, token) =>
       switch mod(i, 2) {

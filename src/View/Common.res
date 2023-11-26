@@ -83,51 +83,25 @@ module AgdaRange = {
 
   let parse = %re(
     // Regex updated to v10.1.4
-    /* |  different row                    |    same row            | */
-    "/^(\S+)\:(?:(\d+)\,(\d+)\-(\d+)\,(\d+)|(\d+)\,(\d+)\-(\d+))$/"
+    // There are 3 types of range:
+    //  type 1: filepath:line,col-line,col
+    //  type 2: filepath:line,col-col
+    //  type 3: filepath:line,col
+
+    /* filepath  | line,col-line,col       |    line,col-col   |   line,col | */
+    "/^(\S+)\:(?:(\d+)\,(\d+)\-(\d+)\,(\d+)|(\d+)\,(\d+)\-(\d+)|(\d+)\,(\d+))$/"
   )->Emacs__Parser.captures(captured => {
     open Belt
     open Belt.Option
     let flatten = xs => xs->flatMap(x => x)
+    // filepath: captured[1]
+    // type 1: captured[2] ~ captured[5]
+    // type 2: captured[6] ~ captured[8]
+    // type 3: captured[9] ~ captured[10]
     let srcFile = captured[1]->flatten
-    let sameRow = captured[6]->flatten->isSome
-    if sameRow {
-      captured[6]
-      ->flatten
-      ->flatMap(int_of_string_opt)
-      ->flatMap(row =>
-        captured[7]
-        ->flatten
-        ->flatMap(int_of_string_opt)
-        ->flatMap(
-          colStart =>
-            captured[8]
-            ->flatten
-            ->flatMap(int_of_string_opt)
-            ->flatMap(
-              colEnd => Some(
-                Range(
-                  srcFile,
-                  [
-                    {
-                      start: {
-                        pos: 0,
-                        line: row,
-                        col: colStart,
-                      },
-                      end_: {
-                        pos: 0,
-                        line: row,
-                        col: colEnd,
-                      },
-                    },
-                  ],
-                ),
-              ),
-            ),
-        )
-      )
-    } else {
+    let isType1 = captured[2]->flatten->isSome
+    let isType2 = captured[6]->flatten->isSome
+    if isType1 {
       captured[2]
       ->flatten
       ->flatMap(int_of_string_opt)
@@ -167,6 +141,72 @@ module AgdaRange = {
                   ),
                 ),
             ),
+        )
+      )
+    } else if isType2 {
+      captured[6]
+      ->flatten
+      ->flatMap(int_of_string_opt)
+      ->flatMap(row =>
+        captured[7]
+        ->flatten
+        ->flatMap(int_of_string_opt)
+        ->flatMap(
+          colStart =>
+            captured[8]
+            ->flatten
+            ->flatMap(int_of_string_opt)
+            ->flatMap(
+              colEnd => Some(
+                Range(
+                  srcFile,
+                  [
+                    {
+                      start: {
+                        pos: 0,
+                        line: row,
+                        col: colStart,
+                      },
+                      end_: {
+                        pos: 0,
+                        line: row,
+                        col: colEnd,
+                      },
+                    },
+                  ],
+                ),
+              ),
+            ),
+        )
+      )
+    } else {
+      captured[9]
+      ->flatten
+      ->flatMap(int_of_string_opt)
+      ->flatMap(row =>
+        captured[10]
+        ->flatten
+        ->flatMap(int_of_string_opt)
+        ->flatMap(
+          col => Some(
+            Range(
+              srcFile,
+              [
+                {
+                  start: {
+                    pos: 0,
+                    line: row,
+                    col,
+                  },
+                  end_: {
+                    pos: 0,
+                    line: row,
+                    col,
+                  },
+                },
+              ],
+            ),
+          ),
         )
       )
     }
