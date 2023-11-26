@@ -3,7 +3,7 @@ open Belt
 // if end with '.agda' or '.lagda'
 let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
-  Js.Re.test_(%re("/\.agda$|\.lagda/i"), fileName)
+  Js.Re.test_(%re("/\.agda$|\.lagda/i"), fileName) // RegEx updated to v10.1.4
 }
 
 module Inputs: {

@@ -13,9 +13,9 @@ module AgdaPosition = {
   let decode: Json.Decode.decoder<t> = {
     open Json.Decode
     tuple3(int, int, int) |> map(((line, col, pos)) => {
-      line: line,
-      col: col,
-      pos: pos,
+      line,
+      col,
+      pos,
     })
   }
 
@@ -44,7 +44,7 @@ module AgdaInterval = {
     } else {
       b.end_
     }
-    {start: start, end_: end_}
+    {start, end_}
   }
 
   let toString = (self): string =>
@@ -63,8 +63,8 @@ module AgdaInterval = {
   let decode: Json.Decode.decoder<t> = {
     open Json.Decode
     pair(AgdaPosition.decode, AgdaPosition.decode) |> map(((start, end_)) => {
-      start: start,
-      end_: end_,
+      start,
+      end_,
     })
   }
 
@@ -82,8 +82,9 @@ module AgdaRange = {
     | Range(option<string>, array<AgdaInterval.t>)
 
   let parse = %re(
+    // Regex updated to v10.1.4
     /* |  different row                    |    same row            | */
-    "/^(\\S+)\\:(?:(\\d+)\\,(\\d+)\\-(\\d+)\\,(\\d+)|(\\d+)\\,(\\d+)\\-(\\d+))$/"
+    "/^(\S+)\:(?:(\d+)\,(\d+)\-(\d+)\,(\d+)|(\d+)\,(\d+)\-(\d+))$/"
   )->Emacs__Parser.captures(captured => {
     open Belt
     open Belt.Option
@@ -98,29 +99,32 @@ module AgdaRange = {
         captured[7]
         ->flatten
         ->flatMap(int_of_string_opt)
-        ->flatMap(colStart =>
-          captured[8]
-          ->flatten
-          ->flatMap(int_of_string_opt)
-          ->flatMap(colEnd => Some(
-            Range(
-              srcFile,
-              [
-                {
-                  start: {
-                    pos: 0,
-                    line: row,
-                    col: colStart,
-                  },
-                  end_: {
-                    pos: 0,
-                    line: row,
-                    col: colEnd,
-                  },
-                },
-              ],
+        ->flatMap(
+          colStart =>
+            captured[8]
+            ->flatten
+            ->flatMap(int_of_string_opt)
+            ->flatMap(
+              colEnd => Some(
+                Range(
+                  srcFile,
+                  [
+                    {
+                      start: {
+                        pos: 0,
+                        line: row,
+                        col: colStart,
+                      },
+                      end_: {
+                        pos: 0,
+                        line: row,
+                        col: colEnd,
+                      },
+                    },
+                  ],
+                ),
+              ),
             ),
-          ))
         )
       )
     } else {
@@ -131,34 +135,38 @@ module AgdaRange = {
         captured[3]
         ->flatten
         ->flatMap(int_of_string_opt)
-        ->flatMap(colStart =>
-          captured[4]
-          ->flatten
-          ->flatMap(int_of_string_opt)
-          ->flatMap(rowEnd =>
-            captured[5]
+        ->flatMap(
+          colStart =>
+            captured[4]
             ->flatten
             ->flatMap(int_of_string_opt)
-            ->flatMap(colEnd => Some(
-              Range(
-                srcFile,
-                [
-                  {
-                    start: {
-                      pos: 0,
-                      line: rowStart,
-                      col: colStart,
-                    },
-                    end_: {
-                      pos: 0,
-                      line: rowEnd,
-                      col: colEnd,
-                    },
-                  },
-                ],
-              ),
-            ))
-          )
+            ->flatMap(
+              rowEnd =>
+                captured[5]
+                ->flatten
+                ->flatMap(int_of_string_opt)
+                ->flatMap(
+                  colEnd => Some(
+                    Range(
+                      srcFile,
+                      [
+                        {
+                          start: {
+                            pos: 0,
+                            line: rowStart,
+                            col: colStart,
+                          },
+                          end_: {
+                            pos: 0,
+                            line: rowEnd,
+                            col: colEnd,
+                          },
+                        },
+                      ],
+                    ),
+                  ),
+                ),
+            ),
         )
       )
     }

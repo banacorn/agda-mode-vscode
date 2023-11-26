@@ -1,6 +1,7 @@
 open Belt
 
 let split = s =>
+  // RegEx updated to v10.1.4
   s
   ->Js.String.splitByRe(%re("/\r\n|\n/"), _)
   ->Array.map(x =>
@@ -48,9 +49,9 @@ module Incr = {
   }
 
   let make = (initialContinuation, callback) => {
-    initialContinuation: initialContinuation,
+    initialContinuation,
     continuation: ref(None),
-    callback: callback,
+    callback,
   }
 
   // parsing with continuation
