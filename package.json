@@ -10,10 +10,6 @@
 	"categories": [
 		"Other"
 	],
-	"activationEvents": [
-		"onCommand:agda-mode.load",
-		"onCommand:agda-mode.input-symbol[Activate]"
-	],
 	"main": "./dist/app.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"scripts": {

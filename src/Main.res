@@ -41,10 +41,8 @@ module Inputs: {
 }
 
 let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
-  if Registry.isEmpty() {
-    // keybinding: so that most of the commands will work only after agda-mode:load
-    VSCode.Commands.setContext("agdaMode", true)->ignore
-  }
+  // keybinding: so that most of the commands will work only after agda-mode:load
+  VSCode.Commands.setContext("agdaMode", true)->ignore
 
   let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
