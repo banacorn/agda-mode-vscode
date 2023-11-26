@@ -34,13 +34,7 @@ module DisplayInfo = {
     | CompilationOkLSP(array<string>, array<string>)
     | Constraints(option<string>)
     | AllGoalsWarnings(string, string)
-    | AllGoalsWarningsLSP(
-        string,
-        array<Item.t>,
-        array<Item.t>,
-        array<string>,
-        array<string>,
-      )
+    | AllGoalsWarningsLSP(string, array<Item.t>, array<Item.t>, array<string>, array<string>)
     | Time(string)
     | Error(string)
     | Intro(string)
@@ -88,7 +82,7 @@ module DisplayInfo = {
   let parse = (xs: array<Token.t>): option<t> =>
     switch xs[1] {
     | Some(A(rawPayload)) =>
-      let payload = rawPayload |> Js.String.replaceByRe(%re("/\\\\r\\\\n|\\\\n/g"), "\n")
+      let payload = rawPayload |> Js.String.replaceByRe(%re("/\\r\\n|\\n/g"), "\n")
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>
