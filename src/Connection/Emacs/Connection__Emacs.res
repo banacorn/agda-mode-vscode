@@ -41,9 +41,9 @@ module ProcInfo: {
           | Some(Some(version)) =>
             resolve(
               Ok({
-                path: path,
-                args: args,
-                version: version,
+                path,
+                args,
+                version,
               }),
             )
           }
@@ -170,7 +170,7 @@ module Module: Module = {
 
       ProcInfo.make(path, args)
       ->Promise.mapOk(procInfo => {
-        procInfo: procInfo,
+        procInfo,
         process: Process.make(procInfo.path, procInfo.args),
         chan: Chan.make(),
         encountedFirstPrompt: false,
@@ -207,8 +207,7 @@ module Module: Module = {
         // stop the Agda Response listener
         stopResponseListener(Ok())
         // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler
-        ->Scheduler.runLast(response => {
+        scheduler->Scheduler.runLast(response => {
           callback(Ok(response))
           // resolve the `responseHandlingPromise` after all Last Responses have been handled
         })
@@ -218,8 +217,7 @@ module Module: Module = {
     let listenerHandle = ref(None)
     listenerHandle := Some(conn.chan->Chan.on(listener))
     // destroy the listener after all responses have been received
-    responsePromise
-    ->Promise.tap(_ =>
+    responsePromise->Promise.tap(_ =>
       listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
     )
   }

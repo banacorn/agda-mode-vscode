@@ -2,7 +2,7 @@ open Belt
 
 let split = s =>
   s
-  ->Js.String.splitByRe(%re("/\\r\\n|\\n/"), _)
+  ->Js.String.splitByRe(%re("/\r\n|\n/"), _)
   ->Array.map(x =>
     switch x {
     | None => None
