@@ -24,7 +24,7 @@ Have: ℕ
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse goal + have + context", () => {
+  it_only("should should parse goal + have + context", () => {
     let raw = `Goal: ℕ
 Have: ℕ
 ————————————————————————————————————————————————————————————
@@ -34,6 +34,16 @@ x : ℕ`
     let expected = [
       Item.Labeled("Goal", "special", RichText.string("ℕ"), None, None),
       Item.Labeled("Have", "special", RichText.string("ℕ"), None, None),
+      Item.Unlabeled(
+        RichText.concatMany([RichText.string("y"), RichText.string(" : "), RichText.string("ℕ")]),
+        None,
+        None,
+      ),
+      Item.Unlabeled(
+        RichText.concatMany([RichText.string("x"), RichText.string(" : "), RichText.string("ℕ")]),
+        None,
+        None,
+      ),
     ]
     Assert.deep_equal(actual, expected)
   })

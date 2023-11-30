@@ -25,6 +25,30 @@ describe("when running Agda.Expr.parse", () => {
   })
 })
 
+describe("when running Agda.OutputConstraint.parse", () => {
+  it("should should parse OfType", () => {
+    let raw = `x : ℕ`
+    let expected = Some(Agda.OutputConstraint.OfType(RichText.string("x"), RichText.string("ℕ")))
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deep_equal(actual, expected)
+  })
+
+  it("should should parse JustType", () => {
+    let raw = `Type ℕ`
+    let expected = Some(Agda.OutputConstraint.JustType(RichText.string("ℕ")))
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deep_equal(actual, expected)
+  })
+
+  it("should should parse JustSort", () => {
+    let raw = `Sort ℕ
+  ℕ`
+    let expected = Some(Agda.OutputConstraint.JustSort(RichText.string("ℕ\n  ℕ")))
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deep_equal(actual, expected)
+  })
+})
+
 // describe_only("when parsing DisplayInfo", () => {
 //   describe("Text", () => {
 //     it({j|should work just fine|j}, () => {

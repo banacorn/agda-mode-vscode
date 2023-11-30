@@ -26,7 +26,8 @@ module Expr = {
     ->Js.String.trim
     /* 1         2 */
     ->Js.String.splitByRe(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"), _)
-    ->Array.mapWithIndex((i, token) =>
+    ->// RegEx updated to v10.1.4
+    Array.mapWithIndex((i, token) =>
       switch mod(i, 3) {
       | 1 =>
         token
@@ -50,45 +51,51 @@ module Expr = {
 }
 
 module OutputConstraint: {
-  type t
+  // RegEx updated to v10.1.4
+  type t =
+    | OfType(RichText.t, RichText.t)
+    | JustType(RichText.t)
+    | JustSort(RichText.t)
+    | Others(RichText.t)
   let parse: string => option<t>
   let renderItem: (t, option<Common.AgdaRange.t>) => Item.t
 } = {
-  type rec t =
-    | OfType'(RichText.t, RichText.t)
-    | JustType'(RichText.t)
-    | JustSort'(RichText.t)
-    | Others'(RichText.t)
+  // RegEx updated to v10.1.4
+  type t =
+    | OfType(RichText.t, RichText.t)
+    | JustType(RichText.t)
+    | JustSort(RichText.t)
+    | Others(RichText.t)
 
   let parseOfType =
-    %re("/^([^\\:]*) \\: ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
+    %re("/^([^\:]*) \: ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
       captured
       ->Emacs__Parser.at(2, Expr.parse)
       ->Option.flatMap(type_ =>
         captured
         ->Emacs__Parser.at(1, Expr.parse)
-        ->Option.flatMap(term => Some(OfType'(Expr.render(term), Expr.render(type_))))
+        ->Option.flatMap(term => Some(OfType(Expr.render(term), Expr.render(type_))))
       )
     )
   let parseJustType =
-    %re("/^Type ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType'(Expr.render(type_)))
+    %re("/^Type ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
+      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType(Expr.render(type_)))
     )
   let parseJustSort =
-    %re("/^Sort ((?:\\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort'(Expr.render(sort)))
+    %re("/^Sort ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
+      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort(Expr.render(sort)))
     )
-  let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others'(Expr.render(raw')))
+  let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others(Expr.render(raw')))
 
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
   let renderItem = (value, location) => {
     open! RichText
     let inlines = switch value {
-    | OfType'(e, t) => concatMany([e, string(" : "), t])
-    | JustType'(e) => concatMany([string("Type "), e])
-    | JustSort'(e) => concatMany([string("Sort "), e])
-    | Others'(e) => concatMany([e])
+    | OfType(e, t) => concatMany([e, string(" : "), t])
+    | JustType(e) => concatMany([string("Type "), e])
+    | JustSort(e) => concatMany([string("Sort "), e])
+    | Others(e) => concatMany([e])
     }
     Item.Unlabeled(inlines, None, location)
   }

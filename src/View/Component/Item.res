@@ -2,7 +2,7 @@ open React
 
 type t =
   | Labeled(string, string, RichText.t, option<string>, option<Common.AgdaRange.t>) // label // style // body // raw string // range
-  | Unlabeled(RichText.t, option<string>, option<Common.AgdaRange.t>) // body // raw string
+  | Unlabeled(RichText.t, option<string>, option<Common.AgdaRange.t>) // body // raw string // range
   | Header(string) // <h1>
 
 let plainText = s => Unlabeled(RichText.string(s), None, None)
