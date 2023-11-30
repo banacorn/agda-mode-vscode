@@ -116,6 +116,8 @@ let parseGoalType: string => array<Item.t> = raw => {
 }
 
 let parseAllGoalsWarnings = (title, body): array<Item.t> => {
+  Js.log(title)
+  Js.log(body)
   let partiteAllGoalsWarnings: (string, string) => Js.Dict.t<array<string>> = (title, body) => {
     let lines = Js.String.split("\n", body)
     /* examine the header to see what's in the body */
@@ -171,7 +173,6 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     ->partiteMetas
     ->partiteWarningsOrErrors("warnings")
     ->partiteWarningsOrErrors("errors")
-
   // convert entries in the dictionary to Items for rendering
   dictionary
   ->Js.Dict.entries
@@ -180,6 +181,11 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
     | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
     | "interactionMetas" =>
+      lines
+      ->Array.map(Agda.Output.parseOutputWithoutLocation)
+      ->Array.keepMap(x => x)
+      ->Array.map(output => Agda.Output.renderItem(output))
+    | "metas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)

@@ -13,7 +13,7 @@ module Dict = {
       | None => (key, index, Array.length(xs))
       }
     )
-    intervals->Array.map(((key, start, end_)) => (key, xs->Js.Array.slice(~start, ~end_)))
+    intervals->Array.map(((key, start, end_)) => (key, xs->Js.Array.slice(~start, ~end_)->Array.keep(x => x !== "")))
       |> fromArray
   }
   /* split an entry */
