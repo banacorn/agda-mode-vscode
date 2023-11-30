@@ -29,7 +29,8 @@ let partiteMetas = xs =>
 
 let partiteWarningsOrErrors = (xs, key) =>
   xs->Dict.update(key, (raw: array<string>) => {
-    let hasDelimeter = raw[0]->Option.flatMap(Js.String.match_(%re("/^\\u2014{4}/")))->Option.isSome
+    // RegEx updated to v10.1.4
+    let hasDelimeter = raw[0]->Option.flatMap(Js.String.match_(%re("/^\u2014{4}/")))->Option.isSome
     let lines = hasDelimeter ? Js.Array.sliceFrom(1, raw) : raw
     let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
     /* If the previous warning of error ends with "at", then we have to glue it back */
@@ -101,7 +102,7 @@ let parseGoalType: string => array<Item.t> = raw => {
       ->Array.map(output => Agda.Output.renderItem(output))
     | "metas" =>
       lines
-      ->Array.map(Agda.Output.parseOutputWithoutLocation)
+      ->Array.map(Agda.Output.parse)
       ->Array.keepMap(x => x)
       ->Array.map(output => Agda.Output.renderItem(output))
     | "hiddenMetas" =>
@@ -116,8 +117,6 @@ let parseGoalType: string => array<Item.t> = raw => {
 }
 
 let parseAllGoalsWarnings = (title, body): array<Item.t> => {
-  Js.log(title)
-  Js.log(body)
   let partiteAllGoalsWarnings: (string, string) => Js.Dict.t<array<string>> = (title, body) => {
     let lines = Js.String.split("\n", body)
     /* examine the header to see what's in the body */
@@ -173,7 +172,6 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     ->partiteMetas
     ->partiteWarningsOrErrors("warnings")
     ->partiteWarningsOrErrors("errors")
-  Js.log(dictionary)
   // convert entries in the dictionary to Items for rendering
   dictionary
   ->Js.Dict.entries

@@ -33,6 +33,8 @@ module AgdaInterval = {
     end_: AgdaPosition.t,
   }
 
+  let make = (start, end_) => {start, end_}
+
   let fuse = (a, b) => {
     let start = if a.start.pos > b.start.pos {
       b.start
