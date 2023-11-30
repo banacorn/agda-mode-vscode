@@ -42,7 +42,6 @@ module Expr = {
   let render = xs => xs->Array.map(Term.render)->RichText.concatMany
 }
 
-
 module OutputConstraint: {
   type t
   let parse: string => option<t>
@@ -77,7 +76,7 @@ module OutputConstraint: {
   let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
 
   let renderItem = (value, location) => {
-    open !RichText
+    open! RichText
     let inlines = switch value {
     | OfType'(e, t) => concatMany([e, string(" : "), t])
     | JustType'(e) => concatMany([string("Type "), e])
@@ -185,8 +184,8 @@ module Indices: Indices = {
       intervals[Array.length(intervals) - 1]->Option.mapWithDefault(0, ((_, x)) => x + 1)
 
     {
-      intervals: intervals,
-      lastInterval: lastInterval,
+      intervals,
+      lastInterval,
       cursor: 0,
     }
   }
@@ -261,6 +260,7 @@ module OffsetConverter: OffsetConverter = {
     while i.contents < lengthInCodeUnits {
       let charCode = Js.String.charCodeAt(i.contents, text)->int_of_float
       let notFinal = i.contents + 1 < lengthInCodeUnits
+
       // check if this is a part of a surrogate pair
       if charCode >= 0xD800 && (charCode <= 0xDBFF && notFinal) {
         // found the high surrogate, proceed to check the low surrogate
@@ -284,7 +284,7 @@ module OffsetConverter: OffsetConverter = {
   //
   // returns an array of indices where CRLF line endings occur
   let computeCRLFIndices = (text: string): array<int> => {
-    let regexp = %re("/\\r\\n/g")
+    let regexp = %re("/\r\n/g") // RegEx updated to v10.1.4
     let matchAll = %raw("function (regexp, string) {
           let match;
           let result = [];

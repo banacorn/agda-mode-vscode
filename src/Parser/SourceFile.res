@@ -103,8 +103,9 @@ module Lexer = {
 }
 
 module Regex = {
-  let texBegin = %re("/\\\\begin\{code\}.*/")
-  let texEnd = %re("/\\\\end\{code\}.*/")
+  // RegEx updated to v10.1.4
+  let texBegin = %re("/\\begin\{code\}.*/")
+  let texEnd = %re("/\\end\{code\}.*/")
   let markdown = %re("/\`\`\`(agda)?/")
   let rstBegin = %re("/\:\:/")
   let rstEnd = %re("/^[^\s]/")

@@ -388,7 +388,7 @@ describe("Input Method (Editor)", () => {
   })
 
   describe("Multiple cursors at once", () => {
-    let replaceCRLF = Js.String.replaceByRe(%re("/\\r\\n/g"), "\n")
+    let replaceCRLF = Js.String.replaceByRe(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
     Q.it(
       `should work just fine (𝕟)`,
       () => {
@@ -441,7 +441,7 @@ describe("Input Method (Editor)", () => {
                 },
             )
             ->flatMapOk(
-              () => A.equal(`♭\\n♭\\n♭\\n♭`, replaceCRLF(Editor.Text.getAll(document))),
+              () => A.equal(`♭\n♭\n♭\n♭`, replaceCRLF(Editor.Text.getAll(document))), // string literal updated to v10.1.4
             )
             ->flatMapOk(() => IM.insertChar(setup, "n"))
             ->flatMapOk(
@@ -477,7 +477,7 @@ describe("Input Method (Editor)", () => {
                 },
             )
             ->flatMapOk(
-              () => A.equal(`𝕟\\n𝕟\\n𝕟\\n𝕟`, replaceCRLF(Editor.Text.getAll(document))),
+              () => A.equal(`𝕟\n𝕟\n𝕟\n𝕟`, replaceCRLF(Editor.Text.getAll(document))), // string literal updated to v10.1.4
             )
           },
         )
@@ -503,13 +503,13 @@ describe("Input Method (Editor)", () => {
             ->flatMapOk(() => IM.insertChar(setup, "a"))
             ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
             ->flatMapOk(
-              () => A.equal(`a123\\n1a23\\n12a3\\n123a`, replaceCRLF(Editor.Text.getAll(document))),
+              () => A.equal(`a123\n1a23\n12a3\n123a`, replaceCRLF(Editor.Text.getAll(document))), // string literal updated to v10.1.4
             )
             ->flatMapOk(() => IM.insertChar(setup, "n"))
             ->flatMapOk(IM.deep_equal([RewriteIssued([]), UpdateView, RewriteApplied]))
             ->flatMapOk(
               () =>
-                A.equal(`an123\\n1an23\\n12an3\\n123an`, replaceCRLF(Editor.Text.getAll(document))),
+                A.equal(`an123\n1an23\n12an3\n123an`, replaceCRLF(Editor.Text.getAll(document))), // string literal updated to v10.1.4
             )
             ->flatMapOk(() => IM.insertChar(setup, "d"))
             ->flatMapOk(
@@ -547,7 +547,7 @@ describe("Input Method (Editor)", () => {
             ->flatMapOk(
               () =>
                 A.equal(
-                  `∧123\\n1∧23\\n12∧3\\n123∧`,
+                  `∧123\n1∧23\n12∧3\n123∧`, // string literal updated to v10.1.4
                   replaceCRLF(Editor.Text.getAll(document)),
                 ),
             )

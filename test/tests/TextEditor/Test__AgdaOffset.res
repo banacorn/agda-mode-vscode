@@ -3,7 +3,7 @@ open! BsMocha.Mocha
 module Assert = BsMocha.Assert
 module P = BsMocha.Promise
 
-let issue7 = "module Issue7 where\\n-- 𝕁\\na = {!   !}"
+let issue7 = "module Issue7 where\n-- 𝕁\na = {!   !}" // String literal updated to v10.1.4
 
 let openEditorWithContent = content =>
   VSCode.Workspace.openTextDocumentWithOptions(
@@ -38,13 +38,13 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       () => {
         Assert.deep_equal(
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(
-            "𝐀𝐀𝐀𝐀\\n𝐀𝐀𝐀𝐀",
+            "𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀", // String literal updated to v10.1.4
           ),
           [0, 2, 4, 6, 9, 11, 13, 15],
         )
         Assert.deep_equal(
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(
-            "𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\\na",
+            "𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na", // String literal updated to v10.1.4
           ),
           [0, 3, 7, 10, 14, 17, 19, 21],
         )
@@ -60,7 +60,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       () => {
         open Agda.Indices
         Assert.deep_equal(
-          "𝐀𝐀𝐀𝐀\\n𝐀𝐀𝐀𝐀"
+          "𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀" // String literal updated to v10.1.4
           ->Agda.OffsetConverter.computeUTF16SurrogatePairIndices
           ->make
           ->expose
@@ -68,7 +68,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
           [(0, 0), (1, 1), (2, 2), (3, 3), (4, 5), (6, 6), (7, 7), (8, 8)],
         )
         Assert.deep_equal(
-          "𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\\na"
+          "𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na" // String literal updated to v10.1.4
           ->Agda.OffsetConverter.computeUTF16SurrogatePairIndices
           ->make
           ->expose
@@ -86,7 +86,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         open Agda.Indices
         let a = make(
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(
-            "𝐀𝐀𝐀𝐀\\n𝐀𝐀𝐀𝐀",
+            "𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀", // String literal updated to v10.1.4
           ),
         )
         Assert.deep_equal(convert(a, 0), 0)

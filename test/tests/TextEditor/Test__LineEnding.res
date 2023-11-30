@@ -14,8 +14,8 @@ describe("Conversion of offsets between LF and CRLF line endings", () => {
     it(
       "should work",
       () => {
-        Assert.deep_equal(Agda.OffsetConverter.computeCRLFIndices("1234\\r\\n78"), [4])
-        Assert.deep_equal(Agda.OffsetConverter.computeCRLFIndices("12\\r\\n56\\r\\n90"), [2, 6])
+        Assert.deep_equal(Agda.OffsetConverter.computeCRLFIndices("1234\r\n78"), [4]) // String literal updated to v10.1.4
+        Assert.deep_equal(Agda.OffsetConverter.computeCRLFIndices("12\r\n56\r\n90"), [2, 6]) // String literal updated to v10.1.4
       },
     )
   )
@@ -27,7 +27,7 @@ describe("Conversion of offsets between LF and CRLF line endings", () => {
         open Agda.Indices
         ()
         Assert.deep_equal(
-          "12\\r\\n56\\r\\n90"->Agda.OffsetConverter.computeCRLFIndices->make->expose->fst,
+          "12\r\n56\r\n90"->Agda.OffsetConverter.computeCRLFIndices->make->expose->fst, // String literal updated to v10.1.4
           [(0, 2), (3, 5)],
         )
       },
@@ -39,7 +39,7 @@ describe("Conversion of offsets between LF and CRLF line endings", () => {
       "should work",
       () => {
         open Agda.Indices
-        let a = make(Agda.OffsetConverter.computeCRLFIndices("12\\r\\n56\\r\\n90"))
+        let a = make(Agda.OffsetConverter.computeCRLFIndices("12\r\n56\r\n90")) // String literal updated to v10.1.4
         Assert.deep_equal(convert(a, 0), 0)
         Assert.deep_equal(a->expose->snd, 0)
         Assert.deep_equal(convert(a, 1), 1)
