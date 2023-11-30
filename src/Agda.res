@@ -25,7 +25,7 @@ module Expr = {
     raw
     ->Js.String.trim
     /* 1         2 */
-    ->Js.String.splitByRe(%re("/(\\?\\d+)|(\\_\\d+[^\\}\\)\\s]*)/"), _)
+    ->Js.String.splitByRe(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"), _)
     ->Array.mapWithIndex((i, token) =>
       switch mod(i, 3) {
       | 1 =>
@@ -34,7 +34,14 @@ module Expr = {
         ->Option.flatMap(int_of_string_opt)
         ->Option.map(x => Term.QuestionMark(x))
       | 2 => token->Option.map(x => Term.Underscore(x))
-      | _ => token->Option.map(x => Term.Plain(x))
+      | _ =>
+        token->Option.flatMap(x =>
+          if x == "" {
+            None
+          } else {
+            Some(Term.Plain(x))
+          }
+        )
       }
     )
     ->Array.keepMap(x => x)

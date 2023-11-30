@@ -53,10 +53,12 @@ let parseError: string => array<Item.t> = raw => {
 }
 
 let parseGoalType: string => array<Item.t> = raw => {
+  Js.log("parseGoalType")
+  Js.log(raw)
   let markGoal = ((line, _)) => Js.String.match_(%re("/^Goal:/"), line)->Option.map(_ => "goal")
   let markHave = ((line, _)) => Js.String.match_(%re("/^Have:/"), line)->Option.map(_ => "have")
   let markMetas = ((line, _)) =>
-    Js.String.match_(%re("/\\u2014{60}/g"), line)->Option.map(_ => "metas")
+    Js.String.match_(%re("/\u2014{60}/g"), line)->Option.map(_ => "metas")
   let partiteGoalTypeContext = xs =>
     xs->Emacs__Parser.Dict.partite(line =>
       switch markGoal(line) {
@@ -75,6 +77,7 @@ let parseGoalType: string => array<Item.t> = raw => {
   let removeDelimeter = xs => xs->Emacs__Parser.Dict.update("metas", Js.Array.sliceFrom(1))
   let lines = Js.String.split("\n", raw)
   let dictionary = lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
+  Js.log(dictionary)
   // convert entries in the dictionary to Items for render
   dictionary
   ->Js.Dict.entries
