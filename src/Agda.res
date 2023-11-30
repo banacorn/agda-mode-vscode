@@ -102,13 +102,14 @@ module OutputConstraint: {
 }
 
 module Output = {
+  // RegEx updated to v10.1.4
   type t = Output(OutputConstraint.t, option<Common.AgdaRange.t>)
 
   // parsing serialized data
   let parseOutputWithoutLocation = raw =>
     raw->OutputConstraint.parse->Option.map(x => Output(x, None))
   let parseOutputWithLocation = %re(
-    "/((?:\\n|.)*\\S+)\\s*\[ at ([^\\]]+) \]/"
+    "/((?:\n|.)*\S+)\s*\[ at ([^\]]+) \]/"
   )->Emacs__Parser.captures(captured =>
     captured[1]
     ->Option.flatMap(x => x)
@@ -119,7 +120,7 @@ module Output = {
     })
   )
   let parse = raw => {
-    let locRe = %re("/\\[ at (\\S+\\:(?:\\d+\\,\\d+\\-\\d+\\,\\d+|\\d+\\,\\d+\\-\\d+)) \\]$/")
+    let locRe = %re("/\[ at (\S+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+)) \]$/")
     let hasLocation = Js.Re.test_(locRe, raw)
     if hasLocation {
       parseOutputWithLocation(raw)

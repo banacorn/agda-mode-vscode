@@ -50,6 +50,27 @@ x : ℕ`
 })
 
 describe_only("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
+  it("should should parse metas", () => {
+    let raw = `
+?0 : ℕ
+?1 : ℕ
+`
+    let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals*", raw)
+    let expected = [
+      Item.Unlabeled(
+        RichText.concatMany([RichText.hole(0), RichText.string(" : "), RichText.string("ℕ")]),
+        None,
+        None,
+      ),
+      Item.Unlabeled(
+        RichText.concatMany([RichText.hole(1), RichText.string(" : "), RichText.string("ℕ")]),
+        None,
+        None,
+      ),
+    ]
+    Assert.deep_equal(actual, expected)
+  })
+
   it("should should parse goal only", () => {
     let raw = `
 ?0 : ℕ

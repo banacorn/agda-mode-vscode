@@ -173,6 +173,7 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
     ->partiteMetas
     ->partiteWarningsOrErrors("warnings")
     ->partiteWarningsOrErrors("errors")
+  Js.log(dictionary)
   // convert entries in the dictionary to Items for rendering
   dictionary
   ->Js.Dict.entries
@@ -187,7 +188,7 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
       ->Array.map(output => Agda.Output.renderItem(output))
     | "metas" =>
       lines
-      ->Array.map(Agda.Output.parseOutputWithoutLocation)
+      ->Array.map(Agda.Output.parse)
       ->Array.keepMap(x => x)
       ->Array.map(output => Agda.Output.renderItem(output))
     | "hiddenMetas" =>
