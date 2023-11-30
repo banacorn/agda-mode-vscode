@@ -102,6 +102,11 @@ let parseGoalType: string => array<Item.t> = raw => {
       ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Agda.Output.renderItem(output))
+    | "metas" =>
+      lines
+      ->Array.map(Agda.Output.parseOutputWithoutLocation)
+      ->Array.keepMap(x => x)
+      ->Array.map(output => Agda.Output.renderItem(output))
     | "hiddenMetas" =>
       lines
       ->Array.map(Agda.Output.parseOutputWithLocation)
