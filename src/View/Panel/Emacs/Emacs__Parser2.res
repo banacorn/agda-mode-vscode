@@ -55,7 +55,11 @@ let parseError: string => array<Item.t> = raw => {
   //    ...
   let lines = Js.String.split("\n", raw)
   let hasBothErrorsAndWarnings =
-    lines[0]->Option.map(Js.String.match_(%re("/^\u2014{4} Error/")))->Option.isSome
+    lines[0]->Option.flatMap(Js.String.match_(%re("/^\u2014{4} Error/")))->Option.isSome
+  let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
+  // If the previous warning of error ends with "at", then we have to glue it back
+  let glueBack = xs =>
+    xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome
 
   let dictionary = if hasBothErrorsAndWarnings {
     let isWarning = line => Js.String.match_(%re("/^\u2014{4} Warning\(s\)/"), line)->Option.isSome
@@ -68,28 +72,28 @@ let parseError: string => array<Item.t> = raw => {
         None
       }
     }
-    lines->Emacs__Parser.Dict.partite(predicate)
+    lines
+    ->Emacs__Parser.Dict.partite(predicate)
+    // remove the delimeter in the first line of errors and unlines the rest
+    ->Emacs__Parser.Dict.update("errors", xs => [
+      xs->Js.Array2.sliceFrom(1)->Js.Array2.joinWith("\n"),
+    ])
+    // remove the delimeter in the first line of warnings and unlines the rest
+    ->Emacs__Parser.Dict.update("warnings", xs =>
+      xs
+      ->Js.Array2.sliceFrom(1)
+      ->Array_.partite(markWarningStart)
+      ->Array_.mergeWithNext(glueBack)
+      ->Array.map(Js.Array.joinWith("\n"))
+    )
   } else {
-    lines->Emacs__Parser.Dict.partite(((_, i)) => i === 0 ? Some("errors") : None)
+    lines
+    ->Emacs__Parser.Dict.partite(((_, i)) => i === 0 ? Some("errors") : None)
+    // unlines
+    ->Emacs__Parser.Dict.update("errors", xs => [xs->Js.Array2.joinWith("\n")])
   }
-  let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
-  // If the previous warning of error ends with "at", then we have to glue it back
-  let glueBack = xs =>
-    xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome
   // convert entries in the dictionary to Items for rendering
   dictionary
-  // remove the delimeter in the first line of errors and unlines the rest
-  ->Emacs__Parser.Dict.update("errors", xs => [
-    xs->Js.Array2.sliceFrom(1)->Js.Array2.joinWith("\n"),
-  ])
-  // remove the delimeter in the first line of warnings and unlines the rest
-  ->Emacs__Parser.Dict.update("warnings", xs =>
-    xs
-    ->Js.Array2.sliceFrom(1)
-    ->Array_.partite(markWarningStart)
-    ->Array_.mergeWithNext(glueBack)
-    ->Array.map(Js.Array.joinWith("\n"))
-  )
   ->Js.Dict.entries
   ->Array.map(((key, lines)) =>
     switch key {

@@ -106,22 +106,11 @@ Unsolved constraints`
 })
 
 describe_only("when running Emacs__Parser2.parseError", () => {
-  it("should should parse errors + warnings", () => {
-    let raw = `
-———— Error —————————————————————————————————————————————————
-/Users/banacorn/agda/examples/A.agda:15,1-2
+  it("should should parse an error only", () => {
+    let raw = `/Users/banacorn/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
-when checking that the clause a has type _8
-
-———— Warning(s) ————————————————————————————————————————————
-/Users/banacorn/agda/examples/A.agda:17,1-8
-The following names are declared but not accompanied by a
-definition: boo
-/Users/banacorn/agda/examples/A.agda:9,1-10
-Unreachable clause
-when checking the definition of _+_
-`
+when checking that the clause a has type _8`
     let actual = Emacs__Parser2.parseError(raw)
     let expected = [
       Item.Labeled(
@@ -140,7 +129,51 @@ when checking the definition of _+_
               ],
             ),
           ),
-          RichText.string("\nThe right-hand side can only be omitted if there is an absurd\npattern, () or {}, in the left-hand side.\nwhen checking that the clause a has type _8"),
+          RichText.string(
+            "\nThe right-hand side can only be omitted if there is an absurd\npattern, () or {}, in the left-hand side.\nwhen checking that the clause a has type _8",
+          ),
+        ]),
+        None,
+        None,
+      ),
+    ]
+    Assert.deep_equal(actual, expected)
+  })
+  it("should should parse an error + warnings", () => {
+    let raw = `———— Error —————————————————————————————————————————————————
+/Users/banacorn/agda/examples/A.agda:15,1-2
+The right-hand side can only be omitted if there is an absurd
+pattern, () or {}, in the left-hand side.
+when checking that the clause a has type _8
+
+———— Warning(s) ————————————————————————————————————————————
+/Users/banacorn/agda/examples/A.agda:17,1-8
+The following names are declared but not accompanied by a
+definition: boo
+/Users/banacorn/agda/examples/A.agda:9,1-10
+Unreachable clause
+when checking the definition of _+_`
+    let actual = Emacs__Parser2.parseError(raw)
+    let expected = [
+      Item.Labeled(
+        "Error",
+        "error",
+        RichText.concatMany([
+          RichText.string(""),
+          RichText.srcLoc(
+            Common.AgdaRange.Range(
+              Some("/Users/banacorn/agda/examples/A.agda"),
+              [
+                {
+                  start: {col: 1, line: 15, pos: 0},
+                  end_: {col: 2, line: 15, pos: 0},
+                },
+              ],
+            ),
+          ),
+          RichText.string(
+            "\nThe right-hand side can only be omitted if there is an absurd\npattern, () or {}, in the left-hand side.\nwhen checking that the clause a has type _8",
+          ),
         ]),
         None,
         None,
@@ -182,7 +215,9 @@ when checking the definition of _+_
               ],
             ),
           ),
-          RichText.string("\nThe following names are declared but not accompanied by a\ndefinition: boo"),
+          RichText.string(
+            "\nThe following names are declared but not accompanied by a\ndefinition: boo",
+          ),
         ]),
         None,
         None,
