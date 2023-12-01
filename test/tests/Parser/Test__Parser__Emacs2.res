@@ -76,8 +76,8 @@ Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
             Some("/Users/banacorn/agda/examples/A.agda"),
             [
               {
-                Common.AgdaInterval.start: {Common.AgdaPosition.col: 5, line: 11, pos: 0},
-                end_: {Common.AgdaPosition.col: 20, line: 11, pos: 0},
+                start: {col: 5, line: 11, pos: 0},
+                end_: {col: 20, line: 11, pos: 0},
               },
             ],
           ),
@@ -99,13 +99,94 @@ Unsolved constraints`
         None,
         None,
       ),
+      Item.Labeled("Error", "error", RichText.string("Unsolved constraints"), None, None),
+    ]
+    Assert.deep_equal(actual, expected)
+  })
+})
+
+describe_only("when running Emacs__Parser2.parseError", () => {
+  it("should should parse errors + warnings", () => {
+    let raw = `
+———— Error —————————————————————————————————————————————————
+/Users/banacorn/agda/examples/A.agda:15,1-2
+The right-hand side can only be omitted if there is an absurd
+pattern, () or {}, in the left-hand side.
+when checking that the clause a has type _8
+
+———— Warning(s) ————————————————————————————————————————————
+/Users/banacorn/agda/examples/A.agda:17,1-8
+The following names are declared but not accompanied by a
+definition: boo
+/Users/banacorn/agda/examples/A.agda:9,1-10
+Unreachable clause
+when checking the definition of _+_
+`
+    let actual = Emacs__Parser2.parseError(raw)
+    let expected = [
       Item.Labeled(
         "Error",
         "error",
-        RichText.string("Unsolved constraints"),
+        RichText.concatMany([
+          RichText.string(""),
+          RichText.srcLoc(
+            Common.AgdaRange.Range(
+              Some("/Users/banacorn/agda/examples/A.agda"),
+              [
+                {
+                  start: {col: 1, line: 15, pos: 0},
+                  end_: {col: 2, line: 15, pos: 0},
+                },
+              ],
+            ),
+          ),
+          RichText.string("\nThe right-hand side can only be omitted if there is an absurd\npattern, () or {}, in the left-hand side.\nwhen checking that the clause a has type _8"),
+        ]),
         None,
         None,
-      )
+      ),
+      Item.Labeled(
+        "Warning",
+        "warning",
+        RichText.concatMany([
+          RichText.string(""),
+          RichText.srcLoc(
+            Common.AgdaRange.Range(
+              Some("/Users/banacorn/agda/examples/A.agda"),
+              [
+                {
+                  start: {col: 1, line: 9, pos: 0},
+                  end_: {col: 10, line: 9, pos: 0},
+                },
+              ],
+            ),
+          ),
+          RichText.string("\nUnreachable clause\nwhen checking the definition of _+_"),
+        ]),
+        None,
+        None,
+      ),
+      Item.Labeled(
+        "Warning",
+        "warning",
+        RichText.concatMany([
+          RichText.string(""),
+          RichText.srcLoc(
+            Common.AgdaRange.Range(
+              Some("/Users/banacorn/agda/examples/A.agda"),
+              [
+                {
+                  start: {col: 1, line: 17, pos: 0},
+                  end_: {col: 8, line: 17, pos: 0},
+                },
+              ],
+            ),
+          ),
+          RichText.string("\nThe following names are declared but not accompanied by a\ndefinition: boo"),
+        ]),
+        None,
+        None,
+      ),
     ]
     Assert.deep_equal(actual, expected)
   })

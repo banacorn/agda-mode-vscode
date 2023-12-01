@@ -1,3 +1,4 @@
+// See src/full/Agda/Interaction/EmacsTop.hs for the logic behind this parser
 open Emacs__Parser
 open Belt
 
@@ -43,14 +44,61 @@ let partiteWarningsOrErrors = (xs, key) =>
   })
 
 let parseError: string => array<Item.t> = raw => {
+  // if the first line has delimeter,
+  // then the message has both an error and possibly many warnings
+  // all warnings start with a range
+  //    ———— Error ————————————————————————————————————————————————————————————————
+  //    ...
+  //    ———— Warning(s) —————————————————————————————————————————————————————————————
+  //    ...
+  // else, the message has only an error
+  //    ...
   let lines = Js.String.split("\n", raw)
-  lines
-  ->Emacs__Parser.Dict.partite(((_, i)) => i === 0 ? Some("errors") : None)
-  ->partiteWarningsOrErrors("errors")
-  ->Js.Dict.get("errors")
-  ->Option.mapWithDefault([], entries =>
-    entries->Array.map(entry => Item.error(RichText.parse(entry), None))
+  let hasBothErrorsAndWarnings =
+    lines[0]->Option.map(Js.String.match_(%re("/^\u2014{4} Error/")))->Option.isSome
+
+  let dictionary = if hasBothErrorsAndWarnings {
+    let isWarning = line => Js.String.match_(%re("/^\u2014{4} Warning\(s\)/"), line)->Option.isSome
+    let predicate = ((line, i)) => {
+      if i === 0 {
+        Some("errors")
+      } else if isWarning(line) {
+        Some("warnings")
+      } else {
+        None
+      }
+    }
+    lines->Emacs__Parser.Dict.partite(predicate)
+  } else {
+    lines->Emacs__Parser.Dict.partite(((_, i)) => i === 0 ? Some("errors") : None)
+  }
+  let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
+  // If the previous warning of error ends with "at", then we have to glue it back
+  let glueBack = xs =>
+    xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome
+  // convert entries in the dictionary to Items for rendering
+  dictionary
+  // remove the delimeter in the first line of errors and unlines the rest
+  ->Emacs__Parser.Dict.update("errors", xs => [
+    xs->Js.Array2.sliceFrom(1)->Js.Array2.joinWith("\n"),
+  ])
+  // remove the delimeter in the first line of warnings and unlines the rest
+  ->Emacs__Parser.Dict.update("warnings", xs =>
+    xs
+    ->Js.Array2.sliceFrom(1)
+    ->Array_.partite(markWarningStart)
+    ->Array_.mergeWithNext(glueBack)
+    ->Array.map(Js.Array.joinWith("\n"))
   )
+  ->Js.Dict.entries
+  ->Array.map(((key, lines)) =>
+    switch key {
+    | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
+    | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
+    | _ => []
+    }
+  )
+  ->Js.Array.concatMany([])
 }
 
 let parseGoalType: string => array<Item.t> = raw => {
