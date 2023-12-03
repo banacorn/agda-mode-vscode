@@ -12,11 +12,25 @@ exception Error(string)
 
 module Decode = {
   exception TempDecodeError(Js.Json.t)
-  let converDecoder = (translation, json) =>
+  let convert = (translation, json) =>
     switch json->JsonCombinators.Json.decode(translation) {
     | Ok(translation) => translation
     | Error(_) => raise(TempDecodeError(json))
     }
+
+  type fieldType_<'a> =
+    | Contents(JsonCombinators.Json.Decode.t<'a>)
+    | TagOnly('a)
+
+  let sum_ = decoder => {
+    open JsonCombinators.Json.Decode
+    field("tag", string)->flatMap((. tag) =>
+      switch decoder(tag) {
+      | Contents(d) => field("contents", d)
+      | TagOnly(d) => custom((. _) => d)
+      }
+    )
+  }
 
   open Json.Decode
 

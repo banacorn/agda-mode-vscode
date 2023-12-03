@@ -97,41 +97,49 @@ module EventToView = {
       | BrowseDown
       | BrowseLeft
 
-    let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-      open Json.Decode
-      switch x {
-      | "Activate" => TagOnly(Activate)
-      | "Deactivate" => TagOnly(Deactivate)
-      | "Update" =>
-        Contents(
-          tuple3(string, Util.Decode.converDecoder(Translator.decode), int) |> map(((
-            sequence,
-            translation,
-            index,
-          )) => Update(sequence, translation, index)),
-        )
-      | "BrowseUp" => TagOnly(BrowseUp)
-      | "BrowseRight" => TagOnly(BrowseRight)
-      | "BrowseDown" => TagOnly(BrowseDown)
-      | "BrowseLeft" => TagOnly(BrowseLeft)
-      | tag => raise(DecodeError("[EventToView.InputMethod] Unknown constructor: " ++ tag))
-      }
-    })
+    let decode = {
+      open JsonCombinators.Json.Decode
+      Util.Decode.sum_(x => {
+        switch x {
+        | "Activate" => TagOnly(Activate)
+        | "Deactivate" => TagOnly(Deactivate)
+        | "Update" =>
+          Contents(
+            tuple3(string, Translator.decode, int)->map((. (
+              sequence,
+              translation,
+              index,
+            )) => Update(sequence, translation, index)),
+          )
+        | "BrowseUp" => TagOnly(BrowseUp)
+        | "BrowseRight" => TagOnly(BrowseRight)
+        | "BrowseDown" => TagOnly(BrowseDown)
+        | "BrowseLeft" => TagOnly(BrowseLeft)
+        | tag => raise(DecodeError("[EventToView.InputMethod] Unknown constructor: " ++ tag))
+        }
+      })
+    }
 
-    let encode: Json.Encode.encoder<t> = x => {
-      open Json.Encode
+    let encode = x => {
+      open JsonCombinators.Json.Encode
       switch x {
-      | Activate => object_(list{("tag", string("Activate"))})
-      | Deactivate => object_(list{("tag", string("Deactivate"))})
-      | Update(sequence, translation, index) =>
-        object_(list{
-          ("tag", string("Update")),
-          ("contents", (sequence, translation, index) |> tuple3(string, Translator.encode, int)),
+      | Activate =>
+        Unsafe.object({
+          "tag": string("Activate"),
         })
-      | BrowseUp => object_(list{("tag", string("BrowseUp"))})
-      | BrowseRight => object_(list{("tag", string("BrowseRight"))})
-      | BrowseDown => object_(list{("tag", string("BrowseDown"))})
-      | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
+      | Deactivate =>
+        Unsafe.object({
+          "tag": string("Deactivate"),
+        })
+      | Update(sequence, translation, index) =>
+        Unsafe.object({
+          "tag": string("Update"),
+          "contents": tuple3(string, Translator.encode, int, (sequence, translation, index)),
+        })
+      | BrowseUp => Unsafe.object({"tag": string("BrowseUp")})
+      | BrowseRight => Unsafe.object({"tag": string("BrowseRight")})
+      | BrowseDown => Unsafe.object({"tag": string("BrowseDown")})
+      | BrowseLeft => Unsafe.object({"tag": string("BrowseLeft")})
       }
     }
   }
@@ -169,31 +177,66 @@ module EventToView = {
     | "SetStatus" => Contents(string |> map(text => SetStatus(text)))
     | "PromptInterrupt" => TagOnly(PromptInterrupt)
     | "PromptIMUpdate" => Contents(string |> map(text => PromptIMUpdate(text)))
-    | "InputMethod" => Contents(InputMethod.decode |> map(x => InputMethod(x)))
+    | "InputMethod" => Contents(Util.Decode.convert(InputMethod.decode) |> map(x => InputMethod(x)))
     | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
     }
   })
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
+  // let encode: Json.Encode.encoder<t> = x => {
+  //   open Json.Encode
+  //   switch x {
+  //   | Display(header, body) =>
+  //     object_(list{
+  //       ("tag", string("Display")),
+  //       ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+  //     })
+
+  //   | Append(header, body) =>
+  //     object_(list{
+  //       ("tag", string("Append")),
+  //       ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+  //     })
+  //   | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
+  //   | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
+  //   | PromptIMUpdate(text) =>
+  //     object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})
+  //   | InputMethod(payload) =>
+  //     object_(list{("tag", string("InputMethod")), ("contents", payload |> InputMethod.encode)})
+  //   }
+  // }
+
+  let encode = x => {
+    open JsonCombinators.Json.Encode
     switch x {
     | Display(header, body) =>
-      object_(list{
-        ("tag", string("Display")),
-        ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+      Unsafe.object({
+        "tag": string("Display"),
+        "contents": pair(Header.encode, array(Item.encode), (header, body)),
       })
-
     | Append(header, body) =>
-      object_(list{
-        ("tag", string("Append")),
-        ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+      Unsafe.object({
+        "tag": string("Append"),
+        "contents": pair(Header.encode, array(Item.encode), (header, body)),
       })
-    | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
-    | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
+    | SetStatus(text) =>
+      Unsafe.object({
+        "tag": string("SetStatus"),
+        "contents": string(text),
+      })
+    | PromptInterrupt =>
+      Unsafe.object({
+        "tag": string("PromptInterrupt"),
+      })
     | PromptIMUpdate(text) =>
-      object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})
+      Unsafe.object({
+        "tag": string("PromptIMUpdate"),
+        "contents": string(text),
+      })
     | InputMethod(payload) =>
-      object_(list{("tag", string("InputMethod")), ("contents", payload |> InputMethod.encode)})
+      Unsafe.object({
+        "tag": string("InputMethod"),
+        "contents": InputMethod.encode(payload),
+      })
     }
   }
 }
