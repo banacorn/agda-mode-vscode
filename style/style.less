@@ -27,7 +27,7 @@
 }
 
 .agda-mode-keyboard {
-    @button-height: 1.5rem;
+    @button-height: 1rem;
     @button-margin: 0.2rem;
 
     margin: 0 @root-padding;
@@ -56,8 +56,8 @@
         display    : flex;
         // dimensions
         padding    : @padding 0;
-        min-height : 2rem;
-        line-height: 2rem;
+        min-height : 1.5rem;
+        line-height: 1.5rem;
 
         .agda-mode-keyboard-sequence {
             padding    : 0rem @padding;
@@ -84,6 +84,8 @@
 
     .agda-mode-key {
         align-self: center;
+
+        font-size: 75%;
 
 
         background: @input-background;
@@ -293,7 +295,7 @@
 // the total height of .agda-mode-prompt should be the same as @header-height
 .agda-mode-prompt {
     white-space: pre;
-    padding    : 0 @padding @padding @padding;
+    margin     : 0 @root-padding;
 
     input {
         // Issue #31 - make the input box larger
