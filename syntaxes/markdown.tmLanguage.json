@@ -1,0 +1,6 @@
+{
+    "scopeName": "source.markdown",
+    "patterns": [
+        { "include": "text.html.markdown" }
+    ]
+}

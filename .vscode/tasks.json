@@ -1,0 +1,43 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "clean",
+			"problemMatcher": [],
+			"label": "clean"
+		},
+		{
+			"type": "npm",
+			"script": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "build"
+		},
+		{
+			"type": "npm",
+			"script": "vscode:prepublish",
+			"problemMatcher": [],
+			"label": "vscode:prepublish"
+		},
+		{
+			"type": "npm",
+			"script": "test",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "test"
+		},
+		{
+			"type": "npm",
+			"script": "vfx-dry-run",
+			"problemMatcher": [],
+			"label": "vfx-dry-run"
+		}
+	]
+}

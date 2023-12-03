@@ -10,7 +10,7 @@ type state = {
 let reducer = (state, action) =>
   switch (state, action) {
   | (_, View.EventToView.InputMethod.Activate) =>
-    let translation = Translator.translate("")
+    let translation = Translator.translate("", None)
     Some({sequence: "", translation: translation, candidateIndex: 0})
   | (_, Deactivate) => None
   | (None, _) => None

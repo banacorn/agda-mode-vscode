@@ -1,0 +1,6 @@
+{
+    "scopeName": "source.restructuredtext",
+    "patterns": [
+        { "include": "source.rst" }
+    ]
+}
