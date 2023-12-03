@@ -24,6 +24,7 @@
   "namespace": true,
   "bs-dependencies": [
     "@glennsl/bs-json",
+    "@glennsl/rescript-json-combinators",
     "rescript-vscode",
     "rescript-webapi",
     "language-server-mule",

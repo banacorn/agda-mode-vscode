@@ -55,9 +55,9 @@ module Prompt = {
           placeholder,
           value,
         )) => {
-          body: body,
-          placeholder: placeholder,
-          value: value,
+          body,
+          placeholder,
+          value,
         }),
       )
     | tag => raise(DecodeError("[Prompt] Unknown constructor: " ++ tag))
@@ -104,11 +104,11 @@ module EventToView = {
       | "Deactivate" => TagOnly(Deactivate)
       | "Update" =>
         Contents(
-          tuple3(string, Translator.decode, int) |> map(((sequence, translation, index)) => Update(
+          tuple3(string, Util.Decode.converDecoder(Translator.decode), int) |> map(((
             sequence,
             translation,
             index,
-          )),
+          )) => Update(sequence, translation, index)),
         )
       | "BrowseUp" => TagOnly(BrowseUp)
       | "BrowseRight" => TagOnly(BrowseRight)
@@ -395,10 +395,7 @@ module EventFromView = {
         ("contents", action |> PromptIMUpdate.encode),
       })
     | JumpToTarget(link) =>
-      object_(list{
-        ("tag", string("JumpToTarget")),
-        ("contents", link |> Link.encode),
-      })
+      object_(list{("tag", string("JumpToTarget")), ("contents", link |> Link.encode)})
     }
   }
 }

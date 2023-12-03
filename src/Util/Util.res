@@ -11,6 +11,13 @@ module Result = {
 exception Error(string)
 
 module Decode = {
+  exception TempDecodeError(Js.Json.t)
+  let converDecoder = (translation, json) =>
+    switch json->JsonCombinators.Json.decode(translation) {
+    | Ok(translation) => translation
+    | Error(_) => raise(TempDecodeError(json))
+    }
+
   open Json.Decode
 
   type fieldType<'a> =
