@@ -120,27 +120,23 @@ module EventToView = {
       })
     }
 
-    let encode = x => {
+    let encode = {
       open JsonCombinators.Json.Encode
-      switch x {
-      | Activate =>
-        Unsafe.object({
-          "tag": string("Activate"),
-        })
-      | Deactivate =>
-        Unsafe.object({
-          "tag": string("Deactivate"),
-        })
-      | Update(sequence, translation, index) =>
-        Unsafe.object({
-          "tag": string("Update"),
-          "contents": tuple3(string, Translator.encode, int, (sequence, translation, index)),
-        })
-      | BrowseUp => Unsafe.object({"tag": string("BrowseUp")})
-      | BrowseRight => Unsafe.object({"tag": string("BrowseRight")})
-      | BrowseDown => Unsafe.object({"tag": string("BrowseDown")})
-      | BrowseLeft => Unsafe.object({"tag": string("BrowseLeft")})
-      }
+      Util.Encode.sum(x =>
+        switch x {
+        | Activate => Util.Encode.TagOnly("Activate")
+        | Deactivate => Util.Encode.TagOnly("Deactivate")
+        | Update(sequence, translation, index) =>
+          Util.Encode.Contents(
+            "Update",
+            tuple3(string, Translator.encode, int, (sequence, translation, index)),
+          )
+        | BrowseUp => Util.Encode.TagOnly("BrowseUp")
+        | BrowseRight => Util.Encode.TagOnly("BrowseRight")
+        | BrowseDown => Util.Encode.TagOnly("BrowseDown")
+        | BrowseLeft => Util.Encode.TagOnly("BrowseLeft")
+        }
+      )
     }
   }
 
@@ -182,62 +178,20 @@ module EventToView = {
     }
   })
 
-  // let encode: Json.Encode.encoder<t> = x => {
-  //   open Json.Encode
-  //   switch x {
-  //   | Display(header, body) =>
-  //     object_(list{
-  //       ("tag", string("Display")),
-  //       ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
-  //     })
-
-  //   | Append(header, body) =>
-  //     object_(list{
-  //       ("tag", string("Append")),
-  //       ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
-  //     })
-  //   | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
-  //   | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
-  //   | PromptIMUpdate(text) =>
-  //     object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})
-  //   | InputMethod(payload) =>
-  //     object_(list{("tag", string("InputMethod")), ("contents", payload |> InputMethod.encode)})
-  //   }
-  // }
-
-  let encode = x => {
+  let encode = {
     open JsonCombinators.Json.Encode
-    switch x {
-    | Display(header, body) =>
-      Unsafe.object({
-        "tag": string("Display"),
-        "contents": pair(Header.encode, array(Item.encode), (header, body)),
-      })
-    | Append(header, body) =>
-      Unsafe.object({
-        "tag": string("Append"),
-        "contents": pair(Header.encode, array(Item.encode), (header, body)),
-      })
-    | SetStatus(text) =>
-      Unsafe.object({
-        "tag": string("SetStatus"),
-        "contents": string(text),
-      })
-    | PromptInterrupt =>
-      Unsafe.object({
-        "tag": string("PromptInterrupt"),
-      })
-    | PromptIMUpdate(text) =>
-      Unsafe.object({
-        "tag": string("PromptIMUpdate"),
-        "contents": string(text),
-      })
-    | InputMethod(payload) =>
-      Unsafe.object({
-        "tag": string("InputMethod"),
-        "contents": InputMethod.encode(payload),
-      })
-    }
+    Util.Encode.sum(x =>
+      switch x {
+      | Display(header, body) =>
+        Util.Encode.Contents("Display", pair(Header.encode, array(Item.encode), (header, body)))
+      | Append(header, body) =>
+        Util.Encode.Contents("Append", pair(Header.encode, array(Item.encode), (header, body)))
+      | SetStatus(text) => Util.Encode.Contents("SetStatus", string(text))
+      | PromptInterrupt => Util.Encode.TagOnly("PromptInterrupt")
+      | PromptIMUpdate(text) => Util.Encode.Contents("PromptIMUpdate", string(text))
+      | InputMethod(payload) => Util.Encode.Contents("InputMethod", InputMethod.encode(payload))
+      }
+    )
   }
 }
 

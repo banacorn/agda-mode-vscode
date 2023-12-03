@@ -106,6 +106,25 @@ module Encode = {
   open Json.Encode
   let tuple5 = (encodeA, encodeB, encodeC, encodeD, encodeE, (a, b, c, d, e)) =>
     jsonArray([encodeA(a), encodeB(b), encodeC(c), encodeD(d), encodeE(e)])
+
+  open! JsonCombinators.Json.Encode
+
+  type fieldType<'a> =
+    | Contents(string, Js.Json.t)
+    | TagOnly('a)
+
+  let sum = (f, x) =>
+    switch f(x) {
+    | Contents(tag, json) =>
+      Unsafe.object({
+        "tag": string(tag),
+        "contents": json,
+      })
+    | TagOnly(tag) =>
+      Unsafe.object({
+        "tag": string(tag),
+      })
+    }
 }
 
 module React' = React
