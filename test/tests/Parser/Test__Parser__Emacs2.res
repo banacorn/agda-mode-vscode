@@ -105,7 +105,7 @@ Unsolved constraints`
   })
 })
 
-describe_only("when running Emacs__Parser2.parseError", () => {
+describe("when running Emacs__Parser2.parseError", () => {
   it("should should parse an error only", () => {
     let raw = `/Users/banacorn/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd

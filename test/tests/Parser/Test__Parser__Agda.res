@@ -48,17 +48,3 @@ describe("when running Agda.OutputConstraint.parse", () => {
     Assert.deep_equal(actual, expected)
   })
 })
-
-// describe_only("when parsing DisplayInfo", () => {
-//   describe("Text", () => {
-//     it({j|should work just fine|j}, () => {
-//       let input = {j|1,1-2
-// Not in scope:
-//   c at 1,1-2
-// when scope checking c |j};
-//       let actual = RichText.parse(input);
-//       let expected = Component.Text.Text([||]);
-//       Assert.equal(expected, actual);
-//     })
-//   })
-// });

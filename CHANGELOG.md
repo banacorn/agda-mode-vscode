@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.4.3 - 2023-12-03
+
+### Changed
+- Some adjustments to the UI
+- Update ReScript to v10.1.4
+- Update language-server-mule to v0.3.0
+
+### Fixed
+- Remove unnecessary escape characters from regular expressions & string literal
+- Better parsing of display info from Agda EmacsTop
+
 ## v0.4.2 - 2023-11-20
+
+### Changed
+
 - #167: Make the font size of Agda buffer the same as editors
 - #166: Improve debug buffer: Not printing modules checked and verbosity now
 
