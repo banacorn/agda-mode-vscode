@@ -19,14 +19,14 @@ module Decode = {
     }
 
   type fieldType_<'a> =
-    | Contents(JsonCombinators.Json.Decode.t<'a>)
+    | Payload(JsonCombinators.Json.Decode.t<'a>)
     | TagOnly('a)
 
   let sum_ = decoder => {
     open JsonCombinators.Json.Decode
     field("tag", string)->flatMap((. tag) =>
       switch decoder(tag) {
-      | Contents(d) => field("contents", d)
+      | Payload(d) => field("contents", d)
       | TagOnly(d) => custom((. _) => d)
       }
     )
@@ -110,12 +110,12 @@ module Encode = {
   open! JsonCombinators.Json.Encode
 
   type fieldType<'a> =
-    | Contents(string, Js.Json.t)
+    | Payload(string, Js.Json.t)
     | TagOnly('a)
 
   let sum = (f, x) =>
     switch f(x) {
-    | Contents(tag, json) =>
+    | Payload(tag, json) =>
       Unsafe.object({
         "tag": string(tag),
         "contents": json,

@@ -15,25 +15,40 @@ module Header = {
     | Error(string) => string
     }
 
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Plain" => Contents(string |> map(text => Plain(text)))
-    | "Success" => Contents(string |> map(text => Success(text)))
-    | "Warning" => Contents(string |> map(text => Warning(text)))
-    | "Error" => Contents(string |> map(text => Error(text)))
-    | tag => raise(DecodeError("[Header] Unknown constructor: " ++ tag))
-    }
-  })
+  // let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+  //   open Json.Decode
+  //   switch x {
+  //   | "Plain" => Contents(string |> map(text => Plain(text)))
+  //   | "Success" => Contents(string |> map(text => Success(text)))
+  //   | "Warning" => Contents(string |> map(text => Warning(text)))
+  //   | "Error" => Contents(string |> map(text => Error(text)))
+  //   | tag => raise(DecodeError("[Header] Unknown constructor: " ++ tag))
+  //   }
+  // })
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | Plain(text) => object_(list{("tag", string("Plain")), ("contents", text |> string)})
-    | Success(text) => object_(list{("tag", string("Success")), ("contents", text |> string)})
-    | Warning(text) => object_(list{("tag", string("Warning")), ("contents", text |> string)})
-    | Error(text) => object_(list{("tag", string("Error")), ("contents", text |> string)})
-    }
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "Plain" => Payload(string->map((. text) => Plain(text)))
+      | "Success" => Payload(string->map((. text) => Success(text)))
+      | "Warning" => Payload(string->map((. text) => Warning(text)))
+      | "Error" => Payload(string->map((. text) => Error(text)))
+      | tag => raise(DecodeError("[Header] Unknown constructor: " ++ tag))
+      }
+    })
+  }
+
+  let encode = {
+    open JsonCombinators.Json.Encode
+    Util.Encode.sum(x =>
+      switch x {
+      | Plain(text) => Payload("Plain", string(text))
+      | Success(text) => Payload("Success", string(text))
+      | Warning(text) => Payload("Warning", string(text))
+      | Error(text) => Payload("Error", string(text))
+      }
+    )
   }
 }
 
@@ -104,7 +119,7 @@ module EventToView = {
         | "Activate" => TagOnly(Activate)
         | "Deactivate" => TagOnly(Deactivate)
         | "Update" =>
-          Contents(
+          Payload(
             tuple3(string, Translator.decode, int)->map((. (
               sequence,
               translation,
@@ -124,17 +139,14 @@ module EventToView = {
       open JsonCombinators.Json.Encode
       Util.Encode.sum(x =>
         switch x {
-        | Activate => Util.Encode.TagOnly("Activate")
-        | Deactivate => Util.Encode.TagOnly("Deactivate")
+        | Activate => TagOnly("Activate")
+        | Deactivate => TagOnly("Deactivate")
         | Update(sequence, translation, index) =>
-          Util.Encode.Contents(
-            "Update",
-            tuple3(string, Translator.encode, int, (sequence, translation, index)),
-          )
-        | BrowseUp => Util.Encode.TagOnly("BrowseUp")
-        | BrowseRight => Util.Encode.TagOnly("BrowseRight")
-        | BrowseDown => Util.Encode.TagOnly("BrowseDown")
-        | BrowseLeft => Util.Encode.TagOnly("BrowseLeft")
+          Payload("Update", tuple3(string, Translator.encode, int, (sequence, translation, index)))
+        | BrowseUp => TagOnly("BrowseUp")
+        | BrowseRight => TagOnly("BrowseRight")
+        | BrowseDown => TagOnly("BrowseDown")
+        | BrowseLeft => TagOnly("BrowseLeft")
         }
       )
     }
@@ -164,11 +176,17 @@ module EventToView = {
     switch x {
     | "Display" =>
       Contents(
-        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Display(header, body)),
+        pair(Util.Decode.convert(Header.decode), array(Item.decode)) |> map(((
+          header,
+          body,
+        )) => Display(header, body)),
       )
     | "Append" =>
       Contents(
-        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Append(header, body)),
+        pair(Util.Decode.convert(Header.decode), array(Item.decode)) |> map(((
+          header,
+          body,
+        )) => Append(header, body)),
       )
     | "SetStatus" => Contents(string |> map(text => SetStatus(text)))
     | "PromptInterrupt" => TagOnly(PromptInterrupt)
@@ -183,13 +201,13 @@ module EventToView = {
     Util.Encode.sum(x =>
       switch x {
       | Display(header, body) =>
-        Util.Encode.Contents("Display", pair(Header.encode, array(Item.encode), (header, body)))
+        Payload("Display", pair(Header.encode, array(Item.encode), (header, body)))
       | Append(header, body) =>
-        Util.Encode.Contents("Append", pair(Header.encode, array(Item.encode), (header, body)))
-      | SetStatus(text) => Util.Encode.Contents("SetStatus", string(text))
-      | PromptInterrupt => Util.Encode.TagOnly("PromptInterrupt")
-      | PromptIMUpdate(text) => Util.Encode.Contents("PromptIMUpdate", string(text))
-      | InputMethod(payload) => Util.Encode.Contents("InputMethod", InputMethod.encode(payload))
+        Payload("Append", pair(Header.encode, array(Item.encode), (header, body)))
+      | SetStatus(text) => Payload("SetStatus", string(text))
+      | PromptInterrupt => TagOnly("PromptInterrupt")
+      | PromptIMUpdate(text) => Payload("PromptIMUpdate", string(text))
+      | InputMethod(payload) => Payload("InputMethod", InputMethod.encode(payload))
       }
     )
   }
@@ -209,7 +227,10 @@ module Request = {
     switch x {
     | "Prompt" =>
       Contents(
-        pair(Header.decode, Prompt.decode) |> map(((header, prompt)) => Prompt(header, prompt)),
+        pair(Util.Decode.convert(Header.decode), Prompt.decode) |> map(((header, prompt)) => Prompt(
+          header,
+          prompt,
+        )),
       )
     | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag))
     }
