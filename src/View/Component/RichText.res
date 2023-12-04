@@ -101,11 +101,11 @@ module Module = {
         | "Text" => Contents(pair(string, ClassNames.decode) |> map(((s, cs)) => Text(s, cs)))
         | "Link" =>
           Contents(
-            tuple3(Common.AgdaRange.decode, array(decode()), ClassNames.decode) |> map(((
-              r,
-              xs,
-              cs,
-            )) => Link(r, xs, cs)),
+            tuple3(
+              Util.Decode.convert(Common.AgdaRange.decode),
+              array(decode()),
+              ClassNames.decode,
+            ) |> map(((r, xs, cs)) => Link(r, xs, cs)),
           )
         | "Hole" => Contents(int |> map(s => Hole(s)))
         | "Horz" => Contents(array(array(decode())) |> map(xs => Horz(xs)))

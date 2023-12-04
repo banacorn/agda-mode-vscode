@@ -35,11 +35,7 @@ let make = (~item: t) => {
   let locationButton = location =>
     switch location {
     | Some(location) =>
-      <Link
-        className=["item-location-button"]
-        jump=true
-        hover=false
-        target=Link.SrcLoc(location)>
+      <Link className=["item-location-button"] jump=true hover=false target=Link.SrcLoc(location)>
         <div className="codicon codicon-link" />
       </Link>
     | None => <> </>
@@ -58,7 +54,10 @@ let make = (~item: t) => {
       {locationButton(range)}
     </li>
   // | HorizontalRule => <li className="horizontalRule-item"></li>
-  | Header(s) => <li className="header-item"> <h3> {string(s)} </h3> </li>
+  | Header(s) =>
+    <li className="header-item">
+      <h3> {string(s)} </h3>
+    </li>
   }
 }
 
@@ -72,18 +71,18 @@ let decode: decoder<t> = sum(x =>
       tuple5(
         RichText.decode,
         optional(string),
-        optional(Common.AgdaRange.decode),
+        Util.Decode.convert(JsonCombinators.Json.Decode.option(Common.AgdaRange.decode)),
         string,
         string,
       ) |> map(((text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
     )
   | "Unlabeled" =>
     Contents(
-      tuple3(RichText.decode, optional(string), optional(Common.AgdaRange.decode)) |> map(((
-        text,
-        raw,
-        range,
-      )) => Unlabeled(text, raw, range)),
+      tuple3(
+        RichText.decode,
+        optional(string),
+        Util.Decode.convert(JsonCombinators.Json.Decode.option(Common.AgdaRange.decode)),
+      ) |> map(((text, raw, range)) => Unlabeled(text, raw, range)),
     )
   | "Header" => Contents(string |> map(s => Header(s)))
   | tag => raise(DecodeError("[Item] Unknown constructor: " ++ tag))

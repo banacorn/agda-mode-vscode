@@ -274,20 +274,22 @@ module AgdaRange = {
       }
     }
 
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Range" =>
-      Contents(
-        pair(optional(string), array(Util.Decode.convert(AgdaInterval.decode))) |> map(((
-          source,
-          intervals,
-        )) => Range(source, intervals)),
-      )
-    | "NoRange" => TagOnly(NoRange)
-    | tag => raise(DecodeError("[Agda.Range] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "Range" =>
+        Payload(
+          pair(option(string), array(AgdaInterval.decode))->map((. (source, intervals)) => Range(
+            source,
+            intervals,
+          )),
+        )
+      | "NoRange" => TagOnly(NoRange)
+      | tag => raise(DecodeError("[AgdaRange] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 
   let encode = {
     open JsonCombinators.Json.Encode

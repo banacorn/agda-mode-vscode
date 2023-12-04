@@ -13,7 +13,7 @@ let toString = x =>
 let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
   open Json.Decode
   switch x {
-  | "LinkRange" => Contents(AgdaRange.decode |> map(range => SrcLoc(range)))
+  | "LinkRange" => Contents(Util.Decode.convert(AgdaRange.decode) |> map(range => SrcLoc(range)))
   | "LinkHole" => Contents(int |> map(index => Hole(index)))
   | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
   }
