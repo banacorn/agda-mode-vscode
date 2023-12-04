@@ -30,9 +30,11 @@ module Module: Module = {
   module InitOptions = {
     type t = {commandLineOptions: array<string>}
 
-    let encode: Json.Encode.encoder<t> = x => {
-      open Json.Encode
-      object_(list{("commandLineOptions", x.commandLineOptions |> array(string))})
+    let encode = ({commandLineOptions}) => {
+      open JsonCombinators.Json.Encode
+      Unsafe.object({
+        "commandLineOptions": array(string, commandLineOptions),
+      })
     }
 
     let getFromConfig = () =>

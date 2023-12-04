@@ -11,16 +11,17 @@ module GiveAction = {
     | GiveNoParen
     | GiveString(string)
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "GiveString" => Contents(string |> map(s => GiveString(s)))
-    | "GiveParen" => TagOnly(GiveParen)
-    | "GiveNoParen" => TagOnly(GiveNoParen)
-    | tag => raise(DecodeError("[Response.GiveAction] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "GiveString" => Payload(string->map((. s) => GiveString(s)))
+      | "GiveParen" => TagOnly(GiveParen)
+      | "GiveNoParen" => TagOnly(GiveNoParen)
+      | tag => raise(DecodeError("[Response.GiveAction] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 }
 
 type makeCaseType =

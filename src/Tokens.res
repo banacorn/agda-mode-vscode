@@ -20,12 +20,12 @@ module Token = {
     ", " ++
     string_of_int(self.end_) ++
     ") " ++
-    Util.Pretty.list(List.fromArray( Array.map(self.aspects, Aspect.toString))) ++
+    Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
     switch self.source {
     | None => ""
     | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
     }
-  
+
   // from SExpression
   let parse: Parser.SExpression.t => option<t> = x =>
     switch x {
@@ -35,14 +35,16 @@ module Token = {
       | [A(start'), A(end_'), aspects, _, _, L([A(filepath), _, A(index')])] =>
         int_of_string_opt(start')->Option.flatMap(start =>
           int_of_string_opt(end_')->Option.flatMap(end_ =>
-            int_of_string_opt(index')->Option.map(index => {
-              start: start - 1,
-              end_: end_ - 1,
-              aspects: flatten(aspects)->Array.map(Aspect.parse),
-              isTokenBased: false, // NOTE: fix this
-              note: None, // NOTE: fix this
-              source: Some((filepath, index)),
-            })
+            int_of_string_opt(index')->Option.map(
+              index => {
+                start: start - 1,
+                end_: end_ - 1,
+                aspects: flatten(aspects)->Array.map(Aspect.parse),
+                isTokenBased: false, // NOTE: fix this
+                note: None, // NOTE: fix this
+                source: Some((filepath, index)),
+              },
+            )
           )
         )
 
@@ -77,29 +79,25 @@ module Token = {
     tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
 
   // from JSON
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
-    Util.Decode.tuple6(
-      int,
-      int,
-      array(string),
-      bool,
-      optional(string),
-      optional(pair(string, int)),
-    ) |> map(((start, end_, aspects, isTokenBased, note, source)) => {
+  let decodeToken = {
+    open JsonCombinators.Json.Decode
+    pair(
+      tuple3(int, int, array(string)),
+      tuple3(bool, option(string), option(pair(string, int))),
+    )->map((. ((start, end_, aspects), (isTokenBased, note, source))) => {
       start: start - 1,
       end_: end_ - 1,
       aspects: aspects->Array.map(Aspect.parse),
-      isTokenBased: isTokenBased,
-      note: note,
-      source: source,
+      isTokenBased,
+      note,
+      source,
     })
   }
 
   // from JSON
-  let decodeResponseHighlightingInfoDirect: Json.Decode.decoder<(bool, array<t>)> = {
-    open Json.Decode
-    pair(bool, array(decode)) |> map(((keepHighlighting, xs)) => (keepHighlighting, xs))
+  let decodeResponseHighlightingInfoDirect = {
+    open JsonCombinators.Json.Decode
+    pair(bool, array(decodeToken))->map((. (keepHighlighting, xs)) => (keepHighlighting, xs))
   }
 }
 
@@ -164,7 +162,11 @@ module Module: Module = {
             let raw = Node.Buffer.toString(buffer)
             switch Js.Json.parseExn(raw) {
             | exception _e => (false, [])
-            | json => Token.decodeResponseHighlightingInfoDirect(json)
+            | json =>
+              switch JsonCombinators.Json.decode(json, Token.decodeResponseHighlightingInfoDirect) {
+              | Ok((keepHighlighting, tokens)) => (keepHighlighting, tokens)
+              | Error(_err) => (false, [])
+              }
             }
           }
         | Error(_err) => (false, [])
@@ -196,12 +198,7 @@ module Module: Module = {
       let existing = self.tokens->AVLTree.find(startOffset)
       switch existing {
       | None =>
-
-        
-        let start = Editor.Position.fromOffset(
-          document,
-          startOffset,
-        )
+        let start = Editor.Position.fromOffset(document, startOffset)
 
         let end_ = Editor.Position.fromOffset(
           document,
@@ -297,15 +294,14 @@ module Module: Module = {
         let tokenModifiers = tokenModifiers->Array.concatMany
         let decorations =
           decorations->Array.keepMap(x =>
-            x->Option.map(x => (
-              x,
-              Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
-            ))
+            x->Option.map(
+              x => (x, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)),
+            )
           )
 
         // only 1 TokenType is allowed, so we take the first one
         let semanticToken = tokenTypes[0]->Option.map(tokenType => {
-          Highlighting__SemanticToken.range: range,
+          Highlighting__SemanticToken.range,
           type_: tokenType,
           modifiers: Some(tokenModifiers),
         })

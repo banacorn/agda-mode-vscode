@@ -50,26 +50,29 @@ module Event = {
     let make = React.Context.provider(eventContext)
   }
 
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
-    Util.Decode.sum(x =>
+  let decode = {
+    Util.Decode.sum_(x => {
       switch x {
-      | "JumpToTarget" => Contents(Util.Decode.convert(decode) |> map(link => JumpToTarget(link)))
-      | "MouseOver" => Contents(Util.Decode.convert(decode) |> map(link => MouseOver(link)))
-      | "MouseOut" => Contents(Util.Decode.convert(decode) |> map(link => MouseOut(link)))
-      | tag => raise(DecodeError("[Response.EventFromView] Unknown constructor: " ++ tag))
+      | "JumpToTarget" =>
+        Payload(decode->JsonCombinators.Json.Decode.map((. target) => JumpToTarget(target)))
+      | "MouseOver" =>
+        Payload(decode->JsonCombinators.Json.Decode.map((. target) => MouseOver(target)))
+      | "MouseOut" =>
+        Payload(decode->JsonCombinators.Json.Decode.map((. target) => MouseOut(target)))
+      | tag =>
+        raise(JsonCombinators.Json.Decode.DecodeError("[Link.Event] Unknown constructor: " ++ tag))
       }
-    )
+    })
   }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | JumpToTarget(link) =>
-      object_(list{("tag", string("JumpToTarget")), ("contents", link |> encode)})
-    | MouseOver(link) => object_(list{("tag", string("MouseOver")), ("contents", link |> encode)})
-    | MouseOut(link) => object_(list{("tag", string("MouseOut")), ("contents", link |> encode)})
-    }
+  let encode = {
+    Util.Encode.sum(x =>
+      switch x {
+      | JumpToTarget(link) => Payload("JumpToTarget", encode(link))
+      | MouseOver(link) => Payload("MouseOver", encode(link))
+      | MouseOut(link) => Payload("MouseOut", encode(link))
+      }
+    )
   }
 }
 

@@ -13,15 +13,17 @@ module CommandErr = {
     | CannotParseCommand(s) => "Cannot read IOTCM: \n" ++ s
     }
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "CmdErrCannotDecodeJSON" => Contents(string |> map(version => CannotDecodeJSON(version)))
-    | "CmdErrCannotParseCommand" => Contents(string |> map(version => CannotParseCommand(version)))
-    | tag => raise(DecodeError("[LSP.CommandErr] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "CmdErrCannotDecodeJSON" => Payload(string->map((. version) => CannotDecodeJSON(version)))
+      | "CmdErrCannotParseCommand" =>
+        Payload(string->map((. version) => CannotParseCommand(version)))
+      | tag => raise(DecodeError("[Connection.LSP.Error.CommandErr] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 }
 
 type t =

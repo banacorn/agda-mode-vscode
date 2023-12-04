@@ -12,10 +12,10 @@ module AgdaPosition = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    object(field => {
-      line: field.required(. "line", int),
-      col: field.required(. "col", int),
-      pos: field.required(. "pos", int),
+    tuple3(int, int, int)->map((. (line, col, pos)) => {
+      line,
+      col,
+      pos,
     })
   }
 
@@ -62,9 +62,9 @@ module AgdaInterval = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    object(field => {
-      start: field.required(. "start", AgdaPosition.decode),
-      end_: field.required(. "end", AgdaPosition.decode),
+    tuple2(AgdaPosition.decode, AgdaPosition.decode)->map((. (start, end_)) => {
+      start,
+      end_,
     })
   }
 

@@ -11,11 +11,11 @@ module Result = {
 exception Error(string)
 
 module Decode = {
-  exception TempDecodeError(string, Js.Json.t)
-  let convert = (translation, json) =>
+  exception TempDecodeError(string, string, Js.Json.t)
+  let convert = (label, translation, json) =>
     switch json->JsonCombinators.Json.decode(translation) {
     | Ok(translation) => translation
-    | Error(err) => raise(TempDecodeError(err, json))
+    | Error(err) => raise(TempDecodeError(label, err, json))
     }
 
   type fieldType_<'a> =
@@ -103,11 +103,7 @@ module Decode = {
 }
 
 module Encode = {
-  open Json.Encode
-  let tuple5 = (encodeA, encodeB, encodeC, encodeD, encodeE, (a, b, c, d, e)) =>
-    jsonArray([encodeA(a), encodeB(b), encodeC(c), encodeD(d), encodeE(e)])
-
-  open! JsonCombinators.Json.Encode
+  open JsonCombinators.Json.Encode
 
   type fieldType<'a> =
     | Payload(string, Js.Json.t)
