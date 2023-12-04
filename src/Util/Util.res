@@ -11,21 +11,12 @@ module Result = {
 exception Error(string)
 
 module Decode = {
-  exception TempDecodeError(string, string, Js.Json.t)
-  let convert = (label, translation, json) =>
-    switch json->JsonCombinators.Json.decode(translation) {
-    | Ok(translation) => translation
-    | Error(err) =>
-      Js.log(err)
-      raise(TempDecodeError(label, err, json))
-    }
-
+  open JsonCombinators.Json.Decode
   type fieldType_<'a> =
-    | Payload(JsonCombinators.Json.Decode.t<'a>)
+    | Payload(t<'a>)
     | TagOnly('a)
 
-  let sum_ = decoder => {
-    open JsonCombinators.Json.Decode
+  let sum = decoder => {
     field("tag", string)->flatMap((. tag) =>
       switch decoder(tag) {
       | Payload(d) => field("contents", d)
@@ -34,49 +25,7 @@ module Decode = {
     )
   }
 
-  let tuple6_ = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF) => {
-    open JsonCombinators.Json.Decode
-    custom((. json) => {
-      if !Js.Array.isArray(json) {
-        Error.expected("array", json)
-      }
-
-      let arr: array<Js.Json.t> = Obj.magic(json)
-      if Array.length(arr) != 6 {
-        raise(
-          DecodeError(
-            `Expected array of length 6, got array of length ${Array.length(arr)->string_of_int}`,
-          ),
-        )
-      }
-
-      let run = (decoder, xs, i) =>
-        switch xs[i] {
-        | Some(x) =>
-          switch x->decode(decoder) {
-          | Ok(x) => x
-          | Error(err) => raise(DecodeError(err))
-          }
-        | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
-        }
-
-      // arr[0]->Option.flatMap(x => decode(x, decodeA))
-
-      try (
-        run(decodeA, arr, 0),
-        run(decodeB, arr, 1),
-        run(decodeC, arr, 2),
-        run(decodeD, arr, 3),
-        run(decodeE, arr, 4),
-        run(decodeF, arr, 5),
-      ) catch {
-      | DecodeError(msg) => raise(DecodeError(`${msg}\n\tin tuple6`))
-      }
-    })
-  }
-
-  let tuple5_ = (decodeA, decodeB, decodeC, decodeD, decodeE) => {
-    open JsonCombinators.Json.Decode
+  let tuple5 = (decodeA, decodeB, decodeC, decodeD, decodeE) => {
     custom((. json) => {
       if !Js.Array.isArray(json) {
         Error.expected("array", json)
@@ -101,8 +50,6 @@ module Decode = {
         | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
         }
 
-      // arr[0]->Option.flatMap(x => decode(x, decodeA))
-
       try (
         run(decodeA, arr, 0),
         run(decodeB, arr, 1),
@@ -115,74 +62,43 @@ module Decode = {
     })
   }
 
-  open Json.Decode
-
-  type fieldType<'a> =
-    | Contents(decoder<'a>)
-    | TagOnly('a)
-
-  let sum = decoder =>
-    field("tag", string) |> andThen(tag =>
-      switch decoder(tag) {
-      | Contents(d) => field("contents", d)
-      | TagOnly(d) => _ => d
+  let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF) => {
+    custom((. json) => {
+      if !Js.Array.isArray(json) {
+        Error.expected("array", json)
       }
-    )
 
-  let maybe: decoder<'a> => decoder<option<'a>> = decoder =>
-    sum(x =>
-      switch x {
-      | "Just" => Contents(json => Some(decoder(json)))
-      | _ => TagOnly(None)
-      }
-    )
-
-  let tuple5 = (decodeA, decodeB, decodeC, decodeD, decodeE, json) =>
-    if Js.Array.isArray(json) {
-      let source: array<Js.Json.t> = Obj.magic((json: Js.Json.t))
-      let length = Js.Array.length(source)
-      if length == 5 {
-        try (
-          decodeA(Js.Array.unsafe_get(source, 0)),
-          decodeB(Js.Array.unsafe_get(source, 1)),
-          decodeC(Js.Array.unsafe_get(source, 2)),
-          decodeD(Js.Array.unsafe_get(source, 3)),
-          decodeE(Js.Array.unsafe_get(source, 4)),
-        ) catch {
-        | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple5"))
-        }
-      } else {
+      let arr: array<Js.Json.t> = Obj.magic(json)
+      if Array.length(arr) != 6 {
         raise(
-          DecodeError(`Expected array of length 5, got array of length ${Int.toString(length)}`),
+          DecodeError(
+            `Expected array of length 6, got array of length ${Array.length(arr)->string_of_int}`,
+          ),
         )
       }
-    } else {
-      raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
-    }
 
-  let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF, json) =>
-    if Js.Array.isArray(json) {
-      let source: array<Js.Json.t> = Obj.magic((json: Js.Json.t))
-      let length = Js.Array.length(source)
-      if length == 6 {
-        try (
-          decodeA(Js.Array.unsafe_get(source, 0)),
-          decodeB(Js.Array.unsafe_get(source, 1)),
-          decodeC(Js.Array.unsafe_get(source, 2)),
-          decodeD(Js.Array.unsafe_get(source, 3)),
-          decodeE(Js.Array.unsafe_get(source, 4)),
-          decodeF(Js.Array.unsafe_get(source, 5)),
-        ) catch {
-        | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple6"))
+      let run = (decoder, xs, i) =>
+        switch xs[i] {
+        | Some(x) =>
+          switch x->decode(decoder) {
+          | Ok(x) => x
+          | Error(err) => raise(DecodeError(err))
+          }
+        | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
         }
-      } else {
-        raise(
-          DecodeError(`Expected array of length 6, got array of length ${Int.toString(length)}`),
-        )
+
+      try (
+        run(decodeA, arr, 0),
+        run(decodeB, arr, 1),
+        run(decodeC, arr, 2),
+        run(decodeD, arr, 3),
+        run(decodeE, arr, 4),
+        run(decodeF, arr, 5),
+      ) catch {
+      | DecodeError(msg) => raise(DecodeError(`${msg}\n\tin tuple6`))
       }
-    } else {
-      raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
-    }
+    })
+  }
 }
 
 module Encode = {

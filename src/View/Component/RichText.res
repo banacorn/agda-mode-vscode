@@ -98,7 +98,7 @@ module Module = {
 
     let rec decodeRec = () => {
       open JsonCombinators.Json.Decode
-      Util.Decode.sum_(x =>
+      Util.Decode.sum(x =>
         switch x {
         | "Icon" => Payload(pair(string, ClassNames.decode)->map((. (s, cs)) => Icon(s, cs)))
         | "Text" => Payload(pair(string, ClassNames.decode)->map((. (s, cs)) => Text(s, cs)))

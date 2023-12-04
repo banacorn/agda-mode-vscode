@@ -13,7 +13,7 @@ module GiveAction = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "GiveString" => Payload(string->map((. s) => GiveString(s)))
       | "GiveParen" => TagOnly(GiveParen)

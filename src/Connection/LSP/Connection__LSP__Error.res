@@ -15,7 +15,7 @@ module CommandErr = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "CmdErrCannotDecodeJSON" => Payload(string->map((. version) => CannotDecodeJSON(version)))
       | "CmdErrCannotParseCommand" =>

@@ -63,12 +63,13 @@ let make = (~item: t) => {
 
 let decode = {
   open! JsonCombinators.Json.Decode
-  Util.Decode.sum_(x =>
+  Util.Decode.sum(x =>
     switch x {
     | "Labeled" =>
       Payload(
-        Util.Decode.tuple5_(
-          RichText.decode, option(string),
+        Util.Decode.tuple5(
+          RichText.decode,
+          option(string),
           JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
           string,
           string,
@@ -96,7 +97,8 @@ let encode = {
       Payload((
         "Labeled",
         Util.Encode.tuple5(
-          RichText.encode, option(string),
+          RichText.encode,
+          option(string),
           option(Common.AgdaRange.encode),
           string,
           string,

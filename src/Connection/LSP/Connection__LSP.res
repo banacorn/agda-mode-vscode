@@ -27,7 +27,7 @@ module CommandRes = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x =>
+    Util.Decode.sum(x =>
       switch x {
       | "CmdResACK" => Payload(string->map((. version) => ACK(version)))
       | "CmdRes" =>
@@ -51,103 +51,47 @@ module LSPResponse = {
       | Time(string)
       | NormalForm(string)
 
-    // let decode = {
-    //   open JsonCombinators.Json.Decode
-    //   Util.Decode.sum_(x =>
-    //     switch x {
-    //     | "DisplayInfoGeneric" =>
-    //       Payload(
-    //         pair(string, array(Item.decode))->map((. (header, itmes)) => Generic(header, itmes)),
-    //       )
-    //     | "DisplayInfoAllGoalsWarnings" =>
-    //       Payload(
-    //         tuple5(
-    //           string,
-    //           array(Item.decode),
-    //           array(Item.decode),
-    //           array(string),
-    //           array(string),
-    //         )->map((. (header, goals, metas, warnings, errors)) => AllGoalsWarnings(
-    //           header,
-    //           goals,
-    //           metas,
-    //           warnings,
-    //           errors,
-    //         )),
-    //       )
-    //     | "DisplayInfoCurrentGoal" => Payload(Item.decode->map((. body) => CurrentGoal(body)))
-    //     | "DisplayInfoInferredType" => Payload(Item.decode->map((. body) => InferredType(body)))
-    //     | "DisplayInfoCompilationOk" =>
-    //       Payload(
-    //         pair(array(string), array(string))->map((. (warnings, errors)) => CompilationOk(
-    //           warnings,
-    //           errors,
-    //         )),
-    //       )
-    //     | "DisplayInfoAuto" => Payload(string->map((. body) => Auto(body)))
-    //     | "DisplayInfoError" => Payload(string->map((. body) => Error'(body)))
-    //     | "DisplayInfoTime" => Payload(string->map((. body) => Time(body)))
-    //     | "DisplayInfoNormalForm" => Payload(string->map((. body) => NormalForm(body)))
-    //     | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
-    //     }
-    //   )
-    // }
-
-    open Json.Decode
-    open Util.Decode
-    let decode: decoder<t> = sum(x =>
-      switch x {
-      | "DisplayInfoGeneric" =>
-        Contents(
-          pair(
-            string,
-            array(Util.Decode.convert("Item.decode in DisplayInfoGeneric", Item.decode)),
-          ) |> map(((header, itmes)) => Generic(header, itmes)),
-        )
-      | "DisplayInfoAllGoalsWarnings" =>
-        Contents(
-          tuple5(
-            string,
-            array(Util.Decode.convert("Item.decode in DisplayInfoAllGoalsWarnings", Item.decode)),
-            array(Util.Decode.convert("Item.decode in DisplayInfoAllGoalsWarnings", Item.decode)),
-            array(string),
-            array(string),
-          ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
-            header,
-            goals,
-            metas,
-            warnings,
-            errors,
-          )),
-        )
-      | "DisplayInfoCurrentGoal" =>
-        Contents(
-          Util.Decode.convert(
-            "Item.decode in DisplayInfoCurrentGoal",
-            Item.decode,
-          ) |> map(body => CurrentGoal(body)),
-        )
-      | "DisplayInfoInferredType" =>
-        Contents(
-          Util.Decode.convert(
-            "Item.decode in DisplayInfoInferredType",
-            Item.decode,
-          ) |> map(body => InferredType(body)),
-        )
-      | "DisplayInfoCompilationOk" =>
-        Contents(
-          pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
-            warnings,
-            errors,
-          )),
-        )
-      | "DisplayInfoAuto" => Contents(string |> map(body => Auto(body)))
-      | "DisplayInfoError" => Contents(string |> map(body => Error'(body)))
-      | "DisplayInfoTime" => Contents(string |> map(body => Time(body)))
-      | "DisplayInfoNormalForm" => Contents(string |> map(body => NormalForm(body)))
-      | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
-      }
-    )
+    let decode = {
+      open JsonCombinators.Json.Decode
+      Util.Decode.sum(x =>
+        switch x {
+        | "DisplayInfoGeneric" =>
+          Payload(
+            pair(string, array(Item.decode))->map((. (header, itmes)) => Generic(header, itmes)),
+          )
+        | "DisplayInfoAllGoalsWarnings" =>
+          Payload(
+            Util.Decode.tuple5(
+              string,
+              array(Item.decode),
+              array(Item.decode),
+              array(string),
+              array(string),
+            )->map((. (header, goals, metas, warnings, errors)) => AllGoalsWarnings(
+              header,
+              goals,
+              metas,
+              warnings,
+              errors,
+            )),
+          )
+        | "DisplayInfoCurrentGoal" => Payload(Item.decode->map((. body) => CurrentGoal(body)))
+        | "DisplayInfoInferredType" => Payload(Item.decode->map((. body) => InferredType(body)))
+        | "DisplayInfoCompilationOk" =>
+          Payload(
+            pair(array(string), array(string))->map((. (warnings, errors)) => CompilationOk(
+              warnings,
+              errors,
+            )),
+          )
+        | "DisplayInfoAuto" => Payload(string->map((. body) => Auto(body)))
+        | "DisplayInfoError" => Payload(string->map((. body) => Error'(body)))
+        | "DisplayInfoTime" => Payload(string->map((. body) => Time(body)))
+        | "DisplayInfoNormalForm" => Payload(string->map((. body) => NormalForm(body)))
+        | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
+        }
+      )
+    }
   }
 
   type t =
@@ -164,100 +108,100 @@ module LSPResponse = {
     | ResponseEnd => "========"
     }
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "ResponseHighlightingInfoDirect" =>
-      Contents(
-        Util.Decode.convert(
-          "Tokens.Token.decodeResponseHighlightingInfoDirect in LSPResponse",
-          Tokens.Token.decodeResponseHighlightingInfoDirect,
-        ) |> map(((keepHighlighting, infos)) => {
-          ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
-        }),
-      )
-    | "ResponseHighlightingInfoIndirect" =>
-      Contents(
-        string |> map(filePath => ResponseNonLast(Response.HighlightingInfoIndirectJSON(filePath))),
-      )
-    | "ResponseDisplayInfo" =>
-      open DisplayInfo
-      Contents(
-        DisplayInfo.decode |> map(info =>
-          switch info {
-          | Generic(header, body) => ResponseNonLast(DisplayInfo(Generic(header, body)))
-          | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
-            ResponseNonLast(
-              Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
-            )
-          | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(item)))
-          | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(item)))
-          | CompilationOk(warnings, errors) =>
-            ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
-          | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))
-          | Error'(body) => ResponseNonLast(Response.DisplayInfo(Error(body)))
-          | Time(body) => ResponseNonLast(Response.DisplayInfo(Time(body)))
-          | NormalForm(body) => ResponseNonLast(Response.DisplayInfo(NormalForm(body)))
-          }
-        ),
-      )
-    | "ResponseStatus" =>
-      Contents(
-        pair(bool, bool) |> map(((checked, displayImplicit)) => ResponseNonLast(
-          Response.Status(checked, displayImplicit),
-        )),
-      )
-    | "ResponseRunningInfo" =>
-      Contents(
-        pair(int, string) |> map(((verbosity, info)) => ResponseNonLast(
-          Response.RunningInfo(verbosity, info),
-        )),
-      )
-    | "ResponseClearHighlightingTokenBased" => TagOnly(ResponseNonLast(Response.ClearHighlighting))
-    | "ResponseClearHighlightingNotOnlyTokenBased" =>
-      TagOnly(ResponseNonLast(Response.ClearHighlighting))
-    | "ResponseClearRunningInfo" => TagOnly(ResponseNonLast(Response.ClearRunningInfo))
-    | "ResponseDoneAborting" => TagOnly(ResponseNonLast(Response.DoneAborting))
-    | "ResponseDoneExiting" => TagOnly(ResponseNonLast(Response.DoneExiting))
-    | "ResponseGiveAction" =>
-      Contents(
-        pair(
-          int,
-          Util.Decode.convert(
-            "Response.GiveAction.decode in ResponseGiveAction",
-            Response.GiveAction.decode,
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum(x =>
+      switch x {
+      | "ResponseHighlightingInfoDirect" =>
+        Payload(
+          Tokens.Token.decodeResponseHighlightingInfoDirect->map((. (
+            keepHighlighting,
+            infos,
+          )) => ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))),
+        )
+      | "ResponseHighlightingInfoIndirect" =>
+        Payload(
+          string->map((. filePath) => ResponseNonLast(
+            Response.HighlightingInfoIndirectJSON(filePath),
+          )),
+        )
+      | "ResponseDisplayInfo" =>
+        Payload(
+          DisplayInfo.decode->map((. info) =>
+            switch info {
+            | Generic(header, body) => ResponseNonLast(DisplayInfo(Generic(header, body)))
+            | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
+              ResponseNonLast(
+                Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
+              )
+            | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(item)))
+            | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(item)))
+            | CompilationOk(warnings, errors) =>
+              ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
+            | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))
+            | Error'(body) => ResponseNonLast(Response.DisplayInfo(Error(body)))
+            | Time(body) => ResponseNonLast(Response.DisplayInfo(Time(body)))
+            | NormalForm(body) => ResponseNonLast(Response.DisplayInfo(NormalForm(body)))
+            }
           ),
-        ) |> map(((id, giveAction)) => ResponseNonLast(Response.GiveAction(id, giveAction))),
-      )
-    | "ResponseInteractionPoints" =>
-      Contents(array(int) |> map(ids => ResponseLast(1, InteractionPoints(ids))))
-    | "ResponseMakeCaseFunction" =>
-      Contents(
-        array(string) |> map(payload => ResponseLast(2, Response.MakeCase(Function, payload))),
-      )
-    | "ResponseMakeCaseExtendedLambda" =>
-      Contents(
-        array(string) |> map(payload => ResponseLast(
-          2,
-          Response.MakeCase(ExtendedLambda, payload),
-        )),
-      )
-    | "ResponseSolveAll" =>
-      Contents(
-        array(pair(int, string)) |> map(payloads => ResponseLast(2, Response.SolveAll(payloads))),
-      )
-    | "ResponseJumpToError" =>
-      Contents(
-        pair(string, int) |> map(((filePath, offset)) => ResponseLast(
-          3,
-          Response.JumpToError(filePath, offset),
-        )),
-      )
-    | "ResponseEnd" => TagOnly(ResponseEnd)
-    | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
-    }
-  )
+        )
+      | "ResponseStatus" =>
+        Payload(
+          pair(bool, bool)->map((. (checked, displayImplicit)) => ResponseNonLast(
+            Response.Status(checked, displayImplicit),
+          )),
+        )
+      | "ResponseRunningInfo" =>
+        Payload(
+          pair(int, string)->map((. (verbosity, info)) => ResponseNonLast(
+            Response.RunningInfo(verbosity, info),
+          )),
+        )
+      | "ResponseClearHighlightingTokenBased" =>
+        TagOnly(ResponseNonLast(Response.ClearHighlighting))
+      | "ResponseClearHighlightingNotOnlyTokenBased" =>
+        TagOnly(ResponseNonLast(Response.ClearHighlighting))
+      | "ResponseClearRunningInfo" => TagOnly(ResponseNonLast(Response.ClearRunningInfo))
+      | "ResponseDoneAborting" => TagOnly(ResponseNonLast(Response.DoneAborting))
+      | "ResponseDoneExiting" => TagOnly(ResponseNonLast(Response.DoneExiting))
+      | "ResponseGiveAction" =>
+        Payload(
+          pair(int, Response.GiveAction.decode)->map((. (id, giveAction)) => ResponseNonLast(
+            Response.GiveAction(id, giveAction),
+          )),
+        )
+      | "ResponseInteractionPoints" =>
+        Payload(array(int)->map((. ids) => ResponseLast(1, InteractionPoints(ids))))
+      | "ResponseMakeCaseFunction" =>
+        Payload(
+          array(string)->map((. payload) => ResponseLast(2, Response.MakeCase(Function, payload))),
+        )
+      | "ResponseMakeCaseExtendedLambda" =>
+        Payload(
+          array(string)->map((. payload) => ResponseLast(
+            2,
+            Response.MakeCase(ExtendedLambda, payload),
+          )),
+        )
+      | "ResponseSolveAll" =>
+        Payload(
+          array(pair(int, string))->map((. payloads) => ResponseLast(
+            2,
+            Response.SolveAll(payloads),
+          )),
+        )
+      | "ResponseJumpToError" =>
+        Payload(
+          pair(string, int)->map((. (filePath, offset)) => ResponseLast(
+            3,
+            Response.JumpToError(filePath, offset),
+          )),
+        )
+      | "ResponseEnd" => TagOnly(ResponseEnd)
+      | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
+      }
+    )
+  }
 }
 
 module type Module = {
@@ -292,10 +236,9 @@ module Module: Module = {
     }
 
   let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
-    switch LSPResponse.decode(json) {
-    | reaction => Ok(reaction)
-    | exception Util.Decode.TempDecodeError(_, msg, _) => Error(CannotDecodeResponse(msg, json))
-    | exception Json.Decode.DecodeError(msg) => Error(CannotDecodeResponse(msg, json))
+    switch JsonCombinators.Json.decode(json, LSPResponse.decode) {
+    | Ok(reaction) => Ok(reaction)
+    | Error(msg) => Error(CannotDecodeResponse(msg, json))
     }
 
   let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {

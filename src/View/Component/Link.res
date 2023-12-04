@@ -12,7 +12,7 @@ let toString = x =>
 
 let decode = {
   open JsonCombinators.Json.Decode
-  Util.Decode.sum_(x => {
+  Util.Decode.sum(x => {
     switch x {
     | "LinkRange" => Payload(AgdaRange.decode->map((. range) => SrcLoc(range)))
     | "LinkHole" => Payload(int->map((. index) => Hole(index)))
@@ -51,7 +51,7 @@ module Event = {
   }
 
   let decode = {
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "JumpToTarget" =>
         Payload(decode->JsonCombinators.Json.Decode.map((. target) => JumpToTarget(target)))

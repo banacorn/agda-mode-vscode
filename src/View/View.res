@@ -17,7 +17,7 @@ module Header = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "Plain" => Payload(string->map((. text) => Plain(text)))
       | "Success" => Payload(string->map((. text) => Success(text)))
@@ -85,7 +85,7 @@ module EventToView = {
 
     let decode = {
       open JsonCombinators.Json.Decode
-      Util.Decode.sum_(x => {
+      Util.Decode.sum(x => {
         switch x {
         | "Activate" => TagOnly(Activate)
         | "Deactivate" => TagOnly(Deactivate)
@@ -143,7 +143,7 @@ module EventToView = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "Display" =>
         Payload(
@@ -221,7 +221,7 @@ module RequestOrEventToView = {
   // JSON encode/decode
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "Request" => Payload(Request.decode->map((. payload) => Request(payload)))
       | "Event" => Payload(EventToView.decode->map((. payload) => Event(payload)))
@@ -247,7 +247,7 @@ module Response = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "PromptSuccess" => Payload(string->map((. result) => PromptSuccess(result)))
       | "PromptInterrupted" => TagOnly(PromptInterrupted)
@@ -275,7 +275,7 @@ module EventFromView = {
 
     let decode = {
       open JsonCombinators.Json.Decode
-      Util.Decode.sum_(x => {
+      Util.Decode.sum(x => {
         switch x {
         | "InsertChar" => Payload(string->map((. char) => InsertChar(char)))
         | "ChooseSymbol" => Payload(string->map((. symbol) => ChooseSymbol(symbol)))
@@ -307,7 +307,7 @@ module EventFromView = {
 
     let decode = {
       open JsonCombinators.Json.Decode
-      Util.Decode.sum_(x => {
+      Util.Decode.sum(x => {
         switch x {
         | "MouseSelect" => Payload(Interval.decode->map((. interval) => MouseSelect(interval)))
         | "KeyUpdate" => Payload(string->map((. char) => KeyUpdate(char)))
@@ -359,7 +359,7 @@ module EventFromView = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "Initialized" => TagOnly(Initialized)
       | "Destroyed" => TagOnly(Destroyed)
@@ -393,7 +393,7 @@ module ResponseOrEventFromView = {
   // JSON encode/decode
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum_(x => {
+    Util.Decode.sum(x => {
       switch x {
       | "Response" => Payload(Response.decode->map((. payload) => Response(payload)))
       | "Event" => Payload(EventFromView.decode->map((. payload) => Event(payload)))

@@ -81,7 +81,7 @@ module Token = {
   // from JSON
   let decodeToken = {
     open JsonCombinators.Json.Decode
-    Util.Decode.tuple6_(
+    Util.Decode.tuple6(
       int,
       int,
       array(string),
