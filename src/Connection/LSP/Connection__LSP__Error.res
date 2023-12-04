@@ -55,11 +55,11 @@ let toString = error =>
   | Initialize => ("Cannot Initialize Connection", "")
   | CannotDecodeCommandRes(msg, json) => (
       "Cannot Send Command",
-      "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Json.stringify(json),
+      "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Js.Json.stringify(json),
     )
   | CannotDecodeResponse(msg, json) => (
       "Cannot Parse Response",
-      "Cannot decode responses from the server" ++ msg ++ "\n" ++ Json.stringify(json),
+      "Cannot decode responses from the server" ++ msg ++ "\n" ++ Js.Json.stringify(json),
     )
   | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
   }
