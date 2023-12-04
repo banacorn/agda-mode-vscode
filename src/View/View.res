@@ -343,7 +343,8 @@ module EventFromView = {
 
     let decode: Json.Decode.decoder<t> = Util.Decode.sum(x =>
       switch x {
-      | "MouseSelect" => Contents(Interval.decode |> map(interval => MouseSelect(interval)))
+      | "MouseSelect" =>
+        Contents(Util.Decode.convert(Interval.decode) |> map(interval => MouseSelect(interval)))
       | "KeyUpdate" => Contents(string |> map(char => KeyUpdate(char)))
       | "BrowseUp" => TagOnly(BrowseUp)
       | "BrowseDown" => TagOnly(BrowseDown)

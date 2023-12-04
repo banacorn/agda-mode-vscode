@@ -10,20 +10,18 @@ module AgdaPosition = {
     pos: int,
   }
 
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
-    tuple3(int, int, int) |> map(((line, col, pos)) => {
-      line,
-      col,
-      pos,
+  let decode = {
+    open JsonCombinators.Json.Decode
+    object(field => {
+      line: field.required(. "line", int),
+      col: field.required(. "col", int),
+      pos: field.required(. "pos", int),
     })
   }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | {line, col, pos} => (line, col, pos) |> tuple3(int, int, int)
-    }
+  let encode = ({line, col, pos}) => {
+    open JsonCombinators.Json.Encode
+    tuple3(int, int, int, (line, col, pos))
   }
 }
 
@@ -62,19 +60,17 @@ module AgdaInterval = {
       (string_of_int(self.end_.line) ++ ("," ++ string_of_int(self.end_.col))))))
     }
 
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
-    pair(AgdaPosition.decode, AgdaPosition.decode) |> map(((start, end_)) => {
-      start,
-      end_,
+  let decode = {
+    open JsonCombinators.Json.Decode
+    object(field => {
+      start: field.required(. "start", AgdaPosition.decode),
+      end_: field.required(. "end", AgdaPosition.decode),
     })
   }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | {start, end_} => (start, end_) |> pair(AgdaPosition.encode, AgdaPosition.encode)
-    }
+  let encode = ({start, end_}) => {
+    open JsonCombinators.Json.Encode
+    tuple2(AgdaPosition.encode, AgdaPosition.encode, (start, end_))
   }
 }
 
@@ -283,26 +279,25 @@ module AgdaRange = {
     switch x {
     | "Range" =>
       Contents(
-        pair(optional(string), array(AgdaInterval.decode)) |> map(((source, intervals)) => Range(
+        pair(optional(string), array(Util.Decode.convert(AgdaInterval.decode))) |> map(((
           source,
           intervals,
-        )),
+        )) => Range(source, intervals)),
       )
     | "NoRange" => TagOnly(NoRange)
     | tag => raise(DecodeError("[Agda.Range] Unknown constructor: " ++ tag))
     }
   })
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | Range(source, intervals) =>
-      object_(list{
-        ("tag", string("Range")),
-        ("contents", (source, intervals) |> pair(nullable(string), array(AgdaInterval.encode))),
-      })
-    | NoRange => object_(list{("tag", string("NoRange"))})
-    }
+  let encode = {
+    open JsonCombinators.Json.Encode
+    Util.Encode.sum(x =>
+      switch x {
+      | NoRange => TagOnly("NoRange")
+      | Range(source, intervals) =>
+        Payload("Range", pair(option(string), array(AgdaInterval.encode), (source, intervals)))
+      }
+    )
   }
 }
 
@@ -316,6 +311,13 @@ module Interval = {
     start <= offset && offset <= end_
   }
 
-  let decode = Json.Decode.pair(Json.Decode.int, Json.Decode.int)
-  let encode = Json.Encode.pair(Json.Encode.int, Json.Encode.int)
+  let decode = {
+    open JsonCombinators.Json.Decode
+    pair(int, int)
+  }
+
+  let encode = {
+    open JsonCombinators.Json.Encode
+    pair(int, int)
+  }
 }
