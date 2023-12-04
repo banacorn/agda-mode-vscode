@@ -67,12 +67,12 @@ let decode = {
     switch x {
     | "Labeled" =>
       Payload(
-        tuple4(
-          pair(RichText.decode, option(string)),
+        Util.Decode.tuple5_(
+          RichText.decode, option(string),
           JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
           string,
           string,
-        )->map((. ((text, raw), range, label, style)) => Labeled(label, style, text, raw, range)),
+        )->map((. (text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
       )
     | "Unlabeled" =>
       Payload(
@@ -95,12 +95,12 @@ let encode = {
     | Labeled(label, style, text, raw, range) =>
       Payload((
         "Labeled",
-        tuple4(
-          pair(RichText.encode, option(string)),
+        Util.Encode.tuple5(
+          RichText.encode, option(string),
           option(Common.AgdaRange.encode),
           string,
           string,
-          ((text, raw), range, label, style),
+          (text, raw, range, label, style),
         ),
       ))
     | Unlabeled(text, raw, range) =>

@@ -15,7 +15,9 @@ module Decode = {
   let convert = (label, translation, json) =>
     switch json->JsonCombinators.Json.decode(translation) {
     | Ok(translation) => translation
-    | Error(err) => raise(TempDecodeError(label, err, json))
+    | Error(err) =>
+      Js.log(err)
+      raise(TempDecodeError(label, err, json))
     }
 
   type fieldType_<'a> =
@@ -30,6 +32,87 @@ module Decode = {
       | TagOnly(d) => custom((. _) => d)
       }
     )
+  }
+
+  let tuple6_ = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF) => {
+    open JsonCombinators.Json.Decode
+    custom((. json) => {
+      if !Js.Array.isArray(json) {
+        Error.expected("array", json)
+      }
+
+      let arr: array<Js.Json.t> = Obj.magic(json)
+      if Array.length(arr) != 6 {
+        raise(
+          DecodeError(
+            `Expected array of length 6, got array of length ${Array.length(arr)->string_of_int}`,
+          ),
+        )
+      }
+
+      let run = (decoder, xs, i) =>
+        switch xs[i] {
+        | Some(x) =>
+          switch x->decode(decoder) {
+          | Ok(x) => x
+          | Error(err) => raise(DecodeError(err))
+          }
+        | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
+        }
+
+      // arr[0]->Option.flatMap(x => decode(x, decodeA))
+
+      try (
+        run(decodeA, arr, 0),
+        run(decodeB, arr, 1),
+        run(decodeC, arr, 2),
+        run(decodeD, arr, 3),
+        run(decodeE, arr, 4),
+        run(decodeF, arr, 5),
+      ) catch {
+      | DecodeError(msg) => raise(DecodeError(`${msg}\n\tin tuple6`))
+      }
+    })
+  }
+
+  let tuple5_ = (decodeA, decodeB, decodeC, decodeD, decodeE) => {
+    open JsonCombinators.Json.Decode
+    custom((. json) => {
+      if !Js.Array.isArray(json) {
+        Error.expected("array", json)
+      }
+
+      let arr: array<Js.Json.t> = Obj.magic(json)
+      if Array.length(arr) != 5 {
+        raise(
+          DecodeError(
+            `Expected array of length 5, got array of length ${Array.length(arr)->string_of_int}`,
+          ),
+        )
+      }
+
+      let run = (decoder, xs, i) =>
+        switch xs[i] {
+        | Some(x) =>
+          switch x->decode(decoder) {
+          | Ok(x) => x
+          | Error(err) => raise(DecodeError(err))
+          }
+        | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
+        }
+
+      // arr[0]->Option.flatMap(x => decode(x, decodeA))
+
+      try (
+        run(decodeA, arr, 0),
+        run(decodeB, arr, 1),
+        run(decodeC, arr, 2),
+        run(decodeD, arr, 3),
+        run(decodeE, arr, 4),
+      ) catch {
+      | DecodeError(msg) => raise(DecodeError(`${msg}\n\tin tuple5`))
+      }
+    })
   }
 
   open Json.Decode
@@ -121,6 +204,11 @@ module Encode = {
         "tag": string(tag),
       })
     }
+
+  let tuple5 = (encodeA, encodeB, encodeC, encodeD, encodeE, (a, b, c, d, e)) =>
+    [a->encodeA, b->encodeB, c->encodeC, d->encodeD, e->encodeE]->jsonArray
+  let tuple6 = (encodeA, encodeB, encodeC, encodeD, encodeE, encodeF, (a, b, c, d, e, f)) =>
+    [a->encodeA, b->encodeB, c->encodeC, d->encodeD, e->encodeE, f->encodeF]->jsonArray
 }
 
 module React' = React

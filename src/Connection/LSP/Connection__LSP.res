@@ -294,6 +294,7 @@ module Module: Module = {
   let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
     switch LSPResponse.decode(json) {
     | reaction => Ok(reaction)
+    | exception Util.Decode.TempDecodeError(_, msg, _) => Error(CannotDecodeResponse(msg, json))
     | exception Json.Decode.DecodeError(msg) => Error(CannotDecodeResponse(msg, json))
     }
 

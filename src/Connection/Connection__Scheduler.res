@@ -33,7 +33,6 @@ module Module: {
   }
   // NonLast Responses should fed here
   let runNonLast = (self, handler, response) => {
-    // Js.log("[NonLast] " ++ Response.toString(response))
     self.tally = self.tally + 1
     handler(response)->Promise.get(_ => {
       self.tally = self.tally - 1
@@ -44,7 +43,6 @@ module Module: {
   }
   // deferred (Last) Responses are queued here
   let addLast = (self, priority, response) => {
-    // Js.log("[Add Last] " ++ string_of_int(priority) ++ " " ++ Response.toString(response))
     Js.Array.push((priority, response), self.deferredLastResponses)->ignore
   }
   // gets resolved once there's no NonLast Responses running

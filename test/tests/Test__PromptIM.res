@@ -29,11 +29,10 @@
 // //   //   let extensionPath = Path.extensionPath()
 // //   //   let chan = Main.activateWithoutContext(disposables, extensionPath)
 
-// // //   VSCode.Commands.executeCommand0("agda-mode.load")->tap(result => Js.log("!!!!"))
+// // //   VSCode.Commands.executeCommand0("agda-mode.load")
 // //   //   VSCode.Commands.executeCommand0("agda-mode.load")->flatMap(result => {
-// //   //     Js.log("!!!!!!!!!!")
 // //   //     result
-// //   //   })->tap(Js.log2("!!!"))
+// //   //   })=
 
 // //   //   VSCode.Window.showTextDocumentWithUri(
 // //   //     VSCode.Uri.file(Path.asset("InputMethod.agda")),
@@ -54,7 +53,6 @@
 //   describe("Insertion", () => {
 //     // it(`test`, () => {
 //     //   activateExtensionAndLoad()->get(chan => {
-//     //     Js.log("chan")
 //     //     ()
 //     //     // let document = VSCode.TextEditor.document(setup.editor)
 //     //     // IM.activate(setup, ())

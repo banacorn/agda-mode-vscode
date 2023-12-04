@@ -81,10 +81,14 @@ module Token = {
   // from JSON
   let decodeToken = {
     open JsonCombinators.Json.Decode
-    pair(
-      tuple3(int, int, array(string)),
-      tuple3(bool, option(string), option(pair(string, int))),
-    )->map((. ((start, end_, aspects), (isTokenBased, note, source))) => {
+    Util.Decode.tuple6_(
+      int,
+      int,
+      array(string),
+      bool,
+      option(string),
+      option(pair(string, int)),
+    )->map((. (start, end_, aspects, isTokenBased, note, source)) => {
       start: start - 1,
       end_: end_ - 1,
       aspects: aspects->Array.map(Aspect.parse),
@@ -165,7 +169,9 @@ module Module: Module = {
             | json =>
               switch JsonCombinators.Json.decode(json, Token.decodeResponseHighlightingInfoDirect) {
               | Ok((keepHighlighting, tokens)) => (keepHighlighting, tokens)
-              | Error(_err) => (false, [])
+              | Error(_err) =>
+                Js.log("Error in decoding JSON: " ++ _err)
+                (false, [])
               }
             }
           }
