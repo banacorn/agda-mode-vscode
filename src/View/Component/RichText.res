@@ -73,11 +73,15 @@ module Module = {
   module ClassNames = {
     type t = array<string>
 
-    open! Json.Decode
-    let decode: decoder<t> = array(string)
+    let decode = {
+      open JsonCombinators.Json.Decode
+      array(string)
+    }
 
-    open! Json.Encode
-    let encode: encoder<t> = array(string)
+    let encode = {
+      open JsonCombinators.Json.Encode
+      array(string)
+    }
   }
 
   module Inline = {
@@ -92,61 +96,51 @@ module Module = {
       // refactor PrHz
       | PrHz(array<array<t>>)
 
-    open! Json.Decode
-    open Util.Decode
-    let rec decode: unit => decoder<t> = () =>
-      sum(x =>
+    let rec decodeRec = () => {
+      open JsonCombinators.Json.Decode
+      Util.Decode.sum_(x =>
         switch x {
-        | "Icon" => Contents(pair(string, ClassNames.decode) |> map(((s, cs)) => Icon(s, cs)))
-        | "Text" => Contents(pair(string, ClassNames.decode) |> map(((s, cs)) => Text(s, cs)))
+        | "Icon" => Payload(pair(string, ClassNames.decode)->map((. (s, cs)) => Icon(s, cs)))
+        | "Text" => Payload(pair(string, ClassNames.decode)->map((. (s, cs)) => Text(s, cs)))
         | "Link" =>
-          Contents(
-            tuple3(
-              Util.Decode.convert(Common.AgdaRange.decode),
-              array(decode()),
-              ClassNames.decode,
-            ) |> map(((r, xs, cs)) => Link(r, xs, cs)),
+          Payload(
+            tuple3(Common.AgdaRange.decode, array(decodeRec()), ClassNames.decode)->map((. (
+              r,
+              xs,
+              cs,
+            )) => Link(r, xs, cs)),
           )
-        | "Hole" => Contents(int |> map(s => Hole(s)))
-        | "Horz" => Contents(array(array(decode())) |> map(xs => Horz(xs)))
-        | "Vert" => Contents(array(array(decode())) |> map(xs => Vert(xs)))
-        | "Parn" => Contents(array(decode()) |> map(x => Parn(x)))
-        | "PrHz" => Contents(array(array(decode())) |> map(xs => PrHz(xs)))
+        | "Hole" => Payload(int->map((. s) => Hole(s)))
+        | "Horz" => Payload(array(array(decodeRec()))->map((. xs) => Horz(xs)))
+        | "Vert" => Payload(array(array(decodeRec()))->map((. xs) => Vert(xs)))
+        | "Parn" => Payload(array(decodeRec())->map((. x) => Parn(x)))
+        | "PrHz" => Payload(array(array(decodeRec()))->map((. xs) => PrHz(xs)))
         | tag => raise(DecodeError("[RichText.Inline] Unknown constructor: " ++ tag))
         }
       )
-    let decode = decode()
+    }
+    let decode = decodeRec()
 
-    open! Json.Encode
-    let rec encode: encoder<t> = x =>
-      switch x {
-      | Icon(s, cs) =>
-        object_(list{
-          ("tag", string("Icon")),
-          ("contents", (s, cs) |> pair(string, ClassNames.encode)),
-        })
-
-      | Text(s, cs) =>
-        object_(list{
-          ("tag", string("Text")),
-          ("contents", (s, cs) |> pair(string, ClassNames.encode)),
-        })
-
-      | Link(r, s, cs) =>
-        object_(list{
-          ("tag", string("Link")),
-          (
-            "contents",
-            (r, s, cs) |> tuple3(Common.AgdaRange.encode, array(encode), ClassNames.encode),
-          ),
-        })
-
-      | Hole(i) => object_(list{("tag", string("Hole")), ("contents", i |> int)})
-      | Horz(xs) => object_(list{("tag", string("Horz")), ("contents", xs |> array(array(encode)))})
-      | Vert(xs) => object_(list{("tag", string("Vert")), ("contents", xs |> array(array(encode)))})
-      | Parn(x) => object_(list{("tag", string("Parn")), ("contents", x |> array(encode))})
-      | PrHz(xs) => object_(list{("tag", string("PrHz")), ("contents", xs |> array(array(encode)))})
-      }
+    let rec encodeRec = () => {
+      open JsonCombinators.Json.Encode
+      Util.Encode.sum(x =>
+        switch x {
+        | Icon(s, cs) => Payload("Icon", pair(string, ClassNames.encode, (s, cs)))
+        | Text(s, cs) => Payload("Text", pair(string, ClassNames.encode, (s, cs)))
+        | Link(r, s, cs) =>
+          Payload(
+            "Link",
+            tuple3(Common.AgdaRange.encode, array(encodeRec()), ClassNames.encode, (r, s, cs)),
+          )
+        | Hole(i) => Payload("Hole", int(i))
+        | Horz(xs) => Payload("Horz", array(array(encodeRec()), xs))
+        | Vert(xs) => Payload("Vert", array(array(encodeRec()), xs))
+        | Parn(x) => Payload("Parn", array(encodeRec(), x))
+        | PrHz(xs) => Payload("PrHz", array(array(encodeRec()), xs))
+        }
+      )
+    }
+    let encode = encodeRec()
   }
   type t = RichText(array<Inline.t>)
 
@@ -249,7 +243,8 @@ module Module = {
   }
 
   open! Json.Decode
-  let decode: decoder<t> = array(Inline.decode) |> map(elems => RichText(elems))
+  let decode: decoder<t> =
+    array(Util.Decode.convert(Inline.decode)) |> map(elems => RichText(elems))
 
   open! Json.Encode
   let encode: encoder<t> = x =>
