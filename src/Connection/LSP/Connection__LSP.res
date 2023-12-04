@@ -53,14 +53,14 @@ module LSPResponse = {
       switch x {
       | "DisplayInfoGeneric" =>
         Contents(
-          pair(string, array(Item.decode)) |> map(((header, itmes)) => Generic(header, itmes)),
+          pair(string, array(Util.Decode.convert( Item.decode))) |> map(((header, itmes)) => Generic(header, itmes)),
         )
       | "DisplayInfoAllGoalsWarnings" =>
         Contents(
           tuple5(
             string,
-            array(Item.decode),
-            array(Item.decode),
+            array(Util.Decode.convert( Item.decode)),
+            array(Util.Decode.convert( Item.decode)),
             array(string),
             array(string),
           ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
@@ -71,8 +71,8 @@ module LSPResponse = {
             errors,
           )),
         )
-      | "DisplayInfoCurrentGoal" => Contents(Item.decode |> map(body => CurrentGoal(body)))
-      | "DisplayInfoInferredType" => Contents(Item.decode |> map(body => InferredType(body)))
+      | "DisplayInfoCurrentGoal" => Contents(Util.Decode.convert( Item.decode)|> map(body => CurrentGoal(body)))
+      | "DisplayInfoInferredType" => Contents(Util.Decode.convert( Item.decode) |> map(body => InferredType(body)))
       | "DisplayInfoCompilationOk" =>
         Contents(
           pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(

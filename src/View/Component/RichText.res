@@ -242,15 +242,18 @@ module Module = {
     </span>
   }
 
-  open! Json.Decode
-  let decode: decoder<t> =
-    array(Util.Decode.convert(Inline.decode)) |> map(elems => RichText(elems))
+  let decode = {
+    open JsonCombinators.Json.Decode
+    array(Inline.decode)->map((. elems) => RichText(elems))
+  }
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
-    switch x {
-    | RichText(elemss) => elemss |> array(Inline.encode)
-    }
+  let encode = {
+    open JsonCombinators.Json.Encode
+    x =>
+      switch x {
+      | RichText(elemss) => array(Inline.encode, elemss)
+      }
+  }
 }
 include Module
 

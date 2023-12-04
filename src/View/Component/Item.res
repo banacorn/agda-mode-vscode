@@ -61,63 +61,59 @@ let make = (~item: t) => {
   }
 }
 
-open! Json.Decode
-open Util.Decode
-
-let decode: decoder<t> = sum(x =>
-  switch x {
-  | "Labeled" =>
-    Contents(
-      tuple5(
-        RichText.decode,
-        optional(string),
-        Util.Decode.convert(JsonCombinators.Json.Decode.option(Common.AgdaRange.decode)),
-        string,
-        string,
-      ) |> map(((text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
-    )
-  | "Unlabeled" =>
-    Contents(
-      tuple3(
-        RichText.decode,
-        optional(string),
-        Util.Decode.convert(JsonCombinators.Json.Decode.option(Common.AgdaRange.decode)),
-      ) |> map(((text, raw, range)) => Unlabeled(text, raw, range)),
-    )
-  | "Header" => Contents(string |> map(s => Header(s)))
-  | tag => raise(DecodeError("[Item] Unknown constructor: " ++ tag))
-  }
-)
-
-open! Json.Encode
-open! Util.Encode
-let encode: encoder<t> = x =>
-  switch x {
-  | Labeled(label, style, text, raw, range) =>
-    object_(list{
-      ("tag", string("Labeled")),
-      (
-        "contents",
-        (text, raw, range, label, style) |> tuple5(
-          RichText.encode,
-          nullable(string),
-          nullable(Common.AgdaRange.encode),
+let decode = {
+  open! JsonCombinators.Json.Decode
+  Util.Decode.sum_(x =>
+    switch x {
+    | "Labeled" =>
+      Payload(
+        tuple4(
+          pair(RichText.decode, option(string)),
+          JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
           string,
           string,
+        )->map((. ((text, raw), range, label, style)) => Labeled(label, style, text, raw, range)),
+      )
+    | "Unlabeled" =>
+      Payload(
+        tuple3(
+          RichText.decode,
+          option(string),
+          JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
+        )->map((. (text, raw, range)) => Unlabeled(text, raw, range)),
+      )
+    | "Header" => Payload(string->map((. s) => Header(s)))
+    | tag => raise(DecodeError("[Item] Unknown constructor: " ++ tag))
+    }
+  )
+}
+
+let encode = {
+  open! JsonCombinators.Json.Encode
+  Util.Encode.sum(x =>
+    switch x {
+    | Labeled(label, style, text, raw, range) =>
+      Payload((
+        "Labeled",
+        tuple4(
+          pair(RichText.encode, option(string)),
+          option(Common.AgdaRange.encode),
+          string,
+          string,
+          ((text, raw), range, label, style),
         ),
-      ),
-    })
-  | Unlabeled(text, raw, range) =>
-    object_(list{
-      ("tag", string("Unlabeled")),
-      (
-        "contents",
-        (text, raw, range) |> tuple3(
+      ))
+    | Unlabeled(text, raw, range) =>
+      Payload((
+        "Unlabeled",
+        tuple3(
           RichText.encode,
-          nullable(string),
-          nullable(Common.AgdaRange.encode),
+          option(string),
+          option(Common.AgdaRange.encode),
+          (text, raw, range),
         ),
-      ),
-    })
-  | Header(s) => object_(list{("tag", string("Header")), ("contents", s |> string)})
-  }
+      ))
+    | Header(s) => Payload(("Header", s |> string))
+    }
+  )
+}

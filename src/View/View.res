@@ -176,14 +176,14 @@ module EventToView = {
     switch x {
     | "Display" =>
       Contents(
-        pair(Util.Decode.convert(Header.decode), array(Item.decode)) |> map(((
+        pair(Util.Decode.convert(Header.decode), array(Util.Decode.convert( Item.decode))) |> map(((
           header,
           body,
         )) => Display(header, body)),
       )
     | "Append" =>
       Contents(
-        pair(Util.Decode.convert(Header.decode), array(Item.decode)) |> map(((
+        pair(Util.Decode.convert(Header.decode), array(Util.Decode.convert( Item.decode))) |> map(((
           header,
           body,
         )) => Append(header, body)),
