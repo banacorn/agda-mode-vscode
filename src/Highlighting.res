@@ -106,7 +106,7 @@ module Module: Module = {
         // +1 column for each charactor after the last linebreak
         // -1 column for each charactor in `removedRange`
 
-        let regex = %re("/\\r\\n|\\r|\\n/")
+        let regex = %re("/\r\n|\r|\n/")  // RegEx updated to v10.1.4
         let lines = Js.String.splitByRe(regex, change->VSCode.TextDocumentContentChangeEvent.text)
 
         let lineDetalOfRemovedRange =
