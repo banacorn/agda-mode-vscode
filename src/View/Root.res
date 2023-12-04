@@ -8,7 +8,10 @@ let vscode = VSCode.Api.acquireVsCodeApi()
 let onRequest = Chan.make()
 let onEventToView = Chan.make()
 VSCode.Api.onMessage(stringifiedJSON => {
-  let requestOrEvent = stringifiedJSON->Js.Json.parseExn->View.RequestOrEventToView.decode
+  let requestOrEvent = Util.Decode.convert(
+    View.RequestOrEventToView.decode,
+    stringifiedJSON->Js.Json.parseExn,
+  )
 
   switch requestOrEvent {
   | Event(event) => onEventToView->Chan.emit(event)

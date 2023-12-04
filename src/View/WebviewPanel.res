@@ -265,10 +265,10 @@ module Module: Module = {
     // relay Webview.onDidReceiveMessage => onResponse or onEvent
     view.panel
     ->WebviewPanel.recv(json =>
-      switch View.ResponseOrEventFromView.decode(json) {
-      | Response(res) => view.onResponse->Chan.emit(res)
-      | Event(ev) => view.onEvent->Chan.emit(ev)
-      | exception e => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
+      switch JsonCombinators.Json.decode(json, View.ResponseOrEventFromView.decode) {
+      | Ok(Response(res)) => view.onResponse->Chan.emit(res)
+      | Ok(Event(ev)) => view.onEvent->Chan.emit(ev)
+      | Error(e) => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
       }
     )
     ->Js.Array.push(view.subscriptions)

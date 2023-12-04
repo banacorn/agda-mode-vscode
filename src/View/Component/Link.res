@@ -10,23 +10,27 @@ let toString = x =>
   | Hole(int) => "?" ++ string_of_int(int)
   }
 
-let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-  open Json.Decode
-  switch x {
-  | "LinkRange" => Contents(Util.Decode.convert(AgdaRange.decode) |> map(range => SrcLoc(range)))
-  | "LinkHole" => Contents(int |> map(index => Hole(index)))
-  | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
-  }
-})
-
-let encode: Json.Encode.encoder<t> = x => {
-  open Json.Encode
-  switch x {
-  | SrcLoc(range) =>
-    object_(list{("tag", string("LinkRange")), ("contents", range |> AgdaRange.encode)})
-  | Hole(index) => object_(list{("tag", string("LinkHole")), ("contents", index |> int)})
-  }
+let decode = {
+  open JsonCombinators.Json.Decode
+  Util.Decode.sum_(x => {
+    switch x {
+    | "LinkRange" => Payload(AgdaRange.decode->map((. range) => SrcLoc(range)))
+    | "LinkHole" => Payload(int->map((. index) => Hole(index)))
+    | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
+    }
+  })
 }
+
+let encode = {
+  open JsonCombinators.Json.Encode
+  Util.Encode.sum(x =>
+    switch x {
+    | SrcLoc(range) => Payload("LinkRange", AgdaRange.encode(range))
+    | Hole(index) => Payload("LinkHole", int(index))
+    }
+  )
+}
+
 module Event = {
   type t =
     | JumpToTarget(t)
@@ -50,9 +54,9 @@ module Event = {
     open Json.Decode
     Util.Decode.sum(x =>
       switch x {
-      | "JumpToTarget" => Contents(decode |> map(link => JumpToTarget(link)))
-      | "MouseOver" => Contents(decode |> map(link => MouseOver(link)))
-      | "MouseOut" => Contents(decode |> map(link => MouseOut(link)))
+      | "JumpToTarget" => Contents(Util.Decode.convert(decode) |> map(link => JumpToTarget(link)))
+      | "MouseOver" => Contents(Util.Decode.convert(decode) |> map(link => MouseOver(link)))
+      | "MouseOut" => Contents(Util.Decode.convert(decode) |> map(link => MouseOut(link)))
       | tag => raise(DecodeError("[Response.EventFromView] Unknown constructor: " ++ tag))
       }
     )

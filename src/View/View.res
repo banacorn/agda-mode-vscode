@@ -15,17 +15,6 @@ module Header = {
     | Error(string) => string
     }
 
-  // let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-  //   open Json.Decode
-  //   switch x {
-  //   | "Plain" => Contents(string |> map(text => Plain(text)))
-  //   | "Success" => Contents(string |> map(text => Success(text)))
-  //   | "Warning" => Contents(string |> map(text => Warning(text)))
-  //   | "Error" => Contents(string |> map(text => Error(text)))
-  //   | tag => raise(DecodeError("[Header] Unknown constructor: " ++ tag))
-  //   }
-  // })
-
   let decode = {
     open JsonCombinators.Json.Decode
     Util.Decode.sum_(x => {
@@ -60,41 +49,23 @@ module Prompt = {
   }
 
   // JSON encode/decode
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Prompt" =>
-      Contents(
-        tuple3(optional(string), optional(string), optional(string)) |> map(((
-          body,
-          placeholder,
-          value,
-        )) => {
-          body,
-          placeholder,
-          value,
-        }),
-      )
-    | tag => raise(DecodeError("[Prompt] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    // TODO: replace `field.required(. "body", option(string))` with `field.optional(. "body", string)`
+    open JsonCombinators.Json.Decode
+    object(field => {
+      body: field.required(. "body", option(string)),
+      placeholder: field.required(. "placeholder", option(string)),
+      value: field.required(. "value", option(string)),
+    })
+  }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | {body, placeholder, value} =>
-      object_(list{
-        ("tag", string("Prompt")),
-        (
-          "contents",
-          (body, placeholder, value) |> tuple3(
-            nullable(string),
-            nullable(string),
-            nullable(string),
-          ),
-        ),
-      })
-    }
+  let encode = ({body, placeholder, value}) => {
+    open JsonCombinators.Json.Encode
+    Unsafe.object({
+      "body": option(string, body),
+      "placeholder": option(string, placeholder),
+      "value": option(string, value),
+    })
   }
 }
 module Body = {
@@ -170,40 +141,41 @@ module EventToView = {
     | InputMethod(_) => "InputMethod"
     }
 
-  // JSON encode/decode
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Display" =>
-      Contents(
-        pair(Util.Decode.convert(Header.decode), array(Util.Decode.convert( Item.decode))) |> map(((
-          header,
-          body,
-        )) => Display(header, body)),
-      )
-    | "Append" =>
-      Contents(
-        pair(Util.Decode.convert(Header.decode), array(Util.Decode.convert( Item.decode))) |> map(((
-          header,
-          body,
-        )) => Append(header, body)),
-      )
-    | "SetStatus" => Contents(string |> map(text => SetStatus(text)))
-    | "PromptInterrupt" => TagOnly(PromptInterrupt)
-    | "PromptIMUpdate" => Contents(string |> map(text => PromptIMUpdate(text)))
-    | "InputMethod" => Contents(Util.Decode.convert(InputMethod.decode) |> map(x => InputMethod(x)))
-    | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "Display" =>
+        Payload(
+          tuple2(Header.decode, array(Item.decode))->map((. (header, body)) => Display(
+            header,
+            body,
+          )),
+        )
+      | "Append" =>
+        Payload(
+          tuple2(Header.decode, array(Item.decode))->map((. (header, body)) => Append(
+            header,
+            body,
+          )),
+        )
+      | "SetStatus" => Payload(string->map((. text) => SetStatus(text)))
+      | "PromptInterrupt" => TagOnly(PromptInterrupt)
+      | "PromptIMUpdate" => Payload(string->map((. text) => PromptIMUpdate(text)))
+      | "InputMethod" => Payload(InputMethod.decode->map((. payload) => InputMethod(payload)))
+      | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 
   let encode = {
     open JsonCombinators.Json.Encode
     Util.Encode.sum(x =>
       switch x {
       | Display(header, body) =>
-        Payload("Display", pair(Header.encode, array(Item.encode), (header, body)))
+        Payload("Display", tuple2(Header.encode, array(Item.encode), (header, body)))
       | Append(header, body) =>
-        Payload("Append", pair(Header.encode, array(Item.encode), (header, body)))
+        Payload("Append", tuple2(Header.encode, array(Item.encode), (header, body)))
       | SetStatus(text) => Payload("SetStatus", string(text))
       | PromptInterrupt => TagOnly("PromptInterrupt")
       | PromptIMUpdate(text) => Payload("PromptIMUpdate", string(text))
@@ -222,28 +194,15 @@ module Request = {
     }
 
   // JSON encode/decode
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Prompt" =>
-      Contents(
-        pair(Util.Decode.convert(Header.decode), Prompt.decode) |> map(((header, prompt)) => Prompt(
-          header,
-          prompt,
-        )),
-      )
-    | tag => raise(DecodeError("[Request] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    tuple2(Header.decode, Prompt.decode)->map((. (header, prompt)) => Prompt(header, prompt))
+  }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | Prompt(header, prompt) =>
-      object_(list{
-        ("tag", string("Prompt")),
-        ("contents", (header, prompt) |> pair(Header.encode, Prompt.encode)),
-      })
+  let encode = request => {
+    open JsonCombinators.Json.Encode
+    switch request {
+    | Prompt(header, prompt) => tuple2(Header.encode, Prompt.encode, (header, prompt))
     }
   }
 }
@@ -260,23 +219,24 @@ module RequestOrEventToView = {
     }
 
   // JSON encode/decode
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Request" => Contents(Request.decode |> map(x => Request(x)))
-    | "Event" => Contents(EventToView.decode |> map(x => Event(x)))
-    | tag => raise(DecodeError("[RequestOrEventToView] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "Request" => Payload(Request.decode->map((. payload) => Request(payload)))
+      | "Event" => Payload(EventToView.decode->map((. payload) => Event(payload)))
+      | tag => raise(DecodeError("[RequestOrEventToView] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | Request(payload) =>
-      object_(list{("tag", string("Request")), ("contents", payload |> Request.encode)})
-    | Event(payload) =>
-      object_(list{("tag", string("Event")), ("contents", payload |> EventToView.encode)})
-    }
+  let encode = {
+    Util.Encode.sum(x =>
+      switch x {
+      | Request(payload) => Payload("Request", Request.encode(payload))
+      | Event(payload) => Payload("Event", EventToView.encode(payload))
+      }
+    )
   }
 }
 
@@ -285,22 +245,25 @@ module Response = {
     | PromptSuccess(string)
     | PromptInterrupted
 
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "PromptSuccess" => Contents(string |> map(result => PromptSuccess(result)))
-    | "PromptInterrupted" => TagOnly(PromptInterrupted)
-    | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "PromptSuccess" => Payload(string->map((. result) => PromptSuccess(result)))
+      | "PromptInterrupted" => TagOnly(PromptInterrupted)
+      | tag => raise(DecodeError("[Response] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | PromptSuccess(result) =>
-      object_(list{("tag", string("PromptSuccess")), ("contents", result |> string)})
-    | PromptInterrupted => object_(list{("tag", string("PromptInterrupted"))})
-    }
+  let encode = {
+    open JsonCombinators.Json.Encode
+    Util.Encode.sum(x =>
+      switch x {
+      | PromptSuccess(result) => Payload("PromptSuccess", string(result))
+      | PromptInterrupted => TagOnly("PromptInterrupted")
+      }
+    )
   }
 }
 
@@ -310,23 +273,26 @@ module EventFromView = {
       | InsertChar(string)
       | ChooseSymbol(string)
 
-    let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-      open Json.Decode
-      switch x {
-      | "InsertChar" => Contents(string |> map(char => InsertChar(char)))
-      | "ChooseSymbol" => Contents(string |> map(char => ChooseSymbol(char)))
-      | tag => raise(DecodeError("[EventFromView.InputMethod] Unknown constructor: " ++ tag))
-      }
-    })
+    let decode = {
+      open JsonCombinators.Json.Decode
+      Util.Decode.sum_(x => {
+        switch x {
+        | "InsertChar" => Payload(string->map((. char) => InsertChar(char)))
+        | "ChooseSymbol" => Payload(string->map((. symbol) => ChooseSymbol(symbol)))
+        | tag => raise(DecodeError("[EventFromView.InputMethod] Unknown constructor: " ++ tag))
+        }
+      })
+    }
 
-    open! Json.Encode
-    let encode: Json.Encode.encoder<t> = x =>
-      switch x {
-      | InsertChar(char) =>
-        object_(list{("tag", string("InsertChar")), ("contents", char |> string)})
-      | ChooseSymbol(symbol) =>
-        object_(list{("tag", string("ChooseSymbol")), ("contents", symbol |> string)})
-      }
+    let encode = {
+      open JsonCombinators.Json.Encode
+      Util.Encode.sum(x =>
+        switch x {
+        | InsertChar(char) => Payload("InsertChar", string(char))
+        | ChooseSymbol(symbol) => Payload("ChooseSymbol", string(symbol))
+        }
+      )
+    }
   }
 
   module PromptIMUpdate = {
@@ -339,34 +305,36 @@ module EventFromView = {
       | BrowseRight
       | Escape
 
-    open Json.Decode
+    let decode = {
+      open JsonCombinators.Json.Decode
+      Util.Decode.sum_(x => {
+        switch x {
+        | "MouseSelect" => Payload(Interval.decode->map((. interval) => MouseSelect(interval)))
+        | "KeyUpdate" => Payload(string->map((. char) => KeyUpdate(char)))
+        | "BrowseUp" => TagOnly(BrowseUp)
+        | "BrowseDown" => TagOnly(BrowseDown)
+        | "BrowseLeft" => TagOnly(BrowseLeft)
+        | "BrowseRight" => TagOnly(BrowseRight)
+        | "Escape" => TagOnly(Escape)
+        | tag => raise(DecodeError("[EventFromView.PromptIMUpdate] Unknown constructor: " ++ tag))
+        }
+      })
+    }
 
-    let decode: Json.Decode.decoder<t> = Util.Decode.sum(x =>
-      switch x {
-      | "MouseSelect" =>
-        Contents(Util.Decode.convert(Interval.decode) |> map(interval => MouseSelect(interval)))
-      | "KeyUpdate" => Contents(string |> map(char => KeyUpdate(char)))
-      | "BrowseUp" => TagOnly(BrowseUp)
-      | "BrowseDown" => TagOnly(BrowseDown)
-      | "BrowseLeft" => TagOnly(BrowseLeft)
-      | "BrowseRight" => TagOnly(BrowseRight)
-      | "Escape" => TagOnly(Escape)
-      | tag => raise(DecodeError("[EventFromView.Prompt] Unknown constructor: " ++ tag))
-      }
-    )
-
-    open! Json.Encode
-    let encode: Json.Encode.encoder<t> = x =>
-      switch x {
-      | MouseSelect(interval) =>
-        object_(list{("tag", string("MouseSelect")), ("contents", interval |> Interval.encode)})
-      | KeyUpdate(char) => object_(list{("tag", string("KeyUpdate")), ("contents", char |> string)})
-      | BrowseUp => object_(list{("tag", string("BrowseUp"))})
-      | BrowseDown => object_(list{("tag", string("BrowseDown"))})
-      | BrowseLeft => object_(list{("tag", string("BrowseLeft"))})
-      | BrowseRight => object_(list{("tag", string("BrowseRight"))})
-      | Escape => object_(list{("tag", string("Escape"))})
-      }
+    let encode = {
+      open JsonCombinators.Json.Encode
+      Util.Encode.sum(x =>
+        switch x {
+        | MouseSelect(interval) => Payload("MouseSelect", Interval.encode(interval))
+        | KeyUpdate(char) => Payload("KeyUpdate", string(char))
+        | BrowseUp => TagOnly("BrowseUp")
+        | BrowseDown => TagOnly("BrowseDown")
+        | BrowseLeft => TagOnly("BrowseLeft")
+        | BrowseRight => TagOnly("BrowseRight")
+        | Escape => TagOnly("Escape")
+        }
+      )
+    }
   }
 
   type t =
@@ -389,33 +357,31 @@ module EventFromView = {
     let make = React.Context.provider(eventContext)
   }
 
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Initialized" => TagOnly(Initialized)
-    | "Destroyed" => TagOnly(Destroyed)
-    | "InputMethod" => Contents(InputMethod.decode |> map(action => InputMethod(action)))
-    | "PromptIMUpdate" => Contents(PromptIMUpdate.decode |> map(action => PromptIMUpdate(action)))
-    | "JumpToTarget" => Contents(Link.decode |> map(link => JumpToTarget(link)))
-    | tag => raise(DecodeError("[EventFromView] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "Initialized" => TagOnly(Initialized)
+      | "Destroyed" => TagOnly(Destroyed)
+      | "InputMethod" => Payload(InputMethod.decode->map((. payload) => InputMethod(payload)))
+      | "PromptIMUpdate" =>
+        Payload(PromptIMUpdate.decode->map((. payload) => PromptIMUpdate(payload)))
+      | "JumpToTarget" => Payload(Link.decode->map((. link) => JumpToTarget(link)))
+      | tag => raise(DecodeError("[EventFromView] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | Initialized => object_(list{("tag", string("Initialized"))})
-    | Destroyed => object_(list{("tag", string("Destroyed"))})
-    | InputMethod(action) =>
-      object_(list{("tag", string("InputMethod")), ("contents", action |> InputMethod.encode)})
-    | PromptIMUpdate(action) =>
-      object_(list{
-        ("tag", string("PromptIMUpdate")),
-        ("contents", action |> PromptIMUpdate.encode),
-      })
-    | JumpToTarget(link) =>
-      object_(list{("tag", string("JumpToTarget")), ("contents", link |> Link.encode)})
-    }
+  let encode = {
+    Util.Encode.sum(x =>
+      switch x {
+      | Initialized => TagOnly("Initialized")
+      | Destroyed => TagOnly("Destroyed")
+      | InputMethod(action) => Payload("InputMethod", InputMethod.encode(action))
+      | PromptIMUpdate(action) => Payload("PromptIMUpdate", PromptIMUpdate.encode(action))
+      | JumpToTarget(link) => Payload("JumpToTarget", Link.encode(link))
+      }
+    )
   }
 }
 
@@ -425,22 +391,23 @@ module ResponseOrEventFromView = {
     | Event(EventFromView.t)
 
   // JSON encode/decode
-  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-    open Json.Decode
-    switch x {
-    | "Response" => Contents(Response.decode |> map(x => Response(x)))
-    | "Event" => Contents(EventFromView.decode |> map(x => Event(x)))
-    | tag => raise(DecodeError("[ResponseOrEventFromView] Unknown constructor: " ++ tag))
-    }
-  })
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum_(x => {
+      switch x {
+      | "Response" => Payload(Response.decode->map((. payload) => Response(payload)))
+      | "Event" => Payload(EventFromView.decode->map((. payload) => Event(payload)))
+      | tag => raise(DecodeError("[ResponseOrEventFromView] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | Response(payload) =>
-      object_(list{("tag", string("Response")), ("contents", payload |> Response.encode)})
-    | Event(payload) =>
-      object_(list{("tag", string("Event")), ("contents", payload |> EventFromView.encode)})
-    }
+  let encode = {
+    Util.Encode.sum(x =>
+      switch x {
+      | Response(payload) => Payload("Response", Response.encode(payload))
+      | Event(payload) => Payload("Event", EventFromView.encode(payload))
+      }
+    )
   }
 }

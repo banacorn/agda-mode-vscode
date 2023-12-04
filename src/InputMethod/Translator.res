@@ -123,8 +123,9 @@ let lookup = (symbol): option<array<string>> =>
 
 let decode = {
   open JsonCombinators.Json.Decode
+  // TODO: replace `field.required(. "symbol", option(string))` with `field.optional(. "symbol", string)`
   object(field => {
-    symbol: field.optional(. "symbol", string),
+    symbol: field.required(. "symbol", option(string)),
     further: field.required(. "further", bool),
     keySuggestions: field.required(. "keySuggestions", array(string)),
     candidateSymbols: field.required(. "candidateSymbols", array(string)),
