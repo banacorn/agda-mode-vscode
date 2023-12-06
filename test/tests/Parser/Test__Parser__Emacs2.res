@@ -57,33 +57,12 @@ describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
 Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
 `
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals*", raw)
-    let expected = [
-      Item.Unlabeled(
-        RichText.concatMany([RichText.hole(0), RichText.string(" : "), RichText.string("ℕ")]),
-        None,
-        None,
+    let expected = Js.Dict.fromArray([
+      (
+        "metas",
+        ["?0 : ℕ", "?1 : ℕ", "Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]"],
       ),
-      Item.Unlabeled(
-        RichText.concatMany([RichText.hole(1), RichText.string(" : "), RichText.string("ℕ")]),
-        None,
-        None,
-      ),
-      Item.Unlabeled(
-        RichText.concatMany([RichText.string("Sort "), RichText.string("_0")]),
-        None,
-        Some(
-          Common.AgdaRange.Range(
-            Some("/Users/banacorn/agda/examples/A.agda"),
-            [
-              {
-                start: {col: 5, line: 11, pos: 0},
-                end_: {col: 20, line: 11, pos: 0},
-              },
-            ],
-          ),
-        ),
-      ),
-    ]
+    ])
     Assert.deep_equal(actual, expected)
   })
 
@@ -93,14 +72,10 @@ Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
 ———— Errors ————————————————————————————————————————————————
 Unsolved constraints`
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Errors*", raw)
-    let expected = [
-      Item.Unlabeled(
-        RichText.concatMany([RichText.hole(0), RichText.string(" : "), RichText.string("_2")]),
-        None,
-        None,
-      ),
-      Item.Labeled("Error", "error", RichText.string("Unsolved constraints"), None, None),
-    ]
+    let expected = Js.Dict.fromArray([
+      ("metas", ["?0 : _2"]),
+      ("errors", ["Unsolved constraints"]),
+    ])
     Assert.deep_equal(actual, expected)
   })
 })

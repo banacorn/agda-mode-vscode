@@ -26,7 +26,7 @@ module DisplayInfo = {
       State.View.Panel.display(state, Plain("Constraints"), items)
     | AllGoalsWarnings(header, "nil") => State.View.Panel.display(state, Success(header), [])
     | AllGoalsWarnings(header, body) =>
-      let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)
+      let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.renderAllGoalsWarnings
       State.View.Panel.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))

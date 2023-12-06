@@ -168,7 +168,7 @@ let parseGoalType: string => array<Item.t> = raw => {
   ->Js.Array.concatMany([])
 }
 
-let parseAllGoalsWarnings = (title, body): array<Item.t> => {
+let parseAllGoalsWarnings = (title, body): Js.Dict.t<array<string>> => {
   let partiteAllGoalsWarnings: (string, string) => Js.Dict.t<array<string>> = (title, body) => {
     let lines = Js.String.split("\n", body)
     /* examine the header to see what's in the body */
@@ -219,11 +219,13 @@ let parseAllGoalsWarnings = (title, body): array<Item.t> => {
       }
     )
   }
-  let dictionary: Js.Dict.t<array<string>> =
-    partiteAllGoalsWarnings(title, body)
-    ->partiteMetas
-    ->partiteWarningsOrErrors("warnings")
-    ->partiteWarningsOrErrors("errors")
+  partiteAllGoalsWarnings(title, body)
+  ->partiteMetas
+  ->partiteWarningsOrErrors("warnings")
+  ->partiteWarningsOrErrors("errors")
+}
+
+let renderAllGoalsWarnings = dictionary => {
   // convert entries in the dictionary to Items for rendering
   dictionary
   ->Js.Dict.entries
