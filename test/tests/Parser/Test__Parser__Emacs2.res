@@ -4,7 +4,7 @@ open! Belt
 module Assert = BsMocha.Assert
 
 describe("when running Emacs__Parser2.parseGoalType", () => {
-  it("should should parse goal only", () => {
+  it("should parse goal only", () => {
     let raw = `Goal: ℕ
 ————————————————————————————————————————————————————————————`
     let actual = Emacs__Parser2.parseGoalType(raw)
@@ -12,7 +12,7 @@ describe("when running Emacs__Parser2.parseGoalType", () => {
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse goal + have", () => {
+  it("should parse goal + have", () => {
     let raw = `Goal: ℕ
 Have: ℕ
 ————————————————————————————————————————————————————————————`
@@ -24,7 +24,7 @@ Have: ℕ
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse goal + have + context", () => {
+  it("should parse goal + have + context", () => {
     let raw = `Goal: ℕ
 Have: ℕ
 ————————————————————————————————————————————————————————————
@@ -50,7 +50,7 @@ x : ℕ`
 })
 
 describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
-  it("should should parse goals only", () => {
+  it("should parse goals only", () => {
     let raw = `
 ?0 : ℕ
 ?1 : ℕ
@@ -58,30 +58,47 @@ Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
 `
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals*", raw)
     let expected = Js.Dict.fromArray([
-      (
-        "metas",
-        ["?0 : ℕ", "?1 : ℕ", "Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]"],
-      ),
+      ("interactionMetas", ["?0 : ℕ", "?1 : ℕ"]),
+      ("hiddenMetas", ["Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]"]),
     ])
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse goals + errors", () => {
+  it("should parse goals + errors", () => {
     let raw = `?0 : _2
 
 ———— Errors ————————————————————————————————————————————————
 Unsolved constraints`
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Errors*", raw)
     let expected = Js.Dict.fromArray([
-      ("metas", ["?0 : _2"]),
+      ("interactionMetas", ["?0 : _2"]),
       ("errors", ["Unsolved constraints"]),
     ])
     Assert.deep_equal(actual, expected)
   })
+
+  it("should parse goals that span multiple lines", () => {
+    let raw = `?0
+  : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`
+    let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Errors*", raw)
+    let expected = Js.Dict.fromArray([
+      (
+        "interactionMetas",
+        [
+          `?0
+  : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`,
+        ],
+      ),
+    ])
+    Assert.deep_equal(actual, expected)
+  })
+
+  // ?0
+  // : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool
 })
 
 describe("when running Emacs__Parser2.parseError", () => {
-  it("should should parse an error only", () => {
+  it("should parse an error only", () => {
     let raw = `/Users/banacorn/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
@@ -114,7 +131,7 @@ when checking that the clause a has type _8`
     ]
     Assert.deep_equal(actual, expected)
   })
-  it("should should parse an error + warnings", () => {
+  it("should parse an error + warnings", () => {
     let raw = `———— Error —————————————————————————————————————————————————
 /Users/banacorn/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd

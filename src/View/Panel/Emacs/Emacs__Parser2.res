@@ -2,8 +2,7 @@
 open Emacs__Parser
 open Belt
 
-let partiteMetas = xs =>
-  xs->Dict.split("metas", (rawMetas: array<string>) => {
+let partiteMetas = xs => xs->Dict.split("metas", (rawMetas: array<string>) => {
     let metas = unindent(rawMetas)
     let indexOfHiddenMetas =
       metas->Array.getIndexBy(s => Agda.Output.parseOutputWithLocation(s)->Option.isSome)
@@ -18,7 +17,7 @@ let partiteMetas = xs =>
           None
         }
       | None =>
-        /* All interaction metas */
+        // all metas are interaction metas
         if i === 0 {
           Some("interactionMetas")
         } else {
@@ -219,8 +218,14 @@ let parseAllGoalsWarnings = (title, body): Js.Dict.t<array<string>> => {
       }
     )
   }
+
   partiteAllGoalsWarnings(title, body)
   ->partiteMetas
+  ->(x => {
+    Js.log(body)
+    Js.log(x)
+    x
+  })
   ->partiteWarningsOrErrors("warnings")
   ->partiteWarningsOrErrors("errors")
 }

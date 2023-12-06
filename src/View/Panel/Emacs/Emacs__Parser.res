@@ -13,15 +13,20 @@ module Dict = {
       | None => (key, index, Array.length(xs))
       }
     )
-    intervals->Array.map(((key, start, end_)) => (key, xs->Js.Array.slice(~start, ~end_)->Array.keep(x => x !== "")))
-      |> fromArray
+    intervals->Array.map(((key, start, end_)) => (
+      key,
+      xs->Js.Array.slice(~start, ~end_)->Array.keep(x => x !== ""),
+    )) |> fromArray
   }
-  /* split an entry */
+  // given a key and a splitter function, split the value of the key into multiple entries
+  // and replace the old entry with the new ones
   let split = (dict: t<'a>, key: key, splitter: 'a => t<'a>): t<array<string>> =>
     switch get(dict, key) {
     | Some(value) =>
-      /* insert new entries */
+      // insert new entries
       entries(splitter(value))->Array.forEach(((k, v)) => set(dict, k, v))
+      // remove old entry
+      Util.Dict.delete(dict, key)
       dict
     | None => dict
     }
@@ -72,34 +77,41 @@ module Array_ = {
 
 let unindent: array<string> => array<string> = lines => {
   let isNewline = (line, nextLine) => {
-    let sort = %re("/^Sort \\S*/")
-    let delimeter = %re("/^\\u2014{4}/g")
+    let sort = %re("/^Sort \S*/")
+    let delimeter = %re("/^\u2014{4}/g")
     /* banana : Banana */
-    let completeJudgement = %re("/^(?:(?:[^\\(\\{\\s]+\\s+\\:=?)|Have\\:|Goal\\:)\\s* \\S*/")
+    let completeJudgement = %re("/^(?:(?:[^\(\{\s]+\s+\:=?)|Have\:|Goal\:)\s* \S*/")
     /* case when the term's name is too long, the rest of the judgement
             would go to the next line, e.g:
                  banananananananananananananananana
                      : Banana
  */
-    let reallyLongTermIdentifier = %re("/^\\S+$/")
-    let restOfTheJudgement = %re("/^\\s*\\:=?\\s* \\S*/")
-    Js.Re.test_(sort, line) ||
-    (Js.Re.test_(delimeter, line) ||
-    ((Js.Re.test_(reallyLongTermIdentifier, line) &&
-    nextLine->Option.mapWithDefault(false, line => Js.Re.test_(restOfTheJudgement, line))) ||
-      Js.Re.test_(completeJudgement, line)))
+    let reallyLongTermIdentifier = %re("/^\S+$/")
+    let restOfTheJudgement = %re("/^\s*\:=?\s* \S*/")
+
+    // predicates
+    let isDelimeter = Js.Re.test_(delimeter, line)
+    let isSort = Js.Re.test_(sort, line)
+    let isCompleteJudgement = Js.Re.test_(completeJudgement, line)
+    let isReallyLongTermIdentifier =
+      Js.Re.test_(reallyLongTermIdentifier, line) &&
+      nextLine->Option.mapWithDefault(false, line => Js.Re.test_(restOfTheJudgement, line))
+
+    isDelimeter || isSort || isCompleteJudgement || isReallyLongTermIdentifier
   }
   let newLineIndices: array<int> =
     lines
     ->Array.mapWithIndex((index, line) => (line, lines[index + 1], index))
     ->Array.keep(((line, nextLine, _)) => isNewline(line, nextLine))
     ->Array.map(((_, _, index)) => index)
-  newLineIndices->Array.mapWithIndex((i, index) =>
+  newLineIndices
+  ->Array.mapWithIndex((i, index) =>
     switch newLineIndices[i + 1] {
     | None => (index, Array.length(lines) + 1)
     | Some(n) => (index, n)
     }
-  )->Array.map(((start, end_)) => lines |> Js.Array.slice(~start, ~end_) |> Js.Array.joinWith("\n"))
+  )
+  ->Array.map(((start, end_)) => lines |> Js.Array.slice(~start, ~end_) |> Js.Array.joinWith("\n"))
 }
 
 let captures = (regex, handler, raw) =>

@@ -249,3 +249,8 @@ module P = {
     )
   }
 }
+
+
+module Dict = {
+  let delete: (Js.Dict.t<'a>, string) => unit = %raw("function (dict, key) {delete dict[key]}")
+}

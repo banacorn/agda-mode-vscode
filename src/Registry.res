@@ -53,10 +53,7 @@ module Module: {
     }
 
   // Removes the entry (but without triggering State.destroy() )
-  let remove = fileName => {
-    let delete_: (Js.Dict.t<'a>, string) => unit = %raw("function (dict, key) {delete dict[key]}")
-    delete_(dict, fileName)
-  }
+  let remove = fileName => Util.Dict.delete(dict, fileName)
 
   let removeAndDestroy = fileName =>
     switch get'(fileName) {
