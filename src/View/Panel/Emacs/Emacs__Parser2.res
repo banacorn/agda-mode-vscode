@@ -2,7 +2,8 @@
 open Emacs__Parser
 open Belt
 
-let partiteMetas = xs => xs->Dict.split("metas", (rawMetas: array<string>) => {
+let partiteMetas = xs =>
+  xs->Dict.split("metas", (rawMetas: array<string>) => {
     let metas = unindent(rawMetas)
     let indexOfHiddenMetas =
       metas->Array.getIndexBy(s => Agda.Output.parseOutputWithLocation(s)->Option.isSome)
@@ -42,7 +43,7 @@ let partiteWarningsOrErrors = (xs, key) =>
     ->Array.map(Js.Array.joinWith("\n"))
   })
 
-let parseError: string => array<Item.t> = raw => {
+let parseError: string => Js.Dict.t<array<string>> = raw => {
   // if the first line has delimeter,
   // then the message has both an error and possibly many warnings
   // all warnings start with a range
@@ -60,7 +61,7 @@ let parseError: string => array<Item.t> = raw => {
   let glueBack = xs =>
     xs[Array.length(xs) - 1]->Option.flatMap(Js.String.match_(%re("/at$/")))->Option.isSome
 
-  let dictionary = if hasBothErrorsAndWarnings {
+  if hasBothErrorsAndWarnings {
     let isWarning = line => Js.String.match_(%re("/^\u2014{4} Warning\(s\)/"), line)->Option.isSome
     let predicate = ((line, i)) => {
       if i === 0 {
@@ -91,20 +92,9 @@ let parseError: string => array<Item.t> = raw => {
     // unlines
     ->Emacs__Parser.Dict.update("errors", xs => [xs->Js.Array2.joinWith("\n")])
   }
-  // convert entries in the dictionary to Items for rendering
-  dictionary
-  ->Js.Dict.entries
-  ->Array.map(((key, lines)) =>
-    switch key {
-    | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
-    | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
-    | _ => []
-    }
-  )
-  ->Js.Array.concatMany([])
 }
 
-let parseGoalType: string => array<Item.t> = raw => {
+let parseGoalType: string => Js.Dict.t<array<string>> = raw => {
   let markGoal = ((line, _)) => Js.String.match_(%re("/^Goal:/"), line)->Option.map(_ => "goal")
   let markHave = ((line, _)) => Js.String.match_(%re("/^Have:/"), line)->Option.map(_ => "have")
   let markMetas = ((line, _)) =>
@@ -126,7 +116,11 @@ let parseGoalType: string => array<Item.t> = raw => {
     )
   let removeDelimeter = xs => xs->Emacs__Parser.Dict.update("metas", Js.Array.sliceFrom(1))
   let lines = Js.String.split("\n", raw)
-  let dictionary = lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
+  lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
+}
+
+// convert entries in the dictionary to Items for rendering
+let render: Js.Dict.t<array<string>> => array<Item.t> = dictionary => {
   // convert entries in the dictionary to Items for render
   dictionary
   ->Js.Dict.entries
@@ -146,14 +140,14 @@ let parseGoalType: string => array<Item.t> = raw => {
       ->Option.mapWithDefault([], expr => [
         Item.Labeled("Have", "special", Agda.Expr.render(expr), None, None),
       ])
-    | "interactionMetas" =>
-      lines
-      ->Array.map(Agda.Output.parseOutputWithoutLocation)
-      ->Array.keepMap(x => x)
-      ->Array.map(output => Agda.Output.renderItem(output))
     | "metas" =>
       lines
       ->Array.map(Agda.Output.parse)
+      ->Array.keepMap(x => x)
+      ->Array.map(output => Agda.Output.renderItem(output))
+    | "interactionMetas" =>
+      lines
+      ->Array.map(Agda.Output.parseOutputWithoutLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Agda.Output.renderItem(output))
     | "hiddenMetas" =>
@@ -161,6 +155,8 @@ let parseGoalType: string => array<Item.t> = raw => {
       ->Array.map(Agda.Output.parseOutputWithLocation)
       ->Array.keepMap(x => x)
       ->Array.map(output => Agda.Output.renderItem(output))
+    | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
+    | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
     | _ => []
     }
   )
@@ -228,35 +224,6 @@ let parseAllGoalsWarnings = (title, body): Js.Dict.t<array<string>> => {
   })
   ->partiteWarningsOrErrors("warnings")
   ->partiteWarningsOrErrors("errors")
-}
-
-let renderAllGoalsWarnings = dictionary => {
-  // convert entries in the dictionary to Items for rendering
-  dictionary
-  ->Js.Dict.entries
-  ->Array.map(((key, lines)) =>
-    switch key {
-    | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
-    | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
-    | "interactionMetas" =>
-      lines
-      ->Array.map(Agda.Output.parseOutputWithoutLocation)
-      ->Array.keepMap(x => x)
-      ->Array.map(output => Agda.Output.renderItem(output))
-    | "metas" =>
-      lines
-      ->Array.map(Agda.Output.parse)
-      ->Array.keepMap(x => x)
-      ->Array.map(output => Agda.Output.renderItem(output))
-    | "hiddenMetas" =>
-      lines
-      ->Array.map(Agda.Output.parseOutputWithLocation)
-      ->Array.keepMap(x => x)
-      ->Array.map(output => Agda.Output.renderItem(output))
-    | _ => []
-    }
-  )
-  ->Js.Array.concatMany([])
 }
 
 let parseOutputs: string => array<Item.t> = raw => {

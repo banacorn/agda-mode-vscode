@@ -26,7 +26,8 @@ module DisplayInfo = {
       State.View.Panel.display(state, Plain("Constraints"), items)
     | AllGoalsWarnings(header, "nil") => State.View.Panel.display(state, Success(header), [])
     | AllGoalsWarnings(header, body) =>
-      let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.renderAllGoalsWarnings
+      let items =
+        Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.render
       State.View.Panel.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
@@ -40,7 +41,7 @@ module DisplayInfo = {
       let items = Emacs__Parser2.parseTextWithLocation(body)
       State.View.Panel.display(state, Plain("Time"), items)
     | Error(body) =>
-      let items = Emacs__Parser2.parseError(body)
+      let items = Emacs__Parser2.parseError(body)->Emacs__Parser2.render
       State.View.Panel.display(state, Error("Error"), items)
     | Intro(body) =>
       let items = Emacs__Parser2.parseTextWithLocation(body)
@@ -61,7 +62,7 @@ module DisplayInfo = {
       let items = Emacs__Parser2.parseTextWithLocation(body)
       State.View.Panel.display(state, Plain("Normal form"), items)
     | GoalType(body) =>
-      let items = Emacs__Parser2.parseGoalType(body)
+      let items = Emacs__Parser2.parseGoalType(body)->Emacs__Parser2.render
       State.View.Panel.display(state, Plain("Goal and Context"), items)
     | CurrentGoalLSP(item) => State.View.Panel.display(state, Plain("Current Goal"), [item])
     | CurrentGoal(payload) =>
@@ -205,7 +206,11 @@ let rec handle = (
   | DisplayInfo(info) => DisplayInfo.handle(state, info)->Promise.map(() => Ok())
   | RunningInfo(1, message) =>
     let message = removeNewlines(message)
-    State.View.Panel.displayInAppendMode(state, Plain("Type-checking"), [Item.plainText(message)])->Promise.map(() => Ok())
+    State.View.Panel.displayInAppendMode(
+      state,
+      Plain("Type-checking"),
+      [Item.plainText(message)],
+    )->Promise.map(() => Ok())
   | RunningInfo(verbosity, message) =>
     let message = removeNewlines(message)
     state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
