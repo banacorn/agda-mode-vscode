@@ -5,7 +5,6 @@ let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
   Js.Re.test_(%re("/\.agda$|\.lagda/i"), fileName) // RegEx updated to v10.1.4
 }
-
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
@@ -22,7 +21,7 @@ module Inputs: {
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
   //  3. the active text editor is an Agda file
-  let onTriggerCommand = callback =>
+  let onTriggerCommand = callback => {
     Command.names->Array.map(((command, name)) =>
       VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
         VSCode.Window.activeTextEditor->Option.map(
@@ -38,6 +37,7 @@ module Inputs: {
         )
       })
     )
+  }
 }
 
 let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
@@ -246,7 +246,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       finalize(false)->ignore
     }
   })->subscribe
-
   // on triggering commands
   Inputs.onTriggerCommand((command, editor) => {
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
@@ -286,7 +285,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       }
     })
   })->subscribeMany
-
   // registerDocumentSemanticTokensProvider
   registerDocumentSemanticTokensProvider()->subscribe
 
@@ -299,7 +297,6 @@ let activate = context => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
   let globalStoragePath = VSCode.ExtensionContext.globalStoragePath(context)
-
   activateWithoutContext(subscriptions, extensionPath, globalStoragePath)
 }
 

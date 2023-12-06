@@ -370,7 +370,7 @@ module Agda = {
     ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(als))
     ->Promise.flatMap(() => exists("agda"))
     ->Promise.map(_ => {
-      filepath: filepath,
+      filepath,
       channels: activateExtension(),
     })
   }

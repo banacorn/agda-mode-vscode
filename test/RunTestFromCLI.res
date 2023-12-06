@@ -1,10 +1,10 @@
-// bindings of module 'vscode-test'
+// bindings of module '@vscode/test-electron'
 type options = {
   extensionDevelopmentPath: string,
   extensionTestsPath: string,
 }
 
-@bs.module("vscode-test")
+@module("@vscode/test-electron")
 external runTests: options => Js.Promise.t<bool> = "runTests"
 
 let dirname: option<string> = %bs.node(__dirname)
@@ -31,11 +31,14 @@ Js.log(
   ("\n  extensionTestsPath: " ++ extensionTestsPath)),
 )
 
-Js.Promise.catch(error => {
-  Js.log(error)
-  Js.log("Failed to run tests")
-  Node.Process.exit(1)
-}, runTests({
-  extensionDevelopmentPath: extensionDevelopmentPath,
-  extensionTestsPath: extensionTestsPath,
-}))->ignore
+Js.Promise.catch(
+  error => {
+    Js.log(error)
+    Js.log("Failed to run tests")
+    Node.Process.exit(1)
+  },
+  runTests({
+    extensionDevelopmentPath,
+    extensionTestsPath,
+  }),
+)->ignore
