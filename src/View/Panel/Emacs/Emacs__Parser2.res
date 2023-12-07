@@ -53,7 +53,7 @@ let parseError: string => Js.Dict.t<array<string>> = raw => {
   //    ...
   // else, the message has only an error
   //    ...
-  let lines = Js.String.split("\n", raw)
+  let lines = Parser.splitToLines(raw)
   let hasBothErrorsAndWarnings =
     lines[0]->Option.flatMap(Js.String.match_(%re("/^\u2014{4} Error/")))->Option.isSome
   let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
@@ -115,7 +115,7 @@ let parseGoalType: string => Js.Dict.t<array<string>> = raw => {
       }
     )
   let removeDelimeter = xs => xs->Emacs__Parser.Dict.update("metas", Js.Array.sliceFrom(1))
-  let lines = Js.String.split("\n", raw)
+  let lines = Parser.splitToLines(raw)
   lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
 }
 
@@ -165,7 +165,7 @@ let render: Js.Dict.t<array<string>> => array<Item.t> = dictionary => {
 
 let parseAllGoalsWarnings = (title, body): Js.Dict.t<array<string>> => {
   let partiteAllGoalsWarnings: (string, string) => Js.Dict.t<array<string>> = (title, body) => {
-    let lines = Js.String.split("\n", body)
+    let lines = Parser.splitToLines(body)
     /* examine the header to see what's in the body */
     let hasMetas = title->Js.String.match_(%re("/Goals/"), _)->Option.isSome
     let hasWarnings = title->Js.String.match_(%re("/Warnings/"), _)->Option.isSome
@@ -222,7 +222,7 @@ let parseAllGoalsWarnings = (title, body): Js.Dict.t<array<string>> => {
 }
 
 let parseOutputs: string => array<Item.t> = raw => {
-  let lines = Js.String.split("\n", raw)->Emacs__Parser.aggregateLines
+  let lines = Parser.splitToLines(raw)->Emacs__Parser.aggregateLines
   lines
   ->Array.map(Agda.Output.parse)
   ->Array.keepMap(x => x)
@@ -234,7 +234,7 @@ let parseAndRenderTextWithLocation: string => array<Item.t> = raw => [
 ]
 
 let parseAndRenderSearchAbout: string => array<Item.t> = raw => {
-  let lines = Js.String.split("\n", raw)
+  let lines = Parser.splitToLines(raw)
   let outputs =
     lines
     ->Js.Array.sliceFrom(1, _)

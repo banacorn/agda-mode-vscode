@@ -43,7 +43,12 @@ describe("when running Agda.OutputConstraint.parse", () => {
   it("should should parse JustSort", () => {
     let raw = `Sort ℕ
   ℕ`
-    let expected = Some(Agda.OutputConstraint.JustSort(RichText.string("ℕ\n  ℕ")))
+    let expected = Some(
+      Agda.OutputConstraint.JustSort(
+        RichText.string(`ℕ
+  ℕ`),
+      ),
+    )
     let actual = Agda.OutputConstraint.parse(raw)
     Assert.deep_equal(actual, expected)
   })

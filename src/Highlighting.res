@@ -101,14 +101,11 @@ module Module: Module = {
       let removedRange = change->VSCode.TextDocumentContentChangeEvent.range
 
       let (lineDelta, columnDelta) = {
-        // +1 line for each linebreak ('\n', '\r', and '\r\n')
+        // +1 line for each linebreak ('\n' or '\r\n')
         // -1 line for each line in `removedRange`
         // +1 column for each charactor after the last linebreak
         // -1 column for each charactor in `removedRange`
-
-        let regex = %re("/\r\n|\r|\n/")  // RegEx updated to v10.1.4
-        let lines = Js.String.splitByRe(regex, change->VSCode.TextDocumentContentChangeEvent.text)
-
+        let lines = Parser.splitToLines(change->VSCode.TextDocumentContentChangeEvent.text)
         let lineDetalOfRemovedRange =
           VSCode.Position.line(VSCode.Range.end_(removedRange)) -
           VSCode.Position.line(VSCode.Range.start(removedRange))

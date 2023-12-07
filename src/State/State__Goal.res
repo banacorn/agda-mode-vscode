@@ -312,7 +312,7 @@ module Module: Module = {
 
   let placeCursorAtFirstNewGoal = (state: State.t, rewriteText, rewriteRange) => {
     // locate the first new goal and place the cursor there
-    let splittedLines = Js.String.split("\n", rewriteText)
+    let splittedLines = Parser.splitToLines(rewriteText)
     splittedLines[0]->Option.forEach(line => {
       let col = Js.String.length(line) - 1
       let lastChar = Js.String.charAt(col, line)

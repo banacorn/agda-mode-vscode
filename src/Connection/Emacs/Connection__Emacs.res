@@ -152,7 +152,7 @@ module Module: Module = {
             self.chan->Chan.emit(Error(AgdaError(rawText)))
           } else {
             // split the raw text into pieces and feed it to the parser
-            rawText->Parser.split->Array.forEach(Parser.Incr.feed(incrParser))
+            rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser))
           }
         | Stderr(_) => ()
         | Event(e) => self.chan->Chan.emit(Error(Process(e)))

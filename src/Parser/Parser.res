@@ -1,6 +1,6 @@
 open Belt
 
-let split = s =>
+let splitToLines = s =>
   // RegEx updated to v10.1.4
   s
   ->Js.String.splitByRe(%re("/\r\n|\n/"), _)
@@ -203,7 +203,7 @@ module SExpression = {
     let resultAccum: ref<array<result<t, (int, string)>>> = ref([])
     let continuation = ref(None)
     input
-    ->split
+    ->splitToLines
     ->Array.forEach(line => {
       // get the parsing continuation or initialize a new one
       let continue = continuation.contents->Option.getWithDefault(parseWithContinuation)

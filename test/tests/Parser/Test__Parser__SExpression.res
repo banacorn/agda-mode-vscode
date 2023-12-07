@@ -25,7 +25,7 @@ let parseSExpression = (breakpoints, input) => {
   input
   ->Js.String.trim
   ->Strings.breakInput(breakpoints)
-  ->Array.map(Parser.split)
+  ->Array.map(Parser.splitToLines)
   ->Array.concatMany
   ->Array.forEach(Parser.Incr.feed(parser))
 
