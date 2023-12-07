@@ -72,11 +72,11 @@ jobs:
         cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\ghcup\bin
         which agda
 
-    # - name: ⏬ Install NPM Dependencies
-    #   run: npm install
+    - name: ⏬ Install NPM Dependencies
+      run: npm install
       
-    # - name: 🔨 Build stuff 
-    #   run: npm run build
+    - name: 🔨 Build stuff 
+      run: npm run build
 
-    # - name: 🚗 Run tests (Windows)
-    #   run: npm test
+    - name: 🚗 Run tests (Windows)
+      run: npm test
