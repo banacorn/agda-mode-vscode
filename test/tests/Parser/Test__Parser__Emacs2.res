@@ -80,9 +80,6 @@ Unsolved constraints`
     ])
     Assert.deep_equal(actual, expected)
   })
-
-  // ?0
-  // : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool
 })
 
 describe("when running Emacs__Parser2.parseError", () => {

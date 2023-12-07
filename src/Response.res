@@ -82,8 +82,9 @@ module DisplayInfo = {
 
   let parse = (xs: array<Token.t>): option<t> =>
     switch xs[1] {
-    | Some(A(payload)) =>
-      // let payload = rawPayload |> Js.String.replaceByRe(%re("/\r\\n|\\n/g"), "\n") 
+    | Some(A(rawPayload)) =>
+      // replace all "\r\n" and "\n" with "\n"
+      let payload = Js.String.replaceByRe(%re("/\r\n|\n/g"), "\n", rawPayload)
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>

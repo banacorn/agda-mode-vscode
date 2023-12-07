@@ -45,7 +45,7 @@ describe("when running Agda.OutputConstraint.parse", () => {
   ℕ`
     let expected = Some(
       Agda.OutputConstraint.JustSort(
-        RichText.string(`ℕ
+        RichText.string(`Sort ℕ
   ℕ`),
       ),
     )
