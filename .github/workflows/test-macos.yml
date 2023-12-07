@@ -59,7 +59,7 @@ jobs:
         stack --version
 
     - name: ⏬ Install Agda
-      run: stack install --resolver lts-18.2 Agda-2.6.2
+      run: stack install --resolver lts-20.26 Agda-2.6.4
 
     - name: ⏬ Install NPM Dependencies
       run: npm install

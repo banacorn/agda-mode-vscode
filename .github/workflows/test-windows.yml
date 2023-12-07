@@ -48,9 +48,9 @@ jobs:
     # actions:
 
     - name: ⏬ Install Node.js
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@v4
       with:
-        node-version: 10.x
+        node-version: 20.x
 
     - name: ⏬ Install stack
       #if: steps.stack-programs-dir.outputs.cache-hit != 'true'
@@ -67,7 +67,7 @@ jobs:
 
     - name: ⏬ Install Agda
       run: |
-        stack install --resolver lts-18.2 Agda-2.6.2
+        stack install --resolver lts-20.26 Agda-2.6.4
         # copy Agda (stack path --local-bin) to somewhere in the PATH
         cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\ghcup\bin
         which agda
