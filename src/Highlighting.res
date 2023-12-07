@@ -127,7 +127,7 @@ module Module: Module = {
             VSCode.Position.character(VSCode.Range.start(removedRange))
 
           let columnDelta = switch lines[lineDelta] {
-          | Some(Some(line)) =>
+          | Some(line) =>
             // number of characters after the last linebreak
             String.length(line) - columnDeltaOfRemovedRange
           | _ => 0
