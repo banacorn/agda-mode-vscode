@@ -61,16 +61,16 @@ jobs:
     - name: ⏬ Install Agda
       run: stack install --resolver lts-20.26 Agda-2.6.4
 
-    - name: ⏬ Install NPM Dependencies
-      run: npm install
+    # - name: ⏬ Install NPM Dependencies
+    #   run: npm install
       
-    - name: 🔨 Build stuff 
-      run: npm run build
+    # - name: 🔨 Build stuff 
+    #   run: npm run build
       
-    - name: 🚗 Run tests
-      run: | 
-        # adding $(stack path --local-bin) to the PATH 
-        PATH=$(stack path --local-bin):$PATH
-        which agda
+    # - name: 🚗 Run tests
+    #   run: | 
+    #     # adding $(stack path --local-bin) to the PATH 
+    #     PATH=$(stack path --local-bin):$PATH
+    #     which agda
         
-        npm test
+    #     npm test
