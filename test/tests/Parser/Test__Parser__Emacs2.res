@@ -105,7 +105,7 @@ when checking that the clause a has type _8`,
     ])
     Assert.deep_equal(actual, expected)
   })
-  it_only("should parse an error + warnings", () => {
+  it("should parse an error + warnings", () => {
     let raw = `———— Error —————————————————————————————————————————————————
 /Users/banacorn/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd

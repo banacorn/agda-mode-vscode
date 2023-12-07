@@ -26,8 +26,7 @@ module DisplayInfo = {
       State.View.Panel.display(state, Plain("Constraints"), items)
     | AllGoalsWarnings(header, "nil") => State.View.Panel.display(state, Success(header), [])
     | AllGoalsWarnings(header, body) =>
-      let items =
-        Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.render
+      let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.render
       State.View.Panel.display(state, Plain(header), items)
     | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
@@ -38,28 +37,28 @@ module DisplayInfo = {
         Array.concatMany([goals, metas, errors, warnings]),
       )
     | Time(body) =>
-      let items = Emacs__Parser2.parseTextWithLocation(body)
+      let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
       State.View.Panel.display(state, Plain("Time"), items)
     | Error(body) =>
       let items = Emacs__Parser2.parseError(body)->Emacs__Parser2.render
       State.View.Panel.display(state, Error("Error"), items)
     | Intro(body) =>
-      let items = Emacs__Parser2.parseTextWithLocation(body)
+      let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
       State.View.Panel.display(state, Plain("Intro"), items)
     | Auto(body) =>
-      let items = Emacs__Parser2.parseTextWithLocation(body)
+      let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
       State.View.Panel.display(state, Plain("Auto"), items)
     | ModuleContents(body) =>
-      let items = Emacs__Parser2.parseTextWithLocation(body)
+      let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
       State.View.Panel.display(state, Plain("Module Contents"), items)
     | SearchAbout(body) =>
-      let items = Emacs__Parser2.parseSearchAbout(body)
+      let items = Emacs__Parser2.parseAndRenderSearchAbout(body)
       State.View.Panel.display(state, Plain("Search About"), items)
     | WhyInScope(body) =>
-      let items = Emacs__Parser2.parseTextWithLocation(body)
+      let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
       State.View.Panel.display(state, Plain("Scope info"), items)
     | NormalForm(body) =>
-      let items = Emacs__Parser2.parseTextWithLocation(body)
+      let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
       State.View.Panel.display(state, Plain("Normal form"), items)
     | GoalType(body) =>
       let items = Emacs__Parser2.parseGoalType(body)->Emacs__Parser2.render

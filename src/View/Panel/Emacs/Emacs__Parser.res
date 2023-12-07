@@ -75,35 +75,17 @@ module Array_ = {
     })
 }
 
-let unindent: array<string> => array<string> = lines => {
-  let isNewline = (line, nextLine) => {
-    let sort = %re("/^Sort \S*/")
-    let delimeter = %re("/^\u2014{4}/g")
-    /* banana : Banana */
-    let completeJudgement = %re("/^(?:(?:[^\(\{\s]+\s+\:=?)|Have\:|Goal\:)\s* \S*/")
-    /* case when the term's name is too long, the rest of the judgement
-            would go to the next line, e.g:
-                 banananananananananananananananana
-                     : Banana
- */
-    let reallyLongTermIdentifier = %re("/^\S+$/")
-    let restOfTheJudgement = %re("/^\s*\:=?\s* \S*/")
-
-    // predicates
-    let isDelimeter = Js.Re.test_(delimeter, line)
-    let isSort = Js.Re.test_(sort, line)
-    let isCompleteJudgement = Js.Re.test_(completeJudgement, line)
-    let isReallyLongTermIdentifier =
-      Js.Re.test_(reallyLongTermIdentifier, line) &&
-      nextLine->Option.mapWithDefault(false, line => Js.Re.test_(restOfTheJudgement, line))
-
-    isDelimeter || isSort || isCompleteJudgement || isReallyLongTermIdentifier
-  }
+// A meta may be split into multiple entries because it's too long
+// this function glues them back together
+let aggregateLines: array<string> => array<string> = lines => {
+  // A line is considered a new line if it starts with a non-whitespace character
+  // otherwise it's a continuation of the previous line
+  let newlineRegEx = line => Js.Re.test_(%re("/^\S/"), line)
   let newLineIndices: array<int> =
     lines
-    ->Array.mapWithIndex((index, line) => (line, lines[index + 1], index))
-    ->Array.keep(((line, nextLine, _)) => isNewline(line, nextLine))
-    ->Array.map(((_, _, index)) => index)
+    ->Array.mapWithIndex((index, line) => (index, newlineRegEx(line)))
+    ->Array.keep(((_, isNewline)) => isNewline)
+    ->Array.map(fst)
   newLineIndices
   ->Array.mapWithIndex((i, index) =>
     switch newLineIndices[i + 1] {

@@ -4,7 +4,7 @@ open Belt
 
 let partiteMetas = xs =>
   xs->Dict.split("metas", (rawMetas: array<string>) => {
-    let metas = unindent(rawMetas)
+    let metas = aggregateLines(rawMetas)
     let indexOfHiddenMetas =
       metas->Array.getIndexBy(s => Agda.Output.parseOutputWithLocation(s)->Option.isSome)
     metas->Dict.partite(((_, i)) =>
@@ -217,34 +217,29 @@ let parseAllGoalsWarnings = (title, body): Js.Dict.t<array<string>> => {
 
   partiteAllGoalsWarnings(title, body)
   ->partiteMetas
-  ->(x => {
-    Js.log(body)
-    Js.log(x)
-    x
-  })
   ->partiteWarningsOrErrors("warnings")
   ->partiteWarningsOrErrors("errors")
 }
 
 let parseOutputs: string => array<Item.t> = raw => {
-  let lines = Js.String.split("\n", raw)->Emacs__Parser.unindent
+  let lines = Js.String.split("\n", raw)->Emacs__Parser.aggregateLines
   lines
   ->Array.map(Agda.Output.parse)
   ->Array.keepMap(x => x)
   ->Array.map(output => Agda.Output.renderItem(output))
 }
 
-let parseTextWithLocation: string => array<Item.t> = raw => [
+let parseAndRenderTextWithLocation: string => array<Item.t> = raw => [
   Item.Unlabeled(RichText.parse(raw), None, None),
 ]
 
-let parseSearchAbout: string => array<Item.t> = raw => {
+let parseAndRenderSearchAbout: string => array<Item.t> = raw => {
   let lines = Js.String.split("\n", raw)
   let outputs =
     lines
     ->Js.Array.sliceFrom(1, _)
     ->Array.map(Js.String.sliceToEnd(~from=2))
-    ->Emacs__Parser.unindent
+    ->Emacs__Parser.aggregateLines
     ->Array.map(Agda.Output.parse)
     ->Array.keepMap(x => x)
     ->Array.map(output => Agda.Output.renderItem(output))

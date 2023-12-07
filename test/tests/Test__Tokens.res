@@ -38,7 +38,7 @@ describe("Tokens", ~timeout=10000, () => {
             "1:0-4 Token (28, 32) [Keyword]",
             "1:5-6 Token (33, 34) [Datatype] [src: 34]",
             "1:7-8 Token (35, 36) [Symbol]",
-            "1:9-12 Token (37, 40) [Primitive] [src: 326]",
+            "1:9-12 Token (37, 40) [Primitive] [src: 388]",
             "1:13-18 Token (41, 46) [Keyword]",
             "2:2-3 Token (49, 50) [ConstructorInductive] [src: 50]",
             "2:4-5 Token (51, 52) [Symbol]",
