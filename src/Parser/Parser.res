@@ -247,6 +247,7 @@ let userInputToSExpr = (s: string): string =>
   s
   |> Js.String.replaceByRe(%re("/\\/g"), "\\\\")
   |> Js.String.replaceByRe(%re("/\"/g"), "\\\"")
+  |> Js.String.replaceByRe(%re("/\r\n/g"), "\\r\\n")
   |> Js.String.replaceByRe(%re("/\n/g"), "\\n")
   |> Js.String.trim
 

@@ -4,20 +4,20 @@ open! Belt
 module Assert = BsMocha.Assert
 
 describe("when running Agda.Expr.parse", () => {
-  it("should should parse a plain string", () => {
+  it("should parse a plain string", () => {
     let raw = `ℕ`
     let expected = Some([Agda.Term.Plain("ℕ")])
     let actual = Agda.Expr.parse(raw)
     Assert.deep_equal(actual, expected)
   })
-  it("should should parse a question mark", () => {
+  it("should parse a question mark", () => {
     let raw = `?3`
     let expected = Some([Agda.Term.QuestionMark(3)])
     let actual = Agda.Expr.parse(raw)
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse a underscore", () => {
+  it("should parse a underscore", () => {
     let raw = ` _4hi `
     let expected = Some([Agda.Term.Underscore("_4hi")])
     let actual = Agda.Expr.parse(raw)
@@ -26,21 +26,21 @@ describe("when running Agda.Expr.parse", () => {
 })
 
 describe("when running Agda.OutputConstraint.parse", () => {
-  it("should should parse OfType", () => {
+  it("should parse OfType", () => {
     let raw = `x : ℕ`
     let expected = Some(Agda.OutputConstraint.OfType(RichText.string("x"), RichText.string("ℕ")))
     let actual = Agda.OutputConstraint.parse(raw)
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse JustType", () => {
+  it("should parse JustType", () => {
     let raw = `Type ℕ`
     let expected = Some(Agda.OutputConstraint.JustType(RichText.string("ℕ")))
     let actual = Agda.OutputConstraint.parse(raw)
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse JustSort on Windows", () => {
+  it("should parse JustSort on Windows", () => {
     let raw = "Sort ℕ\r\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
@@ -51,7 +51,7 @@ describe("when running Agda.OutputConstraint.parse", () => {
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse JustSort on Unix", () => {
+  it("should parse JustSort on Unix", () => {
     let raw = "Sort ℕ\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
