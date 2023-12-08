@@ -80,11 +80,12 @@ module DisplayInfo = {
     | Version(string) => "Version " ++ string
     }
 
-  let parse = (xs: array<Token.t>): option<t> =>
+  let parse = (xs: array<Token.t>): option<t> =>{
     switch xs[1] {
     | Some(A(rawPayload)) =>
-      // replace all "\r\n" and "\n" with "\n"
-      let payload = Js.String.replaceByRe(%re("/\r\n|\n/g"), "\n", rawPayload)
+      // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions 
+      // we need to replace them with actual EOLs
+      let payload = Js.String.replaceByRe(%re("/\\n|\\r\\n/g"), "\n", rawPayload)
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>
@@ -110,7 +111,7 @@ module DisplayInfo = {
       | _ => None
       }
     | _ => None
-    }
+    }}
 }
 
 // Here's the corresponding datatype in Haskell:

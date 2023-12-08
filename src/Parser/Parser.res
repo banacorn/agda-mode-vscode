@@ -243,13 +243,11 @@ module Error = {
     }
 }
 
-let userInput = (s: string): string =>
-  // let trim = s =>
-  //   Atom.Config.get("agda-mode.trimSpaces") ? String.trim(s) : s;
+let userInputToSExpr = (s: string): string =>
   s
-  |> Js.String.replaceByRe(%re("/\\\\/g"), "\\\\")
-  |> Js.String.replaceByRe(%re("/\\\"/g"), "\\\"")
-  |> Js.String.replaceByRe(%re("/\\n/g"), "\\n")
+  |> Js.String.replaceByRe(%re("/\\/g"), "\\\\")
+  |> Js.String.replaceByRe(%re("/\"/g"), "\\\"")
+  |> Js.String.replaceByRe(%re("/\n/g"), "\\n")
   |> Js.String.trim
 
 let filepath = s => {
@@ -268,7 +266,3 @@ let filepath = s => {
 
   replaced
 }
-
-let agdaOutput = Js.String.replaceByRe(%re("/\\\\n/g"), "\n")
-
-let commandLineArgs = s => s |> Js.String.replaceByRe(%re("/\\s+/g"), " ") |> Js.String.split(" ")
