@@ -131,7 +131,7 @@ module Strings = {
   // trim and replace all occurences of line breaks with "\n"
   let normalize = string => {
     open Js.String
-    replaceByRe(%re("/\\r\\n|\\r/g"), "\n", trim(string))
+    replaceByRe(%re("/\r\n|\n/g"), "\n", trim(string))
   }
 
   let serialize = xs => Js.Array.joinWith("\n", xs)

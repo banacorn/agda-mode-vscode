@@ -68,7 +68,7 @@ module OutputConstraint: {
     | Others(RichText.t)
 
   let parseOfType =
-    %re("/^([^\:]*) \: ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
+    %re("/^([^\:]*) \: ((?:\r\n|\n|.)+)/")->Emacs__Parser.captures(captured =>
       captured
       ->Emacs__Parser.at(2, Expr.parse)
       ->Option.flatMap(type_ =>
@@ -78,11 +78,11 @@ module OutputConstraint: {
       )
     )
   let parseJustType =
-    %re("/^Type ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
+    %re("/^Type ((?:\r\n|\n|.)+)/")->Emacs__Parser.captures(captured =>
       captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType(Expr.render(type_)))
     )
   let parseJustSort =
-    %re("/^Sort ((?:\n|.)+)/")->Emacs__Parser.captures(captured =>
+    %re("/^Sort ((?:\r\n|\n|.)+)/")->Emacs__Parser.captures(captured =>
       captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort(Expr.render(sort)))
     )
   let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others(Expr.render(raw')))

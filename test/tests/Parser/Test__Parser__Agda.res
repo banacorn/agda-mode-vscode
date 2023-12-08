@@ -40,13 +40,22 @@ describe("when running Agda.OutputConstraint.parse", () => {
     Assert.deep_equal(actual, expected)
   })
 
-  it("should should parse JustSort", () => {
-    let raw = `Sort ℕ
-  ℕ`
+  it("should should parse JustSort on Windows", () => {
+    let raw = "Sort ℕ\r\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
-        RichText.string(`Sort ℕ
-  ℕ`),
+        RichText.string(`ℕ\r\n  ℕ`),
+      ),
+    )
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deep_equal(actual, expected)
+  })
+
+  it("should should parse JustSort on Unix", () => {
+    let raw = "Sort ℕ\n  ℕ"
+    let expected = Some(
+      Agda.OutputConstraint.JustSort(
+        RichText.string("ℕ\n  ℕ"),
       ),
     )
     let actual = Agda.OutputConstraint.parse(raw)

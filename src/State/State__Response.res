@@ -1,7 +1,7 @@
 // from Agda Response to Tasks
 open Belt
 
-let removeNewlines = string => string->Js.String2.split("\\n")->Belt.Array.joinWith("\n", x => x)
+let removeNewlines = string => string->Js.String2.split("\n")->Belt.Array.joinWith("\n", x => x)
 
 open Response
 module DisplayInfo = {
