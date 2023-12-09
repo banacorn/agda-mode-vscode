@@ -426,6 +426,34 @@ module Agda = {
       }
     )
   }
+
+  let refine = (cursorAndPayload, (self, state: State__Type.t)): Promise.promise<
+    result<(t, AgdaModeVscode.State.t), exn>,
+  > => {
+    openFile(self.filepath)
+    ->Promise.flatMap(editor =>
+      switch cursorAndPayload {
+      | None => Promise.resolved(false)
+      | Some(cursor, None) =>
+        Editor.Cursor.set(editor, cursor)
+        Promise.resolved(false)
+      | Some(cursor, Some(payload)) =>
+        Editor.Text.insert(state.document, cursor, payload)->Promise.tap(_ =>
+          Editor.Cursor.set(editor, cursor)
+        )
+      }
+    )
+    ->Promise.flatMap(_ => executeCommand("agda-mode.refine"))
+    ->Promise.flatMap(result =>
+      switch result {
+      | None => A.fail("Cannot case refine " ++ self.filepath)
+      | Some(Ok(state)) => Promise.resolved(Ok(self, state))
+      | Some(Error(error)) =>
+        let (header, body) = Connection.Error.toString(error)
+        A.fail(header ++ "\n" ++ body)
+      }
+    )
+  }
 }
 
 // store file content before testing so that we can restore it later

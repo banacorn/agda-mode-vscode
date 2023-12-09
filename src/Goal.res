@@ -23,7 +23,7 @@ module type Module = {
   let setCursor: (t, VSCode.TextEditor.t) => unit
   let getInnerRange: (t, VSCode.TextDocument.t) => VSCode.Range.t
   let refreshDecoration: (t, VSCode.TextEditor.t) => unit
-  let destroy: t => unit
+  let destroyDecoration: t => unit
 }
 
 module Module: Module = {
@@ -148,7 +148,7 @@ module Module: Module = {
     Editor.Decoration.decorate(editor, self.decorationIndex, [range])
   }
 
-  let destroy = self => {
+  let destroyDecoration = self => {
     self.decorationBackground->Editor.Decoration.destroy
     self.decorationIndex->Editor.Decoration.destroy
   }

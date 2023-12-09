@@ -79,7 +79,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
     state.onRemoveFromRegistry->Chan.emit()
   }
   state.onRemoveFromRegistry->Chan.destroy
-  state.goals->Array.forEach(Goal.destroy)
+  state.goals->Array.forEach(Goal.destroyDecoration)
   state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   Connection.stop()

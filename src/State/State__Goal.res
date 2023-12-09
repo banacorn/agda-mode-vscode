@@ -19,7 +19,7 @@ module Module: Module = {
   let getOffsets = (state: State.t): array<int> =>
     state.goals->Array.map(goal => {
       let (from, to) = goal.interval
-      from + min(3, (to - from)/2)
+      from + min(3, (to - from) / 2)
     })
 
   // There are two kinds of lambda abstraction
@@ -187,11 +187,7 @@ module Module: Module = {
         State.View.Panel.display(
           state,
           Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Failed to modify the content of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
+          [Item.plainText("Failed to modify the content of goal #" ++ string_of_int(goal.index))],
         )
       }
     })
@@ -257,34 +253,36 @@ module Module: Module = {
 
   let instantiate = (state: State.t, indices) => {
     // destroy all existing goals
-    state.goals->Array.forEach(Goal.destroy)
+    state.goals->Array.forEach(Goal.destroyDecoration)
 
     // get ther cursor position before editing the text buffer
     // so that we can place the cursor inside a goal later
     let selection = VSCode.TextEditor.selection(state.editor)
-    let cursorStart = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.start(selection))
+    let cursorStart = VSCode.TextDocument.offsetAt(
+      state.document,
+      VSCode.Selection.start(selection),
+    )
     let cursorEnd = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection))
 
     // instantiate new ones
     Goal.makeMany(state.editor, indices)->Promise.map(goals => {
-
       goals->Array.forEach(goal => {
         // if there's a cursor that touches the hole's "boundary"
-        // 
+        //
         //                 {! some hole !}
         //                 ^^           ^^
-        // 
+        //
         //  move the cursor inside the hole
-        // 
+        //
         //                 {! some hole !}
         //                    ^
-        // 
-        let (left, right) = goal.interval 
-        let touched = 
-            (left <= cursorStart && cursorStart <= left + 2) || 
-            (right - 2 <= cursorStart && cursorStart <= right) || 
-            (left <= cursorEnd && cursorEnd <= left + 2) || 
-            (right - 2 <= cursorEnd && cursorEnd <= right)
+        //
+        let (left, right) = goal.interval
+        let touched =
+          (left <= cursorStart && cursorStart <= left + 2) ||
+          right - 2 <= cursorStart && cursorStart <= right ||
+          left <= cursorEnd && cursorEnd <= left + 2 ||
+          (right - 2 <= cursorEnd && cursorEnd <= right)
 
         if touched {
           Goal.setCursor(goal, state.editor)
@@ -344,8 +342,8 @@ module Module: Module = {
     Editor.Text.replace(state.document, rewriteRange, rewriteText)->Promise.flatMap(x =>
       switch x {
       | true =>
-        // destroy the old goal 
-        Goal.destroy(goal)
+        // destroy the old goal
+        Goal.destroyDecoration(goal)
         // locate the first new goal and place the cursor there
         placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
         Promise.resolved()
@@ -353,11 +351,7 @@ module Module: Module = {
         State.View.Panel.display(
           state,
           Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
+          [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
         )
       }
     )
@@ -383,8 +377,8 @@ module Module: Module = {
     Editor.Text.replace(state.document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
       switch x {
       | true =>
-        // destroy the old goal 
-        Goal.destroy(goal)
+        // destroy the old goal
+        Goal.destroyDecoration(goal)
         // locate the first new goal and place the cursor there
         placeCursorAtFirstNewGoal(state, indentedLines, rangeToBeReplaced)
         Promise.resolved()
@@ -392,11 +386,7 @@ module Module: Module = {
         State.View.Panel.display(
           state,
           Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
+          [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
         )
       }
     )
@@ -407,21 +397,17 @@ module Module: Module = {
 
     let innerRange = Goal.getInnerRange(goal, state.document)
     let outerRange = Editor.Range.fromInterval(state.document, goal.interval)
-    let content = Editor.Text.get(state.document, innerRange)->String.trim
+    let content = Editor.Text.get(state.document, innerRange)->Js.String.trim
     Editor.Text.replace(state.document, outerRange, content)->Promise.flatMap(x =>
       switch x {
       | true =>
-        Goal.destroy(goal)
+        Goal.destroyDecoration(goal)
         Promise.resolved()
       | false =>
         State.View.Panel.display(
           state,
           Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Unable to remove the boundary of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
+          [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(goal.index))],
         )
       }
     )
