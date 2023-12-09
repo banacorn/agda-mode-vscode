@@ -15,33 +15,42 @@ jobs:
     steps:
 
     - name: 📥 Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
-    # things to be cached/restored:
+    - name: Determine stack resolver
+      run: |
+        STACK_RESOLVER=$(yq .resolver stack.yaml)
+        echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
 
-    - name: 💾 Cache stack global package db
+    # things to be restored:
+    # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
+
+    - name: 💾 Restore cached stack global package db
       id:   stack-global
-      uses: actions/cache@v2
+      uses: actions/cache/restore@v3
       with:
         path: ~/.stack
-        key: ${{ runner.os }}-stack-global-after20210110-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-global-after202110110
-    - name: 💾 Cache stack-installed programs in ~/.local/bin
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
+
+    - name: 💾 Restore stack-installed programs in ~/.local/bin
       id:   stack-programs
-      uses: actions/cache@v2
+      uses: actions/cache/restore@v3
       with:
         path: ~/.local/bin
-        key: ${{ runner.os }}-stack-programs-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-programs
-    - name: 💾 Cache .stack-work
-      uses: actions/cache@v2
+            ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
+       
+    - name: 💾 Restore cached .stack-work
+      id:   stack-work
+      uses: actions/cache/restore@v3
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-work
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions:
 
