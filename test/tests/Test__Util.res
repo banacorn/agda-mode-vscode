@@ -134,9 +134,7 @@ module Strings = {
     replaceByRe(%re("/\r\n|\n/g"), "\n", trim(string))
   }
 
-  let unlines = xs => Js.Array.joinWith("\n", xs)
-
-  let unlinesWith = (f, xs) => xs->Array.map(f)->unlines
+  let unlinesWith = (f, xs) => xs->Array.map(f)->Util.String.unlines
 
   let breakInput = (input: string, breakpoints: array<int>) => {
     let breakpoints' = Array.concat([0], breakpoints)

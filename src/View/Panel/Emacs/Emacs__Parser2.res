@@ -40,7 +40,7 @@ let partiteWarningsOrErrors = (xs, key) =>
     lines
     ->Array_.partite(markWarningStart)
     ->Array_.mergeWithNext(glueBack)
-    ->Array.map(Js.Array.joinWith("\n"))
+    ->Array.map(Util.String.unlines)
   })
 
 let parseError: string => Js.Dict.t<array<string>> = raw => {
@@ -75,22 +75,20 @@ let parseError: string => Js.Dict.t<array<string>> = raw => {
     lines
     ->Emacs__Parser.Dict.partite(predicate)
     // remove the delimeter in the first line of errors and unlines the rest
-    ->Emacs__Parser.Dict.update("errors", xs => [
-      xs->Js.Array2.sliceFrom(1)->Js.Array2.joinWith("\n"),
-    ])
+    ->Emacs__Parser.Dict.update("errors", xs => [xs->Js.Array2.sliceFrom(1)->Util.String.unlines])
     // remove the delimeter in the first line of warnings and unlines the rest
     ->Emacs__Parser.Dict.update("warnings", xs =>
       xs
       ->Js.Array2.sliceFrom(1)
       ->Array_.partite(markWarningStart)
       ->Array_.mergeWithNext(glueBack)
-      ->Array.map(Js.Array.joinWith("\n"))
+      ->Array.map(Util.String.unlines)
     )
   } else {
     lines
     ->Emacs__Parser.Dict.partite(((_, i)) => i === 0 ? Some("errors") : None)
     // unlines
-    ->Emacs__Parser.Dict.update("errors", xs => [xs->Js.Array2.joinWith("\n")])
+    ->Emacs__Parser.Dict.update("errors", xs => [xs->Util.String.unlines])
   }
 }
 
@@ -127,14 +125,16 @@ let render: Js.Dict.t<array<string>> => array<Item.t> = dictionary => {
   ->Array.map(((key, lines)) =>
     switch key {
     | "goal" =>
-      Js.Array.joinWith("\n", lines)
+      lines
+      ->Util.String.unlines
       ->Js.String.sliceToEnd(~from=5, _)
       ->Agda.Expr.parse
       ->Option.mapWithDefault([], expr => [
         Item.Labeled("Goal", "special", Agda.Expr.render(expr), None, None),
       ])
     | "have" =>
-      Js.Array.joinWith("\n", lines)
+      lines
+      ->Util.String.unlines
       ->Js.String.sliceToEnd(~from=5, _)
       ->Agda.Expr.parse
       ->Option.mapWithDefault([], expr => [

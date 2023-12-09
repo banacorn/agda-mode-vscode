@@ -260,10 +260,10 @@ let filepath = s => {
   }
 
   // normalize the path with Node.Path.normalize
-  let normalized = Node.Path.normalize(removedBidi)
+  let normalized = NodeJs.Path.normalize(removedBidi)
 
   // replace Windows' stupid backslash with slash
-  let replaced = Js.String.replaceByRe(%re("/\\\\/g"), "/", normalized)
+  let replaced = Js.String.replaceByRe(%re("/\\/g"), "/", normalized)
 
   replaced
 }
