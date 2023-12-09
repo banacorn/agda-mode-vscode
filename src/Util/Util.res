@@ -255,8 +255,15 @@ module Dict = {
 }
 
 module String = {
+  // let eol = switch VSCode.TextDocument.eol {
+  // | VSCode.EndOfLine.LF => "\n"
+  // | VSCode.EndOfLine.CRLF => "\r\n"
+  // }
+
   // let lines = s => s->Js.String2.split(NodeJs.Os.eol)
-  let lines = s => s->Js.String2.splitByRe(%re("/\r\n|\n/g"))
+  let lines = s => {
+    s->Js.String2.splitByRe(%re("/\r\n|\n/g"))
+  }
   // let unlines = xs => xs->Js.Array2.joinWith(NodeJs.Os.eol)
   let unlines = xs => xs->Js.Array2.joinWith("\n")
 }

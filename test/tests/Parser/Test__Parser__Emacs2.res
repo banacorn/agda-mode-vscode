@@ -3,6 +3,12 @@ open! Belt
 
 module Assert = BsMocha.Assert
 
+let tempNormalize = xs => {
+  Js.Dict.map((. value) => {
+    value->Array.map(x => x->Util.String.lines->Util.String.unlines)
+  }, xs)
+}
+
 describe("when running Emacs__Parser2.parseGoalType", () => {
   it("should parse goal only", () => {
     let raw = `Goal: ℕ
@@ -77,7 +83,7 @@ Unsolved constraints`
   : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`,
         ],
       ),
-    ])
+    ])->tempNormalize
     Assert.deep_equal(actual, expected)
   })
 })
@@ -99,7 +105,7 @@ pattern, () or {}, in the left-hand side.
 when checking that the clause a has type _8`,
         ],
       ),
-    ])
+    ])->tempNormalize
     Assert.deep_equal(actual, expected)
   })
   it("should parse an error + warnings", () => {
@@ -138,7 +144,7 @@ The following names are declared but not accompanied by a
 definition: boo`,
         ],
       ),
-    ])
+    ])->tempNormalize
     Assert.deep_equal(actual, expected)
   })
 })
