@@ -28,8 +28,7 @@
     "rescript-webapi",
     "language-server-mule",
     "reason-promise",
-    "@rescript/react",
-    "rescript-nodejs"
+    "@rescript/react"
   ],
   "bs-dev-dependencies": [
     "bs-mocha",
