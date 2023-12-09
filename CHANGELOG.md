@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.4.5 - 2023-12-09
+
+### Changed
+- #126: Update language-server-mule to 0.2.4 (Fixes LSP) by [@jul1u5](https://github.com/jul1u5)
+- Replaced [@glennsl/bs-json](https://github.com/glennsl/bs-json) with [@glennsl/rescript-json-combinators](rescript-json-combinators)
+
+### Fixed
+- #173: `C-c C-r` results in wrong character when applied to character outside of BMP
+- #175: Refining a goal having `\` (instead of `λ`) results in an Internal Parse Error
+- #125: Modal bindings are not shown in the goal context
+- #171: Update `asset/keymap.js` to the latest
+- #159: Holes spanning multiple lines are not handled
+- Restore highlighting after tokens have been moved around
+
 ## v0.4.3 - 2023-12-03
 
 ### Changed
@@ -28,15 +42,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - #161: Compact UI by [@fredrik-bakke](https://github.com/fredrik-bakke)
+
 ### Added
 
 - #163: Define auto indentation rules by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #151: Update language configuration by [@fredrik-bakke](https://github.com/fredrik-bakke)
+
 ### Fixed
 
 - #155: Re #79: Disable activating input method inside the search box by [@vic0103520](https://github.com/vic0103520)
 - #154: Fix issue #76: Input method is reactivated after entering a backslash… by [@vic0103520](https://github.com/vic0103520)
 - #153: Fix issue #117: Allow numeric input to complete ambiguous key bindings by [@vic0103520](https://github.com/vic0103520)
+
 ## v0.4.0 - 2023-08-02
 
 The version number v0.4.0 was bumped by accident.
