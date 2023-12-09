@@ -27,14 +27,14 @@ jobs:
         restore-keys: |
              ${{ runner.os }}-stack-global
 
-    - name: 💾 Restore stack-installed programs in ~/.local/bin
-      id:   stack-programs
+    - name: 💾 Restore stack-installed binaries in ~/.local/bin
+      id:   stack-binaries
       uses: actions/cache/restore@v3
       with:
         path: ~/.local/bin
-        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-binaries-${{ hashFiles('**.yaml') }}
         restore-keys: |
-            ${{ runner.os }}-stack-work
+            ${{ runner.os }}-stack-binaries
        
     - name: 💾 Restore cached .stack-work
       id:   stack-work
@@ -62,6 +62,29 @@ jobs:
 
     - name: ⏬ Install Agda
       run: stack install --resolver lts-20.26 Agda-2.6.4
+
+    # things to be cached
+
+    - name: 💾 Cache stack global package db
+      if:   always() && steps.stack-global.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: ~/.stack
+        key: ${{ steps.stack-global.outputs.cache-primary-key }}
+
+    - name: 💾 Cache stack-installed binaries
+      if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: ~/.local/bin
+        key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
+  
+    - name: 💾 Cache .stack-work
+      if:   always() && steps.stack-work.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: .stack-work
+        key: ${{ steps.stack-work.outputs.cache-primary-key }}
 
     - name: ⏬ Install NPM Dependencies
       run: npm install

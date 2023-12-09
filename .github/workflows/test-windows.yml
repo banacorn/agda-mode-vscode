@@ -22,20 +22,20 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         path: C:\Users\runneradmin\AppData\Roaming\stack\
-        key: ${{ runner.os }}-appdata-roaming-stack-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-appdata-roaming-stack
+             ${{ runner.os }}-stack-global
 
-    - name: 💾 Restore stack-installed programs   # ghc, ghc-included packages and their haddocks, mingw, msys2
-      id:   stack-programs
+    - name: 💾 Restore stack-installed binaries   # ghc, ghc-included packages and their haddocks, mingw, msys2
+      id:   stack-binaries
       uses: actions/cache/restore@v3
       with:
         path: C:\Users\runneradmin\AppData\Local\Programs\stack\
         # which files signal a change in stack's global db ?
         # **.yaml includes */package.yaml and stack.yaml* (too many), and hopefully no other changing yamls
-        key: ${{ runner.os }}-appdata-local-programs-stack-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-binaries-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-appdata-local-programs-stack
+             ${{ runner.os }}-stack-binaries
     
     - name: 💾 Restore cached .stack-work
       id:   stack-work
@@ -72,6 +72,30 @@ jobs:
         # copy Agda (stack path --local-bin) to somewhere in the PATH
         cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\ghcup\bin
         which agda
+
+    # things to be cached
+
+    - name: 💾 Cache stack global package db
+      if:   always() && steps.stack-global.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: C:\Users\runneradmin\AppData\Roaming\stack\
+        key: ${{ steps.stack-global.outputs.cache-primary-key }}
+
+    - name: 💾 Cache stack-installed binaries
+      if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: C:\Users\runneradmin\AppData\Local\Programs\stack\
+        key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
+  
+    - name: 💾 Cache .stack-work
+      if:   always() && steps.stack-work.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: .stack-work
+        key: ${{ steps.stack-work.outputs.cache-primary-key }}
+
 
     - name: ⏬ Install NPM Dependencies
       run: npm install
