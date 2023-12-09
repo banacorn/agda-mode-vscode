@@ -14,22 +14,21 @@ jobs:
     steps:
 
     - name: 📥 Checkout repository
-      uses: actions/checkout@v2
-
+      uses: actions/checkout@v4
 
     # things to be cached/restored:
-
-    - name: 💾 Cache stack global package db
-      id:   stack-global-package-db
-      uses: actions/cache@v2
+    - name: 💾 Restore cached stack global package db
+      id:   stack-global
+      uses: actions/cache/restore@v3
       with:
         path: C:\Users\runneradmin\AppData\Roaming\stack\
         key: ${{ runner.os }}-appdata-roaming-stack-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-appdata-roaming-stack
-    - name: 💾 Cache stack programs dir   # ghc, ghc-included packages and their haddocks, mingw, msys2
-      id:   stack-programs-dir
-      uses: actions/cache@v2
+
+    - name: 💾 Restore stack-installed programs   # ghc, ghc-included packages and their haddocks, mingw, msys2
+      id:   stack-programs
+      uses: actions/cache/restore@v3
       with:
         path: C:\Users\runneradmin\AppData\Local\Programs\stack\
         # which files signal a change in stack's global db ?
@@ -37,8 +36,10 @@ jobs:
         key: ${{ runner.os }}-appdata-local-programs-stack-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-appdata-local-programs-stack
-    - name: 💾 Cache .stack-work
-      uses: actions/cache@v2
+    
+    - name: 💾 Restore cached .stack-work
+      id:   stack-work
+      uses: actions/cache/restore@v3
       with:
         path: .stack-work
         key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
