@@ -89,10 +89,10 @@ let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): opt
 }
 
 let afterDownload = (fromCached, (path, target)) => {
-  let execPath = NodeJs.Path.join2(path, "als")
+  let execPath = Node.Path.join2(path, "als")
   // include "Agda_datadir" in the environment variable
   let options = {
-    let assetPath = NodeJs.Path.join2(path, "data")
+    let assetPath = Node.Path.join2(path, "data")
     let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
     Client__LSP__Binding.ExecutableOptions.make(~env, ())
   }
