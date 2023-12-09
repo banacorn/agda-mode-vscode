@@ -93,7 +93,7 @@ let aggregateLines: array<string> => array<string> = lines => {
     | Some(n) => (index, n)
     }
   )
-  ->Array.map(((start, end_)) => lines |> Js.Array.slice(~start, ~end_) |> Js.Array.joinWith("\n"))
+  ->Array.map(((start, end_)) => lines->Js.Array2.slice(~start, ~end_)->Util.String.unlines)
 }
 
 let captures = (regex, handler, raw) =>

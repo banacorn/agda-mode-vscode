@@ -28,7 +28,7 @@ describe("when parsing responses", () =>
         raw
         ->Golden.map(parseSExpression([]))
         ->Golden.map(toPrioritizedResponses)
-        ->Golden.map(Strings.serializeWith(Response.Prioritized.toString))
+        ->Golden.map(Strings.unlinesWith(Response.Prioritized.toString))
         ->Golden.compare
       )
     )
