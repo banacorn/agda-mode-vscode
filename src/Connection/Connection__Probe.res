@@ -13,10 +13,10 @@ module Platform = {
     let runAsPromise = (): Promise.Js.t<t, 'e> => {
       let (promise, resolve, reject) = Promise.Js.pending()
       getos((e, os) => {
-        let e = Js.Nullable.toOption(e);
+        let e = Js.Nullable.toOption(e)
         switch e {
-            | Some(e) => reject(e)
-            | None => resolve(os)
+        | Some(e) => reject(e)
+        | None => resolve(os)
         }
       })
       promise
@@ -42,23 +42,14 @@ module Platform = {
 }
 
 let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): option<Target.t> => {
-  // CURRENTLY ACCEPTED RANGE OF ALS: [v0.2, v0.3)
   let chooseRelease = (releases: array<Release.t>) => {
-    let lowerBound = "v0.2.0.0"
-    let upperBound = "v0.3.0.0"
-    let withinBound = x => {
-      let lower = Version.compare(x, lowerBound)
-      let upper = Version.compare(x, upperBound)
-      (lower == Version.EQ || lower == Version.GT) && upper == Version.LT
+    // fetch the latest release
+    let compare = (x: Release.t, y: Release.t) => {
+      let xTime = Js.Date.getTime(Js.Date.fromString(x.created_at))
+      let yTime = Js.Date.getTime(Js.Date.fromString(y.created_at))
+      compare(yTime, xTime)
     }
-    let matched = releases->Array.keep(release => withinBound(release.tagName))
-    let compare = (x: Release.t, y: Release.t) =>
-      switch Version.compare(x.tagName, y.tagName) {
-      | Version.GT => -1
-      | Version.EQ => 0
-      | Version.LT => 1
-      }
-    let sorted = Js.Array.sortInPlaceWith(compare, matched)
+    let sorted = Js.Array.sortInPlaceWith(compare, releases)
     sorted[0]
   }
 
@@ -78,10 +69,9 @@ let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): opt
       matched[0]
     })
     ->Option.map(asset => {
-      Target.srcUrl: asset.url,
-      fileName: release.tagName ++ "-" ++ Node_process.process["platform"],
-      release: release,
-      asset: asset,
+      saveAsFileName: release.tag_name ++ "-" ++ Node_process.process["platform"],
+      Target.release,
+      asset,
     })
   }
 
@@ -120,13 +110,13 @@ let probeLSP = (globalStoragePath, onDownload) => {
       // https://github.com/banacorn/agda-mode-vscode/issues/71
       Source.FromCommand(name),
       Source.FromGitHub({
-        username: "banacorn",
+        username: "agda",
         repository: "agda-language-server",
-        userAgent: "agda-mode-vscode",
-        globalStoragePath: globalStoragePath,
+        userAgent: "agda/agda-mode-vscode",
+        globalStoragePath,
         chooseFromReleases: chooseFromReleases(platform),
-        onDownload: onDownload,
-        afterDownload: afterDownload,
+        onDownload,
+        afterDownload,
         log: Js.log,
         cacheInvalidateExpirationSecs: 86400,
       }),

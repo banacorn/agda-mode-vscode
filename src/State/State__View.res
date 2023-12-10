@@ -57,7 +57,7 @@ module Panel: Panel = {
     switch status {
     | Connection.Emacs(version, _) => displayStatus(state, "Emacs v" ++ version)
     | LSP(version, ViaCommand(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
-      displayStatus(state, "ALS prebuilt " ++ release.tagName ++ " (Agda v" ++ version ++ ")")
+      displayStatus(state, "ALS prebuilt " ++ release.tag_name ++ " (Agda v" ++ version ++ ")")
     | LSP(version, ViaCommand(_)) => displayStatus(state, "ALS v" ++ version)
     | LSP(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
     }
