@@ -40,7 +40,7 @@
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"getos": "^3.2.1",
-		"language-server-mule": "github:banacorn/language-server-mule#v0.4.1",
+		"language-server-mule": "github:banacorn/language-server-mule#v0.4.2",
 		"react": "^16.9.0",
 		"react-dom": "^16.9.0",
 		"reason-promise": ">=1.1.0",
