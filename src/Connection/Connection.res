@@ -82,12 +82,9 @@ module Module: Module = {
           ->Promise.mapError(error => Error.LSP(error))
         })
         ->Promise.mapOk(conn => {
-          let (version, method) = (
-            conn.version,
-            LanguageServerMule.Client.LSP.getMethod(conn.client),
-          )
+          let method = LanguageServerMule.Client.LSP.getMethod(conn.client)
           singleton := Some(LSP(conn))
-          LSP(version, method)
+          LSP(conn.version, method)
         })
       } else {
         Connection__Probe.probeEmacs()

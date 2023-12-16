@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.4.7 - 2023-12-16
+
+### Change
+- Fetch the latest release of Agda Language Server from GitHub
+
+### Fixed
+- #172: "Connection Error: Unable to find Agda Language Server" Error downloading language server?
+- #176: Many Unicode input sequences no longer work by [@szumixie](https://github.com/szumixie)
+- #177: Update `asset/keymap.js` by [@szumixie](https://github.com/szumixie)
+
 ## v0.4.6 - 2023-12-09
 
 ### Fixed
