@@ -111,7 +111,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
     | Some((goal, _)) => sendAgdaRequest(Auto(goal))
     }
   | Case => {
-      let placeholder = Some("variable to case split:")
+      let placeholder = Some("variable(s) to case split:")
       switch State__Goal.pointed(state) {
       | None => State.View.Panel.displayOutOfGoalError(state)->Promise.map(() => Ok())
       | Some((goal, "")) =>
@@ -119,7 +119,7 @@ let rec dispatchCommand = (state: State.t, command): Promise.t<
           state,
           header,
           {
-            body: Some("Please specify which variable you wish to split"),
+            body: Some("Please specify which variable(s) you wish to split, multiple variables are delimited by whitespaces"),
             placeholder,
             value: None,
           },
