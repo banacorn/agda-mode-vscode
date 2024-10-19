@@ -76,7 +76,7 @@ module Token = {
 
   // from SExpression
   let parseDirectHighlightings: array<Parser.SExpression.t> => array<t> = tokens =>
-    tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
+    tokens->(Js.Array.sliceFrom(2, _))->Array.map(parse)->Array.keepMap(x => x)
 
   // from JSON
   let decodeToken = {
@@ -88,7 +88,7 @@ module Token = {
       bool,
       option(string),
       option(pair(string, int)),
-    )->map((. (start, end_, aspects, isTokenBased, note, source)) => {
+    )->map(((start, end_, aspects, isTokenBased, note, source)) => {
       start: start - 1,
       end_: end_ - 1,
       aspects: aspects->Array.map(Aspect.parse),
@@ -101,7 +101,7 @@ module Token = {
   // from JSON
   let decodeResponseHighlightingInfoDirect = {
     open JsonCombinators.Json.Decode
-    pair(bool, array(decodeToken))->map((. (keepHighlighting, xs)) => (keepHighlighting, xs))
+    pair(bool, array(decodeToken))->map(((keepHighlighting, xs)) => (keepHighlighting, xs))
   }
 }
 
@@ -111,7 +111,7 @@ module type Module = {
   let make: unit => t
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
-  let readTempFiles: (t, VSCode.TextEditor.t) => Promise.promise<unit>
+  let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
   let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
   let clear: t => unit
 
@@ -142,42 +142,39 @@ module Module: Module = {
       | JSON(filepath) => filepath
       }
 
-    let readAndParse = format => {
-      N.Util.promisify(N.Fs.readFile)(. toFilepath(format))
-      ->Promise.Js.fromBsPromise
-      ->Promise.Js.toResult
-      ->Promise.map(x =>
-        switch x {
-        | Ok(buffer) =>
-          switch format {
-          | Emacs(_) =>
-            let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(buffer))[0] {
-            | Some(Ok(L(xs))) => xs
-            | _ => []
-            }
-            // RemoveTokenBasedHighlighting
-            let removeTokenBasedHighlighting = switch tokens[0] {
-            | Some(A("remove")) => true
-            | _ => false
-            }
-            let tokens = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Token.parse)
-            (removeTokenBasedHighlighting, tokens)
-          | JSON(_) =>
-            let raw = Node.Buffer.toString(buffer)
-            switch Js.Json.parseExn(raw) {
-            | exception _e => (false, [])
-            | json =>
-              switch JsonCombinators.Json.decode(json, Token.decodeResponseHighlightingInfoDirect) {
-              | Ok((keepHighlighting, tokens)) => (keepHighlighting, tokens)
-              | Error(_err) =>
-                Js.log("Error in decoding JSON: " ++ _err)
-                (false, [])
-              }
+    let readAndParse = async format => {
+      try {
+        let fileHandle = await NodeJs.Fs.open_(toFilepath(format), NodeJs.Fs.Flag.read)
+        let buffer = await NodeJs.Fs.FileHandle.readFile(fileHandle)
+        switch format {
+        | Emacs(_) =>
+          let tokens = switch Parser.SExpression.parse(NodeJs.Buffer.toString(buffer))[0] {
+          | Some(Ok(L(xs))) => xs
+          | _ => []
+          }
+          // RemoveTokenBasedHighlighting
+          let removeTokenBasedHighlighting = switch tokens[0] {
+          | Some(A("remove")) => true
+          | _ => false
+          }
+          let tokens = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Token.parse)
+          (removeTokenBasedHighlighting, tokens)
+        | JSON(_) =>
+          let raw = NodeJs.Buffer.toString(buffer)
+          switch Js.Json.parseExn(raw) {
+          | exception _e => (false, [])
+          | json =>
+            switch JsonCombinators.Json.decode(json, Token.decodeResponseHighlightingInfoDirect) {
+            | Ok((keepHighlighting, tokens)) => (keepHighlighting, tokens)
+            | Error(_err) =>
+              Js.log("Error in decoding JSON: " ++ _err)
+              (false, [])
             }
           }
-        | Error(_err) => (false, [])
         }
-      )
+      } catch {
+      | _ => (false, [])
+      }
     }
   }
 
@@ -234,16 +231,12 @@ module Module: Module = {
     Js.Array.push(TempFile.JSON(filepath), self.tempFiles)->ignore
 
   // read temp files and add Tokens added from "addEmacsFilePath" or "addJSONFilePath"
-  let readTempFiles = (self, editor) => {
+  let readTempFiles = async (self, editor) => {
     // read and parse and concat them
-    self.tempFiles
-    ->Array.map(TempFile.readAndParse)
-    ->Promise.allArray
-    ->Promise.map(xs => xs->Array.map(snd)->Array.concatMany)
-    ->Promise.map(tokens => {
-      insert(self, editor, tokens)
-      self.tempFiles = []
-    })
+    let xs = await self.tempFiles->Array.map(TempFile.readAndParse)->Promise.all
+    let tokens = xs->Array.map(snd)->Array.concatMany
+    insert(self, editor, tokens)
+    self.tempFiles = []
   }
 
   let clear = self => {
@@ -266,7 +259,7 @@ module Module: Module = {
       info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
     )
     ->Option.map(((range, filepath, offset)) => {
-      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.map(document => {
+      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
         let text = Editor.Text.getAll(document)
         let offsetConverter = Agda.OffsetConverter.make(text)
         let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)

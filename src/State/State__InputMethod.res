@@ -1,51 +1,49 @@
 open Common
 module type Module = {
   // shared by both EditorIM / PromptIM
-  let deactivate: State.t => Promise.t<unit>
+  let deactivate: State.t => promise<unit>
 
-  let select: (State.t, array<Interval.t>) => Promise.t<unit>
-  let insertChar: (State.t, string) => Promise.t<unit>
-  let chooseSymbol: (State.t, string) => Promise.t<unit>
-  let moveUp: State.t => Promise.t<unit>
-  let moveDown: State.t => Promise.t<unit>
-  let moveLeft: State.t => Promise.t<unit>
-  let moveRight: State.t => Promise.t<unit>
+  let select: (State.t, array<Interval.t>) => promise<unit>
+  let insertChar: (State.t, string) => promise<unit>
+  let chooseSymbol: (State.t, string) => promise<unit>
+  let moveUp: State.t => promise<unit>
+  let moveDown: State.t => promise<unit>
+  let moveLeft: State.t => promise<unit>
+  let moveRight: State.t => promise<unit>
 
   // EditorIM
-  let activateEditorIM: State.t => Promise.t<unit>
-  let keyUpdateEditorIM: (State.t, array<Buffer.change>) => Promise.t<unit>
+  let activateEditorIM: State.t => promise<unit>
+  let keyUpdateEditorIM: (State.t, array<Buffer.change>) => promise<unit>
 
   // PromptIM
-  let keyUpdatePromptIM: (State.t, string) => Promise.t<unit>
+  let keyUpdatePromptIM: (State.t, string) => promise<unit>
 }
 
 module Module: Module = {
   open Belt
 
   module EditorIM = {
-    let handle = (state: State.t, output): Promise.t<unit> => {
+    let handle = async (state: State.t, output): unit => {
       open IM.Output
-      let handle = kind =>
+      let handle = async kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          State.View.Panel.updateIM(state, Update(sequence, translation, index))
+          await State.View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
           let replacements = replacements->Array.map(((interval, text)) => {
             let range = Editor.Range.fromInterval(state.document, interval)
             (range, text)
           })
-          Editor.Text.batchReplace(state.document, replacements)->Promise.map(_ => {
-            resolve()
-            ()
-          })
+          let _ = await Editor.Text.batchReplace(state.document, replacements)
+          resolve()
         | Activate =>
           State.Context.setIM(true)
-          State.View.Panel.updateIM(state, Activate)
+          await State.View.Panel.updateIM(state, Activate)
         | Deactivate =>
           State.Context.setIM(false)
-          State.View.Panel.updateIM(state, Deactivate)
+          await State.View.Panel.updateIM(state, Deactivate)
         }
-      output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
+      let _ = await output->Array.map(handle)->Util.oneByOne
     }
 
     let runAndHandle = (state: State.t, action) =>
@@ -57,7 +55,9 @@ module Module: Module = {
     let activate = (state: State.t) => {
       // activated the input method with cursors positions
       let intervals: array<Interval.t> =
-        Editor.Selection.getMany(state.editor)->Array.map(Editor.Range.toInterval(state.document))
+        Editor.Selection.getMany(state.editor)->Array.map(
+          Editor.Range.toInterval(state.document, ...)
+        )
       runAndHandle(state, Activate(intervals))
     }
 
@@ -69,12 +69,12 @@ module Module: Module = {
     // so that we can calculate what has been changed
     let previous = ref("")
 
-    let handle = (state, output) => {
+    let handle = async (state, output) => {
       open IM.Output
-      let handle = kind =>
+      let handle = async kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          State.View.Panel.updateIM(state, Update(sequence, translation, index))
+          await State.View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(rewrites, f) =>
           // TODO, postpone calling f
           f()
@@ -94,17 +94,16 @@ module Module: Module = {
 
           // update the stored content and notify the view
           previous.contents = replaced.contents
-          State.View.Panel.updatePromptIM(state, replaced.contents)
+          await State.View.Panel.updatePromptIM(state, replaced.contents)
         | Activate =>
-          State.View.Panel.updateIM(state, Activate)->Promise.flatMap(() =>
-            State.View.Panel.updatePromptIM(state, previous.contents)
-          )
-        | Deactivate => State.View.Panel.updateIM(state, Deactivate)
+          await State.View.Panel.updateIM(state, Activate)
+          await State.View.Panel.updatePromptIM(state, previous.contents)
+        | Deactivate => await State.View.Panel.updateIM(state, Deactivate)
         }
-      output->Array.map(handle)->Util.oneByOne->Promise.map(_ => ())
+      let _ = await output->Array.map(handle)->Util.oneByOne
     }
 
-    let runAndHandle = (state: State.t, action): Promise.t<unit> =>
+    let runAndHandle = (state: State.t, action): promise<unit> =>
       handle(state, IM.run(state.promptIM, None, action))
 
     let keyUpdate = (state: State.t, next) => {
@@ -175,16 +174,16 @@ module Module: Module = {
       None
     }
 
-  let deactivate = (state: State.t): Promise.t<unit> =>
+  let deactivate = (state: State.t): promise<unit> =>
     switch isActivated(state) {
     | Editor => EditorIM.deactivate(state)
     | Prompt => PromptIM.deactivate(state)
-    | None => Promise.resolved()
+    | None => Promise.resolve()
     }
 
   let activationKey = Config.InputMethod.getActivationKey()
 
-  let activateEditorIM = (state: State.t): Promise.t<unit> =>
+  let activateEditorIM = async (state: State.t): unit =>
     switch isActivated(state) {
     | Editor =>
       // Input method is already activated.
@@ -195,113 +194,106 @@ module Module: Module = {
         )
       }
       // else reactivate it
-      EditorIM.deactivate(state)
-      ->Promise.flatMap(() => EditorIM.activate(state))
+      await EditorIM.deactivate(state)
+      await EditorIM.activate(state)
     | Prompt =>
       // deactivate the prompt IM
-      PromptIM.deactivate(state)->Promise.flatMap(() => {
-        // activate the editor IM
-        EditorIM.activate(state)
-      })
+      await PromptIM.deactivate(state)
+      // activate the editor IM
+      await EditorIM.activate(state)
     | None =>
       // activate the editor IM
-      EditorIM.activate(state)
+      await EditorIM.activate(state)
     }
 
   // activate the prompt IM when the user typed the activation key (default: "\")
   let shouldActivatePromptIM = input => Js.String.endsWith(activationKey, input)
 
-  let keyUpdatePromptIM = (state: State.t, input) =>
+  let keyUpdatePromptIM = async (state: State.t, input) =>
     switch isActivated(state) {
     | Editor =>
       if shouldActivatePromptIM(input) {
         // deactivate the editor IM
-        EditorIM.deactivate(state)->Promise.flatMap(() =>
-          // activate the prompt IM
-          PromptIM.activate(state, input)
-        )
+        await EditorIM.deactivate(state)
+        // activate the prompt IM
+        await PromptIM.activate(state, input)
       } else {
-        State.View.Panel.updatePromptIM(state, input)
+        await State.View.Panel.updatePromptIM(state, input)
       }
-    | Prompt => PromptIM.keyUpdate(state, input)
+    | Prompt => await PromptIM.keyUpdate(state, input)
     | None =>
       if shouldActivatePromptIM(input) {
-        PromptIM.activate(state, input)
+        await PromptIM.activate(state, input)
       } else {
-        {State.View.Panel.updatePromptIM(state, input)}
+        await State.View.Panel.updatePromptIM(state, input)
       }
     }
 
   let keyUpdateEditorIM = (state: State.t, changes) =>
     switch isActivated(state) {
     | Editor => EditorIM.keyUpdate(state, changes)
-    | Prompt => Promise.resolved()
-    | None => Promise.resolved()
+    | Prompt => Promise.resolve()
+    | None => Promise.resolve()
     }
 
   let select = (state: State.t, intervals) => {
     switch isActivated(state) {
     | Editor => EditorIM.runAndHandle(state, MouseSelect(intervals))
     | Prompt => PromptIM.runAndHandle(state, MouseSelect(intervals))
-    | None => Promise.resolved()
+    | None => Promise.resolve()
     }
   }
 
-  let chooseSymbol = (state: State.t, symbol): Promise.t<unit> =>
+  let chooseSymbol = async (state: State.t, symbol): unit =>
     // deactivate after passing `Candidate(ChooseSymbol(symbol))` to the IM
     switch isActivated(state) {
     | Editor =>
-      EditorIM.runAndHandle(state, Candidate(ChooseSymbol(symbol)))->Promise.flatMap(() =>
-        deactivate(state)
-      )
+      await EditorIM.runAndHandle(state, Candidate(ChooseSymbol(symbol)))
+      await deactivate(state)
     | Prompt =>
-      PromptIM.runAndHandle(state, Candidate(ChooseSymbol(symbol)))->Promise.flatMap(() =>
-        deactivate(state)
-      )
-    | None => Promise.resolved()
+      await PromptIM.runAndHandle(state, Candidate(ChooseSymbol(symbol)))
+      await deactivate(state)
+    | None => ()
     }
 
-  let insertChar = (state: State.t, char) =>
+  let insertChar = async (state: State.t, char) =>
     switch isActivated(state) {
     | Editor =>
       let char = Js.String.charAt(0, char)
       let positions = Editor.Cursor.getMany(state.editor)
 
-      state.document
-      ->Editor.Text.batchInsert(positions, char)
-      ->Promise.map(_ => {
-        Editor.focus(state.document)
-      })
-    | Prompt => PromptIM.insertChar(state, char)
-    | None => Promise.resolved()
+      let _ = await state.document->Editor.Text.batchInsert(positions, char)
+      Editor.focus(state.document)
+    | Prompt => await PromptIM.insertChar(state, char)
+    | None => ()
     }
 
   let moveUp = (state: State.t) =>
     switch isActivated(state) {
     | Editor => EditorIM.runAndHandle(state, Candidate(BrowseUp))
     | Prompt => PromptIM.runAndHandle(state, Candidate(BrowseUp))
-    | None => Promise.resolved()
+    | None => Promise.resolve()
     }
 
   let moveDown = (state: State.t) =>
     switch isActivated(state) {
     | Editor => EditorIM.runAndHandle(state, Candidate(BrowseDown))
     | Prompt => PromptIM.runAndHandle(state, Candidate(BrowseDown))
-    | None => Promise.resolved()
+    | None => Promise.resolve()
     }
 
   let moveLeft = (state: State.t) =>
     switch isActivated(state) {
     | Editor => EditorIM.runAndHandle(state, Candidate(BrowseLeft))
     | Prompt => PromptIM.runAndHandle(state, Candidate(BrowseLeft))
-    | None => Promise.resolved()
+    | None => Promise.resolve()
     }
 
   let moveRight = (state: State.t) =>
     switch isActivated(state) {
     | Editor => EditorIM.runAndHandle(state, Candidate(BrowseRight))
     | Prompt => PromptIM.runAndHandle(state, Candidate(BrowseRight))
-    | None => Promise.resolved()
+    | None => Promise.resolve()
     }
 }
 

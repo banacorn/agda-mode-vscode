@@ -338,14 +338,14 @@ module Module: Module = {
     // calculate the replacements to be made to the editor
     let replacements = rewrites->Array.map(({interval, text}) => (interval, text))
 
-    let (promise, resolve) = Promise.pending()
+    let (promise, resolve, _) = Util.Promise_.pending()
 
     // this promise will be resolved, once the real edits have been made
-    promise->Promise.get(() => {
+    promise->Promise.finally(() => {
       // redecorate instances
       rewrites->Array.forEach(rewrite => {
         rewrite.instance->Option.forEach(instance => {
-          editor->Option.forEach(Instance.redecorate(instance))
+          editor->Option.forEach(Instance.redecorate(instance, ...))
         })
       })
 
@@ -354,7 +354,7 @@ module Module: Module = {
 
       // for testing
       logRewriteApplied(self)
-    })
+    })->Promise.done
 
     // deactivate if there are no instances left
     switch self.instances[0] {
@@ -380,7 +380,7 @@ module Module: Module = {
       // instantiate from an array of offsets
       self.instances =
         Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), intervals)->Array.map(
-          Instance.make(editor),
+          Instance.make(editor, ...),
         )
 
       [Output.Activate]

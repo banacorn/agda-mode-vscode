@@ -13,11 +13,11 @@ module type Module = {
   //
   let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
-  let makeMany: (VSCode.TextEditor.t, array<int>) => Promise.t<array<t>>
+  let makeMany: (VSCode.TextEditor.t, array<int>) => promise<array<t>>
   // get the content inside the hole
   let getContent: (t, VSCode.TextDocument.t) => string
   // set the content inside the hole
-  let setContent: (t, VSCode.TextDocument.t, string) => Promise.t<bool>
+  let setContent: (t, VSCode.TextDocument.t, string) => promise<bool>
   // set cursor inside the hole {! cursor here !}
   //                               ^
   let setCursor: (t, VSCode.TextEditor.t) => unit
@@ -44,7 +44,7 @@ module Module: Module = {
 
   // make an array of Goal.t with given goal indices
   // modifies the text buffer along the way
-  let makeMany = (editor: VSCode.TextEditor.t, indices: array<int>): Promise.t<array<t>> => {
+  let makeMany = async (editor: VSCode.TextEditor.t, indices: array<int>): array<t> => {
     let document = VSCode.TextEditor.document(editor)
     let diffs = generateDiffs(document, indices)
     // scan through the diffs to modify the text buffer one by one
@@ -70,21 +70,20 @@ module Module: Module = {
         (range, text)
       })
 
-    Editor.Text.batchReplace'(editor, replacements)->Promise.map(_ => {
-      diffs->Array.map(diff => {
-        // decorate the hole
-        let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
-          editor,
-          diff.modifiedInterval,
-          diff.index,
-        )
-        {
-          index: diff.index,
-          interval: diff.modifiedInterval,
-          decorationBackground,
-          decorationIndex,
-        }
-      })
+    let _ = await Editor.Text.batchReplace'(editor, replacements)
+    diffs->Array.map(diff => {
+      // decorate the hole
+      let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
+        editor,
+        diff.modifiedInterval,
+        diff.index,
+      )
+      {
+        index: diff.index,
+        interval: diff.modifiedInterval,
+        decorationBackground,
+        decorationIndex,
+      }
     })
   }
 

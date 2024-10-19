@@ -17,7 +17,7 @@ module type Module = {
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
-  let apply: (t, Tokens.t, VSCode.TextEditor.t) => Promise.t<unit>
+  let apply: (t, Tokens.t, VSCode.TextEditor.t) => promise<unit>
   let clear: t => unit
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
@@ -192,7 +192,7 @@ module Module: Module = {
   }
 
   // trigger TextDocumentChangeEvent by inserting and then deleteing a space " " at the end of the file
-  let triggerDocumentChangeEvent = editor => {
+  let triggerDocumentChangeEvent = async editor => {
     let document = editor->VSCode.TextEditor.document
     let lineCount = document->VSCode.TextDocument.lineCount
     let lastLine = document->VSCode.TextDocument.lineAt(lineCount - 1)
@@ -217,18 +217,18 @@ module Module: Module = {
     // ->Promise.map(_ => ())
 
     // insert a space
-    Editor.Text.insert(document, insertPosition, " ")
-    ->Promise.flatMap(succeed =>
+    let succeed = await Editor.Text.insert(document, insertPosition, " ")
+
+    let _ = await (
       if succeed {
         // delete that space
         Editor.Text.replace(document, deleteRange, "")
       } else {
-        Promise.resolved(false)
+        Promise.resolve(false)
       }
     )
     // save after messing with the file
-    ->Promise.flatMap(_ => VSCode.TextDocument.save(document))
-    ->Promise.map(_ => ())
+    let _ = await VSCode.TextDocument.save(document)
   }
 
   let updateSemanticHighlighting = (self, event) => {
@@ -263,7 +263,7 @@ module Module: Module = {
     } else {
       let decorations = Tokens.toDecorations(tokens, editor)
       self.decorations = Array.concat(self.decorations, decorations)
-      Promise.resolved()
+      Promise.resolve()
     }
   }
 }

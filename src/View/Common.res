@@ -21,7 +21,7 @@ module AgdaPosition = {
 
   let encode = ({line, col, pos}) => {
     open JsonCombinators.Json.Encode
-    tuple3(int, int, int, (line, col, pos))
+    tuple3(int, int, int)((line, col, pos))
   }
 }
 
@@ -70,7 +70,7 @@ module AgdaInterval = {
 
   let encode = ({start, end_}) => {
     open JsonCombinators.Json.Encode
-    tuple2(AgdaPosition.encode, AgdaPosition.encode, (start, end_))
+    tuple2(AgdaPosition.encode, AgdaPosition.encode)((start, end_))
   }
 }
 
@@ -208,7 +208,7 @@ module AgdaRange = {
         )
       )
     }
-  })
+  }, ...)
 
   let fuse = (a: t, b: t): t => {
     open AgdaInterval
@@ -297,9 +297,9 @@ module AgdaRange = {
       switch x {
       | NoRange => TagOnly("NoRange")
       | Range(source, intervals) =>
-        Payload("Range", pair(option(string), array(AgdaInterval.encode), (source, intervals)))
+        Payload("Range", pair(option(string), array(AgdaInterval.encode))((source, intervals)))
       }
-    )
+    , ...)
   }
 }
 

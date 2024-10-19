@@ -56,9 +56,9 @@ module Panel: Panel = {
   let displayConnectionStatus = (state, status) =>
     switch status {
     | Connection.Emacs(version, _) => displayStatus(state, "Emacs v" ++ version)
-    | LSP(version, ViaCommand(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
+    | LSP(version, ViaPipe(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
       displayStatus(state, "ALS prebuilt " ++ release.tag_name ++ " (Agda v" ++ version ++ ")")
-    | LSP(version, ViaCommand(_)) => displayStatus(state, "ALS v" ++ version)
+    | LSP(version, ViaPipe(_)) => displayStatus(state, "ALS v" ++ version)
     | LSP(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
     }
 
@@ -77,16 +77,15 @@ module Panel: Panel = {
     Context.setPrompt(true)
 
     // send request to view
-    sendRequest(state, Prompt(header, prompt), response =>
+    sendRequest(state, Prompt(header, prompt), async response =>
       switch response {
       | PromptSuccess(result) =>
-        callbackOnPromptSuccess(result)->Promise.map(_ => {
-          Context.setPrompt(false)
-          // put the focus back to the editor after prompting
-          Editor.focus(state.document)
-          // prompt success, clear the cached prompt
-          ViewCache.clearPrompt(state.panelCache)
-        })
+        let _ = await callbackOnPromptSuccess(result)
+        Context.setPrompt(false)
+        // put the focus back to the editor after prompting
+        Editor.focus(state.document)
+        // prompt success, clear the cached prompt
+        ViewCache.clearPrompt(state.panelCache)
       | PromptInterrupted =>
         Context.setPrompt(false)
         // put the focus back to the editor after prompting
@@ -95,21 +94,20 @@ module Panel: Panel = {
         ViewCache.clearPrompt(state.panelCache)
         // restore the previously cached view
         ViewCache.restore(state.panelCache, state->get)
-        Promise.resolved()
       }
     )
   }
 
-  let interruptPrompt = state =>
-    sendEvent(state, PromptInterrupt)->Promise.tap(() => {
-      Context.setPrompt(false)
-      // put the focus back to the editor after prompting
-      Editor.focus(state.document)
-      // prompt interrupted, clear the cached prompt
-      ViewCache.clearPrompt(state.panelCache)
-      // restore the previously cached view
-      ViewCache.restore(state.panelCache, state->get)
-    })
+  let interruptPrompt = async state => {
+    await sendEvent(state, PromptInterrupt)
+    Context.setPrompt(false)
+    // put the focus back to the editor after prompting
+    Editor.focus(state.document)
+    // prompt interrupted, clear the cached prompt
+    ViewCache.clearPrompt(state.panelCache)
+    // restore the previously cached view
+    ViewCache.restore(state.panelCache, state->get)
+  }
 }
 
 module type DebugBuffer = {
@@ -132,7 +130,7 @@ module DebugBuffer: DebugBuffer = {
   let destroy = Singleton.DebugBuffer.destroy
 
   let sendEvent = (event: View.EventToView.t) =>
-    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolved(), x =>
+    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolve(), x =>
       x->WebviewPanel.sendEvent(event)
     )
 
@@ -154,7 +152,7 @@ module DebugBuffer: DebugBuffer = {
   }
 
   let reveal = state =>
-    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolved(), debugBuffer => {
+    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolve(), debugBuffer => {
       WebviewPanel.reveal(debugBuffer)
       display(state.runningInfoLog)
     })

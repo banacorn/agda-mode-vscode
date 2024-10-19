@@ -34,12 +34,12 @@ module Module: {
   // NonLast Responses should fed here
   let runNonLast = (self, handler, response) => {
     self.tally = self.tally + 1
-    handler(response)->Promise.get(_ => {
+    handler(response)->Promise.finally(_ => {
       self.tally = self.tally - 1
       if self.tally == 0 {
         self.allDone->Chan.emit()
       }
-    })
+    })->Promise.done
   }
   // deferred (Last) Responses are queued here
   let addLast = (self, priority, response) => {
@@ -48,7 +48,7 @@ module Module: {
   // gets resolved once there's no NonLast Responses running
   let onceDone = self =>
     if self.tally == 0 {
-      Promise.resolved()
+      Promise.resolve()
     } else {
       self.allDone->Chan.once
     }
@@ -56,7 +56,7 @@ module Module: {
   let runLast = (self, handler) =>
     self
     ->onceDone
-    ->Promise.get(() => {
+    ->Promise.finally(() => {
       // sort the deferred Responses by priority (ascending order)
       let deferredLastResponses =
         Js.Array.sortInPlaceWith(
@@ -71,7 +71,7 @@ module Module: {
       )->ignore
 
       deferredLastResponses->Array.map(res => handler(res))->Util.oneByOne->ignore
-    })
+    })->Promise.done
 }
 
 include Module

@@ -1,9 +1,5 @@
-open BsMocha.Mocha
-open Js.Promise
-
+open Mocha
 open Test__Util
-
-open Belt
 
 // [Int] -> String -> [SExpression]
 let parseSExpression = (breakpoints, input) => {
@@ -17,7 +13,7 @@ let parseSExpression = (breakpoints, input) => {
       Assert.fail(
         "Failed when parsing S-expression: " ++ Parser.Error.toString(SExpression(errNo, raw)),
       )
-    | Yield(Ok(a)) => Js.Array.push(a, output.contents) |> ignore
+    | Yield(Ok(a)) => ignore(Js.Array.push(a, output.contents))
     | Stop => ()
     }
   )
@@ -26,8 +22,8 @@ let parseSExpression = (breakpoints, input) => {
   ->Js.String.trim
   ->Strings.breakInput(breakpoints)
   ->Array.map(Parser.splitToLines)
-  ->Array.concatMany
-  ->Array.forEach(Parser.Incr.feed(parser))
+  ->Array.flat
+  ->Array.forEach(Parser.Incr.feed(parser, ...))
 
   output.contents
 }
@@ -36,13 +32,15 @@ describe("when parsing S-expressions as a whole", () =>
   Golden.getGoldenFilepathsSync(
     "../../../../test/tests/Parser/SExpression",
   )->Array.forEach(filepath =>
-    BsMocha.Promise.it("should golden test " ++ filepath, () =>
-      Golden.readFile(filepath) |> then_(raw =>
-        raw
-        ->Golden.map(parseSExpression([]))
-        ->Golden.map(Strings.unlinesWith(Parser.SExpression.toString))
+    Async.it(
+      "should golden test " ++ filepath,
+      async () => {
+        let raw = await Golden.readFile(filepath)
+        await raw
+        ->Golden.map(parseSExpression([], ...))
+        ->Golden.map(Strings.unlinesWith(Parser.SExpression.toString, ...))
         ->Golden.compare
-      )
+      },
     )
   )
 )
@@ -51,13 +49,15 @@ describe("when parsing S-expressions incrementally", () =>
   Golden.getGoldenFilepathsSync(
     "../../../../test/tests/Parser/SExpression",
   )->Array.forEach(filepath =>
-    BsMocha.Promise.it("should golden test " ++ filepath, () =>
-      Golden.readFile(filepath) |> then_(raw =>
-        raw
-        ->Golden.map(parseSExpression([3, 23, 171, 217, 1234, 2342, 3453]))
-        ->Golden.map(Strings.unlinesWith(Parser.SExpression.toString))
+    Async.it(
+      "should golden test " ++ filepath,
+      async () => {
+        let raw = await Golden.readFile(filepath)
+        await raw
+        ->Golden.map(parseSExpression([3, 23, 171, 217, 1234, 2342, 3453], ...))
+        ->Golden.map(Strings.unlinesWith(Parser.SExpression.toString, ...))
         ->Golden.compare
-      )
+      },
     )
   )
 )

@@ -1,6 +1,5 @@
 open VSCode
 module VSRange = Range
-open Belt
 
 // this flag should be set as TRUE when testing
 let inTestingMode = ref(false)
@@ -15,7 +14,7 @@ module Connection = {
   let setAgdaVersion = path =>
     if inTestingMode.contents {
       agdaVersionInTestingMode := path
-      Promise.resolved()
+      Promise.resolve()
     } else {
       Workspace.getConfiguration(
         Some("agdaMode"),
@@ -29,16 +28,16 @@ module Connection = {
     } else {
       Workspace.getConfiguration(Some("agdaMode"), None)
       ->WorkspaceConfiguration.get("connection.agdaVersion")
-      ->Option.map(Js.String.trim)
+      ->Option.map(String.trim)
       ->Option.flatMap(s => s == "" ? None : Some(s))
-      ->Option.getWithDefault("agda")
+      ->Option.getOr("agda")
     }
 
   // Agda path
   let setAgdaPath = path =>
     if inTestingMode.contents {
       agdaPathInTestingMode := path
-      Promise.resolved()
+      Promise.resolve()
     } else {
       Workspace.getConfiguration(
         Some("agdaMode"),
@@ -51,15 +50,15 @@ module Connection = {
     } else {
       Workspace.getConfiguration(Some("agdaMode"), None)
       ->WorkspaceConfiguration.get("connection.agdaPath")
-      ->Option.mapWithDefault("", Js.String.trim)
+      ->Option.mapOr("", String.trim)
     }
 
   // Agda command-line options
   let getCommandLineOptions = () =>
     Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.get("connection.commandLineOptions")
-    ->Option.mapWithDefault([], s => Js.String.split(" ", Js.String.trim(s)))
-    ->Array.keep(s => Js.String.trim(s) != "")
+    ->Option.mapOr([], s => Js.String.split(" ", Js.String.trim(s)))
+    ->Array.filter(s => Js.String.trim(s) != "")
 
   // Agda Language Server
   let getUseAgdaLanguageServer = () =>
@@ -78,7 +77,7 @@ module Connection = {
   let setUseAgdaLanguageServer = (mode: bool) =>
     if inTestingMode.contents {
       useAgdaLanguageServerInTestingMode := mode
-      Promise.resolved()
+      Promise.resolve()
     } else {
       Workspace.getConfiguration(
         Some("agdaMode"),
@@ -101,8 +100,8 @@ module Connection = {
   let getAgdaLanguageServerCommandLineOptions = () =>
     Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.get("connection.agdaLanguageServerOptions")
-    ->Option.mapWithDefault([], s => Js.String.split(" ", Js.String.trim(s)))
-    ->Array.keep(s => Js.String.trim(s) != "")
+    ->Option.mapOr([], s => Js.String.split(" ", Js.String.trim(s)))
+    ->Array.filter(s => Js.String.trim(s) != "")
 }
 
 module View = {
@@ -135,9 +134,9 @@ let getLibraryPath = () => {
   let raw =
     Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.get("libraryPath")
-    ->Option.getWithDefault("")
+    ->Option.getOr("")
   // split by comma, and clean them up
-  Js.String.split(",", raw)->Array.keep(x => x !== "")->Array.map(Parser.filepath)
+  Js.String.split(",", raw)->Array.filter(x => x !== "")->Array.map(Parser.filepath)
 }
 
 module Highlighting = {

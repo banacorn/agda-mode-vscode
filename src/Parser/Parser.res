@@ -175,13 +175,13 @@ module SExpression = {
           switch v.contents {
           | L(xs) =>
             switch xs[0] {
-            | None => Continue(parseSExpression(state))
+            | None => Continue(parseSExpression(state, ...))
             | Some(w) => Done(w)
             }
           | _ => Error((3, string))
           }
         }
-      | _ => Continue(parseSExpression(state))
+      | _ => Continue(parseSExpression(state, ...))
       }
     }
 
@@ -260,7 +260,7 @@ let filepath = s => {
   }
 
   // normalize the path with Node.Path.normalize
-  let normalized = Node.Path.normalize(removedBidi)
+  let normalized = NodeJs.Path.normalize(removedBidi)
 
   // replace Windows' stupid backslash with slash
   let replaced = Js.String.replaceByRe(%re("/\\/g"), "/", normalized)

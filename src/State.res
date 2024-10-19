@@ -32,37 +32,38 @@ let onDownload = (state, event) => {
 
 let sendRequest = (
   state: state,
-  handleResponse: Response.t => Promise.t<result<unit, Connection.Error.t>>,
+  handleResponse: Response.t => promise<result<unit, Connection.Error.t>>,
   request: Request.t,
-): Promise.t<result<unit, Connection.Error.t>> => {
+): promise<result<unit, Connection.Error.t>> => {
   let sendRequestAndHandleResponses = (
     state,
     request,
-    handler: Response.t => Promise.t<result<unit, Connection.Error.t>>,
-  ): Promise.t<result<unit, Connection.Error.t>> => {
-    let onResponse = result =>
+    handler: Response.t => promise<result<unit, Connection.Error.t>>,
+  ): promise<result<unit, Connection.Error.t>> => {
+    let onResponse = async result =>
       switch result {
-      | Error(error) => View.Panel.displayConnectionError(state, error)
+      | Error(error) => await View.Panel.displayConnectionError(state, error)
       | Ok(response) =>
-        handler(response)->Promise.flatMap(result =>
-          switch result {
-          | Error(error) => View.Panel.displayConnectionError(state, error)
-          | Ok() => Promise.resolved()
-          }
-        )
+        switch await handler(response) {
+        | Error(error) => await View.Panel.displayConnectionError(state, error)
+        | Ok() => ()
+        }
       }
     Connection.sendRequest(
       state.globalStoragePath,
-      onDownload(state),
+      onDownload(state, ...),
       Config.Connection.getUseAgdaLanguageServer(),
       state.document,
       request,
-      onResponse,
-    )->Promise.flatMap(result =>
+      onResponse
+    )->Promise.then(async result =>
       switch result {
       | Error(error) =>
-        View.Panel.displayConnectionError(state, error)->Promise.map(() => Error(error))
-      | Ok(status) => View.Panel.displayConnectionStatus(state, status)->Promise.map(() => Ok())
+        await View.Panel.displayConnectionError(state, error)
+        Error(error)
+      | Ok(status) =>
+        await View.Panel.displayConnectionStatus(state, status)
+        Ok()
       }
     )
   }
@@ -87,7 +88,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
 }
 
 let make = (channels, globalStoragePath, extensionPath, editor) => {
-  editor: editor,
+  editor,
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
   runningInfoLog: [],
@@ -100,7 +101,7 @@ let make = (channels, globalStoragePath, extensionPath, editor) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
-  globalStoragePath: globalStoragePath,
-  extensionPath: extensionPath,
-  channels: channels,
+  globalStoragePath,
+  extensionPath,
+  channels,
 }

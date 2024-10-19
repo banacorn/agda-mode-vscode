@@ -6,10 +6,10 @@ module RequestQueue: {
   type t<'a>
   let make: unit => t<'a>
   // only gets resolved after the Request has been handled
-  let push: (t<'a>, Request.t => Promise.t<'a>, Request.t) => Promise.t<'a>
+  let push: (t<'a>, Request.t => promise<'a>, Request.t) => promise<'a>
 } = {
   type t<'a> = {
-    queue: array<unit => Promise.t<'a>>,
+    queue: array<unit => promise<'a>>,
     mutable busy: bool,
   }
 
@@ -28,17 +28,23 @@ module RequestQueue: {
       | None => () // nothing to pop
       | Some(thunk) =>
         self.busy = true
-        thunk()->Promise.get(_ => {
+        thunk()
+        ->Promise.finally(_ => {
           self.busy = false
           kickStart(self)
         })
+        ->Promise.done
       }
     }
 
   // only gets resolved after the Request has been handled
   let push = (self, sendRequestAndHandleResponses, request) => {
-    let (promise, resolve) = Promise.pending()
-    let thunk = () => sendRequestAndHandleResponses(request)->Promise.tap(resolve)
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let thunk = async () => {
+      let response = await sendRequestAndHandleResponses(request)
+      resolve(response)
+      response
+    }
     // push to the back of the queue
     Js.Array.push(thunk, self.queue)->ignore
     // kick start
@@ -51,7 +57,7 @@ module RequestQueue: {
 module ViewCache = {
   type t = {
     mutable display: option<(View.Header.t, View.Body.t)>,
-    mutable prompt: option<(View.Header.t, View.Prompt.t, View.Response.t => Promise.t<unit>)>,
+    mutable prompt: option<(View.Header.t, View.Prompt.t, View.Response.t => promise<unit>)>,
   }
 
   let make = () => {

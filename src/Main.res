@@ -1,5 +1,3 @@
-open Belt
-
 // if end with '.agda' or '.lagda'
 let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
@@ -9,14 +7,14 @@ module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
   let onTriggerCommand: (
-    (Command.t, VSCode.TextEditor.t) => Promise.t<option<result<State.t, Connection.Error.t>>>
+    (Command.t, VSCode.TextEditor.t) => promise<option<result<State.t, Connection.Error.t>>>
   ) => array<VSCode.Disposable.t>
 } = {
   let onOpenEditor = callback => {
     VSCode.Window.activeTextEditor->Option.forEach(callback)
-    VSCode.Window.onDidChangeActiveTextEditor(.next => next->Option.forEach(callback))
+    VSCode.Window.onDidChangeActiveTextEditor(next => next->Option.forEach(callback))
   }
-  let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(. callback)
+  let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(callback)
   // invoke the callback when:
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
@@ -31,7 +29,7 @@ module Inputs: {
             if isAgda(fileName) {
               callback(command, editor)
             } else {
-              Promise.resolved(None)
+              Promise.resolve(None)
             }
           },
         )
@@ -43,13 +41,18 @@ module Inputs: {
 let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
   let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
-  WebviewPanel.onceDestroyed(panel)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
+  WebviewPanel.onceDestroyed(panel)
+  ->Promise.finally(() => Registry.removeAndDestroyAll()->ignore)
+  ->Promise.done
 
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, globalStoragePath, extensionPath, editor)
 
   // remove it from the Registry on request
-  state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
+  state.onRemoveFromRegistry
+  ->Chan.once
+  ->Promise.finally(() => Registry.remove(fileName))
+  ->Promise.done
 
   ////////////////////////////////////////////////////////////////
   // input events
@@ -79,7 +82,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   ->subscribe
 
   // register event listeners for the input method
-  VSCode.Window.onDidChangeTextEditorSelection(.event => {
+  VSCode.Window.onDidChangeTextEditorSelection(event => {
     let document = VSCode.TextEditor.document(editor)
     let intervals =
       event
@@ -91,7 +94,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
 
     State__InputMethod.select(state, intervals)->ignore
   })->subscribe
-  VSCode.Workspace.onDidChangeTextDocument(.event => {
+  VSCode.Workspace.onDidChangeTextDocument(event => {
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
   })->subscribe
@@ -124,7 +127,7 @@ let registerDocumentSemanticTokensProvider = () => {
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
     if useSemanticHighlighting {
       Registry.requestSemanticTokens(fileName)
-      ->Promise.map(tokens => {
+      ->Promise.thenResolve(tokens => {
         open Editor.Provider.Mock
 
         let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
@@ -195,7 +198,6 @@ let finalize = isRestart => {
       Singleton.DebugBuffer.destroy()
     }
   }
-  Promise.resolved()
 }
 
 let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) => {
@@ -227,7 +229,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   // on TextDocumentChangeEvent
   // updates positions of semantic highlighting tokens accordingly
-  VSCode.Workspace.onDidChangeTextDocument(.(event: VSCode.TextDocumentChangeEvent.t) => {
+  VSCode.Workspace.onDidChangeTextDocument((event: VSCode.TextDocumentChangeEvent.t) => {
     // find the corresponding State
     let document = event->VSCode.TextDocumentChangeEvent.document
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -247,43 +249,40 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     }
   })->subscribe
   // on triggering commands
-  Inputs.onTriggerCommand((command, editor) => {
+  Inputs.onTriggerCommand(async (command, editor) => {
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
     // destroy
     switch command {
-    | Quit => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(false))
-    | Restart => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(true))
-    | _ => Promise.resolved()
+    | Quit =>
+      await Registry.removeAndDestroy(fileName)
+      finalize(false)
+    | Restart =>
+      await Registry.removeAndDestroy(fileName)
+      finalize(true)
+    | _ => ()
     }
     // make
-    ->Promise.tap(() =>
-      switch command {
-      | Load
-      | Restart
-      | InputMethod(Activate) =>
-        switch Registry.get(fileName) {
-        | None =>
-          let state = initialize(channels, extensionPath, globalStoragePath, editor, fileName)
-          Registry.add(fileName, state)
-        | Some(_) => () // already in the Registry, do nothing
-        }
-      | _ => ()
-      }
-    )
-    // dispatch
-    ->Promise.flatMap(() => {
+    switch command {
+    | Load
+    | Restart
+    | InputMethod(Activate) =>
       switch Registry.get(fileName) {
-      | None => Promise.resolved(None)
-      | Some(state) =>
-        State__Command.dispatchCommand(state, command)->Promise.map(
-          result =>
-            switch result {
-            | Error(error) => Some(Error(error))
-            | Ok() => Some(Ok(state))
-            },
-        )
+      | None =>
+        let state = initialize(channels, extensionPath, globalStoragePath, editor, fileName)
+        Registry.add(fileName, state)
+      | Some(_) => () // already in the Registry, do nothing
       }
-    })
+    | _ => ()
+    }
+    // dispatch
+    switch Registry.get(fileName) {
+    | None => None
+    | Some(state) =>
+      switch await State__Command.dispatchCommand(state, command) {
+      | Error(error) => Some(Error(error))
+      | Ok() => Some(Ok(state))
+      }
+    }
   })->subscribeMany
   // registerDocumentSemanticTokensProvider
   registerDocumentSemanticTokensProvider()->subscribe

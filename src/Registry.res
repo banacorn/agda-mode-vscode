@@ -43,8 +43,7 @@ module Module: {
       state.highlighting->Highlighting.getSemanticTokens->resolve
       // set the entry as Initialized
       dict->Js.Dict.set(fileName, Initialized(state))
-    | Some(Initialized(_)) =>
-      // do nothing
+    | Some(Initialized(_)) => // do nothing
       // Js.log("[ add ][ Initialized ]" ++ fileName)
       ()
     | None =>
@@ -55,39 +54,38 @@ module Module: {
   // Removes the entry (but without triggering State.destroy() )
   let remove = fileName => Util.Dict.delete(dict, fileName)
 
-  let removeAndDestroy = fileName =>
+  let removeAndDestroy = async fileName =>
     switch get'(fileName) {
-    | None => Promise.resolved()
+    | None => ()
     | Some(PendingInit(_promise, resolve)) =>
       remove(fileName)
       resolve([])
-      Promise.resolved()
     | Some(Initialized(state)) =>
       remove(fileName)
-      State.destroy(state, false)->Promise.map(_ => ())
+      State.destroy(state, false)->ignore
+      ()
     }
 
-  let removeAndDestroyAll = () => {
-    dict->Js.Dict.keys->Array.map(removeAndDestroy)->Util.oneByOne->Promise.map(_ => ())
+  let removeAndDestroyAll = async () => {
+    let _ = await dict->Js.Dict.keys->Array.map(removeAndDestroy)->Util.oneByOne
   }
 
   let isEmpty = () => Js.Dict.keys(dict)->Array.length == 0
 
   // Requesting Semantic Tokens
   // add PendingInit(_) to the Registry if the entry has not been created yet
-  let requestSemanticTokens = fileName =>
+  let requestSemanticTokens = async fileName =>
     switch get'(fileName) {
-    | Some(PendingInit(promise, _resolve)) =>
-      // Js.log("[ req ][ PendingInit ]" ++ fileName)
-      promise
+    | Some(PendingInit(promise, _resolve)) => // Js.log("[ req ][ PendingInit ]" ++ fileName)
+      await promise
     | Some(Initialized(state)) =>
       // Js.log("[ req ][ Initialized ]" ++ fileName)
-      state.highlighting->Highlighting.getSemanticTokens->Promise.resolved
+      state.highlighting->Highlighting.getSemanticTokens
     | None =>
       // Js.log("[ req ][ None ]" ++ fileName)
-      let (promise, resolve) = Promise.pending()
+      let (promise, resolve, _) = Util.Promise_.pending()
       dict->Js.Dict.set(fileName, PendingInit(promise, resolve))
-      promise
+      await promise
     }
 }
 

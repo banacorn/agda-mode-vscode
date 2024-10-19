@@ -73,7 +73,7 @@ let decode = {
           JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
           string,
           string,
-        )->map((. (text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
+        )->map(((text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
       )
     | "Unlabeled" =>
       Payload(
@@ -81,9 +81,9 @@ let decode = {
           RichText.decode,
           option(string),
           JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
-        )->map((. (text, raw, range)) => Unlabeled(text, raw, range)),
+        )->map(((text, raw, range)) => Unlabeled(text, raw, range)),
       )
-    | "Header" => Payload(string->map((. s) => Header(s)))
+    | "Header" => Payload(string->map(s => Header(s)))
     | tag => raise(DecodeError("[Item] Unknown constructor: " ++ tag))
     }
   )
@@ -108,14 +108,13 @@ let encode = {
     | Unlabeled(text, raw, range) =>
       Payload((
         "Unlabeled",
-        tuple3(
-          RichText.encode,
-          option(string),
-          option(Common.AgdaRange.encode),
-          (text, raw, range),
-        ),
+        tuple3(RichText.encode, option(string), option(Common.AgdaRange.encode))((
+          text,
+          raw,
+          range,
+        )),
       ))
-    | Header(s) => Payload(("Header", s |> string))
+    | Header(s) => Payload(("Header", string(s)))
     }
-  )
+  , ...)
 }

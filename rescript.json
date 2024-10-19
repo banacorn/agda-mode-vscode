@@ -1,8 +1,6 @@
 {
   "name": "agda-mode-vscode",
-  "reason": {
-    "react-jsx": 3
-  },
+  "jsx": { "version": 4, "mode": "classic" },
   "sources": [
     {
       "dir": "src",
@@ -27,15 +25,16 @@
     "rescript-vscode",
     "rescript-webapi",
     "language-server-mule",
-    "reason-promise",
-    "@rescript/react"
+    "rescript-nodejs",
+    "@rescript/react",
+    "@rescript/core"
   ],
   "bs-dev-dependencies": [
-    "bs-mocha",
-    "reason-promise"
+    "rescript-mocha"
   ],
-  "ppx-flags": [],
   "bsc-flags": [
+    "-open RescriptCore",
     "-bs-g"
-  ]
+  ],
+  "ppx-flags": []
 }

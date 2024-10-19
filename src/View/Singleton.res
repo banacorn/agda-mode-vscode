@@ -12,9 +12,9 @@ module Panel: {
       let panel = WebviewPanel.make("Agda", extensionPath)
       handle := Some(panel)
       // free the handle when the view has been forcibly destructed
-      WebviewPanel.onceDestroyed(panel)->Promise.get(() => {
+      WebviewPanel.onceDestroyed(panel)->Promise.finally(() => {
         handle := None
-      })
+      })->Promise.done
       panel
     | Some(panel) => panel
     }
@@ -38,9 +38,9 @@ module DebugBuffer: {
       let panel = WebviewPanel.make("Agda Debug Buffer", extensionPath)
       handle := Some(panel)
       // free the handle when the view has been forcibly destructed
-      WebviewPanel.onceDestroyed(panel)->Promise.get(() => {
+      WebviewPanel.onceDestroyed(panel)->Promise.finally(() => {
         handle := None
-      })
+      })->Promise.done
       panel
     | Some(panel) => panel
     }

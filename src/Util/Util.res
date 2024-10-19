@@ -1,5 +1,3 @@
-open Belt
-
 module Result = {
   let mapError = (x, f) =>
     switch x {
@@ -17,16 +15,16 @@ module Decode = {
     | TagOnly('a)
 
   let sum = decoder => {
-    field("tag", string)->flatMap((. tag) =>
+    field("tag", string)->flatMap(tag =>
       switch decoder(tag) {
       | Payload(d) => field("contents", d)
-      | TagOnly(d) => custom((. _) => d)
+      | TagOnly(d) => custom(_ => d)
       }
     )
   }
 
   let tuple5 = (decodeA, decodeB, decodeC, decodeD, decodeE) => {
-    custom((. json) => {
+    custom(json => {
       if !Js.Array.isArray(json) {
         Error.expected("array", json)
       }
@@ -63,7 +61,7 @@ module Decode = {
   }
 
   let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF) => {
-    custom((. json) => {
+    custom(json => {
       if !Js.Array.isArray(json) {
         Error.expected("array", json)
       }
@@ -108,7 +106,7 @@ module Encode = {
     | Payload(string, Js.Json.t)
     | TagOnly('a)
 
-  let sum = (f, x) =>
+  let sum = f => x =>
     switch f(x) {
     | Payload(tag, json) =>
       Unsafe.object({
@@ -197,14 +195,19 @@ module Pretty = {
   let list = xs => xs->List.toArray->array
 }
 
-let rec oneByOne' = x =>
+let rec oneByOne' = async x =>
   switch x {
-  | list{} => Promise.resolved(list{})
-  | list{x, ...xs} => x->Promise.flatMap(x' => oneByOne'(xs)->Promise.map(xs' => list{x', ...xs'}))
+  | list{} => list{}
+  | list{x, ...xs} =>
+    let x' = await x
+    let result = await oneByOne'(xs)
+    list{x', ...result}
   }
 
-let oneByOne = xs => oneByOne'(List.fromArray(xs))->Promise.map(List.toArray)
-
+let oneByOne = async xs => {
+  let xs' = await oneByOne'(List.fromArray(xs))
+  List.toArray(xs')
+}
 module JsError = {
   let toString = (_e: Js.Exn.t): string => %raw("_e.toString()")
 }
@@ -233,20 +236,37 @@ module List = {
     }
 }
 
-module P = {
-  external toJsExn: Js.Promise.error => Js.Exn.t = "%identity"
+// module P = {
+//   external toJsExn: Js.Promise.error => Js.Exn.t = "%identity"
 
-  let toPromise = (p: promise<result<'a, Js.Exn.t>>): Promise.t<result<'a, Js.Exn.t>> => {
-    p
-    ->Promise.Js.fromBsPromise
-    ->Promise.Js.toResult
-    ->Promise.map(x =>
-      switch x {
-      | Ok(Ok(x)) => Ok(x)
-      | Ok(Error(e)) => Error(e)
-      | Error(e) => Error(toJsExn(e))
-      }
-    )
+//   let toPromise = (p: promise<result<'a, Js.Exn.t>>): Promise.t<result<'a, Js.Exn.t>> => {
+//     p
+//     ->Promise.Js.fromBsPromise
+//     ->Promise.Js.toResult
+//     ->Promise.map(x =>
+//       switch x {
+//       | Ok(Ok(x)) => Ok(x)
+//       | Ok(Error(e)) => Error(e)
+//       | Error(e) => Error(toJsExn(e))
+//       }
+//     )
+//   }
+// }
+
+module Promise_ = {
+  // Like `Promise.make` but without having to supply a callback
+  let pending: unit => (promise<'a>, 'a => unit, 'e => unit) = () => {
+    let resolve = ref(None)
+    let reject = ref(None)
+    let promise = Promise.make((res, rej) => {
+      resolve := Some(res)
+      reject := Some(rej)
+    })
+
+    switch (resolve.contents, reject.contents) {
+    | (Some(resolve), Some(reject)) => (promise, resolve, reject)
+    | _ => raise(Failure("Promise is not initialized"))
+    }
   }
 }
 

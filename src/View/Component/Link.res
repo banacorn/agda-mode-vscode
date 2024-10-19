@@ -28,6 +28,7 @@ let encode = {
     | SrcLoc(range) => Payload("LinkRange", AgdaRange.encode(range))
     | Hole(index) => Payload("LinkHole", int(index))
     }
+    , ...
   )
 }
 
@@ -72,6 +73,7 @@ module Event = {
       | MouseOver(link) => Payload("MouseOver", encode(link))
       | MouseOut(link) => Payload("MouseOut", encode(link))
       }
+      , ...
     )
   }
 }
@@ -87,13 +89,11 @@ let make = (~target=SrcLoc(NoRange), ~jump=false, ~hover=false, ~className=[], ~
   }
 
   let link = React.useContext(Event.eventContext)
-  let className = Belt.List.fromArray(className)
-
   switch sanitizedTarget {
-  | None => <span className={String.concat(" ", className)}> children </span>
+  | None => <span className={String.concatMany(" ", className)}> children </span>
   | Some(t) =>
     <span
-      className={String.concat(" ", list{"component-link", ...className})}
+      className={String.concatMany(" ", ["component-link", ...className])}
       onClick={_ => {
         if jump {
           link->Chan.emit(Event.JumpToTarget(t))

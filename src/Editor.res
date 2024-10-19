@@ -1,6 +1,5 @@
 open VSCode
 module VSRange = Range
-open Belt
 
 open Common
 

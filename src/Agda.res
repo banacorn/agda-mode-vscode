@@ -3,8 +3,6 @@
 //  VSCode imports should not be allowed in this module, otherwise it would contaminate the view
 //
 
-open Belt
-
 module Term = {
   type t =
     | Plain(string)
@@ -25,13 +23,13 @@ module Expr = {
     raw
     ->Js.String.trim
     /* 1         2 */
-    ->Js.String.splitByRe(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"), _)
+    ->(Js.String.splitByRe(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"), _))
     ->// RegEx updated to v10.1.4
-    Array.mapWithIndex((i, token) =>
+    Array.mapWithIndex((token, i) =>
       switch mod(i, 3) {
       | 1 =>
         token
-        ->Option.map(Js.String.sliceToEnd(~from=1))
+        ->Option.map(String.sliceToEnd(~start=1, ...))
         ->Option.flatMap(int_of_string_opt)
         ->Option.map(x => Term.QuestionMark(x))
       | 2 => token->Option.map(x => Term.Underscore(x))
@@ -45,7 +43,7 @@ module Expr = {
         )
       }
     )
-    ->Array.keepMap(x => x)
+    ->Array.filterMap(x => x)
     ->(x => Some(x))
   let render = xs => xs->Array.map(Term.render)->RichText.concatMany
 }
@@ -67,8 +65,7 @@ module OutputConstraint: {
     | JustSort(RichText.t)
     | Others(RichText.t)
 
-  let parseOfType =
-    %re("/^([^\:]*) \: ((?:\r\n|\n|.)+)/")->Emacs__Parser.captures(captured =>
+  let parseOfType = %re("/^([^\:]*) \: ((?:\r\n|\n|.)+)/")->(Emacs__Parser.captures(captured =>
       captured
       ->Emacs__Parser.at(2, Expr.parse)
       ->Option.flatMap(type_ =>
@@ -76,18 +73,20 @@ module OutputConstraint: {
         ->Emacs__Parser.at(1, Expr.parse)
         ->Option.flatMap(term => Some(OfType(Expr.render(term), Expr.render(type_))))
       )
-    )
-  let parseJustType =
-    %re("/^Type ((?:\r\n|\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(type_ => JustType(Expr.render(type_)))
-    )
-  let parseJustSort =
-    %re("/^Sort ((?:\r\n|\n|.)+)/")->Emacs__Parser.captures(captured =>
-      captured->Emacs__Parser.at(1, Expr.parse)->Option.map(sort => JustSort(Expr.render(sort)))
-    )
+    , ...))
+  let parseJustType = %re("/^Type ((?:\r\n|\n|.)+)/")->(Emacs__Parser.captures(captured =>
+      captured
+      ->Emacs__Parser.at(1, Expr.parse)
+      ->Option.map(type_ => JustType(Expr.render(type_)))
+    , ...))
+  let parseJustSort = %re("/^Sort ((?:\r\n|\n|.)+)/")->(Emacs__Parser.captures(captured =>
+      captured
+      ->Emacs__Parser.at(1, Expr.parse)
+      ->Option.map(sort => JustSort(Expr.render(sort)))
+    , ...))
   let parseOthers = raw => raw->Expr.parse->Option.map(raw' => Others(Expr.render(raw')))
 
-  let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers])
+  let parse = Emacs__Parser.choice([parseOfType, parseJustType, parseJustSort, parseOthers], ...)
 
   let renderItem = (value, location) => {
     open! RichText
@@ -108,17 +107,16 @@ module Output = {
   // parsing serialized data
   let parseOutputWithoutLocation = raw =>
     raw->OutputConstraint.parse->Option.map(x => Output(x, None))
-  let parseOutputWithLocation = %re(
-    "/((?:\n|.)*\S+)\s*\[ at ([^\]]+) \]/"
-  )->Emacs__Parser.captures(captured =>
-    captured[1]
-    ->Option.flatMap(x => x)
-    ->Option.flatMap(OutputConstraint.parse)
-    ->Option.map(oc => {
-      let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(Common.AgdaRange.parse)
-      Output(oc, r)
-    })
-  )
+  let parseOutputWithLocation =
+    %re("/((?:\n|.)*\S+)\s*\[ at ([^\]]+) \]/")->(Emacs__Parser.captures(captured =>
+        captured[1]
+        ->Option.flatMap(x => x)
+        ->Option.flatMap(OutputConstraint.parse)
+        ->Option.map(oc => {
+          let r = captured[2]->Option.flatMap(x => x)->Option.flatMap(Common.AgdaRange.parse)
+          Output(oc, r)
+        })
+      , ...))
   let parse = raw => {
     let locRe = %re("/\[ at (\S+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+)) \]$/")
     let hasLocation = Js.Re.test_(locRe, raw)

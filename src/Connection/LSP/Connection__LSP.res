@@ -29,9 +29,9 @@ module CommandRes = {
     open JsonCombinators.Json.Decode
     Util.Decode.sum(x =>
       switch x {
-      | "CmdResACK" => Payload(string->map((. version) => ACK(version)))
+      | "CmdResACK" => Payload(string->map(version => ACK(version)))
       | "CmdRes" =>
-        Payload(option(Connection__LSP__Error.CommandErr.decode)->map((. error) => Result(error)))
+        Payload(option(Connection__LSP__Error.CommandErr.decode)->map(error => Result(error)))
       | tag => raise(DecodeError("[Connection.LSP.CommandRes] Unknown constructor: " ++ tag))
       }
     )
@@ -57,7 +57,7 @@ module LSPResponse = {
         switch x {
         | "DisplayInfoGeneric" =>
           Payload(
-            pair(string, array(Item.decode))->map((. (header, itmes)) => Generic(header, itmes)),
+            pair(string, array(Item.decode))->map(((header, itmes)) => Generic(header, itmes)),
           )
         | "DisplayInfoAllGoalsWarnings" =>
           Payload(
@@ -67,7 +67,7 @@ module LSPResponse = {
               array(Item.decode),
               array(string),
               array(string),
-            )->map((. (header, goals, metas, warnings, errors)) => AllGoalsWarnings(
+            )->map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
               header,
               goals,
               metas,
@@ -75,19 +75,19 @@ module LSPResponse = {
               errors,
             )),
           )
-        | "DisplayInfoCurrentGoal" => Payload(Item.decode->map((. body) => CurrentGoal(body)))
-        | "DisplayInfoInferredType" => Payload(Item.decode->map((. body) => InferredType(body)))
+        | "DisplayInfoCurrentGoal" => Payload(Item.decode->map(body => CurrentGoal(body)))
+        | "DisplayInfoInferredType" => Payload(Item.decode->map(body => InferredType(body)))
         | "DisplayInfoCompilationOk" =>
           Payload(
-            pair(array(string), array(string))->map((. (warnings, errors)) => CompilationOk(
+            pair(array(string), array(string))->map(((warnings, errors)) => CompilationOk(
               warnings,
               errors,
             )),
           )
-        | "DisplayInfoAuto" => Payload(string->map((. body) => Auto(body)))
-        | "DisplayInfoError" => Payload(string->map((. body) => Error'(body)))
-        | "DisplayInfoTime" => Payload(string->map((. body) => Time(body)))
-        | "DisplayInfoNormalForm" => Payload(string->map((. body) => NormalForm(body)))
+        | "DisplayInfoAuto" => Payload(string->map(body => Auto(body)))
+        | "DisplayInfoError" => Payload(string->map(body => Error'(body)))
+        | "DisplayInfoTime" => Payload(string->map(body => Time(body)))
+        | "DisplayInfoNormalForm" => Payload(string->map(body => NormalForm(body)))
         | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
         }
       )
@@ -114,20 +114,18 @@ module LSPResponse = {
       switch x {
       | "ResponseHighlightingInfoDirect" =>
         Payload(
-          Tokens.Token.decodeResponseHighlightingInfoDirect->map((. (
+          Tokens.Token.decodeResponseHighlightingInfoDirect->map(((
             keepHighlighting,
             infos,
           )) => ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))),
         )
       | "ResponseHighlightingInfoIndirect" =>
         Payload(
-          string->map((. filePath) => ResponseNonLast(
-            Response.HighlightingInfoIndirectJSON(filePath),
-          )),
+          string->map(filePath => ResponseNonLast(Response.HighlightingInfoIndirectJSON(filePath))),
         )
       | "ResponseDisplayInfo" =>
         Payload(
-          DisplayInfo.decode->map((. info) =>
+          DisplayInfo.decode->map(info =>
             switch info {
             | Generic(header, body) => ResponseNonLast(DisplayInfo(Generic(header, body)))
             | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
@@ -147,13 +145,13 @@ module LSPResponse = {
         )
       | "ResponseStatus" =>
         Payload(
-          pair(bool, bool)->map((. (checked, displayImplicit)) => ResponseNonLast(
+          pair(bool, bool)->map(((checked, displayImplicit)) => ResponseNonLast(
             Response.Status(checked, displayImplicit),
           )),
         )
       | "ResponseRunningInfo" =>
         Payload(
-          pair(int, string)->map((. (verbosity, info)) => ResponseNonLast(
+          pair(int, string)->map(((verbosity, info)) => ResponseNonLast(
             Response.RunningInfo(verbosity, info),
           )),
         )
@@ -166,33 +164,30 @@ module LSPResponse = {
       | "ResponseDoneExiting" => TagOnly(ResponseNonLast(Response.DoneExiting))
       | "ResponseGiveAction" =>
         Payload(
-          pair(int, Response.GiveAction.decode)->map((. (id, giveAction)) => ResponseNonLast(
+          pair(int, Response.GiveAction.decode)->map(((id, giveAction)) => ResponseNonLast(
             Response.GiveAction(id, giveAction),
           )),
         )
       | "ResponseInteractionPoints" =>
-        Payload(array(int)->map((. ids) => ResponseLast(1, InteractionPoints(ids))))
+        Payload(array(int)->map(ids => ResponseLast(1, InteractionPoints(ids))))
       | "ResponseMakeCaseFunction" =>
         Payload(
-          array(string)->map((. payload) => ResponseLast(2, Response.MakeCase(Function, payload))),
+          array(string)->map(payload => ResponseLast(2, Response.MakeCase(Function, payload))),
         )
       | "ResponseMakeCaseExtendedLambda" =>
         Payload(
-          array(string)->map((. payload) => ResponseLast(
+          array(string)->map(payload => ResponseLast(
             2,
             Response.MakeCase(ExtendedLambda, payload),
           )),
         )
       | "ResponseSolveAll" =>
         Payload(
-          array(pair(int, string))->map((. payloads) => ResponseLast(
-            2,
-            Response.SolveAll(payloads),
-          )),
+          array(pair(int, string))->map(payloads => ResponseLast(2, Response.SolveAll(payloads))),
         )
       | "ResponseJumpToError" =>
         Payload(
-          pair(string, int)->map((. (filePath, offset)) => ResponseLast(
+          pair(string, int)->map(((filePath, offset)) => ResponseLast(
             3,
             Response.JumpToError(filePath, offset),
           )),
@@ -211,14 +206,14 @@ module type Module = {
     method: LanguageServerMule.Method.t,
   }
   // lifecycle
-  let make: Client.t => Promise.t<result<t, Error.t>>
-  let destroy: t => Promise.t<result<unit, Error.t>>
+  let make: Client.t => promise<result<t, Error.t>>
+  let destroy: t => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     t,
     string,
-    result<Response.t, Error.t> => Promise.t<unit>,
-  ) => Promise.t<result<unit, Error.t>>
+    result<Response.t, Error.t> => promise<unit>,
+  ) => promise<result<unit, Error.t>>
 }
 
 module Module: Module = {
@@ -241,16 +236,16 @@ module Module: Module = {
     | Error(msg) => Error(CannotDecodeResponse(msg, json))
     }
 
-  let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
-    client
-    ->Client.sendRequest(CommandReq.encode(request))
-    ->Util.P.toPromise
-    ->Promise.mapError(exn => Error.ConnectionError(exn))
-    ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
+  let sendRequestPrim = async (client, request): result<CommandRes.t, Error.t> => {
+    switch await client->Client.sendRequest(CommandReq.encode(request)) {
+    | Ok(json) => decodeCommandRes(json)
+    | Error(error) => Error(Error.ConnectionError(error))
+    | exception Exn.Error(exn) => Error(Error.ConnectionError(exn))
+    }
   }
 
   // start the LSP client
-  let make = client =>
+  let make = async client =>
     // let subsriptions = []
     // // pipe error and notifications
     // client
@@ -265,25 +260,26 @@ module Module: Module = {
     // ->ignore
 
     // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-    sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
-      switch response {
-      | Result(_) => Promise.resolved(Error(Error.Initialize))
-      | ACK(version) => Promise.resolved(Ok({client, version, method: Client.getMethod(client)}))
-      }
-    )
+    switch await sendRequestPrim(client, SYN) {
+    | Error(error) => Error(error)
+    | Ok(Result(_)) => Error(Error.Initialize)
+    | Ok(ACK(version)) => Ok({client, version, method: Client.getMethod(client)})
+    }
 
   // destroy the client
-  let destroy = self =>
-    self.client->Client.destroy->Util.P.toPromise->Promise.mapError(e => Error.ConnectionError(e))
+  let destroy = async self =>
+    switch await self.client->Client.destroy {
+    | Ok(result) => Ok(result)
+    | Error(error) => Error(Error.ConnectionError(error))
+    | exception Exn.Error(exn) => Error(Error.ConnectionError(exn))
+    }
 
-  // let getInfo = self => (self.version, self.method)
-
-  let sendRequest = (self, request, handler) => {
+  let sendRequest = async (self, request, handler) => {
     let handler = response => handler(Ok(response))
 
     let scheduler = Scheduler.make()
     // waits for `ResponseEnd`
-    let (waitForResponseEnd, resolve) = Promise.pending()
+    let (waitForResponseEnd, resolve, _) = Util.Promise_.pending()
 
     // listens for responses from Agda
     let stopListeningForNotifications = self.client->Client.onRequest(async json => {
@@ -298,21 +294,19 @@ module Module: Module = {
     })
 
     // sends `Command` and waits for `ResponseEnd`
-    sendRequestPrim(self.client, Command(request))
-    ->Promise.flatMapOk(result => {
-      switch result {
-      | ACK(_) => Promise.resolved(Error(Error.Initialize))
-      | Result(Some(error)) => Promise.resolved(Error(Error.SendCommand(error)))
-      // waits for `ResponseEnd`
-      | Result(None) => waitForResponseEnd
-      }
-    })
+    let result = switch await sendRequestPrim(self.client, Command(request)) {
+    | Error(error) => Error(error)
+    | Ok(ACK(_)) => Error(Error.Initialize)
+    | Ok(Result(Some(error))) => Error(Error.SendCommand(error))
+    // waits for `ResponseEnd`
+    | Ok(Result(None)) => await waitForResponseEnd
+    }
     // stop listening for requests from server once `ResponseEnd` arrived
-    ->Promise.tap(_ => stopListeningForNotifications->VSCode.Disposable.dispose)
-    ->Promise.tap(_ =>
-      // start handling Last Responses, after all NonLast Responses have been handled
-      scheduler->Scheduler.runLast(handler)
-    )
+    stopListeningForNotifications->VSCode.Disposable.dispose
+    // start handling Last Responses, after all NonLast Responses have been handled
+    scheduler->Scheduler.runLast(handler)
+
+    result
   }
 }
 include Module

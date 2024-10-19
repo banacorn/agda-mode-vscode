@@ -33,7 +33,7 @@ module Module: Module = {
     let encode = ({commandLineOptions}) => {
       open JsonCombinators.Json.Encode
       Unsafe.object({
-        "commandLineOptions": array(string, commandLineOptions),
+        "commandLineOptions": array(string)(commandLineOptions),
       })
     }
 
@@ -61,64 +61,74 @@ module Module: Module = {
       Emacs(version, path)
     }
 
-  let start = (globalStoragePath, useLSP, onDownload) =>
+  let start = async (globalStoragePath, useLSP, onDownload) =>
     switch singleton.contents {
-    | Some(conn) => Promise.resolved(Ok(toStatus(conn)))
+    | Some(conn) => Ok(toStatus(conn))
     | None =>
       if useLSP {
-        Connection__Probe.probeLSP(globalStoragePath, onDownload)
-        ->Promise.flatMap(((result, errors)) =>
-          switch result {
-          | None =>
-            Promise.resolved(Error(Error.CannotAcquireHandle("Agda Language Server", errors)))
-          | Some(method) => Promise.resolved(Ok(method))
+        let (result, errors) = await Connection__Probe.probeLSP(globalStoragePath, onDownload)
+        switch result {
+        | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
+        | Some(method) =>
+          switch await LSP.Client.make(
+            "agda",
+            "Agda Language Server",
+            method,
+            InitOptions.getFromConfig(),
+          ) {
+          | Error(error) => Error(LSP(LSP.Error.ConnectionError(error)))
+          | exception Exn.Error(error) => Error(LSP(LSP.Error.ConnectionError(error)))
+          | Ok(conn) =>
+            switch await LSP.make(conn) {
+            | Error(error) => Error(LSP(error))
+            | Ok(conn) =>
+              let method = LanguageServerMule.Client.LSP.getMethod(conn.client)
+              singleton := Some(LSP(conn))
+              Ok(LSP(conn.version, method))
+            }
           }
-        )
-        ->Promise.flatMapOk(method => {
-          LSP.Client.make("agda", "Agda Language Server", method, InitOptions.getFromConfig())
-          ->Util.P.toPromise
-          ->Promise.mapError(e => LSP.Error.ConnectionError(e))
-          ->Promise.flatMapOk(LSP.make)
-          ->Promise.mapError(error => Error.LSP(error))
-        })
-        ->Promise.mapOk(conn => {
-          let method = LanguageServerMule.Client.LSP.getMethod(conn.client)
-          singleton := Some(LSP(conn))
-          LSP(conn.version, method)
-        })
+        }
       } else {
-        Connection__Probe.probeEmacs()
-        ->Promise.flatMap(((result, errors)) =>
-          switch result {
-          | None =>
-            let name = Config.Connection.getAgdaVersion()
-            Promise.resolved(Error(Error.CannotAcquireHandle(name, errors)))
-          | Some(method) => Promise.resolved(Ok(method))
+        let (result, errors) = await Connection__Probe.probeEmacs()
+        switch result {
+        | None =>
+          let name = Config.Connection.getAgdaVersion()
+          Error(Error.CannotAcquireHandle(name, errors))
+        | Some(method) =>
+          switch await Emacs.make(method) {
+          | Error(error) => Error(Error.Emacs(error))
+          | Ok(conn) =>
+            singleton := Some(Emacs(conn))
+            let (version, path) = Emacs.getInfo(conn)
+            Ok(Emacs(version, path))
           }
-        )
-        ->Promise.flatMapOk(method =>
-          Emacs.make(method)->Promise.mapError(error => Error.Emacs(error))
-        )
-        ->Promise.mapOk(conn => {
-          singleton := Some(Emacs(conn))
-          let (version, path) = Emacs.getInfo(conn)
-          Emacs(version, path)
-        })
+        }
       }
     }
 
-  let stop = () =>
+  let stop = async () =>
     switch singleton.contents {
-    | None => Promise.resolved(Ok())
+    | None => Ok()
     | Some(Emacs(conn)) =>
       singleton := None
-      Emacs.destroy(conn)->Promise.map(() => Ok())
+      await Emacs.destroy(conn)
+      Ok()
     | Some(LSP(conn)) =>
       singleton := None
-      LSP.destroy(conn)->Promise.mapError(err => Error.LSP(err))
+      switch await LSP.destroy(conn) {
+      | Error(error) => Error(Error.LSP(error))
+      | Ok(_) => Ok()
+      }
     }
 
-  let rec sendRequest = (globalStoragePath, onDownload, useLSP, document, request, handler) => {
+  let rec sendRequest = async (
+    globalStoragePath,
+    onDownload,
+    useLSP,
+    document,
+    request,
+    handler,
+  ) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -131,28 +141,29 @@ module Module: Module = {
     switch singleton.contents {
     | Some(LSP(conn)) =>
       let handler = x => x->Util.Result.mapError(err => Error.LSP(err))->handler
-      LSP.sendRequest(conn, encodeRequest(document, conn.version), handler)
-      ->Promise.mapOk(() => toStatus(LSP(conn)))
-      ->Promise.flatMapError(error => {
+      switch await LSP.sendRequest(conn, encodeRequest(document, conn.version), handler) {
+      | Error(error) =>
         // stop the connection on error
-        stop()->Promise.map(_ => Error(Error.LSP(error)))
-      })
+        let _ = await stop()
+        Error(Error.LSP(error))
+      | Ok(_) => Ok(toStatus(LSP(conn)))
+      }
 
     | Some(Emacs(conn)) =>
       let (version, _path) = Emacs.getInfo(conn)
       let handler = x => x->Util.Result.mapError(err => Error.Emacs(err))->handler
-      Emacs.sendRequest(conn, encodeRequest(document, version), handler)
-      ->Promise.mapOk(() => toStatus(Emacs(conn)))
-      ->Promise.flatMapError(error => {
+      switch await Emacs.sendRequest(conn, encodeRequest(document, version), handler) {
+      | Error(error) =>
         // stop the connection on error
-        stop()
-        // ->Promise.mapError(err => Error.LSP(err))
-        ->Promise.map(_ => Error(Error.Emacs(error)))
-      })
+        let _ = await stop()
+        Error(Error.Emacs(error))
+      | Ok(_) => Ok(toStatus(Emacs(conn)))
+      }
     | None =>
-      start(globalStoragePath, useLSP, onDownload)->Promise.flatMapOk(_ =>
-        sendRequest(globalStoragePath, onDownload, useLSP, document, request, handler)
-      )
+      switch await start(globalStoragePath, useLSP, onDownload) {
+      | Error(error) => Error(error)
+      | Ok(_) => await sendRequest(globalStoragePath, onDownload, useLSP, document, request, handler)
+      }
     }
   }
 }
