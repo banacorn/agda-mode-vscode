@@ -10,182 +10,182 @@ module EventEmitter3 = {
 
   // Class: EventEmitter
 
-  @bs.module("eventemitter3") @bs.new
+  @module("eventemitter3") @new
   external make: unit => t = "EventEmitter"
 
   // Event: 'newListener'
 
-  @bs.send.pipe(: t)
-  external onNewListener: (@bs.as("newListener") _, listener2<eventName, listener<'a>>) => t = "on"
+  @send
+  external onNewListener: (t, string, listener<'a>) => t = "on"
+  let onNewListener = (arg1, obj) => obj->onNewListener("newListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onNewListener2: (@bs.as("newListener") _, listener2<eventName, listener2<'a, 'b>>) => t =
-    "on"
+  @send
+  external onNewListener2: (t, string, listener2<'a, 'b>) => t = "on"
+  let onNewListener2 = (arg1, obj) => obj->onNewListener2("newListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onNewListener3: (
-    @bs.as("newListener") _,
-    listener2<eventName, listener3<'a, 'b, 'c>>,
-  ) => t = "on"
+  @send
+  external onNewListener3: (t, string, listener3<'a, 'b, 'c>) => t = "on"
+  let onNewListener3 = (arg1, obj) => obj->onNewListener3("newListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onceNewListener: (@bs.as("newListener") _, listener2<eventName, listener<'a>>) => t =
-    "once"
+  @send
+  external onceNewListener: (t, string, listener<'a>) => t = "once"
+  let onceNewListener = (arg1, obj) => obj->onceNewListener("newListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onceNewListener2: (
-    @bs.as("newListener") _,
-    listener2<eventName, listener2<'a, 'b>>,
-  ) => t = "once"
+  @send
+  external onceNewListener2: (t, string, listener2<'a, 'b>) => t = "once"
+  let onceNewListener2 = (arg1, obj) => obj->onceNewListener2("newListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onceNewListener3: (
-    @bs.as("newListener") _,
-    listener2<eventName, listener3<'a, 'b, 'c>>,
-  ) => t = "once"
+  @send
+  external onceNewListener3: (t, string, listener3<'a, 'b, 'c>) => t = "once"
+  let onceNewListener3 = (arg1, obj) => obj->onceNewListener3("newListener", arg1)
 
-  // Event: 'removeListener'
+  @send
+  external onRemoveListener: (t, string, listener<unit>) => t = "on"
+  let onRemoveListener = (arg1, obj) => obj->onRemoveListener("removeListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onRemoveListener: (@bs.as("removeListener") _, listener<unit>) => t = "on"
+  @send
+  external onceRemoveListener: (t, string, listener<unit>) => t = "once"
+  let onceRemoveListener = (arg1, obj) => obj->onceRemoveListener("removeListener", arg1)
 
-  @bs.send.pipe(: t)
-  external onceRemoveListener: (@bs.as("removeListener") _, listener<unit>) => t = "once"
-
-  // EventEmitter.defaultMaxListeners
-
-  @bs.val @bs.scope("EventEmitter")
+  @val @scope("EventEmitter")
   external defaultMaxListeners: int = "defaultMaxListeners"
 
-  // emitter.addListener(eventName, listener)
+  @send
+  external addListener: (t, eventName, listener<'a>) => t = "addListener"
+  let addListener = (arg1, arg2, obj) => obj->addListener(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external addListener: (eventName, listener<'a>) => t = "addListener"
+  @send
+  external addListener2: (t, eventName, listener2<'a, 'b>) => t = "addListener"
+  let addListener2 = (arg1, arg2, obj) => obj->addListener2(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external addListener2: (eventName, listener2<'a, 'b>) => t = "addListener"
+  @send
+  external addListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "addListener"
+  let addListener3 = (arg1, arg2, obj) => obj->addListener3(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external addListener3: (eventName, listener3<'a, 'b, 'c>) => t = "addListener"
+  @send
+  external emit0: (t, eventName) => bool = "emit"
+  let emit0 = (arg1, obj) => obj->emit0(arg1)
 
-  // emitter.emit(eventName[, ...args])
+  @send
+  external emit: (t, eventName, 'a) => bool = "emit"
+  let emit = (arg1, arg2, obj) => obj->emit(arg1, arg2)
 
-  @bs.send.pipe(: t) external emit0: eventName => bool = "emit"
+  @send
+  external emit2: (t, eventName, 'a, 'b) => bool = "emit"
+  let emit2 = (arg1, arg2, arg3, obj) => obj->emit2(arg1, arg2, arg3)
 
-  @bs.send.pipe(: t) external emit: (eventName, 'a) => bool = "emit"
+  @send
+  external emit3: (t, eventName, 'a, 'b, 'c) => bool = "emit"
+  let emit3 = (arg1, arg2, arg3, arg4, obj) => obj->emit3(arg1, arg2, arg3, arg4)
 
-  @bs.send.pipe(: t) external emit2: (eventName, 'a, 'b) => bool = "emit"
+  @send
+  external eventNames: (t, eventName) => array<eventName> = "eventNames"
+  let eventNames = (arg1, obj) => obj->eventNames(arg1)
 
-  @bs.send.pipe(: t) external emit3: (eventName, 'a, 'b, 'c) => bool = "emit"
+  @send
+  external listenerCount: (t, eventName) => int = "listenerCount"
+  let listenerCount = (arg1, obj) => obj->listenerCount(arg1)
 
-  // emitter.eventNames()
+  @send
+  external listeners: (t, eventName) => array<listener<'a>> = "listeners"
+  let listeners = (arg1, obj) => obj->listeners(arg1)
 
-  @bs.send.pipe(: t)
-  external eventNames: eventName => array<eventName> = "eventNames"
+  @send
+  external listeners2: (t, eventName) => array<listener2<'a, 'b>> = "listeners"
+  let listeners2 = (arg1, obj) => obj->listeners2(arg1)
 
-  // emitter.getMaxListeners()
+  @send
+  external listeners3: (t, eventName) => array<listener3<'a, 'b, 'c>> = "listeners"
+  let listeners3 = (arg1, obj) => obj->listeners3(arg1)
 
-  @bs.send.pipe(: t) external getMaxListeners: int = "getMaxListeners"
+  @send
+  external off: (t, eventName, listener<'a>) => t = "off"
+  let off = (arg1, arg2, obj) => obj->off(arg1, arg2)
 
-  // emitter.listenerCount(eventName)
+  @send
+  external off2: (t, eventName, listener2<'a, 'b>) => t = "off"
+  let off2 = (arg1, arg2, obj) => obj->off2(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external listenerCount: eventName => int = "listenerCount"
-
-  // emitter.listeners(eventName)
-
-  @bs.send.pipe(: t)
-  external listeners: eventName => array<listener<'a>> = "listeners"
-
-  @bs.send.pipe(: t)
-  external listeners2: eventName => array<listener2<'a, 'b>> = "listeners"
-
-  @bs.send.pipe(: t)
-  external listeners3: eventName => array<listener3<'a, 'b, 'c>> = "listeners"
-
-  // emitter.off(eventName, listener)
-
-  @bs.send.pipe(: t) external off: (eventName, listener<'a>) => t = "off"
-  @bs.send.pipe(: t)
-  external off2: (eventName, listener2<'a, 'b>) => t = "off"
-  @bs.send.pipe(: t)
-  external off3: (eventName, listener3<'a, 'b, 'c>) => t = "off"
-
-  // emitter.on(eventName, listener)
+  @send
+  external off3: (t, eventName, listener3<'a, 'b, 'c>) => t = "off"
+  let off3 = (arg1, arg2, obj) => obj->off3(arg1, arg2)
 
   let on = addListener
   let on2 = addListener2
   let on3 = addListener3
 
-  // emitter.once(eventName, listener)
+  @send
+  external once: (t, eventName, listener<'a>) => t = "once"
+  let once = (arg1, arg2, obj) => obj->once(arg1, arg2)
 
-  @bs.send.pipe(: t) external once: (eventName, listener<'a>) => t = "once"
+  @send
+  external once2: (t, eventName, listener2<'a, 'b>) => t = "once"
+  let once2 = (arg1, arg2, obj) => obj->once2(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external once2: (eventName, listener2<'a, 'b>) => t = "once"
+  @send
+  external once3: (t, eventName, listener3<'a, 'b, 'c>) => t = "once"
+  let once3 = (arg1, arg2, obj) => obj->once3(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external once3: (eventName, listener3<'a, 'b, 'c>) => t = "once"
+  @send
+  external prependListener: (t, array<eventName>, listener<'a>) => t = "prependListener"
+  let prependListener = (arg1, arg2, obj) => obj->prependListener(arg1, arg2)
 
-  // emitter.prependListener(eventName, listener)
+  @send
+  external prependListener2: (t, array<eventName>, listener2<'a, 'b>) => t = "prependListener"
+  let prependListener2 = (arg1, arg2, obj) => obj->prependListener2(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external prependListener: (eventName, listener<'a>) => t = "prependListener"
+  @send
+  external prependListener3: (t, array<eventName>, listener3<'a, 'b, 'c>) => t = "prependListener"
+  let prependListener3 = (arg1, arg2, obj) => obj->prependListener3(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external prependListener2: (eventName, listener2<'a, 'b>) => t = "prependListener"
+  @send
+  external prependOnceListener: (t, eventName, listener<'a>) => t = "prependOnceListener"
+  let prependOnceListener = (arg1, arg2, obj) => obj->prependOnceListener(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external prependListener3: (eventName, listener3<'a, 'b, 'c>) => t = "prependListener"
+  @send
+  external prependOnceListener2: (t, eventName, listener2<'a, 'b>) => t = "prependOnceListener"
+  let prependOnceListener2 = (arg1, arg2, obj) => obj->prependOnceListener2(arg1, arg2)
 
-  // emitter.prependOnceListener(eventName, listener)
+  @send
+  external prependOnceListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependOnceListener"
+  let prependOnceListener3 = (arg1, arg2, obj) => obj->prependOnceListener3(arg1, arg2)
 
-  @bs.send.pipe(: t)
-  external prependOnceListener: (eventName, listener<'a>) => t = "prependOnceListener"
+  @send
+  external removeAllListeners: t => t = "removeAllListeners"
 
-  @bs.send.pipe(: t)
-  external prependOnceListener2: (eventName, listener2<'a, 'b>) => t = "prependOnceListener"
-
-  @bs.send.pipe(: t)
-  external prependOnceListener3: (eventName, listener3<'a, 'b, 'c>) => t = "prependOnceListener"
-
-  // emitter.removeAllListeners([eventName])
-
-  @bs.send.pipe(: t) external removeAllListeners: t = "removeAllListeners"
-
-  @bs.send.pipe(: t)
-  external removeAllListeners_: array<eventName> => t = "removeAllListeners"
-
-  // emitter.removeListener(eventName, listener)
+  @send
+  external removeAllListeners_: (t, array<eventName>) => t = "removeAllListeners"
+  let removeAllListeners_ = (arg1, obj) => obj->removeAllListeners_(arg1)
 
   let removeListener = off
   let removeListener2 = off2
   let removeListener3 = off3
 
-  // emitter.setMaxListeners(n)
+  @send
+  external setMaxListeners: (t, int) => t = "setMaxListeners"
+  let setMaxListeners = (arg1, obj) => obj->setMaxListeners(arg1)
 
-  @bs.send.pipe(: t) external setMaxListeners: int => t = "setMaxListeners"
+  @send
+  external rawListeners: (t, eventName) => array<listener<'a>> = "rawListeners"
+  let rawListeners = (arg1, obj) => obj->rawListeners(arg1)
 
-  // emitter.rawListeners(eventName)
+  @send
+  external rawListeners2: (t, eventName) => array<listener2<'a, 'b>> = "rawListeners"
+  let rawListeners2 = (arg1, obj) => obj->rawListeners2(arg1)
 
-  @bs.send.pipe(: t)
-  external rawListeners: eventName => array<listener<'a>> = "rawListeners"
-
-  @bs.send.pipe(: t)
-  external rawListeners2: eventName => array<listener2<'a, 'b>> = "rawListeners"
-
-  @bs.send.pipe(: t)
-  external rawListeners3: eventName => array<listener3<'a, 'b, 'c>> = "rawListeners"
+  @send
+  external rawListeners3: (t, eventName) => array<listener3<'a, 'b, 'c>> = "rawListeners"
+  let rawListeners3 = (arg1, obj) => obj->rawListeners3(arg1)
 
   // events.once(emitter, name)
 
-  @bs.module("eventemitter3")
+  @module("eventemitter3")
   external oncePromise: (t, string) => Js.Promise.t<'a> = "once"
 
-  @bs.module("eventemitter3")
+  @module("eventemitter3")
   external oncePromise2: (t, string) => Js.Promise.t<('a, 'b)> = "once"
 
-  @bs.module("eventemitter3")
+  @module("eventemitter3")
   external oncePromise3: (t, string) => Js.Promise.t<('a, 'b, 'c)> = "once"
 }
 
