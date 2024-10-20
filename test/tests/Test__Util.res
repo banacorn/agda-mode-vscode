@@ -207,27 +207,26 @@ module Golden = {
   // parameterized only by 'actual;
   type t<'actual> = Golden(filepath, 'actual, expected)
 
+  let toString = (Golden(filepath, actual, expected)) =>
+    "Golden file at: " ++
+    filepath ++
+    "\n" ++
+    "Expected: \n" ++
+    expected ++
+    "\n" ++
+    "Actual: \n" ++
+    actual
+
   // (A -> B) -> Golden A -> Golden B
   let map = (Golden(filepath, actual, expected), f) => Golden(filepath, f(actual), expected)
 
   // FilePath -> Promise (Golden String)
-  let readFile = filepath => {
+  let readFile = async filepath => {
     let filepath = Path.toAbsolute(filepath)
-    let readFile = N.Util.promisify(N.Fs.readFile, ...)
+    let inFile = await Node__Fs.readFile(filepath ++ ".in")
+    let outFile = await Node__Fs.readFile(filepath ++ ".out")
 
-    then_(x =>
-      switch x {
-      | [input, output] =>
-        resolve(
-          Golden(
-            filepath,
-            NodeJs.Buffer.toString(input),
-            Strings.normalize(NodeJs.Buffer.toString(output)),
-          ),
-        )
-      | _ => reject(FileMissing(filepath))
-      }
-    , all([readFile(filepath ++ ".in"), readFile(filepath ++ ".out")]))
+    Golden(filepath, inFile, outFile)
   }
 
   // Golden String -> Promise ()
@@ -263,30 +262,10 @@ module Golden = {
 
       switch diff {
       | Added(_) => Assert.fail(message(change))
-      // Assert.fail(
-      //   message(
-      //     " added \""
-      //     ++ change
-      //     ++ "\"\n at position "
-      //     ++ string_of_int(count),
-      //   ),
-      // )
       | Removed(_) => Assert.fail(message(change))
-      //   ~actual: actual,
-      //   ~expected: expected,
-      //   ~message=change,
-      // )
-
-      // message(
-      //   " removed \""
-      //   ++ change
-      //   ++ "\"\n\n at position "
-      //   ++ string_of_int(count),
-      // ),
       | NoChange(_) => ()
       }
     })
-    Js.Promise.resolve()
   }
 }
 

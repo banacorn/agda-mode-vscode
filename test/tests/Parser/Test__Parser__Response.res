@@ -24,7 +24,7 @@ describe("when parsing responses", () =>
       "should golden test " ++ filepath,
       async () => {
         let raw = await Golden.readFile(filepath)
-        await raw
+        raw
         ->Golden.map(parseSExpression([], ...))
         ->Golden.map(toPrioritizedResponses)
         ->Golden.map(Strings.unlinesWith(Response.Prioritized.toString, ...))

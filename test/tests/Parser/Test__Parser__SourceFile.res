@@ -56,7 +56,7 @@ if Test__Util.onUnix {
         "should golden test " ++ filepath,
         async () => {
           let raw = await Golden.readFile(filepath)
-          await raw
+          raw
           ->Golden.map(SourceFile.parse([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], filepath, ...))
           ->Golden.map(Strings.unlinesWith(SourceFile.Diff.toString, ...))
           ->Golden.compare

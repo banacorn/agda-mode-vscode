@@ -144,11 +144,10 @@ module Module: Module = {
 
     let readAndParse = async format => {
       try {
-        let fileHandle = await NodeJs.Fs.open_(toFilepath(format), NodeJs.Fs.Flag.read)
-        let buffer = await NodeJs.Fs.FileHandle.readFile(fileHandle)
+        let content = await Node__Fs.readFile(toFilepath(format))
         switch format {
         | Emacs(_) =>
-          let tokens = switch Parser.SExpression.parse(NodeJs.Buffer.toString(buffer))[0] {
+          let tokens = switch Parser.SExpression.parse(content)[0] {
           | Some(Ok(L(xs))) => xs
           | _ => []
           }
@@ -160,7 +159,7 @@ module Module: Module = {
           let tokens = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Token.parse)
           (removeTokenBasedHighlighting, tokens)
         | JSON(_) =>
-          let raw = NodeJs.Buffer.toString(buffer)
+          let raw = content
           switch Js.Json.parseExn(raw) {
           | exception _e => (false, [])
           | json =>

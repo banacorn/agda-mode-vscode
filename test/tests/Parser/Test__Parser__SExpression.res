@@ -36,7 +36,7 @@ describe("when parsing S-expressions as a whole", () =>
       "should golden test " ++ filepath,
       async () => {
         let raw = await Golden.readFile(filepath)
-        await raw
+        raw
         ->Golden.map(parseSExpression([], ...))
         ->Golden.map(Strings.unlinesWith(Parser.SExpression.toString, ...))
         ->Golden.compare
@@ -53,7 +53,7 @@ describe("when parsing S-expressions incrementally", () =>
       "should golden test " ++ filepath,
       async () => {
         let raw = await Golden.readFile(filepath)
-        await raw
+        raw
         ->Golden.map(parseSExpression([3, 23, 171, 217, 1234, 2342, 3453], ...))
         ->Golden.map(Strings.unlinesWith(Parser.SExpression.toString, ...))
         ->Golden.compare
