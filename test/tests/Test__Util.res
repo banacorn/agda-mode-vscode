@@ -117,7 +117,7 @@ module Strings = {
     let breakpoints' = Array.concat([0], breakpoints)
 
     breakpoints'
-    ->Array.mapWithIndex((i, x: int) =>
+    ->Array.mapWithIndex((x: int, i) =>
       switch breakpoints'[i + 1] {
       | Some(next) => (x, next - x)
       | None => (x, Js.String.length(input) - x)

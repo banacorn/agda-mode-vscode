@@ -9,10 +9,7 @@ let parseSExpression = (breakpoints, input) => {
 
   let parser = Parser.SExpression.makeIncr(x =>
     switch x {
-    | Yield(Error((errNo, raw))) =>
-      Assert.fail(
-        "Failed when parsing S-expression: " ++ Parser.Error.toString(SExpression(errNo, raw)),
-      )
+    | Yield(Error((errNo, raw))) => Assert.fail(Parser.Error.toString(SExpression(errNo, raw)))
     | Yield(Ok(a)) => ignore(Js.Array.push(a, output.contents))
     | Stop => ()
     }

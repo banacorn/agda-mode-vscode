@@ -180,10 +180,10 @@ module Indices: Indices = {
     //  indicesUTF16 = [6000, 6003]
 
     // [6000, 6002]
-    let indicesUTF8 = indicesUTF16->Array.mapWithIndex((i, x) => x - i)
+    let indicesUTF8 = indicesUTF16->Array.mapWithIndex((x, i) => x - i)
 
     // [(0, 6000), (6001, 6002)]
-    let intervals = indicesUTF8->Array.mapWithIndex((i, rightEndpoint) => {
+    let intervals = indicesUTF8->Array.mapWithIndex((rightEndpoint, i) => {
       let leftEndpoint = switch indicesUTF8[i - 1] {
       | Some(x) => x + 1
       // first interval

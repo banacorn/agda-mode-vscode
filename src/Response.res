@@ -1,5 +1,3 @@
-open Belt
-
 type filepath = string
 type index = int
 
@@ -223,12 +221,12 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       | Some(L([A(filepath), _, A(index')])) =>
         int_of_string_opt(index')
         ->Option.flatMap(index => Some(JumpToError(filepath, index)))
-        ->Option.mapWithDefault(err(3), x => Ok(x))
+        ->Option.mapOr(err(3), x => Ok(x))
       | _ => err(4)
       }
     | Some(A("agda2-goals-action")) =>
       switch xs[1] {
-      | Some(xs) => Ok(InteractionPoints(xs->Token.flatten->Array.keepMap(int_of_string_opt)))
+      | Some(xs) => Ok(InteractionPoints(xs->Token.flatten->Array.filterMap(int_of_string_opt)))
       | _ => err(5)
       }
     | Some(A("agda2-give-action")) =>
@@ -244,7 +242,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
           | _ => None
           }
         )
-        ->Option.mapWithDefault(err(6), x => Ok(x))
+        ->Option.mapOr(err(6), x => Ok(x))
       | _ => err(7)
       }
     | Some(A("agda2-make-case-action")) =>
@@ -265,7 +263,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         let isEven = i => Int32.rem(Int32.of_int(i), Int32.of_int(2)) == Int32.of_int(0)
 
         let i = ref(0)
-        let solutions = tokens->Array.keepMap(token => {
+        let solutions = tokens->Array.filterMap(token => {
           let solution = if isEven(i.contents) {
             int_of_string_opt(token)->Option.flatMap(index =>
               tokens[i.contents + 1]->Option.map(s => (index, s))
