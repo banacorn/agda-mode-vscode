@@ -1,8 +1,8 @@
 open Mocha
-open! Test__Util
+open Test__Util
 
 describe("State__Goal.caseSplitAux dry run", () => {
-  Q.it("should calculate the infomation needed for case splitting correctly", async () => {
+  Async.it("should calculate the infomation needed for case splitting correctly", async () => {
     let editor = await VSCode.Window.showTextDocumentWithUri(
       VSCode.Uri.file(Path.asset("CaseSplit1.agda")),
       None,
@@ -20,21 +20,20 @@ describe("State__Goal.caseSplitAux dry run", () => {
         (inWhereClause, indentWidth, Editor.Text.get(document, rewriteRange))
       },
     )
-    Ok(
-      Assert.deepEqual(
-        results,
-        [
-          (false, 9, `x → {!   !}`),
-          (false, 23, `y → {!   !}`),
-          (false, 4, `x → {!   !}`),
-          (false, 4, `y → {!   !}`),
-          (true, 13, `x → {!   !}`),
-          (true, 13, `y → {!   !}`),
-          (true, 2, `x → {!   !}`),
-          (true, 2, `y → {!   !}`),
-          (false, 13, `x → {!   !}`),
-        ],
-      ),
+
+    Assert.deepEqual(
+      results,
+      [
+        (false, 9, `x → {!   !}`),
+        (false, 23, `y → {!   !}`),
+        (false, 4, `x → {!   !}`),
+        (false, 4, `y → {!   !}`),
+        (true, 13, `x → {!   !}`),
+        (true, 13, `y → {!   !}`),
+        (true, 2, `x → {!   !}`),
+        (true, 2, `y → {!   !}`),
+        (false, 13, `x → {!   !}`),
+      ],
     )
   })
 })
@@ -42,18 +41,13 @@ describe("State__Goal.caseSplitAux dry run", () => {
 describe_skip("Integration test", () => {
   let fileContent = ref("")
 
-  Q.before(() => readFile(Path.asset("CaseSplit2.agda"), fileContent))
-  Q.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
+  Async.before(() => readFile(Path.asset("CaseSplit2.agda"), fileContent))
+  Async.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
 
   Async.it("should have more goals after splitting", async () => {
     let context = await Agda.make("CaseSplit2.agda")
-    switch await Agda.load(context) {
-    | Ok(result) =>
-      switch await Agda.case(Some(VSCode.Position.make(7, 16), "x"), result) {
-      | Ok((_, state)) => Assert.deepEqual(Array.length(state.goals), 10)
-      | Error(error) => raise(error)
-      }
-    | Error(error) => raise(error)
-    }
+    let result = await Agda.load(context)
+    let (_, state) = await Agda.case(Some(VSCode.Position.make(7, 16), "x"), result)
+    Assert.deepEqual(Array.length(state.goals), 10)
   })
 })

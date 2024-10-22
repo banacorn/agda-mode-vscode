@@ -71,39 +71,6 @@ external executeCommand: string => Promise.t<option<result<State.t, Connection.E
 
 let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
 
-module Q = {
-  let toPromise = f =>
-    Promise.make((resolve, reject) =>
-      f
-      ->Promise.thenResolve(x =>
-        switch x {
-        | Error(error) => reject(error)
-        | Ok(result) => resolve(result)
-        }
-      )
-      ->Promise.done
-    )
-
-  let it = (s, f: unit => Promise.t<result<'a, 'error>>) => Async.it(s, () => f()->toPromise)
-
-  let it_only = (s, f) => Async.it_only(s, () => f()->toPromise)
-
-  let it_skip = (s, f) => Async.it_skip(s, () => f()->toPromise)
-
-  let before = f => Async.before(() => f()->toPromise)
-  let before_each = f => Async.beforeEach(() => f()->toPromise)
-  let after = f => Async.after(() => f()->toPromise)
-  let after_each = f => Async.afterEach(() => f()->toPromise)
-}
-
-module A = {
-  let equal = (expected, actual) => runner(() => Assert.equal(actual, expected))
-  let deepEqual = (expected, actual) => runner(() => Assert.deepEqual(actual, expected))
-  let deep_strict_equal = (expected, actual) =>
-    runner(() => Assert.deepStrictEqual(actual, expected))
-  let fail = value => runner(() => Assert.fail(value))
-}
-
 module Strings = {
   // trim and replace all occurences of line breaks with "\n"
   let normalize = string => {
@@ -297,8 +264,8 @@ module Agda = {
     switch result {
     | None =>
       let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
-      await A.fail("Cannot find \"Agda\" in PATH: " ++ msg)
-    | Some(_method) => Ok()
+      raise(Failure("Cannot find \"Agda\" in PATH: " ++ msg))
+    | Some(_method) => ()
     }
   }
 
@@ -336,14 +303,14 @@ module Agda = {
 
     let _ = await openFile(self.filepath)
     switch await executeCommand("agda-mode.load") {
-    | None => await A.fail("Cannot load " ++ self.filepath)
+    | None => raise(Failure("Cannot load " ++ self.filepath))
     | Some(Ok(state)) =>
       await promise
       disposable() // stop listening to responses
-      Ok(self, state)
+      (self, state)
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
-      await A.fail(header ++ "\n" ++ body)
+      raise(Failure(header ++ "\n" ++ body))
     }
   }
 
@@ -357,18 +324,18 @@ module Agda = {
       Editor.Cursor.set(editor, cursor)
     }
     switch await executeCommand("agda-mode.case") {
-    | None => await A.fail("Cannot case split " ++ self.filepath)
-    | Some(Ok(state)) => Ok(self, state)
+    | None => raise(Failure("Cannot case split " ++ self.filepath))
+    | Some(Ok(state)) => (self, state)
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
-      await A.fail(header ++ "\n" ++ body)
+      raise(Failure(header ++ "\n" ++ body))
     }
   }
 
-  let refine = async (cursorAndPayload, (self, state: State__Type.t)): result<
-    (t, AgdaModeVscode.State.t),
-    exn,
-  > => {
+  let refine = async (cursorAndPayload, (self, state: State__Type.t)): (
+    t,
+    AgdaModeVscode.State.t,
+  ) => {
     let editor = await openFile(self.filepath)
     switch cursorAndPayload {
     | None => ()
@@ -378,11 +345,11 @@ module Agda = {
       Editor.Cursor.set(editor, cursor)
     }
     switch await executeCommand("agda-mode.refine") {
-    | None => await A.fail("Cannot case refine " ++ self.filepath)
-    | Some(Ok(state)) => Ok(self, state)
+    | None => raise(Failure("Cannot case refine " ++ self.filepath))
+    | Some(Ok(state)) => (self, state)
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
-      await A.fail(header ++ "\n" ++ body)
+      raise(Failure(header ++ "\n" ++ body))
     }
   }
 }
@@ -391,7 +358,6 @@ module Agda = {
 let readFile = async (filepath, var) => {
   let editor = await openFile(filepath)
   var := Editor.Text.getAll(VSCode.TextEditor.document(editor))
-  Ok()
 }
 
 let restoreFile = async (filepath, var) => {
@@ -404,7 +370,6 @@ let restoreFile = async (filepath, var) => {
   )
   let _ = await Editor.Text.replace(document, replaceRange, var.contents)
   let _ = await VSCode.TextDocument.save(document)
-  Ok()
 }
 
 module R = {

@@ -20,9 +20,6 @@ let cleanup = async setup => {
 module IM = {
   include IM
 
-  let equal = (xs: IM.Log.t) => A.equal(xs, ...)
-  let deepEqual = (xs: IM.Log.t) => A.deepEqual(xs, ...)
-
   let wait = async setup => await setup.channels.inputMethod->Chan.once
   let wait2nd = async setup => {
     let _ = await setup.channels.inputMethod->Chan.once
@@ -33,8 +30,7 @@ module IM = {
     let promise = wait(setup)
     let positions = positions->Option.getOr(Editor.Cursor.getMany(setup.editor))
     Editor.Cursor.setMany(setup.editor, positions)
-    let result = VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-    let _ = await result
+    await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
     await promise
   }
 

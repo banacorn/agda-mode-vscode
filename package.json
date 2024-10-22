@@ -6,7 +6,7 @@
 	"publisher": "banacorn",
 	"version": "0.4.7",
 	"engines": {
-		"vscode": "^1.74.0"
+		"vscode": "^1.94.0"
 	},
 	"categories": [
 		"Other"
@@ -41,7 +41,7 @@
 		"compare-versions": "^3.5.1",
 		"eventemitter3": ">=4.0.0",
 		"getos": "^3.2.1",
-		"language-server-mule": "github:banacorn/language-server-mule#v0.0.5",
+		"language-server-mule": "github:banacorn/language-server-mule#v0.5.0",
 		"react": "^18.0.0",
 		"react-dom": "^18.0.0",
 		"rescript": "^11.1.4",
