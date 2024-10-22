@@ -406,3 +406,19 @@ let restoreFile = async (filepath, var) => {
   let _ = await VSCode.TextDocument.save(document)
   Ok()
 }
+
+module R = {
+  let unwrap = (x: result<'a, 'e>): 'a =>
+    switch x {
+    | Ok(x) => x
+    | Error(error) => raise(error)
+    }
+}
+
+// for handling promise<result<'a, 'error>> in tests
+module P = {
+  let unwrap = async (promise: promise<result<'a, 'e>>): 'a => {
+    let result = await promise
+    R.unwrap(result)
+  }
+}

@@ -80,7 +80,6 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     }
   })
   ->subscribe
-
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(event => {
     let document = VSCode.TextEditor.document(editor)
