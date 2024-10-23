@@ -1,5 +1,3 @@
-open Belt
-
 type t =
   | Load
   | Compile
@@ -80,9 +78,9 @@ let encode = (
 ) => {
   let libraryPath: string = {
     // add the current directory to the front
-    Js.Array.unshift(".", libraryPath)->ignore
+    libraryPath->Array.unshift(".")->ignore
     // add quotes and then concatenate the paths with commas
-    Js.Array.joinWith(", ", Array.map(libraryPath, x => "\"" ++ (Parser.filepath(x) ++ "\"")))
+    libraryPath->Array.map(x => "\"" ++ (Parser.filepath(x) ++ "\""))->Array.join(", ")
   }
 
   let highlightingMethod = highlightingMethod ? "Direct" : "Indirect"

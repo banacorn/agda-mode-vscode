@@ -1,4 +1,3 @@
-open Belt
 open Common
 module type Module = {
   type t = {
@@ -52,7 +51,7 @@ module Module: Module = {
     let delta = ref(0)
     let replacements =
       diffs
-      ->Array.keep(diff => diff.changed)
+      ->Array.filter(diff => diff.changed)
       ->Array.map(diff => {
         let range = VSCode.Range.make(
           document->VSCode.TextDocument.positionAt(fst(diff.originalInterval) - delta.contents),
@@ -96,7 +95,7 @@ module Module: Module = {
 
   let getContent = (self, document) => {
     let innerRange = getInnerRange(self, document)
-    Editor.Text.get(document, innerRange)->Js.String.trim
+    Editor.Text.get(document, innerRange)->String.trim
   }
 
   let setContent = (self, document, text) => {

@@ -13,7 +13,7 @@ module GiveAction = {
     open JsonCombinators.Json.Decode
     Util.Decode.sum(x => {
       switch x {
-      | "GiveString" => Payload(string->map((. s) => GiveString(s)))
+      | "GiveString" => Payload(string->map(s => GiveString(s)))
       | "GiveParen" => TagOnly(GiveParen)
       | "GiveNoParen" => TagOnly(GiveNoParen)
       | tag => raise(DecodeError("[Response.GiveAction] Unknown constructor: " ++ tag))
@@ -78,12 +78,12 @@ module DisplayInfo = {
     | Version(string) => "Version " ++ string
     }
 
-  let parse = (xs: array<Token.t>): option<t> =>{
+  let parse = (xs: array<Token.t>): option<t> => {
     switch xs[1] {
     | Some(A(rawPayload)) =>
-      // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions 
+      // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions
       // we need to replace them with actual EOLs
-      let payload = Js.String.replaceByRe(%re("/\\n|\\r\\n/g"), "\n", rawPayload)
+      let payload = rawPayload->String.replaceRegExp(%re("/\\n|\\r\\n/g"), "\n")
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>
@@ -109,7 +109,8 @@ module DisplayInfo = {
       | _ => None
       }
     | _ => None
-    }}
+    }
+  }
 }
 
 // Here's the corresponding datatype in Haskell:
@@ -212,8 +213,8 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
     | Some(A("agda2-status-action")) =>
       switch xs[1] {
       | Some(A(status)) =>
-        let pulp = status |> Js.String.split(",")
-        Ok(Status(pulp |> Js.Array.includes("ShowImplicit"), pulp |> Js.Array.includes("Checked")))
+        let pulp = status->String.split(",")
+        Ok(Status(pulp->Array.includes("ShowImplicit"), pulp->Array.includes("Checked")))
       | _ => Ok(Status(false, false))
       }
     | Some(A("agda2-maybe-goto")) =>
@@ -290,7 +291,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         | _ => Ok(ClearRunningInfo)
         }
       | _ =>
-        switch DisplayInfo.parse(xs |> Js.Array.sliceFrom(1)) {
+        switch DisplayInfo.parse(xs->Array.sliceToEnd(~start=1)) {
         | Some(info) => Ok(DisplayInfo(info))
         | None => err(12)
         }

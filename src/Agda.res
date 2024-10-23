@@ -194,7 +194,7 @@ module Indices: Indices = {
 
     // 6003
     let lastInterval =
-      intervals[Array.length(intervals) - 1]->Option.mapWithDefault(0, ((_, x)) => x + 1)
+      intervals[Array.length(intervals) - 1]->Option.mapOr(0, ((_, x)) => x + 1)
 
     {
       intervals,

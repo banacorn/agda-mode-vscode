@@ -1,5 +1,4 @@
 open Common
-open Belt
 
 module Decoration = Highlighting__Decoration
 module SemanticToken = Highlighting__SemanticToken
@@ -202,31 +201,13 @@ module Module: Module = {
       VSCode.Position.translate(insertPosition, 0, 1),
     )
 
-    // // insert a space
-    // Editor.Text.batchInsert'(editor, [insertPosition], " ")
-    // ->Promise.flatMap(succeed =>
-    //   if succeed {
-    //     // delete that space
-    //     Editor.Text.batchReplace'(editor, [(deleteRange, "")])
-    //   } else {
-    //     Promise.resolved(false)
-    //   }
-    // )
-    // // save after messing with the file
-    // ->Promise.flatMap(_ => VSCode.TextDocument.save(document))
-    // ->Promise.map(_ => ())
-
     // insert a space
     let succeed = await Editor.Text.insert(document, insertPosition, " ")
 
-    let _ = await (
-      if succeed {
-        // delete that space
-        Editor.Text.replace(document, deleteRange, "")
-      } else {
-        Promise.resolve(false)
-      }
-    )
+    if succeed {
+      // delete that space
+      let _ = await Editor.Text.replace(document, deleteRange, "")
+    }
     // save after messing with the file
     let _ = await VSCode.TextDocument.save(document)
   }
@@ -243,7 +224,7 @@ module Module: Module = {
         let action = Change.classify(change, token)
         Change.apply(token, action)
       })
-      ->Array.concatMany
+      ->Array.flat
 
     // apply changes to the cached tokens
     changes->Array.forEach(change => {
@@ -253,17 +234,17 @@ module Module: Module = {
 
   let getSemanticTokens = (self: t) => self.semanticTokens
 
-  let apply = (self, tokens, editor) => {
+  let apply = async (self, tokens, editor) => {
     if Config.Highlighting.getHighlightWithThemeColors() {
       let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
       self.semanticTokens = semanticTokens
       self.decorations = Array.concat(self.decorations, decorations)
       // apply cached tokens to the editor, by making a change to the file
-      triggerDocumentChangeEvent(editor)
+      await triggerDocumentChangeEvent(editor)
     } else {
       let decorations = Tokens.toDecorations(tokens, editor)
       self.decorations = Array.concat(self.decorations, decorations)
-      Promise.resolve()
+      ()
     }
   }
 }

@@ -270,10 +270,6 @@ module Promise_ = {
   }
 }
 
-module Dict = {
-  let delete: (Js.Dict.t<'a>, string) => unit = %raw("function (dict, key) {delete dict[key]}")
-}
-
 module String = {
   // let eol = switch VSCode.TextDocument.eol {
   // | VSCode.EndOfLine.LF => "\n"

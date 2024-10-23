@@ -1,5 +1,3 @@
-open Belt
-
 open State__Type
 module View = State__View
 module Context = State__Type.Context

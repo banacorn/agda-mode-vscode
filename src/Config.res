@@ -57,8 +57,8 @@ module Connection = {
   let getCommandLineOptions = () =>
     Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.get("connection.commandLineOptions")
-    ->Option.mapOr([], s => Js.String.split(" ", Js.String.trim(s)))
-    ->Array.filter(s => Js.String.trim(s) != "")
+    ->Option.mapOr([], s => String.trim(s)->String.split(" "))
+    ->Array.filter(s => String.trim(s) != "")
 
   // Agda Language Server
   let getUseAgdaLanguageServer = () =>
@@ -100,8 +100,8 @@ module Connection = {
   let getAgdaLanguageServerCommandLineOptions = () =>
     Workspace.getConfiguration(Some("agdaMode"), None)
     ->WorkspaceConfiguration.get("connection.agdaLanguageServerOptions")
-    ->Option.mapOr([], s => Js.String.split(" ", Js.String.trim(s)))
-    ->Array.filter(s => Js.String.trim(s) != "")
+    ->Option.mapOr([], s => String.trim(s)->String.split(" "))
+    ->Array.filter(s => String.trim(s) != "")
 }
 
 module View = {
@@ -136,7 +136,7 @@ let getLibraryPath = () => {
     ->WorkspaceConfiguration.get("libraryPath")
     ->Option.getOr("")
   // split by comma, and clean them up
-  Js.String.split(",", raw)->Array.filter(x => x !== "")->Array.map(Parser.filepath)
+  raw->String.split(",")->Array.filter(x => x !== "")->Array.map(Parser.filepath)
 }
 
 module Highlighting = {
@@ -196,7 +196,7 @@ module InputMethod = {
       )
     switch raw {
     | Some(s) =>
-      switch Js.String.substrAtMost(~from=0, ~length=1, s) {
+      switch s->String.substring(~start=0, ~end=1) {
       | "" => "\\"
       | key => key
       }

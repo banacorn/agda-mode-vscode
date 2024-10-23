@@ -1,7 +1,7 @@
 // if end with '.agda' or '.lagda'
 let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
-  Js.Re.test_(%re("/\.agda$|\.lagda/i"), fileName) // RegEx updated to v10.1.4
+  RegExp.test(%re("/\.agda$|\.lagda/i"), fileName)
 }
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
@@ -58,7 +58,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   // input events
   ////////////////////////////////////////////////////////////////
 
-  let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
+  let subscribe = disposable => state.subscriptions->Array.push(disposable)->ignore
 
   let getCurrentEditor = () =>
     switch VSCode.Window.activeTextEditor {
@@ -200,8 +200,8 @@ let finalize = isRestart => {
 }
 
 let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) => {
-  let subscribe = x => x->Js.Array.push(subscriptions)->ignore
-  let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
+  let subscribe = x => subscriptions->Array.push(x)->ignore
+  let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   let channels = {
