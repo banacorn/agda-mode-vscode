@@ -332,13 +332,12 @@ module Module: Module = {
       Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
     }
     let rewriteRange = Editor.Range.fromInterval(state.document, rewriteInterval)
-    switch await Editor.Text.replace(state.document, rewriteRange, rewriteText) {
-    | true =>
+    if await Editor.Text.replace(state.document, rewriteRange, rewriteText) {
       // destroy the old goal
       Goal.destroyDecoration(goal)
       // locate the first new goal and place the cursor there
       placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
-    | false =>
+    } else {
       await State.View.Panel.display(
         state,
         Error("Goal-related Error"),

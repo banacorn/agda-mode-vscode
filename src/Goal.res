@@ -69,7 +69,7 @@ module Module: Module = {
         (range, text)
       })
 
-    let _ = await Editor.Text.batchReplace'(editor, replacements)
+    let _ = await Editor.Text.batchReplace(document, replacements)
     diffs->Array.map(diff => {
       // decorate the hole
       let (decorationBackground, decorationIndex) = Highlighting.decorateHole(

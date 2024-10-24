@@ -26,6 +26,7 @@ let runner: (unit => unit) => promise<result<'a, exn>> = %raw(` function(f) {
     return $$Promise.resolved(tmp);
   }`)
 
+// Paths of the extension and assets
 module Path = {
   let toAbsolute = filepath => NodeJs.Path.resolve([NodeJs.Global.dirname, filepath])
 
@@ -241,8 +242,7 @@ let onUnix = switch N.OS.type_() {
 | _ => true
 }
 
-// module for checking if Agda is present in PATH
-module Agda = {
+module AgdaMode = {
   module Error = {
     type t =
       | LanguageServerMuleErrors(array<LanguageServerMule.Source.Error.t>)
@@ -270,7 +270,6 @@ module Agda = {
   }
 
   type t = {
-    // ready: Promise.t<unit>,
     filepath: string,
     channels: State__Type.channels,
   }
@@ -307,35 +306,35 @@ module Agda = {
     | Some(Ok(state)) =>
       await promise
       disposable() // stop listening to responses
-      (self, state)
+      state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
   }
 
-  let case = async (cursorAndPayload, (self, state: State__Type.t)) => {
+  let case = async (self, cursorAndPayload, state: State__Type.t) => {
     let editor = await openFile(self.filepath)
 
     switch cursorAndPayload {
     | None => ()
     | Some(cursor, payload) =>
-      let _ = await Editor.Text.insert(state.document, cursor, payload)
+      let succeed = await Editor.Text.insert(state.document, cursor, payload)
+      if !succeed {
+        raise(Failure("Failed to insert text"))
+      }
       Editor.Cursor.set(editor, cursor)
     }
     switch await executeCommand("agda-mode.case") {
     | None => raise(Failure("Cannot case split " ++ self.filepath))
-    | Some(Ok(state)) => (self, state)
+    | Some(Ok(state)) => state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
   }
 
-  let refine = async (cursorAndPayload, (self, state: State__Type.t)): (
-    t,
-    AgdaModeVscode.State.t,
-  ) => {
+  let refine = async (self, cursorAndPayload, state: State__Type.t): AgdaModeVscode.State.t => {
     let editor = await openFile(self.filepath)
     switch cursorAndPayload {
     | None => ()
@@ -346,7 +345,7 @@ module Agda = {
     }
     switch await executeCommand("agda-mode.refine") {
     | None => raise(Failure("Cannot case refine " ++ self.filepath))
-    | Some(Ok(state)) => (self, state)
+    | Some(Ok(state)) => state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
@@ -368,8 +367,12 @@ let restoreFile = async (filepath, var) => {
     VSCode.Position.make(0, 0),
     VSCode.Position.make(lineCount, 0),
   )
-  let _ = await Editor.Text.replace(document, replaceRange, var.contents)
-  let _ = await VSCode.TextDocument.save(document)
+  let succeed = await Editor.Text.replace(document, replaceRange, var.contents)
+  if succeed {
+    let _ = await VSCode.TextDocument.save(document)
+  } else {
+    raise(Failure("Failed to restore the file"))
+  }
 }
 
 module R = {

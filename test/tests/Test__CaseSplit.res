@@ -42,12 +42,13 @@ describe_skip("Integration test", () => {
   let fileContent = ref("")
 
   Async.before(() => readFile(Path.asset("CaseSplit2.agda"), fileContent))
-  Async.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
+  // Async.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
 
   Async.it("should have more goals after splitting", async () => {
-    let context = await Agda.make("CaseSplit2.agda")
-    let result = await Agda.load(context)
-    let (_, state) = await Agda.case(Some(VSCode.Position.make(7, 16), "x"), result)
+    let ctx = await AgdaMode.make("CaseSplit2.agda")
+    let state = await ctx->AgdaMode.load
+    let state = await ctx->AgdaMode.case(Some(VSCode.Position.make(7, 16), "x"), state)
     Assert.deepEqual(Array.length(state.goals), 10)
+
   })
 })

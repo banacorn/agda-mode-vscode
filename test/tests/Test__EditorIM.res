@@ -30,7 +30,7 @@ module IM = {
     let promise = wait(setup)
     let positions = positions->Option.getOr(Editor.Cursor.getMany(setup.editor))
     Editor.Cursor.setMany(setup.editor, positions)
-    await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
     await promise
   }
 
@@ -354,7 +354,7 @@ describe("Input Method (Editor)", () => {
   })
 
   describe("Multiple cursors at once", () => {
-    let replaceCRLF = Js.String.replaceByRe(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
+    let replaceCRLF = x => x->String.replaceRegExp(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
 
     Async.it(
       `should work just fine (𝕟)`,

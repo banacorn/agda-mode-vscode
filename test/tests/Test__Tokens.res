@@ -3,18 +3,16 @@ open Test__Util
 
 describe("Tokens", () => {
   This.timeout(10000)
-  let context = Agda.make("GotoDefinition.agda")
-
   describe("GotoDefinition.agda", () => {
     Async.it(
       "should produce 28 tokens",
       async () => {
-        let context = await Agda.make("GotoDefinition.agda")
-        let (_, state) = await Agda.load(context)
+        let ctx = await AgdaMode.make("GotoDefinition.agda")
+        let state = await ctx->AgdaMode.load
         let tokens =
           state.tokens
           ->Tokens.toArray
-          ->Belt.Array.map(
+          ->Array.map(
             ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
           )
         Assert.deepEqual(28, Array.length(tokens))
@@ -24,12 +22,12 @@ describe("Tokens", () => {
     Async.it(
       "should produce correct tokens",
       async () => {
-        let context = await Agda.make("GotoDefinition.agda")
-        let (_, state) = await Agda.load(context)
+        let ctx = await AgdaMode.make("GotoDefinition.agda")
+        let state = await ctx->AgdaMode.load
         let tokens =
           state.tokens
           ->Tokens.toArray
-          ->Belt.Array.map(
+          ->Array.map(
             ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
           )
         Assert.deepEqual(
