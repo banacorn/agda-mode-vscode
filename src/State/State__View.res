@@ -20,7 +20,7 @@ module type Panel = {
     state,
     View.Header.t,
     View.Prompt.t,
-    string => Promise.t<result<unit, Connection.Error.t>>,
+    string => Promise.t<unit>,
   ) => Promise.t<unit>
   let interruptPrompt: state => Promise.t<unit>
 }
@@ -71,7 +71,7 @@ module Panel: Panel = {
     state,
     header,
     prompt,
-    callbackOnPromptSuccess: string => Promise.t<result<unit, Connection.Error.t>>,
+    callbackOnPromptSuccess: string => Promise.t<unit>,
   ): Promise.t<unit> => {
     // focus on the panel before prompting
     Context.setPrompt(true)

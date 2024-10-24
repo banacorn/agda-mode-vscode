@@ -277,10 +277,8 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     switch Registry.get(fileName) {
     | None => None
     | Some(state) =>
-      switch await State__Command.dispatchCommand(state, command) {
-      | Error(error) => Some(Error(error))
-      | Ok() => Some(Ok(state))
-      }
+      await State__Command.dispatchCommand(state, command)
+      Some(Ok(state))
     }
   })->subscribeMany
   // registerDocumentSemanticTokensProvider

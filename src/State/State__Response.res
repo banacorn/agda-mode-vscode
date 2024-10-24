@@ -86,25 +86,21 @@ module DisplayInfo = {
 
 let rec handle = async (
   state: State.t,
-  dispatchCommand: Command.t => promise<result<unit, Connection.Error.t>>,
+  dispatchCommand: Command.t => promise<unit>,
   response: Response.t,
-): result<unit, Connection.Error.t> => {
+): unit => {
   let sendAgdaRequest = State.sendRequest(state, handle(state, dispatchCommand, ...), ...)
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
       state.tokens->Tokens.insert(state.editor, annotations)
-      Ok()
     | HighlightingInfoIndirect(filepath) =>
       state.tokens->Tokens.addEmacsFilePath(filepath)
-      Ok()
     | HighlightingInfoIndirectJSON(filepath) =>
       state.tokens->Tokens.addJSONFilePath(filepath)
-      Ok()
     | ClearHighlighting =>
       state.tokens->Tokens.clear
       state.highlighting->Highlighting.clear
-      Ok()
     | Status(_checked, _displayImplicit) =>
       // display(
       //   "Status",
@@ -115,7 +111,7 @@ let rec handle = async (
       //     ++ string_of_bool(displayImplicit),
       //   ),
       // ),
-      Ok()
+      ()
 
     // if (displayImplicit || checked) {
     //   [
@@ -140,10 +136,8 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-      Ok()
     | InteractionPoints(indices) =>
       await State__Goal.instantiate(state, indices)
-      Ok()
     | GiveAction(index, give) =>
       let found = state.goals->Array.keep(goal => goal.index == index)
       switch found[0] {
@@ -153,30 +147,25 @@ let rec handle = async (
           Error("Error: Give failed"),
           [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
         )
-        Ok()
       | Some(goal) =>
         switch give {
         | GiveParen =>
           await State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))
           await State__Goal.removeBoundaryAndDestroy(state, goal)
-          Ok()
         | GiveNoParen =>
           // do nothing
           await State__Goal.removeBoundaryAndDestroy(state, goal)
-          Ok()
         | GiveString(content) =>
           await State__Goal.modify(state, goal, _ =>
             Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
           )
           await State__Goal.removeBoundaryAndDestroy(state, goal)
-          Ok()
         }
       }
     | MakeCase(makeCaseType, lines) =>
       switch State__Goal.pointed(state) {
       | None =>
         await State.View.Panel.displayOutOfGoalError(state)
-        Ok()
       | Some((goal, _)) =>
         switch makeCaseType {
         | Function => await State__Goal.replaceWithLines(state, goal, lines)
@@ -185,10 +174,10 @@ let rec handle = async (
         await dispatchCommand(Load)
       }
     | SolveAll(solutions) =>
-      let solveOne = async ((index, solution)): result<unit, Connection.Error.t> => {
+      let solveOne = async ((index, solution)) => {
         let goals = state.goals->Array.keep(goal => goal.index == index)
         switch goals[0] {
-        | None => Ok()
+        | None => ()
         | Some(goal) =>
           await State__Goal.modify(state, goal, _ => solution)
           await sendAgdaRequest(Give(goal))
@@ -205,11 +194,8 @@ let rec handle = async (
       } else {
         await State.View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
-      Ok()
-
     | DisplayInfo(info) =>
       await DisplayInfo.handle(state, info)
-      Ok()
     | RunningInfo(1, message) =>
       let message = removeNewlines(message)
       await State.View.Panel.displayInAppendMode(
@@ -217,22 +203,18 @@ let rec handle = async (
         Plain("Type-checking"),
         [Item.plainText(message)],
       )
-      Ok()
     | RunningInfo(verbosity, message) =>
       let message = removeNewlines(message)
       state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
       await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
-      Ok()
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)
       await Highlighting.apply(state.highlighting, state.tokens, state.editor)
-      Ok()
-    | _ => Ok()
+    | _ => ()
     }
 
-  let result = await handleResponse()
+  await handleResponse()
   // emit Response when it's been handled
   state.channels.responseHandled->Chan.emit(response)
-  result
 }

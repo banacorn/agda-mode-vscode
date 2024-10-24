@@ -30,22 +30,23 @@ let onDownload = (state, event) => {
 
 let sendRequest = (
   state: state,
-  handleResponse: Response.t => promise<result<unit, Connection.Error.t>>,
+  handleResponse: Response.t => promise<unit>,
   request: Request.t,
-): promise<result<unit, Connection.Error.t>> => {
+): promise<unit> => {
   let sendRequestAndHandleResponses = (
     state,
     request,
-    handler: Response.t => promise<result<unit, Connection.Error.t>>,
-  ): promise<result<unit, Connection.Error.t>> => {
+    handler: Response.t => promise<unit>,
+  ): promise<unit> => {
     let onResponse = async result =>
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
       | Ok(response) =>
-        switch await handler(response) {
-        | Error(error) => await View.Panel.displayConnectionError(state, error)
-        | Ok() => ()
-        }
+        await handler(response)
+        // switch await handler(response) {
+        // | Error(error) => await View.Panel.displayConnectionError(state, error)
+        // | Ok() => ()
+        // }
       }
     Connection.sendRequest(
       state.globalStoragePath,
@@ -58,10 +59,8 @@ let sendRequest = (
       switch result {
       | Error(error) =>
         await View.Panel.displayConnectionError(state, error)
-        Error(error)
       | Ok(status) =>
         await View.Panel.displayConnectionStatus(state, status)
-        Ok()
       }
     )
   }
