@@ -327,7 +327,9 @@ module AgdaMode = {
     }
     switch await executeCommand("agda-mode.case") {
     | None => raise(Failure("Cannot case split " ++ self.filepath))
-    | Some(Ok(state)) => state
+    | Some(Ok(state)) => 
+        // state.channels.
+        state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))

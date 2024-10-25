@@ -22,5 +22,5 @@ g1 = λ where
   x → {!   !}
   y → {!   !}
 
-issue16 : ℕ → ℕ
+issue16 : ℕ → ℕ 
 issue16 = λ {x → {!   !} }

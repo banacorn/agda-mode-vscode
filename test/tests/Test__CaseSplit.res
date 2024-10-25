@@ -38,11 +38,11 @@ describe("State__Goal.caseSplitAux dry run", () => {
   })
 })
 
-describe_skip("Integration test", () => {
+describe_only("Integration test", () => {
   let fileContent = ref("")
 
   Async.before(() => readFile(Path.asset("CaseSplit2.agda"), fileContent))
-  // Async.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
+  Async.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
 
   Async.it("should have more goals after splitting", async () => {
     let ctx = await AgdaMode.make("CaseSplit2.agda")

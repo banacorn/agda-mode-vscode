@@ -38,11 +38,18 @@ let sendRequest = (
     request,
     handler: Response.t => promise<unit>,
   ): promise<unit> => {
-    let onResponse = async result =>
+    let (responseHandlerPromise, resolve, _) = Util.Promise_.pending()
+    let onResponse = async result => {
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
       | Ok(response) => await handler(response)
       }
+      resolve()
+    }
+
+    // only resolve the promise after:
+    //  1. the result of connection has been displayed
+    //  2. the response has been handled
     Connection.sendRequest(
       state.globalStoragePath,
       onDownload(state, ...),
@@ -50,12 +57,13 @@ let sendRequest = (
       state.document,
       request,
       onResponse
-    )->Promise.then(async result =>
+    )->Promise.then(async result => {
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
       | Ok(status) => await View.Panel.displayConnectionStatus(state, status)
       }
-    )
+      await responseHandlerPromise
+    })
   }
 
   state.agdaRequestQueue->RequestQueue.push(

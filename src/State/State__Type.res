@@ -3,13 +3,13 @@ open Belt
 // For throttling Requests send to Agda
 // 1 Request to Agda at a time
 module RequestQueue: {
-  type t<'a>
-  let make: unit => t<'a>
+  type t
+  let make: unit => t
   // only gets resolved after the Request has been handled
-  let push: (t<'a>, Request.t => promise<'a>, Request.t) => promise<'a>
+  let push: (t, Request.t => promise<unit>, Request.t) => promise<unit>
 } = {
-  type t<'a> = {
-    queue: array<unit => promise<'a>>,
+  type t = {
+    queue: array<unit => promise<unit>>,
     mutable busy: bool,
   }
 
@@ -41,9 +41,8 @@ module RequestQueue: {
   let push = (self, sendRequestAndHandleResponses, request) => {
     let (promise, resolve, _) = Util.Promise_.pending()
     let thunk = async () => {
-      let response = await sendRequestAndHandleResponses(request)
-      resolve(response)
-      response
+      await sendRequestAndHandleResponses(request)
+      resolve()
     }
     // push to the back of the queue
     Js.Array.push(thunk, self.queue)->ignore
@@ -129,7 +128,7 @@ type t = {
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
-  mutable agdaRequestQueue: RequestQueue.t<unit>,
+  mutable agdaRequestQueue: RequestQueue.t,
   globalStoragePath: string,
   extensionPath: string,
   channels: channels,

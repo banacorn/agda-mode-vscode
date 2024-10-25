@@ -1,7 +1,5 @@
 // from Agda Response to Tasks
-open Belt
-
-let removeNewlines = string => string->Js.String2.split("\n")->Belt.Array.joinWith("\n", x => x)
+let removeNewlines = string => string->String.split("\n")->Array.join("\n")
 
 open Response
 module DisplayInfo = {
@@ -18,7 +16,7 @@ module DisplayInfo = {
       await State.View.Panel.display(
         state,
         Success("Compilation result"),
-        Array.concatMany([message, errors, warnings]),
+        Array.flat([message, errors, warnings]),
       )
     | Constraints(None) => await State.View.Panel.display(state, Plain("No Constraints"), [])
     | Constraints(Some(body)) =>
@@ -34,7 +32,7 @@ module DisplayInfo = {
       await State.View.Panel.display(
         state,
         Plain(header),
-        Array.concatMany([goals, metas, errors, warnings]),
+        Array.flat([goals, metas, errors, warnings]),
       )
     | Time(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
@@ -94,15 +92,12 @@ let rec handle = async (
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
       state.tokens->Tokens.insert(state.editor, annotations)
-    | HighlightingInfoIndirect(filepath) =>
-      state.tokens->Tokens.addEmacsFilePath(filepath)
-    | HighlightingInfoIndirectJSON(filepath) =>
-      state.tokens->Tokens.addJSONFilePath(filepath)
+    | HighlightingInfoIndirect(filepath) => state.tokens->Tokens.addEmacsFilePath(filepath)
+    | HighlightingInfoIndirectJSON(filepath) => state.tokens->Tokens.addJSONFilePath(filepath)
     | ClearHighlighting =>
       state.tokens->Tokens.clear
       state.highlighting->Highlighting.clear
-    | Status(_checked, _displayImplicit) =>
-      // display(
+    | Status(_checked, _displayImplicit) => // display(
       //   "Status",
       //   Some(
       //     "Typechecked: "
@@ -136,10 +131,9 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-    | InteractionPoints(indices) =>
-      await State__Goal.instantiate(state, indices)
+    | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
-      let found = state.goals->Array.keep(goal => goal.index == index)
+      let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
       | None =>
         await State.View.Panel.display(
@@ -164,8 +158,7 @@ let rec handle = async (
       }
     | MakeCase(makeCaseType, lines) =>
       switch State__Goal.pointed(state) {
-      | None =>
-        await State.View.Panel.displayOutOfGoalError(state)
+      | None => await State.View.Panel.displayOutOfGoalError(state)
       | Some((goal, _)) =>
         switch makeCaseType {
         | Function => await State__Goal.replaceWithLines(state, goal, lines)
@@ -175,7 +168,7 @@ let rec handle = async (
       }
     | SolveAll(solutions) =>
       let solveOne = async ((index, solution)) => {
-        let goals = state.goals->Array.keep(goal => goal.index == index)
+        let goals = state.goals->Array.filter(goal => goal.index == index)
         switch goals[0] {
         | None => ()
         | Some(goal) =>
@@ -194,8 +187,7 @@ let rec handle = async (
       } else {
         await State.View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
-    | DisplayInfo(info) =>
-      await DisplayInfo.handle(state, info)
+    | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
       let message = removeNewlines(message)
       await State.View.Panel.displayInAppendMode(
