@@ -91,10 +91,27 @@ module ViewCache = {
     }
 }
 
+// datatype for logging
+module Log = {
+  type t =
+    | CommandDispatched(Command.t)
+    | CommandHandled(Command.t)
+    | Others(string) // generic string
+
+  let toString = log =>
+    switch log {
+    | CommandDispatched(command) => "[ command ] dispatched: " ++ Command.toString(command)
+    | CommandHandled(command) => "[ command ] handled:    " ++ Command.toString(command)
+    | Others(str) => str
+    }
+}
+
 type channels = {
   inputMethod: Chan.t<IM.Log.t>,
   // emits when a Response has been handled
   responseHandled: Chan.t<Response.t>,
+  // for debugging
+  log: Chan.t<Log.t>,
 }
 
 type t = {

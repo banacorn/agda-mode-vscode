@@ -41,12 +41,7 @@ let sendRequest = (
     let onResponse = async result =>
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
-      | Ok(response) =>
-        await handler(response)
-        // switch await handler(response) {
-        // | Error(error) => await View.Panel.displayConnectionError(state, error)
-        // | Ok() => ()
-        // }
+      | Ok(response) => await handler(response)
       }
     Connection.sendRequest(
       state.globalStoragePath,
@@ -57,10 +52,8 @@ let sendRequest = (
       onResponse
     )->Promise.then(async result =>
       switch result {
-      | Error(error) =>
-        await View.Panel.displayConnectionError(state, error)
-      | Ok(status) =>
-        await View.Panel.displayConnectionStatus(state, status)
+      | Error(error) => await View.Panel.displayConnectionError(state, error)
+      | Ok(status) => await View.Panel.displayConnectionStatus(state, status)
       }
     )
   }

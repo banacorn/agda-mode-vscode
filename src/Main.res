@@ -38,7 +38,7 @@ module Inputs: {
   }
 }
 
-let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
+let initialize = (channels, extensionPath, globalStoragePath, editor, fileName) => {
   let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)
@@ -46,7 +46,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
   ->Promise.done
 
   // not in the Registry, instantiate a State
-  let state = State.make(debugChan, globalStoragePath, extensionPath, editor)
+  let state = State.make(channels, globalStoragePath, extensionPath, editor)
 
   // remove it from the Registry on request
   state.onRemoveFromRegistry
@@ -207,6 +207,17 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   let channels = {
     State__Type.inputMethod: Chan.make(),
     responseHandled: Chan.make(),
+    log: Chan.make(),
+  }
+  // subscribe to the logging channel when in debug mode
+  let debug = false
+  if debug {
+    // log the event
+    channels.log
+    ->Chan.on(message => {
+      Js.log(State__Type.Log.toString(message))
+    })
+    ->ignore
   }
 
   // on open editor

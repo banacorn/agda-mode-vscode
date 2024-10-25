@@ -3,9 +3,12 @@ open Command
 
 // from Editor Command to Tasks
 let rec dispatchCommand = async (state: State.t, command): unit => {
+  state.channels.log->Chan.emit(CommandDispatched(command))
   let dispatchCommand = dispatchCommand(state, ...)
-  let sendAgdaRequest =
-    State.sendRequest(state, State__Response.handle(state, dispatchCommand, ...), ...)
+  let sendAgdaRequest = async request => {
+    await State.sendRequest(state, State__Response.handle(state, dispatchCommand, ...), request)
+    state.channels.log->Chan.emit(CommandHandled(command))
+  }
   let header = View.Header.Plain(Command.toString(command))
   switch command {
   | Load =>
@@ -440,16 +443,11 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       )
     }
 
-  | InputMethod(InsertChar(char)) =>
-    await State__InputMethod.insertChar(state, char)
-  | InputMethod(BrowseUp) =>
-    await State__InputMethod.moveUp(state)
-  | InputMethod(BrowseDown) =>
-    await State__InputMethod.moveDown(state)
-  | InputMethod(BrowseLeft) =>
-    await State__InputMethod.moveLeft(state)
-  | InputMethod(BrowseRight) =>
-    await State__InputMethod.moveRight(state)
+  | InputMethod(InsertChar(char)) => await State__InputMethod.insertChar(state, char)
+  | InputMethod(BrowseUp) => await State__InputMethod.moveUp(state)
+  | InputMethod(BrowseDown) => await State__InputMethod.moveDown(state)
+  | InputMethod(BrowseLeft) => await State__InputMethod.moveLeft(state)
+  | InputMethod(BrowseRight) => await State__InputMethod.moveRight(state)
   | LookupSymbol =>
     // get the selected text
     // query the user instead if no text is selected
