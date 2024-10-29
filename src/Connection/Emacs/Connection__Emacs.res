@@ -213,13 +213,15 @@ module Module: Module = {
         scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
       | Ok(Yield(Last(priority, response))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
-        // stop the Agda Response listener
-        stopResponseListener(Ok())
         // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler->Scheduler.runLast(response => {
-          callback(Ok(response))
-          // resolve the `responseHandlingPromise` after all Last Responses have been handled
-        })
+        // resolve the `responseHandlingPromise` after all Last Responses have been handled
+        scheduler
+        ->Scheduler.runLast(response => callback(Ok(response)))
+        ->Promise.finally(() =>
+          // stop the Agda Response listener
+          stopResponseListener(Ok())
+        )
+        ->Promise.done
       }
 
     // start listening for responses

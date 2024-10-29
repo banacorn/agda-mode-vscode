@@ -42,11 +42,14 @@ let sendRequest = (
     let onResponse = async result => {
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
-      | Ok(response) => await handler(response)
+      | Ok(response) =>
+        await handler(response)
+        state.channels.log->Chan.emit(ResponseHandled(response))
       }
       resolve()
     }
 
+    state.channels.log->Chan.emit(RequestSent(request))
     // only resolve the promise after:
     //  1. the result of connection has been displayed
     //  2. the response has been handled

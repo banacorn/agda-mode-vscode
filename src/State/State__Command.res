@@ -8,6 +8,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   let sendAgdaRequest = async request => {
     await State.sendRequest(state, State__Response.handle(state, dispatchCommand, ...), request)
     state.channels.log->Chan.emit(CommandHandled(command))
+    state.channels.commandHandled->Chan.emit(command)
   }
   let header = View.Header.Plain(Command.toString(command))
   switch command {

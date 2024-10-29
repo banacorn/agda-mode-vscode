@@ -131,7 +131,8 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-    | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
+    | InteractionPoints(indices) => 
+      await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
@@ -164,7 +165,9 @@ let rec handle = async (
         | Function => await State__Goal.replaceWithLines(state, goal, lines)
         | ExtendedLambda => await State__Goal.replaceWithLambda(state, goal, lines)
         }
-        await dispatchCommand(Load)
+        // dispatch `agda-mode:load` but do it asynchronously
+        // so that we can finish let `agda-mode:case` finish first
+        dispatchCommand(Load)->ignore 
       }
     | SolveAll(solutions) =>
       let solveOne = async ((index, solution)) => {

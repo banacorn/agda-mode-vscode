@@ -1,4 +1,4 @@
-module CaseSplit1 where
+module CaseSplit where
 
 data ℕ : Set where
   Z : ℕ

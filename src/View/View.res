@@ -338,6 +338,15 @@ module EventFromView = {
     | PromptIMUpdate(PromptIMUpdate.t)
     | JumpToTarget(Link.t)
 
+  let toString = x =>
+    switch x {
+    | Initialized => "Initialized"
+    | Destroyed => "Destroyed"
+    | InputMethod(_) => "InputMethod"
+    | PromptIMUpdate(_) => "PromptIMUpdate"
+    | JumpToTarget(_) => "JumpToTarget"
+    }
+
   let chan: Chan.t<t> = Chan.make()
   let eventContext = React.createContext(chan)
 

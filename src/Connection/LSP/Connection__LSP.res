@@ -304,8 +304,7 @@ module Module: Module = {
     // stop listening for requests from server once `ResponseEnd` arrived
     stopListeningForNotifications->VSCode.Disposable.dispose
     // start handling Last Responses, after all NonLast Responses have been handled
-    scheduler->Scheduler.runLast(handler)
-
+    await scheduler->Scheduler.runLast(handler)
     result
   }
 }

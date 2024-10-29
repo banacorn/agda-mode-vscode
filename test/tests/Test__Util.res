@@ -316,6 +316,7 @@ module AgdaMode = {
   let case = async (self, cursorAndPayload, state: State__Type.t) => {
     let editor = await openFile(self.filepath)
 
+    // set cursor and insert the target for case splitting
     switch cursorAndPayload {
     | None => ()
     | Some(cursor, payload) =>
@@ -325,11 +326,27 @@ module AgdaMode = {
       }
       Editor.Cursor.set(editor, cursor)
     }
+
+    // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
+    // listen to the `agda-mode.load` command to know when the whole case split process is done
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let destructor = state.channels.commandHandled->Chan.on(command => {
+      switch command {
+      | Command.Load => resolve()
+      | _ => ()
+      }
+    })
+
     switch await executeCommand("agda-mode.case") {
     | None => raise(Failure("Cannot case split " ++ self.filepath))
-    | Some(Ok(state)) => 
-        // state.channels.
-        state
+    | Some(Ok(state)) =>
+      // wait for the `agda-mode.load` command to be handled
+      await promise
+      // stop listening to commands
+      destructor()
+
+      // resolve the promise
+      state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))

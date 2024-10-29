@@ -4,7 +4,7 @@ open Test__Util
 describe("State__Goal.caseSplitAux dry run", () => {
   Async.it("should calculate the infomation needed for case splitting correctly", async () => {
     let editor = await VSCode.Window.showTextDocumentWithUri(
-      VSCode.Uri.file(Path.asset("CaseSplit1.agda")),
+      VSCode.Uri.file(Path.asset("CaseSplit.agda")),
       None,
     )
     let document = VSCode.TextEditor.document(editor)
@@ -38,14 +38,15 @@ describe("State__Goal.caseSplitAux dry run", () => {
   })
 })
 
-describe_only("Integration test", () => {
+describe("agda-mode:case", () => {
+  This.timeout(10000)
   let fileContent = ref("")
 
-  Async.before(() => readFile(Path.asset("CaseSplit2.agda"), fileContent))
-  Async.after(() => restoreFile(Path.asset("CaseSplit2.agda"), fileContent))
+  Async.before(() => readFile(Path.asset("CaseSplit.agda"), fileContent))
+  Async.after(() => restoreFile(Path.asset("CaseSplit.agda"), fileContent))
 
   Async.it("should have more goals after splitting", async () => {
-    let ctx = await AgdaMode.make("CaseSplit2.agda")
+    let ctx = await AgdaMode.make("CaseSplit.agda")
     let state = await ctx->AgdaMode.load
     let state = await ctx->AgdaMode.case(Some(VSCode.Position.make(7, 16), "x"), state)
     Assert.deepEqual(Array.length(state.goals), 10)

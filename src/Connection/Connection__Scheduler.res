@@ -18,7 +18,7 @@ module Module: {
   let make: unit => t<'a>
   let addLast: (t<'a>, int, Response.t) => unit
   let runNonLast: (t<'a>, Response.t => Promise.t<'a>, Response.t) => unit
-  let runLast: (t<'a>, Response.t => Promise.t<'a>) => unit
+  let runLast: (t<'a>, Response.t => Promise.t<'a>) => promise<unit>
 } = {
   type t<'a> = {
     // keep the number of running NonLast Response
@@ -34,12 +34,14 @@ module Module: {
   // NonLast Responses should fed here
   let runNonLast = (self, handler, response) => {
     self.tally = self.tally + 1
-    handler(response)->Promise.finally(_ => {
+    handler(response)
+    ->Promise.finally(_ => {
       self.tally = self.tally - 1
       if self.tally == 0 {
         self.allDone->Chan.emit()
       }
-    })->Promise.done
+    })
+    ->Promise.done
   }
   // deferred (Last) Responses are queued here
   let addLast = (self, priority, response) => {
@@ -53,25 +55,23 @@ module Module: {
       self.allDone->Chan.once
     }
   // start handling Last Responses, after all NonLast Responses have been handled
-  let runLast = (self, handler) =>
-    self
-    ->onceDone
-    ->Promise.finally(() => {
-      // sort the deferred Responses by priority (ascending order)
-      let deferredLastResponses =
-        Js.Array.sortInPlaceWith(
-          (x, y) => compare(fst(x), fst(y)),
-          self.deferredLastResponses,
-        )->Array.map(snd)
+  let runLast = async (self, handler) => {
+    await self->onceDone
+    // sort the deferred Responses by priority (ascending order)
+    let deferredLastResponses =
+      Js.Array.sortInPlaceWith(
+        (x, y) => compare(fst(x), fst(y)),
+        self.deferredLastResponses,
+      )->Array.map(snd)
 
-      // insert `CompleteHighlightingAndMakePromptReappear` after handling Last Responses
-      Js.Array.unshift(
-        Response.CompleteHighlightingAndMakePromptReappear,
-        deferredLastResponses,
-      )->ignore
+    // insert `CompleteHighlightingAndMakePromptReappear` after handling Last Responses
+    Js.Array.unshift(
+      Response.CompleteHighlightingAndMakePromptReappear,
+      deferredLastResponses,
+    )->ignore
 
-      deferredLastResponses->Array.map(res => handler(res))->Util.oneByOne->ignore
-    })->Promise.done
+    let _ = await deferredLastResponses->Array.map(res => handler(res))->Util.oneByOne
+  }
 }
 
 include Module

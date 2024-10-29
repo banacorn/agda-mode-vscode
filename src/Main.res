@@ -207,10 +207,11 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   let channels = {
     State__Type.inputMethod: Chan.make(),
     responseHandled: Chan.make(),
+    commandHandled: Chan.make(),
     log: Chan.make(),
   }
   // subscribe to the logging channel when in debug mode
-  let debug = true
+  let debug = false
   if debug {
     // log the event
     channels.log
