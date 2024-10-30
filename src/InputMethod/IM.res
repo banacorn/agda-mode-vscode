@@ -1,18 +1,4 @@
 open Common
-open Belt
-
-// type offset = int
-// type interval = (offset, offset)
-
-// let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
-// let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
-
-// let fromInterval = (document, interval) =>
-//   VSCode.Range.make(document->fromOffset(fst(interval)), document->fromOffset(snd(interval)))
-// let toInterval = (document, range) => (
-//   document->toOffset(VSCode.Range.start(range)),
-//   document->toOffset(VSCode.Range.end_(range)),
-// )
 
 module Input = {
   type candidateInput =
@@ -31,7 +17,8 @@ module Input = {
   let fromTextDocumentChangeEvent = (editor, event) => {
     // see if the change event happened in this TextEditor
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
-    let eventFileName = event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName->Parser.filepath
+    let eventFileName =
+      event->VSCode.TextDocumentChangeEvent.document->VSCode.TextDocument.fileName->Parser.filepath
     if fileName == eventFileName {
       // TextDocumentContentChangeEvent.t => Buffer.change
       event
@@ -84,7 +71,7 @@ module type Module = {
   let make: Chan.t<Log.t> => t
   let isActivated: t => bool
 
-  // To enable input '\' in editor, 
+  // To enable input '\' in editor,
   // we need to check whether buffer is empty when input method is activated
   // (Actually, we don't need this function, but I somehow can't get field instances from IM.t in State__InputMethod.res)
   let bufferIsEmpty: t => bool
@@ -104,7 +91,7 @@ module Module: Module = {
     let make = (editor, interval) =>
       switch editor {
       | None => {
-          interval: interval,
+          interval,
           decoration: None,
           buffer: Buffer.make(),
         }
@@ -112,7 +99,7 @@ module Module: Module = {
         let document = VSCode.TextEditor.document(editor)
         let range = Editor.Range.fromInterval(document, interval)
         {
-          interval: interval,
+          interval,
           decoration: Some(Editor.Decoration.underlineText(editor, range)),
           buffer: Buffer.make(),
         }
@@ -154,7 +141,7 @@ module Module: Module = {
       instances: [],
       activated: false,
       semaphore: false,
-      chanLog: chanLog,
+      chanLog,
     }
   }
 
@@ -169,12 +156,13 @@ module Module: Module = {
   // kill the Instances that are not are not pointed by cursors
   // returns `true` when the system should be Deactivate
   let validateCursorPositions = (instances, intervals): array<Instance.t> =>
-    instances->Array.keep((instance: Instance.t) => {
+    instances->Array.filter((instance: Instance.t) => {
       // if any selection falls into the range of the instance, the instance survives
       let survived =
         intervals->Array.some(((start, end_)) =>
           Instance.withIn(instance, start) && Instance.withIn(instance, end_)
         )
+
       // if not, the instance gets destroyed
       if !survived {
         Instance.destroy(instance)
@@ -188,7 +176,7 @@ module Module: Module = {
   > => {
     let accum = ref(0)
 
-    instances->Array.keepMap(instance => {
+    instances->Array.filterMap(instance => {
       let (start, end_) = instance.interval
 
       // update the interval with `accum`
@@ -265,7 +253,7 @@ module Module: Module = {
     // push rewrites to the `rewrites` queue
     let instances = {
       let accum = ref(0)
-      instancesWithChanges->Array.keepMap(((instance, change)) =>
+      instancesWithChanges->Array.filterMap(((instance, change)) =>
         switch change {
         | None => Some(instance)
         | Some(change) =>
@@ -282,14 +270,13 @@ module Module: Module = {
 
             // update the interval
             instance.interval = (start + accum.contents, end_ + accum.contents + delta)
-            Js.Array.push(
-              {
-                interval: (start, end_),
-                text: text,
-                instance: buffer.translation.further ? Some(instance) : None,
-              },
-              rewrites,
-            )->ignore
+            rewrites
+            ->Array.push({
+              interval: (start, end_),
+              text,
+              instance: buffer.translation.further ? Some(instance) : None,
+            })
+            ->ignore
             accum := accum.contents + delta
           })
 
@@ -341,12 +328,15 @@ module Module: Module = {
     let (promise, resolve, _) = Util.Promise_.pending()
 
     // this promise will be resolved, once the real edits have been made
-    promise->Promise.finally(() => {
+    promise
+    ->Promise.finally(() => {
       // redecorate instances
       rewrites->Array.forEach(rewrite => {
-        rewrite.instance->Option.forEach(instance => {
-          editor->Option.forEach(Instance.redecorate(instance, ...))
-        })
+        rewrite.instance->Option.forEach(
+          instance => {
+            editor->Option.forEach(Instance.redecorate(instance, ...))
+          },
+        )
       })
 
       // unlock the semaphore
@@ -354,7 +344,8 @@ module Module: Module = {
 
       // for testing
       logRewriteApplied(self)
-    })->Promise.done
+    })
+    ->Promise.done
 
     // deactivate if there are no instances left
     switch self.instances[0] {
@@ -378,10 +369,10 @@ module Module: Module = {
       self.activated = true
 
       // instantiate from an array of offsets
-      self.instances =
-        Js.Array.sortInPlaceWith((x, y) => compare(fst(x), fst(y)), intervals)->Array.map(
-          Instance.make(editor, ...),
-        )
+      self.instances = {
+        intervals->Array.sort((x, y) => Int.compare(fst(x), fst(y)))
+        intervals->Array.map(Instance.make(editor, ...))
+      }
 
       [Output.Activate]
     | Deactivate =>
@@ -390,6 +381,7 @@ module Module: Module = {
     | MouseSelect(intervals) =>
       if self.activated && !self.semaphore {
         self.instances = validateCursorPositions(self.instances, intervals)
+
         // deactivate if all instances have been destroyed
         if Js.Array.length(self.instances) == 0 {
           run(self, editor, Deactivate)

@@ -10,6 +10,9 @@ module AgdaPosition = {
     pos: int,
   }
 
+  let toVSCodePosition = (position: t) =>
+    VSCode.Position.make(position.line - 1, position.col - 1)
+
   let decode = {
     open JsonCombinators.Json.Decode
     tuple3(int, int, int)->map((. (line, col, pos)) => {
@@ -32,6 +35,9 @@ module AgdaInterval = {
   }
 
   let make = (start, end_) => {start, end_}
+
+  let toVSCodeRange = (range: t) =>
+    VSCode.Range.make(AgdaPosition.toVSCodePosition(range.start), AgdaPosition.toVSCodePosition(range.end_))
 
   let fuse = (a, b) => {
     let start = if a.start.pos > b.start.pos {

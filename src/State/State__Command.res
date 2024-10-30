@@ -411,7 +411,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
 
         // only select the ranges when it's on the same file
         if removeRoot(path) == removeRoot(fileName) {
-          let ranges = intervals->Array.map(Editor.Range.fromAgdaInterval)
+          let ranges = intervals->Array.map(Common.AgdaInterval.toVSCodeRange)
           // set cursor selections
           Editor.Selection.setMany(state.editor, ranges)
           // scroll to that part of the document
