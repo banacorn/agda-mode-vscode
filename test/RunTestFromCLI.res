@@ -23,17 +23,9 @@ Js.log(
   ("\n  extensionTestsPath: " ++ extensionTestsPath)),
 )
 
-try {
-  runTests({
-    extensionDevelopmentPath,
-    extensionTestsPath,
-  })->Promise.finally(() => {
-    NodeJs.Process.process->NodeJs.Process.exitWithCode(0)
-  })->ignore
-} catch {
-| error =>
-  Js.log(error)
-  Js.log("Failed to run tests")
-  NodeJs.Process.process->NodeJs.Process.exitWithCode(1)
-}
-
+runTests({
+  extensionDevelopmentPath,
+  extensionTestsPath,
+})
+->Promise.thenResolve(_ => NodeJs.Process.process->NodeJs.Process.exitWithCode(0))
+->Promise.done
