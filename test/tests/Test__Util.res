@@ -264,7 +264,7 @@ module AgdaMode = {
     switch result {
     | None =>
       let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
-      raise(Failure("Cannot find \"Agda\" in PATH: " ++ msg))
+      raise(Failure("Cannot find \"agda\" in PATH: " ++ msg))
     | Some(_method) => ()
     }
   }

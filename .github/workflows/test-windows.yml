@@ -66,6 +66,13 @@ jobs:
       # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
       # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
 
+    
+    - name: 🛠️ Add Stack install directory to PATH 
+      run: |
+        echo "$Env:APPDATA\local\bin" >> "$GITHUB_PATH"
+        echo "$Env:PATH"
+      # As demonstrated in: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-adding-a-system-path
+
     - name: ⏬ Install Agda
       run: |
         stack install --resolver lts-20.26 Agda-2.6.4
