@@ -37,7 +37,7 @@ module Input = {
 module Output = {
   type kind =
     | UpdateView(string, Translator.translation, int)
-    | Rewrite(array<(Interval.t, string)>, unit => unit)
+    | Rewrite(array<(VSCode.Range.t, string)>, unit => unit)
     | Activate
     | Deactivate
 
@@ -48,7 +48,7 @@ module Output = {
 module Log = {
   type kind =
     | UpdateView
-    | RewriteIssued(array<(Interval.t, string)>)
+    | RewriteIssued(array<(((int, int), (int, int)), string)>) // start line  // start column // end line  // end column
     | RewriteApplied
     | Activate
     | Deactivate
@@ -58,7 +58,22 @@ module Log = {
     xs->Array.map(x =>
       switch x {
       | UpdateView(_, _, _) => UpdateView
-      | Rewrite(xs, _) => RewriteIssued(xs)
+      | Rewrite(xs, _) =>
+        RewriteIssued(
+          xs->Array.map(((range, text)) => (
+            (
+              (
+                VSCode.Position.line(VSCode.Range.start(range)),
+                VSCode.Position.character(VSCode.Range.start(range)),
+              ),
+              (
+                VSCode.Position.line(VSCode.Range.start(range)),
+                VSCode.Position.character(VSCode.Range.end_(range)),
+              ),
+            ),
+            text,
+          )),
+        )
       | Activate => Activate
       | Deactivate => Deactivate
       }
@@ -84,7 +99,7 @@ module Module: Module = {
   module Instance = {
     type t = {
       mutable interval: Interval.t,
-      mutable range: VSCode.Range.t,
+      // mutable range: VSCode.Range.t,
       mutable decoration: option<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
@@ -93,7 +108,6 @@ module Module: Module = {
       switch editor {
       | None => {
           interval,
-          range: VSCode.Range.make(VSCode.Position.make(0, fst(interval)), VSCode.Position.make(0, snd(interval))),
           decoration: None,
           buffer: Buffer.make(),
         }
@@ -102,7 +116,7 @@ module Module: Module = {
         let range = Interval.toVSCodeRange(document, interval)
         {
           interval,
-          range,
+          // range,
           decoration: Some(Editor.Decoration.underlineText(editor, range)),
           buffer: Buffer.make(),
         }
@@ -114,10 +128,7 @@ module Module: Module = {
       instance.decoration->Option.forEach(Editor.Decoration.destroy)
 
       let document = VSCode.TextEditor.document(editor)
-      let (start, end_) = instance.interval
-      let start = document->VSCode.TextDocument.positionAt(start)
-      let end_ = document->VSCode.TextDocument.positionAt(end_)
-      let range = VSCode.Range.make(start, end_)
+      let range = Interval.toVSCodeRange(document, instance.interval)
 
       instance.decoration = Some(Editor.Decoration.underlineText(editor, range))
     }
@@ -151,6 +162,7 @@ module Module: Module = {
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {
     interval: Interval.t,
+    // range: VSCode.Range.t,
     text: string,
     // `instance` has been destroyed if is None
     instance: option<Instance.t>,
@@ -323,7 +335,18 @@ module Module: Module = {
     self.semaphore = true
 
     // calculate the replacements to be made to the editor
-    let replacements = rewrites->Array.map(({interval, text}) => (interval, text))
+    let replacementRanges = rewrites->Array.map(({interval, text}) => (
+      switch editor {
+      | None =>
+        // the line number is always 0 because we are in a <input> box
+        VSCode.Range.make(
+          VSCode.Position.make(0, fst(interval)),
+          VSCode.Position.make(0, snd(interval)),
+        )
+      | Some(editor) => Interval.toVSCodeRange(VSCode.TextEditor.document(editor), interval)
+      },
+      text,
+    ))
 
     let (promise, resolve, _) = Util.Promise_.pending()
 
@@ -351,9 +374,9 @@ module Module: Module = {
     switch self.instances[0] {
     | None =>
       deactivate(self)
-      [Output.Rewrite(replacements, resolve), Deactivate]
+      [Output.Rewrite(replacementRanges, resolve), Deactivate]
     | Some(instance) => [
-        Output.Rewrite(replacements, resolve),
+        Output.Rewrite(replacementRanges, resolve),
         UpdateView(
           Buffer.toSequence(instance.buffer),
           instance.buffer.translation,

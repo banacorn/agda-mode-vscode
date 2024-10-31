@@ -28,10 +28,6 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           await State.View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
-          let replacements = replacements->Array.map(((interval, text)) => {
-            let range = Interval.toVSCodeRange(state.document, interval)
-            (range, text)
-          })
           let _ = await Editor.Text.batchReplace(state.document, replacements)
           resolve()
         | Activate =>
@@ -80,7 +76,8 @@ module Module: Module = {
           // iterate through an array of `rewrites`
           let replaced = ref(previous.contents)
           let delta = ref(0)
-          let replace = (((start, end_), t)) => {
+          let replace = ((range, t)) => {
+            let (start, end_) = Common.Interval.fromVSCodeRange(state.document, range)
             replaced :=
               replaced.contents->String.slice(~start=0, ~end=delta.contents + start) ++
               t ++
