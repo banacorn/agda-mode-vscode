@@ -205,10 +205,7 @@ module Module: Module = {
     changes: array<Buffer.change>,
   ): array<(Instance.t, option<Buffer.change>)> => {
     // sort the changes base on their offsets in the ascending order
-    let changes = Js.Array.sortInPlaceWith(
-      (x: Buffer.change, y: Buffer.change) => compare(x.offset, y.offset),
-      changes,
-    )
+    Array.sort(changes, (x: Buffer.change, y: Buffer.change) => Int.compare(x.offset, y.offset))
 
     // iterate through Instances and changes
     // returns a list of Instances along with the changeEvent event that occurred inside that Instance
@@ -383,7 +380,7 @@ module Module: Module = {
         self.instances = validateCursorPositions(self.instances, intervals)
 
         // deactivate if all instances have been destroyed
-        if Js.Array.length(self.instances) == 0 {
+        if Array.length(self.instances) == 0 {
           run(self, editor, Deactivate)
         } else {
           []

@@ -20,8 +20,6 @@ module type Module = {
 }
 
 module Module: Module = {
-  open Belt
-
   module EditorIM = {
     let handle = async (state: State.t, output): unit => {
       open IM.Output
@@ -84,10 +82,10 @@ module Module: Module = {
           let delta = ref(0)
           let replace = (((start, end_), t)) => {
             replaced :=
-              replaced.contents->Js.String2.slice(~from=0, ~to_=delta.contents + start) ++
+              replaced.contents->String.slice(~start=0, ~end=delta.contents + start) ++
               t ++
-              replaced.contents->Js.String2.sliceToEnd(~from=delta.contents + end_)
-            delta := delta.contents + Js.String.length(t) - (end_ - start)
+              replaced.contents->String.sliceToEnd(~start=delta.contents + end_)
+            delta := delta.contents + String.length(t) - (end_ - start)
           }
 
           rewrites->Array.forEach(replace)
@@ -112,8 +110,8 @@ module Module: Module = {
         let inputLength = String.length(next)
 
         // helper funcion
-        let init = s => Js.String.substring(~from=0, ~to_=String.length(s) - 1, s)
-        let last = s => Js.String.substringToEnd(~from=String.length(s) - 1, s)
+        let init = s => String.substring(~start=0, ~end=String.length(s) - 1, s)
+        let last = s => String.substringToEnd(~start=String.length(s) - 1, s)
 
         if init(next) == previous {
           // Insertion
@@ -152,7 +150,7 @@ module Module: Module = {
     let activate = (state: State.t, input) => {
       // remove the ending backslash "\"
       let cursorOffset = String.length(input) - 1
-      let input = Js.String.substring(~from=0, ~to_=cursorOffset, input)
+      let input = String.substring(~start=0, ~end=cursorOffset, input)
 
       // update stored <input>
       previous.contents = input
@@ -207,7 +205,7 @@ module Module: Module = {
     }
 
   // activate the prompt IM when the user typed the activation key (default: "\")
-  let shouldActivatePromptIM = input => Js.String.endsWith(activationKey, input)
+  let shouldActivatePromptIM = input => String.endsWith(activationKey, input)
 
   let keyUpdatePromptIM = async (state: State.t, input) =>
     switch isActivated(state) {
@@ -259,7 +257,7 @@ module Module: Module = {
   let insertChar = async (state: State.t, char) =>
     switch isActivated(state) {
     | Editor =>
-      let char = Js.String.charAt(0, char)
+      let char = String.charAt(char, 0)
       let positions = Editor.Cursor.getMany(state.editor)
 
       let _ = await state.document->Editor.Text.batchInsert(positions, char)

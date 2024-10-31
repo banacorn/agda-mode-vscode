@@ -203,7 +203,6 @@ describe("Input Method (Editor)", () => {
       },
     )
 
-
     Async.it(
       `should translate "\\" to "\\"`,
       async () => {
@@ -213,9 +212,9 @@ describe("Input Method (Editor)", () => {
         Assert.deepEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "\\")
         Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "\\")]), Deactivate, RewriteApplied], log)
+        Assert.equal("\\", document->Editor.Text.getAll)
       },
     )
-
 
     Async.it(
       `Issue #55, should not deactivate when size of candidate symbols > 1`,
@@ -431,7 +430,7 @@ describe("Input Method (Editor)", () => {
         let log = await IM.upArrow(setup)
         Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "(")]), UpdateView, RewriteApplied], log)
         Assert.equal("(", document->Editor.Text.getAll)
-        // deactivate 
+        // deactivate
         let log = await IM.deactivate(setup)
         Assert.deepEqual([IM.Log.Deactivate], log)
         Assert.equal("(", document->Editor.Text.getAll)
@@ -462,7 +461,7 @@ describe("Input Method (Editor)", () => {
         let log = await IM.downArrow(setup)
         Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "¡")]), UpdateView, RewriteApplied], log)
         Assert.equal("¡", document->Editor.Text.getAll)
-        // deactivate 
+        // deactivate
         let log = await IM.deactivate(setup)
         Assert.deepEqual([IM.Log.Deactivate], log)
         Assert.equal("¡", document->Editor.Text.getAll)
