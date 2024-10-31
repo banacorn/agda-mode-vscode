@@ -21,13 +21,26 @@ module IM = {
   include IM
 
   let wait = async setup => await setup.channels.inputMethod->Chan.once
-  let wait2nd = async setup => {
-    let _ = await setup.channels.inputMethod->Chan.once
-    await setup.channels.inputMethod->Chan.once
+
+  // waits for n number of events
+  let waitMany = async (setup, n) => {
+    let received = []
+
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let destructor = setup.channels.inputMethod->Chan.on(batch => {
+      received->Array.push(batch) // mutates the array
+      if received->Array.length == n {
+        resolve()
+      }
+    })
+
+    await promise
+    destructor()
+    Array.flat(received)
   }
 
   let activate = async (setup, ~positions=?, ()) => {
-    let promise = wait(setup)
+    let promise = waitMany(setup, 1)
     let positions = positions->Option.getOr(Editor.Cursor.getMany(setup.editor))
     Editor.Cursor.setMany(setup.editor, positions)
     let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
@@ -35,15 +48,14 @@ module IM = {
   }
 
   let deactivate = async setup => {
-    let promise = wait(setup)
+    let promise = waitMany(setup, 1)
     let result = VSCode.Commands.executeCommand0("agda-mode.escape")
     let _ = await result
     await promise
   }
 
   let insertChar = async (setup, char) => {
-    let promise1 = wait(setup)
-    let promise2 = wait2nd(setup)
+    let promise = waitMany(setup, 2)
 
     let positions = Editor.Cursor.getMany(setup.editor)
 
@@ -53,17 +65,42 @@ module IM = {
       ->Editor.Text.batchInsert(positions, char)
 
     if succeed {
-      let result1 = await promise1
-      let result2 = await promise2
-      Array.concat(result1, result2)
+      await promise
     } else {
       raise(Js.Exn.raiseError("Failed to insert " ++ char))
     }
   }
 
+  // pressing the right arrow key
+  let rightArrow = async setup => {
+    let promise = waitMany(setup, 2)
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[BrowseRight]")
+    await promise
+  }
+
+  // pressing the left arrow key
+  let leftArrow = async setup => {
+    let promise = waitMany(setup, 2)
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[BrowseLeft]")
+    await promise
+  }
+
+  // pressing the up arrow key
+  let upArrow = async setup => {
+    let promise = waitMany(setup, 2)
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[BrowseUp]")
+    await promise
+  }
+
+  // pressing the down arrow key
+  let downArrow = async setup => {
+    let promise = waitMany(setup, 2)
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[BrowseDown]")
+    await promise
+  }
+
   let backspace = async setup => {
-    let promise1 = wait(setup)
-    let promise2 = wait2nd(setup)
+    let promise = waitMany(setup, 2)
     let end_ = Editor.Cursor.get(setup.editor)
     let start = end_->VSCode.Position.translate(0, -1)
     let range = VSCode.Range.make(start, end_)
@@ -73,9 +110,7 @@ module IM = {
       ->Editor.Text.delete(range)
 
     if succeed {
-      let result1 = await promise1
-      let result2 = await promise2
-      Array.concat(result1, result2)
+      await promise
     } else {
       raise(Js.Exn.raiseError("Failed to backspace"))
     }
@@ -167,6 +202,20 @@ describe("Input Method (Editor)", () => {
         Assert.equal("𝕟", document->Editor.Text.getAll)
       },
     )
+
+
+    Async.it(
+      `should translate "\\" to "\\"`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let log = await IM.activate(setup, ())
+        Assert.deepEqual([IM.Log.Activate], log)
+        let log = await IM.insertChar(setup, "\\")
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "\\")]), Deactivate, RewriteApplied], log)
+      },
+    )
+
 
     Async.it(
       `Issue #55, should not deactivate when size of candidate symbols > 1`,
@@ -349,6 +398,74 @@ describe("Input Method (Editor)", () => {
         // messing with the cursor
         let log = await IM.selectAndWait(setup, [(1, 1)])
         Assert.deepEqual([IM.Log.Deactivate], log)
+      },
+    )
+  })
+
+  describe("Candidates", () => {
+    Async.it(
+      `should be able to select the correct candidate with arrow keys 1`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        // activate the input method
+        let log = await IM.activate(setup, ())
+        Assert.deepEqual([IM.Log.Activate], log)
+        // insert "("
+        let log = await IM.insertChar(setup, "(")
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "(")]), UpdateView, RewriteApplied], log)
+        Assert.equal("(", document->Editor.Text.getAll)
+        // right arrow
+        let log = await IM.rightArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "[")]), UpdateView, RewriteApplied], log)
+        Assert.equal("[", document->Editor.Text.getAll)
+        // down arrow
+        let log = await IM.downArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "⟪")]), UpdateView, RewriteApplied], log)
+        Assert.equal("⟪", document->Editor.Text.getAll)
+        // left arrow
+        let log = await IM.leftArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "⟨")]), UpdateView, RewriteApplied], log)
+        Assert.equal("⟨", document->Editor.Text.getAll)
+        // up arrow
+        let log = await IM.upArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "(")]), UpdateView, RewriteApplied], log)
+        Assert.equal("(", document->Editor.Text.getAll)
+        // deactivate 
+        let log = await IM.deactivate(setup)
+        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.equal("(", document->Editor.Text.getAll)
+      },
+    )
+
+    Async.it(
+      `should be able to select the correct candidate with arrow keys 2`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        // activate the input method
+        let log = await IM.activate(setup, ())
+        Assert.deepEqual([IM.Log.Activate], log)
+        // insert "!"
+        let log = await IM.insertChar(setup, "!")
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "！")]), UpdateView, RewriteApplied], log)
+        Assert.equal("！", document->Editor.Text.getAll)
+        // right arrow
+        let log = await IM.rightArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "¡")]), UpdateView, RewriteApplied], log)
+        Assert.equal("¡", document->Editor.Text.getAll)
+        // up arrow
+        let log = await IM.upArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "！")]), UpdateView, RewriteApplied], log)
+        Assert.equal("！", document->Editor.Text.getAll)
+        // down arrow
+        let log = await IM.downArrow(setup)
+        Assert.deepEqual([IM.Log.RewriteIssued([((0, 1), "¡")]), UpdateView, RewriteApplied], log)
+        Assert.equal("¡", document->Editor.Text.getAll)
+        // deactivate 
+        let log = await IM.deactivate(setup)
+        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.equal("¡", document->Editor.Text.getAll)
       },
     )
   })
