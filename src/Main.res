@@ -87,8 +87,8 @@ let initialize = (channels, extensionPath, globalStoragePath, editor, fileName) 
       event
       ->VSCode.TextEditorSelectionChangeEvent.selections
       ->Array.map(selection => (
-        Editor.Position.toOffset(document, VSCode.Selection.start(selection)),
-        Editor.Position.toOffset(document, VSCode.Selection.end_(selection)),
+        VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
+        VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
       ))
 
     State__InputMethod.select(state, intervals)->ignore
@@ -103,7 +103,7 @@ let initialize = (channels, extensionPath, globalStoragePath, editor, fileName) 
     // only provide source location, when the filename matched
     let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
     let normalizedFileName = Parser.filepath(fileName)
-    let offset = Editor.Position.toOffset(state.document, position)
+    let offset = VSCode.TextDocument.offsetAt(state.document, position)
 
     if normalizedFileName == currentFileName {
       state.tokens->Tokens.lookupSrcLoc(offset)

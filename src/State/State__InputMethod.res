@@ -29,7 +29,7 @@ module Module: Module = {
           await State.View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
           let replacements = replacements->Array.map(((interval, text)) => {
-            let range = Editor.Range.fromInterval(state.document, interval)
+            let range = Interval.toVSCodeRange(state.document, interval)
             (range, text)
           })
           let _ = await Editor.Text.batchReplace(state.document, replacements)
@@ -54,7 +54,7 @@ module Module: Module = {
       // activated the input method with cursors positions
       let intervals: array<Interval.t> =
         Editor.Selection.getMany(state.editor)->Array.map(
-          Editor.Range.toInterval(state.document, ...)
+          Interval.fromVSCodeRange(state.document, ...)
         )
       runAndHandle(state, Activate(intervals))
     }

@@ -40,7 +40,7 @@ module Module: Module = {
   let caseSplitAux = (document, goal: Goal.t) => {
     let textBeforeGoal = {
       let interval = (0, fst(goal.interval))
-      let range = Editor.Range.fromInterval(document, interval)
+      let range = Interval.toVSCodeRange(document, interval)
       Editor.Text.get(document, range)
     }
 
@@ -331,7 +331,7 @@ module Module: Module = {
     } else {
       Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
     }
-    let rewriteRange = Editor.Range.fromInterval(state.document, rewriteInterval)
+    let rewriteRange = Interval.toVSCodeRange(state.document, rewriteInterval)
     if await Editor.Text.replace(state.document, rewriteRange, rewriteText) {
       // destroy the old goal
       Goal.destroyDecoration(goal)
@@ -355,13 +355,13 @@ module Module: Module = {
     let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
     // the rows spanned by the goal (including the text outside the goal)
     // will be replaced by the `indentedLines`
-    let start = Editor.Position.fromOffset(state.document, fst(goal.interval))
+    let start = VSCode.TextDocument.positionAt(state.document, fst(goal.interval))
     let startLineNo = VSCode.Position.line(start)
     let startLineRange =
       state.document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
     let start = VSCode.Range.start(startLineRange)
 
-    let end_ = Editor.Position.fromOffset(state.document, snd(goal.interval))
+    let end_ = VSCode.TextDocument.positionAt(state.document, snd(goal.interval))
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
     if await Editor.Text.replace(state.document, rangeToBeReplaced, indentedLines) {
       // destroy the old goal
@@ -381,7 +381,7 @@ module Module: Module = {
     updateIntervals(state)
 
     let innerRange = Goal.getInnerRange(goal, state.document)
-    let outerRange = Editor.Range.fromInterval(state.document, goal.interval)
+    let outerRange = Interval.toVSCodeRange(state.document, goal.interval)
     let content = Editor.Text.get(state.document, innerRange)->Js.String.trim
     if await Editor.Text.replace(state.document, outerRange, content) {
       Goal.destroyDecoration(goal)

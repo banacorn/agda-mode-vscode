@@ -84,6 +84,7 @@ module Module: Module = {
   module Instance = {
     type t = {
       mutable interval: Interval.t,
+      mutable range: VSCode.Range.t,
       mutable decoration: option<Editor.Decoration.t>,
       mutable buffer: Buffer.t,
     }
@@ -92,14 +93,16 @@ module Module: Module = {
       switch editor {
       | None => {
           interval,
+          range: VSCode.Range.make(VSCode.Position.make(0, fst(interval)), VSCode.Position.make(0, snd(interval))),
           decoration: None,
           buffer: Buffer.make(),
         }
       | Some(editor) =>
         let document = VSCode.TextEditor.document(editor)
-        let range = Editor.Range.fromInterval(document, interval)
+        let range = Interval.toVSCodeRange(document, interval)
         {
           interval,
+          range,
           decoration: Some(Editor.Decoration.underlineText(editor, range)),
           buffer: Buffer.make(),
         }

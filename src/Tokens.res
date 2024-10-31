@@ -198,9 +198,9 @@ module Module: Module = {
       let existing = self.tokens->AVLTree.find(startOffset)
       switch existing {
       | None =>
-        let start = Editor.Position.fromOffset(document, startOffset)
+        let start = VSCode.TextDocument.positionAt(document, startOffset)
 
-        let end_ = Editor.Position.fromOffset(
+        let end_ = VSCode.TextDocument.positionAt(
           document,
           Agda.OffsetConverter.convert(offsetConverter, info.end_),
         )
@@ -258,7 +258,7 @@ module Module: Module = {
         let text = Editor.Text.getAll(document)
         let offsetConverter = Agda.OffsetConverter.make(text)
         let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
-        let position = Editor.Position.fromOffset(document, offset)
+        let position = VSCode.TextDocument.positionAt(document, offset)
         [(range, filepath, position)]
       })
     })

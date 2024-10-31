@@ -31,7 +31,7 @@ module Module: Module = {
 
   let decorateHole = (editor: VSCode.TextEditor.t, interval: Interval.t, index: int) => {
     let document = VSCode.TextEditor.document(editor)
-    let backgroundRange = Editor.Range.fromInterval(document, interval)
+    let backgroundRange = Interval.toVSCodeRange(document, interval)
 
     let background = Editor.Decoration.highlightBackground(
       editor,
@@ -40,7 +40,7 @@ module Module: Module = {
     )
     let indexText = string_of_int(index)
     let innerInterval = (fst(interval), snd(interval) - 2)
-    let indexRange = Editor.Range.fromInterval(document, innerInterval)
+    let indexRange = Interval.toVSCodeRange(document, innerInterval)
 
     let index = Editor.Decoration.overlayText(
       editor,

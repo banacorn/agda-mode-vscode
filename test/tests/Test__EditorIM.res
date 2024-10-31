@@ -118,14 +118,14 @@ module IM = {
 
   let select = async (setup, intervals) => {
     let ranges =
-      intervals->Array.map(Editor.Range.fromInterval(setup.editor->VSCode.TextEditor.document, ...))
+      intervals->Array.map(Common.Interval.toVSCodeRange(setup.editor->VSCode.TextEditor.document, ...))
     Editor.Selection.setMany(setup.editor, ranges)
   }
 
   let selectAndWait = async (setup, intervals) => {
     let promise = wait(setup)
     let ranges =
-      intervals->Array.map(Editor.Range.fromInterval(setup.editor->VSCode.TextEditor.document, ...))
+      intervals->Array.map(Common.Interval.toVSCodeRange(setup.editor->VSCode.TextEditor.document, ...))
     Editor.Selection.setMany(setup.editor, ranges)
     await promise
   }

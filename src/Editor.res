@@ -8,10 +8,6 @@ module Position = {
     string_of_int(VSCode.Position.line(position)) ++
     ":" ++
     string_of_int(VSCode.Position.character(position))
-
-  let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
-
-  let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
 }
 
 module Range = {
@@ -28,16 +24,6 @@ module Range = {
       Position.toString(start) ++ "-" ++ Position.toString(end)
     }
   }
-
-  let fromInterval = (document, interval) =>
-    VSCode.Range.make(
-      Position.fromOffset(document, fst(interval)),
-      Position.fromOffset(document, snd(interval)),
-    )
-  let toInterval = (document, range) => (
-    Position.toOffset(document, VSCode.Range.start(range)),
-    Position.toOffset(document, VSCode.Range.end_(range)),
-  )
 }
 
 module Decoration = {
