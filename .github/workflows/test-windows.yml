@@ -78,7 +78,7 @@ jobs:
         stack install --resolver lts-20.26 Agda-2.6.4
         # copy Agda (stack path --local-bin) to somewhere in the PATH
         cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\ghcup\bin
-        which agda
+        where.exe agda
 
     # things to be cached
 
