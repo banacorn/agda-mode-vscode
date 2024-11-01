@@ -6,6 +6,10 @@ name: CI (Windows)
 # events but only for the master branch
 on: [push, pull_request]
 
+defaults:
+  run:
+    shell: bash
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -16,35 +20,48 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
+    # - name: 🏗 Install yq
+    #   uses: frenck/action-setup-yq@v1
+
+    - name: 🔍 Determine stack root and resolver
+      ## 2023-11-21 https://github.com/commercialhaskell/stack/issues/6340
+      ## Asking stack for the stack root unfortunately does not work
+      ## if stack is not fully operational (meaning e.g. that GHC is installed)
+      ## so we hardcode its location instead.
+      run: |
+        STACK_RESOLVER="lts-20.26"
+        echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+      # What about C:/Users/runneradmin/AppData/Roaming/stack ?
+
     # things to be cached/restored:
     - name: 💾 Restore cached stack global package db
       id:   stack-global
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: C:\Users\runneradmin\AppData\Roaming\stack\
-        key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-global
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
-    - name: 💾 Restore stack-installed binaries   # ghc, ghc-included packages and their haddocks, mingw, msys2
+    - name: 💾 Restore cached stack-installed binaries   # ghc, ghc-included packages and their haddocks, mingw, msys2
       id:   stack-binaries
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: C:\Users\runneradmin\AppData\Local\Programs\stack\
         # which files signal a change in stack's global db ?
         # **.yaml includes */package.yaml and stack.yaml* (too many), and hopefully no other changing yamls
-        key: ${{ runner.os }}-stack-binaries-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-binaries-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-binaries
     
     - name: 💾 Restore cached .stack-work
       id:   stack-work
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-work
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions:
 
@@ -53,56 +70,56 @@ jobs:
       with:
         node-version: 20.x
 
-    - name: ⏬ Install stack
-      #if: steps.stack-programs-dir.outputs.cache-hit != 'true'
-      # this step is needed to get stack.exe into PATH, for now
+    - name: ⏬ Install GHC
+      # if: steps.stack-programs-dir.outputs.cache-hit != 'true'
+      # set PATH=C:\Users\runneradmin\AppData\Local\Programs\stack\local\bin;%PATH%
       run: |
-        curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
-        7z x stack.zip stack.exe
-        which stack
-        stack --version
-        which ./stack
-        ./stack --version
-      # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
-      # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
+        stack --no-terminal setup --install-ghc
 
-    
+    - name: ⏬ Install the ICU library
+      run: |
+        stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
+        stack exec -- pkg-config --modversion icu-i18n
+
+    # - name: 🔍 Determine the ICU version
+    #   run: |
+    #     ICU_VER=$(stack exec ${ARGS} -- pkg-config --modversion icu-i18n)
+    #     echo "ICU_VER=${ICU_VER}"
+    #     echo "ICU_VER=${ICU_VER}" >> "${GITHUB_ENV}"
+    #     echo "ICU_VER           = ${ICU_VER}"
+
     - name: 🛠️ Add Stack install directory to PATH 
       run: |
-        echo "$Env:APPDATA\local\bin" >> "$GITHUB_PATH"
-        echo "$Env:PATH"
-      # As demonstrated in: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-adding-a-system-path
+        echo "$APPDATA/local/bin" >> $GITHUB_PATH
 
     - name: ⏬ Install Agda
       run: |
-        stack install --resolver lts-20.26 Agda-2.6.4
-        # copy Agda (stack path --local-bin) to somewhere in the PATH
-        cp C:\Users\runneradmin\AppData\Roaming\local\bin\agda.exe C:\ghcup\bin
+        stack install --resolver ${{env.STACK_RESOLVER}} Agda-2.6.4
         where.exe agda
+        agda --version
 
     # things to be cached
 
     - name: 💾 Cache stack global package db
       if:   always() && steps.stack-global.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: C:\Users\runneradmin\AppData\Roaming\stack\
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
     - name: 💾 Cache stack-installed binaries
       if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: C:\Users\runneradmin\AppData\Local\Programs\stack\
         key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
   
     - name: 💾 Cache .stack-work
       if:   always() && steps.stack-work.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: .stack-work
         key: ${{ steps.stack-work.outputs.cache-primary-key }}
-
 
     - name: ⏬ Install NPM Dependencies
       run: npm install

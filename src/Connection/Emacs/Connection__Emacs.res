@@ -25,6 +25,25 @@ module ProcInfo: {
   let make = async (path, args): result<t, Error.t> => {
     // normailize the path by replacing the tild "~/" with the absolute path of home directory
     let path = untildify(path)
+    let path = NodeJs.Path.normalize(path)
+
+    // replace wierd paths on Windows like "\c\" to "C:\"
+    let path = switch NodeJs.Os.platform() {
+    | "win32" =>
+      let regex = %re("/\\([a-zA-Z])\\/")
+      let hasWeirdPath = RegExp.exec(regex, path)
+      switch hasWeirdPath {
+      | None => path
+      | Some(match_) =>
+        switch match_[1] {
+        | Some(Some(drive)) =>
+          let drive = drive->String.toUpperCase
+          path->String.replaceRegExp(regex, drive ++ ":\\")
+        | _ => path
+        }
+      }
+    | _ => path
+    }
 
     let process = Process.make(path, ["-V"])
     let (promise, resolve, _) = Util.Promise_.pending()
@@ -160,7 +179,9 @@ module Module: Module = {
             // split the raw text into pieces and feed it to the parser
             rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser, ...))
           }
-        | Stderr(_) => ()
+        | Stderr(error) =>
+          // sometimes Agda would return error messages from STDOUT
+          self.chan->Chan.emit(Error(AgdaError(error)))
         | Event(e) => self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some

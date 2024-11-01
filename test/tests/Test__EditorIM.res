@@ -488,7 +488,6 @@ describe("Input Method (Editor)", () => {
         let log = await IM.activate(setup, ~positions, ())
         Assert.deepEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "b")
-        Js.log(log)
         Assert.deepEqual(
           [
             IM.Log.RewriteIssued([

@@ -20,7 +20,7 @@ jobs:
     # things to be restored:
     - name: 💾 Restore cached stack global package db
       id:   stack-global
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ~/.stack
         key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
@@ -29,7 +29,7 @@ jobs:
 
     - name: 💾 Restore stack-installed binaries in ~/.local/bin
       id:   stack-binaries
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ~/.local/bin
         key: ${{ runner.os }}-stack-binaries-${{ hashFiles('**.yaml') }}
@@ -38,7 +38,7 @@ jobs:
        
     - name: 💾 Restore cached .stack-work
       id:   stack-work
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: .stack-work
         key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
@@ -67,21 +67,21 @@ jobs:
 
     - name: 💾 Cache stack global package db
       if:   always() && steps.stack-global.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: ~/.stack
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
     - name: 💾 Cache stack-installed binaries
       if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: ~/.local/bin
         key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
   
     - name: 💾 Cache .stack-work
       if:   always() && steps.stack-work.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: .stack-work
         key: ${{ steps.stack-work.outputs.cache-primary-key }}
