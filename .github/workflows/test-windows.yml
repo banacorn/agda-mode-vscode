@@ -81,13 +81,6 @@ jobs:
         stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
         stack exec -- pkg-config --modversion icu-i18n
 
-    # - name: 🔍 Determine the ICU version
-    #   run: |
-    #     ICU_VER=$(stack exec ${ARGS} -- pkg-config --modversion icu-i18n)
-    #     echo "ICU_VER=${ICU_VER}"
-    #     echo "ICU_VER=${ICU_VER}" >> "${GITHUB_ENV}"
-    #     echo "ICU_VER           = ${ICU_VER}"
-
     - name: 🛠️ Add Stack install directory to PATH 
       run: |
         echo "$APPDATA/local/bin" >> $GITHUB_PATH
