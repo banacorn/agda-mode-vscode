@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        agda: ["lts-20.26 Agda-2.6.4"]
+        agda: ["Agda-2.6.4", "Agda-2.7.0"]
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -41,17 +41,9 @@ jobs:
           cabal-update: false
           enable-stack: true
 
-      - name: 🔍 Setting variables (Unix)
-        if: runner.os != 'Windows'
+      - name: 🛠️ Setting variables
         run: | 
           echo "STACK_LOCAL_BIN=$(stack path --local-bin)" >> "$GITHUB_ENV"
-          echo "STACK_ROOT_CORRECT=${{ steps.haskell-setup.outputs.stack-root }}" >> "$GITHUB_ENV"
-
-      - name: 🔍 Setting variables (Windows)
-        if: runner.os == 'Windows'
-        run: | 
-          echo "STACK_LOCAL_BIN=$(stack path --local-bin)" >> "$GITHUB_ENV"
-          echo "STACK_ROOT_CORRECT=C:/Users/runneradmin/AppData/Roaming/stack" >> "$GITHUB_ENV"
 
       - name: 🔍 Reviewing variables
         run: |
@@ -61,7 +53,6 @@ jobs:
           echo "stack-path        = ${{ steps.haskell-setup.outputs.stack-path  }}"
           echo "stack-exe         = ${{ steps.haskell-setup.outputs.stack-exe   }}"
           echo "stack-root        = ${{ steps.haskell-setup.outputs.stack-root  }}"
-          echo "STACK_ROOT_CORRECT = $STACK_ROOT_CORRECT"
           echo "STACK_LOCAL_BIN    = $STACK_LOCAL_BIN"
     
       # cached stuff to be restored:
@@ -69,8 +60,8 @@ jobs:
         id:   stack-global
         uses: actions/cache/restore@v4
         with:
-          path: ${{ env.STACK_ROOT_CORRECT }}
-          key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
+          path: ${{ steps.haskell-setup.outputs.stack-root }}
+          key: ${{ runner.os }}-stack-global-${{ matrix.agda }}
           restore-keys: |
               ${{ runner.os }}-stack-global
 
@@ -79,7 +70,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.STACK_LOCAL_BIN  }}
-          key: ${{ runner.os }}-stack-binaries-${{ hashFiles('**.yaml') }}
+          key: ${{ runner.os }}-stack-binaries-${{ matrix.agda }}
           restore-keys: |
               ${{ runner.os }}-stack-binaries
         
@@ -88,18 +79,12 @@ jobs:
         with:
           node-version: 20.x
 
-      - name: 🛠️ Add Stack install directory to PATH (Windows)
-        if : runner.os == 'Windows'
-        run: |
-          echo "$APPDATA/local/bin" >> $GITHUB_PATH
-
-      - name: 🛠️ Add Stack install directory to PATH (Unix)
-        if : runner.os != 'Windows'
-        run: PATH=$(stack path --local-bin):$PATH
+      - name: 🛠️ Add Stack install directory to PATH
+        run: echo $STACK_LOCAL_BIN >> $GITHUB_PATH
       
       - name: ⏬ Install Agda
         run: |
-          stack install --resolver ${{ matrix.agda }}
+          stack install --resolver=lts-20.26 ${{ matrix.agda }}
           which agda
           agda --version
 
@@ -109,7 +94,7 @@ jobs:
         if:   always() && steps.stack-global.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: ${{ env.STACK_ROOT_CORRECT }}
+          path: ${{ steps.haskell-setup.outputs.stack-root }}
           key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
       - name: 💾 Cache stack-installed binaries
