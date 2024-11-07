@@ -16,12 +16,7 @@ module type Panel = {
   let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
   let updatePromptIM: (state, string) => Promise.t<unit>
   // Prompt
-  let prompt: (
-    state,
-    View.Header.t,
-    View.Prompt.t,
-    string => Promise.t<unit>,
-  ) => Promise.t<unit>
+  let prompt: (state, View.Header.t, View.Prompt.t, string => Promise.t<unit>) => Promise.t<unit>
   let interruptPrompt: state => Promise.t<unit>
   // Style
   let setFontSize: (state, string) => Promise.t<unit>

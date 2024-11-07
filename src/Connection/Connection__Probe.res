@@ -1,7 +1,6 @@
 module Version = Util.Version
 open LanguageServerMule
 open Source.GitHub
-open Belt
 
 // module Platform = {
 //   module GetOs = {
