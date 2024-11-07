@@ -47,7 +47,9 @@ module EventEmitter3 = {
     listener2<eventName, listener3<'a, 'b, 'c>>,
   ) => t = "once"
 
-  // Event: 'removeListener'
+  @send
+  external onRemoveListener: (t, string, listener<unit>) => t = "on"
+  let onRemoveListener = (arg1, obj) => obj->onRemoveListener("removeListener", arg1)
 
   @send
   external onRemoveListener: (t, @as("removeListener") _, listener<unit>) => t = "on"
@@ -81,21 +83,31 @@ module EventEmitter3 = {
 
   @send external emit3: (t, eventName, 'a, 'b, 'c) => bool = "emit"
 
-  // emitter.eventNames()
+  @send
+  external emit0: (t, eventName) => bool = "emit"
+  let emit0 = (arg1, obj) => obj->emit0(arg1)
 
   @send
   external eventNames: (t, eventName) => array<eventName> = "eventNames"
 
-  // emitter.getMaxListeners()
+  @send
+  external emit2: (t, eventName, 'a, 'b) => bool = "emit"
+  let emit2 = (arg1, arg2, arg3, obj) => obj->emit2(arg1, arg2, arg3)
+
 
   @send external getMaxListeners: t => int = "getMaxListeners"
 
-  // emitter.listenerCount(eventName)
+  @send
+  external eventNames: (t, eventName) => array<eventName> = "eventNames"
+  let eventNames = (arg1, obj) => obj->eventNames(arg1)
 
   @send
   external listenerCount: (t, eventName) => int = "listenerCount"
 
-  // emitter.listeners(eventName)
+
+  @send
+  external listeners: (t, eventName) => array<listener<'a>> = "listeners"
+  let listeners = (arg1, obj) => obj->listeners(arg1)
 
   @send
   external listeners: (t, eventName) => array<listener<'a>> = "listeners"
@@ -106,7 +118,9 @@ module EventEmitter3 = {
   @send
   external listeners3: (t, eventName) => array<listener3<'a, 'b, 'c>> = "listeners"
 
-  // emitter.off(eventName, listener)
+  @send
+  external off2: (t, eventName, listener2<'a, 'b>) => t = "off"
+  let off2 = (arg1, arg2, obj) => obj->off2(arg1, arg2)
 
   @send external off: (t, eventName, listener<'a>) => t = "off"
   @send
@@ -130,7 +144,9 @@ module EventEmitter3 = {
   @send
   external once3: (t, eventName, listener3<'a, 'b, 'c>) => t = "once"
 
-  // emitter.prependListener(eventName, listener)
+  @send
+  external once2: (t, eventName, listener2<'a, 'b>) => t = "once"
+  let once2 = (arg1, arg2, obj) => obj->once2(arg1, arg2)
 
   @send
   external prependListener: (t, eventName, listener<'a>) => t = "prependListener"
@@ -141,7 +157,8 @@ module EventEmitter3 = {
   @send
   external prependListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependListener"
 
-  // emitter.prependOnceListener(eventName, listener)
+  @send
+  external prependListener3: (t, array<eventName>, listener3<'a, 'b, 'c>) => t = "prependListener"
 
   @send
   external prependOnceListener: (t, eventName, listener<'a>) => t = "prependOnceListener"
@@ -152,7 +169,9 @@ module EventEmitter3 = {
   @send
   external prependOnceListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependOnceListener"
 
-  // emitter.removeAllListeners([eventName])
+
+  @send
+  external removeAllListeners: t => t = "removeAllListeners"
 
   @send external removeAllListeners: t => unit = "removeAllListeners"
 
