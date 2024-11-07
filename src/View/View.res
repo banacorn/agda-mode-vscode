@@ -130,6 +130,7 @@ module EventToView = {
     | PromptInterrupt
     | PromptIMUpdate(string)
     | InputMethod(InputMethod.t)
+    | ConfigurationChange(string)
 
   let toString = x =>
     switch x {
@@ -139,43 +140,53 @@ module EventToView = {
     | PromptInterrupt => "PromptInterrupt"
     | PromptIMUpdate(s) => "PromptIMUpdate " ++ s
     | InputMethod(_) => "InputMethod"
+    | ConfigurationChange(_) => "ConfigurationChange"
     }
 
-  let decode = {
-    open JsonCombinators.Json.Decode
-    Util.Decode.sum(x => {
-      switch x {
-      | "Display" =>
-        Payload(
-          tuple2(Header.decode, array(Item.decode))->map(((header, body)) => Display(header, body)),
-        )
-      | "Append" =>
-        Payload(
-          tuple2(Header.decode, array(Item.decode))->map(((header, body)) => Append(header, body)),
-        )
-      | "SetStatus" => Payload(string->map(text => SetStatus(text)))
-      | "PromptInterrupt" => TagOnly(PromptInterrupt)
-      | "PromptIMUpdate" => Payload(string->map(text => PromptIMUpdate(text)))
-      | "InputMethod" => Payload(InputMethod.decode->map(payload => InputMethod(payload)))
-      | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
-      }
-    })
-  }
 
-  let encode = {
-    open JsonCombinators.Json.Encode
-    Util.Encode.sum(x =>
-      switch x {
-      | Display(header, body) =>
-        Payload("Display", tuple2(Header.encode, array(Item.encode))((header, body)))
-      | Append(header, body) =>
-        Payload("Append", tuple2(Header.encode, array(Item.encode))((header, body)))
-      | SetStatus(text) => Payload("SetStatus", string(text))
-      | PromptInterrupt => TagOnly("PromptInterrupt")
-      | PromptIMUpdate(text) => Payload("PromptIMUpdate", string(text))
-      | InputMethod(payload) => Payload("InputMethod", InputMethod.encode(payload))
-      }
-    , ...)
+  // JSON encode/decode
+  let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
+    open Json.Decode
+    switch x {
+    | "Display" =>
+      Contents(
+        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Display(header, body)),
+      )
+    | "Append" =>
+      Contents(
+        pair(Header.decode, array(Item.decode)) |> map(((header, body)) => Append(header, body)),
+      )
+    | "SetStatus" => Contents(string |> map(text => SetStatus(text)))
+    | "PromptInterrupt" => TagOnly(PromptInterrupt)
+    | "PromptIMUpdate" => Contents(string |> map(text => PromptIMUpdate(text)))
+    | "InputMethod" => Contents(InputMethod.decode |> map(x => InputMethod(x)))
+    | "ConfigurationChange" => Contents(string |> map(size => ConfigurationChange(size)))
+    | tag => raise(DecodeError("[EventToView] Unknown constructor: " ++ tag))
+    }
+  })
+
+  let encode: Json.Encode.encoder<t> = x => {
+    open Json.Encode
+    switch x {
+    | Display(header, body) =>
+      object_(list{
+        ("tag", string("Display")),
+        ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+      })
+
+    | Append(header, body) =>
+      object_(list{
+        ("tag", string("Append")),
+        ("contents", (header, body) |> pair(Header.encode, array(Item.encode))),
+      })
+    | SetStatus(text) => object_(list{("tag", string("SetStatus")), ("contents", text |> string)})
+    | PromptInterrupt => object_(list{("tag", string("PromptInterrupt"))})
+    | PromptIMUpdate(text) =>
+      object_(list{("tag", string("PromptIMUpdate")), ("contents", text |> string)})
+    | InputMethod(payload) =>
+      object_(list{("tag", string("InputMethod")), ("contents", payload |> InputMethod.encode)})
+    | ConfigurationChange(size) => object_(list{("tag", string("ConfigurationChange")), ("contents", size |> string)})
+    }
   }
 }
 

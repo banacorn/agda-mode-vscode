@@ -150,14 +150,14 @@
 
 .agda-mode-body {
 
-    @line-height: 1rem;
+    @line-height: calc(var(--agdaMode-buffer-font-size)/1rem) rem;
 
     padding-top: calc(@header-height + @padding);
 
     white-space: pre;
 
     font-family: var(--vscode-editor-font-family);
-    font-size  : var(--vscode-editor-font-size);
+    font-size  : var(--agdaMode-buffer-font-size);
     line-height: @line-height;
 
     .codicon {
