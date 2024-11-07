@@ -1,3 +1,5 @@
+// All RegExps in this file has been updated to work with ReScript v10.1.4
+
 open Belt
 open Common
 
@@ -9,13 +11,13 @@ module FileType = {
     | LiterateMarkdown
     | LiterateOrg
   let parse = filepath =>
-    if Js.Re.test_(%re("/\\.lagda\\.rst$/i"), Parser.filepath(filepath)) {
+    if Js.Re.test_(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
       LiterateRST
-    } else if Js.Re.test_(%re("/\\.lagda\\.md$/i"), Parser.filepath(filepath)) {
+    } else if Js.Re.test_(%re("/\.lagda\.md$/i"), Parser.filepath(filepath)) {
       LiterateMarkdown
-    } else if Js.Re.test_(%re("/\\.lagda\\.tex$|\\.lagda$/i"), Parser.filepath(filepath)) {
+    } else if Js.Re.test_(%re("/\.lagda\.tex$|\.lagda$/i"), Parser.filepath(filepath)) {
       LiterateTeX
-    } else if Js.Re.test_(%re("/\\.lagda\\.org$/i"), Parser.filepath(filepath)) {
+    } else if Js.Re.test_(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
       LiterateOrg
     } else {
       Agda
@@ -67,7 +69,7 @@ module Lexer = {
           let cursorOld = cursor.contents
           cursor := cursor.contents + String.length(content)
           open Token
-          {content: content, range: (cursorOld, cursor.contents), kind: kind}
+          {content, range: (cursorOld, cursor.contents), kind}
         })
       } else {
         [token]
@@ -85,9 +87,9 @@ module Lexer = {
       let result = {
         open Token
         {
-          content: content,
+          content,
           range: (start + delta.contents, end_ + delta.contents + lengthDiff),
-          kind: kind,
+          kind,
         }
       }
       delta := delta.contents + lengthDiff
@@ -101,26 +103,31 @@ module Lexer = {
 }
 
 module Regex = {
-  let texBegin = %re("/\\\\begin\\{code\\}.*/")
-  let texEnd = %re("/\\\\end\\{code\\}.*/")
-  let markdown = %re("/\\`\\`\\`(agda)?/")
-  let rstBegin = %re("/\\:\\:/")
-  let rstEnd = %re("/^[^\\s]/")
-  let orgBegin = %re("/\\#\\+begin\\_src agda2/i")
-  let orgEnd = %re("/\\#\\+end\\_src/i")
+  // RegEx updated to v10.1.4
+  let texBegin = %re("/\\begin\{code\}.*/")
+  let texEnd = %re("/\\end\{code\}.*/")
+  let markdown = %re("/\`\`\`(agda)?/")
+  let rstBegin = %re("/\:\:/")
+  let rstEnd = %re("/^[^\s]/")
+  let orgBegin = %re("/\#\+begin\_src agda2/i")
+  let orgEnd = %re("/\#\+end\_src/i")
 
   let comment = %re(
-    "/((?<=^|[\\s\"\\_\\;\\.\\(\\)\\{\\}\\@])--[^\\r\\n]*(?:\\r|\\n|$))|(\\{-(?:[^-]|[\\r\\n]|(?:-+(?:[^-\\}]|[\\r\\n])))*-+\\})/"
+    "/((?<=^|[\s\"\_\;\.\(\)\{\}\@])--[^\r\n]*(?:\r|\n|$))|(\{-(?:[^-]|[\r\n]|(?:-+(?:[^-\}]|[\r\n])))*-+\})/"
   )
   // // https://agda.readthedocs.io/en/v2.6.1/language/lexical-structure.html#keywords-and-special-symbols
   // let specialSymbol = [%re "/[\.\;\{\}\(\)\@\"]/"];
 
-  let goalBracket = %re("/(\\{\\!(?:(?!\\!\\})(?:.|\\s))*\\!\\})/")
-  let goalQuestionMarkRaw = %re(
-    "/([\\s\\(\\{\\_\\;\\.\\\"@]|^)(\\?)([\\s\\)\\}\\_\\;\\.\\\"@]|$)/gm"
-  )
-  let goalQuestionMark = %re("/(\\?)/")
-  let goalBracketContent = %re("/\\{\\!((?:(?!\\!\\})(?:.|\\s))*)\\!\\}/")
+  // for regular holes: {! content !}
+  let goalBracket = %re("/(\{\!(?:(?!\!\})(?:.|\s))*\!\})/")
+  // for question marks (with specialSymbols around), e.g.:
+  //    (?)
+  //    .?@
+  let goalQuestionMarkRaw = %re("/([\s\(\{\_\;\.\\\"@]|^)(\?)([\s\)\}\_\;\.\\\"@]|$)/gm")
+  // for question marks: ?
+  let goalQuestionMark = %re("/(\?)/")
+  // for content inside {! !}
+  let goalBracketContent = %re("/\{\!((?:(?!\!\})(?:.|\s))*)\!\}/")
 }
 
 module Literate = {
@@ -128,11 +135,17 @@ module Literate = {
   let toTokens = (raw: string): Lexer.t => {
     let cursor = ref(0)
     Js.String.match_(
-      %re("/(.*(?:\\r\\n|[\\n\\v\\f\\r\\x85\\u2028\\u2029])?)/g"),
+      %re("/(.*(?:\r\n|[\n\v\f\r\x85\u2028\u2029])?)/g"),
       raw,
     )->Option.mapWithDefault([], lines =>
       lines
-      ->Array.keep(x => x != "")
+      ->Array.map(x =>
+        switch x {
+        | None => ""
+        | Some(s) => s
+        }
+      )
+      ->Array.keep(s => s != "")
       ->Array.map(line => {
         // [\s\.\;\{\}\(\)\@]
         let cursorOld = cursor.contents
@@ -173,14 +186,14 @@ module Literate = {
 
       let kind = insideAgda ? AgdaRaw : Literate
 
-      {content: content, kind: kind, range: range}
+      {content, kind, range}
     })
   }
 
-  let markMarkdown = markWithRules(Regex.markdown, Regex.markdown)
-  let markTex = markWithRules(Regex.texBegin, Regex.texEnd)
-  let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd)
-  let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd)
+  let markMarkdown = markWithRules(Regex.markdown, Regex.markdown, ...)
+  let markTex = markWithRules(Regex.texBegin, Regex.texEnd, ...)
+  let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd, ...)
+  let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd, ...)
 }
 
 module Diff = {
@@ -259,15 +272,21 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
       ->Option.getWithDefault("")
     let actualSpaces =
       content
-      ->Js.String.match_(%re("/\\s*$/"), _)
-      ->Option.flatMap(matches => matches[0]->Option.map(Js.String.length))
+      ->Js.String.match_(%re("/\s*$/"), _)
+      ->Option.flatMap(matches =>
+        switch matches[0] {
+        | None => None
+        | Some(None) => None
+        | Some(Some(s)) => Some(Js.String.length(s))
+        }
+      )
       ->Option.getWithDefault(0)
 
     /* make room for the index, if there's not enough space */
     let newContent = if actualSpaces < requiredSpaces {
       let padding = Js.String.repeat(requiredSpaces - actualSpaces, "")
 
-      Js.String.replaceByRe(%re("/\\{!.*!\\}/"), "{!" ++ content ++ padding ++ "!}", token.content)
+      Js.String.replaceByRe(%re("/\{!.*!\}/"), "{!" ++ content ++ padding ++ "!}", token.content)
     } else {
       token.content
     }
@@ -290,7 +309,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     | (Some(modifiedHole), Some(index)) =>
       let (start, _) = modifiedHole.range
       Some({
-        Diff.index: index,
+        Diff.index,
         originalInterval: (start, start + String.length(token.content)),
         modifiedInterval: modifiedHole.range,
         content: modifiedHole.content,

@@ -1,5 +1,3 @@
-open Belt
-
 module Aspect = Highlighting__AgdaAspect
 
 // information of Tokens from Agda
@@ -20,12 +18,12 @@ module Token = {
     ", " ++
     string_of_int(self.end_) ++
     ") " ++
-    Util.Pretty.list(List.fromArray( Array.map(self.aspects, Aspect.toString))) ++
+    Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
     switch self.source {
     | None => ""
     | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
     }
-  
+
   // from SExpression
   let parse: Parser.SExpression.t => option<t> = x =>
     switch x {
@@ -35,14 +33,16 @@ module Token = {
       | [A(start'), A(end_'), aspects, _, _, L([A(filepath), _, A(index')])] =>
         int_of_string_opt(start')->Option.flatMap(start =>
           int_of_string_opt(end_')->Option.flatMap(end_ =>
-            int_of_string_opt(index')->Option.map(index => {
-              start: start - 1,
-              end_: end_ - 1,
-              aspects: flatten(aspects)->Array.map(Aspect.parse),
-              isTokenBased: false, // NOTE: fix this
-              note: None, // NOTE: fix this
-              source: Some((filepath, index)),
-            })
+            int_of_string_opt(index')->Option.map(
+              index => {
+                start: start - 1,
+                end_: end_ - 1,
+                aspects: flatten(aspects)->Array.map(Aspect.parse),
+                isTokenBased: false, // NOTE: fix this
+                note: None, // NOTE: fix this
+                source: Some((filepath, index)),
+              },
+            )
           )
         )
 
@@ -74,32 +74,32 @@ module Token = {
 
   // from SExpression
   let parseDirectHighlightings: array<Parser.SExpression.t> => array<t> = tokens =>
-    tokens->Js.Array.sliceFrom(2, _)->Array.map(parse)->Array.keepMap(x => x)
+    tokens->Array.sliceToEnd(~start=2)->Array.map(parse)->Array.filterMap(x => x)
 
   // from JSON
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
+  let decodeToken = {
+    open JsonCombinators.Json.Decode
     Util.Decode.tuple6(
       int,
       int,
       array(string),
       bool,
-      optional(string),
-      optional(pair(string, int)),
-    ) |> map(((start, end_, aspects, isTokenBased, note, source)) => {
+      option(string),
+      option(pair(string, int)),
+    )->map(((start, end_, aspects, isTokenBased, note, source)) => {
       start: start - 1,
       end_: end_ - 1,
       aspects: aspects->Array.map(Aspect.parse),
-      isTokenBased: isTokenBased,
-      note: note,
-      source: source,
+      isTokenBased,
+      note,
+      source,
     })
   }
 
   // from JSON
-  let decodeResponseHighlightingInfoDirect: Json.Decode.decoder<(bool, array<t>)> = {
-    open Json.Decode
-    pair(bool, array(decode)) |> map(((keepHighlighting, xs)) => (keepHighlighting, xs))
+  let decodeResponseHighlightingInfoDirect = {
+    open JsonCombinators.Json.Decode
+    pair(bool, array(decodeToken))->map(((keepHighlighting, xs)) => (keepHighlighting, xs))
   }
 }
 
@@ -109,7 +109,7 @@ module type Module = {
   let make: unit => t
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
-  let readTempFiles: (t, VSCode.TextEditor.t) => Promise.promise<unit>
+  let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
   let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
   let clear: t => unit
 
@@ -118,7 +118,7 @@ module type Module = {
   let lookupSrcLoc: (
     t,
     int,
-  ) => option<Promise.t<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
+  ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
 
   let toDecorations: (t, VSCode.TextEditor.t) => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
   let toDecorationsAndSemanticTokens: (
@@ -140,36 +140,38 @@ module Module: Module = {
       | JSON(filepath) => filepath
       }
 
-    let readAndParse = format => {
-      N.Util.promisify(N.Fs.readFile)(. toFilepath(format))
-      ->Promise.Js.fromBsPromise
-      ->Promise.Js.toResult
-      ->Promise.map(x =>
-        switch x {
-        | Ok(buffer) =>
-          switch format {
-          | Emacs(_) =>
-            let tokens = switch Parser.SExpression.parse(Node.Buffer.toString(buffer))[0] {
-            | Some(Ok(L(xs))) => xs
-            | _ => []
-            }
-            // RemoveTokenBasedHighlighting
-            let removeTokenBasedHighlighting = switch tokens[0] {
-            | Some(A("remove")) => true
-            | _ => false
-            }
-            let tokens = Js.Array.sliceFrom(1, tokens)->Array.keepMap(Token.parse)
-            (removeTokenBasedHighlighting, tokens)
-          | JSON(_) =>
-            let raw = Node.Buffer.toString(buffer)
-            switch Js.Json.parseExn(raw) {
-            | exception _e => (false, [])
-            | json => Token.decodeResponseHighlightingInfoDirect(json)
+    let readAndParse = async format => {
+      try {
+        let content = await Node__Fs.readFile(toFilepath(format))
+        switch format {
+        | Emacs(_) =>
+          let tokens = switch Parser.SExpression.parse(content)[0] {
+          | Some(Ok(L(xs))) => xs
+          | _ => []
+          }
+          // RemoveTokenBasedHighlighting
+          let removeTokenBasedHighlighting = switch tokens[0] {
+          | Some(A("remove")) => true
+          | _ => false
+          }
+          let tokens = tokens->Array.sliceToEnd(~start=1)->Array.filterMap(Token.parse)
+          (removeTokenBasedHighlighting, tokens)
+        | JSON(_) =>
+          let raw = content
+          switch JSON.parseExn(raw) {
+          | exception _e => (false, [])
+          | json =>
+            switch JsonCombinators.Json.decode(json, Token.decodeResponseHighlightingInfoDirect) {
+            | Ok((keepHighlighting, tokens)) => (keepHighlighting, tokens)
+            | Error(_err) =>
+              Js.log("Error in decoding JSON: " ++ _err)
+              (false, [])
             }
           }
-        | Error(_err) => (false, [])
         }
-      )
+      } catch {
+      | _ => (false, [])
+      }
     }
   }
 
@@ -196,14 +198,9 @@ module Module: Module = {
       let existing = self.tokens->AVLTree.find(startOffset)
       switch existing {
       | None =>
+        let start = VSCode.TextDocument.positionAt(document, startOffset)
 
-        
-        let start = Editor.Position.fromOffset(
-          document,
-          startOffset,
-        )
-
-        let end_ = Editor.Position.fromOffset(
+        let end_ = VSCode.TextDocument.positionAt(
           document,
           Agda.OffsetConverter.convert(offsetConverter, info.end_),
         )
@@ -220,27 +217,21 @@ module Module: Module = {
           ...old,
           aspects: newAspects,
         }
-        self.tokens->AVLTree.insert(startOffset, (new, range))->ignore
+        self.tokens->AVLTree.insert(startOffset, (new, range))
       }
     })
   }
 
-  let addEmacsFilePath = (self, filepath) =>
-    Js.Array.push(TempFile.Emacs(filepath), self.tempFiles)->ignore
-  let addJSONFilePath = (self, filepath) =>
-    Js.Array.push(TempFile.JSON(filepath), self.tempFiles)->ignore
+  let addEmacsFilePath = (self, filepath) => self.tempFiles->Array.push(TempFile.Emacs(filepath))
+  let addJSONFilePath = (self, filepath) => self.tempFiles->Array.push(TempFile.JSON(filepath))
 
   // read temp files and add Tokens added from "addEmacsFilePath" or "addJSONFilePath"
-  let readTempFiles = (self, editor) => {
+  let readTempFiles = async (self, editor) => {
     // read and parse and concat them
-    self.tempFiles
-    ->Array.map(TempFile.readAndParse)
-    ->Promise.allArray
-    ->Promise.map(xs => xs->Array.map(snd)->Array.concatMany)
-    ->Promise.map(tokens => {
-      insert(self, editor, tokens)
-      self.tempFiles = []
-    })
+    let xs = await self.tempFiles->Array.map(TempFile.readAndParse)->Promise.all
+    let tokens = xs->Array.map(snd)->Array.flat
+    insert(self, editor, tokens)
+    self.tempFiles = []
   }
 
   let clear = self => {
@@ -255,7 +246,7 @@ module Module: Module = {
 
   // for goto definition
   let lookupSrcLoc = (self, offset): option<
-    Promise.t<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
+    promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
   > => {
     self.tokens
     ->AVLTree.lowerBound(offset)
@@ -263,11 +254,11 @@ module Module: Module = {
       info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
     )
     ->Option.map(((range, filepath, offset)) => {
-      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.map(document => {
+      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
         let text = Editor.Text.getAll(document)
         let offsetConverter = Agda.OffsetConverter.make(text)
         let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
-        let position = Editor.Position.fromOffset(document, offset)
+        let position = VSCode.TextDocument.positionAt(document, offset)
         [(range, filepath, position)]
       })
     })
@@ -286,35 +277,33 @@ module Module: Module = {
         )
         ranges->Array.map(range => (info.aspects, range))
       })
-      ->Array.concatMany
-      ->Array.keepMap(((aspects, range)) => {
+      ->Array.flat
+      ->Array.filterMap(((aspects, range)) => {
         // convert Aspects to TokenType / TokenModifiers / Backgrounds
         let (tokenTypeAndModifiers, decorations) =
-          aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Array.unzip
-        let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Array.unzip
+          aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
+        let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
         // merge TokenType / TokenModifiers / Backgrounds
-        let tokenTypes = tokenTypes->Array.keepMap(x => x)
-        let tokenModifiers = tokenModifiers->Array.concatMany
+        let tokenTypes = tokenTypes->Array.filterMap(x => x)
+        let tokenModifiers = tokenModifiers->Array.flat
         let decorations =
-          decorations->Array.keepMap(x =>
-            x->Option.map(x => (
-              x,
-              Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
-            ))
+          decorations->Array.filterMap(x =>
+            x->Option.map(
+              x => (x, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)),
+            )
           )
 
         // only 1 TokenType is allowed, so we take the first one
         let semanticToken = tokenTypes[0]->Option.map(tokenType => {
-          Highlighting__SemanticToken.range: range,
+          Highlighting__SemanticToken.range,
           type_: tokenType,
           modifiers: Some(tokenModifiers),
         })
         Some(semanticToken, decorations)
       })
-      ->Array.unzip
-    let semanticTokens = semanticTokens->Array.keepMap(x => x)
-    let decorations =
-      decorations->Array.concatMany->Highlighting__Decoration.toVSCodeDecorations(editor)
+      ->Belt.Array.unzip
+    let semanticTokens = semanticTokens->Array.filterMap(x => x)
+    let decorations = decorations->Array.flat->Highlighting__Decoration.toVSCodeDecorations(editor)
 
     (decorations, semanticTokens)
   }
@@ -328,10 +317,10 @@ module Module: Module = {
         // pair the aspect with the range
         info.aspects->Array.map(aspect => (aspect, range))
       )
-      ->Array.concatMany
+      ->Array.flat
 
     aspects
-    ->Array.keepMap(((aspect, range)) => Aspect.toDecoration(aspect)->Option.map(x => (x, range)))
+    ->Array.filterMap(((aspect, range)) => Aspect.toDecoration(aspect)->Option.map(x => (x, range)))
     ->Highlighting__Decoration.toVSCodeDecorations(editor)
   }
 }

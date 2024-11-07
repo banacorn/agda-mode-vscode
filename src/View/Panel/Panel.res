@@ -43,7 +43,7 @@ let make = (
   let onUpdatePromptIM = action => onEventFromView->Chan.emit(PromptIMUpdate(action))
 
   // on receiving View Requests
-  Hook.recv(onRequest, onResponse, msg =>
+  Hook.recv(onRequest, onResponse, async msg =>
     switch msg {
     | Prompt(header', {body, placeholder, value}) =>
       // set the view
@@ -58,14 +58,19 @@ let make = (
         }
       )
 
-      let (promise, resolve) = Promise.pending()
-      promptResponseResolver.current = Some(resolve)
-      promise->Promise.map(x =>
-        switch x {
-        | None => View.Response.PromptInterrupted
-        | Some(result) => View.Response.PromptSuccess(result)
-        }
-      )
+      // let (promise, resolve) = Promise.pending()
+      // promptResponseResolver.current = Some(resolve)
+      // promise->Promise.map(x =>
+      //   switch x {
+      //   | None => View.Response.PromptInterrupted
+      //   | Some(result) => View.Response.PromptSuccess(result)
+      //   }
+      // )
+      let promise = Promise.make((resolve, _) => promptResponseResolver.current = Some(resolve))
+      switch await promise {
+      | None => View.Response.PromptInterrupted
+      | Some(result) => View.Response.PromptSuccess(result)
+      }
     }
   )
 

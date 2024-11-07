@@ -10,23 +10,28 @@ let toString = x =>
   | Hole(int) => "?" ++ string_of_int(int)
   }
 
-let decode: Json.Decode.decoder<t> = Util.Decode.sum(x => {
-  open Json.Decode
-  switch x {
-  | "LinkRange" => Contents(AgdaRange.decode |> map(range => SrcLoc(range)))
-  | "LinkHole" => Contents(int |> map(index => Hole(index)))
-  | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
-  }
-})
-
-let encode: Json.Encode.encoder<t> = x => {
-  open Json.Encode
-  switch x {
-  | SrcLoc(range) =>
-    object_(list{("tag", string("LinkRange")), ("contents", range |> AgdaRange.encode)})
-  | Hole(index) => object_(list{("tag", string("LinkHole")), ("contents", index |> int)})
-  }
+let decode = {
+  open JsonCombinators.Json.Decode
+  Util.Decode.sum(x => {
+    switch x {
+    | "LinkRange" => Payload(AgdaRange.decode->map((. range) => SrcLoc(range)))
+    | "LinkHole" => Payload(int->map((. index) => Hole(index)))
+    | tag => raise(DecodeError("[View.Link] Unknown constructor: " ++ tag))
+    }
+  })
 }
+
+let encode = {
+  open JsonCombinators.Json.Encode
+  Util.Encode.sum(x =>
+    switch x {
+    | SrcLoc(range) => Payload("LinkRange", AgdaRange.encode(range))
+    | Hole(index) => Payload("LinkHole", int(index))
+    }
+    , ...
+  )
+}
+
 module Event = {
   type t =
     | JumpToTarget(t)
@@ -46,26 +51,30 @@ module Event = {
     let make = React.Context.provider(eventContext)
   }
 
-  let decode: Json.Decode.decoder<t> = {
-    open Json.Decode
-    Util.Decode.sum(x =>
+  let decode = {
+    Util.Decode.sum(x => {
       switch x {
-      | "JumpToTarget" => Contents(decode |> map(link => JumpToTarget(link)))
-      | "MouseOver" => Contents(decode |> map(link => MouseOver(link)))
-      | "MouseOut" => Contents(decode |> map(link => MouseOut(link)))
-      | tag => raise(DecodeError("[Response.EventFromView] Unknown constructor: " ++ tag))
+      | "JumpToTarget" =>
+        Payload(decode->JsonCombinators.Json.Decode.map((. target) => JumpToTarget(target)))
+      | "MouseOver" =>
+        Payload(decode->JsonCombinators.Json.Decode.map((. target) => MouseOver(target)))
+      | "MouseOut" =>
+        Payload(decode->JsonCombinators.Json.Decode.map((. target) => MouseOut(target)))
+      | tag =>
+        raise(JsonCombinators.Json.Decode.DecodeError("[Link.Event] Unknown constructor: " ++ tag))
       }
-    )
+    })
   }
 
-  let encode: Json.Encode.encoder<t> = x => {
-    open Json.Encode
-    switch x {
-    | JumpToTarget(link) =>
-      object_(list{("tag", string("JumpToTarget")), ("contents", link |> encode)})
-    | MouseOver(link) => object_(list{("tag", string("MouseOver")), ("contents", link |> encode)})
-    | MouseOut(link) => object_(list{("tag", string("MouseOut")), ("contents", link |> encode)})
-    }
+  let encode = {
+    Util.Encode.sum(x =>
+      switch x {
+      | JumpToTarget(link) => Payload("JumpToTarget", encode(link))
+      | MouseOver(link) => Payload("MouseOver", encode(link))
+      | MouseOut(link) => Payload("MouseOut", encode(link))
+      }
+      , ...
+    )
   }
 }
 
@@ -80,13 +89,11 @@ let make = (~target=SrcLoc(NoRange), ~jump=false, ~hover=false, ~className=[], ~
   }
 
   let link = React.useContext(Event.eventContext)
-  let className = Belt.List.fromArray(className)
-
   switch sanitizedTarget {
-  | None => <span className={String.concat(" ", className)}> children </span>
+  | None => <span className={String.concatMany(" ", className)}> children </span>
   | Some(t) =>
     <span
-      className={String.concat(" ", list{"component-link", ...className})}
+      className={String.concatMany(" ", ["component-link", ...className])}
       onClick={_ => {
         if jump {
           link->Chan.emit(Event.JumpToTarget(t))

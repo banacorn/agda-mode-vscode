@@ -1,5 +1,5 @@
 // key - symbols mapping
-@bs.module("./../../../../asset/query.js")
+@module("./../../../../asset/query.js")
 external rawTable: Js.Dict.t<array<string>> = "default"
 
 // trie
@@ -8,7 +8,7 @@ type rec trie = {
   symbols: array<string>,
   subTrie: Js.Dict.t<trie>,
 }
-@bs.module("./../../../../asset/keymap.js")
+@module("./../../../../asset/keymap.js")
 external rawKeymapObject: {.} = "default"
 
 open Belt
@@ -21,11 +21,16 @@ let rec fromObject = (obj: {.}): trie => {
     obj
     ->Js.Obj.keys
     ->Array.keep(key => key != ">>")
-    ->Array.map(key => (key, fromObject(%raw(`
+    ->Array.map(key => (
+      key,
+      fromObject(
+        %raw(`
       obj[key]
-    `))))
+    `),
+      ),
+    ))
     ->Js.Dict.fromArray
-  {symbols: symbols, subTrie: subTrie}
+  {symbols, subTrie}
 }
 
 let keymap = fromObject(rawKeymapObject)
@@ -61,26 +66,6 @@ type translation = {
   candidateSymbols: array<string>,
 }
 
-let decode: Json.Decode.decoder<translation> = json => {
-  open Json.Decode
-  {
-    symbol: json |> field("symbol", optional(string)),
-    further: json |> field("further", bool),
-    keySuggestions: json |> field("keySuggestions", array(string)),
-    candidateSymbols: json |> field("candidateSymbols", array(string)),
-  }
-}
-
-let encode: Json.Encode.encoder<translation> = translation => {
-  open Json.Encode
-  object_(list{
-    ("symbol", translation.symbol |> nullable(string)),
-    ("further", translation.further |> bool),
-    ("keySuggestions", translation.keySuggestions |> array(string)),
-    ("candidateSymbols", translation.candidateSymbols |> array(string)),
-  })
-}
-
 type state = {
   lastTranslation: translation,
   candidateIndex: int,
@@ -93,39 +78,66 @@ let translate = (input: string, state: option<state>): translation => {
   // ->Extension.extendKeySuggestions(input);
   let further = Array.length(keySuggestions) != 0
   let candidateSymbols = trie->Option.mapWithDefault([], toCandidateSymbols)
-  
-  let symbol = candidateSymbols[0]
-  let last = Js.String.sliceToEnd(~from = -1, input)->Belt.Int.fromString
-  open Belt.Option
-  // If user inputs a number and the new sequence can not be translated into symbols, 
-  // this number may be the index of candidateSymbols
-  if isSome(last) &&
-     symbol == None &&
-     isSome(state) && Array.length(getExn(state).lastTranslation.candidateSymbols) != 0 {
 
+  let symbol = candidateSymbols[0]
+  let last = Js.String.sliceToEnd(~from=-1, input)->Belt.Int.fromString
+  open Belt.Option
+
+  // If user inputs a number and the new sequence can not be translated into symbols,
+  // this number may be the index of candidateSymbols
+  if (
+    isSome(last) &&
+    symbol == None &&
+    isSome(state) &&
+    Array.length(getExn(state).lastTranslation.candidateSymbols) != 0
+  ) {
     let state = getExn(state)
-    let cycle_Zplus = n => if n == 0 {
-      9
-    } else {
-      n - 1
-    }
+    let cycle_Zplus = n =>
+      if n == 0 {
+        9
+      } else {
+        n - 1
+      }
     let index = cycle_Zplus(getExn(last)) + state.candidateIndex / 10 * 10
     {
-      symbol: state.lastTranslation.candidateSymbols[min(index, Array.length(state.lastTranslation.candidateSymbols) - 1)],
-      further: further,
-      keySuggestions: keySuggestions,
-      candidateSymbols: candidateSymbols,
+      symbol: state.lastTranslation.candidateSymbols[
+        min(index, Array.length(state.lastTranslation.candidateSymbols) - 1)
+      ],
+      further,
+      keySuggestions,
+      candidateSymbols,
     }
   } else {
     {
-      symbol: symbol,
-      further: further,
-      keySuggestions: keySuggestions,
-      candidateSymbols: candidateSymbols, 
+      symbol,
+      further,
+      keySuggestions,
+      candidateSymbols,
     }
   }
 }
-let initialTranslation = translate("")
+let initialTranslation = x => translate("", x)
 
 let lookup = (symbol): option<array<string>> =>
   Js.String.codePointAt(0, symbol)->Option.map(string_of_int)->Option.flatMap(Js.Dict.get(rawTable))
+
+let decode = {
+  open JsonCombinators.Json.Decode
+  // TODO: replace `field.required(. "symbol", option(string))` with `field.optional(. "symbol", string)`
+  object(field => {
+    symbol: field.required(. "symbol", option(string)),
+    further: field.required(. "further", bool),
+    keySuggestions: field.required(. "keySuggestions", array(string)),
+    candidateSymbols: field.required(. "candidateSymbols", array(string)),
+  })
+}
+
+let encode = translation => {
+  open JsonCombinators.Json.Encode
+  Unsafe.object({
+    "symbol": option(string)(translation.symbol),
+    "further": bool(translation.further),
+    "keySuggestions": array(string)(translation.keySuggestions),
+    "candidateSymbols": array(string)(translation.candidateSymbols),
+  })
+}

@@ -8,11 +8,11 @@ let vscode = VSCode.Api.acquireVsCodeApi()
 let onRequest = Chan.make()
 let onEventToView = Chan.make()
 VSCode.Api.onMessage(stringifiedJSON => {
-  let requestOrEvent = stringifiedJSON->Js.Json.parseExn->View.RequestOrEventToView.decode
-
-  switch requestOrEvent {
-  | Event(event) => onEventToView->Chan.emit(event)
-  | Request(req) => onRequest->Chan.emit(req)
+  let json = stringifiedJSON->Js.Json.parseExn
+  switch JsonCombinators.Json.decode(json, View.RequestOrEventToView.decode) {
+  | Ok(Event(event)) => onEventToView->Chan.emit(event)
+  | Ok(Request(req)) => onRequest->Chan.emit(req)
+  | Error(_) => () // TODO: handle this decode error
   }
 })
 

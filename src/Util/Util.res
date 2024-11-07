@@ -1,89 +1,131 @@
-open Belt
-
-
 module Result = {
-  let mapError = x => f => switch x {
-  | Error(e) => Error(f(e))
-  | Ok(v) => Ok(v)
-  }
+  let mapError = (x, f) =>
+    switch x {
+    | Error(e) => Error(f(e))
+    | Ok(v) => Ok(v)
+    }
 }
 
 exception Error(string)
 
 module Decode = {
-  open Json.Decode
-
-  type fieldType<'a> =
-    | Contents(decoder<'a>)
+  open JsonCombinators.Json.Decode
+  type fieldType_<'a> =
+    | Payload(t<'a>)
     | TagOnly('a)
 
-  let sum = decoder =>
-    field("tag", string) |> andThen(tag =>
+  let sum = decoder => {
+    field("tag", string)->flatMap(tag =>
       switch decoder(tag) {
-      | Contents(d) => field("contents", d)
-      | TagOnly(d) => _ => d
+      | Payload(d) => field("contents", d)
+      | TagOnly(d) => custom(_ => d)
       }
     )
+  }
 
-  let maybe: decoder<'a> => decoder<option<'a>> = decoder =>
-    sum(x =>
-      switch x {
-      | "Just" => Contents(json => Some(decoder(json)))
-      | _ => TagOnly(None)
+  let tuple5 = (decodeA, decodeB, decodeC, decodeD, decodeE) => {
+    custom(json => {
+      if !Js.Array.isArray(json) {
+        Error.expected("array", json)
       }
-    )
 
-  let tuple5 = (decodeA, decodeB, decodeC, decodeD, decodeE, json) =>
-    if Js.Array.isArray(json) {
-      let source: array<Js.Json.t> = Obj.magic((json: Js.Json.t))
-      let length = Js.Array.length(source)
-      if length == 5 {
-        try (
-          decodeA(Js.Array.unsafe_get(source, 0)),
-          decodeB(Js.Array.unsafe_get(source, 1)),
-          decodeC(Js.Array.unsafe_get(source, 2)),
-          decodeD(Js.Array.unsafe_get(source, 3)),
-          decodeE(Js.Array.unsafe_get(source, 4)),
-        ) catch {
-        | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple5"))
+      let arr: array<Js.Json.t> = Obj.magic(json)
+      if Array.length(arr) != 5 {
+        raise(
+          DecodeError(
+            `Expected array of length 5, got array of length ${Array.length(arr)->string_of_int}`,
+          ),
+        )
+      }
+
+      let run = (decoder, xs, i) =>
+        switch xs[i] {
+        | Some(x) =>
+          switch x->decode(decoder) {
+          | Ok(x) => x
+          | Error(err) => raise(DecodeError(err))
+          }
+        | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
         }
-      } else {
-        raise(DecodeError(j`Expected array of length 5, got array of length $length`))
-      }
-    } else {
-      raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
-    }
 
-  let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF, json) =>
-    if Js.Array.isArray(json) {
-      let source: array<Js.Json.t> = Obj.magic((json: Js.Json.t))
-      let length = Js.Array.length(source)
-      if length == 6 {
-        try (
-          decodeA(Js.Array.unsafe_get(source, 0)),
-          decodeB(Js.Array.unsafe_get(source, 1)),
-          decodeC(Js.Array.unsafe_get(source, 2)),
-          decodeD(Js.Array.unsafe_get(source, 3)),
-          decodeE(Js.Array.unsafe_get(source, 4)),
-          decodeF(Js.Array.unsafe_get(source, 5)),
-        ) catch {
-        | DecodeError(msg) => raise(DecodeError(msg ++ "\n\tin tuple6"))
-        }
-      } else {
-        raise(DecodeError(j`Expected array of length 6, got array of length $length`))
+      try (
+        run(decodeA, arr, 0),
+        run(decodeB, arr, 1),
+        run(decodeC, arr, 2),
+        run(decodeD, arr, 3),
+        run(decodeE, arr, 4),
+      ) catch {
+      | DecodeError(msg) => raise(DecodeError(`${msg}\n\tin tuple5`))
       }
-    } else {
-      raise(DecodeError("Expected array, got " ++ Js.Json.stringify(json)))
-    }
+    })
+  }
+
+  let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF) => {
+    custom(json => {
+      if !Js.Array.isArray(json) {
+        Error.expected("array", json)
+      }
+
+      let arr: array<Js.Json.t> = Obj.magic(json)
+      if Array.length(arr) != 6 {
+        raise(
+          DecodeError(
+            `Expected array of length 6, got array of length ${Array.length(arr)->string_of_int}`,
+          ),
+        )
+      }
+
+      let run = (decoder, xs, i) =>
+        switch xs[i] {
+        | Some(x) =>
+          switch x->decode(decoder) {
+          | Ok(x) => x
+          | Error(err) => raise(DecodeError(err))
+          }
+        | None => raise(DecodeError("Unable to get index " ++ string_of_int(i)))
+        }
+
+      try (
+        run(decodeA, arr, 0),
+        run(decodeB, arr, 1),
+        run(decodeC, arr, 2),
+        run(decodeD, arr, 3),
+        run(decodeE, arr, 4),
+        run(decodeF, arr, 5),
+      ) catch {
+      | DecodeError(msg) => raise(DecodeError(`${msg}\n\tin tuple6`))
+      }
+    })
+  }
 }
 
 module Encode = {
-  open Json.Encode
+  open JsonCombinators.Json.Encode
+
+  type fieldType<'a> =
+    | Payload(string, Js.Json.t)
+    | TagOnly('a)
+
+  let sum = f => x =>
+    switch f(x) {
+    | Payload(tag, json) =>
+      Unsafe.object({
+        "tag": string(tag),
+        "contents": json,
+      })
+    | TagOnly(tag) =>
+      Unsafe.object({
+        "tag": string(tag),
+      })
+    }
+
   let tuple5 = (encodeA, encodeB, encodeC, encodeD, encodeE, (a, b, c, d, e)) =>
-    jsonArray([encodeA(a), encodeB(b), encodeC(c), encodeD(d), encodeE(e)])
+    [a->encodeA, b->encodeB, c->encodeC, d->encodeD, e->encodeE]->jsonArray
+  let tuple6 = (encodeA, encodeB, encodeC, encodeD, encodeE, encodeF, (a, b, c, d, e, f)) =>
+    [a->encodeA, b->encodeB, c->encodeC, d->encodeD, e->encodeE, f->encodeF]->jsonArray
 }
 
-module React' = React 
+module React' = React
 module React = {
   open React'
 
@@ -96,12 +138,25 @@ module React = {
     switch item {
     | list{} => <> </>
     | list{x} => x
-    | list{x, ...xs} => list{x, ...List.map(xs, i => <> sep i </>)}->List.toArray->manyIn("span")
+    | list{x, ...xs} =>
+      list{
+        x,
+        ...List.map(xs, i => <>
+          sep
+          i
+        </>),
+      }
+      ->List.toArray
+      ->manyIn("span")
     }
   let sepBy = (sep: element, xs) => xs->List.fromArray->sepBy'(sep)
 
   let enclosedBy = (front: element, back: element, item: element) => <>
-    front {string(" ")} item {string(" ")} back
+    front
+    {string(" ")}
+    item
+    {string(" ")}
+    back
   </>
 
   let when_ = (p, className) => p ? " " ++ className : ""
@@ -118,7 +173,7 @@ module Version = {
     | EQ
     | GT
 
-  @bs.module
+  @module
   external compareVersionsPrim: (string, string) => int = "compare-versions"
   let trim = Js.String.replaceByRe(%re("/-.*/"), "")
   let compare = (a, b) =>
@@ -140,14 +195,19 @@ module Pretty = {
   let list = xs => xs->List.toArray->array
 }
 
-let rec oneByOne' = x =>
+let rec oneByOne' = async x =>
   switch x {
-  | list{} => Promise.resolved(list{})
-  | list{x, ...xs} => x->Promise.flatMap(x' => oneByOne'(xs)->Promise.map(xs' => list{x', ...xs'}))
+  | list{} => list{}
+  | list{x, ...xs} =>
+    let x' = await x
+    let result = await oneByOne'(xs)
+    list{x', ...result}
   }
 
-let oneByOne = xs => oneByOne'(List.fromArray(xs))->Promise.map(List.toArray)
-
+let oneByOne = async xs => {
+  let xs' = await oneByOne'(List.fromArray(xs))
+  List.toArray(xs')
+}
 module JsError = {
   let toString = (_e: Js.Exn.t): string => %raw("_e.toString()")
 }
@@ -174,4 +234,52 @@ module List = {
         list{x, ...xs}
       }
     }
+}
+
+// module P = {
+//   external toJsExn: Js.Promise.error => Js.Exn.t = "%identity"
+
+//   let toPromise = (p: promise<result<'a, Js.Exn.t>>): Promise.t<result<'a, Js.Exn.t>> => {
+//     p
+//     ->Promise.Js.fromBsPromise
+//     ->Promise.Js.toResult
+//     ->Promise.map(x =>
+//       switch x {
+//       | Ok(Ok(x)) => Ok(x)
+//       | Ok(Error(e)) => Error(e)
+//       | Error(e) => Error(toJsExn(e))
+//       }
+//     )
+//   }
+// }
+
+module Promise_ = {
+  // Like `Promise.make` but without having to supply a callback
+  let pending: unit => (promise<'a>, 'a => unit, 'e => unit) = () => {
+    let resolve = ref(None)
+    let reject = ref(None)
+    let promise = Promise.make((res, rej) => {
+      resolve := Some(res)
+      reject := Some(rej)
+    })
+
+    switch (resolve.contents, reject.contents) {
+    | (Some(resolve), Some(reject)) => (promise, resolve, reject)
+    | _ => raise(Failure("Promise is not initialized"))
+    }
+  }
+}
+
+module String = {
+  // let eol = switch VSCode.TextDocument.eol {
+  // | VSCode.EndOfLine.LF => "\n"
+  // | VSCode.EndOfLine.CRLF => "\r\n"
+  // }
+
+  // let lines = s => s->Js.String2.split(NodeJs.Os.eol)
+  let lines = s => {
+    s->Js.String2.splitByRe(%re("/\r\n|\n/g"))
+  }
+  // let unlines = xs => xs->Js.Array2.joinWith(NodeJs.Os.eol)
+  let unlines = xs => xs->Js.Array2.joinWith("\n")
 }

@@ -2,7 +2,7 @@ open React
 
 type t =
   | Labeled(string, string, RichText.t, option<string>, option<Common.AgdaRange.t>) // label // style // body // raw string // range
-  | Unlabeled(RichText.t, option<string>, option<Common.AgdaRange.t>) // body // raw string
+  | Unlabeled(RichText.t, option<string>, option<Common.AgdaRange.t>) // body // raw string // range
   | Header(string) // <h1>
 
 let plainText = s => Unlabeled(RichText.string(s), None, None)
@@ -35,11 +35,7 @@ let make = (~item: t) => {
   let locationButton = location =>
     switch location {
     | Some(location) =>
-      <Link
-        className=["item-location-button"]
-        jump=true
-        hover=false
-        target=Link.SrcLoc(location)>
+      <Link className=["item-location-button"] jump=true hover=false target=Link.SrcLoc(location)>
         <div className="codicon codicon-link" />
       </Link>
     | None => <> </>
@@ -58,67 +54,67 @@ let make = (~item: t) => {
       {locationButton(range)}
     </li>
   // | HorizontalRule => <li className="horizontalRule-item"></li>
-  | Header(s) => <li className="header-item"> <h3> {string(s)} </h3> </li>
+  | Header(s) =>
+    <li className="header-item">
+      <h3> {string(s)} </h3>
+    </li>
   }
 }
 
-open! Json.Decode
-open Util.Decode
-
-let decode: decoder<t> = sum(x =>
-  switch x {
-  | "Labeled" =>
-    Contents(
-      tuple5(
-        RichText.decode,
-        optional(string),
-        optional(Common.AgdaRange.decode),
-        string,
-        string,
-      ) |> map(((text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
-    )
-  | "Unlabeled" =>
-    Contents(
-      tuple3(RichText.decode, optional(string), optional(Common.AgdaRange.decode)) |> map(((
-        text,
-        raw,
-        range,
-      )) => Unlabeled(text, raw, range)),
-    )
-  | "Header" => Contents(string |> map(s => Header(s)))
-  | tag => raise(DecodeError("[Item] Unknown constructor: " ++ tag))
-  }
-)
-
-open! Json.Encode
-open! Util.Encode
-let encode: encoder<t> = x =>
-  switch x {
-  | Labeled(label, style, text, raw, range) =>
-    object_(list{
-      ("tag", string("Labeled")),
-      (
-        "contents",
-        (text, raw, range, label, style) |> tuple5(
-          RichText.encode,
-          nullable(string),
-          nullable(Common.AgdaRange.encode),
+let decode = {
+  open! JsonCombinators.Json.Decode
+  Util.Decode.sum(x =>
+    switch x {
+    | "Labeled" =>
+      Payload(
+        Util.Decode.tuple5(
+          RichText.decode,
+          option(string),
+          JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
           string,
           string,
-        ),
-      ),
-    })
-  | Unlabeled(text, raw, range) =>
-    object_(list{
-      ("tag", string("Unlabeled")),
-      (
-        "contents",
-        (text, raw, range) |> tuple3(
+        )->map(((text, raw, range, label, style)) => Labeled(label, style, text, raw, range)),
+      )
+    | "Unlabeled" =>
+      Payload(
+        tuple3(
+          RichText.decode,
+          option(string),
+          JsonCombinators.Json.Decode.option(Common.AgdaRange.decode),
+        )->map(((text, raw, range)) => Unlabeled(text, raw, range)),
+      )
+    | "Header" => Payload(string->map(s => Header(s)))
+    | tag => raise(DecodeError("[Item] Unknown constructor: " ++ tag))
+    }
+  )
+}
+
+let encode = {
+  open! JsonCombinators.Json.Encode
+  Util.Encode.sum(x =>
+    switch x {
+    | Labeled(label, style, text, raw, range) =>
+      Payload((
+        "Labeled",
+        Util.Encode.tuple5(
           RichText.encode,
-          nullable(string),
-          nullable(Common.AgdaRange.encode),
+          option(string),
+          option(Common.AgdaRange.encode),
+          string,
+          string,
+          (text, raw, range, label, style),
         ),
-      ),
-    })
-  | Header(s) => object_(list{("tag", string("Header")), ("contents", s |> string)})
-  }
+      ))
+    | Unlabeled(text, raw, range) =>
+      Payload((
+        "Unlabeled",
+        tuple3(RichText.encode, option(string), option(Common.AgdaRange.encode))((
+          text,
+          raw,
+          range,
+        )),
+      ))
+    | Header(s) => Payload(("Header", string(s)))
+    }
+  , ...)
+}

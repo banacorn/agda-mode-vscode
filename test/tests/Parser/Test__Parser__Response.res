@@ -1,7 +1,4 @@
-open Belt
-open BsMocha.Mocha
-open Js.Promise
-
+open Mocha
 open! Test__Parser__SExpression
 open Test__Util
 
@@ -19,18 +16,20 @@ let toPrioritizedResponses = exprs =>
     | Ok(v) => [v]
     }
   )
-  ->Array.concatMany
+  ->Array.flat
 
 describe("when parsing responses", () =>
   Golden.getGoldenFilepathsSync("../../../../test/tests/Parser/Response")->Array.forEach(filepath =>
-    BsMocha.Promise.it("should golden test " ++ filepath, () =>
-      Golden.readFile(filepath) |> then_(raw =>
+    Async.it(
+      "should golden test " ++ filepath,
+      async () => {
+        let raw = await Golden.readFile(filepath)
         raw
-        ->Golden.map(parseSExpression([]))
+        ->Golden.map(parseSExpression([], ...))
         ->Golden.map(toPrioritizedResponses)
-        ->Golden.map(Strings.serializeWith(Response.Prioritized.toString))
+        ->Golden.map(Strings.unlinesWith(Response.Prioritized.toString, ...))
         ->Golden.compare
-      )
+      },
     )
   )
 )

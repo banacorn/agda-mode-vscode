@@ -5,7 +5,7 @@ module WebviewPanel: {
   let make: (string, string) => t
   let destroy: t => unit
   // messaging
-  let send: (t, string) => Promise.t<bool>
+  let send: (t, string) => promise<bool>
   let recv: (t, Js.Json.t => unit) => VSCode.Disposable.t
   // events
   let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
@@ -65,7 +65,7 @@ module WebviewPanel: {
     // let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
     let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
 
-    j`
+    `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -77,23 +77,23 @@ module WebviewPanel: {
 					Use a content security policy to only allow loading images from https or from our extension directory,
 					and only allow scripts that have a specific nonce.
 				-->
-        <meta http-equiv="Content-Security-Policy" content="$scp">
+        <meta http-equiv="Content-Security-Policy" content="${scp}">
 
         <title>React App</title>
-        <link href="$styleUri"    rel="stylesheet" type="text/css" >
-        <link href="$codiconsUri" rel="stylesheet" />
+        <link href="${styleUri}"    rel="stylesheet" type="text/css" >
+        <link href="${codiconsUri}" rel="stylesheet" />
       </head>
       <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
-        <script nonce="$nonce" src="$scriptUri"></script>
+        <script nonce="${nonce}" src="${scriptUri}"></script>
       </body>
       </html>
     `
   }
 
   let make = (title, extensionPath) => {
-    let distPath = Node.Path.join2(extensionPath, "dist")
+    let distPath = NodeJs.Path.join2(extensionPath, "dist")
     let panel = VSCode.Window.createWebviewPanel(
       "panel",
       title,
@@ -149,7 +149,7 @@ module WebviewPanel: {
         %raw(`{
           orientation: 1,
           groups: [{ size: 0.7 }, { size: 0.3 }]
-        }`)
+        }`),
         // {
         // orientation: 1,
         // groups: {
@@ -168,11 +168,11 @@ module type Module = {
   let make: (string, string) => t
   let destroy: t => unit
 
-  let sendEvent: (t, View.EventToView.t) => Promise.t<unit>
-  let sendRequest: (t, View.Request.t, View.Response.t => Promise.t<unit>) => Promise.t<unit>
+  let sendEvent: (t, View.EventToView.t) => promise<unit>
+  let sendRequest: (t, View.Request.t, View.Response.t => promise<unit>) => promise<unit>
   let onEvent: (t, View.EventFromView.t => unit) => VSCode.Disposable.t
 
-  let onceDestroyed: t => Promise.t<unit>
+  let onceDestroyed: t => promise<unit>
 
   let reveal: t => unit
 }
@@ -194,28 +194,28 @@ module Module: Module = {
   }
 
   // messaging
-  let send = (view, requestOrEvent) =>
+  let send = async (view, requestOrEvent) =>
     switch view.status {
     | Uninitialized(queuedRequests, queuedEvents) =>
       open View.RequestOrEventToView
       switch requestOrEvent {
       | Request(req) =>
-        let (promise, resolve) = Promise.pending()
-        Js.Array.push(
-          (
-            req,
-            x =>
-              switch x {
-              | View.ResponseOrEventFromView.Event(_) => resolve(None)
-              | Response(res) => resolve(Some(res))
-              },
-          ),
-          queuedRequests,
-        )->ignore
-        promise
+        await Promise.make((resolve, _) => {
+          Js.Array.push(
+            (
+              req,
+              x =>
+                switch x {
+                | View.ResponseOrEventFromView.Event(_) => resolve(None)
+                | Response(res) => resolve(Some(res))
+                },
+            ),
+            queuedRequests,
+          )->ignore
+        })
       | Event(event) =>
         Js.Array.push(event, queuedEvents)->ignore
-        Promise.resolved(None)
+        None
       }
     | Initialized =>
       open View.RequestOrEventToView
@@ -224,24 +224,25 @@ module Module: Module = {
       switch requestOrEvent {
       | Request(_) =>
         let promise = view.onResponse->Chan.once
-        view.panel
-        ->WebviewPanel.send(stringified)
-        ->Promise.flatMap(_ => promise)
-        ->Promise.map(res => Some(res))
-      | Event(_) => view.panel->WebviewPanel.send(stringified)->Promise.map(_ => None)
+        let _ = await view.panel->WebviewPanel.send(stringified)
+        let res = await promise
+        Some(res)
+      | Event(_) =>
+        let _ = await view.panel->WebviewPanel.send(stringified)
+        None
       }
     }
 
-  let sendEvent = (view, event) =>
-    send(view, View.RequestOrEventToView.Event(event))->Promise.map(_ => ())
-  let sendRequest = (view, request, callback) =>
-    send(view, View.RequestOrEventToView.Request(request))->Promise.flatMap(x =>
-      switch x {
-      | None => Promise.resolved()
-      | Some(response) => callback(response)
-      }
-    )
+  let sendEvent = async (view, event) => {
+    let _ = await send(view, View.RequestOrEventToView.Event(event))
+    ()
+  }
 
+  let sendRequest = async (view, request, callback) =>
+    switch await send(view, View.RequestOrEventToView.Request(request)) {
+    | None => ()
+    | Some(response) => await callback(response)
+    }
   let onEvent = (view, callback) =>
     // Handle events from the webview
     view.onEvent->Chan.on(callback)->VSCode.Disposable.make
@@ -265,10 +266,10 @@ module Module: Module = {
     // relay Webview.onDidReceiveMessage => onResponse or onEvent
     view.panel
     ->WebviewPanel.recv(json =>
-      switch View.ResponseOrEventFromView.decode(json) {
-      | Response(res) => view.onResponse->Chan.emit(res)
-      | Event(ev) => view.onEvent->Chan.emit(ev)
-      | exception e => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
+      switch JsonCombinators.Json.decode(json, View.ResponseOrEventFromView.decode) {
+      | Ok(Response(res)) => view.onResponse->Chan.emit(res)
+      | Ok(Event(ev)) => view.onEvent->Chan.emit(ev)
+      | Error(e) => Js.log2("[ panic ][ Webview.onDidReceiveMessage JSON decode error ]", e)
       }
     )
     ->Js.Array.push(view.subscriptions)
@@ -289,12 +290,13 @@ module Module: Module = {
         | Uninitialized(queuedRequests, queuedEvents) =>
           view.status = Initialized
           queuedRequests->Belt.Array.forEach(((req, resolve)) =>
-            send(view, View.RequestOrEventToView.Request(req))->Promise.get(x =>
-              switch x {
-              | None => ()
-              | Some(res) => resolve(View.ResponseOrEventFromView.Response(res))
-              }
-            )
+            send(view, View.RequestOrEventToView.Request(req))->Promise.thenResolve(
+              x =>
+                switch x {
+                | None => ()
+                | Some(res) => resolve(View.ResponseOrEventFromView.Response(res))
+                },
+            )->Promise.done
           )
           queuedEvents->Belt.Array.forEach(event =>
             send(view, View.RequestOrEventToView.Event(event))->ignore
@@ -324,8 +326,8 @@ module Module: Module = {
   }
 
   // resolves the returned promise once the view has been destroyed
-  let onceDestroyed = (view: t): Promise.t<unit> => {
-    let (promise, resolve) = Promise.pending()
+  let onceDestroyed = (view: t): promise<unit> => {
+    let (promise, resolve, _) = Util.Promise_.pending()
 
     let disposable = view.onEvent->Chan.on(response =>
       switch response {
@@ -334,7 +336,7 @@ module Module: Module = {
       }
     )
 
-    promise->Promise.tap(disposable)
+    promise->Promise.thenResolve(disposable)
   }
 
   // show/focus

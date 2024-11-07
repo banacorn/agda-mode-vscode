@@ -1,5 +1,4 @@
 open Common
-open Belt
 
 module Decoration = Highlighting__Decoration
 module SemanticToken = Highlighting__SemanticToken
@@ -17,7 +16,7 @@ module type Module = {
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
-  let apply: (t, Tokens.t, VSCode.TextEditor.t) => Promise.t<unit>
+  let apply: (t, Tokens.t, VSCode.TextEditor.t) => promise<unit>
   let clear: t => unit
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
@@ -32,7 +31,7 @@ module Module: Module = {
 
   let decorateHole = (editor: VSCode.TextEditor.t, interval: Interval.t, index: int) => {
     let document = VSCode.TextEditor.document(editor)
-    let backgroundRange = Editor.Range.fromInterval(document, interval)
+    let backgroundRange = Interval.toVSCodeRange(document, interval)
 
     let background = Editor.Decoration.highlightBackground(
       editor,
@@ -41,7 +40,7 @@ module Module: Module = {
     )
     let indexText = string_of_int(index)
     let innerInterval = (fst(interval), snd(interval) - 2)
-    let indexRange = Editor.Range.fromInterval(document, innerInterval)
+    let indexRange = Interval.toVSCodeRange(document, innerInterval)
 
     let index = Editor.Decoration.overlayText(
       editor,
@@ -101,14 +100,11 @@ module Module: Module = {
       let removedRange = change->VSCode.TextDocumentContentChangeEvent.range
 
       let (lineDelta, columnDelta) = {
-        // +1 line for each linebreak ('\n', '\r', and '\r\n')
+        // +1 line for each linebreak ('\n' or '\r\n')
         // -1 line for each line in `removedRange`
         // +1 column for each charactor after the last linebreak
         // -1 column for each charactor in `removedRange`
-
-        let regex = %re("/\\r\\n|\\r|\\n/")
-        let lines = Js.String.splitByRe(regex, change->VSCode.TextDocumentContentChangeEvent.text)
-
+        let lines = Parser.splitToLines(change->VSCode.TextDocumentContentChangeEvent.text)
         let lineDetalOfRemovedRange =
           VSCode.Position.line(VSCode.Range.end_(removedRange)) -
           VSCode.Position.line(VSCode.Range.start(removedRange))
@@ -130,7 +126,7 @@ module Module: Module = {
             VSCode.Position.character(VSCode.Range.start(removedRange))
 
           let columnDelta = switch lines[lineDelta] {
-          | Some(Some(line)) =>
+          | Some(line) =>
             // number of characters after the last linebreak
             String.length(line) - columnDeltaOfRemovedRange
           | _ => 0
@@ -195,7 +191,7 @@ module Module: Module = {
   }
 
   // trigger TextDocumentChangeEvent by inserting and then deleteing a space " " at the end of the file
-  let triggerDocumentChangeEvent = editor => {
+  let triggerDocumentChangeEvent = async editor => {
     let document = editor->VSCode.TextEditor.document
     let lineCount = document->VSCode.TextDocument.lineCount
     let lastLine = document->VSCode.TextDocument.lineAt(lineCount - 1)
@@ -205,33 +201,15 @@ module Module: Module = {
       VSCode.Position.translate(insertPosition, 0, 1),
     )
 
-    // // insert a space
-    // Editor.Text.batchInsert'(editor, [insertPosition], " ")
-    // ->Promise.flatMap(succeed =>
-    //   if succeed {
-    //     // delete that space
-    //     Editor.Text.batchReplace'(editor, [(deleteRange, "")])
-    //   } else {
-    //     Promise.resolved(false)
-    //   }
-    // )
-    // // save after messing with the file
-    // ->Promise.flatMap(_ => VSCode.TextDocument.save(document))
-    // ->Promise.map(_ => ())
-
     // insert a space
-    Editor.Text.insert(document, insertPosition, " ")
-    ->Promise.flatMap(succeed =>
-      if succeed {
-        // delete that space
-        Editor.Text.replace(document, deleteRange, "")
-      } else {
-        Promise.resolved(false)
-      }
-    )
+    let succeed = await Editor.Text.insert(document, insertPosition, " ")
+
+    if succeed {
+      // delete that space
+      let _ = await Editor.Text.replace(document, deleteRange, "")
+    }
     // save after messing with the file
-    ->Promise.flatMap(_ => VSCode.TextDocument.save(document))
-    ->Promise.map(_ => ())
+    let _ = await VSCode.TextDocument.save(document)
   }
 
   let updateSemanticHighlighting = (self, event) => {
@@ -246,7 +224,7 @@ module Module: Module = {
         let action = Change.classify(change, token)
         Change.apply(token, action)
       })
-      ->Array.concatMany
+      ->Array.flat
 
     // apply changes to the cached tokens
     changes->Array.forEach(change => {
@@ -256,17 +234,17 @@ module Module: Module = {
 
   let getSemanticTokens = (self: t) => self.semanticTokens
 
-  let apply = (self, tokens, editor) => {
+  let apply = async (self, tokens, editor) => {
     if Config.Highlighting.getHighlightWithThemeColors() {
       let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
       self.semanticTokens = semanticTokens
       self.decorations = Array.concat(self.decorations, decorations)
       // apply cached tokens to the editor, by making a change to the file
-      triggerDocumentChangeEvent(editor)
+      await triggerDocumentChangeEvent(editor)
     } else {
       let decorations = Tokens.toDecorations(tokens, editor)
       self.decorations = Array.concat(self.decorations, decorations)
-      Promise.resolved()
+      ()
     }
   }
 }

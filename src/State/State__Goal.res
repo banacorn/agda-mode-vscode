@@ -1,17 +1,17 @@
 open Belt
 open Common
 module type Module = {
-  let instantiate: (State.t, array<int>) => Promise.t<unit>
-  let modify: (State.t, Goal.t, string => string) => Promise.t<unit>
-  let removeBoundaryAndDestroy: (State.t, Goal.t) => Promise.t<unit>
+  let instantiate: (State.t, array<int>) => promise<unit>
+  let modify: (State.t, Goal.t, string => string) => promise<unit>
+  let removeBoundaryAndDestroy: (State.t, Goal.t) => promise<unit>
   let pointed: State.t => option<(Goal.t, string)>
-  let replaceWithLines: (State.t, Goal.t, array<string>) => Promise.t<unit>
-  let replaceWithLambda: (State.t, Goal.t, array<string>) => Promise.t<unit>
+  let replaceWithLines: (State.t, Goal.t, array<string>) => promise<unit>
+  let replaceWithLambda: (State.t, Goal.t, array<string>) => promise<unit>
   let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, Interval.t)
 
   let redecorate: State.t => unit
-  let next: State.t => Promise.t<unit>
-  let previous: State.t => Promise.t<unit>
+  let next: State.t => unit
+  let previous: State.t => unit
 }
 
 module Module: Module = {
@@ -19,7 +19,7 @@ module Module: Module = {
   let getOffsets = (state: State.t): array<int> =>
     state.goals->Array.map(goal => {
       let (from, to) = goal.interval
-      from + min(3, (to - from)/2)
+      from + min(3, (to - from) / 2)
     })
 
   // There are two kinds of lambda abstraction
@@ -40,7 +40,7 @@ module Module: Module = {
   let caseSplitAux = (document, goal: Goal.t) => {
     let textBeforeGoal = {
       let interval = (0, fst(goal.interval))
-      let range = Editor.Range.fromInterval(document, interval)
+      let range = Interval.toVSCodeRange(document, interval)
       Editor.Text.get(document, range)
     }
 
@@ -175,29 +175,21 @@ module Module: Module = {
     )
   }
 
-  let modify = (state: State.t, goal, f) => {
+  let modify = async (state: State.t, goal, f) => {
     updateIntervals(state)
     let content = Goal.getContent(goal, state.document)
-    Goal.setContent(goal, state.document, f(content))->Promise.flatMap(x => {
-      switch x {
-      | true =>
-        updateIntervals(state)
-        Promise.resolved()
-      | false =>
-        State.View.Panel.display(
-          state,
-          Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Failed to modify the content of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
-        )
-      }
-    })
+    if await Goal.setContent(goal, state.document, f(content)) {
+      updateIntervals(state)
+    } else {
+      await State.View.Panel.display(
+        state,
+        Error("Goal-related Error"),
+        [Item.plainText("Failed to modify the content of goal #" ++ string_of_int(goal.index))],
+      )
+    }
   }
 
-  let next = (state: State.t): Promise.t<unit> => {
+  let next = (state: State.t): unit => {
     updateIntervals(state)
 
     let nextGoal = ref(None)
@@ -217,16 +209,15 @@ module Module: Module = {
     }
 
     switch nextGoal.contents {
-    | None => Promise.resolved()
+    | None => ()
     | Some(offset) =>
       let point = state.document->VSCode.TextDocument.positionAt(offset)
       Editor.Cursor.set(state.editor, point)
       state->jumpToOffset(offset)
-      Promise.resolved()
     }
   }
 
-  let previous = (state: State.t): Promise.t<unit> => {
+  let previous = (state: State.t): unit => {
     updateIntervals(state)
 
     let previousGoal = ref(None)
@@ -246,53 +237,53 @@ module Module: Module = {
     }
 
     switch previousGoal.contents {
-    | None => Promise.resolved()
+    | None => ()
     | Some(offset) =>
       let point = state.document->VSCode.TextDocument.positionAt(offset)
       Editor.Cursor.set(state.editor, point)
       state->jumpToOffset(offset)
-      Promise.resolved()
     }
   }
 
-  let instantiate = (state: State.t, indices) => {
+  let instantiate = async (state: State.t, indices) => {
     // destroy all existing goals
-    state.goals->Array.forEach(Goal.destroy)
+    state.goals->Array.forEach(Goal.destroyDecoration)
 
     // get ther cursor position before editing the text buffer
     // so that we can place the cursor inside a goal later
     let selection = VSCode.TextEditor.selection(state.editor)
-    let cursorStart = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.start(selection))
+    let cursorStart = VSCode.TextDocument.offsetAt(
+      state.document,
+      VSCode.Selection.start(selection),
+    )
     let cursorEnd = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection))
 
     // instantiate new ones
-    Goal.makeMany(state.editor, indices)->Promise.map(goals => {
+    let goals = await Goal.makeMany(state.editor, indices)
+    goals->Array.forEach(goal => {
+      // if there's a cursor that touches the hole's "boundary"
+      //
+      //                 {! some hole !}
+      //                 ^^           ^^
+      //
+      //  move the cursor inside the hole
+      //
+      //                 {! some hole !}
+      //                    ^
+      //
+      let (left, right) = goal.interval
+      let touched =
+        (left <= cursorStart && cursorStart <= left + 2) ||
+        right - 2 <= cursorStart && cursorStart <= right ||
+        left <= cursorEnd && cursorEnd <= left + 2 ||
+        (right - 2 <= cursorEnd && cursorEnd <= right)
 
-      goals->Array.forEach(goal => {
-        // if there's a cursor that touches the hole's "boundary"
-        // 
-        //                 {! some hole !}
-        //                 ^^           ^^
-        // 
-        //  move the cursor inside the hole
-        // 
-        //                 {! some hole !}
-        //                    ^
-        // 
-        let (left, right) = goal.interval 
-        let touched = 
-            (left <= cursorStart && cursorStart <= left + 2) || 
-            (right - 2 <= cursorStart && cursorStart <= right) || 
-            (left <= cursorEnd && cursorEnd <= left + 2) || 
-            (right - 2 <= cursorEnd && cursorEnd <= right)
-
-        if touched {
-          Goal.setCursor(goal, state.editor)
-        }
-      })
-
-      state.goals = goals
+      if touched {
+        Goal.setCursor(goal, state.editor)
+      }
     })
+
+    state.goals = goals
   }
 
   let pointed = (state: State.t): option<(Goal.t, string)> => {
@@ -312,7 +303,7 @@ module Module: Module = {
 
   let placeCursorAtFirstNewGoal = (state: State.t, rewriteText, rewriteRange) => {
     // locate the first new goal and place the cursor there
-    let splittedLines = Js.String.split("\n", rewriteText)
+    let splittedLines = Parser.splitToLines(rewriteText)
     splittedLines[0]->Option.forEach(line => {
       let col = Js.String.length(line) - 1
       let lastChar = Js.String.charAt(col, line)
@@ -333,98 +324,74 @@ module Module: Module = {
   //  2.  λ where
   //          x → ?
   //          y → ?
-  let replaceWithLambda = (state: State.t, goal, lines) => {
+  let replaceWithLambda = async (state: State.t, goal, lines) => {
     let (inWhereClause, indentWidth, rewriteInterval) = caseSplitAux(state.document, goal)
     let rewriteText = if inWhereClause {
       Js.Array.joinWith("\n" ++ Js.String.repeat(indentWidth, " "), lines)
     } else {
       Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
     }
-    let rewriteRange = Editor.Range.fromInterval(state.document, rewriteInterval)
-    Editor.Text.replace(state.document, rewriteRange, rewriteText)->Promise.flatMap(x =>
-      switch x {
-      | true =>
-        // destroy the old goal 
-        Goal.destroy(goal)
-        // locate the first new goal and place the cursor there
-        placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
-        Promise.resolved()
-      | false =>
-        State.View.Panel.display(
-          state,
-          Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
-        )
-      }
-    )
+    let rewriteRange = Interval.toVSCodeRange(state.document, rewriteInterval)
+    if await Editor.Text.replace(state.document, rewriteRange, rewriteText) {
+      // destroy the old goal
+      Goal.destroyDecoration(goal)
+      // locate the first new goal and place the cursor there
+      placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
+    } else {
+      await State.View.Panel.display(
+        state,
+        Error("Goal-related Error"),
+        [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
+      )
+    }
   }
 
   // replace and insert one or more lines of content at the goal
   // usage: case split
-  let replaceWithLines = (state: State.t, goal, lines) => {
+  let replaceWithLines = async (state: State.t, goal, lines) => {
     // get the width of indentation from the first line of the goal
     let (indentWidth, _, _) = indentationWidth(state.document, goal)
     let indentation = Js.String.repeat(indentWidth, " ")
     let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
     // the rows spanned by the goal (including the text outside the goal)
     // will be replaced by the `indentedLines`
-    let start = Editor.Position.fromOffset(state.document, fst(goal.interval))
+    let start = VSCode.TextDocument.positionAt(state.document, fst(goal.interval))
     let startLineNo = VSCode.Position.line(start)
     let startLineRange =
       state.document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
     let start = VSCode.Range.start(startLineRange)
 
-    let end_ = Editor.Position.fromOffset(state.document, snd(goal.interval))
+    let end_ = VSCode.TextDocument.positionAt(state.document, snd(goal.interval))
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
-    Editor.Text.replace(state.document, rangeToBeReplaced, indentedLines)->Promise.flatMap(x =>
-      switch x {
-      | true =>
-        // destroy the old goal 
-        Goal.destroy(goal)
-        // locate the first new goal and place the cursor there
-        placeCursorAtFirstNewGoal(state, indentedLines, rangeToBeReplaced)
-        Promise.resolved()
-      | false =>
-        State.View.Panel.display(
-          state,
-          Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Unable to replace the lines of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
-        )
-      }
-    )
+    if await Editor.Text.replace(state.document, rangeToBeReplaced, indentedLines) {
+      // destroy the old goal
+      Goal.destroyDecoration(goal)
+      // locate the first new goal and place the cursor there
+      placeCursorAtFirstNewGoal(state, indentedLines, rangeToBeReplaced)
+    } else {
+      await State.View.Panel.display(
+        state,
+        Error("Goal-related Error"),
+        [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
+      )
+    }
   }
 
-  let removeBoundaryAndDestroy = (state: State.t, goal) => {
+  let removeBoundaryAndDestroy = async (state: State.t, goal) => {
     updateIntervals(state)
 
     let innerRange = Goal.getInnerRange(goal, state.document)
-    let outerRange = Editor.Range.fromInterval(state.document, goal.interval)
-    let content = Editor.Text.get(state.document, innerRange)->String.trim
-    Editor.Text.replace(state.document, outerRange, content)->Promise.flatMap(x =>
-      switch x {
-      | true =>
-        Goal.destroy(goal)
-        Promise.resolved()
-      | false =>
-        State.View.Panel.display(
-          state,
-          Error("Goal-related Error"),
-          [
-            Item.plainText(
-              "Unable to remove the boundary of goal #" ++ string_of_int(goal.index),
-            ),
-          ],
-        )
-      }
-    )
+    let outerRange = Interval.toVSCodeRange(state.document, goal.interval)
+    let content = Editor.Text.get(state.document, innerRange)->Js.String.trim
+    if await Editor.Text.replace(state.document, outerRange, content) {
+      Goal.destroyDecoration(goal)
+    } else {
+      await State.View.Panel.display(
+        state,
+        Error("Goal-related Error"),
+        [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(goal.index))],
+      )
+    }
   }
 
   let redecorate = state => {

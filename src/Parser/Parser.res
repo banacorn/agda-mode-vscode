@@ -1,8 +1,9 @@
 open Belt
 
-let split = s =>
+let splitToLines = s =>
+  // RegEx updated to v10.1.4
   s
-  ->Js.String.splitByRe(%re("/\\r\\n|\\n/"), _)
+  ->(Js.String.splitByRe(%re("/\r\n|\n/"), _))
   ->Array.map(x =>
     switch x {
     | None => None
@@ -48,9 +49,9 @@ module Incr = {
   }
 
   let make = (initialContinuation, callback) => {
-    initialContinuation: initialContinuation,
+    initialContinuation,
     continuation: ref(None),
-    callback: callback,
+    callback,
   }
 
   // parsing with continuation
@@ -73,6 +74,19 @@ module Incr = {
 
 /* Parsing S-Expressions */
 /* Courtesy of @NightRa */
+
+// indicates at which stage the parse error happened
+module SExprParseError = {
+  type t = StackEmpty | StackElementNullReference | PreprocessError
+
+  let toString = x => {
+    switch x {
+    | StackEmpty => "StackEmpty"
+    | StackElementNullReference => "StackElementNullReference"
+    | PreprocessError => "PreprocessError"
+    }
+  }
+}
 
 module SExpression = {
   type rec t =
@@ -105,10 +119,10 @@ module SExpression = {
     | L(xs) => xs->Array.map(flatten)->Array.concatMany
     }
 
-  let parseWithContinuation = (string: string): Incr.continuation<t, (int, string)> => {
+  let parseWithContinuation = (string: string): Incr.continuation<t, (SExprParseError.t, string)> => {
     let rec parseSExpression = (state: state, string: string): Incr.continuation<
       t,
-      (int, string),
+      (SExprParseError.t, string),
     > => {
       let {stack, word, escaped, in_str} = state
 
@@ -119,7 +133,7 @@ module SExpression = {
         | Some(expr) =>
           switch expr.contents {
           | A(_) => expr := L([expr.contents, elem])
-          | L(xs) => xs |> Js.Array.push(elem) |> ignore
+          | L(xs) => ignore(Js.Array.push(elem, xs))
           }
         | None => ()
         }
@@ -128,7 +142,7 @@ module SExpression = {
       let totalLength = String.length(string)
 
       for i in 0 to totalLength - 1 {
-        let char = string |> Js.String.charAt(i)
+        let char = Js.String.charAt(i, string)
 
         if escaped.contents {
           /* something was being escaped */
@@ -141,13 +155,13 @@ module SExpression = {
         } else if char == "\'" && !in_str.contents {
           ()
         } else if char == "(" && !in_str.contents {
-          stack |> Js.Array.push(ref(L([]))) |> ignore
+          ignore(Js.Array.push(ref(L([])), stack))
         } else if char == ")" && !in_str.contents {
           if word.contents != "" {
             pushToTheTop(A(word.contents))
             word := ""
           }
-          switch stack |> Js.Array.pop {
+          switch Js.Array.pop(stack) {
           | Some(expr) => pushToTheTop(expr.contents)
           | None => ()
           }
@@ -166,21 +180,21 @@ module SExpression = {
         }
       }
       switch Array.length(stack) {
-      | 0 => Error((0, string))
+      | 0 => Error((StackEmpty, string))
       | 1 =>
         switch stack[0] {
-        | None => Error((1, string))
+        | None => Error((StackEmpty, string))
         | Some(v) =>
           switch v.contents {
           | L(xs) =>
             switch xs[0] {
-            | None => Continue(parseSExpression(state))
+            | None => Continue(parseSExpression(state, ...))
             | Some(w) => Done(w)
             }
-          | _ => Error((3, string))
+          | _ => Error((StackElementNullReference, string))
           }
         }
-      | _ => Continue(parseSExpression(state))
+      | _ => Continue(parseSExpression(state, ...))
       }
     }
 
@@ -192,48 +206,48 @@ module SExpression = {
     }
 
     switch preprocess(string) {
-    | Error(_) => Error((4, string))
+    | Error(_) => Error((PreprocessError, string))
     | Ok(processed) => parseSExpression(initialState(), processed)
     }
   }
 
   // returns an array of S-expressions and errors
-  let parse = (input: string): array<result<t, (int, string)>> => {
-    let resultAccum: ref<array<result<t, (int, string)>>> = ref([])
+  let parse = (input: string): array<result<t, (SExprParseError.t, string)>> => {
+    let resultAccum: ref<array<result<t, (SExprParseError.t, string)>>> = ref([])
     let continuation = ref(None)
     input
-    ->split
+    ->splitToLines
     ->Array.forEach(line => {
       // get the parsing continuation or initialize a new one
       let continue = continuation.contents->Option.getWithDefault(parseWithContinuation)
 
       // continue parsing with the given continuation
       switch continue(line) {
-      | Error(err) => Js.Array.push(Error(err), resultAccum.contents) |> ignore
+      | Error(err) => ignore(Js.Array.push(Error(err), resultAccum.contents))
       | Continue(continue) => continuation := Some(continue)
       | Done(result) =>
-        Js.Array.push(Ok(result), resultAccum.contents) |> ignore
+        ignore(Js.Array.push(Ok(result), resultAccum.contents))
         continuation := None
       }
     })
     resultAccum.contents
   }
 
-  type incr = Incr.t<t, (int, string)>
+  type incr = Incr.t<t, (SExprParseError.t, string)>
   let makeIncr = callback => Incr.make(parseWithContinuation, callback)
 }
 
 // indicates at which stage the parse error happened
 module Error = {
   type t =
-    | SExpression(int, string)
+    | SExpression(SExprParseError.t, string)
     | Response(int, SExpression.t)
 
   let toString = x =>
     switch x {
-    | SExpression(errno, string) =>
-      "Something went wrong when parsing S-expressions. Error code: S" ++
-      (string_of_int(errno) ++
+    | SExpression(error, string) =>
+      "Something went wrong when parsing S-expressions. Error code " ++
+      (SExprParseError.toString(error) ++
       (" \"" ++ (string ++ "\"")))
     | Response(errno, sexpr) =>
       "Perhaps the underlying protocol used by Agda for communicating with agda-mode has changed.\nPlease report which version of Agda you are using.\nError code: R" ++
@@ -242,14 +256,18 @@ module Error = {
     }
 }
 
-let userInput = (s: string): string =>
-  // let trim = s =>
-  //   Atom.Config.get("agda-mode.trimSpaces") ? String.trim(s) : s;
-  s
-  |> Js.String.replaceByRe(%re("/\\\\/g"), "\\\\")
-  |> Js.String.replaceByRe(%re("/\\\"/g"), "\\\"")
-  |> Js.String.replaceByRe(%re("/\\n/g"), "\\n")
-  |> Js.String.trim
+let userInputToSExpr = (s: string): string =>
+  Js.String.trim(
+    Js.String.replaceByRe(
+      %re("/\n/g"),
+      "\\n",
+      Js.String.replaceByRe(
+        %re("/\r\n/g"),
+        "\\r\\n",
+        Js.String.replaceByRe(%re("/\"/g"), "\\\"", Js.String.replaceByRe(%re("/\\/g"), "\\\\", s)),
+      ),
+    ),
+  )
 
 let filepath = s => {
   // remove the Windows Bidi control character
@@ -260,14 +278,10 @@ let filepath = s => {
   }
 
   // normalize the path with Node.Path.normalize
-  let normalized = Node.Path.normalize(removedBidi)
+  let normalized = NodeJs.Path.normalize(removedBidi)
 
   // replace Windows' stupid backslash with slash
-  let replaced = Js.String.replaceByRe(%re("/\\\\/g"), "/", normalized)
+  let replaced = Js.String.replaceByRe(%re("/\\/g"), "/", normalized)
 
   replaced
 }
-
-let agdaOutput = Js.String.replaceByRe(%re("/\\\\n/g"), "\n")
-
-let commandLineArgs = s => s |> Js.String.replaceByRe(%re("/\\s+/g"), " ") |> Js.String.split(" ")

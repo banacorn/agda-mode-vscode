@@ -69,7 +69,7 @@ let make = (
 
     // analysis the input box
     let inputRef = React.useRef(Js.Nullable.null)
-    React.useEffect(() => {
+    React.useEffectOnEveryRender(() => {
       // Update mouse selection in <input>
       inputRef.current
       ->Js.Nullable.toOption

@@ -1,23 +1,20 @@
-open Belt
-
 // if end with '.agda' or '.lagda'
 let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
-  Js.Re.test_(%re("/\\.agda$|\\.lagda/i"), fileName)
+  RegExp.test(%re("/\.agda$|\.lagda/i"), fileName)
 }
-
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
   let onTriggerCommand: (
-    (Command.t, VSCode.TextEditor.t) => Promise.t<option<result<State.t, Connection.Error.t>>>
+    (Command.t, VSCode.TextEditor.t) => promise<option<result<State.t, Connection.Error.t>>>
   ) => array<VSCode.Disposable.t>
 } = {
   let onOpenEditor = callback => {
     VSCode.Window.activeTextEditor->Option.forEach(callback)
-    VSCode.Window.onDidChangeActiveTextEditor(.next => next->Option.forEach(callback))
+    VSCode.Window.onDidChangeActiveTextEditor(next => next->Option.forEach(callback))
   }
-  let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(. callback)
+  let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(callback)
   // invoke the callback when:
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
@@ -25,43 +22,44 @@ module Inputs: {
   let onTriggerCommand = callback => {
     Command.names->Array.map(((command, name)) =>
       VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
-        VSCode.Window.activeTextEditor->Option.map(editor => {
-          let fileName =
-            editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
-          if isAgda(fileName) {
-            callback(command, editor)
-          } else {
-            Promise.resolved(None)
-          }
-        })
+        VSCode.Window.activeTextEditor->Option.map(
+          editor => {
+            let fileName =
+              editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+            if isAgda(fileName) {
+              callback(command, editor)
+            } else {
+              Promise.resolve(None)
+            }
+          },
+        )
       })
     )
   }
 }
 
-let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName) => {
-  if Registry.isEmpty() {
-    // keybinding: so that most of the commands will work only after agda-mode:load
-    VSCode.Commands.setContext("agdaMode", true)->ignore
-  }
-
+let initialize = (channels, extensionPath, globalStoragePath, editor, fileName) => {
   let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
-  WebviewPanel.onceDestroyed(panel)->Promise.get(() => Registry.removeAndDestroyAll()->ignore)
+  WebviewPanel.onceDestroyed(panel)
+  ->Promise.finally(() => Registry.removeAndDestroyAll()->ignore)
+  ->Promise.done
 
   // not in the Registry, instantiate a State
   let state = State.make(debugChan, globalStoragePath, extensionPath, editor)
   // Set panel's font size by configuration
   state->State__View.Panel.setFontSize(Config.Buffer.getFontSize())->ignore
-
   // remove it from the Registry on request
-  state.onRemoveFromRegistry->Chan.once->Promise.get(() => Registry.remove(fileName))
+  state.onRemoveFromRegistry
+  ->Chan.once
+  ->Promise.finally(() => Registry.remove(fileName))
+  ->Promise.done
 
   ////////////////////////////////////////////////////////////////
   // input events
   ////////////////////////////////////////////////////////////////
 
-  let subscribe = disposable => disposable->Js.Array.push(state.subscriptions)->ignore
+  let subscribe = disposable => state.subscriptions->Array.push(disposable)->ignore
 
   let getCurrentEditor = () =>
     switch VSCode.Window.activeTextEditor {
@@ -83,21 +81,20 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     }
   })
   ->subscribe
-
   // register event listeners for the input method
-  VSCode.Window.onDidChangeTextEditorSelection(.event => {
+  VSCode.Window.onDidChangeTextEditorSelection(event => {
     let document = VSCode.TextEditor.document(editor)
     let intervals =
       event
       ->VSCode.TextEditorSelectionChangeEvent.selections
       ->Array.map(selection => (
-        Editor.Position.toOffset(document, VSCode.Selection.start(selection)),
-        Editor.Position.toOffset(document, VSCode.Selection.end_(selection)),
+        VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
+        VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
       ))
 
     State__InputMethod.select(state, intervals)->ignore
   })->subscribe
-  VSCode.Workspace.onDidChangeTextDocument(.event => {
+  VSCode.Workspace.onDidChangeTextDocument(event => {
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
   })->subscribe
@@ -107,7 +104,7 @@ let initialize = (debugChan, extensionPath, globalStoragePath, editor, fileName)
     // only provide source location, when the filename matched
     let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
     let normalizedFileName = Parser.filepath(fileName)
-    let offset = Editor.Position.toOffset(state.document, position)
+    let offset = VSCode.TextDocument.offsetAt(state.document, position)
 
     if normalizedFileName == currentFileName {
       state.tokens->Tokens.lookupSrcLoc(offset)
@@ -130,7 +127,7 @@ let registerDocumentSemanticTokensProvider = () => {
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
     if useSemanticHighlighting {
       Registry.requestSemanticTokens(fileName)
-      ->Promise.map(tokens => {
+      ->Promise.thenResolve(tokens => {
         open Editor.Provider.Mock
 
         let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
@@ -144,8 +141,8 @@ let registerDocumentSemanticTokensProvider = () => {
             builder,
             Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
             Highlighting.SemanticToken.TokenType.toString(type_),
-            modifiers->Option.map(xs =>
-              xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString)
+            modifiers->Option.map(
+              xs => xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString),
             ),
           )
         })
@@ -193,31 +190,42 @@ let registerDocumentSemanticTokensProvider = () => {
 let finalize = isRestart => {
   // after the last Agda file has benn closed
   if Registry.isEmpty() {
-    // keybinding: disable most of the command bindings
-    VSCode.Commands.setContext("agdaMode", false)->ignore
     // destroy views accordingly
     Singleton.Panel.destroy()
+
     // don't destroy the DebugBuffer singleton if it's a Restart
     if !isRestart {
       Singleton.DebugBuffer.destroy()
     }
   }
-  Promise.resolved()
 }
 
 let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) => {
-  let subscribe = x => x->Js.Array.push(subscriptions)->ignore
-  let subscribeMany = xs => xs->Js.Array.pushMany(subscriptions)->ignore
+  let subscribe = x => subscriptions->Array.push(x)->ignore
+  let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   let channels = {
     State__Type.inputMethod: Chan.make(),
     responseHandled: Chan.make(),
+    commandHandled: Chan.make(),
+    log: Chan.make(),
+  }
+  // subscribe to the logging channel when in debug mode
+  let debug = false
+  if debug {
+    // log the event
+    channels.log
+    ->Chan.on(message => {
+      Js.log(State__Type.Log.toString(message))
+    })
+    ->ignore
   }
 
   // on open editor
   Inputs.onOpenEditor(editor => {
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+
     // filter out ".agda.git" files
     if isAgda(fileName) {
       Registry.get(fileName)->Option.forEach(state => {
@@ -233,7 +241,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   // on TextDocumentChangeEvent
   // updates positions of semantic highlighting tokens accordingly
-  VSCode.Workspace.onDidChangeTextDocument(.(event: VSCode.TextDocumentChangeEvent.t) => {
+  VSCode.Workspace.onDidChangeTextDocument((event: VSCode.TextDocumentChangeEvent.t) => {
     // find the corresponding State
     let document = event->VSCode.TextDocumentChangeEvent.document
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -272,46 +280,40 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       finalize(false)->ignore
     }
   })->subscribe
-
   // on triggering commands
-  Inputs.onTriggerCommand((command, editor) => {
+  Inputs.onTriggerCommand(async (command, editor) => {
     let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
     // destroy
     switch command {
-    | Quit => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(false))
-    | Restart => Registry.removeAndDestroy(fileName)->Promise.flatMap(() => finalize(true))
-    | _ => Promise.resolved()
+    | Quit =>
+      await Registry.removeAndDestroy(fileName)
+      finalize(false)
+    | Restart =>
+      await Registry.removeAndDestroy(fileName)
+      finalize(true)
+    | _ => ()
     }
     // make
-    ->Promise.tap(() =>
-      switch command {
-      | Load
-      | Restart
-      | InputMethod(Activate) =>
-        switch Registry.get(fileName) {
-        | None =>
-          let state = initialize(channels, extensionPath, globalStoragePath, editor, fileName)
-          Registry.add(fileName, state)
-        | Some(_) => () // already in the Registry, do nothing
-        }
-      | _ => ()
-      }
-    )
-    // dispatch
-    ->Promise.flatMap(() => {
+    switch command {
+    | Load
+    | Restart
+    | InputMethod(Activate) =>
       switch Registry.get(fileName) {
-      | None => Promise.resolved(None)
-      | Some(state) =>
-        State__Command.dispatchCommand(state, command)->Promise.map(result =>
-          switch result {
-          | Error(error) => Some(Error(error))
-          | Ok() => Some(Ok(state))
-          }
-        )
+      | None =>
+        let state = initialize(channels, extensionPath, globalStoragePath, editor, fileName)
+        Registry.add(fileName, state)
+      | Some(_) => () // already in the Registry, do nothing
       }
-    })
+    | _ => ()
+    }
+    // dispatch
+    switch Registry.get(fileName) {
+    | None => None
+    | Some(state) =>
+      await State__Command.dispatchCommand(state, command)
+      Some(Ok(state))
+    }
   })->subscribeMany
-
   // registerDocumentSemanticTokensProvider
   registerDocumentSemanticTokensProvider()->subscribe
 
@@ -324,7 +326,6 @@ let activate = context => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
   let globalStoragePath = VSCode.ExtensionContext.globalStoragePath(context)
-
   activateWithoutContext(subscriptions, extensionPath, globalStoragePath)
 }
 

@@ -1,12 +1,11 @@
-open Belt
-module Assert = BsMocha.Assert
+open Mocha
 
 open Js.Promise
 
 exception Exn(string)
 
 // wrapper around BsMocha's Assertions
-let runner: (unit => unit) => Promise.promise<result<'a, exn>> = %raw(` function(f) {
+let runner: (unit => unit) => promise<result<'a, exn>> = %raw(` function(f) {
     var tmp
     try {
       var result = f();
@@ -27,36 +26,17 @@ let runner: (unit => unit) => Promise.promise<result<'a, exn>> = %raw(` function
     return $$Promise.resolved(tmp);
   }`)
 
+// Paths of the extension and assets
 module Path = {
-  let toAbsolute = filepath => {
-    let dirname: option<string> = %bs.node(__dirname)
-    switch dirname {
-    | None => Node.Process.cwd()
-    | Some(dirname) => Node.Path.resolve(dirname, filepath)
-    }
-  }
+  let toAbsolute = filepath => NodeJs.Path.resolve([NodeJs.Global.dirname, filepath])
 
   // replacement of ExtensionContext.getExtensionPath as ExtensionContext.t is out of reach
-  let extensionPath = () => {
-    let dirname: option<string> = %bs.node(__dirname)
-    switch dirname {
-    | None => Node.Process.cwd()
-    | Some(dirname) => Node.Path.resolve(dirname, "../../../../")
-    }
-  }
+  let extensionPath = toAbsolute("../../../../")
 
   // replacement of ExtensionContext.globalStoragePath as ExtensionContext.t is out ofreach
-  let globalStoragePath = () => {
-    let dirname: option<string> = %bs.node(__dirname)
-    switch dirname {
-    | None => Node.Process.cwd()
-    | Some(dirname) =>
-      // this directory should be ignored by git
-      Node.Path.resolve(dirname, "../../../../test/globalStoragePath")
-    }
-  }
+  let globalStoragePath = toAbsolute("../../../../test/globalStoragePath")
 
-  let asset = filepath => Node.Path.join([extensionPath(), "test/tests/assets", filepath])
+  let asset = filepath => NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])
 }
 
 // to prevent an extension from being activated twice
@@ -67,8 +47,8 @@ let activateExtension = (): State__Type.channels => {
   | None =>
     // activate the extension
     let disposables = []
-    let extensionPath = Path.extensionPath()
-    let globalStoragePath = Path.globalStoragePath()
+    let extensionPath = Path.extensionPath
+    let globalStoragePath = Path.globalStoragePath
     let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
     // store the singleton of activation
     activationSingleton := Some(channels)
@@ -80,69 +60,32 @@ let activateExtension = (): State__Type.channels => {
 let openFile = (fileName): Promise.t<VSCode.TextEditor.t> =>
   VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
 
-let activateExtensionAndOpenFile = fileName => {
+let activateExtensionAndOpenFile = async fileName => {
   let channels = activateExtension()
-  openFile(fileName)->Promise.map(editor => (editor, channels))
+  let editor = await openFile(fileName)
+  (editor, channels)
 }
 
 @module("vscode") @scope("commands")
 external executeCommand: string => Promise.t<option<result<State.t, Connection.Error.t>>> =
   "executeCommand"
 
-let wait = ms => {
-  let (promise, resolve) = Promise.pending()
-  Js.Global.setTimeout(resolve, ms)->ignore
-  promise
-}
-
-module Q = {
-  let toPromise = f =>
-    Js.Promise.make((~resolve, ~reject) =>
-      f->Promise.get(x =>
-        switch x {
-        | Error(error) => reject(. error)
-        | Ok(result) => resolve(. result)
-        }
-      )
-    )
-
-  let it = (s, f: unit => Promise.t<result<'a, 'error>>) =>
-    BsMocha.Promise.it(s, () => f()->toPromise)
-
-  let it_only = (s, f) => BsMocha.Promise.it_only(s, () => f()->toPromise)
-
-  let it_skip = (s, f) => BsMocha.Promise.it_skip(s, () => f()->toPromise)
-
-  let before = f => BsMocha.Promise.before(() => f()->toPromise)
-  let before_each = f => BsMocha.Promise.before_each(() => f()->toPromise)
-  let after = f => BsMocha.Promise.after(() => f()->toPromise)
-  let after_each = f => BsMocha.Promise.after_each(() => f()->toPromise)
-}
-
-module A = {
-  let equal = (expected, actual) => runner(() => BsMocha.Assert.equal(actual, expected))
-  let deep_equal = (expected, actual) => runner(() => BsMocha.Assert.deep_equal(actual, expected))
-  let deep_strict_equal = (expected, actual) =>
-    runner(() => BsMocha.Assert.deep_strict_equal(actual, expected))
-  let fail = value => runner(() => BsMocha.Assert.fail(value))
-}
+let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
 
 module Strings = {
   // trim and replace all occurences of line breaks with "\n"
   let normalize = string => {
     open Js.String
-    replaceByRe(%re("/\\r\\n|\\r/g"), "\n", trim(string))
+    replaceByRe(%re("/\r\n|\n/g"), "\n", trim(string))
   }
 
-  let serialize = xs => Js.Array.joinWith("\n", xs)
-
-  let serializeWith = (f, xs) => xs->Array.map(f)->serialize
+  let unlinesWith = (f, xs) => xs->Array.map(f)->Util.String.unlines
 
   let breakInput = (input: string, breakpoints: array<int>) => {
     let breakpoints' = Array.concat([0], breakpoints)
 
     breakpoints'
-    ->Array.mapWithIndex((i, x: int) =>
+    ->Array.mapWithIndex((x: int, i) =>
       switch breakpoints'[i + 1] {
       | Some(next) => (x, next - x)
       | None => (x, Js.String.length(input) - x)
@@ -207,21 +150,22 @@ module Golden = {
   // get all filepaths of golden tests (asynchronously)
   let getGoldenFilepaths = directoryPath => {
     let directoryPath = Path.toAbsolute(directoryPath)
-    let readdir = N.Fs.readdir |> N.Util.promisify
-    let isInFile = Js.String.endsWith(".in")
-    let toBasename = path => Node.Path.join2(directoryPath, Node.Path.basename_ext(path, ".in"))
-    readdir(. directoryPath) |> then_(paths =>
-      paths->Array.keep(isInFile)->Array.map(toBasename)->resolve
+    let readdir = N.Util.promisify(N.Fs.readdir, ...)
+    let isInFile = x => Js.String.endsWith(".in", x)
+    let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
+    then_(
+      paths => paths->Array.filter(isInFile)->Array.map(toBasename)->resolve,
+      readdir(directoryPath),
     )
   }
 
   // get all filepaths of golden tests (synchronously)
   let getGoldenFilepathsSync = directoryPath => {
     let directoryPath = Path.toAbsolute(directoryPath)
-    let readdir = Node.Fs.readdirSync
-    let isInFile = Js.String.endsWith(".in")
-    let toBasename = path => Node.Path.join2(directoryPath, Node.Path.basename_ext(path, ".in"))
-    readdir(directoryPath)->Array.keep(isInFile)->Array.map(toBasename)
+    let readdir = NodeJs.Fs.readdirSync
+    let isInFile = x => Js.String.endsWith(".in", x)
+    let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
+    readdir(directoryPath)->Array.filter(isInFile)->Array.map(toBasename)
   }
 
   exception FileMissing(string)
@@ -231,29 +175,26 @@ module Golden = {
   // parameterized only by 'actual;
   type t<'actual> = Golden(filepath, 'actual, expected)
 
+  let toString = (Golden(filepath, actual, expected)) =>
+    "Golden file at: " ++
+    filepath ++
+    "\n" ++
+    "Expected: \n" ++
+    expected ++
+    "\n" ++
+    "Actual: \n" ++
+    actual
+
   // (A -> B) -> Golden A -> Golden B
   let map = (Golden(filepath, actual, expected), f) => Golden(filepath, f(actual), expected)
 
   // FilePath -> Promise (Golden String)
-  let readFile = filepath => {
+  let readFile = async filepath => {
     let filepath = Path.toAbsolute(filepath)
-    let readFile = N.Fs.readFile |> N.Util.promisify
+    let inFile = await Node__Fs.readFile(filepath ++ ".in")
+    let outFile = await Node__Fs.readFile(filepath ++ ".out")
 
-    [readFile(. filepath ++ ".in"), readFile(. filepath ++ ".out")]
-    |> all
-    |> then_(x =>
-      switch x {
-      | [input, output] =>
-        resolve(
-          Golden(
-            filepath,
-            Node.Buffer.toString(input),
-            Strings.normalize(Node.Buffer.toString(output)),
-          ),
-        )
-      | _ => reject(FileMissing(filepath))
-      }
-    )
+    Golden(filepath, inFile, outFile)
   }
 
   // Golden String -> Promise ()
@@ -267,10 +208,10 @@ module Golden = {
       open Diff
       let value = Diff.getValue(diff)
 
-      // let change =
-      //   Js.String.length(value) > 100
-      //     ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
-      //     : value;
+      let change =
+        Js.String.length(value) > 100
+          ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
+          : value
 
       let expected = Js.String.substrAtMost(
         ~from=max(0, count - 50),
@@ -284,40 +225,15 @@ module Golden = {
         actual,
       )
 
-      // let message = change =>
-      //   "\n\nchange => "
-      //   ++ change
-      //   ++ "\n\nexpected => "
-      //   ++ expected
-      //   ++ "\n\nactual   => "
-      //   ++ actual;
+      let message = change =>
+        "\n\nchange => " ++ change ++ "\n\nexpected => " ++ expected ++ "\n\nactual   => " ++ actual
 
       switch diff {
-      | Added(_) => BsMocha.Assert.fail'(actual, expected)
-      // BsMocha.Assert.fail(
-      //   message(
-      //     " added \""
-      //     ++ change
-      //     ++ "\"\n at position "
-      //     ++ string_of_int(count),
-      //   ),
-      // )
-      | Removed(_) => BsMocha.Assert.fail'(actual, expected)
-      //   ~actual: actual,
-      //   ~expected: expected,
-      //   ~message=change,
-      // )
-
-      // message(
-      //   " removed \""
-      //   ++ change
-      //   ++ "\"\n\n at position "
-      //   ++ string_of_int(count),
-      // ),
+      | Added(_) => Assert.fail(message(change))
+      | Removed(_) => Assert.fail(message(change))
       | NoChange(_) => ()
       }
     })
-    Js.Promise.resolve()
   }
 }
 
@@ -326,8 +242,7 @@ let onUnix = switch N.OS.type_() {
 | _ => true
 }
 
-// module for checking if Agda is present in PATH
-module Agda = {
+module AgdaMode = {
   module Error = {
     type t =
       | LanguageServerMuleErrors(array<LanguageServerMule.Source.Error.t>)
@@ -342,41 +257,39 @@ module Agda = {
       }
   }
 
-  let exists = command =>
-    LanguageServerMule.Source.Module.searchUntilSuccess([FromCommand(command)])
-    ->Promise.flatMap(((result, errors)) =>
-      switch result {
-      | None => Promise.resolved(Error(errors))
-      | Some(_method) => Promise.resolved(Ok())
-      }
-    )
-    ->Promise.flatMapError(errors => {
+  let exists = async command => {
+    let (result, errors) = await LanguageServerMule.Source.Module.searchUntilSuccess([
+      FromCommand(command),
+    ])
+    switch result {
+    | None =>
       let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
-      A.fail("Cannot find \"Agda\" in PATH: " ++ msg)
-    })
+      raise(Failure("Cannot find \"agda\" in PATH: " ++ msg))
+    | Some(_method) => ()
+    }
+  }
 
   type t = {
-    // ready: Promise.t<unit>,
     filepath: string,
     channels: State__Type.channels,
   }
 
-  let make = (~als=false, filepath) => {
+  let make = async (~als=false, filepath) => {
     let filepath = Path.asset(filepath)
     // for mocking Configs
     Config.inTestingMode := true
     // set name for searching Agda
-    Config.Connection.setAgdaVersion("agda")
-    ->Promise.flatMap(() => Config.Connection.setUseAgdaLanguageServer(als))
-    ->Promise.flatMap(() => exists("agda"))
-    ->Promise.map(_ => {
-      filepath: filepath,
+    await Config.Connection.setAgdaVersion("agda")
+    await Config.Connection.setUseAgdaLanguageServer(als)
+    let _ = await exists("agda")
+    {
+      filepath,
       channels: activateExtension(),
-    })
+    }
   }
 
-  let load = self => {
-    let (promise, resolve) = Promise.pending()
+  let load = async self => {
+    let (promise, resolve, _) = Util.Promise_.pending()
 
     // agda-mode:load is consider finished
     // when `CompleteHighlightingAndMakePromptReappear` has been handled
@@ -387,69 +300,112 @@ module Agda = {
       }
     })
 
-    openFile(self.filepath)
-    ->Promise.flatMap(_ => executeCommand("agda-mode.load"))
-    ->Promise.flatMap(result =>
-      switch result {
-      | None => A.fail("Cannot load " ++ self.filepath)
-      | Some(Ok(state)) =>
-        promise->Promise.map(() => {
-          disposable() // stop listening to responses
-          Ok(self, state)
-        })
-      // Promise.resolved(Ok(self, state))
-
-      | Some(Error(error)) =>
-        let (header, body) = Connection.Error.toString(error)
-        A.fail(header ++ "\n" ++ body)
-      }
-    )
+    let _ = await openFile(self.filepath)
+    switch await executeCommand("agda-mode.load") {
+    | None => raise(Failure("Cannot load " ++ self.filepath))
+    | Some(Ok(state)) =>
+      await promise
+      disposable() // stop listening to responses
+      state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
   }
 
-  let case = (cursorAndPayload, (self, state: State__Type.t)) => {
-    openFile(self.filepath)
-    ->Promise.flatMap(editor =>
-      switch cursorAndPayload {
-      | None => Promise.resolved(false)
-      | Some(cursor, payload) =>
-        Editor.Text.insert(state.document, cursor, payload)->Promise.tap(_ =>
-          Editor.Cursor.set(editor, cursor)
-        )
+  let case = async (self, cursorAndPayload, state: State__Type.t) => {
+    let editor = await openFile(self.filepath)
+
+    // set cursor and insert the target for case splitting
+    switch cursorAndPayload {
+    | None => ()
+    | Some(cursor, payload) =>
+      let succeed = await Editor.Text.insert(state.document, cursor, payload)
+      if !succeed {
+        raise(Failure("Failed to insert text"))
       }
-    )
-    ->Promise.flatMap(_ => executeCommand("agda-mode.case"))
-    ->Promise.flatMap(result =>
-      switch result {
-      | None => A.fail("Cannot case split " ++ self.filepath)
-      | Some(Ok(state)) => Promise.resolved(Ok(self, state))
-      | Some(Error(error)) =>
-        let (header, body) = Connection.Error.toString(error)
-        A.fail(header ++ "\n" ++ body)
+      Editor.Cursor.set(editor, cursor)
+    }
+
+    // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
+    // listen to the `agda-mode.load` command to know when the whole case split process is done
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let destructor = state.channels.commandHandled->Chan.on(command => {
+      switch command {
+      | Command.Load => resolve()
+      | _ => ()
       }
-    )
+    })
+
+    switch await executeCommand("agda-mode.case") {
+    | None => raise(Failure("Cannot case split " ++ self.filepath))
+    | Some(Ok(state)) =>
+      // wait for the `agda-mode.load` command to be handled
+      await promise
+      // stop listening to commands
+      destructor()
+
+      // resolve the promise
+      state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+  }
+
+  let refine = async (self, cursorAndPayload, state: State__Type.t): AgdaModeVscode.State.t => {
+    let editor = await openFile(self.filepath)
+    switch cursorAndPayload {
+    | None => ()
+    | Some(cursor, None) => Editor.Cursor.set(editor, cursor)
+    | Some(cursor, Some(payload)) =>
+      let _ = await Editor.Text.insert(state.document, cursor, payload)
+      Editor.Cursor.set(editor, cursor)
+    }
+    switch await executeCommand("agda-mode.refine") {
+    | None => raise(Failure("Cannot case refine " ++ self.filepath))
+    | Some(Ok(state)) => state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
   }
 }
 
 // store file content before testing so that we can restore it later
-let readFile = (filepath, var) => {
-  openFile(filepath)->Promise.map(editor => {
-    var := Editor.Text.getAll(VSCode.TextEditor.document(editor))
-    Ok()
-  })
+let readFile = async (filepath, var) => {
+  let editor = await openFile(filepath)
+  var := Editor.Text.getAll(VSCode.TextEditor.document(editor))
 }
 
-let restoreFile = (filepath, var) => {
-  openFile(filepath)
-  ->Promise.flatMap(editor => {
-    let document = VSCode.TextEditor.document(editor)
-    let lineCount = document->VSCode.TextDocument.lineCount
-    let replaceRange = VSCode.Range.make(
-      VSCode.Position.make(0, 0),
-      VSCode.Position.make(lineCount, 0),
-    )
-    Editor.Text.replace(document, replaceRange, var.contents)->Promise.flatMap(_ =>
-      VSCode.TextDocument.save(document)
-    )
-  })
-  ->Promise.map(_ => Ok())
+let restoreFile = async (filepath, var) => {
+  let editor = await openFile(filepath)
+  let document = VSCode.TextEditor.document(editor)
+  let lineCount = document->VSCode.TextDocument.lineCount
+  let replaceRange = VSCode.Range.make(
+    VSCode.Position.make(0, 0),
+    VSCode.Position.make(lineCount, 0),
+  )
+  let succeed = await Editor.Text.replace(document, replaceRange, var.contents)
+  if succeed {
+    let _ = await VSCode.TextDocument.save(document)
+  } else {
+    raise(Failure("Failed to restore the file"))
+  }
+}
+
+module R = {
+  let unwrap = (x: result<'a, 'e>): 'a =>
+    switch x {
+    | Ok(x) => x
+    | Error(error) => raise(error)
+    }
+}
+
+// for handling promise<result<'a, 'error>> in tests
+module P = {
+  let unwrap = async (promise: promise<result<'a, 'e>>): 'a => {
+    let result = await promise
+    R.unwrap(result)
+  }
 }

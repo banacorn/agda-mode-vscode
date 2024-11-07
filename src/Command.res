@@ -208,7 +208,7 @@ let toString = x =>
   | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"
   | WhyInScope => "Why in scope"
   | SwitchAgdaVersion => "Switch to a different Agda version"
-  | EventFromView(_) => "Event from the view"
+  | EventFromView(event) => "Event from the view (" ++ View.EventFromView.toString(event) ++ ")"
   | Refresh => "Refresh "
   | Escape => "Escape"
   | InputMethod(action) => "Input symbol " ++ InputMethod.toString(action)

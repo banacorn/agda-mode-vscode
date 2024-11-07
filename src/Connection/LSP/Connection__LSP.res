@@ -7,12 +7,15 @@ type version = string
 module CommandReq = {
   type t = SYN | Command(string)
 
-  open! Json.Encode
-  let encode: encoder<t> = x =>
-    switch x {
-    | SYN => object_(list{("tag", string("CmdReqSYN"))})
-    | Command(raw) => object_(list{("tag", string("CmdReq")), ("contents", raw |> string)})
-    }
+  let encode = {
+    open JsonCombinators.Json.Encode
+    Util.Encode.sum(x =>
+      switch x {
+      | SYN => TagOnly("CmdReqSYN")
+      | Command(raw) => Payload("CmdReq", string(raw))
+      }
+    )
+  }
 }
 
 module CommandRes = {
@@ -22,16 +25,17 @@ module CommandRes = {
 
   let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "CmdResACK" => Contents(string |> map(version => ACK(version)))
-    | "CmdRes" =>
-      Contents(optional(Connection__LSP__Error.CommandErr.decode) |> map(error => Result(error)))
-    | tag => raise(DecodeError("[LSP.CommandRes] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum(x =>
+      switch x {
+      | "CmdResACK" => Payload(string->map(version => ACK(version)))
+      | "CmdRes" =>
+        Payload(option(Connection__LSP__Error.CommandErr.decode)->map(error => Result(error)))
+      | tag => raise(DecodeError("[Connection.LSP.CommandRes] Unknown constructor: " ++ tag))
+      }
+    )
+  }
 }
 
 module LSPResponse = {
@@ -47,46 +51,47 @@ module LSPResponse = {
       | Time(string)
       | NormalForm(string)
 
-    open Json.Decode
-    open Util.Decode
-    let decode: decoder<t> = sum(x =>
-      switch x {
-      | "DisplayInfoGeneric" =>
-        Contents(
-          pair(string, array(Item.decode)) |> map(((header, itmes)) => Generic(header, itmes)),
-        )
-      | "DisplayInfoAllGoalsWarnings" =>
-        Contents(
-          tuple5(
-            string,
-            array(Item.decode),
-            array(Item.decode),
-            array(string),
-            array(string),
-          ) |> map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
-            header,
-            goals,
-            metas,
-            warnings,
-            errors,
-          )),
-        )
-      | "DisplayInfoCurrentGoal" => Contents(Item.decode |> map(body => CurrentGoal(body)))
-      | "DisplayInfoInferredType" => Contents(Item.decode |> map(body => InferredType(body)))
-      | "DisplayInfoCompilationOk" =>
-        Contents(
-          pair(array(string), array(string)) |> map(((warnings, errors)) => CompilationOk(
-            warnings,
-            errors,
-          )),
-        )
-      | "DisplayInfoAuto" => Contents(string |> map(body => Auto(body)))
-      | "DisplayInfoError" => Contents(string |> map(body => Error'(body)))
-      | "DisplayInfoTime" => Contents(string |> map(body => Time(body)))
-      | "DisplayInfoNormalForm" => Contents(string |> map(body => NormalForm(body)))
-      | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
-      }
-    )
+    let decode = {
+      open JsonCombinators.Json.Decode
+      Util.Decode.sum(x =>
+        switch x {
+        | "DisplayInfoGeneric" =>
+          Payload(
+            pair(string, array(Item.decode))->map(((header, itmes)) => Generic(header, itmes)),
+          )
+        | "DisplayInfoAllGoalsWarnings" =>
+          Payload(
+            Util.Decode.tuple5(
+              string,
+              array(Item.decode),
+              array(Item.decode),
+              array(string),
+              array(string),
+            )->map(((header, goals, metas, warnings, errors)) => AllGoalsWarnings(
+              header,
+              goals,
+              metas,
+              warnings,
+              errors,
+            )),
+          )
+        | "DisplayInfoCurrentGoal" => Payload(Item.decode->map(body => CurrentGoal(body)))
+        | "DisplayInfoInferredType" => Payload(Item.decode->map(body => InferredType(body)))
+        | "DisplayInfoCompilationOk" =>
+          Payload(
+            pair(array(string), array(string))->map(((warnings, errors)) => CompilationOk(
+              warnings,
+              errors,
+            )),
+          )
+        | "DisplayInfoAuto" => Payload(string->map(body => Auto(body)))
+        | "DisplayInfoError" => Payload(string->map(body => Error'(body)))
+        | "DisplayInfoTime" => Payload(string->map(body => Time(body)))
+        | "DisplayInfoNormalForm" => Payload(string->map(body => NormalForm(body)))
+        | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
+        }
+      )
+    }
   }
 
   type t =
@@ -103,93 +108,95 @@ module LSPResponse = {
     | ResponseEnd => "========"
     }
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "ResponseHighlightingInfoDirect" =>
-      Contents(
-        Tokens.Token.decodeResponseHighlightingInfoDirect |> map(((keepHighlighting, infos)) => {
-          ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))
-        }),
-      )
-    | "ResponseHighlightingInfoIndirect" =>
-      Contents(
-        string |> map(filePath => ResponseNonLast(Response.HighlightingInfoIndirectJSON(filePath))),
-      )
-    | "ResponseDisplayInfo" =>
-      open DisplayInfo
-      Contents(
-        DisplayInfo.decode |> map(info =>
-          switch info {
-          | Generic(header, body) => ResponseNonLast(DisplayInfo(Generic(header, body)))
-          | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
-            ResponseNonLast(
-              Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
-            )
-          | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(item)))
-          | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(item)))
-          | CompilationOk(warnings, errors) =>
-            ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
-          | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))
-          | Error'(body) => ResponseNonLast(Response.DisplayInfo(Error(body)))
-          | Time(body) => ResponseNonLast(Response.DisplayInfo(Time(body)))
-          | NormalForm(body) => ResponseNonLast(Response.DisplayInfo(NormalForm(body)))
-          }
-        ),
-      )
-    | "ResponseStatus" =>
-      Contents(
-        pair(bool, bool) |> map(((checked, displayImplicit)) => ResponseNonLast(
-          Response.Status(checked, displayImplicit),
-        )),
-      )
-    | "ResponseRunningInfo" =>
-      Contents(
-        pair(int, string) |> map(((verbosity, info)) => ResponseNonLast(
-          Response.RunningInfo(verbosity, info),
-        )),
-      )
-    | "ResponseClearHighlightingTokenBased" => TagOnly(ResponseNonLast(Response.ClearHighlighting))
-    | "ResponseClearHighlightingNotOnlyTokenBased" =>
-      TagOnly(ResponseNonLast(Response.ClearHighlighting))
-    | "ResponseClearRunningInfo" => TagOnly(ResponseNonLast(Response.ClearRunningInfo))
-    | "ResponseDoneAborting" => TagOnly(ResponseNonLast(Response.DoneAborting))
-    | "ResponseDoneExiting" => TagOnly(ResponseNonLast(Response.DoneExiting))
-    | "ResponseGiveAction" =>
-      Contents(
-        pair(int, Response.GiveAction.decode) |> map(((id, giveAction)) => ResponseNonLast(
-          Response.GiveAction(id, giveAction),
-        )),
-      )
-    | "ResponseInteractionPoints" =>
-      Contents(array(int) |> map(ids => ResponseLast(1, InteractionPoints(ids))))
-    | "ResponseMakeCaseFunction" =>
-      Contents(
-        array(string) |> map(payload => ResponseLast(2, Response.MakeCase(Function, payload))),
-      )
-    | "ResponseMakeCaseExtendedLambda" =>
-      Contents(
-        array(string) |> map(payload => ResponseLast(
-          2,
-          Response.MakeCase(ExtendedLambda, payload),
-        )),
-      )
-    | "ResponseSolveAll" =>
-      Contents(
-        array(pair(int, string)) |> map(payloads => ResponseLast(2, Response.SolveAll(payloads))),
-      )
-    | "ResponseJumpToError" =>
-      Contents(
-        pair(string, int) |> map(((filePath, offset)) => ResponseLast(
-          3,
-          Response.JumpToError(filePath, offset),
-        )),
-      )
-    | "ResponseEnd" => TagOnly(ResponseEnd)
-    | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum(x =>
+      switch x {
+      | "ResponseHighlightingInfoDirect" =>
+        Payload(
+          Tokens.Token.decodeResponseHighlightingInfoDirect->map(((
+            keepHighlighting,
+            infos,
+          )) => ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))),
+        )
+      | "ResponseHighlightingInfoIndirect" =>
+        Payload(
+          string->map(filePath => ResponseNonLast(Response.HighlightingInfoIndirectJSON(filePath))),
+        )
+      | "ResponseDisplayInfo" =>
+        Payload(
+          DisplayInfo.decode->map(info =>
+            switch info {
+            | Generic(header, body) => ResponseNonLast(DisplayInfo(Generic(header, body)))
+            | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
+              ResponseNonLast(
+                Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
+              )
+            | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(item)))
+            | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(item)))
+            | CompilationOk(warnings, errors) =>
+              ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
+            | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))
+            | Error'(body) => ResponseNonLast(Response.DisplayInfo(Error(body)))
+            | Time(body) => ResponseNonLast(Response.DisplayInfo(Time(body)))
+            | NormalForm(body) => ResponseNonLast(Response.DisplayInfo(NormalForm(body)))
+            }
+          ),
+        )
+      | "ResponseStatus" =>
+        Payload(
+          pair(bool, bool)->map(((checked, displayImplicit)) => ResponseNonLast(
+            Response.Status(checked, displayImplicit),
+          )),
+        )
+      | "ResponseRunningInfo" =>
+        Payload(
+          pair(int, string)->map(((verbosity, info)) => ResponseNonLast(
+            Response.RunningInfo(verbosity, info),
+          )),
+        )
+      | "ResponseClearHighlightingTokenBased" =>
+        TagOnly(ResponseNonLast(Response.ClearHighlighting))
+      | "ResponseClearHighlightingNotOnlyTokenBased" =>
+        TagOnly(ResponseNonLast(Response.ClearHighlighting))
+      | "ResponseClearRunningInfo" => TagOnly(ResponseNonLast(Response.ClearRunningInfo))
+      | "ResponseDoneAborting" => TagOnly(ResponseNonLast(Response.DoneAborting))
+      | "ResponseDoneExiting" => TagOnly(ResponseNonLast(Response.DoneExiting))
+      | "ResponseGiveAction" =>
+        Payload(
+          pair(int, Response.GiveAction.decode)->map(((id, giveAction)) => ResponseNonLast(
+            Response.GiveAction(id, giveAction),
+          )),
+        )
+      | "ResponseInteractionPoints" =>
+        Payload(array(int)->map(ids => ResponseLast(1, InteractionPoints(ids))))
+      | "ResponseMakeCaseFunction" =>
+        Payload(
+          array(string)->map(payload => ResponseLast(2, Response.MakeCase(Function, payload))),
+        )
+      | "ResponseMakeCaseExtendedLambda" =>
+        Payload(
+          array(string)->map(payload => ResponseLast(
+            2,
+            Response.MakeCase(ExtendedLambda, payload),
+          )),
+        )
+      | "ResponseSolveAll" =>
+        Payload(
+          array(pair(int, string))->map(payloads => ResponseLast(2, Response.SolveAll(payloads))),
+        )
+      | "ResponseJumpToError" =>
+        Payload(
+          pair(string, int)->map(((filePath, offset)) => ResponseLast(
+            3,
+            Response.JumpToError(filePath, offset),
+          )),
+        )
+      | "ResponseEnd" => TagOnly(ResponseEnd)
+      | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
+      }
+    )
+  }
 }
 
 module type Module = {
@@ -199,14 +206,14 @@ module type Module = {
     method: LanguageServerMule.Method.t,
   }
   // lifecycle
-  let make: Client.t => Promise.t<result<t, Error.t>>
-  let destroy: t => Promise.t<unit>
+  let make: Client.t => promise<result<t, Error.t>>
+  let destroy: t => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     t,
     string,
-    result<Response.t, Error.t> => Promise.t<unit>,
-  ) => Promise.t<result<unit, Error.t>>
+    result<Response.t, Error.t> => promise<unit>,
+  ) => promise<result<unit, Error.t>>
 }
 
 module Module: Module = {
@@ -218,26 +225,27 @@ module Module: Module = {
 
   // catches exceptions occured when decoding JSON values
   let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
-    switch CommandRes.decode(json) {
-    | response => Ok(response)
-    | exception Json.Decode.DecodeError(msg) => Error(CannotDecodeCommandRes(msg, json))
+    switch JsonCombinators.Json.decode(json, CommandRes.decode) {
+    | Ok(response) => Ok(response)
+    | Error(msg) => Error(CannotDecodeCommandRes(msg, json))
     }
 
   let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
-    switch LSPResponse.decode(json) {
-    | reaction => Ok(reaction)
-    | exception Json.Decode.DecodeError(msg) => Error(CannotDecodeResponse(msg, json))
+    switch JsonCombinators.Json.decode(json, LSPResponse.decode) {
+    | Ok(reaction) => Ok(reaction)
+    | Error(msg) => Error(CannotDecodeResponse(msg, json))
     }
 
-  let sendRequestPrim = (client, request): Promise.t<result<CommandRes.t, Error.t>> => {
-    client
-    ->Client.sendRequest(CommandReq.encode(request))
-    ->Promise.mapError(exn => Error.ConnectionError(exn))
-    ->Promise.flatMapOk(json => Promise.resolved(decodeCommandRes(json)))
+  let sendRequestPrim = async (client, request): result<CommandRes.t, Error.t> => {
+    switch await client->Client.sendRequest(CommandReq.encode(request)) {
+    | Ok(json) => decodeCommandRes(json)
+    | Error(error) => Error(Error.ConnectionError(error))
+    | exception Exn.Error(exn) => Error(Error.ConnectionError(exn))
+    }
   }
 
   // start the LSP client
-  let make = client =>
+  let make = async client =>
     // let subsriptions = []
     // // pipe error and notifications
     // client
@@ -252,28 +260,29 @@ module Module: Module = {
     // ->ignore
 
     // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-    sendRequestPrim(client, SYN)->Promise.flatMapOk(response =>
-      switch response {
-      | Result(_) => Promise.resolved(Error(Error.Initialize))
-      | ACK(version) =>
-        Promise.resolved(Ok({client: client, version: version, method: Client.getMethod(client)}))
-      }
-    )
+    switch await sendRequestPrim(client, SYN) {
+    | Error(error) => Error(error)
+    | Ok(Result(_)) => Error(Error.Initialize)
+    | Ok(ACK(version)) => Ok({client, version, method: Client.getMethod(client)})
+    }
 
   // destroy the client
-  let destroy = self => self.client->Client.destroy
+  let destroy = async self =>
+    switch await self.client->Client.destroy {
+    | Ok(result) => Ok(result)
+    | Error(error) => Error(Error.ConnectionError(error))
+    | exception Exn.Error(exn) => Error(Error.ConnectionError(exn))
+    }
 
-  // let getInfo = self => (self.version, self.method)
-
-  let sendRequest = (self, request, handler) => {
+  let sendRequest = async (self, request, handler) => {
     let handler = response => handler(Ok(response))
 
     let scheduler = Scheduler.make()
     // waits for `ResponseEnd`
-    let (waitForResponseEnd, resolve) = Promise.pending()
+    let (waitForResponseEnd, resolve, _) = Util.Promise_.pending()
 
     // listens for responses from Agda
-    let stopListeningForNotifications = self.client->Client.onRequest(json => {
+    let stopListeningForNotifications = self.client->Client.onRequest(async json => {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
@@ -281,25 +290,22 @@ module Module: Module = {
       | Ok(ResponseEnd) => resolve(Ok())
       | Error(error) => resolve(Error(error))
       }
-      Promise.resolved(Ok(Js_json.null))
+      Ok(Js_json.null)
     })
 
     // sends `Command` and waits for `ResponseEnd`
-    sendRequestPrim(self.client, Command(request))
-    ->Promise.flatMapOk(result => {
-      switch result {
-      | ACK(_) => Promise.resolved(Error(Error.Initialize))
-      | Result(Some(error)) => Promise.resolved(Error(Error.SendCommand(error)))
-      // waits for `ResponseEnd`
-      | Result(None) => waitForResponseEnd
-      }
-    })
+    let result = switch await sendRequestPrim(self.client, Command(request)) {
+    | Error(error) => Error(error)
+    | Ok(ACK(_)) => Error(Error.Initialize)
+    | Ok(Result(Some(error))) => Error(Error.SendCommand(error))
+    // waits for `ResponseEnd`
+    | Ok(Result(None)) => await waitForResponseEnd
+    }
     // stop listening for requests from server once `ResponseEnd` arrived
-    ->Promise.tap(_ => stopListeningForNotifications->VSCode.Disposable.dispose)
-    ->Promise.tap(_ =>
-      // start handling Last Responses, after all NonLast Responses have been handled
-      scheduler->Scheduler.runLast(handler)
-    )
+    stopListeningForNotifications->VSCode.Disposable.dispose
+    // start handling Last Responses, after all NonLast Responses have been handled
+    await scheduler->Scheduler.runLast(handler)
+    result
   }
 }
 include Module

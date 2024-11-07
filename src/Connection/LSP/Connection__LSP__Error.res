@@ -13,15 +13,17 @@ module CommandErr = {
     | CannotParseCommand(s) => "Cannot read IOTCM: \n" ++ s
     }
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "CmdErrCannotDecodeJSON" => Contents(string |> map(version => CannotDecodeJSON(version)))
-    | "CmdErrCannotParseCommand" => Contents(string |> map(version => CannotParseCommand(version)))
-    | tag => raise(DecodeError("[LSP.CommandErr] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum(x => {
+      switch x {
+      | "CmdErrCannotDecodeJSON" => Payload(string->map((. version) => CannotDecodeJSON(version)))
+      | "CmdErrCannotParseCommand" =>
+        Payload(string->map((. version) => CannotParseCommand(version)))
+      | tag => raise(DecodeError("[Connection.LSP.Error.CommandErr] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 }
 
 type t =
@@ -53,11 +55,11 @@ let toString = error =>
   | Initialize => ("Cannot Initialize Connection", "")
   | CannotDecodeCommandRes(msg, json) => (
       "Cannot Send Command",
-      "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Json.stringify(json),
+      "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Js.Json.stringify(json),
     )
   | CannotDecodeResponse(msg, json) => (
       "Cannot Parse Response",
-      "Cannot decode responses from the server" ++ msg ++ "\n" ++ Json.stringify(json),
+      "Cannot decode responses from the server" ++ msg ++ "\n" ++ Js.Json.stringify(json),
     )
   | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
   }

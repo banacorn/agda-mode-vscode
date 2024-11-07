@@ -1,29 +1,21 @@
-// bindings of module 'vscode-test'
+// bindings of module '@vscode/test-electron'
 type options = {
   extensionDevelopmentPath: string,
   extensionTestsPath: string,
 }
 
-@bs.module("vscode-test")
-external runTests: options => Js.Promise.t<bool> = "runTests"
-
-let dirname: option<string> = %bs.node(__dirname)
+@module("@vscode/test-electron")
+external runTests: options => promise<bool> = "runTests"
 
 let testSuiteAdapterFileName = "TestSuiteAdapter.bs.js"
 
 // The folder containing the Extension Manifest package.json
 // Passed to `--extensionDevelopmentPath`
-let extensionDevelopmentPath = switch dirname {
-| None => Node.Path.resolve(Node.Process.cwd(), "../")
-| Some(dirname) => Node.Path.resolve(dirname, "../")
-}
+let extensionDevelopmentPath = NodeJs.Path.resolve([NodeJs.Global.dirname, "../"])
 
 // The path to the extension test script
 // Passed to --extensionTestsPath
-let extensionTestsPath = switch dirname {
-| None => Node.Path.resolve(Node.Process.cwd(), testSuiteAdapterFileName)
-| Some(dirname) => Node.Path.resolve(dirname, testSuiteAdapterFileName)
-}
+let extensionTestsPath = NodeJs.Path.resolve([NodeJs.Global.dirname, testSuiteAdapterFileName])
 
 Js.log(
   "Running from the CLI, with\n  extensionDevelopmentPath: " ++
@@ -31,11 +23,9 @@ Js.log(
   ("\n  extensionTestsPath: " ++ extensionTestsPath)),
 )
 
-Js.Promise.catch(error => {
-  Js.log(error)
-  Js.log("Failed to run tests")
-  Node.Process.exit(1)
-}, runTests({
-  extensionDevelopmentPath: extensionDevelopmentPath,
-  extensionTestsPath: extensionTestsPath,
-}))->ignore
+runTests({
+  extensionDevelopmentPath,
+  extensionTestsPath,
+})
+->Promise.thenResolve(_ => NodeJs.Process.process->NodeJs.Process.exitWithCode(0))
+->Promise.done

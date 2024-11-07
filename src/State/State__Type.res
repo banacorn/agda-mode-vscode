@@ -3,13 +3,13 @@ open Belt
 // For throttling Requests send to Agda
 // 1 Request to Agda at a time
 module RequestQueue: {
-  type t<'a>
-  let make: unit => t<'a>
+  type t
+  let make: unit => t
   // only gets resolved after the Request has been handled
-  let push: (t<'a>, Request.t => Promise.t<'a>, Request.t) => Promise.t<'a>
+  let push: (t, Request.t => promise<unit>, Request.t) => promise<unit>
 } = {
-  type t<'a> = {
-    queue: array<unit => Promise.t<'a>>,
+  type t = {
+    queue: array<unit => promise<unit>>,
     mutable busy: bool,
   }
 
@@ -28,17 +28,22 @@ module RequestQueue: {
       | None => () // nothing to pop
       | Some(thunk) =>
         self.busy = true
-        thunk()->Promise.get(_ => {
+        thunk()
+        ->Promise.finally(_ => {
           self.busy = false
           kickStart(self)
         })
+        ->Promise.done
       }
     }
 
   // only gets resolved after the Request has been handled
   let push = (self, sendRequestAndHandleResponses, request) => {
-    let (promise, resolve) = Promise.pending()
-    let thunk = () => sendRequestAndHandleResponses(request)->Promise.tap(resolve)
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let thunk = async () => {
+      await sendRequestAndHandleResponses(request)
+      resolve()
+    }
     // push to the back of the queue
     Js.Array.push(thunk, self.queue)->ignore
     // kick start
@@ -51,7 +56,7 @@ module RequestQueue: {
 module ViewCache = {
   type t = {
     mutable display: option<(View.Header.t, View.Body.t)>,
-    mutable prompt: option<(View.Header.t, View.Prompt.t, View.Response.t => Promise.t<unit>)>,
+    mutable prompt: option<(View.Header.t, View.Prompt.t, View.Response.t => promise<unit>)>,
   }
 
   let make = () => {
@@ -85,10 +90,33 @@ module ViewCache = {
     }
 }
 
+// datatype for logging
+module Log = {
+  type t =
+    | CommandDispatched(Command.t)
+    | CommandHandled(Command.t)
+    | RequestSent(Request.t)
+    | ResponseHandled(Response.t)
+    | Others(string) // generic string
+
+  let toString = log =>
+    switch log {
+    | CommandDispatched(command) => " <=== " ++ Command.toString(command)
+    | RequestSent(request) => "   <- " ++ Request.toString(request)
+    | ResponseHandled(response) => "    > " ++ Response.toString(response)
+    | CommandHandled(command) => " ===> " ++ Command.toString(command)
+    | Others(str) => str
+    }
+}
+
 type channels = {
   inputMethod: Chan.t<IM.Log.t>,
   // emits when a Response has been handled
   responseHandled: Chan.t<Response.t>,
+  // emits when a Command has been handled
+  commandHandled: Chan.t<Command.t>,
+  // for debugging
+  log: Chan.t<Log.t>,
 }
 
 type t = {
@@ -106,7 +134,7 @@ type t = {
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
-  mutable agdaRequestQueue: RequestQueue.t<result<unit, Connection.Error.t>>,
+  mutable agdaRequestQueue: RequestQueue.t,
   globalStoragePath: string,
   extensionPath: string,
   channels: channels,

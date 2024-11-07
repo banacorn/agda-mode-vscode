@@ -1,6 +1,5 @@
 open VSCode
 module VSRange = Range
-open Belt
 
 open Common
 
@@ -9,13 +8,6 @@ module Position = {
     string_of_int(VSCode.Position.line(position)) ++
     ":" ++
     string_of_int(VSCode.Position.character(position))
-
-  let fromOffset = (document, offset) => document->VSCode.TextDocument.positionAt(offset)
-
-  let toOffset = (document, position) => document->VSCode.TextDocument.offsetAt(position)
-
-  let fromAgdaPosition = (position: AgdaPosition.t) =>
-    VSCode.Position.make(position.line - 1, position.col - 1)
 }
 
 module Range = {
@@ -32,22 +24,6 @@ module Range = {
       Position.toString(start) ++ "-" ++ Position.toString(end)
     }
   }
-  // string_of_int(VSCode.Position.line(position)) ++
-  // ":" ++
-  // string_of_int(VSCode.Position.character(position))
-
-  let fromInterval = (document, interval) =>
-    VSCode.Range.make(
-      Position.fromOffset(document, fst(interval)),
-      Position.fromOffset(document, snd(interval)),
-    )
-  let toInterval = (document, range) => (
-    Position.toOffset(document, VSCode.Range.start(range)),
-    Position.toOffset(document, VSCode.Range.end_(range)),
-  )
-
-  let fromAgdaInterval = (range: AgdaInterval.t) =>
-    VSCode.Range.make(Position.fromAgdaPosition(range.start), Position.fromAgdaPosition(range.end_))
 }
 
 module Decoration = {
@@ -184,13 +160,13 @@ module Text = {
     )
     Workspace.applyEdit(workspaceEdit)
   }
-  let batchReplace' = (editor, replacements) => {
-    editor->TextEditor.edit(editBuilder => {
-      replacements->Array.forEach(((range, text)) =>
-        editBuilder->TextEditorEdit.replaceAtRange(range, text)
-      )
-    }, None)
-  }
+  // let batchReplace' = (editor, replacements) => {
+  //   editor->TextEditor.edit(editBuilder => {
+  //     replacements->Array.forEach(((range, text)) =>
+  //       editBuilder->TextEditorEdit.replaceAtRange(range, text)
+  //     )
+  //   }, None)
+  // }
 
   let insert = (document, point, text) => {
     let workspaceEdit = WorkspaceEdit.make()
@@ -203,11 +179,11 @@ module Text = {
     workspaceEdit->WorkspaceEdit.set(document->TextDocument.uri, textEdits)
     Workspace.applyEdit(workspaceEdit)
   }
-  let batchInsert' = (editor, points, text) => {
-    editor->TextEditor.edit(editBuilder => {
-      points->Array.forEach(point => editBuilder->TextEditorEdit.insert(point, text))
-    }, None)
-  }
+  // let batchInsert' = (editor, points, text) => {
+  //   editor->TextEditor.edit(editBuilder => {
+  //     points->Array.forEach(point => editBuilder->TextEditorEdit.insert(point, text))
+  //   }, None)
+  // }
   let delete = (document, range) => {
     let workspaceEdit = WorkspaceEdit.make()
     workspaceEdit->WorkspaceEdit.delete(document->TextDocument.uri, range, None)
@@ -265,7 +241,7 @@ module Provider = {
               range,
             )) => {
               let markdownStrings =
-                strings->Belt.Array.map(string => MarkdownString.make(string, true))
+                strings->Array.map(string => MarkdownString.make(string, true))
               Hover.makeWithRange(markdownStrings, range)
             }),
         }

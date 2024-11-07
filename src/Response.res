@@ -1,5 +1,3 @@
-open Belt
-
 type filepath = string
 type index = int
 
@@ -11,16 +9,17 @@ module GiveAction = {
     | GiveNoParen
     | GiveString(string)
 
-  open Json.Decode
-  open Util.Decode
-  let decode: decoder<t> = sum(x =>
-    switch x {
-    | "GiveString" => Contents(string |> map(s => GiveString(s)))
-    | "GiveParen" => TagOnly(GiveParen)
-    | "GiveNoParen" => TagOnly(GiveNoParen)
-    | tag => raise(DecodeError("[Response.GiveAction] Unknown constructor: " ++ tag))
-    }
-  )
+  let decode = {
+    open JsonCombinators.Json.Decode
+    Util.Decode.sum(x => {
+      switch x {
+      | "GiveString" => Payload(string->map(s => GiveString(s)))
+      | "GiveParen" => TagOnly(GiveParen)
+      | "GiveNoParen" => TagOnly(GiveNoParen)
+      | tag => raise(DecodeError("[Response.GiveAction] Unknown constructor: " ++ tag))
+      }
+    })
+  }
 }
 
 type makeCaseType =
@@ -34,13 +33,7 @@ module DisplayInfo = {
     | CompilationOkLSP(array<string>, array<string>)
     | Constraints(option<string>)
     | AllGoalsWarnings(string, string)
-    | AllGoalsWarningsLSP(
-        string,
-        array<Item.t>,
-        array<Item.t>,
-        array<string>,
-        array<string>,
-      )
+    | AllGoalsWarningsLSP(string, array<Item.t>, array<Item.t>, array<string>, array<string>)
     | Time(string)
     | Error(string)
     | Intro(string)
@@ -85,10 +78,12 @@ module DisplayInfo = {
     | Version(string) => "Version " ++ string
     }
 
-  let parse = (xs: array<Token.t>): option<t> =>
+  let parse = (xs: array<Token.t>): option<t> => {
     switch xs[1] {
     | Some(A(rawPayload)) =>
-      let payload = rawPayload |> Js.String.replaceByRe(%re("/\\\\r\\\\n|\\\\n/g"), "\n")
+      // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions
+      // we need to replace them with actual EOLs
+      let payload = rawPayload->String.replaceRegExp(%re("/\\n|\\r\\n/g"), "\n")
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>
@@ -115,6 +110,7 @@ module DisplayInfo = {
       }
     | _ => None
     }
+  }
 }
 
 // Here's the corresponding datatype in Haskell:
@@ -217,8 +213,8 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
     | Some(A("agda2-status-action")) =>
       switch xs[1] {
       | Some(A(status)) =>
-        let pulp = status |> Js.String.split(",")
-        Ok(Status(pulp |> Js.Array.includes("ShowImplicit"), pulp |> Js.Array.includes("Checked")))
+        let pulp = status->String.split(",")
+        Ok(Status(pulp->Array.includes("ShowImplicit"), pulp->Array.includes("Checked")))
       | _ => Ok(Status(false, false))
       }
     | Some(A("agda2-maybe-goto")) =>
@@ -226,12 +222,12 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       | Some(L([A(filepath), _, A(index')])) =>
         int_of_string_opt(index')
         ->Option.flatMap(index => Some(JumpToError(filepath, index)))
-        ->Option.mapWithDefault(err(3), x => Ok(x))
+        ->Option.mapOr(err(3), x => Ok(x))
       | _ => err(4)
       }
     | Some(A("agda2-goals-action")) =>
       switch xs[1] {
-      | Some(xs) => Ok(InteractionPoints(xs->Token.flatten->Array.keepMap(int_of_string_opt)))
+      | Some(xs) => Ok(InteractionPoints(xs->Token.flatten->Array.filterMap(int_of_string_opt)))
       | _ => err(5)
       }
     | Some(A("agda2-give-action")) =>
@@ -247,7 +243,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
           | _ => None
           }
         )
-        ->Option.mapWithDefault(err(6), x => Ok(x))
+        ->Option.mapOr(err(6), x => Ok(x))
       | _ => err(7)
       }
     | Some(A("agda2-make-case-action")) =>
@@ -268,7 +264,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         let isEven = i => Int32.rem(Int32.of_int(i), Int32.of_int(2)) == Int32.of_int(0)
 
         let i = ref(0)
-        let solutions = tokens->Array.keepMap(token => {
+        let solutions = tokens->Array.filterMap(token => {
           let solution = if isEven(i.contents) {
             int_of_string_opt(token)->Option.flatMap(index =>
               tokens[i.contents + 1]->Option.map(s => (index, s))
@@ -295,7 +291,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         | _ => Ok(ClearRunningInfo)
         }
       | _ =>
-        switch DisplayInfo.parse(xs |> Js.Array.sliceFrom(1)) {
+        switch DisplayInfo.parse(xs->Array.sliceToEnd(~start=1)) {
         | Some(info) => Ok(DisplayInfo(info))
         | None => err(12)
         }
