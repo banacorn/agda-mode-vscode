@@ -190,10 +190,10 @@ module Literate = {
     })
   }
 
-  let markMarkdown = markWithRules(Regex.markdown, Regex.markdown)
-  let markTex = markWithRules(Regex.texBegin, Regex.texEnd)
-  let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd)
-  let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd)
+  let markMarkdown = markWithRules(Regex.markdown, Regex.markdown, ...)
+  let markTex = markWithRules(Regex.texBegin, Regex.texEnd, ...)
+  let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd, ...)
+  let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd, ...)
 }
 
 module Diff = {

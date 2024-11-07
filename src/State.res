@@ -1,5 +1,3 @@
-open Belt
-
 open State__Type
 module View = State__View
 module Context = State__Type.Context
@@ -32,39 +30,43 @@ let onDownload = (state, event) => {
 
 let sendRequest = (
   state: state,
-  handleResponse: Response.t => Promise.t<result<unit, Connection.Error.t>>,
+  handleResponse: Response.t => promise<unit>,
   request: Request.t,
-): Promise.t<result<unit, Connection.Error.t>> => {
+): promise<unit> => {
   let sendRequestAndHandleResponses = (
     state,
     request,
-    handler: Response.t => Promise.t<result<unit, Connection.Error.t>>,
-  ): Promise.t<result<unit, Connection.Error.t>> => {
-    let onResponse = result =>
+    handler: Response.t => promise<unit>,
+  ): promise<unit> => {
+    let (responseHandlerPromise, resolve, _) = Util.Promise_.pending()
+    let onResponse = async result => {
       switch result {
-      | Error(error) => View.Panel.displayConnectionError(state, error)
+      | Error(error) => await View.Panel.displayConnectionError(state, error)
       | Ok(response) =>
-        handler(response)->Promise.flatMap(result =>
-          switch result {
-          | Error(error) => View.Panel.displayConnectionError(state, error)
-          | Ok() => Promise.resolved()
-          }
-        )
+        await handler(response)
+        state.channels.log->Chan.emit(ResponseHandled(response))
       }
+      resolve()
+    }
+
+    state.channels.log->Chan.emit(RequestSent(request))
+    // only resolve the promise after:
+    //  1. the result of connection has been displayed
+    //  2. the response has been handled
     Connection.sendRequest(
       state.globalStoragePath,
-      onDownload(state),
+      onDownload(state, ...),
       Config.Connection.getUseAgdaLanguageServer(),
       state.document,
       request,
-      onResponse,
-    )->Promise.flatMap(result =>
+      onResponse
+    )->Promise.then(async result => {
       switch result {
-      | Error(error) =>
-        View.Panel.displayConnectionError(state, error)->Promise.map(() => Error(error))
-      | Ok(status) => View.Panel.displayConnectionStatus(state, status)->Promise.map(() => Ok())
+      | Error(error) => await View.Panel.displayConnectionError(state, error)
+      | Ok(status) => await View.Panel.displayConnectionStatus(state, status)
       }
-    )
+      await responseHandlerPromise
+    })
   }
 
   state.agdaRequestQueue->RequestQueue.push(
@@ -87,7 +89,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
 }
 
 let make = (channels, globalStoragePath, extensionPath, editor) => {
-  editor: editor,
+  editor,
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
   runningInfoLog: [],
@@ -100,7 +102,7 @@ let make = (channels, globalStoragePath, extensionPath, editor) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
-  globalStoragePath: globalStoragePath,
-  extensionPath: extensionPath,
-  channels: channels,
+  globalStoragePath,
+  extensionPath,
+  channels,
 }

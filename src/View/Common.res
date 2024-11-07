@@ -10,9 +10,11 @@ module AgdaPosition = {
     pos: int,
   }
 
+  let toVSCodePosition = (position: t) => VSCode.Position.make(position.line - 1, position.col - 1)
+
   let decode = {
     open JsonCombinators.Json.Decode
-    tuple3(int, int, int)->map((. (line, col, pos)) => {
+    tuple3(int, int, int)->map(((line, col, pos)) => {
       line,
       col,
       pos,
@@ -21,7 +23,7 @@ module AgdaPosition = {
 
   let encode = ({line, col, pos}) => {
     open JsonCombinators.Json.Encode
-    tuple3(int, int, int, (line, col, pos))
+    tuple3(int, int, int)((line, col, pos))
   }
 }
 
@@ -32,6 +34,12 @@ module AgdaInterval = {
   }
 
   let make = (start, end_) => {start, end_}
+
+  let toVSCodeRange = (range: t) =>
+    VSCode.Range.make(
+      AgdaPosition.toVSCodePosition(range.start),
+      AgdaPosition.toVSCodePosition(range.end_),
+    )
 
   let fuse = (a, b) => {
     let start = if a.start.pos > b.start.pos {
@@ -62,7 +70,7 @@ module AgdaInterval = {
 
   let decode = {
     open JsonCombinators.Json.Decode
-    tuple2(AgdaPosition.decode, AgdaPosition.decode)->map((. (start, end_)) => {
+    tuple2(AgdaPosition.decode, AgdaPosition.decode)->map(((start, end_)) => {
       start,
       end_,
     })
@@ -70,7 +78,7 @@ module AgdaInterval = {
 
   let encode = ({start, end_}) => {
     open JsonCombinators.Json.Encode
-    tuple2(AgdaPosition.encode, AgdaPosition.encode, (start, end_))
+    tuple2(AgdaPosition.encode, AgdaPosition.encode)((start, end_))
   }
 }
 
@@ -88,127 +96,127 @@ module AgdaRange = {
 
     /* filepath  | line,col-line,col       |    line,col-col   |   line,col | */
     "/^(\S+)\:(?:(\d+)\,(\d+)\-(\d+)\,(\d+)|(\d+)\,(\d+)\-(\d+)|(\d+)\,(\d+))$/"
-  )->Emacs__Parser.captures(captured => {
-    open Belt
-    open Belt.Option
-    let flatten = xs => xs->flatMap(x => x)
-    // filepath: captured[1]
-    // type 1: captured[2] ~ captured[5]
-    // type 2: captured[6] ~ captured[8]
-    // type 3: captured[9] ~ captured[10]
-    let srcFile = captured[1]->flatten
-    let isType1 = captured[2]->flatten->isSome
-    let isType2 = captured[6]->flatten->isSome
-    if isType1 {
-      captured[2]
-      ->flatten
-      ->flatMap(int_of_string_opt)
-      ->flatMap(rowStart =>
-        captured[3]
+  )->(Emacs__Parser.captures(captured => {
+      open Belt
+      open Belt.Option
+      let flatten = xs => xs->flatMap(x => x)
+      // filepath: captured[1]
+      // type 1: captured[2] ~ captured[5]
+      // type 2: captured[6] ~ captured[8]
+      // type 3: captured[9] ~ captured[10]
+      let srcFile = captured[1]->flatten
+      let isType1 = captured[2]->flatten->isSome
+      let isType2 = captured[6]->flatten->isSome
+      if isType1 {
+        captured[2]
         ->flatten
         ->flatMap(int_of_string_opt)
-        ->flatMap(
-          colStart =>
-            captured[4]
-            ->flatten
-            ->flatMap(int_of_string_opt)
-            ->flatMap(
-              rowEnd =>
-                captured[5]
-                ->flatten
-                ->flatMap(int_of_string_opt)
-                ->flatMap(
-                  colEnd => Some(
-                    Range(
-                      srcFile,
-                      [
-                        {
-                          start: {
-                            pos: 0,
-                            line: rowStart,
-                            col: colStart,
+        ->flatMap(rowStart =>
+          captured[3]
+          ->flatten
+          ->flatMap(int_of_string_opt)
+          ->flatMap(
+            colStart =>
+              captured[4]
+              ->flatten
+              ->flatMap(int_of_string_opt)
+              ->flatMap(
+                rowEnd =>
+                  captured[5]
+                  ->flatten
+                  ->flatMap(int_of_string_opt)
+                  ->flatMap(
+                    colEnd => Some(
+                      Range(
+                        srcFile,
+                        [
+                          {
+                            start: {
+                              pos: 0,
+                              line: rowStart,
+                              col: colStart,
+                            },
+                            end_: {
+                              pos: 0,
+                              line: rowEnd,
+                              col: colEnd,
+                            },
                           },
-                          end_: {
-                            pos: 0,
-                            line: rowEnd,
-                            col: colEnd,
-                          },
-                        },
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ),
+              ),
+          )
         )
-      )
-    } else if isType2 {
-      captured[6]
-      ->flatten
-      ->flatMap(int_of_string_opt)
-      ->flatMap(row =>
-        captured[7]
+      } else if isType2 {
+        captured[6]
         ->flatten
         ->flatMap(int_of_string_opt)
-        ->flatMap(
-          colStart =>
-            captured[8]
-            ->flatten
-            ->flatMap(int_of_string_opt)
-            ->flatMap(
-              colEnd => Some(
-                Range(
-                  srcFile,
-                  [
-                    {
-                      start: {
-                        pos: 0,
-                        line: row,
-                        col: colStart,
+        ->flatMap(row =>
+          captured[7]
+          ->flatten
+          ->flatMap(int_of_string_opt)
+          ->flatMap(
+            colStart =>
+              captured[8]
+              ->flatten
+              ->flatMap(int_of_string_opt)
+              ->flatMap(
+                colEnd => Some(
+                  Range(
+                    srcFile,
+                    [
+                      {
+                        start: {
+                          pos: 0,
+                          line: row,
+                          col: colStart,
+                        },
+                        end_: {
+                          pos: 0,
+                          line: row,
+                          col: colEnd,
+                        },
                       },
-                      end_: {
-                        pos: 0,
-                        line: row,
-                        col: colEnd,
-                      },
-                    },
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+          )
         )
-      )
-    } else {
-      captured[9]
-      ->flatten
-      ->flatMap(int_of_string_opt)
-      ->flatMap(row =>
-        captured[10]
+      } else {
+        captured[9]
         ->flatten
         ->flatMap(int_of_string_opt)
-        ->flatMap(
-          col => Some(
-            Range(
-              srcFile,
-              [
-                {
-                  start: {
-                    pos: 0,
-                    line: row,
-                    col,
+        ->flatMap(row =>
+          captured[10]
+          ->flatten
+          ->flatMap(int_of_string_opt)
+          ->flatMap(
+            col => Some(
+              Range(
+                srcFile,
+                [
+                  {
+                    start: {
+                      pos: 0,
+                      line: row,
+                      col,
+                    },
+                    end_: {
+                      pos: 0,
+                      line: row,
+                      col,
+                    },
                   },
-                  end_: {
-                    pos: 0,
-                    line: row,
-                    col,
-                  },
-                },
-              ],
+                ],
+              ),
             ),
-          ),
+          )
         )
-      )
-    }
-  })
+      }
+    }, ...))
 
   let fuse = (a: t, b: t): t => {
     open AgdaInterval
@@ -280,7 +288,7 @@ module AgdaRange = {
       switch x {
       | "Range" =>
         Payload(
-          pair(option(string), array(AgdaInterval.decode))->map((. (source, intervals)) => Range(
+          pair(option(string), array(AgdaInterval.decode))->map(((source, intervals)) => Range(
             source,
             intervals,
           )),
@@ -297,9 +305,9 @@ module AgdaRange = {
       switch x {
       | NoRange => TagOnly("NoRange")
       | Range(source, intervals) =>
-        Payload("Range", pair(option(string), array(AgdaInterval.encode), (source, intervals)))
+        Payload("Range", pair(option(string), array(AgdaInterval.encode))((source, intervals)))
       }
-    )
+    , ...)
   }
 }
 
@@ -322,4 +330,15 @@ module Interval = {
     open JsonCombinators.Json.Encode
     pair(int, int)
   }
+
+  let toVSCodeRange = (document, interval) =>
+    VSCode.Range.make(
+      VSCode.TextDocument.positionAt(document, fst(interval)),
+      VSCode.TextDocument.positionAt(document, snd(interval)),
+    )
+
+  let fromVSCodeRange = (document, range) => (
+    VSCode.TextDocument.offsetAt(document, VSCode.Range.start(range)),
+    VSCode.TextDocument.offsetAt(document, VSCode.Range.end_(range)),
+  )
 }

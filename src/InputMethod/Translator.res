@@ -116,7 +116,7 @@ let translate = (input: string, state: option<state>): translation => {
     }
   }
 }
-let initialTranslation = translate("")
+let initialTranslation = x => translate("", x)
 
 let lookup = (symbol): option<array<string>> =>
   Js.String.codePointAt(0, symbol)->Option.map(string_of_int)->Option.flatMap(Js.Dict.get(rawTable))
@@ -135,9 +135,9 @@ let decode = {
 let encode = translation => {
   open JsonCombinators.Json.Encode
   Unsafe.object({
-    "symbol": option(string, translation.symbol),
+    "symbol": option(string)(translation.symbol),
     "further": bool(translation.further),
-    "keySuggestions": array(string, translation.keySuggestions),
-    "candidateSymbols": array(string, translation.candidateSymbols),
+    "keySuggestions": array(string)(translation.keySuggestions),
+    "candidateSymbols": array(string)(translation.candidateSymbols),
   })
 }

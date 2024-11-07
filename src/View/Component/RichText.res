@@ -125,19 +125,19 @@ module Module = {
       open JsonCombinators.Json.Encode
       Util.Encode.sum(x =>
         switch x {
-        | Icon(s, cs) => Payload("Icon", pair(string, ClassNames.encode, (s, cs)))
-        | Text(s, cs) => Payload("Text", pair(string, ClassNames.encode, (s, cs)))
+        | Icon(s, cs) => Payload("Icon", pair(string, ClassNames.encode)((s, cs)))
+        | Text(s, cs) => Payload("Text", pair(string, ClassNames.encode)((s, cs)))
         | Link(r, s, cs) =>
           Payload(
             "Link",
-            tuple3(Common.AgdaRange.encode, array(encodeRec()), ClassNames.encode, (r, s, cs)),
+            tuple3(Common.AgdaRange.encode, array(encodeRec()), ClassNames.encode)((r, s, cs)),
           )
         | Hole(i) => Payload("Hole", int(i))
-        | Horz(xs) => Payload("Horz", array(array(encodeRec()), xs))
-        | Vert(xs) => Payload("Vert", array(array(encodeRec()), xs))
-        | Parn(x) => Payload("Parn", array(encodeRec(), x))
-        | PrHz(xs) => Payload("PrHz", array(array(encodeRec()), xs))
-        }
+        | Horz(xs) => Payload("Horz", array(array(encodeRec()))(xs))
+        | Vert(xs) => Payload("Vert", array(array(encodeRec()))(xs))
+        | Parn(x) => Payload("Parn", array(encodeRec())(x))
+        | PrHz(xs) => Payload("PrHz", array(array(encodeRec()))(xs))
+        }, ...
       )
     }
     let encode = encodeRec()
@@ -193,11 +193,11 @@ module Module = {
       ->Array.mapWithIndex((i, x) => {
         switch x {
         | Text(text, className) =>
-          let className = {String.concat(" ", List.fromArray(className))}
+          let className = {String.concatMany(" ", className)}
           <span className key={string_of_int(i)}> {React.string(text)} </span>
         | Icon(kind, className) =>
           let className = Array.concat(["codicon", "codicon-" ++ kind], className)
-          let className = {String.concat(" ", List.fromArray(className))}
+          let className = {String.concatMany(" ", className)}
           <div className key={string_of_int(i)} />
         | Link(range, children, className) =>
           let child = make(~value=RichText(children))
@@ -251,7 +251,7 @@ module Module = {
     open JsonCombinators.Json.Encode
     x =>
       switch x {
-      | RichText(elemss) => array(Inline.encode, elemss)
+      | RichText(elemss) => array(Inline.encode)(elemss)
       }
   }
 }

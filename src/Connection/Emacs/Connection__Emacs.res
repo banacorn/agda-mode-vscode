@@ -10,7 +10,7 @@ module ProcInfo: {
     args: array<string>,
     version: string,
   }
-  let make: (string, array<string>) => Promise.t<result<t, Error.t>>
+  let make: (string, array<string>) => promise<result<t, Error.t>>
   let toString: t => string
 } = {
   type t = {
@@ -22,14 +22,33 @@ module ProcInfo: {
   @module external untildify: string => string = "untildify"
 
   // a more sophiscated "make"
-  let make = (path, args): Promise.t<result<t, Error.t>> => {
+  let make = async (path, args): result<t, Error.t> => {
     // normailize the path by replacing the tild "~/" with the absolute path of home directory
     let path = untildify(path)
+    let path = NodeJs.Path.normalize(path)
+
+    // replace wierd paths on Windows like "\c\" to "C:\"
+    let path = switch NodeJs.Os.platform() {
+    | "win32" =>
+      let regex = %re("/\\([a-zA-Z])\\/")
+      let hasWeirdPath = RegExp.exec(regex, path)
+      switch hasWeirdPath {
+      | None => path
+      | Some(match_) =>
+        switch match_[1] {
+        | Some(Some(drive)) =>
+          let drive = drive->String.toUpperCase
+          path->String.replaceRegExp(regex, drive ++ ":\\")
+        | _ => path
+        }
+      }
+    | _ => path
+    }
 
     let process = Process.make(path, ["-V"])
-    let (promise, resolve) = Promise.pending()
+    let (promise, resolve, _) = Util.Promise_.pending()
 
-    let handle = process->Process.onOutput(output =>
+    let destructor = process->Process.onOutput(output =>
       switch output {
       | Process.Stdout(output) =>
         switch Js.String.match_(%re("/Agda version (.*)/"), output) {
@@ -56,7 +75,13 @@ module ProcInfo: {
         )
       }
     )
-    promise->Promise.tap(_ => handle())->Promise.mapError(e => Error.Validation(e))
+
+    let result = await promise
+    destructor()
+    switch result {
+    | Error(e) => Error(Error.Validation(e))
+    | Ok(x) => Ok(x)
+    }
   }
 
   // for making error report
@@ -75,14 +100,14 @@ module ProcInfo: {
 module type Module = {
   type t
   // lifecycle
-  let make: LanguageServerMule.Method.t => Promise.t<result<t, Error.t>>
-  let destroy: t => Promise.t<unit>
+  let make: LanguageServerMule.Method.t => promise<result<t, Error.t>>
+  let destroy: t => promise<unit>
   // messaging
   let sendRequest: (
     t,
     string,
-    result<Response.t, Error.t> => Promise.t<unit>,
-  ) => Promise.t<result<unit, Error.t>>
+    result<Response.t, Error.t> => promise<unit>,
+  ) => promise<result<unit, Error.t>>
   let getInfo: t => (string, string) // version and path
 }
 
@@ -114,12 +139,12 @@ module Module: Module = {
     //      yield
     //      stop
     let toResponse = Parser.Incr.Gen.flatMap(x =>
-      switch x {
-      | Error((no, e)) => Parser.Incr.Gen.Yield(Error(Parser.Error.SExpression(no, e)))
-      | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Gen.Stop
-      | Ok(tokens) => Parser.Incr.Gen.Yield(Response.Prioritized.parse(tokens))
-      }
-    )
+        switch x {
+        | Error((no, e)) => Parser.Incr.Gen.Yield(Error(Parser.Error.SExpression(no, e)))
+        | Ok(Parser.SExpression.A("Agda2>")) => Parser.Incr.Gen.Stop
+        | Ok(tokens) => Parser.Incr.Gen.Yield(Response.Prioritized.parse(tokens))
+        }
+      , ...)
 
     // resolves the requests in the queue
     let handleResponse = (res: Parser.Incr.Gen.t<result<Response.Prioritized.t, Parser.Error.t>>) =>
@@ -152,36 +177,41 @@ module Module: Module = {
             self.chan->Chan.emit(Error(AgdaError(rawText)))
           } else {
             // split the raw text into pieces and feed it to the parser
-            rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser))
+            rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser, ...))
           }
-        | Stderr(_) => ()
+        | Stderr(error) =>
+          // sometimes Agda would return error messages from STDOUT
+          self.chan->Chan.emit(Error(AgdaError(error)))
         | Event(e) => self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some
   }
 
-  let make = method =>
+  let make = async method =>
     switch method {
-    | LanguageServerMule.Method.ViaTCP(_) =>
-      Promise.resolved(Error(Error.ConnectionViaTCPNotSupported))
-    | ViaCommand(path, _, _, _) =>
+    | LanguageServerMule.Method.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
+    | ViaPipe(path, _, _, _) =>
       // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
       let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
 
-      ProcInfo.make(path, args)
-      ->Promise.mapOk(procInfo => {
-        procInfo,
-        process: Process.make(procInfo.path, procInfo.args),
-        chan: Chan.make(),
-        encountedFirstPrompt: false,
-      })
-      ->Promise.tapOk(wire)
+      switch await ProcInfo.make(path, args) {
+      | Error(e) => Error(e)
+      | Ok(procInfo) =>
+        let conn = {
+          procInfo,
+          process: Process.make(procInfo.path, procInfo.args),
+          chan: Chan.make(),
+          encountedFirstPrompt: false,
+        }
+        wire(conn)
+        Ok(conn)
+      }
     }
 
-  let onResponse = (conn, callback) => {
+  let onResponse = async (conn, callback) => {
     let scheduler = Scheduler.make()
     // this promise get resolved after all Responses has been received from Agda
-    let (responsePromise, stopResponseListener) = Promise.pending()
+    let (responsePromise, stopResponseListener, _) = Util.Promise_.pending()
 
     // There are 2 kinds of Responses
     //  NonLast Response :
@@ -204,25 +234,27 @@ module Module: Module = {
         scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
       | Ok(Yield(Last(priority, response))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
-        // stop the Agda Response listener
-        stopResponseListener(Ok())
         // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler->Scheduler.runLast(response => {
-          callback(Ok(response))
-          // resolve the `responseHandlingPromise` after all Last Responses have been handled
-        })
+        // resolve the `responseHandlingPromise` after all Last Responses have been handled
+        scheduler
+        ->Scheduler.runLast(response => callback(Ok(response)))
+        ->Promise.finally(() =>
+          // stop the Agda Response listener
+          stopResponseListener(Ok())
+        )
+        ->Promise.done
       }
 
     // start listening for responses
     let listenerHandle = ref(None)
     listenerHandle := Some(conn.chan->Chan.on(listener))
     // destroy the listener after all responses have been received
-    responsePromise->Promise.tap(_ =>
-      listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
-    )
+    let result = await responsePromise
+    listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
+    result
   }
 
-  let sendRequest = (conn, request, handler): Promise.promise<Promise.result<unit, Error.t>> => {
+  let sendRequest = (conn, request, handler): promise<result<unit, Error.t>> => {
     // this promise gets resolved after all Responses have been received and handled
     let promise = onResponse(conn, handler)
     Process.send(conn.process, request)->ignore

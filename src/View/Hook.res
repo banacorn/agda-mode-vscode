@@ -1,7 +1,9 @@
 // React Hook for request-response handling
 let recv = (reqChan: Chan.t<'req>, resChan: Chan.t<'res>, handler: 'req => Promise.t<'res>) =>
   React.useEffect1(
-    () => Some(reqChan->Chan.on(req => handler(req)->Promise.get(resChan->Chan.emit))),
+    () => Some(reqChan->Chan.on(req => {
+      handler(req)->Promise.thenResolve(res => resChan->Chan.emit(res))->Promise.done
+    })),
     [],
   )
 

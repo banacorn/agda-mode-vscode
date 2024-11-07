@@ -112,7 +112,7 @@ let parseGoalType: string => Js.Dict.t<array<string>> = raw => {
         }
       }
     )
-  let removeDelimeter = xs => xs->Emacs__Parser.Dict.update("metas", Js.Array.sliceFrom(1))
+  let removeDelimeter = xs => xs->Emacs__Parser.Dict.update("metas", x => Js.Array.sliceFrom(1, x))
   let lines = Parser.splitToLines(raw)
   lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
 }

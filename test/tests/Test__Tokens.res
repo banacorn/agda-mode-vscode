@@ -1,36 +1,36 @@
-open! BsMocha.Mocha
-open! Test__Util
-open Belt
+open Mocha
+open Test__Util
 
-describe("Tokens", ~timeout=10000, () => {
-  let context = Agda.make("GotoDefinition.agda")
-
+describe("Tokens", () => {
+  This.timeout(10000)
   describe("GotoDefinition.agda", () => {
-    Q.it("should produce 28 tokens", () => {
-      context
-      ->Promise.flatMap(Agda.load)
-      ->Promise.flatMapOk(((_, state)) => {
+    Async.it(
+      "should produce 28 tokens",
+      async () => {
+        let ctx = await AgdaMode.make("GotoDefinition.agda")
+        let state = await ctx->AgdaMode.load
         let tokens =
           state.tokens
           ->Tokens.toArray
-          ->Belt.Array.map(((token, range)) =>
-            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          ->Array.map(
+            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
           )
-        A.deep_equal(28, Array.length(tokens))
-      })
-    })
+        Assert.deepEqual(28, Array.length(tokens))
+      },
+    )
 
-    Q.it("should produce correct tokens", () => {
-      context
-      ->Promise.flatMap(Agda.load)
-      ->Promise.flatMapOk(((_, state)) => {
+    Async.it(
+      "should produce correct tokens",
+      async () => {
+        let ctx = await AgdaMode.make("GotoDefinition.agda")
+        let state = await ctx->AgdaMode.load
         let tokens =
           state.tokens
           ->Tokens.toArray
-          ->Belt.Array.map(((token, range)) =>
-            Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
+          ->Array.map(
+            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
           )
-        A.deep_equal(
+        Assert.deepEqual(
           [
             "0:0-6 Token (0, 6) [Keyword]",
             "0:7-21 Token (7, 21) [Module] [src: 1]",
@@ -63,7 +63,7 @@ describe("Tokens", ~timeout=10000, () => {
           ],
           tokens,
         )
-      })
-    })
+      },
+    )
   })
 })

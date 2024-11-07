@@ -26,7 +26,7 @@ module Dict = {
       // insert new entries
       entries(splitter(value))->Array.forEach(((k, v)) => set(dict, k, v))
       // remove old entry
-      Util.Dict.delete(dict, key)
+      Dict.delete(dict, key)
       dict
     | None => dict
     }
