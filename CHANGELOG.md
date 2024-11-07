@@ -9,10 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - #195: Remove all usage of deprecated api @bs.send.pipe by [@jiangsy](https://github.com/jiangsy)
+- #191: Add more detailed splitting command description by [@ChAoSUnItY](https://github.com/ChAoSUnItY)
+
+### Changed
+- Upgrade ReScript to v11
+- CI overhaul: allow testings be be conducted on all major platforms (Windows, macOS, Ubuntu) and on multiple versions of Agda
 
 ## v0.4.7 - 2023-12-16
 
-### Change
+### Changed
 - Fetch the latest release of Agda Language Server from GitHub
 
 ### Fixed
