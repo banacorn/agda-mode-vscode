@@ -1,23 +1,29 @@
 module Normalization = {
   type t =
+    | AsIs
     | Simplified
     | Instantiated
     | Normalised
+    | HeadNormal
 
   // for Agda
   let encode = x =>
     switch x {
+    | AsIs => "AsIs"
     | Simplified => "Simplified"
     | Instantiated => "Instantiated"
     | Normalised => "Normalised"
+    | HeadNormal => "HeadNormal"
     }
 
   // for human
   let toString = x =>
     switch x {
+    | AsIs => "(returned as is)"
     | Simplified => "(simplified)"
     | Instantiated => "(instantiated)"
     | Normalised => "(normalised)"
+    | HeadNormal => "(head normalized)"
     }
 }
 
@@ -80,7 +86,7 @@ type t =
   | Give
   | Refine
   | ElaborateAndGive(Normalization.t)
-  | Auto
+  | Auto(Normalization.t)
   | Case
   | HelperFunctionType(Normalization.t)
   | InferType(Normalization.t)
@@ -124,7 +130,10 @@ let names: array<(t, string)> = [
   (ElaborateAndGive(Simplified), "elaborate-and-give[Simplified]"),
   (ElaborateAndGive(Instantiated), "elaborate-and-give[Instantiated]"),
   (ElaborateAndGive(Normalised), "elaborate-and-give[Normalised]"),
-  (Auto, "auto"),
+  (Auto(AsIs), "auto[AsIs]"),
+  (Auto(Simplified), "auto[Simplified]"),
+  (Auto(Normalised), "auto[Normalised]"),
+  (Auto(HeadNormal), "auto[HeadNormal]"),
   (Case, "case"),
   (HelperFunctionType(Simplified), "helper-function-type[Simplified]"),
   (HelperFunctionType(Instantiated), "helper-function-type[Instantiated]"),
@@ -189,7 +198,7 @@ let toString = x =>
   | Refine => "Refine"
   | ElaborateAndGive(normalization) =>
     "Elaborate and give " ++ Normalization.toString(normalization)
-  | Auto => "Auto"
+  | Auto(normalization) => "Auto " ++ Normalization.toString(normalization)
   | Case => "Case"
   | HelperFunctionType(normalization) =>
     "Helper function type " ++ Normalization.toString(normalization)

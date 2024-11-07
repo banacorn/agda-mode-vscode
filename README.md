@@ -40,7 +40,7 @@ Take *infer type* for example:
 
 | Level of normalization                         |       Keymap in VS Code       |                       Keymap in Emacs                        |
 | :--------------------------------------------- | :---------------------------: | :----------------------------------------------------------: |
-| "simplified"   (default)                       | <kbd>C-c</kbd> <kbd>C-d</kbd> |                <kbd>C-c</kbd> <kbd>C-d</kbd>                 |
+| "simplified" (default)                         | <kbd>C-c</kbd> <kbd>C-d</kbd> |                <kbd>C-c</kbd> <kbd>C-d</kbd>                 |
 | "instantiated" (without further normalisation) | <kbd>C-u</kbd> <kbd>C-d</kbd> |         <kbd>C-u</kbd> <kbd>C-c</kbd> <kbd>C-d</kbd>         |
 | "normalized"   (fully normalized)              | <kbd>C-y</kbd> <kbd>C-d</kbd> | <kbd>C-u</kbd> <kbd>C-u</kbd> <kbd>C-c</kbd>  <kbd>C-d</kbd> |
 

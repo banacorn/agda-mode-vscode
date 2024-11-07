@@ -263,8 +263,23 @@
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.auto",
-				"title": "Auto",
+				"command": "agda-mode.auto[AsIs]",
+				"title": "Auto (returned as is)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.auto[Simplified]",
+				"title": "Auto (simplified)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.auto[Normalised]",
+				"title": "Auto (normalised)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.auto[HeadNormal]",
+				"title": "Auto (head normalised)",
 				"category": "Agda"
 			},
 			{
@@ -606,9 +621,27 @@
 				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex)"
 			},
 			{
-				"command": "agda-mode.auto",
+				"command": "agda-mode.auto[AsIs]",
 				"key": "ctrl+c ctrl+a",
 				"mac": "ctrl+c ctrl+a",
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.auto[Simplified]",
+				"key": "ctrl+u ctrl+a",
+				"mac": "ctrl+u ctrl+a",
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.auto[Normalised]",
+				"key": "ctrl+u ctrl+u ctrl+a",
+				"mac": "ctrl+u ctrl+u ctrl+a",
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.auto[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+a",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+a",
 				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
 			},
 			{

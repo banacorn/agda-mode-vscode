@@ -11,7 +11,7 @@ type t =
   | Give(Goal.t)
   | Refine(Goal.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
-  | Auto(Goal.t)
+  | Auto(Command.Normalization.t, Goal.t)
   | Case(Goal.t)
   | HelperFunctionType(Command.Normalization.t, string, Goal.t)
   | InferType(Command.Normalization.t, string, Goal.t)
@@ -172,17 +172,25 @@ let encode = (
         NonInteractive,
       )}( Cmd_elaborate_give ${normalization} ${index} noRange "${content}" )`
 
-  | Auto(goal) =>
+  | Auto(normalization, goal) =>
+    let normalization = Command.Normalization.encode(normalization)
     let index: string = string_of_int(goal.index)
     let content: string = Goal.getContent(goal, document)->Parser.userInputToSExpr
     let range: string = buildRange(goal)
-    if Util.Version.gte(version, "2.6.0.1") {
-      // after 2.6.0.1
-      `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
+
+    if Util.Version.gte(version, "2.7.0") {
+      // after 2.7.0
+      `${commonPart(NonInteractive)}( Cmd_autoOne ${normalization} ${index} ${range} "${content}" )`
     } else {
-      // the old way
-      `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
+      if Util.Version.gte(version, "2.6.0.1") {
+        // after 2.6.0.1
+        `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
+      } else {
+        // the old way
+        `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
+      }
     }
+
 
   | Case(goal) =>
     let index: string = string_of_int(goal.index)

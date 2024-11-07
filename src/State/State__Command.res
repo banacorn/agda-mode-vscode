@@ -101,10 +101,10 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       | Some((goal, expr)) => await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
       }
     }
-  | Auto =>
+  | Auto(normalization) =>
     switch State__Goal.pointed(state) {
     | None => await State.View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(Auto(goal))
+    | Some((goal, _)) => await sendAgdaRequest(Auto(normalization, goal))
     }
   | Case => {
       let placeholder = Some("variable(s) to case split:")
