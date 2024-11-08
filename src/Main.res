@@ -233,7 +233,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
         // we need to replace it with this new one
         state.editor = editor
         state.document = editor->VSCode.TextEditor.document
-        //
         State__Command.dispatchCommand(state, Refresh)->ignore
       })
     }
@@ -253,28 +252,24 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   })->subscribe
 
   VSCode.Workspace.onDidChangeConfiguration((event: VSCode.ConfigurationChangeEvent.t) => {
-    let getFileName = editor =>
-      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
-    // Maybe we should check active editor
-    // or define some methods to send events without state since changing style is irrelevant to states of eidtors
-    // (Currently, sending an event to the webview has to get the view from a state and send the event with the view)
-    let state = Array.reduce(VSCode.Window.visibleTextEditors, None, (state, editor) => {
-      switch state {
-      | None => editor->getFileName->Registry.get
-      | _ => state
-      }
-    })
-    let fontSizeChanged =
-      event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
-        "agdaMode.buffer.fontSize",
-        #Others(None),
-      )
+    let panel = Singleton.Panel.get()
+    if panel != None {
+      let fontSizeChanged =
+        event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
+          "agdaMode.buffer.fontSize",
+          #Others(None),
+        ) ||
+          event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
+            "editor.fontSize",
+            #Others(None),
+          )
 
-    if fontSizeChanged {
-      let size = Config.Buffer.getFontSize()
-      switch state {
-      | Some(state) => state->State__View.Panel.setFontSize(size)->ignore
-      | None => ()
+      if fontSizeChanged {
+        let fontSize = Config.Buffer.getFontSize()
+        // maybe put Singleton instances in to the Registry?
+        panel->Option.forEach(panel =>
+          panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
+        )
       }
     }
   })->subscribe
