@@ -953,7 +953,7 @@
 				"agdaMode.buffer.fontSize": {
 					"type": "number",
 					"default": 14,
-					"description": "The font size of Agda buffer"
+					"description": "Font size of items in the panel"
 				}
 			}
 		}

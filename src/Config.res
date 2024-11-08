@@ -218,9 +218,6 @@ module Buffer = {
       | _ => 14
       }
     }
-
-    config->WorkspaceConfiguration.updateGlobalSettings("buffer.fontSize", size, None)->ignore
-
     size->Int.toString
   }
 }

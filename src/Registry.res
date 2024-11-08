@@ -1,5 +1,6 @@
 module Module: {
   let get: string => option<State.t>
+  let getAll: unit => array<State.t>
   let add: (string, State.t) => unit
   let remove: string => unit
   let removeAndDestroy: string => promise<unit>
@@ -31,6 +32,9 @@ module Module: {
   let get' = fileName => dict->Dict.get(fileName)
   // Public getter that returns State
   let get = fileName => get'(fileName)->Option.flatMap(Status.getState)
+
+  //  Get all existing States
+  let getAll = () => dict->Dict.valuesToArray->Array.filterMap(Status.getState)
 
   // Adds an instantiated State to the Registry
   let add = (fileName, state: State.t) =>
