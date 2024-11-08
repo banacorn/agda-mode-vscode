@@ -22,8 +22,8 @@
 // we need this container to overcome the width problem of fixed elements
 .agda-mode-header-container {
     position: fixed;
-    width   : 100%; // this 100% percentage is relative to the viewport rather than its parent
-    left    : 0; // stick it to the viewport
+    width: 100%; // this 100% percentage is relative to the viewport rather than its parent
+    left: 0; // stick it to the viewport
 }
 
 .agda-mode-keyboard {
@@ -42,7 +42,7 @@
     }
 
     // dimension
-    width     : calc(100% - 2.5rem); // why 2.5 ???
+    width : calc(100% - 2.5rem); // why 2.5 ???
     min-height: @header-height;
 
     &.deactivated {
@@ -53,32 +53,32 @@
     background: @header-background;
 
     .agda-mode-keyboard-sequence-and-candidates {
-        display    : flex;
+        display: flex;
         // dimensions
-        padding    : @padding 0;
-        min-height : 1.5rem;
+        padding: @padding 0;
+        min-height: 1.5rem;
         line-height: 1.5rem;
 
         .agda-mode-keyboard-sequence {
-            padding    : 0rem @padding;
-            flex-grow  : 100;
-            background : @body-background;
+            padding: 0rem @padding;
+            flex-grow: 100;
+            background: @body-background;
             font-weight: bold;
         }
 
         .agda-mode-keyboard-candidates {
             margin-left: @padding;
 
-            width      : calc(@button-height * 10 + @button-margin * 20);
-            flex-grow  : 0;
+            width: calc(@button-height * 10 + @button-margin * 20);
+            flex-grow: 0;
             font-weight: bold;
         }
     }
 
     .agda-mode-keyboard-suggestions {
-        max-width     : 100%;
-        display       : flex;
-        flex-wrap     : wrap;
+        max-width: 100%;
+        display: flex;
+        flex-wrap: wrap;
         padding-bottom: @padding;
     }
 
@@ -89,21 +89,21 @@
 
 
         background: @input-background;
-        color     : @foreground;
+        color: @foreground;
 
-        top          : 0;
-        width        : @button-height;
-        height       : @button-height;
-        line-height  : @button-height;
-        margin       : @button-margin;
-        padding      : 0;
-        border       : 0;
+        top: 0;
+        width: @button-height;
+        height: @button-height;
+        line-height: @button-height;
+        margin: @button-margin;
+        padding: 0;
+        border: 0;
         border-radius: @button-margin;
-        text-align   : center;
+        text-align: center;
 
         &:hover {
             background: @selection;
-            cursor    : pointer;
+            cursor: pointer;
         }
 
         &.selected {
@@ -116,7 +116,7 @@
 
     height: @header-height;
 
-    margin : 0 @root-padding;
+    margin: 0 @root-padding;
     padding: calc(@padding/2) 0;
 
     // create a shadow at the bottom of the <Header>
@@ -125,7 +125,7 @@
     background: @header-background;
 
     line-height: @header-height;
-    font-size  : 100%;
+    font-size: var(--agdaMode-buffer-font-size);
     font-weight: bold;
 
     &.success {
@@ -141,10 +141,10 @@
     }
 
     .agda-mode-header-status {
-        color       : @foreground-subtle;
-        font-size   : 50%;
+        color: @foreground-subtle;
+        font-size: 50%;
         font-variant: small-caps;
-        float       : right
+        float: right
     }
 }
 
@@ -157,7 +157,7 @@
     white-space: pre;
 
     font-family: var(--vscode-editor-font-family);
-    font-size  : var(--agdaMode-buffer-font-size);
+    font-size: var(--agdaMode-buffer-font-size);
     line-height: @line-height;
 
     .codicon {
@@ -166,7 +166,7 @@
 
     li {
         // dimensions
-        margin : @padding 0;
+        margin: @padding 0;
         padding: calc(@padding/2) @padding;
 
         &:first-of-type {
@@ -186,12 +186,12 @@
     li.unlabeled-item,
     li.labeled-item {
         // background & border
-        background : @body-background;
+        background: @body-background;
         border-left: @left-border-width solid @body-background;
     }
 
     li.header-item {
-        margin : 0;
+        margin: 0;
         padding: 0;
 
         h3 {
@@ -201,8 +201,8 @@
 
     li .item-content {
         white-space: pre-wrap;
-        order      : 1;
-        flex-grow  : 1;
+        order: 1;
+        flex-grow: 1;
     }
 
     // the button that shows "raw Emacs string" when clicked
@@ -210,19 +210,19 @@
     li .item-raw-button {
         visibility: hidden;
 
-        order    : 1;
+        order: 1;
         flex-grow: 0;
 
         padding-left: 1ch;
 
         font-variant: small-caps;
-        text-align  : right;
+        text-align: right;
 
         color: @foreground-subtle;
 
         &:hover {
             cursor: pointer;
-            color : @foreground-highlight
+            color: @foreground-highlight
         }
 
         &.active {
@@ -230,24 +230,24 @@
             visibility: visible;
 
             cursor: pointer;
-            color : @warning
+            color: @warning
         }
     }
 
     // the button that shows allow users to jump to some location
     li .item-location-button {
-        order    : 2;
+        order: 2;
         flex-grow: 0;
 
         padding-left: 1ch;
 
         font-variant: small-caps;
-        text-align  : right;
+        text-align: right;
 
 
         &:hover {
             cursor: pointer;
-            color : @foreground-highlight
+            color: @foreground-highlight
         }
     }
 
@@ -257,8 +257,8 @@
         margin-left: calc(@padding/2);
 
         font-variant: small-caps;
-        font-weight : bolder;
-        text-align  : right;
+        font-weight: bolder;
+        text-align: right;
     }
 
     li.special .item-label {
@@ -287,26 +287,26 @@
 
     ul {
         list-style: none;
-        padding   : 0px;
-        margin    : 0px;
+        padding: 0px;
+        margin: 0px;
     }
 }
 
 // the total height of .agda-mode-prompt should be the same as @header-height
 .agda-mode-prompt {
     white-space: pre;
-    margin     : 0 @root-padding;
+    margin: 0 @root-padding;
 
     input {
         // Issue #31 - make the input box larger
-        width    : calc(100% - @padding * 2);
+        width: calc(100% - @padding * 2);
         font-size: 100%;
-        padding  : @padding;
-        height   : 1rem;
+        padding: @padding;
+        height: 1rem;
 
         background-color: @input-background;
-        border          : none;
-        color           : @input;
+        border: none;
+        color: @input;
     }
 
     input::-webkit-input-placeholder {
@@ -320,7 +320,7 @@
     color: @link;
 
     .codicon-link::after {
-        content    : " ";
+        content: " ";
         white-space: pre;
     }
 
@@ -331,8 +331,8 @@
 }
 
 .component-link:hover {
-    color          : @link-hover;
-    cursor         : pointer;
+    color: @link-hover;
+    cursor: pointer;
     text-decoration: underline;
 
     &.component-hole,
@@ -347,8 +347,8 @@
 // the parent container of a Horizontal grouping
 .component-horz {
     // so that we can set paddings
-    display     : inline-flex;
-    flex-wrap   : wrap;
+    display: inline-flex;
+    flex-wrap: wrap;
     // use padding-left to indent every child
     padding-left: calc(@indent - 1ch);
 }
