@@ -252,7 +252,8 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
   })->subscribe
 
   VSCode.Workspace.onDidChangeConfiguration((event: VSCode.ConfigurationChangeEvent.t) => {
-    if Singleton.Panel.get() != None {
+    let panel = Singleton.Panel.get()
+    if panel != None {
       let fontSizeChanged =
         event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
           "agdaMode.buffer.fontSize",
@@ -266,9 +267,9 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
       if fontSizeChanged {
         let fontSize = Config.Buffer.getFontSize()
         // maybe put Singleton instances in to the Registry?
-        Singleton.Panel.make(extensionPath)
-        ->WebviewPanel.sendEvent(ConfigurationChange(fontSize))
-        ->ignore
+        panel->Option.forEach(panel =>
+          panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
+        )
       }
     }
   })->subscribe
