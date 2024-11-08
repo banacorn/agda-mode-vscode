@@ -918,9 +918,12 @@
 					"description": "Key for activating Unicode input method"
 				},
 				"agdaMode.buffer.fontSize": {
-					"type": "number",
+					"type": [
+						"number",
+						"null"
+					],
 					"default": 14,
-					"description": "The font size of Agda buffer"
+					"markdownDescription": "The font size of Agda buffer. If not set, `#editor.fontSize#` is used."
 				}
 			}
 		}
