@@ -257,7 +257,11 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
         event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
           "agdaMode.buffer.fontSize",
           #Others(None),
-        )
+        ) ||
+          event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
+            "editor.fontSize",
+            #Others(None),
+          )
 
       if fontSizeChanged {
         let fontSize = Config.Buffer.getFontSize()
