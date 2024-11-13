@@ -31,6 +31,8 @@ let _ = onEventFromView->Chan.on(event => {
 })
 
 // mount the view at the "root" element
-Webapi.Dom.Document.getElementById(Webapi.Dom.document, "root")->Option.forEach(element =>
-  ReactDOM.render(<Panel onRequest onEventToView onResponse onEventFromView />, element)
-)
+Webapi.Dom.Document.getElementById(Webapi.Dom.document, "root")->Option.forEach(rootElement => {
+  ReactDOM.Client.createRoot(rootElement)->ReactDOM.Client.Root.render(
+    <Panel onRequest onEventToView onResponse onEventFromView />,
+  )
+})
