@@ -1,4 +1,7 @@
 // from Agda Response to Tasks
+let canonicalizeEscape = content => Js.String.replaceByRe(%re("/\\n|\\r\\n/g"), "\n", content)
+let insertBeforeNewline = (prefix, content) =>
+  Js.String.replaceByRe(%re("/\n/g"), "\n" ++ prefix, content)
 let removeNewlines = string => string->String.split("\n")->Array.join("\n")
 
 open Response
@@ -131,8 +134,7 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-    | InteractionPoints(indices) => 
-      await State__Goal.instantiate(state, indices)
+    | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
@@ -151,8 +153,18 @@ let rec handle = async (
           // do nothing
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         | GiveString(content) =>
+          let (indent, text, _) = State__Goal.indentationWidth(state.document, goal)
+          // ideally, we add a "\t" or equivalent spaces before the indent based on
+          // "editor.tabSize" and "editor.insertSpaces"
+          // but we cannot load cannot load the "editor.tabSize" here
+          // so we use a default value of 2
+          // maybe consider storing these attributed in the state
+          let defaultIndent = 2
           await State__Goal.modify(state, goal, _ =>
-            Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
+            insertBeforeNewline(
+              Js.String.repeat(defaultIndent + indent, " "),
+              canonicalizeEscape(content),
+            )
           )
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         }
@@ -167,7 +179,7 @@ let rec handle = async (
         }
         // dispatch `agda-mode:load` but do it asynchronously
         // so that we can finish let `agda-mode:case` finish first
-        dispatchCommand(Load)->ignore 
+        dispatchCommand(Load)->ignore
       }
     | SolveAll(solutions) =>
       let solveOne = async ((index, solution)) => {
@@ -192,14 +204,14 @@ let rec handle = async (
       }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
-      let message = removeNewlines(message)
+      let message = removeNewlines(canonicalizeEscape(message))
       await State.View.Panel.displayInAppendMode(
         state,
         Plain("Type-checking"),
         [Item.plainText(message)],
       )
     | RunningInfo(verbosity, message) =>
-      let message = removeNewlines(message)
+      let message = removeNewlines(canonicalizeEscape(message))
       state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
       await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
