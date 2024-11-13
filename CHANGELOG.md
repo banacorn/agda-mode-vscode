@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.5.0 - BTA
+## v0.5.0 - 2023-11-13
 
 ### Fixed
 - #196: Improve the logic related to buffer's font size adjustment by [@jiangsy](https://github.com/jiangsy)
@@ -15,7 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Upgrade ReScript to v11
+- Deprecated "reason-promise" in favor of the new async/await syntax in ReScript
 - CI overhaul: allow testings be be conducted on all major platforms (Windows, macOS, Ubuntu) and on multiple versions of Agda
+
+### Added
+- More testings for some of the commands
 
 ## v0.4.7 - 2023-12-16
 
