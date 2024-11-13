@@ -233,7 +233,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
         // we need to replace it with this new one
         state.editor = editor
         state.document = editor->VSCode.TextEditor.document
-        //
         State__Command.dispatchCommand(state, Refresh)->ignore
       })
     }
@@ -254,17 +253,26 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 
   // updates the font size accordingly
   VSCode.Workspace.onDidChangeConfiguration((event: VSCode.ConfigurationChangeEvent.t) => {
-    let fontSizeChanged =
+    // see if the font size has changed
+    let agdaModeFontSizeChanged =
       event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
         "agdaMode.buffer.fontSize",
         #Others(None),
       )
-    if fontSizeChanged {
+    let editorFontSizeChanged =
+          event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
+            "editor.fontSize",
+            #Others(None),
+          )
+    // if so, update the font size in the view
+    if agdaModeFontSizeChanged || editorFontSizeChanged {
       let newFontSize = Config.Buffer.getFontSize()
       // find any existing State, so that we can update the font size in the view
       switch Registry.getAll()[0] {
       | None => ()
-      | Some(state) => state->State__View.Panel.setFontSize(newFontSize)->Promise.done
+      | Some(state) => 
+          // panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
+          state->State__View.Panel.setFontSize(newFontSize)->Promise.done
       }
     }
   })->subscribe

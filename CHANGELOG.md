@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.0 - BTA
 
 ### Fixed
+- #196: Improve the logic related to buffer's font size adjustment by [@jiangsy](https://github.com/jiangsy)
 - #195: Remove all usage of deprecated api @bs.send.pipe by [@jiangsy](https://github.com/jiangsy)
 - #191: Add more detailed splitting command description by [@ChAoSUnItY](https://github.com/ChAoSUnItY)
 - #169: Custom Agda buffer font size in the extension's setting by [@vic0103520](https://github.com/vic0103520)

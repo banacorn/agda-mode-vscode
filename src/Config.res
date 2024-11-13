@@ -208,15 +208,21 @@ module InputMethod = {
 module Buffer = {
   let getFontSize = () => {
     let config = Workspace.getConfiguration(Some("agdaMode"), None)
+    let editorFontSize = switch Workspace.getConfiguration(
+      Some("editor"),
+      None,
+    )->WorkspaceConfiguration.get("fontSize") {
+    | Some(n) => n
+    | _ => 14
+    }
     let size = switch config->WorkspaceConfiguration.get("buffer.fontSize") {
-    | Some(m) => m
-    | None =>
-      switch Workspace.getConfiguration(Some("editor"), None)->WorkspaceConfiguration.get(
-        "fontSize",
-      ) {
-      | Some(n) => n
-      | _ => 14
+    | Some(m) =>
+      if m == null {
+        editorFontSize
+      } else {
+        m
       }
+    | None => editorFontSize
     }
     size->Int.toString
   }
