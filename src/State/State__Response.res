@@ -154,11 +154,13 @@ let rec handle = async (
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         | GiveString(content) =>
           let (indent, text, _) = State__Goal.indentationWidth(state.document, goal)
-          // ideally, we add a "\t" or equivalent spaces before the indent based on
+          // 1. ideally, we want to add a "\t" or equivalent spaces before the indent based on
           // "editor.tabSize" and "editor.insertSpaces"
-          // but we cannot load cannot load the "editor.tabSize" here
-          // so we use a default value of 2
+          // but we cannot load the "editor.tabSize" here
+          // so as a workaround we use a default value of 2
           // maybe consider storing these attributed in the state
+          // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
+          // safet choice
           let defaultIndent = 2
           await State__Goal.modify(state, goal, _ =>
             insertBeforeNewline(
