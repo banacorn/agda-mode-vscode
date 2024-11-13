@@ -340,6 +340,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
             View.Header.Success("Switched to version '" ++ version ++ "'"),
             [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
           )
+          // update the state.agdaVersion to the new version
+          state.agdaVersion = Some(version)
         | Ok(LSP(version, _)) =>
           // should not happen
           await State.View.Panel.display(

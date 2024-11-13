@@ -120,6 +120,7 @@ type channels = {
 }
 
 type t = {
+  mutable agdaVersion: option<string>, // Agda version is set when connection is established
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
   panelCache: ViewCache.t,

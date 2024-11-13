@@ -63,7 +63,14 @@ let sendRequest = (
     )->Promise.then(async result => {
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
-      | Ok(status) => await View.Panel.displayConnectionStatus(state, status)
+      | Ok(status) =>
+        // display the connection status
+        await View.Panel.displayConnectionStatus(state, status)
+        // update the Agda version
+        switch status {
+        | Emacs(version, _) => state.agdaVersion = Some(version)
+        | LSP(version, _) => state.agdaVersion = Some(version)
+        }
       }
       await responseHandlerPromise
     })
@@ -89,6 +96,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
 }
 
 let make = (channels, globalStoragePath, extensionPath, editor) => {
+  agdaVersion: None,
   editor,
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
