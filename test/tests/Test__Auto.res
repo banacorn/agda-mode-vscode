@@ -7,19 +7,17 @@ let run = normalization => {
       Async.it(
         "should be responded with the correct answer 1",
         async () => {
-          let ctx = await AgdaMode.make("Auto.agda")
-          let state = await ctx->AgdaMode.load
-
+          let ctx = await AgdaMode.makeAndLoad("Auto.agda")
           let responses = ref([])
           let responseHandler = async response => responses.contents->Array.push(response)
 
-          switch state.goals[0] {
+          switch ctx.state.goals[0] {
           | Some(goal) =>
-            await state->State.sendRequest(responseHandler, Request.Auto(normalization, goal))
+            await ctx.state->State.sendRequest(responseHandler, Request.Auto(normalization, goal))
           | None => Assert.fail("No goals found")
           }
 
-          switch state.agdaVersion {
+          switch ctx.state.agdaVersion {
           | Some(version) =>
             if Util.Version.gte(version, "2.7.0") {
               Assert.deepEqual(
@@ -50,19 +48,18 @@ let run = normalization => {
       Async.it(
         "should be responded with the correct answer 2",
         async () => {
-          let ctx = await AgdaMode.make("Auto.agda")
-          let state = await ctx->AgdaMode.load
+          let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
           let responses = ref([])
           let responseHandler = async response => responses.contents->Array.push(response)
 
-          switch state.goals[1] {
+          switch ctx.state.goals[1] {
           | Some(goal) =>
-            await state->State.sendRequest(responseHandler, Request.Auto(normalization, goal))
+            await ctx.state->State.sendRequest(responseHandler, Request.Auto(normalization, goal))
           | None => Assert.fail("No goals found")
           }
 
-          switch state.agdaVersion {
+          switch ctx.state.agdaVersion {
           | Some(version) =>
             if Util.Version.gte(version, "2.7.0") {
               Assert.deepEqual(

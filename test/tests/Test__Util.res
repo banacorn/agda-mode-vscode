@@ -272,55 +272,64 @@ module AgdaMode = {
   type t = {
     filepath: string,
     channels: State__Type.channels,
+    mutable state: State__Type.t,
   }
 
-  let make = async (~als=false, filepath) => {
+  let makeAndLoad = async (~als=false, filepath) => {
     let filepath = Path.asset(filepath)
     // for mocking Configs
     Config.inTestingMode := true
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     await Config.Connection.setUseAgdaLanguageServer(als)
-    let _ = await exists("agda")
+    // make sure that "agda" exists in PATH
+    await exists("agda")
+    //
+    let load = async (channels: State__Type.channels, filepath) => {
+      let (promise, resolve, _) = Util.Promise_.pending()
+
+      // agda-mode:load is consider finished
+      // when `CompleteHighlightingAndMakePromptReappear` has been handled
+      let disposable = channels.responseHandled->Chan.on(response => {
+        switch response {
+        | CompleteHighlightingAndMakePromptReappear => resolve()
+        | _ => ()
+        }
+      })
+
+      let _ = await openFile(filepath)
+      switch await executeCommand("agda-mode.load") {
+      | None => raise(Failure("Cannot load " ++ filepath))
+      | Some(Ok(state)) =>
+        await promise
+        disposable() // stop listening to responses
+        state
+      | Some(Error(error)) =>
+        let (header, body) = Connection.Error.toString(error)
+        raise(Failure(header ++ "\n" ++ body))
+      }
+    }
+
+    let channels = activateExtension()
+    let state = await load(channels, filepath)
+
     {
       filepath,
-      channels: activateExtension(),
+      channels,
+      state,
     }
   }
 
-  let load = async self => {
-    let (promise, resolve, _) = Util.Promise_.pending()
+  let refine = async (self, state, goal) => ()
 
-    // agda-mode:load is consider finished
-    // when `CompleteHighlightingAndMakePromptReappear` has been handled
-    let disposable = self.channels.responseHandled->Chan.on(response => {
-      switch response {
-      | CompleteHighlightingAndMakePromptReappear => resolve()
-      | _ => ()
-      }
-    })
-
-    let _ = await openFile(self.filepath)
-    switch await executeCommand("agda-mode.load") {
-    | None => raise(Failure("Cannot load " ++ self.filepath))
-    | Some(Ok(state)) =>
-      await promise
-      disposable() // stop listening to responses
-      state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
-  }
-
-  let case = async (self, cursorAndPayload, state: State__Type.t) => {
+  let case = async (self, cursorAndPayload) => {
     let editor = await openFile(self.filepath)
 
     // set cursor and insert the target for case splitting
     switch cursorAndPayload {
     | None => ()
     | Some(cursor, payload) =>
-      let succeed = await Editor.Text.insert(state.document, cursor, payload)
+      let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
       if !succeed {
         raise(Failure("Failed to insert text"))
       }
@@ -330,7 +339,7 @@ module AgdaMode = {
     // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
     // listen to the `agda-mode.load` command to know when the whole case split process is done
     let (promise, resolve, _) = Util.Promise_.pending()
-    let destructor = state.channels.commandHandled->Chan.on(command => {
+    let destructor = self.state.channels.commandHandled->Chan.on(command => {
       switch command {
       | Command.Load => resolve()
       | _ => ()
@@ -345,8 +354,8 @@ module AgdaMode = {
       // stop listening to commands
       destructor()
 
-      // resolve the promise
-      state
+      // update the context with the new state
+      self.state = state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))

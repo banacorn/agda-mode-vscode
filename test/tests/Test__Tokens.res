@@ -7,10 +7,9 @@ describe("Tokens", () => {
     Async.it(
       "should produce 28 tokens",
       async () => {
-        let ctx = await AgdaMode.make("GotoDefinition.agda")
-        let state = await ctx->AgdaMode.load
+        let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
         let tokens =
-          state.tokens
+          ctx.state.tokens
           ->Tokens.toArray
           ->Array.map(
             ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
@@ -22,10 +21,9 @@ describe("Tokens", () => {
     Async.it(
       "should produce correct tokens",
       async () => {
-        let ctx = await AgdaMode.make("GotoDefinition.agda")
-        let state = await ctx->AgdaMode.load
+        let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
         let tokens =
-          state.tokens
+          ctx.state.tokens
           ->Tokens.toArray
           ->Array.map(
             ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
