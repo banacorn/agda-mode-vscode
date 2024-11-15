@@ -1,5 +1,3 @@
-open Belt
-
 module Error = Connection__Emacs__Error
 module Scheduler = Connection__Scheduler
 module Process = LanguageServerMule.Client.Process
@@ -51,7 +49,7 @@ module ProcInfo: {
     let destructor = process->Process.onOutput(output =>
       switch output {
       | Process.Stdout(output) =>
-        switch Js.String.match_(%re("/Agda version (.*)/"), output) {
+        switch String.match(output, %re("/Agda version (.*)/")) {
         | None => resolve(Error("Cannot read Agda version"))
         | Some(match_) =>
           switch match_[1] {
@@ -173,7 +171,7 @@ module Module: Module = {
         switch x {
         | Stdout(rawText) =>
           // sometimes Agda would return error messages from STDOUT
-          if Js.String.startsWith("Error:", rawText) {
+          if rawText->String.startsWith("Error:") {
             self.chan->Chan.emit(Error(AgdaError(rawText)))
           } else {
             // split the raw text into pieces and feed it to the parser
@@ -191,9 +189,7 @@ module Module: Module = {
     switch method {
     | LanguageServerMule.Method.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
     | ViaPipe(path, _, _, _) =>
-      // Js.Array.concat([1, 2, 3], [4, 5, 6]) == [4, 5, 6, 1, 2, 3], fuck me right?
-      let args = Js.Array.concat(Config.Connection.getCommandLineOptions(), ["--interaction"])
-
+      let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
       switch await ProcInfo.make(path, args) {
       | Error(e) => Error(e)
       | Ok(procInfo) =>

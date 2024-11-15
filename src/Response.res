@@ -83,7 +83,7 @@ module DisplayInfo = {
     | Some(A(rawPayload)) =>
       // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions
       // we need to replace them with actual EOLs
-      let payload = rawPayload->String.replaceRegExp(%re("/\\n|\\r\\n/g"), "\n")
+      let payload = Parser.unescapeEOL(rawPayload)
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>

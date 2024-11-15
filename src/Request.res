@@ -141,7 +141,7 @@ let encode = (
     }
   | SearchAbout(normalization, expr) =>
     let normalization = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
     `${commonPart(NonInteractive)}( Cmd_search_about_toplevel ${normalization} "${content}" )`
 
   // Related issue and commit of agda/agda
@@ -149,7 +149,7 @@ let encode = (
   // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
   | Give(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.userInputToSExpr
+    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range: string = buildRange(goal)
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(NonInteractive)}( Cmd_give WithoutForce ${index} ${range} "${content}" )`
@@ -159,14 +159,14 @@ let encode = (
 
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.userInputToSExpr
+    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range: string = buildRange(goal)
     `${commonPart(NonInteractive)}( Cmd_refine_or_intro False ${index} ${range} "${content}" )`
 
   | ElaborateAndGive(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(
         NonInteractive,
@@ -175,7 +175,7 @@ let encode = (
   | Auto(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.userInputToSExpr
+    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range: string = buildRange(goal)
 
     if Util.Version.gte(version, "2.7.0") {
@@ -194,14 +194,14 @@ let encode = (
 
   | Case(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.userInputToSExpr
+    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range: string = buildRange(goal)
     `${commonPart(NonInteractive)}( Cmd_make_case ${index} ${range} "${content}" )`
 
   | HelperFunctionType(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(
         NonInteractive,
@@ -210,12 +210,12 @@ let encode = (
   | InferType(normalization, expr, goal) =>
     let index = string_of_int(goal.index)
     let normalization = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
     `${commonPart(NonInteractive)}( Cmd_infer ${normalization} ${index} noRange "${content}" )`
 
   | InferTypeGlobal(normalization, expr) =>
     let normalization = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(None)}( Cmd_infer_toplevel ${normalization} "${content}" )`
 
@@ -237,7 +237,7 @@ let encode = (
   | GoalTypeContextAndInferredType(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(
         NonInteractive,
@@ -246,7 +246,7 @@ let encode = (
   | GoalTypeContextAndCheckedType(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(
         NonInteractive,
@@ -255,7 +255,7 @@ let encode = (
   | ModuleContents(normalization, expr, goal) =>
     let index: string = string_of_int(goal.index)
     let normalization: string = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(
         NonInteractive,
@@ -263,7 +263,7 @@ let encode = (
 
   | ModuleContentsGlobal(normalization, expr) =>
     let normalization: string = Command.Normalization.encode(normalization)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     `${commonPart(None)}( Cmd_show_module_contents_toplevel ${normalization} "${content}" )`
 
@@ -271,7 +271,7 @@ let encode = (
     let index: string = string_of_int(goal.index)
     let ignoreAbstract: string = string_of_bool(Command.ComputeMode.ignoreAbstract(computeMode))
     let computeMode: string = Command.ComputeMode.encode(computeMode)
-    let content: string = Parser.userInputToSExpr(expr)
+    let content: string = Parser.escape(expr)
 
     if Util.Version.gte(version, "2.5.2") {
       `${commonPart(NonInteractive)}( Cmd_compute ${computeMode} ${index} noRange "${content}" )`
@@ -282,7 +282,7 @@ let encode = (
   | ComputeNormalFormGlobal(computeMode, expr) =>
     let ignoreAbstract: string = string_of_bool(Command.ComputeMode.ignoreAbstract(computeMode))
     let computeMode: string = Command.ComputeMode.encode(computeMode)
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
 
     if Util.Version.gte(version, "2.5.2") {
       `${commonPart(NonInteractive)}( Cmd_compute_toplevel ${computeMode} "${content}" )`
@@ -292,12 +292,12 @@ let encode = (
 
   | WhyInScope(expr, goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Parser.userInputToSExpr(expr)
+    let content: string = Parser.escape(expr)
 
     `${commonPart(NonInteractive)}( Cmd_why_in_scope ${index} noRange "${content}" )`
 
   | WhyInScopeGlobal(expr) =>
-    let content = Parser.userInputToSExpr(expr)
+    let content = Parser.escape(expr)
     `${commonPart(None)}( Cmd_why_in_scope_toplevel "${content}" )`
   }
 }

@@ -1,7 +1,7 @@
 // from Agda Response to Tasks
-let canonicalizeEscape = content => Js.String.replaceByRe(%re("/\\n|\\r\\n/g"), "\n", content)
+let canonicalizeEscape = content => content->String.replaceRegExp(%re("/\\n|\\r\\n/g"), "\n")
 let insertBeforeNewline = (prefix, content) =>
-  Js.String.replaceByRe(%re("/\n/g"), "\n" ++ prefix, content)
+  content->String.replaceRegExp(%re("/\n/g"), "\n" ++ prefix)
 let removeNewlines = string => string->String.split("\n")->Array.join("\n")
 
 open Response
@@ -153,7 +153,7 @@ let rec handle = async (
           // do nothing
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         | GiveString(content) =>
-          let (indent, text, _) = State__Goal.indentationWidth(state.document, goal)
+          let (indent, _text, _) = State__Goal.indentationWidth(state.document, goal)
           // 1. ideally, we want to add a "\t" or equivalent spaces before the indent based on
           // "editor.tabSize" and "editor.insertSpaces"
           // but we cannot load the "editor.tabSize" here
@@ -164,7 +164,7 @@ let rec handle = async (
           let defaultIndent = 2
           await State__Goal.modify(state, goal, _ =>
             insertBeforeNewline(
-              Js.String.repeat(defaultIndent + indent, " "),
+              String.repeat(" ", defaultIndent + indent),
               canonicalizeEscape(content),
             )
           )
@@ -206,6 +206,12 @@ let rec handle = async (
       }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
+      Js.log(
+        "Type-checking:\n    " ++
+        message ++
+        "\n => " ++
+        removeNewlines(canonicalizeEscape(message)),
+      )
       let message = removeNewlines(canonicalizeEscape(message))
       await State.View.Panel.displayInAppendMode(
         state,
@@ -214,7 +220,7 @@ let rec handle = async (
       )
     | RunningInfo(verbosity, message) =>
       let message = removeNewlines(canonicalizeEscape(message))
-      state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
+      state.runningInfoLog->Array.push((verbosity, message))->ignore
       await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
