@@ -285,7 +285,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         switch xs[3] {
         | Some(A("t")) =>
           switch xs[2] {
-          | Some(A(message)) => Ok(RunningInfo(1, message))
+          | Some(A(message)) => Ok(RunningInfo(1, Parser.unescapeEOL(message)))
           | _ => err(11)
           }
         | _ => Ok(ClearRunningInfo)
@@ -298,7 +298,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       }
     | Some(A("agda2-verbose")) =>
       switch xs[1] {
-      | Some(A(message)) => Ok(RunningInfo(2, message))
+      | Some(A(message)) => Ok(RunningInfo(2, Parser.unescapeEOL(message)))
       | _ => err(13)
       }
     // NOTE: now there are 2 kinds of "agda2-highlight-clear", "TokenBased" and "NotOnlyTokenBased"

@@ -1,7 +1,8 @@
 NonLast Status: implicit arguments not displayed, module not type checked
 NonLast ClearRunningInfo
 NonLast ClearHighlighting
-NonLast RunningInfo 1 Checking Issue95 (/Users/omega/github/agda-mode/test/ManualTests/Issue95.agda).\n
+NonLast RunningInfo 1 Checking Issue95 (/Users/omega/github/agda-mode/test/ManualTests/Issue95.agda).
+
 NonLast HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode39869-0
 NonLast HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode39869-1
 NonLast HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode39869-2

@@ -1,7 +1,8 @@
 NonLast Status: implicit arguments not displayed, module not type checked
 NonLast ClearRunningInfo
 NonLast ClearHighlighting
-NonLast RunningInfo 1 Checking QuotationMark (/Users/omega/github/agda-mode/test/ManualTests/QuotationMark.agda).\n
+NonLast RunningInfo 1 Checking QuotationMark (/Users/omega/github/agda-mode/test/ManualTests/QuotationMark.agda).
+
 NonLast HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-0
 NonLast HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-1
 NonLast HighlightingInfoIndirect /var/folders/r2/lx4mzz2x1kn940m7lhnv0b_h0000gn/T/agda2-mode19020-2

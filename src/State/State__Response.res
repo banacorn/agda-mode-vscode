@@ -1,7 +1,11 @@
 // from Agda Response to Tasks
-let canonicalizeEscape = content => content->String.replaceRegExp(%re("/\\n|\\r\\n/g"), "\n")
-let insertBeforeNewline = (prefix, content) =>
-  content->String.replaceRegExp(%re("/\n/g"), "\n" ++ prefix)
+
+// adds indentation to a multiline string
+let indent = (content, indent) => {
+  let indentation = String.repeat(" ", indent)
+  content->String.replaceRegExp(%re("/\n/g"), "\n" ++ indentation) // should also handles CR LF on Windows
+}
+// does this function really do anything?
 let removeNewlines = string => string->String.split("\n")->Array.join("\n")
 
 open Response
@@ -153,7 +157,7 @@ let rec handle = async (
           // do nothing
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         | GiveString(content) =>
-          let (indent, _text, _) = State__Goal.indentationWidth(state.document, goal)
+          let (indentationWidth, _text, _) = State__Goal.indentationWidth(state.document, goal)
           // 1. ideally, we want to add a "\t" or equivalent spaces before the indent based on
           // "editor.tabSize" and "editor.insertSpaces"
           // but we cannot load the "editor.tabSize" here
@@ -161,12 +165,9 @@ let rec handle = async (
           // maybe consider storing these attributed in the state
           // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
           // safet choice
-          let defaultIndent = 2
+          let defaultIndentation = 2
           await State__Goal.modify(state, goal, _ =>
-            insertBeforeNewline(
-              String.repeat(" ", defaultIndent + indent),
-              canonicalizeEscape(content),
-            )
+            Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
           )
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         }
@@ -206,20 +207,14 @@ let rec handle = async (
       }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
-      Js.log(
-        "Type-checking:\n    " ++
-        message ++
-        "\n => " ++
-        removeNewlines(canonicalizeEscape(message)),
-      )
-      let message = removeNewlines(canonicalizeEscape(message))
+      let message = removeNewlines(message)
       await State.View.Panel.displayInAppendMode(
         state,
         Plain("Type-checking"),
         [Item.plainText(message)],
       )
     | RunningInfo(verbosity, message) =>
-      let message = removeNewlines(canonicalizeEscape(message))
+      let message = removeNewlines(message)
       state.runningInfoLog->Array.push((verbosity, message))->ignore
       await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
