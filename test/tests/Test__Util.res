@@ -4,6 +4,34 @@ open Js.Promise
 
 exception Exn(string)
 
+module File = {
+  let open_ = (fileName): promise<VSCode.TextEditor.t> =>
+    VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
+
+  let read = async (fileName): string => {
+    let editor = await open_(fileName)
+    let document = VSCode.TextEditor.document(editor)
+    VSCode.TextDocument.getText(document, None)
+  }
+
+  let write = async (fileName, content) => {
+    let editor = await open_(fileName)
+    let document = VSCode.TextEditor.document(editor)
+
+    let lineCount = document->VSCode.TextDocument.lineCount
+    let replaceRange = VSCode.Range.make(
+      VSCode.Position.make(0, 0),
+      VSCode.Position.make(lineCount, 0),
+    )
+    let succeed = await Editor.Text.replace(document, replaceRange, content)
+    if succeed {
+      let _ = await VSCode.TextDocument.save(document)
+    } else {
+      raise(Failure("Failed to write to " ++ fileName))
+    }
+  }
+}
+
 // wrapper around BsMocha's Assertions
 let runner: (unit => unit) => promise<result<'a, exn>> = %raw(` function(f) {
     var tmp
@@ -57,17 +85,14 @@ let activateExtension = (): State__Type.channels => {
   }
 }
 
-let openFile = (fileName): Promise.t<VSCode.TextEditor.t> =>
-  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
-
 let activateExtensionAndOpenFile = async fileName => {
   let channels = activateExtension()
-  let editor = await openFile(fileName)
+  let editor = await File.open_(fileName)
   (editor, channels)
 }
 
 @module("vscode") @scope("commands")
-external executeCommand: string => Promise.t<option<result<State.t, Connection.Error.t>>> =
+external executeCommand: string => promise<option<result<State.t, Connection.Error.t>>> =
   "executeCommand"
 
 let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
@@ -297,7 +322,7 @@ module AgdaMode = {
         }
       })
 
-      let _ = await openFile(filepath)
+      let _ = await File.open_(filepath) // need to open the file first somehow
       switch await executeCommand("agda-mode.load") {
       | None => raise(Failure("Cannot load " ++ filepath))
       | Some(Ok(state)) =>
@@ -320,10 +345,8 @@ module AgdaMode = {
     }
   }
 
-  let refine = async (self, state, goal) => ()
-
   let case = async (self, cursorAndPayload) => {
-    let editor = await openFile(self.filepath)
+    let editor = await File.open_(self.filepath)
 
     // set cursor and insert the target for case splitting
     switch cursorAndPayload {
@@ -362,59 +385,26 @@ module AgdaMode = {
     }
   }
 
-  let refine = async (self, cursorAndPayload, state: State__Type.t): AgdaModeVscode.State.t => {
-    let editor = await openFile(self.filepath)
-    switch cursorAndPayload {
+  let refine = async (self, ~cursor=?, ~payload=?) => {
+    let editor = await File.open_(self.filepath)
+    // edit the file
+    switch cursor {
     | None => ()
-    | Some(cursor, None) => Editor.Cursor.set(editor, cursor)
-    | Some(cursor, Some(payload)) =>
-      let _ = await Editor.Text.insert(state.document, cursor, payload)
+    | Some(cursor) =>
+      switch payload {
+      | None => ()
+      | Some(payload) =>
+        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
+      }
       Editor.Cursor.set(editor, cursor)
     }
+
     switch await executeCommand("agda-mode.refine") {
     | None => raise(Failure("Cannot case refine " ++ self.filepath))
-    | Some(Ok(state)) => state
+    | Some(Ok(state)) => self.state = state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
-  }
-}
-
-// store file content before testing so that we can restore it later
-let readFile = async (filepath, var) => {
-  let editor = await openFile(filepath)
-  var := Editor.Text.getAll(VSCode.TextEditor.document(editor))
-}
-
-let restoreFile = async (filepath, var) => {
-  let editor = await openFile(filepath)
-  let document = VSCode.TextEditor.document(editor)
-  let lineCount = document->VSCode.TextDocument.lineCount
-  let replaceRange = VSCode.Range.make(
-    VSCode.Position.make(0, 0),
-    VSCode.Position.make(lineCount, 0),
-  )
-  let succeed = await Editor.Text.replace(document, replaceRange, var.contents)
-  if succeed {
-    let _ = await VSCode.TextDocument.save(document)
-  } else {
-    raise(Failure("Failed to restore the file"))
-  }
-}
-
-module R = {
-  let unwrap = (x: result<'a, 'e>): 'a =>
-    switch x {
-    | Ok(x) => x
-    | Error(error) => raise(error)
-    }
-}
-
-// for handling promise<result<'a, 'error>> in tests
-module P = {
-  let unwrap = async (promise: promise<result<'a, 'e>>): 'a => {
-    let result = await promise
-    R.unwrap(result)
   }
 }

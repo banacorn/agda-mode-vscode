@@ -289,11 +289,6 @@ module Module: Module = {
 
   let pointed = (state: State.t): option<(Goal.t, string)> => {
     updateIntervals(state)
-
-    // let cursor = switch cursor {
-    // | None => Editor.Cursor.get(state.editor)
-    // | Some(x) => x
-    // }
     let cursor = Editor.Cursor.get(state.editor)
     let cursorOffset = state.document->VSCode.TextDocument.offsetAt(cursor)
     let pointedGoals =

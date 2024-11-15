@@ -42,8 +42,8 @@ describe("agda-mode:case", () => {
   This.timeout(10000)
   let fileContent = ref("")
 
-  Async.before(() => readFile(Path.asset("CaseSplit.agda"), fileContent))
-  Async.after(() => restoreFile(Path.asset("CaseSplit.agda"), fileContent))
+  Async.before(async () => fileContent := (await File.read(Path.asset("CaseSplit.agda"))))
+  Async.after(async () => await File.write(Path.asset("CaseSplit.agda"), fileContent.contents))
 
   Async.it("should have more goals after splitting", async () => {
     let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")

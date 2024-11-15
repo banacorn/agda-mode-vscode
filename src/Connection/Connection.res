@@ -162,7 +162,8 @@ module Module: Module = {
     | None =>
       switch await start(globalStoragePath, useLSP, onDownload) {
       | Error(error) => Error(error)
-      | Ok(_) => await sendRequest(globalStoragePath, onDownload, useLSP, document, request, handler)
+      | Ok(_) =>
+        await sendRequest(globalStoragePath, onDownload, useLSP, document, request, handler)
       }
     }
   }
