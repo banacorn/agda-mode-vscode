@@ -1,5 +1,3 @@
-open Belt
-
 // TODO: sort these errors out
 // Errors when sending Command to the server
 module CommandErr = {
@@ -17,9 +15,8 @@ module CommandErr = {
     open JsonCombinators.Json.Decode
     Util.Decode.sum(x => {
       switch x {
-      | "CmdErrCannotDecodeJSON" => Payload(string->map((. version) => CannotDecodeJSON(version)))
-      | "CmdErrCannotParseCommand" =>
-        Payload(string->map((. version) => CannotParseCommand(version)))
+      | "CmdErrCannotDecodeJSON" => Payload(string->map(version => CannotDecodeJSON(version)))
+      | "CmdErrCannotParseCommand" => Payload(string->map(version => CannotParseCommand(version)))
       | tag => raise(DecodeError("[Connection.LSP.Error.CommandErr] Unknown constructor: " ++ tag))
       }
     })
@@ -43,14 +40,11 @@ let toString = error =>
   switch error {
   | ConnectionError(exn) =>
     let isECONNREFUSED =
-      Js.Exn.message(exn)->Option.mapWithDefault(
-        false,
-        Js.String.startsWith("connect ECONNREFUSED"),
-      )
+      Js.Exn.message(exn)->Option.mapOr(false, String.startsWith("connect ECONNREFUSED", ...))
 
     isECONNREFUSED
       ? ("Connection Error", "Please enter \":main -d\" in ghci")
-      : ("Client Internal Connection Error", Js.Exn.message(exn)->Option.getWithDefault(""))
+      : ("Client Internal Connection Error", Js.Exn.message(exn)->Option.getOr(""))
   | SendCommand(e) => ("Cannot Send Command", CommandErr.toString(e))
   | Initialize => ("Cannot Initialize Connection", "")
   | CannotDecodeCommandRes(msg, json) => (

@@ -1,5 +1,3 @@
-open Belt 
-
 type t =
   // Emacs related
   | Emacs(Connection__Emacs__Error.t)

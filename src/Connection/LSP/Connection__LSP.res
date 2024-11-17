@@ -246,19 +246,6 @@ module Module: Module = {
 
   // start the LSP client
   let make = async client =>
-    // let subsriptions = []
-    // // pipe error and notifications
-    // client
-    // ->Client.onNotification(json => {
-    //   notificationChan->Chan.emit(decodeResponse(json))
-    // })
-    // ->Js.Array.push(subsriptions)
-    // ->ignore
-    // client
-    // ->Client.onError(error => errorChan->Chan.emit(Error.ConnectionError(error)))
-    // ->Js.Array.push(subsriptions)
-    // ->ignore
-
     // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
     switch await sendRequestPrim(client, SYN) {
     | Error(error) => Error(error)

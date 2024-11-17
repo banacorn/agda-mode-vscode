@@ -11,7 +11,6 @@ type t =
   // S-expression parse error
   | ResponseParseError(Parser.Error.t)
 
-
 let toString = x =>
   switch x {
   | ConnectionViaTCPNotSupported => ("Connection Error", "Connection via TCP not supported yet")

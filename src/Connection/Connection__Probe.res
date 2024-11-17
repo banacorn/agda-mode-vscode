@@ -81,7 +81,7 @@ let afterDownload = async (isCached, (path, target)) => {
   // include "Agda_datadir" in the environment variable
   let options = {
     let assetPath = NodeJs.Path.join2(path, "data")
-    let env = Js.Dict.fromArray([("Agda_datadir", assetPath)])
+    let env = Dict.fromArray([("Agda_datadir", assetPath)])
     {
       LanguageServerMule.Client__LSP__Binding.env: env,
     }
