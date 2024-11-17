@@ -5,8 +5,6 @@ let indent = (content, indent) => {
   let indentation = String.repeat(" ", indent)
   content->String.replaceRegExp(%re("/\n/g"), "\n" ++ indentation) // should also handles CR LF on Windows
 }
-// does this function really do anything?
-let removeNewlines = string => string->String.split("\n")->Array.join("\n")
 
 open Response
 module DisplayInfo = {
@@ -207,14 +205,12 @@ let rec handle = async (
       }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
-      let message = removeNewlines(message)
       await State.View.Panel.displayInAppendMode(
         state,
         Plain("Type-checking"),
         [Item.plainText(message)],
       )
     | RunningInfo(verbosity, message) =>
-      let message = removeNewlines(message)
       state.runningInfoLog->Array.push((verbosity, message))->ignore
       await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
