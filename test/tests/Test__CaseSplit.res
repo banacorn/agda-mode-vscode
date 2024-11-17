@@ -42,14 +42,12 @@ describe("agda-mode:case", () => {
   This.timeout(10000)
   let fileContent = ref("")
 
-  Async.before(() => readFile(Path.asset("CaseSplit.agda"), fileContent))
-  Async.after(() => restoreFile(Path.asset("CaseSplit.agda"), fileContent))
+  Async.before(async () => fileContent := (await File.read(Path.asset("CaseSplit.agda"))))
+  Async.after(async () => await File.write(Path.asset("CaseSplit.agda"), fileContent.contents))
 
   Async.it("should have more goals after splitting", async () => {
-    let ctx = await AgdaMode.make("CaseSplit.agda")
-    let state = await ctx->AgdaMode.load
-    let state = await ctx->AgdaMode.case(Some(VSCode.Position.make(7, 16), "x"), state)
-    Assert.deepEqual(Array.length(state.goals), 10)
-
+    let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
+    await ctx->AgdaMode.case(Some(VSCode.Position.make(7, 16), "x"))
+    Assert.deepEqual(Array.length(ctx.state.goals), 10)
   })
 })

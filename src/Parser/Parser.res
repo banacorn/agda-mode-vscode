@@ -119,7 +119,10 @@ module SExpression = {
     | L(xs) => xs->Array.map(flatten)->Array.concatMany
     }
 
-  let parseWithContinuation = (string: string): Incr.continuation<t, (SExprParseError.t, string)> => {
+  let parseWithContinuation = (string: string): Incr.continuation<
+    t,
+    (SExprParseError.t, string),
+  > => {
     let rec parseSExpression = (state: state, string: string): Incr.continuation<
       t,
       (SExprParseError.t, string),
@@ -256,19 +259,6 @@ module Error = {
     }
 }
 
-let userInputToSExpr = (s: string): string =>
-  Js.String.trim(
-    Js.String.replaceByRe(
-      %re("/\n/g"),
-      "\\n",
-      Js.String.replaceByRe(
-        %re("/\r\n/g"),
-        "\\r\\n",
-        Js.String.replaceByRe(%re("/\"/g"), "\\\"", Js.String.replaceByRe(%re("/\\/g"), "\\\\", s)),
-      ),
-    ),
-  )
-
 let filepath = s => {
   // remove the Windows Bidi control character
   let removedBidi = if Js.String.charCodeAt(0, s) === 8234.0 {
@@ -285,3 +275,33 @@ let filepath = s => {
 
   replaced
 }
+
+// Escapes human-readable strings to Agda-readable strings,
+// by inserting backslashes before the following characters:
+//
+//      LF      => \n
+//      CR LF   => \r\n
+//      "       -> \"
+//      \       -> \\
+
+let escape = (s: string): string =>
+  Js.String.trim(
+    Js.String.replaceByRe(
+      %re("/\n/g"),
+      "\\n",
+      Js.String.replaceByRe(
+        %re("/\r\n/g"),
+        "\\r\\n",
+        Js.String.replaceByRe(%re("/\"/g"), "\\\"", Js.String.replaceByRe(%re("/\\/g"), "\\\\", s)),
+      ),
+    ),
+  )
+
+// Almost the inverse of escape, but only for EOL characters.
+//
+//      \n    => LF
+//      \r\n  => CR LF
+let unescapeEOL = (s: string): string =>
+  s
+  ->String.replaceRegExp(%re("/\\r\\n/g"), "\r\n")
+  ->String.replaceRegExp(%re("/\\n/g"), "\n")

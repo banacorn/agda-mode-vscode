@@ -83,7 +83,7 @@ module DisplayInfo = {
     | Some(A(rawPayload)) =>
       // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions
       // we need to replace them with actual EOLs
-      let payload = rawPayload->String.replaceRegExp(%re("/\\n|\\r\\n/g"), "\n")
+      let payload = Parser.unescapeEOL(rawPayload)
       switch xs[0] {
       | Some(A("*Compilation result*")) => Some(CompilationOk(payload))
       | Some(A("*Constraints*")) =>
@@ -285,7 +285,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
         switch xs[3] {
         | Some(A("t")) =>
           switch xs[2] {
-          | Some(A(message)) => Ok(RunningInfo(1, message))
+          | Some(A(message)) => Ok(RunningInfo(1, Parser.unescapeEOL(message)))
           | _ => err(11)
           }
         | _ => Ok(ClearRunningInfo)
@@ -298,7 +298,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       }
     | Some(A("agda2-verbose")) =>
       switch xs[1] {
-      | Some(A(message)) => Ok(RunningInfo(2, message))
+      | Some(A(message)) => Ok(RunningInfo(2, Parser.unescapeEOL(message)))
       | _ => err(13)
       }
     // NOTE: now there are 2 kinds of "agda2-highlight-clear", "TokenBased" and "NotOnlyTokenBased"

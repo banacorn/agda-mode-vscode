@@ -1,5 +1,10 @@
 // from Agda Response to Tasks
-let removeNewlines = string => string->String.split("\n")->Array.join("\n")
+
+// adds indentation to a multiline string
+let indent = (content, indent) => {
+  let indentation = String.repeat(" ", indent)
+  content->String.replaceRegExp(%re("/\n/g"), "\n" ++ indentation) // should also handles CR LF on Windows
+}
 
 open Response
 module DisplayInfo = {
@@ -131,8 +136,7 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-    | InteractionPoints(indices) => 
-      await State__Goal.instantiate(state, indices)
+    | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
@@ -151,8 +155,17 @@ let rec handle = async (
           // do nothing
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         | GiveString(content) =>
+          let (indentationWidth, _text, _) = State__Goal.indentationWidth(state.document, goal)
+          // 1. ideally, we want to add "\t" or equivalent spaces based on
+          //    "editor.tabSize" and "editor.insertSpaces"
+          //    but we cannot load the "editor.tabSize" here
+          //    so as a workaround, we use a default value of 2
+          //    maybe consider storing these attributes in the state in the future
+          // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
+          //    safer choice
+          let defaultIndentation = 2
           await State__Goal.modify(state, goal, _ =>
-            Js.String.replaceByRe(%re("/\\\\n/g"), "\n", content)
+            Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
           )
           await State__Goal.removeBoundaryAndDestroy(state, goal)
         }
@@ -167,7 +180,7 @@ let rec handle = async (
         }
         // dispatch `agda-mode:load` but do it asynchronously
         // so that we can finish let `agda-mode:case` finish first
-        dispatchCommand(Load)->ignore 
+        dispatchCommand(Load)->ignore
       }
     | SolveAll(solutions) =>
       let solveOne = async ((index, solution)) => {
@@ -192,15 +205,13 @@ let rec handle = async (
       }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
-      let message = removeNewlines(message)
       await State.View.Panel.displayInAppendMode(
         state,
         Plain("Type-checking"),
         [Item.plainText(message)],
       )
     | RunningInfo(verbosity, message) =>
-      let message = removeNewlines(message)
-      state.runningInfoLog->Js.Array2.push((verbosity, message))->ignore
+      state.runningInfoLog->Array.push((verbosity, message))->ignore
       await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses

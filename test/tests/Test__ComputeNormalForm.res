@@ -2,61 +2,54 @@ open Mocha
 open Test__Util
 
 let run = normalization =>
-    describe("request to Agda", () => {
-      describe(
-        "global",
-        () => {
-          Async.it(
-            "should be responded with the correct answer",
-            async () => {
-              let ctx = await AgdaMode.make("ComputeNormalForm.agda")
-              let state = await ctx->AgdaMode.load
+  describe("request to Agda", () => {
+    describe("global", () => {
+      Async.it(
+        "should be responded with the correct answer",
+        async () => {
+          let ctx = await AgdaMode.makeAndLoad("ComputeNormalForm.agda")
 
-              let responses = ref([])
-              let responseHandler = async response => responses.contents->Array.push(response)
-              await state->State.sendRequest(
-                responseHandler,
-                Request.ComputeNormalFormGlobal(normalization, "Z + S Z"),
-              )
-
-              Assert.deepEqual(
-                responses.contents,
-                [
-                  Status(false, false),
-                  DisplayInfo(NormalForm("S Z")),
-                  CompleteHighlightingAndMakePromptReappear,
-                ],
-              )
-            },
+          let responses = ref([])
+          let responseHandler = async response => responses.contents->Array.push(response)
+          await ctx.state->State.sendRequest(
+            responseHandler,
+            Request.ComputeNormalFormGlobal(normalization, "Z + S Z"),
           )
 
-          Async.it(
-            "should be responded with the correct answer",
-            async () => {
-              let ctx = await AgdaMode.make("ComputeNormalForm.agda")
-              let state = await ctx->AgdaMode.load
+          Assert.deepEqual(
+            responses.contents,
+            [
+              Status(false, false),
+              DisplayInfo(NormalForm("S Z")),
+              CompleteHighlightingAndMakePromptReappear,
+            ],
+          )
+        },
+      )
 
-              let responses = ref([])
-              let responseHandler = async response => responses.contents->Array.push(response)
-              await state->State.sendRequest(
-                responseHandler,
-                Request.ComputeNormalFormGlobal(normalization, "S Z + S Z"),
-              )
+      Async.it(
+        "should be responded with the correct answer",
+        async () => {
+          let ctx = await AgdaMode.makeAndLoad("ComputeNormalForm.agda")
+          let responses = ref([])
+          let responseHandler = async response => responses.contents->Array.push(response)
+          await ctx.state->State.sendRequest(
+            responseHandler,
+            Request.ComputeNormalFormGlobal(normalization, "S Z + S Z"),
+          )
 
-              Assert.deepEqual(
-                responses.contents,
-                [
-                  Status(false, false),
-                  DisplayInfo(NormalForm("S (S Z)")),
-                  CompleteHighlightingAndMakePromptReappear,
-                ],
-              )
-            },
+          Assert.deepEqual(
+            responses.contents,
+            [
+              Status(false, false),
+              DisplayInfo(NormalForm("S (S Z)")),
+              CompleteHighlightingAndMakePromptReappear,
+            ],
           )
         },
       )
     })
-
+  })
 
 describe("agda-mode.compute-normal-form[DefaultCompute]", () => {
   run(DefaultCompute)

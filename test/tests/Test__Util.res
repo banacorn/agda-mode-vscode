@@ -4,6 +4,34 @@ open Js.Promise
 
 exception Exn(string)
 
+module File = {
+  let open_ = (fileName): promise<VSCode.TextEditor.t> =>
+    VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
+
+  let read = async (fileName): string => {
+    let editor = await open_(fileName)
+    let document = VSCode.TextEditor.document(editor)
+    VSCode.TextDocument.getText(document, None)
+  }
+
+  let write = async (fileName, content) => {
+    let editor = await open_(fileName)
+    let document = VSCode.TextEditor.document(editor)
+
+    let lineCount = document->VSCode.TextDocument.lineCount
+    let replaceRange = VSCode.Range.make(
+      VSCode.Position.make(0, 0),
+      VSCode.Position.make(lineCount, 0),
+    )
+    let succeed = await Editor.Text.replace(document, replaceRange, content)
+    if succeed {
+      let _ = await VSCode.TextDocument.save(document)
+    } else {
+      raise(Failure("Failed to write to " ++ fileName))
+    }
+  }
+}
+
 // wrapper around BsMocha's Assertions
 let runner: (unit => unit) => promise<result<'a, exn>> = %raw(` function(f) {
     var tmp
@@ -57,17 +85,14 @@ let activateExtension = (): State__Type.channels => {
   }
 }
 
-let openFile = (fileName): Promise.t<VSCode.TextEditor.t> =>
-  VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(fileName), None)
-
 let activateExtensionAndOpenFile = async fileName => {
   let channels = activateExtension()
-  let editor = await openFile(fileName)
+  let editor = await File.open_(fileName)
   (editor, channels)
 }
 
 @module("vscode") @scope("commands")
-external executeCommand: string => Promise.t<option<result<State.t, Connection.Error.t>>> =
+external executeCommand: string => promise<option<result<State.t, Connection.Error.t>>> =
   "executeCommand"
 
 let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
@@ -272,55 +297,62 @@ module AgdaMode = {
   type t = {
     filepath: string,
     channels: State__Type.channels,
+    mutable state: State__Type.t,
   }
 
-  let make = async (~als=false, filepath) => {
+  let makeAndLoad = async (~als=false, filepath) => {
     let filepath = Path.asset(filepath)
     // for mocking Configs
     Config.inTestingMode := true
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     await Config.Connection.setUseAgdaLanguageServer(als)
-    let _ = await exists("agda")
+    // make sure that "agda" exists in PATH
+    await exists("agda")
+    //
+    let load = async (channels: State__Type.channels, filepath) => {
+      let (promise, resolve, _) = Util.Promise_.pending()
+
+      // agda-mode:load is consider finished
+      // when `CompleteHighlightingAndMakePromptReappear` has been handled
+      let disposable = channels.responseHandled->Chan.on(response => {
+        switch response {
+        | CompleteHighlightingAndMakePromptReappear => resolve()
+        | _ => ()
+        }
+      })
+
+      let _ = await File.open_(filepath) // need to open the file first somehow
+      switch await executeCommand("agda-mode.load") {
+      | None => raise(Failure("Cannot load " ++ filepath))
+      | Some(Ok(state)) =>
+        await promise
+        disposable() // stop listening to responses
+        state
+      | Some(Error(error)) =>
+        let (header, body) = Connection.Error.toString(error)
+        raise(Failure(header ++ "\n" ++ body))
+      }
+    }
+
+    let channels = activateExtension()
+    let state = await load(channels, filepath)
+
     {
       filepath,
-      channels: activateExtension(),
+      channels,
+      state,
     }
   }
 
-  let load = async self => {
-    let (promise, resolve, _) = Util.Promise_.pending()
-
-    // agda-mode:load is consider finished
-    // when `CompleteHighlightingAndMakePromptReappear` has been handled
-    let disposable = self.channels.responseHandled->Chan.on(response => {
-      switch response {
-      | CompleteHighlightingAndMakePromptReappear => resolve()
-      | _ => ()
-      }
-    })
-
-    let _ = await openFile(self.filepath)
-    switch await executeCommand("agda-mode.load") {
-    | None => raise(Failure("Cannot load " ++ self.filepath))
-    | Some(Ok(state)) =>
-      await promise
-      disposable() // stop listening to responses
-      state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
-  }
-
-  let case = async (self, cursorAndPayload, state: State__Type.t) => {
-    let editor = await openFile(self.filepath)
+  let case = async (self, cursorAndPayload) => {
+    let editor = await File.open_(self.filepath)
 
     // set cursor and insert the target for case splitting
     switch cursorAndPayload {
     | None => ()
     | Some(cursor, payload) =>
-      let succeed = await Editor.Text.insert(state.document, cursor, payload)
+      let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
       if !succeed {
         raise(Failure("Failed to insert text"))
       }
@@ -330,7 +362,7 @@ module AgdaMode = {
     // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
     // listen to the `agda-mode.load` command to know when the whole case split process is done
     let (promise, resolve, _) = Util.Promise_.pending()
-    let destructor = state.channels.commandHandled->Chan.on(command => {
+    let destructor = self.state.channels.commandHandled->Chan.on(command => {
       switch command {
       | Command.Load => resolve()
       | _ => ()
@@ -345,67 +377,34 @@ module AgdaMode = {
       // stop listening to commands
       destructor()
 
-      // resolve the promise
-      state
+      // update the context with the new state
+      self.state = state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
   }
 
-  let refine = async (self, cursorAndPayload, state: State__Type.t): AgdaModeVscode.State.t => {
-    let editor = await openFile(self.filepath)
-    switch cursorAndPayload {
+  let refine = async (self, ~cursor=?, ~payload=?) => {
+    let editor = await File.open_(self.filepath)
+    // edit the file
+    switch cursor {
     | None => ()
-    | Some(cursor, None) => Editor.Cursor.set(editor, cursor)
-    | Some(cursor, Some(payload)) =>
-      let _ = await Editor.Text.insert(state.document, cursor, payload)
+    | Some(cursor) =>
+      switch payload {
+      | None => ()
+      | Some(payload) =>
+        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
+      }
       Editor.Cursor.set(editor, cursor)
     }
+
     switch await executeCommand("agda-mode.refine") {
     | None => raise(Failure("Cannot case refine " ++ self.filepath))
-    | Some(Ok(state)) => state
+    | Some(Ok(state)) => self.state = state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
-  }
-}
-
-// store file content before testing so that we can restore it later
-let readFile = async (filepath, var) => {
-  let editor = await openFile(filepath)
-  var := Editor.Text.getAll(VSCode.TextEditor.document(editor))
-}
-
-let restoreFile = async (filepath, var) => {
-  let editor = await openFile(filepath)
-  let document = VSCode.TextEditor.document(editor)
-  let lineCount = document->VSCode.TextDocument.lineCount
-  let replaceRange = VSCode.Range.make(
-    VSCode.Position.make(0, 0),
-    VSCode.Position.make(lineCount, 0),
-  )
-  let succeed = await Editor.Text.replace(document, replaceRange, var.contents)
-  if succeed {
-    let _ = await VSCode.TextDocument.save(document)
-  } else {
-    raise(Failure("Failed to restore the file"))
-  }
-}
-
-module R = {
-  let unwrap = (x: result<'a, 'e>): 'a =>
-    switch x {
-    | Ok(x) => x
-    | Error(error) => raise(error)
-    }
-}
-
-// for handling promise<result<'a, 'error>> in tests
-module P = {
-  let unwrap = async (promise: promise<result<'a, 'e>>): 'a => {
-    let result = await promise
-    R.unwrap(result)
   }
 }

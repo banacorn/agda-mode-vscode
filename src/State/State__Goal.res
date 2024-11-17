@@ -7,6 +7,7 @@ module type Module = {
   let pointed: State.t => option<(Goal.t, string)>
   let replaceWithLines: (State.t, Goal.t, array<string>) => promise<unit>
   let replaceWithLambda: (State.t, Goal.t, array<string>) => promise<unit>
+  let indentationWidth: (VSCode.TextDocument.t, Goal.t) => (int, string, VSCode.Range.t)
   let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, Interval.t)
 
   let redecorate: State.t => unit
@@ -288,11 +289,6 @@ module Module: Module = {
 
   let pointed = (state: State.t): option<(Goal.t, string)> => {
     updateIntervals(state)
-
-    // let cursor = switch cursor {
-    // | None => Editor.Cursor.get(state.editor)
-    // | Some(x) => x
-    // }
     let cursor = Editor.Cursor.get(state.editor)
     let cursorOffset = state.document->VSCode.TextDocument.offsetAt(cursor)
     let pointedGoals =
