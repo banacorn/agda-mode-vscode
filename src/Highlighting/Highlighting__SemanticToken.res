@@ -1,5 +1,3 @@
-open Belt
-
 // VS Code Token type
 // https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-classification
 module TokenType = {
@@ -177,16 +175,13 @@ module Module: Module = {
           let offset = doc->VSCode.TextDocument.offsetAt(VSCode.Position.make(i + 1, 0)) - 1
           doc->VSCode.TextDocument.positionAt(offset)
         }
-        Js.Array.push(
-          {
-            line: VSCode.Position.line(startingPoint),
-            column: (
-              VSCode.Position.character(startingPoint),
-              VSCode.Position.character(endingPoint),
-            ),
-          },
-          ranges,
-        )->ignore
+        ranges->Array.push({
+          line: VSCode.Position.line(startingPoint),
+          column: (
+            VSCode.Position.character(startingPoint),
+            VSCode.Position.character(endingPoint),
+          ),
+        })
       }
       ranges
     }
@@ -203,7 +198,7 @@ module Module: Module = {
     let tokenType = token.type_->TokenType.toString
     let modifiers =
       token.modifiers
-      ->Option.mapWithDefault([], xs => xs->Array.map(TokenModifier.toString))
+      ->Option.mapOr([], xs => xs->Array.map(TokenModifier.toString))
       ->Util.Pretty.array
 
     "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ " " ++ modifiers

@@ -1,17 +1,15 @@
 // key - symbols mapping
 @module("./../../../../asset/query.js")
-external rawTable: Js.Dict.t<array<string>> = "default"
+external rawTable: Dict.t<array<string>> = "default"
 
 // trie
 
 type rec trie = {
   symbols: array<string>,
-  subTrie: Js.Dict.t<trie>,
+  subTrie: Dict.t<trie>,
 }
 @module("./../../../../asset/keymap.js")
 external rawKeymapObject: {.} = "default"
-
-open Belt
 
 let rec fromObject = (obj: {.}): trie => {
   let symbols = %raw(`
@@ -19,8 +17,8 @@ let rec fromObject = (obj: {.}): trie => {
   `)
   let subTrie =
     obj
-    ->Js.Obj.keys
-    ->Array.keep(key => key != ">>")
+    ->Object.keysToArray
+    ->Array.filter(key => key != ">>")
     ->Array.map(key => (
       key,
       fromObject(
@@ -29,13 +27,13 @@ let rec fromObject = (obj: {.}): trie => {
     `),
       ),
     ))
-    ->Js.Dict.fromArray
+    ->Dict.fromArray
   {symbols, subTrie}
 }
 
 let keymap = fromObject(rawKeymapObject)
 
-let toKeySuggestions = (trie: trie): array<string> => Js.Dict.keys(trie.subTrie)
+let toKeySuggestions = (trie: trie): array<string> => Dict.keysToArray(trie.subTrie)
 
 let toCandidateSymbols = (trie: trie): array<string> => trie.symbols
 
@@ -46,9 +44,9 @@ let isInKeymap = (input: string): option<trie> => {
     switch String.length(input) {
     | 0 => Some(trie)
     | n =>
-      let key = Js.String.substrAtMost(~from=0, ~length=1, input)
-      let rest = Js.String.substrAtMost(~from=1, ~length=n - 1, input)
-      switch Js.Dict.get(trie.subTrie, key) {
+      let key = input->String.substring(~start=0, ~end=1)
+      let rest = input->String.substring(~start=1, ~end=n)
+      switch Dict.get(trie.subTrie, key) {
       | Some(trie') => helper(rest, trie')
       | None => None
       }
@@ -74,14 +72,14 @@ type state = {
 /* converts characters to symbol, and tells if there's any further possible combinations */
 let translate = (input: string, state: option<state>): translation => {
   let trie = isInKeymap(input)
-  let keySuggestions = trie->Option.mapWithDefault([], toKeySuggestions)
+  let keySuggestions = trie->Option.mapOr([], toKeySuggestions)
   // ->Extension.extendKeySuggestions(input);
   let further = Array.length(keySuggestions) != 0
-  let candidateSymbols = trie->Option.mapWithDefault([], toCandidateSymbols)
+  let candidateSymbols = trie->Option.mapOr([], toCandidateSymbols)
 
   let symbol = candidateSymbols[0]
-  let last = Js.String.sliceToEnd(~from=-1, input)->Belt.Int.fromString
-  open Belt.Option
+  let last = input->String.sliceToEnd(~start=-1)->Int.fromString
+  open Option
 
   // If user inputs a number and the new sequence can not be translated into symbols,
   // this number may be the index of candidateSymbols
@@ -119,16 +117,16 @@ let translate = (input: string, state: option<state>): translation => {
 let initialTranslation = x => translate("", x)
 
 let lookup = (symbol): option<array<string>> =>
-  Js.String.codePointAt(0, symbol)->Option.map(string_of_int)->Option.flatMap(Js.Dict.get(rawTable))
+  symbol->String.codePointAt(0)->Option.map(string_of_int)->Option.flatMap(Dict.get(rawTable, ...))
 
 let decode = {
   open JsonCombinators.Json.Decode
   // TODO: replace `field.required(. "symbol", option(string))` with `field.optional(. "symbol", string)`
   object(field => {
-    symbol: field.required(. "symbol", option(string)),
-    further: field.required(. "further", bool),
-    keySuggestions: field.required(. "keySuggestions", array(string)),
-    candidateSymbols: field.required(. "candidateSymbols", array(string)),
+    symbol: field.required("symbol", option(string)),
+    further: field.required("further", bool),
+    keySuggestions: field.required("keySuggestions", array(string)),
+    candidateSymbols: field.required("candidateSymbols", array(string)),
   })
 }
 

@@ -1,5 +1,3 @@
-open Belt
-
 // https://www.gnu.org/software/emacs/manual/html_node/emacs/Faces.html
 type face =
   | Background(string)
@@ -16,20 +14,20 @@ let toVSCodeDecorations = (input: array<(t, VSCode.Range.t)>, editor: VSCode.Tex
 )> => {
   // dictionaries of color-ranges mapping
   // speed things up by aggregating decorations of the same kind
-  let backgroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
-  let foregroundColorDict: Js.Dict.t<array<VSCode.Range.t>> = Js.Dict.empty()
+  let backgroundColorDict: Dict.t<array<VSCode.Range.t>> = Dict.make()
+  let foregroundColorDict: Dict.t<array<VSCode.Range.t>> = Dict.make()
 
   let addFaceToDict = (face: face, range) =>
     switch face {
     | Background(color) =>
-      switch Js.Dict.get(backgroundColorDict, color) {
-      | None => Js.Dict.set(backgroundColorDict, color, [range])
-      | Some(ranges) => Js.Array.push(range, ranges)->ignore
+      switch Dict.get(backgroundColorDict, color) {
+      | None => Dict.set(backgroundColorDict, color, [range])
+      | Some(ranges) => ranges->Array.push(range)
       }
     | Foreground(color) =>
-      switch Js.Dict.get(foregroundColorDict, color) {
-      | None => Js.Dict.set(foregroundColorDict, color, [range])
-      | Some(ranges) => Js.Array.push(range, ranges)->ignore
+      switch Dict.get(foregroundColorDict, color) {
+      | None => Dict.set(foregroundColorDict, color, [range])
+      | Some(ranges) => ranges->Array.push(range)
       }
     }
 
@@ -45,15 +43,15 @@ let toVSCodeDecorations = (input: array<(t, VSCode.Range.t)>, editor: VSCode.Tex
 
   // decorate with colors stored in the dicts
   let backgroundDecorations =
-    Js.Dict.entries(backgroundColorDict)->Array.map(((color, ranges)) => (
+    Dict.toArray(backgroundColorDict)->Array.map(((color, ranges)) => (
       Editor.Decoration.highlightBackgroundWithColor(editor, color, ranges),
       ranges,
     ))
   let foregroundDecorations =
-    Js.Dict.entries(foregroundColorDict)->Array.map(((color, ranges)) => (
+    Dict.toArray(foregroundColorDict)->Array.map(((color, ranges)) => (
       Editor.Decoration.decorateTextWithColor(editor, color, ranges),
       ranges,
     ))
   // return decorations
-  Js.Array.concat(backgroundDecorations, foregroundDecorations)
+  Array.concat(foregroundDecorations, backgroundDecorations)
 }
