@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.5.1 - TBA
+
+### Fixed
+- #196: Fix '\n' in panel and refinement output by [@jiangsy](https://github.com/jiangsy)
+- #178: \n has started appearing in messages #178 by [@jiangsy](https://github.com/jiangsy)
+- #158: C-c C-s and C-c C-a inserts \n instead of newlines by [@jiangsy](https://github.com/jiangsy)
+- #198: Address several warnings during build by [@jiangsy](https://github.com/jiangsy)
+
 ## v0.5.0 - 2023-11-13
 
 ### Fixed
@@ -12,11 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #195: Remove all usage of deprecated api @bs.send.pipe by [@jiangsy](https://github.com/jiangsy)
 - #191: Add more detailed splitting command description by [@ChAoSUnItY](https://github.com/ChAoSUnItY)
 - #169: Custom Agda buffer font size in the extension's setting by [@vic0103520](https://github.com/vic0103520)
+- #47: Ctrl-X doesn't work as cut with agda-mode
 
 ### Changed
 - Upgrade ReScript to v11
 - Deprecated "reason-promise" in favor of the new async/await syntax in ReScript
 - CI overhaul: allow testings be be conducted on all major platforms (Windows, macOS, Ubuntu) and on multiple versions of Agda
+- All keybindings of commands are the same as the ones in Emacs
 
 ### Added
 - More testings for some of the commands
