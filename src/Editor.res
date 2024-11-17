@@ -1,8 +1,6 @@
 open VSCode
 module VSRange = Range
 
-open Common
-
 module Position = {
   let toString = position =>
     string_of_int(VSCode.Position.line(position)) ++
@@ -197,12 +195,12 @@ let reveal = (editor, range) =>
   editor->TextEditor.revealRange(range, Some(TextEditorRevealType.InCenterIfOutsideViewport))
 
 module Provider = {
-  let documentSelector =
-    [VSCode.StringOr.string("agda")
-    ,VSCode.StringOr.string("lagda-md")
-    ,VSCode.StringOr.string("lagda-rst")
-    ,VSCode.StringOr.string("lagda-tex")
-    ]
+  let documentSelector = [
+    VSCode.StringOr.string("agda"),
+    VSCode.StringOr.string("lagda-md"),
+    VSCode.StringOr.string("lagda-rst"),
+    VSCode.StringOr.string("lagda-tex"),
+  ]
   let registerDefinitionProvider = definitionProvider => {
     open DefinitionProvider
     Languages.registerDefinitionProvider(
@@ -240,8 +238,7 @@ module Provider = {
               strings,
               range,
             )) => {
-              let markdownStrings =
-                strings->Array.map(string => MarkdownString.make(string, true))
+              let markdownStrings = strings->Array.map(string => MarkdownString.make(string, true))
               Hover.makeWithRange(markdownStrings, range)
             }),
         }
@@ -353,8 +350,8 @@ module Provider = {
         ~provideDocumentSemanticTokensEdits: option<provideDocumentSemanticTokensEdits>=?,
         (),
       ) => {
-        provideDocumentSemanticTokens: provideDocumentSemanticTokens,
-        provideDocumentSemanticTokensEdits: provideDocumentSemanticTokensEdits,
+        provideDocumentSemanticTokens,
+        provideDocumentSemanticTokensEdits,
       }
     }
 

@@ -302,9 +302,9 @@ module Module: Module = {
     | Ok(Result(None)) => await waitForResponseEnd
     }
     // stop listening for requests from server once `ResponseEnd` arrived
-    stopListeningForNotifications->VSCode.Disposable.dispose
+    stopListeningForNotifications->VSCode.Disposable.dispose->ignore
     // start handling Last Responses, after all NonLast Responses have been handled
-    await scheduler->Scheduler.runLast(handler)
+    let _ = await scheduler->Scheduler.runLast(handler)
     result
   }
 }
