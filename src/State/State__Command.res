@@ -1,4 +1,3 @@
-open Belt
 open Command
 
 // from Editor Command to Tasks
@@ -115,7 +114,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           state,
           header,
           {
-            body: Some("Please specify which variable(s) you wish to split, multiple variables are delimited by whitespaces"),
+            body: Some(
+              "Please specify which variable(s) you wish to split, multiple variables are delimited by whitespaces",
+            ),
             placeholder,
             value: None,
           },
@@ -313,7 +314,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       },
       async expr => {
         let oldAgdaPath = Config.Connection.getAgdaPath()
-        let newAgdaVersion = Js.String.trim(expr)
+        let newAgdaVersion = String.trim(expr)
         // don't connect to the LSP server
         let useLSP = false
 
@@ -340,6 +341,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
             View.Header.Success("Switched to version '" ++ version ++ "'"),
             [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
           )
+
           // update the state.agdaVersion to the new version
           state.agdaVersion = Some(version)
         | Ok(LSP(version, _)) =>
@@ -400,7 +402,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         let removeRoot = path => {
           let obj = NodeJs.Path.parse(path)
           let rootLength = String.length(obj.root)
-          let newDir = Js.String.sliceToEnd(~from=rootLength, obj.dir)
+          let newDir = String.sliceToEnd(~start=rootLength, obj.dir)
           let newObj: NodeJs.Path.t = {
             root: "",
             dir: newDir,
@@ -422,7 +424,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           })
         }
       | Hole(index) =>
-        let goal = Js.Array.find((goal: Goal.t) => goal.index == index, state.goals)
+        let goal = state.goals->Array.find((goal: Goal.t) => goal.index == index)
         switch goal {
         | None => ()
         | Some(goal) => Goal.setCursor(goal, state.editor)
@@ -456,14 +458,14 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     // query the user instead if no text is selected
     let (promise, resolve, _) = Util.Promise_.pending()
     let selectedText =
-      Editor.Text.get(state.document, Editor.Selection.get(state.editor))->Js.String.trim
+      Editor.Text.get(state.document, Editor.Selection.get(state.editor))->String.trim
     if selectedText == "" {
       State.View.Panel.prompt(
         state,
         View.Header.Plain("Lookup Unicode Symbol Input Sequence"),
         {body: None, placeholder: Some("symbol to lookup:"), value: None},
         input => {
-          resolve(Js.String.trim(input))
+          resolve(String.trim(input))
           Promise.resolve()
         },
       )->ignore
@@ -473,8 +475,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
 
     // lookup and display
     let input = await promise
-    let sequences = Translator.lookup(input)->Option.getWithDefault([])
-    if Js.Array.length(sequences) == 0 {
+    let sequences = Translator.lookup(input)->Option.getOr([])
+    if Array.length(sequences) == 0 {
       await State.View.Panel.display(
         state,
         View.Header.Warning("No Input Sequences Found for \"" ++ selectedText ++ "\""),
@@ -484,7 +486,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       await State.View.Panel.display(
         state,
         View.Header.Success(
-          string_of_int(Js.Array.length(sequences)) ++
+          string_of_int(Array.length(sequences)) ++
           " Input Sequences Found for \"" ++
           selectedText ++ "\"",
         ),

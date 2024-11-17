@@ -236,23 +236,6 @@ module List = {
     }
 }
 
-// module P = {
-//   external toJsExn: Js.Promise.error => Js.Exn.t = "%identity"
-
-//   let toPromise = (p: promise<result<'a, Js.Exn.t>>): Promise.t<result<'a, Js.Exn.t>> => {
-//     p
-//     ->Promise.Js.fromBsPromise
-//     ->Promise.Js.toResult
-//     ->Promise.map(x =>
-//       switch x {
-//       | Ok(Ok(x)) => Ok(x)
-//       | Ok(Error(e)) => Error(e)
-//       | Error(e) => Error(toJsExn(e))
-//       }
-//     )
-//   }
-// }
-
 module Promise_ = {
   // Like `Promise.make` but without having to supply a callback
   let pending: unit => (promise<'a>, 'a => unit, 'e => unit) = () => {

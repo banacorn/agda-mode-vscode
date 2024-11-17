@@ -1,4 +1,3 @@
-open Belt
 open Common
 module type Module = {
   let instantiate: (State.t, array<int>) => promise<unit>
@@ -51,8 +50,8 @@ module Module: Module = {
       let n = ref(0)
 
       let i = ref(start)
-      while i.contents < Js.String.length(string) && !break.contents {
-        let char = Js.String.charAt(i.contents, string)
+      while i.contents < String.length(string) && !break.contents {
+        let char = string->String.charAt(i.contents)
         switch char {
         // skip blank characters
         | " "
@@ -78,7 +77,7 @@ module Module: Module = {
             | 0 => ()
             // has preceding character
             | i' =>
-              switch Js.String.charAt(i' - 1, textBeforeGoal) {
+              switch textBeforeGoal->String.charAt(i' - 1) {
               | "}" => bracketCount := bracketCount.contents + 1
               | "{" => bracketCount := bracketCount.contents - 1
               | _ => ()
@@ -91,13 +90,13 @@ module Module: Module = {
         } + 1
 
       let lastSemicolonOffset =
-        switch Js.String.lastIndexOf(";", textBeforeGoal) {
+        switch textBeforeGoal->String.lastIndexOf(";") {
         | -1 => 0
         | n => n
         } + 1
 
       let lastWhereTokenOffset =
-        switch Js.String.lastIndexOf("where", textBeforeGoal) {
+        switch textBeforeGoal->String.lastIndexOf("where") {
         | -1 => 0
         | n => n
         } + 5
@@ -105,10 +104,7 @@ module Module: Module = {
       let lastLineBreakOffset =
         max(
           0,
-          max(
-            Js.String.lastIndexOf("\r", textBeforeGoal),
-            Js.String.lastIndexOf("\n", textBeforeGoal),
-          ),
+          max(textBeforeGoal->String.lastIndexOf("\r"), textBeforeGoal->String.lastIndexOf("\n")),
         ) + 1
 
       let inWhereClause = lastWhereTokenOffset > lastOpenCurlyBracketOffset
@@ -140,8 +136,8 @@ module Module: Module = {
     // ' ', '\012', '\n', '\r', and '\t'
     let indentedBy = s => {
       let n = ref(0)
-      for i in 0 to Js.String.length(s) - 1 {
-        switch Js.String.charAt(i, s) {
+      for i in 0 to String.length(s) - 1 {
+        switch String.charAt(s, i) {
         | " "
         | ""
         | "
@@ -168,7 +164,7 @@ module Module: Module = {
   let updateIntervals = (state: State.t) => {
     let indices = state.goals->Array.map(goal => goal.index)
     let diffs = Goal.generateDiffs(state.document, indices)
-    diffs->Array.forEachWithIndex((i, diff) =>
+    diffs->Array.forEachWithIndex((diff, i) =>
       switch state.goals[i] {
       | None => () // do nothing :|
       | Some(goal) => goal.interval = diff.modifiedInterval
@@ -292,7 +288,7 @@ module Module: Module = {
     let cursor = Editor.Cursor.get(state.editor)
     let cursorOffset = state.document->VSCode.TextDocument.offsetAt(cursor)
     let pointedGoals =
-      state.goals->Array.keep(goal => Interval.contains(goal.interval, cursorOffset))
+      state.goals->Array.filter(goal => Interval.contains(goal.interval, cursorOffset))
     // return the first pointed goal
     pointedGoals[0]->Option.map(goal => (goal, Goal.getContent(goal, state.document)))
   }
@@ -301,8 +297,8 @@ module Module: Module = {
     // locate the first new goal and place the cursor there
     let splittedLines = Parser.splitToLines(rewriteText)
     splittedLines[0]->Option.forEach(line => {
-      let col = Js.String.length(line) - 1
-      let lastChar = Js.String.charAt(col, line)
+      let col = String.length(line) - 1
+      let lastChar = String.charAt(line, col)
       if lastChar == "?" {
         let position = VSCode.Position.translate(VSCode.Range.start(rewriteRange), 0, col)
         Editor.Cursor.set(state.editor, position)
@@ -323,9 +319,9 @@ module Module: Module = {
   let replaceWithLambda = async (state: State.t, goal, lines) => {
     let (inWhereClause, indentWidth, rewriteInterval) = caseSplitAux(state.document, goal)
     let rewriteText = if inWhereClause {
-      Js.Array.joinWith("\n" ++ Js.String.repeat(indentWidth, " "), lines)
+      lines->Array.join("\n" ++ String.repeat(" ", indentWidth))
     } else {
-      Js.Array.joinWith("\n" ++ (Js.String.repeat(indentWidth - 2, " ") ++ "; "), lines)
+      lines->Array.join("\n" ++ (String.repeat(" ", indentWidth - 2) ++ "; "))
     }
     let rewriteRange = Interval.toVSCodeRange(state.document, rewriteInterval)
     if await Editor.Text.replace(state.document, rewriteRange, rewriteText) {
@@ -347,8 +343,8 @@ module Module: Module = {
   let replaceWithLines = async (state: State.t, goal, lines) => {
     // get the width of indentation from the first line of the goal
     let (indentWidth, _, _) = indentationWidth(state.document, goal)
-    let indentation = Js.String.repeat(indentWidth, " ")
-    let indentedLines = indentation ++ Js.Array.joinWith("\n" ++ indentation, lines)
+    let indentation = String.repeat(" ", indentWidth)
+    let indentedLines = indentation ++ lines->Array.join("\n" ++ indentation)
     // the rows spanned by the goal (including the text outside the goal)
     // will be replaced by the `indentedLines`
     let start = VSCode.TextDocument.positionAt(state.document, fst(goal.interval))
@@ -378,7 +374,7 @@ module Module: Module = {
 
     let innerRange = Goal.getInnerRange(goal, state.document)
     let outerRange = Interval.toVSCodeRange(state.document, goal.interval)
-    let content = Editor.Text.get(state.document, innerRange)->Js.String.trim
+    let content = Editor.Text.get(state.document, innerRange)->String.trim
     if await Editor.Text.replace(state.document, outerRange, content) {
       Goal.destroyDecoration(goal)
     } else {

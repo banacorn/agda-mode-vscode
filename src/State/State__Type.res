@@ -1,5 +1,3 @@
-open Belt
-
 // For throttling Requests send to Agda
 // 1 Request to Agda at a time
 module RequestQueue: {
@@ -24,7 +22,7 @@ module RequestQueue: {
       ()
     } else {
       // pop the front of the queue
-      switch Js.Array.shift(self.queue) {
+      switch Array.shift(self.queue) {
       | None => () // nothing to pop
       | Some(thunk) =>
         self.busy = true
@@ -45,7 +43,7 @@ module RequestQueue: {
       resolve()
     }
     // push to the back of the queue
-    Js.Array.push(thunk, self.queue)->ignore
+    self.queue->Array.push(thunk)
     // kick start
     kickStart(self)
     promise

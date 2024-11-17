@@ -13,8 +13,8 @@ module type Module = {
     string,
     bool,
     LanguageServerMule.Source.GitHub.Download.Event.t => unit,
-  ) => Promise.t<result<status, Error.t>>
-  let stop: unit => Promise.t<result<unit, Error.t>>
+  ) => promise<result<status, Error.t>>
+  let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     string,
@@ -22,8 +22,8 @@ module type Module = {
     bool,
     VSCode.TextDocument.t,
     Request.t,
-    result<Response.t, Error.t> => Promise.t<unit>,
-  ) => Promise.t<result<status, Error.t>>
+    result<Response.t, Error.t> => promise<unit>,
+  ) => promise<result<status, Error.t>>
 }
 
 module Module: Module = {

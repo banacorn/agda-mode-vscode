@@ -1,25 +1,24 @@
 open State__Type
-open Belt
 
 module type Panel = {
   let get: state => WebviewPanel.t
   // restore panel content after the corresponding editor was activated
   let restore: state => unit
   // display stuff
-  let display: (state, View.Header.t, View.Body.t) => Promise.t<unit>
-  let displayInAppendMode: (state, View.Header.t, View.Body.t) => Promise.t<unit>
-  let displayOutOfGoalError: state => Promise.t<unit>
-  let displayConnectionError: (state, Connection.Error.t) => Promise.t<unit>
-  let displayStatus: (state, string) => Promise.t<unit>
-  let displayConnectionStatus: (state, Connection.status) => Promise.t<unit>
+  let display: (state, View.Header.t, View.Body.t) => promise<unit>
+  let displayInAppendMode: (state, View.Header.t, View.Body.t) => promise<unit>
+  let displayOutOfGoalError: state => promise<unit>
+  let displayConnectionError: (state, Connection.Error.t) => promise<unit>
+  let displayStatus: (state, string) => promise<unit>
+  let displayConnectionStatus: (state, Connection.status) => promise<unit>
   // Input Method
-  let updateIM: (state, View.EventToView.InputMethod.t) => Promise.t<unit>
-  let updatePromptIM: (state, string) => Promise.t<unit>
+  let updateIM: (state, View.EventToView.InputMethod.t) => promise<unit>
+  let updatePromptIM: (state, string) => promise<unit>
   // Prompt
-  let prompt: (state, View.Header.t, View.Prompt.t, string => Promise.t<unit>) => Promise.t<unit>
-  let interruptPrompt: state => Promise.t<unit>
+  let prompt: (state, View.Header.t, View.Prompt.t, string => promise<unit>) => promise<unit>
+  let interruptPrompt: state => promise<unit>
   // Style
-  let setFontSize: (state, string) => Promise.t<unit>
+  let setFontSize: (state, string) => promise<unit>
 }
 
 module Panel: Panel = {
@@ -66,12 +65,9 @@ module Panel: Panel = {
   let setFontSize = (state, fontSize) => sendEvent(state, ConfigurationChange(fontSize))
 
   // Header + Prompt
-  let prompt = (
-    state,
-    header,
-    prompt,
-    callbackOnPromptSuccess: string => Promise.t<unit>,
-  ): Promise.t<unit> => {
+  let prompt = (state, header, prompt, callbackOnPromptSuccess: string => promise<unit>): promise<
+    unit,
+  > => {
     // focus on the panel before prompting
     Context.setPrompt(true)
 
@@ -115,12 +111,12 @@ module type DebugBuffer = {
   let exists: unit => bool
   let destroy: unit => unit
   // all of the following methods will not have any effect if the singleton does not exist
-  // let reveal: state => Promise.t<unit>
-  let display: array<(int, string)> => Promise.t<unit>
-  let displayInAppendMode: array<(int, string)> => Promise.t<unit>
-  let reveal: state => Promise.t<unit>
+  // let reveal: state => promise<unit>
+  let display: array<(int, string)> => promise<unit>
+  let displayInAppendMode: array<(int, string)> => promise<unit>
+  let reveal: state => promise<unit>
   // restore panel content after the corresponding editor was activated
-  let restore: state => Promise.t<unit>
+  let restore: state => promise<unit>
 }
 
 module DebugBuffer: DebugBuffer = {
@@ -129,7 +125,7 @@ module DebugBuffer: DebugBuffer = {
   let destroy = Singleton.DebugBuffer.destroy
 
   let sendEvent = (event: View.EventToView.t) =>
-    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolve(), x =>
+    Singleton.DebugBuffer.get()->Option.mapOr(Promise.resolve(), x =>
       x->WebviewPanel.sendEvent(event)
     )
 
@@ -151,7 +147,7 @@ module DebugBuffer: DebugBuffer = {
   }
 
   let reveal = state =>
-    Singleton.DebugBuffer.get()->Option.mapWithDefault(Promise.resolve(), debugBuffer => {
+    Singleton.DebugBuffer.get()->Option.mapOr(Promise.resolve(), debugBuffer => {
       WebviewPanel.reveal(debugBuffer)
       display(state.runningInfoLog)
     })

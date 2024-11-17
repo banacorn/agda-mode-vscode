@@ -94,7 +94,6 @@ module EventEmitter3 = {
   external emit2: (t, eventName, 'a, 'b) => bool = "emit"
   let emit2 = (arg1, arg2, arg3, obj) => obj->emit2(arg1, arg2, arg3)
 
-
   @send external getMaxListeners: t => int = "getMaxListeners"
 
   @send
@@ -103,7 +102,6 @@ module EventEmitter3 = {
 
   @send
   external listenerCount: (t, eventName) => int = "listenerCount"
-
 
   @send
   external listeners: (t, eventName) => array<listener<'a>> = "listeners"
@@ -169,7 +167,6 @@ module EventEmitter3 = {
   @send
   external prependOnceListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependOnceListener"
 
-
   @send
   external removeAllListeners: t => t = "removeAllListeners"
 
@@ -202,22 +199,22 @@ module EventEmitter3 = {
   // events.once(emitter, name)
 
   @module("eventemitter3")
-  external oncePromise: (t, string) => Js.Promise.t<'a> = "once"
+  external oncePromise: (t, string) => promise<'a> = "once"
 
   @module("eventemitter3")
-  external oncePromise2: (t, string) => Js.Promise.t<('a, 'b)> = "once"
+  external oncePromise2: (t, string) => promise<('a, 'b)> = "once"
 
   @module("eventemitter3")
-  external oncePromise3: (t, string) => Js.Promise.t<('a, 'b, 'c)> = "once"
+  external oncePromise3: (t, string) => promise<('a, 'b, 'c)> = "once"
 }
 
 module Module: {
   type t<'a>
   let make: unit => t<'a>
   let emit: (t<'a>, 'a) => unit
-  let on: (t<'a>, 'a => unit) => (unit => unit)
+  let on: (t<'a>, 'a => unit) => unit => unit
   let once: t<'a> => promise<'a>
-  let pipe: (t<'a>, t<'a>) => (unit => unit)
+  let pipe: (t<'a>, t<'a>) => unit => unit
   let destroy: t<'a> => unit
 } = {
   type t<'a> = EventEmitter3.t
@@ -227,9 +224,10 @@ module Module: {
     self->EventEmitter3.on("data", callback)->ignore
     () => self->EventEmitter3.removeListener("data", callback)->ignore
   }
-  let once = self => Promise.make((resolve, _) => {
-    self->EventEmitter3.once("data", resolve)->ignore
-  })
+  let once = self =>
+    Promise.make((resolve, _) => {
+      self->EventEmitter3.once("data", resolve)->ignore
+    })
   let pipe = (self, other) => {
     self->on(val => other->emit(val))
   }
