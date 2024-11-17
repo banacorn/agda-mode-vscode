@@ -1,9 +1,7 @@
-open Belt
-
 let splitToLines = s =>
   // RegEx updated to v10.1.4
   s
-  ->(Js.String.splitByRe(%re("/\r\n|\n/"), _))
+  ->String.splitByRegExp(%re("/\r\n|\n/"))
   ->Array.map(x =>
     switch x {
     | None => None
@@ -11,7 +9,7 @@ let splitToLines = s =>
     | Some(chunk) => Some(chunk)
     }
   )
-  ->Array.keepMap(x => x)
+  ->Array.filterMap(x => x)
 
 module Incr = {
   module Gen = {
@@ -57,7 +55,7 @@ module Incr = {
   // parsing with continuation
   let feed = (self: t<'a, 'e>, input: string): unit => {
     // get the existing continuation or initialize a new one
-    let continue = self.continuation.contents->Option.getWithDefault(self.initialContinuation)
+    let continue = self.continuation.contents->Option.getOr(self.initialContinuation)
 
     // continue parsing with the given continuation
     switch continue(input) {
@@ -96,7 +94,7 @@ module SExpression = {
   let rec toString = x =>
     switch x {
     | A(s) => "\"" ++ (s ++ "\"")
-    | L(xs) => "[" ++ (Js.Array.joinWith(", ", Array.map(xs, toString)) ++ "]")
+    | L(xs) => "[" ++ (xs->Array.map(toString)->Array.join(", ") ++ "]")
     }
 
   type state = {
@@ -107,8 +105,8 @@ module SExpression = {
   }
 
   let preprocess = (string: string): result<string, string> =>
-    if Js.String.substring(~from=0, ~to_=13, string) === "cannot read: " {
-      Error(Js.String.sliceToEnd(~from=12, string))
+    if String.substring(~start=0, ~end=13, string) === "cannot read: " {
+      Error(String.sliceToEnd(~start=12, string))
     } else {
       Ok(string)
     }
@@ -116,7 +114,7 @@ module SExpression = {
   let rec flatten: t => array<string> = x =>
     switch x {
     | A(s) => [s]
-    | L(xs) => xs->Array.map(flatten)->Array.concatMany
+    | L(xs) => xs->Array.map(flatten)->Array.flat
     }
 
   let parseWithContinuation = (string: string): Incr.continuation<
@@ -136,7 +134,7 @@ module SExpression = {
         | Some(expr) =>
           switch expr.contents {
           | A(_) => expr := L([expr.contents, elem])
-          | L(xs) => ignore(Js.Array.push(elem, xs))
+          | L(xs) => xs->Array.push(elem)
           }
         | None => ()
         }
@@ -145,7 +143,7 @@ module SExpression = {
       let totalLength = String.length(string)
 
       for i in 0 to totalLength - 1 {
-        let char = Js.String.charAt(i, string)
+        let char = string->String.charAt(i)
 
         if escaped.contents {
           /* something was being escaped */
@@ -158,13 +156,13 @@ module SExpression = {
         } else if char == "\'" && !in_str.contents {
           ()
         } else if char == "(" && !in_str.contents {
-          ignore(Js.Array.push(ref(L([])), stack))
+          stack->Array.push(ref(L([])))
         } else if char == ")" && !in_str.contents {
           if word.contents != "" {
             pushToTheTop(A(word.contents))
             word := ""
           }
-          switch Js.Array.pop(stack) {
+          switch Array.pop(stack) {
           | Some(expr) => pushToTheTop(expr.contents)
           | None => ()
           }
@@ -222,14 +220,14 @@ module SExpression = {
     ->splitToLines
     ->Array.forEach(line => {
       // get the parsing continuation or initialize a new one
-      let continue = continuation.contents->Option.getWithDefault(parseWithContinuation)
+      let continue = continuation.contents->Option.getOr(parseWithContinuation)
 
       // continue parsing with the given continuation
       switch continue(line) {
-      | Error(err) => ignore(Js.Array.push(Error(err), resultAccum.contents))
+      | Error(err) => resultAccum.contents->Array.push(Error(err))
       | Continue(continue) => continuation := Some(continue)
       | Done(result) =>
-        ignore(Js.Array.push(Ok(result), resultAccum.contents))
+        resultAccum.contents->Array.push(Ok(result))
         continuation := None
       }
     })
@@ -261,8 +259,8 @@ module Error = {
 
 let filepath = s => {
   // remove the Windows Bidi control character
-  let removedBidi = if Js.String.charCodeAt(0, s) === 8234.0 {
-    Js.String.sliceToEnd(~from=1, s)
+  let removedBidi = if String.charCodeAt(s, 0) === 8234.0 {
+    String.sliceToEnd(~start=1, s)
   } else {
     s
   }
@@ -271,7 +269,7 @@ let filepath = s => {
   let normalized = NodeJs.Path.normalize(removedBidi)
 
   // replace Windows' stupid backslash with slash
-  let replaced = Js.String.replaceByRe(%re("/\\/g"), "/", normalized)
+  let replaced = normalized->String.replaceRegExp(%re("/\\/g"), "/")
 
   replaced
 }
@@ -283,19 +281,12 @@ let filepath = s => {
 //      CR LF   => \r\n
 //      "       -> \"
 //      \       -> \\
-
 let escape = (s: string): string =>
-  Js.String.trim(
-    Js.String.replaceByRe(
-      %re("/\n/g"),
-      "\\n",
-      Js.String.replaceByRe(
-        %re("/\r\n/g"),
-        "\\r\\n",
-        Js.String.replaceByRe(%re("/\"/g"), "\\\"", Js.String.replaceByRe(%re("/\\/g"), "\\\\", s)),
-      ),
-    ),
-  )
+  s
+  ->String.replaceRegExp(%re("/\\/g"), "\\\\")
+  ->String.replaceRegExp(%re("/\"/g"), "\\\"")
+  ->String.replaceRegExp(%re("/\r\n/g"), "\\r\\n")
+  ->String.replaceRegExp(%re("/\n/g"), "\\n")
 
 // Almost the inverse of escape, but only for EOL characters.
 //

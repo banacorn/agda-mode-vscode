@@ -1,6 +1,5 @@
 // All RegExps in this file has been updated to work with ReScript v10.1.4
 
-open Belt
 open Common
 
 module FileType = {
@@ -11,13 +10,13 @@ module FileType = {
     | LiterateMarkdown
     | LiterateOrg
   let parse = filepath =>
-    if Js.Re.test_(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
+    if RegExp.test(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
       LiterateRST
-    } else if Js.Re.test_(%re("/\.lagda\.md$/i"), Parser.filepath(filepath)) {
+    } else if RegExp.test(%re("/\.lagda\.md$/i"), Parser.filepath(filepath)) {
       LiterateMarkdown
-    } else if Js.Re.test_(%re("/\.lagda\.tex$|\.lagda$/i"), Parser.filepath(filepath)) {
+    } else if RegExp.test(%re("/\.lagda\.tex$|\.lagda$/i"), Parser.filepath(filepath)) {
       LiterateTeX
-    } else if Js.Re.test_(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
+    } else if RegExp.test(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
       LiterateOrg
     } else {
       Agda
@@ -57,15 +56,15 @@ module Lexer = {
      regex     : regex to perform split on a token
      sourceType: the type of token to look for and perform splitting
      targetType: the type of token given to the splitted tokens when identified */
-  let lex = (regex: Js.Re.t, source: Token.kind, target: Token.kind, tokens): t => {
+  let lex = (regex: RegExp.t, source: Token.kind, target: Token.kind, tokens): t => {
     let f = (token: Token.t) =>
       if token.kind === source {
         let cursor = ref(fst(token.range))
         token.content
-        ->Js.String.splitByRe(regex, _)
-        ->Array.keepMap(x => x)
+        ->String.splitByRegExp(regex)
+        ->Array.filterMap(x => x)
         ->Array.map(content => {
-          let kind = Js.Re.test_(regex, content) ? target : source
+          let kind = RegExp.test(regex, content) ? target : source
           let cursorOld = cursor.contents
           cursor := cursor.contents + String.length(content)
           open Token
@@ -74,7 +73,7 @@ module Lexer = {
       } else {
         [token]
       }
-    tokens->Array.map(f)->Array.concatMany
+    tokens->Array.map(f)->Array.flat
   }
 
   // transforms a list of tokens while preserving the ranges
@@ -99,7 +98,7 @@ module Lexer = {
 
   // only apply map(f) on a specific tokenType
   let mapOnly = (kind: Token.kind, f: Token.t => Token.t, self): t =>
-    self |> map(token => token.kind === kind ? f(token) : token)
+    map(token => token.kind === kind ? f(token) : token, self)
 }
 
 module Regex = {
@@ -134,10 +133,9 @@ module Literate = {
   // split a single string into tokens (Literate)
   let toTokens = (raw: string): Lexer.t => {
     let cursor = ref(0)
-    Js.String.match_(
-      %re("/(.*(?:\r\n|[\n\v\f\r\x85\u2028\u2029])?)/g"),
-      raw,
-    )->Option.mapWithDefault([], lines =>
+    raw
+    ->String.match(%re("/(.*(?:\r\n|[\n\v\f\r\x85\u2028\u2029])?)/g"))
+    ->Option.mapOr([], lines =>
       lines
       ->Array.map(x =>
         switch x {
@@ -145,14 +143,14 @@ module Literate = {
         | Some(s) => s
         }
       )
-      ->Array.keep(s => s != "")
+      ->Array.filter(s => s != "")
       ->Array.map(line => {
         // [\s\.\;\{\}\(\)\@]
         let cursorOld = cursor.contents
         cursor := cursor.contents + String.length(line)
         open Token
         {
-          content: Js.String.substring(~from=cursorOld, ~to_=cursor.contents, raw),
+          content: String.substring(~start=cursorOld, ~end=cursor.contents, raw),
           range: (cursorOld, cursor.contents),
           kind: Literate,
         }
@@ -173,10 +171,10 @@ module Literate = {
       // update the previous line
       previous := current.contents
 
-      if Js.Re.test_(begin_, content) && !current.contents {
+      if RegExp.test(begin_, content) && !current.contents {
         // entering Agda code
         current := true
-      } else if Js.Re.test_(end_, content) && current.contents {
+      } else if RegExp.test(end_, content) && current.contents {
         // leaving Agda code
         current := false
       }
@@ -231,12 +229,22 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
   | Agda => Lexer.make(raw)
   }
   /* just lexing, doesn't mess around with raw text, preserves positions */
-  let original =
-    preprocessed
-    |> Lexer.lex(Regex.comment, AgdaRaw, Comment)
-    |> Lexer.lex(Regex.goalBracket, AgdaRaw, GoalBracket)
-    |> Lexer.lex(Regex.goalQuestionMarkRaw, AgdaRaw, GoalQMRaw)
-    |> Lexer.lex(Regex.goalQuestionMark, GoalQMRaw, GoalQM)
+  let original = Lexer.lex(
+    Regex.goalQuestionMark,
+    GoalQMRaw,
+    GoalQM,
+    Lexer.lex(
+      Regex.goalQuestionMarkRaw,
+      AgdaRaw,
+      GoalQMRaw,
+      Lexer.lex(
+        Regex.goalBracket,
+        AgdaRaw,
+        GoalBracket,
+        Lexer.lex(Regex.comment, AgdaRaw, Comment, preprocessed),
+      ),
+    ),
+  )
   let questionMark2GoalBracket = token => {
     /* ? => {!  !} */
 
@@ -265,28 +273,32 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
 
     /* calculate how much space we have */
     let content: string =
-      Js.Re.exec_(Regex.goalBracketContent, token.content)
-      ->Option.flatMap(result =>
-        Js.Re.captures(result)[1]->Option.map(Js.Nullable.toOption)->Option.flatMap(x => x)
-      )
-      ->Option.getWithDefault("")
+      // Js.Re.exec_(Regex.goalBracketContent, token.content)
+      // ->Option.flatMap(result =>{
+      //   Js.Re.captures(result)[1]->Option.map(Js.Nullable.toOption)->Option.flatMap(x => x)
+      // })
+      // ->Option.getOr("")
+      Regex.goalBracketContent
+      ->RegExp.exec(token.content)
+      ->Option.flatMap(result => result[1]->Option.flatMap(x => x))
+      ->Option.getOr("")
+
     let actualSpaces =
       content
-      ->Js.String.match_(%re("/\s*$/"), _)
+      ->String.match(%re("/\s*$/"))
       ->Option.flatMap(matches =>
         switch matches[0] {
         | None => None
         | Some(None) => None
-        | Some(Some(s)) => Some(Js.String.length(s))
+        | Some(Some(s)) => Some(String.length(s))
         }
       )
-      ->Option.getWithDefault(0)
+      ->Option.getOr(0)
 
     /* make room for the index, if there's not enough space */
     let newContent = if actualSpaces < requiredSpaces {
-      let padding = Js.String.repeat(requiredSpaces - actualSpaces, "")
-
-      Js.String.replaceByRe(%re("/\{!.*!\}/"), "{!" ++ content ++ padding ++ "!}", token.content)
+      let padding = " "->String.repeat(requiredSpaces - actualSpaces)
+      token.content->String.replaceRegExp(%re("/\{!.*!\}/"), "{!" ++ content ++ padding ++ "!}")
     } else {
       token.content
     }
@@ -296,15 +308,16 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     {content: newContent, kind: GoalBracket, range: (1, 2)}
   }
 
-  let modified =
-    original
-    |> Lexer.mapOnly(GoalQM, questionMark2GoalBracket)
-    |> Lexer.mapOnly(GoalBracket, adjustGoalBracket)
-  let originalHoles = original->Array.keep(isHole)
-  let modifiedHoles = modified->Array.keep(isHole)
+  let modified = Lexer.mapOnly(
+    GoalBracket,
+    adjustGoalBracket,
+    Lexer.mapOnly(GoalQM, questionMark2GoalBracket, original),
+  )
+  let originalHoles = original->Array.filter(isHole)
+  let modifiedHoles = modified->Array.filter(isHole)
 
   originalHoles
-  ->Array.mapWithIndex((idx, token: Token.t) =>
+  ->Array.mapWithIndex((token: Token.t, idx: int) =>
     switch (modifiedHoles[idx], indices[idx]) {
     | (Some(modifiedHole), Some(index)) =>
       let (start, _) = modifiedHole.range
@@ -318,5 +331,5 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     | _ => None
     }
   )
-  ->Array.keepMap(x => x)
+  ->Array.filterMap(x => x)
 }
