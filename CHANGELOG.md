@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.1 - TBA
 
 ### Fixed
-- #196: Fix '\n' in panel and refinement output by [@jiangsy](https://github.com/jiangsy)
+- #199: Fix '\n' in panel and refinement output by [@jiangsy](https://github.com/jiangsy)
 - #178: \n has started appearing in messages #178 by [@jiangsy](https://github.com/jiangsy)
 - #158: C-c C-s and C-c C-a inserts \n instead of newlines by [@jiangsy](https://github.com/jiangsy)
 - #198: Address several warnings during build by [@jiangsy](https://github.com/jiangsy)
+- #200: Fix year in CHANGELOG.md by [@fredrik-bakke](https://github.com/fredrik-bakke)
+
+### Changed 
+- Deprecated the legacy ReScript Belt & JS modules
 
 ## v0.5.0 - 2024-11-13
 
