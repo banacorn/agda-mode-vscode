@@ -1,4 +1,3 @@
-open Belt
 module Node = {
   type t<'a>
   @send external getValue: t<'a> => 'a = "getValue"
@@ -23,31 +22,31 @@ external make: unit => t<'a> = "BinarySearchTree"
 
 @send external has: (t<'a>, int) => bool = "has"
 
-@send external find: (t<'a>, int) => Js.nullable<Node.t<'a>> = "find"
+@send external find: (t<'a>, int) => Nullable.t<Node.t<'a>> = "find"
 let find = (self: t<'a>, key: int): option<'a> =>
-  self->find(key)->Js.Nullable.toOption->Option.map(Node.getValue)
+  self->find(key)->Nullable.toOption->Option.map(Node.getValue)
 
-@send external max: t<'a> => Js.nullable<Node.t<'a>> = "max"
-let max = (self: t<'a>): option<'a> => self->max->Js.Nullable.toOption->Option.map(Node.getValue)
+@send external max: t<'a> => Nullable.t<Node.t<'a>> = "max"
+let max = (self: t<'a>): option<'a> => self->max->Nullable.toOption->Option.map(Node.getValue)
 
-@send external min: t<'a> => Js.nullable<Node.t<'a>> = "min"
-let min = (self: t<'a>): option<'a> => self->min->Js.Nullable.toOption->Option.map(Node.getValue)
+@send external min: t<'a> => Nullable.t<Node.t<'a>> = "min"
+let min = (self: t<'a>): option<'a> => self->min->Nullable.toOption->Option.map(Node.getValue)
 
-@send external upperBound: (t<'a>, int) => Js.nullable<Node.t<'a>> = "upperBound"
+@send external upperBound: (t<'a>, int) => Nullable.t<Node.t<'a>> = "upperBound"
 let upperBound = (self: t<'a>, key: int): option<'a> =>
-  self->upperBound(key)->Js.Nullable.toOption->Option.map(Node.getValue)
+  self->upperBound(key)->Nullable.toOption->Option.map(Node.getValue)
 
-@send external lowerBound: (t<'a>, int) => Js.nullable<Node.t<'a>> = "lowerBound"
+@send external lowerBound: (t<'a>, int) => Nullable.t<Node.t<'a>> = "lowerBound"
 let lowerBound = (self: t<'a>, key: int): option<'a> =>
-  self->lowerBound(key)->Js.Nullable.toOption->Option.map(Node.getValue)
+  self->lowerBound(key)->Nullable.toOption->Option.map(Node.getValue)
 
-@send external floor: (t<'a>, int) => Js.nullable<Node.t<'a>> = "floor"
+@send external floor: (t<'a>, int) => Nullable.t<Node.t<'a>> = "floor"
 let floor = (self: t<'a>, key: int): option<'a> =>
-  self->floor(key)->Js.Nullable.toOption->Option.map(Node.getValue)
+  self->floor(key)->Nullable.toOption->Option.map(Node.getValue)
 
-@send external ceil: (t<'a>, int) => Js.nullable<Node.t<'a>> = "ceil"
+@send external ceil: (t<'a>, int) => Nullable.t<Node.t<'a>> = "ceil"
 let ceil = (self: t<'a>, key: int): option<'a> =>
-  self->ceil(key)->Js.Nullable.toOption->Option.map(Node.getValue)
+  self->ceil(key)->Nullable.toOption->Option.map(Node.getValue)
 
 @send external remove: (t<'a>, int) => bool = "remove"
 
@@ -59,7 +58,7 @@ let toArray = (self: t<'a>): array<'a> => {
   let accum = []
   self->traverseInOrder(node => {
     let value = node->Node.getValue
-    Js.Array.push(value, accum)->ignore
+    accum->Array.push(value)
   })
   accum
 }

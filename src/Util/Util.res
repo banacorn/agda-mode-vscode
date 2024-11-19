@@ -6,10 +6,8 @@ module Result = {
     }
 }
 
-exception Error(string)
-
 module Decode = {
-  open JsonCombinators.Json.Decode
+  open! JsonCombinators.Json.Decode
   type fieldType_<'a> =
     | Payload(t<'a>)
     | TagOnly('a)
@@ -25,7 +23,7 @@ module Decode = {
 
   let tuple5 = (decodeA, decodeB, decodeC, decodeD, decodeE) => {
     custom(json => {
-      if !Js.Array.isArray(json) {
+      if !Array.isArray(json) {
         Error.expected("array", json)
       }
 
@@ -62,7 +60,7 @@ module Decode = {
 
   let tuple6 = (decodeA, decodeB, decodeC, decodeD, decodeE, decodeF) => {
     custom(json => {
-      if !Js.Array.isArray(json) {
+      if !Array.isArray(json) {
         Error.expected("array", json)
       }
 
@@ -175,7 +173,7 @@ module Version = {
 
   @module
   external compareVersionsPrim: (string, string) => int = "compare-versions"
-  let trim = Js.String.replaceByRe(%re("/-.*/"), "")
+  let trim = s => s->String.replaceRegExp(%re("/-.*/"), "")
   let compare = (a, b) =>
     switch compareVersionsPrim(trim(a), trim(b)) {
     | -1 => LT
@@ -191,7 +189,7 @@ module Version = {
 }
 
 module Pretty = {
-  let array = xs => "[" ++ (Js.Array.joinWith(", ", xs) ++ "]")
+  let array = xs => "[" ++ (Array.join(xs, ", ") ++ "]")
   let list = xs => xs->List.toArray->array
 }
 
@@ -254,15 +252,8 @@ module Promise_ = {
 }
 
 module String = {
-  // let eol = switch VSCode.TextDocument.eol {
-  // | VSCode.EndOfLine.LF => "\n"
-  // | VSCode.EndOfLine.CRLF => "\r\n"
-  // }
-
-  // let lines = s => s->Js.String2.split(NodeJs.Os.eol)
   let lines = s => {
-    s->Js.String2.splitByRe(%re("/\r\n|\n/g"))
+    s->String.splitByRegExp(%re("/\r\n|\n/g"))->Array.filterMap(x => x)
   }
-  // let unlines = xs => xs->Js.Array2.joinWith(NodeJs.Os.eol)
-  let unlines = xs => xs->Js.Array2.joinWith("\n")
+  let unlines = xs => xs->Array.join("\n")
 }
