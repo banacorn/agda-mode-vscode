@@ -55,15 +55,15 @@ jobs:
           echo "stack-root        = ${{ steps.haskell-setup.outputs.stack-root  }}"
           echo "STACK_LOCAL_BIN    = $STACK_LOCAL_BIN"
     
-      # cached stuff to be restored:
-      - name: 💾 Restore cached stack global package db
-        id:   stack-global
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.haskell-setup.outputs.stack-root }}
-          key: ${{ runner.os }}-stack-global-${{ matrix.agda }}
-          restore-keys: |
-              ${{ runner.os }}-stack-global
+      # # cached stuff to be restored:
+      # - name: 💾 Restore cached stack global package db
+      #   id:   stack-global
+      #   uses: actions/cache/restore@v4
+      #   with:
+      #     path: ${{ steps.haskell-setup.outputs.stack-root }}
+      #     key: ${{ runner.os }}-stack-global-${{ matrix.agda }}
+      #     restore-keys: |
+      #         ${{ runner.os }}-stack-global
 
       - name: 💾 Restore stack-installed binaries in ~/.local/bin
         id:   stack-binaries
@@ -82,23 +82,33 @@ jobs:
       - name: 🛠️ Add Stack install directory to PATH
         run: echo $STACK_LOCAL_BIN >> $GITHUB_PATH
       
-      - name: ⏬ Install Agda
+      - name: 🔍 Check if Agda has been installed
+        id: check-agda
+        continue-on-error: true
+        run: which agda
+
+      # - name: ✅ Verify Agda is ready
+      #   if: ${{ steps.check-agda.outcome == 'success'}}
+      #   run: echo "Agda already installed, skipping installation"
+  
+      - name: ⏬ Install Agda because it has not been installed
+        if: ${{ steps.check-agda.outcome == 'failure'}}
         run: |
           stack install --resolver=lts-20.26 ${{ matrix.agda }}
           which agda
           agda --version
 
-      # things to be cached
+      # # things to be cached
 
-      - name: 💾 Cache stack global package db
-        if:   always() && steps.stack-global.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.haskell-setup.outputs.stack-root }}
-          key: ${{ steps.stack-global.outputs.cache-primary-key }}
+      # - name: 💾 Cache stack global package db
+      #   if:   always() && env.AGDA_INSTALLED != '0' && steps.stack-global.outputs.cache-hit != 'true'
+      #   uses: actions/cache/save@v4
+      #   with:
+      #     path: ${{ steps.haskell-setup.outputs.stack-root }}
+      #     key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
       - name: 💾 Cache stack-installed binaries
-        if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
+        if:   always() && env.AGDA_INSTALLED != '0' && steps.stack-binaries.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.STACK_LOCAL_BIN }}
