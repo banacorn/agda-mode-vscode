@@ -19,7 +19,7 @@ if Test__Util.onUnix {
         "should work",
         () => {
           open SourceFile
-          let match = Js.String.search(Regex.comment)
+          let match = String.search(_, Regex.comment)
           Assert.equal(match("no comment"), -1)
           Assert.equal(match("no comment\n"), -1)
           Assert.equal(match("-- comment"), 0)
@@ -31,7 +31,7 @@ if Test__Util.onUnix {
         "should work when \"--\" is placed immediately after some text (issue #56)",
         () => {
           open SourceFile
-          let match = Js.String.search(Regex.comment)
+          let match = String.search(_, Regex.comment)
           Assert.equal(match("a -- comment after some text"), 2)
           Assert.equal(match("a-- comment placed immediately after some text"), -1)
           Assert.equal(match("_-- comment placed immediately after name parts"), 1)

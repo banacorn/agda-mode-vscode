@@ -21,9 +21,9 @@ module Expr = {
   type t = array<Term.t>
   let parse = raw =>
     raw
-    ->Js.String.trim
+    ->String.trim
     /* 1         2 */
-    ->(Js.String.splitByRe(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"), _))
+    ->String.splitByRegExp(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"))
     ->// RegEx updated to v10.1.4
     Array.mapWithIndex((token, i) =>
       switch mod(i, 3) {
@@ -119,7 +119,7 @@ module Output = {
       , ...))
   let parse = raw => {
     let locRe = %re("/\[ at (\S+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+)) \]$/")
-    let hasLocation = Js.Re.test_(locRe, raw)
+    let hasLocation = RegExp.test(locRe, raw)
     if hasLocation {
       parseOutputWithLocation(raw)
     } else {
@@ -193,8 +193,7 @@ module Indices: Indices = {
     })
 
     // 6003
-    let lastInterval =
-      intervals[Array.length(intervals) - 1]->Option.mapOr(0, ((_, x)) => x + 1)
+    let lastInterval = intervals[Array.length(intervals) - 1]->Option.mapOr(0, ((_, x)) => x + 1)
 
     {
       intervals,
@@ -271,16 +270,16 @@ module OffsetConverter: OffsetConverter = {
     // iterate through the text to find surrogate pairs
     let i = ref(0)
     while i.contents < lengthInCodeUnits {
-      let charCode = Js.String.charCodeAt(i.contents, text)->int_of_float
+      let charCode = text->String.charCodeAt(i.contents)->int_of_float
       let notFinal = i.contents + 1 < lengthInCodeUnits
 
       // check if this is a part of a surrogate pair
       if charCode >= 0xD800 && (charCode <= 0xDBFF && notFinal) {
         // found the high surrogate, proceed to check the low surrogate
-        let nextCharCode = Js.String.charCodeAt(i.contents + 1, text)->int_of_float
+        let nextCharCode = text->String.charCodeAt(i.contents + 1)->int_of_float
         if nextCharCode >= 0xDC00 && charCode <= 0xDFFF {
           // store the index of this surrogate pair
-          Js.Array.push(i.contents, surrogatePairs)->ignore
+          surrogatePairs->Array.push(i.contents)
         }
         // increment by 2 because we have checked the presumably low surrogate char
         i := i.contents + 2

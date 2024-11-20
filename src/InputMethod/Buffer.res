@@ -83,8 +83,8 @@ let update = (self, start, change: change): (t, option<string>) => {
     }
     let insertEnd = insertStart + change.replacedTextLength
 
-    let beforeInsertedText = Js.String.substring(~from=0, ~to_=insertStart, sequence)
-    let afterInsertedText = Js.String.substringToEnd(~from=insertEnd, sequence)
+    let beforeInsertedText = String.substring(~start=0, ~end=insertStart, sequence)
+    let afterInsertedText = String.substringToEnd(~start=insertEnd, sequence)
     beforeInsertedText ++ (change.insertedText ++ afterInsertedText)
   }
 
@@ -92,10 +92,10 @@ let update = (self, start, change: change): (t, option<string>) => {
   switch translation.symbol {
   | None =>
     if translation.further {
-      if Js.String.includes(sequence, newSequence) {
+      if newSequence->String.includes(sequence) {
         // special case of INSERTION
         // reduce unnecessary rewriting
-        let diff = Js.String.substringToEnd(~from=String.length(sequence), newSequence)
+        let diff = String.substringToEnd(~start=String.length(sequence), newSequence)
         let buffer = {...self, tail: self.tail ++ diff, translation: translation}
         (buffer, None)
       } else {

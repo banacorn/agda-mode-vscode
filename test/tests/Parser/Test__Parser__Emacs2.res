@@ -11,7 +11,7 @@ describe("when running Emacs__Parser2.parseGoalType", () => {
     let raw = `Goal: ℕ
 ————————————————————————————————————————————————————————————`
     let actual = Emacs__Parser2.parseGoalType(raw)
-    let expected = Js.Dict.fromArray([("goal", ["Goal: ℕ"])])
+    let expected = Dict.fromArray([("goal", ["Goal: ℕ"])])
     Assert.deepEqual(actual, expected)
   })
 
@@ -20,7 +20,7 @@ describe("when running Emacs__Parser2.parseGoalType", () => {
 Have: ℕ
 ————————————————————————————————————————————————————————————`
     let actual = Emacs__Parser2.parseGoalType(raw)
-    let expected = Js.Dict.fromArray([("goal", ["Goal: ℕ"]), ("have", ["Have: ℕ"])])
+    let expected = Dict.fromArray([("goal", ["Goal: ℕ"]), ("have", ["Have: ℕ"])])
     Assert.deepEqual(actual, expected)
   })
 
@@ -31,7 +31,7 @@ Have: ℕ
 y : ℕ
 x : ℕ`
     let actual = Emacs__Parser2.parseGoalType(raw)
-    let expected = Js.Dict.fromArray([
+    let expected = Dict.fromArray([
       ("goal", ["Goal: ℕ"]),
       ("have", ["Have: ℕ"]),
       ("interactionMetas", ["y : ℕ", "x : ℕ"]),
@@ -48,7 +48,7 @@ describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
 Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
 `
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals*", raw)
-    let expected = Js.Dict.fromArray([
+    let expected = Dict.fromArray([
       ("interactionMetas", ["?0 : ℕ", "?1 : ℕ"]),
       ("hiddenMetas", ["Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]"]),
     ])
@@ -61,7 +61,7 @@ Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
 ———— Errors ————————————————————————————————————————————————
 Unsolved constraints`
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Errors*", raw)
-    let expected = Js.Dict.fromArray([
+    let expected = Dict.fromArray([
       ("interactionMetas", ["?0 : _2"]),
       ("errors", ["Unsolved constraints"]),
     ])
@@ -72,7 +72,7 @@ Unsolved constraints`
     let raw = `?0
   : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Errors*", raw)
-    let expected = Js.Dict.fromArray([
+    let expected = Dict.fromArray([
       (
         "interactionMetas",
         [
@@ -92,7 +92,7 @@ The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
 when checking that the clause a has type _8`
     let actual = Emacs__Parser2.parseError(raw)
-    let expected = Js.Dict.fromArray([
+    let expected = Dict.fromArray([
       (
         "errors",
         [
@@ -120,7 +120,7 @@ definition: boo
 Unreachable clause
 when checking the definition of _+_`
     let actual = Emacs__Parser2.parseError(raw)
-    let expected = Js.Dict.fromArray([
+    let expected = Dict.fromArray([
       (
         "errors",
         [

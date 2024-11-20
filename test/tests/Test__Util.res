@@ -1,7 +1,5 @@
 open Mocha
 
-open Js.Promise
-
 exception Exn(string)
 
 module File = {
@@ -172,15 +170,14 @@ module Golden = {
     }
   }
   // get all filepaths of golden tests (asynchronously)
-  let getGoldenFilepaths = directoryPath => {
+  let getGoldenFilepaths = async directoryPath => {
     let directoryPath = Path.toAbsolute(directoryPath)
     let readdir = N.Util.promisify(N.Fs.readdir, ...)
     let isInFile = x => x->String.endsWith(".in")
     let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
-    then_(
-      paths => paths->Array.filter(isInFile)->Array.map(toBasename)->resolve,
-      readdir(directoryPath),
-    )
+    
+    let paths = await readdir(directoryPath)
+    paths->Array.filter(isInFile)->Array.map(toBasename)
   }
 
   // get all filepaths of golden tests (synchronously)

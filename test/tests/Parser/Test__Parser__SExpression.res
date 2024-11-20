@@ -10,13 +10,13 @@ let parseSExpression = (breakpoints, input) => {
   let parser = Parser.SExpression.makeIncr(x =>
     switch x {
     | Yield(Error((errNo, raw))) => Assert.fail(Parser.Error.toString(SExpression(errNo, raw)))
-    | Yield(Ok(a)) => ignore(Js.Array.push(a, output.contents))
+    | Yield(Ok(a)) => output.contents->Array.push(a)
     | Stop => ()
     }
   )
 
   input
-  ->Js.String.trim
+  ->String.trim
   ->Strings.breakInput(breakpoints)
   ->Array.map(Parser.splitToLines)
   ->Array.flat
