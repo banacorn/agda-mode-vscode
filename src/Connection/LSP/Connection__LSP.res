@@ -224,13 +224,13 @@ module Module: Module = {
   }
 
   // catches exceptions occured when decoding JSON values
-  let decodeCommandRes = (json: Js.Json.t): result<CommandRes.t, Error.t> =>
+  let decodeCommandRes = (json: JSON.t): result<CommandRes.t, Error.t> =>
     switch JsonCombinators.Json.decode(json, CommandRes.decode) {
     | Ok(response) => Ok(response)
     | Error(msg) => Error(CannotDecodeCommandRes(msg, json))
     }
 
-  let decodeResponse = (json: Js.Json.t): result<LSPResponse.t, Error.t> =>
+  let decodeResponse = (json: JSON.t): result<LSPResponse.t, Error.t> =>
     switch JsonCombinators.Json.decode(json, LSPResponse.decode) {
     | Ok(reaction) => Ok(reaction)
     | Error(msg) => Error(CannotDecodeResponse(msg, json))

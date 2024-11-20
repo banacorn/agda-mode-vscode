@@ -275,7 +275,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     let content: string =
       // Js.Re.exec_(Regex.goalBracketContent, token.content)
       // ->Option.flatMap(result =>{
-      //   Js.Re.captures(result)[1]->Option.map(Js.Nullable.toOption)->Option.flatMap(x => x)
+      //   Js.Re.captures(result)[1]->Option.map(Nullable.toOption)->Option.flatMap(x => x)
       // })
       // ->Option.getOr("")
       Regex.goalBracketContent

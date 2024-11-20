@@ -1,4 +1,3 @@
-open Belt
 
 module Parens = {
   @react.component
@@ -16,6 +15,7 @@ module Parens = {
     </>
   }
 }
+
 
 // TODO: for PrHz, refactor this
 module Parens2 = {
@@ -49,7 +49,7 @@ module Parens2 = {
         </span>
       </span>
     } else {
-      let children = Array.concatMany([[openParen], payload, [closeParen]])
+      let children = Array.flat([[openParen], payload, [closeParen]])
       <span className="component-horz"> {React.array(children)} </span>
     }
   }
@@ -65,8 +65,8 @@ module type Module = {
   let make: (~value: t) => React.element
 
   // JSON encoding/decoding
-  let decode: Js.Json.t => t
-  let encode: t => Js.Json.t
+  let decode: JSON.t => t
+  let encode: t => JSON.t
 }
 
 module Module = {
@@ -162,13 +162,13 @@ module Module = {
       | RichText(xs) => xs
       }
     )
-    ->Array.concatMany,
+    ->Array.flat,
   )
 
   // from string by Emacs
   // Regex updated to v10.1.4
   let parse = raw =>
-    // after Js.String.splitByRe
+    // after String.splitByRegExp
     //  tokens captured by the regex will be placed at odd indices
     //  and the rest will be placed at even indices
     // 3 kinds of tokens are captured as AgdaRange:
@@ -176,21 +176,22 @@ module Module = {
     //  2. filepath:line,column-column
     //  3. filepath:line,column
     raw
-    ->Js.String.splitByRe(%re("/([^\(\)\s]+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+))/"), _)
-    ->Array.keepMap(x => x)
-    ->Array.mapWithIndex((i, token) =>
+    ->String.splitByRegExp(%re("/([^\(\)\s]+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+))/"))
+    ->Array.filterMap(x => x)
+    ->Array.mapWithIndex((token, i) =>
       switch mod(i, 2) {
-      | 1 => token->Common.AgdaRange.parse->Option.mapWithDefault(string(token), loc => srcLoc(loc))
+      | 1 => token->Common.AgdaRange.parse->Option.mapOr(string(token), loc => srcLoc(loc))
       | _ => string(token)
       }
     )
     ->concatMany
 
+
   let rec make = (~value: t) => {
     let RichText(elements) = value
     <span>
       {elements
-      ->Array.mapWithIndex((i, x) => {
+      ->Array.mapWithIndex((x, i) => {
         switch x {
         | Text(text, className) =>
           let className = {String.concatMany(" ", className)}
@@ -211,7 +212,7 @@ module Module = {
           </Link>
         | Horz(elements) =>
           let children =
-            elements->Array.mapWithIndex((j, element) =>
+            elements->Array.mapWithIndex((element, j) =>
               <span className="component-horz-item" key={string_of_int(j)}>
                 {make(~value=RichText(element))}
               </span>
@@ -219,7 +220,7 @@ module Module = {
           <span className="component-horz" key={string_of_int(i)}> {React.array(children)} </span>
         | Vert(elements) =>
           let children =
-            elements->Array.mapWithIndex((j, element) =>
+            elements->Array.mapWithIndex((element, j) =>
               <span className="component-vert-item" key={string_of_int(j)}>
                 {make(~value=RichText(element))}
               </span>
@@ -228,7 +229,7 @@ module Module = {
         | Parn(element) => <Parens> {make(~value=RichText(element))} </Parens>
         | PrHz(elements) =>
           let children =
-            elements->Array.mapWithIndex((index, element) =>
+            elements->Array.mapWithIndex((element, index) =>
               index == 0
                 ? <span className="component-horz-item compact">
                     {make(~value=RichText(element))}
@@ -241,6 +242,8 @@ module Module = {
       ->React.array}
     </span>
   }
+
+
 
   let decode = {
     open JsonCombinators.Json.Decode

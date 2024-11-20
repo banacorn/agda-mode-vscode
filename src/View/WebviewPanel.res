@@ -6,7 +6,7 @@ module WebviewPanel: {
   let destroy: t => unit
   // messaging
   let send: (t, string) => promise<bool>
-  let recv: (t, Js.Json.t => unit) => VSCode.Disposable.t
+  let recv: (t, JSON.t => unit) => VSCode.Disposable.t
   // events
   let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
   // methods
@@ -24,13 +24,13 @@ module WebviewPanel: {
     let nonce = {
       let text = ref("")
       let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-      let cardinality = Js.String.length(charaterSet)
+      let cardinality = String.length(charaterSet)
       for _ in 0 to 32 {
         text :=
           text.contents ++
-          Js.String.charAt(
-            Js.Math.floor(Js.Math.random() *. float_of_int(cardinality)),
+          String.charAt(
             charaterSet,
+            Int.fromFloat(Math.floor(Math.random() *. float_of_int(cardinality))),
           )
       }
       text.contents
@@ -201,25 +201,22 @@ module Module: Module = {
       switch requestOrEvent {
       | Request(req) =>
         await Promise.make((resolve, _) => {
-          Js.Array.push(
-            (
-              req,
-              x =>
-                switch x {
-                | View.ResponseOrEventFromView.Event(_) => resolve(None)
-                | Response(res) => resolve(Some(res))
-                },
-            ),
-            queuedRequests,
-          )->ignore
+          queuedRequests->Array.push((
+            req,
+            x =>
+              switch x {
+              | View.ResponseOrEventFromView.Event(_) => resolve(None)
+              | Response(res) => resolve(Some(res))
+              },
+          ))
         })
       | Event(event) =>
-        Js.Array.push(event, queuedEvents)->ignore
+        queuedEvents->Array.push(event)
         None
       }
     | Initialized =>
       open View.RequestOrEventToView
-      let stringified = Js.Json.stringify(View.RequestOrEventToView.encode(requestOrEvent))
+      let stringified = JSON.stringify(View.RequestOrEventToView.encode(requestOrEvent))
 
       switch requestOrEvent {
       | Request(_) =>
@@ -235,7 +232,6 @@ module Module: Module = {
 
   let sendEvent = async (view, event) => {
     let _ = await send(view, View.RequestOrEventToView.Event(event))
-    ()
   }
 
   let sendRequest = async (view, request, callback) =>
@@ -289,16 +285,18 @@ module Module: Module = {
         switch view.status {
         | Uninitialized(queuedRequests, queuedEvents) =>
           view.status = Initialized
-          queuedRequests->Belt.Array.forEach(((req, resolve)) =>
-            send(view, View.RequestOrEventToView.Request(req))->Promise.thenResolve(
+          queuedRequests->Array.forEach(((req, resolve)) =>
+            send(view, View.RequestOrEventToView.Request(req))
+            ->Promise.thenResolve(
               x =>
                 switch x {
                 | None => ()
                 | Some(res) => resolve(View.ResponseOrEventFromView.Response(res))
                 },
-            )->Promise.done
+            )
+            ->Promise.done
           )
-          queuedEvents->Belt.Array.forEach(event =>
+          queuedEvents->Array.forEach(event =>
             send(view, View.RequestOrEventToView.Event(event))->ignore
           )
         | Initialized => ()
@@ -322,7 +320,7 @@ module Module: Module = {
     view.onResponse->Chan.destroy
     view.onEvent->Chan.destroy
     view.panel->WebviewPanel.destroy
-    view.subscriptions->Belt.Array.forEach(VSCode.Disposable.dispose)
+    view.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   }
 
   // resolves the returned promise once the view has been destroyed

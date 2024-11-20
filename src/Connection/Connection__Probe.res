@@ -12,7 +12,7 @@ open Source.GitHub
 //     let runAsPromise = (): Promise.Js.t<t, 'e> => {
 //       let (promise, resolve, reject) = Promise.Js.pending()
 //       getos((e, os) => {
-//         let e = Js.Nullable.toOption(e)
+//         let e = Nullable.toOption(e)
 //         switch e {
 //         | Some(e) => reject(e)
 //         | None => resolve(os)

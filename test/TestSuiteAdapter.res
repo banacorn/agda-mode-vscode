@@ -32,7 +32,7 @@ let run = () => {
 
   Js.Promise.make((~resolve, ~reject) =>
     Glob.glob("**/*.js", {cwd: testsRoot}, (err, files) =>
-      switch Js.Nullable.toOption(err) {
+      switch Nullable.toOption(err) {
       | Some(err) => reject(err)
       | None =>
         // Add files to the test suite

@@ -1,5 +1,4 @@
 open React
-open Belt
 
 type state = {
   sequence: string,

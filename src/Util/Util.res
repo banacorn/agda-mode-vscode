@@ -27,7 +27,7 @@ module Decode = {
         Error.expected("array", json)
       }
 
-      let arr: array<Js.Json.t> = Obj.magic(json)
+      let arr: array<JSON.t> = Obj.magic(json)
       if Array.length(arr) != 5 {
         raise(
           DecodeError(
@@ -64,7 +64,7 @@ module Decode = {
         Error.expected("array", json)
       }
 
-      let arr: array<Js.Json.t> = Obj.magic(json)
+      let arr: array<JSON.t> = Obj.magic(json)
       if Array.length(arr) != 6 {
         raise(
           DecodeError(
@@ -101,7 +101,7 @@ module Encode = {
   open JsonCombinators.Json.Encode
 
   type fieldType<'a> =
-    | Payload(string, Js.Json.t)
+    | Payload(string, JSON.t)
     | TagOnly('a)
 
   let sum = f => x =>

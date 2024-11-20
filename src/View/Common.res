@@ -97,8 +97,7 @@ module AgdaRange = {
     /* filepath  | line,col-line,col       |    line,col-col   |   line,col | */
     "/^(\S+)\:(?:(\d+)\,(\d+)\-(\d+)\,(\d+)|(\d+)\,(\d+)\-(\d+)|(\d+)\,(\d+))$/"
   )->(Emacs__Parser.captures(captured => {
-      open Belt
-      open Belt.Option
+      open Option
       let flatten = xs => xs->flatMap(x => x)
       // filepath: captured[1]
       // type 1: captured[2] ~ captured[5]
@@ -264,7 +263,6 @@ module AgdaRange = {
     }
   }
 
-  open Belt
   let toString = (self: t): string =>
     switch self {
     | NoRange => ""

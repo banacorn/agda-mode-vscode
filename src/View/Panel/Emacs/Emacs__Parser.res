@@ -1,39 +1,38 @@
-open Belt
-
-module Dict = {
-  open Js.Dict
-  let partite = (xs: array<'a>, tagEntry: (('a, int)) => option<string>): t<array<'a>> => {
-    let keys: array<(key, int)> =
+module Dictionary = {
+  let partite = (xs: array<'a>, tagEntry: (('a, int)) => option<string>): Dict.t<array<'a>> => {
+    let keys: array<(string, int)> =
       xs
-      ->Array.mapWithIndex((i, x) => (i, x)) /* zip with index */
-      ->Array.keepMap(((i, x)) => tagEntry((x, i))->Option.map(key => (key, i)))
-    let intervals: array<(key, int, int)> = keys->Array.mapWithIndex((n, (key, index)) =>
+      ->Array.mapWithIndex((x, i) => (i, x)) /* zip with index */
+      ->Array.filterMap(((i, x)) => tagEntry((x, i))->Option.map(key => (key, i)))
+    let intervals: array<(string, int, int)> = keys->Array.mapWithIndex(((key, index), n) =>
       switch keys[n + 1] {
       | Some((_, next)) => (key, index, next)
       | None => (key, index, Array.length(xs))
       }
     )
-    intervals->Array.map(((key, start, end_)) => (
+    intervals
+    ->Array.map(((key, start, end)) => (
       key,
-      xs->Js.Array.slice(~start, ~end_)->Array.keep(x => x !== ""),
-    )) |> fromArray
+      xs->Array.slice(~start, ~end)->Array.filter(x => x !== ""),
+    ))
+    ->Dict.fromArray
   }
   // given a key and a splitter function, split the value of the key into multiple entries
   // and replace the old entry with the new ones
-  let split = (dict: t<'a>, key: key, splitter: 'a => t<'a>): t<array<string>> =>
-    switch get(dict, key) {
+  let split = (dict: Dict.t<'a>, key: string, splitter: 'a => Dict.t<'a>): Dict.t<array<string>> =>
+    switch Dict.get(dict, key) {
     | Some(value) =>
       // insert new entries
-      entries(splitter(value))->Array.forEach(((k, v)) => set(dict, k, v))
+      Dict.toArray(splitter(value))->Array.forEach(((k, v)) => Dict.set(dict, k, v))
       // remove old entry
       Dict.delete(dict, key)
       dict
     | None => dict
     }
-  let update = (dict: t<'a>, key: key, f: 'a => 'a): t<'a> =>
-    switch get(dict, key) {
+  let update = (dict: Dict.t<'a>, key: string, f: 'a => 'a): Dict.t<'a> =>
+    switch Dict.get(dict, key) {
     | Some(value) =>
-      set(dict, key, f(value))
+      Dict.set(dict, key, f(value))
       dict
     | None => dict
     }
@@ -43,22 +42,23 @@ module Array_ = {
   let partite = (xs: array<'a>, p: 'a => bool): array<array<'a>> => {
     let indices: array<int> =
       xs
-      ->Array.mapWithIndex((i, x) => (i, x)) /* zip with index */
-      ->Array.keep(((_, x)) => p(x)) /* filter bad indices out */
+      ->Array.mapWithIndex((x, i) => (i, x)) /* zip with index */
+      ->Array.filter(((_, x)) => p(x)) /* filter bad indices out */
       ->Array.map(fst) /* leave only the indices */
     /* prepend 0 as the first index */
     let indicesWF: array<int> = switch indices[0] {
     | Some(n) => n === 0 ? indices : Array.concat(indices, [0])
     | None => Array.length(indices) === 0 ? [0] : indices
     }
-    let intervals: array<(int, int)> = indicesWF->Array.mapWithIndex((n, index) =>
+    let intervals: array<(int, int)> = indicesWF->Array.mapWithIndex((index, n) =>
       switch indicesWF[n + 1] {
       | Some(next) => (index, next)
       | None => (index, Array.length(xs))
       }
     )
-    intervals->Array.map(((start, end_)) => xs |> Js.Array.slice(~start, ~end_))
+    intervals->Array.map(((start, end)) => Array.slice(~start, ~end, xs))
   }
+
   let mergeWithNext: (array<array<'a>>, array<'a> => bool) => array<array<'a>> = (xs, p) =>
     xs->Array.reduce([], (acc, x) => {
       let last = acc[Array.length(acc) - 1]
@@ -80,35 +80,34 @@ module Array_ = {
 let aggregateLines: array<string> => array<string> = lines => {
   // A line is considered a new line if it starts with a non-whitespace character
   // otherwise it's a continuation of the previous line
-  let newlineRegEx = line => Js.Re.test_(%re("/^\S/"), line)
+  let newlineRegEx = line => RegExp.test(%re("/^\S/"), line)
   let newLineIndices: array<int> =
     lines
-    ->Array.mapWithIndex((index, line) => (index, newlineRegEx(line)))
-    ->Array.keep(((_, isNewline)) => isNewline)
+    ->Array.mapWithIndex((line, index) => (index, newlineRegEx(line)))
+    ->Array.filter(((_, isNewline)) => isNewline)
     ->Array.map(fst)
   newLineIndices
-  ->Array.mapWithIndex((i, index) =>
+  ->Array.mapWithIndex((index, i) =>
     switch newLineIndices[i + 1] {
     | None => (index, Array.length(lines) + 1)
     | Some(n) => (index, n)
     }
   )
-  ->Array.map(((start, end_)) => lines->Js.Array2.slice(~start, ~end_)->Util.String.unlines)
+  ->Array.map(((start, end)) => lines->Array.slice(~start, ~end)->Util.String.unlines)
 }
 
-let captures = (regex, handler, raw) =>
-  Js.Re.exec_(regex, raw)
-  ->Option.map(result => result->Js.Re.captures->Array.map(Js.Nullable.toOption))
-  ->Option.flatMap(handler)
+let captures = (regex, handler: array<option<string>> => option<'a>, raw) =>
+  RegExp.exec(regex, raw)->Option.flatMap(handler)
 
-let choice = (res: array<string => option<'a>>, raw) => Js.Array.reduce((result, parse) =>
+let choice = (res: array<string => option<'a>>, raw) =>
+  res->Array.reduce(None, (result, parse) =>
     switch result {
     /* Done, pass it on */
     | Some(value) => Some(value)
     /* Failed, try this one */
     | None => parse(raw)
     }
-  , None, res)
+  )
 
 let at = (captured: array<option<string>>, i: int, parser: string => option<'a>): option<'a> =>
   if i >= Array.length(captured) {

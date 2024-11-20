@@ -1,5 +1,3 @@
-open Belt
-
 @react.component
 let make = (
   ~onRequest: Chan.t<View.Request.t>,

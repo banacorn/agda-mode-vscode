@@ -31,8 +31,8 @@ type t =
   // Cannot initialize the connection
   | Initialize
   // Parsing / Decoding
-  | CannotDecodeCommandRes(string, Js.Json.t)
-  | CannotDecodeResponse(string, Js.Json.t)
+  | CannotDecodeCommandRes(string, JSON.t)
+  | CannotDecodeResponse(string, JSON.t)
   // S-expression parse error
   | ResponseParseError(Parser.Error.t)
 
@@ -49,11 +49,11 @@ let toString = error =>
   | Initialize => ("Cannot Initialize Connection", "")
   | CannotDecodeCommandRes(msg, json) => (
       "Cannot Send Command",
-      "Cannot decode the result after sending command" ++ msg ++ "\n" ++ Js.Json.stringify(json),
+      "Cannot decode the result after sending command" ++ msg ++ "\n" ++ JSON.stringify(json),
     )
   | CannotDecodeResponse(msg, json) => (
       "Cannot Parse Response",
-      "Cannot decode responses from the server" ++ msg ++ "\n" ++ Js.Json.stringify(json),
+      "Cannot decode responses from the server" ++ msg ++ "\n" ++ JSON.stringify(json),
     )
   | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
   }

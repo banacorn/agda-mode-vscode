@@ -1,4 +1,3 @@
-open Belt
 open Common
 
 @react.component
@@ -10,8 +9,8 @@ let make = (
 ) =>
   switch prompt {
   | Some((body, placeholder, value)) =>
-    let placeholder = placeholder->Option.getWithDefault("")
-    let value = value->Option.getWithDefault("")
+    let placeholder = placeholder->Option.getOr("")
+    let value = value->Option.getOr("")
 
     // set focus only for the first time
     let (hasFocused, setHasFocused) = React.useState(_ => false)
@@ -68,11 +67,11 @@ let make = (
     }
 
     // analysis the input box
-    let inputRef = React.useRef(Js.Nullable.null)
+    let inputRef = React.useRef(Nullable.null)
     React.useEffectOnEveryRender(() => {
       // Update mouse selection in <input>
       inputRef.current
-      ->Js.Nullable.toOption
+      ->Nullable.toOption
       ->Option.forEach(input => {
         selectionInterval->Option.forEach(((start, end_)) => {
           let setSelectionRange = %raw(`(elem, start, end_) => elem.setSelectionRange(start, end_)`)
@@ -86,7 +85,7 @@ let make = (
       Js.Global.setTimeout(() => {
         if !hasFocused {
           inputRef.current
-          ->Js.Nullable.toOption
+          ->Nullable.toOption
           ->Option.flatMap(Webapi.Dom.Element.asHtmlElement)
           ->Option.forEach(Webapi.Dom.HtmlElement.focus)
           // only set focus for the first open 

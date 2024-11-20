@@ -1,5 +1,3 @@
-open Belt
-
 // As this so called "WebView" is isolated and independent from the Extension
 // this is the only way to send messages back to the extension
 let vscode = VSCode.Api.acquireVsCodeApi()
@@ -8,7 +6,7 @@ let vscode = VSCode.Api.acquireVsCodeApi()
 let onRequest = Chan.make()
 let onEventToView = Chan.make()
 VSCode.Api.onMessage(stringifiedJSON => {
-  let json = stringifiedJSON->Js.Json.parseExn
+  let json = stringifiedJSON->JSON.parseExn
   switch JsonCombinators.Json.decode(json, View.RequestOrEventToView.decode) {
   | Ok(Event(event)) => onEventToView->Chan.emit(event)
   | Ok(Request(req)) => onRequest->Chan.emit(req)
