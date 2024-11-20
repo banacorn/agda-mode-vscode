@@ -16,7 +16,7 @@ module Glob = {
   type options = {cwd: string}
 
   @module
-  external glob: (string, options, (Js.nullable<'error>, array<string>) => unit) => unit = "glob"
+  external glob: (string, options, (Nullable.t<'error>, array<string>) => unit) => unit = "glob"
 }
 
 exception TestFailure(string)
@@ -30,7 +30,7 @@ let run = () => {
 
   let testsRoot = NodeJs.Path.resolve([NodeJs.Global.dirname, "tests"])
 
-  Js.Promise.make((~resolve, ~reject) =>
+  Promise.make((resolve, reject) =>
     Glob.glob("**/*.js", {cwd: testsRoot}, (err, files) =>
       switch Nullable.toOption(err) {
       | Some(err) => reject(err)
