@@ -100,8 +100,7 @@ let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)-
 module Strings = {
   // trim and replace all occurences of line breaks with "\n"
   let normalize = string => {
-    open Js.String
-    replaceByRe(%re("/\r\n|\n/g"), "\n", trim(string))
+    string->String.trim->String.replaceRegExp(%re("/\r\n|\n/g"), "\n")
   }
 
   let unlinesWith = (f, xs) => xs->Array.map(f)->Util.String.unlines
@@ -112,11 +111,11 @@ module Strings = {
     breakpoints'
     ->Array.mapWithIndex((x: int, i) =>
       switch breakpoints'[i + 1] {
-      | Some(next) => (x, next - x)
-      | None => (x, Js.String.length(input) - x)
+      | Some(next) => (x, next)
+      | None => (x, String.length(input))
       }
     )
-    ->Array.map(((from, length)) => Js.String.substrAtMost(~from, ~length, input))
+    ->Array.map(((start, end)) => String.substring(~start, ~end, input))
   }
 }
 
@@ -176,7 +175,7 @@ module Golden = {
   let getGoldenFilepaths = directoryPath => {
     let directoryPath = Path.toAbsolute(directoryPath)
     let readdir = N.Util.promisify(N.Fs.readdir, ...)
-    let isInFile = x => Js.String.endsWith(".in", x)
+    let isInFile = x => x->String.endsWith(".in")
     let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
     then_(
       paths => paths->Array.filter(isInFile)->Array.map(toBasename)->resolve,
@@ -188,7 +187,7 @@ module Golden = {
   let getGoldenFilepathsSync = directoryPath => {
     let directoryPath = Path.toAbsolute(directoryPath)
     let readdir = NodeJs.Fs.readdirSync
-    let isInFile = x => Js.String.endsWith(".in", x)
+    let isInFile = x => x->String.endsWith(".in")
     let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
     readdir(directoryPath)->Array.filter(isInFile)->Array.map(toBasename)
   }
@@ -234,19 +233,17 @@ module Golden = {
       let value = Diff.getValue(diff)
 
       let change =
-        Js.String.length(value) > 100
-          ? Js.String.substrAtMost(~from=0, ~length=100, value) ++ " ..."
-          : value
+        String.length(value) > 100 ? String.substring(~start=0, ~end=100, value) ++ " ..." : value
 
-      let expected = Js.String.substrAtMost(
-        ~from=max(0, count - 50),
-        ~length=50 + String.length(value) + 50,
+      let expected = String.substring(
+        ~start=max(0, count - 50),
+        ~end=max(0, count - 50) + 50 + String.length(value) + 50,
         expected,
       )
 
-      let actual = Js.String.substrAtMost(
-        ~from=max(0, count - 50),
-        ~length=50 + String.length(value) + 50,
+      let actual = String.substring(
+        ~start=max(0, count - 50),
+        ~end=max(0, count - 50) + 50 + String.length(value) + 50,
         actual,
       )
 
@@ -275,7 +272,9 @@ module AgdaMode = {
     let toString = x =>
       switch x {
       | LanguageServerMuleErrors(errors) =>
-        Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
+        errors
+        ->Array.map(LanguageServerMule.Source.Error.toString)
+        ->Array.join(",")
       | EmacsConnectionError(error) =>
         let (header, body) = Connection.Emacs.Error.toString(error)
         "EmacsConnectionError: " ++ header ++ ": " ++ body
@@ -288,7 +287,7 @@ module AgdaMode = {
     ])
     switch result {
     | None =>
-      let msg = Js.Array.joinWith(",", errors->Array.map(LanguageServerMule.Source.Error.toString))
+      let msg = errors->Array.map(LanguageServerMule.Source.Error.toString)->Array.join(",")
       raise(Failure("Cannot find \"agda\" in PATH: " ++ msg))
     | Some(_method) => ()
     }
