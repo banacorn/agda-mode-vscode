@@ -22,7 +22,8 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        agda: ["Agda-2.6.4", "Agda-2.7.0"]
+        agda: ["Agda-2.7.0"]
+        # agda: ["Agda-2.6.4", "Agda-2.7.0"]
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -41,9 +42,11 @@ jobs:
           cabal-update: false
           enable-stack: true
 
+      # $DIST is where the binary & its dependencies is placed
       - name: 🛠️ Setting variables
         run: | 
           echo "STACK_LOCAL_BIN=$(stack path --local-bin)" >> "$GITHUB_ENV"
+          echo "DIST=${{ matrix.agda }}-${{ matrix.os }}"  >> "$GITHUB_ENV"
 
       - name: 🔍 Reviewing variables
         run: |
@@ -53,7 +56,8 @@ jobs:
           echo "stack-path        = ${{ steps.haskell-setup.outputs.stack-path  }}"
           echo "stack-exe         = ${{ steps.haskell-setup.outputs.stack-exe   }}"
           echo "stack-root        = ${{ steps.haskell-setup.outputs.stack-root  }}"
-          echo "STACK_LOCAL_BIN    = $STACK_LOCAL_BIN"
+          echo "STACK_LOCAL_BIN   = $STACK_LOCAL_BIN"
+          echo "DIST              = $DIST"
     
       # cached stuff to be restored:
       - name: 💾 Restore cached stack global package db
@@ -74,40 +78,108 @@ jobs:
           restore-keys: |
               ${{ runner.os }}-stack-binaries
         
+      - name: 💾 Restore Agda from ${{ env.DIST }}
+        id:   agda-artefacts
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DIST  }}
+          key: ${{ env.DIST  }}
+          restore-keys: |
+              ${{ env.DIST  }}
+        
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
-
-      - name: 🛠️ Add Stack install directory to PATH
-        run: echo $STACK_LOCAL_BIN >> $GITHUB_PATH
       
+      - name: 🛠️ Add ${{ env.DIST }}/bin to PATH
+        run: echo $(pwd)/$DIST/bin >> $GITHUB_PATH
+              
+      # - name: 🛠️ Add ${{ env.STACK_LOCAL_BIN }} to PATH
+      #   run: echo $STACK_LOCAL_BIN >> $GITHUB_PATH
+
       - name: 🔍 Check if Agda has been installed
         id: check-agda
         continue-on-error: true
-        run: which agda
+        run: |
+          echo $PATH
 
+          if [[ ${{ runner.os }} == "Windows" ]]; then
+            $DIST/bin/agda.exe -V
+            which agda.exe
+          else
+            $DIST/bin/agda -V
+            which agda
+          fi
+
+      - name: 📦 Setup ${{ env.DIST }}
+        if: ${{ steps.check-agda.outcome == 'failure'}}
+        run: |
+          mkdir -p $DIST
+          mkdir -p $DIST/bin
+  
       - name: ⏬ Install Agda
         if: ${{ steps.check-agda.outcome == 'failure'}}
         run: |
           stack install --resolver=lts-20.26 ${{ matrix.agda }}
+
+      - name: 📦 Move artefacts to ${{ env.DIST }}
+        continue-on-error: true
+        run: |
+
+          if [[ ${{ runner.os }} == "Windows" ]]; then
+            # Copy the binary:
+            cp $STACK_LOCAL_BIN/agda.exe $DIST/bin
+            strip $DIST/bin/agda.exe
+            file $DIST/bin/agda.exe
+
+            # Copy the rest of the artefacts:
+            cp -a $($STACK_LOCAL_BIN/agda.exe --print-agda-dir)/. $DIST
+
+            ls $DIST/bin
+            
+          else
+            # Copy the binary:
+            cp $STACK_LOCAL_BIN/agda $DIST/bin
+            strip $DIST/bin/agda
+            file $DIST/bin/agda
+            # Copy the rest of the artefacts:
+            cp -a $($STACK_LOCAL_BIN/agda --print-agda-dir)/. $DIST
+          fi
+          
+          # Setting the $Agda_datadir environment variable as $DIST
+          echo "Agda_datadir=$(pwd)/$DIST" >> "$GITHUB_ENV"
+
+      
+      - name: 🔍 Check if Agda has been installed again
+        continue-on-error: true
+        run: |
+          echo "Agda_datadir   = $Agda_datadir"
           which agda
-          agda --version
+          agda -V
 
       # things to be cached
       - name: 💾 Cache stack global package db
-        if:   always() && env.AGDA_INSTALLED != '0' && steps.stack-global.outputs.cache-hit != 'true'
+        if:   always() && steps.stack-global.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ steps.haskell-setup.outputs.stack-root }}
           key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
       - name: 💾 Cache stack-installed binaries
-        if:   always() && env.AGDA_INSTALLED != '0' && steps.stack-binaries.outputs.cache-hit != 'true'
+        if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.STACK_LOCAL_BIN }}
           key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
+     
+      - name: 💾 Cache Agda in ${{ env.DIST  }}
+        if:   always()
+        # if:   always() && steps.agda-artefacts.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DIST  }}
+          key: ${{ steps.agda-artefacts.outputs.cache-primary-key }}
     
       - name: ⏬ Install NPM Dependencies
         run: npm install
@@ -115,10 +187,11 @@ jobs:
       - name: 🔨 Build stuff 
         run: npm run build
 
-      - name: 🚗 Run tests (Linux)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a npm test
+      - name: 🚗 Run tests
+        run: |
+          if [[ ${{ runner.os }} == "Linux" ]]; then
+            xvfb-run -a npm test
+          else
+            npm test
+          fi
 
-      - name: 🚗 Run tests (Windows, MacOS)
-        if: runner.os != 'Linux'
-        run: npm test 
