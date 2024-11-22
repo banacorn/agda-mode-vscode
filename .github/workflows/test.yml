@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        agda: ["Agda-2.6.4", "Agda-2.7.0"]
+        agda: ["Agda-2.6.3", "Agda-2.6.4", "Agda-2.7.0"]
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
