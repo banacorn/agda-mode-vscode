@@ -101,16 +101,7 @@ jobs:
       - name: 🔍 Check if Agda has been installed
         id: check-agda
         continue-on-error: true
-        run: |
-          echo $PATH
-
-          if [[ ${{ runner.os }} == "Windows" ]]; then
-            $DIST/bin/agda.exe -V
-            which agda.exe
-          else
-            $DIST/bin/agda -V
-            which agda
-          fi
+        run: which agda
 
       - name: 📦 Setup ${{ env.DIST }}
         if: ${{ steps.check-agda.outcome == 'failure'}}
@@ -120,39 +111,30 @@ jobs:
   
       - name: ⏬ Install Agda
         if: ${{ steps.check-agda.outcome == 'failure'}}
-        run: |
-          stack install --resolver=lts-20.26 ${{ matrix.agda }}
+        run: stack install --resolver=lts-20.26 ${{ matrix.agda }}
 
       - name: 📦 Move artefacts to ${{ env.DIST }}
-        continue-on-error: true
         run: |
 
+          # Copy the binary:
+          cp $STACK_LOCAL_BIN/agda $DIST/bin
+          
+          # Strip the binary:
           if [[ ${{ runner.os }} == "Windows" ]]; then
-            # Copy the binary:
-            cp $STACK_LOCAL_BIN/agda.exe $DIST/bin
             strip $DIST/bin/agda.exe
             file $DIST/bin/agda.exe
-
-            # Copy the rest of the artefacts:
-            cp -a $($STACK_LOCAL_BIN/agda.exe --print-agda-dir)/. $DIST
-
-            ls $DIST/bin
-            
           else
-            # Copy the binary:
-            cp $STACK_LOCAL_BIN/agda $DIST/bin
             strip $DIST/bin/agda
             file $DIST/bin/agda
-            # Copy the rest of the artefacts:
-            cp -a $($STACK_LOCAL_BIN/agda --print-agda-dir)/. $DIST
           fi
+
+          # Copy the rest of the artefacts:
+          cp -a $($STACK_LOCAL_BIN/agda --print-agda-dir)/. $DIST
           
           # Setting the $Agda_datadir environment variable as $DIST
           echo "Agda_datadir=$(pwd)/$DIST" >> "$GITHUB_ENV"
-
       
       - name: 🔍 Check if Agda has been installed again
-        continue-on-error: true
         run: |
           echo "Agda_datadir   = $Agda_datadir"
           which agda
