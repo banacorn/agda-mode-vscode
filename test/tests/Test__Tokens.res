@@ -28,6 +28,17 @@ describe("Tokens", () => {
           ->Array.map(
             ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
           )
+
+        let srcOfPrimitive = switch ctx.state.agdaVersion {
+        | Some(version) =>
+          if Util.Version.gte(version, "2.6.4") {
+            "[src: 388]"
+          } else {
+            "[src: 320]"
+          }
+        | None => raise(Failure("No Agda version found"))
+        }
+
         Assert.deepEqual(
           [
             "0:0-6 Token (0, 6) [Keyword]",
@@ -36,7 +47,7 @@ describe("Tokens", () => {
             "1:0-4 Token (28, 32) [Keyword]",
             "1:5-6 Token (33, 34) [Datatype] [src: 34]",
             "1:7-8 Token (35, 36) [Symbol]",
-            "1:9-12 Token (37, 40) [Primitive] [src: 388]",
+            "1:9-12 Token (37, 40) [Primitive] " ++ srcOfPrimitive,
             "1:13-18 Token (41, 46) [Keyword]",
             "2:2-3 Token (49, 50) [ConstructorInductive] [src: 50]",
             "2:4-5 Token (51, 52) [Symbol]",
