@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed 
 - Deprecated the legacy ReScript Belt & JS modules
 - CI: Speedup and reduce cache size by caching Agda artefacts instead of the whole build directory
+- CI: Add Agda-2.6.3 to the mix
 
 ## v0.5.0 - 2024-11-13
 
