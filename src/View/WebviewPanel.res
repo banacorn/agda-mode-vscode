@@ -127,7 +127,7 @@ module WebviewPanel: {
 
   let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
 
-  let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true, ())
+  let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true)
 
   // let moveToLeft = () => {
   //   open VSCode.Commands

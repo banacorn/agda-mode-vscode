@@ -38,7 +38,7 @@ module Decoration = {
     backgroundColor: VSCode.StringOr.t<ThemeColor.t>,
     ranges: array<VSRange.t>,
   ) => {
-    let rangeBehavior = DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed)
+    let rangeBehavior = DecorationRangeBehavior.ClosedClosed
     let options = DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ())
     let decoration = Window.createTextEditorDecorationType(options)
     editor->decorate(decoration, ranges)
@@ -61,7 +61,7 @@ module Decoration = {
     color: VSCode.StringOr.t<ThemeColor.t>,
     ranges: array<VSRange.t>,
   ) => {
-    let rangeBehavior = DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedClosed)
+    let rangeBehavior = DecorationRangeBehavior.ClosedClosed
     let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ())
     let decoration = Window.createTextEditorDecorationType(options)
     editor->decorate(decoration, ranges)
@@ -98,7 +98,7 @@ module Decoration = {
     overlayTextPrim(editor, VSCode.StringOr.string(color), text, range)
 
   let underlineText = (editor: TextEditor.t, range: VSRange.t) => {
-    let rangeBehavior = DecorationRangeBehavior.toEnum(DecorationRangeBehavior.ClosedOpen)
+    let rangeBehavior = DecorationRangeBehavior.ClosedOpen
     let textDecoration = "underline dotted"
     let options = DecorationRenderOptions.t(~rangeBehavior, ~textDecoration, ())
     let decoration = Window.createTextEditorDecorationType(options)
@@ -189,7 +189,7 @@ module Text = {
   }
 }
 
-let focus = document => Window.showTextDocument(document, ~column=ViewColumn.Beside, ())->ignore
+let focus = document => Window.showTextDocument(document, ~column=ViewColumn.One, ())->ignore
 
 let reveal = (editor, range) =>
   editor->TextEditor.revealRange(range, Some(TextEditorRevealType.InCenterIfOutsideViewport))
