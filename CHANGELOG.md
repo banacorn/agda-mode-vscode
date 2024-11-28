@@ -8,14 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.1 - TBA
 
 ### Fixed
+- #202: Pressing Enter in Compute normal form input field opens the current file in another tab everytime
+- #200: Fix year in CHANGELOG.md by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #199: Fix '\n' in panel and refinement output by [@jiangsy](https://github.com/jiangsy)
+- #198: Address several warnings during build by [@jiangsy](https://github.com/jiangsy)
+- #197: When reopening a folder, the panel created by Agda-mode is restored as an empty window #197
 - #178: \n has started appearing in messages #178 by [@jiangsy](https://github.com/jiangsy)
 - #158: C-c C-s and C-c C-a inserts \n instead of newlines by [@jiangsy](https://github.com/jiangsy)
-- #198: Address several warnings during build by [@jiangsy](https://github.com/jiangsy)
-- #200: Fix year in CHANGELOG.md by [@fredrik-bakke](https://github.com/fredrik-bakke)
 
 ### Changed 
 - Deprecated the legacy ReScript Belt & JS modules
+- CI: Speedup and reduce cache size by caching Agda artefacts instead of the whole build directory
 
 ## v0.5.0 - 2024-11-13
 
@@ -23,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #196: Improve the logic related to buffer's font size adjustment by [@jiangsy](https://github.com/jiangsy)
 - #195: Remove all usage of deprecated api @bs.send.pipe by [@jiangsy](https://github.com/jiangsy)
 - #191: Add more detailed splitting command description by [@ChAoSUnItY](https://github.com/ChAoSUnItY)
+- #181: Use multi-chord shortcuts to match Emacs #181
 - #169: Custom Agda buffer font size in the extension's setting by [@vic0103520](https://github.com/vic0103520)
 - #47: Ctrl-X doesn't work as cut with agda-mode
 
