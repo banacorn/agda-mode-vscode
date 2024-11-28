@@ -13,8 +13,9 @@ module WebviewPanel: {
   let reveal: t => unit
 
   // move the panel around
+  let getEditorLayout: unit => promise<Obj.t>
   let moveToBottom: unit => unit
-  // let moveToLeft: unit => unit
+  let moveToRight: unit => unit
 } = {
   type t = VSCode.WebviewPanel.t
 
@@ -129,19 +130,6 @@ module WebviewPanel: {
 
   let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true)
 
-  // let moveToLeft = () => {
-  //   open VSCode.Commands
-  //   executeCommand(
-  //     #setEditorLayout({
-  //       orientation: 0,
-  //       groups: {
-  //         open Layout
-  //         [sized({groups: [simple], size: 0.5}), sized({groups: [simple], size: 0.5})]
-  //       },
-  //     }),
-  //   )->ignore
-  // }
-
   let moveToBottom = () => {
     open VSCode.Commands
     executeCommand(
@@ -159,6 +147,20 @@ module WebviewPanel: {
       ),
     )->ignore
   }
+
+  let moveToRight = () => {
+    open VSCode.Commands
+    executeCommand(
+      #setEditorLayout(
+        %raw(`{
+          orientation: 0,
+          groups: [ {size: 0.5}, {size: 0.5} ]
+        }`),
+      ),
+    )->ignore
+  }
+
+  let getEditorLayout = async () => await VSCode.Commands.executeCommand0("vscode.getEditorLayout")
 }
 
 // a thin layer on top of WebviewPanel
@@ -255,7 +257,7 @@ module Module: Module = {
     // Move the created panel to the bottom row
     switch Config.View.getPanelMountingPosition() {
     | Bottom => WebviewPanel.moveToBottom()
-    | Right => ()
+    | Right => WebviewPanel.moveToRight()
     }
 
     // on message
