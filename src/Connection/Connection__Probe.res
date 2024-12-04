@@ -2,81 +2,6 @@ module Version = Util.Version
 open LanguageServerMule
 open Source.GitHub
 
-// module Platform = {
-//   module GetOs = {
-//     type t = {"os": string, "dist": string, "codename": string, "release": string}
-
-//     @module
-//     external getos: (('e, t) => unit) => unit = "getos"
-
-//     let runAsPromise = (): Promise.Js.t<t, 'e> => {
-//       let (promise, resolve, reject) = Promise.Js.pending()
-//       getos((e, os) => {
-//         let e = Nullable.toOption(e)
-//         switch e {
-//         | Some(e) => reject(e)
-//         | None => resolve(os)
-//         }
-//       })
-//       promise
-//     }
-//   }
-
-//   type t = Windows | MacOS | Ubuntu | Others
-
-//   let determine = () =>
-//     switch Node_process.process["platform"] {
-//     | "darwin" => Promise.resolved(MacOS)
-//     | "linux" =>
-//       // determine the distro
-//       GetOs.runAsPromise()->Promise.map(result =>
-//         switch result["dist"] {
-//         | "Ubuntu" => Ubuntu
-//         | _ => Others
-//         }
-//       )
-//     | "win32" => Promise.resolved(Windows)
-//     | _others => Promise.resolved(Others)
-//     }
-// }
-
-// let chooseFromReleases = (platform: Platform.t, releases: array<Release.t>): option<Target.t> => {
-//   let chooseRelease = (releases: array<Release.t>) => {
-//     // fetch the latest release
-//     let compare = (x: Release.t, y: Release.t) => {
-//       let xTime = Js.Date.getTime(Js.Date.fromString(x.created_at))
-//       let yTime = Js.Date.getTime(Js.Date.fromString(y.created_at))
-//       compare(yTime, xTime)
-//     }
-//     let sorted = Js.Array.sortInPlaceWith(compare, releases)
-//     sorted[0]
-//   }
-
-//   let chooseAsset = (release: Release.t) => {
-//     // expected suffix of asset name
-//     let expectedSuffix = switch platform {
-//     | MacOS => Some("macos.zip")
-//     | Ubuntu => Some("ubuntu.zip")
-//     | Windows => Some("windows.zip")
-//     | Others => None
-//     }
-
-//     // find the corresponding asset
-//     expectedSuffix
-//     ->Option.flatMap(suffix => {
-//       let matched = release.assets->Array.keep(asset => Js.String2.endsWith(asset.name, suffix))
-//       matched[0]
-//     })
-//     ->Option.map(asset => {
-//       saveAsFileName: release.tag_name ++ "-" ++ Node_process.process["platform"],
-//       Target.release,
-//       asset,
-//     })
-//   }
-
-//   chooseRelease(releases)->Option.flatMap(chooseAsset)
-// }
-
 let afterDownload = async (isCached, (path, target)) => {
   // include "Agda_datadir" in the environment variable
   let options = {
@@ -99,6 +24,8 @@ let afterDownload = async (isCached, (path, target)) => {
 
   Ok((execPath, [], Some(options), target))
 }
+
+
 // see if the server is available
 // priorities: TCP => Prebuilt => StdIO
 let probeLSP = async (globalStoragePath, onDownload) => {
@@ -116,7 +43,37 @@ let probeLSP = async (globalStoragePath, onDownload) => {
       repository: "agda-language-server",
       userAgent: "agda/agda-mode-vscode",
       globalStoragePath,
-      chooseFromReleases: UseLatest,
+      chooseFromReleases: releases => {
+        let platform = switch NodeJs.Os.platform() {
+        | "darwin" =>
+          switch Node__OS.arch() {
+          | "x64" => Some("macos-x64")
+          | "arm64" => Some("macos-arm64")
+          | _ => None
+          }
+        | "linux" => Some("ubuntu")
+        | "win32" => Some("windows")
+        | _ => None
+        }
+        switch Release.chooseLatest(releases) {
+        | Some(release) =>
+          switch platform {
+          | Some(name) =>
+            let expectedAssetName = "als-" ++ name ++ ".zip"
+            switch release.assets->Asset.chooseByName(expectedAssetName) {
+            | Some(asset) =>
+              Some({
+                saveAsFileName: release.tag_name ++ "-" ++ name,
+                release,
+                asset,
+              })
+            | None => None
+            }
+          | None => None
+          }
+        | None => None
+        }
+      },
       onDownload,
       afterDownload,
       log: x => Js.log(x),
