@@ -38,7 +38,7 @@ module Inputs: {
   }
 }
 
-let initialize = (channels, extensionPath, globalStoragePath, editor, fileName) => {
+let initialize = (channels, extensionPath, globalStorageUri, editor, fileName) => {
   let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)
@@ -46,7 +46,7 @@ let initialize = (channels, extensionPath, globalStoragePath, editor, fileName) 
   ->Promise.done
 
   // not in the Registry, instantiate a State
-  let state = State.make(channels, globalStoragePath, extensionPath, editor)
+  let state = State.make(channels, globalStorageUri, extensionPath, editor)
   // Set panel's font size by configuration
   state->State__View.Panel.setFontSize(Config.Buffer.getFontSize())->ignore
   // remove it from the Registry on request
@@ -200,7 +200,7 @@ let finalize = isRestart => {
   }
 }
 
-let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) => {
+let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri) => {
   let subscribe = x => subscriptions->Array.push(x)->ignore
   let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
   // Channel for testing, emits events when something has been completed,
@@ -305,7 +305,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
     | InputMethod(Activate) =>
       switch Registry.get(fileName) {
       | None =>
-        let state = initialize(channels, extensionPath, globalStoragePath, editor, fileName)
+        let state = initialize(channels, extensionPath, globalStorageUri, editor, fileName)
         Registry.add(fileName, state)
       | Some(_) => () // already in the Registry, do nothing
       }
@@ -330,8 +330,8 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStoragePath) =
 let activate = context => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
-  let globalStoragePath = VSCode.ExtensionContext.globalStoragePath(context)
-  activateWithoutContext(subscriptions, extensionPath, globalStoragePath)
+  let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
+  activateWithoutContext(subscriptions, extensionPath, globalStorageUri)
 }
 
 let deactivate = () => ()

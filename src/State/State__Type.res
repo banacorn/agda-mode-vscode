@@ -134,7 +134,7 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
   // Agda Request queue
   mutable agdaRequestQueue: RequestQueue.t,
-  globalStoragePath: string,
+  globalStorageUri: VSCode.Uri.t,
   extensionPath: string,
   channels: channels,
 }

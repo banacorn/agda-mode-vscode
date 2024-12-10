@@ -60,7 +60,7 @@ module Path = {
   let extensionPath = toAbsolute("../../../../")
 
   // replacement of ExtensionContext.globalStoragePath as ExtensionContext.t is out ofreach
-  let globalStoragePath = toAbsolute("../../../../test/globalStoragePath")
+  let globalStorageUri = VSCode.Uri.file(toAbsolute("../../../../test/globalStoragePath"))
 
   let asset = filepath => NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])
 }
@@ -74,8 +74,8 @@ let activateExtension = (): State__Type.channels => {
     // activate the extension
     let disposables = []
     let extensionPath = Path.extensionPath
-    let globalStoragePath = Path.globalStoragePath
-    let channels = Main.activateWithoutContext(disposables, extensionPath, globalStoragePath)
+    let globalStorageUri = Path.globalStorageUri
+    let channels = Main.activateWithoutContext(disposables, extensionPath, globalStorageUri)
     // store the singleton of activation
     activationSingleton := Some(channels)
     channels
@@ -175,7 +175,7 @@ module Golden = {
     let readdir = N.Util.promisify(N.Fs.readdir, ...)
     let isInFile = x => x->String.endsWith(".in")
     let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
-    
+
     let paths = await readdir(directoryPath)
     paths->Array.filter(isInFile)->Array.map(toBasename)
   }

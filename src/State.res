@@ -54,7 +54,7 @@ let sendRequest = (
     //  1. the result of connection has been displayed
     //  2. the response has been handled
     Connection.sendRequest(
-      state.globalStoragePath,
+      state.globalStorageUri,
       onDownload(state, ...),
       Config.Connection.getUseAgdaLanguageServer(),
       state.document,
@@ -95,7 +95,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (channels, globalStoragePath, extensionPath, editor) => {
+let make = (channels, globalStorageUri, extensionPath, editor) => {
   agdaVersion: None,
   editor,
   document: VSCode.TextEditor.document(editor),
@@ -110,7 +110,7 @@ let make = (channels, globalStoragePath, extensionPath, editor) => {
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   agdaRequestQueue: RequestQueue.make(),
-  globalStoragePath,
+  globalStorageUri,
   extensionPath,
   channels,
 }

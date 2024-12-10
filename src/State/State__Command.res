@@ -301,6 +301,57 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     | Some((goal, expr)) => await sendAgdaRequest(WhyInScope(expr, goal))
     }
   | SwitchAgdaVersion =>
+    // let quickPick = VSCode.Window.createQuickPick()
+    // let subscriptions = []
+
+    // quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
+
+    // let existingAgdaVersion = Config.Connection.getAgdaVersion()
+    // let existingAgdaPath = Config.Connection.getAgdaPath()
+
+    // quickPick->VSCode.QuickPick.setItems([
+    //   {
+    //     VSCode.QuickPickItem.label: "Language Servers",
+    //     kind: Separator
+    //   },
+    //   {
+    //     VSCode.QuickPickItem.label: "2.6.3",
+    //     description: "The previous version of Agda",
+    //     picked: true
+    //   },
+    //   {
+    //     VSCode.QuickPickItem.label: "2.6.3",
+    //     description: "The previous version of Agda"
+    //   },
+    //   {
+    //     VSCode.QuickPickItem.label: "Other operations",
+    //     kind: Separator
+    //   },
+    //   {
+    //     VSCode.QuickPickItem.label: "Fetch latest releases",
+    //     description: "Fetch the latest release of ALS from GitHub"
+    //   },
+    // ])
+    // // quickPick->VSCode.QuickPick.setBusy(true)
+
+    // quickPick->VSCode.QuickPick.onDidChangeActive(items => Js.log2("onDidChangeActive", items)) |> Array.push(subscriptions)
+    // quickPick->VSCode.QuickPick.onDidChangeSelection(items => Js.log2("onDidChangeSelection", items)) |> Array.push(subscriptions)
+    // quickPick->VSCode.QuickPick.onDidChangeValue(value => Js.log2("onDidChangeValue", value)) |> Array.push(subscriptions)
+    // quickPick->VSCode.QuickPick.onDidTriggerButton(button => Js.log2("onDidTriggerButton", button)) |> Array.push(subscriptions)
+    // quickPick->VSCode.QuickPick.onDidAccept(() => Js.log("onDidAccept")) |> Array.push(subscriptions)
+
+    // // VSCode.Env.openExternal(state.globalStoragePath)
+
+    // // onDidHide
+
+    // quickPick->VSCode.QuickPick.onDidHide(() => {
+    //   quickPick->VSCode.QuickPick.dispose
+    //   subscriptions->Array.forEach(sub => sub->VSCode.Disposable.dispose)
+    // })
+    //    |> Array.push(subscriptions)
+
+    // quickPick->VSCode.QuickPick.show
+
     // preserve the original version, in case the new one fails
     let oldAgdaVersion = Config.Connection.getAgdaVersion()
     // prompt the user for the new version
@@ -329,7 +380,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         // stop the old connection
         let _ = await Connection.stop()
         switch await Connection.start(
-          state.globalStoragePath,
+          state.globalStorageUri,
           useLSP,
           State.onDownload(state, ...)
         ) {

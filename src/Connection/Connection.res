@@ -10,14 +10,14 @@ module type Module = {
     | LSP(version, LanguageServerMule.Method.t) // version of Agda, method of connection
   // lifecycle
   let start: (
-    string,
+    VSCode.Uri.t,
     bool,
     LanguageServerMule.Source.GitHub.Download.Event.t => unit,
   ) => promise<result<status, Error.t>>
   let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
-    string,
+    VSCode.Uri.t,
     LanguageServerMule.Source.GitHub.Download.Event.t => unit,
     bool,
     VSCode.TextDocument.t,
@@ -61,12 +61,12 @@ module Module: Module = {
       Emacs(version, path)
     }
 
-  let start = async (globalStoragePath, useLSP, onDownload) =>
+  let start = async (globalStorageUri, useLSP, onDownload) =>
     switch singleton.contents {
     | Some(conn) => Ok(toStatus(conn))
     | None =>
       if useLSP {
-        let (result, errors) = await Connection__Probe.probeLSP(globalStoragePath, onDownload)
+        let (result, errors) = await Connection__Probe.probeLSP(VSCode.Uri.toString(globalStorageUri), onDownload)
         switch result {
         | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
         | Some(method) =>
@@ -122,7 +122,7 @@ module Module: Module = {
     }
 
   let rec sendRequest = async (
-    globalStoragePath,
+    globalStorageUri,
     onDownload,
     useLSP,
     document,
@@ -160,10 +160,10 @@ module Module: Module = {
       | Ok(_) => Ok(toStatus(Emacs(conn)))
       }
     | None =>
-      switch await start(globalStoragePath, useLSP, onDownload) {
+      switch await start(globalStorageUri, useLSP, onDownload) {
       | Error(error) => Error(error)
       | Ok(_) =>
-        await sendRequest(globalStoragePath, onDownload, useLSP, document, request, handler)
+        await sendRequest(globalStorageUri, onDownload, useLSP, document, request, handler)
       }
     }
   }
