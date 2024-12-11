@@ -1,3 +1,10 @@
+module Disposable = {
+  // Swap of Array.push
+  let add = (disposables, disposable) => {
+    Array.push(disposable, disposables)
+  }
+}
+
 module Result = {
   let mapError = (x, f) =>
     switch x {

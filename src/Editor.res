@@ -48,13 +48,13 @@ module Decoration = {
     editor: TextEditor.t,
     style: backgroundStyle,
     ranges: array<VSRange.t>,
-  ) => highlightBackgroundPrim(editor, VSCode.StringOr.others(ThemeColor.make(style)), ranges)
+  ) => highlightBackgroundPrim(editor, VSCode.StringOr.make(Others(ThemeColor.make(style))), ranges)
 
   let highlightBackgroundWithColor = (
     editor: TextEditor.t,
     color: color,
     ranges: array<VSRange.t>,
-  ) => highlightBackgroundPrim(editor, VSCode.StringOr.string(color), ranges)
+  ) => highlightBackgroundPrim(editor, VSCode.StringOr.make(String(color)), ranges)
 
   let decorateTextPrim = (
     editor: TextEditor.t,
@@ -68,10 +68,10 @@ module Decoration = {
     decoration
   }
   let decorateText = (editor: TextEditor.t, style: backgroundStyle, ranges: array<VSRange.t>) =>
-    decorateTextPrim(editor, VSCode.StringOr.others(ThemeColor.make(style)), ranges)
+    decorateTextPrim(editor, VSCode.StringOr.make(Others(ThemeColor.make(style))), ranges)
 
   let decorateTextWithColor = (editor: TextEditor.t, color: color, ranges: array<VSRange.t>) =>
-    decorateTextPrim(editor, VSCode.StringOr.string(color), ranges)
+    decorateTextPrim(editor, VSCode.StringOr.make(String(color)), ranges)
 
   let overlayTextPrim = (
     editor: TextEditor.t,
@@ -92,10 +92,10 @@ module Decoration = {
     style: foregroundStyle,
     text: string,
     range: VSRange.t,
-  ) => overlayTextPrim(editor, VSCode.StringOr.others(ThemeColor.make(style)), text, range)
+  ) => overlayTextPrim(editor, VSCode.StringOr.make(Others(ThemeColor.make(style))), text, range)
 
   let overlayTextWithColor = (editor: TextEditor.t, color: color, text: string, range: VSRange.t) =>
-    overlayTextPrim(editor, VSCode.StringOr.string(color), text, range)
+    overlayTextPrim(editor, VSCode.StringOr.make(String(color)), text, range)
 
   let underlineText = (editor: TextEditor.t, range: VSRange.t) => {
     let rangeBehavior = DecorationRangeBehavior.ClosedOpen
@@ -196,10 +196,10 @@ let reveal = (editor, range) =>
 
 module Provider = {
   let documentSelector = [
-    VSCode.StringOr.string("agda"),
-    VSCode.StringOr.string("lagda-md"),
-    VSCode.StringOr.string("lagda-rst"),
-    VSCode.StringOr.string("lagda-tex"),
+    VSCode.StringOr.make(String("agda")),
+    VSCode.StringOr.make(String("lagda-md")),
+    VSCode.StringOr.make(String("lagda-rst")),
+    VSCode.StringOr.make(String("lagda-tex")),
   ]
   let registerDefinitionProvider = definitionProvider => {
     open DefinitionProvider
