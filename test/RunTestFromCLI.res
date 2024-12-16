@@ -5,7 +5,7 @@ type options = {
 }
 
 @module("@vscode/test-electron")
-external runTests: options => promise<bool> = "runTests"
+external runTests: options => promise<unit> = "runTests"
 
 let testSuiteAdapterFileName = "TestSuiteAdapter.bs.js"
 
@@ -26,6 +26,4 @@ Js.log(
 runTests({
   extensionDevelopmentPath,
   extensionTestsPath,
-})
-->Promise.thenResolve(_ => NodeJs.Process.process->NodeJs.Process.exitWithCode(0))
-->Promise.done
+})->Promise.done
