@@ -8,7 +8,7 @@ type t = t
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 let onDownload = (state, event) => {
-  open LanguageServerMule.Source.GitHub.Download.Event
+  open Connection.Resolver.GitHub.Download.Event
   switch event {
   | Start => View.Panel.displayStatus(state, "Start downloading")->ignore
   | Progress(accum, total) =>

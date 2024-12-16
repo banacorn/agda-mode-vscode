@@ -52,7 +52,7 @@ module Panel: Panel = {
   let displayConnectionStatus = (state, status) =>
     switch status {
     | Connection.Agda(version, _) => displayStatus(state, "Agda v" ++ version)
-    | ALS(version, ViaPipe(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
+    | ALS(version, ViaPipe(_, _, _, Connection__IPC.FromGitHub(_, release, _))) =>
       displayStatus(state, "ALS prebuilt " ++ release.tag_name ++ " (Agda v" ++ version ++ ")")
     | ALS(version, ViaPipe(_)) => displayStatus(state, "ALS v" ++ version)
     | ALS(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")

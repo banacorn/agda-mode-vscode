@@ -24,7 +24,6 @@
     "@glennsl/rescript-json-combinators",
     "rescript-vscode",
     "rescript-webapi",
-    "language-server-mule",
     "rescript-nodejs",
     "@rescript/react",
     "@rescript/core"

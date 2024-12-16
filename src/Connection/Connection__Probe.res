@@ -1,6 +1,6 @@
 module Version = Util.Version
-open LanguageServerMule
-open Source.GitHub
+
+open Connection__Resolver
 
 let afterDownload = async (isCached, (path, target)) => {
   // include "Agda_datadir" in the environment variable
@@ -8,7 +8,7 @@ let afterDownload = async (isCached, (path, target)) => {
     let assetPath = NodeJs.Path.join2(path, "data")
     let env = Dict.fromArray([("Agda_datadir", assetPath)])
     {
-      LanguageServerMule.Client__LSP__Binding.env: env,
+      Connection__Target__ALS__LSP__Binding.env: env,
     }
   }
   // chmod the executable after download
@@ -19,13 +19,13 @@ let afterDownload = async (isCached, (path, target)) => {
   let execPath = NodeJs.Path.join2(path, "als")
   let shouldChmod = !isCached && NodeJs.Os.platform() != "win32"
   if shouldChmod {
-    let _ = await chmodExecutable(execPath)
+    let _ = await GitHub.chmodExecutable(execPath)
   }
 
   Ok((execPath, [], Some(options), target))
 }
 
-let makeAgdaLanguageServerRepo: string => Repo.t = globalStoragePath => {
+let makeAgdaLanguageServerRepo: string => GitHub.Repo.t = globalStoragePath => {
   username: "agda",
   repository: "agda-language-server",
   userAgent: "agda/agda-mode-vscode",
@@ -39,13 +39,13 @@ let probeLSP = async (globalStoragePath, onDownload) => {
   let port = Config.Connection.getAgdaLanguageServerPort()
   let name = "als"
 
-  await Source.Module.searchUntilSuccess([
+  await searchUntilSuccess([
     // when developing ALS, use `:main -p` in GHCi to open a port on localhost
-    Source.FromTCP(port, "localhost"),
+    FromTCP(port, "localhost"),
     // #71: Prefer locally installed language server binary over bundled als
     // https://github.com/banacorn/agda-mode-vscode/issues/71
-    Source.FromCommand(name),
-    Source.FromGitHub(
+    FromCommand(name),
+    FromGitHub(
       makeAgdaLanguageServerRepo(globalStoragePath),
       {
         chooseFromReleases: releases => {
@@ -60,12 +60,12 @@ let probeLSP = async (globalStoragePath, onDownload) => {
           | "win32" => Some("windows")
           | _ => None
           }
-          switch Release.chooseLatest(releases) {
+          switch GitHub.Release.chooseLatest(releases) {
           | Some(release) =>
             switch platform {
             | Some(name) =>
               let expectedAssetName = "als-" ++ name ++ ".zip"
-              switch release.assets->Asset.chooseByName(expectedAssetName) {
+              switch release.assets->GitHub.Asset.chooseByName(expectedAssetName) {
               | Some(asset) =>
                 Some({
                   saveAsFileName: release.tag_name ++ "-" ++ name,
@@ -90,5 +90,5 @@ let probeLSP = async (globalStoragePath, onDownload) => {
 let probeEmacs = () => {
   let storedPath = Config.Connection.getAgdaPath()
   let storedName = Config.Connection.getAgdaVersion()
-  Source.Module.searchUntilSuccess([Source.FromFile(storedPath), Source.FromCommand(storedName)])
+  searchUntilSuccess([FromFile(storedPath), FromCommand(storedName)])
 }

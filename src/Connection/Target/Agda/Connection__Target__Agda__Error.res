@@ -1,4 +1,4 @@
-module Process = LanguageServerMule.Client.Process
+module Process = Connection__Target__Agda__Process
 
 type t =
   | ConnectionViaTCPNotSupported

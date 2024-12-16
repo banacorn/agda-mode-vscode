@@ -1,6 +1,6 @@
 module Error = Connection__Target__Agda__Error
 module Scheduler = Connection__Scheduler
-module Process = LanguageServerMule.Client.Process
+module Process = Connection__Target__Agda__Process
 
 module ProcInfo: {
   type t = {
@@ -98,7 +98,7 @@ module ProcInfo: {
 module type Module = {
   type t
   // lifecycle
-  let make: LanguageServerMule.Method.t => promise<result<t, Error.t>>
+  let make: Connection__IPC.t => promise<result<t, Error.t>>
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (
@@ -187,7 +187,7 @@ module Module: Module = {
 
   let make = async method =>
     switch method {
-    | LanguageServerMule.Method.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
+    | Connection__IPC.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
     | ViaPipe(path, _, _, _) =>
       let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
       switch await ProcInfo.make(path, args) {

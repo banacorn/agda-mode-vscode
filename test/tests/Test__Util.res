@@ -264,13 +264,13 @@ let onUnix = switch N.OS.type_() {
 module AgdaMode = {
   module Error = {
     type t =
-      | ALSConnectionError(array<LanguageServerMule.Source.Error.t>)
+      | ALSConnectionError(array<Connection.Resolver.Error.t>)
       | AgdaConnectionError(Connection.Agda.Error.t)
     let toString = x =>
       switch x {
       | ALSConnectionError(errors) =>
         errors
-        ->Array.map(LanguageServerMule.Source.Error.toString)
+        ->Array.map(Connection.Resolver.Error.toString)
         ->Array.join(",")
       | AgdaConnectionError(error) =>
         let (header, body) = Connection.Agda.Error.toString(error)
@@ -279,12 +279,10 @@ module AgdaMode = {
   }
 
   let exists = async command => {
-    let (result, errors) = await LanguageServerMule.Source.Module.searchUntilSuccess([
-      FromCommand(command),
-    ])
+    let (result, errors) = await Connection.Resolver.searchUntilSuccess([FromCommand(command)])
     switch result {
     | None =>
-      let msg = errors->Array.map(LanguageServerMule.Source.Error.toString)->Array.join(",")
+      let msg = errors->Array.map(Connection.Resolver.Error.toString)->Array.join(",")
       raise(Failure("Cannot find \"agda\" in PATH: " ++ msg))
     | Some(_method) => ()
     }

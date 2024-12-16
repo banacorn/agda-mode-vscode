@@ -60,7 +60,7 @@ let showInputBoxForSwitchingAgdaVersion = async (state: State__Type.t) => {
       placeHolder: "For example: agda-2.7.0.1",
       validateInput: name => {
         let name = String.trim(name)
-        let promise = LanguageServerMule.Source.search(
+        let promise = Connection.Resolver.search(
           FromCommand(name),
         )->Promise.thenResolve(result => {
           switch result {
@@ -76,7 +76,7 @@ let showInputBoxForSwitchingAgdaVersion = async (state: State__Type.t) => {
             }
             Some(VSCode.StringOr.make(Others(msg)))
           | Error(error) =>
-            let msg = LanguageServerMule.Source.Error.toString(error)
+            let msg = Connection.Resolver.Error.toString(error)
             Some(
               VSCode.StringOr.make(String("Cannot switch Agda version '" ++ name ++ "' : " ++ msg)),
             )
@@ -169,7 +169,7 @@ let run = async state => {
   let agdaLanguageServerRepo = Connection__Probe.makeAgdaLanguageServerRepo(
     VSCode.Uri.fsPath(state.globalStorageUri),
   )
-  let (result, _isFromCache) = await LanguageServerMule.Source__GitHub.getReleaseManifest(
+  let (result, _isFromCache) = await Connection.Resolver.GitHub.getReleaseManifest(
     agdaLanguageServerRepo,
   )
   // Js.log(result)

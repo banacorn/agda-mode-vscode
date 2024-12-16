@@ -4,7 +4,7 @@ type t =
   // ALS related
   | ALS(Connection__Target__ALS__Error.t)
   //
-  | CannotAcquireHandle(string, array<LanguageServerMule.Source.Error.t>)
+  | CannotAcquireHandle(string, array<Connection__Resolver.Error.t>)
 
 let toString = x =>
   switch x {
@@ -13,6 +13,6 @@ let toString = x =>
   | CannotAcquireHandle(target, es) => (
       "Unable to find " ++ target,
       "Here are the error messages from all the attempts: \n" ++
-      es->Array.map(LanguageServerMule.Source.Error.toString)->Js.Array2.joinWith("\n"),
+      es->Array.map(Connection__Resolver.Error.toString)->Js.Array2.joinWith("\n"),
     )
   }

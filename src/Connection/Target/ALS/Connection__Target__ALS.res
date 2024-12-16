@@ -1,6 +1,6 @@
 module Scheduler = Connection__Scheduler
-module Client = LanguageServerMule.Client.LSP
 module Error = Connection__Target__ALS__Error
+module LSP = Connection__Target__ALS__LSP
 
 type version = string
 
@@ -31,7 +31,9 @@ module CommandRes = {
       switch x {
       | "CmdResACK" => Payload(string->map(version => ACK(version)))
       | "CmdRes" =>
-        Payload(option(Connection__Target__ALS__Error.CommandErr.decode)->map(error => Result(error)))
+        Payload(
+          option(Connection__Target__ALS__Error.CommandErr.decode)->map(error => Result(error)),
+        )
       | tag => raise(DecodeError("[Connection.Target.ALS.CommandRes] Unknown constructor: " ++ tag))
       }
     )
@@ -201,12 +203,12 @@ module ALSResponse = {
 
 module type Module = {
   type t = {
-    client: Client.t,
+    client: LSP.t,
     version: version,
-    method: LanguageServerMule.Method.t,
+    method: Connection__IPC.t,
   }
   // lifecycle
-  let make: Client.t => promise<result<t, Error.t>>
+  let make: LSP.t => promise<result<t, Error.t>>
   let destroy: t => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -218,9 +220,9 @@ module type Module = {
 
 module Module: Module = {
   type t = {
-    client: Client.t,
+    client: LSP.t,
     version: version,
-    method: LanguageServerMule.Method.t,
+    method: Connection__IPC.t,
   }
 
   // catches exceptions occured when decoding JSON values
@@ -237,7 +239,7 @@ module Module: Module = {
     }
 
   let sendRequestPrim = async (client, request): result<CommandRes.t, Error.t> => {
-    switch await client->Client.sendRequest(CommandReq.encode(request)) {
+    switch await client->LSP.sendRequest(CommandReq.encode(request)) {
     | Ok(json) => decodeCommandRes(json)
     | Error(error) => Error(Error.ConnectionError(error))
     | exception Exn.Error(exn) => Error(Error.ConnectionError(exn))
@@ -250,12 +252,12 @@ module Module: Module = {
     switch await sendRequestPrim(client, SYN) {
     | Error(error) => Error(error)
     | Ok(Result(_)) => Error(Error.Initialize)
-    | Ok(ACK(version)) => Ok({client, version, method: Client.getMethod(client)})
+    | Ok(ACK(version)) => Ok({client, version, method: LSP.getIPCMethod(client)})
     }
 
   // destroy the client
   let destroy = async self =>
-    switch await self.client->Client.destroy {
+    switch await self.client->LSP.destroy {
     | Ok(result) => Ok(result)
     | Error(error) => Error(Error.ConnectionError(error))
     | exception Exn.Error(exn) => Error(Error.ConnectionError(exn))
@@ -269,7 +271,7 @@ module Module: Module = {
     let (waitForResponseEnd, resolve, _) = Util.Promise_.pending()
 
     // listens for responses from Agda
-    let stopListeningForNotifications = self.client->Client.onRequest(async json => {
+    let stopListeningForNotifications = self.client->LSP.onRequest(async json => {
       switch decodeResponse(json) {
       | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
       | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)

@@ -1,27 +1,27 @@
-
-
 module Error = Connection__Error
 module Scheduler = Connection__Scheduler
 module Agda = Connection__Target__Agda
 module ALS = Connection__Target__ALS
-module LSP = LanguageServerMule.Client.LSP
+module Resolver = Connection__Resolver
+module LSP__Binding = Connection__Target__ALS__LSP__Binding
+module LSP = Connection__Target__ALS__LSP
 
 module type Module = {
   type version = string
   type status =
     | Agda(version, string) // version of Agda, path of executable
-    | ALS(version, LanguageServerMule.Method.t) // version of Agda, method of connection
+    | ALS(version, Connection__IPC.t) // version of Agda, method of connection
   // lifecycle
   let start: (
     VSCode.Uri.t,
     bool,
-    LanguageServerMule.Source.GitHub.Download.Event.t => unit,
+    Resolver.GitHub.Download.Event.t => unit,
   ) => promise<result<status, Error.t>>
   let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     VSCode.Uri.t,
-    LanguageServerMule.Source.GitHub.Download.Event.t => unit,
+    Resolver.GitHub.Download.Event.t => unit,
     bool,
     VSCode.TextDocument.t,
     Request.t,
@@ -53,12 +53,12 @@ module Module: Module = {
   type version = string
   type status =
     | Agda(version, string) // version of Agda, path of executable
-    | ALS(version, LanguageServerMule.Method.t) // version of Agda, method of connection
+    | ALS(version, Connection__IPC.t) // version of Agda, method of connection
 
   // connection -> status
   let toStatus = (conn: connection): status =>
     switch conn {
-    | ALS(conn) => ALS(conn.version, LanguageServerMule.Client.LSP.getMethod(conn.client))
+    | ALS(conn) => ALS(conn.version, LSP.getIPCMethod(conn.client))
     | Agda(conn) =>
       let (version, path) = Agda.getInfo(conn)
       Agda(version, path)
@@ -69,7 +69,10 @@ module Module: Module = {
     | Some(conn) => Ok(toStatus(conn))
     | None =>
       if useALS {
-        let (result, errors) = await Connection__Probe.probeLSP(VSCode.Uri.toString(globalStorageUri), onDownload)
+        let (result, errors) = await Connection__Probe.probeLSP(
+          VSCode.Uri.toString(globalStorageUri),
+          onDownload,
+        )
         switch result {
         | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
         | Some(method) =>
@@ -85,7 +88,7 @@ module Module: Module = {
             switch await ALS.make(conn) {
             | Error(error) => Error(ALS(error))
             | Ok(conn) =>
-              let method = LanguageServerMule.Client.LSP.getMethod(conn.client)
+              let method = LSP.getIPCMethod(conn.client)
               singleton := Some(ALS(conn))
               Ok(ALS(conn.version, method))
             }
@@ -165,8 +168,7 @@ module Module: Module = {
     | None =>
       switch await start(globalStorageUri, useALS, onDownload) {
       | Error(error) => Error(error)
-      | Ok(_) =>
-        await sendRequest(globalStorageUri, onDownload, useALS, document, request, handler)
+      | Ok(_) => await sendRequest(globalStorageUri, onDownload, useALS, document, request, handler)
       }
     }
   }
