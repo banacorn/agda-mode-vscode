@@ -3,7 +3,7 @@ type source =
   | FromFile(string) // path of the program
   | FromCommand(string) // name of the command
   | FromTCP(int, string) // port, host
-  | FromGitHub(Connection__Method__GitHub.Repo.t, Connection__Method__GitHub.Release.t, Connection__Method__GitHub.Asset.t)
+  | FromGitHub(Connection__Resolver__GitHub.Repo.t, Connection__Resolver__GitHub.Release.t, Connection__Resolver__GitHub.Asset.t)
 
 let sourceToString = source =>
   switch source {
@@ -12,11 +12,11 @@ let sourceToString = source =>
   | FromTCP(port, host) => "TCP: " ++ string_of_int(port) ++ " " ++ host
   | FromGitHub(repo, release, asset) =>
     "GitHub: " ++
-    Connection__Method__GitHub.Repo.toString(repo) ++
+    Connection__Resolver__GitHub.Repo.toString(repo) ++
     " " ++
-    Connection__Method__GitHub.Release.toString(release) ++
+    Connection__Resolver__GitHub.Release.toString(release) ++
     " " ++
-    Connection__Method__GitHub.Asset.toString(asset)
+    Connection__Resolver__GitHub.Asset.toString(asset)
   }
 
 // Means of Inter-process communication

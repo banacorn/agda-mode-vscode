@@ -1,10 +1,10 @@
 module LSP = Connection__Target__ALS__LSP__Binding
-module Method = Connection__Method
+module IPC = Connection__IPC
 
 module type Module = {
   type t
   // lifecycle
-  let make: (string, string, Method.t, Js.Json.t) => promise<result<t, Js.Exn.t>>
+  let make: (string, string, IPC.t, Js.Json.t) => promise<result<t, Js.Exn.t>>
   let destroy: t => promise<result<unit, Js.Exn.t>>
   // request / notification / error
   let sendRequest: (t, Js.Json.t) => promise<result<Js.Json.t, Js.Exn.t>>
@@ -16,7 +16,7 @@ module type Module = {
   let getNotificationChan: t => Chan.t<Js.Json.t>
   let getErrorChan: t => Chan.t<Js.Exn.t>
   // properties
-  let getMethod: t => Method.t
+  let getIPCMethod: t => IPC.t
 }
 
 let fromJsPromise = async (promise: promise<'t>): result<'t, Js.Exn.t> =>
@@ -32,7 +32,7 @@ module Module: Module = {
     client: LSP.LanguageClient.t,
     id: string, // language id, also for identifying custom methods
     name: string, // name for the language server client
-    method: Method.t,
+    method: IPC.t,
     // event emitters
     errorChan: Chan.t<Js.Exn.t>,
     notificationChan: Chan.t<Js.Json.t>,
@@ -73,7 +73,7 @@ module Module: Module = {
     let errorChan = Chan.make()
 
     let serverOptions = switch method {
-    | Method.ViaTCP(port, host, _) => LSP.ServerOptions.makeWithStreamInfo(port, host)
+    | IPC.ViaTCP(port, host, _) => LSP.ServerOptions.makeWithStreamInfo(port, host)
     | ViaPipe(path, args, options, _) => LSP.ServerOptions.makeWithCommand(path, args, options)
     }
 
@@ -136,7 +136,7 @@ module Module: Module = {
     }
   }
 
-  let getMethod = conn => conn.method
+  let getIPCMethod = conn => conn.method
 }
 
 include Module

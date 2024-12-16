@@ -262,6 +262,14 @@ module Promise_ = {
     | result => Ok(result)
     | exception Js.Exn.Error(e) => Error(e)
     }
+
+
+  let setTimeout = async time => {
+    let (promise, resolve, _) = pending()
+    let id = Js.Global.setTimeout(resolve, time)
+    await promise
+    Js.Global.clearTimeout(id)
+  }
 }
 
 module String = {

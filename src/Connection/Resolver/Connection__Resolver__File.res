@@ -1,0 +1,1 @@
+let probe = NodeJs.Fs.existsSync 

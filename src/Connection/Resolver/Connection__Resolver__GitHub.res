@@ -1,5 +1,5 @@
-module Unzip = Connection__Method__GitHub__Unzip
-module Download = Connection__Method__GitHub__Download
+module Unzip = Connection__Resolver__GitHub__Unzip
+module Download = Connection__Resolver__GitHub__Download
 
 module Nd = {
   module Fs = {
