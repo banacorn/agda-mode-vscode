@@ -2,15 +2,15 @@
 
 module Error = Connection__Error
 module Scheduler = Connection__Scheduler
-module Emacs = Connection__Target__Agda
+module Agda = Connection__Target__Agda
 module ALS = Connection__Target__ALS
 module LSP = LanguageServerMule.Client.LSP
 
 module type Module = {
   type version = string
   type status =
-    | Emacs(version, string) // version of Agda, path of executable
-    | LSP(version, LanguageServerMule.Method.t) // version of Agda, method of connection
+    | Agda(version, string) // version of Agda, path of executable
+    | ALS(version, LanguageServerMule.Method.t) // version of Agda, method of connection
   // lifecycle
   let start: (
     VSCode.Uri.t,
@@ -47,28 +47,28 @@ module Module: Module = {
   }
 
   // internal state singleton
-  type connection = Emacs(Emacs.t) | LSP(ALS.t)
+  type connection = Agda(Agda.t) | ALS(ALS.t)
   let singleton: ref<option<connection>> = ref(None)
 
   type version = string
   type status =
-    | Emacs(version, string) // version of Agda, path of executable
-    | LSP(version, LanguageServerMule.Method.t) // version of Agda, method of connection
+    | Agda(version, string) // version of Agda, path of executable
+    | ALS(version, LanguageServerMule.Method.t) // version of Agda, method of connection
 
   // connection -> status
   let toStatus = (conn: connection): status =>
     switch conn {
-    | LSP(conn) => LSP(conn.version, LanguageServerMule.Client.LSP.getMethod(conn.client))
-    | Emacs(conn) =>
-      let (version, path) = Emacs.getInfo(conn)
-      Emacs(version, path)
+    | ALS(conn) => ALS(conn.version, LanguageServerMule.Client.LSP.getMethod(conn.client))
+    | Agda(conn) =>
+      let (version, path) = Agda.getInfo(conn)
+      Agda(version, path)
     }
 
-  let start = async (globalStorageUri, useLSP, onDownload) =>
+  let start = async (globalStorageUri, useALS, onDownload) =>
     switch singleton.contents {
     | Some(conn) => Ok(toStatus(conn))
     | None =>
-      if useLSP {
+      if useALS {
         let (result, errors) = await Connection__Probe.probeLSP(VSCode.Uri.toString(globalStorageUri), onDownload)
         switch result {
         | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
@@ -79,15 +79,15 @@ module Module: Module = {
             method,
             InitOptions.getFromConfig(),
           ) {
-          | Error(error) => Error(LSP(ALS.Error.ConnectionError(error)))
-          | exception Exn.Error(error) => Error(LSP(ALS.Error.ConnectionError(error)))
+          | Error(error) => Error(ALS(ALS.Error.ConnectionError(error)))
+          | exception Exn.Error(error) => Error(ALS(ALS.Error.ConnectionError(error)))
           | Ok(conn) =>
             switch await ALS.make(conn) {
-            | Error(error) => Error(LSP(error))
+            | Error(error) => Error(ALS(error))
             | Ok(conn) =>
               let method = LanguageServerMule.Client.LSP.getMethod(conn.client)
-              singleton := Some(LSP(conn))
-              Ok(LSP(conn.version, method))
+              singleton := Some(ALS(conn))
+              Ok(ALS(conn.version, method))
             }
           }
         }
@@ -98,12 +98,12 @@ module Module: Module = {
           let name = Config.Connection.getAgdaVersion()
           Error(Error.CannotAcquireHandle(name, errors))
         | Some(method) =>
-          switch await Emacs.make(method) {
-          | Error(error) => Error(Error.Emacs(error))
+          switch await Agda.make(method) {
+          | Error(error) => Error(Error.Agda(error))
           | Ok(conn) =>
-            singleton := Some(Emacs(conn))
-            let (version, path) = Emacs.getInfo(conn)
-            Ok(Emacs(version, path))
+            singleton := Some(Agda(conn))
+            let (version, path) = Agda.getInfo(conn)
+            Ok(Agda(version, path))
           }
         }
       }
@@ -112,14 +112,14 @@ module Module: Module = {
   let stop = async () =>
     switch singleton.contents {
     | None => Ok()
-    | Some(Emacs(conn)) =>
+    | Some(Agda(conn)) =>
       singleton := None
-      await Emacs.destroy(conn)
+      await Agda.destroy(conn)
       Ok()
-    | Some(LSP(conn)) =>
+    | Some(ALS(conn)) =>
       singleton := None
       switch await ALS.destroy(conn) {
-      | Error(error) => Error(Error.LSP(error))
+      | Error(error) => Error(Error.ALS(error))
       | Ok(_) => Ok()
       }
     }
@@ -127,7 +127,7 @@ module Module: Module = {
   let rec sendRequest = async (
     globalStorageUri,
     onDownload,
-    useLSP,
+    useALS,
     document,
     request,
     handler,
@@ -142,31 +142,31 @@ module Module: Module = {
     }
 
     switch singleton.contents {
-    | Some(LSP(conn)) =>
-      let handler = x => x->Util.Result.mapError(err => Error.LSP(err))->handler
+    | Some(ALS(conn)) =>
+      let handler = x => x->Util.Result.mapError(err => Error.ALS(err))->handler
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.version), handler) {
       | Error(error) =>
         // stop the connection on error
         let _ = await stop()
-        Error(Error.LSP(error))
-      | Ok(_) => Ok(toStatus(LSP(conn)))
+        Error(Error.ALS(error))
+      | Ok(_) => Ok(toStatus(ALS(conn)))
       }
 
-    | Some(Emacs(conn)) =>
-      let (version, _path) = Emacs.getInfo(conn)
-      let handler = x => x->Util.Result.mapError(err => Error.Emacs(err))->handler
-      switch await Emacs.sendRequest(conn, encodeRequest(document, version), handler) {
+    | Some(Agda(conn)) =>
+      let (version, _path) = Agda.getInfo(conn)
+      let handler = x => x->Util.Result.mapError(err => Error.Agda(err))->handler
+      switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
         let _ = await stop()
-        Error(Error.Emacs(error))
-      | Ok(_) => Ok(toStatus(Emacs(conn)))
+        Error(Error.Agda(error))
+      | Ok(_) => Ok(toStatus(Agda(conn)))
       }
     | None =>
-      switch await start(globalStorageUri, useLSP, onDownload) {
+      switch await start(globalStorageUri, useALS, onDownload) {
       | Error(error) => Error(error)
       | Ok(_) =>
-        await sendRequest(globalStorageUri, onDownload, useLSP, document, request, handler)
+        await sendRequest(globalStorageUri, onDownload, useALS, document, request, handler)
       }
     }
   }

@@ -68,8 +68,8 @@ let sendRequest = (
         await View.Panel.displayConnectionStatus(state, status)
         // update the Agda version
         switch status {
-        | Emacs(version, _) => state.agdaVersion = Some(version)
-        | LSP(version, _) => state.agdaVersion = Some(version)
+        | Agda(version, _) => state.agdaVersion = Some(version)
+        | ALS(version, _) => state.agdaVersion = Some(version)
         }
       }
       await responseHandlerPromise

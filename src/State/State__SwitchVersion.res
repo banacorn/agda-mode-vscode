@@ -21,9 +21,9 @@ let switchAgdaVersion = async (state, newAgdaVersion) => {
   // stop the old connection
   let _ = await Connection.stop()
   switch await Connection.start(state.globalStorageUri, useLSP, State.onDownload(state, ...)) {
-  | Ok(Emacs(version, path)) =>
+  | Ok(Agda(version, path)) =>
     // update the connection status
-    await State.View.Panel.displayStatus(state, "Emacs v" ++ version)
+    await State.View.Panel.displayStatus(state, "Agda v" ++ version)
     await State.View.Panel.display(
       state,
       View.Header.Success("Switched to version '" ++ version ++ "'"),
@@ -32,11 +32,11 @@ let switchAgdaVersion = async (state, newAgdaVersion) => {
 
     // update the state.agdaVersion to the new version
     state.agdaVersion = Some(version)
-  | Ok(LSP(version, _)) =>
+  | Ok(ALS(version, _)) =>
     // should not happen
     await State.View.Panel.display(
       state,
-      View.Header.Success("Panic, Switched to LSP server '" ++ version ++ "'"),
+      View.Header.Success("Panic, Switched to ALS '" ++ version ++ "'"),
       [Item.plainText("Should have switched to an Agda executable, please file an issue")],
     )
   | Error(error) =>

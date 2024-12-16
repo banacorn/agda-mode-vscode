@@ -51,11 +51,11 @@ module Panel: Panel = {
   let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
   let displayConnectionStatus = (state, status) =>
     switch status {
-    | Connection.Emacs(version, _) => displayStatus(state, "Emacs v" ++ version)
-    | LSP(version, ViaPipe(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
+    | Connection.Agda(version, _) => displayStatus(state, "Agda v" ++ version)
+    | ALS(version, ViaPipe(_, _, _, LanguageServerMule.Method.FromGitHub(_, release, _))) =>
       displayStatus(state, "ALS prebuilt " ++ release.tag_name ++ " (Agda v" ++ version ++ ")")
-    | LSP(version, ViaPipe(_)) => displayStatus(state, "ALS v" ++ version)
-    | LSP(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
+    | ALS(version, ViaPipe(_)) => displayStatus(state, "ALS v" ++ version)
+    | ALS(_, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
     }
 
   // update the Input Method

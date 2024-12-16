@@ -264,17 +264,17 @@ let onUnix = switch N.OS.type_() {
 module AgdaMode = {
   module Error = {
     type t =
-      | LanguageServerMuleErrors(array<LanguageServerMule.Source.Error.t>)
-      | EmacsConnectionError(Connection.Emacs.Error.t)
+      | ALSConnectionError(array<LanguageServerMule.Source.Error.t>)
+      | AgdaConnectionError(Connection.Agda.Error.t)
     let toString = x =>
       switch x {
-      | LanguageServerMuleErrors(errors) =>
+      | ALSConnectionError(errors) =>
         errors
         ->Array.map(LanguageServerMule.Source.Error.toString)
         ->Array.join(",")
-      | EmacsConnectionError(error) =>
-        let (header, body) = Connection.Emacs.Error.toString(error)
-        "EmacsConnectionError: " ++ header ++ ": " ++ body
+      | AgdaConnectionError(error) =>
+        let (header, body) = Connection.Agda.Error.toString(error)
+        "AgdaConnectionError: " ++ header ++ ": " ++ body
       }
   }
 
