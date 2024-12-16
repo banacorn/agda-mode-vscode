@@ -260,19 +260,17 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri) =>
         #Others(None),
       )
     let editorFontSizeChanged =
-          event->VSCode.ConfigurationChangeEvent.affectsConfiguration(
-            "editor.fontSize",
-            #Others(None),
-          )
+      event->VSCode.ConfigurationChangeEvent.affectsConfiguration("editor.fontSize", #Others(None))
+
     // if so, update the font size in the view
     if agdaModeFontSizeChanged || editorFontSizeChanged {
       let newFontSize = Config.Buffer.getFontSize()
       // find any existing State, so that we can update the font size in the view
       switch Registry.getAll()[0] {
       | None => ()
-      | Some(state) => 
-          // panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
-          state->State__View.Panel.setFontSize(newFontSize)->Promise.done
+      | Some(state) =>
+        // panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
+        state->State__View.Panel.setFontSize(newFontSize)->Promise.done
       }
     }
   })->subscribe
@@ -330,7 +328,17 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri) =>
 let activate = context => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
-  let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
+
+  let globalStorageUri =
+    context
+    ->VSCode.ExtensionContext.globalStorageUri
+    ->VSCode.Uri.with_({
+      "authority": None,
+      "fragment": None,
+      "path": None,
+      "prompt": None,
+      "scheme": Some("file"),
+    })
   activateWithoutContext(subscriptions, extensionPath, globalStorageUri)
 }
 

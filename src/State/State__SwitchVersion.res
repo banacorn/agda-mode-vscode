@@ -1,12 +1,5 @@
-let openGlobalStorage = async state => {
-  let uri = state.State__Type.globalStorageUri->VSCode.Uri.with_({
-    "authority": None,
-    "fragment": None,
-    "path": None,
-    "prompt": None,
-    "scheme": Some("file"),
-  })
-  let _result = await VSCode.Env.openExternal(uri)
+let openGlobalStorageFolder = async (state: State__Type.t) => {
+  let _result = await VSCode.Env.openExternal(state.globalStorageUri)
 }
 
 let switchAgdaVersion = async (state, newAgdaVersion) => {
@@ -58,8 +51,7 @@ let switchAgdaVersion = async (state, newAgdaVersion) => {
   }
 }
 
-
-let switchAgdaVersionOld2 = async (state: State__Type.t) => {
+let showInputBoxForSwitchingAgdaVersion = async (state: State__Type.t) => {
   let existingAgdaVersion = Config.Connection.getAgdaVersion()
 
   let result = await VSCode.Window.showInputBox(
@@ -96,17 +88,17 @@ let switchAgdaVersionOld2 = async (state: State__Type.t) => {
   )
 
   switch result {
-    | None => ()
-    | Some(result) => 
-        let newAgdaVersion = String.trim(result)
-        await switchAgdaVersion(state, newAgdaVersion)
+  | None => ()
+  | Some(result) =>
+    let newAgdaVersion = String.trim(result)
+    await switchAgdaVersion(state, newAgdaVersion)
   }
 }
 
 let handleSelection = async (state, selection: VSCode.QuickPickItem.t) => {
   switch selection.label {
-  | "Open download folder" => await openGlobalStorage(state)
-  | "Change Agda command name" => await switchAgdaVersionOld2(state)
+  | "Open download folder" => await openGlobalStorageFolder(state)
+  | "Change Agda command name" => await showInputBoxForSwitchingAgdaVersion(state)
   | _ => Js.log("Unknown selection")
   }
 }
@@ -115,21 +107,15 @@ let run = async state => {
   let quickPick = VSCode.Window.createQuickPick()
   let subscriptions = []
 
+  // set placeholder
   quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
-  quickPick->VSCode.QuickPick.setItems([
-    // {
-    //   VSCode.QuickPickItem.label: "Language Servers",
-    //   kind: Separator,
-    // },
-    // {
-    //   VSCode.QuickPickItem.label: "2.6.3",
-    //   description: "The previous version of Agda",
-    // },
-    // {
-    //   VSCode.QuickPickItem.label: "Other operations",
-    //   kind: Separator,
-    // },
+  // items to show
+  let otherItems = [
+    {
+      VSCode.QuickPickItem.label: "Other operations",
+      kind: Separator,
+    },
     {
       VSCode.QuickPickItem.label: "Change Agda command name",
       description: "Execute Agda with given command name",
@@ -138,7 +124,7 @@ let run = async state => {
       VSCode.QuickPickItem.label: "Open download folder",
       description: "Where the language servers are downloaded",
     },
-  ])
+  ]
 
   // quickPick
   // ->VSCode.QuickPick.onDidChangeActive(items => Js.log2("onDidChangeActive", items))
@@ -172,5 +158,42 @@ let run = async state => {
   })
   ->Util.Disposable.add(subscriptions)
 
-  quickPick->VSCode.QuickPick.show
+  let showItems = items => {
+    quickPick->VSCode.QuickPick.setItems(items)
+    quickPick->VSCode.QuickPick.show
+  }
+
+  showItems(Array.flat([otherItems]))
+
+  // fetch the latest release manifest of the language server and show them
+  let agdaLanguageServerRepo = Connection__Probe.makeAgdaLanguageServerRepo(
+    VSCode.Uri.fsPath(state.globalStorageUri),
+  )
+  let (result, _isFromCache) = await LanguageServerMule.Source__GitHub.getReleaseManifest(
+    agdaLanguageServerRepo,
+  )
+  // Js.log(result)
+  let languageServerItemsSeparator = [
+    {
+      VSCode.QuickPickItem.label: "Language Servers",
+      kind: Separator,
+    },
+  ]
+  let languageServerItems = switch result {
+  | Ok(releases) =>
+    releases->Array.map(release => {
+      let version = release.tag_name
+      let description = switch release.body {
+      | Some(body) => body
+      | None => "No description"
+      }
+      let label = "Agda Language Server " ++ version
+      {
+        VSCode.QuickPickItem.label,
+        description,
+      }
+    })
+  | Error(_) => []
+  }
+  showItems(Array.flat([languageServerItemsSeparator, languageServerItems, otherItems]))
 }

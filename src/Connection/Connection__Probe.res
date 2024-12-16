@@ -25,6 +25,13 @@ let afterDownload = async (isCached, (path, target)) => {
   Ok((execPath, [], Some(options), target))
 }
 
+let makeAgdaLanguageServerRepo: string => Repo.t = globalStoragePath => {
+  username: "agda",
+  repository: "agda-language-server",
+  userAgent: "agda/agda-mode-vscode",
+  globalStoragePath,
+  cacheInvalidateExpirationSecs: 86400,
+}
 
 // see if the server is available
 // priorities: TCP => Prebuilt => StdIO
@@ -38,47 +45,45 @@ let probeLSP = async (globalStoragePath, onDownload) => {
     // #71: Prefer locally installed language server binary over bundled als
     // https://github.com/banacorn/agda-mode-vscode/issues/71
     Source.FromCommand(name),
-    Source.FromGitHub({
-      username: "agda",
-      repository: "agda-language-server",
-      userAgent: "agda/agda-mode-vscode",
-      globalStoragePath,
-      chooseFromReleases: releases => {
-        let platform = switch NodeJs.Os.platform() {
-        | "darwin" =>
-          switch Node__OS.arch() {
-          | "x64" => Some("macos-x64")
-          | "arm64" => Some("macos-arm64")
+    Source.FromGitHub(
+      makeAgdaLanguageServerRepo(globalStoragePath),
+      {
+        chooseFromReleases: releases => {
+          let platform = switch NodeJs.Os.platform() {
+          | "darwin" =>
+            switch Node__OS.arch() {
+            | "x64" => Some("macos-x64")
+            | "arm64" => Some("macos-arm64")
+            | _ => None
+            }
+          | "linux" => Some("ubuntu")
+          | "win32" => Some("windows")
           | _ => None
           }
-        | "linux" => Some("ubuntu")
-        | "win32" => Some("windows")
-        | _ => None
-        }
-        switch Release.chooseLatest(releases) {
-        | Some(release) =>
-          switch platform {
-          | Some(name) =>
-            let expectedAssetName = "als-" ++ name ++ ".zip"
-            switch release.assets->Asset.chooseByName(expectedAssetName) {
-            | Some(asset) =>
-              Some({
-                saveAsFileName: release.tag_name ++ "-" ++ name,
-                release,
-                asset,
-              })
+          switch Release.chooseLatest(releases) {
+          | Some(release) =>
+            switch platform {
+            | Some(name) =>
+              let expectedAssetName = "als-" ++ name ++ ".zip"
+              switch release.assets->Asset.chooseByName(expectedAssetName) {
+              | Some(asset) =>
+                Some({
+                  saveAsFileName: release.tag_name ++ "-" ++ name,
+                  release,
+                  asset,
+                })
+              | None => None
+              }
             | None => None
             }
           | None => None
           }
-        | None => None
-        }
+        },
+        onDownload,
+        afterDownload,
+        log: x => Js.log(x),
       },
-      onDownload,
-      afterDownload,
-      log: x => Js.log(x),
-      cacheInvalidateExpirationSecs: 86400,
-    }),
+    ),
   ])
 }
 
