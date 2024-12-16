@@ -14,7 +14,7 @@ module DisplayInfo = {
       await State.View.Panel.display(state, Plain(header), body)
     | CompilationOk(body) =>
       await State.View.Panel.display(state, Success("Compilation result"), [Item.plainText(body)])
-    | CompilationOkLSP(warnings, errors) =>
+    | CompilationOkALS(warnings, errors) =>
       let message = [Item.plainText("The module was successfully compiled.")]
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
@@ -31,7 +31,7 @@ module DisplayInfo = {
     | AllGoalsWarnings(header, body) =>
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.render
       await State.View.Panel.display(state, Plain(header), items)
-    | AllGoalsWarningsLSP(header, goals, metas, warnings, errors) =>
+    | AllGoalsWarningsALS(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
       await State.View.Panel.display(
@@ -66,12 +66,12 @@ module DisplayInfo = {
     | GoalType(body) =>
       let items = Emacs__Parser2.parseGoalType(body)->Emacs__Parser2.render
       await State.View.Panel.display(state, Plain("Goal and Context"), items)
-    | CurrentGoalLSP(item) => await State.View.Panel.display(state, Plain("Current Goal"), [item])
+    | CurrentGoalALS(item) => await State.View.Panel.display(state, Plain("Current Goal"), [item])
     | CurrentGoal(payload) =>
       await State.View.Panel.display(state, Plain("Current Goal"), [Item.plainText(payload)])
     | InferredType(payload) =>
       await State.View.Panel.display(state, Plain("Inferred type"), [Item.plainText(payload)])
-    | InferredTypeLSP(item) => await State.View.Panel.display(state, Plain("Inferred type"), [item])
+    | InferredTypeALS(item) => await State.View.Panel.display(state, Plain("Inferred type"), [item])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
       await State.View.Panel.display(state, Plain("Context"), items)

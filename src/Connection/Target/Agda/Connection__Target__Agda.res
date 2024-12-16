@@ -1,4 +1,4 @@
-module Error = Connection__Emacs__Error
+module Error = Connection__Target__Agda__Error
 module Scheduler = Connection__Scheduler
 module Process = LanguageServerMule.Client.Process
 

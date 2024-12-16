@@ -1,5 +1,5 @@
-module Unzip = Connection__GitHub__Unzip
-module Download = Connection__GitHub__Download
+module Unzip = Connection__Method__GitHub__Unzip
+module Download = Connection__Method__GitHub__Download
 
 module Nd = {
   module Fs = {
@@ -412,7 +412,7 @@ module Callbacks = {
       (string, Target.t),
     ) => promise<
       result<
-        (string, array<string>, option<Connection__LSP__Binding.executableOptions>, Target.t),
+        (string, array<string>, option<Connection__Target__ALS__LSP__Binding.executableOptions>, Target.t),
         Error.t,
       >,
     >,

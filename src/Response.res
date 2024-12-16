@@ -30,10 +30,10 @@ module DisplayInfo = {
   type t =
     | Generic(string, array<Item.t>)
     | CompilationOk(string)
-    | CompilationOkLSP(array<string>, array<string>)
+    | CompilationOkALS(array<string>, array<string>)
     | Constraints(option<string>)
     | AllGoalsWarnings(string, string)
-    | AllGoalsWarningsLSP(string, array<Item.t>, array<Item.t>, array<string>, array<string>)
+    | AllGoalsWarningsALS(string, array<Item.t>, array<Item.t>, array<string>, array<string>)
     | Time(string)
     | Error(string)
     | Intro(string)
@@ -44,9 +44,9 @@ module DisplayInfo = {
     | NormalForm(string)
     | GoalType(string)
     | CurrentGoal(string)
-    | CurrentGoalLSP(Item.t)
+    | CurrentGoalALS(Item.t)
     | InferredType(string)
-    | InferredTypeLSP(Item.t)
+    | InferredTypeALS(Item.t)
     | Context(string)
     | HelperFunction(string)
     | Version(string)
@@ -54,12 +54,12 @@ module DisplayInfo = {
     switch x {
     | Generic(header, _body) => header
     | CompilationOk(string) => "CompilationOk " ++ string
-    | CompilationOkLSP(_warnings, _errors) => "[LSP] CompilationOk"
+    | CompilationOkALS(_warnings, _errors) => "[ALS] CompilationOk"
     | Constraints(None) => "Constraints"
     | Constraints(Some(string)) => "Constraints " ++ string
     | AllGoalsWarnings(title, _body) => "AllGoalsWarnings " ++ title
-    | AllGoalsWarningsLSP(header, _goals, _metas, _warnings, _errors) =>
-      "[LSP] AllGoalsWarnings " ++ header
+    | AllGoalsWarningsALS(header, _goals, _metas, _warnings, _errors) =>
+      "[ALS] AllGoalsWarnings " ++ header
     | Time(string) => "Time " ++ string
     | Error(string) => "Error " ++ string
     | Intro(string) => "Intro " ++ string
@@ -70,9 +70,9 @@ module DisplayInfo = {
     | NormalForm(string) => "NormalForm " ++ string
     | GoalType(string) => "GoalType " ++ string
     | CurrentGoal(string) => "CurrentGoal " ++ string
-    | CurrentGoalLSP(_item) => "[LSP] CurrentGoal"
+    | CurrentGoalALS(_item) => "[ALS] CurrentGoal"
     | InferredType(string) => "InferredType " ++ string
-    | InferredTypeLSP(_item) => "InferredType "
+    | InferredTypeALS(_item) => "InferredType "
     | Context(string) => "Context " ++ string
     | HelperFunction(string) => "HelperFunction " ++ string
     | Version(string) => "Version " ++ string

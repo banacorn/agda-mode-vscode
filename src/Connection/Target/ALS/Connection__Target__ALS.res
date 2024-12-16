@@ -1,6 +1,6 @@
 module Scheduler = Connection__Scheduler
 module Client = LanguageServerMule.Client.LSP
-module Error = Connection__LSP__Error
+module Error = Connection__Target__ALS__Error
 
 type version = string
 
@@ -21,7 +21,7 @@ module CommandReq = {
 module CommandRes = {
   type t =
     | ACK(version)
-    | Result(option<Connection__LSP__Error.CommandErr.t>)
+    | Result(option<Connection__Target__ALS__Error.CommandErr.t>)
 
   let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
 
@@ -31,14 +31,14 @@ module CommandRes = {
       switch x {
       | "CmdResACK" => Payload(string->map(version => ACK(version)))
       | "CmdRes" =>
-        Payload(option(Connection__LSP__Error.CommandErr.decode)->map(error => Result(error)))
-      | tag => raise(DecodeError("[Connection.LSP.CommandRes] Unknown constructor: " ++ tag))
+        Payload(option(Connection__Target__ALS__Error.CommandErr.decode)->map(error => Result(error)))
+      | tag => raise(DecodeError("[Connection.Target.ALS.CommandRes] Unknown constructor: " ++ tag))
       }
     )
   }
 }
 
-module LSPResponse = {
+module ALSResponse = {
   module DisplayInfo = {
     type t =
       | Generic(string, array<Item.t>)
@@ -88,7 +88,7 @@ module LSPResponse = {
         | "DisplayInfoError" => Payload(string->map(body => Error'(body)))
         | "DisplayInfoTime" => Payload(string->map(body => Time(body)))
         | "DisplayInfoNormalForm" => Payload(string->map(body => NormalForm(body)))
-        | tag => raise(DecodeError("[LSP.DisplayInfo] Unknown constructor: " ++ tag))
+        | tag => raise(DecodeError("[ALS.DisplayInfo] Unknown constructor: " ++ tag))
         }
       )
     }
@@ -130,12 +130,12 @@ module LSPResponse = {
             | Generic(header, body) => ResponseNonLast(DisplayInfo(Generic(header, body)))
             | AllGoalsWarnings(header, goals, metas, warnings, errors) =>
               ResponseNonLast(
-                Response.DisplayInfo(AllGoalsWarningsLSP(header, goals, metas, warnings, errors)),
+                Response.DisplayInfo(AllGoalsWarningsALS(header, goals, metas, warnings, errors)),
               )
-            | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalLSP(item)))
-            | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeLSP(item)))
+            | CurrentGoal(item) => ResponseNonLast(Response.DisplayInfo(CurrentGoalALS(item)))
+            | InferredType(item) => ResponseNonLast(Response.DisplayInfo(InferredTypeALS(item)))
             | CompilationOk(warnings, errors) =>
-              ResponseNonLast(Response.DisplayInfo(CompilationOkLSP(warnings, errors)))
+              ResponseNonLast(Response.DisplayInfo(CompilationOkALS(warnings, errors)))
             | Auto(body) => ResponseNonLast(Response.DisplayInfo(Auto(body)))
             | Error'(body) => ResponseNonLast(Response.DisplayInfo(Error(body)))
             | Time(body) => ResponseNonLast(Response.DisplayInfo(Time(body)))
@@ -193,7 +193,7 @@ module LSPResponse = {
           )),
         )
       | "ResponseEnd" => TagOnly(ResponseEnd)
-      | tag => raise(DecodeError("[LSP.Response] Unknown constructor: " ++ tag))
+      | tag => raise(DecodeError("[ALS.Response] Unknown constructor: " ++ tag))
       }
     )
   }
@@ -230,8 +230,8 @@ module Module: Module = {
     | Error(msg) => Error(CannotDecodeCommandRes(msg, json))
     }
 
-  let decodeResponse = (json: JSON.t): result<LSPResponse.t, Error.t> =>
-    switch JsonCombinators.Json.decode(json, LSPResponse.decode) {
+  let decodeResponse = (json: JSON.t): result<ALSResponse.t, Error.t> =>
+    switch JsonCombinators.Json.decode(json, ALSResponse.decode) {
     | Ok(reaction) => Ok(reaction)
     | Error(msg) => Error(CannotDecodeResponse(msg, json))
     }
@@ -244,7 +244,7 @@ module Module: Module = {
     }
   }
 
-  // start the LSP client
+  // start the ALS client
   let make = async client =>
     // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
     switch await sendRequestPrim(client, SYN) {

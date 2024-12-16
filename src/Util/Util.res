@@ -256,6 +256,12 @@ module Promise_ = {
     | _ => raise(Failure("Promise is not initialized"))
     }
   }
+
+  let catch = async f =>
+    switch await f() {
+    | result => Ok(result)
+    | exception Js.Exn.Error(e) => Error(e)
+    }
 }
 
 module String = {

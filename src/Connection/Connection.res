@@ -1,7 +1,10 @@
+
+
 module Error = Connection__Error
 module Scheduler = Connection__Scheduler
-module Emacs = Connection__Emacs
-module LSP = Connection__LSP
+module Emacs = Connection__Target__Agda
+module ALS = Connection__Target__ALS
+module LSP = LanguageServerMule.Client.LSP
 
 module type Module = {
   type version = string
@@ -44,7 +47,7 @@ module Module: Module = {
   }
 
   // internal state singleton
-  type connection = Emacs(Emacs.t) | LSP(LSP.t)
+  type connection = Emacs(Emacs.t) | LSP(ALS.t)
   let singleton: ref<option<connection>> = ref(None)
 
   type version = string
@@ -70,16 +73,16 @@ module Module: Module = {
         switch result {
         | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
         | Some(method) =>
-          switch await LSP.Client.make(
+          switch await LSP.make(
             "agda",
             "Agda Language Server",
             method,
             InitOptions.getFromConfig(),
           ) {
-          | Error(error) => Error(LSP(LSP.Error.ConnectionError(error)))
-          | exception Exn.Error(error) => Error(LSP(LSP.Error.ConnectionError(error)))
+          | Error(error) => Error(LSP(ALS.Error.ConnectionError(error)))
+          | exception Exn.Error(error) => Error(LSP(ALS.Error.ConnectionError(error)))
           | Ok(conn) =>
-            switch await LSP.make(conn) {
+            switch await ALS.make(conn) {
             | Error(error) => Error(LSP(error))
             | Ok(conn) =>
               let method = LanguageServerMule.Client.LSP.getMethod(conn.client)
@@ -115,7 +118,7 @@ module Module: Module = {
       Ok()
     | Some(LSP(conn)) =>
       singleton := None
-      switch await LSP.destroy(conn) {
+      switch await ALS.destroy(conn) {
       | Error(error) => Error(Error.LSP(error))
       | Ok(_) => Ok()
       }
@@ -141,7 +144,7 @@ module Module: Module = {
     switch singleton.contents {
     | Some(LSP(conn)) =>
       let handler = x => x->Util.Result.mapError(err => Error.LSP(err))->handler
-      switch await LSP.sendRequest(conn, encodeRequest(document, conn.version), handler) {
+      switch await ALS.sendRequest(conn, encodeRequest(document, conn.version), handler) {
       | Error(error) =>
         // stop the connection on error
         let _ = await stop()
