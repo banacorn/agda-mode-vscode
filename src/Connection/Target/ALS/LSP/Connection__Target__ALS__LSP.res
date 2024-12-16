@@ -15,8 +15,6 @@ module type Module = {
   // channels for notification & error
   let getNotificationChan: t => Chan.t<Js.Json.t>
   let getErrorChan: t => Chan.t<Js.Exn.t>
-  // properties
-  let getIPCMethod: t => IPC.t
 }
 
 let fromJsPromise = async (promise: promise<'t>): result<'t, Js.Exn.t> =>
@@ -135,8 +133,6 @@ module Module: Module = {
     | Ok() => Ok(self)
     }
   }
-
-  let getIPCMethod = conn => conn.method
 }
 
 include Module

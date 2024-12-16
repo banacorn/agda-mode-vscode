@@ -1,10 +1,7 @@
 module Error = Connection__Error
-module Scheduler = Connection__Scheduler
 module Agda = Connection__Target__Agda
 module ALS = Connection__Target__ALS
 module Resolver = Connection__Resolver
-module LSP__Binding = Connection__Target__ALS__LSP__Binding
-module LSP = Connection__Target__ALS__LSP
 
 module type Module = {
   type version = string
@@ -58,7 +55,7 @@ module Module: Module = {
   // connection -> status
   let toStatus = (conn: connection): status =>
     switch conn {
-    | ALS(conn) => ALS(conn.version, LSP.getIPCMethod(conn.client))
+    | ALS(conn) => ALS(conn.version, ALS.getIPCMethod(conn))
     | Agda(conn) =>
       let (version, path) = Agda.getInfo(conn)
       Agda(version, path)
@@ -76,22 +73,12 @@ module Module: Module = {
         switch result {
         | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
         | Some(method) =>
-          switch await LSP.make(
-            "agda",
-            "Agda Language Server",
-            method,
-            InitOptions.getFromConfig(),
-          ) {
-          | Error(error) => Error(ALS(ALS.Error.ConnectionError(error)))
-          | exception Exn.Error(error) => Error(ALS(ALS.Error.ConnectionError(error)))
+          switch await ALS.make(method, InitOptions.getFromConfig()) {
+          | Error(error) => Error(ALS(error))
           | Ok(conn) =>
-            switch await ALS.make(conn) {
-            | Error(error) => Error(ALS(error))
-            | Ok(conn) =>
-              let method = LSP.getIPCMethod(conn.client)
-              singleton := Some(ALS(conn))
-              Ok(ALS(conn.version, method))
-            }
+            let method = ALS.getIPCMethod(conn)
+            singleton := Some(ALS(conn))
+            Ok(ALS(conn.version, method))
           }
         }
       } else {

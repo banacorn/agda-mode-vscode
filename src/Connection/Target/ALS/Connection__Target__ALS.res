@@ -208,7 +208,7 @@ module type Module = {
     method: Connection__IPC.t,
   }
   // lifecycle
-  let make: LSP.t => promise<result<t, Error.t>>
+  let make: (Connection__IPC.t, JSON.t) => promise<result<t, Error.t>>
   let destroy: t => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -216,6 +216,8 @@ module type Module = {
     string,
     result<Response.t, Error.t> => promise<unit>,
   ) => promise<result<unit, Error.t>>
+  // properties
+  let getIPCMethod: t => Connection__IPC.t
 }
 
 module Module: Module = {
@@ -247,13 +249,19 @@ module Module: Module = {
   }
 
   // start the ALS client
-  let make = async client =>
-    // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
-    switch await sendRequestPrim(client, SYN) {
-    | Error(error) => Error(error)
-    | Ok(Result(_)) => Error(Error.Initialize)
-    | Ok(ACK(version)) => Ok({client, version, method: LSP.getIPCMethod(client)})
+  let make = async (method, options) => {
+    switch await LSP.make("agda", "Agda Language Server", method, options) {
+    | Error(error) => Error(Error.ConnectionError(error))
+    | exception Exn.Error(error) => Error(Error.ConnectionError(error))
+    | Ok(client) =>
+      // send `ReqInitialize` and wait for `ResInitialize` before doing anything else
+      switch await sendRequestPrim(client, SYN) {
+      | Error(error) => Error(error)
+      | Ok(Result(_)) => Error(Error.Initialize)
+      | Ok(ACK(version)) => Ok({client, version, method})
+      }
     }
+  }
 
   // destroy the client
   let destroy = async self =>
@@ -296,5 +304,7 @@ module Module: Module = {
     let _ = await scheduler->Scheduler.runLast(handler)
     result
   }
+
+  let getIPCMethod = conn => conn.method
 }
 include Module

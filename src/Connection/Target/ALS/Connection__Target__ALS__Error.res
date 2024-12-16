@@ -17,7 +17,8 @@ module CommandErr = {
       switch x {
       | "CmdErrCannotDecodeJSON" => Payload(string->map(version => CannotDecodeJSON(version)))
       | "CmdErrCannotParseCommand" => Payload(string->map(version => CannotParseCommand(version)))
-      | tag => raise(DecodeError("[Connection.Target.ALS.LSP.Error.CommandErr] Unknown constructor: " ++ tag))
+      | tag =>
+        raise(DecodeError("[Connection.Target.ALS.Error.CommandErr] Unknown constructor: " ++ tag))
       }
     })
   }
