@@ -35,11 +35,13 @@ module Error = {
 }
 
 module Module: {
-  let search: (t, ~timeout: int=?) => promise<result<IPC.t, Error.t>>
   // returns `IPC.t` if any is found, and errors of previous searches
-  let searchUntilSuccess: array<t> => promise<(option<IPC.t>, array<Error.t>)>
-  // helper function for consuming results from `searchUntilSuccess`
-  let consumeResult: ((option<IPC.t>, array<Error.t>)) => result<IPC.t, array<Error.t>>
+  let search: (t, ~timeout: int=?) => promise<result<IPC.t, Error.t>>
+  let searchMany: array<t> => promise<(option<IPC.t>, array<Error.t>)>
+  // try to find the Agda Language Server
+  let tryALS: (string, GitHub.Download.Event.t => unit) => promise<(option<IPC.t>, array<Error.t>)>
+  // try to find the Agda executable
+  let tryAgda: unit => promise<(option<IPC.t>, array<Error.t>)>
 } = {
   // returns the method of IPC if successful
   let search = async (source, ~timeout=1000) =>
@@ -73,7 +75,7 @@ module Module: {
       }
     }
 
-  let searchUntilSuccess = async sources => {
+  let searchMany = async sources => {
     let rec tryUntilSuccess = async (accumErrors: list<Error.t>, input) =>
       switch input {
       | list{} => (None, list{})
@@ -94,11 +96,100 @@ module Module: {
     (client, List.toArray(errors))
   }
 
-  let consumeResult = ((result, errors)) =>
-    switch result {
-    | None => Error(errors)
-    | Some(method) => Ok(method)
+  let afterDownload = async (isCached, (path, target)) => {
+    // include "Agda_datadir" in the environment variable
+    let options = {
+      let assetPath = NodeJs.Path.join2(path, "data")
+      let env = Dict.fromArray([("Agda_datadir", assetPath)])
+      {
+        Connection__Target__ALS__LSP__Binding.env: env,
+      }
     }
+    // chmod the executable after download
+    // no need to chmod if:
+    //    1. it's cached, already chmoded
+    //  or
+    //    2. it's on Windows
+    let execPath = NodeJs.Path.join2(path, "als")
+    let shouldChmod = !isCached && NodeJs.Os.platform() != "win32"
+    if shouldChmod {
+      let _ = await GitHub.chmodExecutable(execPath)
+    }
+
+    Ok((execPath, [], Some(options), target))
+  }
+
+  let chooseFromReleases = (releases: array<GitHub.Release.t>): option<GitHub.Target.t> => {
+    let platform = switch NodeJs.Os.platform() {
+    | "darwin" =>
+      switch Node__OS.arch() {
+      | "x64" => Some("macos-x64")
+      | "arm64" => Some("macos-arm64")
+      | _ => None
+      }
+    | "linux" => Some("ubuntu")
+    | "win32" => Some("windows")
+    | _ => None
+    }
+    switch GitHub.Release.chooseLatest(releases) {
+    | Some(release) =>
+      switch platform {
+      | Some(name) =>
+        let expectedAssetName = "als-" ++ name ++ ".zip"
+        switch release.assets->GitHub.Asset.chooseByName(expectedAssetName) {
+        | Some(asset) =>
+          Some({
+            saveAsFileName: release.tag_name ++ "-" ++ name,
+            release,
+            asset,
+          })
+        | None => None
+        }
+      | None => None
+      }
+    | None => None
+    }
+  }
+
+  let makeAgdaLanguageServerRepo: string => GitHub.Repo.t = globalStoragePath => {
+    username: "agda",
+    repository: "agda-language-server",
+    userAgent: "agda/agda-mode-vscode",
+    globalStoragePath,
+    cacheInvalidateExpirationSecs: 86400,
+  }
+
+  // see if the server is available
+  // priorities: TCP => Prebuilt => StdIO
+  let tryALS = async (globalStoragePath, onDownload) => {
+    let port = Config.Connection.getAgdaLanguageServerPort()
+    let name = "als"
+
+    await searchMany([
+      // when developing ALS, use `:main -p` in GHCi to open a port on localhost
+      FromTCP(port, "localhost"),
+      // #71: Prefer locally installed language server binary over bundled als
+      // https://github.com/banacorn/agda-mode-vscode/issues/71
+      FromCommand(name),
+      // download the language server from GitHub
+      FromGitHub(
+        makeAgdaLanguageServerRepo(globalStoragePath),
+        {
+          chooseFromReleases,
+          onDownload,
+          afterDownload,
+          log: x => Js.log(x),
+        },
+      ),
+    ])
+  }
+
+  let tryAgda = () => {
+    let storedPath = Config.Connection.getAgdaPath()
+    let storedName = Config.Connection.getAgdaVersion()
+    searchMany([FromFile(storedPath), FromCommand(storedName)])
+  }
+
 }
 
 include Module

@@ -24,6 +24,9 @@ module type Module = {
     Request.t,
     result<Response.t, Error.t> => promise<unit>,
   ) => promise<result<status, Error.t>>
+
+  // misc
+  let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
 }
 
 module Module: Module = {
@@ -66,12 +69,12 @@ module Module: Module = {
     | Some(conn) => Ok(toStatus(conn))
     | None =>
       if useALS {
-        let (result, errors) = await Connection__Probe.probeLSP(
+        let (result, errors) = await Resolver.tryALS(
           VSCode.Uri.toString(globalStorageUri),
           onDownload,
         )
         switch result {
-        | None => Error(Error.CannotAcquireHandle("Agda Language Server", errors))
+        | None => Error(Error.CannotResolve("Agda Language Server", errors))
         | Some(method) =>
           switch await ALS.make(method, InitOptions.getFromConfig()) {
           | Error(error) => Error(ALS(error))
@@ -82,11 +85,11 @@ module Module: Module = {
           }
         }
       } else {
-        let (result, errors) = await Connection__Probe.probeEmacs()
+        let (result, errors) = await Resolver.tryAgda()
         switch result {
         | None =>
           let name = Config.Connection.getAgdaVersion()
-          Error(Error.CannotAcquireHandle(name, errors))
+          Error(Error.CannotResolve(name, errors))
         | Some(method) =>
           switch await Agda.make(method) {
           | Error(error) => Error(Error.Agda(error))
@@ -158,6 +161,14 @@ module Module: Module = {
       | Ok(_) => await sendRequest(globalStorageUri, onDownload, useALS, document, request, handler)
       }
     }
+  }
+
+  let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t = globalStoragePath => {
+    username: "agda",
+    repository: "agda-language-server",
+    userAgent: "agda/agda-mode-vscode",
+    globalStoragePath,
+    cacheInvalidateExpirationSecs: 86400,
   }
 }
 

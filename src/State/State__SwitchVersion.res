@@ -166,7 +166,7 @@ let run = async state => {
   showItems(Array.flat([otherItems]))
 
   // fetch the latest release manifest of the language server and show them
-  let agdaLanguageServerRepo = Connection__Probe.makeAgdaLanguageServerRepo(
+  let agdaLanguageServerRepo = Connection.makeAgdaLanguageServerRepo(
     VSCode.Uri.fsPath(state.globalStorageUri),
   )
   let (result, _isFromCache) = await Connection.Resolver.GitHub.getReleaseManifest(

@@ -279,7 +279,7 @@ module AgdaMode = {
   }
 
   let exists = async command => {
-    let (result, errors) = await Connection.Resolver.searchUntilSuccess([FromCommand(command)])
+    let (result, errors) = await Connection.Resolver.searchMany([FromCommand(command)])
     switch result {
     | None =>
       let msg = errors->Array.map(Connection.Resolver.Error.toString)->Array.join(",")
