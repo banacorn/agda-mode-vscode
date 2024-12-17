@@ -38,10 +38,6 @@ module Module: {
   // returns `IPC.t` if any is found, and errors of previous searches
   let search: (t, ~timeout: int=?) => promise<result<IPC.t, Error.t>>
   let searchMany: array<t> => promise<(option<IPC.t>, array<Error.t>)>
-  // try to find the Agda Language Server
-  let tryALS: (string, GitHub.Download.Event.t => unit) => promise<(option<IPC.t>, array<Error.t>)>
-  // try to find the Agda executable
-  let tryAgda: unit => promise<(option<IPC.t>, array<Error.t>)>
 } = {
   // returns the method of IPC if successful
   let search = async (source, ~timeout=1000) =>
@@ -189,6 +185,8 @@ module Module: {
     let storedName = Config.Connection.getAgdaVersion()
     searchMany([FromFile(storedPath), FromCommand(storedName)])
   }
+
+  let getLocalInstallations = () => ()
 
 }
 

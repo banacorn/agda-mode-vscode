@@ -165,35 +165,56 @@ let run = async state => {
 
   showItems(Array.flat([otherItems]))
 
-  // fetch the latest release manifest of the language server and show them
-  let agdaLanguageServerRepo = Connection.makeAgdaLanguageServerRepo(
-    VSCode.Uri.fsPath(state.globalStorageUri),
-  )
-  let (result, _isFromCache) = await Connection.Resolver.GitHub.getReleaseManifest(
-    agdaLanguageServerRepo,
-  )
+  // // fetch the latest release manifest of the language server and show them
+  // let agdaLanguageServerRepo = Connection.makeAgdaLanguageServerRepo(
+  //   VSCode.Uri.fsPath(state.globalStorageUri),
+  // )
+  // let (result, _isFromCache) = await Connection.Resolver.GitHub.getReleaseManifest(
+  //   agdaLanguageServerRepo,
+  // )
+
+  // let languageServerItemsSeparator = [
+  //   {
+  //     VSCode.QuickPickItem.label: "Language Servers",
+  //     kind: Separator,
+  //   },
+  // ]
+  // let languageServerItems = switch result {
+  // | Ok(releases) =>
+  //   releases->Array.map(release => {
+  //     let version = release.tag_name
+  //     let description = switch release.body {
+  //     | Some(body) => body
+  //     | None => "No description"
+  //     }
+  //     let label = "Agda Language Server " ++ version
+  //     {
+  //       VSCode.QuickPickItem.label,
+  //       description,
+  //     }
+  //   })
+  // | Error(_) => []
+  // }
+
+  // 
+  //  Local installations
+  // 
+
+  // let localInstallationItemsSeperator = [
+  //   {
+  //     VSCode.QuickPickItem.label: "Local installations",
+  //     kind: Separator,
+  //   },
+  // ]
+  
+  // let paths = [Config.Connection.getAgdaPath()]
+
+  // let languageServerItems = switch result {
+
+
+  // showItems(Array.flat([localInstallationItemsSeperator, languageServerItems, otherItems]))
+
+  // let result = await Connection.Target.getLocalInstallations()
   // Js.log(result)
-  let languageServerItemsSeparator = [
-    {
-      VSCode.QuickPickItem.label: "Language Servers",
-      kind: Separator,
-    },
-  ]
-  let languageServerItems = switch result {
-  | Ok(releases) =>
-    releases->Array.map(release => {
-      let version = release.tag_name
-      let description = switch release.body {
-      | Some(body) => body
-      | None => "No description"
-      }
-      let label = "Agda Language Server " ++ version
-      {
-        VSCode.QuickPickItem.label,
-        description,
-      }
-    })
-  | Error(_) => []
-  }
-  showItems(Array.flat([languageServerItemsSeparator, languageServerItems, otherItems]))
+  
 }

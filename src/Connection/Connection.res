@@ -2,18 +2,15 @@ module Error = Connection__Error
 module Agda = Connection__Target__Agda
 module ALS = Connection__Target__ALS
 module Resolver = Connection__Resolver
+module Target = Connection__Target
 
 module type Module = {
-  type version = string
-  type status =
-    | Agda(version, string) // version of Agda, path of executable
-    | ALS(version, Connection__IPC.t) // version of Agda, method of connection
   // lifecycle
   let start: (
     VSCode.Uri.t,
     bool,
     Resolver.GitHub.Download.Event.t => unit,
-  ) => promise<result<status, Error.t>>
+  ) => promise<result<Target.t, Error.t>>
   let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -23,7 +20,7 @@ module type Module = {
     VSCode.TextDocument.t,
     Request.t,
     result<Response.t, Error.t> => promise<unit>,
-  ) => promise<result<status, Error.t>>
+  ) => promise<result<Target.t, Error.t>>
 
   // misc
   let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
@@ -51,12 +48,9 @@ module Module: Module = {
   let singleton: ref<option<connection>> = ref(None)
 
   type version = string
-  type status =
-    | Agda(version, string) // version of Agda, path of executable
-    | ALS(version, Connection__IPC.t) // version of Agda, method of connection
 
-  // connection -> status
-  let toStatus = (conn: connection): status =>
+  // connection -> target
+  let toTarget = (conn: connection): Target.t =>
     switch conn {
     | ALS(conn) => ALS(conn.version, ALS.getIPCMethod(conn))
     | Agda(conn) =>
@@ -66,10 +60,10 @@ module Module: Module = {
 
   let start = async (globalStorageUri, useALS, onDownload) =>
     switch singleton.contents {
-    | Some(conn) => Ok(toStatus(conn))
+    | Some(conn) => Ok(toTarget(conn))
     | None =>
       if useALS {
-        let (result, errors) = await Resolver.tryALS(
+        let (result, errors) = await Target.tryALS(
           VSCode.Uri.toString(globalStorageUri),
           onDownload,
         )
@@ -85,7 +79,7 @@ module Module: Module = {
           }
         }
       } else {
-        let (result, errors) = await Resolver.tryAgda()
+        let (result, errors) = await Target.tryAgda()
         switch result {
         | None =>
           let name = Config.Connection.getAgdaVersion()
@@ -142,7 +136,7 @@ module Module: Module = {
         // stop the connection on error
         let _ = await stop()
         Error(Error.ALS(error))
-      | Ok(_) => Ok(toStatus(ALS(conn)))
+      | Ok(_) => Ok(toTarget(ALS(conn)))
       }
 
     | Some(Agda(conn)) =>
@@ -153,7 +147,7 @@ module Module: Module = {
         // stop the connection on error
         let _ = await stop()
         Error(Error.Agda(error))
-      | Ok(_) => Ok(toStatus(Agda(conn)))
+      | Ok(_) => Ok(toTarget(Agda(conn)))
       }
     | None =>
       switch await start(globalStorageUri, useALS, onDownload) {
