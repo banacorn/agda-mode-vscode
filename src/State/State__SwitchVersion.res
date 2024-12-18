@@ -2,103 +2,103 @@ let openGlobalStorageFolder = async (state: State__Type.t) => {
   let _result = await VSCode.Env.openExternal(state.globalStorageUri)
 }
 
-let switchAgdaVersion = async (state, newAgdaVersion) => {
-  // preserve the original version, in case the new one fails
-  let existingAgdaVersion = Config.Connection.getAgdaVersion()
-  let existingAgdaPath = Config.Connection.getAgdaPath()
+// let switchAgdaVersion = async (state, newAgdaVersion) => {
+//   // preserve the original version, in case the new one fails
+//   let existingAgdaVersion = Config.Connection.getAgdaVersion()
+//   let existingAgdaPaths = Config.Connection.getAgdaPaths()
 
-  // don't connect to the LSP server
-  let useLSP = false
+//   // don't connect to the LSP server
+//   let useLSP = false
 
-  await Config.Connection.setAgdaPath("")
-  // set the name of executable to `newAgdaVersion` in the settings
-  await Config.Connection.setAgdaVersion(newAgdaVersion)
-  await State.View.Panel.display(
-    state,
-    View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"),
-    [],
-  )
-  // stop the old connection
-  let _ = await Connection.stop()
-  switch await Connection.start(state.globalStorageUri, useLSP, State.onDownload(state, ...)) {
-  | Ok(Agda(version, path)) =>
-    // update the connection status
-    await State.View.Panel.displayStatus(state, "Agda v" ++ version)
-    await State.View.Panel.display(
-      state,
-      View.Header.Success("Switched to version '" ++ version ++ "'"),
-      [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
-    )
+//   await Config.Connection.setAgdaPath("")
+//   // set the name of executable to `newAgdaVersion` in the settings
+//   await Config.Connection.setAgdaVersion(newAgdaVersion)
+//   await State.View.Panel.display(
+//     state,
+//     View.Header.Plain("Switching to '" ++ newAgdaVersion ++ "'"),
+//     [],
+//   )
+//   // stop the old connection
+//   let _ = await Connection.stop()
+//   switch await Connection.start(state.globalStorageUri, useLSP, State.onDownload(state, ...)) {
+//   | Ok(Agda(version, path)) =>
+//     // update the connection status
+//     await State.View.Panel.displayStatus(state, "Agda v" ++ version)
+//     await State.View.Panel.display(
+//       state,
+//       View.Header.Success("Switched to version '" ++ version ++ "'"),
+//       [Item.plainText("Found '" ++ newAgdaVersion ++ "' at: " ++ path)],
+//     )
 
-    // update the state.agdaVersion to the new version
-    state.agdaVersion = Some(version)
-  | Ok(ALS(version, _)) =>
-    // should not happen
-    await State.View.Panel.display(
-      state,
-      View.Header.Success("Panic, Switched to ALS '" ++ version ++ "'"),
-      [Item.plainText("Should have switched to an Agda executable, please file an issue")],
-    )
-  | Error(error) =>
-    let (errorHeader, errorBody) = Connection.Error.toString(error)
-    let header = View.Header.Error(
-      "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
-    )
-    let body = [Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ existingAgdaPath)]
-    await Config.Connection.setAgdaPath(existingAgdaPath)
-    await Config.Connection.setAgdaVersion(existingAgdaVersion)
-    await State.View.Panel.display(state, header, body)
-  }
-}
+//     // update the state.agdaVersion to the new version
+//     state.agdaVersion = Some(version)
+//   | Ok(ALS(version, _)) =>
+//     // should not happen
+//     await State.View.Panel.display(
+//       state,
+//       View.Header.Success("Panic, Switched to ALS '" ++ version ++ "'"),
+//       [Item.plainText("Should have switched to an Agda executable, please file an issue")],
+//     )
+//   | Error(error) =>
+//     let (errorHeader, errorBody) = Connection.Error.toString(error)
+//     let header = View.Header.Error(
+//       "Cannot switch Agda version '" ++ newAgdaVersion ++ "' : " ++ errorHeader,
+//     )
+//     let body = [Item.plainText(errorBody ++ "\n\n" ++ "Switching back to " ++ existingAgdaPath)]
+//     await Config.Connection.setAgdaPath(existingAgdaPath)
+//     await Config.Connection.setAgdaVersion(existingAgdaVersion)
+//     await State.View.Panel.display(state, header, body)
+//   }
+// }
 
-let showInputBoxForSwitchingAgdaVersion = async (state: State__Type.t) => {
-  let existingAgdaVersion = Config.Connection.getAgdaVersion()
+// let showInputBoxForSwitchingAgdaVersion = async (state: State__Type.t) => {
+//   let existingAgdaVersion = Config.Connection.getAgdaVersion()
 
-  let result = await VSCode.Window.showInputBox(
-    ~option={
-      value: existingAgdaVersion,
-      placeHolder: "For example: agda-2.7.0.1",
-      validateInput: name => {
-        let name = String.trim(name)
-        let promise = Connection.Resolver.search(
-          FromCommand(name),
-        )->Promise.thenResolve(result => {
-          switch result {
-          | Ok(result) =>
-            let location = switch result {
-            | ViaPipe(path, _, _, _) => "at " ++ path
-            | ViaTCP(port, host, _) => "at " ++ host ++ ":" ++ string_of_int(port)
-            }
+//   let result = await VSCode.Window.showInputBox(
+//     ~option={
+//       value: existingAgdaVersion,
+//       placeHolder: "For example: agda-2.7.0.1",
+//       validateInput: name => {
+//         let name = String.trim(name)
+//         let promise = Connection.Resolver.search(
+//           FromCommand(name),
+//         )->Promise.thenResolve(result => {
+//           switch result {
+//           | Ok(result) =>
+//             let location = switch result {
+//             | ViaPipe(path, _, _, _) => "at " ++ path
+//             | ViaTCP(port, host, _) => "at " ++ host ++ ":" ++ string_of_int(port)
+//             }
 
-            let msg = {
-              VSCode.InputBoxValidationMessage.message: "Found '" ++ name ++ "' at: " ++ location,
-              severity: VSCode.InputBoxValidationSeverity.Info,
-            }
-            Some(VSCode.StringOr.make(Others(msg)))
-          | Error(error) =>
-            let msg = Connection.Resolver.Error.toString(error)
-            Some(
-              VSCode.StringOr.make(String("Cannot switch Agda version '" ++ name ++ "' : " ++ msg)),
-            )
-          }
-        })
-        VSCode.PromiseOr.make(Promise(promise))
-      },
-    },
-  )
+//             let msg = {
+//               VSCode.InputBoxValidationMessage.message: "Found '" ++ name ++ "' at: " ++ location,
+//               severity: VSCode.InputBoxValidationSeverity.Info,
+//             }
+//             Some(VSCode.StringOr.make(Others(msg)))
+//           | Error(error) =>
+//             let msg = Connection.Resolver.Error.toString(error)
+//             Some(
+//               VSCode.StringOr.make(String("Cannot switch Agda version '" ++ name ++ "' : " ++ msg)),
+//             )
+//           }
+//         })
+//         VSCode.PromiseOr.make(Promise(promise))
+//       },
+//     },
+//   )
 
-  switch result {
-  | None => ()
-  | Some(result) =>
-    let newAgdaVersion = String.trim(result)
-    await switchAgdaVersion(state, newAgdaVersion)
-  }
-}
+//   switch result {
+//   | None => ()
+//   | Some(result) =>
+//     let newAgdaVersion = String.trim(result)
+//     await switchAgdaVersion(state, newAgdaVersion)
+//   }
+// }
 
 let handleSelection = async (state, selection: VSCode.QuickPickItem.t) => {
   switch selection.label {
   | "Open download folder" => await openGlobalStorageFolder(state)
-  | "Change Agda command name" => await showInputBoxForSwitchingAgdaVersion(state)
+  // | "Change Agda command name" => await showInputBoxForSwitchingAgdaVersion(state)
   | _ => Js.log("Unknown selection")
   }
 }

@@ -7,7 +7,7 @@ let inTestingMode = ref(false)
 module Connection = {
   // in testing mode, configs are read and written from here instead
   let agdaVersionInTestingMode = ref("agda")
-  let agdaPathInTestingMode = ref("")
+  let agdaPathsInTestingMode = ref([])
   let useAgdaLanguageServerInTestingMode = ref(false)
 
   // Agda version
@@ -33,24 +33,25 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
-  // Agda path
-  let setAgdaPath = path =>
+  // Paths of Agda executables and Agda Language Servers
+  let setAgdaPaths = paths =>
     if inTestingMode.contents {
-      agdaPathInTestingMode := path
+      agdaPathsInTestingMode := paths
       Promise.resolve()
     } else {
       Workspace.getConfiguration(
         Some("agdaMode"),
         None,
-      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaPath", path, None)
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaPath", paths, None)
     }
-  let getAgdaPath = () =>
+  let getAgdaPaths = () =>
     if inTestingMode.contents {
-      agdaPathInTestingMode.contents
+      agdaPathsInTestingMode.contents
     } else {
       Workspace.getConfiguration(Some("agdaMode"), None)
       ->WorkspaceConfiguration.get("connection.agdaPath")
-      ->Option.mapOr("", String.trim)
+      ->Option.mapOr([], s => String.trim(s)->String.split(","))
+      ->Array.filter(s => String.trim(s) != "")
     }
 
   // Agda command-line options

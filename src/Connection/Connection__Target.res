@@ -107,9 +107,11 @@ module Module: {
   }
 
   let tryAgda = () => {
-    let storedPath = Config.Connection.getAgdaPath()
+    let storedPaths = Config.Connection.getAgdaPaths()
     let storedName = Config.Connection.getAgdaVersion()
-    Resolver.searchMany([FromFile(storedPath), FromCommand(storedName)])
+
+    let paths = storedPaths->Array.map(path => Resolver.FromFile(path))
+    Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
   }
 
   let validateLocalInstallation = async path =>  {
@@ -125,7 +127,7 @@ module Module: {
   }
 
   let getLocalInstallations = () => {
-    let paths = [Config.Connection.getAgdaPath()]
+    let paths = Config.Connection.getAgdaPaths()
 
     Promise.all(paths->Array.map(validateLocalInstallation))
   }

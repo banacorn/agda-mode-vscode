@@ -181,13 +181,14 @@ module Module: {
   }
 
   let tryAgda = () => {
-    let storedPath = Config.Connection.getAgdaPath()
+    let storedPaths = Config.Connection.getAgdaPaths()
     let storedName = Config.Connection.getAgdaVersion()
-    searchMany([FromFile(storedPath), FromCommand(storedName)])
+
+    let paths = storedPaths->Array.map(path => FromFile(path))
+    searchMany(Array.flat([paths, [FromCommand(storedName)]]))
   }
 
   let getLocalInstallations = () => ()
-
 }
 
 include Module

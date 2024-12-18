@@ -47,8 +47,6 @@ module Module: Module = {
   type connection = Agda(Agda.t) | ALS(ALS.t)
   let singleton: ref<option<connection>> = ref(None)
 
-  type version = string
-
   // connection -> target
   let toTarget = (conn: connection): Target.t =>
     switch conn {
