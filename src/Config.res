@@ -33,24 +33,47 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
-  // Paths of Agda executables and Agda Language Servers
-  let setAgdaPaths = paths =>
+  let addAgdaPath = async path => {
+    // if the element is already in the array, move it to the front
+    // otherwise, add it to the front
+    let addAgdaPathPrim = (xs, x) => {
+      switch Array.findIndexOpt(xs, y => y == x) {
+      | Some(i) =>
+        Array.flat([[x], Array.slice(xs, ~start=0, ~end=i), Array.sliceToEnd(xs, ~start=i + 1)])
+      | None => Array.concat([x], xs)
+      }
+    }
+
     if inTestingMode.contents {
-      agdaPathsInTestingMode := paths
-      Promise.resolve()
+      agdaPathsInTestingMode := addAgdaPathPrim(agdaPathsInTestingMode.contents, path)
     } else {
-      Workspace.getConfiguration(
+      let originalPaths: array<string> =
+        Workspace.getConfiguration(Some("agdaMode"), None)
+        ->WorkspaceConfiguration.get("connection.paths")
+        ->Option.getOr([])
+
+      await Workspace.getConfiguration(
         Some("agdaMode"),
         None,
-      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaPath", paths, None)
+      )->WorkspaceConfiguration.updateGlobalSettings(
+        "connection.paths",
+        addAgdaPathPrim(originalPaths, path),
+        None,
+      )
     }
+  }
+
   let getAgdaPaths = () =>
     if inTestingMode.contents {
       agdaPathsInTestingMode.contents
     } else {
-      Workspace.getConfiguration(Some("agdaMode"), None)
-      ->WorkspaceConfiguration.get("connection.agdaPath")
-      ->Option.mapOr([], s => String.trim(s)->String.split(","))
+      let rawPaths: option<array<string>> =
+        Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
+          "connection.paths",
+        )
+
+      rawPaths
+      ->Option.getOr([])
       ->Array.filter(s => String.trim(s) != "")
     }
 

@@ -876,11 +876,14 @@
 					"scope": "machine-overridable",
 					"description": "Name of the executable of Agda. For searching the path. Overwrite to override."
 				},
-				"agdaMode.connection.agdaPath": {
-					"type": "string",
-					"default": "",
+				"agdaMode.connection.paths": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [],
 					"scope": "machine-overridable",
-					"description": "Path to the executable of Agda, automatically inferred when possible. Overwrite to override."
+					"description": "A list of filepaths for locally installed Agda binaries and Agda Language Servers. The list prioritizes the first item and auto-rearranges to place the most recently used item at the front. You can use the '^X ^S' command to switch between these items. When empty, paths are inferred by searching for 'agda' or 'als' commands."
 				},
 				"agdaMode.connection.commandLineOptions": {
 					"type": "string",

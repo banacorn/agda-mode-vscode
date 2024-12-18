@@ -57,7 +57,8 @@ module Module: {
     | Some(release) =>
       switch platform {
       | Some(name) =>
-        let expectedAssetName = "als-" ++ name ++ ".zip"
+        // TODO: do not hardcode the asset name
+        let expectedAssetName = "als-Agda-2.7.0.1-" ++ name ++ ".zip"
         switch release.assets->Resolver.GitHub.Asset.chooseByName(expectedAssetName) {
         | Some(asset) =>
           Some({
@@ -87,7 +88,7 @@ module Module: {
     let port = Config.Connection.getAgdaLanguageServerPort()
     let name = "als"
 
-    await Resolver.searchMany([
+    let result = await Resolver.searchMany([
       // when developing ALS, use `:main -p` in GHCi to open a port on localhost
       FromTCP(port, "localhost"),
       // #71: Prefer locally installed language server binary over bundled als
@@ -104,14 +105,40 @@ module Module: {
         },
       ),
     ])
+
+
+    // add the path to the configuration
+    switch result {
+      | (None, _) => ()
+      | (Some(method), _) => 
+          switch method {
+            | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
+            | _ => ()
+          }
+    }
+
+    result 
   }
 
-  let tryAgda = () => {
+  let tryAgda = async () => {
     let storedPaths = Config.Connection.getAgdaPaths()
     let storedName = Config.Connection.getAgdaVersion()
 
+
     let paths = storedPaths->Array.map(path => Resolver.FromFile(path))
-    Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
+    let result = await Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
+
+    // add the path to the configuration
+    switch result {
+      | (None, _) => ()
+      | (Some(method), _) => 
+          switch method {
+            | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
+            | _ => ()
+          }
+    }
+
+    result 
   }
 
   let validateLocalInstallation = async path =>  {

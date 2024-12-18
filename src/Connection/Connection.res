@@ -62,7 +62,7 @@ module Module: Module = {
     | None =>
       if useALS {
         let (result, errors) = await Target.tryALS(
-          VSCode.Uri.toString(globalStorageUri),
+          VSCode.Uri.fsPath(globalStorageUri),
           onDownload,
         )
         switch result {
