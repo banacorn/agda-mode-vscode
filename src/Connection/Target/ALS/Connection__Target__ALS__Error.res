@@ -25,6 +25,8 @@ module CommandErr = {
 }
 
 type t =
+  // the found program is not ALS
+  | Validation(string)
   // Errors from the LSP client
   | ConnectionError(Js.Exn.t)
   // Errors when sending Command to ther server

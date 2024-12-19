@@ -16,22 +16,20 @@ module Validation = {
       | WrongProcess(string)
     let toString = x =>
       switch x {
-      | PathMalformed(msg) => ("Path malformed", msg)
-      | ProcessHanging => (
-          "Process hanging",
-          "The program has not been responding for more than 1 sec",
-        )
-      | NotFound(error) => ("Command not found", Util.JsError.toString(error))
-      | ShellError(error) => ("Error from the shell", Util.JsError.toString(error))
-      | ProcessError(msg) => ("Error from the stderr", msg)
-      | WrongProcess(msg) => ("Wrong process", msg)
+      | PathMalformed(msg) => "Path malformed: " ++ msg
+      | ProcessHanging => "Process hanging: the program has not been responding for more than 1 sec"
+
+      | NotFound(error) => "Command not found: " ++ Util.JsError.toString(error)
+      | ShellError(error) => "Error from the shell: " ++ Util.JsError.toString(error)
+      | ProcessError(msg) => "Error from the stderr: " ++ msg
+      | WrongProcess(msg) => "Wrong process: " ++ msg
       }
   }
 
   type output = string
   type validator<'a> = output => result<'a, string>
 
-  let run = (path, validator: validator<'a>): promise<result<'a, Error.t>> => {
+  let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
     // parsing the parse error
     let parseError = (error: Js.nullable<Js.Exn.t>): option<Error.t> =>
       error
@@ -65,7 +63,7 @@ module Validation = {
       // feed the stdout to the validator
 
       ignore(
-        NodeJs.ChildProcess.exec(path, (error, stdout, stderr) => {
+        NodeJs.ChildProcess.execFile(path, args, (error, stdout, stderr) => {
           Js.Global.clearTimeout(hangTimeout)
 
           parseError(error)->Belt.Option.forEach(err => resolve(Error(err)))

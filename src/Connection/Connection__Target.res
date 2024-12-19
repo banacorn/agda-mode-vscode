@@ -1,22 +1,29 @@
 module Resolver = Connection__Resolver
 module IPC = Connection__IPC
+module Error = Connection__Error
 
 module Module: {
-    type version = string
-    type t = 
-        | Agda(version, string) // version, path
-        | ALS(version, IPC.t) // version, method of IPC
+  type version = string
+  type t =
+    | Agda(version, string) // version, path
+    | ALS(version, version, result<IPC.t, string>) // version, method of IPC
   // try to find the Agda Language Server
-  let tryALS: (string, Resolver.GitHub.Download.Event.t => unit) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
+  let tryALS: (
+    string,
+    Resolver.GitHub.Download.Event.t => unit,
+  ) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
   // try to find the Agda executable
   let tryAgda: unit => promise<(option<IPC.t>, array<Resolver.Error.t>)>
 
-  let getLocalInstallations: unit => promise<array<result<unit, (string, string)>>>
+  // returns a list of paths stored in the configuration
+  let getRawPathsFromConfig: unit => array<string>
+  // see if the path points to a valid Agda executable or language server
+  let probePath: string => promise<result<t, Error.t>>
 } = {
   type version = string
-  type t = 
-    | Agda(version, string) // version, path
-    | ALS(version, IPC.t) // version, method of IPC
+  type t =
+    | Agda(version, string) // Agda version, path
+    | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
 
   let afterDownload = async (isCached, (path, target)) => {
     // include "Agda_datadir" in the environment variable
@@ -41,7 +48,9 @@ module Module: {
     Ok((execPath, [], Some(options), target))
   }
 
-  let chooseFromReleases = (releases: array<Resolver.GitHub.Release.t>): option<Resolver.GitHub.Target.t> => {
+  let chooseFromReleases = (releases: array<Resolver.GitHub.Release.t>): option<
+    Resolver.GitHub.Target.t,
+  > => {
     let platform = switch NodeJs.Os.platform() {
     | "darwin" =>
       switch Node__OS.arch() {
@@ -82,6 +91,68 @@ module Module: {
     cacheInvalidateExpirationSecs: 86400,
   }
 
+  // see if it's a valid Agda executable or language server
+  let probeFilepath = async path => {
+    let path = NodeJs.Path.resolve([path])
+
+    module Process = Connection__Target__Agda__Process
+    let result = await Process.Validation.run(path, ["--version"], output => Ok(output))
+
+    switch result {
+    | Ok(output) =>
+      // try Agda
+      switch String.match(output, %re("/Agda version (.*)/")) {
+      | Some([_, Some(version)]) => Ok(Agda(version, path))
+      | _ =>
+        // try ALS
+        switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+        | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+          Ok(ALS(alsVersion, agdaVersion, Error(path)))
+        | _ => Error(Error.NotAgdaOrALS(path))
+        }
+      }
+    | Error(error) => Error(Error.Agda(Validation(Process.Validation.Error.toString(error))))
+    }
+  }
+
+  @module external untildify: string => string = "untildify"
+
+  type path = Filepath(string) | URL(NodeJs.Url.t)
+  let resolvePath = async path => {
+    // trying to parse the path as a URL
+    let result = try Some(NodeJs.Url.make(path)) catch {
+    | _ => None
+    }
+    switch result {
+    | Some(url) =>
+      // expect the scheme to be "lsp:"
+      if url.protocol == "lsp:" {
+        Some(URL(url))
+      } else {
+        None
+      }
+    | None =>
+      // treat the path as a file path
+      let path = untildify(path)
+      let path = NodeJs.Path.normalize(path)
+      Some(Filepath(path))
+    }
+  }
+
+  // let probe = async ipc => {
+  //   switch ipc {
+  //   | Filepath(path) =>
+  //     // switch result {
+  //     // | Ok(_) => Ok(result)
+  //     // | Error(error) => Error(error)
+  //     // }
+  //     await resolveFilepath(path)
+  //   | URL(url) =>
+  //     Js.log("URL " ++ url.toString())
+  //     Error(Error.ALS(Validation("URL is not supported yet")))
+  //   }
+  // }
+
   // see if the server is available
   // priorities: TCP => Prebuilt => StdIO
   let tryALS = async (globalStoragePath, onDownload) => {
@@ -106,61 +177,59 @@ module Module: {
       ),
     ])
 
-
     // add the path to the configuration
     switch result {
-      | (None, _) => ()
-      | (Some(method), _) => 
-          switch method {
-            | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
-            | _ => ()
-          }
+    | (None, _) => ()
+    | (Some(method), _) =>
+      switch method {
+      | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
+      | _ => ()
+      }
     }
 
-    result 
+    result
   }
 
   let tryAgda = async () => {
     let storedPaths = Config.Connection.getAgdaPaths()
     let storedName = Config.Connection.getAgdaVersion()
 
-
     let paths = storedPaths->Array.map(path => Resolver.FromFile(path))
     let result = await Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
 
+    // let _ = await Promise.all(
+    //   storedPaths->Array.map(async path => {
+    //     switch await resolvePath(path) {
+    //     | Error(_) => Js.log("Error: " ++ path)
+    //     | Ok(path) =>
+    //       let result = await probe(path)
+    //       Js.log(result)
+    //     }
+    //   }),
+    // )
+
     // add the path to the configuration
     switch result {
-      | (None, _) => ()
-      | (Some(method), _) => 
-          switch method {
-            | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
-            | _ => ()
-          }
+    | (None, _) => ()
+    | (Some(method), _) =>
+      switch method {
+      | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
+      | _ => ()
+      }
     }
 
-    result 
+    result
   }
 
-  let validateLocalInstallation = async path =>  {
-    module Process = Connection__Target__Agda__Process
-    let pathWithArgs = path ++ " --version"
-    switch await Process.Validation.run(pathWithArgs, a => {
-      Js.log(pathWithArgs ++ " => " ++ a)
-      Ok()
-    }) {
-      | Ok(_) => Ok()
-      | Error(error) => Error(Process.Validation.Error.toString(error)) 
+  let getRawPathsFromConfig = () => Config.Connection.getAgdaPaths()
+
+  let probePath = async rawPath => {
+    switch await resolvePath(rawPath) {
+    | None => Error(Error.CannotResolvePath(rawPath))
+    | Some(URL(url)) => Error(Error.CannotResolvePath(url.toString()))
+    | Some(Filepath(path)) => await probeFilepath(path)
     }
   }
-
-  let getLocalInstallations = () => {
-    let paths = Config.Connection.getAgdaPaths()
-
-    Promise.all(paths->Array.map(validateLocalInstallation))
-  }
-
-
-
 }
 
 include Module

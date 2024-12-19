@@ -24,6 +24,8 @@ module type Module = {
 
   // misc
   let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
+
+
 }
 
 module Module: Module = {
@@ -50,7 +52,7 @@ module Module: Module = {
   // connection -> target
   let toTarget = (conn: connection): Target.t =>
     switch conn {
-    | ALS(conn) => ALS(conn.version, ALS.getIPCMethod(conn))
+    | ALS(conn) => ALS(conn.version, "dummy", Ok(ALS.getIPCMethod(conn)))
     | Agda(conn) =>
       let (version, path) = Agda.getInfo(conn)
       Agda(version, path)
@@ -73,7 +75,7 @@ module Module: Module = {
           | Ok(conn) =>
             let method = ALS.getIPCMethod(conn)
             singleton := Some(ALS(conn))
-            Ok(ALS(conn.version, method))
+            Ok(ALS(conn.version, "dummy", Ok(method)))
           }
         }
       } else {

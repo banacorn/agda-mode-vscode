@@ -69,7 +69,7 @@ let sendRequest = (
         // update the Agda version
         switch status {
         | Agda(version, _) => state.agdaVersion = Some(version)
-        | ALS(version, _) => state.agdaVersion = Some(version)
+        | ALS(_alsVersion, agdaVersion, _) => state.agdaVersion = Some(agdaVersion)
         }
       }
       await responseHandlerPromise

@@ -333,11 +333,7 @@ let activate = context => {
     context
     ->VSCode.ExtensionContext.globalStorageUri
     ->VSCode.Uri.with_({
-      "authority": None,
-      "fragment": None,
-      "path": None,
-      "prompt": None,
-      "scheme": Some("file"),
+      scheme: "file",
     })
   activateWithoutContext(subscriptions, extensionPath, globalStorageUri)
 }
