@@ -5,8 +5,8 @@ module Error = Connection__Error
 module Module: {
   type version = string
   type t =
-    | Agda(version, string) // version, path
-    | ALS(version, version, result<IPC.t, string>) // version, method of IPC
+    | Agda(version, string) // Agda version, path
+    | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
   // try to find the Agda Language Server
   let tryALS: (
     string,
@@ -93,8 +93,6 @@ module Module: {
 
   // see if it's a valid Agda executable or language server
   let probeFilepath = async path => {
-    let path = NodeJs.Path.resolve([path])
-
     module Process = Connection__Target__Agda__Process
     let result = await Process.Validation.run(path, ["--version"], output => Ok(output))
 
@@ -113,6 +111,11 @@ module Module: {
       }
     | Error(error) => Error(Error.Agda(Validation(Process.Validation.Error.toString(error))))
     }
+  }
+
+  let probeURL = async url => {
+
+    ()
   }
 
   @module external untildify: string => string = "untildify"
@@ -138,20 +141,6 @@ module Module: {
       Some(Filepath(path))
     }
   }
-
-  // let probe = async ipc => {
-  //   switch ipc {
-  //   | Filepath(path) =>
-  //     // switch result {
-  //     // | Ok(_) => Ok(result)
-  //     // | Error(error) => Error(error)
-  //     // }
-  //     await resolveFilepath(path)
-  //   | URL(url) =>
-  //     Js.log("URL " ++ url.toString())
-  //     Error(Error.ALS(Validation("URL is not supported yet")))
-  //   }
-  // }
 
   // see if the server is available
   // priorities: TCP => Prebuilt => StdIO

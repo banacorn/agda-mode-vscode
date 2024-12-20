@@ -110,15 +110,11 @@ let run = async state => {
   // set placeholder
   quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
-  // items to show
+  // items to be shown in the quick pick
   let otherItems = [
     {
-      VSCode.QuickPickItem.label: "Other operations",
+      VSCode.QuickPickItem.label: "",
       kind: Separator,
-    },
-    {
-      VSCode.QuickPickItem.label: "Change Agda command name",
-      description: "Execute Agda with given command name",
     },
     {
       VSCode.QuickPickItem.label: "Open download folder",
@@ -133,7 +129,6 @@ let run = async state => {
   // onDidChangeSelection
   quickPick
   ->VSCode.QuickPick.onDidChangeSelection(items => {
-    // Js.log2("selected item:", items)
     items->Array.forEach(item => handleSelection(state, item)->ignore)
   })
   ->Util.Disposable.add(subscriptions)
@@ -196,25 +191,68 @@ let run = async state => {
   // | Error(_) => []
   // }
 
-  // 
-  //  Local installations
-  // 
+  //
+  //  Installations
+  //
 
-  // let localInstallationItemsSeperator = [
+  let installationItemsSeperator = [
+    {
+      VSCode.QuickPickItem.label: "Installations",
+      kind: Separator,
+    },
+  ]
+
+  let installationItems = Connection.Target.getRawPathsFromConfig()->Array.map(path => {
+    {
+      VSCode.QuickPickItem.label: path,
+    }
+  })
+
+  showItems(Array.flat([installationItemsSeperator, installationItems, otherItems]))
+
+  //
+  //  Resolved Installations
+  //
+
+  let installations = await Promise.all(
+    Connection.Target.getRawPathsFromConfig()->Array.map(Connection.Target.probePath),
+  )
+
+  let installationItems = installations->Array.map(result =>
+    switch result {
+    | Error(CannotResolvePath(path)) =>
+      {
+        VSCode.QuickPickItem.label: "$(error)  Error",
+        description: "unable to resolve the given path",
+        detail: path,
+      }
+    | Ok(Agda(version, path)) => {
+        VSCode.QuickPickItem.label: "Agda v" ++ version,
+        // description: path,
+        detail: path,
+        iconPath: VSCode.IconPath.fromDarkAndLight({
+          "dark": VSCode.Uri.joinPath(VSCode.Uri.file(state.extensionPath), ["asset/dark.png"]),
+          "light": VSCode.Uri.joinPath(VSCode.Uri.file(state.extensionPath), ["asset/light.png"]),
+        }),
+      }
+    | Ok(ALS(alsVersion, agdaVersion, Error(path))) => {
+        VSCode.QuickPickItem.label: "$(squirrel)  Language Server v" ++ alsVersion,
+        description: "Agda v" ++ agdaVersion,
+        detail: path,
+      }
+    | _ => {
+        VSCode.QuickPickItem.label: "Unknown",
+        description: "???",
+      }
+    }
+  )
+
+  //  Connection.Target.getRawPathsFromConfig()->Array.map (path => {
   //   {
-  //     VSCode.QuickPickItem.label: "Local installations",
-  //     kind: Separator,
-  //   },
-  // ]
-  
-  // let paths = [Config.Connection.getAgdaPath()]
+  //     VSCode.QuickPickItem.label: path,
+  //     description: "Local installation",
+  //   }
+  // })
 
-  // let languageServerItems = switch result {
-
-
-  // showItems(Array.flat([localInstallationItemsSeperator, languageServerItems, otherItems]))
-
-  // let result = await Connection.Target.getLocalInstallations()
-  // Js.log(result)
-  
+  showItems(Array.flat([installationItemsSeperator, installationItems, otherItems]))
 }

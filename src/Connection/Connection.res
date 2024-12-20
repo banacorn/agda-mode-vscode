@@ -25,7 +25,7 @@ module type Module = {
   // misc
   let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
 
-
+  
 }
 
 module Module: Module = {
