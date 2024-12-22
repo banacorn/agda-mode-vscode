@@ -107,6 +107,54 @@ module Log = {
     }
 }
 
+// Binds to VSCode.Memento when VSCode.ExtensionContext is available
+// Binds to a mock when testing
+module Memento: {
+  type t
+  let make: option<VSCode.Memento.t> => t
+  let get: (t, string) => option<'a>
+  let getWithDefault: (t, string, 'a) => 'a
+  let keys: t => array<string>
+  let update: (t, string, 'a) => promise<unit>
+} = {
+  @unboxed type rec any = Any('x): any
+
+  type t = Memento(VSCode.Memento.t) | Mock(Dict.t<any>)
+
+  let make = memento =>
+    switch memento {
+    | Some(memento) => Memento(memento)
+    | None => Mock(Dict.make())
+    }
+
+  let get = (context, key) =>
+    switch context {
+    | Memento(context) => VSCode.Memento.get(context, key)
+    | Mock(dict) => Obj.magic(dict->Dict.get(key))
+    }
+  let getWithDefault = (context, key, defaultValue) =>
+    switch context {
+    | Memento(context) => VSCode.Memento.getWithDefault(context, key, defaultValue)
+    | Mock(dict) =>
+      switch dict->Dict.get(key) {
+      | Some(value) => Obj.magic(value)
+      | None => defaultValue
+      }
+    }
+
+  let keys = context =>
+    switch context {
+    | Memento(context) => VSCode.Memento.keys(context)
+    | Mock(dict) => dict->Dict.keysToArray
+    }
+
+  let update = (context, key, value) =>
+    switch context {
+    | Memento(context) => VSCode.Memento.update(context, key, value)
+    | Mock(dict) => dict->Dict.set(key, Obj.magic(value))->Promise.resolve
+    }
+}
+
 type channels = {
   inputMethod: Chan.t<IM.Log.t>,
   // emits when a Response has been handled
@@ -136,6 +184,8 @@ type t = {
   mutable agdaRequestQueue: RequestQueue.t,
   globalStorageUri: VSCode.Uri.t,
   extensionPath: string,
+  memento: Memento.t,
+  // for logging and testing
   channels: channels,
 }
 type state = t

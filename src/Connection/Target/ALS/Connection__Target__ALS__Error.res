@@ -59,4 +59,5 @@ let toString = error =>
       "Cannot decode responses from the server" ++ msg ++ "\n" ++ JSON.stringify(json),
     )
   | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
+  | Validation(msg) => ("Validation Error", msg)
   }

@@ -75,7 +75,7 @@ let activateExtension = (): State__Type.channels => {
     let disposables = []
     let extensionPath = Path.extensionPath
     let globalStorageUri = Path.globalStorageUri
-    let channels = Main.activateWithoutContext(disposables, extensionPath, globalStorageUri)
+    let channels = Main.activateWithoutContext(disposables, extensionPath, globalStorageUri, None)
     // store the singleton of activation
     activationSingleton := Some(channels)
     channels

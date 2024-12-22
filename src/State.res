@@ -95,7 +95,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
-let make = (channels, globalStorageUri, extensionPath, editor) => {
+let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
   agdaVersion: None,
   editor,
   document: VSCode.TextEditor.document(editor),
@@ -112,5 +112,6 @@ let make = (channels, globalStorageUri, extensionPath, editor) => {
   agdaRequestQueue: RequestQueue.make(),
   globalStorageUri,
   extensionPath,
+  memento: Memento.make(memento), 
   channels,
 }

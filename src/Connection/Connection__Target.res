@@ -113,11 +113,6 @@ module Module: {
     }
   }
 
-  let probeURL = async url => {
-
-    ()
-  }
-
   @module external untildify: string => string = "untildify"
 
   type path = Filepath(string) | URL(NodeJs.Url.t)
