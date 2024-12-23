@@ -54,10 +54,10 @@ let sendRequest = (
     //  1. the result of connection has been displayed
     //  2. the response has been handled
     Connection.sendRequest(
-      state.globalStorageUri,
-      onDownload(state, ...),
-      Config.Connection.getUseAgdaLanguageServer(),
-      state.document,
+      state,
+      // state.globalStorageUri,
+      // onDownload(state, ...),
+      // Config.Connection.getUseAgdaLanguageServer(),
       request,
       onResponse
     )->Promise.then(async result => {

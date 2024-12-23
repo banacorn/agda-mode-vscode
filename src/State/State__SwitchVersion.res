@@ -130,32 +130,31 @@ module QP = {
 
 let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
   switch selection.label {
-  | "Open download folder" => await openGlobalStorageFolder(self.state)
-  // | "Change Agda command name" => await showInputBoxForSwitchingAgdaVersion(state)
+  | "Open download folder" =>
+    await openGlobalStorageFolder(self.state)
+    self->QP.destroy
   | _ =>
     let path = selection.detail
 
-    switch await Connection.getPickedTarget(self.state) {
+    switch await Connection.Target.getPicked(self.state) {
     | None => ()
-    | Some(Error(_)) => ()
-    | Some(Ok(target)) => {
+    | Some(target) => {
         let selectionChanged = path !== Some(Connection.Target.getPath(target))
         if selectionChanged {
           // remember the selected connection as the "picked" connection
-          Js.log("changed selection to " ++ path->Option.getOr("None"))
-          await Connection.setPickedTarget(self.state, target)
+          switch path {
+          | None => ()
+          | Some(path) =>
+            switch await Connection.Target.probePath(path) {
+            | Error(_) => ()
+            | Ok(newTarget) => await Connection.Target.setPicked(self.state, newTarget)
+            }
+          }
+
           self->QP.destroy
         }
       }
     }
-
-  // let selectionChanged = path !== Connection.getPickedConnectionTarget(self.state)
-  // if selectionChanged {
-  //   // remember the selected connection as the "picked" connection
-  //   Js.log("changed selection to " ++ path->Option.getOr("None"))
-  //   await self.state.memento->State__Type.Memento.update("pickedConnection", path)
-  //   self->QP.destroy
-  // }
   }
 }
 
@@ -266,7 +265,7 @@ let run = async state => {
   //  Resolved Installations
   //
 
-  let installationTargets = await Connection.getTargets()
+  let installationTargets = await Connection.Target.getAll()
 
   let installationItems = installationTargets->Array.map(result =>
     switch result {

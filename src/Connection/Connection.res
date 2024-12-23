@@ -6,30 +6,25 @@ module Target = Connection__Target
 
 module type Module = {
   // lifecycle
-  let start: (
-    VSCode.Uri.t,
-    bool,
-    Resolver.GitHub.Download.Event.t => unit,
-  ) => promise<result<Target.t, Error.t>>
+  // let start: (
+  //   VSCode.Uri.t,
+  //   bool,
+  //   Resolver.GitHub.Download.Event.t => unit,
+  // ) => promise<result<Target.t, Error.t>>
+  let start: State__Type.t => promise<result<Target.t, Error.t>>
   let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
-    VSCode.Uri.t,
-    Resolver.GitHub.Download.Event.t => unit,
-    bool,
-    VSCode.TextDocument.t,
+    State__Type.t,
+    // VSCode.Uri.t,
+    // Resolver.GitHub.Download.Event.t => unit,
+    // bool,
     Request.t,
     result<Response.t, Error.t> => promise<unit>,
   ) => promise<result<Target.t, Error.t>>
 
   // misc
   let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
-
-  // interfacing
-  let getTarget: unit => promise<option<Target.t>>
-  let getTargets: unit => promise<array<result<Target.t, Target.Error.t>>>
-  let getPickedTarget: State__Type.t => promise<option<result<Target.t, Target.Error.t>>>
-  let setPickedTarget: (State__Type.t, Target.t) => promise<unit>
 }
 
 module Module: Module = {
@@ -50,61 +45,23 @@ module Module: Module = {
   }
 
   // internal state singleton
-  type connection = Agda(Agda.t) | ALS(ALS.t)
-  let singleton: ref<option<connection>> = ref(None)
+  type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
+  let singleton: ref<option<t>> = ref(None)
 
-  // connection -> target
-  let toTarget = (conn: connection): Target.t =>
+  let toTarget = (conn: t): Target.t =>
     switch conn {
-    | ALS(conn) => ALS(conn.version, "dummy", Ok(ALS.getIPCMethod(conn)))
-    | Agda(conn) =>
-      let (version, path) = Agda.getInfo(conn)
-      Agda(version, path)
-    }
-
-  let start = async (globalStorageUri, useALS, onDownload) =>
-    switch singleton.contents {
-    | Some(conn) => Ok(toTarget(conn))
-    | None =>
-      if useALS {
-        let (result, errors) = await Target.tryALS(VSCode.Uri.fsPath(globalStorageUri), onDownload)
-        switch result {
-        | None => Error(Error.CannotResolve("Agda Language Server", errors))
-        | Some(method) =>
-          switch await ALS.make(method, InitOptions.getFromConfig()) {
-          | Error(error) => Error(ALS(error))
-          | Ok(conn) =>
-            let method = ALS.getIPCMethod(conn)
-            singleton := Some(ALS(conn))
-            Ok(ALS(conn.version, "dummy", Ok(method)))
-          }
-        }
-      } else {
-        let (result, errors) = await Target.tryAgda()
-        switch result {
-        | None =>
-          let name = Config.Connection.getAgdaVersion()
-          Error(Error.CannotResolve(name, errors))
-        | Some(method) =>
-          switch await Agda.make(method) {
-          | Error(error) => Error(Error.Agda(error))
-          | Ok(conn) =>
-            singleton := Some(Agda(conn))
-            let (version, path) = Agda.getInfo(conn)
-            Ok(Agda(version, path))
-          }
-        }
-      }
+    | ALS(_, target) => target
+    | Agda(_, target) => target
     }
 
   let stop = async () =>
     switch singleton.contents {
     | None => Ok()
-    | Some(Agda(conn)) =>
+    | Some(Agda(conn, _)) =>
       singleton := None
       await Agda.destroy(conn)
       Ok()
-    | Some(ALS(conn)) =>
+    | Some(ALS(conn, _)) =>
       singleton := None
       switch await ALS.destroy(conn) {
       | Error(error) => Error(Error.ALS(error))
@@ -112,11 +69,46 @@ module Module: Module = {
       }
     }
 
+  let start = async state =>
+    switch singleton.contents {
+    | Some(conn) => Ok(toTarget(conn))
+    | None =>
+      switch await Target.getPicked(state) {
+      | None => Error(Error.CannotFindAgdaOrALS)
+      | Some(Agda(version, path)) =>
+        let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
+        switch await Agda.make(method) {
+        | Error(error) => Error(Error.Agda(error))
+        | Ok(conn) =>
+          singleton := Some(Agda(conn, Agda(version, path)))
+          Ok(Agda(version, path))
+        }
+      | Some(ALS(alsVersion, agdaVersion, Ok(method))) =>
+        switch await ALS.make(method, InitOptions.getFromConfig()) {
+        | Error(error) => Error(ALS(error))
+        | Ok(conn) =>
+          let method = ALS.getIPCMethod(conn)
+          singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Ok(method))))
+          Ok(ALS(alsVersion, conn.agdaVersion, Ok(method)))
+        }
+      | Some(ALS(alsVersion, agdaVersion, Error(path))) =>
+        switch await ALS.make(
+          Connection__IPC.ViaPipe(path, [], None, FromFile(path)),
+          InitOptions.getFromConfig(),
+        ) {
+        | Error(error) => Error(ALS(error))
+        | Ok(conn) =>
+          let method = ALS.getIPCMethod(conn)
+          singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
+          Ok(ALS(alsVersion, conn.agdaVersion, Ok(method)))
+        }
+      }
+    }
   let rec sendRequest = async (
-    globalStorageUri,
-    onDownload,
-    useALS,
-    document,
+    state: State__Type.t,
+    // globalStorageUri,
+    // onDownload,
+    // useALS,
     request,
     handler,
   ) => {
@@ -130,30 +122,30 @@ module Module: Module = {
     }
 
     switch singleton.contents {
-    | Some(ALS(conn)) =>
+    | Some(ALS(conn, target)) =>
       let handler = x => x->Util.Result.mapError(err => Error.ALS(err))->handler
-      switch await ALS.sendRequest(conn, encodeRequest(document, conn.version), handler) {
+      switch await ALS.sendRequest(conn, encodeRequest(state.document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
         let _ = await stop()
         Error(Error.ALS(error))
-      | Ok(_) => Ok(toTarget(ALS(conn)))
+      | Ok(_) => Ok(target)
       }
 
-    | Some(Agda(conn)) =>
+    | Some(Agda(conn, target)) =>
       let (version, _path) = Agda.getInfo(conn)
       let handler = x => x->Util.Result.mapError(err => Error.Agda(err))->handler
-      switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
+      switch await Agda.sendRequest(conn, encodeRequest(state.document, version), handler) {
       | Error(error) =>
         // stop the connection on error
         let _ = await stop()
         Error(Error.Agda(error))
-      | Ok(_) => Ok(toTarget(Agda(conn)))
+      | Ok(_) => Ok(target)
       }
     | None =>
-      switch await start(globalStorageUri, useALS, onDownload) {
+      switch await start(state) {
       | Error(error) => Error(error)
-      | Ok(_) => await sendRequest(globalStorageUri, onDownload, useALS, document, request, handler)
+      | Ok(_) => await sendRequest(state, request, handler)
       }
     }
   }
@@ -165,36 +157,6 @@ module Module: Module = {
     globalStoragePath,
     cacheInvalidateExpirationSecs: 86400,
   }
-
-  // returns a list of connection targets
-  let getTargets = () => Promise.all(Target.getRawPathsFromConfig()->Array.map(Target.probePath))
-
-  // returns the first usable connection target
-  let getTarget = async () => {
-    let targets = await getTargets()
-    targets->Array.reduce(None, (acc, target) =>
-      switch acc {
-      | Some(_) => acc
-      | None =>
-        switch target {
-        | Ok(target) => Some(target)
-        | Error(_) => None
-        }
-      }
-    )
-  }
-
-  // returns the previously picked connection target
-  let getPickedTarget = async (state: State__Type.t) =>
-    switch state.memento->State__Type.Memento.get("pickedConnection") {
-    | Some(path) =>
-      let target = await Target.probePath(path)
-      Some(target)
-    | None => None
-    }
-
-  let setPickedTarget = (state: State__Type.t, target: Target.t) =>
-    state.memento->State__Type.Memento.update("pickedConnection", Target.getPath(target))
 }
 
 include Module

@@ -7,6 +7,7 @@ type t =
   | CannotResolve(string, array<Connection__Resolver.Error.t>)
   | CannotResolvePath(string)
   | NotAgdaOrALS(string)
+  | CannotFindAgdaOrALS
 
 let toString = x =>
   switch x {
@@ -19,4 +20,5 @@ let toString = x =>
     )
   | CannotResolvePath(path) => ("Cannot resolve path", "The path `" ++ path ++ "` cannot be resolved as a file path or a URL")
   | NotAgdaOrALS(path) => ("Not Agda or ALS", "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server")
+  | CannotFindAgdaOrALS => ("Cannot find Agda or ALS", "Cannot find Agda or Agda Language Server in the system")
   }

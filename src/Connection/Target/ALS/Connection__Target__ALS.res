@@ -204,7 +204,7 @@ module ALSResponse = {
 module type Module = {
   type t = {
     client: LSP.t,
-    version: version,
+    agdaVersion: version,
     method: Connection__IPC.t,
   }
   // lifecycle
@@ -223,7 +223,7 @@ module type Module = {
 module Module: Module = {
   type t = {
     client: LSP.t,
-    version: version,
+    agdaVersion: version,
     method: Connection__IPC.t,
   }
 
@@ -258,7 +258,7 @@ module Module: Module = {
       switch await sendRequestPrim(client, SYN) {
       | Error(error) => Error(error)
       | Ok(Result(_)) => Error(Error.Initialize)
-      | Ok(ACK(version)) => Ok({client, version, method})
+      | Ok(ACK(agdaVersion)) => Ok({client, agdaVersion, method})
       }
     }
   }

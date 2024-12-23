@@ -21,6 +21,11 @@ module Module: {
   let probePath: string => promise<result<t, Error.t>>
   // extract the path from the target
   let getPath: t => string
+
+  // interfacing
+  let getAll: unit => promise<array<result<t, Error.t>>>
+  let getPicked: State__Type.t => promise<option<t>>
+  let setPicked: (State__Type.t, t) => promise<unit>
 } = {
   type version = string
   type t =
@@ -224,6 +229,39 @@ module Module: {
     | ALS(_, _, Ok(ViaTCP(port, host, _))) => "lsp://" ++ host ++ ":" ++ string_of_int(port)
     | ALS(_, _, Error(path)) => path
     }
+
+  // returns a list of connection targets
+  let getAll = () => Promise.all(getRawPathsFromConfig()->Array.map(probePath))
+
+  // returns the first usable connection target
+  let getFirstUsable = async () => {
+    let targets = await getAll()
+    targets->Array.reduce(None, (acc, target) =>
+      switch acc {
+      | Some(_) => acc
+      | None =>
+        switch target {
+        | Ok(target) => Some(target)
+        | Error(_) => None
+        }
+      }
+    )
+  }
+
+  // returns the previously picked connection target
+  let getPicked = async (state: State__Type.t) =>
+    switch state.memento->State__Type.Memento.get("pickedConnection") {
+    | Some(path) =>
+      switch await probePath(path) {
+      | Ok(target) => Some(target)
+      | Error(_) => None
+      }
+    | None => await getFirstUsable()
+    }
+
+  let setPicked = (state: State__Type.t, target) => {
+    state.memento->State__Type.Memento.update("pickedConnection", getPath(target))
+  }
 }
 
 include Module
