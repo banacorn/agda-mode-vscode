@@ -19,6 +19,8 @@ module Module: {
   let getRawPathsFromConfig: unit => array<string>
   // see if the path points to a valid Agda executable or language server
   let probePath: string => promise<result<t, Error.t>>
+  // extract the path from the target
+  let getPath: t => string
 } = {
   type version = string
   type t =
@@ -214,6 +216,14 @@ module Module: {
     | Some(Filepath(path)) => await probeFilepath(path)
     }
   }
+
+  let getPath = target =>
+    switch target {
+    | Agda(_, path) => path
+    | ALS(_, _, Ok(ViaPipe(path, _, _, _))) => path
+    | ALS(_, _, Ok(ViaTCP(port, host, _))) => "lsp://" ++ host ++ ":" ++ string_of_int(port)
+    | ALS(_, _, Error(path)) => path
+    }
 }
 
 include Module

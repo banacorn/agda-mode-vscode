@@ -25,7 +25,11 @@ module type Module = {
   // misc
   let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
 
-  
+  // interfacing
+  let getTarget: unit => promise<option<Target.t>>
+  let getTargets: unit => promise<array<result<Target.t, Target.Error.t>>>
+  let getPickedTarget: State__Type.t => promise<option<result<Target.t, Target.Error.t>>>
+  let setPickedTarget: (State__Type.t, Target.t) => promise<unit>
 }
 
 module Module: Module = {
@@ -63,10 +67,7 @@ module Module: Module = {
     | Some(conn) => Ok(toTarget(conn))
     | None =>
       if useALS {
-        let (result, errors) = await Target.tryALS(
-          VSCode.Uri.fsPath(globalStorageUri),
-          onDownload,
-        )
+        let (result, errors) = await Target.tryALS(VSCode.Uri.fsPath(globalStorageUri), onDownload)
         switch result {
         | None => Error(Error.CannotResolve("Agda Language Server", errors))
         | Some(method) =>
@@ -164,6 +165,36 @@ module Module: Module = {
     globalStoragePath,
     cacheInvalidateExpirationSecs: 86400,
   }
+
+  // returns a list of connection targets
+  let getTargets = () => Promise.all(Target.getRawPathsFromConfig()->Array.map(Target.probePath))
+
+  // returns the first usable connection target
+  let getTarget = async () => {
+    let targets = await getTargets()
+    targets->Array.reduce(None, (acc, target) =>
+      switch acc {
+      | Some(_) => acc
+      | None =>
+        switch target {
+        | Ok(target) => Some(target)
+        | Error(_) => None
+        }
+      }
+    )
+  }
+
+  // returns the previously picked connection target
+  let getPickedTarget = async (state: State__Type.t) =>
+    switch state.memento->State__Type.Memento.get("pickedConnection") {
+    | Some(path) =>
+      let target = await Target.probePath(path)
+      Some(target)
+    | None => None
+    }
+
+  let setPickedTarget = (state: State__Type.t, target: Target.t) =>
+    state.memento->State__Type.Memento.update("pickedConnection", Target.getPath(target))
 }
 
 include Module

@@ -107,19 +107,25 @@ module Log = {
     }
 }
 
+module Any: {
+  type t
+} = {
+  type t
+}
+
 // Binds to VSCode.Memento when VSCode.ExtensionContext is available
 // Binds to a mock when testing
 module Memento: {
   type t
+  // constructor
   let make: option<VSCode.Memento.t> => t
+  // primitive operations
   let get: (t, string) => option<'a>
   let getWithDefault: (t, string, 'a) => 'a
   let keys: t => array<string>
   let update: (t, string, 'a) => promise<unit>
 } = {
-  @unboxed type rec any = Any('x): any
-
-  type t = Memento(VSCode.Memento.t) | Mock(Dict.t<any>)
+  type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
 
   let make = memento =>
     switch memento {
