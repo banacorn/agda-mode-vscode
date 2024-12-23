@@ -68,7 +68,7 @@ module Module: Module = {
     | Agda(version, path) =>
       let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
       switch await Agda.make(method) {
-      | Error(error) => Error(Error.Agda(error))
+      | Error(error) => Error(Error.Agda(error, path))
       | Ok(conn) =>
         singleton := Some(Agda(conn, Agda(version, path)))
         Ok()
@@ -158,13 +158,13 @@ module Module: Module = {
       }
 
     | Some(Agda(conn, target)) =>
-      let (version, _path) = Agda.getInfo(conn)
-      let handler = x => x->Util.Result.mapError(err => Error.Agda(err))->handler
+      let (version, path) = Agda.getInfo(conn)
+      let handler = x => x->Util.Result.mapError(err => Error.Agda(err, path))->handler
       switch await Agda.sendRequest(conn, encodeRequest(state.document, version), handler) {
       | Error(error) =>
         // stop the connection on error
         let _ = await stop()
-        Error(Error.Agda(error))
+        Error(Error.Agda(error, path))
       | Ok(_) => Ok(target)
       }
     | None =>

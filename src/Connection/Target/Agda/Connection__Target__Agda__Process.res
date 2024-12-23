@@ -16,13 +16,17 @@ module Validation = {
       | WrongProcess(string)
     let toString = x =>
       switch x {
-      | PathMalformed(msg) => "Path malformed: " ++ msg
-      | ProcessHanging => "Process hanging: the program has not been responding for more than 1 sec"
+      | PathMalformed(msg) => "path malformed: " ++ msg
+      | ProcessHanging => "process hanging for more than 1 sec"
 
-      | NotFound(error) => "Command not found: " ++ Util.JsError.toString(error)
-      | ShellError(error) => "Error from the shell: " ++ Util.JsError.toString(error)
-      | ProcessError(msg) => "Error from the stderr: " ++ msg
-      | WrongProcess(msg) => "Wrong process: " ++ msg
+      | NotFound(error) =>
+        switch Js.Exn.message(error) {
+        | Some(msg) => "not found: " ++ msg
+        | None => "not found"
+        }
+      | ShellError(error) => "shell: " ++ Util.JsError.toString(error)
+      | ProcessError(msg) => "stderr: " ++ msg
+      | WrongProcess(msg) => "wrong process: " ++ msg
       }
   }
 
@@ -38,7 +42,9 @@ module Validation = {
         let message = Option.getOr(Js.Exn.message(err), "")
         if Js.Re.test_(%re("/No such file or directory/"), message) {
           Error.NotFound(err)
-        } else if Js.Re.test_(%re("/command not found/"), message) {
+        } else if (
+          Js.Re.test_(%re("/command not found/"), message) || String.endsWith(message, "ENOENT")
+        ) {
           NotFound(err)
         } else {
           ShellError(err)

@@ -116,7 +116,7 @@ module Module: {
         | _ => Error(Error.NotAgdaOrALS(path))
         }
       }
-    | Error(error) => Error(Error.Agda(Validation(Process.Validation.Error.toString(error))))
+    | Error(error) => Error(Error.ValidationError(path, error))
     }
   }
 
