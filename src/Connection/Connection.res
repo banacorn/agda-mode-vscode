@@ -11,7 +11,7 @@ module type Module = {
   //   bool,
   //   Resolver.GitHub.Download.Event.t => unit,
   // ) => promise<result<Target.t, Error.t>>
-  let start: State__Type.t => promise<result<Target.t, Error.t>>
+  let start: State__Type.t => promise<result<unit, Error.t>>
   let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -48,12 +48,6 @@ module Module: Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   let singleton: ref<option<t>> = ref(None)
 
-  let toTarget = (conn: t): Target.t =>
-    switch conn {
-    | ALS(_, target) => target
-    | Agda(_, target) => target
-    }
-
   let stop = async () =>
     switch singleton.contents {
     | None => Ok()
@@ -69,39 +63,70 @@ module Module: Module = {
       }
     }
 
+  let start_ = async (target: Target.t): result<unit, Error.t> =>
+    switch target {
+    | Agda(version, path) =>
+      let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
+      switch await Agda.make(method) {
+      | Error(error) => Error(Error.Agda(error))
+      | Ok(conn) =>
+        singleton := Some(Agda(conn, Agda(version, path)))
+        Ok()
+      }
+    | ALS(alsVersion, agdaVersion, Ok(method)) =>
+      switch await ALS.make(method, InitOptions.getFromConfig()) {
+      | Error(error) => Error(ALS(error))
+      | Ok(conn) =>
+        let method = ALS.getIPCMethod(conn)
+        singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Ok(method))))
+        Ok()
+      }
+    | ALS(alsVersion, agdaVersion, Error(path)) =>
+      switch await ALS.make(
+        Connection__IPC.ViaPipe(path, [], None, FromFile(path)),
+        InitOptions.getFromConfig(),
+      ) {
+      | Error(error) => Error(ALS(error))
+      | Ok(conn) =>
+        let method = ALS.getIPCMethod(conn)
+        singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
+        Ok()
+      }
+    }
+
+  let findAgda = async (errorFromFindingALS) => {
+    switch await Connection__Resolver__Command.search("agda") {
+    | Error(error) => Error(Error.CannotFindAgda(Connection__Resolver.Error.Command("agda", error)))
+    | Ok(path) =>
+      switch await Target.probePath(path) {
+      | Error(error) => Error(error)
+      | Ok(target) =>
+        await Config.Connection.addAgdaPath(path)
+        await start_(target)
+      }
+    }
+  }
+
+  let findALSAndAgda = async () => {
+    switch await Connection__Resolver__Command.search("als") {
+    | Error(error) => await findAgda(error)
+    | Ok(path) =>
+      switch await Target.probePath(path) {
+      | Error(error) => await findAgda(error)
+      | Ok(target) =>
+        await Config.Connection.addAgdaPath(path)
+        await start_(target)
+      }
+    }
+  }
+
   let start = async state =>
     switch singleton.contents {
-    | Some(conn) => Ok(toTarget(conn))
+    | Some(_) => Ok()
     | None =>
       switch await Target.getPicked(state) {
-      | None => Error(Error.CannotFindAgdaOrALS)
-      | Some(Agda(version, path)) =>
-        let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
-        switch await Agda.make(method) {
-        | Error(error) => Error(Error.Agda(error))
-        | Ok(conn) =>
-          singleton := Some(Agda(conn, Agda(version, path)))
-          Ok(Agda(version, path))
-        }
-      | Some(ALS(alsVersion, agdaVersion, Ok(method))) =>
-        switch await ALS.make(method, InitOptions.getFromConfig()) {
-        | Error(error) => Error(ALS(error))
-        | Ok(conn) =>
-          let method = ALS.getIPCMethod(conn)
-          singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Ok(method))))
-          Ok(ALS(alsVersion, conn.agdaVersion, Ok(method)))
-        }
-      | Some(ALS(alsVersion, agdaVersion, Error(path))) =>
-        switch await ALS.make(
-          Connection__IPC.ViaPipe(path, [], None, FromFile(path)),
-          InitOptions.getFromConfig(),
-        ) {
-        | Error(error) => Error(ALS(error))
-        | Ok(conn) =>
-          let method = ALS.getIPCMethod(conn)
-          singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
-          Ok(ALS(alsVersion, conn.agdaVersion, Ok(method)))
-        }
+      | None => await findALSAndAgda()
+      | Some(target) => await start_(target)
       }
     }
   let rec sendRequest = async (

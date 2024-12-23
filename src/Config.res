@@ -44,8 +44,23 @@ module Connection = {
 
       rawPaths
       ->Option.getOr([])
-      ->Array.filter(s => String.trim(s) != "")
+      ->Array.filter(s => Parser.filepath(s) != "")
     }
+
+  let addAgdaPath = path => {
+    let path = path->Parser.filepath
+
+    let paths = getAgdaPaths()
+    let newPaths = Array.concat(paths, [path])
+
+    if inTestingMode.contents {
+      agdaPathsInTestingMode := newPaths
+      Promise.resolve()
+    } else {
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
+    }
+  }
 
   // Agda command-line options
   let getCommandLineOptions = () =>
