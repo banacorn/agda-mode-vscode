@@ -169,14 +169,14 @@ module Module: {
     ])
 
     // add the path to the configuration
-    switch result {
-    | (None, _) => ()
-    | (Some(method), _) =>
-      switch method {
-      | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
-      | _ => ()
-      }
-    }
+    // switch result {
+    // | (None, _) => ()
+    // | (Some(method), _) =>
+    //   switch method {
+    //   | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
+    //   | _ => ()
+    //   }
+    // }
 
     result
   }
@@ -200,14 +200,14 @@ module Module: {
     // )
 
     // add the path to the configuration
-    switch result {
-    | (None, _) => ()
-    | (Some(method), _) =>
-      switch method {
-      | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
-      | _ => ()
-      }
-    }
+    // switch result {
+    // | (None, _) => ()
+    // | (Some(method), _) =>
+    //   switch method {
+    //   | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
+    //   | _ => ()
+    //   }
+    // }
 
     result
   }
@@ -251,10 +251,25 @@ module Module: {
   // returns the previously picked connection target
   let getPicked = async (state: State__Type.t) =>
     switch state.memento->State__Type.Memento.get("pickedConnection") {
-    | Some(path) =>
-      switch await probePath(path) {
-      | Ok(target) => Some(target)
-      | Error(_) => None
+    | Some(fromMemento) =>
+      // see if it still exists in the configuration
+      let fromConfig = await getAll()
+      let stillExists = fromConfig->Array.reduce(false, (acc, target) =>
+        acc ||
+        switch target {
+        | Ok(target) => getPath(target) == fromMemento
+        | Error(_) => false
+        }
+      )
+      if stillExists {
+        switch await probePath(fromMemento) {
+        | Ok(target) => Some(target)
+        | Error(_) => None
+        }
+      } else {
+        // remove the invalid path from the memento
+        await state.memento->State__Type.Memento.update("pickedConnection", None)
+        None
       }
     | None => await getFirstUsable()
     }

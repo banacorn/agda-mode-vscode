@@ -33,36 +33,6 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
-  let addAgdaPath = async path => {
-    // if the element is already in the array, move it to the front
-    // otherwise, add it to the front
-    let addAgdaPathPrim = (xs, x) => {
-      switch Array.findIndexOpt(xs, y => y == x) {
-      | Some(i) =>
-        Array.flat([[x], Array.slice(xs, ~start=0, ~end=i), Array.sliceToEnd(xs, ~start=i + 1)])
-      | None => Array.concat([x], xs)
-      }
-    }
-
-    if inTestingMode.contents {
-      agdaPathsInTestingMode := addAgdaPathPrim(agdaPathsInTestingMode.contents, path)
-    } else {
-      let originalPaths: array<string> =
-        Workspace.getConfiguration(Some("agdaMode"), None)
-        ->WorkspaceConfiguration.get("connection.paths")
-        ->Option.getOr([])
-
-      await Workspace.getConfiguration(
-        Some("agdaMode"),
-        None,
-      )->WorkspaceConfiguration.updateGlobalSettings(
-        "connection.paths",
-        addAgdaPathPrim(originalPaths, path),
-        None,
-      )
-    }
-  }
-
   let getAgdaPaths = () =>
     if inTestingMode.contents {
       agdaPathsInTestingMode.contents
