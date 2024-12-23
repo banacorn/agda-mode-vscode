@@ -111,14 +111,7 @@ module QP = {
   }
 
   let render = self => {
-    // set the connection we picked last time as the selected item
-    let pickedConnection: option<string> =
-      self.state.memento->State__Type.Memento.get("pickedConnection")
-    let selectedItems =
-      self.items->Array.filter(item => item.VSCode.QuickPickItem.detail === pickedConnection)
-
     self.quickPick->VSCode.QuickPick.setItems(self.items)
-    self.quickPick->VSCode.QuickPick.setSelectedItems(selectedItems)
     self.quickPick->VSCode.QuickPick.show
   }
 
@@ -131,14 +124,19 @@ module QP = {
 let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
   switch selection.label {
   | "Open download folder" =>
-    await openGlobalStorageFolder(self.state)
-    self->QP.destroy
+    // await openGlobalStorageFolder(self.state)
+    // self->QP.destroy
+    Js.log("Open download folder")
+    ()
   | _ =>
     let path = selection.detail
 
     switch await Connection.Target.getPicked(self.state) {
-    | None => ()
+    | None =>
+      Js.log("No target picked before")
+      ()
     | Some(target) => {
+        Js.log3("Target picked before", selection.detail, target)
         let selectionChanged = path !== Some(Connection.Target.getPath(target))
         if selectionChanged {
           // remember the selected connection as the "picked" connection
@@ -151,7 +149,7 @@ let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
             }
           }
 
-          self->QP.destroy
+          // self->QP.destroy
         }
       }
     }
@@ -163,8 +161,14 @@ let run = async state => {
 
   // events
   qp.quickPick
-  ->VSCode.QuickPick.onDidChangeSelection(items => {
-    items[0]->Option.forEach(item => handleSelection(qp, item)->ignore)
+  ->VSCode.QuickPick.onDidChangeSelection(selectedItems => {
+    Js.log2("onDidChangeSelection", selectedItems)
+    selectedItems[0]->Option.forEach(item => handleSelection(qp, item)->ignore)
+  })
+  ->Util.Disposable.add(qp.subscriptions)
+  qp.quickPick
+  ->VSCode.QuickPick.onDidHide(() => {
+    qp->QP.destroy
   })
   ->Util.Disposable.add(qp.subscriptions)
 
@@ -172,7 +176,7 @@ let run = async state => {
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
   // items to be shown in the quick pick
-  let otherItems = [
+  let miscItems = [
     {
       VSCode.QuickPickItem.label: "",
       kind: Separator,
@@ -183,103 +187,19 @@ let run = async state => {
     },
   ]
 
-  // quickPick
-  // ->VSCode.QuickPick.onDidChangeActive(items => Js.log2("onDidChangeActive", items))
-  // ->Util.Disposable.add(subscriptions)
-
-  // onDidChangeSelection
-  // quickPick
-  // ->VSCode.QuickPick.onDidChangeValue(value => Js.log2("onDidChangeValue", value))
-  // ->Util.Disposable.add(subscriptions)
-
-  // quickPick
-  // ->VSCode.QuickPick.onDidTriggerButton(button => Js.log2("onDidTriggerButton", button))
-  // ->Util.Disposable.add(subscriptions)
-
-  // quickPick
-  // ->VSCode.QuickPick.onDidAccept(() => Js.log("onDidAccept"))
-  // ->Util.Disposable.add(subscriptions)
-
-  // onDidHide
-  qp.quickPick
-  ->VSCode.QuickPick.onDidHide(() => {
-    qp->QP.destroy
-  })
-  ->Util.Disposable.add(qp.subscriptions)
-
-  qp.items = Array.flat([otherItems])
-  qp->QP.render
-
-  // // fetch the latest release manifest of the language server and show them
-  // let agdaLanguageServerRepo = Connection.makeAgdaLanguageServerRepo(
-  //   VSCode.Uri.fsPath(state.globalStorageUri),
-  // )
-  // let (result, _isFromCache) = await Connection.Resolver.GitHub.getReleaseManifest(
-  //   agdaLanguageServerRepo,
-  // )
-
-  // let languageServerItemsSeparator = [
-  //   {
-  //     VSCode.QuickPickItem.label: "Language Servers",
-  //     kind: Separator,
-  //   },
-  // ]
-  // let languageServerItems = switch result {
-  // | Ok(releases) =>
-  //   releases->Array.map(release => {
-  //     let version = release.tag_name
-  //     let description = switch release.body {
-  //     | Some(body) => body
-  //     | None => "No description"
-  //     }
-  //     let label = "Agda Language Server " ++ version
-  //     {
-  //       VSCode.QuickPickItem.label,
-  //       description,
-  //     }
-  //   })
-  // | Error(_) => []
-  // }
-
   //
   //  Installations
   //
 
-  let installationItemsSeperator = [
-    {
-      VSCode.QuickPickItem.label: "Installations",
-      kind: Separator,
-    },
-  ]
-
-  let installationItems = Connection.Target.getRawPathsFromConfig()->Array.map(path => {
-    {
-      VSCode.QuickPickItem.label: path,
-    }
-  })
-
-  qp.items = Array.flat([installationItemsSeperator, installationItems, otherItems])
-  qp->QP.render
-
-  //
-  //  Resolved Installations
-  //
-
-  let installationTargets = await Connection.Target.getAll()
-
-  let installationItems = installationTargets->Array.map(result =>
-    switch result {
-    | Error(CannotResolvePath(path)) => {
+  // converting a target to a quick pick item
+  let targetToItem = target =>
+    switch target {
+    | Error(Connection__Error.CannotResolvePath(path)) => {
         VSCode.QuickPickItem.label: "$(error)  Error",
         description: "unable to resolve the given path",
         detail: path,
       }
-    // | Error(Agda(Validation(error))) => {
-    //     VSCode.QuickPickItem.label: "$(error)  Validation Error",
-    //     description: error,
-    //     detail: path,
-    //   }
-    | Ok(Agda(version, path)) => {
+    | Ok(Connection.Target.Agda(version, path)) => {
         VSCode.QuickPickItem.label: "Agda v" ++ version,
         // description: path,
         detail: path,
@@ -293,16 +213,63 @@ let run = async state => {
         description: "Agda v" ++ agdaVersion,
         detail: path,
       }
+    // | Error(Agda(error)) =>
+    //   Js.log(target)
+    //   {
+    //     VSCode.QuickPickItem.label: "$(error)  Error",
+    //     description: "unable to resolve the given path",
+    //     detail: path,
+    //   }
     | _ =>
-      Js.log(result)
+      Js.log(target)
       {
         VSCode.QuickPickItem.label: "Unknown",
         description: "???",
       }
     }
-  )
 
-  let items = Array.flat([installationItemsSeperator, installationItems, otherItems])
+  let installationTargets = await Connection.Target.getAll()
+  let picked = await Connection.Target.getPicked(state)
+
+  let isPicked = target =>
+    switch picked {
+    | None => false
+    | Some(picked) =>
+      switch target {
+      | Error(_) => false
+      | Ok(target) => Connection.Target.getPath(picked) === Connection.Target.getPath(target)
+      }
+    }
+
+  // "selected" items to be placed at the top of the list
+  let selectedItemsSeperator = [
+    {
+      VSCode.QuickPickItem.label: "Selected",
+      kind: Separator,
+    },
+  ]
+  let selectedItems = installationTargets->Array.filter(isPicked)->Array.map(targetToItem)
+
+  // "others" items to be placed below the "selected" items
+  let otherInstallationItemsSeperator = [
+    {
+      VSCode.QuickPickItem.label: "Others",
+      kind: Separator,
+    },
+  ]
+  let installationItems =
+    installationTargets->Array.filter(x => !isPicked(x))->Array.map(targetToItem)
+
+  let items = Array.flat([
+    // selected
+    selectedItemsSeperator,
+    selectedItems,
+    // others
+    otherInstallationItemsSeperator,
+    installationItems,
+    // misc operations
+    miscItems,
+  ])
   qp.items = items
   qp->QP.render
 }
