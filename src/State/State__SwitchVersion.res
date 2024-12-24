@@ -174,7 +174,7 @@ let run = async state => {
       }
     | Error(Connection__Error.ValidationError(path, error)) => {
         VSCode.QuickPickItem.label: "$(error)  Error",
-        description: Connection__Target__Agda__Process.Validation.Error.toString(error),
+        description: Connection__Validation.Error.toString(error),
         detail: path,
       }
     | Error(CannotResolvePath(path)) => {

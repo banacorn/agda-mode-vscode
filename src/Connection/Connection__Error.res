@@ -8,7 +8,7 @@ type t =
   | CannotFindALS(Connection__Resolver.Error.t)
   | CannotResolvePath(string)
   | NotAgdaOrALS(string)
-  | ValidationError(string, Connection__Target__Agda__Process.Validation.Error.t)
+  | ValidationError(string, Connection__Validation.Error.t)
 
 let toString = x =>
   switch x {
@@ -24,8 +24,8 @@ let toString = x =>
       "Not Agda or ALS",
       "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server",
     )
-  | ValidationError(path, e) => (
+  | ValidationError(_, e) => (
       "Error",
-      Connection__Target__Agda__Process.Validation.Error.toString(e),
+      Connection__Validation.Error.toString(e),
     )
   }

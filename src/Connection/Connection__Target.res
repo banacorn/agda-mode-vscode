@@ -101,7 +101,7 @@ module Module: {
   // see if it's a valid Agda executable or language server
   let probeFilepath = async path => {
     module Process = Connection__Target__Agda__Process
-    let result = await Process.Validation.run(path, ["--version"], output => Ok(output))
+    let result = await Connection__Validation.run(path, ["--version"], output => Ok(output))
 
     switch result {
     | Ok(output) =>
