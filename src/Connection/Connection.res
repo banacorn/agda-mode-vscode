@@ -6,25 +6,18 @@ module Target = Connection__Target
 
 module type Module = {
   // lifecycle
-  // let start: (
-  //   VSCode.Uri.t,
-  //   bool,
-  //   Resolver.GitHub.Download.Event.t => unit,
-  // ) => promise<result<Target.t, Error.t>>
   let start: State__Type.t => promise<result<unit, Error.t>>
   let stop: unit => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
     State__Type.t,
-    // VSCode.Uri.t,
-    // Resolver.GitHub.Download.Event.t => unit,
-    // bool,
     Request.t,
     result<Response.t, Error.t> => promise<unit>,
   ) => promise<result<Target.t, Error.t>>
 
   // misc
   let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
+  let getALSReleaseManifest: State__Type.t => promise<result<array<Connection__Resolver__GitHub.Release.t>, Error.t>>
 }
 
 module Module: Module = {
@@ -181,6 +174,13 @@ module Module: Module = {
     userAgent: "agda/agda-mode-vscode",
     globalStoragePath,
     cacheInvalidateExpirationSecs: 86400,
+  }
+
+  let getALSReleaseManifest = async (state: State__Type.t) => {
+    switch await Resolver.GitHub.getReleaseManifest(makeAgdaLanguageServerRepo(VSCode.Uri.fsPath(state.globalStorageUri))) {
+    | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
+    | (Ok(manifest), _) => Ok(manifest)
+    }
   }
 }
 

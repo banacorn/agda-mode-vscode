@@ -6,7 +6,7 @@ let switchAgdaVersion = async state => {
   // display what we are going to do
   switch await Connection.Target.getPicked(state) {
   | None => ()
-  | Some(Agda(version, path)) => {
+  | Some(Agda(version, _)) => {
       await State.View.Panel.displayStatus(state, "")
       await State.View.Panel.display(state, View.Header.Plain("Switching to Agda v" ++ version), [])
     }
@@ -30,7 +30,7 @@ let switchAgdaVersion = async state => {
   | Ok() =>
     switch await Connection.Target.getPicked(state) {
     | None => ()
-    | Some(Agda(version, path)) => {
+    | Some(Agda(version, _path)) => {
         await State.View.Panel.displayStatus(state, "Agda v" ++ version)
         await State.View.Panel.display(
           state,
@@ -39,7 +39,10 @@ let switchAgdaVersion = async state => {
         )
       }
     | Some(ALS(alsVersion, agdaVersion, _)) => {
-        await State.View.Panel.displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
+        await State.View.Panel.displayStatus(
+          state,
+          "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
+        )
         await State.View.Panel.display(
           state,
           View.Header.Success(
@@ -106,9 +109,9 @@ let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
           | Some(path) =>
             switch await Connection.Target.probePath(path) {
             | Error(_) => ()
-            | Ok(newTarget) => 
-                await Connection.Target.setPicked(self.state, newTarget)
-                await switchAgdaVersion(self.state)
+            | Ok(newTarget) =>
+              await Connection.Target.setPicked(self.state, newTarget)
+              await switchAgdaVersion(self.state)
             }
           }
         }
@@ -119,7 +122,6 @@ let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
 
 let run = async state => {
   let qp = QP.make(state)
-
   // events
   qp.quickPick
   ->VSCode.QuickPick.onDidChangeSelection(selectedItems => {
@@ -223,6 +225,28 @@ let run = async state => {
   let installationItems =
     installationTargets->Array.filter(x => !isPicked(x))->Array.map(targetToItem)
 
+  let chooseFromRelease = (release: Connection.Resolver.GitHub.Release.t): array<
+    Connection.Resolver.GitHub.Asset.t,
+  > => {
+    // determine the platform
+    let platform = switch NodeJs.Os.platform() {
+    | "darwin" =>
+      switch Node__OS.arch() {
+      | "x64" => Some("macos-x64")
+      | "arm64" => Some("macos-arm64")
+      | _ => None
+      }
+    | "linux" => Some("ubuntu")
+    | "win32" => Some("windows")
+    | _ => None
+    }
+    switch platform {
+    | Some(platform) =>
+      release.assets->Array.filter(asset => asset.name->String.endsWith(platform ++ ".zip"))
+    | None => []
+    }
+  }
+
   let items = Array.flat([
     // selected
     selectedItemsSeperator,
@@ -230,9 +254,84 @@ let run = async state => {
     // others
     otherInstallationItemsSeperator,
     installationItems,
+    // ALS prebuilts from GitHub
     // misc operations
     miscItems,
   ])
   qp.items = items
   qp->QP.render
+
+  // ALS Prebuilt
+  let alsPrebuiltItemsSeparator = [
+    {
+      VSCode.QuickPickItem.label: "Prebuilt ALS",
+      kind: Separator,
+    },
+  ]
+  let alsPrebuiltItems = switch await Connection.getALSReleaseManifest(state) {
+  | Error(error) =>
+    let (header, body) = Connection.Error.toString(error)
+    [
+      {
+        VSCode.QuickPickItem.label: "$(debug-disconnect)  Error",
+        description: header,
+        detail: body,
+      },
+    ]
+  | Ok(releases) =>
+    // only releases after 2024-12-18 are considered
+    let laterReleases =
+      releases->Array.filter(release =>
+        Date.fromString(release.published_at) >= Date.fromString("2024-12-18")
+      )
+    // present only the latest release at the moment
+    let latestRelease =
+      laterReleases
+      ->Array.toSorted((a, b) =>
+        Date.compare(Date.fromString(b.published_at), Date.fromString(a.published_at))
+      )
+      ->Array.get(0)
+
+    switch latestRelease {
+    | None => []
+    | Some(latestRelease) =>
+      // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
+      let alsVersion = {
+        let parts = String.split(latestRelease.tag_name, ".")
+        parts[Array.length(parts) - 1]->Option.getOr("?")
+      }
+      // choose the assets of the corresponding platform
+      let assets = chooseFromRelease(latestRelease)
+
+      assets->Array.map(asset => {
+        let agdaVersion =
+          asset.name
+          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+
+        {
+          VSCode.QuickPickItem.label: "$(squirrel)  Language Server v" ++ alsVersion,
+          description: "Agda v" ++ agdaVersion,
+          detail: asset.browser_download_url,
+        }
+      })
+    }
+  }
+
+  let items = Array.flat([
+    // selected
+    selectedItemsSeperator,
+    selectedItems,
+    // others
+    otherInstallationItemsSeperator,
+    installationItems,
+    // ALS prebuilts from GitHub
+    alsPrebuiltItemsSeparator,
+    alsPrebuiltItems,
+    // misc operations
+    miscItems,
+  ])
+  qp.items = items
+  qp->QP.render
+
 }
