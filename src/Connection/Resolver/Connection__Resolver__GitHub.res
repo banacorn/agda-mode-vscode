@@ -78,13 +78,13 @@ module Nd = {
 module Error = {
   type t =
     | ResponseDecodeError(string, Js.Json.t)
-    | JsonParseError(string)
     | NoMatchingRelease
     // download
     | AlreadyDownloading
     | CannotDownload(Download.Error.t)
     | CannotGetReleases(Download.Error.t)
     // cacheing
+    | CannotReadReleasesCache(string)
     | CannotCacheReleases(Js.Exn.t)
     // file system
     | CannotChmodFile(string)
@@ -98,7 +98,6 @@ module Error = {
   let toString = x =>
     switch x {
     | ResponseDecodeError(msg, _) => "Cannot decode release metadata JSON from GitHub:\n" ++ msg
-    | JsonParseError(raw) => "Cannot parse string as JSON:\n" ++ raw
     | NoMatchingRelease => "Cannot find matching release from GitHub"
     // download
     | CannotDownload(error) =>
@@ -107,6 +106,7 @@ module Error = {
       "Cannot get release info from GitHub:\n" ++ Download.Error.toString(error)
     | AlreadyDownloading => "Already downloading"
     // cacheing
+    | CannotReadReleasesCache(string) => "Cannot read releases cache:\n" ++ string
     | CannotCacheReleases(exn) => "Failed to cache releases:\n" ++ Util.JsError.toString(exn)
     // file system
     | CannotStatFile(path) => "Cannot stat file \"" ++ path ++ "\""
@@ -384,6 +384,7 @@ module Repo = {
     repository: string,
     userAgent: string,
     // for caching
+    memento: State__Type.Memento.t,
     globalStoragePath: string,
     cacheInvalidateExpirationSecs: int,
   }
@@ -412,7 +413,12 @@ module Callbacks = {
       (string, Target.t),
     ) => promise<
       result<
-        (string, array<string>, option<Connection__Target__ALS__LSP__Binding.executableOptions>, Target.t),
+        (
+          string,
+          array<string>,
+          option<Connection__Target__ALS__LSP__Binding.executableOptions>,
+          Target.t,
+        ),
         Error.t,
       >,
     >,
@@ -504,54 +510,52 @@ module Module: {
   }
 
   module ReleaseManifestCache = {
-    // util for getting stat modify time in ms
-    let statModifyTime = async path =>
-      switch await NodeJs.Fs.lstat(path) {
-      | stat => Ok(stat.mtimeMs)
-      | exception Exn.Error(_) => Error(Error.CannotStatFile(path))
-      }
+    // timestamp for the release cache
+    let readTimestamp = memento =>
+      memento->State__Type.Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
+    let writeTimestamp = (memento, timestamp) =>
+      memento->State__Type.Memento.update("alsReleaseCacheTimestamp", Date.toString(timestamp))
 
-    let makeCachePath = globalStoragePath =>
-      NodeJs.Path.join2(globalStoragePath, "releases-cache.json")
+    // release cache
+    let readReleaseCache = memento => memento->State__Type.Memento.get("alsReleaseCache")
+    let writeReleaseCache = (memento, releases) =>
+      memento->State__Type.Memento.update("alsReleaseCache", releases)
 
-    let isValid = async (globalStoragePath, cacheInvalidateExpirationSecs) => {
-      let path = makeCachePath(globalStoragePath)
-      if NodeJs.Fs.existsSync(path) {
-        switch await statModifyTime(path) {
-        | Error(_) => false // invalidate when there's an error
-        | Ok(lastModifiedTime) =>
-          let currentTime = Js.Date.now()
-          // devise time difference in seconds
-          let diff = int_of_float((currentTime -. lastModifiedTime) /. 1000.0)
-          // cache is invalid if it is too old
-          diff < cacheInvalidateExpirationSecs
-        }
-      } else {
-        // the cache does not exist, hence not valid
-        false
+    // see if the cache is valid
+    let isValid = async (memento, cacheInvalidateExpirationSecs) => {
+      switch readTimestamp(memento) {
+      | None => false // the cache timestamp does not exist, hence not valid
+      | Some(timestamp) =>
+        let currentTime = Date.now()
+        let lastModifiedTime = Date.getTime(timestamp)
+        // time difference in seconds
+        let diff = int_of_float((currentTime -. lastModifiedTime) /. 1000.0)
+        // cache is invalid if it is too old
+        diff < cacheInvalidateExpirationSecs
       }
     }
 
-    let persist = async (self, releases) => {
-      let json = Release.encodeReleases(releases)->Js_json.stringify
-      let path = makeCachePath(self)
-      await Nd.Fs.writeFile(path, json)
-    }
-
-    let get = async globalStoragePath => {
-      // use the cached releases manifest
-      let path = makeCachePath(globalStoragePath)
-      // read file and decode as json
-      let string = await Nd.Fs.readFile(path)
-      switch Js.Json.parseExn(string) {
-      | json =>
+    let get = async memento => {
+      // read the file and decode as json
+      switch readReleaseCache(memento) {
+      | None => Ok([])
+      | Some(string) =>
         // parse the json
-        switch Release.decodeReleases(json) {
-        | Error(e) => Error(e)
-        | Ok(releases) => Ok(releases)
+        switch Js.Json.parseExn(string) {
+        | json =>
+          switch Release.decodeReleases(json) {
+          | Error(e) => Error(e)
+          | Ok(releases) => Ok(releases)
+          }
+        | exception _ => Error(Error.CannotReadReleasesCache(string))
         }
-      | exception _ => Error(Error.JsonParseError(string))
       }
+    }
+
+    let set = async (memento, releases) => {
+      let json = Release.encodeReleases(releases)->Js_json.stringify
+      await writeTimestamp(memento, Date.make())
+      await writeReleaseCache(memento, json)
     }
   }
 
@@ -575,18 +579,18 @@ module Module: {
   // returns an additional boolean indicating if the target is from cache
   let getReleaseManifest = async (repo: Repo.t) => {
     let isValid = await ReleaseManifestCache.isValid(
-      repo.globalStoragePath,
+      repo.memento,
       repo.cacheInvalidateExpirationSecs,
     )
     if isValid {
       // use the cached releases manifest
-      let result = await ReleaseManifestCache.get(repo.globalStoragePath)
+      let result = await ReleaseManifestCache.get(repo.memento)
       (result, true)
     } else {
       let result = await getReleaseManifestFromGitHubRepo(repo)
       // cache the releases
       switch result {
-      | Ok(releases) => await ReleaseManifestCache.persist(repo.globalStoragePath, releases)
+      | Ok(releases) => await ReleaseManifestCache.set(repo.memento, releases)
       | Error(_) => ()
       }
       (result, false)
@@ -625,8 +629,6 @@ module Module: {
       }
     }
   }
-
-
 }
 
 include Module

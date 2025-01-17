@@ -9,6 +9,7 @@ module Module: {
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
   // try to find the Agda Language Server
   let tryALS: (
+    State__Type.Memento.t,
     string,
     Resolver.GitHub.Download.Event.t => unit,
   ) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
@@ -90,10 +91,14 @@ module Module: {
     }
   }
 
-  let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t = globalStoragePath => {
+  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t = (
+    memento,
+    globalStoragePath,
+  ) => {
     username: "agda",
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
+    memento,
     globalStoragePath,
     cacheInvalidateExpirationSecs: 86400,
   }
@@ -146,7 +151,7 @@ module Module: {
 
   // see if the server is available
   // priorities: TCP => Prebuilt => StdIO
-  let tryALS = async (globalStoragePath, onDownload) => {
+  let tryALS = async (memento, globalStoragePath, onDownload) => {
     let port = Config.Connection.getAgdaLanguageServerPort()
     let name = "als"
 
@@ -158,7 +163,7 @@ module Module: {
       FromCommand(name),
       // download the language server from GitHub
       FromGitHub(
-        makeAgdaLanguageServerRepo(globalStoragePath),
+        makeAgdaLanguageServerRepo(memento, globalStoragePath),
         {
           chooseFromReleases,
           onDownload,

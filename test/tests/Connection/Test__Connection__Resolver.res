@@ -205,6 +205,7 @@ describe("Path Searching", () => {
       Repo.username: "agda",
       repository: "agda-language-server",
       userAgent: "agda/agda-mode-vscode",
+      memento: State__Type.Memento.make(None),
       globalStoragePath: "./",
       cacheInvalidateExpirationSecs: 86400,
     }

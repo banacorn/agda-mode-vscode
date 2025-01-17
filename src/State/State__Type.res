@@ -124,6 +124,8 @@ module Memento: {
   let getWithDefault: (t, string, 'a) => 'a
   let keys: t => array<string>
   let update: (t, string, 'a) => promise<unit>
+  // for debugging
+  let toString: t => string
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
 
@@ -158,6 +160,25 @@ module Memento: {
     switch context {
     | Memento(context) => VSCode.Memento.update(context, key, value)
     | Mock(dict) => dict->Dict.set(key, Obj.magic(value))->Promise.resolve
+    }
+
+  let toString = context =>
+    switch context {
+    | Memento(context) => 
+        let entries = VSCode.Memento.keys(context)->Array.map(key => {
+          switch VSCode.Memento.get(context, key) {
+            | None => key ++ ": None"
+            | Some(value) => {
+              key ++ ": " ++ value
+            }
+          }
+        })
+        "Memento: {\n" ++ Array.join(entries, "\n") ++ "}"
+    | Mock(dict) =>
+      let entries = dict->Dict.toArray->Array.map(((key, value)) => {
+        key ++ ": " ++ value->Obj.magic->Js.String.make
+      })
+      "Mock: {\n" ++ Array.join(entries, "\n") ++ "}"
     }
 }
 

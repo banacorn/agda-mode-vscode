@@ -16,7 +16,7 @@ module type Module = {
   ) => promise<result<Target.t, Error.t>>
 
   // misc
-  let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t
+  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t
   let getALSReleaseManifest: State__Type.t => promise<result<array<Connection__Resolver__GitHub.Release.t>, Error.t>>
 }
 
@@ -168,16 +168,17 @@ module Module: Module = {
     }
   }
 
-  let makeAgdaLanguageServerRepo: string => Resolver.GitHub.Repo.t = globalStoragePath => {
+  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t = (memento, globalStoragePath) => {
     username: "agda",
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
+    memento,
     globalStoragePath,
     cacheInvalidateExpirationSecs: 86400,
   }
 
   let getALSReleaseManifest = async (state: State__Type.t) => {
-    switch await Resolver.GitHub.getReleaseManifest(makeAgdaLanguageServerRepo(VSCode.Uri.fsPath(state.globalStorageUri))) {
+    switch await Resolver.GitHub.getReleaseManifest(makeAgdaLanguageServerRepo(state.memento, VSCode.Uri.fsPath(state.globalStorageUri))) {
     | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
     | (Ok(manifest), _) => Ok(manifest)
     }
