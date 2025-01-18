@@ -177,7 +177,7 @@ let run = async state => {
         description: "Agda v" ++ agdaVersion,
         detail: switch method {
         | Error(path) => path
-        | Ok(ViaTCP(port, host, _)) => host ++ ":" ++ string_of_int(port)
+        | Ok(ViaTCP(url, _)) => url.toString()
         | Ok(ViaPipe(path, _, _, _)) => path
         },
       }

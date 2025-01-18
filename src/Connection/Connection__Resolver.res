@@ -7,7 +7,7 @@ module IPC = Connection__IPC
 type t =
   | FromFile(string) // path of the program
   | FromCommand(string) // name of the command
-  | FromTCP(int, string) // port, host
+  | FromTCP(NodeJs.Url.t)
   | FromGitHub(Connection__Resolver__GitHub.Repo.t, Connection__Resolver__GitHub.Callbacks.t)
 
 // error from the sources
@@ -15,7 +15,7 @@ module Error = {
   type t =
     | File(string) // path of the program
     | Command(string, Command.Error.t) // name of the command, error
-    | TCP(int, string, TCP.Error.t) // port, host, error
+    | TCP(NodeJs.Url.t, TCP.Error.t)
     | GitHub(GitHub.Error.t)
 
   let toString = error =>
@@ -23,13 +23,8 @@ module Error = {
     | File(path) => "Trying to locate \"" ++ path ++ "\" but the file does not exist"
     | Command(name, e) =>
       "Trying to find the command \"" ++ name ++ "\": " ++ Command.Error.toString(e)
-    | TCP(port, host, e) =>
-      "Trying to connect to " ++
-      host ++
-      ":" ++
-      string_of_int(port) ++
-      " : " ++
-      TCP.Error.toString(e)
+    | TCP(url, e) =>
+      "Trying to connect to " ++ url.toString() ++ " but got " ++ TCP.Error.toString(e)
     | GitHub(e) => "Trying to download prebuilt from GitHub: " ++ GitHub.Error.toString(e)
     }
 }
@@ -53,10 +48,10 @@ module Module: {
       | Error(e) => Error(Error.Command(name, e))
       | Ok(path) => Ok(IPC.ViaPipe(path, [], None, FromCommand(name)))
       }
-    | FromTCP(port, host) =>
-      switch await TCP.probe(port, host, ~timeout) {
-      | Error(e) => Error(Error.TCP(port, host, e))
-      | Ok() => Ok(IPC.ViaTCP(port, host, FromTCP(port, host)))
+    | FromTCP(url) =>
+      switch await TCP.probe(url, ~timeout) {
+      | Error(e) => Error(Error.TCP(url, e))
+      | Ok() => Ok(IPC.ViaTCP(url, FromTCP(url)))
       }
     | FromGitHub(repo, callbacks) =>
       switch await GitHub.get(repo, callbacks) {

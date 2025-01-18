@@ -95,13 +95,16 @@ describe("Path Searching", () => {
     Async.it(
       "for TCP server that exists",
       async () => {
-        switch await Resolver.search(FromTCP(23456, "localhost"), ~timeout=5000) {
+        switch await Resolver.search(
+          FromTCP(NodeJs.Url.make("lsp://localhost:23456")),
+          ~timeout=5000,
+        ) {
         | Error(err) => Exn.raiseError(Resolver.Error.toString(err))
         | Ok(ViaPipe(_)) => Exn.raiseError("Expected ViaTCP")
-        | Ok(ViaTCP(port, host, source)) =>
-          Assert.deepEqual(port, 23456)
-          Assert.deepEqual(host, "localhost")
-          Assert.deepEqual(source, FromTCP(23456, "localhost"))
+        | Ok(ViaTCP(url, source)) =>
+          Assert.deepEqual(url.port, 23456)
+          Assert.deepEqual(url.hostname, "localhost")
+          Assert.deepEqual(source, FromTCP(NodeJs.Url.make("lsp://localhost:23456")))
         }
       },
     )
@@ -109,10 +112,13 @@ describe("Path Searching", () => {
     Async.it(
       "for local TCP server that doesn't exist",
       async () => {
-        switch await Resolver.search(FromTCP(23457, "localhost"), ~timeout=5000) {
-        | Error(TCP(port, host, error)) =>
-          Assert.deepEqual(port, 23457)
-          Assert.deepEqual(host, "localhost")
+        switch await Resolver.search(
+          FromTCP(NodeJs.Url.make("lsp://localhost:23457")),
+          ~timeout=5000,
+        ) {
+        | Error(TCP(url, error)) =>
+          Assert.deepEqual(url.port, 23457)
+          Assert.deepEqual(url.hostname, "localhost")
           Assert.deepEqual(Resolver.TCP.Error.toString(error), "AggregateError")
         | Error(_) => raise(Failure("Expecting TCP-related error"))
         | Ok(ViaPipe(_)) => Exn.raiseError("Expecting Error")
@@ -124,11 +130,13 @@ describe("Path Searching", () => {
     Async.it(
       "for remote TCP server that doesn't exist",
       async () => {
-        switch await Resolver.search(FromTCP(23457, "remotehost"), ~timeout=5000) {
-        | Error(TCP(port, host, error)) =>
-          Assert.deepEqual(port, 23457)
-          Assert.deepEqual(host, "remotehost")
-
+        switch await Resolver.search(
+          FromTCP(NodeJs.Url.make("lsp://remotehost:23458")),
+          ~timeout=5000,
+        ) {
+        | Error(TCP(url, error)) =>
+          Assert.deepEqual(url.port, 23458)
+          Assert.deepEqual(url.hostname, "remotehost")
           let result = await Resolver.GitHub.Platform.determine()
           switch result["os"] {
           | "darwin" =>

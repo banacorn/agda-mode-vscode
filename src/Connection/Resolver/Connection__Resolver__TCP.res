@@ -12,13 +12,13 @@ module Error = {
 }
 
 // see if the TCP port is available
-let probe = (port, host, ~timeout=1000) => {
+let probe = (url: NodeJs.Url.t, ~timeout=1000) => {
   let connection = Promise.make((resolve, _) => {
     // connect and resolve `Ok()` on success
     let socket = NodeJs.Net.TcpSocket.make()
 
     socket
-    ->NodeJs.Net.TcpSocket.connect(~port, ~host, () => ())
+    ->NodeJs.Net.TcpSocket.connect(~port=url.port, ~host=url.hostname, () => ())
     ->NodeJs.Net.Socket.onConnectOnce(() => {
       // destroy the connection afterwards
       Socket.destroy(socket, ~error=None)->ignore

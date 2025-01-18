@@ -2,14 +2,18 @@
 type source =
   | FromFile(string) // path of the program
   | FromCommand(string) // name of the command
-  | FromTCP(int, string) // port, host
-  | FromGitHub(Connection__Resolver__GitHub.Repo.t, Connection__Resolver__GitHub.Release.t, Connection__Resolver__GitHub.Asset.t)
+  | FromTCP(NodeJs.Url.t)
+  | FromGitHub(
+      Connection__Resolver__GitHub.Repo.t,
+      Connection__Resolver__GitHub.Release.t,
+      Connection__Resolver__GitHub.Asset.t,
+    )
 
 let sourceToString = source =>
   switch source {
   | FromFile(path) => "File: " ++ path
   | FromCommand(name) => "Command: " ++ name
-  | FromTCP(port, host) => "TCP: " ++ string_of_int(port) ++ " " ++ host
+  | FromTCP(url) => "TCP: " ++ url.toString()
   | FromGitHub(repo, release, asset) =>
     "GitHub: " ++
     Connection__Resolver__GitHub.Repo.toString(repo) ++
@@ -21,5 +25,10 @@ let sourceToString = source =>
 
 // Means of Inter-process communication
 type t =
-  | ViaPipe(string, array<string>, option<Connection__Target__ALS__LSP__Binding.executableOptions>, source) // command, args, options, source
-  | ViaTCP(int, string, source) // port, host
+  | ViaPipe(
+      string,
+      array<string>,
+      option<Connection__Target__ALS__LSP__Binding.executableOptions>,
+      source,
+    ) // command, args, options, source
+  | ViaTCP(NodeJs.Url.t, source)

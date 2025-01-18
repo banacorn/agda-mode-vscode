@@ -9,11 +9,11 @@ module Module: {
     | Agda(version, string) // Agda version, path
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
   // try to find the Agda Language Server
-  let tryALS: (
-    State__Type.Memento.t,
-    string,
-    Resolver.GitHub.Download.Event.t => unit,
-  ) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
+  // let tryALS: (
+  //   State__Type.Memento.t,
+  //   string,
+  //   Resolver.GitHub.Download.Event.t => unit,
+  // ) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
   // try to find the Agda executable
   let tryAgda: unit => promise<(option<IPC.t>, array<Resolver.Error.t>)>
 
@@ -104,32 +104,32 @@ module Module: {
     cacheInvalidateExpirationSecs: 86400,
   }
 
-  // see if the server is available
-  // priorities: TCP => Prebuilt => StdIO
-  let tryALS = async (memento, globalStoragePath, onDownload) => {
-    let port = Config.Connection.getAgdaLanguageServerPort()
-    let name = "als"
+  // // see if the server is available
+  // // priorities: TCP => Prebuilt => StdIO
+  // let tryALS = async (memento, globalStoragePath, onDownload) => {
+  //   let port = Config.Connection.getAgdaLanguageServerPort()
+  //   let name = "als"
 
-    let result = await Resolver.searchMany([
-      // when developing ALS, use `:main -p` in GHCi to open a port on localhost
-      FromTCP(port, "localhost"),
-      // #71: Prefer locally installed language server binary over bundled als
-      // https://github.com/banacorn/agda-mode-vscode/issues/71
-      FromCommand(name),
-      // download the language server from GitHub
-      FromGitHub(
-        makeAgdaLanguageServerRepo(memento, globalStoragePath),
-        {
-          chooseFromReleases,
-          onDownload,
-          afterDownload,
-          log: x => Js.log(x),
-        },
-      ),
-    ])
+  //   let result = await Resolver.searchMany([
+  //     // when developing ALS, use `:main -p` in GHCi to open a port on localhost
+  //     FromTCP(port, "localhost"),
+  //     // #71: Prefer locally installed language server binary over bundled als
+  //     // https://github.com/banacorn/agda-mode-vscode/issues/71
+  //     FromCommand(name),
+  //     // download the language server from GitHub
+  //     FromGitHub(
+  //       makeAgdaLanguageServerRepo(memento, globalStoragePath),
+  //       {
+  //         chooseFromReleases,
+  //         onDownload,
+  //         afterDownload,
+  //         log: x => Js.log(x),
+  //       },
+  //     ),
+  //   ])
 
-    result
-  }
+  //   result
+  // }
 
   let tryAgda = async () => {
     let storedPaths = Config.Connection.getAgdaPaths()
@@ -173,7 +173,7 @@ module Module: {
     switch target {
     | Agda(_, path) => path
     | ALS(_, _, Ok(ViaPipe(path, _, _, _))) => path
-    | ALS(_, _, Ok(ViaTCP(port, host, _))) => "lsp://" ++ host ++ ":" ++ string_of_int(port)
+    | ALS(_, _, Ok(ViaTCP(url, _))) => url.toString()
     | ALS(_, _, Error(path)) => path
     }
 
