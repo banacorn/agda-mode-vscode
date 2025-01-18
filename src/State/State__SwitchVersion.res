@@ -106,16 +106,17 @@ let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
         switch rawPath {
         | None => ()
         | Some(rawPath) =>
-          let selectionChanged = rawPath !== Connection.Target.getPath(original)
+          let selectionChanged =
+            rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
           if selectionChanged {
-            // save the selected connection as the "picked" connection
             switch await Connection.URI.parse(rawPath) {
             | None => Js.log("Cannot parse path: " ++ rawPath)
             | Some(URL(url)) => Js.log("URL is not supported: " ++ url.toString())
             | Some(Filepath(path)) =>
-              switch await Connection.Target.fromFilepath(path) {
+              switch await Connection.Target.fromRawPath(path) {
               | Error(e) => Js.log(e)
               | Ok(newTarget) =>
+                // save the selected connection as the "picked" connection
                 await Connection.Target.setPicked(self.state, Some(newTarget))
                 await switchAgdaVersion(self.state)
               }
@@ -209,7 +210,7 @@ let run = async state => {
     | Some(picked) =>
       switch target {
       | Error(_) => false
-      | Ok(target) => Connection.Target.getPath(picked) === Connection.Target.getPath(target)
+      | Ok(target) => Connection.Target.toURI(picked) === Connection.Target.toURI(target)
       }
     }
 

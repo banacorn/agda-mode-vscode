@@ -92,7 +92,7 @@ module Module: Module = {
     switch await Connection__Resolver__Command.search("agda") {
     | Error(error) => Error(Error.CannotFindAgda(Connection__Resolver.Error.Command("agda", error)))
     | Ok(path) =>
-      switch await Target.fromFilepath(path) {
+      switch await Target.fromRawPath(path) {
       | Error(error) => Error(error)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(path)
@@ -105,7 +105,7 @@ module Module: Module = {
     switch await Connection__Resolver__Command.search("als") {
     | Error(error) => await findAgda(error)
     | Ok(path) =>
-      switch await Target.fromFilepath(path) {
+      switch await Target.fromRawPath(path) {
       | Error(error) => await findAgda(error)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(path)

@@ -19,10 +19,14 @@ module Module: {
 
   // returns a list of paths stored in the configuration
   let getRawPathsFromConfig: unit => array<string>
-  // see if the path points to a valid Agda executable or language server
-  let fromFilepath: string => promise<result<t, Error.t>>
-  // extract the path from the target
-  let getPath: t => string
+
+  // fro URI to Target
+  let fromURI: URI.t => promise<result<t, Error.t>>
+  // from Target to URI
+  let toURI: t => URI.t
+
+  // from String to Target
+  let fromRawPath: string => promise<result<t, Error.t>>
 
   // interfacing
   let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
@@ -143,11 +147,10 @@ module Module: {
 
   let getRawPathsFromConfig = () => Config.Connection.getAgdaPaths()
 
-  let fromFilepath = async rawPath => {
-    switch await URI.parse(rawPath) {
-    | None => Error(Error.CannotResolvePath(rawPath))
-    | Some(URL(url)) => Error(Error.CannotResolvePath(url.toString()))
-    | Some(Filepath(path)) =>
+  let fromURI = async uri =>
+    switch uri {
+    | URI.URL(url) => Error(Error.CannotResolvePath(url.toString()))
+    | Filepath(path) =>
       // see if it's a valid Agda executable or language server
       module Process = Connection__Target__Agda__Process
       let result = await Connection__Validation.run(path, ["--version"], output => Ok(output))
@@ -167,18 +170,24 @@ module Module: {
       | Error(error) => Error(Error.ValidationError(path, error))
       }
     }
+
+  let fromRawPath = async rawPath => {
+    switch await URI.parse(rawPath) {
+    | None => Error(Error.CannotResolvePath(rawPath))
+    | Some(uri) => await fromURI(uri)
+    }
   }
 
-  let getPath = target =>
+  let toURI = target =>
     switch target {
-    | Agda(_, path) => path
-    | ALS(_, _, Ok(ViaPipe(path, _, _, _))) => path
-    | ALS(_, _, Ok(ViaTCP(url, _))) => url.toString()
-    | ALS(_, _, Error(path)) => path
+    | Agda(_, path) => URI.Filepath(path)
+    | ALS(_, _, Ok(ViaPipe(path, _, _, _))) => URI.Filepath(path)
+    | ALS(_, _, Ok(ViaTCP(url, _))) => URI.URL(url)
+    | ALS(_, _, Error(path)) => URI.Filepath(path)
     }
 
   // returns a list of connection targets
-  let getAllFromConfig = () => Promise.all(getRawPathsFromConfig()->Array.map(fromFilepath))
+  let getAllFromConfig = () => Promise.all(getRawPathsFromConfig()->Array.map(fromRawPath))
 
   // returns the first usable connection target
   let getFirstUsable = async () => {
@@ -204,12 +213,12 @@ module Module: {
       let stillExists = fromConfig->Array.reduce(false, (acc, target) =>
         acc ||
         switch target {
-        | Ok(target) => getPath(target) == fromMemento
+        | Ok(target) => toURI(target) == fromMemento
         | Error(_) => false
         }
       )
       if stillExists {
-        switch await fromFilepath(fromMemento) {
+        switch await fromRawPath(fromMemento) {
         | Ok(target) => Some(target)
         | Error(_) => None
         }
@@ -224,7 +233,8 @@ module Module: {
   let setPicked = (state: State__Type.t, target) =>
     switch target {
     | None => state.memento->State__Type.Memento.set("pickedConnection", None)
-    | Some(target) => state.memento->State__Type.Memento.set("pickedConnection", getPath(target))
+    | Some(target) =>
+      state.memento->State__Type.Memento.set("pickedConnection", toURI(target)->URI.toString)
     }
 }
 

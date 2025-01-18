@@ -15,3 +15,9 @@ let parse = async path => {
     Some(Filepath(path))
   }
 }
+
+let toString = path =>
+  switch path {
+  | Filepath(path) => path
+  | URL(url) => url.toString()
+  }
