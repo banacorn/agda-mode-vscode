@@ -3,6 +3,7 @@ module Agda = Connection__Target__Agda
 module ALS = Connection__Target__ALS
 module Resolver = Connection__Resolver
 module Target = Connection__Target
+module URI = Connection__URI
 
 module type Module = {
   // lifecycle
@@ -81,17 +82,17 @@ module Module: Module = {
       ) {
       | Error(error) => Error(ALS(error))
       | Ok(conn) =>
-        let method = ALS.getIPCMethod(conn)
+        // let method = ALS.getIPCMethod(conn)
         singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
         Ok()
       }
     }
 
-  let findAgda = async (errorFromFindingALS) => {
+  let findAgda = async (_errorFromFindingALS) => {
     switch await Connection__Resolver__Command.search("agda") {
     | Error(error) => Error(Error.CannotFindAgda(Connection__Resolver.Error.Command("agda", error)))
     | Ok(path) =>
-      switch await Target.probePath(path) {
+      switch await Target.fromFilepath(path) {
       | Error(error) => Error(error)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(path)
@@ -104,7 +105,7 @@ module Module: Module = {
     switch await Connection__Resolver__Command.search("als") {
     | Error(error) => await findAgda(error)
     | Ok(path) =>
-      switch await Target.probePath(path) {
+      switch await Target.fromFilepath(path) {
       | Error(error) => await findAgda(error)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(path)

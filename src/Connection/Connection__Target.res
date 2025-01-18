@@ -1,6 +1,7 @@
 module Resolver = Connection__Resolver
 module IPC = Connection__IPC
 module Error = Connection__Error
+module URI = Connection__URI
 
 module Module: {
   type version = string
@@ -19,14 +20,14 @@ module Module: {
   // returns a list of paths stored in the configuration
   let getRawPathsFromConfig: unit => array<string>
   // see if the path points to a valid Agda executable or language server
-  let probePath: string => promise<result<t, Error.t>>
+  let fromFilepath: string => promise<result<t, Error.t>>
   // extract the path from the target
   let getPath: t => string
 
   // interfacing
-  let getAll: unit => promise<array<result<t, Error.t>>>
+  let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
   let getPicked: State__Type.t => promise<option<t>>
-  let setPicked: (State__Type.t, t) => promise<unit>
+  let setPicked: (State__Type.t, option<t>) => promise<unit>
 } = {
   type version = string
   type t =
@@ -103,52 +104,6 @@ module Module: {
     cacheInvalidateExpirationSecs: 86400,
   }
 
-  // see if it's a valid Agda executable or language server
-  let probeFilepath = async path => {
-    module Process = Connection__Target__Agda__Process
-    let result = await Connection__Validation.run(path, ["--version"], output => Ok(output))
-
-    switch result {
-    | Ok(output) =>
-      // try Agda
-      switch String.match(output, %re("/Agda version (.*)/")) {
-      | Some([_, Some(version)]) => Ok(Agda(version, path))
-      | _ =>
-        // try ALS
-        switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
-        | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-          Ok(ALS(alsVersion, agdaVersion, Error(path)))
-        | _ => Error(Error.NotAgdaOrALS(path))
-        }
-      }
-    | Error(error) => Error(Error.ValidationError(path, error))
-    }
-  }
-
-  @module external untildify: string => string = "untildify"
-
-  type path = Filepath(string) | URL(NodeJs.Url.t)
-  let resolvePath = async path => {
-    // trying to parse the path as a URL
-    let result = try Some(NodeJs.Url.make(path)) catch {
-    | _ => None
-    }
-    switch result {
-    | Some(url) =>
-      // expect the scheme to be "lsp:"
-      if url.protocol == "lsp:" {
-        Some(URL(url))
-      } else {
-        None
-      }
-    | None =>
-      // treat the path as a file path
-      let path = untildify(path)
-      let path = NodeJs.Path.normalize(path)
-      Some(Filepath(path))
-    }
-  }
-
   // see if the server is available
   // priorities: TCP => Prebuilt => StdIO
   let tryALS = async (memento, globalStoragePath, onDownload) => {
@@ -173,16 +128,6 @@ module Module: {
       ),
     ])
 
-    // add the path to the configuration
-    // switch result {
-    // | (None, _) => ()
-    // | (Some(method), _) =>
-    //   switch method {
-    //   | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
-    //   | _ => ()
-    //   }
-    // }
-
     result
   }
 
@@ -193,37 +138,34 @@ module Module: {
     let paths = storedPaths->Array.map(path => Resolver.FromFile(path))
     let result = await Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
 
-    // let _ = await Promise.all(
-    //   storedPaths->Array.map(async path => {
-    //     switch await resolvePath(path) {
-    //     | Error(_) => Js.log("Error: " ++ path)
-    //     | Ok(path) =>
-    //       let result = await probe(path)
-    //       Js.log(result)
-    //     }
-    //   }),
-    // )
-
-    // add the path to the configuration
-    // switch result {
-    // | (None, _) => ()
-    // | (Some(method), _) =>
-    //   switch method {
-    //   | ViaPipe(path, _, _, _) => await Config.Connection.addAgdaPath(path)
-    //   | _ => ()
-    //   }
-    // }
-
     result
   }
 
   let getRawPathsFromConfig = () => Config.Connection.getAgdaPaths()
 
-  let probePath = async rawPath => {
-    switch await resolvePath(rawPath) {
+  let fromFilepath = async rawPath => {
+    switch await URI.parse(rawPath) {
     | None => Error(Error.CannotResolvePath(rawPath))
     | Some(URL(url)) => Error(Error.CannotResolvePath(url.toString()))
-    | Some(Filepath(path)) => await probeFilepath(path)
+    | Some(Filepath(path)) =>
+      // see if it's a valid Agda executable or language server
+      module Process = Connection__Target__Agda__Process
+      let result = await Connection__Validation.run(path, ["--version"], output => Ok(output))
+      switch result {
+      | Ok(output) =>
+        // try Agda
+        switch String.match(output, %re("/Agda version (.*)/")) {
+        | Some([_, Some(version)]) => Ok(Agda(version, path))
+        | _ =>
+          // try ALS
+          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+            Ok(ALS(alsVersion, agdaVersion, Error(path)))
+          | _ => Error(Error.NotAgdaOrALS(path))
+          }
+        }
+      | Error(error) => Error(Error.ValidationError(path, error))
+      }
     }
   }
 
@@ -236,11 +178,11 @@ module Module: {
     }
 
   // returns a list of connection targets
-  let getAll = () => Promise.all(getRawPathsFromConfig()->Array.map(probePath))
+  let getAllFromConfig = () => Promise.all(getRawPathsFromConfig()->Array.map(fromFilepath))
 
   // returns the first usable connection target
   let getFirstUsable = async () => {
-    let targets = await getAll()
+    let targets = await getAllFromConfig()
     targets->Array.reduce(None, (acc, target) =>
       switch acc {
       | Some(_) => acc
@@ -258,7 +200,7 @@ module Module: {
     switch state.memento->State__Type.Memento.get("pickedConnection") {
     | Some(fromMemento) =>
       // see if it still exists in the configuration
-      let fromConfig = await getAll()
+      let fromConfig = await getAllFromConfig()
       let stillExists = fromConfig->Array.reduce(false, (acc, target) =>
         acc ||
         switch target {
@@ -267,21 +209,23 @@ module Module: {
         }
       )
       if stillExists {
-        switch await probePath(fromMemento) {
+        switch await fromFilepath(fromMemento) {
         | Ok(target) => Some(target)
         | Error(_) => None
         }
       } else {
         // remove the invalid path from the memento
-        await state.memento->State__Type.Memento.update("pickedConnection", None)
+        await state.memento->State__Type.Memento.set("pickedConnection", None)
         None
       }
     | None => await getFirstUsable()
     }
 
-  let setPicked = (state: State__Type.t, target) => {
-    state.memento->State__Type.Memento.update("pickedConnection", getPath(target))
-  }
+  let setPicked = (state: State__Type.t, target) =>
+    switch target {
+    | None => state.memento->State__Type.Memento.set("pickedConnection", None)
+    | Some(target) => state.memento->State__Type.Memento.set("pickedConnection", getPath(target))
+    }
 }
 
 include Module

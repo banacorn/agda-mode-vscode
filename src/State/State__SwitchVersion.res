@@ -96,22 +96,29 @@ let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | _ =>
-    let path = selection.detail
+    let rawPath = selection.detail
     switch await Connection.Target.getPicked(self.state) {
-    | None => self->QP.destroy
-    | Some(target) => {
+    | None =>
+      Js.log("no targets available")
+      self->QP.destroy
+    | Some(original) => {
         self->QP.destroy
-        let selectionChanged = path !== Some(Connection.Target.getPath(target))
-        if selectionChanged {
-          // remember the selected connection as the "picked" connection
-          switch path {
-          | None => ()
-          | Some(path) =>
-            switch await Connection.Target.probePath(path) {
-            | Error(_) => ()
-            | Ok(newTarget) =>
-              await Connection.Target.setPicked(self.state, newTarget)
-              await switchAgdaVersion(self.state)
+        switch rawPath {
+        | None => ()
+        | Some(rawPath) =>
+          let selectionChanged = rawPath !== Connection.Target.getPath(original)
+          if selectionChanged {
+            // save the selected connection as the "picked" connection
+            switch await Connection.URI.parse(rawPath) {
+            | None => Js.log("Cannot parse path: " ++ rawPath)
+            | Some(URL(url)) => Js.log("URL is not supported: " ++ url.toString())
+            | Some(Filepath(path)) =>
+              switch await Connection.Target.fromFilepath(path) {
+              | Error(e) => Js.log(e)
+              | Ok(newTarget) =>
+                await Connection.Target.setPicked(self.state, Some(newTarget))
+                await switchAgdaVersion(self.state)
+              }
             }
           }
         }
@@ -193,7 +200,7 @@ let run = async state => {
       }
     }
 
-  let installationTargets = await Connection.Target.getAll()
+  let installationTargets = await Connection.Target.getAllFromConfig()
   let picked = await Connection.Target.getPicked(state)
 
   let isPicked = target =>
@@ -333,5 +340,4 @@ let run = async state => {
   ])
   qp.items = items
   qp->QP.render
-
 }

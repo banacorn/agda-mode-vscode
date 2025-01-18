@@ -514,12 +514,12 @@ module Module: {
     let readTimestamp = memento =>
       memento->State__Type.Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
     let writeTimestamp = (memento, timestamp) =>
-      memento->State__Type.Memento.update("alsReleaseCacheTimestamp", Date.toString(timestamp))
+      memento->State__Type.Memento.set("alsReleaseCacheTimestamp", Date.toString(timestamp))
 
     // release cache
     let readReleaseCache = memento => memento->State__Type.Memento.get("alsReleaseCache")
     let writeReleaseCache = (memento, releases) =>
-      memento->State__Type.Memento.update("alsReleaseCache", releases)
+      memento->State__Type.Memento.set("alsReleaseCache", releases)
 
     // see if the cache is valid
     let isValid = async (memento, cacheInvalidateExpirationSecs) => {
