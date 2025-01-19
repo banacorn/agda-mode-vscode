@@ -90,35 +90,70 @@ module QP = {
   }
 }
 
-let handleSelection = async (self: QP.t, selection: VSCode.QuickPickItem.t) => {
+let handleSelection = async (
+  self: QP.t,
+  memento: State__Type.Memento.t,
+  globalStoragePath: string,
+  selection: VSCode.QuickPickItem.t,
+) => {
   switch selection.label {
   | "Open download folder" =>
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | _ =>
-    let rawPath = selection.detail
     switch await Connection.Target.getPicked(self.state) {
     | None =>
       Js.log("no targets available")
-      self->QP.destroy
+      self->QP.destroy // close the quick pick
     | Some(original) => {
-        self->QP.destroy
-        switch rawPath {
+        self->QP.destroy // close the quick pick
+        switch selection.detail {
         | None => ()
         | Some(rawPath) =>
-          let selectionChanged =
-            rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
-          if selectionChanged {
-            switch await Connection.URI.parse(rawPath) {
-            | None => Js.log("Cannot parse path: " ++ rawPath)
-            | Some(URL(url)) => Js.log("URL is not supported: " ++ url.toString())
-            | Some(Filepath(path)) =>
-              switch await Connection.Target.fromRawPath(path) {
-              | Error(e) => Js.log(e)
-              | Ok(newTarget) =>
-                // save the selected connection as the "picked" connection
-                await Connection.Target.setPicked(self.state, Some(newTarget))
-                await switchAgdaVersion(self.state)
+          // The rest of the items are assumed to be:
+          //    1. Agda/ALS installations available for connection
+          //    2. Prebuilt ALS installations available for download
+          // We can look at the `detail` field to distinguish between the two:
+          //    1. Always a filepath or a URL
+          //    2. Starts with "From " and followed by a URL
+          let isDownloadable = String.startsWith(rawPath, "From ")
+          if isDownloadable {
+            let url = rawPath->String.sliceToEnd(~start=5)
+            Js.log("Downloading from " ++ url)
+            let onDownload = _ => ()
+            switch await Connection.Target.downloadAgdaLanguageServer(
+              memento,
+              globalStoragePath,
+              onDownload,
+            ) {
+            | Error(e) =>
+              Js.log("Failed to download: " ++ Connection.Resolver.GitHub.Error.toString(e))
+            | Ok((isCached, target)) =>
+              Js.log("isCached: " ++ string_of_bool(isCached))
+              Js.log2("target: ", target)
+              let destPath = NodeJs.Path.join2(globalStoragePath, target.saveAsFileName)
+              Js.log("Downloaded to: " ++ destPath)
+            // switch await callbacks.afterDownload(isCached, (destPath, target)) {
+            // | Error(e) => Error(Error.GitHub(e))
+            // | Ok((path, args, options, target)) =>
+            //   Ok(IPC.ViaPipe(path, args, options, FromGitHub(repo, target.release, target.asset)))
+            // }
+            }
+          } else {
+            let selectionChanged =
+              rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
+            if selectionChanged {
+              switch await Connection.URI.parse(rawPath) {
+              | None => Js.log("Cannot parse path: " ++ rawPath)
+              | Some(URL(url)) => Js.log("Trying to connect with: " ++ url.toString())
+              | Some(Filepath(path)) =>
+                switch await Connection.Target.fromRawPath(path) {
+                | Error(e) => Js.log(e)
+                | Ok(newTarget) =>
+                  // save the selected connection as the "picked" connection
+                  await Connection.Target.setPicked(self.state, Some(newTarget))
+                  await switchAgdaVersion(self.state)
+                }
               }
             }
           }
@@ -133,7 +168,9 @@ let run = async state => {
   // events
   qp.quickPick
   ->VSCode.QuickPick.onDidChangeSelection(selectedItems => {
-    selectedItems[0]->Option.forEach(item => handleSelection(qp, item)->ignore)
+    selectedItems[0]->Option.forEach(item =>
+      handleSelection(qp, state.memento, VSCode.Uri.fsPath(state.globalStorageUri), item)->ignore
+    )
   })
   ->Util.Disposable.add(qp.subscriptions)
   qp.quickPick
@@ -210,29 +247,34 @@ let run = async state => {
     | Some(picked) =>
       switch target {
       | Error(_) => false
-      | Ok(target) => Connection.Target.toURI(picked) === Connection.Target.toURI(target)
+      | Ok(target) => Connection.Target.toURI(picked) == Connection.Target.toURI(target)
       }
     }
 
-  // "selected" items to be placed at the top of the list
-  let selectedItemsSeperator = [
+  // selected installation
+  let selectedInstallationSeperator = [
     {
-      VSCode.QuickPickItem.label: "Selected",
+      VSCode.QuickPickItem.label: "Selected installation",
       kind: Separator,
     },
   ]
-  let selectedItems = installationTargets->Array.filter(isPicked)->Array.map(targetToItem)
+  let selectedInstallation =
+    installationTargets
+    ->Array.filter(isPicked)
+    ->Array.map(targetToItem)
+    ->Array.slice(~start=0, ~end=1)
 
-  // "others" items to be placed below the "selected" items
-  let otherInstallationItemsSeperator = [
+  // other installations
+  let otherInstallationsSeperator = [
     {
-      VSCode.QuickPickItem.label: "Others",
+      VSCode.QuickPickItem.label: "Other installations",
       kind: Separator,
     },
   ]
-  let installationItems =
+  let otherInstallations =
     installationTargets->Array.filter(x => !isPicked(x))->Array.map(targetToItem)
 
+  // downloadable"
   let chooseFromRelease = (release: Connection.Resolver.GitHub.Release.t): array<
     Connection.Resolver.GitHub.Asset.t,
   > => {
@@ -257,12 +299,11 @@ let run = async state => {
 
   let items = Array.flat([
     // selected
-    selectedItemsSeperator,
-    selectedItems,
+    selectedInstallationSeperator,
+    selectedInstallation,
     // others
-    otherInstallationItemsSeperator,
-    installationItems,
-    // ALS prebuilts from GitHub
+    otherInstallationsSeperator,
+    otherInstallations,
     // misc operations
     miscItems,
   ])
@@ -272,7 +313,7 @@ let run = async state => {
   // ALS Prebuilt
   let alsPrebuiltItemsSeparator = [
     {
-      VSCode.QuickPickItem.label: "Prebuilt ALS",
+      VSCode.QuickPickItem.label: "Available for download",
       kind: Separator,
     },
   ]
@@ -320,7 +361,7 @@ let run = async state => {
         {
           VSCode.QuickPickItem.label: "$(squirrel)  Language Server v" ++ alsVersion,
           description: "Agda v" ++ agdaVersion,
-          detail: asset.browser_download_url,
+          detail: "From " ++ asset.browser_download_url,
         }
       })
     }
@@ -328,12 +369,12 @@ let run = async state => {
 
   let items = Array.flat([
     // selected
-    selectedItemsSeperator,
-    selectedItems,
+    selectedInstallationSeperator,
+    selectedInstallation,
     // others
-    otherInstallationItemsSeperator,
-    installationItems,
-    // ALS prebuilts from GitHub
+    otherInstallationsSeperator,
+    otherInstallations,
+    // downloadables
     alsPrebuiltItemsSeparator,
     alsPrebuiltItems,
     // misc operations
