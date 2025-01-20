@@ -96,7 +96,7 @@ module Module: Module = {
   let findCommand = async command => {
     switch await Connection__Resolver__Command.search(command) {
     | Error(error) =>
-      Error(Error.CannotFindAgda(Connection__Resolver.Error.Command(command, error)))
+      Error(Error.CannotFindCommand(command, error))
     | Ok(path) =>
       switch await Target.fromRawPath(path) {
       | Error(error) => Error(error)

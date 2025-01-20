@@ -4,30 +4,25 @@ module TCP = Connection__Resolver__TCP
 module GitHub = Connection__Resolver__GitHub
 module IPC = Connection__IPC
 
-type t =
-  | FromFile(string) // path of the program
-  | FromCommand(string) // name of the command
-  | FromTCP(NodeJs.Url.t)
-  | FromGitHub(Connection__Resolver__GitHub.Repo.t, Connection__Resolver__GitHub.Callbacks.t)
 
 // error from the sources
-module Error = {
-  type t =
-    | File(string) // path of the program
-    | Command(string, Command.Error.t) // name of the command, error
-    | TCP(NodeJs.Url.t, TCP.Error.t)
-    | GitHub(GitHub.Error.t)
+// module Error = {
+//   type t =
+//     | File(string) // path of the program
+//     | Command(string, Command.Error.t) // name of the command, error
+//     | TCP(NodeJs.Url.t, TCP.Error.t)
+//     | GitHub(GitHub.Error.t)
 
-  let toString = error =>
-    switch error {
-    | File(path) => "Trying to locate \"" ++ path ++ "\" but the file does not exist"
-    | Command(name, e) =>
-      "Trying to find the command \"" ++ name ++ "\": " ++ Command.Error.toString(e)
-    | TCP(url, e) =>
-      "Trying to connect to " ++ url.toString() ++ " but got " ++ TCP.Error.toString(e)
-    | GitHub(e) => "Trying to download prebuilt from GitHub: " ++ GitHub.Error.toString(e)
-    }
-}
+//   let toString = error =>
+//     switch error {
+//     | File(path) => "Trying to locate \"" ++ path ++ "\" but the file does not exist"
+//     | Command(name, e) =>
+//       "Trying to find the command \"" ++ name ++ "\": " ++ Command.Error.toString(e)
+//     | TCP(url, e) =>
+//       "Trying to connect to " ++ url.toString() ++ " but got " ++ TCP.Error.toString(e)
+//     | GitHub(e) => "Trying to download prebuilt from GitHub: " ++ GitHub.Error.toString(e)
+//     }
+// }
 
 module Module: {
   // returns `IPC.t` if any is found, and errors of previous searches

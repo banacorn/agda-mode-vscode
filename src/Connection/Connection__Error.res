@@ -4,8 +4,7 @@ type t =
   // ALS related
   | ALS(Connection__Target__ALS__Error.t)
   //
-  | CannotFindAgda(Connection__Resolver.Error.t)
-  | CannotFindALS(Connection__Resolver.Error.t)
+  | CannotFindCommand(string, Connection__Resolver.Command.Error.t)
   | CannotFetchALSReleases(Connection__Resolver.GitHub.Error.t)
   | CannotResolvePath(string)
   | NotAgdaOrALS(string)
@@ -15,8 +14,7 @@ let toString = x =>
   switch x {
   | Agda(e, _) => Connection__Target__Agda__Error.toString(e)
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
-  | CannotFindAgda(e) => ("Cannot find Agda", Connection__Resolver.Error.toString(e))
-  | CannotFindALS(e) => ("Cannot find ALS", Connection__Resolver.Error.toString(e))
+  | CannotFindCommand(name, e) => ("Cannot find command \"" ++ name ++ "\"", Connection__Resolver.Command.Error.toString(e))
   | CannotFetchALSReleases(e) => (
       "Cannot fetch ALS releases",
       Connection__Resolver.GitHub.Error.toString(e),
