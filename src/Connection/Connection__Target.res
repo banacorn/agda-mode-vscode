@@ -17,16 +17,15 @@ module Module: {
   // try to find the Agda executable
 
   // download the Agda Language Server from GitHub
-  let downloadAgdaLanguageServer: (
+  let downloadALS: (
     State__Type.Memento.t,
     string,
     Resolver.GitHub.Download.Event.t => unit,
   ) => promise<result<(bool, Resolver.GitHub.Target.t), Resolver.GitHub.Error.t>>
 
-  let tryAgda: unit => promise<(option<IPC.t>, array<Resolver.Error.t>)>
+  // let afterDownloadALS: (bool, (string, 'a)) => unit => promise<unit>
 
-  // returns a list of paths stored in the configuration
-  let getRawPathsFromConfig: unit => array<string>
+  // let tryAgda: unit => promise<(option<IPC.t>, array<Resolver.Error.t>)>
 
   // fro URI to Target
   let fromURI: URI.t => promise<result<t, Error.t>>
@@ -36,7 +35,7 @@ module Module: {
   // from String to Target
   let fromRawPath: string => promise<result<t, Error.t>>
 
-  // interfacing
+  // configuration
   let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
   let getPicked: State__Type.t => promise<option<t>>
   let setPicked: (State__Type.t, option<t>) => promise<unit>
@@ -116,9 +115,8 @@ module Module: {
     cacheInvalidateExpirationSecs: 86400,
   }
 
-  let downloadAgdaLanguageServer = async (memento, globalStoragePath, onDownload) => {
+  let downloadALS = async (memento, globalStoragePath, onDownload) => {
     let repo = makeAgdaLanguageServerRepo(memento, globalStoragePath)
-    Js.log(repo)
     let result = await Resolver.GitHub.get(
       repo,
       {
@@ -158,17 +156,15 @@ module Module: {
   //   result
   // }
 
-  let tryAgda = async () => {
-    let storedPaths = Config.Connection.getAgdaPaths()
-    let storedName = Config.Connection.getAgdaVersion()
+  // let tryAgda = async () => {
+  //   let storedPaths = Config.Connection.getAgdaPaths()
+  //   let storedName = Config.Connection.getAgdaVersion()
 
-    let paths = storedPaths->Array.map(path => Resolver.FromFile(path))
-    let result = await Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
+  //   let paths = storedPaths->Array.map(path => Resolver.FromFile(path))
+  //   let result = await Resolver.searchMany(Array.flat([paths, [FromCommand(storedName)]]))
 
-    result
-  }
-
-  let getRawPathsFromConfig = () => Config.Connection.getAgdaPaths()
+  //   result
+  // }
 
   let fromURI = async uri =>
     switch uri {
@@ -186,7 +182,32 @@ module Module: {
           // try ALS
           switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
           | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-            Ok(ALS(alsVersion, agdaVersion, Error(path)))
+            // the executable needs to be accompanied by a `data` directory
+            // which can be specified by the environment variable "Agda_datadir"
+            // prebuilt executables on GitHub have this directory placed alongside the executable
+            let prebuildDataDirPath = NodeJs.Path.join([path, "..", "data"])
+            let isPrebuilt = switch await NodeJs.Fs.access(prebuildDataDirPath) {
+            | () => true
+            | exception _ => false
+            }
+            let lspOptions = if isPrebuilt {
+              let assetPath = NodeJs.Path.join([path, "..", "data"])
+              let env = Dict.fromArray([("Agda_datadir", assetPath)])
+              Some({
+                Connection__Target__ALS__LSP__Binding.env: env,
+              })
+            } else {
+              None
+            }
+
+            Ok(
+              ALS(
+                alsVersion,
+                agdaVersion,
+                Ok(Connection__IPC.ViaPipe(path, [], lspOptions, Connection__IPC.FromFile(path))),
+              ),
+            )
+          // Ok(ALS(alsVersion, agdaVersion, Error(path)))
           | _ => Error(Error.NotAgdaOrALS(path))
           }
         }
@@ -210,7 +231,7 @@ module Module: {
     }
 
   // returns a list of connection targets
-  let getAllFromConfig = () => Promise.all(getRawPathsFromConfig()->Array.map(fromRawPath))
+  let getAllFromConfig = () => Promise.all(Config.Connection.getAgdaPaths()->Array.map(fromRawPath))
 
   // returns the first usable connection target
   let getFirstUsable = async () => {

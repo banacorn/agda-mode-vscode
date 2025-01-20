@@ -120,7 +120,9 @@ module Module: Module = {
     | None =>
       switch await Target.getPicked(state) {
       | None => await findALSAndAgda()
-      | Some(target) => await start_(target)
+      | Some(target) => 
+          Js.log2("target", target)
+          await start_(target)
       }
     }
   let rec sendRequest = async (

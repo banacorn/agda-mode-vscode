@@ -883,7 +883,7 @@
 					},
 					"default": [],
 					"scope": "machine-overridable",
-					"description": "A list of filepaths for locally installed Agda binaries and Agda Language Servers. Installations at the front are prioritized unless selected otherwise. You can use the '^X ^S' command to switch between these items. When empty, paths are inferred by searching for 'agda' or 'als' commands."
+					"description": "A list of file paths or URLs pointing to Agda binaries or Agda Language Servers. Items in this list will be tried for connection from the LAST to the first (because it's easier to append new items at the end). Use the '^X ^S' command to manage these items. When empty, items are inferred by searching for 'agda' or 'als' commands."
 				},
 				"agdaMode.connection.commandLineOptions": {
 					"type": "string",

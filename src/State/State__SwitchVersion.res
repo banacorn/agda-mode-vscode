@@ -121,7 +121,7 @@ let handleSelection = async (
             let url = rawPath->String.sliceToEnd(~start=5)
             Js.log("Downloading from " ++ url)
             let onDownload = _ => ()
-            switch await Connection.Target.downloadAgdaLanguageServer(
+            switch await Connection.Target.downloadALS(
               memento,
               globalStoragePath,
               onDownload,
@@ -131,13 +131,11 @@ let handleSelection = async (
             | Ok((isCached, target)) =>
               Js.log("isCached: " ++ string_of_bool(isCached))
               Js.log2("target: ", target)
-              let destPath = NodeJs.Path.join2(globalStoragePath, target.saveAsFileName)
+              let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
               Js.log("Downloaded to: " ++ destPath)
-            // switch await callbacks.afterDownload(isCached, (destPath, target)) {
-            // | Error(e) => Error(Error.GitHub(e))
-            // | Ok((path, args, options, target)) =>
-            //   Ok(IPC.ViaPipe(path, args, options, FromGitHub(repo, target.release, target.asset)))
-            // }
+
+              // add the path of the downloaded file to the config 
+              Config.Connection.addAgdaPath(destPath)->ignore
             }
           } else {
             let selectionChanged =

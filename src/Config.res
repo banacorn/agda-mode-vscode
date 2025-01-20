@@ -33,6 +33,7 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
+  // paths returned here are REVERSED because it's easier for users to append stuff in the configuration
   let getAgdaPaths = () =>
     if inTestingMode.contents {
       agdaPathsInTestingMode.contents
@@ -42,11 +43,15 @@ module Connection = {
           "connection.paths",
         )
 
-      rawPaths
-      ->Option.getOr([])
-      ->Array.filter(s => Parser.filepath(s) != "")
+      let paths =
+        rawPaths
+        ->Option.getOr([])
+        ->Array.filter(s => Parser.filepath(s) != "")
+      Array.reverse(paths)
+      paths
     }
 
+  // new path is APPENDED to the end of the list
   let addAgdaPath = path => {
     let path = path->Parser.filepath
 
@@ -57,8 +62,10 @@ module Connection = {
       agdaPathsInTestingMode := newPaths
       Promise.resolve()
     } else {
-      Workspace.getConfiguration(Some("agdaMode"), None)
-      ->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
     }
   }
 

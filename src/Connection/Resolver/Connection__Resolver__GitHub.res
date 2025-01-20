@@ -622,7 +622,25 @@ module Module: {
             callbacks.log("Download from GitHub instead")
             switch await downloadLanguageServer(repo, callbacks, target) {
             | Error(error) => Error(error)
-            | Ok() => Ok((false, target))
+            | Ok() =>
+              // include "Agda_datadir" in the environment variable
+              let options = {
+                let assetPath = NodeJs.Path.join2(destPath, "data")
+                let env = Dict.fromArray([("Agda_datadir", assetPath)])
+                {
+                  Connection__Target__ALS__LSP__Binding.env: env,
+                }
+              }
+              // chmod the executable after download
+              // (no need to chmod if it's on Windows)
+              let execPath = NodeJs.Path.join2(destPath, "als")
+              let shouldChmod = NodeJs.Os.platform() != "win32"
+              if shouldChmod {
+                callbacks.log("Chmod the downloaded executable")
+                let _ = await chmodExecutable(execPath)
+              }
+              // Ok((execPath, [], Some(options), target))
+              Ok((false, target))
             }
           }
         }
