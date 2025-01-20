@@ -40,17 +40,13 @@ module Module: {
   let add = (fileName, state: State.t) =>
     switch get'(fileName) {
     | Some(PendingInit(_, resolve)) =>
-      // Js.log("[ add ][ PendingInit ]" ++ fileName)
       // Fulfill the request for Semantic Tokens
       state.highlighting->Highlighting.getSemanticTokens->resolve
       // set the entry as Initialized
       dict->Dict.set(fileName, Initialized(state))
     | Some(Initialized(_)) => // do nothing
-      // Js.log("[ add ][ Initialized ]" ++ fileName)
       ()
-    | None =>
-      // Js.log("[ add ][ None ]" ++ fileName)
-      dict->Dict.set(fileName, Initialized(state))
+    | None => dict->Dict.set(fileName, Initialized(state))
     }
 
   // Removes the entry (but without triggering State.destroy() )
@@ -78,13 +74,9 @@ module Module: {
   // add PendingInit(_) to the Registry if the entry has not been created yet
   let requestSemanticTokens = async fileName =>
     switch get'(fileName) {
-    | Some(PendingInit(promise, _resolve)) => // Js.log("[ req ][ PendingInit ]" ++ fileName)
-      await promise
-    | Some(Initialized(state)) =>
-      // Js.log("[ req ][ Initialized ]" ++ fileName)
-      state.highlighting->Highlighting.getSemanticTokens
+    | Some(PendingInit(promise, _resolve)) => await promise
+    | Some(Initialized(state)) => state.highlighting->Highlighting.getSemanticTokens
     | None =>
-      // Js.log("[ req ][ None ]" ++ fileName)
       let (promise, resolve, _) = Util.Promise_.pending()
       dict->Dict.set(fileName, PendingInit(promise, resolve))
       await promise

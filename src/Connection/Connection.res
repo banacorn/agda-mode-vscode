@@ -16,9 +16,14 @@ module type Module = {
     result<Response.t, Error.t> => promise<unit>,
   ) => promise<result<Target.t, Error.t>>
 
+  //
+  let findCommand: string => promise<result<unit, Error.t>>
+
   // misc
   let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t
-  let getALSReleaseManifest: State__Type.t => promise<result<array<Connection__Resolver__GitHub.Release.t>, Error.t>>
+  let getALSReleaseManifest: State__Type.t => promise<
+    result<array<Connection__Resolver__GitHub.Release.t>, Error.t>,
+  >
 }
 
 module Module: Module = {
@@ -88,9 +93,10 @@ module Module: Module = {
       }
     }
 
-  let findAgda = async (_errorFromFindingALS) => {
-    switch await Connection__Resolver__Command.search("agda") {
-    | Error(error) => Error(Error.CannotFindAgda(Connection__Resolver.Error.Command("agda", error)))
+  let findCommand = async command => {
+    switch await Connection__Resolver__Command.search(command) {
+    | Error(error) =>
+      Error(Error.CannotFindAgda(Connection__Resolver.Error.Command(command, error)))
     | Ok(path) =>
       switch await Target.fromRawPath(path) {
       | Error(error) => Error(error)
@@ -102,15 +108,9 @@ module Module: Module = {
   }
 
   let findALSAndAgda = async () => {
-    switch await Connection__Resolver__Command.search("als") {
-    | Error(error) => await findAgda(error)
-    | Ok(path) =>
-      switch await Target.fromRawPath(path) {
-      | Error(error) => await findAgda(error)
-      | Ok(target) =>
-        await Config.Connection.addAgdaPath(path)
-        await start_(target)
-      }
+    switch await findCommand("agda") {
+    | Error(_error) => await findCommand("als")
+    | Ok() => Ok()
     }
   }
 
@@ -120,9 +120,7 @@ module Module: Module = {
     | None =>
       switch await Target.getPicked(state) {
       | None => await findALSAndAgda()
-      | Some(target) => 
-          Js.log2("target", target)
-          await start_(target)
+      | Some(target) => await start_(target)
       }
     }
   let rec sendRequest = async (
@@ -171,7 +169,10 @@ module Module: Module = {
     }
   }
 
-  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t = (memento, globalStoragePath) => {
+  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t = (
+    memento,
+    globalStoragePath,
+  ) => {
     username: "agda",
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
@@ -181,7 +182,9 @@ module Module: Module = {
   }
 
   let getALSReleaseManifest = async (state: State__Type.t) => {
-    switch await Resolver.GitHub.getReleaseManifest(makeAgdaLanguageServerRepo(state.memento, VSCode.Uri.fsPath(state.globalStorageUri))) {
+    switch await Resolver.GitHub.getReleaseManifest(
+      makeAgdaLanguageServerRepo(state.memento, VSCode.Uri.fsPath(state.globalStorageUri)),
+    ) {
     | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
     | (Ok(manifest), _) => Ok(manifest)
     }

@@ -279,12 +279,11 @@ module AgdaMode = {
   }
 
   let exists = async command => {
-    let (result, errors) = await Connection.Resolver.searchMany([FromCommand(command)])
-    switch result {
-    | None =>
-      let msg = errors->Array.map(Connection.Resolver.Error.toString)->Array.join(",")
-      raise(Failure("Cannot find \"agda\" in PATH: " ++ msg))
-    | Some(_method) => ()
+    switch await Connection.findCommand(command) {
+    | Error(error) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure("Cannot find \"" ++ command ++ "\" in PATH: " ++ header ++ "\n" ++ body))
+    | Ok() => ()
     }
   }
 

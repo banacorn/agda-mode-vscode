@@ -349,13 +349,11 @@ let run = async state => {
       }
       // choose the assets of the corresponding platform
       let assets = chooseFromRelease(latestRelease)
-
       assets->Array.map(asset => {
         let agdaVersion =
           asset.name
           ->String.replaceRegExp(%re("/als-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-
         {
           VSCode.QuickPickItem.label: "$(squirrel)  Language Server v" ++ alsVersion,
           description: "Agda v" ++ agdaVersion,

@@ -45,28 +45,28 @@ module Module: {
     | Agda(version, string) // Agda version, path
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
 
-  let afterDownload = async (isCached, (path, target)) => {
-    // include "Agda_datadir" in the environment variable
-    let options = {
-      let assetPath = NodeJs.Path.join2(path, "data")
-      let env = Dict.fromArray([("Agda_datadir", assetPath)])
-      {
-        Connection__Target__ALS__LSP__Binding.env: env,
-      }
-    }
-    // chmod the executable after download
-    // no need to chmod if:
-    //    1. it's cached, already chmoded
-    //  or
-    //    2. it's on Windows
-    let execPath = NodeJs.Path.join2(path, "als")
-    let shouldChmod = !isCached && NodeJs.Os.platform() != "win32"
-    if shouldChmod {
-      let _ = await Resolver.GitHub.chmodExecutable(execPath)
-    }
+  // let afterDownload = async (isCached, (path, target)) => {
+  //   // include "Agda_datadir" in the environment variable
+  //   let options = {
+  //     let assetPath = NodeJs.Path.join2(path, "data")
+  //     let env = Dict.fromArray([("Agda_datadir", assetPath)])
+  //     {
+  //       Connection__Target__ALS__LSP__Binding.env: env,
+  //     }
+  //   }
+  //   // chmod the executable after download
+  //   // no need to chmod if:
+  //   //    1. it's cached, already chmoded
+  //   //  or
+  //   //    2. it's on Windows
+  //   let execPath = NodeJs.Path.join2(path, "als")
+  //   let shouldChmod = !isCached && NodeJs.Os.platform() != "win32"
+  //   if shouldChmod {
+  //     let _ = await Resolver.GitHub.chmodExecutable(execPath)
+  //   }
 
-    Ok((execPath, [], Some(options), target))
-  }
+  //   Ok((execPath, [], Some(options), target))
+  // }
 
   let chooseFromReleases = (releases: array<Resolver.GitHub.Release.t>): option<
     Resolver.GitHub.Target.t,
@@ -122,7 +122,6 @@ module Module: {
       {
         chooseFromReleases,
         onDownload,
-        afterDownload,
         log: x => Js.log(x),
       },
     )

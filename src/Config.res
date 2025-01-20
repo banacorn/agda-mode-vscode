@@ -52,20 +52,26 @@ module Connection = {
     }
 
   // new path is APPENDED to the end of the list
+  // no-op if it's already in the list
   let addAgdaPath = path => {
     let path = path->Parser.filepath
 
     let paths = getAgdaPaths()
-    let newPaths = Array.concat(paths, [path])
+    let alreadyExists = paths->Array.reduce(false, (acc, p) => acc || p == path)
 
-    if inTestingMode.contents {
-      agdaPathsInTestingMode := newPaths
+    if alreadyExists {
       Promise.resolve()
     } else {
-      Workspace.getConfiguration(
-        Some("agdaMode"),
-        None,
-      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
+      let newPaths = Array.concat(paths, [path])
+      if inTestingMode.contents {
+        agdaPathsInTestingMode := newPaths
+        Promise.resolve()
+      } else {
+        Workspace.getConfiguration(
+          Some("agdaMode"),
+          None,
+        )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
+      }
     }
   }
 
