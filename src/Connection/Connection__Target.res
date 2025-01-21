@@ -253,10 +253,11 @@ module Module: {
     | Some(fromMemento) =>
       // see if it still exists in the configuration
       let fromConfig = await getAllFromConfig()
+
       let stillExists = fromConfig->Array.reduce(false, (acc, target) =>
         acc ||
         switch target {
-        | Ok(target) => toURI(target) == fromMemento
+        | Ok(target) => toURI(target)->URI.toString == fromMemento
         | Error(_) => false
         }
       )
@@ -277,7 +278,7 @@ module Module: {
     switch target {
     | None => state.memento->State__Type.Memento.set("pickedConnection", None)
     | Some(target) =>
-      state.memento->State__Type.Memento.set("pickedConnection", toURI(target)->URI.toString)
+      state.memento->State__Type.Memento.set("pickedConnection", Some(toURI(target)->URI.toString))
     }
 }
 
