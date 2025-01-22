@@ -415,6 +415,12 @@ module Callbacks = {
 module Module: {
   let getReleaseManifest: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
   let get: (Repo.t, Callbacks.t) => promise<result<(bool, Target.t), Error.t>>
+  let download: (
+    Target.t,
+    State__Type.Memento.t,
+    string,
+    Download.Event.t => unit,
+  ) => promise<result<bool, Error.t>>
 } = {
   let inFlightDownloadFileName = "in-flight.download"
 
@@ -442,7 +448,7 @@ module Module: {
     }
   }
 
-  let downloadLanguageServer = async (repo: Repo.t, callbacks: Callbacks.t, target: Target.t) => {
+  let downloadLanguageServer = async (repo: Repo.t, onDownload, target: Target.t) => {
     let url = NodeJs.Url.make(target.asset.browser_download_url)
     let httpOptions = {
       "host": url.host,
@@ -455,11 +461,7 @@ module Module: {
     let inFlightDownloadPath = NodeJs.Path.join2(repo.globalStoragePath, inFlightDownloadFileName)
     let destPath = NodeJs.Path.join2(repo.globalStoragePath, target.saveAsFileName)
 
-    let result = switch await Download.asFile(
-      httpOptions,
-      inFlightDownloadPath,
-      callbacks.onDownload,
-    ) {
+    let result = switch await Download.asFile(httpOptions, inFlightDownloadPath, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
       // suffix with ".zip" after downloaded
@@ -606,7 +608,7 @@ module Module: {
             Ok((true, target))
           } else {
             callbacks.log("Download from GitHub instead")
-            switch await downloadLanguageServer(repo, callbacks, target) {
+            switch await downloadLanguageServer(repo, callbacks.onDownload, target) {
             | Error(error) => Error(error)
             | Ok() =>
               // chmod the executable after download
@@ -620,6 +622,41 @@ module Module: {
               Ok((false, target))
             }
           }
+        }
+      }
+    }
+  }
+
+  let download = async (target: Target.t, memento, globalStoragePath, onDownload) => {
+    let repo: Repo.t = {
+      username: "agda",
+      repository: "agda-language-server",
+      userAgent: "agda/agda-mode-vscode",
+      memento,
+      globalStoragePath,
+      cacheInvalidateExpirationSecs: 86400,
+    }
+
+    let ifIsDownloading = await isDownloading(repo.globalStoragePath)
+    if ifIsDownloading {
+      Error(Error.AlreadyDownloading)
+    } else {
+      // don't download from GitHub if `target.fileName` already exists
+      let destPath = NodeJs.Path.join2(repo.globalStoragePath, target.saveAsFileName)
+      if NodeJs.Fs.existsSync(destPath) {
+        Ok(true)
+      } else {
+        switch await downloadLanguageServer(repo, onDownload, target) {
+        | Error(error) => Error(error)
+        | Ok() =>
+          // chmod the executable after download
+          // (no need to chmod if it's on Windows)
+          let execPath = NodeJs.Path.join2(destPath, "als")
+          let shouldChmod = NodeJs.Os.platform() != "win32"
+          if shouldChmod {
+            let _ = await chmodExecutable(execPath)
+          }
+          Ok(false)
         }
       }
     }

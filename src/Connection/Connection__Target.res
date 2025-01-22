@@ -17,11 +17,11 @@ module Module: {
   // try to find the Agda executable
 
   // download the Agda Language Server from GitHub
-  let downloadALS: (
-    State__Type.Memento.t,
-    string,
-    Resolver.GitHub.Download.Event.t => unit,
-  ) => promise<result<(bool, Resolver.GitHub.Target.t), Resolver.GitHub.Error.t>>
+  // let downloadALS: (
+  //   State__Type.Memento.t,
+  //   string,
+  //   Resolver.GitHub.Download.Event.t => unit,
+  // ) => promise<result<(bool, Resolver.GitHub.Target.t), Resolver.GitHub.Error.t>>
 
   // let afterDownloadALS: (bool, (string, 'a)) => unit => promise<unit>
 
@@ -115,18 +115,17 @@ module Module: {
     cacheInvalidateExpirationSecs: 86400,
   }
 
-  let downloadALS = async (memento, globalStoragePath, onDownload) => {
-    let repo = makeAgdaLanguageServerRepo(memento, globalStoragePath)
-    let result = await Resolver.GitHub.get(
-      repo,
-      {
-        chooseFromReleases,
-        onDownload,
-        log: x => Js.log(x),
-      },
-    )
-    result
-  }
+  // let downloadALS = async (memento, globalStoragePath, onDownload) => {
+  //   let repo = makeAgdaLanguageServerRepo(memento, globalStoragePath)
+  //   await Resolver.GitHub.get(
+  //     repo,
+  //     {
+  //       chooseFromReleases,
+  //       onDownload,
+  //       log: x => Js.log(x),
+  //     },
+  //   )
+  // }
 
   // // see if the server is available
   // // priorities: TCP => Prebuilt => StdIO

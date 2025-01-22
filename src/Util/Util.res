@@ -172,27 +172,23 @@ module React = {
     }
 }
 
-module Version = {
-  type ordering =
-    | LT
-    | EQ
-    | GT
-
+module Version: {
+  let compare: (string, string) => Ordering.t
+  let gte: (string, string) => bool
+} = {
   @module
   external compareVersionsPrim: (string, string) => int = "compare-versions"
   let trim = s => s->String.replaceRegExp(%re("/-.*/"), "")
   let compare = (a, b) =>
     switch compareVersionsPrim(trim(a), trim(b)) {
-    | -1 => LT
-    | 0 => EQ
-    | _ => GT
+    | -1 => Ordering.less
+    | 0 => Ordering.equal
+    | _ => Ordering.greater
     }
-  let gte = (a, b) =>
-    switch compare(a, b) {
-    | EQ
-    | GT => true
-    | LT => false
-    }
+  let gte = (a, b) => {
+    let result = compare(a, b)
+    Ordering.isGreater(result) || Ordering.isEqual(result)
+  }
 }
 
 module Pretty = {
@@ -262,7 +258,6 @@ module Promise_ = {
     | result => Ok(result)
     | exception Js.Exn.Error(e) => Error(e)
     }
-
 
   let setTimeout = async time => {
     let (promise, resolve, _) = pending()
