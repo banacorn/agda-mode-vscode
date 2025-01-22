@@ -182,7 +182,7 @@ module Module: Module = {
   }
 
   let getALSReleaseManifest = async (state: State__Type.t) => {
-    switch await Resolver.GitHub.getReleaseManifest(
+    switch await Resolver.GitHub.ReleaseManifest.fetch(
       makeAgdaLanguageServerRepo(state.memento, VSCode.Uri.fsPath(state.globalStorageUri)),
     ) {
     | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))

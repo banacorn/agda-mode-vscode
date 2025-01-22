@@ -64,6 +64,37 @@ let switchAgdaVersion = async state => {
   }
 }
 
+module LatestALS = {
+  // check if the latest ALS is already downloaded
+  let alreadyDownloaded = async globalStoragePath => {
+    let path = NodeJs.Path.join([globalStoragePath, "latest-als"])
+    switch await NodeJs.Fs.access(path) {
+    | () => true
+    | exception _ => false
+    }
+  }
+
+  // download the latest ALS
+  let download = async (memento, globalStoragePath, target) => {
+    let onDownload = _ => ()
+    switch await Connection.Resolver.GitHub.download(
+      target,
+      memento,
+      globalStoragePath,
+      onDownload,
+    ) {
+    | Error(e) => Js.log("Failed to download: " ++ Connection.Resolver.GitHub.Error.toString(e))
+    | Ok(isCached) =>
+      Js.log("isCached: " ++ string_of_bool(isCached))
+
+      // add the path of the downloaded file to the config
+      let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
+      Js.log("Downloaded to: " ++ destPath)
+      Config.Connection.addAgdaPath(destPath)->ignore
+    }
+  }
+}
+
 module QP = {
   type t = {
     state: State__Type.t,
@@ -104,34 +135,13 @@ let handleSelection = async (
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | "$(cloud-download)  Download the latest Agda Language Server" =>
-    Js.log("Downloading the latest Agda Language Server")
     switch latestALS {
-    | None => Js.log("No latest ALS available")
-    | Some(target) =>
-      let onDownload = _ => ()
-      switch await Connection.Resolver.GitHub.download(
-        target,
-        memento,
-        globalStoragePath,
-        onDownload,
-      ) {
-      | Error(e) => Js.log("Failed to download: " ++ Connection.Resolver.GitHub.Error.toString(e))
-      | Ok(isCached) =>
-        Js.log("isCached: " ++ string_of_bool(isCached))
-
-        // add the path of the downloaded file to the config
-        let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
-        Js.log("Downloaded to: " ++ destPath)
-        Config.Connection.addAgdaPath(destPath)->ignore
+    | None => ()
+    | Some(target) => {
+        await LatestALS.download(memento, globalStoragePath, target)
         await self.rerender()
-      // switch await callbacks.afterDownload(isCached, (destPath, target)) {
-      // | Error(e) => Error(Error.GitHub(e))
-      // | Ok((path, args, options, target)) =>
-      //   Ok(IPC.ViaPipe(path, args, options, FromGitHub(repo, target.release, target.asset)))
-      // }
       }
     }
-    Js.log2("latestALS: ", latestALS)
   | _ =>
     switch await Connection.Target.getPicked(self.state) {
     | None =>
@@ -143,30 +153,6 @@ let handleSelection = async (
       switch selection.detail {
       | None => ()
       | Some(rawPath) =>
-        // // The rest of the items are assumed to be:
-        // //    1. Agda/ALS installations available for connection
-        // //    2. Prebuilt ALS installations available for download
-        // // We can look at the `detail` field to distinguish between the two:
-        // //    1. Always a filepath or a URL
-        // //    2. Starts with "From " and followed by a URL
-        // let isDownloadable = String.startsWith(rawPath, "From ")
-        // if isDownloadable {
-        //   let url = rawPath->String.sliceToEnd(~start=5)
-        //   Js.log("Downloading from " ++ url)
-        //   let onDownload = _ => ()
-        //   switch await Connection.Target.downloadALS(memento, globalStoragePath, onDownload) {
-        //   | Error(e) =>
-        //     Js.log("Failed to download: " ++ Connection.Resolver.GitHub.Error.toString(e))
-        //   | Ok((isCached, target)) =>
-        //     Js.log("isCached: " ++ string_of_bool(isCached))
-        //     Js.log2("target: ", target)
-        //     let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
-        //     Js.log("Downloaded to: " ++ destPath)
-
-        //     // add the path of the downloaded file to the config
-        //     Config.Connection.addAgdaPath(destPath)->ignore
-        //   }
-        // } else {
         let selectionChanged =
           rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
         if selectionChanged {
@@ -195,15 +181,34 @@ let rec run = async state => {
   // set placeholder
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
+  let latestALSAlreadyDownloaded = await LatestALS.alreadyDownloaded(
+    VSCode.Uri.fsPath(state.globalStorageUri),
+  )
+
   // items to be shown in the quick pick
   let miscItems = [
     {
       VSCode.QuickPickItem.label: "Download",
       kind: Separator,
     },
-    {
-      VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
-      description: "automatically kept up-to-date",
+    if latestALSAlreadyDownloaded {
+      let ageInSecs = Connection__Resolver__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
+      let description = switch ageInSecs / 3600 {
+      | 0 => "last checked: less than an hour ago"
+      | 1 => "last checked: 1 hour ago"
+      | hours if hours >= 24 => "last checked: more than a day ago"
+      | hours => "last checked: " ++ string_of_int(hours) ++ " hours ago"
+      }
+
+      {
+        VSCode.QuickPickItem.label: "$(sync)  Check for updates",
+        description,
+      }
+    } else {
+      {
+        VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
+        description: "automatically kept up-to-date",
+      }
     },
     // {
     //   VSCode.QuickPickItem.label: "$(cloud-download)  Download other verions of Agda Language Server",
@@ -280,19 +285,6 @@ let rec run = async state => {
       }
     }
 
-  // // selected installation
-  // let selectedInstallationSeperator = [
-  //   {
-  //     VSCode.QuickPickItem.label: "Selected installation",
-  //     kind: Separator,
-  //   },
-  // ]
-  // let selectedInstallation =
-  //   installationTargets
-  //   ->Array.filter(isPicked)
-  //   ->Array.map(targetToItem)
-  //   ->Array.slice(~start=0, ~end=1)
-
   // other installations
   let installationsSeperator = [
     {
@@ -304,9 +296,6 @@ let rec run = async state => {
   let installationsItems = installationTargets->Array.map(targetToItem)
 
   let items = Array.flat([
-    // // selected
-    // selectedInstallationSeperator,
-    // selectedInstallation,
     // installation
     installationsSeperator,
     installationsItems,
@@ -378,42 +367,8 @@ let rec run = async state => {
         saveAsFileName: "latest-als",
       })
       ->Array.get(0)
-
-    // assets->Array.map(asset => {
-    //   let agdaVersion =
-    //     asset.name
-    //     ->String.replaceRegExp(%re("/als-Agda-/"), "")
-    //     ->String.replaceRegExp(%re("/-.*/"), "")
-    //   {
-    //     VSCode.QuickPickItem.label: "$(squirrel)  Language Server v" ++ alsVersion,
-    //     description: "Agda v" ++ agdaVersion,
-    //     detail: "From " ++ asset.browser_download_url,
-    //   }
-    // })
     }
   }
-  // // ALS Prebuilt
-  // let alsPrebuiltItemsSeparator = [
-  //   {
-  //     VSCode.QuickPickItem.label: "Available for download",
-  //     kind: Separator,
-  //   },
-  // ]
-  // let items = Array.flat([
-  //   // selected
-  //   selectedInstallationSeperator,
-  //   selectedInstallation,
-  //   // others
-  //   otherInstallationsSeperator,
-  //   otherInstallations,
-  //   // downloadables
-  //   alsPrebuiltItemsSeparator,
-  //   alsPrebuiltItems,
-  //   // misc operations
-  //   miscItems,
-  // ])
-  // qp.items = items
-  // qp->QP.render
 
   // events
   qp.quickPick

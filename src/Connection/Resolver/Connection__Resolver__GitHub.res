@@ -412,9 +412,92 @@ module Callbacks = {
   }
 }
 
+module ReleaseManifest: {
+  // age of the release manifest cache in seconds
+  let cacheAgeInSecs: State__Type.Memento.t => int
+  // fetch the release manifest from the cache or GitHub
+  let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
+} = {
+  // timestamp for the release cache
+  let readTimestamp = memento =>
+    memento->State__Type.Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
+  let writeTimestamp = (memento, timestamp) =>
+    memento->State__Type.Memento.set("alsReleaseCacheTimestamp", Date.toString(timestamp))
+
+  // release cache
+  let readReleaseCache = memento => memento->State__Type.Memento.get("alsReleaseCache")
+  let writeReleaseCache = (memento, releases) =>
+    memento->State__Type.Memento.set("alsReleaseCache", releases)
+
+  // return the time difference in seconds since the cache was last fetched
+  let cacheAgeInSecs = memento => {
+    switch readTimestamp(memento) {
+    | None => 0
+    | Some(timestamp) =>
+      let currentTime = Date.now()
+      let lastModifiedTime = Date.getTime(timestamp)
+      // time difference in seconds
+      int_of_float((currentTime -. lastModifiedTime) /. 1000.0)
+    }
+  }
+
+  let fetchFromCache = async memento => {
+    // read the file and decode as json
+    switch readReleaseCache(memento) {
+    | None => Ok([])
+    | Some(string) =>
+      // parse the json
+      switch Js.Json.parseExn(string) {
+      | json =>
+        switch Release.decodeReleases(json) {
+        | Error(e) => Error(e)
+        | Ok(releases) => Ok(releases)
+        }
+      | exception _ => Error(Error.CannotReadReleasesCache(string))
+      }
+    }
+  }
+
+  let writeToCache = async (memento, releases) => {
+    let json = Release.encodeReleases(releases)->Js_json.stringify
+    await writeTimestamp(memento, Date.make())
+    await writeReleaseCache(memento, json)
+  }
+
+  // fetch the latest release from GitHub
+  // timeouts after 10000ms
+  let fetchFromGitHub = async (repo: Repo.t) => {
+    let httpOptions = {
+      "host": "api.github.com",
+      "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
+      "headers": {
+        "User-Agent": repo.userAgent,
+      },
+    }
+    switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
+    | Error(e) => Error(Error.CannotGetReleases(e))
+    | Ok(json) => Release.decodeReleases(json)
+    }
+  }
+
+  // fetch from GitHub if the cache is too old
+  // also returns a boolean indicating if the result is from cache
+  let fetch = async (repo: Repo.t) => {
+    let cacheAge = cacheAgeInSecs(repo.memento)
+    if cacheAge > repo.cacheInvalidateExpirationSecs {
+      let result = await fetchFromGitHub(repo)
+      switch result {
+      | Ok(releases) => await writeToCache(repo.memento, releases)
+      | Error(_) => ()
+      }
+      (result, false)
+    } else {
+      (await fetchFromCache(repo.memento), true)
+    }
+  }
+}
+
 module Module: {
-  let getReleaseManifest: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
-  let get: (Repo.t, Callbacks.t) => promise<result<(bool, Target.t), Error.t>>
   let download: (
     Target.t,
     State__Type.Memento.t,
@@ -497,135 +580,27 @@ module Module: {
     }
   }
 
-  module ReleaseManifestCache = {
-    // timestamp for the release cache
-    let readTimestamp = memento =>
-      memento->State__Type.Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
-    let writeTimestamp = (memento, timestamp) =>
-      memento->State__Type.Memento.set("alsReleaseCacheTimestamp", Date.toString(timestamp))
-
-    // release cache
-    let readReleaseCache = memento => memento->State__Type.Memento.get("alsReleaseCache")
-    let writeReleaseCache = (memento, releases) =>
-      memento->State__Type.Memento.set("alsReleaseCache", releases)
-
-    // see if the cache is valid
-    let isValid = async (memento, cacheInvalidateExpirationSecs) => {
-      switch readTimestamp(memento) {
-      | None => false // the cache timestamp does not exist, hence not valid
-      | Some(timestamp) =>
-        let currentTime = Date.now()
-        let lastModifiedTime = Date.getTime(timestamp)
-        // time difference in seconds
-        let diff = int_of_float((currentTime -. lastModifiedTime) /. 1000.0)
-        // cache is invalid if it is too old
-        diff < cacheInvalidateExpirationSecs
-      }
-    }
-
-    let get = async memento => {
-      // read the file and decode as json
-      switch readReleaseCache(memento) {
-      | None => Ok([])
-      | Some(string) =>
-        // parse the json
-        switch Js.Json.parseExn(string) {
-        | json =>
-          switch Release.decodeReleases(json) {
-          | Error(e) => Error(e)
-          | Ok(releases) => Ok(releases)
-          }
-        | exception _ => Error(Error.CannotReadReleasesCache(string))
-        }
-      }
-    }
-
-    let set = async (memento, releases) => {
-      let json = Release.encodeReleases(releases)->Js_json.stringify
-      await writeTimestamp(memento, Date.make())
-      await writeReleaseCache(memento, json)
-    }
-  }
-
-  // NOTE: no caching
-  // timeouts after 1000ms
-  let getReleaseManifestFromGitHubRepo = async (repo: Repo.t) => {
-    let httpOptions = {
-      "host": "api.github.com",
-      "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
-      "headers": {
-        "User-Agent": repo.userAgent,
-      },
-    }
-    switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
-    | Error(e) => Error(Error.CannotGetReleases(e))
-    | Ok(json) => Release.decodeReleases(json)
-    }
-  }
-
-  // use cached release manifest instead of fetching them from GitHub, if the cached releases dmanifestata is not too old (24 hrs)
-  // returns an additional boolean indicating if the target is from cache
-  let getReleaseManifest = async (repo: Repo.t) => {
-    let isValid = await ReleaseManifestCache.isValid(
-      repo.memento,
-      repo.cacheInvalidateExpirationSecs,
-    )
-    if isValid {
-      // use the cached releases manifest
-      let result = await ReleaseManifestCache.get(repo.memento)
-      (result, true)
-    } else {
-      let result = await getReleaseManifestFromGitHubRepo(repo)
-      // cache the releases
-      switch result {
-      | Ok(releases) => await ReleaseManifestCache.set(repo.memento, releases)
-      | Error(_) => ()
-      }
-      (result, false)
-    }
-  }
-
-  let get = async (repo: Repo.t, callbacks: Callbacks.t) => {
-    let ifIsDownloading = await isDownloading(repo.globalStoragePath)
-    if ifIsDownloading {
-      Error(Error.AlreadyDownloading)
-    } else {
-      switch await getReleaseManifest(repo) {
-      | (Error(error), _) => Error(error)
-      | (Ok(releases), isFromCache) =>
-        if isFromCache {
-          callbacks.log("Use cached release manifest")
-        } else {
-          callbacks.log("Cache invalidated, use fetched release manifest")
-        }
-        switch callbacks.chooseFromReleases(releases) {
-        | None => Error(Error.NoMatchingRelease)
-        | Some(target) =>
-          // don't download from GitHub if `target.fileName` already exists
-          let destPath = NodeJs.Path.join2(repo.globalStoragePath, target.saveAsFileName)
-          if NodeJs.Fs.existsSync(destPath) {
-            callbacks.log("Used downloaded program at:" ++ destPath)
-            Ok((true, target))
-          } else {
-            callbacks.log("Download from GitHub instead")
-            switch await downloadLanguageServer(repo, callbacks.onDownload, target) {
-            | Error(error) => Error(error)
-            | Ok() =>
-              // chmod the executable after download
-              // (no need to chmod if it's on Windows)
-              let execPath = NodeJs.Path.join2(destPath, "als")
-              let shouldChmod = NodeJs.Os.platform() != "win32"
-              if shouldChmod {
-                callbacks.log("Chmod the downloaded executable")
-                let _ = await chmodExecutable(execPath)
-              }
-              Ok((false, target))
-            }
-          }
-        }
-      }
-    }
-  }
+  // // use cached release manifest instead of fetching them from GitHub, if the cached releases dmanifestata is not too old (24 hrs)
+  // // returns an additional boolean indicating if the target is from cache
+  // let getReleaseManifest = async (repo: Repo.t) => {
+  //   let isValid = await ReleaseManifestCache.isValid(
+  //     repo.memento,
+  //     repo.cacheInvalidateExpirationSecs,
+  //   )
+  //   if isValid {
+  //     // use the cached releases manifest
+  //     let result = await ReleaseManifestCache.get(repo.memento)
+  //     (result, true)
+  //   } else {
+  //     let result = await ReleaseManifestCache.fetchFromGitHub(repo)
+  //     // cache the releases
+  //     switch result {
+  //     | Ok(releases) => await ReleaseManifestCache.set(repo.memento, releases)
+  //     | Error(_) => ()
+  //     }
+  //     (result, false)
+  //   }
+  // }
 
   let download = async (target: Target.t, memento, globalStoragePath, onDownload) => {
     let repo: Repo.t = {
