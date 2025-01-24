@@ -142,6 +142,10 @@ let handleSelection = async (
         await self.rerender()
       }
     }
+  | "$(sync)  Check for updates" =>
+    let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
+    let _ = await Connection.Resolver.GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
+    await self.rerender()
   | _ =>
     switch await Connection.Target.getPicked(self.state) {
     | None =>
@@ -194,7 +198,12 @@ let rec run = async state => {
     if latestALSAlreadyDownloaded {
       let ageInSecs = Connection__Resolver__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
       let description = switch ageInSecs / 3600 {
-      | 0 => "last checked: less than an hour ago"
+      | 0 =>
+        switch ageInSecs / 60 {
+        | 0 => "last checked: less than a minute ago"
+        | 1 => "last checked: 1 minute ago"
+        | minutes => "last checked: " ++ string_of_int(minutes) ++ " minutes ago"
+        }
       | 1 => "last checked: 1 hour ago"
       | hours if hours >= 24 => "last checked: more than a day ago"
       | hours => "last checked: " ++ string_of_int(hours) ++ " hours ago"

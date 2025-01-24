@@ -417,6 +417,8 @@ module ReleaseManifest: {
   let cacheAgeInSecs: State__Type.Memento.t => int
   // fetch the release manifest from the cache or GitHub
   let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
+  // fresh fetch from GitHub and cache it
+  let fetchFromGitHubAndCache: Repo.t => promise<result<array<Release.t>, Error.t>>
 } = {
   // timestamp for the release cache
   let readTimestamp = memento =>
@@ -464,9 +466,9 @@ module ReleaseManifest: {
     await writeReleaseCache(memento, json)
   }
 
-  // fetch the latest release from GitHub
+  // fetch the latest release from GitHub and cache it
   // timeouts after 10000ms
-  let fetchFromGitHub = async (repo: Repo.t) => {
+  let fetchFromGitHubAndCache = async (repo: Repo.t) => {
     let httpOptions = {
       "host": "api.github.com",
       "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
@@ -476,7 +478,13 @@ module ReleaseManifest: {
     }
     switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
     | Error(e) => Error(Error.CannotGetReleases(e))
-    | Ok(json) => Release.decodeReleases(json)
+    | Ok(json) =>
+      switch Release.decodeReleases(json) {
+      | Error(e) => Error(e)
+      | Ok(releases) =>
+        await writeToCache(repo.memento, releases)
+        Ok(releases)
+      }
     }
   }
 
@@ -485,12 +493,7 @@ module ReleaseManifest: {
   let fetch = async (repo: Repo.t) => {
     let cacheAge = cacheAgeInSecs(repo.memento)
     if cacheAge > repo.cacheInvalidateExpirationSecs {
-      let result = await fetchFromGitHub(repo)
-      switch result {
-      | Ok(releases) => await writeToCache(repo.memento, releases)
-      | Error(_) => ()
-      }
-      (result, false)
+      (await fetchFromGitHubAndCache(repo), false)
     } else {
       (await fetchFromCache(repo.memento), true)
     }
