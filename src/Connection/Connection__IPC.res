@@ -4,9 +4,9 @@ type source =
   | FromCommand(string) // name of the command
   | FromTCP(NodeJs.Url.t)
   | FromGitHub(
-      Connection__Resolver__GitHub.Repo.t,
-      Connection__Resolver__GitHub.Release.t,
-      Connection__Resolver__GitHub.Asset.t,
+      Connection__Download__GitHub.Repo.t,
+      Connection__Download__GitHub.Release.t,
+      Connection__Download__GitHub.Asset.t,
     )
 
 let sourceToString = source =>
@@ -16,11 +16,11 @@ let sourceToString = source =>
   | FromTCP(url) => "TCP: " ++ url.toString()
   | FromGitHub(repo, release, asset) =>
     "GitHub: " ++
-    Connection__Resolver__GitHub.Repo.toString(repo) ++
+    Connection__Download__GitHub.Repo.toString(repo) ++
     " " ++
-    Connection__Resolver__GitHub.Release.toString(release) ++
+    Connection__Download__GitHub.Release.toString(release) ++
     " " ++
-    Connection__Resolver__GitHub.Asset.toString(asset)
+    Connection__Download__GitHub.Asset.toString(asset)
   }
 
 // Means of Inter-process communication

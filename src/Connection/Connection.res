@@ -1,7 +1,6 @@
 module Error = Connection__Error
 module Agda = Connection__Target__Agda
 module ALS = Connection__Target__ALS
-module Resolver = Connection__Resolver
 module Target = Connection__Target
 module URI = Connection__URI
 
@@ -20,9 +19,12 @@ module type Module = {
   let findCommand: string => promise<result<unit, Error.t>>
 
   // misc
-  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t
+  let makeAgdaLanguageServerRepo: (
+    State__Type.Memento.t,
+    string,
+  ) => Connection__Download__GitHub.Repo.t
   let getALSReleaseManifest: State__Type.t => promise<
-    result<array<Connection__Resolver__GitHub.Release.t>, Error.t>,
+    result<array<Connection__Download__GitHub.Release.t>, Error.t>,
   >
 }
 
@@ -94,9 +96,8 @@ module Module: Module = {
     }
 
   let findCommand = async command => {
-    switch await Connection__Resolver__Command.search(command) {
-    | Error(error) =>
-      Error(Error.CannotFindCommand(command, error))
+    switch await Connection__Command.search(command) {
+    | Error(error) => Error(Error.CannotFindCommand(command, error))
     | Ok(path) =>
       switch await Target.fromRawPath(path) {
       | Error(error) => Error(error)
@@ -169,10 +170,10 @@ module Module: Module = {
     }
   }
 
-  let makeAgdaLanguageServerRepo: (State__Type.Memento.t, string) => Resolver.GitHub.Repo.t = (
-    memento,
-    globalStoragePath,
-  ) => {
+  let makeAgdaLanguageServerRepo: (
+    State__Type.Memento.t,
+    string,
+  ) => Connection__Download__GitHub.Repo.t = (memento, globalStoragePath) => {
     username: "agda",
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
@@ -182,7 +183,7 @@ module Module: Module = {
   }
 
   let getALSReleaseManifest = async (state: State__Type.t) => {
-    switch await Resolver.GitHub.ReleaseManifest.fetch(
+    switch await Connection__Download__GitHub.ReleaseManifest.fetch(
       makeAgdaLanguageServerRepo(state.memento, VSCode.Uri.fsPath(state.globalStorageUri)),
     ) {
     | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))

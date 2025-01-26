@@ -1,6 +1,6 @@
 open Mocha
 
-module Resolver = Connection.Resolver
+// module Resolver = Connection.Resolver
 
 describe("Path Searching", () => {
   This.timeout(10000)

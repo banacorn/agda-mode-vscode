@@ -1,4 +1,3 @@
-module Resolver = Connection__Resolver
 module IPC = Connection__IPC
 module Error = Connection__Error
 module URI = Connection__URI

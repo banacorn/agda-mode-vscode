@@ -77,13 +77,13 @@ module LatestALS = {
   // download the latest ALS
   let download = async (memento, globalStoragePath, target) => {
     let onDownload = _ => ()
-    switch await Connection.Resolver.GitHub.download(
+    switch await Connection__Download__GitHub.download(
       target,
       memento,
       globalStoragePath,
       onDownload,
     ) {
-    | Error(e) => Js.log("Failed to download: " ++ Connection.Resolver.GitHub.Error.toString(e))
+    | Error(e) => Js.log("Failed to download: " ++ Connection__Download__GitHub.Error.toString(e))
     | Ok(isCached) =>
       Js.log("isCached: " ++ string_of_bool(isCached))
 
@@ -126,7 +126,7 @@ module QP = {
 let handleSelection = async (
   self: QP.t,
   memento: State__Type.Memento.t,
-  latestALS: option<Connection.Resolver.GitHub.Target.t>,
+  latestALS: option<Connection__Download__GitHub.Target.t>,
   globalStoragePath: string,
   selection: VSCode.QuickPickItem.t,
 ) => {
@@ -144,7 +144,7 @@ let handleSelection = async (
     }
   | "$(sync)  Check for updates" =>
     let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
-    let _ = await Connection.Resolver.GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
+    let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
     await self.rerender()
   | _ =>
     switch await Connection.Target.getPicked(self.state) {
@@ -196,7 +196,7 @@ let rec run = async state => {
       kind: Separator,
     },
     if latestALSAlreadyDownloaded {
-      let ageInSecs = Connection__Resolver__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
+      let ageInSecs = Connection__Download__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
       let description = switch ageInSecs / 3600 {
       | 0 =>
         switch ageInSecs / 60 {
@@ -315,8 +315,8 @@ let rec run = async state => {
   qp->QP.render
 
   // downloadable"
-  let chooseAssetFromRelease = (release: Connection.Resolver.GitHub.Release.t): array<
-    Connection.Resolver.GitHub.Asset.t,
+  let chooseAssetFromRelease = (release: Connection__Download__GitHub.Release.t): array<
+    Connection__Download__GitHub.Asset.t,
   > => {
     // determine the platform
     let platform = switch NodeJs.Os.platform() {
@@ -361,7 +361,7 @@ let rec run = async state => {
       //   let parts = String.split(latestRelease.tag_name, ".")
       //   parts[Array.length(parts) - 1]->Option.getOr("?")
       // }
-      let getAgdaVersion = (asset: Connection.Resolver.GitHub.Asset.t) =>
+      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
         asset.name
         ->String.replaceRegExp(%re("/als-Agda-/"), "")
         ->String.replaceRegExp(%re("/-.*/"), "")
@@ -371,7 +371,7 @@ let rec run = async state => {
       assets
       ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
       ->Array.map(asset => {
-        Connection.Resolver.GitHub.Target.release: latestRelease,
+        Connection__Download__GitHub.Target.release: latestRelease,
         asset,
         saveAsFileName: "latest-als",
       })

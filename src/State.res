@@ -8,7 +8,7 @@ type t = t
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 let onDownload = (state, event) => {
-  open Connection.Resolver.GitHub.Download.Event
+  open Connection__Download__GitHub.Download.Event
   switch event {
   | Start => View.Panel.displayStatus(state, "Start downloading")->ignore
   | Progress(accum, total) =>
@@ -59,7 +59,7 @@ let sendRequest = (
       // onDownload(state, ...),
       // Config.Connection.getUseAgdaLanguageServer(),
       request,
-      onResponse
+      onResponse,
     )->Promise.then(async result => {
       switch result {
       | Error(error) => await View.Panel.displayConnectionError(state, error)
@@ -112,6 +112,6 @@ let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
   agdaRequestQueue: RequestQueue.make(),
   globalStorageUri,
   extensionPath,
-  memento: Memento.make(memento), 
+  memento: Memento.make(memento),
   channels,
 }
