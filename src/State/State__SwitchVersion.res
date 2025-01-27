@@ -161,9 +161,8 @@ let handleSelection = async (
           rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
         if selectionChanged {
           switch await Connection.URI.parse(rawPath) {
-          | None => Js.log("Cannot parse path: " ++ rawPath)
-          | Some(URL(url)) => Js.log("Trying to connect with: " ++ url.toString())
-          | Some(Filepath(path)) =>
+          | URL(url) => Js.log("Trying to connect with: " ++ url.toString())
+          | Filepath(path) =>
             switch await Connection.Target.fromRawPath(path) {
             | Error(e) => Js.log(e)
             | Ok(newTarget) =>

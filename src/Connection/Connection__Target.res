@@ -46,7 +46,13 @@ module Module: {
 
   let fromURI = async uri =>
     switch uri {
-    | URI.URL(url) => Error(Error.CannotResolvePath(url.toString()))
+    | URI.URL(url) =>
+      switch await Connection__TCP.probe(url, ~timeout=1000) {
+      | Error(_exn) => Js.log(_exn)
+      | Ok() => Js.log("OK")
+      }
+      // Ok(Agda())
+      Error(Error.CannotResolvePath(url.toString()))
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
       module Process = Connection__Target__Agda__Process
@@ -94,10 +100,8 @@ module Module: {
     }
 
   let fromRawPath = async rawPath => {
-    switch await URI.parse(rawPath) {
-    | None => Error(Error.CannotResolvePath(rawPath))
-    | Some(uri) => await fromURI(uri)
-    }
+    let uri = await URI.parse(rawPath)
+    await fromURI(uri)
   }
 
   let toURI = target =>
