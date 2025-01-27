@@ -4,7 +4,7 @@ type t =
   // ALS related
   | ALS(Connection__Target__ALS__Error.t)
   //
-  | CannotFindCommand(string, Connection__Command.Error.t)
+  | CannotFindCommand(string, Connection__Command__Search.Error.t)
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
   | CannotResolvePath(string)
   | NotAgdaOrALS(string)
@@ -16,7 +16,7 @@ let toString = x =>
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
   | CannotFindCommand(name, e) => (
       "Cannot find command \"" ++ name ++ "\"",
-      Connection__Command.Error.toString(e),
+      Connection__Command__Search.Error.toString(e),
     )
   | CannotFetchALSReleases(e) => (
       "Cannot fetch ALS releases",

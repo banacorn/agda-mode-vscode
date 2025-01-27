@@ -96,7 +96,7 @@ module Module: Module = {
     }
 
   let findCommand = async command => {
-    switch await Connection__Command.search(command) {
+    switch await Connection__Command__Search.search(command) {
     | Error(error) => Error(Error.CannotFindCommand(command, error))
     | Ok(path) =>
       switch await Target.fromRawPath(path) {
