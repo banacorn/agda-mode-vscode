@@ -279,10 +279,10 @@ let rec run = async state => {
         description: Connection__Validation.Error.toString(error),
         detail: path,
       }
-    | Error(CannotResolvePath(path)) => {
+    | Error(CannotHandleURLsATM(url)) => {
         VSCode.QuickPickItem.label: "$(question)  Error",
-        description: "unable to resolve the given path",
-        detail: path,
+        description: "cannot handle URLs at the moment",
+        detail: url,
       }
     | Error(error) =>
       let (header, body) = Connection.Error.toString(error)

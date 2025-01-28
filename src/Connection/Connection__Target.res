@@ -46,13 +46,12 @@ module Module: {
 
   let fromURI = async uri =>
     switch uri {
-    | URI.URL(url) =>
-      switch await Connection__TCP.probe(url, ~timeout=1000) {
-      | Error(_exn) => Js.log(_exn)
-      | Ok() => Js.log("OK")
-      }
-      // Ok(Agda())
-      Error(Error.CannotResolvePath(url.toString()))
+    | URI.URL(_url) =>
+      // switch await Connection__TCP.probe(url, ~timeout=1000) {
+      // | Error(_exn) => Js.log(_exn)
+      // | Ok() => Js.log("OK")
+      // }
+      Error(Error.CannotHandleURLsATM(URI.toString(uri)))
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
       module Process = Connection__Target__Agda__Process

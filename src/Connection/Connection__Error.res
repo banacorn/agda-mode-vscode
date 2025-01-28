@@ -6,7 +6,7 @@ type t =
   //
   | CannotFindCommand(string, Connection__Command__Search.Error.t)
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
-  | CannotResolvePath(string)
+  | CannotHandleURLsATM(string)
   | NotAgdaOrALS(string)
   | ValidationError(string, Connection__Validation.Error.t)
 
@@ -22,9 +22,9 @@ let toString = x =>
       "Cannot fetch ALS releases",
       Connection__Download__GitHub.Error.toString(e),
     )
-  | CannotResolvePath(path) => (
-      "Cannot resolve path",
-      "The path `" ++ path ++ "` cannot be resolved as a file path or a URL",
+  | CannotHandleURLsATM(_) => (
+      "Cannot handle URLs at the moment",
+      "This will be supported again in the future",
     )
   | NotAgdaOrALS(path) => (
       "Not Agda or ALS",
