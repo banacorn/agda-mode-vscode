@@ -97,7 +97,7 @@ module Module: Module = {
 
   let findCommand = async command => {
     switch await Connection__Command__Search.search(command) {
-    | Error(error) => Error(Error.CannotFindCommand(command, error))
+    | Error(_error) => Error(Error.CannotFindALSorAgda)
     | Ok(path) =>
       switch await Target.fromRawPath(path) {
       | Error(error) => Error(error)
@@ -109,8 +109,8 @@ module Module: Module = {
   }
 
   let findALSAndAgda = async () => {
-    switch await findCommand("agda") {
-    | Error(_error) => await findCommand("als")
+    switch await findCommand("als") {
+    | Error(_error) => await findCommand("agda")
     | Ok() => Ok()
     }
   }

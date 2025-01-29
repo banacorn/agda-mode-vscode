@@ -124,6 +124,33 @@ module Connection = {
     ->WorkspaceConfiguration.get("connection.agdaLanguageServerOptions")
     ->Option.mapOr([], s => String.trim(s)->String.split(" "))
     ->Array.filter(s => String.trim(s) != "")
+
+  // Ask user if they want to download Agda or ALS if they are not found
+  module Download = {
+    type downloadPrompt = AlwaysAsk | NeverAsk
+
+    let getDownloadPrompt = () => {
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("connection.downloadPrompt")
+      ->Option.mapOr(AlwaysAsk, s =>
+        switch s {
+        | "always" => AlwaysAsk
+        | "never" => NeverAsk
+        | _ => AlwaysAsk
+        }
+      )
+    }
+
+    let setDownloadPrompt = prompt =>
+      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+        "connection.downloadPrompt",
+        switch prompt {
+        | AlwaysAsk => "always"
+        | NeverAsk => "never"
+        },
+        None,
+      )
+  }
 }
 
 module View = {
