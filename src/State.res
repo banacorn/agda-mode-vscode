@@ -77,6 +77,18 @@ let sendRequest = (
   )
 }
 
+// like `sendRequest` but collects all responses, for testing
+let sendRequestAndCollectResponses = async (state: state, request: Request.t): array<
+  Response.t,
+> => {
+  let responses = ref([])
+  let responseHandler = async response => {
+    responses.contents->Array.push(response)
+  }
+  await state->sendRequest(responseHandler, request)
+  responses.contents
+}
+
 // construction/destruction
 let destroy = (state, alsoRemoveFromRegistry) => {
   if alsoRemoveFromRegistry {

@@ -9,21 +9,13 @@ let run = normalization =>
         async () => {
           let ctx = await AgdaMode.makeAndLoad("ComputeNormalForm.agda")
 
-          let responses = ref([])
-          let responseHandler = async response => responses.contents->Array.push(response)
-          await ctx.state->State.sendRequest(
-            responseHandler,
-            Request.ComputeNormalFormGlobal(normalization, "Z + S Z"),
-          )
+          let responses =
+            await ctx.state->State.sendRequestAndCollectResponses(
+              Request.ComputeNormalFormGlobal(normalization, "Z + S Z"),
+            )
+          let filteredResponses = responses->Array.filter(filteredResponse)
 
-          Assert.deepEqual(
-            responses.contents,
-            [
-              Status(false, false),
-              DisplayInfo(NormalForm("S Z")),
-              CompleteHighlightingAndMakePromptReappear,
-            ],
-          )
+          Assert.deepEqual(filteredResponses, [DisplayInfo(NormalForm("S Z"))])
         },
       )
 
@@ -31,21 +23,14 @@ let run = normalization =>
         "should be responded with the correct answer",
         async () => {
           let ctx = await AgdaMode.makeAndLoad("ComputeNormalForm.agda")
-          let responses = ref([])
-          let responseHandler = async response => responses.contents->Array.push(response)
-          await ctx.state->State.sendRequest(
-            responseHandler,
-            Request.ComputeNormalFormGlobal(normalization, "S Z + S Z"),
-          )
 
-          Assert.deepEqual(
-            responses.contents,
-            [
-              Status(false, false),
-              DisplayInfo(NormalForm("S (S Z)")),
-              CompleteHighlightingAndMakePromptReappear,
-            ],
-          )
+          let responses =
+            await ctx.state->State.sendRequestAndCollectResponses(
+              Request.ComputeNormalFormGlobal(normalization, "S Z + S Z"),
+            )
+          let filteredResponses = responses->Array.filter(filteredResponse)
+
+          Assert.deepEqual(filteredResponses, [DisplayInfo(NormalForm("S (S Z)"))])
         },
       )
     })

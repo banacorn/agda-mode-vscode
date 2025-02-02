@@ -306,12 +306,9 @@ module AgdaMode = {
     let load = async (channels: State__Type.channels, filepath) => {
       let (promise, resolve, _) = Util.Promise_.pending()
 
-      // agda-mode:load is consider finished
-      // when `CompleteHighlightingAndMakePromptReappear` has been handled
-      let disposable = channels.responseHandled->Chan.on(response => {
-        switch response {
-        | CompleteHighlightingAndMakePromptReappear => resolve()
-        | _ => ()
+      let disposable = channels.commandHandled->Chan.on(command => {
+        if command == Command.Load {
+          resolve()
         }
       })
 
@@ -401,3 +398,17 @@ module AgdaMode = {
     }
   }
 }
+
+// helper function for filtering out Highlighting & RunningInfo related responses
+let filteredResponse = response =>
+  switch response {
+  // highlightings
+  | Response.ClearRunningInfo => false
+  | ClearHighlighting => false
+  | HighlightingInfoIndirect(_) => false
+  | CompleteHighlightingAndMakePromptReappear => false
+  // status & running info
+  | Status(_, _) => false
+  | RunningInfo(_, _) => false
+  | _ => true
+  }

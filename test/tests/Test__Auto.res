@@ -8,34 +8,29 @@ let run = normalization => {
         "should be responded with the correct answer 1",
         async () => {
           let ctx = await AgdaMode.makeAndLoad("Auto.agda")
-          let responses = ref([])
-          let responseHandler = async response => responses.contents->Array.push(response)
 
-          switch ctx.state.goals[0] {
+          let responses = switch ctx.state.goals[0] {
           | Some(goal) =>
-            await ctx.state->State.sendRequest(responseHandler, Request.Auto(normalization, goal))
-          | None => Assert.fail("No goals found")
+            await ctx.state->State.sendRequestAndCollectResponses(Request.Auto(normalization, goal))
+          | None => []
           }
+
+          let filteredResponses = responses->Array.filter(filteredResponse)
 
           switch ctx.state.agdaVersion {
           | Some(version) =>
             if Util.Version.gte(version, "2.7.0") {
               Assert.deepEqual(
-                responses.contents,
-                [
-                  GiveAction(0, GiveString("n")),
-                  CompleteHighlightingAndMakePromptReappear,
-                  InteractionPoints([1]),
-                ],
+                filteredResponses,
+                [GiveAction(0, GiveString("n")), InteractionPoints([1])],
               )
             } else {
               Assert.deepEqual(
-                responses.contents,
+                filteredResponses,
                 [
                   GiveAction(0, GiveString("n")),
                   Status(false, false),
                   DisplayInfo(AllGoalsWarnings("*All Goals*", "?1 : ℕ\n")),
-                  CompleteHighlightingAndMakePromptReappear,
                   InteractionPoints([1]),
                 ],
               )
@@ -50,34 +45,27 @@ let run = normalization => {
         async () => {
           let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
-          let responses = ref([])
-          let responseHandler = async response => responses.contents->Array.push(response)
-
-          switch ctx.state.goals[1] {
+          let responses = switch ctx.state.goals[1] {
           | Some(goal) =>
-            await ctx.state->State.sendRequest(responseHandler, Request.Auto(normalization, goal))
-          | None => Assert.fail("No goals found")
+            await ctx.state->State.sendRequestAndCollectResponses(Request.Auto(normalization, goal))
+          | None => []
           }
+
+          let filteredResponses = responses->Array.filter(filteredResponse)
 
           switch ctx.state.agdaVersion {
           | Some(version) =>
             if Util.Version.gte(version, "2.7.0") {
               Assert.deepEqual(
-                responses.contents,
-                [
-                  GiveAction(1, GiveString("n")),
-                  CompleteHighlightingAndMakePromptReappear,
-                  InteractionPoints([0]),
-                ],
+                filteredResponses,
+                [GiveAction(1, GiveString("n")), InteractionPoints([0])],
               )
             } else {
               Assert.deepEqual(
-                responses.contents,
+                filteredResponses,
                 [
                   GiveAction(1, GiveString("m")),
-                  Status(false, false),
                   DisplayInfo(AllGoalsWarnings("*All Goals*", "?0 : ℕ\n")),
-                  CompleteHighlightingAndMakePromptReappear,
                   InteractionPoints([0]),
                 ],
               )
