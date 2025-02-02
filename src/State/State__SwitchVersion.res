@@ -2,9 +2,9 @@ let openGlobalStorageFolder = async (state: State__Type.t) => {
   let _result = await VSCode.Env.openExternal(state.globalStorageUri)
 }
 
-let switchAgdaVersion = async state => {
+let switchAgdaVersion = async (state: State__Type.t) => {
   // display what we are going to do
-  switch await Connection.Target.getPicked(state) {
+  switch await Connection.Target.getPicked(state.memento) {
   | None => ()
   | Some(Agda(version, _)) => {
       await State.View.Panel.displayStatus(state, "")
@@ -23,12 +23,13 @@ let switchAgdaVersion = async state => {
   }
 
   // stop the old connection
-  let _ = await Connection.stop()
+  let _ = await state.connection->Connection.stop
 
   // start with the new connection
-  switch await Connection.start(state) {
-  | Ok() =>
-    switch await Connection.Target.getPicked(state) {
+  switch await Connection.start(state.memento) {
+  | Ok(conn) =>
+    state.connection = Some(conn)
+    switch await Connection.Target.getPicked(state.memento) {
     | None => ()
     | Some(Agda(version, _path)) => {
         await State.View.Panel.displayStatus(state, "Agda v" ++ version)
@@ -125,7 +126,7 @@ module QP = {
 
 let handleSelection = async (
   self: QP.t,
-  memento: State__Type.Memento.t,
+  memento: State__Memento.t,
   latestALS: option<Connection__Download__GitHub.Target.t>,
   globalStoragePath: string,
   selection: VSCode.QuickPickItem.t,
@@ -147,7 +148,7 @@ let handleSelection = async (
     let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
     await self.rerender()
   | _ =>
-    switch await Connection.Target.getPicked(self.state) {
+    switch await Connection.Target.getPicked(self.state.memento) {
     | None =>
       Js.log("no targets available")
       // self->QP.destroy // close the quick pick
@@ -167,7 +168,7 @@ let handleSelection = async (
             | Error(e) => Js.log(e)
             | Ok(newTarget) =>
               // save the selected connection as the "picked" connection
-              await Connection.Target.setPicked(self.state, Some(newTarget))
+              await Connection.Target.setPicked(self.state.memento, Some(newTarget))
               await switchAgdaVersion(self.state)
               await self.rerender()
             }
@@ -231,7 +232,7 @@ let rec run = async state => {
   //  Installations
   //
 
-  let picked = await Connection.Target.getPicked(state)
+  let picked = await Connection.Target.getPicked(state.memento)
   let isPicked = target =>
     switch picked {
     | None => false
@@ -336,7 +337,10 @@ let rec run = async state => {
     }
   }
 
-  let latestALS = switch await Connection.getALSReleaseManifest(state) {
+  let latestALS = switch await Connection.getALSReleaseManifest(
+    state.memento,
+    state.globalStorageUri,
+  ) {
   | Error(_error) => None
   | Ok(releases) =>
     // only releases after 2024-12-18 are considered

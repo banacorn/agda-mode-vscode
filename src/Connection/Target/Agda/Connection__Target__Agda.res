@@ -101,11 +101,7 @@ module type Module = {
   let make: Connection__IPC.t => promise<result<t, Error.t>>
   let destroy: t => promise<unit>
   // messaging
-  let sendRequest: (
-    t,
-    string,
-    result<Response.t, Error.t> => promise<unit>,
-  ) => promise<result<unit, Error.t>>
+  let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
   let getInfo: t => (string, string) // version and path
 }
 
@@ -225,15 +221,14 @@ module Module: Module = {
       | Error(error) =>
         // stop the Agda Response listener
         stopResponseListener(Error(error))
-        callback(Error(error))->ignore
       | Ok(Yield(NonLast(response))) =>
-        scheduler->Scheduler.runNonLast(response => callback(Ok(response)), response)
+        scheduler->Scheduler.runNonLast(response => callback(response), response)
       | Ok(Yield(Last(priority, response))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
         // start handling Last Responses, after all NonLast Responses have been handled
         // resolve the `responseHandlingPromise` after all Last Responses have been handled
         scheduler
-        ->Scheduler.runLast(response => callback(Ok(response)))
+        ->Scheduler.runLast(response => callback(response))
         ->Promise.finally(() =>
           // stop the Agda Response listener
           stopResponseListener(Ok())

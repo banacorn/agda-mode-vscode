@@ -384,7 +384,7 @@ module Repo = {
     repository: string,
     userAgent: string,
     // for caching
-    memento: State__Type.Memento.t,
+    memento: State__Memento.t,
     globalStoragePath: string,
     cacheInvalidateExpirationSecs: int,
   }
@@ -414,7 +414,7 @@ module Callbacks = {
 
 module ReleaseManifest: {
   // age of the release manifest cache in seconds
-  let cacheAgeInSecs: State__Type.Memento.t => int
+  let cacheAgeInSecs: State__Memento.t => int
   // fetch the release manifest from the cache or GitHub
   let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
   // fresh fetch from GitHub and cache it
@@ -422,14 +422,14 @@ module ReleaseManifest: {
 } = {
   // timestamp for the release cache
   let readTimestamp = memento =>
-    memento->State__Type.Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
+    memento->State__Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
   let writeTimestamp = (memento, timestamp) =>
-    memento->State__Type.Memento.set("alsReleaseCacheTimestamp", Date.toString(timestamp))
+    memento->State__Memento.set("alsReleaseCacheTimestamp", Date.toString(timestamp))
 
   // release cache
-  let readReleaseCache = memento => memento->State__Type.Memento.get("alsReleaseCache")
+  let readReleaseCache = memento => memento->State__Memento.get("alsReleaseCache")
   let writeReleaseCache = (memento, releases) =>
-    memento->State__Type.Memento.set("alsReleaseCache", releases)
+    memento->State__Memento.set("alsReleaseCache", releases)
 
   // return the time difference in seconds since the cache was last fetched
   let cacheAgeInSecs = memento => {
@@ -503,7 +503,7 @@ module ReleaseManifest: {
 module Module: {
   let download: (
     Target.t,
-    State__Type.Memento.t,
+    State__Memento.t,
     string,
     Download.Event.t => unit,
   ) => promise<result<bool, Error.t>>

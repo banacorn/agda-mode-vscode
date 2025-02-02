@@ -5,27 +5,28 @@ module Target = Connection__Target
 module URI = Connection__URI
 
 module type Module = {
+  type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   // lifecycle
-  let start: State__Type.t => promise<result<unit, Error.t>>
-  let stop: unit => promise<result<unit, Error.t>>
+  let start: State__Memento.t => promise<result<t, Error.t>>
+  let stop: option<t> => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
-    State__Type.t,
+    option<t>,
+    VSCode.TextDocument.t,
+    State__Memento.t,
     Request.t,
-    result<Response.t, Error.t> => promise<unit>,
+    Response.t => promise<unit>,
   ) => promise<result<Target.t, Error.t>>
 
   //
-  let findCommand: string => promise<result<unit, Error.t>>
+  let findCommand: string => promise<result<t, Error.t>>
 
   // misc
-  let makeAgdaLanguageServerRepo: (
-    State__Type.Memento.t,
-    string,
-  ) => Connection__Download__GitHub.Repo.t
-  let getALSReleaseManifest: State__Type.t => promise<
-    result<array<Connection__Download__GitHub.Release.t>, Error.t>,
-  >
+  let makeAgdaLanguageServerRepo: (State__Memento.t, string) => Connection__Download__GitHub.Repo.t
+  let getALSReleaseManifest: (
+    State__Memento.t,
+    VSCode.Uri.t,
+  ) => promise<result<array<Connection__Download__GitHub.Release.t>, Error.t>>
 }
 
 module Module: Module = {
@@ -47,40 +48,37 @@ module Module: Module = {
 
   // internal state singleton
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
-  let singleton: ref<option<t>> = ref(None)
 
-  let stop = async () =>
-    switch singleton.contents {
+  let stop = async connection =>
+    switch connection {
     | None => Ok()
-    | Some(Agda(conn, _)) =>
-      singleton := None
-      await Agda.destroy(conn)
-      Ok()
-    | Some(ALS(conn, _)) =>
-      singleton := None
-      switch await ALS.destroy(conn) {
-      | Error(error) => Error(Error.ALS(error))
-      | Ok(_) => Ok()
+    | Some(connection) =>
+      switch connection {
+      | Agda(conn, _) =>
+        await Agda.destroy(conn)
+        Ok()
+      | ALS(conn, _) =>
+        switch await ALS.destroy(conn) {
+        | Error(error) => Error(Error.ALS(error))
+        | Ok(_) => Ok()
+        }
       }
     }
 
-  let start_ = async (target: Target.t): result<unit, Error.t> =>
+  let start_ = async (target: Target.t): result<t, Error.t> =>
     switch target {
     | Agda(version, path) =>
       let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
       switch await Agda.make(method) {
       | Error(error) => Error(Error.Agda(error, path))
-      | Ok(conn) =>
-        singleton := Some(Agda(conn, Agda(version, path)))
-        Ok()
+      | Ok(conn) => Ok(Agda(conn, Agda(version, path)))
       }
     | ALS(alsVersion, agdaVersion, Ok(method)) =>
       switch await ALS.make(method, InitOptions.getFromConfig()) {
       | Error(error) => Error(ALS(error))
       | Ok(conn) =>
         let method = ALS.getIPCMethod(conn)
-        singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Ok(method))))
-        Ok()
+        Ok(ALS(conn, ALS(alsVersion, agdaVersion, Ok(method))))
       }
     | ALS(alsVersion, agdaVersion, Error(path)) =>
       switch await ALS.make(
@@ -90,8 +88,7 @@ module Module: Module = {
       | Error(error) => Error(ALS(error))
       | Ok(conn) =>
         // let method = ALS.getIPCMethod(conn)
-        singleton := Some(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
-        Ok()
+        Ok(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
       }
     }
 
@@ -111,27 +108,16 @@ module Module: Module = {
   let findALSAndAgda = async () => {
     switch await findCommand("als") {
     | Error(_error) => await findCommand("agda")
-    | Ok() => Ok()
+    | Ok(conn) => Ok(conn)
     }
   }
 
-  let start = async state =>
-    switch singleton.contents {
-    | Some(_) => Ok()
-    | None =>
-      switch await Target.getPicked(state) {
-      | None => await findALSAndAgda()
-      | Some(target) => await start_(target)
-      }
+  let start = async (memento: State__Memento.t) =>
+    switch await Target.getPicked(memento) {
+    | None => await findALSAndAgda()
+    | Some(target) => await start_(target)
     }
-  let rec sendRequest = async (
-    state: State__Type.t,
-    // globalStorageUri,
-    // onDownload,
-    // useALS,
-    request,
-    handler,
-  ) => {
+  let rec sendRequest = async (connection, document, memento, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -141,37 +127,35 @@ module Module: Module = {
       Request.encode(document, version, filepath, backend, libraryPath, highlightingMethod, request)
     }
 
-    switch singleton.contents {
+    switch connection {
     | Some(ALS(conn, target)) =>
-      let handler = x => x->Util.Result.mapError(err => Error.ALS(err))->handler
-      switch await ALS.sendRequest(conn, encodeRequest(state.document, conn.agdaVersion), handler) {
+      switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await stop()
+        let _ = await stop(Some(ALS(conn, target)))
         Error(Error.ALS(error))
       | Ok(_) => Ok(target)
       }
 
     | Some(Agda(conn, target)) =>
       let (version, path) = Agda.getInfo(conn)
-      let handler = x => x->Util.Result.mapError(err => Error.Agda(err, path))->handler
-      switch await Agda.sendRequest(conn, encodeRequest(state.document, version), handler) {
+      switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await stop()
+        let _ = await stop(Some(Agda(conn, target)))
         Error(Error.Agda(error, path))
       | Ok(_) => Ok(target)
       }
     | None =>
-      switch await start(state) {
+      switch await start(memento) {
       | Error(error) => Error(error)
-      | Ok(_) => await sendRequest(state, request, handler)
+      | Ok(connection) => await sendRequest(Some(connection), document, memento, request, handler)
       }
     }
   }
 
   let makeAgdaLanguageServerRepo: (
-    State__Type.Memento.t,
+    State__Memento.t,
     string,
   ) => Connection__Download__GitHub.Repo.t = (memento, globalStoragePath) => {
     username: "agda",
@@ -182,9 +166,9 @@ module Module: Module = {
     cacheInvalidateExpirationSecs: 86400,
   }
 
-  let getALSReleaseManifest = async (state: State__Type.t) => {
+  let getALSReleaseManifest = async (memento, globalStorageUri) => {
     switch await Connection__Download__GitHub.ReleaseManifest.fetch(
-      makeAgdaLanguageServerRepo(state.memento, VSCode.Uri.fsPath(state.globalStorageUri)),
+      makeAgdaLanguageServerRepo(memento, VSCode.Uri.fsPath(globalStorageUri)),
     ) {
     | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
     | (Ok(manifest), _) => Ok(manifest)

@@ -17,7 +17,7 @@ let toString = x =>
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
   | CannotFindALSorAgda => (
       "Cannot find Agda or ALS",
-      "Please make should that either `agda` or `als` is in your PATH",
+      "Please make sure that either `agda` or `als` is in your PATH",
     )
   | CannotFetchALSReleases(e) => (
       "Cannot fetch ALS releases",

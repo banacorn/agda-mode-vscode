@@ -107,82 +107,6 @@ module Log = {
     }
 }
 
-module Any: {
-  type t
-} = {
-  type t
-}
-
-// Binds to VSCode.Memento when VSCode.ExtensionContext is available
-// Binds to a mock when testing
-module Memento: {
-  type t
-  // constructor
-  let make: option<VSCode.Memento.t> => t
-  // primitive operations
-  let get: (t, string) => option<'a>
-  let getWithDefault: (t, string, 'a) => 'a
-  let keys: t => array<string>
-  let set: (t, string, 'a) => promise<unit>
-  // for debugging
-  let toString: t => string
-} = {
-  type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
-
-  let make = memento =>
-    switch memento {
-    | Some(memento) => Memento(memento)
-    | None => Mock(Dict.make())
-    }
-
-  let get = (context, key) =>
-    switch context {
-    | Memento(context) => VSCode.Memento.get(context, key)
-    | Mock(dict) => Obj.magic(dict->Dict.get(key))
-    }
-  let getWithDefault = (context, key, defaultValue) =>
-    switch context {
-    | Memento(context) => VSCode.Memento.getWithDefault(context, key, defaultValue)
-    | Mock(dict) =>
-      switch dict->Dict.get(key) {
-      | Some(value) => Obj.magic(value)
-      | None => defaultValue
-      }
-    }
-
-  let keys = context =>
-    switch context {
-    | Memento(context) => VSCode.Memento.keys(context)
-    | Mock(dict) => dict->Dict.keysToArray
-    }
-
-  let set = (context, key, value) =>
-    switch context {
-    | Memento(context) => VSCode.Memento.update(context, key, value)
-    | Mock(dict) => dict->Dict.set(key, Obj.magic(value))->Promise.resolve
-    }
-
-  let toString = context =>
-    switch context {
-    | Memento(context) =>
-      let entries = VSCode.Memento.keys(context)->Array.map(key => {
-        switch VSCode.Memento.get(context, key) {
-        | None => key ++ ": None"
-        | Some(value) => key ++ ": " ++ value
-        }
-      })
-      "Memento: {\n" ++ Array.join(entries, "\n") ++ "}"
-    | Mock(dict) =>
-      let entries =
-        dict
-        ->Dict.toArray
-        ->Array.map(((key, value)) => {
-          key ++ ": " ++ value->Obj.magic->Js.String.make
-        })
-      "Mock: {\n" ++ Array.join(entries, "\n") ++ "}"
-    }
-}
-
 type channels = {
   inputMethod: Chan.t<IM.Log.t>,
   // emits when a Response has been handled
@@ -194,9 +118,13 @@ type channels = {
 }
 
 type t = {
+  // connection
+  mutable connection: option<Connection.t>,
   mutable agdaVersion: option<string>, // Agda version is set when connection is established
+  // editor and document
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
+  // view
   panelCache: ViewCache.t,
   mutable runningInfoLog: array<(int, string)>,
   mutable goals: array<Goal.t>,
@@ -212,7 +140,7 @@ type t = {
   mutable agdaRequestQueue: RequestQueue.t,
   globalStorageUri: VSCode.Uri.t,
   extensionPath: string,
-  memento: Memento.t,
+  memento: State__Memento.t,
   // for logging and testing
   channels: channels,
 }

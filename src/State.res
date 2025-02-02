@@ -39,25 +39,20 @@ let sendRequest = (
     handler: Response.t => promise<unit>,
   ): promise<unit> => {
     let (responseHandlerPromise, resolve, _) = Util.Promise_.pending()
-    let onResponse = async result => {
-      switch result {
-      | Error(error) => await View.Panel.displayConnectionError(state, error)
-      | Ok(response) =>
-        await handler(response)
-        state.channels.log->Chan.emit(ResponseHandled(response))
-      }
+    let onResponse = async response => {
+      await handler(response)
+      state.channels.log->Chan.emit(ResponseHandled(response))
       resolve()
     }
 
     state.channels.log->Chan.emit(RequestSent(request))
     // only resolve the promise after:
     //  1. the result of connection has been displayed
-    //  2. the response has been handled
+    //  2. all responses have been handled
     Connection.sendRequest(
-      state,
-      // state.globalStorageUri,
-      // onDownload(state, ...),
-      // Config.Connection.getUseAgdaLanguageServer(),
+      state.connection,
+      state.document,
+      state.memento,
       request,
       onResponse,
     )->Promise.then(async result => {
@@ -91,11 +86,12 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.goals->Array.forEach(Goal.destroyDecoration)
   state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  Connection.stop()
+  state.connection->Connection.stop
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
 let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
+  connection: None,
   agdaVersion: None,
   editor,
   document: VSCode.TextEditor.document(editor),
@@ -112,6 +108,6 @@ let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
   agdaRequestQueue: RequestQueue.make(),
   globalStorageUri,
   extensionPath,
-  memento: Memento.make(memento),
+  memento: State__Memento.make(memento),
   channels,
 }

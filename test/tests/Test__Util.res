@@ -283,7 +283,7 @@ module AgdaMode = {
     | Error(error) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure("Cannot find \"" ++ command ++ "\" in PATH: " ++ header ++ "\n" ++ body))
-    | Ok() => ()
+    | Ok(_conn) => ()
     }
   }
 

@@ -9,7 +9,7 @@ module Module: {
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
   // try to find the Agda Language Server
   // let tryALS: (
-  //   State__Type.Memento.t,
+  //   State__Memento.t,
   //   string,
   //   Resolver.GitHub.Download.Event.t => unit,
   // ) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
@@ -17,7 +17,7 @@ module Module: {
 
   // download the Agda Language Server from GitHub
   // let downloadALS: (
-  //   State__Type.Memento.t,
+  //   State__Memento.t,
   //   string,
   //   Resolver.GitHub.Download.Event.t => unit,
   // ) => promise<result<(bool, Resolver.GitHub.Target.t), Resolver.GitHub.Error.t>>
@@ -36,8 +36,8 @@ module Module: {
 
   // configuration
   let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
-  let getPicked: State__Type.t => promise<option<t>>
-  let setPicked: (State__Type.t, option<t>) => promise<unit>
+  let getPicked: State__Memento.t => promise<option<t>>
+  let setPicked: (State__Memento.t, option<t>) => promise<unit>
 } = {
   type version = string
   type t =
@@ -130,8 +130,8 @@ module Module: {
   }
 
   // returns the previously picked connection target
-  let getPicked = async (state: State__Type.t) =>
-    switch state.memento->State__Type.Memento.get("pickedConnection") {
+  let getPicked = async (memento: State__Memento.t) =>
+    switch memento->State__Memento.get("pickedConnection") {
     | Some(fromMemento) =>
       // see if it still exists in the configuration
       let fromConfig = await getAllFromConfig()
@@ -150,17 +150,17 @@ module Module: {
         }
       } else {
         // remove the invalid path from the memento
-        await state.memento->State__Type.Memento.set("pickedConnection", None)
+        await memento->State__Memento.set("pickedConnection", None)
         None
       }
     | None => await getFirstUsable()
     }
 
-  let setPicked = (state: State__Type.t, target) =>
+  let setPicked = (memento: State__Memento.t, target) =>
     switch target {
-    | None => state.memento->State__Type.Memento.set("pickedConnection", None)
+    | None => memento->State__Memento.set("pickedConnection", None)
     | Some(target) =>
-      state.memento->State__Type.Memento.set("pickedConnection", Some(toURI(target)->URI.toString))
+      memento->State__Memento.set("pickedConnection", Some(toURI(target)->URI.toString))
     }
 }
 
