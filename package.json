@@ -903,19 +903,23 @@
 					"scope": "machine-overridable",
 					"description": "Port number for Agda Language Server (for the ease of development)"
 				},
-				"agdaMode.connection.downloadPrompt": {
+				"agdaMode.connection.downloadPolicy": {
 					"type": "string",
-					"default": "always",
+					"default": "Undecided",
 					"enum": [
-						"always",
-						"never"
+						"Undecided",
+						"Yes, and keep it up-to-date",
+						"Yes, but don't update afterwards",
+						"No, and don't ask again"
 					],
 					"markdownEnumDescriptions": [
-						"Always ask whether to download Agda or Agda Language Server when missing",
-						"Never ask again, even if Agda or Agda Language Server is missing."
+						"The default state, which would trigger the modal dialog",
+						"Download and install the latest Agda Language Server and keep it up-to-date",
+						"Download and install the latest Agda Language Server but don't update afterwards",
+						"Do nothing and don't ask again"
 					],
 					"scope": "machine-overridable",
-					"description": "Controls whether the user is prompted to download Agda or Agda Language Server when missing"
+					"description": "Download policy when Agda or Agda Language Server is missing"
 				},
 				"agdaMode.view.panelMountPosition": {
 					"type": "string",

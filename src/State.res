@@ -28,6 +28,49 @@ let onDownload = (state, event) => {
   }
 }
 
+let handleDownloadPolicy = async (state, policy) => {
+  switch policy {
+  | Config.Connection.Download.YesKeepUpToDate => await View.Panel.display(state, Plain("Trying to download and install the latest Agda Language Server and keep it up-to-date"), [])
+  | YesButDontUpdate => await View.Panel.display(state, Plain("Trying to download and install the latest Agda Language Server"), [])
+  | NoDontAskAgain => await View.Panel.displayConnectionError(state, CannotFindALSorAgda)
+  | Undecided =>
+    // ask the user
+    let messageOptions = {
+      VSCode.MessageOptions.modal: true,
+      detail: "Do you want to download and install the latest Agda Language Server?",
+    }
+    let result = await VSCode.Window.showWarningMessageWithOptions(
+      "Cannot find Agda or Agda Language Server",
+      messageOptions,
+      [
+        "Yes, and keep it up-to-date",
+        "Yes, but don't update afterwards",
+        "No, and don't ask again",
+      ],
+    )
+
+    // update the policy
+    let newPolicy = switch result {
+    | Some("Yes, and keep it up-to-date") => Config.Connection.Download.YesKeepUpToDate
+    | Some("Yes, but don't update afterwards") => Config.Connection.Download.YesButDontUpdate
+    | Some("No, and don't ask again") => Config.Connection.Download.NoDontAskAgain
+    | _ => Config.Connection.Download.Undecided
+    }
+
+    await Config.Connection.Download.setDownloadPolicy(newPolicy)
+  }
+}
+
+let connectionErrorHandler = async (state, error) => {
+  switch error {
+  | Connection__Error.CannotFindALSorAgda =>
+    let policy = Config.Connection.Download.getDownloadPolicy()
+    await handleDownloadPolicy(state, policy)
+
+  | _ => await View.Panel.displayConnectionError(state, error)
+  }
+}
+
 let sendRequest = async (
   state: state,
   handleResponse: Response.t => promise<unit>,
@@ -49,7 +92,7 @@ let sendRequest = async (
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
     switch await Connection.sendRequest(connection, state.document, request, onResponse) {
-    | Error(error) => await View.Panel.displayConnectionError(state, error)
+    | Error(error) => await connectionErrorHandler(state, error)
     | Ok(status) =>
       // display the connection status
       await View.Panel.displayConnectionStatus(state, status)
@@ -64,8 +107,7 @@ let sendRequest = async (
   switch state.connection {
   | None =>
     switch await Connection.make(state.memento) {
-    | Error(error) => 
-      await View.Panel.displayConnectionError(state, error)
+    | Error(error) => await connectionErrorHandler(state, error)
     | Ok(connection) =>
       state.connection = Some(connection)
       await state.agdaRequestQueue->RequestQueue.push(

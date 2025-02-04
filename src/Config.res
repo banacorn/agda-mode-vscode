@@ -125,28 +125,41 @@ module Connection = {
     ->Option.mapOr([], s => String.trim(s)->String.split(" "))
     ->Array.filter(s => String.trim(s) != "")
 
-  // Ask user if they want to download Agda or ALS if they are not found
+  // Download policy when Agda or Agda Language Server is missing
   module Download = {
-    type downloadPrompt = AlwaysAsk | NeverAsk
+    type policy = YesKeepUpToDate | YesButDontUpdate | NoDontAskAgain | Undecided
+    let toString = policy =>
+      switch policy {
+      | YesKeepUpToDate => "Yes, and keep it up-to-date"
+      | YesButDontUpdate => "Yes, but don't update afterwards"
+      | NoDontAskAgain => "No, and don't ask again"
+      | Undecided => "Undecided"
+      }
 
-    let getDownloadPrompt = () => {
+    let getDownloadPolicy = () => {
       Workspace.getConfiguration(Some("agdaMode"), None)
-      ->WorkspaceConfiguration.get("connection.downloadPrompt")
-      ->Option.mapOr(AlwaysAsk, s =>
+      ->WorkspaceConfiguration.get("connection.downloadPolicy")
+      ->Option.mapOr(Undecided, s =>
         switch s {
-        | "always" => AlwaysAsk
-        | "never" => NeverAsk
-        | _ => AlwaysAsk
+        | "Yes, and keep it up-to-date" => YesKeepUpToDate
+        | "Yes, but don't update afterwards" => YesButDontUpdate
+        | "No, and don't ask again" => NoDontAskAgain
+        | _ => Undecided
         }
       )
     }
 
-    let setDownloadPrompt = prompt =>
-      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
-        "connection.downloadPrompt",
-        switch prompt {
-        | AlwaysAsk => "always"
-        | NeverAsk => "never"
+    let setDownloadPolicy = policy =>
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings(
+        "connection.downloadPolicy",
+        switch policy {
+        | YesKeepUpToDate => "Yes, and keep it up-to-date"
+        | YesButDontUpdate => "Yes, but don't update afterwards"
+        | NoDontAskAgain => "No, and don't ask again"
+        | Undecided => "Undecided"
         },
         None,
       )
