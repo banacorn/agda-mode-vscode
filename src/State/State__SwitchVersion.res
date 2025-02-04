@@ -23,10 +23,10 @@ let switchAgdaVersion = async (state: State__Type.t) => {
   }
 
   // stop the old connection
-  let _ = await state.connection->Connection.stop
+  let _ = await state.connection->Connection.destroy
 
   // start with the new connection
-  switch await Connection.start(state.memento) {
+  switch await Connection.make(state.memento) {
   | Ok(conn) =>
     state.connection = Some(conn)
     switch await Connection.Target.getPicked(state.memento) {

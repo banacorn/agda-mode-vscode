@@ -28,53 +28,57 @@ let onDownload = (state, event) => {
   }
 }
 
-let sendRequest = (
+let sendRequest = async (
   state: state,
   handleResponse: Response.t => promise<unit>,
   request: Request.t,
-): promise<unit> => {
-  let sendRequestAndHandleResponses = (
+): unit => {
+  let sendRequestAndHandleResponses = async (
+    connection,
     state,
     request,
     handler: Response.t => promise<unit>,
-  ): promise<unit> => {
-    let (responseHandlerPromise, resolve, _) = Util.Promise_.pending()
+  ) => {
     let onResponse = async response => {
       await handler(response)
       state.channels.log->Chan.emit(ResponseHandled(response))
-      resolve()
     }
 
     state.channels.log->Chan.emit(RequestSent(request))
     // only resolve the promise after:
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
-    Connection.sendRequest(
-      state.connection,
-      state.document,
-      state.memento,
-      request,
-      onResponse,
-    )->Promise.then(async result => {
-      switch result {
-      | Error(error) => await View.Panel.displayConnectionError(state, error)
-      | Ok(status) =>
-        // display the connection status
-        await View.Panel.displayConnectionStatus(state, status)
-        // update the Agda version
-        switch status {
-        | Agda(version, _) => state.agdaVersion = Some(version)
-        | ALS(_alsVersion, agdaVersion, _) => state.agdaVersion = Some(agdaVersion)
-        }
+    switch await Connection.sendRequest(connection, state.document, request, onResponse) {
+    | Error(error) => await View.Panel.displayConnectionError(state, error)
+    | Ok(status) =>
+      // display the connection status
+      await View.Panel.displayConnectionStatus(state, status)
+      // update the Agda version
+      switch status {
+      | Agda(version, _) => state.agdaVersion = Some(version)
+      | ALS(_alsVersion, agdaVersion, _) => state.agdaVersion = Some(agdaVersion)
       }
-      await responseHandlerPromise
-    })
+    }
   }
 
-  state.agdaRequestQueue->RequestQueue.push(
-    request => sendRequestAndHandleResponses(state, request, handleResponse),
-    request,
-  )
+  switch state.connection {
+  | None =>
+    switch await Connection.make(state.memento) {
+    | Error(error) => 
+      await View.Panel.displayConnectionError(state, error)
+    | Ok(connection) =>
+      state.connection = Some(connection)
+      await state.agdaRequestQueue->RequestQueue.push(
+        request => sendRequestAndHandleResponses(connection, state, request, handleResponse),
+        request,
+      )
+    }
+  | Some(connection) =>
+    await state.agdaRequestQueue->RequestQueue.push(
+      request => sendRequestAndHandleResponses(connection, state, request, handleResponse),
+      request,
+    )
+  }
 }
 
 // like `sendRequest` but collects all responses, for testing
@@ -98,7 +102,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.goals->Array.forEach(Goal.destroyDecoration)
   state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state.connection->Connection.stop
+  state.connection->Connection.destroy
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 

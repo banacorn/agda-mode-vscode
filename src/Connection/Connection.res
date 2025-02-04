@@ -7,13 +7,12 @@ module URI = Connection__URI
 module type Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   // lifecycle
-  let start: State__Memento.t => promise<result<t, Error.t>>
-  let stop: option<t> => promise<result<unit, Error.t>>
+  let make: State__Memento.t => promise<result<t, Error.t>>
+  let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
-    option<t>,
+    t,
     VSCode.TextDocument.t,
-    State__Memento.t,
     Request.t,
     Response.t => promise<unit>,
   ) => promise<result<Target.t, Error.t>>
@@ -49,7 +48,7 @@ module Module: Module = {
   // internal state singleton
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
 
-  let stop = async connection =>
+  let destroy = async connection =>
     switch connection {
     | None => Ok()
     | Some(connection) =>
@@ -112,12 +111,13 @@ module Module: Module = {
     }
   }
 
-  let start = async (memento: State__Memento.t) =>
+  let make = async (memento: State__Memento.t) =>
     switch await Target.getPicked(memento) {
     | None => await findALSAndAgda()
     | Some(target) => await start_(target)
     }
-  let rec sendRequest = async (connection, document, memento, request, handler) => {
+
+  let sendRequest = async (connection, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -128,28 +128,23 @@ module Module: Module = {
     }
 
     switch connection {
-    | Some(ALS(conn, target)) =>
+    | ALS(conn, target) =>
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await stop(Some(ALS(conn, target)))
+        let _ = await destroy(Some(ALS(conn, target)))
         Error(Error.ALS(error))
       | Ok(_) => Ok(target)
       }
 
-    | Some(Agda(conn, target)) =>
+    | Agda(conn, target) =>
       let (version, path) = Agda.getInfo(conn)
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await stop(Some(Agda(conn, target)))
+        let _ = await destroy(Some(Agda(conn, target)))
         Error(Error.Agda(error, path))
       | Ok(_) => Ok(target)
-      }
-    | None =>
-      switch await start(memento) {
-      | Error(error) => Error(error)
-      | Ok(connection) => await sendRequest(Some(connection), document, memento, request, handler)
       }
     }
   }
