@@ -47,9 +47,9 @@ module EventEmitter3 = {
     listener2<eventName, listener3<'a, 'b, 'c>>,
   ) => t = "once"
 
-  @send
-  external onRemoveListener: (t, string, listener<unit>) => t = "on"
-  let onRemoveListener = (arg1, obj) => obj->onRemoveListener("removeListener", arg1)
+  // @send
+  // external onRemoveListener: (t, string, listener<unit>) => t = "on"
+  // let onRemoveListener = (arg1, obj) => obj->onRemoveListener("removeListener", arg1)
 
   @send
   external onRemoveListener: (t, @as("removeListener") _, listener<unit>) => t = "on"
@@ -75,11 +75,11 @@ module EventEmitter3 = {
 
   // emitter.emit(eventName[, ...args])
 
-  @send external emit0: (t, eventName) => bool = "emit"
+  // @send external emit0: (t, eventName) => bool = "emit"
 
   @send external emit: (t, eventName, 'a) => bool = "emit"
 
-  @send external emit2: (t, eventName, 'a, 'b) => bool = "emit"
+  // @send external emit2: (t, eventName, 'a, 'b) => bool = "emit"
 
   @send external emit3: (t, eventName, 'a, 'b, 'c) => bool = "emit"
 
@@ -87,8 +87,8 @@ module EventEmitter3 = {
   external emit0: (t, eventName) => bool = "emit"
   let emit0 = (arg1, obj) => obj->emit0(arg1)
 
-  @send
-  external eventNames: (t, eventName) => array<eventName> = "eventNames"
+  // @send
+  // external eventNames: (t, eventName) => array<eventName> = "eventNames"
 
   @send
   external emit2: (t, eventName, 'a, 'b) => bool = "emit"
@@ -103,9 +103,9 @@ module EventEmitter3 = {
   @send
   external listenerCount: (t, eventName) => int = "listenerCount"
 
-  @send
-  external listeners: (t, eventName) => array<listener<'a>> = "listeners"
-  let listeners = (arg1, obj) => obj->listeners(arg1)
+  // @send
+  // external listeners: (t, eventName) => array<listener<'a>> = "listeners"
+  // let listeners = (arg1, obj) => obj->listeners(arg1)
 
   @send
   external listeners: (t, eventName) => array<listener<'a>> = "listeners"
@@ -116,9 +116,9 @@ module EventEmitter3 = {
   @send
   external listeners3: (t, eventName) => array<listener3<'a, 'b, 'c>> = "listeners"
 
-  @send
-  external off2: (t, eventName, listener2<'a, 'b>) => t = "off"
-  let off2 = (arg1, arg2, obj) => obj->off2(arg1, arg2)
+  // @send
+  // external off2: (t, eventName, listener2<'a, 'b>) => t = "off"
+  // let off2 = (arg1, arg2, obj) => obj->off2(arg1, arg2)
 
   @send external off: (t, eventName, listener<'a>) => t = "off"
   @send
@@ -136,8 +136,8 @@ module EventEmitter3 = {
 
   @send external once: (t, eventName, listener<'a>) => t = "once"
 
-  @send
-  external once2: (t, eventName, listener2<'a, 'b>) => t = "once"
+  // @send
+  // external once2: (t, eventName, listener2<'a, 'b>) => t = "once"
 
   @send
   external once3: (t, eventName, listener3<'a, 'b, 'c>) => t = "once"
@@ -152,8 +152,8 @@ module EventEmitter3 = {
   @send
   external prependListener2: (t, eventName, listener2<'a, 'b>) => t = "prependListener"
 
-  @send
-  external prependListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependListener"
+  // @send
+  // external prependListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependListener"
 
   @send
   external prependListener3: (t, array<eventName>, listener3<'a, 'b, 'c>) => t = "prependListener"
@@ -167,8 +167,8 @@ module EventEmitter3 = {
   @send
   external prependOnceListener3: (t, eventName, listener3<'a, 'b, 'c>) => t = "prependOnceListener"
 
-  @send
-  external removeAllListeners: t => t = "removeAllListeners"
+  // @send
+  // external removeAllListeners: t => t = "removeAllListeners"
 
   @send external removeAllListeners: t => unit = "removeAllListeners"
 
