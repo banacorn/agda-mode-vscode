@@ -39,22 +39,19 @@ let handleDownloadPolicy = async (state, policy) => {
       [],
     )
 
-    switch await Connection.downloadLatestALS(state.memento, state.globalStorageUri) {
+    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server")
+    switch await Connection.downloadLatestALS(
+      state.memento,
+      state.globalStorageUri,
+      reportProgress,
+    ) {
     | None =>
-      Js.log("Cannot find the latest Agda Language Server release")
       await View.Panel.display(
         state,
-        Plain("Cannot find the latest Agda Language Server release"),
+        Error("Cannot find the latest Agda Language Server for download"),
         [],
       )
-    | Some(target) =>
-      Js.log(target)
-      Js.log("Downloading the latest Agda Language Server")
-      // await State__SwitchVersion.LatestALS.download(
-      //   state.memento,
-      //   VSCode.Uri.fsPath(state.globalStorageUri),
-      //   target,
-      // )
+    | Some(target) => Js.log(target)
     }
   // State__SwitchVersion.LatestALS.download(state.memento, VSCode.Uri.fsPath(state.globalStorageUri),
   | YesButDontUpdate =>

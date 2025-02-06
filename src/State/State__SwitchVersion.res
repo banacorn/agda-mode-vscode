@@ -188,7 +188,6 @@ module QP = {
 let handleSelection = async (
   self: QP.t,
   memento: State__Memento.t,
-  // latestALS: option<Connection__Download__GitHub.Target.t>,
   globalStoragePath: VSCode.Uri.t,
   selection: VSCode.QuickPickItem.t,
 ) => {
@@ -197,15 +196,8 @@ let handleSelection = async (
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | "$(cloud-download)  Download the latest Agda Language Server" =>
-    let _ = await Connection.downloadLatestALS(memento, globalStoragePath)
+    let _ = await Connection.downloadLatestALS(memento, globalStoragePath, _ => ())
     await self.rerender()
-  // switch latestALS {
-  // | None => ()
-  // | Some(target) => {
-  //     let _ = await Connection.downloadLatestALS(memento, globalStoragePath)
-  //     await self.rerender()
-  //   }
-  // }
   | "$(sync)  Check for updates" =>
     let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
     let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)

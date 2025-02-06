@@ -35,6 +35,7 @@ module type Module = {
   let downloadLatestALS: (
     State__Memento.t,
     VSCode.Uri.t,
+    Connection__Download__Util.Event.t => unit,
   ) => promise<option<Connection__Download__GitHub.Target.t>>
 }
 
@@ -252,8 +253,7 @@ module Module: Module = {
     }
 
     // download the latest ALS
-    let download = async (memento, globalStoragePath, target) => {
-      let onDownload = _ => ()
+    let download = async (memento, globalStoragePath, onDownload, target) => {
       switch await Connection__Download__GitHub.download(
         target,
         memento,
@@ -275,11 +275,16 @@ module Module: Module = {
   let isLatestALSDownloaded = globalStorageUri =>
     LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
 
-  let downloadLatestALS = async (memento, globalStorageUri) => {
+  let downloadLatestALS = async (memento, globalStorageUri, progressCallback) => {
     switch await LatestALS.getTarget(memento, globalStorageUri) {
     | None => None
     | Some(target) =>
-      await LatestALS.download(memento, VSCode.Uri.fsPath(globalStorageUri), target)
+      await LatestALS.download(
+        memento,
+        VSCode.Uri.fsPath(globalStorageUri),
+        progressCallback,
+        target,
+      )
       Some(target)
     }
   }

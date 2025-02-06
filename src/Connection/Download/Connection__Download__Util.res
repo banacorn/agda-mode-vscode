@@ -37,20 +37,69 @@ module Event = {
 
   let toString = event =>
     switch event {
-    | Start => "Start downloading"
+    | Start => "Starting"
     | Progress(accum, total) =>
       // if the file is larger than 10MB than we use MB as the unit
       total > 10485760
-        ? "Downloading ( " ++
+        ? "" ++
           string_of_int(accum / 1048576) ++
           " MB / " ++
-          string_of_int(total / 1048576) ++ " MB )"
-        : "Downloading ( " ++
-          string_of_int(accum / 1024) ++
-          " KB / " ++
-          string_of_int(total / 1024) ++ " MB )"
-    | Finish => "Finish downloading"
+          string_of_int(total / 1048576) ++ " MB"
+        : "" ++ string_of_int(accum / 1024) ++ " KB / " ++ string_of_int(total / 1024) ++ " MB"
+    | Finish => "Done"
     }
+}
+
+module Progress = {
+  let report = async name => {
+    let progressRef = ref(None)
+
+    // only resolves after the download progress hits 100% or the promise is rejected
+    let (promise, resolve, _) = Util.Promise_.pending()
+
+    // instantiate the progress bar and steal the progess report function
+    VSCode.Window.withProgress(
+      {
+        location: VSCode.ProgressLocation.Notification,
+        title: "Downloading " ++ name,
+      },
+      (progress, _cancellationToken) => {
+        progressRef := Some(progress) // steal the progress report function
+        promise // return a promise that resolves after the download progress hits 100%
+      },
+    )->ignore
+
+    // for keeping track of the download progress
+    let percentage = ref(0)
+
+    event =>
+      switch event {
+      | Event.Start =>
+        progressRef.contents->Option.forEach(progress =>
+          progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)})
+        )
+      | Event.Progress(accum, total) =>
+        let percentageNew = int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0)
+
+        let increment = percentageNew - percentage.contents
+        percentage := percentageNew
+
+        // only report progress if the increment > 0
+        if increment > 0 {
+          progressRef.contents->Option.forEach(progress =>
+            progress->VSCode.Progress.report({
+              "increment": increment,
+              "message": Event.toString(event),
+            })
+          )
+        }
+      | Event.Finish =>
+        progressRef.contents->Option.forEach(progress =>
+          progress->VSCode.Progress.report({"increment": 100, "message": Event.toString(event)})
+        )
+        resolve()
+      }
+  }
 }
 
 module Module: {
@@ -129,10 +178,7 @@ module Module: {
       onDownload(Event.Start)
       // calculate and report download progress
       let totalSize =
-        NodeJs.Http.IncomingMessage.headers(res).contentLenth->Option.mapOr(
-          0,
-          int_of_string,
-        )
+        NodeJs.Http.IncomingMessage.headers(res).contentLenth->Option.mapOr(0, int_of_string)
       let accumSize = ref(0)
       res
       ->NodeJs.Http.IncomingMessage.onData(chunk => {
