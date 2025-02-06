@@ -21,11 +21,21 @@ module type Module = {
   let findCommand: string => promise<result<t, Error.t>>
 
   // misc
-  let makeAgdaLanguageServerRepo: (State__Memento.t, string) => Connection__Download__GitHub.Repo.t
+  let makeAgdaLanguageServerRepo: (
+    State__Memento.t,
+    VSCode.Uri.t,
+  ) => Connection__Download__GitHub.Repo.t
   let getALSReleaseManifest: (
     State__Memento.t,
     VSCode.Uri.t,
   ) => promise<result<array<Connection__Download__GitHub.Release.t>, Error.t>>
+
+  // download
+  let isLatestALSDownloaded: VSCode.Uri.t => promise<bool>
+  let downloadLatestALS: (
+    State__Memento.t,
+    VSCode.Uri.t,
+  ) => promise<option<Connection__Download__GitHub.Target.t>>
 }
 
 module Module: Module = {
@@ -151,22 +161,126 @@ module Module: Module = {
 
   let makeAgdaLanguageServerRepo: (
     State__Memento.t,
-    string,
-  ) => Connection__Download__GitHub.Repo.t = (memento, globalStoragePath) => {
+    VSCode.Uri.t,
+  ) => Connection__Download__GitHub.Repo.t = (memento, globalStorageUri) => {
     username: "agda",
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
     memento,
-    globalStoragePath,
+    globalStoragePath: VSCode.Uri.fsPath(globalStorageUri),
     cacheInvalidateExpirationSecs: 86400,
   }
 
   let getALSReleaseManifest = async (memento, globalStorageUri) => {
     switch await Connection__Download__GitHub.ReleaseManifest.fetch(
-      makeAgdaLanguageServerRepo(memento, VSCode.Uri.fsPath(globalStorageUri)),
+      makeAgdaLanguageServerRepo(memento, globalStorageUri),
     ) {
     | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
     | (Ok(manifest), _) => Ok(manifest)
+    }
+  }
+
+  module LatestALS = {
+    let chooseAssetFromRelease = (release: Connection__Download__GitHub.Release.t): array<
+      Connection__Download__GitHub.Asset.t,
+    > => {
+      // determine the platform
+      let platform = switch NodeJs.Os.platform() {
+      | "darwin" =>
+        switch Node__OS.arch() {
+        | "x64" => Some("macos-x64")
+        | "arm64" => Some("macos-arm64")
+        | _ => None
+        }
+      | "linux" => Some("ubuntu")
+      | "win32" => Some("windows")
+      | _ => None
+      }
+      switch platform {
+      | Some(platform) =>
+        release.assets->Array.filter(asset => asset.name->String.endsWith(platform ++ ".zip"))
+      | None => []
+      }
+    }
+
+    let getTarget = async (memento, globalStorageUri) =>
+      switch await getALSReleaseManifest(memento, globalStorageUri) {
+      | Error(_error) => None
+      | Ok(releases) =>
+        // only releases after 2024-12-18 are considered
+        let laterReleases =
+          releases->Array.filter(release =>
+            Date.fromString(release.published_at) >= Date.fromString("2024-12-18")
+          )
+        // present only the latest release at the moment
+        let latestRelease =
+          laterReleases
+          ->Array.toSorted((a, b) =>
+            Date.compare(Date.fromString(b.published_at), Date.fromString(a.published_at))
+          )
+          ->Array.get(0)
+
+        switch latestRelease {
+        | None => None
+        | Some(latestRelease) =>
+          // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
+          let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
+            asset.name
+            ->String.replaceRegExp(%re("/als-Agda-/"), "")
+            ->String.replaceRegExp(%re("/-.*/"), "")
+          // choose the assets of the corresponding platform
+          let assets = chooseAssetFromRelease(latestRelease)
+          // choose the asset with the latest Agda version
+          assets
+          ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
+          ->Array.map(asset => {
+            Connection__Download__GitHub.Target.release: latestRelease,
+            asset,
+            saveAsFileName: "latest-als",
+          })
+          ->Array.get(0)
+        }
+      }
+
+    // check if the latest ALS is already downloaded
+    let alreadyDownloaded = async globalStoragePath => {
+      let path = NodeJs.Path.join([globalStoragePath, "latest-als"])
+      switch await NodeJs.Fs.access(path) {
+      | () => true
+      | exception _ => false
+      }
+    }
+
+    // download the latest ALS
+    let download = async (memento, globalStoragePath, target) => {
+      let onDownload = _ => ()
+      switch await Connection__Download__GitHub.download(
+        target,
+        memento,
+        globalStoragePath,
+        onDownload,
+      ) {
+      | Error(e) => Js.log("Failed to download: " ++ Connection__Download__GitHub.Error.toString(e))
+      | Ok(isCached) =>
+        Js.log("isCached: " ++ string_of_bool(isCached))
+
+        // add the path of the downloaded file to the config
+        let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
+        Js.log("Downloaded to: " ++ destPath)
+        Config.Connection.addAgdaPath(destPath)->ignore
+      }
+    }
+  }
+
+  let isLatestALSDownloaded = globalStorageUri =>
+    LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
+
+  let downloadLatestALS = async (memento, globalStorageUri) => {
+    switch await LatestALS.getTarget(memento, globalStorageUri) {
+    | None => None
+    | Some(target) =>
+      await LatestALS.download(memento, VSCode.Uri.fsPath(globalStorageUri), target)
+      Some(target)
     }
   }
 }

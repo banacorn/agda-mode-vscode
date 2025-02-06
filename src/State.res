@@ -30,8 +30,39 @@ let onDownload = (state, event) => {
 
 let handleDownloadPolicy = async (state, policy) => {
   switch policy {
-  | Config.Connection.Download.YesKeepUpToDate => await View.Panel.display(state, Plain("Trying to download and install the latest Agda Language Server and keep it up-to-date"), [])
-  | YesButDontUpdate => await View.Panel.display(state, Plain("Trying to download and install the latest Agda Language Server"), [])
+  | Config.Connection.Download.YesKeepUpToDate =>
+    await View.Panel.display(
+      state,
+      Plain(
+        "Trying to download and install the latest Agda Language Server and keep it up-to-date",
+      ),
+      [],
+    )
+
+    switch await Connection.downloadLatestALS(state.memento, state.globalStorageUri) {
+    | None =>
+      Js.log("Cannot find the latest Agda Language Server release")
+      await View.Panel.display(
+        state,
+        Plain("Cannot find the latest Agda Language Server release"),
+        [],
+      )
+    | Some(target) =>
+      Js.log(target)
+      Js.log("Downloading the latest Agda Language Server")
+      // await State__SwitchVersion.LatestALS.download(
+      //   state.memento,
+      //   VSCode.Uri.fsPath(state.globalStorageUri),
+      //   target,
+      // )
+    }
+  // State__SwitchVersion.LatestALS.download(state.memento, VSCode.Uri.fsPath(state.globalStorageUri),
+  | YesButDontUpdate =>
+    await View.Panel.display(
+      state,
+      Plain("Trying to download and install the latest Agda Language Server"),
+      [],
+    )
   | NoDontAskAgain => await View.Panel.displayConnectionError(state, CannotFindALSorAgda)
   | Undecided =>
     // ask the user
