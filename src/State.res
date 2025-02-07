@@ -45,13 +45,8 @@ let handleDownloadPolicy = async (state, policy) => {
       state.globalStorageUri,
       reportProgress,
     ) {
-    | None =>
-      await View.Panel.display(
-        state,
-        Error("Cannot find the latest Agda Language Server for download"),
-        [],
-      )
-    | Some(target) => Js.log(target)
+    | Error(error) => await View.Panel.displayConnectionError(state, error)
+    | Ok(target) => Js.log(target)
     }
   // State__SwitchVersion.LatestALS.download(state.memento, VSCode.Uri.fsPath(state.globalStorageUri),
   | YesButDontUpdate =>
@@ -94,7 +89,6 @@ let connectionErrorHandler = async (state, error) => {
   | Connection__Error.CannotFindALSorAgda =>
     let policy = Config.Connection.Download.getDownloadPolicy()
     await handleDownloadPolicy(state, policy)
-
   | _ => await View.Panel.displayConnectionError(state, error)
   }
 }

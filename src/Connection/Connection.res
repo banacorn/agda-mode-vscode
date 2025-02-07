@@ -36,7 +36,7 @@ module type Module = {
     State__Memento.t,
     VSCode.Uri.t,
     Connection__Download__Util.Event.t => unit,
-  ) => promise<option<Connection__Download__GitHub.Target.t>>
+  ) => promise<result<Connection__Download__GitHub.Target.t, Error.t>>
 }
 
 module Module: Module = {
@@ -206,7 +206,7 @@ module Module: Module = {
 
     let getTarget = async (memento, globalStorageUri) =>
       switch await getALSReleaseManifest(memento, globalStorageUri) {
-      | Error(_error) => None
+      | Error(error) => Error(error)
       | Ok(releases) =>
         // only releases after 2024-12-18 are considered
         let laterReleases =
@@ -222,7 +222,7 @@ module Module: Module = {
           ->Array.get(0)
 
         switch latestRelease {
-        | None => None
+        | None => Error(Error.CannotFindLatestALSRelease)
         | Some(latestRelease) =>
           // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
           let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
@@ -232,14 +232,19 @@ module Module: Module = {
           // choose the assets of the corresponding platform
           let assets = chooseAssetFromRelease(latestRelease)
           // choose the asset with the latest Agda version
-          assets
-          ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
-          ->Array.map(asset => {
-            Connection__Download__GitHub.Target.release: latestRelease,
-            asset,
-            saveAsFileName: "latest-als",
-          })
-          ->Array.get(0)
+          let result =
+            assets
+            ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
+            ->Array.map(asset => {
+              Connection__Download__GitHub.Target.release: latestRelease,
+              asset,
+              saveAsFileName: "latest-als",
+            })
+            ->Array.get(0)
+          switch result {
+          | None => Error(Error.CannotFindLatestALSRelease)
+          | Some(target) => Ok(target)
+          }
         }
       }
 
@@ -260,14 +265,12 @@ module Module: Module = {
         globalStoragePath,
         onDownload,
       ) {
-      | Error(e) => Js.log("Failed to download: " ++ Connection__Download__GitHub.Error.toString(e))
-      | Ok(isCached) =>
-        Js.log("isCached: " ++ string_of_bool(isCached))
-
+      | Error(e) => Error(e)
+      | Ok(_isCached) =>
         // add the path of the downloaded file to the config
         let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
-        Js.log("Downloaded to: " ++ destPath)
-        Config.Connection.addAgdaPath(destPath)->ignore
+        await Config.Connection.addAgdaPath(destPath)
+        Ok()
       }
     }
   }
@@ -277,15 +280,17 @@ module Module: Module = {
 
   let downloadLatestALS = async (memento, globalStorageUri, progressCallback) => {
     switch await LatestALS.getTarget(memento, globalStorageUri) {
-    | None => None
-    | Some(target) =>
-      await LatestALS.download(
+    | Error(error) => Error(error)
+    | Ok(target) =>
+      switch await LatestALS.download(
         memento,
         VSCode.Uri.fsPath(globalStorageUri),
         progressCallback,
         target,
-      )
-      Some(target)
+      ) {
+      | Error(e) => Error(Error.CannotDownloadALS(e))
+      | Ok(_) => Ok(target)
+      }
     }
   }
 }

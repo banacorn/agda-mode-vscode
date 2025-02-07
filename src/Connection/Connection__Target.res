@@ -47,10 +47,6 @@ module Module: {
   let fromURI = async uri =>
     switch uri {
     | URI.URL(_url) =>
-      // switch await Connection__TCP.probe(url, ~timeout=1000) {
-      // | Error(_exn) => Js.log(_exn)
-      // | Ok() => Js.log("OK")
-      // }
       Error(Error.CannotHandleURLsATM(URI.toString(uri)))
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
