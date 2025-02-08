@@ -11,79 +11,79 @@ module DisplayInfo = {
   let handle = async (state, x) =>
     switch x {
     | Response.DisplayInfo.Generic(header, body) =>
-      await State.View.Panel.display(state, Plain(header), body)
+      await State__View.Panel.display(state, Plain(header), body)
     | CompilationOk(body) =>
-      await State.View.Panel.display(state, Success("Compilation result"), [Item.plainText(body)])
+      await State__View.Panel.display(state, Success("Compilation result"), [Item.plainText(body)])
     | CompilationOkALS(warnings, errors) =>
       let message = [Item.plainText("The module was successfully compiled.")]
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Success("Compilation result"),
         Array.flat([message, errors, warnings]),
       )
-    | Constraints(None) => await State.View.Panel.display(state, Plain("No Constraints"), [])
+    | Constraints(None) => await State__View.Panel.display(state, Plain("No Constraints"), [])
     | Constraints(Some(body)) =>
       let items = Emacs__Parser2.parseOutputs(body)
-      await State.View.Panel.display(state, Plain("Constraints"), items)
-    | AllGoalsWarnings(header, "nil") => await State.View.Panel.display(state, Success(header), [])
+      await State__View.Panel.display(state, Plain("Constraints"), items)
+    | AllGoalsWarnings(header, "nil") => await State__View.Panel.display(state, Success(header), [])
     | AllGoalsWarnings(header, body) =>
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.render
-      await State.View.Panel.display(state, Plain(header), items)
+      await State__View.Panel.display(state, Plain(header), items)
     | AllGoalsWarningsALS(header, goals, metas, warnings, errors) =>
       let errors = errors->Array.map(raw => Item.error(RichText.string(raw), Some(raw)))
       let warnings = warnings->Array.map(raw => Item.warning(RichText.string(raw), Some(raw)))
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Plain(header),
         Array.flat([goals, metas, errors, warnings]),
       )
     | Time(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
-      await State.View.Panel.display(state, Plain("Time"), items)
+      await State__View.Panel.display(state, Plain("Time"), items)
     | Error(body) =>
       let items = Emacs__Parser2.parseError(body)->Emacs__Parser2.render
-      await State.View.Panel.display(state, Error("Error"), items)
+      await State__View.Panel.display(state, Error("Error"), items)
     | Intro(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
-      await State.View.Panel.display(state, Plain("Intro"), items)
+      await State__View.Panel.display(state, Plain("Intro"), items)
     | Auto(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
-      await State.View.Panel.display(state, Plain("Auto"), items)
+      await State__View.Panel.display(state, Plain("Auto"), items)
     | ModuleContents(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
-      await State.View.Panel.display(state, Plain("Module Contents"), items)
+      await State__View.Panel.display(state, Plain("Module Contents"), items)
     | SearchAbout(body) =>
       let items = Emacs__Parser2.parseAndRenderSearchAbout(body)
-      await State.View.Panel.display(state, Plain("Search About"), items)
+      await State__View.Panel.display(state, Plain("Search About"), items)
     | WhyInScope(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
-      await State.View.Panel.display(state, Plain("Scope info"), items)
+      await State__View.Panel.display(state, Plain("Scope info"), items)
     | NormalForm(body) =>
       let items = Emacs__Parser2.parseAndRenderTextWithLocation(body)
-      await State.View.Panel.display(state, Plain("Normal form"), items)
+      await State__View.Panel.display(state, Plain("Normal form"), items)
     | GoalType(body) =>
       let items = Emacs__Parser2.parseGoalType(body)->Emacs__Parser2.render
-      await State.View.Panel.display(state, Plain("Goal and Context"), items)
-    | CurrentGoalALS(item) => await State.View.Panel.display(state, Plain("Current Goal"), [item])
+      await State__View.Panel.display(state, Plain("Goal and Context"), items)
+    | CurrentGoalALS(item) => await State__View.Panel.display(state, Plain("Current Goal"), [item])
     | CurrentGoal(payload) =>
-      await State.View.Panel.display(state, Plain("Current Goal"), [Item.plainText(payload)])
+      await State__View.Panel.display(state, Plain("Current Goal"), [Item.plainText(payload)])
     | InferredType(payload) =>
-      await State.View.Panel.display(state, Plain("Inferred type"), [Item.plainText(payload)])
-    | InferredTypeALS(item) => await State.View.Panel.display(state, Plain("Inferred type"), [item])
+      await State__View.Panel.display(state, Plain("Inferred type"), [Item.plainText(payload)])
+    | InferredTypeALS(item) => await State__View.Panel.display(state, Plain("Inferred type"), [item])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
-      await State.View.Panel.display(state, Plain("Context"), items)
+      await State__View.Panel.display(state, Plain("Context"), items)
     | HelperFunction(payload) =>
       await VSCode.Env.clipboard->VSCode.Clipboard.writeText(payload)
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Plain("Helper function (copied to clipboard)"),
         [Item.plainText(payload)],
       )
     | Version(payload) =>
-      await State.View.Panel.display(state, Plain("Version"), [Item.plainText(payload)])
+      await State__View.Panel.display(state, Plain("Version"), [Item.plainText(payload)])
     }
 }
 
@@ -92,7 +92,7 @@ let rec handle = async (
   dispatchCommand: Command.t => promise<unit>,
   response: Response.t,
 ): unit => {
-  let sendAgdaRequest = State.sendRequest(state, dispatchCommand, handle(state, dispatchCommand, ...), ...)
+  let sendAgdaRequest = State__Request.sendRequest(state, dispatchCommand, handle(state, dispatchCommand, ...), ...)
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
@@ -141,7 +141,7 @@ let rec handle = async (
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
       | None =>
-        await State.View.Panel.display(
+        await State__View.Panel.display(
           state,
           Error("Error: Give failed"),
           [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
@@ -172,7 +172,7 @@ let rec handle = async (
       }
     | MakeCase(makeCaseType, lines) =>
       switch State__Goal.pointed(state) {
-      | None => await State.View.Panel.displayOutOfGoalError(state)
+      | None => await State__View.Panel.displayOutOfGoalError(state)
       | Some((goal, _)) =>
         switch makeCaseType {
         | Function => await State__Goal.replaceWithLines(state, goal, lines)
@@ -199,20 +199,20 @@ let rec handle = async (
         ->Util.oneByOne
       let size = Array.length(solutions)
       if size == 0 {
-        await State.View.Panel.display(state, Error("No solutions found"), [])
+        await State__View.Panel.display(state, Error("No solutions found"), [])
       } else {
-        await State.View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
+        await State__View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
-      await State.View.Panel.displayInAppendMode(
+      await State__View.Panel.displayInAppendMode(
         state,
         Plain("Type-checking"),
         [Item.plainText(message)],
       )
     | RunningInfo(verbosity, message) =>
       state.runningInfoLog->Array.push((verbosity, message))->ignore
-      await State.View.DebugBuffer.displayInAppendMode([(verbosity, message)])
+      await State__View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)

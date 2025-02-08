@@ -144,7 +144,41 @@ type t = {
   // for logging and testing
   channels: channels,
 }
-type state = t
+
+let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
+  connection: None,
+  agdaVersion: None,
+  editor,
+  document: VSCode.TextEditor.document(editor),
+  panelCache: ViewCache.make(),
+  runningInfoLog: [],
+  goals: [],
+  tokens: Tokens.make(),
+  highlighting: Highlighting.make(),
+  cursor: None,
+  editorIM: IM.make(channels.inputMethod),
+  promptIM: IM.make(channels.inputMethod),
+  subscriptions: [],
+  onRemoveFromRegistry: Chan.make(),
+  agdaRequestQueue: RequestQueue.make(),
+  globalStorageUri,
+  extensionPath,
+  memento: State__Memento.make(memento),
+  channels,
+}
+
+// construction/destruction
+let destroy = (state, alsoRemoveFromRegistry) => {
+  if alsoRemoveFromRegistry {
+    state.onRemoveFromRegistry->Chan.emit()
+  }
+  state.onRemoveFromRegistry->Chan.destroy
+  state.goals->Array.forEach(Goal.destroyDecoration)
+  state.highlighting->Highlighting.destroy
+  state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
+  state.connection->Connection.destroy
+  // TODO: delete files in `.indirectHighlightingFileNames`
+}
 
 // control the scope of command key-binding
 module Context = {

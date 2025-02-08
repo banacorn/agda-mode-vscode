@@ -3,7 +3,7 @@
 
 // type setup = {
 //   editor: VSCode.TextEditor.t,
-//   channels: State__Type.channels,
+//   channels: State.channels,
 // }
 
 // let acquire = setup =>

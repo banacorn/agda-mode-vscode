@@ -1,18 +1,18 @@
-let openGlobalStorageFolder = async (state: State__Type.t) => {
+let openGlobalStorageFolder = async (state: State.t) => {
   let _result = await VSCode.Env.openExternal(state.globalStorageUri)
 }
 
-let switchAgdaVersion = async (state: State__Type.t) => {
+let switchAgdaVersion = async (state: State.t) => {
   // display what we are going to do
   switch await Connection.Target.getPicked(state.memento) {
   | None => ()
   | Some(Agda(version, _)) => {
-      await State.View.Panel.displayStatus(state, "")
-      await State.View.Panel.display(state, View.Header.Plain("Switching to Agda v" ++ version), [])
+      await State__View.Panel.displayStatus(state, "")
+      await State__View.Panel.display(state, View.Header.Plain("Switching to Agda v" ++ version), [])
     }
   | Some(ALS(alsVersion, agdaVersion, _)) => {
-      await State.View.Panel.displayStatus(state, "")
-      await State.View.Panel.display(
+      await State__View.Panel.displayStatus(state, "")
+      await State__View.Panel.display(
         state,
         View.Header.Plain(
           "Switching to Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
@@ -32,19 +32,19 @@ let switchAgdaVersion = async (state: State__Type.t) => {
     switch await Connection.Target.getPicked(state.memento) {
     | None => ()
     | Some(Agda(version, _path)) => {
-        await State.View.Panel.displayStatus(state, "Agda v" ++ version)
-        await State.View.Panel.display(
+        await State__View.Panel.displayStatus(state, "Agda v" ++ version)
+        await State__View.Panel.display(
           state,
           View.Header.Success("Switched to Agda v" ++ version),
           [],
         )
       }
     | Some(ALS(alsVersion, agdaVersion, _)) => {
-        await State.View.Panel.displayStatus(
+        await State__View.Panel.displayStatus(
           state,
           "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
         )
-        await State.View.Panel.display(
+        await State__View.Panel.display(
           state,
           View.Header.Success(
             "Switched to Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
@@ -60,14 +60,14 @@ let switchAgdaVersion = async (state: State__Type.t) => {
         "Failed to switch to a different installation: " ++ errorHeader,
       )
       let body = [Item.plainText(errorBody)]
-      await State.View.Panel.display(state, header, body)
+      await State__View.Panel.display(state, header, body)
     }
   }
 }
 
 module QP = {
   type t = {
-    state: State__Type.t,
+    state: State.t,
     rerender: unit => promise<unit>,
     quickPick: VSCode.QuickPick.t<VSCode.QuickPickItem.t>,
     mutable items: array<VSCode.QuickPickItem.t>,

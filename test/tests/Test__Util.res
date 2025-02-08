@@ -68,7 +68,7 @@ module Path = {
 // to prevent an extension from being activated twice
 let activationSingleton = ref(None)
 
-let activateExtension = (): State__Type.channels => {
+let activateExtension = (): State.channels => {
   switch activationSingleton.contents {
   | None =>
     // activate the extension
@@ -289,8 +289,8 @@ module AgdaMode = {
 
   type t = {
     filepath: string,
-    channels: State__Type.channels,
-    mutable state: State__Type.t,
+    channels: State.channels,
+    mutable state: State.t,
   }
 
   let makeAndLoad = async (~als=false, filepath) => {
@@ -303,7 +303,7 @@ module AgdaMode = {
     // make sure that "agda" exists in PATH
     await exists("agda")
     //
-    let load = async (channels: State__Type.channels, filepath) => {
+    let load = async (channels: State.channels, filepath) => {
       let (promise, resolve, _) = Util.Promise_.pending()
 
       let disposable = channels.commandHandled->Chan.on(command => {

@@ -178,7 +178,7 @@ module Module: Module = {
     if await Goal.setContent(goal, state.document, f(content)) {
       updateIntervals(state)
     } else {
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Error("Goal-related Error"),
         [Item.plainText("Failed to modify the content of goal #" ++ string_of_int(goal.index))],
@@ -330,7 +330,7 @@ module Module: Module = {
       // locate the first new goal and place the cursor there
       placeCursorAtFirstNewGoal(state, rewriteText, rewriteRange)
     } else {
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Error("Goal-related Error"),
         [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
@@ -361,7 +361,7 @@ module Module: Module = {
       // locate the first new goal and place the cursor there
       placeCursorAtFirstNewGoal(state, indentedLines, rangeToBeReplaced)
     } else {
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Error("Goal-related Error"),
         [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
@@ -378,7 +378,7 @@ module Module: Module = {
     if await Editor.Text.replace(state.document, outerRange, content) {
       Goal.destroyDecoration(goal)
     } else {
-      await State.View.Panel.display(
+      await State__View.Panel.display(
         state,
         Error("Goal-related Error"),
         [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(goal.index))],

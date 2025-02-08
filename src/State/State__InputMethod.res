@@ -26,16 +26,16 @@ module Module: Module = {
       let handle = async kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          await State.View.Panel.updateIM(state, Update(sequence, translation, index))
+          await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
           let _ = await Editor.Text.batchReplace(state.document, replacements)
           resolve()
         | Activate =>
           State.Context.setIM(true)
-          await State.View.Panel.updateIM(state, Activate)
+          await State__View.Panel.updateIM(state, Activate)
         | Deactivate =>
           State.Context.setIM(false)
-          await State.View.Panel.updateIM(state, Deactivate)
+          await State__View.Panel.updateIM(state, Deactivate)
         }
       let _ = await output->Array.map(handle)->Util.oneByOne
     }
@@ -68,7 +68,7 @@ module Module: Module = {
       let handle = async kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
-          await State.View.Panel.updateIM(state, Update(sequence, translation, index))
+          await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(rewrites, f) =>
           // TODO, postpone calling f
           f()
@@ -89,11 +89,11 @@ module Module: Module = {
 
           // update the stored content and notify the view
           previous.contents = replaced.contents
-          await State.View.Panel.updatePromptIM(state, replaced.contents)
+          await State__View.Panel.updatePromptIM(state, replaced.contents)
         | Activate =>
-          await State.View.Panel.updateIM(state, Activate)
-          await State.View.Panel.updatePromptIM(state, previous.contents)
-        | Deactivate => await State.View.Panel.updateIM(state, Deactivate)
+          await State__View.Panel.updateIM(state, Activate)
+          await State__View.Panel.updatePromptIM(state, previous.contents)
+        | Deactivate => await State__View.Panel.updateIM(state, Deactivate)
         }
       let _ = await output->Array.map(handle)->Util.oneByOne
     }
@@ -213,14 +213,14 @@ module Module: Module = {
         // activate the prompt IM
         await PromptIM.activate(state, input)
       } else {
-        await State.View.Panel.updatePromptIM(state, input)
+        await State__View.Panel.updatePromptIM(state, input)
       }
     | Prompt => await PromptIM.keyUpdate(state, input)
     | None =>
       if shouldActivatePromptIM(input) {
         await PromptIM.activate(state, input)
       } else {
-        await State.View.Panel.updatePromptIM(state, input)
+        await State__View.Panel.updatePromptIM(state, input)
       }
     }
 

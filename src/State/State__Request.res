@@ -1,37 +1,7 @@
-open State__Type
-module View = State__View
-module Context = State__Type.Context
-type t = t
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  State
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-let onDownload = (state, event) => {
-  open Connection__Download__GitHub.Download.Event
-  switch event {
-  | Start => View.Panel.displayStatus(state, "Start downloading")->ignore
-  | Progress(accum, total) =>
-    // if the file is larger than 10MB than we use MB as the unit
-    let message =
-      total > 10485760
-        ? "Downloading ( " ++
-          string_of_int(accum / 1048576) ++
-          " MB / " ++
-          string_of_int(total / 1048576) ++ " MB )"
-        : "Downloading ( " ++
-          string_of_int(accum / 1024) ++
-          " KB / " ++
-          string_of_int(total / 1024) ++ " MB )"
-    View.Panel.displayStatus(state, message)->ignore
-  | Finish => View.Panel.displayStatus(state, "Downloaded")->ignore
-  }
-}
-
 let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
   switch policy {
   | Config.Connection.Download.YesKeepUpToDate =>
-    await View.Panel.display(
+    await State__View.Panel.display(
       state,
       Plain(
         "Trying to download and install the latest Agda Language Server and keep it up-to-date",
@@ -45,17 +15,17 @@ let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
       state.globalStorageUri,
       reportProgress,
     ) {
-    | Error(error) => await View.Panel.displayConnectionError(state, error)
+    | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(_) => await dispatchCommand(Command.Load)
     }
   // State__SwitchVersion.LatestALS.download(state.memento, VSCode.Uri.fsPath(state.globalStorageUri),
   | YesButDontUpdate =>
-    await View.Panel.display(
+    await State__View.Panel.display(
       state,
       Plain("Trying to download and install the latest Agda Language Server"),
       [],
     )
-  | NoDontAskAgain => await View.Panel.displayConnectionError(state, CannotFindALSorAgda)
+  | NoDontAskAgain => await State__View.Panel.displayConnectionError(state, CannotFindALSorAgda)
   | Undecided =>
     // ask the user
     let messageOptions = {
@@ -89,19 +59,19 @@ let connectionErrorHandler = async (state, dispatchCommand, error) => {
   | Connection__Error.CannotFindALSorAgda =>
     let policy = Config.Connection.Download.getDownloadPolicy()
     await handleDownloadPolicy(state, dispatchCommand, policy)
-  | _ => await View.Panel.displayConnectionError(state, error)
+  | _ => await State__View.Panel.displayConnectionError(state, error)
   }
 }
 
 let sendRequest = async (
-  state: state,
+  state: State.t,
   dispatchCommand: Command.t => promise<unit>,
   handleResponse: Response.t => promise<unit>,
   request: Request.t,
 ): unit => {
   let sendRequestAndHandleResponses = async (
     connection,
-    state,
+    state: State.t,
     request,
     handler: Response.t => promise<unit>,
   ) => {
@@ -118,7 +88,7 @@ let sendRequest = async (
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(status) =>
       // display the connection status
-      await View.Panel.displayConnectionStatus(state, status)
+      await State__View.Panel.displayConnectionStatus(state, status)
       // update the Agda version
       switch status {
       | Agda(version, _) => state.agdaVersion = Some(version)
@@ -133,13 +103,13 @@ let sendRequest = async (
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>
       state.connection = Some(connection)
-      await state.agdaRequestQueue->RequestQueue.push(
+      await state.agdaRequestQueue->State.RequestQueue.push(
         request => sendRequestAndHandleResponses(connection, state, request, handleResponse),
         request,
       )
     }
   | Some(connection) =>
-    await state.agdaRequestQueue->RequestQueue.push(
+    await state.agdaRequestQueue->State.RequestQueue.push(
       request => sendRequestAndHandleResponses(connection, state, request, handleResponse),
       request,
     )
@@ -147,48 +117,15 @@ let sendRequest = async (
 }
 
 // like `sendRequest` but collects all responses, for testing
-let sendRequestAndCollectResponses = async (state: state, dispatchCommand, request: Request.t): array<
-  Response.t,
-> => {
+let sendRequestAndCollectResponses = async (
+  state: State.t,
+  dispatchCommand,
+  request: Request.t,
+): array<Response.t> => {
   let responses = ref([])
   let responseHandler = async response => {
     responses.contents->Array.push(response)
   }
   await state->sendRequest(dispatchCommand, responseHandler, request)
   responses.contents
-}
-
-// construction/destruction
-let destroy = (state, alsoRemoveFromRegistry) => {
-  if alsoRemoveFromRegistry {
-    state.onRemoveFromRegistry->Chan.emit()
-  }
-  state.onRemoveFromRegistry->Chan.destroy
-  state.goals->Array.forEach(Goal.destroyDecoration)
-  state.highlighting->Highlighting.destroy
-  state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state.connection->Connection.destroy
-  // TODO: delete files in `.indirectHighlightingFileNames`
-}
-
-let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
-  connection: None,
-  agdaVersion: None,
-  editor,
-  document: VSCode.TextEditor.document(editor),
-  panelCache: ViewCache.make(),
-  runningInfoLog: [],
-  goals: [],
-  tokens: Tokens.make(),
-  highlighting: Highlighting.make(),
-  cursor: None,
-  editorIM: IM.make(channels.inputMethod),
-  promptIM: IM.make(channels.inputMethod),
-  subscriptions: [],
-  onRemoveFromRegistry: Chan.make(),
-  agdaRequestQueue: RequestQueue.make(),
-  globalStorageUri,
-  extensionPath,
-  memento: State__Memento.make(memento),
-  channels,
 }

@@ -10,7 +10,7 @@ let run = normalization =>
           let ctx = await AgdaMode.makeAndLoad("ComputeNormalForm.agda")
 
           let responses =
-            await ctx.state->State.sendRequestAndCollectResponses(
+            await ctx.state->State__Request.sendRequestAndCollectResponses(
               State__Command.dispatchCommand(ctx.state, ...),
               Request.ComputeNormalFormGlobal(normalization, "Z + S Z")
             )
@@ -26,7 +26,7 @@ let run = normalization =>
           let ctx = await AgdaMode.makeAndLoad("ComputeNormalForm.agda")
 
           let responses =
-            await ctx.state->State.sendRequestAndCollectResponses(
+            await ctx.state->State__Request.sendRequestAndCollectResponses(
               State__Command.dispatchCommand(ctx.state, ...),
               Request.ComputeNormalFormGlobal(normalization, "S Z + S Z")
             )

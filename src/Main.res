@@ -68,7 +68,7 @@ let initialize = (channels, extensionPath, globalStorageUri, memento, editor, fi
     }
 
   state
-  ->State.View.Panel.get
+  ->State__View.Panel.get
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
@@ -206,7 +206,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   let channels = {
-    State__Type.inputMethod: Chan.make(),
+    State.inputMethod: Chan.make(),
     responseHandled: Chan.make(),
     commandHandled: Chan.make(),
     log: Chan.make(),
@@ -217,7 +217,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
     // log the event
     channels.log
     ->Chan.on(message => {
-      Js.log(State__Type.Log.toString(message))
+      Js.log(State.Log.toString(message))
     })
     ->ignore
   }
