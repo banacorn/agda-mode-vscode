@@ -11,7 +11,8 @@ let run = normalization =>
 
           let responses =
             await ctx.state->State.sendRequestAndCollectResponses(
-              Request.ComputeNormalFormGlobal(normalization, "Z + S Z"),
+              State__Command.dispatchCommand(ctx.state, ...),
+              Request.ComputeNormalFormGlobal(normalization, "Z + S Z")
             )
           let filteredResponses = responses->Array.filter(filteredResponse)
 
@@ -26,7 +27,8 @@ let run = normalization =>
 
           let responses =
             await ctx.state->State.sendRequestAndCollectResponses(
-              Request.ComputeNormalFormGlobal(normalization, "S Z + S Z"),
+              State__Command.dispatchCommand(ctx.state, ...),
+              Request.ComputeNormalFormGlobal(normalization, "S Z + S Z")
             )
           let filteredResponses = responses->Array.filter(filteredResponse)
 

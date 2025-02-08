@@ -28,7 +28,7 @@ let onDownload = (state, event) => {
   }
 }
 
-let handleDownloadPolicy = async (state, policy) => {
+let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
   switch policy {
   | Config.Connection.Download.YesKeepUpToDate =>
     await View.Panel.display(
@@ -46,7 +46,7 @@ let handleDownloadPolicy = async (state, policy) => {
       reportProgress,
     ) {
     | Error(error) => await View.Panel.displayConnectionError(state, error)
-    | Ok(target) => Js.log(target)
+    | Ok(_) => await dispatchCommand(Command.Load)
     }
   // State__SwitchVersion.LatestALS.download(state.memento, VSCode.Uri.fsPath(state.globalStorageUri),
   | YesButDontUpdate =>
@@ -84,17 +84,18 @@ let handleDownloadPolicy = async (state, policy) => {
   }
 }
 
-let connectionErrorHandler = async (state, error) => {
+let connectionErrorHandler = async (state, dispatchCommand, error) => {
   switch error {
   | Connection__Error.CannotFindALSorAgda =>
     let policy = Config.Connection.Download.getDownloadPolicy()
-    await handleDownloadPolicy(state, policy)
+    await handleDownloadPolicy(state, dispatchCommand, policy)
   | _ => await View.Panel.displayConnectionError(state, error)
   }
 }
 
 let sendRequest = async (
   state: state,
+  dispatchCommand: Command.t => promise<unit>,
   handleResponse: Response.t => promise<unit>,
   request: Request.t,
 ): unit => {
@@ -114,7 +115,7 @@ let sendRequest = async (
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
     switch await Connection.sendRequest(connection, state.document, request, onResponse) {
-    | Error(error) => await connectionErrorHandler(state, error)
+    | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(status) =>
       // display the connection status
       await View.Panel.displayConnectionStatus(state, status)
@@ -129,7 +130,7 @@ let sendRequest = async (
   switch state.connection {
   | None =>
     switch await Connection.make(state.memento) {
-    | Error(error) => await connectionErrorHandler(state, error)
+    | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>
       state.connection = Some(connection)
       await state.agdaRequestQueue->RequestQueue.push(
@@ -146,14 +147,14 @@ let sendRequest = async (
 }
 
 // like `sendRequest` but collects all responses, for testing
-let sendRequestAndCollectResponses = async (state: state, request: Request.t): array<
+let sendRequestAndCollectResponses = async (state: state, dispatchCommand, request: Request.t): array<
   Response.t,
 > => {
   let responses = ref([])
   let responseHandler = async response => {
     responses.contents->Array.push(response)
   }
-  await state->sendRequest(responseHandler, request)
+  await state->sendRequest(dispatchCommand, responseHandler, request)
   responses.contents
 }
 

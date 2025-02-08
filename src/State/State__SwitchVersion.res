@@ -95,21 +95,21 @@ module QP = {
 
 let handleSelection = async (
   self: QP.t,
-  memento: State__Memento.t,
-  globalStoragePath: VSCode.Uri.t,
+  _memento: State__Memento.t,
+  _globalStoragePath: VSCode.Uri.t,
   selection: VSCode.QuickPickItem.t,
 ) => {
   switch selection.label {
   | "$(folder-opened)  Open download folder" =>
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
-  | "$(cloud-download)  Download the latest Agda Language Server" =>
-    let _ = await Connection.downloadLatestALS(memento, globalStoragePath, _ => ())
-    await self.rerender()
-  | "$(sync)  Check for updates" =>
-    let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
-    let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
-    await self.rerender()
+  // | "$(cloud-download)  Download the latest Agda Language Server" =>
+  //   let _ = await Connection.downloadLatestALS(memento, globalStoragePath, _ => ())
+  //   await self.rerender()
+  // | "$(sync)  Check for updates" =>
+  //   let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
+  //   let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
+  //   await self.rerender()
   | _ =>
     switch await Connection.Target.getPicked(self.state.memento) {
     | None =>
