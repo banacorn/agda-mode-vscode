@@ -222,7 +222,7 @@ module Module: Module = {
           ->Array.get(0)
 
         switch latestRelease {
-        | None => Error(Error.CannotFindLatestALSRelease)
+        | None => Error(Error.CannotFindCompatibleALSRelease)
         | Some(latestRelease) =>
           // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
           let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
@@ -242,7 +242,7 @@ module Module: Module = {
             })
             ->Array.get(0)
           switch result {
-          | None => Error(Error.CannotFindLatestALSRelease)
+          | None => Error(Error.CannotFindCompatibleALSRelease)
           | Some(target) => Ok(target)
           }
         }
