@@ -8,12 +8,15 @@ module FileType = {
     | LiterateTeX
     | LiterateRST
     | LiterateMarkdown
+    | LiterateTypst
     | LiterateOrg
   let parse = filepath =>
     if RegExp.test(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
       LiterateRST
     } else if RegExp.test(%re("/\.lagda\.md$/i"), Parser.filepath(filepath)) {
       LiterateMarkdown
+    } else if RegExp.test(%re("/\.lagda\.typ$/i"), Parser.filepath(filepath)) {
+      LiterateTypst
     } else if RegExp.test(%re("/\.lagda\.tex$|\.lagda$/i"), Parser.filepath(filepath)) {
       LiterateTeX
     } else if RegExp.test(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
@@ -189,6 +192,7 @@ module Literate = {
   }
 
   let markMarkdown = markWithRules(Regex.markdown, Regex.markdown, ...)
+  let markTypst = markWithRules(Regex.markdown, Regex.markdown, ...)
   let markTex = markWithRules(Regex.texBegin, Regex.texEnd, ...)
   let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd, ...)
   let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd, ...)
@@ -224,6 +228,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
   let preprocessed = switch fileType {
   | LiterateTeX => Literate.markTex(raw)
   | LiterateMarkdown => Literate.markMarkdown(raw)
+  | LiterateTypst => Literate.markTypst(raw)
   | LiterateRST => Literate.markRST(raw)
   | LiterateOrg => Literate.markOrg(raw)
   | Agda => Lexer.make(raw)
