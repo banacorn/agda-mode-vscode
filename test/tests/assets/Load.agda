@@ -1,4 +1,4 @@
 module Load where
 
-a : ?
-a = ?
+a : {!   !}
+a = {!   !}

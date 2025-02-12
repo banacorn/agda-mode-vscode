@@ -33,10 +33,11 @@ module Module: {
 
   // from String to Target
   let fromRawPath: string => promise<result<t, Error.t>>
+  let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
 
   // configuration
-  let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
-  let getPicked: State__Memento.t => promise<option<t>>
+  // let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
+  let getPicked: (State__Memento.t, array<string>) => promise<option<t>>
   let setPicked: (State__Memento.t, option<t>) => promise<unit>
 } = {
   type version = string
@@ -46,8 +47,7 @@ module Module: {
 
   let fromURI = async uri =>
     switch uri {
-    | URI.URL(_url) =>
-      Error(Error.CannotHandleURLsATM(URI.toString(uri)))
+    | URI.URL(_url) => Error(Error.CannotHandleURLsATM(URI.toString(uri)))
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
       module Process = Connection__Target__Agda__Process
@@ -99,6 +99,9 @@ module Module: {
     await fromURI(uri)
   }
 
+  // plural form of `fromRawPath`
+  let fromRawPaths = paths => paths->Array.map(fromRawPath)->Promise.all
+
   let toURI = target =>
     switch target {
     | Agda(_, path) => URI.Filepath(path)
@@ -107,50 +110,42 @@ module Module: {
     | ALS(_, _, Error(path)) => URI.Filepath(path)
     }
 
-  // returns a list of connection targets
-  let getAllFromConfig = () => Promise.all(Config.Connection.getAgdaPaths()->Array.map(fromRawPath))
-
-  // returns the first usable connection target
-  let getFirstUsable = async () => {
-    let targets = await getAllFromConfig()
-    targets->Array.reduce(None, (acc, target) =>
-      switch acc {
-      | Some(_) => acc
-      | None =>
-        switch target {
-        | Ok(target) => Some(target)
-        | Error(_) => None
-        }
+  // find the previously picked connection
+  // with a memento and a list of raw paths
+  let getPicked = async (memento: State__Memento.t, rawSuppliedPaths: array<string>) => {
+    // convert raw supplied paths to targets
+    // and filter out the invalid ones
+    let suppliedTargets = (await fromRawPaths(rawSuppliedPaths))->Array.filterMap(target =>
+      switch target {
+      | Ok(target) => Some(target)
+      | Error(_) => None
       }
     )
-  }
 
-  // returns the previously picked connection target
-  let getPicked = async (memento: State__Memento.t) =>
     switch memento->State__Memento.get("pickedConnection") {
-    | Some(fromMemento) =>
-      // see if it still exists in the configuration
-      let fromConfig = await getAllFromConfig()
-
-      let stillExists = fromConfig->Array.reduce(false, (acc, target) =>
-        acc ||
-        switch target {
-        | Ok(target) => toURI(target)->URI.toString == fromMemento
-        | Error(_) => false
-        }
-      )
-      if stillExists {
-        switch await fromRawPath(fromMemento) {
-        | Ok(target) => Some(target)
-        | Error(_) => None
-        }
-      } else {
-        // remove the invalid path from the memento
+    | Some(rawPathFromMemento) =>
+      switch await fromRawPath(rawPathFromMemento) {
+      | Error(_) =>
+        // the path in the memento is invalid
+        // remove it from the memento
         await memento->State__Memento.set("pickedConnection", None)
         None
+      | Ok(targetFromMemento) =>
+        let existsInSuppliedTargets = suppliedTargets->Array.includes(targetFromMemento)
+        if existsInSuppliedTargets {
+          Some(targetFromMemento)
+        } else {
+          // the path in the memento is not in the supplied paths
+          // remove it from the memento
+          await memento->State__Memento.set("pickedConnection", None)
+          None
+        }
       }
-    | None => await getFirstUsable()
+    | None =>
+      // find the first usable connection target
+      suppliedTargets[0]
     }
+  }
 
   let setPicked = (memento: State__Memento.t, target) =>
     switch target {

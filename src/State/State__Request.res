@@ -99,7 +99,7 @@ let sendRequest = async (
 
   switch state.connection {
   | None =>
-    switch await Connection.make(state.memento) {
+    switch await Connection.make(state.memento, Config.Connection.getAgdaPaths()) {
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>
       state.connection = Some(connection)

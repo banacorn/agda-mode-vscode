@@ -4,11 +4,15 @@ let openGlobalStorageFolder = async (state: State.t) => {
 
 let switchAgdaVersion = async (state: State.t) => {
   // display what we are going to do
-  switch await Connection.Target.getPicked(state.memento) {
+  switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
   | None => ()
   | Some(Agda(version, _)) => {
       await State__View.Panel.displayStatus(state, "")
-      await State__View.Panel.display(state, View.Header.Plain("Switching to Agda v" ++ version), [])
+      await State__View.Panel.display(
+        state,
+        View.Header.Plain("Switching to Agda v" ++ version),
+        [],
+      )
     }
   | Some(ALS(alsVersion, agdaVersion, _)) => {
       await State__View.Panel.displayStatus(state, "")
@@ -26,10 +30,10 @@ let switchAgdaVersion = async (state: State.t) => {
   let _ = await state.connection->Connection.destroy
 
   // start with the new connection
-  switch await Connection.make(state.memento) {
+  switch await Connection.make(state.memento, Config.Connection.getAgdaPaths()) {
   | Ok(conn) =>
     state.connection = Some(conn)
-    switch await Connection.Target.getPicked(state.memento) {
+    switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
     | None => ()
     | Some(Agda(version, _path)) => {
         await State__View.Panel.displayStatus(state, "Agda v" ++ version)
@@ -111,7 +115,7 @@ let handleSelection = async (
   //   let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
   //   await self.rerender()
   | _ =>
-    switch await Connection.Target.getPicked(self.state.memento) {
+    switch await Connection.Target.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
     | None =>
       // self->QP.destroy // close the quick pick
       await self.rerender()
@@ -192,7 +196,7 @@ let rec run = async state => {
   //  Installations
   //
 
-  let picked = await Connection.Target.getPicked(state.memento)
+  let picked = await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths())
   let isPicked = target =>
     switch picked {
     | None => false
@@ -261,7 +265,7 @@ let rec run = async state => {
       kind: Separator,
     },
   ]
-  let installationTargets = await Connection.Target.getAllFromConfig()
+  let installationTargets = await Connection.Target.fromRawPaths(Config.Connection.getAgdaPaths())
   let installationsItems = installationTargets->Array.map(targetToItem)
 
   let items = Array.flat([

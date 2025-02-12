@@ -7,7 +7,7 @@ module URI = Connection__URI
 module type Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   // lifecycle
-  let make: State__Memento.t => promise<result<t, Error.t>>
+  let make: (State__Memento.t, array<string>) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -122,8 +122,8 @@ module Module: Module = {
     }
   }
 
-  let make = async (memento: State__Memento.t) =>
-    switch await Target.getPicked(memento) {
+  let make = async (memento: State__Memento.t, paths: array<string>) =>
+    switch await Target.getPicked(memento, paths) {
     | None => await findALSAndAgda()
     | Some(target) => await start_(target)
     }
