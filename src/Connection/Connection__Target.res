@@ -131,7 +131,7 @@ module Module: {
         await memento->State__Memento.set("pickedConnection", None)
         None
       | Ok(targetFromMemento) =>
-        let existsInSuppliedTargets = suppliedTargets->Array.includes(targetFromMemento)
+        let existsInSuppliedTargets = suppliedTargets->Util.Array.includes(targetFromMemento)
         if existsInSuppliedTargets {
           Some(targetFromMemento)
         } else {

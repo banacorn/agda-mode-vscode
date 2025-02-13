@@ -273,3 +273,8 @@ module String = {
   }
   let unlines = xs => xs->Array.join("\n")
 }
+
+module Array = {
+  // strucutural equality
+  let includes = (xs: array<'a>, x: 'a) => Array.reduce(xs, true, (acc, y) => acc || x == y)
+}

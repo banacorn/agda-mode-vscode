@@ -1,29 +1,36 @@
-// open Mocha
-// open Test__Util
+open Mocha
+open Test__Util
 
-// describe("Connection", () => {
-//   describe("Picked connection", () => {
-//     Async.it_only(
-//       "should return the previously picked connection",
-//       async () => {
-//         // let ctx = await AgdaMode.makeAndLoad("Load.agda")
+describe("Connection", () => {
+  describe("Picked connection", () => {
+    Async.it(
+      "should return the previously picked connection",
+      async () => {
+        // let ctx = await AgdaMode.makeAndLoad("Load.agda")
 
-//         // setup the memento
-//         let expected = Connection.Target.Agda("2.7.0.1", "path/to/agda")
-//         let memento = State__Memento.make(None)
-//         await Connection.Target.setPicked(memento, Some(expected))
+        // setup the memento
+        let agdaMockPath = await Target.Agda.mock(~version="2.7.0.1", ~name="agda-mock")
+        let agdaMockTarget = switch await Connection.Target.fromRawPath(agdaMockPath) {
+        | Ok(target) => target
+        | Error(error) =>
+          failwith(
+            "Got error when trying to construct a mock for Agda:\n" ++
+            fst(Connection.Target.Error.toString(error)) ++
+            ": " ++
+            snd(Connection.Target.Error.toString(error)),
+          )
+        }
 
-//         let paths = ["path/to/agda", "path/to/als"]
+        let memento = State__Memento.make(None)
+        await Connection.Target.setPicked(memento, Some(agdaMockTarget))
 
-//         let actual = await Connection__Target.getPicked(memento, paths)
+        let paths = [agdaMockPath, "path/to/als"]
 
-//         Assert.equal(actual, Some(expected))
+        let actual = await Connection__Target.getPicked(memento, paths)
+        let expected = Some(agdaMockTarget)
 
-//         // await ctx->AgdaMode.refine(~cursor=VSCode.Position.make(12, 9))
-//         // let actual = await File.read(Path.asset("Issue158.agda"))
-//         // let expected = await File.read(Path.asset("Issue158.agda.out"))
-//         // Assert.equal(actual, expected)
-//       },
-//     )
-//   })
-// })
+        Assert.deepEqual(actual, expected)
+      },
+    )
+  })
+})

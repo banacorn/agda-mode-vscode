@@ -412,3 +412,19 @@ let filteredResponse = response =>
   | RunningInfo(_, _) => false
   | _ => true
   }
+
+// for mocking an Agda or Language Server executable with version and path
+module Target = {
+  module Agda = {
+    // given a version and the desired name of the executable, create a mock Agda executable and returns the path
+    let mock = async (~version, ~name) => {
+      // creates a executable with nodejs
+      let path = NodeJs.Path.resolve([name])
+      let content = "#!/usr/bin/env node\nconsole.log('Agda version " ++ version ++ "')"
+      NodeJs.Fs.writeFileSync(path, NodeJs.Buffer.fromString(content))
+      // chmod +x
+      await NodeJs.Fs.chmod(path, ~mode=0o755)
+      path
+    }
+  }
+}
