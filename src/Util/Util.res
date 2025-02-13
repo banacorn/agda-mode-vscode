@@ -276,5 +276,5 @@ module String = {
 
 module Array = {
   // strucutural equality
-  let includes = (xs: array<'a>, x: 'a) => Array.reduce(xs, true, (acc, y) => acc || x == y)
+  let includes = (xs: array<'a>, x: 'a) => Array.reduce(xs, false, (acc, y) => acc || x == y)
 }

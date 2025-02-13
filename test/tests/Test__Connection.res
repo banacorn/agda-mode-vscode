@@ -54,6 +54,27 @@ describe("Connection", () => {
       },
     )
 
+    Async.it(
+      "should return nothing when the previously picked connection is not in the supplied paths",
+      async () => {
+        // access the Agda mock
+        let agdaMockTarget = switch agdaMockTarget.contents {
+        | Some(target) => target
+        | None => failwith("Unable to access the Agda mock target")
+        }
+
+        // setup the momento
+        let memento = State__Memento.make(None)
+        await Connection.Target.setPicked(memento, Some(agdaMockTarget))
+        let paths = ["path/to/agda", "path/to/als"]
+
+        let actual = await Connection__Target.getPicked(memento, paths)
+        let expected = None
+
+        Assert.deepEqual(actual, expected)
+      },
+    )
+
     Async.after(
       async () => {
         // cleanup the Agda mock
