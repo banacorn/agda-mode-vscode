@@ -426,5 +426,8 @@ module Target = {
       await NodeJs.Fs.chmod(path, ~mode=0o755)
       path
     }
+
+    let destroy = target =>
+      Node__Fs.unlink(target->Connection.Target.toURI->Connection.URI.toString, _ => ())
   }
 }
