@@ -262,24 +262,8 @@ let onUnix = switch N.OS.type_() {
 }
 
 module AgdaMode = {
-  // module Error = {
-  //   type t =
-  //     // | ALSConnectionError(array<Connection.Resolver.Error.t>)
-  //     | AgdaConnectionError(Connection.Agda.Error.t)
-  //   let toString = x =>
-  //     switch x {
-  //     // | ALSConnectionError(errors) =>
-  //     //   errors
-  //     //   ->Array.map(Connection.Resolver.Error.toString)
-  //     //   ->Array.join(",")
-  //     | AgdaConnectionError(error) =>
-  //       let (header, body) = Connection.Agda.Error.toString(error)
-  //       "AgdaConnectionError: " ++ header ++ ": " ++ body
-  //     }
-  // }
-
   let exists = async command => {
-    switch await Connection.findCommand(command) {
+    switch await Connection.findCommands([command]) {
     | Error(error) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure("Cannot find \"" ++ command ++ "\" in PATH: " ++ header ++ "\n" ++ body))

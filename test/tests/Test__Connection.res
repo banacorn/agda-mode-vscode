@@ -109,17 +109,55 @@ describe("Connection", () => {
     )
   })
 
-  describe("make", () => {
+  describe("findCommands", () => {
     Async.it(
       "should return the connection when the command is found",
       async () => {
-        let memento = State__Memento.make(None)
-        let paths = ["path/to/agda", "path/to/als"]
-        switch await Connection.make(memento, paths) {
-        | Ok(result) => Js.log(result)
-        | Error(error) => Js.log(Connection.Error.toString(error))
+        let commands = ["agda", "als"]
+        switch await Connection.findCommands(commands) {
+        | Ok(_) => ()
+        | Error(_) => failwith("expected to find `agda` or `als`")
+        }
+      },
+    )
+
+    Async.it(
+      "should return an error when the command is not found",
+      async () => {
+        let commands = ["non-existent-command"]
+        switch await Connection.findCommands(commands) {
+        | Ok(_) => failwith("expected to not find `non-existent-command`")
+        | Error(_) => ()
         }
       },
     )
   })
+
+  // describe("make", () => {
+  //   Async.it(
+  //     "should return the connection when the command is found",
+  //     async () => {
+  //       let memento = State__Memento.make(None)
+  //       let paths = ["path/to/agda", "path/to/als"]
+  //       let commands = ["agda", "als"]
+  //       switch await Connection.make(memento, paths, commands) {
+  //       | Ok(_) => ()
+  //       | Error(_) => failwith("expected to find `agda` or `als`")
+  //       }
+  //     },
+  //   )
+
+  //   Async.it(
+  //     "should return an error when the command is not found",
+  //     async () => {
+  //       let memento = State__Memento.make(None)
+  //       let paths = ["path/to/agda", "path/to/als"]
+  //       let commands = ["non-existent-command"]
+  //       switch await Connection.make(memento, paths, commands) {
+  //       | Ok(_) => failwith("expected to not find `non-existent-command`")
+  //       | Error(_) => ()
+  //       }
+  //     },
+  //   )
+  // })
 })

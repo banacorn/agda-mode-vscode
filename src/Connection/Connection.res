@@ -7,7 +7,7 @@ module URI = Connection__URI
 module type Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   // lifecycle
-  let make: (State__Memento.t, array<string>) => promise<result<t, Error.t>>
+  let make: (State__Memento.t, array<string>, array<string>) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -17,8 +17,8 @@ module type Module = {
     Response.t => promise<unit>,
   ) => promise<result<Target.t, Error.t>>
 
-  //
-  let findCommand: string => promise<result<t, Error.t>>
+  // command
+  let findCommands: array<string> => promise<result<t, Error.t>>
 
   // misc
   let makeAgdaLanguageServerRepo: (
@@ -115,16 +115,24 @@ module Module: Module = {
     }
   }
 
-  let findALSAndAgda = async () => {
-    switch await findCommand("als") {
-    | Error(_error) => await findCommand("agda")
-    | Ok(conn) => Ok(conn)
-    }
+  // search through a list of commands until one is found
+  let findCommands = commands => {
+    let commands = List.fromArray(commands)
+    let rec step = async commands =>
+      switch commands {
+      | list{} => Error(Error.CannotFindALSorAgda)
+      | list{command, ...rest} =>
+        switch await findCommand(command) {
+        | Ok(result) => Ok(result)
+        | Error(_) => await step(rest)
+        }
+      }
+    step(commands)
   }
 
-  let make = async (memento: State__Memento.t, paths: array<string>) =>
+  let make = async (memento: State__Memento.t, paths: array<string>, commands: array<string>) =>
     switch await Target.getPicked(memento, paths) {
-    | None => await findALSAndAgda()
+    | None => await findCommands(commands)
     | Some(target) => await start_(target)
     }
 
