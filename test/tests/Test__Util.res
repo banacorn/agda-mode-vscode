@@ -295,8 +295,6 @@ module AgdaMode = {
 
   let makeAndLoad = async (~als=false, filepath) => {
     let filepath = Path.asset(filepath)
-    // for mocking Configs
-    Config.inTestingMode := true
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     await Config.Connection.setUseAgdaLanguageServer(als)

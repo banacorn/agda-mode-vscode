@@ -2,7 +2,7 @@ open Mocha
 open Test__Util
 
 describe("Connection", () => {
-  describe("Picked connection", () => {
+  describe("Target", () => {
     let agdaMockPath = ref("")
     let agdaMockTarget = ref(None)
 
@@ -83,6 +83,41 @@ describe("Connection", () => {
           Target.Agda.destroy(target)
           agdaMockTarget := None
         | None => ()
+        }
+      },
+    )
+  })
+
+  describe("Command searching", () => {
+    Async.it(
+      "should return the connection when the command is found",
+      async () => {
+        switch await Connection__Command__Search.search("ls") {
+        | Ok(_output) => ()
+        | Error(_) => failwith("expected to find `ls`")
+        }
+      },
+    )
+    Async.it(
+      "should return an error when the command is not found",
+      async () => {
+        switch await Connection__Command__Search.search("non-existent-command") {
+        | Ok(_output) => failwith("expected to not find `non-existent-command`")
+        | Error(_) => ()
+        }
+      },
+    )
+  })
+
+  describe("make", () => {
+    Async.it(
+      "should return the connection when the command is found",
+      async () => {
+        let memento = State__Memento.make(None)
+        let paths = ["path/to/agda", "path/to/als"]
+        switch await Connection.make(memento, paths) {
+        | Ok(result) => Js.log(result)
+        | Error(error) => Js.log(Connection.Error.toString(error))
         }
       },
     )
