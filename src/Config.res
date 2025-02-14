@@ -33,7 +33,18 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
-  // paths returned here are REVERSED because it's easier for users to append stuff in the configuration
+  // overwrite all Agda paths
+  let setAgdaPaths = (paths) =>
+    if inTestingMode.contents {
+      agdaPathsInTestingMode := paths
+      Promise.resolve()
+    } else {
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", paths, None)
+    }
+
   let getAgdaPaths = () =>
     if inTestingMode.contents {
       agdaPathsInTestingMode.contents

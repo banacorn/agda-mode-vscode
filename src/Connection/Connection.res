@@ -18,7 +18,7 @@ module type Module = {
   ) => promise<result<Target.t, Error.t>>
 
   // command
-  let findCommands: array<string> => promise<result<t, Error.t>>
+  let findCommands: array<string> => promise<result<Target.t, Error.t>>
 
   // misc
   let makeAgdaLanguageServerRepo: (
@@ -105,13 +105,7 @@ module Module: Module = {
   let findCommand = async command => {
     switch await Connection__Command__Search.search(command) {
     | Error(_error) => Error(Error.CannotFindALSorAgda)
-    | Ok(path) =>
-      switch await Target.fromRawPath(path) {
-      | Error(error) => Error(error)
-      | Ok(target) =>
-        await Config.Connection.addAgdaPath(path)
-        await start_(target)
-      }
+    | Ok(path) => await Target.fromRawPath(path)
     }
   }
 
@@ -132,7 +126,13 @@ module Module: Module = {
 
   let make = async (memento: State__Memento.t, paths: array<string>, commands: array<string>) =>
     switch await Target.getPicked(memento, paths) {
-    | None => await findCommands(commands)
+    | None =>
+      switch await findCommands(commands) {
+      | Error(error) => Error(error)
+      | Ok(target) =>
+        await Config.Connection.addAgdaPath(target->Target.toURI->Connection__Target.URI.toString)
+        await start_(target)
+      }
     | Some(target) => await start_(target)
     }
 
