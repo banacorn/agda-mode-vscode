@@ -34,7 +34,7 @@ module Connection = {
     }
 
   // overwrite all Agda paths
-  let setAgdaPaths = (paths) =>
+  let setAgdaPaths = paths =>
     if inTestingMode.contents {
       agdaPathsInTestingMode := paths
       Promise.resolve()
@@ -139,6 +139,10 @@ module Connection = {
   // Download policy when Agda or Agda Language Server is missing
   module Download = {
     type policy = YesKeepUpToDate | YesButDontUpdate | NoDontAskAgain | Undecided
+
+    // in testing mode, configs are read and written from here instead
+    let policyTestingMode = ref(Undecided)
+
     let toString = policy =>
       switch policy {
       | YesKeepUpToDate => "Yes, and keep it up-to-date"
@@ -148,32 +152,41 @@ module Connection = {
       }
 
     let getDownloadPolicy = () => {
-      Workspace.getConfiguration(Some("agdaMode"), None)
-      ->WorkspaceConfiguration.get("connection.downloadPolicy")
-      ->Option.mapOr(Undecided, s =>
-        switch s {
-        | "Yes, and keep it up-to-date" => YesKeepUpToDate
-        | "Yes, but don't update afterwards" => YesButDontUpdate
-        | "No, and don't ask again" => NoDontAskAgain
-        | _ => Undecided
-        }
-      )
+      if inTestingMode.contents {
+        policyTestingMode.contents
+      } else {
+        Workspace.getConfiguration(Some("agdaMode"), None)
+        ->WorkspaceConfiguration.get("connection.downloadPolicy")
+        ->Option.mapOr(Undecided, s =>
+          switch s {
+          | "Yes, and keep it up-to-date" => YesKeepUpToDate
+          | "Yes, but don't update afterwards" => YesButDontUpdate
+          | "No, and don't ask again" => NoDontAskAgain
+          | _ => Undecided
+          }
+        )
+      }
     }
 
     let setDownloadPolicy = policy =>
-      Workspace.getConfiguration(
-        Some("agdaMode"),
-        None,
-      )->WorkspaceConfiguration.updateGlobalSettings(
-        "connection.downloadPolicy",
-        switch policy {
-        | YesKeepUpToDate => "Yes, and keep it up-to-date"
-        | YesButDontUpdate => "Yes, but don't update afterwards"
-        | NoDontAskAgain => "No, and don't ask again"
-        | Undecided => "Undecided"
-        },
-        None,
-      )
+      if inTestingMode.contents {
+        policyTestingMode := policy
+        Promise.resolve()
+      } else {
+        Workspace.getConfiguration(
+          Some("agdaMode"),
+          None,
+        )->WorkspaceConfiguration.updateGlobalSettings(
+          "connection.downloadPolicy",
+          switch policy {
+          | YesKeepUpToDate => "Yes, and keep it up-to-date"
+          | YesButDontUpdate => "Yes, but don't update afterwards"
+          | NoDontAskAgain => "No, and don't ask again"
+          | Undecided => "Undecided"
+          },
+          None,
+        )
+      }
   }
 }
 

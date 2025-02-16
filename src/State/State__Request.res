@@ -54,11 +54,15 @@ let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
   }
 }
 
+let onCannotFindALSorAgdaError = async (state, dispatchCommand) => {
+  let policy = Config.Connection.Download.getDownloadPolicy()
+  await handleDownloadPolicy(state, dispatchCommand, policy)
+}
+
 let connectionErrorHandler = async (state, dispatchCommand, error) => {
   switch error {
   | Connection__Error.CannotFindALSorAgda =>
-    let policy = Config.Connection.Download.getDownloadPolicy()
-    await handleDownloadPolicy(state, dispatchCommand, policy)
+    await onCannotFindALSorAgdaError(state, dispatchCommand)
   | _ => await State__View.Panel.displayConnectionError(state, error)
   }
 }

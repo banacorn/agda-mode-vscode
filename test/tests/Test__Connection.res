@@ -237,4 +237,16 @@ describe("Connection", () => {
       },
     )
   })
+
+  // describe("State__Request.onCannotFindALSorAgdaError", () => {
+  //   Async.it(
+  //     "should download the latest version of ALS",
+  //     async () => {
+  //       switch await Connection.downloadLatestALS() {
+  //       | Ok(_) => ()
+  //       | Error(_) => failwith("expected to download the latest version of ALS")
+  //       }
+  //     },
+  //   )
+  // })
 })
