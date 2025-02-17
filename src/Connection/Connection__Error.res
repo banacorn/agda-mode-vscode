@@ -4,7 +4,7 @@ type t =
   // ALS
   | ALS(Connection__Target__ALS__Error.t)
   // Connection
-  | CannotFindALSorAgda
+  | CommandsNotFound(array<(string, Connection__Command__Search.Error.t)>)
   | CannotHandleURLsATM(string)
   | NotAgdaOrALS(string)
   | ValidationError(string, Connection__Validation.Error.t)
@@ -17,9 +17,18 @@ let toString = x =>
   switch x {
   | Agda(e, _) => Connection__Target__Agda__Error.toString(e)
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
-  | CannotFindALSorAgda => (
-      "Cannot find Agda or Agda Language Server",
-      "Please make sure that either `agda` or `als` is in the PATH, you can check this by running `agda` or `als` in the terminal and see if the command can be found.",
+  | CommandsNotFound(pairs) => (
+      "Cannot find the `agda` or `als` commands",
+      pairs
+      ->Array.map(((command, error)) =>
+        "Connot find `" ++
+        command ++
+        "` because: " ++
+        Connection__Command__Search.Error.toString(error) ++ "."
+      )
+      ->Array.join(
+        "\n",
+      ) ++ "\nPlease make sure that either `agda` or `als` is in the PATH, you can check this by running `agda` or `als` in the terminal and see if the command can be found.",
     )
   | CannotFetchALSReleases(e) => (
       "Cannot fetch releases of Agda Language Server",

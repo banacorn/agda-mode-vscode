@@ -1,4 +1,4 @@
-let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
+let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
   switch policy {
   | Config.Connection.Download.YesKeepUpToDate =>
     await State__View.Panel.display(
@@ -25,7 +25,8 @@ let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
       Plain("Trying to download and install the latest Agda Language Server"),
       [],
     )
-  | NoDontAskAgain => await State__View.Panel.displayConnectionError(state, CannotFindALSorAgda)
+  | NoDontAskAgain =>
+    await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors))
   | Undecided =>
     // ask the user
     let messageOptions = {
@@ -54,15 +55,15 @@ let handleDownloadPolicy = async (state, dispatchCommand, policy) => {
   }
 }
 
-let onCannotFindALSorAgdaError = async (state, dispatchCommand) => {
+let onCommandsNotFoundError = async (state, dispatchCommand, errors) => {
   let policy = Config.Connection.Download.getDownloadPolicy()
-  await handleDownloadPolicy(state, dispatchCommand, policy)
+  await handleDownloadPolicy(state, dispatchCommand, errors, policy)
 }
 
 let connectionErrorHandler = async (state, dispatchCommand, error) => {
   switch error {
-  | Connection__Error.CannotFindALSorAgda =>
-    await onCannotFindALSorAgdaError(state, dispatchCommand)
+  | Connection__Error.CommandsNotFound(errors) =>
+    await onCommandsNotFoundError(state, dispatchCommand, errors)
   | _ => await State__View.Panel.displayConnectionError(state, error)
   }
 }

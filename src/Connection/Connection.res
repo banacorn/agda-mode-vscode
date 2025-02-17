@@ -102,26 +102,22 @@ module Module: Module = {
       }
     }
 
-  let findCommand = async command => {
-    switch await Connection__Command__Search.search(command) {
-    | Error(_error) => Error(Error.CannotFindALSorAgda)
-    | Ok(path) => await Target.fromRawPath(path)
-    }
-  }
-
   // search through a list of commands until one is found
-  let findCommands = commands => {
+  let findCommands = async commands => {
     let commands = List.fromArray(commands)
-    let rec step = async commands =>
+    let rec step = async (acc, commands) =>
       switch commands {
-      | list{} => Error(Error.CannotFindALSorAgda)
+      | list{} => Error(acc)
       | list{command, ...rest} =>
-        switch await findCommand(command) {
-        | Ok(result) => Ok(result)
-        | Error(_) => await step(rest)
+        switch await Connection__Command__Search.search(command) {
+        | Ok(path) => Ok(path) // found, stop searching
+        | Error(error) => await step(list{(command, error), ...acc}, rest) // accumulate the error and continue searching
         }
       }
-    step(commands)
+    switch await step(list{}, commands) {
+    | Error(errorPairs) => Error(Error.CommandsNotFound(List.toArray(errorPairs)))
+    | Ok(path) => await Target.fromRawPath(path) // try to convert the path to a target for connection
+    }
   }
 
   let make = async (memento: State__Memento.t, paths: array<string>, commands: array<string>) =>
