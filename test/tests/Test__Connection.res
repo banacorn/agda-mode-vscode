@@ -75,6 +75,26 @@ describe("Connection", () => {
       },
     )
 
+    Async.it(
+      "should return the first usable connection target when the previously picked connection is invalid or not in the supplied paths",
+      async () => {
+        // access the Agda mock
+        let agdaMockTarget = switch agdaMockTarget.contents {
+        | Some(target) => target
+        | None => failwith("Unable to access the Agda mock target")
+        }
+
+        // setup the momento
+        let memento = State__Memento.make(None)
+        let paths = ["path/to/non-existent-agda", agdaMockPath.contents, "path/to/non-existent-als"]
+
+        let actual = await Connection__Target.getPicked(memento, paths)
+        let expected = Some(agdaMockTarget)
+
+        Assert.deepEqual(actual, expected)
+      },
+    )
+
     Async.after(
       async () => {
         // cleanup the Agda mock

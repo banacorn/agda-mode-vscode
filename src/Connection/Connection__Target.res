@@ -36,7 +36,6 @@ module Module: {
   let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
 
   // configuration
-  // let getAllFromConfig: unit => promise<array<result<t, Error.t>>>
   let getPicked: (State__Memento.t, array<string>) => promise<option<t>>
   let setPicked: (State__Memento.t, option<t>) => promise<unit>
 } = {
@@ -110,8 +109,9 @@ module Module: {
     | ALS(_, _, Error(path)) => URI.Filepath(path)
     }
 
-  // find the previously picked connection
-  // with a memento and a list of raw paths
+  // Try to find the previously picked connection
+  // The previously picked connection is stored in the memento, if it doesn't exist
+  // the first usable connection target from the supplied paths is returned
   let getPicked = async (memento: State__Memento.t, rawSuppliedPaths: array<string>) => {
     // convert raw supplied paths to targets
     // and filter out the invalid ones
