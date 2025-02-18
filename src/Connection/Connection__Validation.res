@@ -5,7 +5,7 @@ module Error = {
     | // the process has not been responding for some time
     ProcessHanging
     // error from the shell
-    | NotFound(Js.Exn.t)
+    | NotFound(string)
     | ShellError(Js.Exn.t)
     // error from the process' stderr
     | ProcessError(string)
@@ -16,11 +16,7 @@ module Error = {
     | PathMalformed(msg) => "path malformed: " ++ msg
     | ProcessHanging => "process hanging for more than 1 sec"
 
-    | NotFound(error) =>
-      switch Js.Exn.message(error) {
-      | Some(msg) => "not found: " ++ msg
-      | None => "not found"
-      }
+    | NotFound(error) => error
     | ShellError(error) => "shell: " ++ Util.JsError.toString(error)
     | ProcessError(msg) => "stderr: " ++ msg
     | WrongProcess(msg) => "wrong process: " ++ msg
@@ -38,11 +34,11 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
     ->Option.map(err => {
       let message = Option.getOr(Js.Exn.message(err), "")
       if Js.Re.test_(%re("/No such file or directory/"), message) {
-        Error.NotFound(err)
+        Error.NotFound(message)
       } else if (
         Js.Re.test_(%re("/command not found/"), message) || String.endsWith(message, "ENOENT")
       ) {
-        NotFound(err)
+        NotFound(message)
       } else {
         ShellError(err)
       }

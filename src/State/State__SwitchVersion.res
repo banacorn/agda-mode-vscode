@@ -5,8 +5,8 @@ let openGlobalStorageFolder = async (state: State.t) => {
 let switchAgdaVersion = async (state: State.t) => {
   // display what we are going to do
   switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
-  | None => ()
-  | Some(Agda(version, _)) => {
+  | Error(_) => ()
+  | Ok(Agda(version, _)) => {
       await State__View.Panel.displayStatus(state, "")
       await State__View.Panel.display(
         state,
@@ -14,7 +14,7 @@ let switchAgdaVersion = async (state: State.t) => {
         [],
       )
     }
-  | Some(ALS(alsVersion, agdaVersion, _)) => {
+  | Ok(ALS(alsVersion, agdaVersion, _)) => {
       await State__View.Panel.displayStatus(state, "")
       await State__View.Panel.display(
         state,
@@ -34,8 +34,8 @@ let switchAgdaVersion = async (state: State.t) => {
   | Ok(conn) =>
     state.connection = Some(conn)
     switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
-    | None => ()
-    | Some(Agda(version, _path)) => {
+    | Error(_) => ()
+    | Ok(Agda(version, _path)) => {
         await State__View.Panel.displayStatus(state, "Agda v" ++ version)
         await State__View.Panel.display(
           state,
@@ -43,7 +43,7 @@ let switchAgdaVersion = async (state: State.t) => {
           [],
         )
       }
-    | Some(ALS(alsVersion, agdaVersion, _)) => {
+    | Ok(ALS(alsVersion, agdaVersion, _)) => {
         await State__View.Panel.displayStatus(
           state,
           "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
@@ -116,10 +116,10 @@ let handleSelection = async (
   //   await self.rerender()
   | _ =>
     switch await Connection.Target.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
-    | None =>
+    | Error(_) =>
       // self->QP.destroy // close the quick pick
       await self.rerender()
-    | Some(original) =>
+    | Ok(original) =>
       // self->QP.destroy // close the quick pick
       switch selection.detail {
       | None => ()
@@ -199,8 +199,8 @@ let rec run = async state => {
   let picked = await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths())
   let isPicked = target =>
     switch picked {
-    | None => false
-    | Some(picked) =>
+    | Error(_) => false
+    | Ok(picked) =>
       switch target {
       | Error(_) => false
       | Ok(target) => Connection.Target.toURI(picked) == Connection.Target.toURI(target)

@@ -122,14 +122,14 @@ module Module: Module = {
 
   let make = async (memento: State__Memento.t, paths: array<string>, commands: array<string>) =>
     switch await Target.getPicked(memento, paths) {
-    | None =>
+    | Error(errors) =>
       switch await findCommands(commands) {
       | Error(error) => Error(error)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(target->Target.toURI->Connection__Target.URI.toString)
         await start_(target)
       }
-    | Some(target) => await start_(target)
+    | Ok(target) => await start_(target)
     }
 
   let sendRequest = async (connection, document, request, handler) => {

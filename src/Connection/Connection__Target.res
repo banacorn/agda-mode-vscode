@@ -36,7 +36,8 @@ module Module: {
   let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
 
   // configuration
-  let getPicked: (State__Memento.t, array<string>) => promise<option<t>>
+  let getPicked: (State__Memento.t, array<string>) => promise<result<t, array<Error.t>>>
+  // let getPicked: (State__Memento.t, array<string>) => promise<option<t>>
   let setPicked: (State__Memento.t, option<t>) => promise<unit>
 } = {
   type version = string
@@ -115,12 +116,13 @@ module Module: {
   let getPicked = async (memento: State__Memento.t, rawSuppliedPaths: array<string>) => {
     // convert raw supplied paths to targets
     // and filter out the invalid ones
-    let suppliedTargets = (await fromRawPaths(rawSuppliedPaths))->Array.filterMap(target =>
-      switch target {
-      | Ok(target) => Some(target)
-      | Error(_) => None
-      }
-    )
+    let (suppliedTargets, suppliedTargetsErrors) =
+      (await fromRawPaths(rawSuppliedPaths))->Util.Result.partition
+
+    let pickFromSuppliedTargetsInstead = switch suppliedTargets[0] {
+    | None => Error(suppliedTargetsErrors)
+    | Some(target) => Ok(target)
+    }
 
     switch memento->State__Memento.get("pickedConnection") {
     | Some(rawPathFromMemento) =>
@@ -129,21 +131,19 @@ module Module: {
         // the path in the memento is invalid
         // remove it from the memento
         await memento->State__Memento.set("pickedConnection", None)
-        None
+        pickFromSuppliedTargetsInstead
       | Ok(targetFromMemento) =>
         let existsInSuppliedTargets = suppliedTargets->Util.Array.includes(targetFromMemento)
         if existsInSuppliedTargets {
-          Some(targetFromMemento)
+          Ok(targetFromMemento)
         } else {
           // the path in the memento is not in the supplied paths
           // remove it from the memento
           await memento->State__Memento.set("pickedConnection", None)
-          None
+          pickFromSuppliedTargetsInstead
         }
       }
-    | None =>
-      // find the first usable connection target
-      suppliedTargets[0]
+    | None => pickFromSuppliedTargetsInstead
     }
   }
 

@@ -11,6 +11,20 @@ module Result = {
     | Error(e) => Error(f(e))
     | Ok(v) => Ok(v)
     }
+
+  let partition = (xs: array<result<'a, 'b>>): (array<'a>, array<'b>) => {
+    let errors = []
+    let oks = []
+
+    xs->Array.forEach(x =>
+      switch x {
+      | Error(a) => Array.push(errors, a)
+      | Ok(b) => Array.push(oks, b)
+      }
+    )
+
+    (oks, errors)
+  }
 }
 
 module Decode = {

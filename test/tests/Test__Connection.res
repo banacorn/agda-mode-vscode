@@ -34,7 +34,7 @@ describe("Connection", () => {
         let paths = [agdaMockPath.contents, "path/to/als"]
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = Some(agdaMockTarget)
+        let expected = Ok(agdaMockTarget)
 
         Assert.deepEqual(actual, expected)
       },
@@ -48,7 +48,10 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = None
+        let expected = Error([
+          Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
+          Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
+        ])
 
         Assert.deepEqual(actual, expected)
       },
@@ -69,7 +72,10 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = None
+        let expected = Error([
+          Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
+          Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
+        ])
 
         Assert.deepEqual(actual, expected)
       },
@@ -89,7 +95,7 @@ describe("Connection", () => {
         let paths = ["path/to/non-existent-agda", agdaMockPath.contents, "path/to/non-existent-als"]
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = Some(agdaMockTarget)
+        let expected = Ok(agdaMockTarget)
 
         Assert.deepEqual(actual, expected)
       },
@@ -180,8 +186,8 @@ describe("Connection", () => {
         Assert.ok(pathIsNowInConfig)
 
         switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
-        | None => failwith("expected to find the picked connection")
-        | Some(picked) =>
+        | Error(_) => failwith("expected to find the picked connection")
+        | Ok(picked) =>
           Assert.deepStrictEqual(
             picked->Connection.Target.toURI->Connection__Target.URI.toString,
             path,
@@ -215,8 +221,8 @@ describe("Connection", () => {
         Assert.ok(pathIsNowInConfig)
 
         switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
-        | None => failwith("expected to find the picked connection")
-        | Some(picked) =>
+        | Error(_) => failwith("expected to find the picked connection")
+        | Ok(picked) =>
           Assert.deepStrictEqual(
             picked->Connection.Target.toURI->Connection__Target.URI.toString,
             path,
@@ -247,8 +253,8 @@ describe("Connection", () => {
         Assert.deepEqual(Config.Connection.getAgdaPaths(), paths)
 
         switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
-        | None => failwith("expected to find the picked connection")
-        | Some(picked) =>
+        | Error(_) => failwith("expected to find the picked connection")
+        | Ok(picked) =>
           Assert.deepStrictEqual(
             picked->Connection.Target.toURI->Connection__Target.URI.toString,
             path,
