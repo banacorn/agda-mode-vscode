@@ -121,11 +121,21 @@ describe("Connection", () => {
 
   describe("Command searching", () => {
     Async.it(
-      "should return the connection when the command is found",
+      "should be able to find itself (`which` or `where`)",
       async () => {
-        switch await Connection__Command__Search.search("cd") {
-        | Ok(_output) => ()
-        | Error(_) => failwith("expected to find `cd`")
+        switch NodeJs.Os.type_() {
+        | "Linux"
+        | "Darwin" =>
+          switch await Connection__Command__Search.search("which") {
+          | Ok(_output) => ()
+          | Error(_) => failwith("expected to find `which`")
+          }
+        | "Windows_NT" =>
+          switch await Connection__Command__Search.search("where") {
+          | Ok(_output) => ()
+          | Error(_) => failwith("expected to find `where`")
+          }
+        | _ => failwith("OS not supported")
         }
       },
     )
