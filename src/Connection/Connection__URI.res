@@ -7,6 +7,17 @@ let parse = async path => {
   let result = try Some(NodeJs.Url.make(path)) catch {
   | _ => None
   }
+  // single out the URL with the protocol "lsp:"
+  let result = switch result {
+  | Some(url) =>
+    if url.protocol == "lsp:" {
+      Some(url)
+    } else {
+      None
+    }
+  | None => None
+  }
+  // only treat URLs with the protocol "lsp:" as URLs
   switch result {
   | Some(url) => URL(url)
   | None =>
