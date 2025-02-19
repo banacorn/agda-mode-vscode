@@ -183,7 +183,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         switch await Connection.findCommands(commands) {
         | Ok(_) => ()
-        | Error(_) => failwith("expected to find `agda` or `als`")
+        | Error(error) =>
+          let (header, body) = Connection.Error.toString(error)
+          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
       },
     )

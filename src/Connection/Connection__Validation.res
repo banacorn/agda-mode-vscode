@@ -56,11 +56,8 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
     } // Check if it's a .bat file
     else if String.endsWith(path, ".bat") {
       ("cmd.exe", ["/c", path, ...args])
-    } else if String.endsWith(path, ".exe") {
-      (path, args)
     } else {
-      // append .exe to the path
-      (path ++ ".exe", args)
+      (path, args)
     }
 
     // reject if the process hasn't responded for more than 20 second
