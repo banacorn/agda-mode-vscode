@@ -48,10 +48,23 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = Error([
-          Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
-          Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
-        ])
+        let expected = if Util.onUnix {
+          Error([
+            Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
+            Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
+          ])
+        } else {
+          Error([
+            Connection.Error.ValidationError(
+              "path\\to\\agda",
+              NotFound("spawn path\\to\\agda ENOENT"),
+            ),
+            Connection.Error.ValidationError(
+              "path\\to\\als",
+              NotFound("spawn path\\to\\als ENOENT"),
+            ),
+          ])
+        }
 
         Assert.deepEqual(actual, expected)
       },
@@ -72,10 +85,23 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = Error([
-          Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
-          Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
-        ])
+        let expected = if Util.onUnix {
+          Error([
+            Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
+            Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
+          ])
+        } else {
+          Error([
+            Connection.Error.ValidationError(
+              "path\\to\\agda",
+              NotFound("spawn path\\to\\agda ENOENT"),
+            ),
+            Connection.Error.ValidationError(
+              "path\\to\\als",
+              NotFound("spawn path\\to\\als ENOENT"),
+            ),
+          ])
+        }
 
         Assert.deepEqual(actual, expected)
       },

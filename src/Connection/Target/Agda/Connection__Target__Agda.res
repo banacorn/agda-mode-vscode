@@ -87,7 +87,7 @@ module ProcInfo: {
     let path = "* path: " ++ self.path
     let args = "* args: " ++ Util.Pretty.array(self.args)
     let version = "* version: " ++ self.version
-    let os = "* platform: " ++ N.OS.type_()
+    let os = "* platform: " ++ NodeJs.Os.platform()
 
     "## Parse Log" ++
     ("\n" ++
