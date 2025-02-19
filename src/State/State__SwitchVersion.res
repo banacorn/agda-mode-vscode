@@ -127,7 +127,7 @@ let handleSelection = async (
         let selectionChanged =
           rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
         if selectionChanged {
-          switch await Connection.URI.parse(rawPath) {
+          switch Connection.URI.parse(rawPath) {
           | URL(url) => Js.log("Trying to connect with: " ++ url.toString())
           | Filepath(path) =>
             switch await Connection.Target.fromRawPath(path) {
@@ -265,7 +265,7 @@ let rec run = async state => {
       kind: Separator,
     },
   ]
-  let installationTargets = await Connection.Target.fromRawPaths(Config.Connection.getAgdaPaths())
+  let installationTargets = await Connection.Target.fromURIs(Config.Connection.getAgdaPaths())
   let installationsItems = installationTargets->Array.map(targetToItem)
 
   let items = Array.flat([

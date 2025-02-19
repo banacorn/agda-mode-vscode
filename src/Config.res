@@ -59,16 +59,14 @@ module Connection = {
         ->Option.getOr([])
         ->Array.filter(s => Parser.filepath(s) != "")
       Array.reverse(paths)
-      paths
+      paths->Array.map(Connection__URI.parse)
     }
 
   // new path is APPENDED to the end of the list
   // no-op if it's already in the list
   let addAgdaPath = path => {
-    let path = path->Parser.filepath
-
     let paths = getAgdaPaths()
-    let alreadyExists = paths->Array.reduce(false, (acc, p) => acc || p == path)
+    let alreadyExists = paths->Array.reduce(false, (acc, p) => acc || p === path)
 
     if alreadyExists {
       Promise.resolve()

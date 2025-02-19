@@ -7,7 +7,7 @@ module URI = Connection__URI
 module type Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   // lifecycle
-  let make: (State__Memento.t, array<string>, array<string>) => promise<result<t, Error.t>>
+  let make: (State__Memento.t, array<Connection__URI.t>, array<string>) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (
@@ -120,13 +120,13 @@ module Module: Module = {
     }
   }
 
-  let make = async (memento: State__Memento.t, paths: array<string>, commands: array<string>) =>
+  let make = async (memento: State__Memento.t, paths: array<Connection__URI.t>, commands: array<string>) =>
     switch await Target.getPicked(memento, paths) {
     | Error(errors) =>
       switch await findCommands(commands) {
       | Error(error) => Error(error)
       | Ok(target) =>
-        await Config.Connection.addAgdaPath(target->Target.toURI->Connection__Target.URI.toString)
+        await Config.Connection.addAgdaPath(target->Target.toURI)
         await start_(target)
       }
     | Ok(target) => await start_(target)
@@ -272,7 +272,7 @@ module Module: Module = {
       | Error(e) => Error(e)
       | Ok(_isCached) =>
         // add the path of the downloaded file to the config
-        let destPath = NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"])
+        let destPath = Connection__URI.parse(NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"]))
         await Config.Connection.addAgdaPath(destPath)
         Ok()
       }

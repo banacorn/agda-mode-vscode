@@ -28,6 +28,7 @@ module Module: {
 
   // fro URI to Target
   let fromURI: URI.t => promise<result<t, Error.t>>
+  let fromURIs: array<URI.t> => promise<array<result<t, Error.t>>>
   // from Target to URI
   let toURI: t => URI.t
 
@@ -36,7 +37,7 @@ module Module: {
   let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
 
   // configuration
-  let getPicked: (State__Memento.t, array<string>) => promise<result<t, array<Error.t>>>
+  let getPicked: (State__Memento.t, array<Connection__URI.t>) => promise<result<t, array<Error.t>>>
   // let getPicked: (State__Memento.t, array<string>) => promise<option<t>>
   let setPicked: (State__Memento.t, option<t>) => promise<unit>
 } = {
@@ -95,12 +96,14 @@ module Module: {
     }
 
   let fromRawPath = async rawPath => {
-    let uri = await URI.parse(rawPath)
+    let uri = URI.parse(rawPath)
     await fromURI(uri)
   }
 
   // plural form of `fromRawPath`
   let fromRawPaths = paths => paths->Array.map(fromRawPath)->Promise.all
+
+  let fromURIs = uris => uris->Array.map(fromURI)->Promise.all
 
   let toURI = target =>
     switch target {
@@ -113,11 +116,11 @@ module Module: {
   // Try to find the previously picked connection
   // The previously picked connection is stored in the memento, if it doesn't exist
   // the first usable connection target from the supplied paths is returned
-  let getPicked = async (memento: State__Memento.t, rawSuppliedPaths: array<string>) => {
+  let getPicked = async (memento: State__Memento.t, rawSuppliedPaths: array<Connection__URI.t>) => {
     // convert raw supplied paths to targets
     // and filter out the invalid ones
     let (suppliedTargets, suppliedTargetsErrors) =
-      (await fromRawPaths(rawSuppliedPaths))->Util.Result.partition
+      (await fromURIs(rawSuppliedPaths))->Util.Result.partition
 
     let pickFromSuppliedTargetsInstead = switch suppliedTargets[0] {
     | None => Error(suppliedTargetsErrors)

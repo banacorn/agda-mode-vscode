@@ -3,7 +3,7 @@
 type t = Filepath(string) | URL(NodeJs.Url.t)
 
 // trying to parse a raw path as a URL or else a file path
-let parse = async path => {
+let parse = path => {
   let result = try Some(NodeJs.Url.make(path)) catch {
   | _ => None
   }
@@ -30,6 +30,6 @@ let parse = async path => {
 
 let toString = path =>
   switch path {
-  | Filepath(path) => path
+  | Filepath(path) => NodeJs.Path.normalize(path)
   | URL(url) => url.toString()
   }
