@@ -13,7 +13,7 @@ describe("Connection", () => {
 
         switch await Connection.Target.fromRawPath(agdaMockPath.contents) {
         | Ok(target) => agdaMockTarget := Some(target)
-        | Error(_) => failwith("Got error when trying to construct a mock for Agda")
+        | Error(_) => failwith("Got error when trying to construct a mock for Agda ")
         }
       },
     )

@@ -32,24 +32,81 @@ module File = {
 
 // wrapper around BsMocha's Assertions
 let runner: (unit => unit) => promise<result<'a, exn>> = %raw(` function(f) {
+
+
+
     var tmp
+
+
+
     try {
+
+
+
       var result = f();
+
+
+
       tmp = {
+
+
+
         TAG: 0,
+
+
+
         _0: result,
+
+
+
         [Symbol.for("name")]: "Ok"
+
+
+
       };
+
+
+
     }
+
+
+
     catch (raw_exn){
+
+
+
       tmp = 
+
+
+
         {
+
+
+
           TAG: 1,
+
+
+
           _0: raw_exn,
+
+
+
           [Symbol.for("name")]: "Error"
+
+
+
         };
+
+
+
     }
+
+
+
     return $$Promise.resolved(tmp);
+
+
+
   }`)
 
 // Paths of the extension and assets
@@ -256,11 +313,6 @@ module Golden = {
   }
 }
 
-let onUnix = switch N.OS.type_() {
-| "Windows_NT" => false
-| _ => true
-}
-
 module AgdaMode = {
   let exists = async command => {
     switch await Connection.findCommands([command]) {
@@ -401,8 +453,17 @@ module Target = {
     // given a version and the desired name of the executable, create a mock Agda executable and returns the path
     let mock = async (~version, ~name) => {
       // creates a executable with nodejs
-      let path = NodeJs.Path.resolve([name])
-      let content = "#!/usr/bin/env node\nconsole.log('Agda version " ++ version ++ "')"
+      let (path, content) = if Util.onUnix {
+        (
+          NodeJs.Path.resolve([name]),
+          "#!/usr/bin/env node\nconsole.log('Agda version " ++ version ++ "')",
+        )
+      } else {
+        (
+          NodeJs.Path.resolve([name ++ ".bat"]),
+          "@echo off\nnode -e \"console.log('Agda version " ++ version ++ "')\"",
+        )
+      }
       NodeJs.Fs.writeFileSync(path, NodeJs.Buffer.fromString(content))
       // chmod +x
       await NodeJs.Fs.chmod(path, ~mode=0o755)

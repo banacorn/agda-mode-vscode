@@ -12,7 +12,7 @@ describe("when parsing file paths", () =>
   })
 )
 
-if Test__Util.onUnix {
+if Util.onUnix {
   describe("when parsing source files (Unix only)", () => {
     describe("Regex.comment", () => {
       it(

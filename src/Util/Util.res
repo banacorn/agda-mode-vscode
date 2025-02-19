@@ -5,6 +5,11 @@ module Disposable = {
   }
 }
 
+let onUnix = switch NodeJs.Os.type_() {
+| "Windows_NT" => false
+| _ => true
+}
+
 module Result = {
   let mapError = (x, f) =>
     switch x {

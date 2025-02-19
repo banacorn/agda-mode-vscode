@@ -50,6 +50,16 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
       resolve(Error(Error.PathMalformed("the path must not be empty")))
     }
 
+    // On Windows, we need to use cmd.exe to execute .bat files
+    let (executable, execArgs) = if Util.onUnix {
+      (path, args)
+    } // Check if it's a .bat file
+    else if String.endsWith(path, ".bat") {
+      ("cmd.exe", ["/c", path, ...args])
+    } else {
+      (path, args)
+    }
+
     // reject if the process hasn't responded for more than 20 second
     let hangTimeout = Js.Global.setTimeout(() => resolve(Error(ProcessHanging)), 20000)
 
@@ -62,7 +72,7 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
     // feed the stdout to the validator
 
     ignore(
-      NodeJs.ChildProcess.execFile(path, args, (error, stdout, stderr) => {
+      NodeJs.ChildProcess.execFile(executable, execArgs, (error, stdout, stderr) => {
         Js.Global.clearTimeout(hangTimeout)
 
         parseError(error)->Belt.Option.forEach(err => resolve(Error(err)))
