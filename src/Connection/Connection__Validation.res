@@ -5,7 +5,7 @@ module Error = {
     | // the process has not been responding for some time
     ProcessHanging
     // error from the shell
-    | NotFound(bool, string)
+    | NotFound(string)
     | ShellError(Js.Exn.t)
     // error from the process' stderr
     | ProcessError(string)
@@ -16,8 +16,7 @@ module Error = {
     | PathMalformed(msg) => "path malformed: " ++ msg
     | ProcessHanging => "process hanging for more than 1 sec"
 
-    | NotFound(true, error) => "[double backslash] " ++ error
-    | NotFound(false, error) => "[single backslash] " ++ error
+    | NotFound(error) => error
     | ShellError(error) => "shell: " ++ Util.JsError.toString(error)
     | ProcessError(msg) => "stderr: " ++ msg
     | WrongProcess(msg) => "wrong process: " ++ msg
@@ -35,11 +34,11 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
     ->Option.map(err => {
       let message = Option.getOr(Js.Exn.message(err), "")
       if Js.Re.test_(%re("/No such file or directory/"), message) {
-        Error.NotFound(Js.Re.test_(%re("/\\\\/g"), path), message)
+        Error.NotFound(message)
       } else if (
         Js.Re.test_(%re("/command not found/"), message) || String.endsWith(message, "ENOENT")
       ) {
-        NotFound(Js.Re.test_(%re("/\\\\/g"), path), message)
+        NotFound(message)
       } else {
         ShellError(err)
       }
@@ -57,8 +56,11 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
     } // Check if it's a .bat file
     else if String.endsWith(path, ".bat") {
       ("cmd.exe", ["/c", path, ...args])
-    } else {
+    } else if String.endsWith(path, ".exe") {
       (path, args)
+    } else {
+      // append .exe to the path
+      (path ++ ".exe", args)
     }
 
     // reject if the process hasn't responded for more than 20 second

@@ -50,18 +50,18 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if Util.onUnix {
           Error([
-            Connection.Error.ValidationError("path/to/agda", NotFound(false, "spawn path/to/agda ENOENT")),
-            Connection.Error.ValidationError("path/to/als", NotFound(false, "spawn path/to/als ENOENT")),
+            Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
+            Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
           ])
         } else {
           Error([
             Connection.Error.ValidationError(
               "path\\to\\agda",
-              NotFound(false, "spawn path\\to\\agda ENOENT"),
+              NotFound("spawn path\\to\\agda ENOENT"),
             ),
             Connection.Error.ValidationError(
               "path\\to\\als",
-              NotFound(false, "spawn path\\to\\als ENOENT"),
+              NotFound("spawn path\\to\\als ENOENT"),
             ),
           ])
         }
@@ -87,18 +87,18 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if Util.onUnix {
           Error([
-            Connection.Error.ValidationError("path/to/agda", NotFound(false, "spawn path/to/agda ENOENT")),
-            Connection.Error.ValidationError("path/to/als", NotFound(false, "spawn path/to/als ENOENT")),
+            Connection.Error.ValidationError("path/to/agda", NotFound("spawn path/to/agda ENOENT")),
+            Connection.Error.ValidationError("path/to/als", NotFound("spawn path/to/als ENOENT")),
           ])
         } else {
           Error([
             Connection.Error.ValidationError(
               "path\\to\\agda",
-              NotFound(false, "spawn path\\to\\agda ENOENT"),
+              NotFound("spawn path\\to\\agda ENOENT"),
             ),
             Connection.Error.ValidationError(
               "path\\to\\als",
-              NotFound(false, "spawn path\\to\\als ENOENT"),
+              NotFound("spawn path\\to\\als ENOENT"),
             ),
           ])
         }
