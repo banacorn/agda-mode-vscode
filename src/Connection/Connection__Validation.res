@@ -16,7 +16,7 @@ module Error = {
     | PathMalformed(msg) => "path malformed: " ++ msg
     | ProcessHanging => "process hanging for more than 1 sec"
 
-    | NotFound(error) => error
+    | NotFound(path) => "command not found: " ++ path
     | ShellError(error) => "shell: " ++ Util.JsError.toString(error)
     | ProcessError(msg) => "stderr: " ++ msg
     | WrongProcess(msg) => "wrong process: " ++ msg
@@ -27,17 +27,19 @@ type output = string
 type validator<'a> = output => result<'a, string>
 
 // Handle error from the callback
-let handleError = (error: Js.nullable<Js.Exn.t>): option<Error.t> =>
+let handleError = (command, error: Js.nullable<Js.Exn.t>): option<Error.t> =>
   error
   ->Js.Nullable.toOption
   ->Option.map(err => {
     let message = Option.getOr(Js.Exn.message(err), "")
     if Js.Re.test_(%re("/No such file or directory/"), message) {
-      Error.NotFound(message)
+      Error.NotFound(command)
     } else if (
-      Js.Re.test_(%re("/command not found/"), message) || String.endsWith(message, "ENOENT")
+      Js.Re.test_(%re("/command not found/"), message) ||
+      Js.Re.test_(%re("/No such file or directory/"), message) ||
+      String.endsWith(message, "ENOENT")
     ) {
-      NotFound(message)
+      NotFound(command)
     } else {
       ShellError(err)
     }
@@ -45,10 +47,31 @@ let handleError = (error: Js.nullable<Js.Exn.t>): option<Error.t> =>
 
 let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
   Promise.make((resolve, _) => {
+    // the path must not be empty
+    if path == "" {
+      resolve(Error(Error.PathMalformed("the path must not be empty")))
+    }
+
+    // On Windows, we need to use cmd.exe to execute .bat files
+    let (path, args) = if Util.onUnix {
+      (path, args)
+    } // Check if it's a .bat file
+    else if String.endsWith(path, ".bat") {
+      ("cmd.exe", ["/c", path, ...args])
+    } else {
+      (path, args)
+    }
+
+    // reject if the process hasn't responded for more than 20 second
+    let hangTimeout = Js.Global.setTimeout(() => resolve(Error(ProcessHanging)), 20000)
+
     let command = Array.join([path, ...args], " ")
     NodeJs.ChildProcess.execWith(command, %raw(`{shell : true}`), (error, stdout, stderr) => {
+      // clear timeout as the process has responded
+      Js.Global.clearTimeout(hangTimeout)
+
       // handles `error` and rejects it if there's any
-      handleError(error)->Option.forEach(err => resolve(Error(err)))
+      handleError(command, error)->Option.forEach(err => resolve(Error(err)))
 
       // stderr
       let stderr = NodeJs.Buffer.toString(stderr)
@@ -74,7 +97,7 @@ let run2 = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> 
     }
 
     // On Windows, we need to use cmd.exe to execute .bat files
-    let (executable, execArgs) = if Util.onUnix {
+    let (command, args) = if Util.onUnix {
       (path, args)
     } // Check if it's a .bat file
     else if String.endsWith(path, ".bat") {
@@ -87,12 +110,12 @@ let run2 = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> 
     let hangTimeout = Js.Global.setTimeout(() => resolve(Error(ProcessHanging)), 20000)
 
     ignore(
-      NodeJs.ChildProcess.execFile(executable, execArgs, (error, stdout, stderr) => {
+      NodeJs.ChildProcess.execFile(command, args, (error, stdout, stderr) => {
         // clear timeout as the process has responded
         Js.Global.clearTimeout(hangTimeout)
 
         // handles `error` and rejects it if there's any
-        handleError(error)->Option.forEach(err => resolve(Error(err)))
+        handleError(command, error)->Option.forEach(err => resolve(Error(err)))
 
         // stderr
         let stderr = NodeJs.Buffer.toString(stderr)
