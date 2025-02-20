@@ -26,24 +26,47 @@ module Error = {
 type output = string
 type validator<'a> = output => result<'a, string>
 
-let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
-  // parsing the parse error
-  let parseError = (error: Js.nullable<Js.Exn.t>): option<Error.t> =>
-    error
-    ->Js.Nullable.toOption
-    ->Option.map(err => {
-      let message = Option.getOr(Js.Exn.message(err), "")
-      if Js.Re.test_(%re("/No such file or directory/"), message) {
-        Error.NotFound(message)
-      } else if (
-        Js.Re.test_(%re("/command not found/"), message) || String.endsWith(message, "ENOENT")
-      ) {
-        NotFound(message)
-      } else {
-        ShellError(err)
-      }
-    })
+// Handle error from the callback
+let handleError = (error: Js.nullable<Js.Exn.t>): option<Error.t> =>
+  error
+  ->Js.Nullable.toOption
+  ->Option.map(err => {
+    let message = Option.getOr(Js.Exn.message(err), "")
+    if Js.Re.test_(%re("/No such file or directory/"), message) {
+      Error.NotFound(message)
+    } else if (
+      Js.Re.test_(%re("/command not found/"), message) || String.endsWith(message, "ENOENT")
+    ) {
+      NotFound(message)
+    } else {
+      ShellError(err)
+    }
+  })
 
+let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
+  Promise.make((resolve, _) => {
+    let command = Array.join([path, ...args], " ")
+    NodeJs.ChildProcess.execWith(command, %raw(`{shell : true}`), (error, stdout, stderr) => {
+      // handles `error` and rejects it if there's any
+      handleError(error)->Option.forEach(err => resolve(Error(err)))
+
+      // stderr
+      let stderr = NodeJs.Buffer.toString(stderr)
+      if stderr != "" {
+        resolve(Error(ProcessError(stderr)))
+      }
+
+      // feed the stdout to the validator
+      let stdout = NodeJs.Buffer.toString(stdout)
+      switch validator(stdout) {
+      | Error(err) => resolve(Error(WrongProcess(err)))
+      | Ok(result) => resolve(Ok(result))
+      }
+    })->ignore
+  })
+}
+
+let run2 = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
   Promise.make((resolve, _) => {
     // the path must not be empty
     if path == "" {
@@ -63,25 +86,21 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
     // reject if the process hasn't responded for more than 20 second
     let hangTimeout = Js.Global.setTimeout(() => resolve(Error(ProcessHanging)), 20000)
 
-    // clear timeout as the process has responded
-
-    // parses `error` and rejects it if there's any
-
-    // stderr
-
-    // feed the stdout to the validator
-
     ignore(
       NodeJs.ChildProcess.execFile(executable, execArgs, (error, stdout, stderr) => {
+        // clear timeout as the process has responded
         Js.Global.clearTimeout(hangTimeout)
 
-        parseError(error)->Belt.Option.forEach(err => resolve(Error(err)))
+        // handles `error` and rejects it if there's any
+        handleError(error)->Option.forEach(err => resolve(Error(err)))
 
+        // stderr
         let stderr = NodeJs.Buffer.toString(stderr)
         if stderr != "" {
           resolve(Error(ProcessError(stderr)))
         }
 
+        // feed the stdout to the validator
         let stdout = NodeJs.Buffer.toString(stdout)
         switch validator(stdout) {
         | Error(err) => resolve(Error(WrongProcess(err)))
