@@ -88,7 +88,7 @@ module Module: {
               ),
             )
           // Ok(ALS(alsVersion, agdaVersion, Error(path)))
-          | _ => Error(Error.NotAgdaOrALS(path))
+          | _ => Error(Error.NotAgdaOrALS(path, output))
           }
         }
       | Error(error) => Error(Error.ValidationError(path, error))

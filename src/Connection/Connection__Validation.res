@@ -36,8 +36,9 @@ let handleError = (command, error: Js.nullable<Js.Exn.t>): option<Error.t> =>
       Error.NotFound(command)
     } else if (
       Js.Re.test_(%re("/command not found/"), message) ||
+      Js.Re.test_(%re("/not found/"), message) ||
       Js.Re.test_(%re("/No such file or directory/"), message) ||
-      String.endsWith(message, "ENOENT")
+      Js.Re.test_(%re("/ENOENT/"), message)
     ) {
       NotFound(command)
     } else {

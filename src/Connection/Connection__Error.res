@@ -6,7 +6,7 @@ type t =
   // Connection
   | CommandsNotFound(array<(string, Connection__Command__Search.Error.t)>)
   | CannotHandleURLsATM(string)
-  | NotAgdaOrALS(string)
+  | NotAgdaOrALS(string, string)
   | ValidationError(string, Connection__Validation.Error.t)
   // Download
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
@@ -46,9 +46,12 @@ let toString = x =>
       "Cannot handle URLs at the moment",
       "This will be supported again in the future",
     )
-  | NotAgdaOrALS(path) => (
+  | NotAgdaOrALS(path, output) => (
       "Not Agda or Agda Language Server",
-      "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server",
+      "`" ++
+      path ++
+      "` doesn't seem to be an Agda executable or an Agda Language Server.\nGot the following output:\n" ++
+      output,
     )
   | ValidationError(_, e) => ("Error", Connection__Validation.Error.toString(e))
   }
