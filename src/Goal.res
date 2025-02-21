@@ -127,8 +127,10 @@ module Module: Module = {
     let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
     let endPart = `${endIndex'} ${endRow} ${endColumn}`
 
-    if Util.Version.gte(version, "2.5.1") {
-      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1
+    if Util.Version.gte(version, "2.8.0") {
+      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval () (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.8.0
+    } else if Util.Version.gte(version, "2.5.1") {
+      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1, before (not including) 2.8.0
     } else {
       `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
     }
