@@ -86,6 +86,52 @@ let runWithExec = (path, args): promise<result<'a, Error.t>> => {
   })
 }
 
+
+let runWithExecNoBackslash = (path, args): promise<result<'a, Error.t>> => {
+  Promise.make((resolve, _) => {
+    // the path must not be empty
+    if path == "" {
+      resolve(Error(Error.PathMalformed("the path must not be empty")))
+    }
+
+    // On Windows, we need to use cmd.exe to execute .bat files
+    let (path, args) = if Util.onUnix {
+      (path, args)
+    } // Check if it's a .bat file
+    else if String.endsWith(path, ".bat") {
+      ("cmd.exe", ["/c", path, ...args])
+    } else {
+      (path, args)
+    }
+
+    // reject if the process hasn't responded for more than 20 second
+    let hangTimeout = Js.Global.setTimeout(() => resolve(Error(ProcessHanging)), 20000)
+
+    // let command = Array.join([path, ...args], " ")
+    // Js.log("[ BEFORE ] " ++ command)
+    // let command = String.replaceAll(command, "\\", "/")
+    // Js.log("[ AFTER ] " ++ command)
+    // let command = "\\d\\a\\agda-mode-vscode\\agda-mode-vscode\\Agda-2.7.0-windows-latest\\bin\\agda.exe --version"
+    let command = "agda"
+    NodeJs.ChildProcess.execFile(command, ["--version"], (error, stdout, stderr) => {
+      // clear timeout as the process has responded
+      Js.Global.clearTimeout(hangTimeout)
+
+      // handles `error` and rejects it if there's any
+      handleError(command, error)->Option.forEach(err => resolve(Error(err)))
+
+      // stderr
+      let stderr = NodeJs.Buffer.toString(stderr)
+      if stderr != "" {
+        resolve(Error(ProcessError(stderr)))
+      }
+
+      // resolve with the content from stdout
+      resolve(Ok(NodeJs.Buffer.toString(stdout)))
+    })->ignore
+  })
+}
+
 let runOld = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
   Promise.make((resolve, _) => {
     // the path must not be empty

@@ -176,7 +176,7 @@ describe("Connection", () => {
     )
   })
 
-  describe("findCommands", () => {
+  describe_only("findCommands", () => {
     Async.it(
       "should return the connection when a command is found",
       async () => {

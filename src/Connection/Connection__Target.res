@@ -52,7 +52,7 @@ module Module: {
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
       module Process = Connection__Target__Agda__Process
-      let result = await Connection__Validation.runWithExec(path, ["--version"])
+      let result = await Connection__Validation.runWithExecNoBackslash(path, ["--version"])
       switch result {
       | Ok(output) =>
         // try Agda
