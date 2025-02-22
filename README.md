@@ -42,11 +42,11 @@ Prefix commands with `C-u`, `C-u C-u`, or `C-u C-u  C-u` to change the level of 
 | Command                                 |            Keymap             |
 | :-------------------------------------- | :---------------------------: |
 | load                                    | <kbd>C-c</kbd> <kbd>C-l</kbd> |
-| compile                                 | <kbd>C-x</kbd> <kbd>C-c</kbd> |
-| quit                                    | <kbd>C-c</kbd> <kbd>C-q</kbd> |
-| quit and restart                        | <kbd>C-x</kbd> <kbd>C-r</kbd> |
-| toggle display of hidden arguments      | <kbd>C-x</kbd> <kbd>C-h</kbd> |
-| toggle display of irrelevant arguments  | <kbd>C-x</kbd> <kbd>C-i</kbd> |
+| compile                                 | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-c</kbd> |
+| quit                                    | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-q</kbd> |
+| quit and restart                        | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-r</kbd> |
+| toggle display of hidden arguments      | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-h</kbd> |
+| toggle display of irrelevant arguments  | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-i</kbd> |
 | show constraints                        | <kbd>C-c</kbd> <kbd>C-=</kbd> |
 | solve constraints 🎚                     | <kbd>C-c</kbd> <kbd>C-s</kbd> |
 | show all goals 🎚                        | <kbd>C-c</kbd> <kbd>C-?</kbd> |
