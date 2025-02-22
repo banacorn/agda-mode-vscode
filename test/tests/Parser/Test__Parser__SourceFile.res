@@ -7,6 +7,7 @@ describe("when parsing file paths", () =>
     Assert.equal(parse("a.lagda"), LiterateTeX)
     Assert.equal(parse("a.lagda.tex"), LiterateTeX)
     Assert.equal(parse("a.lagda.md"), LiterateMarkdown)
+    Assert.equal(parse("a.lagda.typ"), LiterateTypst)
     Assert.equal(parse("a.lagda.rst"), LiterateRST)
     Assert.equal(parse("a.lagda.org"), LiterateOrg)
   })
