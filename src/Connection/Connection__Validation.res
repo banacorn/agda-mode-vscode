@@ -112,7 +112,8 @@ let runWithExecNoBackslash = (path, args): promise<result<'a, Error.t>> => {
     // let command = String.replaceAll(command, "\\", "/")
     // Js.log("[ AFTER ] " ++ command)
     // let command = "\\d\\a\\agda-mode-vscode\\agda-mode-vscode\\Agda-2.7.0-windows-latest\\bin\\agda.exe --version"
-    let command = "agda"
+    let command = "\"/d/a/agda-mode-vscode/agda-mode-vscode/Agda-2.7.0-windows-latest/bin/agda\""
+    // let command = "\"/d/a/agda-mode-vscode/agda-mode-vscode/Agda-2.7.0-windows-latest/bin/agda\" --version"
     NodeJs.ChildProcess.execFile(command, ["--version"], (error, stdout, stderr) => {
       // clear timeout as the process has responded
       Js.Global.clearTimeout(hangTimeout)
