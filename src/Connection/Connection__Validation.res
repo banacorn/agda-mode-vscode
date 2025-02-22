@@ -9,8 +9,8 @@ module Error = {
     | ShellError(Js.Exn.t)
     // error from the process' stderr
     | ProcessError(string)
-    // wrong invoked command
-    | WrongProcess(string)
+  // wrong invoked command
+  | WrongProcess(string)
   let toString = x =>
     switch x {
     | PathMalformed(msg) => "path malformed: " ++ msg
@@ -46,7 +46,7 @@ let handleError = (command, error: Js.nullable<Js.Exn.t>): option<Error.t> =>
     }
   })
 
-let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
+let runWithExec = (path, args): promise<result<'a, Error.t>> => {
   Promise.make((resolve, _) => {
     // the path must not be empty
     if path == "" {
@@ -80,17 +80,13 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
         resolve(Error(ProcessError(stderr)))
       }
 
-      // feed the stdout to the validator
-      let stdout = NodeJs.Buffer.toString(stdout)
-      switch validator(stdout) {
-      | Error(err) => resolve(Error(WrongProcess(err)))
-      | Ok(result) => resolve(Ok(result))
-      }
+      // resolve with the content from stdout
+      resolve(Ok(NodeJs.Buffer.toString(stdout)))
     })->ignore
   })
 }
 
-let run2 = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
+let runOld = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
   Promise.make((resolve, _) => {
     // the path must not be empty
     if path == "" {
