@@ -52,7 +52,9 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
       resolve(Error(Error.PathMalformed("the path must not be empty")))
     }
 
-    // On Windows, we need to use cmd.exe to execute .bat files
+    // Special treatment for Windows:
+    //  1. use cmd.exe to execute .bat files
+    //  2. replace paths like "/c/path/to/agda" with "c:/path/to/agda"
     let (path, args) = if Util.onUnix {
       (path, args)
     } // Check if it's a .bat file

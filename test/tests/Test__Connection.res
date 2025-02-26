@@ -2,6 +2,49 @@ open Mocha
 open Test__Util
 
 describe("Connection", () => {
+  describe("URI.parse", () => {
+    Async.it(
+      "should be able to parse URIs with lsp: as the protocol",
+      async () => {
+        let actual = Connection__URI.parse("lsp://path/to/als")
+        let expected = Connection__URI.URL(NodeJs.Url.make("lsp://path/to/als"))
+        Assert.deepEqual(actual, expected)
+      },
+    )
+
+    Async.it(
+      "should be able to parse file paths",
+      async () => {
+        let actual = Connection__URI.parse("path/to/als")
+        let expected = Connection__URI.Filepath("path/to/als")
+        Assert.deepEqual(actual, expected)
+      },
+    )
+
+    Async.it(
+      "should be able to parse convert \"/c/path/to/agda\" to \"c:/path/to/agda\" on Windows",
+      async () => {
+        let actual = Connection__URI.parse("/c/path/to/agda")
+        let expected = if Util.onUnix {
+          Connection__URI.Filepath("/c/path/to/agda")
+        } else {
+          Connection__URI.Filepath("c:/path/to/agda")
+        }
+
+        Assert.deepEqual(actual, expected)
+
+        let actual = Connection__URI.parse("/d/path/to/agda")
+        let expected = if Util.onUnix {
+          Connection__URI.Filepath("/d/path/to/agda")
+        } else {
+          Connection__URI.Filepath("d:/path/to/agda")
+        }
+
+        Assert.deepEqual(actual, expected)
+      },
+    )
+  })
+
   describe("Target", () => {
     let agdaMockPath = ref("")
     let agdaMockTarget = ref(None)

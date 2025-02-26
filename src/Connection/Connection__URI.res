@@ -24,6 +24,13 @@ let parse = path => {
     // treat the path as a file path
     let path = untildify(path)
     let path = NodeJs.Path.normalize(path)
+
+    // on Windows, paths that start with a drive letter like "/c/path/to/agda" will be converted to "c:/path/to/agda"
+    let path = if Util.onUnix {
+      path->String.replaceRegExp(%re("/^\/([a-zA-Z])\//"), "$1\:\/")
+    } else {
+      path->String.replaceRegExp(%re("/^\/([a-zA-Z])\//"), "$1\:\/")
+    }
     Filepath(path)
   }
 }
