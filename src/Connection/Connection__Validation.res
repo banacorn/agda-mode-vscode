@@ -32,14 +32,13 @@ let handleError = (command, error: Js.nullable<Js.Exn.t>): option<Error.t> =>
   ->Js.Nullable.toOption
   ->Option.map(err => {
     let message = Option.getOr(Js.Exn.message(err), "")
-    if Js.Re.test_(%re("/No such file or directory/"), message) {
-      Error.NotFound(command)
-    } else if (
+    if (
       Js.Re.test_(%re("/command not found/"), message) ||
       Js.Re.test_(%re("/No such file or directory/"), message) ||
+      Js.Re.test_(%re("/not found/"), message) ||
       String.endsWith(message, "ENOENT")
     ) {
-      NotFound(command)
+      Error.NotFound(command)
     } else {
       ShellError(err)
     }

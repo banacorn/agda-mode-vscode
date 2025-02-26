@@ -27,9 +27,9 @@ let parse = path => {
 
     // on Windows, paths that start with a drive letter like "/c/path/to/agda" will be converted to "c:/path/to/agda"
     let path = if Util.onUnix {
-      path->String.replaceRegExp(%re("/^\/([a-zA-Z])\//"), "$1\:\/")
+      path
     } else {
-      path->String.replaceRegExp(%re("/^\/([a-zA-Z])\//"), "$1\:\/")
+      path->String.replaceRegExp(%re("/^\\([a-zA-Z])\\/"), "$1\:\\")
     }
     Filepath(path)
   }
