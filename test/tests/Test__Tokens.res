@@ -14,7 +14,7 @@ describe("Tokens", () => {
           ->Array.map(
             ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
           )
-        Assert.deepEqual(28, Array.length(tokens))
+        Assert.deepEqual(Array.length(tokens), 28)
       },
     )
 
@@ -40,6 +40,7 @@ describe("Tokens", () => {
         }
 
         Assert.deepEqual(
+          tokens,
           [
             "0:0-6 Token (0, 6) [Keyword]",
             "0:7-21 Token (7, 21) [Module] [src: 1]",
@@ -70,7 +71,6 @@ describe("Tokens", () => {
             "6:6-7 Token (90, 91) [Symbol]",
             "6:8-15 Token (92, 99) [Hole]",
           ],
-          tokens,
         )
       },
     )
