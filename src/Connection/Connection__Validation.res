@@ -44,7 +44,38 @@ let handleError = (command, error: Js.nullable<Js.Exn.t>): option<Error.t> =>
     }
   })
 
-let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> => {
+let run3 = async (path, args): result<'a, Error.t> => {
+  module Process = Connection__Target__Agda__Process
+  let process = Process.make(path, args)
+  let (promise, resolve, _) = Util.Promise_.pending()
+
+  let destructor = process->Process.onOutput(output =>
+    switch output {
+    | Process.Stdout(output) => resolve(Ok(output))
+    | Process.Stderr(err) =>
+      resolve(
+        Error(
+          Error.ProcessError(
+            "Message from stderr when validating the program by running \"" ++
+            path ++
+            " --version\" :\n" ++
+            err,
+          ),
+        ),
+      )
+    | Process.Event(e) =>
+      resolve(Ok("hi")
+        // Error("Something occured when validating the program:\n" ++ Process.Event.toString(e)),
+      )
+    }
+  )
+
+  let result = await promise
+  destructor()
+  result
+}
+
+let run = (path, args): promise<result<'a, Error.t>> => {
   Promise.make((resolve, _) => {
     // the path must not be empty
     if path == "" {
@@ -82,10 +113,7 @@ let run = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> =
 
       // feed the stdout to the validator
       let stdout = NodeJs.Buffer.toString(stdout)
-      switch validator(stdout) {
-      | Error(err) => resolve(Error(WrongProcess(err)))
-      | Ok(result) => resolve(Ok(result))
-      }
+      resolve(Ok(stdout))
     })->ignore
   })
 }

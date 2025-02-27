@@ -21,7 +21,7 @@ let parse = path => {
   switch result {
   | Some(url) => URL(url)
   | None =>
-    // treat the path as a file path
+    // normailize the path by replacing the tild "~/" with the absolute path of home directory
     let path = untildify(path)
     let path = NodeJs.Path.normalize(path)
 

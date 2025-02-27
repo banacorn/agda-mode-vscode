@@ -16,7 +16,11 @@ describe("Connection", () => {
       "should be able to parse file paths",
       async () => {
         let actual = Connection__URI.parse("path/to/als")
-        let expected = Connection__URI.Filepath("path/to/als")
+        let expected = if Util.onUnix {
+          Connection__URI.Filepath("path/to/als")
+        } else {
+          Connection__URI.Filepath("path\\to\\als")
+        }
         Assert.deepEqual(actual, expected)
       },
     )
@@ -28,7 +32,7 @@ describe("Connection", () => {
         let expected = if Util.onUnix {
           Connection__URI.Filepath("/c/path/to/agda")
         } else {
-          Connection__URI.Filepath("c:/path/to/agda")
+          Connection__URI.Filepath("c:\\path\\to\\agda")
         }
 
         Assert.deepEqual(actual, expected)
@@ -37,7 +41,7 @@ describe("Connection", () => {
         let expected = if Util.onUnix {
           Connection__URI.Filepath("/d/path/to/agda")
         } else {
-          Connection__URI.Filepath("d:/path/to/agda")
+          Connection__URI.Filepath("d:\\path\\to\\agda")
         }
 
         Assert.deepEqual(actual, expected)
@@ -263,7 +267,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         switch await Connection.make(memento, paths, commands) {
         | Ok(_) => ()
-        | Error(_) => failwith("expected to find `agda` or `als`")
+        | Error(error) =>
+          let (header, body) = Connection.Error.toString(error)
+          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
 
         Assert.deepEqual(Config.Connection.getAgdaPaths(), [path]->Array.map(Connection__URI.parse))
@@ -299,7 +305,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         switch await Connection.make(memento, paths, commands) {
         | Ok(_) => ()
-        | Error(_) => failwith("expected to find `agda` or `als`")
+        | Error(error) =>
+          let (header, body) = Connection.Error.toString(error)
+          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
 
         Assert.deepEqual(Config.Connection.getAgdaPaths(), [...paths, path])
@@ -330,7 +338,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         switch await Connection.make(memento, paths, commands) {
         | Ok(_) => ()
-        | Error(_) => failwith("expected to find `agda` or `als`")
+        | Error(error) =>
+          let (header, body) = Connection.Error.toString(error)
+          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
 
         Assert.deepEqual(Config.Connection.getAgdaPaths(), paths)

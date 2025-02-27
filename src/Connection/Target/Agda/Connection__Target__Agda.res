@@ -17,33 +17,9 @@ module ProcInfo: {
     version: string,
   }
 
-  @module external untildify: string => string = "untildify"
-
   // a more sophiscated "make"
   let make = async (path, args): result<t, Error.t> => {
-    // normailize the path by replacing the tild "~/" with the absolute path of home directory
-    let path = untildify(path)
-    let path = NodeJs.Path.normalize(path)
-
-    // replace wierd paths on Windows like "\c\" to "C:\"
-    let path = switch NodeJs.Os.platform() {
-    | "win32" =>
-      let regex = %re("/\\([a-zA-Z])\\/")
-      let hasWeirdPath = RegExp.exec(regex, path)
-      switch hasWeirdPath {
-      | None => path
-      | Some(match_) =>
-        switch match_[1] {
-        | Some(Some(drive)) =>
-          let drive = drive->String.toUpperCase
-          path->String.replaceRegExp(regex, drive ++ ":\\")
-        | _ => path
-        }
-      }
-    | _ => path
-    }
-
-    let process = Process.make(path, ["-V"])
+    let process = Process.make(path, ["--version"])
     let (promise, resolve, _) = Util.Promise_.pending()
 
     let destructor = process->Process.onOutput(output =>
@@ -66,7 +42,7 @@ module ProcInfo: {
           }
         }
       | Process.Stderr(err) =>
-        resolve(Error("Message from stderr when validating the program:\n" ++ err))
+        resolve(Error("Message from stderr when validating the program by running \"" ++ path ++ " --version\" :\n" ++ err))
       | Process.Event(e) =>
         resolve(
           Error("Something occured when validating the program:\n" ++ Process.Event.toString(e)),

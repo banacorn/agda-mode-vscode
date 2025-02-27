@@ -52,7 +52,9 @@ module Module: {
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
       module Process = Connection__Target__Agda__Process
-      let result = await Connection__Validation.run(path, ["--version"], output => Ok(output))
+
+      let result = await Connection__Validation.run3(path, ["--version"])
+      // let result = await Connection__Validation.run(path, ["--version"])
       switch result {
       | Ok(output) =>
         // try Agda
@@ -87,8 +89,9 @@ module Module: {
                 Ok(Connection__IPC.ViaPipe(path, [], lspOptions, Connection__IPC.FromFile(path))),
               ),
             )
-          // Ok(ALS(alsVersion, agdaVersion, Error(path)))
-          | _ => Error(Error.NotAgdaOrALS(path))
+          | _ =>
+            Js.log("output of NotAgdaOrALS: " ++ output)
+            Error(Error.NotAgdaOrALS(path))
           }
         }
       | Error(error) => Error(Error.ValidationError(path, error))
