@@ -61,7 +61,8 @@ let run3 = async (path, args): result<'a, Error.t> => {
     | Process.Stderr(output) => stderr := stderr.contents ++ output
     | Process.Event(OnDestroyed) => resolve(Ok(stdout.contents))
     | Process.Event(OnExit(_, _, 0)) => resolve(Ok(stdout.contents))
-    | Process.Event(OnExit(_, _, exitCode)) =>
+    | Process.Event(OnExit(_, _, 127)) => resolve(Error(Error.NotFound(path)))
+    | Process.Event(OnExit(_, _, _)) =>
       if stderr.contents != "" {
         if Process.errorMessageIndicatesNotFound(stderr.contents) {
           resolve(Error(Error.NotFound(path)))
@@ -69,7 +70,7 @@ let run3 = async (path, args): result<'a, Error.t> => {
           resolve(Error(FromStderr(stderr.contents)))
         }
       } else {
-        resolve(Ok("stdout.contents [1], exited with " ++ string_of_int(exitCode) ++ ", stdout: " ++ stdout.contents))
+        resolve(Ok(stdout.contents))
       }
     | Process.Event(OnError(msg)) =>
       if msg != "" {

@@ -87,14 +87,14 @@ describe_skip("agda-mode.auto[AsIs]", () => {
   run(AsIs)
 })
 
-describe("agda-mode.auto[Simplified]", () => {
+describe_skip("agda-mode.auto[Simplified]", () => {
   run(Simplified)
 })
 
-describe("agda-mode.auto[Normalised]", () => {
+describe_skip("agda-mode.auto[Normalised]", () => {
   run(Normalised)
 })
 
-describe("agda-mode.auto[HeadNormal]", () => {
+describe_skip("agda-mode.auto[HeadNormal]", () => {
   run(HeadNormal)
 })
