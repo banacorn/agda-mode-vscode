@@ -97,19 +97,13 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if Util.onUnix {
           Error([
-            Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda --version")),
-            Connection.Error.ValidationError("path/to/als", NotFound("path/to/als --version")),
+            Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
+            Connection.Error.ValidationError("path/to/als", NotFound("path/to/als")),
           ])
         } else {
           Error([
-            Connection.Error.ValidationError(
-              "path\\to\\agda",
-              NotFound("spawn path\\to\\agda ENOENT"),
-            ),
-            Connection.Error.ValidationError(
-              "path\\to\\als",
-              NotFound("spawn path\\to\\als ENOENT"),
-            ),
+            Connection.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
+            Connection.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
           ])
         }
 
@@ -134,19 +128,13 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if Util.onUnix {
           Error([
-            Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda --version")),
-            Connection.Error.ValidationError("path/to/als", NotFound("path/to/als --version")),
+            Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
+            Connection.Error.ValidationError("path/to/als", NotFound("path/to/als")),
           ])
         } else {
           Error([
-            Connection.Error.ValidationError(
-              "path\\to\\agda",
-              NotFound("spawn path\\to\\agda ENOENT"),
-            ),
-            Connection.Error.ValidationError(
-              "path\\to\\als",
-              NotFound("spawn path\\to\\als ENOENT"),
-            ),
+            Connection.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
+            Connection.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
           ])
         }
 

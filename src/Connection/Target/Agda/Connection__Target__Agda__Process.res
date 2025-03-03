@@ -7,18 +7,24 @@ module Event = {
   type args = array<string>
   type t =
     | OnDestroyed // on `disconnect` (destroyed by the user)
-    | OnError(Js.Exn.t) // on `error`
-    | OnExit(path, args, exitCode, string) // on `exit` or `close`
+    | OnError(string) // on `error`
+    | OnExit(path, args, exitCode) // on `exit` or `close`
 
   let toString = x =>
     switch x {
     | OnDestroyed => "Process destroyed"
-    | OnError(error) => Util.JsError.toString(error)
-    | OnExit(_, _, code, "") => "Process exited with code " ++ string_of_int(code)
-    | OnExit(_, _, code, stderr) =>
-      "Process exited with code " ++ string_of_int(code) ++ "\n" ++ stderr
+    | OnError(error) => error
+    | OnExit(_, _, code) => "Process exited with code " ++ string_of_int(code)
     }
 }
+
+// examine if the event indicates that the command is not found
+let errorMessageIndicatesNotFound = msg =>
+  RegExp.test(%re("/command not found/"), msg) ||
+  RegExp.test(%re("/No such file or directory/"), msg) ||
+  RegExp.test(%re("/not found/"), msg) ||
+  RegExp.test(%re("/The system cannot find the path specified/"), msg) ||
+  String.endsWith(msg, "ENOENT")
 
 module type Module = {
   type t
@@ -76,7 +82,7 @@ module Module: Module = {
       ->NodeJs.Stream.onData(chunk => {
         chan->Chan.emit(Stderr(NodeJs.Buffer.toString(chunk)))
         // store the latest message from stderr
-        stderr := NodeJs.Buffer.toString(chunk)
+        stderr := stderr.contents ++ NodeJs.Buffer.toString(chunk)
       })
       ->ignore
     )
@@ -87,31 +93,33 @@ module Module: Module = {
       ->NodeJs.ChildProcess.stdin
       ->Option.forEach(stream =>
         stream
-        ->NodeJs.Stream.Writable.onClose(() => resolve((path, args, 0, stderr.contents)))
+        ->NodeJs.Stream.Writable.onClose(() => resolve((path, args, 0)))
         ->ignore
       )
 
       process
-      ->NodeJs.ChildProcess.onClose(code => resolve((path, args, code, stderr.contents)))
+      ->NodeJs.ChildProcess.onClose(code => resolve((path, args, code)))
       ->ignore
     })
 
     // on errors and anomalies
     let promiseOnExit = Promise.make((resolve, _) => {
       process
-      ->NodeJs.ChildProcess.onExit(code => resolve((path, args, code, stderr.contents)))
+      ->NodeJs.ChildProcess.onExit(code => resolve((path, args, code)))
       ->ignore
     })
 
     process
     ->NodeJs.ChildProcess.onDisconnect(() => chan->Chan.emit(Event(OnDestroyed)))
-    ->NodeJs.ChildProcess.onError(exn => chan->Chan.emit(Event(OnError(exn))))
+    ->NodeJs.ChildProcess.onError(exn =>
+      chan->Chan.emit(Event(OnError(Util.JsError.toString(exn))))
+    )
     ->ignore
 
     // emit `OnExit` when either `close` or `exit` was received
     Promise.race([promiseOnExit, promiseOnClose])
-    ->Promise.thenResolve(((path, args, exitCode, stderr)) => {
-      chan->Chan.emit(Event(OnExit(path, args, exitCode, stderr)))
+    ->Promise.thenResolve(((path, args, exitCode)) => {
+      chan->Chan.emit(Event(OnExit(path, args, exitCode)))
     })
     ->ignore
 
@@ -127,7 +135,7 @@ module Module: Module = {
         // listen to the `exit` event
         let _ = self.chan->Chan.on(x =>
           switch x {
-          | Event(OnExit(_, _, _, _)) =>
+          | Event(OnExit(_, _, _)) =>
             self.chan->Chan.destroy
             self.status = Destroyed
             resolve()
@@ -163,7 +171,7 @@ module Module: Module = {
   let onOutput = (self, callback) =>
     self.chan->Chan.on(output =>
       switch output {
-      | Event(OnExit(_, _, _, _)) =>
+      | Event(OnExit(_, _, _)) =>
         switch self.status {
         | Destroying(_) => () // triggered by `destroy`
         | _ => callback(output)

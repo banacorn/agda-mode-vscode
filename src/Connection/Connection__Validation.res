@@ -8,7 +8,9 @@ module Error = {
     | NotFound(string)
     | ShellError(Js.Exn.t)
     // error from the process' stderr
-    | ProcessError(string)
+    | FromStderr(string)
+    // from the process' `error` event
+    | FromOnError(string)
     // wrong invoked command
     | WrongProcess(string)
   let toString = x =>
@@ -18,7 +20,8 @@ module Error = {
 
     | NotFound(path) => "command not found: " ++ path
     | ShellError(error) => "shell: " ++ Util.JsError.toString(error)
-    | ProcessError(msg) => "stderr: " ++ msg
+    | FromStderr(msg) => "stderr: " ++ msg
+    | FromOnError(msg) => "on error: " ++ msg
     | WrongProcess(msg) => "wrong process: " ++ msg
     }
 }
@@ -49,24 +52,41 @@ let run3 = async (path, args): result<'a, Error.t> => {
   let process = Process.make(path, args)
   let (promise, resolve, _) = Util.Promise_.pending()
 
+  let stdout = ref("")
+  let stderr = ref("")
+
   let destructor = process->Process.onOutput(output =>
     switch output {
-    | Process.Stdout(output) => resolve(Ok(output))
-    | Process.Stderr(err) =>
-      resolve(
-        Error(
-          Error.ProcessError(
-            "Message from stderr when validating the program by running \"" ++
-            path ++
-            " --version\" :\n" ++
-            err,
-          ),
-        ),
-      )
-    | Process.Event(e) =>
-      resolve(Ok("hi")
-        // Error("Something occured when validating the program:\n" ++ Process.Event.toString(e)),
-      )
+    | Process.Stdout(output) => stdout := stdout.contents ++ output
+    | Process.Stderr(output) => stderr := stderr.contents ++ output
+    | Process.Event(OnDestroyed) => resolve(Ok(stdout.contents))
+    | Process.Event(OnExit(_, _, 0)) => resolve(Ok(stdout.contents))
+    | Process.Event(OnExit(_, _, exitCode)) =>
+      if stderr.contents != "" {
+        if Process.errorMessageIndicatesNotFound(stderr.contents) {
+          resolve(Error(Error.NotFound(path)))
+        } else {
+          resolve(Error(FromStderr(stderr.contents)))
+        }
+      } else {
+        resolve(Ok("stdout.contents [1], exited with " ++ string_of_int(exitCode) ++ ", stdout: " ++ stdout.contents))
+      }
+    | Process.Event(OnError(msg)) =>
+      if msg != "" {
+        if Process.errorMessageIndicatesNotFound(msg) {
+          resolve(Error(Error.NotFound(path)))
+        } else {
+          resolve(Error(FromOnError(msg)))
+        }
+      } else if stderr.contents != "" {
+        if Process.errorMessageIndicatesNotFound(stderr.contents) {
+          resolve(Error(Error.NotFound(path)))
+        } else {
+          resolve(Error(FromStderr(stderr.contents)))
+        }
+      } else {
+        resolve(Ok(stdout.contents))
+      }
     }
   )
 
@@ -108,7 +128,7 @@ let run = (path, args): promise<result<'a, Error.t>> => {
       // stderr
       let stderr = NodeJs.Buffer.toString(stderr)
       if stderr != "" {
-        resolve(Error(ProcessError(stderr)))
+        resolve(Error(FromStderr(stderr)))
       }
 
       // feed the stdout to the validator
@@ -149,7 +169,7 @@ let run2 = (path, args, validator: validator<'a>): promise<result<'a, Error.t>> 
         // stderr
         let stderr = NodeJs.Buffer.toString(stderr)
         if stderr != "" {
-          resolve(Error(ProcessError(stderr)))
+          resolve(Error(FromStderr(stderr)))
         }
 
         // feed the stdout to the validator

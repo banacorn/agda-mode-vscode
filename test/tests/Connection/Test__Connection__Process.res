@@ -17,7 +17,7 @@ describe("Process Interface", () => {
             | Stdout("hello\r\n") => ()
             | Stdout(output) => reject(Js.Exn.raiseError("wrong output: " ++ output))
             | Stderr(err) => resolve(Js.Exn.raiseError("Stderr: " ++ err))
-            | Event(OnExit(_, _, 0, _)) => resolve()
+            | Event(OnExit(_, _, 0)) => resolve()
             | Event(event) =>
               resolve(Js.Exn.raiseError("Event: " ++ Process.Event.toString(event)))
             }
