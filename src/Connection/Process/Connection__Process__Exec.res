@@ -9,7 +9,7 @@ module Error = {
     // error from the shell
     | NotFound(string)
     // error from the process' stderr
-    | FromStderr(string)
+    | FromStderr(option<int>, string)
     // from the process' `error` event
     | FromOnError(string)
   // wrong invoked command
@@ -19,7 +19,9 @@ module Error = {
     | ProcessHanging => "process hanging for more than 1 sec"
 
     | NotFound(path) => "command not found: " ++ path
-    | FromStderr(msg) => "stderr: " ++ msg
+    | FromStderr(None, msg) => "stderr: \"" ++ msg ++ "\""
+    | FromStderr(Some(exitCode), msg) =>
+      "stderr: \"" ++ msg ++ "\" with exit code: " ++ string_of_int(exitCode)
     | FromOnError(msg) => "on error: " ++ msg
     }
 }
@@ -53,15 +55,11 @@ let run = async (path, args): result<'a, Error.t> => {
     | Process.Event(OnDestroyed) => resolve(Ok(stdout.contents))
     | Process.Event(OnExit(0)) => resolve(Ok(stdout.contents))
     | Process.Event(OnExit(127)) => resolve(Error(Error.NotFound(path)))
-    | Process.Event(OnExit(_)) =>
-      if stderr.contents != "" {
-        if Process.errorMessageIndicatesNotFound(stderr.contents) {
-          resolve(Error(Error.NotFound(path)))
-        } else {
-          resolve(Error(FromStderr(stderr.contents)))
-        }
+    | Process.Event(OnExit(code)) =>
+      if Process.errorMessageIndicatesNotFound(stderr.contents) {
+        resolve(Error(Error.NotFound(path)))
       } else {
-        resolve(Ok(stdout.contents))
+        resolve(Error(FromStderr(Some(code), stderr.contents)))
       }
     | Process.Event(OnError(msg)) =>
       if msg != "" {
@@ -74,7 +72,7 @@ let run = async (path, args): result<'a, Error.t> => {
         if Process.errorMessageIndicatesNotFound(stderr.contents) {
           resolve(Error(Error.NotFound(path)))
         } else {
-          resolve(Error(FromStderr(stderr.contents)))
+          resolve(Error(FromStderr(None, stderr.contents)))
         }
       } else {
         resolve(Ok(stdout.contents))
