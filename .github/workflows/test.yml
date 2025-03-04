@@ -167,7 +167,7 @@ jobs:
       #     key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
      
       - name: 💾 Cache Agda in ${{ env.DIST  }}
-        if:   always() && steps.agda-artefacts.outputs.cache-hit != 'true'
+        if:   always() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outcome == 'failure')
         uses: actions/cache/save@v4
         with:
           path: ${{ env.DIST  }}
