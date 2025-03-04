@@ -75,6 +75,15 @@ jobs:
           restore-keys: |
               ${{ env.DIST  }}
         
+      - name: 💾 Restore VSCode from .vscode-test
+        id:   vscode
+        uses: actions/cache/restore@v4
+        with:
+          path: .vscode-test
+          key: .vscode-test
+          restore-keys: |
+              .vscode-test
+        
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v4
         with:
@@ -178,3 +187,10 @@ jobs:
             npm test
           fi
 
+      - name: 💾 Cache VSCode in .vscode-test
+        if:   always() && steps.vscode.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .vscode-test
+          key: ${{ steps.vscode.outputs.cache-primary-key }}
+    
