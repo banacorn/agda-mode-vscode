@@ -10,9 +10,9 @@ defaults:
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master, dev, ci-* ]
+    branches: [ master, dev, ci, ci-* ]
   pull_request:
-    branches: [ master, dev, ci-* ]
+    branches: [ master, dev, ci, ci-* ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
