@@ -1,3 +1,5 @@
+module Process = Connection__Process
+
 // module for validating a given path
 module Error = {
   type t =
@@ -48,7 +50,6 @@ let handleError = (command, error: Js.nullable<Js.Exn.t>): option<Error.t> =>
   })
 
 let run3 = async (path, args): result<'a, Error.t> => {
-  module Process = Connection__Target__Agda__Process
   let process = Process.make(path, args)
   let (promise, resolve, _) = Util.Promise_.pending()
 
@@ -60,9 +61,9 @@ let run3 = async (path, args): result<'a, Error.t> => {
     | Process.Stdout(output) => stdout := stdout.contents ++ output
     | Process.Stderr(output) => stderr := stderr.contents ++ output
     | Process.Event(OnDestroyed) => resolve(Ok(stdout.contents))
-    | Process.Event(OnExit(_, _, 0)) => resolve(Ok(stdout.contents))
-    | Process.Event(OnExit(_, _, 127)) => resolve(Error(Error.NotFound(path)))
-    | Process.Event(OnExit(_, _, _)) =>
+    | Process.Event(OnExit(0)) => resolve(Ok(stdout.contents))
+    | Process.Event(OnExit(127)) => resolve(Error(Error.NotFound(path)))
+    | Process.Event(OnExit(_)) =>
       if stderr.contents != "" {
         if Process.errorMessageIndicatesNotFound(stderr.contents) {
           resolve(Error(Error.NotFound(path)))

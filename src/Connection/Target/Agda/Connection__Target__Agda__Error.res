@@ -1,4 +1,4 @@
-module Process = Connection__Target__Agda__Process
+module Process = Connection__Process
 
 type t =
   | ConnectionViaTCPNotSupported

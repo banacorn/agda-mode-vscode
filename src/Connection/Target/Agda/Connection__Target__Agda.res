@@ -1,6 +1,6 @@
 module Error = Connection__Target__Agda__Error
 module Scheduler = Connection__Scheduler
-module Process = Connection__Target__Agda__Process
+module Process = Connection__Process
 
 module ProcInfo: {
   type t = {
@@ -42,7 +42,14 @@ module ProcInfo: {
           }
         }
       | Process.Stderr(err) =>
-        resolve(Error("Message from stderr when validating the program by running \"" ++ path ++ " --version\" :\n" ++ err))
+        resolve(
+          Error(
+            "Message from stderr when validating the program by running \"" ++
+            path ++
+            " --version\" :\n" ++
+            err,
+          ),
+        )
       | Process.Event(e) =>
         resolve(
           Error("Something occured when validating the program:\n" ++ Process.Event.toString(e)),

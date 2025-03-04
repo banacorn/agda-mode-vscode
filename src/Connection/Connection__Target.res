@@ -1,6 +1,7 @@
 module IPC = Connection__IPC
 module Error = Connection__Error
 module URI = Connection__URI
+module Process = Connection__Process
 
 module Module: {
   type version = string
@@ -51,8 +52,6 @@ module Module: {
     | URI.URL(_url) => Error(Error.CannotHandleURLsATM(URI.toString(uri)))
     | Filepath(path) =>
       // see if it's a valid Agda executable or language server
-      module Process = Connection__Target__Agda__Process
-
       let result = await Connection__Validation.run3(path, ["--version"])
       // let result = await Connection__Validation.run(path, ["--version"])
       switch result {

@@ -8,13 +8,13 @@ module Event = {
   type t =
     | OnDestroyed // on `disconnect` (destroyed by the user)
     | OnError(string) // on `error`
-    | OnExit(path, args, exitCode) // on `exit` or `close`
+    | OnExit(exitCode) // on `exit` or `close`
 
   let toString = x =>
     switch x {
     | OnDestroyed => "Process destroyed"
     | OnError(error) => error
-    | OnExit(_, _, code) => "Process exited with code " ++ string_of_int(code)
+    | OnExit(code) => "Process exited with code " ++ string_of_int(code)
     }
 }
 
@@ -93,19 +93,19 @@ module Module: Module = {
       ->NodeJs.ChildProcess.stdin
       ->Option.forEach(stream =>
         stream
-        ->NodeJs.Stream.Writable.onClose(() => resolve((path, args, 0)))
+        ->NodeJs.Stream.Writable.onClose(() => resolve(0))
         ->ignore
       )
 
       process
-      ->NodeJs.ChildProcess.onClose(code => resolve((path, args, code)))
+      ->NodeJs.ChildProcess.onClose(code => resolve(code))
       ->ignore
     })
 
     // on errors and anomalies
     let promiseOnExit = Promise.make((resolve, _) => {
       process
-      ->NodeJs.ChildProcess.onExit(code => resolve((path, args, code)))
+      ->NodeJs.ChildProcess.onExit(code => resolve(code))
       ->ignore
     })
 
@@ -118,8 +118,8 @@ module Module: Module = {
 
     // emit `OnExit` when either `close` or `exit` was received
     Promise.race([promiseOnExit, promiseOnClose])
-    ->Promise.thenResolve(((path, args, exitCode)) => {
-      chan->Chan.emit(Event(OnExit(path, args, exitCode)))
+    ->Promise.thenResolve(exitCode => {
+      chan->Chan.emit(Event(OnExit(exitCode)))
     })
     ->ignore
 
@@ -135,7 +135,7 @@ module Module: Module = {
         // listen to the `exit` event
         let _ = self.chan->Chan.on(x =>
           switch x {
-          | Event(OnExit(_, _, _)) =>
+          | Event(OnExit(_)) =>
             self.chan->Chan.destroy
             self.status = Destroyed
             resolve()
@@ -171,7 +171,7 @@ module Module: Module = {
   let onOutput = (self, callback) =>
     self.chan->Chan.on(output =>
       switch output {
-      | Event(OnExit(_, _, _)) =>
+      | Event(OnExit(_)) =>
         switch self.status {
         | Destroying(_) => () // triggered by `destroy`
         | _ => callback(output)
