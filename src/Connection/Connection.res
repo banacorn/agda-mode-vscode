@@ -83,7 +83,7 @@ module Module: Module = {
     switch target {
     | Agda(version, path) =>
       let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
-      switch await Agda.make(method) {
+      switch await Agda.make(method, version, path) {
       | Error(error) => Error(Error.Agda(error, path))
       | Ok(conn) => Ok(Agda(conn, Agda(version, path)))
       }

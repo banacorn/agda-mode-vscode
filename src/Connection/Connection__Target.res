@@ -8,26 +8,11 @@ module Module: {
   type t =
     | Agda(version, string) // Agda version, path
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
-  // try to find the Agda Language Server
-  // let tryALS: (
-  //   State__Memento.t,
-  //   string,
-  //   Resolver.GitHub.Download.Event.t => unit,
-  // ) => promise<(option<IPC.t>, array<Resolver.Error.t>)>
-  // try to find the Agda executable
 
-  // download the Agda Language Server from GitHub
-  // let downloadALS: (
-  //   State__Memento.t,
-  //   string,
-  //   Resolver.GitHub.Download.Event.t => unit,
-  // ) => promise<result<(bool, Resolver.GitHub.Target.t), Resolver.GitHub.Error.t>>
+  // see if it's a Agda executable or a language server
+  let probeFilepath: string => promise<result<t, Error.t>>
 
-  // let afterDownloadALS: (bool, (string, 'a)) => unit => promise<unit>
-
-  // let tryAgda: unit => promise<(option<IPC.t>, array<Resolver.Error.t>)>
-
-  // fro URI to Target
+  // from URI to Target
   let fromURI: URI.t => promise<result<t, Error.t>>
   let fromURIs: array<URI.t> => promise<array<result<t, Error.t>>>
   // from Target to URI
@@ -47,53 +32,57 @@ module Module: {
     | Agda(version, string) // Agda version, path
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
 
+  // see if it's a Agda executable or a language server
+  let probeFilepath = async path => {
+    let result = await Connection__Process__Exec.run(path, ["--version"])
+    switch result {
+    | Ok(output) =>
+      // try Agda
+      switch String.match(output, %re("/Agda version (.*)/")) {
+      | Some([_, Some(version)]) => Ok(Agda(version, path))
+      | _ =>
+        // try ALS
+        switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+        | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+          // the executable needs to be accompanied by a `data` directory
+          // which can be specified by the environment variable "Agda_datadir"
+          // prebuilt executables on GitHub have this directory placed alongside the executable
+          let prebuildDataDirPath = NodeJs.Path.join([path, "..", "data"])
+          let isPrebuilt = switch await NodeJs.Fs.access(prebuildDataDirPath) {
+          | () => true
+          | exception _ => false
+          }
+          let lspOptions = if isPrebuilt {
+            let assetPath = NodeJs.Path.join([path, "..", "data"])
+            let env = Dict.fromArray([("Agda_datadir", assetPath)])
+            Some({
+              Connection__Target__ALS__LSP__Binding.env: env,
+            })
+          } else {
+            None
+          }
+
+          Ok(
+            ALS(
+              alsVersion,
+              agdaVersion,
+              Ok(Connection__IPC.ViaPipe(path, [], lspOptions, Connection__IPC.FromFile(path))),
+            ),
+          )
+        | _ => Error(Error.NotAgdaOrALS(path))
+        }
+      }
+    | Error(error) => Error(Error.ValidationError(path, error))
+    }
+  }
+
   let fromURI = async uri =>
     switch uri {
     | URI.URL(_url) => Error(Error.CannotHandleURLsATM(URI.toString(uri)))
     | Filepath(path) =>
-      // see if it's a valid Agda executable or language server
-      let result = await Connection__Validation.run3(path, ["--version"])
-      // let result = await Connection__Validation.run(path, ["--version"])
-      switch result {
-      | Ok(output) =>
-        // try Agda
-        switch String.match(output, %re("/Agda version (.*)/")) {
-        | Some([_, Some(version)]) => Ok(Agda(version, path))
-        | _ =>
-          // try ALS
-          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
-          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-            // the executable needs to be accompanied by a `data` directory
-            // which can be specified by the environment variable "Agda_datadir"
-            // prebuilt executables on GitHub have this directory placed alongside the executable
-            let prebuildDataDirPath = NodeJs.Path.join([path, "..", "data"])
-            let isPrebuilt = switch await NodeJs.Fs.access(prebuildDataDirPath) {
-            | () => true
-            | exception _ => false
-            }
-            let lspOptions = if isPrebuilt {
-              let assetPath = NodeJs.Path.join([path, "..", "data"])
-              let env = Dict.fromArray([("Agda_datadir", assetPath)])
-              Some({
-                Connection__Target__ALS__LSP__Binding.env: env,
-              })
-            } else {
-              None
-            }
-
-            Ok(
-              ALS(
-                alsVersion,
-                agdaVersion,
-                Ok(Connection__IPC.ViaPipe(path, [], lspOptions, Connection__IPC.FromFile(path))),
-              ),
-            )
-          | _ =>
-            Js.log("output of NotAgdaOrALS: " ++ output)
-            Error(Error.NotAgdaOrALS(path))
-          }
-        }
-      | Error(error) => Error(Error.ValidationError(path, error))
+      switch await probeFilepath(path) {
+      | Ok(target) => Ok(target)
+      | Error(error) => Error(error)
       }
     }
 

@@ -90,10 +90,7 @@ let sendRequest = async (
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
     switch await Connection.sendRequest(connection, state.document, request, onResponse) {
-    | Error(error) => 
-      let (header, body) = Connection.Error.toString(error)
-      Js.log("Error from sendRequestAndHandleResponses: " ++ header ++ " : " ++ body)
-      await connectionErrorHandler(state, dispatchCommand, error)
+    | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(status) =>
       // display the connection status
       await State__View.Panel.displayConnectionStatus(state, status)

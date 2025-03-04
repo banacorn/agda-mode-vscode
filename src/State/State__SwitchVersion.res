@@ -241,7 +241,7 @@ let rec run = async state => {
       }
     | Error(Connection__Error.ValidationError(path, error)) => {
         VSCode.QuickPickItem.label: "$(error)  Error",
-        description: Connection__Validation.Error.toString(error),
+        description: Connection__Process__Exec.Error.toString(error),
         detail: path,
       }
     | Error(CannotHandleURLsATM(url)) => {

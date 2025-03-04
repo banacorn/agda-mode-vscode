@@ -2,86 +2,10 @@ module Error = Connection__Target__Agda__Error
 module Scheduler = Connection__Scheduler
 module Process = Connection__Process
 
-module ProcInfo: {
-  type t = {
-    path: string,
-    args: array<string>,
-    version: string,
-  }
-  let make: (string, array<string>) => promise<result<t, Error.t>>
-  let toString: t => string
-} = {
-  type t = {
-    path: string,
-    args: array<string>,
-    version: string,
-  }
-
-  // a more sophiscated "make"
-  let make = async (path, args): result<t, Error.t> => {
-    let process = Process.make(path, ["--version"])
-    let (promise, resolve, _) = Util.Promise_.pending()
-
-    let destructor = process->Process.onOutput(output =>
-      switch output {
-      | Process.Stdout(output) =>
-        switch String.match(output, %re("/Agda version (.*)/")) {
-        | None => resolve(Error("Cannot read Agda version"))
-        | Some(match_) =>
-          switch match_[1] {
-          | None => resolve(Error("Cannot read Agda version"))
-          | Some(None) => resolve(Error("Cannot read Agda version"))
-          | Some(Some(version)) =>
-            resolve(
-              Ok({
-                path,
-                args,
-                version,
-              }),
-            )
-          }
-        }
-      | Process.Stderr(err) =>
-        resolve(
-          Error(
-            "Message from stderr when validating the program by running \"" ++
-            path ++
-            " --version\" :\n" ++
-            err,
-          ),
-        )
-      | Process.Event(e) =>
-        resolve(
-          Error("Something occured when validating the program:\n" ++ Process.Event.toString(e)),
-        )
-      }
-    )
-
-    let result = await promise
-    destructor()
-    switch result {
-    | Error(e) => Error(Error.Validation(e))
-    | Ok(x) => Ok(x)
-    }
-  }
-
-  // for making error report
-  let toString = self => {
-    let path = "* path: " ++ self.path
-    let args = "* args: " ++ Util.Pretty.array(self.args)
-    let version = "* version: " ++ self.version
-    let os = "* platform: " ++ NodeJs.Os.platform()
-
-    "## Parse Log" ++
-    ("\n" ++
-    (path ++ ("\n" ++ (args ++ ("\n" ++ (version ++ ("\n" ++ (os ++ "\n"))))))))
-  }
-}
-
 module type Module = {
   type t
   // lifecycle
-  let make: Connection__IPC.t => promise<result<t, Error.t>>
+  let make: (Connection__IPC.t, string, string) => promise<result<t, Error.t>>
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
@@ -90,8 +14,10 @@ module type Module = {
 
 module Module: Module = {
   type t = {
-    procInfo: ProcInfo.t,
+    // procInfo: ProcInfo.t,
     process: Process.t,
+    version: string,
+    path: string,
     chan: Chan.t<result<Parser.Incr.Gen.t<Response.Prioritized.t>, Error.t>>,
     mutable encountedFirstPrompt: bool,
   }
@@ -164,23 +90,21 @@ module Module: Module = {
       )->Some
   }
 
-  let make = async method =>
+  let make = async (method, version, path) =>
     switch method {
     | Connection__IPC.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
-    | ViaPipe(path, _, _, _) =>
+    | ViaPipe(_, _, _, _) =>
       let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
-      switch await ProcInfo.make(path, args) {
-      | Error(e) => Error(e)
-      | Ok(procInfo) =>
-        let conn = {
-          procInfo,
-          process: Process.make(procInfo.path, procInfo.args),
-          chan: Chan.make(),
-          encountedFirstPrompt: false,
-        }
-        wire(conn)
-        Ok(conn)
+      let conn = {
+        // procInfo,
+        process: Process.make(path, args),
+        version,
+        path,
+        chan: Chan.make(),
+        encountedFirstPrompt: false,
       }
+      wire(conn)
+      Ok(conn)
     }
 
   let onResponse = async (conn, callback) => {
@@ -235,7 +159,7 @@ module Module: Module = {
     promise
   }
 
-  let getInfo = conn => (conn.procInfo.version, conn.procInfo.path)
+  let getInfo = conn => (conn.version, conn.path)
 }
 
 include Module

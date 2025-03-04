@@ -7,7 +7,7 @@ type t =
   | CommandsNotFound(array<(string, Connection__Command__Search.Error.t)>)
   | CannotHandleURLsATM(string)
   | NotAgdaOrALS(string)
-  | ValidationError(string, Connection__Validation.Error.t)
+  | ValidationError(string, Connection__Process__Exec.Error.t)
   // Download
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
   | CannotDownloadALS(Connection__Download__GitHub.Error.t)
@@ -50,5 +50,5 @@ let toString = x =>
       "Not Agda or Agda Language Server",
       "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server",
     )
-  | ValidationError(_, e) => ("Error", Connection__Validation.Error.toString(e))
+  | ValidationError(_, e) => ("Error", Connection__Process__Exec.Error.toString(e))
   }
