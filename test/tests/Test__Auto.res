@@ -83,18 +83,22 @@ let run = normalization => {
   })
 }
 
-describe_skip("agda-mode.auto[AsIs]", () => {
-  run(AsIs)
-})
+describe("agda-mode.auto", () => {
+  This.timeout(4000) // it takes more than 2000ms sometimes
 
-describe_skip("agda-mode.auto[Simplified]", () => {
-  run(Simplified)
-})
+  describe("AsIs", () => {
+    run(AsIs)
+  })
 
-describe_skip("agda-mode.auto[Normalised]", () => {
-  run(Normalised)
-})
+  describe("Simplified", () => {
+    run(Simplified)
+  })
 
-describe_skip("agda-mode.auto[HeadNormal]", () => {
-  run(HeadNormal)
+  describe("Normalised", () => {
+    run(Normalised)
+  })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })
