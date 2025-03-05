@@ -16,7 +16,7 @@ describe("Connection", () => {
       "should be able to parse file paths",
       async () => {
         let actual = Connection__URI.parse("path/to/als")
-        let expected = if Util.onUnix {
+        let expected = if OS.onUnix {
           Connection__URI.Filepath("path/to/als")
         } else {
           Connection__URI.Filepath("path\\to\\als")
@@ -29,7 +29,7 @@ describe("Connection", () => {
       "should be able to parse convert \"/c/path/to/agda\" to \"c:/path/to/agda\" on Windows",
       async () => {
         let actual = Connection__URI.parse("/c/path/to/agda")
-        let expected = if Util.onUnix {
+        let expected = if OS.onUnix {
           Connection__URI.Filepath("/c/path/to/agda")
         } else {
           Connection__URI.Filepath("c:\\path\\to\\agda")
@@ -38,7 +38,7 @@ describe("Connection", () => {
         Assert.deepEqual(actual, expected)
 
         let actual = Connection__URI.parse("/d/path/to/agda")
-        let expected = if Util.onUnix {
+        let expected = if OS.onUnix {
           Connection__URI.Filepath("/d/path/to/agda")
         } else {
           Connection__URI.Filepath("d:\\path\\to\\agda")
@@ -95,7 +95,7 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = if Util.onUnix {
+        let expected = if OS.onUnix {
           Error([
             Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
             Connection.Error.ValidationError("path/to/als", NotFound("path/to/als")),
@@ -126,7 +126,7 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = if Util.onUnix {
+        let expected = if OS.onUnix {
           Error([
             Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
             Connection.Error.ValidationError("path/to/als", NotFound("path/to/als")),

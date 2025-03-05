@@ -453,7 +453,7 @@ module Target = {
     // given a version and the desired name of the executable, create a mock Agda executable and returns the path
     let mock = async (~version, ~name) => {
       // creates a executable with nodejs
-      let (path, content) = if Util.onUnix {
+      let (path, content) = if OS.onUnix {
         (
           NodeJs.Path.resolve([name]),
           "#!/usr/bin/env node\nconsole.log('Agda version " ++ version ++ "')",

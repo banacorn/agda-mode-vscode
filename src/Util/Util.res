@@ -1,13 +1,12 @@
+//
+//  WARNING: No Node.js API calls are allowed in this module, because it is being imported by the View modules, which are sandboxed in a special environment.
+//
+
 module Disposable = {
   // Swap of Array.push
   let add = (disposables, disposable) => {
     Array.push(disposable, disposables)
   }
-}
-
-let onUnix = switch NodeJs.Os.type_() {
-| "Windows_NT" => false
-| _ => true
 }
 
 module Result = {
