@@ -26,7 +26,7 @@ module Error = {
     }
 }
 
-let run = async (path, args): result<'a, Error.t> => {
+let run = async (path, args, ~timeout=10000): result<'a, Error.t> => {
   let process = Process.make(path, args)
   let (promise, resolve, _) = Util.Promise_.pending()
 
@@ -35,9 +35,9 @@ let run = async (path, args): result<'a, Error.t> => {
     resolve(Error(Error.PathMalformed("the path must not be empty")))
   }
 
-  // reject if the process hasn't responded for more than 20 second
+  // reject if the process hasn't responded for more than `timeout` milliseconds
   let hangTimeout = ref(
-    Some(Js.Global.setTimeout(() => resolve(Error(Error.ProcessHanging)), 20000)),
+    Some(Js.Global.setTimeout(() => resolve(Error(Error.ProcessHanging)), timeout)),
   )
 
   let stdout = ref("")
