@@ -200,7 +200,7 @@ module Module: Module = {
       // determine the platform
       let platform = switch NodeJs.Os.platform() {
       | "darwin" =>
-        switch NodeJs.Os.arch {
+        switch NodeJs.Os.arch() {
         | "x64" => Some("macos-x64")
         | "arm64" => Some("macos-arm64")
         | _ => None

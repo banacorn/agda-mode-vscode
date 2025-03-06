@@ -44,7 +44,7 @@
 		"react": "^18.0.0",
 		"react-dom": "^18.0.0",
 		"rescript": "^11.1.4",
-		"rescript-nodejs": "^16.1.0",
+		"rescript-nodejs": "github:banacorn/rescript-nodejs#3db4de107a442d6a5c9b1406032ef6afbe18d8f5",
 		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.34",
 		"rescript-webapi": ">=0.2.0",
 		"untildify": "^4.0.0",
