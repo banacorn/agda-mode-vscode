@@ -40,3 +40,10 @@ let toString = path =>
   | Filepath(path) => NodeJs.Path.normalize(path)
   | URL(url) => url.toString()
   }
+
+let equal = (x, y) =>
+  switch (x, y) {
+  | (Filepath(x), Filepath(y)) => x == y
+  | (URL(x), URL(y)) => x.toString() == y.toString()
+  | _ => false
+  }

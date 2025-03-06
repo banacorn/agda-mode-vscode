@@ -75,10 +75,6 @@ module Progress = {
             promise // return a promise that resolves after the download progress hits 100%
           },
         )->ignore
-
-      // progressRef.contents->Option.forEach(progress =>
-      //   progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)})
-      // )
       | Event.Progress(accum, total) =>
         let percentageNew = int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0)
 

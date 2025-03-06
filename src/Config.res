@@ -67,7 +67,8 @@ module Connection = {
   // no-op if it's already in the list
   let addAgdaPath = path => {
     let paths = getAgdaPaths()
-    let alreadyExists = paths->Array.reduce(false, (acc, p) => acc || p === path)
+    let alreadyExists =
+      paths->Array.reduce(false, (acc, p) => acc || Connection__URI.equal(p, path))
 
     if alreadyExists {
       Promise.resolve()
