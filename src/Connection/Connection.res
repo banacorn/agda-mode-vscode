@@ -253,6 +253,7 @@ module Module: Module = {
               saveAsFileName: "latest-als",
             })
             ->Array.get(0)
+
           switch result {
           | None => Error(Error.CannotFindCompatibleALSRelease)
           | Some(target) => Ok(target)
@@ -270,12 +271,12 @@ module Module: Module = {
     }
 
     // download the latest ALS
-    let download = async (memento, globalStoragePath, onDownload, target) => {
+    let download = async (memento, globalStoragePath, reportProgress, target) => {
       switch await Connection__Download__GitHub.download(
         target,
         memento,
         globalStoragePath,
-        onDownload,
+        reportProgress,
       ) {
       | Error(e) => Error(e)
       | Ok(_isCached) =>
@@ -292,14 +293,14 @@ module Module: Module = {
   let isLatestALSDownloaded = globalStorageUri =>
     LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
 
-  let downloadLatestALS = async (memento, globalStorageUri, progressCallback) => {
+  let downloadLatestALS = async (memento, globalStorageUri, reportProgress) => {
     switch await LatestALS.getTarget(memento, globalStorageUri) {
     | Error(error) => Error(error)
     | Ok(target) =>
       switch await LatestALS.download(
         memento,
         VSCode.Uri.fsPath(globalStorageUri),
-        progressCallback,
+        reportProgress,
         target,
       ) {
       | Error(e) => Error(Error.CannotDownloadALS(e))

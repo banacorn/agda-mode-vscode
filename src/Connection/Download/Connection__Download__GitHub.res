@@ -605,7 +605,7 @@ module Module: {
   //   }
   // }
 
-  let download = async (target: Target.t, memento, globalStoragePath, onDownload) => {
+  let download = async (target: Target.t, memento, globalStoragePath, reportProgress) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",
@@ -624,7 +624,7 @@ module Module: {
       if NodeJs.Fs.existsSync(destPath) {
         Ok(true)
       } else {
-        switch await downloadLanguageServer(repo, onDownload, target) {
+        switch await downloadLanguageServer(repo, reportProgress, target) {
         | Error(error) => Error(error)
         | Ok() =>
           // chmod the executable after download

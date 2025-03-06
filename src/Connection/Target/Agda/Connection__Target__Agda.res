@@ -14,7 +14,6 @@ module type Module = {
 
 module Module: Module = {
   type t = {
-    // procInfo: ProcInfo.t,
     process: Process.t,
     version: string,
     path: string,

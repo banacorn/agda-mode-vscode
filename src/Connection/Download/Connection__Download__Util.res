@@ -57,27 +57,28 @@ module Progress = {
     // only resolves after the download progress hits 100% or the promise is rejected
     let (promise, resolve, _) = Util.Promise_.pending()
 
-    // instantiate the progress bar and steal the progess report function
-    VSCode.Window.withProgress(
-      {
-        location: VSCode.ProgressLocation.Notification,
-        title: "Downloading " ++ name,
-      },
-      (progress, _cancellationToken) => {
-        progressRef := Some(progress) // steal the progress report function
-        promise // return a promise that resolves after the download progress hits 100%
-      },
-    )->ignore
-
     // for keeping track of the download progress
     let percentage = ref(0)
 
     event =>
       switch event {
       | Event.Start =>
-        progressRef.contents->Option.forEach(progress =>
-          progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)})
-        )
+        // instantiate the progress bar and steal the progess report function
+        VSCode.Window.withProgress(
+          {
+            location: VSCode.ProgressLocation.Notification,
+            title: "Downloading " ++ name,
+          },
+          (progress, _cancellationToken) => {
+            progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)}) // set the progress bar to 0%
+            progressRef := Some(progress) // steal the progress report function
+            promise // return a promise that resolves after the download progress hits 100%
+          },
+        )->ignore
+
+      // progressRef.contents->Option.forEach(progress =>
+      //   progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)})
+      // )
       | Event.Progress(accum, total) =>
         let percentageNew = int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0)
 

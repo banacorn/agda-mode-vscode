@@ -279,7 +279,6 @@ let rec run = async state => {
   qp->QP.render
 
   // downloadable"
-  // let latestALS = await LatestALS.getTarget(state)
 
   // events
   qp.quickPick
