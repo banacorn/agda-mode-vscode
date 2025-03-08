@@ -239,22 +239,20 @@ let rec run = async state => {
         | Ok(ViaPipe(path, _, _, _)) => path
         },
       }
-    | Error(Connection__Error.ValidationError(path, error)) => {
+    // | Error(Connection__Error.ValidationError(path, error)) => {
+    //     VSCode.QuickPickItem.label: "$(error)  Error",
+    //     description: Connection__Process__Exec.Error.toString(error),
+    //     detail: path,
+    //   }
+    // | Error(CannotHandleURLsATM(url)) => {
+    //     VSCode.QuickPickItem.label: "$(question)  Error",
+    //     description: "cannot handle URLs at the moment",
+    //     detail: url,
+    //   }
+    | Error(error) => {
         VSCode.QuickPickItem.label: "$(error)  Error",
-        description: Connection__Process__Exec.Error.toString(error),
-        detail: path,
-      }
-    | Error(CannotHandleURLsATM(url)) => {
-        VSCode.QuickPickItem.label: "$(question)  Error",
-        description: "cannot handle URLs at the moment",
-        detail: url,
-      }
-    | Error(error) =>
-      let (header, body) = Connection.Error.toString(error)
-      {
-        VSCode.QuickPickItem.label: "$(error)  Error",
-        description: header,
-        detail: body,
+        description: "",
+        detail: Connection__Target.Error.toString(error),
       }
     }
 

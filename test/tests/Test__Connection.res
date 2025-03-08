@@ -97,13 +97,13 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if OS.onUnix {
           Error([
-            Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
-            Connection.Error.ValidationError("path/to/als", NotFound("path/to/als")),
+            Connection__Target.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
+            Connection__Target.Error.ValidationError("path/to/als", NotFound("path/to/als")),
           ])
         } else {
           Error([
-            Connection.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
-            Connection.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
+            Connection__Target.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
+            Connection__Target.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
           ])
         }
 
@@ -128,13 +128,13 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if OS.onUnix {
           Error([
-            Connection.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
-            Connection.Error.ValidationError("path/to/als", NotFound("path/to/als")),
+            Connection__Target.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
+            Connection__Target.Error.ValidationError("path/to/als", NotFound("path/to/als")),
           ])
         } else {
           Error([
-            Connection.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
-            Connection.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
+            Connection__Target.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
+            Connection__Target.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
           ])
         }
 

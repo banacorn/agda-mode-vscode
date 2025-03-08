@@ -4,6 +4,18 @@ module ALS = Connection__Target__ALS
 module Target = Connection__Target
 module URI = Connection__URI
 
+// Steps for connecting to Agda or ALS:
+// 1. Go through the list of targets in the configuration, use the first one that works
+// 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
+// 3. Try the `als` command, add it to the list of targets if it works, else proceed to 4.
+// 4. See if the platform is supported:
+//      No  : exit with the `PlatformNotSupported` error ❌
+//      Yes : proceed to 5.
+// 5. Check the download policy:
+//      Undecided : ask the user if they want to download ALS or not, go back to 5.
+//      No        : exit with the `NoDownloadALS` error ❌
+//      Yes       : download the ALS, add it to the list of targets if it works, exit with the `DownloadALS` error ❌
+
 module type Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
   // lifecycle
@@ -120,7 +132,12 @@ module Module: Module = {
       }
     switch await step(list{}, commands) {
     | Error(errorPairs) => Error(Error.CommandsNotFound(List.toArray(errorPairs)))
-    | Ok(path) => await Target.fromRawPath(path) // try to convert the path to a target for connection
+    | Ok(path) =>
+      // try to convert the path to a target for connection
+      switch await Target.fromRawPath(path) {
+      | Ok(target) => Ok(target)
+      | Error(error) => Error(Target(error))
+      }
     }
   }
 
@@ -130,9 +147,9 @@ module Module: Module = {
     commands: array<string>,
   ) =>
     switch await Target.getPicked(memento, paths) {
-    | Error(errors) =>
+    | Error(targetErrors) =>
       switch await findCommands(commands) {
-      | Error(error) => Error(error)
+      | Error(commandErrors) => Error(commandErrors)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(target->Target.toURI)
         await start_(target)

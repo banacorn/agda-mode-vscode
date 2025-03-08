@@ -5,9 +5,7 @@ type t =
   | ALS(Connection__Target__ALS__Error.t)
   // Connection
   | CommandsNotFound(array<(string, option<Connection__Process__Exec.Error.t>)>)
-  | CannotHandleURLsATM(string)
-  | NotAgdaOrALS(string)
-  | ValidationError(string, Connection__Process__Exec.Error.t)
+  | Target(Connection__Target.Error.t)
   // Download
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
   | CannotDownloadALS(Connection__Download__GitHub.Error.t)
@@ -46,15 +44,7 @@ let toString = x =>
       "Failed download the Agda Language Server",
       Connection__Download__GitHub.Error.toString(e),
     )
-  | CannotHandleURLsATM(_) => (
-      "Cannot handle URLs at the moment",
-      "This will be supported again in the future",
-    )
-  | NotAgdaOrALS(path) => (
-      "Not Agda or Agda Language Server",
-      "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server",
-    )
-  | ValidationError(_, e) => ("Error", Connection__Process__Exec.Error.toString(e))
+  | Target(e) => ("Error", Connection__Target.Error.toString(e))
   }
 
 module Aggregated = {
@@ -64,7 +54,7 @@ module Aggregated = {
   }
 
   type targetAttempt = {
-    uri: Connection.URI.t,
+    uri: Connection__URI.t,
     error: t,
   }
 
@@ -89,17 +79,6 @@ module Aggregated = {
     snd(toString(CommandsNotFound([("als", Some(attempts.agda.error))])))
   }
 
-  // Steps for connecting to Agda or ALS:
-  // 1. Go through the list of targets in the configuration, use the first one that works
-  // 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
-  // 3. Try the `als` command, add it to the list of targets if it works, else proceed to 4.
-  // 4. See if the platform is supported:
-  //      No  : exit with the `PlatformNotSupported` error ❌
-  //      Yes : proceed to 5.
-  // 5. Check the download policy:
-  //      Undecided : ask the user if they want to download ALS or not, go back to 5.
-  //      No        : exit with the `NoDownloadALS` error ❌
-  //      Yes       : download the ALS, add it to the list of targets if it works, exit with the `DownloadALS` error ❌
   type t =
     | PlatformNotSupported(attempts, string)
     | NoDownloadALS(attempts)

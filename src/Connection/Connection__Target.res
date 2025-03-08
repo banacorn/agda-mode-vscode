@@ -1,7 +1,25 @@
 module IPC = Connection__IPC
-module Error = Connection__Error
 module URI = Connection__URI
 module Process = Connection__Process
+
+module Error = {
+  type t =
+    | NotAgdaOrALS(string)
+    | ValidationError(string, Connection__Process__Exec.Error.t)
+    | CannotHandleURLsATM(string)
+
+  let toString = x =>
+    switch x {
+    | CannotHandleURLsATM(_) => // "Cannot handle URLs at the moment",
+      "Cannot handle URLs at the moment, this will be supported again in the future"
+
+    | NotAgdaOrALS(path) =>
+      // "Not Agda or Agda Language Server",
+      "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server"
+
+    | ValidationError(_, e) => Connection__Process__Exec.Error.toString(e)
+    }
+}
 
 module Module: {
   type version = string
@@ -24,7 +42,6 @@ module Module: {
 
   // configuration
   let getPicked: (State__Memento.t, array<Connection__URI.t>) => promise<result<t, array<Error.t>>>
-  // let getPicked: (State__Memento.t, array<string>) => promise<option<t>>
   let setPicked: (State__Memento.t, option<t>) => promise<unit>
 } = {
   type version = string
