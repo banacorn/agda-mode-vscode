@@ -184,19 +184,16 @@ describe("Connection", () => {
     Async.it(
       "should be able to find itself (`which` or `where`)",
       async () => {
-        switch NodeJs.Os.type_() {
-        | "Linux"
-        | "Darwin" =>
+        if OS.onUnix {
           switch await Connection__Command__Search.search("which") {
           | Ok(_output) => ()
           | Error(_) => failwith("expected to find `which`")
           }
-        | "Windows_NT" =>
+        } else {
           switch await Connection__Command__Search.search("where") {
           | Ok(_output) => ()
           | Error(_) => failwith("expected to find `where`")
           }
-        | _ => failwith("OS not supported")
         }
       },
     )
@@ -253,7 +250,8 @@ describe("Connection", () => {
 
         let memento = State__Memento.make(None)
         let commands = ["agda", "als"]
-        switch await Connection.make(memento, paths, commands) {
+        let platform = await Connection__Download__Platform.determine()
+        switch await Connection.make(memento, paths, commands, platform) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -291,7 +289,8 @@ describe("Connection", () => {
 
         let memento = State__Memento.make(None)
         let commands = ["agda", "als"]
-        switch await Connection.make(memento, paths, commands) {
+        let platform = await Connection__Download__Platform.determine()
+        switch await Connection.make(memento, paths, commands, platform) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -324,7 +323,8 @@ describe("Connection", () => {
 
         let memento = State__Memento.make(None)
         let commands = ["agda", "als"]
-        switch await Connection.make(memento, paths, commands) {
+        let platform = await Connection__Download__Platform.determine()
+        switch await Connection.make(memento, paths, commands, platform) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)

@@ -104,7 +104,8 @@ let sendRequest = async (
 
   switch state.connection {
   | None =>
-    switch await Connection.make(state.memento, Config.Connection.getAgdaPaths(), ["als", "agda"]) {
+    let platform = await Connection__Download__Platform.determine()
+    switch await Connection.make(state.memento, Config.Connection.getAgdaPaths(), ["als", "agda"], platform) {
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>
       state.connection = Some(connection)

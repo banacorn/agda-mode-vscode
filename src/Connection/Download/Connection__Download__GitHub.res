@@ -332,50 +332,6 @@ let chmodExecutable = async path =>
   | exception Exn.Error(_) => Error(Error.CannotChmodFile(path))
   }
 
-// module for determining the which OS the user is using
-// see https://github.com/retrohacker/getos for more
-module Platform = {
-  type t = {"os": string, "dist": string, "codename": string, "release": string}
-
-  @module
-  external getos: (('e, t) => unit) => unit = "getos"
-
-  let determine = (): promise<t> => {
-    let (promise, resolve, reject) = Util.Promise_.pending()
-    getos((e, os) => {
-      let e = Js.Nullable.toOption(e)
-      switch e {
-      | Some(e) => reject(e)
-      | None => resolve(os)
-      }
-    })
-    promise
-  }
-
-  // type t = Windows | MacOS | Ubuntu | Others(string, GetOs.t)
-
-  // let determine = async () =>
-  //   switch NodeJs.Os.platform() {
-  //   | "darwin" => Ok(MacOS)
-  //   | "linux" =>
-  //     // determine the distro
-  //     switch await GetOs.run() {
-  //     | info =>
-  //       switch info["dist"] {
-  //       | "Ubuntu" => Ok(Ubuntu)
-  //       | _ => Ok(Others("linux", info))
-  //       }
-  //     | exception Exn.Error(e) => Error(e)
-  //     }
-  //   | "win32" => Ok(Windows)
-  //   | others =>
-  //     // determine the distro
-  //     switch await GetOs.run() {
-  //     | info => Ok(Others(others, info))
-  //     | exception Exn.Error(e) => Error(e)
-  //     }
-  //   }
-}
 
 module Repo = {
   type t = {
@@ -630,7 +586,7 @@ module Module: {
           // chmod the executable after download
           // (no need to chmod if it's on Windows)
           let execPath = NodeJs.Path.join2(destPath, "als")
-          let shouldChmod = NodeJs.Os.platform() != "win32"
+          let shouldChmod = OS.onUnix
           if shouldChmod {
             let _ = await chmodExecutable(execPath)
           }

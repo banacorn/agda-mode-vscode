@@ -23,6 +23,7 @@ module type Module = {
     State__Memento.t,
     array<Connection__URI.t>,
     array<string>,
+    option<Connection__Download__Platform.t>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
@@ -145,6 +146,7 @@ module Module: Module = {
     memento: State__Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
+    platform: option<Connection__Download__Platform.t>,
   ) =>
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
@@ -209,26 +211,15 @@ module Module: Module = {
     | (Ok(manifest), _) => Ok(manifest)
     }
   }
-
   module LatestALS = {
-    let chooseAssetFromRelease = (release: Connection__Download__GitHub.Release.t): array<
+    let chooseAssetFromRelease = async (release: Connection__Download__GitHub.Release.t): array<
       Connection__Download__GitHub.Asset.t,
     > => {
-      // determine the platform
-      let platform = switch NodeJs.Os.platform() {
-      | "darwin" =>
-        switch NodeJs.Os.arch() {
-        | "x64" => Some("macos-x64")
-        | "arm64" => Some("macos-arm64")
-        | _ => None
-        }
-      | "linux" => Some("ubuntu")
-      | "win32" => Some("windows")
-      | _ => None
-      }
-      switch platform {
+      // determine the platform and architecture
+      switch await Connection__Download__Platform.determine() {
       | Some(platform) =>
-        release.assets->Array.filter(asset => asset.name->String.endsWith(platform ++ ".zip"))
+        let assetName = Connection__Download__Platform.toAssetName(platform)
+        release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
       | None => []
       }
     }
@@ -259,7 +250,7 @@ module Module: Module = {
             ->String.replaceRegExp(%re("/als-Agda-/"), "")
             ->String.replaceRegExp(%re("/-.*/"), "")
           // choose the assets of the corresponding platform
-          let assets = chooseAssetFromRelease(latestRelease)
+          let assets = await chooseAssetFromRelease(latestRelease)
           // choose the asset with the latest Agda version
           let result =
             assets
