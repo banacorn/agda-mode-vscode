@@ -6,7 +6,7 @@ module Aggregated = {
 
   type commandAttempt = {
     command: string,
-    error: result<option<Connection__Process__Exec.Error.t>, Connection__Target.Error.t>,
+    error: option<Connection__Process__Exec.Error.t>,
   }
 
   type attempts = {
@@ -33,21 +33,14 @@ module Aggregated = {
         attempt.command ++
         "` command but failed:\n" ++
         switch attempt.error {
-        | Ok(None) => "Cannot find `" ++ attempt.command ++ "` in PATH"
-        | Ok(Some(e)) =>
+        | None => "Cannot find `" ++ attempt.command ++ "` in PATH"
+        | Some(e) =>
           "Cannot find `" ++
           attempt.command ++
           "` because: " ++
           Connection__Process__Exec.Error.toString(e) ++ "."
-        | Error(e) =>
-          "Found the `" ++
-          attempt.command ++
-          "` command but failed to run it because: " ++
-          Connection__Target.Error.toString(e)
         }
       )
-
-      // snd(toString(CommandsNotFound([("agda", Some(attempt.error))])))
       ->Array.join("\n")
     }
   }
@@ -82,7 +75,8 @@ type t =
   // ALS
   | ALS(Connection__Target__ALS__Error.t)
   // Connection
-  | CommandsNotFound(array<(string, option<Connection__Process__Exec.Error.t>)>)
+  | CommandsNotFound(array<Aggregated.commandAttempt>)
+  // array<(string, option<Connection__Process__Exec.Error.t>)>
   | Target(Connection__Target.Error.t)
   | Download(Connection__Download__Error.t)
   // Download
@@ -96,10 +90,10 @@ let toString = x =>
   switch x {
   | Agda(e, _) => Connection__Target__Agda__Error.toString(e)
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
-  | CommandsNotFound(pairs) => (
+  | CommandsNotFound(attempts) => (
       "Cannot find the `agda` or `als` commands",
-      pairs
-      ->Array.map(((command, error)) =>
+      attempts
+      ->Array.map(({command, error}) =>
         switch error {
         | None => "Cannot find `" ++ command ++ "` in PATH"
         | Some(e) =>

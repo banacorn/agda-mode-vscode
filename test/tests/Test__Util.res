@@ -317,7 +317,7 @@ module AgdaMode = {
   let exists = async command => {
     switch await Connection.findCommands([command]) {
     | Error(error) =>
-      let (header, body) = Connection.Error.toString(error)
+      let (header, body) = Connection.Error.toString(CommandsNotFound(error))
       raise(Failure("Cannot find \"" ++ command ++ "\" in PATH: " ++ header ++ "\n" ++ body))
     | Ok(_conn) => ()
     }

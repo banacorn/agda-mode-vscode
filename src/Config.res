@@ -139,17 +139,23 @@ module Connection = {
 
   // Download policy when Agda or Agda Language Server is missing
   module Download = {
-    type policy = YesKeepUpToDate | YesButDontUpdate | NoDontAskAgain | Undecided
+    type policy = Yes | No | Undecided
 
     // in testing mode, configs are read and written from here instead
     let policyTestingMode = ref(Undecided)
 
     let toString = policy =>
       switch policy {
-      | YesKeepUpToDate => "Yes, and keep it up-to-date"
-      | YesButDontUpdate => "Yes, but don't update afterwards"
-      | NoDontAskAgain => "No, and don't ask again"
+      | Yes => "Yes"
+      | No => "No, and don't ask again"
       | Undecided => "Undecided"
+      }
+
+    let fromString = s =>
+      switch s {
+      | "Yes" => Yes
+      | "No, and don't ask again" => No
+      | _ => Undecided
       }
 
     let getDownloadPolicy = () => {
@@ -158,14 +164,7 @@ module Connection = {
       } else {
         Workspace.getConfiguration(Some("agdaMode"), None)
         ->WorkspaceConfiguration.get("connection.downloadPolicy")
-        ->Option.mapOr(Undecided, s =>
-          switch s {
-          | "Yes, and keep it up-to-date" => YesKeepUpToDate
-          | "Yes, but don't update afterwards" => YesButDontUpdate
-          | "No, and don't ask again" => NoDontAskAgain
-          | _ => Undecided
-          }
-        )
+        ->Option.mapOr(Undecided, fromString)
       }
     }
 
@@ -179,12 +178,7 @@ module Connection = {
           None,
         )->WorkspaceConfiguration.updateGlobalSettings(
           "connection.downloadPolicy",
-          switch policy {
-          | YesKeepUpToDate => "Yes, and keep it up-to-date"
-          | YesButDontUpdate => "Yes, but don't update afterwards"
-          | NoDontAskAgain => "No, and don't ask again"
-          | Undecided => "Undecided"
-          },
+          toString(policy),
           None,
         )
       }

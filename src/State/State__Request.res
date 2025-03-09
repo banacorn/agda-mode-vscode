@@ -1,11 +1,9 @@
 let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
   switch policy {
-  | Config.Connection.Download.YesKeepUpToDate =>
+  | Config.Connection.Download.Yes =>
     await State__View.Panel.display(
       state,
-      Plain(
-        "Trying to download and install the latest Agda Language Server and keep it up-to-date",
-      ),
+      Plain("Trying to download and install the latest Agda Language Server"),
       [],
     )
 
@@ -18,15 +16,7 @@ let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(_) => await dispatchCommand(Command.Load)
     }
-  // State__SwitchVersion.LatestALS.download(state.memento, VSCode.Uri.fsPath(state.globalStorageUri),
-  | YesButDontUpdate =>
-    await State__View.Panel.display(
-      state,
-      Plain("Trying to download and install the latest Agda Language Server"),
-      [],
-    )
-  | NoDontAskAgain =>
-    await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors))
+  | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors))
   | Undecided =>
     // ask the user
     let messageOptions = {
@@ -36,20 +26,15 @@ let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
     let result = await VSCode.Window.showWarningMessageWithOptions(
       "Cannot find Agda or Agda Language Server",
       messageOptions,
-      [
-        "Yes, and keep it up-to-date",
-        "Yes, but don't update afterwards",
-        "No, and don't ask again",
-      ],
+      [Config.Connection.Download.toString(Yes), Config.Connection.Download.toString(No)],
     )
 
     // update the policy
-    let newPolicy = switch result {
-    | Some("Yes, and keep it up-to-date") => Config.Connection.Download.YesKeepUpToDate
-    | Some("Yes, but don't update afterwards") => Config.Connection.Download.YesButDontUpdate
-    | Some("No, and don't ask again") => Config.Connection.Download.NoDontAskAgain
-    | _ => Config.Connection.Download.Undecided
-    }
+    let newPolicy =
+      result->Option.mapOr(
+        Config.Connection.Download.Undecided,
+        Config.Connection.Download.fromString,
+      )
 
     await Config.Connection.Download.setDownloadPolicy(newPolicy)
   }
@@ -105,7 +90,12 @@ let sendRequest = async (
   switch state.connection {
   | None =>
     let platform = await Connection__Download__Platform.determine()
-    switch await Connection.make(state.memento, Config.Connection.getAgdaPaths(), ["als", "agda"], platform) {
+    switch await Connection.make(
+      state.memento,
+      Config.Connection.getAgdaPaths(),
+      ["als", "agda"],
+      platform,
+    ) {
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>
       state.connection = Some(connection)

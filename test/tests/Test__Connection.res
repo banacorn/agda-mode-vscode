@@ -216,7 +216,7 @@ describe("Connection", () => {
         switch await Connection.findCommands(commands) {
         | Ok(_) => ()
         | Error(error) =>
-          let (header, body) = Connection.Error.toString(error)
+          let (header, body) = Connection.Error.toString(CommandsNotFound(error))
           failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
       },
@@ -240,7 +240,7 @@ describe("Connection", () => {
       async () => {
         // get the path of `agda` first
         let path = switch await Connection.findCommands(["agda"]) {
-        | Ok(path) => path->Connection.Target.toURI->Connection__Target.URI.toString
+        | Ok(path) => path
         | Error(_) => failwith("expected to find `agda`")
         }
 
@@ -280,7 +280,11 @@ describe("Connection", () => {
       async () => {
         // get the path of `agda` first
         let path = switch await Connection.findCommands(["agda"]) {
-        | Ok(path) => path->Connection.Target.toURI
+        | Ok(path) =>
+          switch await Connection.Target.fromRawPath(path) {
+          | Ok(target) => target->Connection.Target.toURI
+          | Error(_) => failwith("expected to find `agda`")
+          }
         | Error(_) => failwith("expected to find `agda`")
         }
 
@@ -314,7 +318,11 @@ describe("Connection", () => {
       async () => {
         // get the path of `agda` first
         let path = switch await Connection.findCommands(["agda"]) {
-        | Ok(path) => path->Connection.Target.toURI
+        | Ok(path) =>
+          switch await Connection.Target.fromRawPath(path) {
+          | Ok(target) => target->Connection.Target.toURI
+          | Error(_) => failwith("expected to find `agda`")
+          }
         | Error(_) => failwith("expected to find `agda`")
         }
 
