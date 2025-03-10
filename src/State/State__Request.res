@@ -1,47 +1,48 @@
+let askUserAboutDownloadPolicy = async () => {
+  let messageOptions = {
+    VSCode.MessageOptions.modal: true,
+    detail: "Do you want to download and install the latest Agda Language Server?",
+  }
+  let result = await VSCode.Window.showWarningMessageWithOptions(
+    "Cannot find Agda or Agda Language Server",
+    messageOptions,
+    [Config.Connection.DownloadPolicy.toString(Yes), Config.Connection.DownloadPolicy.toString(No)],
+  ) // 📺
+
+  // parse the result
+  result->Option.mapOr(Config.Connection.DownloadPolicy.Undecided, Config.Connection.DownloadPolicy.fromString)
+}
+
 let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
   switch policy {
-  | Config.Connection.Download.Yes =>
+  | Config.Connection.DownloadPolicy.Yes =>
     await State__View.Panel.display(
       state,
       Plain("Trying to download and install the latest Agda Language Server"),
       [],
-    )
+    ) // 📺
 
-    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server")
+    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
     switch await Connection.downloadLatestALS(
+      // ⬇️
       state.memento,
       state.globalStorageUri,
       reportProgress,
     ) {
-    | Error(error) => await State__View.Panel.displayConnectionError(state, error)
-    | Ok(_) => await dispatchCommand(Command.Load)
+    | Error(error) => await State__View.Panel.displayConnectionError(state, error) // 📺
+    | Ok(_) => await dispatchCommand(Command.Load) // 💨
     }
-  | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors))
+  | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors)) // 📺
   | Undecided =>
     // ask the user
-    let messageOptions = {
-      VSCode.MessageOptions.modal: true,
-      detail: "Do you want to download and install the latest Agda Language Server?",
-    }
-    let result = await VSCode.Window.showWarningMessageWithOptions(
-      "Cannot find Agda or Agda Language Server",
-      messageOptions,
-      [Config.Connection.Download.toString(Yes), Config.Connection.Download.toString(No)],
-    )
-
+    let newPolicy = await askUserAboutDownloadPolicy()
     // update the policy
-    let newPolicy =
-      result->Option.mapOr(
-        Config.Connection.Download.Undecided,
-        Config.Connection.Download.fromString,
-      )
-
-    await Config.Connection.Download.setDownloadPolicy(newPolicy)
+    await Config.Connection.DownloadPolicy.set(newPolicy)
   }
 }
 
 let onCommandsNotFoundError = async (state, dispatchCommand, errors) => {
-  let policy = Config.Connection.Download.getDownloadPolicy()
+  let policy = Config.Connection.DownloadPolicy.get()
   await handleDownloadPolicy(state, dispatchCommand, errors, policy)
 }
 
@@ -95,6 +96,7 @@ let sendRequest = async (
       Config.Connection.getAgdaPaths(),
       ["als", "agda"],
       platform,
+      askUserAboutDownloadPolicy
     ) {
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>

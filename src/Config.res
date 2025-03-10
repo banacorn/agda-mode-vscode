@@ -138,11 +138,11 @@ module Connection = {
     ->Array.filter(s => String.trim(s) != "")
 
   // Download policy when Agda or Agda Language Server is missing
-  module Download = {
-    type policy = Yes | No | Undecided
+  module DownloadPolicy = {
+    type t = Yes | No | Undecided
 
     // in testing mode, configs are read and written from here instead
-    let policyTestingMode = ref(Undecided)
+    let testingMode = ref(Undecided)
 
     let toString = policy =>
       switch policy {
@@ -158,9 +158,9 @@ module Connection = {
       | _ => Undecided
       }
 
-    let getDownloadPolicy = () => {
+    let get = () => {
       if inTestingMode.contents {
-        policyTestingMode.contents
+        testingMode.contents
       } else {
         Workspace.getConfiguration(Some("agdaMode"), None)
         ->WorkspaceConfiguration.get("connection.downloadPolicy")
@@ -168,9 +168,9 @@ module Connection = {
       }
     }
 
-    let setDownloadPolicy = policy =>
+    let set = policy =>
       if inTestingMode.contents {
-        policyTestingMode := policy
+        testingMode := policy
         Promise.resolve()
       } else {
         Workspace.getConfiguration(

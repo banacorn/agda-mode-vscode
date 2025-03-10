@@ -31,7 +31,7 @@ let switchAgdaVersion = async (state: State.t) => {
 
   // start with the new connection
   let platform = await Connection__Download__Platform.determine()
-  switch await Connection.make(state.memento, Config.Connection.getAgdaPaths(), ["als", "agda"], platform) {
+  switch await Connection.make(state.memento, Config.Connection.getAgdaPaths(), ["als", "agda"], platform, State__Request.askUserAboutDownloadPolicy) {
   | Ok(conn) =>
     state.connection = Some(conn)
     switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {

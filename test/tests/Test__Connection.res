@@ -236,7 +236,7 @@ describe("Connection", () => {
 
   describe("make", () => {
     Async.it(
-      "should return a connection and add it to the Memento when the command is found",
+      "Memento: [] / paths: [] / commands: ['agda', 'als']",
       async () => {
         // get the path of `agda` first
         let path = switch await Connection.findCommands(["agda"]) {
@@ -251,7 +251,8 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
-        switch await Connection.make(memento, paths, commands, platform) {
+        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
+        switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -276,7 +277,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should return a connection and add it to the Memento when the command is found",
+      "Memento: [] / paths: ['some/other/path'] / commands: ['agda', 'als']",
       async () => {
         // get the path of `agda` first
         let path = switch await Connection.findCommands(["agda"]) {
@@ -294,7 +295,8 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
-        switch await Connection.make(memento, paths, commands, platform) {
+        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
+        switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -314,7 +316,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should do nothing when the command is already in the paths of the config",
+      "Memento: [] / paths: ['agda', 'others'] / commands: ['agda', 'als']",
       async () => {
         // get the path of `agda` first
         let path = switch await Connection.findCommands(["agda"]) {
@@ -332,7 +334,8 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
-        switch await Connection.make(memento, paths, commands, platform) {
+        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
+        switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -347,17 +350,29 @@ describe("Connection", () => {
         }
       },
     )
-  })
 
-  // describe("State__Request.onCannotFindALSorAgdaError", () => {
-  //   Async.it(
-  //     "should download the latest version of ALS",
-  //     async () => {
-  //       switch await Connection.downloadLatestALS() {
-  //       | Ok(_) => ()
-  //       | Error(_) => failwith("expected to download the latest version of ALS")
-  //       }
-  //     },
-  //   )
-  // })
+    // describe(
+    //   "Platform",
+    //   () => {
+    //     Async.it(
+    //       "should throw an error when the platform is not supported",
+    //       async () => {
+    //         let memento = State__Memento.make(None)
+    //         let paths = [Connection__URI.parse("some/other/path")]
+    //         let commands = ["non-existent-command"]
+    //         let platform = None
+    //         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
+    //         switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
+    //         | Ok(_) => ()
+    //         | Error(error) =>
+    //           let (header, body) = Connection.Error.toString(error)
+    //           failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
+    //         }
+
+    //         Assert.deepEqual(Config.Connection.getAgdaPaths(), paths)
+    //       },
+    //     )
+    //   },
+    // )
+  })
 })

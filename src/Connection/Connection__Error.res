@@ -46,7 +46,7 @@ module Aggregated = {
   }
 
   type t =
-    | PlatformNotSupported(attempts, string)
+    | PlatformNotSupported(attempts, Connection__Download__Platform.raw)
     | NoDownloadALS(attempts)
     | DownloadALS(attempts, Connection__Download__Error.t)
 
@@ -55,7 +55,9 @@ module Aggregated = {
     | PlatformNotSupported(attempts, platform) =>
       attempsToString(attempts) ++
       "\nTried to download the Agda Language Server but the platform `" ++
-      platform ++ "` is not supported.\n"
+      platform["os"] ++
+      "/" ++
+      platform["dist"] ++ "` is not supported.\n"
 
     | NoDownloadALS(attempts) =>
       attempsToString(

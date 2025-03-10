@@ -11,7 +11,8 @@ module type Module = {
     State__Memento.t,
     array<Connection__URI.t>,
     array<string>,
-    option<Connection__Download__Platform.t>,
+    result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
+    unit => promise<Config.Connection.DownloadPolicy.t>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
@@ -145,11 +146,13 @@ module Module: Module = {
   //      Undecided : ask the user if they want to download ALS or not, go back to 5.
   //      No        : exit with the `NoDownloadALS` error ❌
   //      Yes       : download the ALS, add it to the list of targets if it works, exit with the `DownloadALS` error ❌
+
   let make = async (
     memento: State__Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
-    platform: option<Connection__Download__Platform.t>,
+    platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
+    getDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>,
   ) =>
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
@@ -167,6 +170,7 @@ module Module: Module = {
           Error.Aggregated.targets: targetErrors,
           commands: commandErrors,
         }
+        let policy = await getDownloadPolicy()
 
         // switch platform {
         // | None => Error(Error.Aggregated(PlatformNotSupported(attempts, "unknown")))
@@ -244,10 +248,10 @@ module Module: Module = {
     > => {
       // determine the platform and architecture
       switch await Connection__Download__Platform.determine() {
-      | Some(platform) =>
+      | Ok(platform) =>
         let assetName = Connection__Download__Platform.toAssetName(platform)
         release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
-      | None => []
+      | Error(_) => []
       }
     }
 
