@@ -13,6 +13,7 @@ module type Module = {
     array<string>,
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     unit => promise<Config.Connection.DownloadPolicy.t>,
+    unit => promise<result<Connection__Download__GitHub.Target.t, Connection__Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
@@ -152,7 +153,11 @@ module Module: Module = {
     paths: array<Connection__URI.t>,
     commands: array<string>,
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
-    getDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>,
+    // callbacks
+    getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
+    downloadLatestALS: unit => promise<
+      result<Connection__Download__GitHub.Target.t, Connection__Error.t>,
+    >,
   ) =>
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
@@ -170,7 +175,7 @@ module Module: Module = {
           Error.Aggregated.targets: targetErrors,
           commands: commandErrors,
         }
-        let policy = await getDownloadPolicy()
+        let policy = await getDownloadPolicyFromUser()
 
         // switch platform {
         // | None => Error(Error.Aggregated(PlatformNotSupported(attempts, "unknown")))

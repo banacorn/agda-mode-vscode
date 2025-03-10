@@ -10,7 +10,20 @@ let askUserAboutDownloadPolicy = async () => {
   ) // 📺
 
   // parse the result
-  result->Option.mapOr(Config.Connection.DownloadPolicy.Undecided, Config.Connection.DownloadPolicy.fromString)
+  result->Option.mapOr(
+    Config.Connection.DownloadPolicy.Undecided,
+    Config.Connection.DownloadPolicy.fromString,
+  )
+}
+
+let downloadLatestALS = (state: State.t) => async () => {
+  let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+  await Connection.downloadLatestALS(
+    // ⬇️
+    state.memento,
+    state.globalStorageUri,
+    reportProgress,
+  )
 }
 
 let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
@@ -96,7 +109,8 @@ let sendRequest = async (
       Config.Connection.getAgdaPaths(),
       ["als", "agda"],
       platform,
-      askUserAboutDownloadPolicy
+      askUserAboutDownloadPolicy,
+      downloadLatestALS(state),
     ) {
     | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
     | Ok(connection) =>

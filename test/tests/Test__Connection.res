@@ -252,7 +252,15 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
+        let downloadLatestALS = async () => Error(Connection__Error.CannotFindCompatibleALSRelease) // NOTE: temporary
+        switch await Connection.make(
+          memento,
+          paths,
+          commands,
+          platform,
+          getDownloadPolicy,
+          downloadLatestALS,
+        ) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -296,7 +304,15 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
+        let downloadLatestALS = async () => Error(Connection__Error.CannotFindCompatibleALSRelease) // NOTE: temporary
+        switch await Connection.make(
+          memento,
+          paths,
+          commands,
+          platform,
+          getDownloadPolicy,
+          downloadLatestALS,
+        ) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
@@ -335,7 +351,15 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
+        let downloadLatestALS = async () => Error(Connection__Error.CannotFindCompatibleALSRelease) // NOTE: temporary
+        switch await Connection.make(
+          memento,
+          paths,
+          commands,
+          platform,
+          getDownloadPolicy,
+          downloadLatestALS,
+        ) {
         | Ok(_) => ()
         | Error(error) =>
           let (header, body) = Connection.Error.toString(error)
