@@ -27,50 +27,50 @@ let downloadLatestALS = (state: State.t) => async platform => {
   )
 }
 
-let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
-  switch policy {
-  | Config.Connection.DownloadPolicy.Yes =>
-    await State__View.Panel.display(
-      state,
-      Plain("Trying to download and install the latest Agda Language Server"),
-      [],
-    ) // 📺
+// let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
+//   switch policy {
+//   | Config.Connection.DownloadPolicy.Yes =>
+//     await State__View.Panel.display(
+//       state,
+//       Plain("Trying to download and install the latest Agda Language Server"),
+//       [],
+//     ) // 📺
 
-    switch await Connection__Download__Platform.determine() {
-    | Ok(platform) =>
-      let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-      switch await Connection.downloadLatestALS(
-        // ⬇️
-        state.memento,
-        state.globalStorageUri,
-        platform,
-        reportProgress,
-      ) {
-      | Error(error) => await State__View.Panel.displayConnectionError(state, Download(error)) // 📺
-      | Ok(_) => await dispatchCommand(Command.Load) // 💨
-      }
-    | Error(raw) =>
-      await State__View.Panel.displayConnectionError(state, TempPlatformNotSupported(raw)) // 📺
-    }
+//     switch await Connection__Download__Platform.determine() {
+//     | Ok(platform) =>
+//       let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+//       switch await Connection.downloadLatestALS(
+//         // ⬇️
+//         state.memento,
+//         state.globalStorageUri,
+//         platform,
+//         reportProgress,
+//       ) {
+//       | Error(error) => await State__View.Panel.displayConnectionError(state, Download(error)) // 📺
+//       | Ok(_) => await dispatchCommand(Command.Load) // 💨
+//       }
+//     | Error(raw) =>
+//       await State__View.Panel.displayConnectionError(state, TempPlatformNotSupported(raw)) // 📺
+//     }
 
-  | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors)) // 📺
-  | Undecided =>
-    // ask the user
-    let newPolicy = await askUserAboutDownloadPolicy()
-    // update the policy
-    await Config.Connection.DownloadPolicy.set(newPolicy)
-  }
-}
+//   | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors)) // 📺
+//   | Undecided =>
+//     // ask the user
+//     let newPolicy = await askUserAboutDownloadPolicy()
+//     // update the policy
+//     await Config.Connection.DownloadPolicy.set(newPolicy)
+//   }
+// }
 
-let onCommandsNotFoundError = async (state, dispatchCommand, errors) => {
-  let policy = Config.Connection.DownloadPolicy.get()
-  await handleDownloadPolicy(state, dispatchCommand, errors, policy)
-}
+// let onCommandsNotFoundError = async (state, dispatchCommand, errors) => {
+//   let policy = Config.Connection.DownloadPolicy.get()
+//   await handleDownloadPolicy(state, dispatchCommand, errors, policy)
+// }
 
 let connectionErrorHandler = async (state, dispatchCommand, error) => {
   switch error {
-  | Connection__Error.CommandsNotFound(errors) =>
-    await onCommandsNotFoundError(state, dispatchCommand, errors)
+  // | Connection__Error.CommandsNotFound(errors) =>
+  //   await onCommandsNotFoundError(state, dispatchCommand, errors)
   | _ => await State__View.Panel.displayConnectionError(state, error)
   }
 }

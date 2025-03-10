@@ -316,9 +316,9 @@ module Golden = {
 module AgdaMode = {
   let exists = async command => {
     switch await Connection.findCommands([command]) {
-    | Error(error) =>
-      let (header, body) = Connection.Error.toString(CommandsNotFound(error))
-      raise(Failure("Cannot find \"" ++ command ++ "\" in PATH: " ++ header ++ "\n" ++ body))
+    | Error(_error) =>
+      // let (header, body) = Connection.Error.toString(Aggregated(error))
+      raise(Failure("Cannot find \"" ++ command ++ "\" in PATH"))
     | Ok(_conn) => ()
     }
   }

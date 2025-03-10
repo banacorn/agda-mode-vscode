@@ -192,17 +192,17 @@ module Module: Module = {
           }
         }
 
-        // switch await askForDownloadPolicyAndHandleIt() {
-        // | Error(error) => Error(error)
-        // | Ok(uri) =>
-        //   await Config.Connection.addAgdaPath(uri)
-        //   switch await Target.fromURI(uri) {
-        //   | Error(error) => Error(Target(error))
-        //   | Ok(target) => await makeWithTarget(target)
-        //   }
-        // }
+        switch await askForDownloadPolicyAndHandleIt() {
+        | Error(error) => Error(error)
+        | Ok(uri) =>
+          await Config.Connection.addAgdaPath(uri)
+          switch await Target.fromURI(uri) {
+          | Error(error) => Error(Target(error))
+          | Ok(target) => await makeWithTarget(target)
+          }
+        }
 
-        Error(Error.CommandsNotFound(commandErrors))
+        // Error(Error.CommandsNotFound(commandErrors))
       | Ok(path) =>
         // try to convert the path to a target for connection
         switch await Target.fromRawPath(path) {

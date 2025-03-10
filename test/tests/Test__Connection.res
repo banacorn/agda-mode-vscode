@@ -216,8 +216,9 @@ describe("Connection", () => {
         switch await Connection.findCommands(commands) {
         | Ok(_) => ()
         | Error(error) =>
-          let (header, body) = Connection.Error.toString(CommandsNotFound(error))
-          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
+          // let (header, body) = Connection.Error.toString(CommandsNotFound(error))
+          // failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
+          failwith("expected to find `agda` or `als`")
         }
       },
     )
@@ -381,7 +382,7 @@ describe("Connection", () => {
       },
     )
 
-    describe_skip(
+    describe(
       "Platform",
       () => {
         Async.it(
