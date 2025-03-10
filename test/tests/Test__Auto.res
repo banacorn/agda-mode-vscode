@@ -12,8 +12,7 @@ let run = normalization => {
           let responses = switch ctx.state.goals[0] {
           | Some(goal) =>
             await ctx.state->State__Request.sendRequestAndCollectResponses(
-              State__Command.dispatchCommand(ctx.state, ...),
-              Request.Auto(normalization, goal)
+              Request.Auto(normalization, goal),
             )
           | None => []
           }
@@ -50,8 +49,7 @@ let run = normalization => {
           let responses = switch ctx.state.goals[1] {
           | Some(goal) =>
             await ctx.state->State__Request.sendRequestAndCollectResponses(
-              State__Command.dispatchCommand(ctx.state, ...),
-              Request.Auto(normalization, goal)
+              Request.Auto(normalization, goal),
             )
           | None => []
           }

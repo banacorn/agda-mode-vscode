@@ -10,10 +10,16 @@ let askUserAboutDownloadPolicy = async () => {
   ) // 📺
 
   // parse the result
-  result->Option.mapOr(
-    Config.Connection.DownloadPolicy.Undecided,
-    Config.Connection.DownloadPolicy.fromString,
-  )
+  let newPolicy =
+    result->Option.mapOr(
+      Config.Connection.DownloadPolicy.Undecided,
+      Config.Connection.DownloadPolicy.fromString,
+    )
+
+  // update the policy
+  await Config.Connection.DownloadPolicy.set(newPolicy)
+
+  newPolicy
 }
 
 let downloadLatestALS = (state: State.t) => async platform => {
@@ -27,57 +33,8 @@ let downloadLatestALS = (state: State.t) => async platform => {
   )
 }
 
-// let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
-//   switch policy {
-//   | Config.Connection.DownloadPolicy.Yes =>
-//     await State__View.Panel.display(
-//       state,
-//       Plain("Trying to download and install the latest Agda Language Server"),
-//       [],
-//     ) // 📺
-
-//     switch await Connection__Download__Platform.determine() {
-//     | Ok(platform) =>
-//       let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-//       switch await Connection.downloadLatestALS(
-//         // ⬇️
-//         state.memento,
-//         state.globalStorageUri,
-//         platform,
-//         reportProgress,
-//       ) {
-//       | Error(error) => await State__View.Panel.displayConnectionError(state, Download(error)) // 📺
-//       | Ok(_) => await dispatchCommand(Command.Load) // 💨
-//       }
-//     | Error(raw) =>
-//       await State__View.Panel.displayConnectionError(state, TempPlatformNotSupported(raw)) // 📺
-//     }
-
-//   | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors)) // 📺
-//   | Undecided =>
-//     // ask the user
-//     let newPolicy = await askUserAboutDownloadPolicy()
-//     // update the policy
-//     await Config.Connection.DownloadPolicy.set(newPolicy)
-//   }
-// }
-
-// let onCommandsNotFoundError = async (state, dispatchCommand, errors) => {
-//   let policy = Config.Connection.DownloadPolicy.get()
-//   await handleDownloadPolicy(state, dispatchCommand, errors, policy)
-// }
-
-let connectionErrorHandler = async (state, dispatchCommand, error) => {
-  switch error {
-  // | Connection__Error.CommandsNotFound(errors) =>
-  //   await onCommandsNotFoundError(state, dispatchCommand, errors)
-  | _ => await State__View.Panel.displayConnectionError(state, error)
-  }
-}
-
 let sendRequest = async (
   state: State.t,
-  dispatchCommand: Command.t => promise<unit>,
   handleResponse: Response.t => promise<unit>,
   request: Request.t,
 ): unit => {
@@ -97,7 +54,7 @@ let sendRequest = async (
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
     switch await Connection.sendRequest(connection, state.document, request, onResponse) {
-    | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
+    | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(status) =>
       // display the connection status
       await State__View.Panel.displayConnectionStatus(state, status)
@@ -120,7 +77,7 @@ let sendRequest = async (
       askUserAboutDownloadPolicy,
       downloadLatestALS(state),
     ) {
-    | Error(error) => await connectionErrorHandler(state, dispatchCommand, error)
+    | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(connection) =>
       state.connection = Some(connection)
       await state.agdaRequestQueue->State.RequestQueue.push(
@@ -137,15 +94,13 @@ let sendRequest = async (
 }
 
 // like `sendRequest` but collects all responses, for testing
-let sendRequestAndCollectResponses = async (
-  state: State.t,
-  dispatchCommand,
-  request: Request.t,
-): array<Response.t> => {
+let sendRequestAndCollectResponses = async (state: State.t, request: Request.t): array<
+  Response.t,
+> => {
   let responses = ref([])
   let responseHandler = async response => {
     responses.contents->Array.push(response)
   }
-  await state->sendRequest(dispatchCommand, responseHandler, request)
+  await state->sendRequest(responseHandler, request)
   responses.contents
 }

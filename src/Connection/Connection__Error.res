@@ -21,7 +21,7 @@ module Aggregated = {
       "Tried to connect with the path from the configuration but all failed:\n" ++
       attempts.targets
       ->Array.map(attempt =>
-        Connection__URI.toString(attempt.uri) ++ Connection__Target.Error.toString(attempt.error)
+        Connection__URI.toString(attempt.uri) ++ ": " ++ Connection__Target.Error.toString(attempt.error)
       )
       ->Array.join("\n")
     } ++ if attempts.commands->Array.length == 0 {

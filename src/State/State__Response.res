@@ -71,7 +71,8 @@ module DisplayInfo = {
       await State__View.Panel.display(state, Plain("Current Goal"), [Item.plainText(payload)])
     | InferredType(payload) =>
       await State__View.Panel.display(state, Plain("Inferred type"), [Item.plainText(payload)])
-    | InferredTypeALS(item) => await State__View.Panel.display(state, Plain("Inferred type"), [item])
+    | InferredTypeALS(item) =>
+      await State__View.Panel.display(state, Plain("Inferred type"), [item])
     | Context(body) =>
       let items = Emacs__Parser2.parseOutputs(body)
       await State__View.Panel.display(state, Plain("Context"), items)
@@ -92,7 +93,7 @@ let rec handle = async (
   dispatchCommand: Command.t => promise<unit>,
   response: Response.t,
 ): unit => {
-  let sendAgdaRequest = State__Request.sendRequest(state, dispatchCommand, handle(state, dispatchCommand, ...), ...)
+  let sendAgdaRequest = State__Request.sendRequest(state, handle(state, dispatchCommand, ...), ...)
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>

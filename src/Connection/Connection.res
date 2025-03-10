@@ -145,6 +145,7 @@ module Module: Module = {
   //      Undecided : ask the user if they want to download ALS or not, go back to 5.
   //      No        : exit with the `NoDownloadALS` error ❌
   //      Yes       : download the ALS, add it to the list of targets if it works, exit with the `DownloadALS` error ❌
+  // 6. Store the new download target in the configuration
 
   let make = async (
     memento: State__Memento.t,
@@ -155,8 +156,7 @@ module Module: Module = {
     getDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
       result<URI.t, Connection__Download__Error.t>,
-      // result<Connection__Download__GitHub.Target.t, Connection__Download__GitHub.Error.t>,
-    >,
+    >
   ) =>
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
@@ -202,7 +202,6 @@ module Module: Module = {
           }
         }
 
-        // Error(Error.CommandsNotFound(commandErrors))
       | Ok(path) =>
         // try to convert the path to a target for connection
         switch await Target.fromRawPath(path) {

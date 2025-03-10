@@ -383,24 +383,44 @@ describe("Connection", () => {
     )
 
     describe(
-      "Platform",
+      "No local installation",
       () => {
+        // input
+        let memento = State__Memento.make(None)
+        let paths = [Connection__URI.parse("some/other/path")]
+        let commands = ["non-existent-command"]
+        // expected output
+        let expectedAttempts = {
+          Connection.Error.Aggregated.targets: [
+            {
+              uri: Connection__URI.parse("some/other/path"),
+              error: Connection__Target.Error.ValidationError(
+                "some/other/path",
+                NotFound("some/other/path"),
+              ),
+            },
+          ],
+          commands: [
+            {
+              command: "non-existent-command",
+              error: None,
+            },
+          ],
+        }
+
         Async.it(
-          "should throw an error when the platform is not supported",
+          "should throw the `PlatformNotSupported` error when the platform is not supported",
           async () => {
-            let memento = State__Memento.make(None)
-            let paths = [Connection__URI.parse("some/other/path")]
-            let commands = ["non-existent-command"]
             let platform = {
               "os": "non-existent-os",
               "dist": "non-existent-dist",
               "codename": "non-existent-codename",
               "release": "non-existent-release",
             }
-            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
+            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided // don't care
             let downloadLatestALS = async _ => Error(
               Connection__Download__Error.CannotFindCompatibleALSRelease,
-            )
+            ) // don't care
             let result = await Connection.make(
               memento,
               paths,
@@ -410,26 +430,59 @@ describe("Connection", () => {
               downloadLatestALS,
             )
 
-            let expectedAttempts = {
-              Connection.Error.Aggregated.targets: [
-                {
-                  uri: Connection__URI.parse("some/other/path"),
-                  error: Connection__Target.Error.ValidationError(
-                    "some/other/path",
-                    NotFound("some/other/path"),
-                  ),
-                },
-              ],
-              commands: [
-                {
-                  command: "non-existent-command",
-                  error: None,
-                },
-              ],
-            }
             Assert.deepEqual(
               result,
               Error(Aggregated(PlatformNotSupported(expectedAttempts, platform))),
+            )
+          },
+        )
+
+        Async.it(
+          "should throw the `NoDownloadALS` error when the download policy is `No`",
+          async () => {
+            let platform = Connection__Download__Platform.Windows
+            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+            let downloadLatestALS = async _ => Error(
+              Connection__Download__Error.CannotFindCompatibleALSRelease,
+            ) // don't care
+            let result = await Connection.make(
+              memento,
+              paths,
+              commands,
+              Ok(platform),
+              getDownloadPolicy,
+              downloadLatestALS,
+            )
+            Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(expectedAttempts))))
+          },
+        )
+
+        Async.it(
+          "should throw the `DownloadALS` error when the download policy is `Yes` and the download fails",
+          async () => {
+            let platform = Connection__Download__Platform.Windows
+            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let downloadLatestALS = async _ => Error(
+              Connection__Download__Error.CannotFindCompatibleALSRelease,
+            )
+            let result = await Connection.make(
+              memento,
+              paths,
+              commands,
+              Ok(platform),
+              getDownloadPolicy,
+              downloadLatestALS,
+            )
+            Assert.deepEqual(
+              result,
+              Error(
+                Aggregated(
+                  DownloadALS(
+                    expectedAttempts,
+                    Connection__Download__Error.CannotFindCompatibleALSRelease,
+                  ),
+                ),
+              ),
             )
           },
         )
