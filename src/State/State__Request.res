@@ -16,12 +16,13 @@ let askUserAboutDownloadPolicy = async () => {
   )
 }
 
-let downloadLatestALS = (state: State.t) => async () => {
+let downloadLatestALS = (state: State.t) => async platform => {
   let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
   await Connection.downloadLatestALS(
     // ⬇️
     state.memento,
     state.globalStorageUri,
+    platform,
     reportProgress,
   )
 }
@@ -35,16 +36,23 @@ let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
       [],
     ) // 📺
 
-    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-    switch await Connection.downloadLatestALS(
-      // ⬇️
-      state.memento,
-      state.globalStorageUri,
-      reportProgress,
-    ) {
-    | Error(error) => await State__View.Panel.displayConnectionError(state, Download(error)) // 📺
-    | Ok(_) => await dispatchCommand(Command.Load) // 💨
+    switch await Connection__Download__Platform.determine() {
+    | Ok(platform) =>
+      let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+      switch await Connection.downloadLatestALS(
+        // ⬇️
+        state.memento,
+        state.globalStorageUri,
+        platform,
+        reportProgress,
+      ) {
+      | Error(error) => await State__View.Panel.displayConnectionError(state, Download(error)) // 📺
+      | Ok(_) => await dispatchCommand(Command.Load) // 💨
+      }
+    | Error(raw) =>
+      await State__View.Panel.displayConnectionError(state, TempPlatformNotSupported(raw)) // 📺
     }
+
   | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors)) // 📺
   | Undecided =>
     // ask the user

@@ -6,7 +6,7 @@ module type Panel = {
   let display: (State.t, View.Header.t, View.Body.t) => promise<unit>
   let displayInAppendMode: (State.t, View.Header.t, View.Body.t) => promise<unit>
   let displayOutOfGoalError: State.t => promise<unit>
-  let displayConnectionError: (State.t, Connection.Error.t) => promise<unit>
+  let displayConnectionError: (State.t, Connection__Error.t) => promise<unit>
   let displayStatus: (State.t, string) => promise<unit>
   let displayConnectionStatus: (State.t, Connection.Target.t) => promise<unit>
   // Input Method

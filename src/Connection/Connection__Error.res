@@ -81,6 +81,7 @@ type t =
   | Target(Connection__Target.Error.t)
   | Download(Connection__Download__Error.t)
   | Aggregated(Aggregated.t)
+  | TempPlatformNotSupported(Connection__Download__Platform.raw)
 
 let toString = x =>
   switch x {
@@ -106,4 +107,8 @@ let toString = x =>
   | Target(e) => ("Error", Connection__Target.Error.toString(e))
   | Download(e) => ("Error", Connection__Download__Error.toString(e))
   | Aggregated(e) => ("Error", Aggregated.toString(e))
+  | TempPlatformNotSupported(raw) => (
+      "Platform not supported",
+      "The platform `" ++ raw["os"] ++ "/" ++ raw["dist"] ++ "` is not supported.",
+    )
   }

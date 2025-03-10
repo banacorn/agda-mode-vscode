@@ -13,7 +13,7 @@ module type Module = {
     array<string>,
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     unit => promise<Config.Connection.DownloadPolicy.t>,
-    unit => promise<result<Connection__Download__GitHub.Target.t, Connection__Download__Error.t>>,
+    Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
@@ -42,8 +42,9 @@ module type Module = {
   let downloadLatestALS: (
     State__Memento.t,
     VSCode.Uri.t,
+    Connection__Download__Platform.t,
     Connection__Download__Util.Event.t => unit,
-  ) => promise<result<Connection__Download__GitHub.Target.t, Connection__Download__Error.t>>
+  ) => promise<result<URI.t, Connection__Download__Error.t>>
 }
 
 module Module: Module = {
@@ -152,8 +153,8 @@ module Module: Module = {
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
     getDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>,
-    downloadLatestALS: unit => promise<
-      result<Connection__Download__GitHub.Target.t, Connection__Download__Error.t>,
+    downloadLatestALS: Connection__Download__Platform.t => promise<
+      result<URI.t, Connection__Download__Error.t>,
       // result<Connection__Download__GitHub.Target.t, Connection__Download__GitHub.Error.t>,
     >,
   ) =>
@@ -181,7 +182,7 @@ module Module: Module = {
           | Ok(platform) =>
             switch policy {
             | Config.Connection.DownloadPolicy.Yes =>
-              switch await downloadLatestALS() {
+              switch await downloadLatestALS(platform) {
               | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
               | Ok(result) => Ok(result)
               }
@@ -190,6 +191,16 @@ module Module: Module = {
             }
           }
         }
+
+        // switch await askForDownloadPolicyAndHandleIt() {
+        // | Error(error) => Error(error)
+        // | Ok(uri) =>
+        //   await Config.Connection.addAgdaPath(uri)
+        //   switch await Target.fromURI(uri) {
+        //   | Error(error) => Error(Target(error))
+        //   | Ok(target) => await makeWithTarget(target)
+        //   }
+        // }
 
         Error(Error.CommandsNotFound(commandErrors))
       | Ok(path) =>
@@ -257,19 +268,15 @@ module Module: Module = {
     }
   }
   module LatestALS = {
-    let chooseAssetFromRelease = async (release: Connection__Download__GitHub.Release.t): array<
-      Connection__Download__GitHub.Asset.t,
-    > => {
-      // determine the platform and architecture
-      switch await Connection__Download__Platform.determine() {
-      | Ok(platform) =>
-        let assetName = Connection__Download__Platform.toAssetName(platform)
-        release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
-      | Error(_) => []
-      }
+    let chooseAssetFromRelease = async (
+      release: Connection__Download__GitHub.Release.t,
+      platform,
+    ): array<Connection__Download__GitHub.Asset.t> => {
+      let assetName = Connection__Download__Platform.toAssetName(platform)
+      release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
     }
 
-    let getTarget = async (memento, globalStorageUri) =>
+    let getTarget = async (memento, globalStorageUri, platform) =>
       switch await getALSReleaseManifest(memento, globalStorageUri) {
       | Error(error) => Error(error)
       | Ok(releases) =>
@@ -295,7 +302,7 @@ module Module: Module = {
             ->String.replaceRegExp(%re("/als-Agda-/"), "")
             ->String.replaceRegExp(%re("/-.*/"), "")
           // choose the assets of the corresponding platform
-          let assets = await chooseAssetFromRelease(latestRelease)
+          let assets = await chooseAssetFromRelease(latestRelease, platform)
           // choose the asset with the latest Agda version
           let result =
             assets
@@ -323,7 +330,7 @@ module Module: Module = {
       }
     }
 
-    // download the latest ALS
+    // download the latest ALS and return the path of the downloaded file
     let download = async (memento, globalStoragePath, reportProgress, target) => {
       switch await Connection__Download__GitHub.download(
         target,
@@ -338,7 +345,7 @@ module Module: Module = {
           NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"]),
         )
         await Config.Connection.addAgdaPath(destPath)
-        Ok()
+        Ok(destPath)
       }
     }
   }
@@ -346,8 +353,8 @@ module Module: Module = {
   let isLatestALSDownloaded = globalStorageUri =>
     LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
 
-  let downloadLatestALS = async (memento, globalStorageUri, reportProgress) => {
-    switch await LatestALS.getTarget(memento, globalStorageUri) {
+  let downloadLatestALS = async (memento, globalStorageUri, platform, reportProgress) => {
+    switch await LatestALS.getTarget(memento, globalStorageUri, platform) {
     | Error(error) => Error(error)
     | Ok(target) =>
       switch await LatestALS.download(
@@ -357,7 +364,7 @@ module Module: Module = {
         target,
       ) {
       | Error(e) => Error(Connection__Download__Error.CannotDownloadALS(e))
-      | Ok(_) => Ok(target)
+      | Ok(uri) => Ok(uri)
       }
     }
   }
