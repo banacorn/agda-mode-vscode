@@ -153,10 +153,10 @@ module Module: Module = {
     commands: array<string>,
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
-    getDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>,
+    getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
       result<URI.t, Connection__Download__Error.t>,
-    >
+    >,
   ) =>
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
@@ -174,31 +174,34 @@ module Module: Module = {
           Error.Aggregated.targets: targetErrors,
           commands: commandErrors,
         }
-
-        let rec askForDownloadPolicyAndHandleIt = async () => {
-          let policy = await getDownloadPolicy()
-          switch platform {
-          | Error(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
-          | Ok(platform) =>
-            switch policy {
-            | Config.Connection.DownloadPolicy.Yes =>
-              switch await downloadLatestALS(platform) {
-              | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
-              | Ok(result) => Ok(result)
-              }
-            | No => Error(Error.Aggregated(NoDownloadALS(attempts)))
-            | Undecided => await askForDownloadPolicyAndHandleIt()
-            }
+        switch platform {
+        | Error(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
+        | Ok(platform) =>
+          // if the policy has not been set, ask the user
+          let policy = switch Config.Connection.DownloadPolicy.get() {
+          | Undecided => await getDownloadPolicyFromUser()
+          | policy => policy
           }
-        }
 
-        switch await askForDownloadPolicyAndHandleIt() {
-        | Error(error) => Error(error)
-        | Ok(uri) =>
-          await Config.Connection.addAgdaPath(uri)
-          switch await Target.fromURI(uri) {
-          | Error(error) => Error(Target(error))
-          | Ok(target) => await makeWithTarget(target)
+          switch policy {
+          | Config.Connection.DownloadPolicy.Undecided =>
+            // the user has clicked on "cancel" in the dialog, treat it as "No"
+            await Config.Connection.DownloadPolicy.set(No)
+            Error(Error.Aggregated(NoDownloadALS(attempts)))
+          | No =>
+            await Config.Connection.DownloadPolicy.set(No)
+            Error(Error.Aggregated(NoDownloadALS(attempts)))
+          | Yes =>
+            await Config.Connection.DownloadPolicy.set(Yes)
+            switch await downloadLatestALS(platform) {
+            | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
+            | Ok(uri) =>
+              await Config.Connection.addAgdaPath(uri)
+              switch await Target.fromURI(uri) {
+              | Error(error) => Error(Target(error))
+              | Ok(target) => await makeWithTarget(target)
+              }
+            }
           }
         }
 

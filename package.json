@@ -908,14 +908,12 @@
 					"default": "Undecided",
 					"enum": [
 						"Undecided",
-						"Yes, and keep it up-to-date",
-						"Yes, but don't update afterwards",
+						"Yes",
 						"No, and don't ask again"
 					],
 					"markdownEnumDescriptions": [
 						"The default state, which would trigger the modal dialog",
-						"Download and install the latest Agda Language Server and keep it up-to-date",
-						"Download and install the latest Agda Language Server but don't update afterwards",
+						"Download and install the latest Agda Language Server",
 						"Do nothing and don't ask again"
 					],
 					"scope": "machine-overridable",

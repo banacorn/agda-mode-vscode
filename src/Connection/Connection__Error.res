@@ -21,7 +21,9 @@ module Aggregated = {
       "Tried to connect with the path from the configuration but all failed:\n" ++
       attempts.targets
       ->Array.map(attempt =>
-        Connection__URI.toString(attempt.uri) ++ ": " ++ Connection__Target.Error.toString(attempt.error)
+        Connection__URI.toString(attempt.uri) ++
+        ": " ++
+        Connection__Target.Error.toString(attempt.error)
       )
       ->Array.join("\n")
     } ++ if attempts.commands->Array.length == 0 {
@@ -72,43 +74,17 @@ module Aggregated = {
 }
 
 type t =
-  // Agda
   | Agda(Connection__Target__Agda__Error.t, string)
-  // ALS
   | ALS(Connection__Target__ALS__Error.t)
-  // Connection
-  // | CommandsNotFound(array<Aggregated.commandAttempt>)
   | Target(Connection__Target.Error.t)
   | Download(Connection__Download__Error.t)
   | Aggregated(Aggregated.t)
-  | TempPlatformNotSupported(Connection__Download__Platform.raw)
 
 let toString = x =>
   switch x {
   | Agda(e, _) => Connection__Target__Agda__Error.toString(e)
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
-  // | CommandsNotFound(attempts) => (
-  //     "Commands not found",
-  //     attempts
-  //     ->Array.map(({command, error}) =>
-  //       switch error {
-  //       | None => "Cannot find `" ++ command ++ "` in PATH"
-  //       | Some(e) =>
-  //         "Cannot find `" ++
-  //         command ++
-  //         "` because: " ++
-  //         Connection__Process__Exec.Error.toString(e) ++ "."
-  //       }
-  //     )
-  //     ->Array.join(
-  //       "\n",
-  //     ) ++ "\n\nIf they are installed somewhere outside of PATH, please add the path to the configuration at `agdaMode.connection.paths`.",
-  //   )
   | Target(e) => ("Error", Connection__Target.Error.toString(e))
   | Download(e) => ("Error", Connection__Download__Error.toString(e))
   | Aggregated(e) => ("Error", Aggregated.toString(e))
-  | TempPlatformNotSupported(raw) => (
-      "Platform not supported",
-      "The platform `" ++ raw["os"] ++ "/" ++ raw["dist"] ++ "` is not supported.",
-    )
   }

@@ -10,16 +10,10 @@ let askUserAboutDownloadPolicy = async () => {
   ) // 📺
 
   // parse the result
-  let newPolicy =
-    result->Option.mapOr(
-      Config.Connection.DownloadPolicy.Undecided,
-      Config.Connection.DownloadPolicy.fromString,
-    )
-
-  // update the policy
-  await Config.Connection.DownloadPolicy.set(newPolicy)
-
-  newPolicy
+  result->Option.mapOr(
+    Config.Connection.DownloadPolicy.No,
+    Config.Connection.DownloadPolicy.fromString,
+  )
 }
 
 let downloadLatestALS = (state: State.t) => async platform => {

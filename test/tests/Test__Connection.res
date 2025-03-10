@@ -417,7 +417,12 @@ describe("Connection", () => {
               "codename": "non-existent-codename",
               "release": "non-existent-release",
             }
-            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided // don't care
+            await Config.Connection.DownloadPolicy.set(Undecided)
+            let getDownloadPolicyCount = ref(0)
+            let getDownloadPolicy = async () => {
+              getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+              Config.Connection.DownloadPolicy.Undecided
+            }
             let downloadLatestALS = async _ => Error(
               Connection__Download__Error.CannotFindCompatibleALSRelease,
             ) // don't care
@@ -434,14 +439,23 @@ describe("Connection", () => {
               result,
               Error(Aggregated(PlatformNotSupported(expectedAttempts, platform))),
             )
+
+            // should not ask the user for download policy
+            Assert.deepEqual(getDownloadPolicyCount.contents, 0)
           },
         )
 
         Async.it(
-          "should throw the `NoDownloadALS` error when the download policy is `No`",
+          "should throw the `NoDownloadALS` error when the inital download policy is `No`",
           async () => {
             let platform = Connection__Download__Platform.Windows
-            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+
+            await Config.Connection.DownloadPolicy.set(No)
+            let getDownloadPolicyCount = ref(0)
+            let getDownloadPolicy = async () => {
+              getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+              Config.Connection.DownloadPolicy.No // don't care, shouldn't be invoked
+            }
             let downloadLatestALS = async _ => Error(
               Connection__Download__Error.CannotFindCompatibleALSRelease,
             ) // don't care
@@ -454,13 +468,53 @@ describe("Connection", () => {
               downloadLatestALS,
             )
             Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(expectedAttempts))))
+
+            let policy = Config.Connection.DownloadPolicy.get()
+            Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
+
+            // should not ask the user for download policy
+            Assert.deepEqual(getDownloadPolicyCount.contents, 0)
           },
         )
 
         Async.it(
-          "should throw the `DownloadALS` error when the download policy is `Yes` and the download fails",
+          "should throw the `NoDownloadALS` error when the user clicked `cancel` on the download dialog",
           async () => {
             let platform = Connection__Download__Platform.Windows
+
+            await Config.Connection.DownloadPolicy.set(Undecided)
+            let getDownloadPolicyCount = ref(0)
+            let getDownloadPolicy = async () => {
+              getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+              Config.Connection.DownloadPolicy.Undecided
+            }
+            let downloadLatestALS = async _ => Error(
+              Connection__Download__Error.CannotFindCompatibleALSRelease,
+            ) // don't care
+            let result = await Connection.make(
+              memento,
+              paths,
+              commands,
+              Ok(platform),
+              getDownloadPolicy,
+              downloadLatestALS,
+            )
+            Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(expectedAttempts))))
+
+            let policy = Config.Connection.DownloadPolicy.get()
+            Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
+
+            // should ask the user for download policy exactly once
+            Assert.deepEqual(getDownloadPolicyCount.contents, 1)
+          },
+        )
+
+        Async.it(
+          "should throw the `DownloadALS` error when the download policy is `Yes` but the download fails",
+          async () => {
+            let platform = Connection__Download__Platform.Windows
+
+            await Config.Connection.DownloadPolicy.set(Undecided)
             let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let downloadLatestALS = async _ => Error(
               Connection__Download__Error.CannotFindCompatibleALSRelease,
@@ -484,6 +538,9 @@ describe("Connection", () => {
                 ),
               ),
             )
+
+            let policy = Config.Connection.DownloadPolicy.get()
+            Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
           },
         )
       },
