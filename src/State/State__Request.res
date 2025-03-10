@@ -42,7 +42,7 @@ let handleDownloadPolicy = async (state, dispatchCommand, errors, policy) => {
       state.globalStorageUri,
       reportProgress,
     ) {
-    | Error(error) => await State__View.Panel.displayConnectionError(state, error) // 📺
+    | Error(error) => await State__View.Panel.displayConnectionError(state, Download(error)) // 📺
     | Ok(_) => await dispatchCommand(Command.Load) // 💨
     }
   | No => await State__View.Panel.displayConnectionError(state, CommandsNotFound(errors)) // 📺

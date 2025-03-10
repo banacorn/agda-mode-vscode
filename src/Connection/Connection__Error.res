@@ -78,14 +78,8 @@ type t =
   | ALS(Connection__Target__ALS__Error.t)
   // Connection
   | CommandsNotFound(array<Aggregated.commandAttempt>)
-  // array<(string, option<Connection__Process__Exec.Error.t>)>
   | Target(Connection__Target.Error.t)
   | Download(Connection__Download__Error.t)
-  // Download
-  | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
-  | CannotDownloadALS(Connection__Download__GitHub.Error.t)
-  | CannotFindCompatibleALSRelease
-  //
   | Aggregated(Aggregated.t)
 
 let toString = x =>
@@ -93,7 +87,7 @@ let toString = x =>
   | Agda(e, _) => Connection__Target__Agda__Error.toString(e)
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
   | CommandsNotFound(attempts) => (
-      "Cannot find the `agda` or `als` commands",
+      "Commands not found",
       attempts
       ->Array.map(({command, error}) =>
         switch error {
@@ -107,19 +101,7 @@ let toString = x =>
       )
       ->Array.join(
         "\n",
-      ) ++ "\n\nIf `agda` or `als` is installed somewhere outside of PATH, please add the path to the configuration at `agdaMode.connection.paths`.",
-    )
-  | CannotFetchALSReleases(e) => (
-      "Cannot fetch releases of Agda Language Server",
-      Connection__Download__GitHub.Error.toString(e),
-    )
-  | CannotFindCompatibleALSRelease => (
-      "Cannot find compatible Agda Language Server release for download",
-      "Prebuilts are only available for download on Ubuntu, Windows, and macOS (arm64, x64).\nPlease build from source if you are on a different platform. \nSee https://github.com/agda/agda-language-server for more information.",
-    )
-  | CannotDownloadALS(e) => (
-      "Failed download the Agda Language Server",
-      Connection__Download__GitHub.Error.toString(e),
+      ) ++ "\n\nIf they are installed somewhere outside of PATH, please add the path to the configuration at `agdaMode.connection.paths`.",
     )
   | Target(e) => ("Error", Connection__Target.Error.toString(e))
   | Download(e) => ("Error", Connection__Download__Error.toString(e))

@@ -13,7 +13,7 @@ module type Module = {
     array<string>,
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     unit => promise<Config.Connection.DownloadPolicy.t>,
-    unit => promise<result<Connection__Download__GitHub.Target.t, Connection__Error.t>>,
+    unit => promise<result<Connection__Download__GitHub.Target.t, Connection__Download__Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // messaging
@@ -25,10 +25,7 @@ module type Module = {
   ) => promise<result<Target.t, Error.t>>
 
   // command
-  let findCommands: array<string> => promise<
-    result<string, array<Error.Aggregated.commandAttempt>>,
-    // result<string, array<(string, option<AgdaModeVscode.Connection__Process__Exec.Error.t>)>>,
-  >
+  let findCommands: array<string> => promise<result<string, array<Error.Aggregated.commandAttempt>>>
 
   // misc
   let makeAgdaLanguageServerRepo: (
@@ -38,7 +35,7 @@ module type Module = {
   let getALSReleaseManifest: (
     State__Memento.t,
     VSCode.Uri.t,
-  ) => promise<result<array<Connection__Download__GitHub.Release.t>, Error.t>>
+  ) => promise<result<array<Connection__Download__GitHub.Release.t>, Connection__Download__Error.t>>
 
   // download
   let isLatestALSDownloaded: VSCode.Uri.t => promise<bool>
@@ -46,7 +43,7 @@ module type Module = {
     State__Memento.t,
     VSCode.Uri.t,
     Connection__Download__Util.Event.t => unit,
-  ) => promise<result<Connection__Download__GitHub.Target.t, Error.t>>
+  ) => promise<result<Connection__Download__GitHub.Target.t, Connection__Download__Error.t>>
 }
 
 module Module: Module = {
@@ -154,9 +151,10 @@ module Module: Module = {
     commands: array<string>,
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
-    getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
+    getDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>,
     downloadLatestALS: unit => promise<
-      result<Connection__Download__GitHub.Target.t, Connection__Error.t>,
+      result<Connection__Download__GitHub.Target.t, Connection__Download__Error.t>,
+      // result<Connection__Download__GitHub.Target.t, Connection__Download__GitHub.Error.t>,
     >,
   ) =>
     switch await Target.getPicked(memento, paths) {
@@ -175,12 +173,23 @@ module Module: Module = {
           Error.Aggregated.targets: targetErrors,
           commands: commandErrors,
         }
-        let policy = await getDownloadPolicyFromUser()
 
-        // switch platform {
-        // | None => Error(Error.Aggregated(PlatformNotSupported(attempts, "unknown")))
-        // | Some(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
-        // }
+        let rec askForDownloadPolicyAndHandleIt = async () => {
+          let policy = await getDownloadPolicy()
+          switch platform {
+          | Error(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
+          | Ok(platform) =>
+            switch policy {
+            | Config.Connection.DownloadPolicy.Yes =>
+              switch await downloadLatestALS() {
+              | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
+              | Ok(result) => Ok(result)
+              }
+            | No => Error(Error.Aggregated(NoDownloadALS(attempts)))
+            | Undecided => await askForDownloadPolicyAndHandleIt()
+            }
+          }
+        }
 
         Error(Error.CommandsNotFound(commandErrors))
       | Ok(path) =>
@@ -243,7 +252,7 @@ module Module: Module = {
     switch await Connection__Download__GitHub.ReleaseManifest.fetch(
       makeAgdaLanguageServerRepo(memento, globalStorageUri),
     ) {
-    | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
+    | (Error(error), _) => Error(Connection__Download__Error.CannotFetchALSReleases(error))
     | (Ok(manifest), _) => Ok(manifest)
     }
   }
@@ -278,7 +287,7 @@ module Module: Module = {
           ->Array.get(0)
 
         switch latestRelease {
-        | None => Error(Error.CannotFindCompatibleALSRelease)
+        | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
         | Some(latestRelease) =>
           // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
           let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
@@ -299,7 +308,7 @@ module Module: Module = {
             ->Array.get(0)
 
           switch result {
-          | None => Error(Error.CannotFindCompatibleALSRelease)
+          | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
           | Some(target) => Ok(target)
           }
         }
@@ -347,7 +356,7 @@ module Module: Module = {
         reportProgress,
         target,
       ) {
-      | Error(e) => Error(Error.CannotDownloadALS(e))
+      | Error(e) => Error(Connection__Download__Error.CannotDownloadALS(e))
       | Ok(_) => Ok(target)
       }
     }

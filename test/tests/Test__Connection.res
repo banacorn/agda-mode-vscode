@@ -252,7 +252,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        let downloadLatestALS = async () => Error(Connection__Error.CannotFindCompatibleALSRelease) // NOTE: temporary
+        let downloadLatestALS = async () => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // NOTE: temporary
         switch await Connection.make(
           memento,
           paths,
@@ -304,7 +306,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        let downloadLatestALS = async () => Error(Connection__Error.CannotFindCompatibleALSRelease) // NOTE: temporary
+        let downloadLatestALS = async () => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // NOTE: temporary
         switch await Connection.make(
           memento,
           paths,
@@ -351,7 +355,9 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         let platform = await Connection__Download__Platform.determine()
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        let downloadLatestALS = async () => Error(Connection__Error.CannotFindCompatibleALSRelease) // NOTE: temporary
+        let downloadLatestALS = async () => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // NOTE: temporary
         switch await Connection.make(
           memento,
           paths,
@@ -375,28 +381,37 @@ describe("Connection", () => {
       },
     )
 
-    // describe(
-    //   "Platform",
-    //   () => {
-    //     Async.it(
-    //       "should throw an error when the platform is not supported",
-    //       async () => {
-    //         let memento = State__Memento.make(None)
-    //         let paths = [Connection__URI.parse("some/other/path")]
-    //         let commands = ["non-existent-command"]
-    //         let platform = None
-    //         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-    //         switch await Connection.make(memento, paths, commands, platform, getDownloadPolicy) {
-    //         | Ok(_) => ()
-    //         | Error(error) =>
-    //           let (header, body) = Connection.Error.toString(error)
-    //           failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
-    //         }
-
-    //         Assert.deepEqual(Config.Connection.getAgdaPaths(), paths)
-    //       },
-    //     )
-    //   },
-    // )
+    describe(
+      "Platform",
+      () => {
+        Async.it(
+          "should throw an error when the platform is not supported",
+          async () => {
+            let memento = State__Memento.make(None)
+            let paths = [Connection__URI.parse("some/other/path")]
+            let commands = ["non-existent-command"]
+            let platform = Error({
+              "os": "non-existent-os",
+              "dist": "non-existent-dist",
+              "codename": "non-existent-codename",
+              "release": "non-existent-release",
+            })
+            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
+            let downloadLatestALS = async () => Error(
+              Connection__Download__Error.CannotFindCompatibleALSRelease,
+            ) // NOTE: temporary
+            let _ = await Connection.make(
+              memento,
+              paths,
+              commands,
+              platform,
+              getDownloadPolicy,
+              downloadLatestALS,
+            )
+            // Assert.deepEqual(Config.Connection.getAgdaPaths(), paths)
+          },
+        )
+      },
+    )
   })
 })
