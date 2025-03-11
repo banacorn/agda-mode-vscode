@@ -181,18 +181,23 @@ describe("Connection", () => {
   })
 
   describe("Command searching", () => {
+
     Async.it(
-      "should be able to find itself (`which` or `where`)",
+      "should be able to find itself (`which` or `where`), although it's not a valid target",
       async () => {
         if OS.onUnix {
-          switch await Connection__Command__Search.search("which") {
-          | Ok(_output) => ()
-          | Error(_) => failwith("expected to find `which`")
+          switch await Connection__Command.search("which") {
+          | Ok(_output) => failwith("should not be a valid target")
+          | Error(Connection__Command.Error.NotFound(_)) => failwith("expected to find `which`")
+          | Error(SomethingWentWrong(_)) => failwith("expected to find `which`")
+          | Error(NotValidTarget(_, _, _)) => ()
           }
         } else {
-          switch await Connection__Command__Search.search("where") {
-          | Ok(_output) => ()
-          | Error(_) => failwith("expected to find `where`")
+          switch await Connection__Command.search("where") {
+          | Ok(_output) => failwith("should not be a valid target")
+          | Error(Connection__Command.Error.NotFound(_)) => failwith("expected to find `where`")
+          | Error(SomethingWentWrong(_)) => failwith("expected to find `where`")
+          | Error(NotValidTarget(_, _, _)) => ()
           }
         }
       },
@@ -200,7 +205,7 @@ describe("Connection", () => {
     Async.it(
       "should return an error when the command is not found",
       async () => {
-        switch await Connection__Command__Search.search("non-existent-command") {
+        switch await Connection__Command.search("non-existent-command") {
         | Ok(_output) => failwith("expected to not find `non-existent-command`")
         | Error(_) => ()
         }
@@ -239,9 +244,9 @@ describe("Connection", () => {
     Async.it(
       "Memento: [] / paths: [] / commands: ['agda', 'als']",
       async () => {
-        // get the path of `agda` first
-        let path = switch await Connection.findCommands(["agda"]) {
-        | Ok(path) => path
+        // get the Target of `agda` first
+        let target = switch await Connection.findCommands(["agda"]) {
+        | Ok(target) => target
         | Error(_) => failwith("expected to find `agda`")
         }
 
@@ -270,19 +275,18 @@ describe("Connection", () => {
           failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
 
-        Assert.deepEqual(Config.Connection.getAgdaPaths(), [path]->Array.map(Connection__URI.parse))
+        Assert.deepEqual(
+          Config.Connection.getAgdaPaths(),
+          [target]->Array.map(Connection__Target.toURI),
+        )
 
         let pathIsNowInConfig =
-          Config.Connection.getAgdaPaths()->Util.Array.includes(path->Connection__URI.parse)
+          Config.Connection.getAgdaPaths()->Util.Array.includes(target->Connection__Target.toURI)
         Assert.ok(pathIsNowInConfig)
 
         switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
         | Error(_) => failwith("expected to find the picked connection")
-        | Ok(picked) =>
-          Assert.deepStrictEqual(
-            picked->Connection.Target.toURI->Connection__Target.URI.toString,
-            path,
-          )
+        | Ok(picked) => Assert.deepStrictEqual(picked, target)
         }
       },
     )
@@ -290,13 +294,9 @@ describe("Connection", () => {
     Async.it(
       "Memento: [] / paths: ['some/other/path'] / commands: ['agda', 'als']",
       async () => {
-        // get the path of `agda` first
-        let path = switch await Connection.findCommands(["agda"]) {
-        | Ok(path) =>
-          switch await Connection.Target.fromRawPath(path) {
-          | Ok(target) => target->Connection.Target.toURI
-          | Error(_) => failwith("expected to find `agda`")
-          }
+        // get the Target of `agda` first
+        let target = switch await Connection.findCommands(["agda"]) {
+        | Ok(target) => target
         | Error(_) => failwith("expected to find `agda`")
         }
 
@@ -324,14 +324,18 @@ describe("Connection", () => {
           failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
         }
 
-        Assert.deepEqual(Config.Connection.getAgdaPaths(), [...paths, path])
+        Assert.deepEqual(
+          Config.Connection.getAgdaPaths(),
+          [...paths, target->Connection__Target.toURI],
+        )
 
-        let pathIsNowInConfig = Config.Connection.getAgdaPaths()->Util.Array.includes(path)
+        let pathIsNowInConfig =
+          Config.Connection.getAgdaPaths()->Util.Array.includes(target->Connection__Target.toURI)
         Assert.ok(pathIsNowInConfig)
 
         switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
         | Error(_) => failwith("expected to find the picked connection")
-        | Ok(picked) => Assert.deepStrictEqual(picked->Connection.Target.toURI, path)
+        | Ok(picked) => Assert.deepStrictEqual(picked, target)
         }
       },
     )
@@ -339,17 +343,16 @@ describe("Connection", () => {
     Async.it(
       "Memento: [] / paths: ['agda', 'others'] / commands: ['agda', 'als']",
       async () => {
-        // get the path of `agda` first
-        let path = switch await Connection.findCommands(["agda"]) {
-        | Ok(path) =>
-          switch await Connection.Target.fromRawPath(path) {
-          | Ok(target) => target->Connection.Target.toURI
-          | Error(_) => failwith("expected to find `agda`")
-          }
+        // get the Target of `agda` first
+        let target = switch await Connection.findCommands(["agda"]) {
+        | Ok(target) => target
         | Error(_) => failwith("expected to find `agda`")
         }
 
-        await Config.Connection.setAgdaPaths([path, Connection__URI.parse("some/other/path")])
+        await Config.Connection.setAgdaPaths([
+          target->Connection.Target.toURI,
+          Connection__URI.parse("some/other/path"),
+        ])
         let paths = Config.Connection.getAgdaPaths()
 
         let memento = State__Memento.make(None)
@@ -377,7 +380,7 @@ describe("Connection", () => {
 
         switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
         | Error(_) => failwith("expected to find the picked connection")
-        | Ok(picked) => Assert.deepStrictEqual(picked->Connection.Target.toURI, path)
+        | Ok(picked) => Assert.deepStrictEqual(picked, target)
         }
       },
     )
@@ -400,12 +403,7 @@ describe("Connection", () => {
               ),
             },
           ],
-          commands: [
-            {
-              command: "non-existent-command",
-              error: None,
-            },
-          ],
+          commands: [NotFound("non-existent-command")],
         }
 
         Async.it(

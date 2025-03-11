@@ -4,14 +4,9 @@ module Aggregated = {
     error: Connection__Target.Error.t,
   }
 
-  type commandAttempt = {
-    command: string,
-    error: option<Connection__Process__Exec.Error.t>,
-  }
-
   type attempts = {
     targets: array<targetAttempt>,
-    commands: array<commandAttempt>,
+    commands: array<Connection__Command.Error.t>,
   }
 
   let attempsToString = attempts => {
@@ -30,19 +25,7 @@ module Aggregated = {
       ""
     } else {
       attempts.commands
-      ->Array.map(attempt =>
-        "Tried to run the `" ++
-        attempt.command ++
-        "` command but failed:\n" ++
-        switch attempt.error {
-        | None => "Cannot find `" ++ attempt.command ++ "` in PATH"
-        | Some(e) =>
-          "Cannot find `" ++
-          attempt.command ++
-          "` because: " ++
-          Connection__Process__Exec.Error.toString(e) ++ "."
-        }
-      )
+      ->Array.map(Connection__Command.Error.toString)
       ->Array.join("\n")
     }
   }

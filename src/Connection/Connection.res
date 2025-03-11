@@ -25,7 +25,7 @@ module type Module = {
   ) => promise<result<Target.t, Error.t>>
 
   // command
-  let findCommands: array<string> => promise<result<string, array<Error.Aggregated.commandAttempt>>>
+  let findCommands: array<string> => promise<result<Target.t, array<Connection__Command.Error.t>>>
 
   // misc
   let makeAgdaLanguageServerRepo: (
@@ -117,17 +117,14 @@ module Module: Module = {
       switch commands {
       | list{} => Error(acc)
       | list{command, ...rest} =>
-        switch await Connection__Command__Search.search(command) {
+        switch await Connection__Command.search(command) {
         | Ok(path) => Ok(path) // found, stop searching
         | Error(error) => await step(list{(command, error), ...acc}, rest) // accumulate the error and continue searching
         }
       }
     switch await step(list{}, commands) {
     | Error(errorPairs) =>
-      let errorPairs = errorPairs->List.map(((command, error)) => {
-        Error.Aggregated.command,
-        error,
-      })
+      let errorPairs = errorPairs->List.map(snd)
       Error(List.toArray(errorPairs))
 
     | Ok(path) => Ok(path)
@@ -144,8 +141,13 @@ module Module: Module = {
   // 5. Check the download policy:
   //      Undecided : ask the user if they want to download ALS or not, go back to 5.
   //      No        : exit with the `NoDownloadALS` error ❌
-  //      Yes       : download the ALS, add it to the list of targets if it works, exit with the `DownloadALS` error ❌
-  // 6. Store the new download target in the configuration
+  //      Yes       : proceed to 6.
+  // 6. Check if the latest ALS is already downloaded:
+  //      Yes       : ✅
+  //      No        : proceed to 7.
+  // 7. Download the latest ALS:
+  //      Succeed   : add it to the list of targets ✅
+  //      Failed    : exit with the `DownloadALS` error ❌
 
   let make = async (
     memento: State__Memento.t,
@@ -205,14 +207,14 @@ module Module: Module = {
           }
         }
 
-      | Ok(path) =>
+      | Ok(target) =>
         // try to convert the path to a target for connection
-        switch await Target.fromRawPath(path) {
-        | Ok(target) =>
+        // switch await Target.fromRawPath(path) {
+        // | Ok(target) =>
           await Config.Connection.addAgdaPath(target->Target.toURI)
           await makeWithTarget(target)
-        | Error(error) => Error(Target(error))
-        }
+        // | Error(error) => Error(Target(error))
+        // }
       }
     | Ok(target) => await makeWithTarget(target)
     }
