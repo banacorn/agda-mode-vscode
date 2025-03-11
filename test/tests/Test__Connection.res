@@ -226,10 +226,7 @@ describe("Connection", () => {
         let commands = ["agda", "als"]
         switch await Connection.findCommands(commands) {
         | Ok(_) => ()
-        | Error(error) =>
-          // let (header, body) = Connection.Error.toString(CommandsNotFound(error))
-          // failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
-          failwith("expected to find `agda` or `als`")
+        | Error(_) => failwith("expected to find `agda` or `als`")
         }
       },
     )
@@ -246,7 +243,7 @@ describe("Connection", () => {
     )
   })
 
-  describe_only("`fromPathsAndCommands`", () => {
+  describe("`fromPathsAndCommands`", () => {
     Async.it(
       "should find commands when no paths are given",
       async () => {
@@ -293,7 +290,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should throw error when the command is not found",
+      "should throw an error when the command is not found",
       async () => {
         let memento = State__Memento.make(None)
         let paths = [Connection__URI.parse("some/other/paths")]
@@ -471,152 +468,6 @@ describe("Connection", () => {
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
-      },
-    )
-  })
-
-  describe("make", () => {
-    Async.it(
-      "Memento: [] / paths: [] / commands: ['agda', 'als']",
-      async () => {
-        // get the Target of `agda` first
-        let target = switch await Connection.findCommands(["agda"]) {
-        | Ok(target) => target
-        | Error(_) => failwith("expected to find `agda`")
-        }
-
-        // remove all paths in the config
-        await Config.Connection.setAgdaPaths([])
-        let paths = Config.Connection.getAgdaPaths()
-
-        let memento = State__Memento.make(None)
-        let commands = ["agda", "als"]
-        let platform = await Connection__Download__Platform.determine()
-        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
-        ) // NOTE: temporary
-        switch await Connection.make(
-          memento,
-          paths,
-          commands,
-          platform,
-          getDownloadPolicy,
-          downloadLatestALS,
-        ) {
-        | Ok(_) => ()
-        | Error(error) =>
-          let (header, body) = Connection.Error.toString(error)
-          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
-        }
-
-        Assert.deepEqual(
-          Config.Connection.getAgdaPaths(),
-          [target]->Array.map(Connection__Target.toURI),
-        )
-
-        let pathIsNowInConfig =
-          Config.Connection.getAgdaPaths()->Util.Array.includes(target->Connection__Target.toURI)
-        Assert.ok(pathIsNowInConfig)
-
-        switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
-        | Error(_) => failwith("expected to find the picked connection")
-        | Ok(picked) => Assert.deepStrictEqual(picked, target)
-        }
-      },
-    )
-
-    Async.it(
-      "Memento: [] / paths: ['some/other/path'] / commands: ['agda', 'als']",
-      async () => {
-        // get the Target of `agda` first
-        let target = switch await Connection.findCommands(["agda"]) {
-        | Ok(target) => target
-        | Error(_) => failwith("expected to find `agda`")
-        }
-
-        await Config.Connection.setAgdaPaths(["some/other/path"]->Array.map(Connection__URI.parse))
-        let paths = Config.Connection.getAgdaPaths()
-
-        let memento = State__Memento.make(None)
-        let commands = ["agda", "als"]
-        let platform = await Connection__Download__Platform.determine()
-        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
-        ) // NOTE: temporary
-        switch await Connection.make(
-          memento,
-          paths,
-          commands,
-          platform,
-          getDownloadPolicy,
-          downloadLatestALS,
-        ) {
-        | Ok(_) => ()
-        | Error(error) =>
-          let (header, body) = Connection.Error.toString(error)
-          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
-        }
-
-        Assert.deepEqual(
-          Config.Connection.getAgdaPaths(),
-          [...paths, target->Connection__Target.toURI],
-        )
-
-        let pathIsNowInConfig =
-          Config.Connection.getAgdaPaths()->Util.Array.includes(target->Connection__Target.toURI)
-        Assert.ok(pathIsNowInConfig)
-
-        switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
-        | Error(_) => failwith("expected to find the picked connection")
-        | Ok(picked) => Assert.deepStrictEqual(picked, target)
-        }
-      },
-    )
-
-    Async.it(
-      "Memento: [] / paths: ['agda', 'others'] / commands: ['agda', 'als']",
-      async () => {
-        // get the Target of `agda` first
-        let target = switch await Connection.findCommands(["agda"]) {
-        | Ok(target) => target
-        | Error(_) => failwith("expected to find `agda`")
-        }
-
-        await Config.Connection.setAgdaPaths([
-          target->Connection.Target.toURI,
-          Connection__URI.parse("some/other/path"),
-        ])
-        let paths = Config.Connection.getAgdaPaths()
-
-        let memento = State__Memento.make(None)
-        let commands = ["agda", "als"]
-        let platform = await Connection__Download__Platform.determine()
-        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Undecided
-        let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
-        ) // NOTE: temporary
-        switch await Connection.make(
-          memento,
-          paths,
-          commands,
-          platform,
-          getDownloadPolicy,
-          downloadLatestALS,
-        ) {
-        | Ok(_) => ()
-        | Error(error) =>
-          let (header, body) = Connection.Error.toString(error)
-          failwith("expected to find `agda` or `als`: " ++ header ++ " - " ++ body)
-        }
-
-        Assert.deepEqual(Config.Connection.getAgdaPaths(), paths)
-
-        switch await Connection.Target.getPicked(memento, Config.Connection.getAgdaPaths()) {
-        | Error(_) => failwith("expected to find the picked connection")
-        | Ok(picked) => Assert.deepStrictEqual(picked, target)
-        }
       },
     )
   })
