@@ -9,7 +9,7 @@ module Aggregated = {
     commands: array<Connection__Command.Error.t>,
   }
 
-  let attempsToString = attempts => {
+  let attemptsToString = attempts => {
     if attempts.targets->Array.length == 0 {
       "Tried to connect with the path from the configuration but there are none.\n"
     } else {
@@ -38,19 +38,19 @@ module Aggregated = {
   let toString = x =>
     switch x {
     | PlatformNotSupported(attempts, platform) =>
-      attempsToString(attempts) ++
+      attemptsToString(attempts) ++
       "\nTried to download the Agda Language Server but the platform `" ++
       platform["os"] ++
       "/" ++
       platform["dist"] ++ "` is not supported.\n"
 
     | NoDownloadALS(attempts) =>
-      attempsToString(
+      attemptsToString(
         attempts,
       ) ++ "\nPrebuilt Agda Language Server available for download but you opted not to.\n"
 
     | DownloadALS(attempts, error) =>
-      attempsToString(attempts) ++
+      attemptsToString(attempts) ++
       "\nTried to download the Agda Language Server but failed:\n" ++
       Connection__Download__Error.toString(error)
     }

@@ -16,6 +16,20 @@ module type Module = {
     Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
+  // components
+  let fromPathsAndCommands: (
+    State__Memento.t,
+    array<Connection__URI.t>,
+    array<string>,
+  ) => promise<result<Target.t, Error.Aggregated.attempts>>
+  let fromDownloads: (
+    Error.Aggregated.attempts,
+    result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
+    // callbacks
+    unit => promise<Config.Connection.DownloadPolicy.t>,
+    Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
+  ) => promise<result<Target.t, Error.t>>
+
   // messaging
   let sendRequest: (
     t,
@@ -119,13 +133,11 @@ module Module: Module = {
       | list{command, ...rest} =>
         switch await Connection__Command.search(command) {
         | Ok(path) => Ok(path) // found, stop searching
-        | Error(error) => await step(list{(command, error), ...acc}, rest) // accumulate the error and continue searching
+        | Error(error) => await step(list{error, ...acc}, rest) // accumulate the error and continue searching
         }
       }
     switch await step(list{}, commands) {
-    | Error(errorPairs) =>
-      let errorPairs = errorPairs->List.map(snd)
-      Error(List.toArray(errorPairs))
+    | Error(error) => Error(List.toArray(error))
 
     | Ok(path) => Ok(path)
     }
@@ -149,17 +161,15 @@ module Module: Module = {
   //      Succeed   : add it to the list of targets ✅
   //      Failed    : exit with the `DownloadALS` error ❌
 
-  let make = async (
+  // Try to connect to Agda or ALS, with paths and commands ('agda' and 'als'), in the following steps:
+  // 1. Go through the list of targets in the configuration, use the first one that works
+  // 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
+  // 3. Try the `als` command, add it to the list of targets if it works
+  let fromPathsAndCommands = async (
     memento: State__Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
-    platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
-    // callbacks
-    getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
-    downloadLatestALS: Connection__Download__Platform.t => promise<
-      result<URI.t, Connection__Download__Error.t>,
-    >,
-  ) =>
+  ): result<Target.t, Error.Aggregated.attempts> => {
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
       let targetErrors = List.zipBy(List.fromArray(paths), List.fromArray(targetErrors), (
@@ -176,47 +186,96 @@ module Module: Module = {
           Error.Aggregated.targets: targetErrors,
           commands: commandErrors,
         }
-        switch platform {
-        | Error(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
-        | Ok(platform) =>
-          // if the policy has not been set, ask the user
-          let policy = switch Config.Connection.DownloadPolicy.get() {
-          | Undecided => await getDownloadPolicyFromUser()
-          | policy => policy
-          }
 
-          switch policy {
-          | Config.Connection.DownloadPolicy.Undecided =>
-            // the user has clicked on "cancel" in the dialog, treat it as "No"
-            await Config.Connection.DownloadPolicy.set(No)
-            Error(Error.Aggregated(NoDownloadALS(attempts)))
-          | No =>
-            await Config.Connection.DownloadPolicy.set(No)
-            Error(Error.Aggregated(NoDownloadALS(attempts)))
-          | Yes =>
-            await Config.Connection.DownloadPolicy.set(Yes)
-            switch await downloadLatestALS(platform) {
-            | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
-            | Ok(uri) =>
-              await Config.Connection.addAgdaPath(uri)
-              switch await Target.fromURI(uri) {
-              | Error(error) => Error(Target(error))
-              | Ok(target) => await makeWithTarget(target)
-              }
-            }
+        Error(attempts)
+
+      | Ok(target) => Ok(target)
+      }
+    | Ok(target) => Ok(target)
+    }
+  }
+
+  // Try to download ALS, with the following steps:
+  // 1. See if the platform is supported:
+  //      No  : exit with the `PlatformNotSupported` error ❌
+  //      Yes : proceed to 2.
+  // 2. Check the download policy:
+  //      Undecided : ask the user if they want to download ALS or not, go back to 1.
+  //      No        : exit with the `NoDownloadALS` error ❌
+  //      Yes       : proceed to 3.
+  // 3. Check if the latest ALS is already downloaded:
+  //      Yes       : ✅
+  //      No        : proceed to 4.
+  // 4. Download the latest ALS:
+  //      Succeed   : add it to the list of targets ✅
+  //      Failed    : exit with the `DownloadALS` error ❌
+
+  let fromDownloads = async (
+    attempts: Error.Aggregated.attempts,
+    platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
+    // callbacks
+    getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
+    downloadLatestALS: Connection__Download__Platform.t => promise<
+      result<URI.t, Connection__Download__Error.t>,
+    >,
+  ): result<Target.t, Error.t> => {
+    switch platform {
+    | Error(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
+    | Ok(platform) =>
+      // if the policy has not been set, ask the user
+      let policy = switch Config.Connection.DownloadPolicy.get() {
+      | Undecided => await getDownloadPolicyFromUser()
+      | policy => policy
+      }
+
+      switch policy {
+      | Config.Connection.DownloadPolicy.Undecided =>
+        // the user has clicked on "cancel" in the dialog, treat it as "No"
+        await Config.Connection.DownloadPolicy.set(No)
+        Error(Error.Aggregated(NoDownloadALS(attempts)))
+      | No =>
+        await Config.Connection.DownloadPolicy.set(No)
+        Error(Error.Aggregated(NoDownloadALS(attempts)))
+      | Yes =>
+        await Config.Connection.DownloadPolicy.set(Yes)
+        switch await downloadLatestALS(platform) {
+        | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
+        | Ok(uri) =>
+          await Config.Connection.addAgdaPath(uri)
+          switch await Target.fromURI(uri) {
+          | Error(error) => Error(Target(error))
+          | Ok(target) => Ok(target)
           }
         }
-
-      | Ok(target) =>
-        // try to convert the path to a target for connection
-        // switch await Target.fromRawPath(path) {
-        // | Ok(target) =>
-          await Config.Connection.addAgdaPath(target->Target.toURI)
-          await makeWithTarget(target)
-        // | Error(error) => Error(Target(error))
-        // }
       }
-    | Ok(target) => await makeWithTarget(target)
+    }
+  }
+
+  // Try to make a connection to Agda or ALS, by trying:
+  //  1. `fromPathsAndCommands` to connect to Agda or ALS with paths and commands
+  //  2. `fromDownloads` to download the latest ALS
+  let make = async (
+    memento: State__Memento.t,
+    paths: array<Connection__URI.t>,
+    commands: array<string>,
+    platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
+    // callbacks
+    getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
+    downloadLatestALS: Connection__Download__Platform.t => promise<
+      result<URI.t, Connection__Download__Error.t>,
+    >,
+  ) =>
+    switch await fromPathsAndCommands(memento, paths, commands) {
+    | Error(attempts) =>
+      switch await fromDownloads(attempts, platform, getDownloadPolicyFromUser, downloadLatestALS) {
+      | Error(error) => Error(error)
+      | Ok(target) =>
+        await Config.Connection.addAgdaPath(target->Target.toURI)
+        await makeWithTarget(target)
+      }
+    | Ok(target) =>
+      await Config.Connection.addAgdaPath(target->Target.toURI)
+      await makeWithTarget(target)
     }
 
   let sendRequest = async (connection, document, request, handler) => {

@@ -1,6 +1,13 @@
 open Mocha
 open Test__Util
 
+let getAgdaTarget = async () => {
+  switch await Connection.findCommands(["agda"]) {
+  | Ok(target) => target
+  | Error(_) => failwith("expected to find `agda`")
+  }
+}
+
 describe("Connection", () => {
   describe("URI.parse", () => {
     Async.it(
@@ -97,13 +104,13 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if OS.onUnix {
           Error([
-            Connection__Target.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
-            Connection__Target.Error.ValidationError("path/to/als", NotFound("path/to/als")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/agda")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/als")),
           ])
         } else {
           Error([
-            Connection__Target.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
-            Connection__Target.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\agda")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\als")),
           ])
         }
 
@@ -128,13 +135,13 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if OS.onUnix {
           Error([
-            Connection__Target.Error.ValidationError("path/to/agda", NotFound("path/to/agda")),
-            Connection__Target.Error.ValidationError("path/to/als", NotFound("path/to/als")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/agda")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/als")),
           ])
         } else {
           Error([
-            Connection__Target.Error.ValidationError("path\\to\\agda", NotFound("path\\to\\agda")),
-            Connection__Target.Error.ValidationError("path\\to\\als", NotFound("path\\to\\als")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\agda")),
+            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\als")),
           ])
         }
 
@@ -181,7 +188,6 @@ describe("Connection", () => {
   })
 
   describe("Command searching", () => {
-
     Async.it(
       "should be able to find itself (`which` or `where`), although it's not a valid target",
       async () => {
@@ -236,6 +242,235 @@ describe("Connection", () => {
         | Ok(_) => failwith("expected to not find `non-existent-command`")
         | Error(_) => ()
         }
+      },
+    )
+  })
+
+  describe_only("`fromPathsAndCommands`", () => {
+    Async.it(
+      "should find commands when no paths are given",
+      async () => {
+        let memento = State__Memento.make(None)
+        let paths = []
+        let commands = ["agda", "als"]
+        let result = await Connection.fromPathsAndCommands(memento, paths, commands)
+
+        let expected = await getAgdaTarget()
+
+        Assert.deepEqual(result, Ok(expected))
+      },
+    )
+
+    Async.it(
+      "should find commands even if all paths given are wrong",
+      async () => {
+        let memento = State__Memento.make(None)
+        let paths = [Connection__URI.parse("some/other/paths")]
+        let commands = ["agda", "als"]
+        let result = await Connection.fromPathsAndCommands(memento, paths, commands)
+
+        let expected = await getAgdaTarget()
+
+        Assert.deepEqual(result, Ok(expected))
+      },
+    )
+
+    Async.it(
+      "should find the command with its path given",
+      async () => {
+        let agdaTarget = await getAgdaTarget()
+
+        let memento = State__Memento.make(None)
+        let paths = [
+          Connection__Target.toURI(agdaTarget),
+          Connection__URI.parse("some/other/paths"),
+        ]
+        let commands = ["non-existent-command", "agda", "als"]
+        let result = await Connection.fromPathsAndCommands(memento, paths, commands)
+
+        Assert.deepEqual(result, Ok(agdaTarget))
+      },
+    )
+
+    Async.it(
+      "should throw error when the command is not found",
+      async () => {
+        let memento = State__Memento.make(None)
+        let paths = [Connection__URI.parse("some/other/paths")]
+        let commands = ["non-existent-command"]
+        let result = await Connection.fromPathsAndCommands(memento, paths, commands)
+
+        let expected = {
+          Connection__Error.Aggregated.targets: [
+            {
+              uri: Connection__URI.parse("some/other/paths"),
+              error: SomethingWentWrong(NotFound("some/other/paths")),
+            },
+          ],
+          commands: [Connection__Command.Error.NotFound("non-existent-command")],
+        }
+
+        Assert.deepEqual(result, Error(expected))
+      },
+    )
+  })
+  describe("`fromDownloads`", () => {
+    let attempts = {
+      Connection__Error.Aggregated.targets: [],
+      commands: [],
+    }
+
+    Async.it(
+      "should throw the `PlatformNotSupported` error when the platform is not supported",
+      async () => {
+        let platform = {
+          "os": "non-existent-os",
+          "dist": "non-existent-dist",
+          "codename": "non-existent-codename",
+          "release": "non-existent-release",
+        }
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicyCount = ref(0)
+        let getDownloadPolicy = async () => {
+          getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+          Config.Connection.DownloadPolicy.Undecided
+        }
+        let downloadLatestALS = async _ => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // don't care
+        let result = await Connection.fromDownloads(
+          attempts,
+          Error(platform),
+          getDownloadPolicy,
+          downloadLatestALS,
+        )
+
+        Assert.deepEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
+
+        // should not ask the user for download policy
+        Assert.deepEqual(getDownloadPolicyCount.contents, 0)
+      },
+    )
+
+    Async.it(
+      "should throw the `PlatformNotSupported` error when the platform is not supported",
+      async () => {
+        let platform = {
+          "os": "non-existent-os",
+          "dist": "non-existent-dist",
+          "codename": "non-existent-codename",
+          "release": "non-existent-release",
+        }
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicyCount = ref(0)
+        let getDownloadPolicy = async () => {
+          getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+          Config.Connection.DownloadPolicy.Undecided
+        }
+        let downloadLatestALS = async _ => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // don't care
+        let result = await Connection.fromDownloads(
+          attempts,
+          Error(platform),
+          getDownloadPolicy,
+          downloadLatestALS,
+        )
+
+        Assert.deepEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
+
+        // should not ask the user for download policy
+        Assert.deepEqual(getDownloadPolicyCount.contents, 0)
+      },
+    )
+
+    Async.it(
+      "should throw the `NoDownloadALS` error when the inital download policy is `No`",
+      async () => {
+        let platform = Connection__Download__Platform.Windows
+
+        await Config.Connection.DownloadPolicy.set(No)
+        let getDownloadPolicyCount = ref(0)
+        let getDownloadPolicy = async () => {
+          getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+          Config.Connection.DownloadPolicy.No // don't care, shouldn't be invoked
+        }
+        let downloadLatestALS = async _ => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // don't care
+        let result = await Connection.fromDownloads(
+          attempts,
+          Ok(platform),
+          getDownloadPolicy,
+          downloadLatestALS,
+        )
+        Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
+
+        // should not ask the user for download policy
+        Assert.deepEqual(getDownloadPolicyCount.contents, 0)
+      },
+    )
+
+    Async.it(
+      "should throw the `NoDownloadALS` error when the user clicked `cancel` on the download dialog",
+      async () => {
+        let platform = Connection__Download__Platform.Windows
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicyCount = ref(0)
+        let getDownloadPolicy = async () => {
+          getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
+          Config.Connection.DownloadPolicy.Undecided
+        }
+        let downloadLatestALS = async _ => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // don't care
+        let result = await Connection.fromDownloads(
+          attempts,
+          Ok(platform),
+          getDownloadPolicy,
+          downloadLatestALS,
+        )
+        Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
+
+        // should ask the user for download policy exactly once
+        Assert.deepEqual(getDownloadPolicyCount.contents, 1)
+      },
+    )
+
+    Async.it(
+      "should throw the `DownloadALS` error when the download policy is `Yes` but the download fails",
+      async () => {
+        let platform = Connection__Download__Platform.Windows
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+        let downloadLatestALS = async _ => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        )
+        let result = await Connection.fromDownloads(
+          attempts,
+          Ok(platform),
+          getDownloadPolicy,
+          downloadLatestALS,
+        )
+        Assert.deepEqual(
+          result,
+          Error(
+            Aggregated(
+              DownloadALS(attempts, Connection__Download__Error.CannotFindCompatibleALSRelease),
+            ),
+          ),
+        )
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
       },
     )
   })
@@ -382,165 +617,6 @@ describe("Connection", () => {
         | Error(_) => failwith("expected to find the picked connection")
         | Ok(picked) => Assert.deepStrictEqual(picked, target)
         }
-      },
-    )
-
-    describe(
-      "No local installation",
-      () => {
-        // input
-        let memento = State__Memento.make(None)
-        let paths = [Connection__URI.parse("some/other/path")]
-        let commands = ["non-existent-command"]
-        // expected output
-        let expectedAttempts = {
-          Connection.Error.Aggregated.targets: [
-            {
-              uri: Connection__URI.parse("some/other/path"),
-              error: Connection__Target.Error.ValidationError(
-                "some/other/path",
-                NotFound("some/other/path"),
-              ),
-            },
-          ],
-          commands: [NotFound("non-existent-command")],
-        }
-
-        Async.it(
-          "should throw the `PlatformNotSupported` error when the platform is not supported",
-          async () => {
-            let platform = {
-              "os": "non-existent-os",
-              "dist": "non-existent-dist",
-              "codename": "non-existent-codename",
-              "release": "non-existent-release",
-            }
-            await Config.Connection.DownloadPolicy.set(Undecided)
-            let getDownloadPolicyCount = ref(0)
-            let getDownloadPolicy = async () => {
-              getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
-              Config.Connection.DownloadPolicy.Undecided
-            }
-            let downloadLatestALS = async _ => Error(
-              Connection__Download__Error.CannotFindCompatibleALSRelease,
-            ) // don't care
-            let result = await Connection.make(
-              memento,
-              paths,
-              commands,
-              Error(platform),
-              getDownloadPolicy,
-              downloadLatestALS,
-            )
-
-            Assert.deepEqual(
-              result,
-              Error(Aggregated(PlatformNotSupported(expectedAttempts, platform))),
-            )
-
-            // should not ask the user for download policy
-            Assert.deepEqual(getDownloadPolicyCount.contents, 0)
-          },
-        )
-
-        Async.it(
-          "should throw the `NoDownloadALS` error when the inital download policy is `No`",
-          async () => {
-            let platform = Connection__Download__Platform.Windows
-
-            await Config.Connection.DownloadPolicy.set(No)
-            let getDownloadPolicyCount = ref(0)
-            let getDownloadPolicy = async () => {
-              getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
-              Config.Connection.DownloadPolicy.No // don't care, shouldn't be invoked
-            }
-            let downloadLatestALS = async _ => Error(
-              Connection__Download__Error.CannotFindCompatibleALSRelease,
-            ) // don't care
-            let result = await Connection.make(
-              memento,
-              paths,
-              commands,
-              Ok(platform),
-              getDownloadPolicy,
-              downloadLatestALS,
-            )
-            Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(expectedAttempts))))
-
-            let policy = Config.Connection.DownloadPolicy.get()
-            Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
-
-            // should not ask the user for download policy
-            Assert.deepEqual(getDownloadPolicyCount.contents, 0)
-          },
-        )
-
-        Async.it(
-          "should throw the `NoDownloadALS` error when the user clicked `cancel` on the download dialog",
-          async () => {
-            let platform = Connection__Download__Platform.Windows
-
-            await Config.Connection.DownloadPolicy.set(Undecided)
-            let getDownloadPolicyCount = ref(0)
-            let getDownloadPolicy = async () => {
-              getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
-              Config.Connection.DownloadPolicy.Undecided
-            }
-            let downloadLatestALS = async _ => Error(
-              Connection__Download__Error.CannotFindCompatibleALSRelease,
-            ) // don't care
-            let result = await Connection.make(
-              memento,
-              paths,
-              commands,
-              Ok(platform),
-              getDownloadPolicy,
-              downloadLatestALS,
-            )
-            Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(expectedAttempts))))
-
-            let policy = Config.Connection.DownloadPolicy.get()
-            Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
-
-            // should ask the user for download policy exactly once
-            Assert.deepEqual(getDownloadPolicyCount.contents, 1)
-          },
-        )
-
-        Async.it(
-          "should throw the `DownloadALS` error when the download policy is `Yes` but the download fails",
-          async () => {
-            let platform = Connection__Download__Platform.Windows
-
-            await Config.Connection.DownloadPolicy.set(Undecided)
-            let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let downloadLatestALS = async _ => Error(
-              Connection__Download__Error.CannotFindCompatibleALSRelease,
-            )
-            let result = await Connection.make(
-              memento,
-              paths,
-              commands,
-              Ok(platform),
-              getDownloadPolicy,
-              downloadLatestALS,
-            )
-            Assert.deepEqual(
-              result,
-              Error(
-                Aggregated(
-                  DownloadALS(
-                    expectedAttempts,
-                    Connection__Download__Error.CannotFindCompatibleALSRelease,
-                  ),
-                ),
-              ),
-            )
-
-            let policy = Config.Connection.DownloadPolicy.get()
-            Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
-          },
-        )
       },
     )
   })

@@ -247,7 +247,7 @@ let rec run = async state => {
         | Ok(ViaPipe(path, _, _, _)) => path
         },
       }
-    // | Error(Connection__Error.ValidationError(path, error)) => {
+    // | Error(Connection__Error.SomethingWentWrong(path, error)) => {
     //     VSCode.QuickPickItem.label: "$(error)  Error",
     //     description: Connection__Process__Exec.Error.toString(error),
     //     detail: path,

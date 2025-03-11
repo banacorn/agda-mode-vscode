@@ -5,7 +5,7 @@ module Process = Connection__Process
 module Error = {
   type t =
     | NotAgdaOrALS(string)
-    | ValidationError(string, Connection__Process__Exec.Error.t)
+    | SomethingWentWrong(Connection__Process__Exec.Error.t)
     | CannotHandleURLsATM(string)
 
   let toString = x =>
@@ -17,7 +17,7 @@ module Error = {
       // "Not Agda or Agda Language Server",
       "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server"
 
-    | ValidationError(_, e) => Connection__Process__Exec.Error.toString(e)
+    | SomethingWentWrong(e) => Connection__Process__Exec.Error.toString(e)
     }
 }
 
@@ -89,7 +89,7 @@ module Module: {
         | _ => Error(Error.NotAgdaOrALS(path))
         }
       }
-    | Error(error) => Error(Error.ValidationError(path, error))
+    | Error(error) => Error(Error.SomethingWentWrong(error))
     }
   }
 
