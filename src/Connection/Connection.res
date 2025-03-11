@@ -13,6 +13,7 @@ module type Module = {
     array<string>,
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     unit => promise<Config.Connection.DownloadPolicy.t>,
+    unit => promise<option<Target.t>>,
     Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
@@ -27,6 +28,7 @@ module type Module = {
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
     unit => promise<Config.Connection.DownloadPolicy.t>,
+    unit => promise<option<Target.t>>,
     Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
   ) => promise<result<Target.t, Error.t>>
 
@@ -52,7 +54,7 @@ module type Module = {
   ) => promise<result<array<Connection__Download__GitHub.Release.t>, Connection__Download__Error.t>>
 
   // download
-  let isLatestALSDownloaded: VSCode.Uri.t => promise<bool>
+  // let isLatestALSDownloaded: VSCode.Uri.t => promise<bool>
   let downloadLatestALS: (
     State__Memento.t,
     VSCode.Uri.t,
@@ -143,24 +145,6 @@ module Module: Module = {
     }
   }
 
-  // Steps for connecting to Agda or ALS:
-  // 1. Go through the list of targets in the configuration, use the first one that works
-  // 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
-  // 3. Try the `als` command, add it to the list of targets if it works, else proceed to 4.
-  // 4. See if the platform is supported:
-  //      No  : exit with the `PlatformNotSupported` error ❌
-  //      Yes : proceed to 5.
-  // 5. Check the download policy:
-  //      Undecided : ask the user if they want to download ALS or not, go back to 5.
-  //      No        : exit with the `NoDownloadALS` error ❌
-  //      Yes       : proceed to 6.
-  // 6. Check if the latest ALS is already downloaded:
-  //      Yes       : ✅
-  //      No        : proceed to 7.
-  // 7. Download the latest ALS:
-  //      Succeed   : add it to the list of targets ✅
-  //      Failed    : exit with the `DownloadALS` error ❌
-
   // Try to connect to Agda or ALS, with paths and commands ('agda' and 'als'), in the following steps:
   // 1. Go through the list of targets in the configuration, use the first one that works
   // 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
@@ -215,6 +199,7 @@ module Module: Module = {
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
+    alreadyDownloaded: unit => promise<option<Target.t>>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
       result<URI.t, Connection__Download__Error.t>,
     >,
@@ -238,13 +223,17 @@ module Module: Module = {
         Error(Error.Aggregated(NoDownloadALS(attempts)))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
-        switch await downloadLatestALS(platform) {
-        | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
-        | Ok(uri) =>
-          await Config.Connection.addAgdaPath(uri)
-          switch await Target.fromURI(uri) {
-          | Error(error) => Error(Target(error))
-          | Ok(target) => Ok(target)
+        switch await alreadyDownloaded() {
+        | Some(target) => Ok(target)
+        | None =>
+          switch await downloadLatestALS(platform) {
+          | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
+          | Ok(uri) =>
+            await Config.Connection.addAgdaPath(uri)
+            switch await Target.fromURI(uri) {
+            | Error(error) => Error(Target(error))
+            | Ok(target) => Ok(target)
+            }
           }
         }
       }
@@ -261,13 +250,20 @@ module Module: Module = {
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
+    alreadyDownloaded: unit => promise<option<Target.t>>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
       result<URI.t, Connection__Download__Error.t>,
     >,
   ) =>
     switch await fromPathsAndCommands(memento, paths, commands) {
     | Error(attempts) =>
-      switch await fromDownloads(attempts, platform, getDownloadPolicyFromUser, downloadLatestALS) {
+      switch await fromDownloads(
+        attempts,
+        platform,
+        getDownloadPolicyFromUser,
+        alreadyDownloaded,
+        downloadLatestALS,
+      ) {
       | Error(error) => Error(error)
       | Ok(target) =>
         await Config.Connection.addAgdaPath(target->Target.toURI)
@@ -384,15 +380,6 @@ module Module: Module = {
         }
       }
 
-    // check if the latest ALS is already downloaded
-    let alreadyDownloaded = async globalStoragePath => {
-      let path = NodeJs.Path.join([globalStoragePath, "latest-als"])
-      switch await NodeJs.Fs.access(path) {
-      | () => true
-      | exception _ => false
-      }
-    }
-
     // download the latest ALS and return the path of the downloaded file
     let download = async (memento, globalStoragePath, reportProgress, target) => {
       switch await Connection__Download__GitHub.download(
@@ -413,8 +400,8 @@ module Module: Module = {
     }
   }
 
-  let isLatestALSDownloaded = globalStorageUri =>
-    LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
+  // let isLatestALSDownloaded = globalStorageUri =>
+  //   LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
 
   let downloadLatestALS = async (memento, globalStorageUri, platform, reportProgress) => {
     switch await LatestALS.getTarget(memento, globalStorageUri, platform) {

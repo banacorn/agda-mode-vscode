@@ -37,7 +37,8 @@ let switchAgdaVersion = async (state: State.t) => {
     ["als", "agda"],
     platform,
     State__Request.askUserAboutDownloadPolicy,
-    State__Request.downloadLatestALS(state),
+    State__Request.LatestALS.alreadyDownloaded(state),
+    State__Request.LatestALS.download(state),
   ) {
   | Ok(conn) =>
     state.connection = Some(conn)
@@ -159,7 +160,7 @@ let rec run = async state => {
   // set placeholder
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
-  let latestALSAlreadyDownloaded = await Connection.isLatestALSDownloaded(state.globalStorageUri)
+  // let latestALSAlreadyDownloaded = await State__Request.LatestALS.alreadyDownloaded(state)()
 
   // items to be shown in the quick pick
   let miscItems = [
@@ -167,30 +168,30 @@ let rec run = async state => {
       VSCode.QuickPickItem.label: "Download",
       kind: Separator,
     },
-    if latestALSAlreadyDownloaded {
-      let ageInSecs = Connection__Download__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
-      let description = switch ageInSecs / 3600 {
-      | 0 =>
-        switch ageInSecs / 60 {
-        | 0 => "last checked: less than a minute ago"
-        | 1 => "last checked: 1 minute ago"
-        | minutes => "last checked: " ++ string_of_int(minutes) ++ " minutes ago"
-        }
-      | 1 => "last checked: 1 hour ago"
-      | hours if hours >= 24 => "last checked: more than a day ago"
-      | hours => "last checked: " ++ string_of_int(hours) ++ " hours ago"
-      }
+    // if latestALSAlreadyDownloaded {
+    //   let ageInSecs = Connection__Download__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
+    //   let description = switch ageInSecs / 3600 {
+    //   | 0 =>
+    //     switch ageInSecs / 60 {
+    //     | 0 => "last checked: less than a minute ago"
+    //     | 1 => "last checked: 1 minute ago"
+    //     | minutes => "last checked: " ++ string_of_int(minutes) ++ " minutes ago"
+    //     }
+    //   | 1 => "last checked: 1 hour ago"
+    //   | hours if hours >= 24 => "last checked: more than a day ago"
+    //   | hours => "last checked: " ++ string_of_int(hours) ++ " hours ago"
+    //   }
 
-      {
-        VSCode.QuickPickItem.label: "$(sync)  Check for updates",
-        description,
-      }
-    } else {
-      {
-        VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
-        description: "automatically kept up-to-date",
-      }
-    },
+    //   {
+    //     VSCode.QuickPickItem.label: "$(sync)  Check for updates",
+    //     description,
+    //   }
+    // } else {
+    //   {
+    //     VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
+    //     description: "automatically kept up-to-date",
+    //   }
+    // },
     // {
     //   VSCode.QuickPickItem.label: "$(cloud-download)  Download other verions of Agda Language Server",
     // },

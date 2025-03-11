@@ -10,7 +10,7 @@ describe("agda-mode.refine", () => {
     Async.after(async () => await File.write(Path.asset("Issue158.agda"), fileContent.contents))
 
     Async.it(
-      "should be result in the correct refinement",
+      "should result in the correct refinement",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Issue158.agda")
         await ctx->AgdaMode.refine(~cursor=VSCode.Position.make(12, 9))

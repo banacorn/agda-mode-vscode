@@ -311,11 +311,33 @@ describe("Connection", () => {
       },
     )
   })
+
   describe("`fromDownloads`", () => {
     let attempts = {
       Connection__Error.Aggregated.targets: [],
       commands: [],
     }
+
+    let agdaMockTarget = ref(None)
+
+    Async.before(
+      async () => {
+        // setup the Agda mock
+        let path = await Target.Agda.mock(~version="2.7.0.1", ~name="agda-mock")
+
+        switch await Connection.Target.fromRawPath(path) {
+        | Ok(target) => agdaMockTarget := Some(target)
+        | Error(_) => failwith("Got error when trying to construct a mock for Agda ")
+        }
+      },
+    )
+
+    Async.after(
+      async () => {
+        await Config.Connection.setAgdaPaths([])
+        await Connection.Target.setPicked(State__Memento.make(None), None)
+      },
+    )
 
     Async.it(
       "should throw the `PlatformNotSupported` error when the platform is not supported",
@@ -332,6 +354,7 @@ describe("Connection", () => {
           getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
           Config.Connection.DownloadPolicy.Undecided
         }
+        let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
           Connection__Download__Error.CannotFindCompatibleALSRelease,
         ) // don't care
@@ -339,6 +362,7 @@ describe("Connection", () => {
           attempts,
           Error(platform),
           getDownloadPolicy,
+          alreadyDownloaded,
           downloadLatestALS,
         )
 
@@ -364,6 +388,7 @@ describe("Connection", () => {
           getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
           Config.Connection.DownloadPolicy.Undecided
         }
+        let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
           Connection__Download__Error.CannotFindCompatibleALSRelease,
         ) // don't care
@@ -371,6 +396,7 @@ describe("Connection", () => {
           attempts,
           Error(platform),
           getDownloadPolicy,
+          alreadyDownloaded,
           downloadLatestALS,
         )
 
@@ -392,6 +418,7 @@ describe("Connection", () => {
           getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
           Config.Connection.DownloadPolicy.No // don't care, shouldn't be invoked
         }
+        let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
           Connection__Download__Error.CannotFindCompatibleALSRelease,
         ) // don't care
@@ -399,6 +426,7 @@ describe("Connection", () => {
           attempts,
           Ok(platform),
           getDownloadPolicy,
+          alreadyDownloaded,
           downloadLatestALS,
         )
         Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
@@ -422,6 +450,7 @@ describe("Connection", () => {
           getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
           Config.Connection.DownloadPolicy.Undecided
         }
+        let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
           Connection__Download__Error.CannotFindCompatibleALSRelease,
         ) // don't care
@@ -429,6 +458,7 @@ describe("Connection", () => {
           attempts,
           Ok(platform),
           getDownloadPolicy,
+          alreadyDownloaded,
           downloadLatestALS,
         )
         Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
@@ -442,21 +472,113 @@ describe("Connection", () => {
     )
 
     Async.it(
+      "should check if the latest ALS is already downloaded when the download policy is `Yes`",
+      async () => {
+        let platform = Connection__Download__Platform.Windows
+
+        // access the Agda mock
+        let target = switch agdaMockTarget.contents {
+        | Some(target) => target
+        | None => failwith("Unable to access the Agda mock target")
+        }
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+        let checkedCache = ref(false)
+        let alreadyDownloaded = async () => {
+          checkedCache := true
+          Some(target)
+        }
+        let downloadLatestALS = async _ => Error(
+          Connection__Download__Error.CannotFindCompatibleALSRelease,
+        ) // don't care
+
+        let result = await Connection.fromDownloads(
+          attempts,
+          Ok(platform),
+          getDownloadPolicy,
+          alreadyDownloaded,
+          downloadLatestALS,
+        )
+        Assert.deepEqual(checkedCache.contents, true)
+        Assert.deepEqual(result, Ok(target))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
+      },
+    )
+
+    Async.it(
+      "should proceed to download the latest ALS when the download policy is `Yes` and the cached latest ALS is not found",
+      async () => {
+        let platform = Connection__Download__Platform.Windows
+
+        // access the Agda mock
+        let target = switch agdaMockTarget.contents {
+        | Some(target) => target
+        | None => failwith("Unable to access the Agda mock target")
+        }
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+        let checkedCache = ref(false)
+        let alreadyDownloaded = async () => {
+          checkedCache := true
+          None
+        }
+        let checkedDownload = ref(false)
+        let downloadLatestALS = async _ => {
+          checkedDownload := true
+          Ok(Connection.Target.toURI(target))
+        }
+
+        let result = await Connection.fromDownloads(
+          attempts,
+          Ok(platform),
+          getDownloadPolicy,
+          alreadyDownloaded,
+          downloadLatestALS,
+        )
+        Assert.deepEqual(checkedCache.contents, true)
+        Assert.deepEqual(checkedDownload.contents, true)
+        Assert.deepEqual(result, Ok(target))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
+
+        let paths = Config.Connection.getAgdaPaths()->Array.map(Connection.URI.toString)
+        Assert.ok(
+          paths->Util.Array.includes(Connection.URI.toString(Connection.Target.toURI(target))),
+        )
+      },
+    )
+
+    Async.it(
       "should throw the `DownloadALS` error when the download policy is `Yes` but the download fails",
       async () => {
         let platform = Connection__Download__Platform.Windows
 
         await Config.Connection.DownloadPolicy.set(Undecided)
         let getDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-        let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
-        )
+        let checkedCache = ref(false)
+        let alreadyDownloaded = async () => {
+          checkedCache := true
+          None
+        }
+        let checkedDownload = ref(false)
+        let downloadLatestALS = async _ => {
+          checkedDownload := true
+          Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+        }
+
         let result = await Connection.fromDownloads(
           attempts,
           Ok(platform),
           getDownloadPolicy,
+          alreadyDownloaded,
           downloadLatestALS,
         )
+        Assert.deepEqual(checkedCache.contents, true)
+        Assert.deepEqual(checkedDownload.contents, true)
         Assert.deepEqual(
           result,
           Error(
