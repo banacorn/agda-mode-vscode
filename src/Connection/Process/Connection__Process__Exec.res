@@ -18,7 +18,7 @@ module Error = {
     | PathMalformed(msg) => "path malformed: " ++ msg
     | ProcessHanging => "process hanging for more than 1 sec"
 
-    | NotFound(path) => "command not found: " ++ path
+    | NotFound(_) => "command not found"
     | FromStderr(None, msg) => "stderr: \"" ++ msg ++ "\""
     | FromStderr(Some(exitCode), msg) =>
       "stderr: \"" ++ msg ++ "\" with exit code: " ++ string_of_int(exitCode)

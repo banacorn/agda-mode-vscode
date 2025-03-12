@@ -104,13 +104,25 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if OS.onUnix {
           Error([
-            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/agda")),
-            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/als")),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path/to/agda"),
+              NotFound("path/to/agda"),
+            ),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path/to/als"),
+              NotFound("path/to/als"),
+            ),
           ])
         } else {
           Error([
-            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\agda")),
-            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\als")),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path\\to\\agda"),
+              NotFound("path\\to\\agda"),
+            ),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path\\to\\als"),
+              NotFound("path\\to\\als"),
+            ),
           ])
         }
 
@@ -135,13 +147,25 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = if OS.onUnix {
           Error([
-            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/agda")),
-            Connection__Target.Error.SomethingWentWrong(NotFound("path/to/als")),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path/to/agda"),
+              NotFound("path/to/agda"),
+            ),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path/to/als"),
+              NotFound("path/to/als"),
+            ),
           ])
         } else {
           Error([
-            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\agda")),
-            Connection__Target.Error.SomethingWentWrong(NotFound("path\\to\\als")),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path\\to\\agda"),
+              NotFound("path\\to\\agda"),
+            ),
+            Connection__Target.Error.SomethingWentWrong(
+              Connection.URI.parse("path\\to\\als"),
+              NotFound("path\\to\\als"),
+            ),
           ])
         }
 
@@ -298,10 +322,12 @@ describe("Connection", () => {
         let result = await Connection.fromPathsAndCommands(memento, paths, commands)
 
         let expected = {
-          Connection__Error.Aggregated.targets: [
+          Connection__Error.Aggregated.Attempts.targets: [
             {
-              uri: Connection__URI.parse("some/other/paths"),
-              error: SomethingWentWrong(NotFound("some/other/paths")),
+              SomethingWentWrong(
+                Connection.URI.parse("some/other/paths"),
+                NotFound("some/other/paths"),
+              )
             },
           ],
           commands: [Connection__Command.Error.NotFound("non-existent-command")],
@@ -314,7 +340,7 @@ describe("Connection", () => {
 
   describe("`fromDownloads`", () => {
     let attempts = {
-      Connection__Error.Aggregated.targets: [],
+      Connection__Error.Aggregated.Attempts.targets: [],
       commands: [],
     }
 

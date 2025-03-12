@@ -4,20 +4,23 @@ module Process = Connection__Process
 
 module Error = {
   type t =
-    | NotAgdaOrALS(string)
-    | SomethingWentWrong(Connection__Process__Exec.Error.t)
-    | CannotHandleURLsATM(string)
+    | NotAgdaOrALS(URI.t)
+    | SomethingWentWrong(URI.t, Connection__Process__Exec.Error.t)
+    | CannotHandleURLsATM(URI.t)
 
   let toString = x =>
     switch x {
-    | CannotHandleURLsATM(_) => // "Cannot handle URLs at the moment",
-      "Cannot handle URLs at the moment, this will be supported again in the future"
+    | CannotHandleURLsATM(uri) =>
+      // "Cannot handle URLs at the moment",
+      URI.toString(
+        uri,
+      ) ++ ": Cannot handle URLs at the moment, this will be supported again in the future"
 
-    | NotAgdaOrALS(path) =>
+    | NotAgdaOrALS(uri) =>
       // "Not Agda or Agda Language Server",
-      "`" ++ path ++ "` doesn't seem to be an Agda executable or an Agda Language Server"
-
-    | SomethingWentWrong(e) => Connection__Process__Exec.Error.toString(e)
+      URI.toString(uri) ++ ": doesn't seem to be an Agda executable or an Agda Language Server"
+    | SomethingWentWrong(uri, e) =>
+      URI.toString(uri) ++ ": " ++ Connection__Process__Exec.Error.toString(e)
     }
 }
 
@@ -28,7 +31,7 @@ module Module: {
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
 
   // see if it's a Agda executable or a language server
-  let probeFilepath: string => promise<result<t, Error.t>>
+  let probeFilepath: URI.t => promise<result<t, Error.t>>
 
   // from URI to Target
   let fromURI: URI.t => promise<result<t, Error.t>>
@@ -50,7 +53,8 @@ module Module: {
     | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
 
   // see if it's a Agda executable or a language server
-  let probeFilepath = async path => {
+  let probeFilepath = async uri => {
+    let path = URI.toString(uri)
     let result = await Connection__Process__Exec.run(path, ["--version"])
     switch result {
     | Ok(output) =>
@@ -86,18 +90,18 @@ module Module: {
               Ok(Connection__IPC.ViaPipe(path, [], lspOptions, Connection__IPC.FromFile(path))),
             ),
           )
-        | _ => Error(Error.NotAgdaOrALS(path))
+        | _ => Error(Error.NotAgdaOrALS(uri))
         }
       }
-    | Error(error) => Error(Error.SomethingWentWrong(error))
+    | Error(error) => Error(Error.SomethingWentWrong(uri, error))
     }
   }
 
   let fromURI = async uri =>
     switch uri {
-    | URI.URL(_url) => Error(Error.CannotHandleURLsATM(URI.toString(uri)))
-    | Filepath(path) =>
-      switch await probeFilepath(path) {
+    | URI.URL(_) => Error(Error.CannotHandleURLsATM(uri))
+    | Filepath(_) =>
+      switch await probeFilepath(uri) {
       | Ok(target) => Ok(target)
       | Error(error) => Error(error)
       }

@@ -22,9 +22,9 @@ module type Module = {
     State__Memento.t,
     array<Connection__URI.t>,
     array<string>,
-  ) => promise<result<Target.t, Error.Aggregated.attempts>>
+  ) => promise<result<Target.t, Error.Aggregated.Attempts.t>>
   let fromDownloads: (
-    Error.Aggregated.attempts,
+    Error.Aggregated.Attempts.t,
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
     unit => promise<Config.Connection.DownloadPolicy.t>,
@@ -153,21 +153,13 @@ module Module: Module = {
     memento: State__Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
-  ): result<Target.t, Error.Aggregated.attempts> => {
+  ): result<Target.t, Error.Aggregated.Attempts.t> => {
     switch await Target.getPicked(memento, paths) {
     | Error(targetErrors) =>
-      let targetErrors = List.zipBy(List.fromArray(paths), List.fromArray(targetErrors), (
-        uri,
-        error,
-      ) => {
-        Error.Aggregated.uri,
-        error,
-      })->List.toArray
-
       switch await findCommands(commands) {
       | Error(commandErrors) =>
         let attempts = {
-          Error.Aggregated.targets: targetErrors,
+          Error.Aggregated.Attempts.targets: targetErrors,
           commands: commandErrors,
         }
 
@@ -195,7 +187,7 @@ module Module: Module = {
   //      Failed    : exit with the `DownloadALS` error ❌
 
   let fromDownloads = async (
-    attempts: Error.Aggregated.attempts,
+    attempts: Error.Aggregated.Attempts.t,
     platform: result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     // callbacks
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
