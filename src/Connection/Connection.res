@@ -216,7 +216,9 @@ module Module: Module = {
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         switch await alreadyDownloaded() {
-        | Some(target) => Ok(target)
+        | Some(target) => 
+          await Config.Connection.addAgdaPath(Target.toURI(target))
+          Ok(target)
         | None =>
           switch await downloadLatestALS(platform) {
           | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))

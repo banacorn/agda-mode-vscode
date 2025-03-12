@@ -530,6 +530,11 @@ describe("Connection", () => {
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
+
+        let paths = Config.Connection.getAgdaPaths()->Array.map(Connection.URI.toString)
+        Assert.ok(
+          paths->Util.Array.includes(Connection.URI.toString(Connection.Target.toURI(target))),
+        )
       },
     )
 
