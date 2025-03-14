@@ -5,7 +5,7 @@ module Process = Connection__Process
 module type Module = {
   type t
   // lifecycle
-  let make: (Connection__IPC.t, string, string) => promise<result<t, Error.t>>
+  let make: (Connection__Target__IPC.t, string, string) => promise<result<t, Error.t>>
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
@@ -91,11 +91,10 @@ module Module: Module = {
 
   let make = async (method, version, path) =>
     switch method {
-    | Connection__IPC.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
-    | ViaPipe(_, _, _, _) =>
+    | Connection__Target__IPC.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
+    | ViaPipe(_, _, _) =>
       let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
       let conn = {
-        // procInfo,
         process: Process.make(path, args),
         version,
         path,

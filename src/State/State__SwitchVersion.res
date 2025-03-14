@@ -243,9 +243,8 @@ let rec run = async state => {
           ""
         },
         detail: switch method {
-        | Error(path) => path
-        | Ok(ViaTCP(url, _)) => url.toString()
-        | Ok(ViaPipe(path, _, _, _)) => path
+        | ViaTCP(url) => url.toString()
+        | ViaPipe(path, _, _) => path
         },
       }
     // | Error(Connection__Error.SomethingWentWrong(path, error)) => {

@@ -1,4 +1,4 @@
-module IPC = Connection__IPC
+module IPC = Connection__Target__IPC
 module URI = Connection__URI
 module Process = Connection__Process
 
@@ -28,7 +28,7 @@ module Module: {
   type version = string
   type t =
     | Agda(version, string) // Agda version, path
-    | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
+    | ALS(version, version, IPC.t) // ALS version, Agda version, method of IPC
 
   // see if it's a Agda executable or a language server
   let probeFilepath: URI.t => promise<result<t, Error.t>>
@@ -50,7 +50,7 @@ module Module: {
   type version = string
   type t =
     | Agda(version, string) // Agda version, path
-    | ALS(version, version, result<IPC.t, string>) // ALS version, Agda version, method of IPC
+    | ALS(version, version, IPC.t) // ALS version, Agda version, method of IPC
 
   // see if it's a Agda executable or a language server
   let probeFilepath = async uri => {
@@ -83,13 +83,7 @@ module Module: {
             None
           }
 
-          Ok(
-            ALS(
-              alsVersion,
-              agdaVersion,
-              Ok(Connection__IPC.ViaPipe(path, [], lspOptions, Connection__IPC.FromFile(path))),
-            ),
-          )
+          Ok(ALS(alsVersion, agdaVersion, Connection__Target__IPC.ViaPipe(path, [], lspOptions)))
         | _ => Error(Error.NotAgdaOrALS(uri))
         }
       }
@@ -120,9 +114,8 @@ module Module: {
   let toURI = target =>
     switch target {
     | Agda(_, path) => URI.Filepath(path)
-    | ALS(_, _, Ok(ViaPipe(path, _, _, _))) => URI.Filepath(path)
-    | ALS(_, _, Ok(ViaTCP(url, _))) => URI.URL(url)
-    | ALS(_, _, Error(path)) => URI.Filepath(path)
+    | ALS(_, _, ViaPipe(path, _, _)) => URI.Filepath(path)
+    | ALS(_, _, ViaTCP(url)) => URI.URL(url)
     }
 
   // Try to find the previously picked connection

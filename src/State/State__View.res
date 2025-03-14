@@ -50,13 +50,9 @@ module Panel: Panel = {
   let displayConnectionStatus = (state, status) =>
     switch status {
     | Connection.Target.Agda(version, _) => displayStatus(state, "Agda v" ++ version)
-    | ALS(alsVersion, agdaVersion, Ok(ViaPipe(_, _, _, Connection__IPC.FromGitHub(_)))) =>
-      displayStatus(state, "Prebuilt Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
-    | ALS(alsVersion, agdaVersion, Ok(ViaPipe(_))) =>
+    | ALS(alsVersion, agdaVersion, ViaPipe(_)) =>
       displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
-    | ALS(_, _, Ok(ViaTCP(_))) => displayStatus(state, "ALS (TCP)")
-    | ALS(alsVersion, agdaVersion, Error(_)) =>
-      displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
+    | ALS(_, _, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
     }
 
   // update the Input Method

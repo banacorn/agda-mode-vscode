@@ -1,5 +1,5 @@
 module LSP = Connection__Target__ALS__LSP__Binding
-module IPC = Connection__IPC
+module IPC = Connection__Target__IPC
 
 module type Module = {
   type t
@@ -71,8 +71,8 @@ module Module: Module = {
     let errorChan = Chan.make()
 
     let serverOptions = switch method {
-    | IPC.ViaTCP(url, _) => LSP.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
-    | ViaPipe(path, args, options, _) => LSP.ServerOptions.makeWithCommand(path, args, options)
+    | IPC.ViaTCP(url) => LSP.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
+    | ViaPipe(path, args, options) => LSP.ServerOptions.makeWithCommand(path, args, options)
     }
 
     let clientOptions = {

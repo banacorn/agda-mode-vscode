@@ -205,22 +205,22 @@ module type Module = {
   type t = {
     client: LSP.t,
     agdaVersion: version,
-    method: Connection__IPC.t,
+    method: Connection__Target__IPC.t,
   }
   // lifecycle
-  let make: (Connection__IPC.t, JSON.t) => promise<result<t, Error.t>>
+  let make: (Connection__Target__IPC.t, JSON.t) => promise<result<t, Error.t>>
   let destroy: t => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
   // properties
-  let getIPCMethod: t => Connection__IPC.t
+  let getIPCMethod: t => Connection__Target__IPC.t
 }
 
 module Module: Module = {
   type t = {
     client: LSP.t,
     agdaVersion: version,
-    method: Connection__IPC.t,
+    method: Connection__Target__IPC.t,
   }
 
   // catches exceptions occured when decoding JSON values

@@ -102,27 +102,15 @@ module Module: Module = {
   let makeWithTarget = async (target: Target.t): result<t, Error.t> =>
     switch target {
     | Agda(version, path) =>
-      let method = Connection__IPC.ViaPipe(path, [], None, FromFile(path))
+      let method = Connection__Target__IPC.ViaPipe(path, [], None)
       switch await Agda.make(method, version, path) {
       | Error(error) => Error(Error.Agda(error, path))
-      | Ok(conn) => Ok(Agda(conn, Agda(version, path)))
+      | Ok(conn) => Ok(Agda(conn, target))
       }
-    | ALS(alsVersion, agdaVersion, Ok(method)) =>
+    | ALS(_, _, method) =>
       switch await ALS.make(method, InitOptions.getFromConfig()) {
       | Error(error) => Error(ALS(error))
-      | Ok(conn) =>
-        let method = ALS.getIPCMethod(conn)
-        Ok(ALS(conn, ALS(alsVersion, agdaVersion, Ok(method))))
-      }
-    | ALS(alsVersion, agdaVersion, Error(path)) =>
-      switch await ALS.make(
-        Connection__IPC.ViaPipe(path, [], None, FromFile(path)),
-        InitOptions.getFromConfig(),
-      ) {
-      | Error(error) => Error(ALS(error))
-      | Ok(conn) =>
-        // let method = ALS.getIPCMethod(conn)
-        Ok(ALS(conn, ALS(alsVersion, agdaVersion, Error(path))))
+      | Ok(conn) => Ok(ALS(conn, target))
       }
     }
 
