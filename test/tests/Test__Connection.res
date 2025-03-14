@@ -559,7 +559,7 @@ describe("Connection", () => {
         let checkedDownload = ref(false)
         let downloadLatestALS = async _ => {
           checkedDownload := true
-          Ok(Connection.Target.toURI(target))
+          Ok(target)
         }
 
         let result = await Connection.fromDownloads(

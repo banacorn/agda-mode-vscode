@@ -14,7 +14,7 @@ module type Module = {
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     unit => promise<Config.Connection.DownloadPolicy.t>,
     unit => promise<option<Target.t>>,
-    Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
+    Connection__Download__Platform.t => promise<result<Target.t, Connection__Download__Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // components
@@ -29,7 +29,7 @@ module type Module = {
     // callbacks
     unit => promise<Config.Connection.DownloadPolicy.t>,
     unit => promise<option<Target.t>>,
-    Connection__Download__Platform.t => promise<result<URI.t, Connection__Download__Error.t>>,
+    Connection__Download__Platform.t => promise<result<Target.t, Connection__Download__Error.t>>,
   ) => promise<result<Target.t, Error.t>>
 
   // messaging
@@ -60,7 +60,7 @@ module type Module = {
     VSCode.Uri.t,
     Connection__Download__Platform.t,
     Connection__Download__Util.Event.t => unit,
-  ) => promise<result<URI.t, Connection__Download__Error.t>>
+  ) => promise<result<Target.t, Connection__Download__Error.t>>
 }
 
 module Module: Module = {
@@ -193,7 +193,7 @@ module Module: Module = {
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
     alreadyDownloaded: unit => promise<option<Target.t>>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
-      result<URI.t, Connection__Download__Error.t>,
+      result<Target.t, Connection__Download__Error.t>,
     >,
   ): result<Target.t, Error.t> => {
     switch platform {
@@ -216,18 +216,15 @@ module Module: Module = {
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         switch await alreadyDownloaded() {
-        | Some(target) => 
+        | Some(target) =>
           await Config.Connection.addAgdaPath(Target.toURI(target))
           Ok(target)
         | None =>
           switch await downloadLatestALS(platform) {
           | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
-          | Ok(uri) =>
-            await Config.Connection.addAgdaPath(uri)
-            switch await Target.fromURI(uri) {
-            | Error(error) => Error(Target(error))
-            | Ok(target) => Ok(target)
-            }
+          | Ok(target) =>
+            await Config.Connection.addAgdaPath(Connection__Target.toURI(target))
+            Ok(target)
           }
         }
       }
@@ -246,7 +243,7 @@ module Module: Module = {
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
     alreadyDownloaded: unit => promise<option<Target.t>>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
-      result<URI.t, Connection__Download__Error.t>,
+      result<Target.t, Connection__Download__Error.t>,
     >,
   ) =>
     switch await fromPathsAndCommands(memento, paths, commands) {
@@ -394,9 +391,6 @@ module Module: Module = {
     }
   }
 
-  // let isLatestALSDownloaded = globalStorageUri =>
-  //   LatestALS.alreadyDownloaded(VSCode.Uri.fsPath(globalStorageUri))
-
   let downloadLatestALS = async (memento, globalStorageUri, platform, reportProgress) => {
     switch await LatestALS.getTarget(memento, globalStorageUri, platform) {
     | Error(error) => Error(error)
@@ -408,7 +402,11 @@ module Module: Module = {
         target,
       ) {
       | Error(e) => Error(Connection__Download__Error.CannotDownloadALS(e))
-      | Ok(uri) => Ok(uri)
+      | Ok(uri) =>
+        switch await Target.fromURI(uri) {
+        | Error(e) => Error(Connection__Download__Error.CannotConnectToALS(e))
+        | Ok(target) => Ok(target)
+        }
       }
     }
   }

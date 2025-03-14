@@ -259,7 +259,7 @@ let rec run = async state => {
     //     detail: url,
     //   }
     | Error(error) => {
-        VSCode.QuickPickItem.label: "$(error)  Error",
+        VSCode.QuickPickItem.label: "$(error)  Bad path",
         description: "",
         detail: Connection__Target.Error.toString(error),
       }
