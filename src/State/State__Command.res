@@ -5,7 +5,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   state.channels.log->Chan.emit(CommandDispatched(command))
   let dispatchCommand = dispatchCommand(state, ...)
   let sendAgdaRequest = async request => {
-    await State__Request.sendRequest(
+    await State__Connection.sendRequest(
       state,
       State__Response.handle(state, dispatchCommand, ...),
       request

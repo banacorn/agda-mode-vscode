@@ -93,7 +93,7 @@ let rec handle = async (
   dispatchCommand: Command.t => promise<unit>,
   response: Response.t,
 ): unit => {
-  let sendAgdaRequest = State__Request.sendRequest(state, handle(state, dispatchCommand, ...), ...)
+  let sendAgdaRequest = State__Connection.sendRequest(state, handle(state, dispatchCommand, ...), ...)
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>

@@ -36,9 +36,9 @@ let switchAgdaVersion = async (state: State.t) => {
     Config.Connection.getAgdaPaths(),
     ["als", "agda"],
     platform,
-    State__Request.askUserAboutDownloadPolicy,
-    State__Request.LatestALS.alreadyDownloaded(state),
-    State__Request.LatestALS.download(state),
+    State__Connection.askUserAboutDownloadPolicy,
+    Connection.LatestALS.alreadyDownloaded(state.globalStorageUri),
+    Connection.LatestALS.download(state.memento, state.globalStorageUri),
   ) {
   | Ok(conn) =>
     state.connection = Some(conn)
@@ -160,7 +160,7 @@ let rec run = async state => {
   // set placeholder
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
-  // let latestALSAlreadyDownloaded = await State__Request.LatestALS.alreadyDownloaded(state)()
+  // let latestALSAlreadyDownloaded = await State__Connection.LatestALS.alreadyDownloaded(state)()
 
   // items to be shown in the quick pick
   let miscItems = [

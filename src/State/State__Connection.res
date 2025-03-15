@@ -16,32 +16,6 @@ let askUserAboutDownloadPolicy = async () => {
   )
 }
 
-module LatestALS = {
-  // check if the latest ALS is already downloaded
-  let alreadyDownloaded = (state: State.t) => async () => {
-    let path = NodeJs.Path.join([VSCode.Uri.fsPath(state.globalStorageUri), "latest-als"])
-    switch await NodeJs.Fs.access(path) {
-    | () =>
-      switch await Connection.Target.fromRawPath(path) {
-      | Ok(target) => Some(target)
-      | Error(_) => None
-      }
-    | exception _ => None
-    }
-  }
-
-  let download = (state: State.t) => async platform => {
-    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-    await Connection.downloadLatestALS(
-      // ⬇️
-      state.memento,
-      state.globalStorageUri,
-      platform,
-      reportProgress,
-    )
-  }
-}
-
 let sendRequest = async (
   state: State.t,
   handleResponse: Response.t => promise<unit>,
@@ -84,8 +58,8 @@ let sendRequest = async (
       ["als", "agda"],
       platform,
       askUserAboutDownloadPolicy,
-      LatestALS.alreadyDownloaded(state),
-      LatestALS.download(state),
+      Connection.LatestALS.alreadyDownloaded(state.globalStorageUri),
+      Connection.LatestALS.download(state.memento, state.globalStorageUri),
     ) {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(connection) =>
