@@ -123,6 +123,20 @@
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
 				}
+			},
+			{
+				"id": "lagda-forester",
+				"extensions": [
+					".lagda.tree"
+				],
+				"aliases": [
+					"Literate Agda (forester)"
+				],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./asset/dark.png",
+					"light": "./asset/light.png"
+				}
 			}
 		],
 		"grammars": [
@@ -163,6 +177,14 @@
 				"language": "lagda-tex",
 				"scopeName": "source.tex",
 				"path": "./syntaxes/tex.tmLanguage.json",
+				"injectTo": [
+					"source.agda"
+				]
+			},
+			{
+				"language": "lagda-forester",
+				"scopeName": "source.forester",
+				"path": "./syntaxes/forester.tmLanguage.json",
 				"injectTo": [
 					"source.agda"
 				]
