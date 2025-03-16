@@ -524,412 +524,412 @@
 				"command": "agda-mode.load",
 				"key": "ctrl+c ctrl+l",
 				"mac": "ctrl+c ctrl+l",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.quit",
 				"key": "ctrl+c ctrl+x ctrl+q",
 				"mac": "ctrl+c ctrl+x ctrl+q",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.restart",
 				"key": "ctrl+c ctrl+x ctrl+r",
 				"mac": "ctrl+c ctrl+x ctrl+r",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.compile",
 				"key": "ctrl+c ctrl+x ctrl+c",
 				"mac": "ctrl+c ctrl+x ctrl+c",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.toggle-display-of-implicit-arguments",
 				"key": "ctrl+c ctrl+x ctrl+h",
 				"mac": "ctrl+c ctrl+x ctrl+h",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.toggle-display-of-irrelevant-arguments",
 				"key": "ctrl+c ctrl+x ctrl+i",
 				"mac": "ctrl+c ctrl+x ctrl+i",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-constraints",
 				"key": "ctrl+c ctrl+=",
 				"mac": "ctrl+c ctrl+=",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Simplified]",
 				"key": "ctrl+c ctrl+s",
 				"mac": "ctrl+c ctrl+s",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+s",
 				"mac": "ctrl+u ctrl+c ctrl+s",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.solve-constraints[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+s",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+s",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+c ctrl+?",
 				"mac": "ctrl+c ctrl+?",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+c ctrl+shift+/",
 				"mac": "ctrl+c ctrl+shift+/",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+?",
 				"mac": "ctrl+u ctrl+c ctrl+?",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+shift+/",
 				"mac": "ctrl+u ctrl+c ctrl+shift+/",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+?",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+?",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.show-goals[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+shift+/",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+shift+/",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.next-goal",
 				"key": "ctrl+c ctrl+f",
 				"mac": "ctrl+c ctrl+f",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.previous-goal",
 				"key": "ctrl+c ctrl+b",
 				"mac": "ctrl+c ctrl+b",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.search-about[Simplified]",
 				"key": "ctrl+c ctrl+z",
 				"mac": "ctrl+c ctrl+z",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.search-about[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+z",
 				"mac": "ctrl+u ctrl+c ctrl+z",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.search-about[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+z",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+z",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.give",
 				"key": "ctrl+c ctrl+space",
 				"mac": "ctrl+c ctrl+space",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.refine",
 				"key": "ctrl+c ctrl+r",
 				"mac": "ctrl+c ctrl+r",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Simplified]",
 				"key": "ctrl+c ctrl+m",
 				"mac": "ctrl+c ctrl+m",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+m",
 				"mac": "ctrl+u ctrl+c ctrl+m",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.elaborate-and-give[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+m",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+m",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.auto[AsIs]",
 				"key": "ctrl+c ctrl+a",
 				"mac": "ctrl+c ctrl+a",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.auto[Simplified]",
 				"key": "ctrl+u ctrl+c ctrl+a",
 				"mac": "ctrl+u ctrl+c ctrl+a",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.auto[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+a",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+a",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.auto[HeadNormal]",
 				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+a",
 				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+a",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.case",
 				"key": "ctrl+c ctrl+c",
 				"mac": "ctrl+c ctrl+c",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Simplified]",
 				"key": "ctrl+c ctrl+h",
 				"mac": "ctrl+c ctrl+h",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+h",
 				"mac": "ctrl+u ctrl+c ctrl+h",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+h",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+h",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.goal-type[Simplified]",
 				"key": "ctrl+c ctrl+t",
 				"mac": "ctrl+c ctrl+t",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+t",
 				"mac": "ctrl+u ctrl+c ctrl+t",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+t",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+t",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.context[Simplified]",
 				"key": "ctrl+c ctrl+e",
 				"mac": "ctrl+c ctrl+e",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.context[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+e",
 				"mac": "ctrl+u ctrl+c ctrl+e",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.context[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+e",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+e",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.infer-type[Simplified]",
 				"key": "ctrl+c ctrl+d",
 				"mac": "ctrl+c ctrl+d",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.infer-type[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+d",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+d",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.infer-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+d",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+d",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Simplified]",
 				"key": "ctrl+c ctrl+,",
 				"mac": "ctrl+c ctrl+,",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+,",
 				"mac": "ctrl+u ctrl+c ctrl+,",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-and-context[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+,",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+,",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Simplified]",
 				"key": "ctrl+c ctrl+.",
 				"mac": "ctrl+c ctrl+.",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+.",
 				"mac": "ctrl+u ctrl+c ctrl+.",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-inferred-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+.",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+.",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Simplified]",
 				"key": "ctrl+c ctrl+;",
 				"mac": "ctrl+c ctrl+;",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+;",
 				"mac": "ctrl+u ctrl+c ctrl+;",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+;",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+;",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.module-contents[Simplified]",
 				"key": "ctrl+c ctrl+o",
 				"mac": "ctrl+c ctrl+o",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.module-contents[Instantiated]",
 				"key": "ctrl+u ctrl+c ctrl+o",
 				"mac": "ctrl+u ctrl+c ctrl+o",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.module-contents[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+o",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+o",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[DefaultCompute]",
 				"key": "ctrl+c ctrl+n",
 				"mac": "ctrl+c ctrl+n",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[IgnoreAbstract]",
 				"key": "ctrl+u ctrl+c ctrl+n",
 				"mac": "ctrl+u ctrl+c ctrl+n",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			},
 			{
 				"command": "agda-mode.compute-normal-form[UseShowInstance]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+n",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+n",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex)"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester)"
 			},
 			{
 				"command": "agda-mode.why-in-scope",
 				"key": "ctrl+c ctrl+w",
 				"mac": "ctrl+c ctrl+w",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.switch-agda-version",
 				"key": "ctrl+x ctrl+s",
 				"mac": "ctrl+x ctrl+s",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !editorHasSelection && editorTextFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModePrompting || agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModePrompting || agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseUp]",
 				"key": "up",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseRight]",
 				"key": "right",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseDown]",
 				"key": "down",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseLeft]",
 				"key": "left",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[InsertOpenCurlyBraces]",
 				"key": "shift+[",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.input-symbol[InsertOpenParenthesis]",
 				"key": "shift+9",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && agdaModeTyping"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && agdaModeTyping"
 			},
 			{
 				"command": "agda-mode.lookup-symbol",
 				"key": "ctrl+x ctrl+=",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex) && !terminalFocus"
+				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && !terminalFocus"
 			}
 		],
 		"configuration": {
