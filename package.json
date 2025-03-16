@@ -181,7 +181,7 @@
 			},
 			{
 				"language": "lagda-rst",
-				"scopeName": "source.restructuredtext",
+				"scopeName": "source.rst",
 				"path": "./syntaxes/restructuredtext.tmLanguage.json",
 				"injectTo": [
 					"source.agda"
