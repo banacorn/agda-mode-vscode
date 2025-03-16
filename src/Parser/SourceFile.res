@@ -116,6 +116,8 @@ module Regex = {
   let rstEnd = %re("/^[^\s]/")
   let orgBegin = %re("/\#\+begin\_src agda2/i")
   let orgEnd = %re("/\#\+end\_src/i")
+  let foresterBegin = %re("/\\agda\{/")
+  let foresterEnd = %re("/^\s*\}/")
 
   let comment = %re(
     "/((?<=^|[\s\"\_\;\.\(\)\{\}\@])--[^\r\n]*(?:\r|\n|$))|(\{-(?:[^-]|[\r\n]|(?:-+(?:[^-\}]|[\r\n])))*-+\})/"
