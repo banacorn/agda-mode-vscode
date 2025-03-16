@@ -125,6 +125,20 @@
 				}
 			},
 			{
+				"id": "lagda-org",
+				"extensions": [
+					".lagda.org"
+				],
+				"aliases": [
+					"Literate Agda (Org)"
+				],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./asset/dark.png",
+					"light": "./asset/light.png"
+				}
+			},
+			{
 				"id": "lagda-forester",
 				"extensions": [
 					".lagda.tree"
@@ -177,6 +191,14 @@
 				"language": "lagda-tex",
 				"scopeName": "source.tex",
 				"path": "./syntaxes/tex.tmLanguage.json",
+				"injectTo": [
+					"source.agda"
+				]
+			},
+			{
+				"language": "lagda-org",
+				"scopeName": "source.org",
+				"path": "./syntaxes/org.tmLanguage.json",
 				"injectTo": [
 					"source.agda"
 				]
