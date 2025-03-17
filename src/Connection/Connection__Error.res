@@ -26,7 +26,7 @@ module Aggregated = {
   type t =
     | PlatformNotSupported(Attempts.t, Connection__Download__Platform.raw)
     | NoDownloadALS(Attempts.t)
-    | DownloadALS(Attempts.t, Connection__Download__Error.t)
+    | DownloadALS(Attempts.t, Connection__Download.Error.t)
 
   let toString = x =>
     switch x {
@@ -45,7 +45,7 @@ module Aggregated = {
     | DownloadALS(attempts, error) =>
       Attempts.toString(attempts) ++
       "\nTried to download the Agda Language Server but failed:\n" ++
-      Connection__Download__Error.toString(error)
+      Connection__Download.Error.toString(error)
     }
 }
 

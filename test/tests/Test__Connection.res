@@ -382,7 +382,7 @@ describe("Connection", () => {
         }
         let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
+          Connection__Download.Error.CannotFindCompatibleALSRelease,
         ) // don't care
         let result = await Connection.fromDownloads(
           attempts,
@@ -416,7 +416,7 @@ describe("Connection", () => {
         }
         let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
+          Connection__Download.Error.CannotFindCompatibleALSRelease,
         ) // don't care
         let result = await Connection.fromDownloads(
           attempts,
@@ -446,7 +446,7 @@ describe("Connection", () => {
         }
         let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
+          Connection__Download.Error.CannotFindCompatibleALSRelease,
         ) // don't care
         let result = await Connection.fromDownloads(
           attempts,
@@ -478,7 +478,7 @@ describe("Connection", () => {
         }
         let alreadyDownloaded = async () => None // don't care
         let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
+          Connection__Download.Error.CannotFindCompatibleALSRelease,
         ) // don't care
         let result = await Connection.fromDownloads(
           attempts,
@@ -515,7 +515,7 @@ describe("Connection", () => {
           Some(target)
         }
         let downloadLatestALS = async _ => Error(
-          Connection__Download__Error.CannotFindCompatibleALSRelease,
+          Connection__Download.Error.CannotFindCompatibleALSRelease,
         ) // don't care
 
         let result = await Connection.fromDownloads(
@@ -598,7 +598,7 @@ describe("Connection", () => {
         let checkedDownload = ref(false)
         let downloadLatestALS = async _ => {
           checkedDownload := true
-          Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
 
         let result = await Connection.fromDownloads(
@@ -614,7 +614,7 @@ describe("Connection", () => {
           result,
           Error(
             Aggregated(
-              DownloadALS(attempts, Connection__Download__Error.CannotFindCompatibleALSRelease),
+              DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease),
             ),
           ),
         )

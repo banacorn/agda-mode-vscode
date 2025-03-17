@@ -14,7 +14,7 @@ module type Module = {
     result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
     unit => promise<Config.Connection.DownloadPolicy.t>,
     unit => promise<option<Target.t>>,
-    Connection__Download__Platform.t => promise<result<Target.t, Connection__Download__Error.t>>,
+    Connection__Download__Platform.t => promise<result<Target.t, Connection__Download.Error.t>>,
   ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
   // components
@@ -29,7 +29,7 @@ module type Module = {
     // callbacks
     unit => promise<Config.Connection.DownloadPolicy.t>,
     unit => promise<option<Target.t>>,
-    Connection__Download__Platform.t => promise<result<Target.t, Connection__Download__Error.t>>,
+    Connection__Download__Platform.t => promise<result<Target.t, Connection__Download.Error.t>>,
   ) => promise<result<Target.t, Error.t>>
 
   // messaging
@@ -168,7 +168,7 @@ module Module: Module = {
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
     alreadyDownloaded: unit => promise<option<Target.t>>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
-      result<Target.t, Connection__Download__Error.t>,
+      result<Target.t, Connection__Download.Error.t>,
     >,
   ): result<Target.t, Error.t> => {
     switch platform {
@@ -218,7 +218,7 @@ module Module: Module = {
     getDownloadPolicyFromUser: unit => promise<Config.Connection.DownloadPolicy.t>,
     alreadyDownloaded: unit => promise<option<Target.t>>,
     downloadLatestALS: Connection__Download__Platform.t => promise<
-      result<Target.t, Connection__Download__Error.t>,
+      result<Target.t, Connection__Download.Error.t>,
     >,
   ) =>
     switch await fromPathsAndCommands(memento, paths, commands) {
@@ -292,7 +292,7 @@ module LatestALS = {
     switch await Connection__Download__GitHub.ReleaseManifest.fetch(
       makeAgdaLanguageServerRepo(memento, globalStorageUri),
     ) {
-    | (Error(error), _) => Error(Connection__Download__Error.CannotFetchALSReleases(error))
+    | (Error(error), _) => Error(Connection__Download.Error.CannotFetchALSReleases(error))
     | (Ok(manifest), _) => Ok(manifest)
     }
   }
@@ -323,7 +323,7 @@ module LatestALS = {
         ->Array.get(0)
 
       switch latestRelease {
-      | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+      | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Some(latestRelease) =>
         // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
         let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
@@ -344,7 +344,7 @@ module LatestALS = {
           ->Array.get(0)
 
         switch result {
-        | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+        | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         | Some(target) => Ok(target)
         }
       }
@@ -363,7 +363,7 @@ module LatestALS = {
         globalStoragePath,
         reportProgress,
       ) {
-      | Error(error) => Error(Connection__Download__Error.CannotDownloadALS(error))
+      | Error(error) => Error(Connection__Download.Error.CannotDownloadALS(error))
       | Ok(_isCached) =>
         // add the path of the downloaded file to the config
         let destPath = Connection__URI.parse(
@@ -371,7 +371,7 @@ module LatestALS = {
         )
         await Config.Connection.addAgdaPath(destPath)
         switch await Target.fromURI(destPath) {
-        | Error(e) => Error(Connection__Download__Error.CannotConnectToALS(e))
+        | Error(e) => Error(Connection__Download.Error.CannotConnectToALS(e))
         | Ok(target) => Ok(target)
         }
       }
