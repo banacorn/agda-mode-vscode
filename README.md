@@ -4,17 +4,9 @@
 
 If you have [Agda](https://agda.readthedocs.io/en/latest/getting-started/installation.html) properly installed (to check this in your terminal, type `agda` and see if it's on your machine). Open an Agda file and you should be able to load it by typing <kbd>C-c</kbd> <kbd>C-l</kbd>.
 
-It's okay if you don't have Agda installed, just proceed to the next section and check out our experimental language server for Agda.
+It's okay if you don't have Agda installed, we can also download and install [Agda Langauge Server](https://github.com/agda/agda-language-server) for you on Windows, macOS, or Ubuntu.
 
-## [Agda Language Server](https://github.com/banacorn/agda-language-server)
-
-Simply enable `agdaMode.connection.agdaLanguageServer` in the settings, and then hit *restart* <kbd>C-x</kbd> <kbd>C-r</kbd>.
-
-The language server should be downloaded and installed within seconds.
-
-<img width="658" alt="截圖 2021-08-30 下午10 22 29" src="https://user-images.githubusercontent.com/797844/131354393-6a7e2a39-ae3a-4b1c-b7c9-9e89c283407e.png">
-
-Prebuilt binaries for the language server are available on Windows, macOS, and Ubuntu.
+You can install multiple versions of Agda or ALS by adding more paths to `agdaMode.connection.paths` in the settings, and switch between them with <kbd>C-c</kbd> <kbd>C-r</kbd>.
 
 ### Extension Activation
 
@@ -56,7 +48,7 @@ Prefix commands with `C-u`, `C-u C-u`, or `C-u C-u  C-u` to change the level of 
 | module contents 🎚                       | <kbd>C-c</kbd> <kbd>C-o</kbd> |
 | search definitions in scope 🎚           | <kbd>C-c</kbd> <kbd>C-z</kbd> |
 | compute normal form 🎚                  | <kbd>C-c</kbd> <kbd>C-n</kbd> |
-| switch to a different Agda version      | <kbd>C-x</kbd> <kbd>C-s</kbd> |
+| switch to a different installation of Agda or ALS | <kbd>C-x</kbd> <kbd>C-s</kbd> |
 | Unicode symbol input sequences lookup   | <kbd>C-x</kbd> <kbd>C-=</kbd> |
 
 ### Commands in context of a goal
