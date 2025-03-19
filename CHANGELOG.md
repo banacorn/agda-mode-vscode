@@ -5,10 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.5.2 - TBA
+## v0.5.2 - 2025-03-19
+
+### Added
+- New UI for switching between Agda/ALS installations
+- New UI for downloading prebuilt ALS from GitHub
+- Testings for Agda/ALS connection on all supported platforms
 
 ### Changed 
-- New UI for switching Agda versions
+- Drop support for connecting with ALS through TCP temporarily
+
+### Fixed
+- #217: Add Forester language support by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #212: [ fix ] update Interval format for upcoming 2.8.0 by [@ncfavier](https://github.com/ncfavier)
+- #210: [ fix ] Don't add padding to goal brackets by [@ncfavier](https://github.com/ncfavier)
+- #208: Basic lagda.typ support by [@mzhang28](https://github.com/mzhang28)
+- #206: Update README.md to reflect the changes made in bea7cbe by [@tsung-ju](https://github.com/tsung-ju)
+- #200: Fix year in CHANGELOG.md by [@fredrik-bakke](https://github.com/fredrik-bakke)
 
 ## v0.5.1 - 2024-11-28
 
