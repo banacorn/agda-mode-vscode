@@ -317,7 +317,7 @@ module Release = {
 }
 
 // Describes which asset to download from the GitHub releases, and what the downloaded file should be named (so that we can cache it)
-module Target = {
+module FetchSpec = {
   type t = {
     release: Release.t, // the release of the repo
     asset: Asset.t, // the asset of that release
@@ -362,7 +362,7 @@ module Repo = {
 
 module Callbacks = {
   type t = {
-    chooseFromReleases: array<Release.t> => option<Target.t>,
+    chooseFromReleases: array<Release.t> => option<FetchSpec.t>,
     onDownload: Download.Event.t => unit,
     log: string => unit,
   }
@@ -458,7 +458,7 @@ module ReleaseManifest: {
 
 module Module: {
   let download: (
-    Target.t,
+    FetchSpec.t,
     State__Memento.t,
     string,
     Download.Event.t => unit,
@@ -490,8 +490,8 @@ module Module: {
     }
   }
 
-  let downloadLanguageServer = async (repo: Repo.t, onDownload, target: Target.t) => {
-    let url = NodeJs.Url.make(target.asset.browser_download_url)
+  let downloadLanguageServer = async (repo: Repo.t, onDownload, fetchSpec: FetchSpec.t) => {
+    let url = NodeJs.Url.make(fetchSpec.asset.browser_download_url)
     let httpOptions = {
       "host": url.host,
       "path": url.pathname,
@@ -501,7 +501,7 @@ module Module: {
     }
 
     let inFlightDownloadPath = NodeJs.Path.join2(repo.globalStoragePath, inFlightDownloadFileName)
-    let destPath = NodeJs.Path.join2(repo.globalStoragePath, target.saveAsFileName)
+    let destPath = NodeJs.Path.join2(repo.globalStoragePath, fetchSpec.saveAsFileName)
 
     let result = switch await Download.asFile(httpOptions, inFlightDownloadPath, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
@@ -539,29 +539,7 @@ module Module: {
     }
   }
 
-  // // use cached release manifest instead of fetching them from GitHub, if the cached releases dmanifestata is not too old (24 hrs)
-  // // returns an additional boolean indicating if the target is from cache
-  // let getReleaseManifest = async (repo: Repo.t) => {
-  //   let isValid = await ReleaseManifestCache.isValid(
-  //     repo.memento,
-  //     repo.cacheInvalidateExpirationSecs,
-  //   )
-  //   if isValid {
-  //     // use the cached releases manifest
-  //     let result = await ReleaseManifestCache.get(repo.memento)
-  //     (result, true)
-  //   } else {
-  //     let result = await ReleaseManifestCache.fetchFromGitHub(repo)
-  //     // cache the releases
-  //     switch result {
-  //     | Ok(releases) => await ReleaseManifestCache.set(repo.memento, releases)
-  //     | Error(_) => ()
-  //     }
-  //     (result, false)
-  //   }
-  // }
-
-  let download = async (target: Target.t, memento, globalStoragePath, reportProgress) => {
+  let download = async (fetchSpec: FetchSpec.t, memento, globalStoragePath, reportProgress) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",
@@ -575,12 +553,12 @@ module Module: {
     if ifIsDownloading {
       Error(Error.AlreadyDownloading)
     } else {
-      // don't download from GitHub if `target.fileName` already exists
-      let destPath = NodeJs.Path.join2(repo.globalStoragePath, target.saveAsFileName)
+      // don't download from GitHub if `fetchSpec.fileName` already exists
+      let destPath = NodeJs.Path.join2(repo.globalStoragePath, fetchSpec.saveAsFileName)
       if NodeJs.Fs.existsSync(destPath) {
         Ok(true)
       } else {
-        switch await downloadLanguageServer(repo, reportProgress, target) {
+        switch await downloadLanguageServer(repo, reportProgress, fetchSpec) {
         | Error(error) => Error(error)
         | Ok() =>
           // chmod the executable after download

@@ -337,7 +337,7 @@ module LatestALS = {
           assets
           ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
           ->Array.map(asset => {
-            Connection__Download__GitHub.Target.release: latestRelease,
+            Connection__Download__GitHub.FetchSpec.release: latestRelease,
             asset,
             saveAsFileName: "latest-als",
           })
@@ -345,38 +345,18 @@ module LatestALS = {
 
         switch result {
         | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Some(target) => Ok(target)
+        | Some(fetchSpec) => Ok(fetchSpec)
         }
       }
     }
 
   // download the latest ALS and return the path of the downloaded file
-  let download = (memento, globalStorageUri) => async platform => {
-    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+  let download = (memento, globalStorageUri) => async platform =>
     switch await getTarget(memento, globalStorageUri, platform) {
     | Error(error) => Error(error)
-    | Ok(target) =>
-      let globalStoragePath = VSCode.Uri.fsPath(globalStorageUri)
-      switch await Connection__Download__GitHub.download(
-        target,
-        memento,
-        globalStoragePath,
-        reportProgress,
-      ) {
-      | Error(error) => Error(Connection__Download.Error.CannotDownloadALS(error))
-      | Ok(_isCached) =>
-        // add the path of the downloaded file to the config
-        let destPath = Connection__URI.parse(
-          NodeJs.Path.join([globalStoragePath, target.saveAsFileName, "als"]),
-        )
-        await Config.Connection.addAgdaPath(destPath)
-        switch await Target.fromURI(destPath) {
-        | Error(e) => Error(Connection__Download.Error.CannotConnectToALS(e))
-        | Ok(target) => Ok(target)
-        }
-      }
+    | Ok(target) => await Connection__Download.download(memento, globalStorageUri, target)
     }
-  }
+
   // check if the latest ALS is already downloaded
   let alreadyDownloaded = globalStorageUri => async () => {
     let path = NodeJs.Path.join([VSCode.Uri.fsPath(globalStorageUri), "latest-als"])
