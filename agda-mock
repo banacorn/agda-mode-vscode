@@ -1,2 +1,0 @@
-#!/usr/bin/env node
-console.log('Agda version 2.7.0.1')

@@ -326,7 +326,9 @@ describe("Connection", () => {
             {
               SomethingWentWrong(
                 Connection.URI.parse("some/other/paths"),
-                if OS.onUnix { NotFound("some/other/paths") } else {
+                if OS.onUnix {
+                  NotFound("some/other/paths")
+                } else {
                   NotFound("some\\other\\paths")
                 },
               )
@@ -364,6 +366,14 @@ describe("Connection", () => {
       async () => {
         await Config.Connection.setAgdaPaths([])
         await Connection.Target.setPicked(State__Memento.make(None), None)
+
+        // cleanup the Agda mock
+        switch agdaMockTarget.contents {
+        | Some(target) =>
+          Target.Agda.destroy(target)
+          agdaMockTarget := None
+        | None => ()
+        }
       },
     )
 
