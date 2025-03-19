@@ -10,6 +10,7 @@ module FileType = {
     | LiterateMarkdown
     | LiterateTypst
     | LiterateOrg
+    | LiterateForester
   let parse = filepath =>
     if RegExp.test(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
       LiterateRST
@@ -21,6 +22,8 @@ module FileType = {
       LiterateTeX
     } else if RegExp.test(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
       LiterateOrg
+    } else if RegExp.test(%re("/\.lagda\.tree$/i"), Parser.filepath(filepath)) {
+      LiterateForester
     } else {
       Agda
     }
@@ -113,6 +116,8 @@ module Regex = {
   let rstEnd = %re("/^[^\s]/")
   let orgBegin = %re("/\#\+begin\_src agda2/i")
   let orgEnd = %re("/\#\+end\_src/i")
+  let foresterBegin = %re("/\\agda\{/")
+  let foresterEnd = %re("/^\s*\}/")
 
   let comment = %re(
     "/((?<=^|[\s\"\_\;\.\(\)\{\}\@])--[^\r\n]*(?:\r|\n|$))|(\{-(?:[^-]|[\r\n]|(?:-+(?:[^-\}]|[\r\n])))*-+\})/"
@@ -196,6 +201,7 @@ module Literate = {
   let markTex = markWithRules(Regex.texBegin, Regex.texEnd, ...)
   let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd, ...)
   let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd, ...)
+  let markForester = markWithRules(Regex.foresterBegin, Regex.foresterEnd, ...)
 }
 
 module Diff = {
@@ -229,6 +235,7 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
   | LiterateTypst => Literate.markTypst(raw)
   | LiterateRST => Literate.markRST(raw)
   | LiterateOrg => Literate.markOrg(raw)
+  | LiterateForester => Literate.markForester(raw)
   | Agda => Lexer.make(raw)
   }
   /* just lexing, doesn't mess around with raw text, preserves positions */

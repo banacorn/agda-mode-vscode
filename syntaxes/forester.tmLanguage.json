@@ -1,0 +1,6 @@
+{
+    "scopeName": "source.forester",
+    "patterns": [
+        { "include": "source.forester" }
+    ]
+}

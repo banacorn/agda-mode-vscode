@@ -1,0 +1,6 @@
+{
+    "scopeName": "source.org",
+    "patterns": [
+        { "include": "source.org" }
+    ]
+}

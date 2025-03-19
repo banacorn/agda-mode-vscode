@@ -10,6 +10,7 @@ describe("when parsing file paths", () =>
     Assert.equal(parse("a.lagda.typ"), LiterateTypst)
     Assert.equal(parse("a.lagda.rst"), LiterateRST)
     Assert.equal(parse("a.lagda.org"), LiterateOrg)
+    Assert.equal(parse("a.lagda.tree"), LiterateForester)
   })
 )
 
