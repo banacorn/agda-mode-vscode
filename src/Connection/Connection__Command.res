@@ -27,14 +27,6 @@ module Error = {
 // Instead of returning the underlying error, we return `None` as a special case when `which` or `where.exe` is working correctly but the executable is not found.
 let searchWith = async (command, name, ~timeout=1000) => {
   switch await Connection__Process__Exec.run(command, [name], ~timeout) {
-  | Ok(stdout) => Ok(String.trim(stdout)) // trim the string to remove the trailing newline
-  | Error(FromStderr(Some(1), "")) => Error(None)
-  | Error(error) => Error(Some(error))
-  }
-}
-
-let searchWith2 = async (command, name, ~timeout=1000) => {
-  switch await Connection__Process__Exec.run(command, [name], ~timeout) {
   | Ok(stdout) =>
     let path = String.trim(stdout) // trim the string to remove the trailing newline
     switch await Connection__Target.fromRawPath(path) {
@@ -42,18 +34,19 @@ let searchWith2 = async (command, name, ~timeout=1000) => {
     | Error(error) => Error(Error.NotValidTarget(name, path, error))
     }
   | Error(FromStderr(Some(1), "")) => Error(NotFound(name))
+  | Error(FromStderr(Some(1), "INFO: Could not find files for the given pattern(s).\r\n")) => Error(NotFound(name))
   | Error(error) => Error(SomethingWentWrong(name, error))
   }
 }
 
 let search = async (name, ~timeout=1000) => {
   if OS.onUnix {
-    await searchWith2("which", name, ~timeout)
+    await searchWith("which", name, ~timeout)
   } else {
     // try `which` first, then `where.exe`
-    switch await searchWith2("which", name, ~timeout) {
+    switch await searchWith("which", name, ~timeout) {
     | Ok(stdout) => Ok(stdout)
-    | Error(_) => await searchWith2("where.exe", name, ~timeout)
+    | Error(_) => await searchWith("where.exe", name, ~timeout)
     }
   }
 }

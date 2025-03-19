@@ -326,7 +326,9 @@ describe("Connection", () => {
             {
               SomethingWentWrong(
                 Connection.URI.parse("some/other/paths"),
-                NotFound("some/other/paths"),
+                if OS.onUnix { NotFound("some/other/paths") } else {
+                  NotFound("some\\other\\paths")
+                },
               )
             },
           ],
