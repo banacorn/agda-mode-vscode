@@ -1,0 +1,6 @@
+{
+    "scopeName": "source.typst",
+    "patterns": [
+        { "include": "source.typst" }
+    ]
+}

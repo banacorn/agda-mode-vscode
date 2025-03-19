@@ -8,12 +8,15 @@ module FileType = {
     | LiterateTeX
     | LiterateRST
     | LiterateMarkdown
+    | LiterateTypst
     | LiterateOrg
   let parse = filepath =>
     if RegExp.test(%re("/\.lagda\.rst$/i"), Parser.filepath(filepath)) {
       LiterateRST
     } else if RegExp.test(%re("/\.lagda\.md$/i"), Parser.filepath(filepath)) {
       LiterateMarkdown
+    } else if RegExp.test(%re("/\.lagda\.typ$/i"), Parser.filepath(filepath)) {
+      LiterateTypst
     } else if RegExp.test(%re("/\.lagda\.tex$|\.lagda$/i"), Parser.filepath(filepath)) {
       LiterateTeX
     } else if RegExp.test(%re("/\.lagda\.org$/i"), Parser.filepath(filepath)) {
@@ -189,6 +192,7 @@ module Literate = {
   }
 
   let markMarkdown = markWithRules(Regex.markdown, Regex.markdown, ...)
+  let markTypst = markWithRules(Regex.markdown, Regex.markdown, ...)
   let markTex = markWithRules(Regex.texBegin, Regex.texEnd, ...)
   let markRST = markWithRules(Regex.rstBegin, Regex.rstEnd, ...)
   let markOrg = markWithRules(Regex.orgBegin, Regex.orgEnd, ...)
@@ -217,13 +221,12 @@ module Diff = {
 
 let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> => {
   open Token
-  // counter for indices
-  let i = ref(0)
   // processed literate Agda
   let fileType = FileType.parse(filepath)
   let preprocessed = switch fileType {
   | LiterateTeX => Literate.markTex(raw)
   | LiterateMarkdown => Literate.markMarkdown(raw)
+  | LiterateTypst => Literate.markTypst(raw)
   | LiterateRST => Literate.markRST(raw)
   | LiterateOrg => Literate.markOrg(raw)
   | Agda => Lexer.make(raw)
@@ -252,67 +255,8 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
     range: token.range,
     kind: GoalBracket,
   }
-  let adjustGoalBracket = (token: Token.t) => {
-    /* {!!} => {!   !} */
 
-    /* in case that the goal index wasn't given, make it '*' */
-    /* this happens when splitting case, agda2-goals-action is one index short */
-    let goalIndex = switch indices[i.contents] {
-    | Some(idx) => string_of_int(idx)
-    | None => "*"
-    }
-
-    /* {! zero 42!}
-         <------>    hole content
-               <>    index
-              <->    space for index
- */
-
-    /* calculate how much space the index would take */
-    let requiredSpaces = String.length(goalIndex)
-
-    /* calculate how much space we have */
-    let content: string =
-      // Js.Re.exec_(Regex.goalBracketContent, token.content)
-      // ->Option.flatMap(result =>{
-      //   Js.Re.captures(result)[1]->Option.map(Nullable.toOption)->Option.flatMap(x => x)
-      // })
-      // ->Option.getOr("")
-      Regex.goalBracketContent
-      ->RegExp.exec(token.content)
-      ->Option.flatMap(result => result[1]->Option.flatMap(x => x))
-      ->Option.getOr("")
-
-    let actualSpaces =
-      content
-      ->String.match(%re("/\s*$/"))
-      ->Option.flatMap(matches =>
-        switch matches[0] {
-        | None => None
-        | Some(None) => None
-        | Some(Some(s)) => Some(String.length(s))
-        }
-      )
-      ->Option.getOr(0)
-
-    /* make room for the index, if there's not enough space */
-    let newContent = if actualSpaces < requiredSpaces {
-      let padding = " "->String.repeat(requiredSpaces - actualSpaces)
-      token.content->String.replaceRegExp(%re("/\{!.*!\}/"), "{!" ++ content ++ padding ++ "!}")
-    } else {
-      token.content
-    }
-
-    /* update the index */
-    i := i.contents + 1
-    {content: newContent, kind: GoalBracket, range: (1, 2)}
-  }
-
-  let modified = Lexer.mapOnly(
-    GoalBracket,
-    adjustGoalBracket,
-    Lexer.mapOnly(GoalQM, questionMark2GoalBracket, original),
-  )
+  let modified = Lexer.mapOnly(GoalQM, questionMark2GoalBracket, original)
   let originalHoles = original->Array.filter(isHole)
   let modifiedHoles = modified->Array.filter(isHole)
 
