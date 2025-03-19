@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #217: Add Forester language support by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #212: [ fix ] update Interval format for upcoming 2.8.0 by [@ncfavier](https://github.com/ncfavier)
 - #210: [ fix ] Don't add padding to goal brackets by [@ncfavier](https://github.com/ncfavier)
+- #209: agda-mode should work offline
 - #208: Basic lagda.typ support by [@mzhang28](https://github.com/mzhang28)
 - #206: Update README.md to reflect the changes made in bea7cbe by [@tsung-ju](https://github.com/tsung-ju)
 - #200: Fix year in CHANGELOG.md by [@fredrik-bakke](https://github.com/fredrik-bakke)
