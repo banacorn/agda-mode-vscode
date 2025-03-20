@@ -93,7 +93,8 @@ let rec handle = async (
   dispatchCommand: Command.t => promise<unit>,
   response: Response.t,
 ): unit => {
-  let sendAgdaRequest = State__Connection.sendRequest(state, handle(state, dispatchCommand, ...), ...)
+  let sendAgdaRequest =
+    State__Connection.sendRequest(state, handle(state, dispatchCommand, ...), ...)
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
@@ -139,6 +140,7 @@ let rec handle = async (
       }
     | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
+      Js.log("GiveAction")
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
       | None =>
@@ -190,7 +192,8 @@ let rec handle = async (
         | None => ()
         | Some(goal) =>
           await State__Goal.modify(state, goal, _ => solution)
-          await sendAgdaRequest(Give(goal))
+          // send `Give` but do it asynchronously so that we can finish handling `SolveAll` first
+          sendAgdaRequest(Give(goal))->ignore
         }
       }
       // solve them one by one

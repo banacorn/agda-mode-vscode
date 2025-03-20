@@ -431,6 +431,25 @@ module AgdaMode = {
       raise(Failure(header ++ "\n" ++ body))
     }
   }
+
+  let solveConstraints = async (self, normalization, ~cursor=?) => {
+    let editor = await File.open_(self.filepath)
+    // set cursor
+    switch cursor {
+    | None => ()
+    | Some(cursor) => Editor.Cursor.set(editor, cursor)
+    }
+
+    switch await executeCommand(
+      "agda-mode.solve-constraints[" ++ Command.Normalization.encode(normalization) ++ "]",
+    ) {
+    | None => raise(Failure("Cannot case solve constraints " ++ self.filepath))
+    | Some(Ok(state)) => self.state = state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+  }
 }
 
 // helper function for filtering out Highlighting & RunningInfo related responses
