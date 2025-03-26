@@ -1,55 +1,3 @@
-// For throttling Requests send to Agda
-// 1 Request to Agda at a time
-module RequestQueue: {
-  type t
-  let make: unit => t
-  // only gets resolved after the Request has been handled
-  let push: (t, Request.t => promise<unit>, Request.t) => promise<unit>
-} = {
-  type t = {
-    queue: array<unit => promise<unit>>,
-    mutable busy: bool,
-  }
-
-  let make = () => {
-    queue: [],
-    busy: false,
-  }
-
-  let rec kickStart = self =>
-    if self.busy {
-      // busy running, just leave it be
-      ()
-    } else {
-      // pop the front of the queue
-      switch Array.shift(self.queue) {
-      | None => () // nothing to pop
-      | Some(thunk) =>
-        self.busy = true
-        thunk()
-        ->Promise.finally(_ => {
-          self.busy = false
-          kickStart(self)
-        })
-        ->Promise.done
-      }
-    }
-
-  // only gets resolved after the Request has been handled
-  let push = (self, sendRequestAndHandleResponses, request) => {
-    let (promise, resolve, _) = Util.Promise_.pending()
-    let thunk = async () => {
-      await sendRequestAndHandleResponses(request)
-      resolve()
-    }
-    // push to the back of the queue
-    self.queue->Array.push(thunk)
-    // kick start
-    kickStart(self)
-    promise
-  }
-}
-
 // cache the stuff previously displayed in the view, so that we can restore them later
 module ViewCache = {
   type t = {
@@ -136,8 +84,6 @@ type t = {
   mutable subscriptions: array<VSCode.Disposable.t>,
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
-  // Agda Request queue
-  mutable agdaRequestQueue: RequestQueue.t,
   globalStorageUri: VSCode.Uri.t,
   extensionPath: string,
   memento: State__Memento.t,
@@ -160,7 +106,6 @@ let make = (channels, globalStorageUri, extensionPath, memento, editor) => {
   promptIM: IM.make(channels.inputMethod),
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
-  agdaRequestQueue: RequestQueue.make(),
   globalStorageUri,
   extensionPath,
   memento: State__Memento.make(memento),

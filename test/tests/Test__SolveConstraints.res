@@ -26,18 +26,18 @@ let run = normalization => {
   })
 }
 
-describe_only("agda-mode.solve-constraints", () => {
+describe("agda-mode.solve-constraints", () => {
   This.timeout(4000) // it takes more than 2000ms sometimes
 
   describe("Simplified", () => {
     run(Simplified)
   })
 
-  // describe("Normalised", () => {
-  //   run(Normalised)
-  // })
+  describe("Normalised", () => {
+    run(Normalised)
+  })
 
-  // describe("Instantiated", () => {
-  //   run(Instantiated)
-  // })
+  describe("Instantiated", () => {
+    run(Instantiated)
+  })
 })

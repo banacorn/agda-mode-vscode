@@ -64,16 +64,10 @@ let sendRequest = async (
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(connection) =>
       state.connection = Some(connection)
-      await state.agdaRequestQueue->State.RequestQueue.push(
-        request => sendRequestAndHandleResponses(connection, state, request, handleResponse),
-        request,
-      )
+      await sendRequestAndHandleResponses(connection, state, request, handleResponse)
     }
   | Some(connection) =>
-    await state.agdaRequestQueue->State.RequestQueue.push(
-      request => sendRequestAndHandleResponses(connection, state, request, handleResponse),
-      request,
-    )
+    await sendRequestAndHandleResponses(connection, state, request, handleResponse)
   }
 }
 
