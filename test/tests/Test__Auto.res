@@ -82,8 +82,6 @@ let run = normalization => {
 }
 
 describe("agda-mode.auto", () => {
-  This.timeout(4000) // it takes more than 2000ms sometimes
-
   describe("AsIs", () => {
     run(AsIs)
   })

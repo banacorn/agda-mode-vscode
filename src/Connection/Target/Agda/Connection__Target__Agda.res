@@ -108,7 +108,8 @@ module Module: Module = {
   let onResponse = async (conn, callback) => {
     let scheduler = Scheduler.make()
     // this promise get resolved after all Responses has been received from Agda
-    let (responsePromise, stopResponseListener, _) = Util.Promise_.pending()
+    let (allResponsesReceivedPromise, allResponsesReceived, _) = Util.Promise_.pending()
+    let (allResponsesHandledPromise, allResponsesHandled, _) = Util.Promise_.pending()
 
     // There are 2 kinds of Responses
     //  NonLast Response :
@@ -125,28 +126,27 @@ module Module: Module = {
       switch x {
       | Error(error) =>
         // stop the Agda Response listener
-        stopResponseListener(Error(error))
+        allResponsesReceived(Error(error))
       | Ok(Yield(NonLast(response))) =>
         scheduler->Scheduler.runNonLast(response => callback(response), response)
       | Ok(Yield(Last(priority, response))) => scheduler->Scheduler.addLast(priority, response)
       | Ok(Stop) =>
+        // stop the Agda Response listener
+        allResponsesReceived(Ok())
+
         // start handling Last Responses, after all NonLast Responses have been handled
-        // resolve the `responseHandlingPromise` after all Last Responses have been handled
-        scheduler
-        ->Scheduler.runLast(response => callback(response))
-        ->Promise.finally(() =>
-          // stop the Agda Response listener
-          stopResponseListener(Ok())
-        )
-        ->Promise.done
+        scheduler->Scheduler.runLast(response => callback(response))->Promise.finally(allResponsesHandled)->Promise.done
+        
       }
 
     // start listening for responses
     let listenerHandle = ref(None)
     listenerHandle := Some(conn.chan->Chan.on(listener))
-    // destroy the listener after all responses have been received
-    let result = await responsePromise
+    // stop listening for responses
+    let result = await allResponsesReceivedPromise
     listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
+    // wait for all responses to be handled
+    await allResponsesHandledPromise
     result
   }
 

@@ -140,7 +140,6 @@ let rec handle = async (
       }
     | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
-      Js.log("GiveAction")
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
       | None =>
@@ -181,9 +180,7 @@ let rec handle = async (
         | Function => await State__Goal.replaceWithLines(state, goal, lines)
         | ExtendedLambda => await State__Goal.replaceWithLambda(state, goal, lines)
         }
-        // dispatch `agda-mode:load` but do it asynchronously
-        // so that we can finish let `agda-mode:case` finish first
-        dispatchCommand(Load)->ignore
+        await dispatchCommand(Load)
       }
     | SolveAll(solutions) =>
       let solveOne = async ((index, solution)) => {
@@ -192,8 +189,7 @@ let rec handle = async (
         | None => ()
         | Some(goal) =>
           await State__Goal.modify(state, goal, _ => solution)
-          // send `Give` but do it asynchronously so that we can finish handling `SolveAll` first
-          sendAgdaRequest(Give(goal))->ignore
+          await sendAgdaRequest(Give(goal))
         }
       }
       // solve them one by one
