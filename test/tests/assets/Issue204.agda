@@ -10,5 +10,8 @@ data Fin : Nat → Set where
   zero : {n : Nat} → Fin (suc n)
   suc  : {n : Nat} (i : Fin n) → Fin (suc n)
 
-three : Fin 5
-three = suc {n = {!  !} } (suc (suc zero))
+three1 : Fin 5
+three1 = suc {n = {!  !}} (suc (suc zero))
+
+three2 : Fin 5
+three2 = suc {n = {!  !}} (suc (suc zero))

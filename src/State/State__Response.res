@@ -183,9 +183,9 @@ let rec handle = async (
         await dispatchCommand(Load)
       }
     | SolveAll(solutions) =>
-      let solveOne = async ((index, solution)) => {
-        let goals = state.goals->Array.filter(goal => goal.index == index)
-        switch goals[0] {
+      let solveOne = ((index, solution)) => async () => {
+        let goal = state.goals->Array.find(goal => goal.index == index)
+        switch goal {
         | None => ()
         | Some(goal) =>
           await State__Goal.modify(state, goal, _ => solution)
@@ -196,7 +196,7 @@ let rec handle = async (
       let _ =
         await solutions
         ->Array.map(solveOne)
-        ->Util.oneByOne
+        ->Util.Promise_.oneByOne
       let size = Array.length(solutions)
       if size == 0 {
         await State__View.Panel.display(state, Error("No solutions found"), [])

@@ -37,7 +37,7 @@ module Module: Module = {
           State.Context.setIM(false)
           await State__View.Panel.updateIM(state, Deactivate)
         }
-      let _ = await output->Array.map(handle)->Util.oneByOne
+      let _ = await output->Array.map(x => () => handle(x))->Util.Promise_.oneByOne
     }
 
     let runAndHandle = (state: State.t, action) =>
@@ -95,7 +95,7 @@ module Module: Module = {
           await State__View.Panel.updatePromptIM(state, previous.contents)
         | Deactivate => await State__View.Panel.updateIM(state, Deactivate)
         }
-      let _ = await output->Array.map(handle)->Util.oneByOne
+      let _ = await output->Array.map(x => () => handle(x))->Util.Promise_.oneByOne
     }
 
     let runAndHandle = (state: State.t, action): promise<unit> =>

@@ -65,7 +65,11 @@ module Module: {
     }
 
   let removeAndDestroyAll = async () => {
-    let _ = await dict->Dict.keysToArray->Array.map(removeAndDestroy)->Util.oneByOne
+    let _ =
+      await dict
+      ->Dict.keysToArray
+      ->Array.map(pair => () => removeAndDestroy(pair))
+      ->Util.Promise_.oneByOne
   }
 
   let isEmpty = () => Dict.keysToArray(dict)->Array.length == 0

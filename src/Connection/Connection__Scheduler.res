@@ -64,7 +64,8 @@ module Module: {
     // insert `CompleteHighlightingAndMakePromptReappear` after handling Last Responses
     deferredLastResponses->Array.unshift(Response.CompleteHighlightingAndMakePromptReappear)
 
-    let _ = await deferredLastResponses->Array.map(res => handler(res))->Util.oneByOne
+    let _ =
+      await deferredLastResponses->Array.map(res => () => handler(res))->Util.Promise_.oneByOne
   }
 }
 

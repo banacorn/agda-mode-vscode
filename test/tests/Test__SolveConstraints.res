@@ -15,7 +15,7 @@ let run = normalization => {
       )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepEqual(filteredResponses, [InteractionPoints([0]), SolveAll([(0, "4")])])
+    Assert.deepEqual(filteredResponses, [InteractionPoints([0, 1]), SolveAll([(0, "4"), (1, "4")])])
   })
 
   Async.it("should solve all goals", async () => {

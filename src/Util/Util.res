@@ -214,45 +214,8 @@ module Pretty = {
   let list = xs => xs->List.toArray->array
 }
 
-let rec oneByOne' = async x =>
-  switch x {
-  | list{} => list{}
-  | list{x, ...xs} =>
-    let x' = await x
-    let result = await oneByOne'(xs)
-    list{x', ...result}
-  }
-
-let oneByOne = async xs => {
-  let xs' = await oneByOne'(List.fromArray(xs))
-  List.toArray(xs')
-}
 module JsError = {
   let toString = (_e: Js.Exn.t): string => %raw("_e.toString()")
-}
-
-module List = {
-  let rec span = (p, xs) =>
-    switch xs {
-    | list{} => (list{}, list{})
-    | list{x, ...xs} =>
-      if p(x) {
-        let (ys, zs) = span(p, xs)
-        (list{x, ...ys}, zs)
-      } else {
-        (list{}, xs)
-      }
-    }
-  let rec dropWhile = (p, xs) =>
-    switch xs {
-    | list{} => list{}
-    | list{x, ...xs} =>
-      if p(x) {
-        dropWhile(p, xs)
-      } else {
-        list{x, ...xs}
-      }
-    }
 }
 
 module Promise_ = {
@@ -283,6 +246,44 @@ module Promise_ = {
     await promise
     Js.Global.clearTimeout(id)
   }
+
+  let rec oneByOne' = async xs =>
+    switch xs {
+    | list{} => list{}
+    | list{x, ...xs} =>
+      let x' = await x()
+      let result = await oneByOne'(xs)
+      list{x', ...result}
+    }
+  // execute promises one by one
+  let oneByOne = async xs => {
+    let xs' = await oneByOne'(List.fromArray(xs))
+    List.toArray(xs')
+  }
+}
+
+module List = {
+  let rec span = (p, xs) =>
+    switch xs {
+    | list{} => (list{}, list{})
+    | list{x, ...xs} =>
+      if p(x) {
+        let (ys, zs) = span(p, xs)
+        (list{x, ...ys}, zs)
+      } else {
+        (list{}, xs)
+      }
+    }
+  let rec dropWhile = (p, xs) =>
+    switch xs {
+    | list{} => list{}
+    | list{x, ...xs} =>
+      if p(x) {
+        dropWhile(p, xs)
+      } else {
+        list{x, ...xs}
+      }
+    }
 }
 
 module String = {
