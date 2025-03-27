@@ -26,6 +26,9 @@ if OS.onUnix {
           Assert.equal(match("no comment\n"), -1)
           Assert.equal(match("-- comment"), 0)
           Assert.equal(match("-- comment with newline\n"), 0)
+          Assert.equal(match("{- comment -}"), 0)
+          Assert.equal(match("{- {- -} {!   !} -}"), 0)
+          Assert.equal(match("{- {- -} {!   !} -}\n"), 0)
         },
       )
 
@@ -45,6 +48,22 @@ if OS.onUnix {
           Assert.equal(match("{-- comment placed immediately after name parts"), 1)
           Assert.equal(match("}-- comment placed immediately after name parts"), 1)
           Assert.equal(match("@-- comment placed immediately after name parts"), 1)
+        },
+      )
+    })
+
+    describe("Regex.goalBracket", () => {
+      it(
+        "should work",
+        () => {
+          open SourceFile
+          let match = String.search(_, Regex.goalBracket)
+          Assert.equal(match("{!!}"), 0)
+          Assert.equal(match("{!     !}"), 0)
+          Assert.equal(match("{!     !}\n"), 0)
+          Assert.equal(match("{!   \n  !}\n"), 0)
+          Assert.equal(match("no goal brackets"), -1)
+          Assert.equal(match("no goal brackets\n"), -1)
         },
       )
     })

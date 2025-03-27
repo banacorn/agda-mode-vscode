@@ -44,6 +44,22 @@ module Token = {
     kind: kind,
   }
 
+  let toString = token => {
+    let {content, range, kind} = token
+    let (start, end_) = range
+    let kindStr = switch kind {
+    | AgdaRaw => "AgdaRaw"
+    | Literate => "Literate"
+    | Comment => "Comment"
+    | GoalBracket => "GoalBracket"
+    | GoalQMRaw => "GoalQMRaw"
+    | GoalQM => "GoalQM"
+    }
+    kindStr ++
+    " [" ++
+    (string_of_int(start) ++
+    (", " ++ (string_of_int(end_) ++ ("] \"" ++ content ++ "\""))))
+  }
   let isHole = token =>
     switch token.kind {
     | GoalBracket
@@ -62,7 +78,7 @@ module Lexer = {
      regex     : regex to perform split on a token
      sourceType: the type of token to look for and perform splitting
      targetType: the type of token given to the splitted tokens when identified */
-  let lex = (regex: RegExp.t, source: Token.kind, target: Token.kind, tokens): t => {
+  let lex = (tokens, regex: RegExp.t, source: Token.kind, target: Token.kind): t => {
     let f = (token: Token.t) =>
       if token.kind === source {
         let cursor = ref(fst(token.range))
@@ -238,23 +254,14 @@ let parse = (indices: array<int>, filepath: string, raw: string): array<Diff.t> 
   | LiterateForester => Literate.markForester(raw)
   | Agda => Lexer.make(raw)
   }
-  /* just lexing, doesn't mess around with raw text, preserves positions */
-  let original = Lexer.lex(
-    Regex.goalQuestionMark,
-    GoalQMRaw,
-    GoalQM,
-    Lexer.lex(
-      Regex.goalQuestionMarkRaw,
-      AgdaRaw,
-      GoalQMRaw,
-      Lexer.lex(
-        Regex.goalBracket,
-        AgdaRaw,
-        GoalBracket,
-        Lexer.lex(Regex.comment, AgdaRaw, Comment, preprocessed),
-      ),
-    ),
-  )
+  // just lexing, doesn't mess around with raw text, preserves positions
+  let original =
+    preprocessed
+    ->Lexer.lex(Regex.comment, AgdaRaw, Comment)
+    ->Lexer.lex(Regex.goalBracket, AgdaRaw, GoalBracket)
+    ->Lexer.lex(Regex.goalQuestionMarkRaw, AgdaRaw, GoalQMRaw)
+    ->Lexer.lex(Regex.goalQuestionMark, GoalQMRaw, GoalQM)
+
   let questionMark2GoalBracket = token => {
     /* ? => {!  !} */
 
