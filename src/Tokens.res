@@ -13,7 +13,7 @@ module Token = {
     source: option<(filepath, int)>, // The defining module and the position in that module
   }
   let toString = self =>
-    "Token (" ++
+    "(" ++
     string_of_int(self.start) ++
     ", " ++
     string_of_int(self.end_) ++
@@ -105,6 +105,7 @@ module Token = {
 
 module type Module = {
   type t
+  let toString: t => string
 
   let make: unit => t
   let addEmacsFilePath: (t, string) => unit
@@ -180,6 +181,26 @@ module Module: Module = {
     mutable tempFiles: array<TempFile.t>,
     // Tokens indexed by the starting offset
     mutable tokens: AVLTree.t<(Token.t, VSCode.Range.t)>,
+  }
+
+  let toString = self => {
+    let tempFiles = if self.tempFiles->Array.length == 0 {
+      ""
+    } else {
+      "\n    " ++ self.tempFiles->Array.map(TempFile.toFilepath)->Array.join("\n    ")
+    }
+
+    let tokens =
+      self.tokens
+      ->AVLTree.toArray
+      ->Array.map(((token, range)) => Token.toString(token) ++ " " ++ Editor.Range.toString(range))
+      ->Array.join("\n    ")
+    "Tokens:\n  tempFiles (" ++
+    string_of_int(self.tempFiles->Array.length) ++
+    ") " ++
+    tempFiles ++
+    "\n  tokens:\n    " ++
+    tokens
   }
 
   let make = () => {

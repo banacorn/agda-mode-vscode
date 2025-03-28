@@ -132,7 +132,7 @@ let parse = x =>
 
 let toDecoration = (x: t): option<Highlighting__Decoration.t> =>
   switch x {
-  | Hole => None 
+  | Hole => None
   | Comment =>
     Some({
       light: Foreground("#B0B0B0"),

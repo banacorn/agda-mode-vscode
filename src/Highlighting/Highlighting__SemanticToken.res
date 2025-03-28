@@ -194,13 +194,12 @@ module Module: Module = {
   }
 
   let toString = token => {
-    // let range = token.range
     let tokenType = token.type_->TokenType.toString
-    let modifiers =
-      token.modifiers
-      ->Option.mapOr([], xs => xs->Array.map(TokenModifier.toString))
-      ->Util.Pretty.array
-
+    let modifiers = switch token.modifiers {
+    | None => ""
+    | Some([]) => ""
+    | Some(xs) => xs->Array.map(TokenModifier.toString)->Util.Pretty.array
+    }
     "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ " " ++ modifiers
   }
 }
