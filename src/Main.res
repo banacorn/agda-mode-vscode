@@ -95,8 +95,11 @@ let initialize = (channels, extensionPath, globalStorageUri, memento, editor, fi
     State__InputMethod.select(state, intervals)->ignore
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(event => {
+    // update the input method accordingly
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+    // updates positions of semantic highlighting tokens accordingly
+    state.highlighting->Highlighting.updateSemanticHighlighting(event)
   })->subscribe
 
   // definition provider for go-to-definition
@@ -238,19 +241,6 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
     }
   })->subscribe
 
-  // on TextDocumentChangeEvent
-  // updates positions of semantic highlighting tokens accordingly
-  VSCode.Workspace.onDidChangeTextDocument((event: VSCode.TextDocumentChangeEvent.t) => {
-    // find the corresponding State
-    let document = event->VSCode.TextDocumentChangeEvent.document
-    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    if isAgda(fileName) {
-      Registry.get(fileName)->Option.forEach(state => {
-        state.highlighting->Highlighting.updateSemanticHighlighting(event)
-      })
-    }
-  })->subscribe
-
   // updates the font size accordingly
   VSCode.Workspace.onDidChangeConfiguration((event: VSCode.ConfigurationChangeEvent.t) => {
     // see if the font size has changed
@@ -335,7 +325,12 @@ let activate = context => {
     ->VSCode.Uri.with_({
       scheme: "file",
     })
-  activateWithoutContext(subscriptions, extensionPath, globalStorageUri, Some(VSCode.ExtensionContext.workspaceState(context)))
+  activateWithoutContext(
+    subscriptions,
+    extensionPath,
+    globalStorageUri,
+    Some(VSCode.ExtensionContext.workspaceState(context)),
+  )
 }
 
 let deactivate = () => ()
