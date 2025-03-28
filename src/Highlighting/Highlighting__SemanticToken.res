@@ -135,6 +135,7 @@ module type Module = {
     type_: TokenType.t,
     modifiers: option<array<TokenModifier.t>>,
   }
+  let make: (int, (int, int), TokenType.t, option<array<TokenModifier.t>>) => t
   let toString: t => string
 }
 
@@ -192,6 +193,8 @@ module Module: Module = {
     type_: TokenType.t,
     modifiers: option<array<TokenModifier.t>>,
   }
+
+  let make = (line, column, type_, modifiers) => {range: {line, column}, type_, modifiers}
 
   let toString = token => {
     let tokenType = token.type_->TokenType.toString

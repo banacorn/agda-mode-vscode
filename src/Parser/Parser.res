@@ -5,7 +5,6 @@ let splitToLines = s =>
   ->Array.map(x =>
     switch x {
     | None => None
-    | Some("") => None
     | Some(chunk) => Some(chunk)
     }
   )

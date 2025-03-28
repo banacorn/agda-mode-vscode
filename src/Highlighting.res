@@ -227,9 +227,7 @@ module Module: Module = {
       ->Array.flat
 
     // apply changes to the cached tokens
-    changes->Array.forEach(change => {
-      self.semanticTokens = applyChange(self.semanticTokens, change)
-    })
+    self.semanticTokens = changes->Array.reduce(self.semanticTokens, applyChange)
   }
 
   let getSemanticTokens = (self: t) => self.semanticTokens

@@ -1,41 +1,68 @@
 open Mocha
 open Test__Util
 
-describe_skip("Highlighting", () => {
-// describe_only("Highlighting", () => {
-  describe("updateSemanticHighlighting", () => {
-    Async.it(
-      "should work",
-      async () => {
-        let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
-        Js.log(ctx.state.tokens->Tokens.toString)
-        Js.log(ctx.state.highlighting->Highlighting.getSemanticTokens->Array.map(Highlighting__SemanticToken.toString)->Array.join("\n"))
+describe("Highlighting", () => {
+  let fileContent = ref("")
+  Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Issue180.agda"))))
+  Async.afterEach(async () => await File.write(Path.asset("Issue180.agda"), fileContent.contents))
 
-        // let tokens =
-        //   ctx.state.tokens
-        //   ->Tokens.toArray
-        //   ->Array.map(
-        //     ((token, range)) => {
-        //       Js.log(token->Tokens.Token.toString)
-        //       Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token)
-        //     },
-        //   )
-        // Assert.deepEqual(Array.length(tokens), 28)
+  Async.it("should work after inserting a newline", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
+    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(6, 0), "\n")
 
-        // let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(ctx.state.tokens, ctx.state.editor)
-        
-        // let highlighting = Highlighting.make()
-        // await Highlighting.apply(highlighting, ctx.state.tokens, ctx.state.editor)
+    open Highlighting__SemanticToken
+    let expected = [
+      make(7, (0, 3), Function, Some([])),
+      make(7, (6, 7), Type, Some([])),
+      make(7, (10, 11), Type, Some([])),
+      make(7, (14, 15), Type, Some([])),
+      make(8, (0, 1), Variable, Some([])),
+      make(8, (2, 3), Function, Some([])),
+      make(8, (4, 5), Variable, Some([])),
+    ]
+    let actual = ctx.state.highlighting->Highlighting.getSemanticTokens->Array.sliceToEnd(~start=12)
+    Assert.deepStrictEqual(actual, expected)
+  })
 
-        // let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(ctx.state.tokens, ctx.state.editor)
+  Async.it("should work after deleting an empty line", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
 
-        // Highlighting.applyChangeToSemanticTokens(semanticTokens, ctx.state.editor.document)
-
-        // Js.log(decorations->Array.map(fst)->Array.map(Editor.Decoration.toString)->Array.join("\n"))
-        // Js.log(ctx.state.highlighting->Highlighting.toString)
-        // Js.log(semanticTokens->Array.map(Highlighting__SemanticToken.toString)->Array.join("\n"))
-        ()
-      },
+    let _ = await Editor.Text.delete(
+      ctx.state.document,
+      VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(6, 0)),
     )
+
+    open Highlighting__SemanticToken
+    let expected = [
+      make(5, (0, 3), Function, Some([])),
+      make(5, (6, 7), Type, Some([])),
+      make(5, (10, 11), Type, Some([])),
+      make(5, (14, 15), Type, Some([])),
+      make(6, (0, 1), Variable, Some([])),
+      make(6, (2, 3), Function, Some([])),
+      make(6, (4, 5), Variable, Some([])),
+    ]
+    let actual = ctx.state.highlighting->Highlighting.getSemanticTokens->Array.sliceToEnd(~start=12)
+
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  Async.it("should work after deleting an existing line", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
+
+    let _ = await Editor.Text.delete(
+      ctx.state.document,
+      VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(7, 0)),
+    )
+
+    open Highlighting__SemanticToken
+    let expected = [
+      make(5, (0, 1), Variable, Some([])),
+      make(5, (2, 3), Function, Some([])),
+      make(5, (4, 5), Variable, Some([])),
+    ]
+    let actual = ctx.state.highlighting->Highlighting.getSemanticTokens->Array.sliceToEnd(~start=12)
+
+    Assert.deepStrictEqual(actual, expected)
   })
 })
