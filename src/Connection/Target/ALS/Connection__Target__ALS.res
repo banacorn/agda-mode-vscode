@@ -59,7 +59,7 @@ module ALSResponse = {
         switch x {
         | "DisplayInfoGeneric" =>
           Payload(
-            pair(string, array(Item.decode))->map(((header, itmes)) => Generic(header, itmes)),
+            pair(string, array(Item.decode))->map(((header, items)) => Generic(header, items)),
           )
         | "DisplayInfoAllGoalsWarnings" =>
           Payload(
@@ -223,7 +223,7 @@ module Module: Module = {
     method: Connection__Target__IPC.t,
   }
 
-  // catches exceptions occured when decoding JSON values
+  // catches exceptions occurred when decoding JSON values
   let decodeCommandRes = (json: JSON.t): result<CommandRes.t, Error.t> =>
     switch JsonCombinators.Json.decode(json, CommandRes.decode) {
     | Ok(response) => Ok(response)
@@ -277,8 +277,8 @@ module Module: Module = {
     // listens for responses from Agda
     let stopListeningForNotifications = self.client->LSP.onRequest(async json => {
       switch decodeResponse(json) {
-      | Ok(ResponseNonLast(responese)) => scheduler->Scheduler.runNonLast(handler, responese)
-      | Ok(ResponseLast(priority, responese)) => scheduler->Scheduler.addLast(priority, responese)
+      | Ok(ResponseNonLast(responses)) => scheduler->Scheduler.runNonLast(handler, responses)
+      | Ok(ResponseLast(priority, responses)) => scheduler->Scheduler.addLast(priority, responses)
       | Ok(ResponseParseError(e)) => resolve(Error(Error.ResponseParseError(e)))
       | Ok(ResponseEnd) => resolve(Ok())
       | Error(error) => resolve(Error(error))

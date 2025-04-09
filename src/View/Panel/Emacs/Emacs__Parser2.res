@@ -43,7 +43,7 @@ let partiteWarningsOrErrors = (xs, key) =>
   })
 
 let parseError: string => Dict.t<array<string>> = raw => {
-  // if the first line has delimeter,
+  // if the first line has delimiter,
   // then the message has both an error and possibly many warnings
   // all warnings start with a range
   //    ———— Error ————————————————————————————————————————————————————————————————
@@ -73,11 +73,11 @@ let parseError: string => Dict.t<array<string>> = raw => {
     }
     lines
     ->Emacs__Parser.Dictionary.partite(predicate)
-    // remove the delimeter in the first line of errors and unlines the rest
+    // remove the delimiter in the first line of errors and unlines the rest
     ->Emacs__Parser.Dictionary.update("errors", xs => [
       xs->Array.sliceToEnd(~start=1)->Util.String.unlines,
     ])
-    // remove the delimeter in the first line of warnings and unlines the rest
+    // remove the delimiter in the first line of warnings and unlines the rest
     ->Emacs__Parser.Dictionary.update("warnings", xs =>
       xs
       ->Array.sliceToEnd(~start=1)

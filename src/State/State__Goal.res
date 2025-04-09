@@ -246,7 +246,7 @@ module Module: Module = {
     // destroy all existing goals
     state.goals->Array.forEach(Goal.destroyDecoration)
 
-    // get ther cursor position before editing the text buffer
+    // get the cursor position before editing the text buffer
     // so that we can place the cursor inside a goal later
     let selection = VSCode.TextEditor.selection(state.editor)
     let cursorStart = VSCode.TextDocument.offsetAt(

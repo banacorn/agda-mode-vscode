@@ -998,7 +998,7 @@
 					"type": "string",
 					"default": "",
 					"scope": "machine-overridable",
-					"description": "Paths to include (such as agda-stdlib), seperate with comma. Useless after Agda 2.5.0."
+					"description": "Paths to include (such as agda-stdlib), separate with comma. Useless after Agda 2.5.0."
 				},
 				"agdaMode.highlighting.IPC": {
 					"type": "string",

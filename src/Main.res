@@ -191,7 +191,7 @@ let registerDocumentSemanticTokensProvider = () => {
 
 // TODO: rename `finalize`
 let finalize = isRestart => {
-  // after the last Agda file has benn closed
+  // after the last Agda file has been closed
   if Registry.isEmpty() {
     // destroy views accordingly
     Singleton.Panel.destroy()

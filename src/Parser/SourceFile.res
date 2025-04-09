@@ -77,7 +77,7 @@ module Lexer = {
 
      regex     : regex to perform split on a token
      sourceType: the type of token to look for and perform splitting
-     targetType: the type of token given to the splitted tokens when identified */
+     targetType: the type of token given to the split tokens when identified */
   let lex = (tokens, regex: RegExp.t, source: Token.kind, target: Token.kind): t => {
     let f = (token: Token.t) =>
       if token.kind === source {

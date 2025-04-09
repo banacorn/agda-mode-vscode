@@ -81,7 +81,7 @@ describe("Connection", () => {
         | None => failwith("Unable to access the Agda mock target")
         }
 
-        // setup the momento
+        // setup the memento
         let memento = State__Memento.make(None)
         await Connection.Target.setPicked(memento, Some(agdaMockTarget))
 
@@ -97,7 +97,7 @@ describe("Connection", () => {
     Async.it(
       "should return nothing when there's no previously picked connection",
       async () => {
-        // setup the momento
+        // setup the memento
         let memento = State__Memento.make(None)
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
@@ -139,7 +139,7 @@ describe("Connection", () => {
         | None => failwith("Unable to access the Agda mock target")
         }
 
-        // setup the momento
+        // setup the memento
         let memento = State__Memento.make(None)
         await Connection.Target.setPicked(memento, Some(agdaMockTarget))
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
@@ -182,7 +182,7 @@ describe("Connection", () => {
         | None => failwith("Unable to access the Agda mock target")
         }
 
-        // setup the momento
+        // setup the memento
         let memento = State__Memento.make(None)
         let paths =
           [
@@ -446,7 +446,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should throw the `NoDownloadALS` error when the inital download policy is `No`",
+      "should throw the `NoDownloadALS` error when the initial download policy is `No`",
       async () => {
         let platform = Connection__Download__Platform.Windows
 

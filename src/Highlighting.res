@@ -102,8 +102,8 @@ module Module: Module = {
       let (lineDelta, columnDelta) = {
         // +1 line for each linebreak ('\n' or '\r\n')
         // -1 line for each line in `removedRange`
-        // +1 column for each charactor after the last linebreak
-        // -1 column for each charactor in `removedRange`
+        // +1 column for each character after the last linebreak
+        // -1 column for each character in `removedRange`
         let lines = Parser.splitToLines(change->VSCode.TextDocumentContentChangeEvent.text)
         let lineDetalOfRemovedRange =
           VSCode.Position.line(VSCode.Range.end_(removedRange)) -
@@ -190,7 +190,7 @@ module Module: Module = {
       }
   }
 
-  // trigger TextDocumentChangeEvent by inserting and then deleteing a space " " at the end of the file
+  // trigger TextDocumentChangeEvent by inserting and then deleting a space " " at the end of the file
   let triggerDocumentChangeEvent = async editor => {
     let document = editor->VSCode.TextEditor.document
     let lineCount = document->VSCode.TextDocument.lineCount

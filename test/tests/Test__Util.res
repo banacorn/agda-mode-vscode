@@ -153,7 +153,7 @@ external executeCommand: string => promise<option<result<State.t, Connection.Err
 let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
 
 module Strings = {
-  // trim and replace all occurences of line breaks with "\n"
+  // trim and replace all occurrences of line breaks with "\n"
   let normalize = string => {
     string->String.trim->String.replaceRegExp(%re("/\r\n|\n/g"), "\n")
   }
@@ -210,7 +210,7 @@ module Golden = {
 
     // given a list of Diff.t, return the first Added or Removed and the character count before it
     let firstChange = diffs => {
-      // the count of charactors before the first change occured
+      // the count of characters before the first change occurred
       let count = ref(0)
       let change = ref(None)
       diffs->Array.forEach(diff =>

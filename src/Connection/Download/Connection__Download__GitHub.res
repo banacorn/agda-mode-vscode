@@ -83,7 +83,7 @@ module Error = {
     | AlreadyDownloading
     | CannotDownload(Download.Error.t)
     | CannotGetReleases(Download.Error.t)
-    // cacheing
+    // caching
     | CannotReadReleasesCache(string)
     | CannotCacheReleases(Js.Exn.t)
     // file system
@@ -101,11 +101,11 @@ module Error = {
     | NoMatchingRelease => "Cannot find matching release from GitHub"
     // download
     | CannotDownload(error) =>
-      "Cannot downlaod file from GitHub:\n" ++ Download.Error.toString(error)
+      "Cannot download file from GitHub:\n" ++ Download.Error.toString(error)
     | CannotGetReleases(error) =>
       "Cannot get release info from GitHub:\n" ++ Download.Error.toString(error)
     | AlreadyDownloading => "Already downloading"
-    // cacheing
+    // caching
     | CannotReadReleasesCache(string) => "Cannot read releases cache:\n" ++ string
     | CannotCacheReleases(exn) => "Failed to cache releases:\n" ++ Util.JsError.toString(exn)
     // file system

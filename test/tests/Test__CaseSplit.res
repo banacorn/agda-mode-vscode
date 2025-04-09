@@ -2,7 +2,7 @@ open Mocha
 open Test__Util
 
 describe("State__Goal.caseSplitAux dry run", () => {
-  Async.it("should calculate the infomation needed for case splitting correctly", async () => {
+  Async.it("should calculate the information needed for case splitting correctly", async () => {
     let editor = await VSCode.Window.showTextDocumentWithUri(
       VSCode.Uri.file(Path.asset("CaseSplit.agda")),
       None,

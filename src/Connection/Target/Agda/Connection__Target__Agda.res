@@ -32,7 +32,7 @@ module Module: Module = {
     // However, the prompt "Agda2>" also appears at the very start of the conversation
     // So this would be what it looks like:
     //    >>> request
-    //      stop          <------- wierd stop
+    //      stop          <------- weird stop
     //      yield
     //      yield
     //      stop

@@ -193,7 +193,7 @@ let rec run = async state => {
     //   }
     // },
     // {
-    //   VSCode.QuickPickItem.label: "$(cloud-download)  Download other verions of Agda Language Server",
+    //   VSCode.QuickPickItem.label: "$(cloud-download)  Download other versions of Agda Language Server",
     // },
     {
       VSCode.QuickPickItem.label: "$(folder-opened)  Open download folder",

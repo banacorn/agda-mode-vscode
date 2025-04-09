@@ -63,7 +63,7 @@ module Progress = {
     event =>
       switch event {
       | Event.Start =>
-        // instantiate the progress bar and steal the progess report function
+        // instantiate the progress bar and steal the progress report function
         VSCode.Window.withProgress(
           {
             location: VSCode.ProgressLocation.Notification,
