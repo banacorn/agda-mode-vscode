@@ -151,7 +151,7 @@ module Indices: Indices = {
   }
 
   // compiles an array of UTF-8 based offset intervals
-  // for faster UTF-8 => UTF-16 convertion
+  // for faster UTF-8 => UTF-16 conversion
   let make = (indicesUTF16: array<int>): t => {
     //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
 
@@ -205,7 +205,7 @@ module Indices: Indices = {
   let rec convert = (self, index) => {
     switch self.intervals[self.cursor] {
     | None =>
-      // happens when we enter the last inverval
+      // happens when we enter the last interval
       if index >= self.lastInterval {
         // return index + how many pairs it have skipped
         index + self.cursor

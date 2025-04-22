@@ -106,7 +106,7 @@ module Module: Module = {
       let deviseChange = (previous, next): IM.Input.t => {
         let inputLength = String.length(next)
 
-        // helper funcion
+        // helper function
         let init = s => String.substring(~start=0, ~end=String.length(s) - 1, s)
         let last = s => String.substringToEnd(~start=String.length(s) - 1, s)
 

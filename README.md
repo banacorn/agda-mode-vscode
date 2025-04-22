@@ -4,7 +4,7 @@
 
 If you have [Agda](https://agda.readthedocs.io/en/latest/getting-started/installation.html) properly installed (to check this in your terminal, type `agda` and see if it's on your machine). Open an Agda file and you should be able to load it by typing <kbd>C-c</kbd> <kbd>C-l</kbd>.
 
-It's okay if you don't have Agda installed, we can also download and install [Agda Langauge Server](https://github.com/agda/agda-language-server) for you on Windows, macOS, or Ubuntu.
+It's okay if you don't have Agda installed, we can also download and install [Agda Language Server](https://github.com/agda/agda-language-server) for you on Windows, macOS, or Ubuntu.
 
 You can install multiple versions of Agda or ALS by adding more paths to `agdaMode.connection.paths` in the settings, and switch between them with <kbd>C-c</kbd> <kbd>C-r</kbd>.
 

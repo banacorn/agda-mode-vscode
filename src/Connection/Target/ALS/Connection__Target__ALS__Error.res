@@ -29,7 +29,7 @@ type t =
   | Validation(string)
   // Errors from the LSP client
   | ConnectionError(Js.Exn.t)
-  // Errors when sending Command to ther server
+  // Errors when sending Command to the server
   | SendCommand(CommandErr.t)
   // Cannot initialize the connection
   | Initialize

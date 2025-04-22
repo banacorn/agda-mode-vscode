@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.5 - 2025-04-04
 
 ### Fixed
-- #180: Hightlighting breaks on pretty much any edit
+- #180: Highlighting breaks on pretty much any edit
 - #204: Bad state after C-c C-s (solve)
 
 ## v0.5.4 - 2025-03-19
@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.1 - 2024-11-28
 
 ### Fixed
-- #202: Pressing Enter in Compute normal form input field opens the current file in another tab everytime
+- #202: Pressing Enter in Compute normal form input field opens the current file in another tab every time
 - #200: Fix year in CHANGELOG.md by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #199: Fix '\n' in panel and refinement output by [@jiangsy](https://github.com/jiangsy)
 - #198: Address several warnings during build by [@jiangsy](https://github.com/jiangsy)
