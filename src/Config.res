@@ -259,10 +259,10 @@ let getBackend = () => {
 }
 
 module InputMethod = {
-  let getEnable = () => {
+  let getEnabled = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-        "inputMethod.enable",
+        "inputMethod.enabled",
       )
     switch raw {
     | Some(true) => true

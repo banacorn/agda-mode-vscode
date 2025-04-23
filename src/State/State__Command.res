@@ -381,7 +381,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       await State__View.Panel.interruptPrompt(state)
     }
   | InputMethod(Activate) =>
-    if Config.InputMethod.getEnable() {
+    if Config.InputMethod.getEnabled() {
       await State__InputMethod.activateEditorIM(state)
     } else {
       // insert the activation key (default: "\") instead
