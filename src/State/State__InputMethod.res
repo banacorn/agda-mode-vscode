@@ -31,6 +31,7 @@ module Module: Module = {
           let _ = await Editor.Text.batchReplace(state.document, replacements)
           resolve()
         | Activate =>
+          await State__View.Panel.display(state, Plain("Unicode input mode"), [])
           State.Context.setIM(true)
           await State__View.Panel.updateIM(state, Activate)
         | Deactivate =>
@@ -144,7 +145,7 @@ module Module: Module = {
 
     let insertChar = (state: State.t, char) => keyUpdate(state, previous.contents ++ char)
 
-    let activate = (state: State.t, input) => {
+    let activate = async (state: State.t, input) => {
       // remove the ending backslash "\"
       let cursorOffset = String.length(input) - 1
       let input = String.substring(~start=0, ~end=cursorOffset, input)
@@ -152,7 +153,7 @@ module Module: Module = {
       // update stored <input>
       previous.contents = input
 
-      runAndHandle(state, Activate([(cursorOffset, cursorOffset)]))
+      await runAndHandle(state, Activate([(cursorOffset, cursorOffset)]))
     }
 
     let deactivate = (state: State.t) => runAndHandle(state, Deactivate)
