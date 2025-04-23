@@ -193,12 +193,22 @@ module Module: Module = {
       await EditorIM.activate(state)
     }
 
+  // activate the prompt IM when the user typed the activation key
+  // NOTE: now hardcoded as backslash "\"
+  let shouldActivatePromptIM = input => String.endsWith(input, "\\")
+
   let keyUpdatePromptIM = async (state: State.t, input) =>
     switch isActivated(state) {
     | Editor => await State__View.Panel.updatePromptIM(state, input)
 
     | Prompt => await PromptIM.keyUpdate(state, input)
-    | None => await State__View.Panel.updatePromptIM(state, input)
+    | None =>
+      if shouldActivatePromptIM(input) {
+        // activate the prompt IM
+        await PromptIM.activate(state, input)
+      } else {
+        await State__View.Panel.updatePromptIM(state, input)
+      }
     }
 
   let keyUpdateEditorIM = (state: State.t, changes) =>

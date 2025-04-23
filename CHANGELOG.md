@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.5.6 - 2025-04-23
+
+### Fixed
+- #184: Deactivation of latex-input? #184
+
 ## v0.5.5 - 2025-04-04
 
 ### Fixed
