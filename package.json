@@ -530,12 +530,12 @@
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
+				"when": "config.agdaMode.inputMethod.enable && (editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
-				"when": "(editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
+				"when": "config.agdaMode.inputMethod.enable && (editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.quit",
@@ -998,7 +998,7 @@
 					"type": "string",
 					"default": "",
 					"scope": "machine-overridable",
-					"description": "Paths to include (such as agda-stdlib), seperate with comma. Useless after Agda 2.5.0."
+					"description": "Paths to include (such as agda-stdlib), separate with comma. Useless after Agda 2.5.0."
 				},
 				"agdaMode.highlighting.IPC": {
 					"type": "string",
