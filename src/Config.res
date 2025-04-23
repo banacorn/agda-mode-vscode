@@ -270,20 +270,6 @@ module InputMethod = {
     | _ => true // enabled by default
     }
   }
-  let getActivationKey = () => {
-    let raw =
-      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-        "inputMethod.activationKey",
-      )
-    switch raw {
-    | Some(s) =>
-      switch s->String.substring(~start=0, ~end=1) {
-      | "" => "\\"
-      | key => key
-      }
-    | _ => "\\"
-    }
-  }
 }
 
 module Buffer = {

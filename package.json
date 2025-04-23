@@ -530,12 +530,12 @@
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "\\",
-				"when": "config.agdaMode.inputMethod.enabled && (editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
+				"when": "config.agdaMode.inputMethod.enabled && !agdaModeTyping && (editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
-				"when": "config.agdaMode.inputMethod.enabled && (editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
+				"when": "config.agdaMode.inputMethod.enabled && !agdaModeTyping && (editorLangId == agda || editorLangId == lagda-md || editorLangId == lagda-typ || editorLangId == lagda-rst || editorLangId == lagda-tex || editorLangId == lagda-org || editorLangId == lagda-forester) && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.quit",
@@ -1030,11 +1030,6 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Enable Unicode input method. Disable this if you are using a different input method extension like `latex-input`."
-				},
-				"agdaMode.inputMethod.activationKey": {
-					"type": "string",
-					"default": "\\",
-					"description": "Key for activating Unicode input method"
 				},
 				"agdaMode.buffer.fontSize": {
 					"type": [

@@ -176,18 +176,10 @@ module Module: Module = {
     | None => Promise.resolve()
     }
 
-  let activationKey = Config.InputMethod.getActivationKey()
-
   let activateEditorIM = async (state: State.t): unit =>
     switch isActivated(state) {
     | Editor =>
-      // Input method is already activated.
-      // If buffer is empty, insert the activation key (default: "\")
-      if state.editorIM->IM.bufferIsEmpty {
-        Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-          Editor.Text.insert(state.document, point, activationKey)->ignore
-        )
-      }
+      // IMTODO
       // else reactivate it
       await EditorIM.deactivate(state)
       await EditorIM.activate(state)
@@ -201,27 +193,12 @@ module Module: Module = {
       await EditorIM.activate(state)
     }
 
-  // activate the prompt IM when the user typed the activation key (default: "\")
-  let shouldActivatePromptIM = input => String.endsWith(activationKey, input)
-
   let keyUpdatePromptIM = async (state: State.t, input) =>
     switch isActivated(state) {
-    | Editor =>
-      if shouldActivatePromptIM(input) {
-        // deactivate the editor IM
-        await EditorIM.deactivate(state)
-        // activate the prompt IM
-        await PromptIM.activate(state, input)
-      } else {
-        await State__View.Panel.updatePromptIM(state, input)
-      }
+    | Editor => await State__View.Panel.updatePromptIM(state, input)
+
     | Prompt => await PromptIM.keyUpdate(state, input)
-    | None =>
-      if shouldActivatePromptIM(input) {
-        await PromptIM.activate(state, input)
-      } else {
-        await State__View.Panel.updatePromptIM(state, input)
-      }
+    | None => await State__View.Panel.updatePromptIM(state, input)
     }
 
   let keyUpdateEditorIM = (state: State.t, changes) =>
