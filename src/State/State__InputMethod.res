@@ -31,6 +31,7 @@ module Module: Module = {
           let _ = await Editor.Text.batchReplace(state.document, replacements)
           resolve()
         | Activate =>
+          await State__View.Panel.display(state, Plain("Unicode input mode"), [])
           State.Context.setIM(true)
           await State__View.Panel.updateIM(state, Activate)
         | Deactivate =>
@@ -144,7 +145,7 @@ module Module: Module = {
 
     let insertChar = (state: State.t, char) => keyUpdate(state, previous.contents ++ char)
 
-    let activate = (state: State.t, input) => {
+    let activate = async (state: State.t, input) => {
       // remove the ending backslash "\"
       let cursorOffset = String.length(input) - 1
       let input = String.substring(~start=0, ~end=cursorOffset, input)
@@ -152,7 +153,7 @@ module Module: Module = {
       // update stored <input>
       previous.contents = input
 
-      runAndHandle(state, Activate([(cursorOffset, cursorOffset)]))
+      await runAndHandle(state, Activate([(cursorOffset, cursorOffset)]))
     }
 
     let deactivate = (state: State.t) => runAndHandle(state, Deactivate)
@@ -176,18 +177,10 @@ module Module: Module = {
     | None => Promise.resolve()
     }
 
-  let activationKey = Config.InputMethod.getActivationKey()
-
   let activateEditorIM = async (state: State.t): unit =>
     switch isActivated(state) {
     | Editor =>
-      // Input method is already activated.
-      // If buffer is empty, insert the activation key (default: "\")
-      if state.editorIM->IM.bufferIsEmpty {
-        Editor.Cursor.getMany(state.editor)->Array.forEach(point =>
-          Editor.Text.insert(state.document, point, activationKey)->ignore
-        )
-      }
+      // IMTODO
       // else reactivate it
       await EditorIM.deactivate(state)
       await EditorIM.activate(state)
@@ -201,23 +194,18 @@ module Module: Module = {
       await EditorIM.activate(state)
     }
 
-  // activate the prompt IM when the user typed the activation key (default: "\")
-  let shouldActivatePromptIM = input => String.endsWith(activationKey, input)
+  // activate the prompt IM when the user typed the activation key
+  // NOTE: now hardcoded as backslash "\"
+  let shouldActivatePromptIM = input => String.endsWith(input, "\\")
 
   let keyUpdatePromptIM = async (state: State.t, input) =>
     switch isActivated(state) {
-    | Editor =>
-      if shouldActivatePromptIM(input) {
-        // deactivate the editor IM
-        await EditorIM.deactivate(state)
-        // activate the prompt IM
-        await PromptIM.activate(state, input)
-      } else {
-        await State__View.Panel.updatePromptIM(state, input)
-      }
+    | Editor => await State__View.Panel.updatePromptIM(state, input)
+
     | Prompt => await PromptIM.keyUpdate(state, input)
     | None =>
       if shouldActivatePromptIM(input) {
+        // activate the prompt IM
         await PromptIM.activate(state, input)
       } else {
         await State__View.Panel.updatePromptIM(state, input)
