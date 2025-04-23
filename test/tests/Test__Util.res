@@ -329,11 +329,10 @@ module AgdaMode = {
     mutable state: State.t,
   }
 
-  let makeAndLoad = async (~als=false, filepath) => {
+  let makeAndLoad = async (filepath) => {
     let filepath = Path.asset(filepath)
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
-    await Config.Connection.setUseAgdaLanguageServer(als)
     // make sure that "agda" exists in PATH
     await exists("agda")
     //

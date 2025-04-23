@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #186: can't type into the normalize expression's text input  
 - #144: Most of the times input field for any command does not work 
 - #117: Allow numeric input to complete ambiguous keyboard shortcuts by [@vic0103520](https://github.com/vic0103520)
+- #220: ALS expected behaviour?
+
+### Removed
+- Experimental option for ALS connection from the settings
 
 ## v0.5.5 - 2025-04-04
 

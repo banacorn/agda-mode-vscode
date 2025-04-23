@@ -94,30 +94,6 @@ module Connection = {
     ->Option.mapOr([], s => String.trim(s)->String.split(" "))
     ->Array.filter(s => String.trim(s) != "")
 
-  // Agda Language Server
-  let getUseAgdaLanguageServer = () =>
-    if inTestingMode.contents {
-      useAgdaLanguageServerInTestingMode.contents
-    } else {
-      let raw =
-        Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-          "connection.agdaLanguageServer",
-        )
-      switch raw {
-      | Some(true) => true
-      | _ => false
-      }
-    }
-  let setUseAgdaLanguageServer = (mode: bool) =>
-    if inTestingMode.contents {
-      useAgdaLanguageServerInTestingMode := mode
-      Promise.resolve()
-    } else {
-      Workspace.getConfiguration(
-        Some("agdaMode"),
-        None,
-      )->WorkspaceConfiguration.updateGlobalSettings("connection.agdaLanguageServer", mode, None)
-    }
   // Agda Language Server port
   let getAgdaLanguageServerPort = () => {
     let raw =
