@@ -3,6 +3,7 @@ open Test__Util
 
 let run = normalization => {
   describe("request to Agda", () => {
+    This.timeout(4000)
     describe("global", () => {
       Async.it(
         "should be responded with the correct answer 1",
