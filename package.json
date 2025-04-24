@@ -82,6 +82,15 @@
 				}
 			},
 			{
+				"id": "markdown",
+				"extensions": [
+					".md"
+				],
+				"aliases": [
+					"Markdown"
+				]
+			},
+			{
 				"id": "lagda-typ",
 				"extensions": [
 					".lagda.typ"
@@ -93,6 +102,15 @@
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
 				}
+			},
+			{
+				"id": "typst",
+				"extensions": [
+					".typ"
+				],
+				"aliases": [
+					"Typst"
+				]
 			},
 			{
 				"id": "lagda-tex",
@@ -135,6 +153,15 @@
 				}
 			},
 			{
+				"id": "org",
+				"extensions": [
+					".org"
+				],
+				"aliases": [
+					"Org"
+				]
+			},
+			{
 				"id": "lagda-forester",
 				"extensions": [
 					".lagda.tree"
@@ -146,6 +173,15 @@
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
 				}
+			},
+			{
+				"id": "forester",
+				"extensions": [
+					".tree"
+				],
+				"aliases": [
+					"forester"
+				]
 			}
 		],
 		"grammars": [
@@ -167,7 +203,23 @@
 				}
 			},
 			{
+				"language": "markdown",
+				"scopeName": "source.markdown",
+				"path": "./syntaxes/markdown.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
+			},
+			{
 				"language": "lagda-typ",
+				"scopeName": "source.typst",
+				"path": "./syntaxes/typst.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
+			},
+			{
+				"language": "typst",
 				"scopeName": "source.typst",
 				"path": "./syntaxes/typst.tmLanguage.json",
 				"embeddedLanguages": {
@@ -199,7 +251,23 @@
 				}
 			},
 			{
+				"language": "org",
+				"scopeName": "source.org",
+				"path": "./syntaxes/org.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
+			},
+			{
 				"language": "lagda-forester",
+				"scopeName": "source.forester",
+				"path": "./syntaxes/forester.tmLanguage.json",
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
+			},
+			{
+				"language": "forester",
 				"scopeName": "source.forester",
 				"path": "./syntaxes/forester.tmLanguage.json",
 				"embeddedLanguages": {
