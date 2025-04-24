@@ -27,4 +27,4 @@ jobs:
           source ./venv/bin/activate
           pip install codespell
           # exclude files which may be synchronized from other places
-          git ls-files | grep -v "^asset" | xargs -t codespell --ignore-words .github/workflows/ignore_words 2>/dev/null
+          git ls-files | grep -Ev "^asset|package-lock\.json" | xargs -t codespell --ignore-words .github/workflows/ignore_words 2>/dev/null
