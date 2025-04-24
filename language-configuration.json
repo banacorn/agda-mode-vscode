@@ -29,6 +29,11 @@
       "open": "⦃",
       "close": "⦄",
       "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦇",
+      "close": "⦈",
+      "notIn": ["comment", "string"]
     }
   ],
   "surroundingPairs": [
@@ -40,13 +45,15 @@
     ["{!", "!}"],
     ["{-#", "#-}"],
     ["{{", "}}"],
-    ["⦃", "⦄"]
+    ["⦃", "⦄"],
+    ["(|", "|)"],
+    ["⦇", "⦈"]
   ],
   "wordPattern": "[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+",
   "onEnterRules": [
     {
-      // Indent if a line ends with any of `=` `:` `⦃`
-      "beforeText": "[\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"][=:⦃]\\s*$",
+      // Indent if a line ends with any of `=` `:` `⦃` `⦇`
+      "beforeText": "[\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"][=:⦃⦇]\\s*$",
       "action": {
         "indent": "indent"
       }
