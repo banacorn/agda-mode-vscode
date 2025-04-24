@@ -69,7 +69,7 @@
 				}
 			},
 			{
-				"id": "lagda-md",
+				"id": "lagda-markdown",
 				"extensions": [
 					".lagda.md"
 				],
@@ -195,7 +195,7 @@
 				}
 			},
 			{
-				"language": "lagda-md",
+				"language": "lagda-markdown",
 				"scopeName": "source.markdown",
 				"path": "./syntaxes/markdown.tmLanguage.json",
 				"embeddedLanguages": {

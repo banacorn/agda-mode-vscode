@@ -197,7 +197,7 @@ let reveal = (editor, range) =>
 module Provider = {
   let documentSelector = [
     VSCode.StringOr.make(String("agda")),
-    VSCode.StringOr.make(String("lagda-md")),
+    VSCode.StringOr.make(String("lagda-markdown")),
     VSCode.StringOr.make(String("lagda-rst")),
     VSCode.StringOr.make(String("lagda-typst")),
     VSCode.StringOr.make(String("lagda-tex")),
