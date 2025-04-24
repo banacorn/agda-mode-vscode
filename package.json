@@ -76,7 +76,6 @@
 				"aliases": [
 					"Literate Agda (markdown)"
 				],
-				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -90,7 +89,6 @@
 				"aliases": [
 					"Literate Agda (Typst)"
 				],
-				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -105,7 +103,6 @@
 				"aliases": [
 					"Literate Agda (TeX)"
 				],
-				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -119,7 +116,6 @@
 				"aliases": [
 					"Literate Agda (reStructuredText)"
 				],
-				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -133,7 +129,6 @@
 				"aliases": [
 					"Literate Agda (Org)"
 				],
-				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -147,7 +142,6 @@
 				"aliases": [
 					"Literate Agda (forester)"
 				],
-				"configuration": "./language-configuration.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -168,49 +162,49 @@
 				"language": "lagda-md",
 				"scopeName": "source.markdown",
 				"path": "./syntaxes/markdown.tmLanguage.json",
-				"injectTo": [
-					"source.agda"
-				]
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
 			},
 			{
 				"language": "lagda-typ",
 				"scopeName": "source.typst",
 				"path": "./syntaxes/typst.tmLanguage.json",
-				"injectTo": [
-					"source.agda"
-				]
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
 			},
 			{
 				"language": "lagda-rst",
 				"scopeName": "source.rst",
 				"path": "./syntaxes/restructuredtext.tmLanguage.json",
-				"injectTo": [
-					"source.agda"
-				]
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
 			},
 			{
 				"language": "lagda-tex",
 				"scopeName": "source.tex",
 				"path": "./syntaxes/tex.tmLanguage.json",
-				"injectTo": [
-					"source.agda"
-				]
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
 			},
 			{
 				"language": "lagda-org",
 				"scopeName": "source.org",
 				"path": "./syntaxes/org.tmLanguage.json",
-				"injectTo": [
-					"source.agda"
-				]
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
 			},
 			{
 				"language": "lagda-forester",
 				"scopeName": "source.forester",
 				"path": "./syntaxes/forester.tmLanguage.json",
-				"injectTo": [
-					"source.agda"
-				]
+				"embeddedLanguages": {
+					"meta.embedded.block.agda": "agda"
+				}
 			}
 		],
 		"commands": [

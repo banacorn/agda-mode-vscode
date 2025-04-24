@@ -1,6 +1,31 @@
 {
-    "scopeName": "source.forester",
-    "patterns": [
-        { "include": "source.forester" }
-    ]
+  "scopeName": "source.forester",
+  "patterns": [
+    {
+      "include": "#agda-block"
+    },
+    {
+      "include": "source.forester"
+    }
+  ],
+  "repository": {
+    "agda-block": {
+      "begin": "\\\\(agda)\\{",
+      "end": "^\\s*\\}",
+      "name": "markup.raw.block.forester",
+      "contentName": "meta.embedded.block.agda",
+      "beginCaptures": {
+        "0": { "name": "keyword.control.agda.begin.forester" }
+        "1": { "name": "fenced_code.block.language.forester" }
+      },
+      "endCaptures": {
+        "0": { "name": "keyword.control.agda.end.forester" }
+      },
+      "patterns": [
+        {
+          "include": "source.agda"
+        }
+      ]
+    }
+  }
 }

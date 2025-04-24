@@ -1,6 +1,32 @@
 {
-    "scopeName": "source.typst",
-    "patterns": [
-        { "include": "source.typst" }
-    ]
+  "scopeName": "source.typst",
+  "patterns": [
+    {
+      "include": "#agda-block"
+    },
+    {
+      "include": "text.html.typst"
+    }
+  ],
+  "repository": {
+    "agda-block": {
+      "begin": "(^|\\G)(\\s*)(```)(\\s*)(agda)?(\\s*$)",
+      "end": "(^|\\G)(\\2)(```)(\\s*$)",
+      "name": "markup.fenced_code.block.typst",
+      "contentName": "meta.embedded.block.agda",
+      "beginCaptures": {
+        "3": { "name": "punctuation.definition.typst" },
+        "5": { "name": "fenced_code.block.language.typst" },
+        "6": { "name": "fenced_code.block.language.attributes.typst" }
+      },
+      "endCaptures": {
+        "3": { "name": "punctuation.definition.typst" }
+      },
+      "patterns": [
+        {
+          "include": "source.agda"
+        }
+      ]
+    }
+  }
 }

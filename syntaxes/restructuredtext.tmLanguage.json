@@ -1,6 +1,30 @@
 {
-    "scopeName": "source.rst",
-    "patterns": [
-        { "include": "source.rst" }
-    ]
+  "scopeName": "source.rst",
+  "patterns": [
+    {
+      "include": "#agda-block"
+    },
+    {
+      "include": "source.rst"
+    }
+  ],
+  "repository": {
+    "agda-block": {
+      "begin": "\\:\\:",
+      "end": "^(?=\\S)",
+      "name": "markup.raw.block.restructuredtext",
+      "contentName": "meta.embedded.block.agda",
+      "beginCaptures": {
+        "0": { "name": "keyword.control.agda.begin.restructuredtext" }
+      },
+      "endCaptures": {
+        "0": { "name": "keyword.control.agda.end.restructuredtext" }
+      },
+      "patterns": [
+        {
+          "include": "source.agda"
+        }
+      ]
+    }
+  }
 }
