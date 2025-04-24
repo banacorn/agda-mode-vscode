@@ -609,7 +609,7 @@
 				"command": "agda-mode.restart",
 				"key": "ctrl+c ctrl+x ctrl+r",
 				"mac": "ctrl+c ctrl+x ctrl+r",
-				"when": "editorLangId =~ /.*\bl?agda\b.*/i && !editorHasSelection && editorTextFocus"
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.compile",
