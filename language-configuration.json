@@ -42,9 +42,7 @@
     ["{{", "}}"],
     ["⦃", "⦄"]
   ],
-  // "wordPattern" is temporarily disabled because it will hinder the activation of other autocompletion-based input methods like `latex-input` 
-  // see https://github.com/banacorn/agda-mode-vscode/issues/184
-  // "wordPattern": "[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+",
+  "wordPattern": "[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+",
   "onEnterRules": [
     {
       // Indent if a line ends with any of `=` `:` `⦃`
