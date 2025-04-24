@@ -42,7 +42,7 @@
     ["{{", "}}"],
     ["⦃", "⦄"]
   ],
-  "wordPattern": "[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+",
+  "wordPattern": "(?!\\\\)[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+",
   "onEnterRules": [
     {
       // Indent if a line ends with any of `=` `:` `⦃`
