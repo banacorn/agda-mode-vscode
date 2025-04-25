@@ -20,7 +20,10 @@ describe("Highlighting", () => {
       make(8, (2, 3), Function, Some([])),
       make(8, (4, 5), Variable, Some([])),
     ]
-    let actual = ctx.state.highlighting->Highlighting.getSemanticTokens->Array.sliceToEnd(~start=12)
+
+    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
+    let actual = tokens->Array.sliceToEnd(~start=12)
+
     Assert.deepStrictEqual(actual, expected)
   })
 
@@ -42,7 +45,8 @@ describe("Highlighting", () => {
       make(6, (2, 3), Function, Some([])),
       make(6, (4, 5), Variable, Some([])),
     ]
-    let actual = ctx.state.highlighting->Highlighting.getSemanticTokens->Array.sliceToEnd(~start=12)
+    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
+    let actual = tokens->Array.sliceToEnd(~start=12)
 
     Assert.deepStrictEqual(actual, expected)
   })
@@ -61,7 +65,8 @@ describe("Highlighting", () => {
       make(5, (2, 3), Function, Some([])),
       make(5, (4, 5), Variable, Some([])),
     ]
-    let actual = ctx.state.highlighting->Highlighting.getSemanticTokens->Array.sliceToEnd(~start=12)
+    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
+    let actual = tokens->Array.sliceToEnd(~start=12)
 
     Assert.deepStrictEqual(actual, expected)
   })

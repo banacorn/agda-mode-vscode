@@ -1,6 +1,14 @@
 module Module: {
-  let get: string => option<State.t>
-  let getAll: unit => array<State.t>
+  module Entry: {
+    type t = {
+      mutable state: option<State.t>,
+      semanticTokens: Resource.t<array<Highlighting.SemanticToken.t>>,
+    }
+  }
+
+  let getState: string => option<State.t>
+  let getEntry: string => option<Entry.t>
+  let getAllStates: unit => array<State.t>
   let add: (string, State.t) => unit
   let remove: string => unit
   let removeAndDestroy: string => promise<unit>
@@ -9,59 +17,59 @@ module Module: {
 
   let requestSemanticTokens: string => promise<array<Highlighting.SemanticToken.t>>
 } = {
-  module Status = {
+  module Entry = {
     type tokens = array<Highlighting.SemanticToken.t>
 
-    type t =
-      // Waiting for Semantic Tokens, but the State has not been initiated yet
-      | PendingInit(promise<tokens>, tokens => unit)
-      // State has been initiated yet
-      | Initialized(State.t)
+    type t = {
+      mutable state: option<State.t>,
+      semanticTokens: Resource.t<tokens>,
+    }
 
-    let getState = status =>
-      switch status {
-      | PendingInit(_promise, _resolve) => None
-      | Initialized(state) => Some(state)
+    // create a new Entry and also return with a pending promise for SemanticTokens
+    let make = state =>
+      switch state {
+      | None => {state: None, semanticTokens: Resource.make()}
+      | Some(state: State.t) =>
+        let semanticTokens = state.highlighting->Highlighting.getSemanticTokens
+        {
+          state: Some(state),
+          semanticTokens, 
+        }
       }
   }
 
-  // A dictionary of FileName-Status entries
-  let dict: Dict.t<Status.t> = Dict.make()
+  // FileName-Entry Registry
+  let dict: Dict.t<Entry.t> = Dict.make()
 
-  // Private helper that returns Status
-  let get' = fileName => dict->Dict.get(fileName)
-  // Public getter that returns State
-  let get = fileName => get'(fileName)->Option.flatMap(Status.getState)
+  let getEntry = fileName => dict->Dict.get(fileName)
+  let getState = fileName => getEntry(fileName)->Option.flatMap(x => x.state)
 
   //  Get all existing States
-  let getAll = () => dict->Dict.valuesToArray->Array.filterMap(Status.getState)
+  let getAllStates = () => dict->Dict.valuesToArray->Array.filterMap(getEntry => getEntry.state)
 
   // Adds an instantiated State to the Registry
   let add = (fileName, state: State.t) =>
-    switch get'(fileName) {
-    | Some(PendingInit(_, resolve)) =>
-      // Fulfill the request for Semantic Tokens
-      state.highlighting->Highlighting.getSemanticTokens->resolve
-      // set the entry as Initialized
-      dict->Dict.set(fileName, Initialized(state))
-    | Some(Initialized(_)) => // do nothing
-      ()
-    | None => dict->Dict.set(fileName, Initialized(state))
+    switch getEntry(fileName) {
+    | None =>
+      // entry not found, create a new one
+      dict->Dict.set(fileName, Entry.make(Some(state)))
+    | Some(entry) =>
+      switch entry.state {
+      | Some(state) => entry.state = Some(state) // update the state
+      | None =>
+        dict->Dict.set(fileName, Entry.make(Some(state)))
+      }
     }
 
   // Removes the entry (but without triggering State.destroy() )
   let remove = fileName => Dict.delete(dict, fileName)
 
   let removeAndDestroy = async fileName =>
-    switch get'(fileName) {
+    switch getEntry(fileName) {
     | None => ()
-    | Some(PendingInit(_promise, resolve)) =>
+    | Some(entry) =>
       remove(fileName)
-      resolve([])
-    | Some(Initialized(state)) =>
-      remove(fileName)
-      State.destroy(state, false)->ignore
-      ()
+      entry.state->Option.forEach(state => State.destroy(state, false)->ignore)
     }
 
   let removeAndDestroyAll = async () => {
@@ -75,16 +83,31 @@ module Module: {
   let isEmpty = () => Dict.keysToArray(dict)->Array.length == 0
 
   // Requesting Semantic Tokens
-  // add PendingInit(_) to the Registry if the entry has not been created yet
-  let requestSemanticTokens = async fileName =>
-    switch get'(fileName) {
-    | Some(PendingInit(promise, _resolve)) => await promise
-    | Some(Initialized(state)) => state.highlighting->Highlighting.getSemanticTokens
+  let requestSemanticTokens = async fileName => {
+    switch getEntry(fileName) {
+    | Some(entry) =>
+      let tokens = await entry.semanticTokens->Resource.get
+      tokens
     | None =>
-      let (promise, resolve, _) = Util.Promise_.pending()
-      dict->Dict.set(fileName, PendingInit(promise, resolve))
-      await promise
+      // entry not found, create a new one
+      let entry = Entry.make(None)
+      dict->Dict.set(fileName, entry)
+      let tokens = await entry.semanticTokens->Resource.get
+      tokens
     }
+  }
+
+  // let provideSemanticTokens = tokens =>
+  //   switch getEntry(tokens.fileName) {
+  //   | Some(entry) =>
+  //     entry.semanticTokens->Option.forEach(semanticTokens => semanticTokens(tokens))
+  //     entry.state->Option.forEach(state => State.provideSemanticTokens(state, tokens))
+  //   | None =>
+  //     // entry not found, create a new one
+  //     let (entry, _) = Entry.make(Some(tokens.state))
+  //     dict->Dict.set(tokens.fileName, entry)
+  //     entry.semanticTokens->Option.forEach(semanticTokens => semanticTokens(tokens))
+  //   }
 }
 
 include Module

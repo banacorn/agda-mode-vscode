@@ -38,7 +38,15 @@ module Inputs: {
   }
 }
 
-let initialize = (channels, extensionPath, globalStorageUri, memento, editor, fileName) => {
+let initialize = (
+  channels,
+  extensionPath,
+  globalStorageUri,
+  memento,
+  editor,
+  fileName,
+  semanticTokensRequest,
+) => {
   let panel = Singleton.Panel.make(extensionPath)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)
@@ -46,7 +54,14 @@ let initialize = (channels, extensionPath, globalStorageUri, memento, editor, fi
   ->Promise.done
 
   // not in the Registry, instantiate a State
-  let state = State.make(channels, globalStorageUri, extensionPath, memento, editor)
+  let state = State.make(
+    channels,
+    globalStorageUri,
+    extensionPath,
+    memento,
+    editor,
+    semanticTokensRequest,
+  )
   // Set panel's font size by configuration
   state->State__View.Panel.setFontSize(Config.Buffer.getFontSize())->ignore
   // remove it from the Registry on request
@@ -99,7 +114,7 @@ let initialize = (channels, extensionPath, globalStorageUri, memento, editor, fi
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
     // updates positions of semantic highlighting tokens accordingly
-    state.highlighting->Highlighting.updateSemanticHighlighting(event)
+    state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
   })->subscribe
 
   // definition provider for go-to-definition
@@ -231,7 +246,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
 
     // filter out ".agda.git" files
     if isAgda(fileName) {
-      Registry.get(fileName)->Option.forEach(state => {
+      Registry.getState(fileName)->Option.forEach(state => {
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
         state.editor = editor
@@ -256,7 +271,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
     if agdaModeFontSizeChanged || editorFontSizeChanged {
       let newFontSize = Config.Buffer.getFontSize()
       // find any existing State, so that we can update the font size in the view
-      switch Registry.getAll()[0] {
+      switch Registry.getAllStates()[0] {
       | None => ()
       | Some(state) =>
         // panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
@@ -291,16 +306,39 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
     | Load
     | Restart
     | InputMethod(Activate) =>
-      switch Registry.get(fileName) {
+      switch Registry.getEntry(fileName) {
       | None =>
-        let state = initialize(channels, extensionPath, globalStorageUri, memento, editor, fileName)
+        let state = initialize(
+          channels,
+          extensionPath,
+          globalStorageUri,
+          memento,
+          editor,
+          fileName,
+          None,
+        )
         Registry.add(fileName, state)
-      | Some(_) => () // already in the Registry, do nothing
+      | Some(entry) =>
+        switch entry.state {
+        | None =>
+          // State not found, create a new one
+          let state = initialize(
+            channels,
+            extensionPath,
+            globalStorageUri,
+            memento,
+            editor,
+            fileName,
+            Some(entry.semanticTokens),
+          )
+          Registry.add(fileName, state)
+        | Some(_) => () // should not happen
+        }
       }
     | _ => ()
     }
     // dispatch
-    switch Registry.get(fileName) {
+    switch Registry.getState(fileName) {
     | None => None
     | Some(state) =>
       await State__Command.dispatchCommand(state, command)

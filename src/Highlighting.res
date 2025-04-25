@@ -6,7 +6,7 @@ module SemanticToken = Highlighting__SemanticToken
 module type Module = {
   type t
 
-  let make: unit => t
+  let make: option<Resource.t<array<SemanticToken.t>>> => t
   let destroy: t => unit
 
   // for decorating Goals
@@ -21,8 +21,8 @@ module type Module = {
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
 
-  let updateSemanticHighlighting: (t, VSCode.TextDocumentChangeEvent.t) => unit
-  let getSemanticTokens: t => array<SemanticToken.t>
+  let updateSemanticHighlighting: (t, VSCode.TextDocumentChangeEvent.t) => promise<unit>
+  let getSemanticTokens: t => Resource.t<array<SemanticToken.t>>
 }
 
 module Module: Module = {
@@ -59,12 +59,15 @@ module Module: Module = {
     // Decorations
     mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // Semantic Tokens
-    mutable semanticTokens: array<SemanticToken.t>,
+    mutable semanticTokens: Resource.t<array<SemanticToken.t>>,
   }
 
-  let make = () => {
+  let make = semanticTokens => {
     decorations: [],
-    semanticTokens: [],
+    semanticTokens: switch semanticTokens {
+    | None => Resource.make()
+    | Some(semanticTokens) => semanticTokens
+    },
   }
 
   let clear = self => {
@@ -190,29 +193,7 @@ module Module: Module = {
       }
   }
 
-  // trigger TextDocumentChangeEvent by inserting and then deleting a space " " at the end of the file
-  let triggerDocumentChangeEvent = async editor => {
-    let document = editor->VSCode.TextEditor.document
-    let lineCount = document->VSCode.TextDocument.lineCount
-    let lastLine = document->VSCode.TextDocument.lineAt(lineCount - 1)
-    let insertPosition = lastLine->VSCode.TextLine.range->VSCode.Range.end_
-    let deleteRange = VSCode.Range.make(
-      insertPosition,
-      VSCode.Position.translate(insertPosition, 0, 1),
-    )
-
-    // insert a space
-    let succeed = await Editor.Text.insert(document, insertPosition, " ")
-
-    if succeed {
-      // delete that space
-      let _ = await Editor.Text.replace(document, deleteRange, "")
-    }
-    // save after messing with the file
-    let _ = await VSCode.TextDocument.save(document)
-  }
-
-  let updateSemanticHighlighting = (self, event) => {
+  let updateSemanticHighlighting = async (self, event) => {
     let changes = VSCode.TextDocumentChangeEvent.contentChanges(event)
 
     let applyChange = (
@@ -227,7 +208,8 @@ module Module: Module = {
       ->Array.flat
 
     // apply changes to the cached tokens
-    self.semanticTokens = changes->Array.reduce(self.semanticTokens, applyChange)
+    let tokens = await self.semanticTokens->Resource.get
+    self.semanticTokens->Resource.set(changes->Array.reduce(tokens, applyChange))
   }
 
   let getSemanticTokens = (self: t) => self.semanticTokens
@@ -235,10 +217,8 @@ module Module: Module = {
   let apply = async (self, tokens, editor) => {
     if Config.Highlighting.getHighlightWithThemeColors() {
       let (decorations, semanticTokens) = Tokens.toDecorationsAndSemanticTokens(tokens, editor)
-      self.semanticTokens = semanticTokens
+      self.semanticTokens->Resource.set(semanticTokens)
       self.decorations = Array.concat(self.decorations, decorations)
-      // apply cached tokens to the editor, by making a change to the file
-      await triggerDocumentChangeEvent(editor)
     } else {
       let decorations = Tokens.toDecorations(tokens, editor)
       self.decorations = Array.concat(self.decorations, decorations)
