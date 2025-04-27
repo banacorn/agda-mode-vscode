@@ -103,6 +103,92 @@ module Token = {
   }
 }
 
+module Intervals = {
+  // For example: this is what the document would look like,
+  // after the text between [12-16) has been replaced with a 6-character-long string
+  //
+  //    ┣━━━━━━━━━━━╋━━━ Removed ━━╋━━━ Moved 4 ━━━┫
+  //    0           12             16              EOF
+  //
+  // And this is how it is represented with the type `t`:
+  //
+  // let example: t = Head(NoOp, Cons(12, Removed, Cons(16, Moved(4), Nil)))
+  //
+
+  // What happens to an interval when a change is applied to it?
+  module Action = {
+    type t = Removed | Moved(int)
+    let toString = self =>
+      switch self {
+      | Removed => "━ ✘ ━"
+      | Moved(0) => "━━━━━"
+      | Moved(delta) =>
+        if delta > 0 {
+          "━ +" ++ string_of_int(delta) ++ " ━"
+        } else {
+          "━ -" ++ string_of_int(delta) ++ " ━"
+        }
+      }
+  }
+
+  module Tail = {
+    type rec t = Nil | Cons(int, Action.t, t) // offset, action, tail
+
+    let rec toString = xs =>
+      switch xs {
+      | Nil => "━━┫"
+      | Cons(offset, action, tail) =>
+        "━━┫" ++ string_of_int(offset) ++ " ━" ++ Action.toString(action) ++ toString(tail)
+      }
+
+    // start: where the previous interval ended
+    // let applyChange = (start, delta, xs, change: VSCode.TextDocumentContentChangeEvent.t) =>
+    //   switch xs {
+    //   | Nil =>
+    //     if change->VSCode.TextDocumentContentChangeEvent.rangeLength > 0 {
+    //       let removedStart =
+    //         change->VSCode.TextDocumentContentChangeEvent.rangeOffset
+    //       let removedEnd =
+    //         change->VSCode.TextDocumentContentChangeEvent.rangeOffset +
+    //           change->VSCode.TextDocumentContentChangeEvent.rangeLength
+    //       let insertionLength = change->VSCode.TextDocumentContentChangeEvent.text->String.length
+    //       // replacement:
+    //       //  moved interval: [start, removedStart)
+    //       //  moved amount: delta
+    //       //  removed interval: [removedStart, removedEnd)
+    //       //  moved amount: insertionLength - change->VSCode.TextDocumentContentChangeEvent.rangeLength
+    //       // Cons(
+    //       //   start,
+    //       //   Removed,
+    //       //   Cons(
+    //       //     removedEnd,
+    //       //     Moved(insertionLength - change->VSCode.TextDocumentContentChangeEvent.rangeLength),
+    //       //     Nil,
+    //       //   ),
+    //       // )
+    //       Nil
+    //     } else {
+    //       // insertion only
+    //       // moved amount: insertionLength
+    //       Cons(start, Moved(delta), Nil)
+    //     }
+
+    //   | Cons(start, action, Nil) => xs
+    //   // | Cons(start, action, Cons(end, action2, tail)) => xs
+    //   }
+  }
+
+  type t = Head(Action.t, Tail.t) // the first offset is always 0
+
+  let toString = xs =>
+    switch xs {
+    | Head(action, tail) => "┣━━━━━" ++ Action.toString(action) ++ Tail.toString(tail)
+    }
+
+  // let applyChange = (xs, changes: VSCode.TextDocumentChangeEvent.t) =>
+  // let applyChanges = (xs, changes)
+}
+
 module type Module = {
   type t
   let toString: t => string

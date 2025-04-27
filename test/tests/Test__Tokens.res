@@ -75,4 +75,11 @@ describe("Tokens", () => {
       },
     )
   })
+
+  describe_only("Intervals", () => {
+    open Tokens.Intervals
+    let example: t = Head(Moved(0), Cons(12, Removed, Cons(16, Moved(4), Nil)))
+
+    toString(example)->Js.log
+  })
 })
