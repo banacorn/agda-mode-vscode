@@ -1,6 +1,7 @@
 open Mocha
 open Test__Util
 
+
 describe("Tokens", () => {
   This.timeout(10000)
   describe("GotoDefinition.agda", () => {
@@ -76,10 +77,37 @@ describe("Tokens", () => {
     )
   })
 
-  describe_only("Intervals", () => {
-    open Tokens.Intervals
-    let example: t = Head(Moved(0), Cons(12, Removed, Cons(16, Moved(4), Nil)))
+  // describe_only("Intervals", () => {
+  //   open Tokens.Intervals
+  //   let example: t = Head(Moved(0), Cons(12, Removed, Cons(16, Moved(4), Nil)))
+  //   // FastCheck.Arbitrary.
+  //   toString(example)->Js.log
+  // })
 
-    toString(example)->Js.log
+  open FastCheck
+  open Arbitrary
+  open Property.Sync
+
+
+  // Instance TextDocumentContentChangeEvent of Arbitrary
+  // let changeEvent: unit => arbitrary<VSCode.TextDocumentContentChangeEvent.t> =
+    
+
+  // Code under test
+  let contains = (text, pattern) => text->Js.String2.indexOf(pattern) >= 0
+
+  describe_only("properties", () => {
+    // string text always contains itself
+    it("should always contain itself", () =>
+      assert_(property1(string(), text => contains(text, text)))
+    )
+    // string a + b + c always contains b, whatever the values of a, b and c
+    it("should always contain its substrings", () =>
+      assert_(
+        property3(string(), string(), string(), (a, b, c) =>
+          contains(a ++ b ++ c, b)
+        ),
+      )
+    )
   })
 })
