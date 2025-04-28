@@ -103,6 +103,52 @@ module Token = {
   }
 }
 
+module Change = {
+  type t = {
+    offset: int, // offset of where the replacement starts
+    removed: int, // length of the removed text
+    inserted: int, // length of the inserted text
+  }
+
+  let fromTextDocumentContentChangeEvent = event => {
+    offset: event->VSCode.TextDocumentContentChangeEvent.rangeOffset,
+    removed: event->VSCode.TextDocumentContentChangeEvent.rangeLength,
+    inserted: event->VSCode.TextDocumentContentChangeEvent.text->String.length,
+  }
+
+  open FastCheck.Arbitrary
+  // Given an offset, generates a Change.t with a random offset after that offset (within offset + 10),
+  // and random removed and inserted lengths (within 0-10).
+  let arbitrary = (after): arbitrary<t> => {
+    Combinators.tuple3(
+      integerRange(after, after + 10),
+      integerRange(0, 10),
+      integerRange(0, 10),
+    )->Derive.map(((offset, removed, inserted)) => {
+      offset,
+      removed,
+      inserted,
+    })
+  }
+
+  // Returns an array of non-overlapping Change.t
+  let arbitraryBatch = (): arbitrary<array<t>> => {
+    let rec aux = (after, size) => {
+      if size == 0 {
+        Combinators.constant([])
+      } else {
+        Derive.chain(arbitrary(after), change => {
+          Derive.map(aux(change.offset + change.inserted - change.removed, size - 1), changes => {
+            [change, ...changes]
+          })
+        })
+      }
+    }
+
+    Derive.chain(integerRange(0, 10), size => aux(0, size))
+  }
+}
+
 module Intervals = {
   // For example: this is what the document would look like,
   // after the text between [12-16) has been replaced with a 6-character-long string

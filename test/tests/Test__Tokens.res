@@ -1,7 +1,6 @@
 open Mocha
 open Test__Util
 
-
 describe("Tokens", () => {
   This.timeout(10000)
   describe("GotoDefinition.agda", () => {
@@ -84,30 +83,40 @@ describe("Tokens", () => {
   //   toString(example)->Js.log
   // })
 
-  open FastCheck
-  open Arbitrary
-  open Property.Sync
+  describe_only("Change", () => {
+    open FastCheck
+    open Property.Sync
 
-
-  // Instance TextDocumentContentChangeEvent of Arbitrary
-  // let changeEvent: unit => arbitrary<VSCode.TextDocumentContentChangeEvent.t> =
-    
-
-  // Code under test
-  let contains = (text, pattern) => text->Js.String2.indexOf(pattern) >= 0
-
-  describe_only("properties", () => {
-    // string text always contains itself
-    it("should always contain itself", () =>
-      assert_(property1(string(), text => contains(text, text)))
-    )
-    // string a + b + c always contains b, whatever the values of a, b and c
-    it("should always contain its substrings", () =>
-      assert_(
-        property3(string(), string(), string(), (a, b, c) =>
-          contains(a ++ b ++ c, b)
-        ),
+    let nonOverlapping = (xs: array<Tokens.Change.t>) =>
+      xs->Array.reduceWithIndex(
+        true,
+        (acc, _, i) =>
+          switch (xs[i], xs[i + 1]) {
+          | (Some(a), Some(b)) =>
+            let aEnd = a.offset + a.inserted - a.removed
+            let bStart = b.offset
+            aEnd <= bStart && acc
+          | _ => acc
+          },
       )
+
+    it(
+      "`arbitraryBatch` should generate non-overlapping changes",
+      () => {
+        assert_(property1(Tokens.Change.arbitraryBatch(), xs => nonOverlapping(xs)))
+      },
     )
   })
+
+  // open FastCheck
+  // open Arbitrary
+  // open Property.Sync
+
+  // // Instance TextDocumentContentChangeEvent of Arbitrary
+  // // let changeEvent: unit => arbitrary<VSCode.TextDocumentContentChangeEvent.t> =
+
+  //   it(
+  //     "should always contain its substrings",
+  //     () => assert_(property3(string(), string(), string(), (a, b, c) => contains(a ++ b ++ c, b))),
+  //   )
 })
