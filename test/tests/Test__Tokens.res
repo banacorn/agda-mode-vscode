@@ -114,28 +114,50 @@ describe("Tokens", () => {
     open FastCheck
     open Property.Sync
     open Intervals
-    let example: t = Head(0, 0, Replace(12, 16, 4, Replace(20, 20, 4, EOF)))
-    example->toString->Js.log
 
-    // let nonOverlapping = (xs: array<Change.t>) =>
-    //   xs->Array.reduceWithIndex(
-    //     true,
-    //     (acc, _, i) =>
-    //       switch (xs[i], xs[i + 1]) {
-    //       | (Some(a), Some(b)) =>
-    //         let aEnd = a.offset + a.inserted - a.removed
-    //         let bStart = b.offset
-    //         aEnd <= bStart && acc
-    //       | _ => acc
-    //       },
-    //   )
+    it(
+      "`empty` should have delta of 0",
+      () => {
+        Assert.deepStrictEqual(Intervals.totalDelta(Intervals.empty), 0)
+      },
+    )
 
-    // it(
-    //   "`applyChange` should generate non-overlapping changes",
-    //   () => {
-    //     assert_(property1(Change.arbitrary(0), xs => nonOverlapping(xs)))
-    //   },
-    // )
+    it(
+      "`applyChange` should result in correct delta",
+      () => {
+        assert_(
+          property1(
+            Change.arbitrary(0),
+            change => {
+              // Js.log("change:     " ++ Change.toString(change))
+              // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
+              // Js.log("change d    " ++ change->Change.delta->Int.toString)
+              // Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.totalDelta->Int.toString)
+              Intervals.empty->applyChange(change)->Intervals.totalDelta == Change.delta(change)
+            },
+          ),
+        )
+      },
+    )
+
+    it(
+      "`removedIntervals` should result in correct array",
+      () => {
+        assert_(
+          property1(
+            Change.arbitrary(0),
+            change => {
+              Js.log("change:     " ++ Change.toString(change))
+              Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
+              Js.log("change d    " ++ [change]->Array.filterMap(Change.removedInterval)->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")->Util.Pretty.array)
+              Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.removedIntervals->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")->Util.Pretty.array)
+              Intervals.empty->applyChange(change)->Intervals.removedIntervals ==
+                [change]->Array.filterMap(Change.removedInterval)
+            },
+          ),
+        )
+      },
+    )
     ()
   })
 })

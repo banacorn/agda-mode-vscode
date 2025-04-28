@@ -110,6 +110,14 @@ module Change = {
     inserted: int, // length of the inserted text
   }
 
+  let toString = self =>
+    "(" ++
+    string_of_int(self.offset) ++
+    ", " ++
+    string_of_int(self.removed) ++
+    ", " ++
+    string_of_int(self.inserted) ++ ")"
+
   let fromTextDocumentContentChangeEvent = event => {
     offset: event->VSCode.TextDocumentContentChangeEvent.rangeOffset,
     removed: event->VSCode.TextDocumentContentChangeEvent.rangeLength,
@@ -119,18 +127,26 @@ module Change = {
   let delta = x => x.inserted - x.removed
   let totalDelta = xs => xs->Array.reduce(0, (acc, x) => acc + delta(x))
 
+  let removedInterval = x =>
+    if x.removed == 0 {
+      None
+    } else {
+      Some(x.offset, x.offset + x.removed)
+    }
+
   open FastCheck.Arbitrary
   // Given an offset, generates a Change.t with a random offset after that offset (within offset + 10),
   // and random removed and inserted lengths (within 0-10).
   let arbitrary = (after): arbitrary<t> => {
-    Combinators.tuple3(
-      integerRange(after, after + 10),
-      integerRange(0, 10),
-      integerRange(0, 10),
-    )->Derive.map(((offset, removed, inserted)) => {
-      offset,
-      removed,
-      inserted,
+    Derive.chain(integerRange(after, after + 10), offset => {
+      Combinators.tuple2(integerRange(0, offset), integerRange(0, 10))->Derive.map(((
+        removed,
+        inserted,
+      )) => {
+        offset,
+        removed,
+        inserted,
+      })
     })
   }
 
@@ -168,7 +184,7 @@ module Intervals = {
     if delta > 0 {
       "━ +" ++ string_of_int(delta) ++ " ━"
     } else if delta < 0 {
-      "━ -" ++ string_of_int(delta) ++ " ━"
+      "━ " ++ string_of_int(delta) ++ " ━"
     } else {
       "━━━━━"
     }
@@ -176,7 +192,7 @@ module Intervals = {
   module Tail = {
     type rec t =
       | EOF
-      | Replace(int, int, int, t) // start of replacement, end of replacement, delta (insertion - deletion) after replacement, tail
+      | Replace(int, int, int, t) // start of replacement, end of replacement, delta so far, tail
 
     let rec toString = xs =>
       switch xs {
@@ -195,14 +211,36 @@ module Intervals = {
         }
       }
 
+    // For testing: the last delta should be the total delta
     let rec totalDelta = xs =>
       switch xs {
       | EOF => 0
-      | Replace(start, end, delta, tail) => start - end + delta + totalDelta(tail)
+      | Replace(_, _, delta, EOF) => delta
+      | Replace(_, _, _, tail) => totalDelta(tail)
       }
+
+    // For testing: returns an array of removed intervals
+    let rec removedIntervals = xs =>
+      switch xs {
+      | EOF => []
+      | Replace(start, end, _, tail) =>
+        if start == end {
+          removedIntervals(tail)
+        } else {
+          [(start, end), ...removedIntervals(tail)]
+        }
+      }
+
+    // let applyChange = (xs, change: Change.t) =>
+    //   switch xs {
+    //   | EOF => EOF
+    //   | _ => EOF
+    //   }
   }
 
   type t = Head(int, int, Tail.t) // like Tail.Replace except that the first offset is always 0
+
+  let empty = Head(0, 0, Tail.EOF)
 
   let toString = xs =>
     switch xs {
@@ -215,10 +253,32 @@ module Intervals = {
       Tail.toString(tail)
     }
 
+  // For testing: the last delta should be the total delta
   let totalDelta = xs =>
     switch xs {
-    | Head(end, delta, tail) => -end + delta + Tail.totalDelta(tail)
+    | Head(_, delta, EOF) => delta
+    | Head(_, _, tail) => Tail.totalDelta(tail)
     }
+
+  // For testing: returns an array of removed intervals
+  let removedIntervals = xs =>
+    switch xs {
+    | Head(0, _, tail) => Tail.removedIntervals(tail)
+    | Head(end, _, tail) => [(0, end), ...Tail.removedIntervals(tail)]
+    }
+
+  let applyChange = (xs, change: Change.t) => {
+    switch xs {
+    | Head(0, 0, tail) =>
+      let delta = change.inserted - change.removed
+      if change.offset == 0 {
+        Head(0, delta, tail)
+      } else {
+        Head(0, 0, Replace(change.offset, change.offset + change.removed, delta, tail))
+      }
+    | Head(end, delta, tail) => Head(end, delta, tail)
+    }
+  }
 
   // let applyChange = (xs, change: VSCode.TextDocumentContentChangeEvent.t) =>
   //   switch xs {
