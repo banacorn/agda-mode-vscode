@@ -1,6 +1,30 @@
 {
-    "scopeName": "source.tex",
-    "patterns": [
-        { "include": "text.tex" }
-    ]
+  "scopeName": "source.tex",
+  "patterns": [
+    {
+      "include": "#agda-block"
+    },
+    {
+      "include": "text.tex"
+    }
+  ],
+  "repository": {
+    "agda-block": {
+      "begin": "\\\\begin\\{code\\}.*",
+      "end": "\\\\end\\{code\\}.*",
+      "name": "markup.raw.block.latex",
+      "contentName": "meta.embedded.block.agda",
+      "beginCaptures": {
+        "0": { "name": "keyword.control.agda.begin.latex" }
+      },
+      "endCaptures": {
+        "0": { "name": "keyword.control.agda.end.latex" }
+      },
+      "patterns": [
+        {
+          "include": "source.agda"
+        }
+      ]
+    }
+  }
 }
