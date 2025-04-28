@@ -116,6 +116,9 @@ module Change = {
     inserted: event->VSCode.TextDocumentContentChangeEvent.text->String.length,
   }
 
+  let delta = x => x.inserted - x.removed
+  let totalDelta = xs => xs->Array.reduce(0, (acc, x) => acc + delta(x))
+
   open FastCheck.Arbitrary
   // Given an offset, generates a Change.t with a random offset after that offset (within offset + 10),
   // and random removed and inserted lengths (within 0-10).
@@ -158,82 +161,69 @@ module Intervals = {
   //
   // And this is how it is represented with the type `t`:
   //
-  // let example: t = Head(NoOp, Cons(12, Removed, Cons(16, Moved(4), Nil)))
+  // let example: t = Head(0, 0, Replace(12, 16, 4, Nil))
   //
 
-  // What happens to an interval when a change is applied to it?
-  module Action = {
-    type t = Removed | Moved(int)
-    let toString = self =>
-      switch self {
-      | Removed => "━ ✘ ━"
-      | Moved(0) => "━━━━━"
-      | Moved(delta) =>
-        if delta > 0 {
-          "━ +" ++ string_of_int(delta) ++ " ━"
-        } else {
-          "━ -" ++ string_of_int(delta) ++ " ━"
-        }
-      }
-  }
+  let deltaToString = delta =>
+    if delta > 0 {
+      "━ +" ++ string_of_int(delta) ++ " ━"
+    } else if delta < 0 {
+      "━ -" ++ string_of_int(delta) ++ " ━"
+    } else {
+      "━━━━━"
+    }
 
   module Tail = {
-    type rec t = Nil | Cons(int, Action.t, t) // offset, action, tail
+    type rec t =
+      | EOF
+      | Replace(int, int, int, t) // start of replacement, end of replacement, delta (insertion - deletion) after replacement, tail
 
     let rec toString = xs =>
       switch xs {
-      | Nil => "━━┫"
-      | Cons(offset, action, tail) =>
-        "━━┫" ++ string_of_int(offset) ++ " ━" ++ Action.toString(action) ++ toString(tail)
+      | EOF => "━━┫"
+      | Replace(start, end, delta, tail) =>
+        if start == end {
+          "━━┫" ++ string_of_int(end) ++ " ━" ++ deltaToString(delta) ++ toString(tail)
+        } else {
+          "━━┫" ++
+          string_of_int(start) ++
+          "     ┃" ++
+          string_of_int(end) ++
+          " ━━" ++
+          deltaToString(delta) ++
+          toString(tail)
+        }
       }
 
-    // start: where the previous interval ended
-    let applyChange = (start, delta, xs, change: VSCode.TextDocumentContentChangeEvent.t) =>
+    let rec totalDelta = xs =>
       switch xs {
-      | Nil =>
-        if change->VSCode.TextDocumentContentChangeEvent.rangeLength > 0 {
-          let removedStart = change->VSCode.TextDocumentContentChangeEvent.rangeOffset
-          let removedEnd =
-            change->VSCode.TextDocumentContentChangeEvent.rangeOffset +
-              change->VSCode.TextDocumentContentChangeEvent.rangeLength
-          let insertionLength = change->VSCode.TextDocumentContentChangeEvent.text->String.length
-
-          // replacement:
-          //  moved interval: [start, removedStart)
-          //  moved amount: delta
-          //  removed interval: [removedStart, removedEnd)
-          //  moved amount: insertionLength - change->VSCode.TextDocumentContentChangeEvent.rangeLength
-          // Cons(
-          //   start,
-          //   Removed,
-          //   Cons(
-          //     removedEnd,
-          //     Moved(insertionLength - change->VSCode.TextDocumentContentChangeEvent.rangeLength),
-          //     Nil,
-          //   ),
-          // )
-          Nil
-        } else {
-          // insertion only
-          // moved amount: insertionLength
-          Cons(start, Moved(delta), Nil)
-        }
-      | Cons(start, action, Nil) => xs
-      | Cons(start, action, Cons(end, action2, tail)) => xs
+      | EOF => 0
+      | Replace(start, end, delta, tail) => start - end + delta + totalDelta(tail)
       }
   }
 
-  type t = Head(Action.t, Tail.t) // the first offset is always 0
+  type t = Head(int, int, Tail.t) // like Tail.Replace except that the first offset is always 0
 
   let toString = xs =>
     switch xs {
-    | Head(action, tail) => "┣━━━━━" ++ Action.toString(action) ++ Tail.toString(tail)
+    | Head(0, delta, tail) => "┣━" ++ deltaToString(delta) ++ Tail.toString(tail)
+    | Head(end, delta, tail) =>
+      "┣━━━━━┫" ++
+      string_of_int(end) ++
+      " ━━" ++
+      deltaToString(delta) ++
+      Tail.toString(tail)
     }
 
-  let applyChange = (xs, change: VSCode.TextDocumentContentChangeEvent.t) =>
+  let totalDelta = xs =>
     switch xs {
-    | Head(action, tail) => Head(action, Tail.applyChange(0, 0, tail, change))
+    | Head(end, delta, tail) => -end + delta + Tail.totalDelta(tail)
     }
+
+  // let applyChange = (xs, change: VSCode.TextDocumentContentChangeEvent.t) =>
+  //   switch xs {
+  //   | Head(action, tail) => Head(action, Tail.applyChange(0, 0, tail, change))
+  //   }
   // let applyChanges = (xs, changes)
 }
 

@@ -1,6 +1,8 @@
 open Mocha
 open Test__Util
 
+open Tokens
+
 describe("Tokens", () => {
   This.timeout(10000)
   describe("GotoDefinition.agda", () => {
@@ -10,9 +12,9 @@ describe("Tokens", () => {
         let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
         let tokens =
           ctx.state.tokens
-          ->Tokens.toArray
+          ->toArray
           ->Array.map(
-            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
+            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
           )
         Assert.deepEqual(Array.length(tokens), 28)
       },
@@ -24,9 +26,9 @@ describe("Tokens", () => {
         let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
         let tokens =
           ctx.state.tokens
-          ->Tokens.toArray
+          ->toArray
           ->Array.map(
-            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Tokens.Token.toString(token),
+            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
           )
 
         let srcOfPrimitive = switch ctx.state.agdaVersion {
@@ -77,7 +79,7 @@ describe("Tokens", () => {
   })
 
   // describe_only("Intervals", () => {
-  //   open Tokens.Intervals
+  //   open Intervals
   //   let example: t = Head(Moved(0), Cons(12, Removed, Cons(16, Moved(4), Nil)))
   //   // FastCheck.Arbitrary.
   //   toString(example)->Js.log
@@ -87,7 +89,7 @@ describe("Tokens", () => {
     open FastCheck
     open Property.Sync
 
-    let nonOverlapping = (xs: array<Tokens.Change.t>) =>
+    let nonOverlapping = (xs: array<Change.t>) =>
       xs->Array.reduceWithIndex(
         true,
         (acc, _, i) =>
@@ -103,20 +105,37 @@ describe("Tokens", () => {
     it(
       "`arbitraryBatch` should generate non-overlapping changes",
       () => {
-        assert_(property1(Tokens.Change.arbitraryBatch(), xs => nonOverlapping(xs)))
+        assert_(property1(Change.arbitraryBatch(), xs => nonOverlapping(xs)))
       },
     )
   })
 
-  // open FastCheck
-  // open Arbitrary
-  // open Property.Sync
+  describe_only("Intervals", () => {
+    open FastCheck
+    open Property.Sync
+    open Intervals
+    let example: t = Head(0, 0, Replace(12, 16, 4, Replace(20, 20, 4, EOF)))
+    example->toString->Js.log
 
-  // // Instance TextDocumentContentChangeEvent of Arbitrary
-  // // let changeEvent: unit => arbitrary<VSCode.TextDocumentContentChangeEvent.t> =
+    // let nonOverlapping = (xs: array<Change.t>) =>
+    //   xs->Array.reduceWithIndex(
+    //     true,
+    //     (acc, _, i) =>
+    //       switch (xs[i], xs[i + 1]) {
+    //       | (Some(a), Some(b)) =>
+    //         let aEnd = a.offset + a.inserted - a.removed
+    //         let bStart = b.offset
+    //         aEnd <= bStart && acc
+    //       | _ => acc
+    //       },
+    //   )
 
-  //   it(
-  //     "should always contain its substrings",
-  //     () => assert_(property3(string(), string(), string(), (a, b, c) => contains(a ++ b ++ c, b))),
-  //   )
+    // it(
+    //   "`applyChange` should generate non-overlapping changes",
+    //   () => {
+    //     assert_(property1(Change.arbitrary(0), xs => nonOverlapping(xs)))
+    //   },
+    // )
+    ()
+  })
 })
