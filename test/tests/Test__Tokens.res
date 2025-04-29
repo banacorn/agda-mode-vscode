@@ -113,17 +113,35 @@ describe("Tokens", () => {
   describe_only("Intervals", () => {
     open FastCheck
     open Property.Sync
-    open Intervals
-
+    // open Intervals
+    //
     it(
-      "`empty` should have delta of 0",
+      "`empty` should should be valid",
       () => {
-        Assert.deepStrictEqual(Intervals.totalDelta(Intervals.empty), 0)
+        Assert.ok(Intervals.empty->Intervals.isValid)
       },
     )
 
+    // it(
+    //   "`applyChange` should result in correct delta",
+    //   () => {
+    //     assert_(
+    //       property1(
+    //         Change.arbitrary(0),
+    //         change => {
+    //           // Js.log("change:     " ++ Change.toString(change))
+    //           // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
+    //           // Js.log("change d    " ++ change->Change.delta->Int.toString)
+    //           // Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.totalDelta->Int.toString)
+    //           Intervals.empty->applyChange(change)->Intervals.totalDelta == Change.delta(change)
+    //         },
+    //       ),
+    //     )
+    //   },
+    // )
+
     it(
-      "`applyChange` should result in correct delta",
+      "`applyChanges` should result in correct intervals with 1 change",
       () => {
         assert_(
           property1(
@@ -133,31 +151,46 @@ describe("Tokens", () => {
               // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
               // Js.log("change d    " ++ change->Change.delta->Int.toString)
               // Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.totalDelta->Int.toString)
-              Intervals.empty->applyChange(change)->Intervals.totalDelta == Change.delta(change)
+              let result = Intervals.empty->Intervals.applyChanges([change])
+              Intervals.debugIsValid(result)
+              result->Intervals.isValid && result->Intervals.isValidWRTChanges([change])
+
             },
           ),
         )
       },
     )
 
-    it(
-      "`removedIntervals` should result in correct array",
-      () => {
-        assert_(
-          property1(
-            Change.arbitrary(0),
-            change => {
-              Js.log("change:     " ++ Change.toString(change))
-              Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
-              Js.log("change d    " ++ [change]->Array.filterMap(Change.removedInterval)->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")->Util.Pretty.array)
-              Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.removedIntervals->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")->Util.Pretty.array)
-              Intervals.empty->applyChange(change)->Intervals.removedIntervals ==
-                [change]->Array.filterMap(Change.removedInterval)
-            },
-          ),
-        )
-      },
-    )
-    ()
+    // it(
+    //   "`removedIntervals` should result in correct array",
+    //   () => {
+    //     assert_(
+    //       property1(
+    //         Change.arbitrary(0),
+    //         change => {
+    //           // Js.log("change:     " ++ Change.toString(change))
+    //           // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
+    //           // Js.log(
+    //           //   "change d    " ++
+    //           //   [change]
+    //           //   ->Array.filterMap(Change.removedInterval)
+    //           //   ->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")
+    //           //   ->Util.Pretty.array,
+    //           // )
+    //           // Js.log(
+    //           //   "intervals d " ++
+    //           //   Intervals.empty
+    //           //   ->applyChange(change)
+    //           //   ->Intervals.removedIntervals
+    //           //   ->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")
+    //           //   ->Util.Pretty.array,
+    //           // )
+    //           Intervals.empty->applyChange(change)->Intervals.removedIntervals ==
+    //             [change]->Array.filterMap(Change.removedInterval)
+    //         },
+    //       ),
+    //     )
+    //   },
+    // )
   })
 })

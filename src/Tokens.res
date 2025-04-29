@@ -189,96 +189,273 @@ module Intervals = {
       "━━━━━"
     }
 
-  module Tail = {
-    type rec t =
-      | EOF
-      | Replace(int, int, int, t) // start of replacement, end of replacement, delta so far, tail
+  type rec t =
+    | EOF
+    | Replace(int, int, int, t) // start of replacement, end of replacement, delta so far, tail
 
-    let rec toString = xs =>
+  let empty = EOF
+
+  let rec toString = xs =>
+    switch xs {
+    | EOF => "━━┫"
+    | Replace(start, end, delta, tail) =>
+      if start == end {
+        "━━┫" ++ string_of_int(end) ++ " ━" ++ deltaToString(delta) ++ toString(tail)
+      } else {
+        "━━┫" ++
+        string_of_int(start) ++
+        "     ┃" ++
+        string_of_int(end) ++
+        " ━━" ++
+        deltaToString(delta) ++
+        toString(tail)
+      }
+    }
+
+  // We consider the intervals to be valid if:
+  //    1. The intervals are non-overlapping
+  //    2. The intervals are in ascending order
+  //    4. negative translations are smaller than the length of the removed text
+  let isValid = xs => {
+    let rec aux = (prevEnd, prevDelta, xs) => {
       switch xs {
-      | EOF => "━━┫"
+      | EOF => true
       | Replace(start, end, delta, tail) =>
-        if start == end {
-          "━━┫" ++ string_of_int(end) ++ " ━" ++ deltaToString(delta) ++ toString(tail)
+        if start < prevEnd {
+          false // overlapping intervals
+        } else if start > end {
+          false // reversed order
+        } else if prevDelta - delta > end - start {
+          false // negative translation is larger than the length of the removed text
         } else {
-          "━━┫" ++
-          string_of_int(start) ++
-          "     ┃" ++
-          string_of_int(end) ++
-          " ━━" ++
-          deltaToString(delta) ++
-          toString(tail)
+          aux(end, delta, tail)
         }
       }
+    }
 
-    // For testing: the last delta should be the total delta
-    let rec totalDelta = xs =>
-      switch xs {
-      | EOF => 0
-      | Replace(_, _, delta, EOF) => delta
-      | Replace(_, _, _, tail) => totalDelta(tail)
-      }
-
-    // For testing: returns an array of removed intervals
-    let rec removedIntervals = xs =>
-      switch xs {
-      | EOF => []
-      | Replace(start, end, _, tail) =>
-        if start == end {
-          removedIntervals(tail)
-        } else {
-          [(start, end), ...removedIntervals(tail)]
-        }
-      }
-
-    // let applyChange = (xs, change: Change.t) =>
-    //   switch xs {
-    //   | EOF => EOF
-    //   | _ => EOF
-    //   }
+    aux(0, 0, xs)
   }
 
-  type t = Head(int, int, Tail.t) // like Tail.Replace except that the first offset is always 0
+  // print out debug information if `isValid` is false
+  let debugIsValid = xs =>
+    if isValid(xs) {
+      ()
+    } else {
+      let rec aux = (prevEnd, prevDelta, xs) => {
+        switch xs {
+        | EOF => None
+        | Replace(start, end, delta, tail) =>
+          if start < prevEnd {
+            Some(
+              "Has overlapping intervals: {\n  start: " ++
+              string_of_int(start) ++
+              "\n  end: " ++
+              string_of_int(end) ++
+              "\n  delta: " ++
+              string_of_int(delta) ++ "\n}\n",
+            )
+          } else if start > end {
+            Some(
+              "Has reversed order intervals: {\n  start: " ++
+              string_of_int(start) ++
+              "\n  end: " ++
+              string_of_int(end) ++
+              "\n  delta: " ++
+              string_of_int(delta) ++ "\n}\n",
+            )
+          } else if prevDelta - delta > end - start {
+            Some(
+              "Has negative translation larger than the length of the removed text: {\n  start: " ++
+              string_of_int(start) ++
+              "\n  end: " ++
+              string_of_int(end) ++
+              "\n  delta: " ++
+              string_of_int(delta) ++ "\n}\n",
+            )
+          } else {
+            aux(end, delta, tail)
+          }
+        }
+      }
 
-  let empty = Head(0, 0, Tail.EOF)
-
-  let toString = xs =>
-    switch xs {
-    | Head(0, delta, tail) => "┣━" ++ deltaToString(delta) ++ Tail.toString(tail)
-    | Head(end, delta, tail) =>
-      "┣━━━━━┫" ++
-      string_of_int(end) ++
-      " ━━" ++
-      deltaToString(delta) ++
-      Tail.toString(tail)
+      switch aux(0, 0, xs) {
+      | None => ()
+      | Some(error) =>
+        Js.log("Intervals: " ++ toString(xs))
+        Js.log("Intervals are not valid: " ++ error)
+      }
     }
 
   // For testing: the last delta should be the total delta
-  let totalDelta = xs =>
+  let rec totalDelta = xs =>
     switch xs {
-    | Head(_, delta, EOF) => delta
-    | Head(_, _, tail) => Tail.totalDelta(tail)
+    | EOF => 0
+    | Replace(_, _, delta, EOF) => delta
+    | Replace(_, _, _, tail) => totalDelta(tail)
     }
 
   // For testing: returns an array of removed intervals
-  let removedIntervals = xs =>
+  let rec removedIntervals = xs =>
     switch xs {
-    | Head(0, _, tail) => Tail.removedIntervals(tail)
-    | Head(end, _, tail) => [(0, end), ...Tail.removedIntervals(tail)]
+    | EOF => []
+    | Replace(start, end, _, tail) =>
+      if start == end {
+        removedIntervals(tail)
+      } else {
+        [(start, end), ...removedIntervals(tail)]
+      }
     }
 
-  let applyChange = (xs, change: Change.t) => {
-    switch xs {
-    | Head(0, 0, tail) =>
-      let delta = change.inserted - change.removed
-      if change.offset == 0 {
-        Head(0, delta, tail)
-      } else {
-        Head(0, 0, Replace(change.offset, change.offset + change.removed, delta, tail))
-      }
-    | Head(end, delta, tail) => Head(end, delta, tail)
-    }
+  // Intervals are valid wrt changes if:
+  //    1. The intervals are valid
+  //    2. The intervals have the same total delta as the changes
+  //    3. The intervals have the same removed intervals as the changes
+  let isValidWRTChanges = (xs, changes) => {
+    let sameTotalDelta = totalDelta(xs) == Change.totalDelta(changes)
+    let sameRemovedIntervals =
+      removedIntervals(xs) == changes->Array.map(Change.removedInterval)->Array.filterMap(x => x)
+    isValid(xs) && sameTotalDelta && sameRemovedIntervals
   }
+
+  // induction on both xs and i
+  let rec applyChangesAux = (xs: t, changes: array<Change.t>, i, accDelta) =>
+    switch (xs, changes[i]) {
+    | (_, None) => xs // no more changes
+    | (EOF, Some(change)) =>
+      // all tokens from here until EOF are translated by `accDelta`
+      // tokens in between [change.offset, change.offset + change.removed) should be removed
+      // tokens after change.offset + change.removed should be translated by `accDelta + change.delta`
+      let delta = accDelta + change.inserted - change.removed
+      Replace(
+        change.offset,
+        change.offset + change.removed,
+        delta,
+        applyChangesAux(EOF, changes, i + 1, delta),
+      )
+    | (Replace(start, end, delta, tail), Some(change)) => xs
+    }
+
+  let applyChanges = (xs: t, changes: array<Change.t>) => applyChangesAux(xs, changes, 0, 0)
+
+  // changes
+  // ->Array.reduce((xs, acc), ((xs, acc), change) => {
+  //   switch xs {
+  //   | EOF =>
+  //     let delta = acc + change.inserted - change.removed
+  //     (Replace(change.offset, change.offset + change.removed, delta, xs), delta)
+  //   | Replace(start, end, delta, tail) =>
+  // there are 13 cases in terms of the overlap between the old interval and the new change
+  //
+  //  new.end < old.end
+  //                  ┣━━━ old ━━━┫
+  //      ┣━━ new ━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //      ┣━━━ new ━━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //                ┣━━━ new ━━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //                  ┣━━ new ━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //                    ┣━ new ━┫
+  //
+  //  new.end = old.end
+  //
+  //                  ┣━━━ old ━━━┫
+  //                    ┣━ new ━━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //                  ┣━━━ new ━━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //                ┣━━━━━ new ━━━┫
+  //
+  //  new.end > old.end
+  //                  ┣━━━ old ━━━┫
+  //                ┣━━━━━━━━━━━━━━━━━━ new ━━┫
+  //
+  //                  ┣━━━ old ━━━┫
+  //                  ┣━━━━━━━━━━━━━━━━ new ━━┫
+  //
+  //                  ┣━━━ old ━━━┫               extend the old interval
+  //                            ┣━━━━━━ new ━━┫
+  //
+  //                  ┣━━━ old ━━━┫               proceed to the next interval
+  //                              ┣━━━━ new ━━┫
+  //
+  //                  ┣━━━ old ━━━┫               proceed to the next interval
+  //                                ┣━━ new ━━┫
+  //
+  //
+
+  //     let delta = acc + change.inserted - change.removed
+  //     (Replace(start, end, delta, tail), acc)
+  //   }
+  // })
+  // ->fst
+
+  // type t = Head(int, int, Tail.t) // like Tail.Replace except that the first offset is always 0
+
+  // let empty = Head(0, 0, Tail.EOF)
+
+  // let toString = xs =>
+  //   switch xs {
+  //   | Head(0, delta, tail) => "┣━" ++ deltaToString(delta) ++ Tail.toString(tail)
+  //   | Head(end, delta, tail) =>
+  //     "┣━━━━━┫" ++
+  //     string_of_int(end) ++
+  //     " ━━" ++
+  //     deltaToString(delta) ++
+  //     Tail.toString(tail)
+  //   }
+
+  // // For testing: the last delta should be the total delta
+  // let totalDelta = xs =>
+  //   switch xs {
+  //   | Head(_, delta, EOF) => delta
+  //   | Head(_, _, tail) => Tail.totalDelta(tail)
+  //   }
+
+  // // For testing: returns an array of removed intervals
+  // let removedIntervals = xs =>
+  //   switch xs {
+  //   | Head(0, _, tail) => Tail.removedIntervals(tail)
+  //   | Head(end, _, tail) => [(0, end), ...Tail.removedIntervals(tail)]
+  //   }
+
+  // let applyChange = (xs, change: Change.t) => {
+  //   switch xs {
+  //   | Head(0, 0, tail) =>
+  //     let delta = change.inserted - change.removed
+  //     if change.offset == 0 {
+  //       Head(0, delta, tail)
+  //     } else {
+  //       Head(0, 0, Replace(change.offset, change.offset + change.removed, delta, tail))
+  //     }
+  //   | Head(end, delta, tail) => Head(end, delta, tail)
+  //   }
+  // }
+
+  // let applyChanges = (xs, changes: array<Change.t>) =>
+  //   switch xs {
+  //   | Head(end, delta, tail) =>
+  //     Tail.applyChangesAux(Replace(0, end, delta, tail), changes, 0, delta)
+  //   }
+  //   changes->Array.reduce(xs, (accDelta, change) => xs)
+  //   // switch xs {
+  //   // | Head(0, 0, tail) =>
+  //   //   let delta = change.inserted - change.removed
+  //   //   if change.offset == 0 {
+  //   //     Head(0, delta, tail)
+  //   //   } else {
+  //   //     Head(0, 0, Replace(change.offset, change.offset + change.removed, delta, tail))
+  //   //   }
+  //   // | Head(end, delta, tail) => Head(end, delta, tail)
+  //   // }
+  // }
 
   // let applyChange = (xs, change: VSCode.TextDocumentContentChangeEvent.t) =>
   //   switch xs {
