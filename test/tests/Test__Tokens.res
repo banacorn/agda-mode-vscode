@@ -78,39 +78,19 @@ describe("Tokens", () => {
     )
   })
 
-  // describe_only("Intervals", () => {
-  //   open Intervals
-  //   let example: t = Head(Moved(0), Cons(12, Removed, Cons(16, Moved(4), Nil)))
-  //   // FastCheck.Arbitrary.
-  //   toString(example)->Js.log
-  // })
-
-  describe_only("Change", () => {
+  describe("Change", () => {
     open FastCheck
     open Property.Sync
 
-    let nonOverlapping = (xs: array<Change.t>) =>
-      xs->Array.reduceWithIndex(
-        true,
-        (acc, _, i) =>
-          switch (xs[i], xs[i + 1]) {
-          | (Some(a), Some(b)) =>
-            let aEnd = a.offset + a.inserted - a.removed
-            let bStart = b.offset
-            aEnd <= bStart && acc
-          | _ => acc
-          },
-      )
-
     it(
-      "`arbitraryBatch` should generate non-overlapping changes",
+      "`arbitraryBatch` should generate valid changes",
       () => {
-        assert_(property1(Change.arbitraryBatch(), xs => nonOverlapping(xs)))
+        assert_(property1(Change.arbitraryBatch(), xs => Change.areValid(xs)))
       },
     )
   })
 
-  describe_only("Intervals", () => {
+  describe("Intervals", () => {
     open FastCheck
     open Property.Sync
     // open Intervals
@@ -122,75 +102,83 @@ describe("Tokens", () => {
       },
     )
 
-    // it(
-    //   "`applyChange` should result in correct delta",
-    //   () => {
-    //     assert_(
-    //       property1(
-    //         Change.arbitrary(0),
-    //         change => {
-    //           // Js.log("change:     " ++ Change.toString(change))
-    //           // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
-    //           // Js.log("change d    " ++ change->Change.delta->Int.toString)
-    //           // Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.totalDelta->Int.toString)
-    //           Intervals.empty->applyChange(change)->Intervals.totalDelta == Change.delta(change)
-    //         },
-    //       ),
-    //     )
-    //   },
-    // )
-
     it(
-      "`applyChanges` should result in correct intervals with 1 change",
+      "`applyChanges` should result in correct intervals with changes",
       () => {
         assert_(
           property1(
-            Change.arbitrary(0),
-            change => {
-              // Js.log("change:     " ++ Change.toString(change))
-              // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
-              // Js.log("change d    " ++ change->Change.delta->Int.toString)
-              // Js.log("intervals d " ++ Intervals.empty->applyChange(change)->Intervals.totalDelta->Int.toString)
-              let result = Intervals.empty->Intervals.applyChanges([change])
+            Change.arbitraryBatch(),
+            changes => {
+              // Js.log("\nchanges:    " ++ changes->Array.map(Change.toString)->Util.Pretty.array)
+              let result = Intervals.empty->Intervals.applyChanges(changes)
+              // Js.log("intervals:  " ++ result->Intervals.toString)
               Intervals.debugIsValid(result)
-              result->Intervals.isValid && result->Intervals.isValidWRTChanges([change])
-
+              result->Intervals.isValid && result->Intervals.isValidWRTChanges(changes)
             },
           ),
         )
       },
     )
 
-    // it(
-    //   "`removedIntervals` should result in correct array",
-    //   () => {
-    //     assert_(
-    //       property1(
-    //         Change.arbitrary(0),
-    //         change => {
-    //           // Js.log("change:     " ++ Change.toString(change))
-    //           // Js.log("intervals:  " ++ Intervals.toString(Intervals.empty->applyChange(change)))
-    //           // Js.log(
-    //           //   "change d    " ++
-    //           //   [change]
-    //           //   ->Array.filterMap(Change.removedInterval)
-    //           //   ->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")
-    //           //   ->Util.Pretty.array,
-    //           // )
-    //           // Js.log(
-    //           //   "intervals d " ++
-    //           //   Intervals.empty
-    //           //   ->applyChange(change)
-    //           //   ->Intervals.removedIntervals
-    //           //   ->Array.map(((x, y)) => "[" ++ Int.toString(x) ++ "-" ++ Int.toString(y) ++ "]")
-    //           //   ->Util.Pretty.array,
-    //           // )
-    //           Intervals.empty->applyChange(change)->Intervals.removedIntervals ==
-    //             [change]->Array.filterMap(Change.removedInterval)
-    //         },
-    //       ),
-    //     )
-    //   },
-    // )
+    it(
+      "`applyChanges` twice should result in correct intervals with changes",
+      () => {
+        assert_(
+          property2(
+            Change.arbitraryBatch(),
+            Change.arbitraryBatch(),
+            (changes1, changes2) => {
+              Js.log("\nchanges1:    " ++ changes1->Array.map(Change.toString)->Util.Pretty.array)
+              Js.log("changes2:    " ++ changes2->Array.map(Change.toString)->Util.Pretty.array)
+              let intervals = Intervals.empty->Intervals.applyChanges(changes1)
+              let intervals = intervals->Intervals.applyChanges(changes2)
+              Js.log("intervals:  " ++ intervals->Intervals.toString)
+              // Intervals.debugIsValid(intervals)
+              intervals->Intervals.isValid &&
+                intervals->Intervals.isValidWRTChangeBatches([changes1, changes2])
+            },
+          ),
+        )
+      },
+    )
+
+    it_only(
+      "COUNTEREXAMPLE: `applyChanges` twice should result in correct intervals with changes",
+      () => {
+        let example = Intervals.Replace(12, 16, 2, Replace(20, 24, 1, EOF))
+        Js.log("example: " ++ Intervals.toString(example))
+
+        let changes1 = [{Change.offset: 0, removed: 0, inserted: 0}]
+        let changes2 = [{Change.offset: 0, removed: 0, inserted: 1}]
+        let batches = [changes1, changes2]
+
+        let intervals = Intervals.empty->Intervals.applyChanges(changes1)
+        let intervals = intervals->Intervals.applyChanges(changes2)
+
+        let ok =
+          intervals->Intervals.isValid && intervals->Intervals.isValidWRTChangeBatches(batches)
+
+        Js.log("\nchanges1:    " ++ changes1->Array.map(Change.toString)->Util.Pretty.array)
+        Js.log("changes2:    " ++ changes2->Array.map(Change.toString)->Util.Pretty.array)
+        Js.log("intervals:  " ++ intervals->Intervals.toString)
+
+        Assert.ok(ok)
+
+        // assert_(
+        //   l
+        //     (changes1, changes2) => {
+        //       Js.log("\nchanges1:    " ++ changes1->Array.map(Change.toString)->Util.Pretty.array)
+        //       Js.log("changes2:    " ++ changes2->Array.map(Change.toString)->Util.Pretty.array)
+        //       let intervals = Intervals.empty->Intervals.applyChanges(changes1)
+        //       let intervals = intervals->Intervals.applyChanges(changes2)
+        //       Js.log("intervals:  " ++ intervals->Intervals.toString)
+        //       // Intervals.debugIsValid(intervals)
+        //       intervals->Intervals.isValid
+        //        && intervals->Intervals.isValidWRTChangeBatches([changes1, changes2])
+        //     },
+        //   ),
+        // )
+      },
+    )
   })
 })

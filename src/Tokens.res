@@ -134,6 +134,26 @@ module Change = {
       Some(x.offset, x.offset + x.removed)
     }
 
+  // An array of changes are valid if:
+  //    1. The changes are non-overlapping
+  //    2. The changes are in ascending order
+  let areValid = xs =>
+    xs
+    ->Array.reduce((true, None), ((acc, prevEnd), x) => {
+      let end = x.offset + x.removed
+      switch prevEnd {
+      | None => // we are at the beginning
+        (true, Some(end))
+      | Some(prevEnd) =>
+        if prevEnd > x.offset {
+          (false, Some(end)) // overlapping intervals
+        } else {
+          (acc, Some(end))
+        }
+      }
+    })
+    ->fst
+
   open FastCheck.Arbitrary
   // Given an offset, generates a Change.t with a random offset after that offset (within offset + 10),
   // and random removed and inserted lengths (within 0-10).
@@ -151,66 +171,76 @@ module Change = {
   }
 
   // Returns an array of non-overlapping Change.t
-  let arbitraryBatch = (): arbitrary<array<t>> => {
+  let arbitraryBatch = (~batchSize=?): arbitrary<array<t>> => {
     let rec aux = (after, size) => {
       if size == 0 {
         Combinators.constant([])
       } else {
         Derive.chain(arbitrary(after), change => {
-          Derive.map(aux(change.offset + change.inserted - change.removed, size - 1), changes => {
+          Derive.map(aux(change.offset + change.removed, size - 1), changes => {
             [change, ...changes]
           })
         })
       }
     }
-
-    Derive.chain(integerRange(0, 10), size => aux(0, size))
+    switch batchSize {
+    | None => Derive.chain(integerRange(0, 10), size => aux(0, size))
+    | Some(batchSize) => aux(0, batchSize)
+    }
   }
 }
 
 module Intervals = {
-  // For example: this is what the document would look like,
-  // after the text between [12-16) has been replaced with a 6-character-long string
+  // For example: if we replace the text
+  //    1. between [12-16) with a 6-character-long string
+  //    2. between [20-24) with a 3-character-long string
+  // The resulting documents would be represented as:
   //
-  //    ┣━━━━━━━━━━━╋━━━ Removed ━━╋━━━ Moved 4 ━━━┫
-  //    0           12             16              EOF
+  //   Replace(12, 16, 2, Replace(20, 24, 1, EOF))
   //
-  // And this is how it is represented with the type `t`:
+  //   12┣━━┫16 +2 20┣━━┫24 +1
   //
-  // let example: t = Head(0, 0, Replace(12, 16, 4, Nil))
-  //
-
-  let deltaToString = delta =>
-    if delta > 0 {
-      "━ +" ++ string_of_int(delta) ++ " ━"
-    } else if delta < 0 {
-      "━ " ++ string_of_int(delta) ++ " ━"
-    } else {
-      "━━━━━"
-    }
-
+  //  The second delta is 1 instead of -1 because it has to account for the previous delta of 2
   type rec t =
     | EOF
     | Replace(int, int, int, t) // start of replacement, end of replacement, delta so far, tail
 
-  let empty = EOF
+  let deltaToString = delta =>
+    if delta > 0 {
+      " +" ++ string_of_int(delta) ++ " "
+    } else if delta < 0 {
+      " -" ++ string_of_int(delta) ++ " "
+    } else {
+      " +0 "
+    }
 
   let rec toString = xs =>
     switch xs {
-    | EOF => "━━┫"
+    | EOF => "EOF"
     | Replace(start, end, delta, tail) =>
       if start == end {
-        "━━┫" ++ string_of_int(end) ++ " ━" ++ deltaToString(delta) ++ toString(tail)
-      } else {
-        "━━┫" ++
         string_of_int(start) ++
-        "     ┃" ++
+        "┃" ++
         string_of_int(end) ++
-        " ━━" ++
-        deltaToString(delta) ++
-        toString(tail)
+        deltaToString(delta) ++ if tail == EOF {
+          ""
+        } else {
+          toString(tail)
+        }
+      } else {
+        string_of_int(start) ++
+        "┣━━┫" ++
+        string_of_int(end) ++
+        deltaToString(delta) ++ if tail == EOF {
+          ""
+        } else {
+          toString(tail)
+        }
       }
     }
+
+  // An empty list of intervals is just EOF
+  let empty = EOF
 
   // We consider the intervals to be valid if:
   //    1. The intervals are non-overlapping
@@ -317,6 +347,17 @@ module Intervals = {
     isValid(xs) && sameTotalDelta && sameRemovedIntervals
   }
 
+  // Intervals are valid wrt batches of changes if:
+  //    1. The intervals are valid
+  //    2. The intervals have the same total delta as the batches of changes
+  let isValidWRTChangeBatches = (xs, batches) => {
+    let sameTotalDelta =
+      totalDelta(xs) == batches->Array.reduce(0, (acc, changes) => acc + Change.totalDelta(changes))
+    // let sameRemovedIntervals =
+    //   removedIntervals(xs) == changes->Array.map(Change.removedInterval)->Array.filterMap(x => x)
+    isValid(xs) && sameTotalDelta
+  }
+
   // induction on both xs and i
   let rec applyChangesAux = (xs: t, changes: array<Change.t>, i, accDelta) =>
     switch (xs, changes[i]) {
@@ -333,6 +374,28 @@ module Intervals = {
         applyChangesAux(EOF, changes, i + 1, delta),
       )
     | (Replace(start, end, delta, tail), Some(change)) => xs
+    // tokens in between [start, end) have been removed
+    // tokens after [end have been translated by `delta`
+    // there are 3 cases of how the new change may overlap with the old interval:
+    //
+    //  1. the change is completely before the old interval:
+    //
+    //                          +a ┣━ old removed ━┫ +b
+    //      ┣━ new removed ━┫ +c
+    //
+    //          ＝>
+    //
+    //      ┣━ new removed ━┫ +m  ┣━ old removed ━┫ +n+m
+    //  2. the change overlaps with the old interval:
+    //
+    //
+    //                  ┣━ old removed ━┫ +n
+    //      ┣━ new removed ━┫ +m
+    //
+    //          ＝>
+    //
+    //      ┣━ new removed ━┫ +m  ┣━ old removed ━┫ +n+m
+    //
     }
 
   let applyChanges = (xs: t, changes: array<Change.t>) => applyChangesAux(xs, changes, 0, 0)
