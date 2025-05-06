@@ -111,12 +111,12 @@ module Change = {
   }
 
   let toString = self =>
-    "(" ++
-    string_of_int(self.offset) ++
-    ", " ++
+    "-" ++
     string_of_int(self.removed) ++
-    ", " ++
-    string_of_int(self.inserted) ++ ")"
+    " +" ++
+    string_of_int(self.inserted) ++
+    " @ " ++
+    string_of_int(self.offset)
 
   let fromTextDocumentContentChangeEvent = event => {
     offset: event->VSCode.TextDocumentContentChangeEvent.rangeOffset,
@@ -372,18 +372,25 @@ module Intervals = {
   //
   //
   type source =
-    | Before(int) // exists in the original document at this offset before the start of change
-    | Replaced(int, int, int) // doesn' exist in the original document, is at the nth offset between the start and end of a replacement
-    | After
+    | Before(int) // exists in the original document at this offset before the existing insertion
+    | Replaced(int, int, int) // doesn' exist in the original document, is at the nth offset between the existing insertion
+    | After(int) // exists in the original document at this offset after the existing insertion
   let calculateOriginalOffset = (deltaBefore, start, end, deltaAfter, x) =>
-    if x <= deltaBefore + start {
+    if x >= end + deltaAfter {
+      After(x - deltaAfter)
+    } else if x <= deltaBefore + start {
       Before(x - deltaBefore)
-    } else if x > end + deltaAfter {
-      After
     } else {
       Replaced(x - deltaBefore, start, end)
     }
 
+  // if x <= deltaBefore + start {
+  //   Before(x - deltaBefore)
+  // } else if x > end + deltaAfter {
+  //   After(x - deltaAfter)
+  // } else {
+  //   Replaced(x - deltaBefore, start, end)
+  // }
   let rec adjustDelta = (delta, xs) =>
     switch xs {
     | EOF => EOF
@@ -403,177 +410,163 @@ module Intervals = {
   // xs: intervals
   // changes: list of incoming changes
   // deltaBefore: for calculating insertion of intervals
-  let rec applyChangesAux = (xs: t, changes: list<Change.t>, deltaBefore: int) =>
-    switch changes {
-    | list{} => xs // no changes
-    | list{change, ...changes} =>
-      switch xs {
-      | EOF =>
-        Js.log("== EOF ============================================")
-        let deltaAfter = deltaBefore + Change.delta(change)
-        Replace(
-          change.offset,
-          change.offset + change.removed,
-          deltaAfter,
-          applyChangesAux(EOF, changes, deltaAfter),
+  let rec applyChangeAux = (xs: t, change: Change.t, deltaBefore: int) =>
+    switch xs {
+    | EOF =>
+      Js.log("== EOF =====================================")
+      let deltaAfter = deltaBefore + Change.delta(change)
+      Js.log("change: " ++ Change.toString(change))
+      Js.log("delta : " ++ Int.toString(Change.delta(change)))
+      Js.log("delta before: " ++ Int.toString(deltaBefore))
+
+      Replace(
+        change.offset - deltaBefore,
+        change.offset + change.removed - deltaBefore,
+        deltaAfter,
+        EOF,
+      )
+    | Replace(start, end, deltaAfter, tail) =>
+      let changeRemovalStart = calculateOriginalOffset(
+        deltaBefore,
+        start,
+        end,
+        deltaAfter,
+        change.offset,
+      )
+      let changeRemovalEnd = calculateOriginalOffset(
+        deltaBefore,
+        start,
+        end,
+        deltaAfter,
+        change.offset + change.removed,
+      )
+
+      switch (changeRemovalStart, changeRemovalEnd) {
+      | (Before(changeStart), Before(changeEnd)) =>
+        Js.log("== Before/Before =====================================")
+        printInterval(deltaBefore, start, end, deltaAfter)
+        Js.log("change: " ++ Change.toString(change))
+        Js.log("delta : " ++ Int.toString(Change.delta(change)))
+        // the whole removal of the change is before the insertion of the interval
+        //
+        //              +before ┣━━━━━━━━┫ +after
+        //                      start    end
+        //    ┣━━━━━━━━━━━┫
+        //    start       end
+        //
+        // interval removal start: change.start
+        // interval removal end: change.end
+        // delta after: deltaBefore + change.delta
+
+        let delta = Change.delta(change)
+
+        // TODO: merge `adjustDelta` with `applyChangesAux`
+        Replace(changeStart, changeEnd, deltaBefore + delta, adjustDelta(delta, xs))
+
+      | (Before(changeStart), Replaced(_, _, _)) =>
+        Js.log("== Before/Replaced =====================================")
+        Js.log("change: " ++ Change.toString(change))
+        Js.log("delta : " ++ Int.toString(Change.delta(change)))
+        // the back of the removal of the change overlaps with the front of the insertion of the interval
+        //
+        //          +before ┣━━━━━━━━━━┫ +after
+        //                  start      end
+        //           ┣━━━━━━━━━━━┫
+        //           start       end
+        //
+        // interval removal start: change.start
+        // interval removal end: interval.end
+        // delta after: deltaAfter + change.delta
+        let delta = Change.delta(change)
+        Replace(changeStart, end, deltaAfter + delta, adjustDelta(delta, tail))
+      | (Before(changeStart), After(changeEnd)) =>
+        Js.log(
+          "== Before/After ==== " ++
+          Int.toString(deltaBefore) ++ " =================================",
         )
-      | Replace(start, end, deltaAfter, tail) =>
-        let intervalRemoval = end - start
-        let intervalInsertion = deltaAfter - deltaBefore + intervalRemoval
-
-        let changeRemovalStart = calculateOriginalOffset(
-          deltaBefore,
-          start,
-          end,
-          deltaAfter,
-          change.offset,
-        )
-        let changeRemovalEnd = calculateOriginalOffset(
-          deltaBefore,
-          start,
-          end,
-          deltaAfter,
-          change.offset + change.removed,
-        )
-
-        switch (changeRemovalStart, changeRemovalEnd) {
-        | (Before(changeStart), Before(changeEnd)) =>
-          Js.log("== Before/Before ============================================")
-          printInterval(deltaBefore, start, end, deltaAfter)
-          Js.log("change: " ++ Change.toString(change))
-          let delta = Change.delta(change)
-
-          // TODO: merge `adjustDelta` with `applyChangesAux`
-          Replace(
-            changeStart,
-            changeEnd,
-            deltaAfter + delta,
-            adjustDelta(delta, applyChangesAux(xs, changes, deltaAfter + delta)),
-          )
-
-        | (Before(changeStart), Replaced(_, _, _)) => Js.Exn.raiseError(" Before/Replaced")
-        | (Before(changeStart), After) => Js.Exn.raiseError(" Before/After")
-        | (Replaced(_, _, _), Replaced(_, _, _)) => Js.Exn.raiseError(" Replaced / Replaced")
-        | (Replaced(_, _, _), After) => Js.Exn.raiseError(" Replaced / After")
-        | (After, After) =>
-          Js.log("== After/After ============================================")
-          printInterval(deltaBefore, start, end, deltaAfter)
-          Js.log("change: " ++ Change.toString(change))
-          // let delta = Change.delta(change)
-          // Replace(changeStart, changeEnd, deltaBefore + delta, adjustDelta(delta, tail))
-          Replace(
-            start,
-            end,
-            deltaAfter,
-            applyChangesAux(tail, list{change, ...changes}, deltaAfter),
-          )
-        | _ => Js.Exn.raiseError("Not a possible case")
+        printInterval(deltaBefore, start, end, deltaAfter)
+        Js.log("change: " ++ Change.toString(change))
+        Js.log("delta : " ++ Int.toString(Change.delta(change)))
+        // the whole removal of the change is contains the insertion of the interval
+        //
+        //              +before ┣━━━━━━━━┫ +after
+        //                      start    end
+        //    ┣━━━━━━━━━━━━━━━━━━━━━━━━━━┫━━━━━━━━━━━━━━━━┫
+        //    start                      mid              end
+        //
+        // we break the change into two parts and apply them separately
+        // the first part is removal only
+        let change1 = {
+          Change.offset: change.offset,
+          removed: end - changeStart,
+          inserted: 0,
         }
+        let change2 = {
+          Change.offset: end,
+          removed: changeEnd - end,
+          inserted: change.inserted,
+        }
+        applyChangeAux(applyChangeAux(tail, change1, deltaBefore), change2, deltaAfter)
+
+      // applyChangeAux
+      | (Replaced(_, _, _), Replaced(_, _, _)) =>
+        Js.log("== Replaced/Replaced ==========================")
+
+        Js.log("change: " ++ Change.toString(change))
+        Js.log("delta : " ++ Int.toString(Change.delta(change)))
+        // the whole removal of the change is contained by the insertion of the interval
+        //
+        //   +before ┣━━━━━━━━━━━━━━━━━━━━━━┫ +after
+        //           start                  end
+        //                ┣━━━━━━━━━━━┫
+        //                start       end
+        //
+        // interval removal start: interval.start
+        // interval removal end: interval.end
+
+        let delta = Change.delta(change)
+        Replace(start, end, deltaAfter + delta, adjustDelta(delta, tail))
+      | (Replaced(_, _, _), After(changeEnd)) =>
+        Js.log("== Replaced/After ==========================")
+
+        Js.log("change: " ++ Change.toString(change))
+        Js.log("delta : " ++ Int.toString(Change.delta(change)))
+        // the front of the removal of the change overlaps with the back of the insertion of the interval
+        //
+        //   +before ┣━━━━━━━━━━┫ +after
+        //           start      end
+        //                ┣━━━━━━━━━━━┫
+        //                start       end
+        //
+        // interval removal start: interval.start
+        // interval removal end: change.end
+        // delta after: deltaAfter + change.delta
+        let delta = Change.delta(change)
+        Replace(start, changeEnd, deltaAfter + delta, adjustDelta(delta, tail))
+      | (After(changeStart), After(changeAfter)) =>
+        Js.log("== After/After ==========================")
+        printInterval(deltaBefore, start, end, deltaAfter)
+
+        Js.log("change: " ++ Change.toString(change))
+        Js.log("delta : " ++ Int.toString(Change.delta(change)))
+        Js.log("change*: " ++ Int.toString(changeStart) ++ " ~ " ++ Int.toString(changeAfter))
+        // the whole removal of the change is after the insertion of the interval
+        //
+        //    +before ┣━━━━━━━━┫ +after
+        //            start    end
+        //                          ┣━━━━━━━━━━━┫
+        //                          start       end
+        //
+        Replace(start, end, deltaAfter, applyChangeAux(tail, change, deltaAfter))
+      | _ => Js.Exn.raiseError("Not a possible case")
       }
     }
 
-  // // induction on both xs and i
-  // // deltaBeforeChange is `None` if it's the same as `deltaBefore`
-  // let rec applyChangesAux = (
-  //   xs: t,
-  //   changes: list<Change.t>,
-  //   deltaBefore,
-  //   deltaBeforeChange,
-  //   fromBM,
-  // ) =>
-  //   switch (xs, changes) {
-  //   | (xs, list{}) => xs
-  //   | (EOF, list{change, ...changes}) =>
-  //     Js.log("== EOF non empty ============================================")
-  //     // all tokens from here until EOF are translated by `deltaBefore`
-  //     // tokens in between [change.offset, change.offset + change.removed) should be removed
-  //     // tokens after change.offset + change.removed should be translated by `deltaBefore + change.delta`
-  //     Js.log("channge: " ++ Change.toString(change))
-
-  //     Js.log("interval delta before: " ++ string_of_int(deltaBefore))
-  //     let deltaBefore = deltaBeforeChange->Option.getOr(deltaBefore)
-  //     Js.log("interval delta before*: " ++ string_of_int(deltaBefore))
-  //     let deltaAfter = deltaBefore + change.inserted - change.removed
-  //     Js.log("interval delta after: " ++ string_of_int(deltaAfter))
-  //     Replace(
-  //       change.offset,
-  //       switch fromBM {
-  //       | None => change.offset + change.removed
-  //       | Some(end) => end
-  //       },
-  //       deltaAfter,
-  //       applyChangesAux(EOF, changes, deltaAfter, None, None),
-  //     )
-  //   | (Replace(start, end, deltaAfter, tail), list{change, ...changes}) =>
-  //     // Calculate the original offset of the change
-  //     let changeStart = calculateOriginalOffset(deltaBefore, start, end, deltaAfter, change.offset)
-  //     let changeEnd = calculateOriginalOffset(
-  //       deltaBefore,
-  //       start,
-  //       end,
-  //       deltaAfter,
-  //       change.offset + change.removed,
-  //     )
-
-  //     switch (changeStart, changeEnd) {
-  //     | (Before(changeStart), Before(changeEnd)) =>
-  //       Js.log("== Before/Before ============================================")
-  //       printInterval(deltaBefore, start, end, deltaAfter)
-  //       Js.log("change: " ++ Change.toString(change))
-  //       let delta = change.inserted - change.removed
-  //       Replace(changeStart, changeEnd, deltaBefore + delta, adjustDelta(delta, tail))
-  //     | (Before(changeStart), Replaced(_)) =>
-  //       Js.log("== Before/Middle ============================================")
-  //       // let deltaBefore = deltaBeforeChange->Option.getOr(deltaBefore)
-  //       printInterval(deltaBefore, start, end, deltaAfter)
-
-  //       let insertedByInteval = deltaAfter - deltaBefore + end - start
-  //       let removedByInterval = end - start
-
-  //       Js.log("change: " ++ Change.toString(change))
-
-  //       let change = {
-  //         Change.offset: change.offset,
-  //         removed: change.removed + change.offset - changeStart,
-  //         inserted: change.inserted + insertedByInteval - removedByInterval,
-  //       }
-
-  //       Js.log("     => " ++ Change.toString(change))
-
-  //       applyChangesAux(tail, list{change, ...changes}, deltaBefore, None, Some(end))
-  //     | (Before(changeStart), After) =>
-  //       Js.log("== Before/After ============================================")
-  //       printInterval(deltaBefore, start, end, deltaAfter)
-  //       Js.log("\nchange: " ++ Change.toString(change))
-  //       // the change contains the interval
-  //       // we absorb the interval and carry it forward to see how it interacts with the next change
-
-  //       // use the delta before of this interval as the delta before of the change
-  //       // unless it's specified
-  //       let deltaBeforeChange = deltaBeforeChange->Option.getOr(deltaBefore)
-
-  //       let removedByInterval = end - start
-  //       let insertedByInterval = deltaAfter - deltaBefore + removedByInterval
-
-  //       let change = {
-  //         Change.offset: change.offset,
-  //         removed: change.removed + removedByInterval,
-  //         inserted: change.inserted + insertedByInterval,
-  //       }
-
-  //       Js.log("     => " ++ Change.toString(change))
-
-  //       applyChangesAux(tail, list{change, ...changes}, deltaAfter, Some(deltaBeforeChange), None)
-
-  //     // | (Replaced(_), Replaced(_)) => Js.Exn.raiseError("Replaced/Replaced")
-  //     // | (Replaced(_), After) => Js.Exn.raiseError("Replaced/After")
-  //     // | (After, After) => Js.Exn.raiseError("After/After")
-  //     | _ => Js.Exn.raiseError("Not a possible case")
-  //     }
-  //   }
+  let applyChangesAux = (xs: t, changes: list<Change.t>) =>
+    changes->List.reduce(xs, (xs, change) => applyChangeAux(xs, change, 0))
 
   let applyChanges = (xs: t, changes: array<Change.t>) =>
-    applyChangesAux(xs, List.fromArray(changes), 0)
+    applyChangesAux(xs, List.fromArray(changes))
 }
 
 module type Module = {
