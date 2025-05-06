@@ -6,13 +6,13 @@ open Tokens
 describe_only("WIP", () => {
   open FastCheck
   open Property.Sync
-  let genBeforeBefore = () => {
+  let genBeforeBefore = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
     open FastCheck.Arbitrary
     integerRange(0, 10)
-    ->Derive.chain(Change.arbitrary)
+    ->Derive.chain(Change.arbitrary(_, ~kind=kind2))
     ->Derive.chain(change1 => {
       let end = change1.offset + change1.removed
-      Change.arbitraryBatch()
+      Change.arbitraryBatch(~kind=kind1)
       ->Derive.filter(
         batch => {
           switch batch[0] {
@@ -36,14 +36,14 @@ describe_only("WIP", () => {
     })
   }
 
-  let genBeforeReplaced = () => {
+  let genBeforeReplaced = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
     open FastCheck.Arbitrary
     integerRange(0, 10)
-    ->Derive.chain(Change.arbitrary)
+    ->Derive.chain(Change.arbitrary(_, ~kind=kind2))
     ->Derive.chain(change1 => {
       let start = change1.offset
       let end = change1.offset + change1.removed
-      Change.arbitraryBatch()
+      Change.arbitraryBatch(~kind=kind1)
       ->Derive.filter(
         batch => {
           switch batch[0] {
@@ -69,12 +69,17 @@ describe_only("WIP", () => {
     })
   }
 
+  let generate = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
+    open FastCheck.Arbitrary
+    Combinators.tuple2(Change.arbitraryBatch(~kind=kind1), Change.arbitraryBatch(~kind=kind2))
+  }
+
   let toBatch = tuples =>
     tuples->Array.map(((offset, removed, inserted)) => {Change.offset, removed, inserted})
 
   let run = (batch1, batch2) => () => {
-    let batch1 = [(5, 1, 0), (6, 0, 2)]->toBatch
-    let batch2 = [(4, 2, 0)]->toBatch
+    let batch1 = batch1->toBatch
+    let batch2 = batch2->toBatch
 
     let batches = [batch1, batch2]
 
@@ -84,19 +89,19 @@ describe_only("WIP", () => {
     Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
   }
 
-  it("regression 1", run([(5, 1, 0), (6, 0, 2)], [(4, 2, 0)]))
-  it("regression 2", run([(5, 2, 2)], [(4, 3, 0)]))
-  it("regression 3", run([(9, 3, 0), (12, 0, 1)], [(8, 4, 2)]))
-  it("regression 4", run([(7, 0, 1)], [(4, 2, 8)]))
-  it("regression 5 BM", run([(6, 3, 0), (9, 4, 6)], [(5, 4, 0)]))
-  it("regression 6 BM", run([(10, 5, 3)], [(7, 6, 1)]))
-  // it("main", () => {
-  it_skip("main", () => {
+  // it("regression 1", run([(5, 1, 0), (6, 0, 2)], [(4, 2, 0)]))
+  // it("regression 2", run([(5, 2, 2)], [(4, 3, 0)]))
+  // it("regression 3", run([(9, 3, 0), (12, 0, 1)], [(8, 4, 2)]))
+  // it("regression 4", run([(7, 0, 1)], [(4, 2, 8)]))
+  // it("regression 5 BM", run([(6, 3, 0), (9, 4, 6)], [(5, 4, 0)]))
+  // it("regression 6 BM", run([(10, 5, 3)], [(7, 6, 1)]))
+
+  it_skip("[] / mixed", () => {
     assert_(
       property1(
-        // genBeforeBefore(),
-        genBeforeReplaced(),
-        ((batch1, batch2)) => {
+        Change.arbitraryBatch(),
+        batch2 => {
+          let batch1 = []
           let batches = [batch1, batch2]
 
           Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
@@ -112,13 +117,60 @@ describe_only("WIP", () => {
     )
   })
 
-  it(
-  // it_only(
+  it_skip("mixed / []", () => {
+    assert_(
+      property1(
+        Change.arbitraryBatch(),
+        batch1 => {
+          let batch2 = []
+          let batches = [batch1, batch2]
+
+          Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
+          Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
+          let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+          Js.log("    " ++ intervals->Intervals.toString)
+          let intervals = intervals->Intervals.applyChanges(batch2)
+          Js.log("\n => " ++ intervals->Intervals.toString)
+          Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+          intervals->Intervals.isValidWRTChangeBatches(batches)
+        },
+      ),
+    )
+  })
+
+  it("regression 1", run([(0, 0, 0)], [(0, 0, 0), (0, 0, 1)]))
+
+  it("insertion / insertion", () => {
+    assert_(
+      property2(
+        Change.arbitraryBatch(~kind=InsertionOnly),
+        Change.arbitraryBatch(~kind=InsertionOnly),
+        (batch1, batch2) => {
+          let batches = [batch1, batch2]
+
+          Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
+          Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
+          let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+          Js.log("    " ++ intervals->Intervals.toString)
+          let intervals = intervals->Intervals.applyChanges(batch2)
+          Js.log("\n => " ++ intervals->Intervals.toString)
+          Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+          intervals->Intervals.isValidWRTChangeBatches(batches)
+        },
+      ),
+    )
+  })
+
+  // it(
+  it_only(
     // it_skip(
     "counter example",
     () => {
-      let batch1 = [(9, 1, 0), (12, 0, 0)]
-      let batch2 = [(8, 2, 0)]
+
+// Counterexample: [[{"offset":0,"removed":0,"inserted":2}],[{"offset":0,"removed":0,"inserted":0},{"offset":1,"removed":0,"inserted":0},{"offset":2,"removed":0,"inserted":0},{"offset":3,"removed":0,"inserted":0},{"offset":4,"removed":0,"inserted":0},{"offset":5,"removed":0,"inserted":0},{"offset":6,"removed":0,"inserted":0},{"offset":7,"removed":0,"inserted":0},{"offset":8,"removed":0,"inserted":0}]]
+      let batch1 = [(0, 0, 2)]
+      let batch2 = [(0, 0, 0), (1, 0, 0)]
+      // let batch2 = [(0, 0, 0), (1, 0, 0)]
 
       let batch1 = batch1->toBatch
       let batch2 = batch2->toBatch
@@ -135,8 +187,141 @@ describe_only("WIP", () => {
       Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
     },
   )
-
 })
+
+// describe_only("WIP", () => {
+//   open FastCheck
+//   open Property.Sync
+//   let genBeforeBefore = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
+//     open FastCheck.Arbitrary
+//     integerRange(0, 10)
+//     ->Derive.chain(Change.arbitrary(_, ~kind=kind2))
+//     ->Derive.chain(change1 => {
+//       let end = change1.offset + change1.removed
+//       Change.arbitraryBatch(~kind=kind1)
+//       ->Derive.filter(
+//         batch => {
+//           switch batch[0] {
+//           | None => true
+//           | Some(change2) =>
+//             if change2.offset > end {
+//               true
+//             } else {
+//               false
+//             }
+//           }
+//         },
+//       )
+//       ->Derive.map(
+//         batch => {
+//           let batch1 = [change1]
+//           let batch2 = batch
+//           (batch2, batch1)
+//         },
+//       )
+//     })
+//   }
+
+//   let genBeforeReplaced = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
+//     open FastCheck.Arbitrary
+//     integerRange(0, 10)
+//     ->Derive.chain(Change.arbitrary(_, ~kind=kind2))
+//     ->Derive.chain(change1 => {
+//       let start = change1.offset
+//       let end = change1.offset + change1.removed
+//       Change.arbitraryBatch(~kind=kind1)
+//       ->Derive.filter(
+//         batch => {
+//           switch batch[0] {
+//           | None => true
+//           | Some(change2) =>
+//             let start2 = change2.offset
+//             let end2 = change2.offset + change2.removed
+//             if start2 > start && start2 <= end && end2 >= end {
+//               true
+//             } else {
+//               false
+//             }
+//           }
+//         },
+//       )
+//       ->Derive.map(
+//         batch => {
+//           let batch1 = [change1]
+//           let batch2 = batch
+//           (batch2, batch1)
+//         },
+//       )
+//     })
+//   }
+
+//   let toBatch = tuples =>
+//     tuples->Array.map(((offset, removed, inserted)) => {Change.offset, removed, inserted})
+
+//   let run = (batch1, batch2) => () => {
+//     let batch1 = [(5, 1, 0), (6, 0, 2)]->toBatch
+//     let batch2 = [(4, 2, 0)]->toBatch
+
+//     let batches = [batch1, batch2]
+
+//     let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+//     let intervals = intervals->Intervals.applyChanges(batch2)
+//     Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+//     Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
+//   }
+
+//   it("regression 1", run([(5, 1, 0), (6, 0, 2)], [(4, 2, 0)]))
+//   it("regression 2", run([(5, 2, 2)], [(4, 3, 0)]))
+//   it("regression 3", run([(9, 3, 0), (12, 0, 1)], [(8, 4, 2)]))
+//   it("regression 4", run([(7, 0, 1)], [(4, 2, 8)]))
+//   it("regression 5 BM", run([(6, 3, 0), (9, 4, 6)], [(5, 4, 0)]))
+//   it("regression 6 BM", run([(10, 5, 3)], [(7, 6, 1)]))
+//   // it("main", () => {
+//   it_skip("main", () => {
+//     assert_(
+//       property1(
+//         // genBeforeBefore(),
+//         genBeforeReplaced(),
+//         ((batch1, batch2)) => {
+//           let batches = [batch1, batch2]
+
+//           Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
+//           Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
+//           let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+//           Js.log("    " ++ intervals->Intervals.toString)
+//           let intervals = intervals->Intervals.applyChanges(batch2)
+//           Js.log("\n => " ++ intervals->Intervals.toString)
+//           Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+//           intervals->Intervals.isValidWRTChangeBatches(batches)
+//         },
+//       ),
+//     )
+//   })
+
+//   it(
+//     // it_only(
+//     // it_skip(
+//     "counter example",
+//     () => {
+//       let batch1 = [(9, 1, 0), (12, 0, 0)]
+//       let batch2 = [(8, 2, 0)]
+
+//       let batch1 = batch1->toBatch
+//       let batch2 = batch2->toBatch
+
+//       let batches = [batch1, batch2]
+
+//       Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
+//       Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
+//       let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+//       Js.log("    " ++ intervals->Intervals.toString)
+//       let intervals = intervals->Intervals.applyChanges(batch2)
+//       Js.log("\n => " ++ intervals->Intervals.toString)
+//       Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+//       Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
+//     },
+//   )
+// })
 
 describe("Tokens", () => {
   This.timeout(10000)
@@ -228,8 +413,6 @@ describe("Tokens", () => {
   describe("Intervals", () => {
     open FastCheck
     open Property.Sync
-    // open Intervals
-    //
     it(
       "`empty` should should be valid",
       () => {
