@@ -6,73 +6,6 @@ open Tokens
 describe_only("WIP", () => {
   open FastCheck
   open Property.Sync
-  let genBeforeBefore = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
-    open FastCheck.Arbitrary
-    integerRange(0, 10)
-    ->Derive.chain(Change.arbitrary(_, ~kind=kind2))
-    ->Derive.chain(change1 => {
-      let end = change1.offset + change1.removed
-      Change.arbitraryBatch(~kind=kind1)
-      ->Derive.filter(
-        batch => {
-          switch batch[0] {
-          | None => true
-          | Some(change2) =>
-            if change2.offset > end {
-              true
-            } else {
-              false
-            }
-          }
-        },
-      )
-      ->Derive.map(
-        batch => {
-          let batch1 = [change1]
-          let batch2 = batch
-          (batch2, batch1)
-        },
-      )
-    })
-  }
-
-  let genBeforeReplaced = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
-    open FastCheck.Arbitrary
-    integerRange(0, 10)
-    ->Derive.chain(Change.arbitrary(_, ~kind=kind2))
-    ->Derive.chain(change1 => {
-      let start = change1.offset
-      let end = change1.offset + change1.removed
-      Change.arbitraryBatch(~kind=kind1)
-      ->Derive.filter(
-        batch => {
-          switch batch[0] {
-          | None => true
-          | Some(change2) =>
-            let start2 = change2.offset
-            let end2 = change2.offset + change2.removed
-            if start2 > start && start2 <= end && end2 >= end {
-              true
-            } else {
-              false
-            }
-          }
-        },
-      )
-      ->Derive.map(
-        batch => {
-          let batch1 = [change1]
-          let batch2 = batch
-          (batch2, batch1)
-        },
-      )
-    })
-  }
-
-  let generate = (~kind1=Change.Mixed, ~kind2=Change.Mixed) => {
-    open FastCheck.Arbitrary
-    Combinators.tuple2(Change.arbitraryBatch(~kind=kind1), Change.arbitraryBatch(~kind=kind2))
-  }
 
   let toBatch = tuples =>
     tuples->Array.map(((offset, removed, inserted)) => {Change.offset, removed, inserted})
@@ -89,81 +22,32 @@ describe_only("WIP", () => {
     Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
   }
 
-  // it("regression 1", run([(5, 1, 0), (6, 0, 2)], [(4, 2, 0)]))
-  // it("regression 2", run([(5, 2, 2)], [(4, 3, 0)]))
-  // it("regression 3", run([(9, 3, 0), (12, 0, 1)], [(8, 4, 2)]))
-  // it("regression 4", run([(7, 0, 1)], [(4, 2, 8)]))
-  // it("regression 5 BM", run([(6, 3, 0), (9, 4, 6)], [(5, 4, 0)]))
-  // it("regression 6 BM", run([(10, 5, 3)], [(7, 6, 1)]))
-
-  it_skip("[] / mixed", () => {
-    assert_(
-      property1(
-        Change.arbitraryBatch(),
-        batch2 => {
-          let batch1 = []
-          let batches = [batch1, batch2]
-
-          Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
-          Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
-          let intervals = Intervals.empty->Intervals.applyChanges(batch1)
-          Js.log("    " ++ intervals->Intervals.toString)
-          let intervals = intervals->Intervals.applyChanges(batch2)
-          Js.log("\n => " ++ intervals->Intervals.toString)
-          Assert.deepStrictEqual(intervals->Intervals.hasError, None)
-          intervals->Intervals.isValidWRTChangeBatches(batches)
-        },
-      ),
-    )
-  })
-
-  it_skip("mixed / []", () => {
-    assert_(
-      property1(
-        Change.arbitraryBatch(),
-        batch1 => {
-          let batch2 = []
-          let batches = [batch1, batch2]
-
-          Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
-          Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
-          let intervals = Intervals.empty->Intervals.applyChanges(batch1)
-          Js.log("    " ++ intervals->Intervals.toString)
-          let intervals = intervals->Intervals.applyChanges(batch2)
-          Js.log("\n => " ++ intervals->Intervals.toString)
-          Assert.deepStrictEqual(intervals->Intervals.hasError, None)
-          intervals->Intervals.isValidWRTChangeBatches(batches)
-        },
-      ),
-    )
-  })
-
-  it(
+  // it(
   // it_only(
-    // it_skip(
-    "counter example",
-    () => {
-      // these test cases are to be copied to the regression tests below
-      let batch1 = [(0, 0, 6), (10, 0, 0)]
-      let batch2 = [(9, 1, 0)]
+  it_skip("counter example", () => {
+    // these test cases are to be copied to the regression tests below
 
-      let batch1 = batch1->toBatch
-      let batch2 = batch2->toBatch
+    // Counterexample: [[{"offset":1,"removed":0,"inserted":10},{"offset":2,"removed":0,"inserted":0}],[{"offset":7,"removed":6,"inserted":0}]]
 
-      let batches = [batch1, batch2]
+    let batch1 = [(1, 0, 10), (2, 0, 0)]
+    let batch2 = [(7, 6, 0)]
 
-      Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
-      Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
-      let intervals = Intervals.empty->Intervals.applyChanges(batch1)
-      Js.log("\n\n\n    " ++ intervals->Intervals.toString)
-      let intervals = intervals->Intervals.applyChanges(batch2)
-      Js.log("\n => " ++ intervals->Intervals.toString)
-      Assert.deepStrictEqual(intervals->Intervals.hasError, None)
-      Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
-    },
-  )
+    let batch1 = batch1->toBatch
+    let batch2 = batch2->toBatch
 
-  // here collects all regressions test from the "counter example" 
+    let batches = [batch1, batch2]
+
+    Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
+    Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
+    let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+    Js.log("\n\n\n    " ++ intervals->Intervals.toString)
+    let intervals = intervals->Intervals.applyChanges(batch2)
+    Js.log("\n => " ++ intervals->Intervals.toString)
+    Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+    Assert.ok(intervals->Intervals.isValidWRTChangeBatches(batches))
+  })
+
+  // here collects all regressions test from the "counter example"
   // the test cases are copied from the "counter example" test above
   it("regression 1", run([(0, 0, 0)], [(0, 0, 0), (0, 0, 1)]))
   it("regression 2", run([(0, 0, 1)], [(1, 0, 1)]))
@@ -173,30 +57,36 @@ describe_only("WIP", () => {
   it("regression 6", run([(8, 0, 0)], [(8, 5, 0)]))
   it("regression 7", run([(4, 0, 4)], [(7, 2, 0)]))
   it("regression 8", run([(1, 1, 2)], [(2, 0, 0)]))
+  it("regression 9", run([(0, 0, 6), (10, 0, 0)], [(9, 1, 0)]))
+  it("regression 10", run([(9, 0, 1), (10, 0, 0)], [(6, 4, 0)]))
+  it("regression 11", run([(8, 0, 1), (9, 8, 0)], [(6, 4, 0)]))
+  it("regression 12", run([(9, 0, 1), (10, 0, 0)], [(9, 2, 0)]))
+  it("regression 13", run([(10, 1, 0), (12, 0, 1)], [(5, 5, 0)]))
+  it("regression 14", run([(2, 1, 0), (6, 0, 1)], [(4, 2, 0)]))
+  it("regression 15", run([(10, 5, 3)], [(5, 15, 0)]))
+  it("regression 16", run([(10, 5, 3), (30, 0, 0)], [(5, 15, 0)]))
+  it("regression 17", run([(1, 0, 10), (2, 0, 0)], [(7, 6, 0)]))
 
-
-
-  it_skip("insertion / insertion", () => {
+  it("insertion / insertion", () => {
     assert_(
       property2(
-        Change.arbitraryBatch(~kind=Mixed, ~batchSize=2),
-        Change.arbitraryBatch(~kind=Mixed, ~batchSize=1),
+        Change.arbitraryBatch(),
+        Change.arbitraryBatch(),
         (batch1, batch2) => {
           let batches = [batch1, batch2]
 
-          Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
-          Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
+          // Js.log("\nbatch 1:    " ++ batch1->Array.map(Change.toString)->Util.Pretty.array)
+          // Js.log("batch 2:    " ++ batch2->Array.map(Change.toString)->Util.Pretty.array)
           let intervals = Intervals.empty->Intervals.applyChanges(batch1)
-          Js.log("    " ++ intervals->Intervals.toString)
+          // Js.log("    " ++ intervals->Intervals.toString)
           let intervals = intervals->Intervals.applyChanges(batch2)
-          Js.log("\n => " ++ intervals->Intervals.toString)
+          // Js.log("\n => " ++ intervals->Intervals.toString)
           Assert.deepStrictEqual(intervals->Intervals.hasError, None)
           intervals->Intervals.isValidWRTChangeBatches(batches)
         },
       ),
     )
   })
-
 })
 
 // describe_only("WIP", () => {
@@ -456,11 +346,11 @@ describe("Tokens", () => {
             Change.arbitraryBatch(),
             Change.arbitraryBatch(),
             (changes1, changes2) => {
-              Js.log("\nchanges1:    " ++ changes1->Array.map(Change.toString)->Util.Pretty.array)
-              Js.log("changes2:    " ++ changes2->Array.map(Change.toString)->Util.Pretty.array)
+              // Js.log("\nchanges1:    " ++ changes1->Array.map(Change.toString)->Util.Pretty.array)
+              // Js.log("changes2:    " ++ changes2->Array.map(Change.toString)->Util.Pretty.array)
               let intervals = Intervals.empty->Intervals.applyChanges(changes1)
               let intervals = intervals->Intervals.applyChanges(changes2)
-              Js.log("intervals:  " ++ intervals->Intervals.toString)
+              // Js.log("intervals:  " ++ intervals->Intervals.toString)
               // Intervals.debugIsValid(intervals)
               intervals->Intervals.hasError == None &&
                 intervals->Intervals.isValidWRTChangeBatches([changes1, changes2])
