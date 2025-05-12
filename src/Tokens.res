@@ -386,7 +386,7 @@ module Intervals = {
   //
   type source =
     | Before(int) // exists in the original document at this offset before the existing insertion
-    | InInsertion
+    | InInsertion(int)
     | After(int) // exists in the original document at this offset after the existing insertion
   let calculateOriginalOffset = (deltaBefore, start, end, deltaAfter, x) =>
     if x >= end + deltaAfter {
@@ -394,7 +394,7 @@ module Intervals = {
     } else if x < deltaBefore + start {
       Before(x - deltaBefore)
     } else {
-      InInsertion
+      InInsertion(x - deltaBefore)
     }
 
   let printInterval = (deltaBefore, start, end, deltaAfter) => {
@@ -467,24 +467,79 @@ module Intervals = {
             changeStart,
             changeEnd,
             deltaBefore + delta,
-            Replace(start, end, deltaAfter + delta, applyChangeAux(tail, delta, translation, None)),
+            applyChangeAux(xs, delta, translation, None),
           )
+        | (Before(changeStart), InInsertion(changeEnd)) =>
+          // let default = {
+          //   // the back of the removal of the change overlaps with the front of the insertion of the interval
+          //   //
+          //   //          +before ┣━━━━━━┫━━━━━━━┫
+          //   //                  start          end
+          //   //
+          //   //          +before ┣━━━━━━┫━━━┫ +before + interval.insertion - interval.removal
+          //   //                  start
+          //   //
+          //   //           ┣━━━━━━━━━━━━━┫
+          //   //           changeStart   changeEnd
+          //   //
+          //   let delta = Change.delta(change)
 
-        | (Before(changeStart), InInsertion) =>
-          // the back of the removal of the change overlaps with the front of the insertion of the interval
-          //
-          //          +before ┣━━━━━━━━━━┫ +after
-          //                  start      end
-          //
-          //           ┣━━━━━━━━━━━━━┫
-          //           changeStart   changeEnd
-          let delta = Change.delta(change)
-          Replace(
-            changeStart,
-            end,
-            deltaAfter + delta,
-            applyChangeAux(tail, delta, translation, None),
-          )
+          //   Replace(
+          //     changeStart,
+          //     end,
+          //     deltaAfter + delta,
+          //     applyChangeAux(tail, delta, translation, None),
+          //   )
+          // }
+          if end >= changeEnd {
+            //
+            //          +before ┣━━━━━━┫━━━━━━━┫
+            //                  start          end
+            //
+            //          +before ┣━━━━━━┫━━━┫ +before + interval.insertion - interval.removal
+            //                  start      end
+            //
+            //           ┣━━━━━━━━━━━━━┫
+            //           changeStart   changeEnd
+            //
+            // split the interval into 2 parts:
+            //   1. [start, changeEnd) with removal and insertion (delta = 0)
+            //   2. [changeEnd, end) with removal and insertion 
+            applyChangeAux(
+              Replace(
+                start,
+                changeEnd,
+                deltaBefore - translation,
+                Replace(changeEnd, end, deltaAfter - translation, tail),
+              ),
+              deltaBefore,
+              translation,
+              Some(change),
+            )
+            // default
+          } else {
+            //          +before ┣━━━━━┫
+            //                  start end
+            //
+            //          +before ┣━━━━━━┫━━━┫ +before + interval.insertion - interval.removal
+            //                  start
+            //
+            //           ┣━━━━━━━━━━━━━┫
+            //           changeStart   changeEnd
+            //
+            // split the interval into 2 parts:
+            //   1. [start, end) with removal and insertion
+            //   2. [end, end) with insertion only
+
+            let part1Delta = changeEnd - end
+            applyChangeAux(
+              Replace(start, end, deltaBefore + part1Delta - translation, Replace(end, end, deltaAfter - translation, tail)),
+              deltaBefore,
+              translation,
+              Some(change),
+            )
+          }
+
         | (Before(changeStart), After(_)) =>
           // the whole removal of the change is contains the insertion of the interval
           //
@@ -510,7 +565,7 @@ module Intervals = {
             deltaAfter + delta,
             applyChangeAux(tail, deltaAfter + delta, translation + delta, Some(change')),
           )
-        | (InInsertion, InInsertion) =>
+        | (InInsertion(_), InInsertion(_)) =>
           // the whole removal of the change is contained by the insertion of the interval
           //
           //   +before ┣━━━━━━━━━━━━━━━━━━━━━━┫ +after
@@ -521,7 +576,7 @@ module Intervals = {
 
           let delta = Change.delta(change)
           Replace(start, end, deltaAfter + delta, applyChangeAux(tail, delta, translation, None))
-        | (InInsertion, After(changeEnd)) =>
+        | (InInsertion(_), After(changeEnd)) =>
           // the front of the removal of the change overlaps with the back of the insertion of the interval
           //
           //   +before ┣━━━━━━━━━━━━━━━━━━━━━━┫ +after
