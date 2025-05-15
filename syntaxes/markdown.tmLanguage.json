@@ -1,6 +1,32 @@
 {
-    "scopeName": "source.markdown",
-    "patterns": [
-        { "include": "text.html.markdown" }
-    ]
+  "scopeName": "source.markdown",
+  "patterns": [
+    {
+      "include": "#agda-block"
+    },
+    {
+      "include": "text.html.markdown"
+    }
+  ],
+  "repository": {
+    "agda-block": {
+      "begin": "(^|\\G)(\\s*)(```)(\\s*)(agda)(\\s*$)",
+      "end": "(^|\\G)(\\2)(```)(\\s*$)",
+      "name": "markup.fenced_code.block.markdown",
+      "contentName": "meta.embedded.block.agda",
+      "beginCaptures": {
+        "3": { "name": "punctuation.definition.markdown" },
+        "5": { "name": "fenced_code.block.language.markdown" },
+        "6": { "name": "fenced_code.block.language.attributes.markdown" }
+      },
+      "endCaptures": {
+        "3": { "name": "punctuation.definition.markdown" }
+      },
+      "patterns": [
+        {
+          "include": "source.agda"
+        }
+      ]
+    }
+  }
 }
