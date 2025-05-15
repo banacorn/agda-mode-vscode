@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.7 - 2025-05-15
 
 ### Fixed
-- #180: agda-mode supresses implicit markdown support from vscode by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #180: agda-mode suppresses implicit markdown support from vscode by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #184: Workaround for "Deactivation of latex-input?" by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #225: Add idiom brackets to language configuration by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #226: Agda as an embedded language by [@fredrik-bakke](https://github.com/fredrik-bakke)
