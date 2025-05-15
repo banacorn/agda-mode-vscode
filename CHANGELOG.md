@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.5.7 - 2025-05-15
+
+### Fixed
+- #180: agda-mode supresses implicit markdown support from vscode by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #184: Workaround for "Deactivation of latex-input?" by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #225: Add idiom brackets to language configuration by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #226: Agda as an embedded language by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #227: Make spellcheck ignore package-lock.json by [@fredrik-bakke](https://github.com/fredrik-bakke)
+
 ## v0.5.6 - 2025-04-23
 
 ### Added
