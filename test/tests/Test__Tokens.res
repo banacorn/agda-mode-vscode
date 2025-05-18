@@ -28,40 +28,13 @@ describe_only("WIP", () => {
     "counter example",
     () => {
       // these test cases are to be copied to the regression tests below
+      // Counterexample: [[{"offset":3,"removed":0,"inserted":0}],[{"offset":0,"removed":0,"inserted":1},{"offset":1,"removed":0,"inserted":0},{"offset":2,"removed":0,"inserted":0}]]
 
-      // let batch1 = [(3, 0, 6), (7, 0, 2)]
-      // let batch2 = [(10, 4, 0)]
-
-      // let batch1 = [(0, 0, 8), (3, 0, 1)]
-      // let batch2 = [(8, 3, 0)]
-
-      let batch1 = [(1, 0, 8), (3, 0, 1)]
-      let batch2 = [(8, 3, 0)]
-
-      // let batch1 = [(2, 0, 8), (3, 0, 1)]
-      // let batch2 = [(8, 3, 0)]
-
-      // let batch1 = [(0, 0, 5), (10, 0, 1)]
-      // let batch2 = [(12, 3, 0)]
-
-      // 0
-      // let batch1 = [(10, 5, 3)]
-      // let batch2 = [(5, 7, 0)]
-
-      // let batch1 = [(10, 5, 3), (20, 0, 0)]
-      // let batch2 = [(5, 7, 0)]
-
-      // [[{"offset":7,"removed":0,"inserted":7},{"offset":18,"removed":16,"inserted":1},{"offset":35,"removed":0,"inserted":0},{"offset":36,"removed":0,"inserted":1}],[{"offset":0,"removed":0,"inserted":0},{"offset":10,"removed":0,"inserted":3},{"offset":16,"removed":12,"inserted":0},{"offset":29,"removed":0,"inserted":0}]]
-      // let batch1 = [(7, 0, 7), (18, 16, 1), (36, 0, 1)]
-      // let batch2 = [(16, 12, 0)]
-
-      // Counterexample: [[{"offset":7,"removed":2,"inserted":5},{"offset":16,"removed":16,"inserted":8},{"offset":34,"removed":34,"inserted":0},{"offset":74,"removed":1,"inserted":3}],[{"offset":8,"removed":3,"inserted":0},{"offset":19,"removed":18,"inserted":0},{"offset":38,"removed":0,"inserted":0},{"offset":39,"removed":0,"inserted":0},{"offset":40,"removed":0,"inserted":0},{"offset":41,"removed":0,"inserted":0},{"offset":42,"removed":0,"inserted":0},{"offset":43,"removed":0,"inserted":0}]]
-      let batch1 = [(20, 39, 0), (74, 1, 3)]
-      let batch2 = [(19, 18, 0)]
-
-      // ,[{"offset":9,"removed":2,"inserted":2},{"offset":18,"removed":4,"inserted":5},{"offset":26,"removed":3,"inserted":0},{"offset":38,"removed":27,"inserted":1},{"offset":67,"removed":2,"inserted":0}]]
-      let batch1 = [(60, 49, 0), (117, 107, 0), (225, 0, 1)]
-      let batch2 = [(38, 28, 1), (67, 2, 0)]
+      // let batch1 = [(3, 0, 0)]
+      // let batch2 = [(0, 0, 1), (1, 0, 0)]
+      // it("regression 9", run([(0, 0, 6), (10, 0, 0)], [(9, 1, 0)]))
+      let batch1 = [(0, 0, 6), (10, 0, 0)]
+      let batch2 = [(9, 1, 0)]
 
       let batch1 = batch1->toBatch
       let batch2 = batch2->toBatch
@@ -102,6 +75,7 @@ describe_only("WIP", () => {
   it("regression 19", run([(1, 0, 8), (3, 0, 1)], [(8, 3, 0)]))
   it("regression 20", run([(10, 5, 3)], [(5, 7, 0)]))
   it("regression 21", run([(3, 0, 6), (7, 0, 2)], [(10, 4, 0)]))
+  it("regression 22", run([(3, 0, 0)], [(0, 0, 1), (1, 0, 0)]))
 
   it("insertion / insertion", () => {
     assert_(

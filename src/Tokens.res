@@ -409,21 +409,16 @@ module Intervals = {
   // xs: intervals
   // changes: list of incoming changes
   // deltaBefore: for calculating insertion of intervals
-  let rec applyChangeAux = (xs: t, deltaBefore: int, translation: int, change: option<Change.t>) =>
-    switch change {
-    | None =>
+  let rec applyChangeAux = (xs: t, deltaBefore: int, translation: int, changes: list<Change.t>) =>
+    switch changes {
+    | list{} =>
       switch xs {
       | EOF => EOF
       | Replace(start, end, deltaAfter, tail) =>
         let deltaAfter = deltaAfter + translation
-        Replace(
-          start,
-          end,
-          deltaBefore + deltaAfter,
-          applyChangeAux(tail, deltaBefore, translation, None),
-        )
+        Replace(start, end, deltaAfter, applyChangeAux(tail, deltaBefore, translation, list{}))
       }
-    | Some(change) =>
+    | list{change, ...changes} =>
       switch xs {
       | EOF =>
         let deltaAfter = deltaBefore + Change.delta(change)
@@ -432,7 +427,7 @@ module Intervals = {
           change.offset - deltaBefore,
           change.offset + change.removed - deltaBefore,
           deltaAfter,
-          EOF,
+          applyChangeAux(EOF, deltaAfter, translation, changes),
         )
       | Replace(start, end, deltaAfter, tail) =>
         let deltaAfter = deltaAfter + translation
@@ -450,7 +445,6 @@ module Intervals = {
           deltaAfter,
           change.offset + change.removed,
         )
-
         switch (changeRemovalStart, changeRemovalEnd) {
         | (_, InInsertion(changeEnd)) =>
           if end >= changeEnd {
@@ -476,7 +470,7 @@ module Intervals = {
               ),
               deltaBefore,
               translation,
-              Some(change),
+              list{change, ...changes},
             )
           } else {
             //          +before ┣━━━━━┫
@@ -502,7 +496,7 @@ module Intervals = {
               ),
               deltaBefore,
               translation,
-              Some(change),
+              list{change, ...changes},
             )
           }
         | (Before(changeStart), Before(changeEnd)) =>
@@ -514,13 +508,12 @@ module Intervals = {
           //    ┣━━━━━━━━━━━━━┫
           //    changeStart   changeEnd
           //
-
           let delta = Change.delta(change)
           Replace(
             changeStart,
             changeEnd,
             deltaBefore + delta,
-            applyChangeAux(xs, delta, translation, None),
+            applyChangeAux(xs, deltaBefore + delta, translation + delta, changes),
           )
         | (Before(changeStart), After(_)) =>
           // the whole removal of the change is contains the insertion of the interval
@@ -545,7 +538,12 @@ module Intervals = {
             changeStart,
             end,
             deltaAfter + delta,
-            applyChangeAux(tail, deltaAfter + delta, translation + delta, Some(change')),
+            applyChangeAux(
+              tail,
+              deltaAfter + delta,
+              translation + delta,
+              list{change', ...changes},
+            ),
           )
 
         | (InInsertion(_), After(changeEnd)) =>
@@ -569,7 +567,12 @@ module Intervals = {
             start,
             end,
             deltaAfter + delta,
-            applyChangeAux(tail, deltaAfter + delta, translation + delta, Some(change')),
+            applyChangeAux(
+              tail,
+              deltaAfter + delta,
+              translation + delta,
+              list{change', ...changes},
+            ),
           )
 
         | (After(_), After(_)) =>
@@ -585,16 +588,14 @@ module Intervals = {
             start,
             end,
             deltaAfter,
-            applyChangeAux(tail, deltaAfter, translation, Some(change)),
+            applyChangeAux(tail, deltaAfter, translation, list{change, ...changes}),
           )
         | _ => Js.Exn.raiseError("Not a possible case")
         }
       }
     }
-  let applyChangesAux = (xs: t, changes: list<Change.t>) =>
-    changes->List.reduce(xs, (xs, change) => applyChangeAux(xs, 0, 0, Some(change)))
 
-  // TODO: perform fold fusion on `applyChangesAux` and `preprocessChangeBatch`
+  // TODO: see if we can merge this with the above function
   let preprocessChangeBatch = (changes: array<Change.t>) =>
     changes
     ->Array.reduce((0, []), ((delta, acc), x) => {
@@ -604,7 +605,7 @@ module Intervals = {
     ->snd
 
   let applyChanges = (xs: t, changes: array<Change.t>) => {
-    applyChangesAux(xs, List.fromArray(changes->preprocessChangeBatch))
+    applyChangeAux(xs, 0, 0, List.fromArray(changes->preprocessChangeBatch))
   }
 }
 
