@@ -14,7 +14,8 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
+            ((token, _, range)) =>
+              Editor.Range.toString(range) ++ " " ++ Token.toString(token),
           )
         Assert.deepEqual(Array.length(tokens), 28)
       },
@@ -28,7 +29,8 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
+            ((token, _, range)) =>
+              Editor.Range.toString(range) ++ " " ++ Token.toString(token),
           )
 
         let srcOfPrimitive = switch ctx.state.agdaVersion {

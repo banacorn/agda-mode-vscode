@@ -620,7 +620,7 @@ module type Module = {
   let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
   let clear: t => unit
 
-  let toArray: t => array<(Token.t, VSCode.Range.t)>
+  let toArray: t => array<(Token.t, int, VSCode.Range.t)>
 
   let lookupSrcLoc: (
     t,
@@ -685,8 +685,9 @@ module Module: Module = {
   type t = {
     // from addEmacsFilePath/addJSONFilePath
     mutable tempFiles: array<TempFile.t>,
-    // Tokens indexed by the starting offset
-    mutable tokens: AVLTree.t<(Token.t, VSCode.Range.t)>,
+    // Tokens from Agda, indexed by the starting offset
+    // because AVLTree is crap, we need to save the index (starting offset) alongside the value for easy access
+    mutable agdaTokens: AVLTree.t<(Token.t, int, VSCode.Range.t)>,
   }
 
   let toString = self => {
@@ -697,9 +698,11 @@ module Module: Module = {
     }
 
     let tokens =
-      self.tokens
+      self.agdaTokens
       ->AVLTree.toArray
-      ->Array.map(((token, range)) => Token.toString(token) ++ " " ++ Editor.Range.toString(range))
+      ->Array.map(((token, offset, range)) =>
+        Token.toString(token) ++ " " ++ Editor.Range.toString(range)
+      )
       ->Array.join("\n    ")
     "Tokens:\n  tempFiles (" ++
     string_of_int(self.tempFiles->Array.length) ++
@@ -711,7 +714,7 @@ module Module: Module = {
 
   let make = () => {
     tempFiles: [],
-    tokens: AVLTree.make(),
+    agdaTokens: AVLTree.make(),
   }
 
   // insert a bunch of Tokens
@@ -722,7 +725,7 @@ module Module: Module = {
       let text = Editor.Text.getAll(document)
       let offsetConverter = Agda.OffsetConverter.make(text)
       let startOffset = Agda.OffsetConverter.convert(offsetConverter, info.start)
-      let existing = self.tokens->AVLTree.find(startOffset)
+      let existing = self.agdaTokens->AVLTree.find(startOffset)
       switch existing {
       | None =>
         let start = VSCode.TextDocument.positionAt(document, startOffset)
@@ -732,10 +735,10 @@ module Module: Module = {
           Agda.OffsetConverter.convert(offsetConverter, info.end_),
         )
         let range = VSCode.Range.make(start, end_)
-        self.tokens->AVLTree.insert(startOffset, (info, range))->ignore
-      | Some((old, range)) =>
+        self.agdaTokens->AVLTree.insert(startOffset, (info, startOffset, range))->ignore
+      | Some((old, offset, range)) =>
         // merge Aspects
-        self.tokens->AVLTree.remove(startOffset)->ignore
+        self.agdaTokens->AVLTree.remove(startOffset)->ignore
         // often the new aspects would look exactly like the old ones
         // don't duplicate them in that case
         let newAspects =
@@ -744,7 +747,7 @@ module Module: Module = {
           ...old,
           aspects: newAspects,
         }
-        self.tokens->AVLTree.insert(startOffset, (new, range))
+        self.agdaTokens->AVLTree.insert(startOffset, (new, offset, range))
       }
     })
   }
@@ -766,18 +769,18 @@ module Module: Module = {
     self.tempFiles->Array.forEach(format => {
       N.Fs.unlink(TempFile.toFilepath(format), _ => ())
     })
-    self.tokens = AVLTree.make()
+    self.agdaTokens = AVLTree.make()
   }
 
-  let toArray = self => self.tokens->AVLTree.toArray
+  let toArray = self => self.agdaTokens->AVLTree.toArray
 
   // for goto definition
   let lookupSrcLoc = (self, offset): option<
     promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
   > => {
-    self.tokens
+    self.agdaTokens
     ->AVLTree.lowerBound(offset)
-    ->Option.flatMap(((info, range)) =>
+    ->Option.flatMap(((info, offset, range)) =>
       info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
     )
     ->Option.map(((range, filepath, offset)) => {
@@ -796,7 +799,7 @@ module Module: Module = {
     let (semanticTokens, decorations) =
       tokens
       ->toArray
-      ->Array.map(((info: Token.t, range)) => {
+      ->Array.map(((info: Token.t, offset, range)) => {
         // split the range in case that it spans multiple lines
         let ranges = Highlighting__SemanticToken.SingleLineRange.splitRange(
           VSCode.TextEditor.document(editor),
@@ -840,7 +843,7 @@ module Module: Module = {
     let aspects: array<(Aspect.t, VSCode.Range.t)> =
       self
       ->toArray
-      ->Array.map(((info, range)) =>
+      ->Array.map(((info, offset, range)) =>
         // pair the aspect with the range
         info.aspects->Array.map(aspect => (aspect, range))
       )
