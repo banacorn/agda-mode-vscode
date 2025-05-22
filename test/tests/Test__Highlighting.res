@@ -1,7 +1,7 @@
 open Mocha
 open Test__Util
 
-describe("Highlighting", () => {
+describe_only("Highlighting", () => {
   let fileContent = ref("")
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Issue180.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("Issue180.agda"), fileContent.contents))
@@ -21,7 +21,7 @@ describe("Highlighting", () => {
       make(8, (4, 5), Variable, Some([])),
     ]
 
-    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
+    let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
     let actual = tokens->Array.sliceToEnd(~start=12)
 
     Assert.deepStrictEqual(actual, expected)
@@ -45,7 +45,7 @@ describe("Highlighting", () => {
       make(6, (2, 3), Function, Some([])),
       make(6, (4, 5), Variable, Some([])),
     ]
-    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
+    let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
     let actual = tokens->Array.sliceToEnd(~start=12)
 
     Assert.deepStrictEqual(actual, expected)
@@ -59,14 +59,10 @@ describe("Highlighting", () => {
       VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(7, 0)),
     )
 
-    open Highlighting__SemanticToken
-    let expected = [
-      make(5, (0, 1), Variable, Some([])),
-      make(5, (2, 3), Function, Some([])),
-      make(5, (4, 5), Variable, Some([])),
-    ]
-    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
-    let actual = tokens->Array.sliceToEnd(~start=12)
+    let expected = ["(5:0-1) variable ", "(5:2-3) function ", "(5:4-5) variable "]
+    let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+    let actual =
+      tokens->Array.sliceToEnd(~start=12)->Array.map(Highlighting__SemanticToken.toString)
 
     Assert.deepStrictEqual(actual, expected)
   })

@@ -99,7 +99,7 @@ let make = (channels, globalStorageUri, extensionPath, memento, editor, semantic
   panelCache: ViewCache.make(),
   runningInfoLog: [],
   goals: [],
-  tokens: Tokens.make(),
+  tokens: Tokens.make(semanticTokens),
   highlighting: Highlighting.make(semanticTokens),
   cursor: None,
   editorIM: IM.make(channels.inputMethod),

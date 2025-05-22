@@ -30,7 +30,7 @@ module Module: {
       switch state {
       | None => {state: None, semanticTokens: Resource.make()}
       | Some(state: State.t) =>
-        let semanticTokens = state.highlighting->Highlighting.getSemanticTokens
+        let semanticTokens = state.tokens->Tokens.getVSCodeTokens
         {
           state: Some(state),
           semanticTokens, 

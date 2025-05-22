@@ -114,7 +114,9 @@ let initialize = (
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
     // updates positions of semantic highlighting tokens accordingly
-    state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
+    state.tokens->Tokens.applyEdit(editor, event)
+
+    // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
   })->subscribe
 
   // definition provider for go-to-definition

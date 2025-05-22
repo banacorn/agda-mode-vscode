@@ -21,7 +21,7 @@ module type Module = {
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
 
-  let updateSemanticHighlighting: (t, VSCode.TextDocumentChangeEvent.t) => promise<unit>
+  // let updateSemanticHighlighting: (t, VSCode.TextDocumentChangeEvent.t) => promise<unit>
   let getSemanticTokens: t => Resource.t<array<SemanticToken.t>>
 }
 

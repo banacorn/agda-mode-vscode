@@ -613,7 +613,7 @@ module type Module = {
   type t
   let toString: t => string
 
-  let make: unit => t
+  let make: option<Resource.t<array<Highlighting__SemanticToken.t>>> => t
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
   let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
@@ -632,6 +632,10 @@ module type Module = {
     t,
     VSCode.TextEditor.t,
   ) => (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<Highlighting__SemanticToken.t>)
+
+  let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
+
+  let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
 }
 
 module Module: Module = {
@@ -692,7 +696,7 @@ module Module: Module = {
     mutable deltas: Intervals.t,
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
-    mutable vscodeTokens: array<Highlighting__SemanticToken.t>,
+    mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
   }
 
   let toString = self => {
@@ -717,11 +721,14 @@ module Module: Module = {
     tokens
   }
 
-  let make = () => {
+  let make = vscodeTokensResource => {
     tempFiles: [],
     agdaTokens: AVLTree.make(),
     deltas: Intervals.empty,
-    vscodeTokens: [],
+    vscodeTokens: switch vscodeTokensResource {
+    | None => Resource.make()
+    | Some(resource) => resource
+    },
   }
 
   // insert a bunch of Tokens
@@ -853,34 +860,6 @@ module Module: Module = {
       ->Array.flat
 
     fromAspects(editor, xs)
-    //   ->Array.filterMap(((aspects, range)) => {
-    //     // convert Aspects to TokenType / TokenModifiers / Backgrounds
-    //     let (tokenTypeAndModifiers, decorations) =
-    //       aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
-    //     let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
-    //     // merge TokenType / TokenModifiers / Backgrounds
-    //     let tokenTypes = tokenTypes->Array.filterMap(x => x)
-    //     let tokenModifiers = tokenModifiers->Array.flat
-    //     let decorations =
-    //       decorations->Array.filterMap(x =>
-    //         x->Option.map(
-    //           x => (x, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)),
-    //         )
-    //       )
-
-    //     // only 1 TokenType is allowed, so we take the first one
-    //     let semanticToken = tokenTypes[0]->Option.map(tokenType => {
-    //       Highlighting__SemanticToken.range,
-    //       type_: tokenType,
-    //       modifiers: Some(tokenModifiers),
-    //     })
-    //     Some(semanticToken, decorations)
-    //   })
-    //   ->Belt.Array.unzip
-    // let semanticTokens = semanticTokens->Array.filterMap(x => x)
-    // let decorations = decorations->Array.flat->Highlighting__Decoration.toVSCodeDecorations(editor)
-
-    // (decorations, semanticTokens)
   }
 
   // for traditional fixed-color highlighting
@@ -901,8 +880,13 @@ module Module: Module = {
 
   type action = Remove | Translate(int)
 
-  // Apply edit changes to the deltas, and return the updated vscodeTokens accordingly
-  let applyEdits = (self, editor, changes) => {
+  // Apply edit event to the deltas, and return the updated vscodeTokens accordingly
+  let applyEdit = (self, editor, event) => {
+    let changes =
+      event
+      ->VSCode.TextDocumentChangeEvent.contentChanges
+      ->Array.map(Change.fromTextDocumentContentChangeEvent)
+
     // update the deltas
     self.deltas = Intervals.applyChanges(self.deltas, changes)
 
@@ -976,8 +960,10 @@ module Module: Module = {
 
     let (decorations, semanticTokens) = fromAspects(editor, aspects)
 
-    self.vscodeTokens = semanticTokens
+    self.vscodeTokens->Resource.set(semanticTokens)
   }
+
+  let getVSCodeTokens = self => self.vscodeTokens
 }
 
 include Module
