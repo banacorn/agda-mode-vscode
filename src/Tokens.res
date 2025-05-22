@@ -277,10 +277,12 @@ module Intervals = {
   //    1. The intervals are non-overlapping
   //    2. The intervals are in ascending order
   //    3. Inserted length >= 0
+  //    4. The intervals are not empty
   type error =
-    | Overlapping // intervals are non-overlapping
+    | Overlapping // intervals are overlapping
     | ReversedOrder // intervals are in reversed order
     | NegativeInsertion // insertion length < 0
+    | Empty
 
   let hasError = xs => {
     let rec aux = (prevEnd, before, xs) => {
@@ -296,6 +298,8 @@ module Intervals = {
           Some(ReversedOrder) // reversed order
         } else if inserted < 0 {
           Some(NegativeInsertion)
+        } else if start == end && inserted == 0 {
+          Some(Empty)
         } else {
           aux(end, after, tail)
         }
@@ -311,6 +315,7 @@ module Intervals = {
     | Some(Overlapping) => Some("Has overlapping intervals")
     | Some(ReversedOrder) => Some("Has reversed order intervals")
     | Some(NegativeInsertion) => Some("Has negative insertion")
+    | Some(Empty) => Some("Has empty intervals")
     }
     switch aux {
     | None => ()
@@ -384,18 +389,28 @@ module Intervals = {
   //        [end+after   ,          ...) should be mapped back to [end , ...)
   //
   //
-  type source =
-    | Before(int) // exists in the original document at this offset before the existing insertion
-    | InInsertion(int)
-    | After(int) // exists in the original document at this offset after the existing insertion
-  let calculateOriginalOffset = (deltaBefore, start, end, deltaAfter, x) =>
-    if x >= end + deltaAfter {
-      After(x - deltaAfter)
-    } else if x <= deltaBefore + start {
-      Before(x - deltaBefore)
-    } else {
-      InInsertion(x - deltaBefore)
-    }
+  module Source = {
+    type t =
+      | Before(int) // exists in the original document at this offset before the existing insertion
+      | InInsertion(int)
+      | After(int) // exists in the original document at this offset after the existing insertion
+    
+    let toString = x =>
+      switch x {
+      | Before(x) => "Before " ++ string_of_int(x)
+      | InInsertion(x) => "InInsertion " ++ string_of_int(x)
+      | After(x) => "After " ++ string_of_int(x)
+      }
+
+    let calculateOriginalOffset = (deltaBefore, start, end, deltaAfter, x) =>
+      if x >= end + deltaAfter {
+        After(x - deltaAfter)
+      } else if x <= deltaBefore + start {
+        Before(x - deltaBefore)
+      } else {
+        InInsertion(x - deltaBefore)
+      }
+  }
 
   let printInterval = (deltaBefore, start, end, deltaAfter) => {
     Js.log("interval delta before: " ++ string_of_int(deltaBefore))
@@ -405,6 +420,15 @@ module Intervals = {
     Js.log("         removed: " ++ string_of_int(end - start))
     Js.log("         inserted: " ++ string_of_int(deltaAfter - deltaBefore + end - start))
   }
+
+  // helper function for adding an interval to the list of intervals
+  // if the start and end are the same and it inserts nothing, we don't need to add it
+  let addInterval = (deltaBefore, start, end, deltaAfter, xs) =>
+    if start == end && deltaBefore == deltaAfter {
+      xs
+    } else {
+      Replace(start, end, deltaAfter, xs)
+    }
 
   // xs: intervals
   // changes: list of incoming changes
@@ -416,14 +440,21 @@ module Intervals = {
       | EOF => EOF
       | Replace(start, end, deltaAfter, tail) =>
         let deltaAfter = deltaAfter + translation
-        Replace(start, end, deltaAfter, applyChangeAux(tail, deltaBefore, translation, list{}))
+        addInterval(
+          deltaBefore,
+          start,
+          end,
+          deltaAfter,
+          applyChangeAux(tail, deltaAfter, translation, list{}),
+        )
       }
     | list{change, ...changes} =>
       switch xs {
       | EOF =>
         let deltaAfter = deltaBefore + Change.delta(change)
 
-        Replace(
+        addInterval(
+          deltaBefore,
           change.offset - deltaBefore,
           change.offset + change.removed - deltaBefore,
           deltaAfter,
@@ -431,14 +462,14 @@ module Intervals = {
         )
       | Replace(start, end, deltaAfter, tail) =>
         let deltaAfter = deltaAfter + translation
-        let changeRemovalStart = calculateOriginalOffset(
+        let changeRemovalStart = Source.calculateOriginalOffset(
           deltaBefore,
           start,
           end,
           deltaAfter,
           change.offset,
         )
-        let changeRemovalEnd = calculateOriginalOffset(
+        let changeRemovalEnd = Source.calculateOriginalOffset(
           deltaBefore,
           start,
           end,
@@ -509,7 +540,9 @@ module Intervals = {
           //    changeStart   changeEnd
           //
           let delta = Change.delta(change)
-          Replace(
+
+          addInterval(
+            deltaBefore,
             changeStart,
             changeEnd,
             deltaBefore + delta,
@@ -534,7 +567,8 @@ module Intervals = {
             inserted: change.inserted,
           }
 
-          Replace(
+          addInterval(
+            deltaBefore,
             changeStart,
             end,
             deltaAfter + delta,
@@ -563,7 +597,8 @@ module Intervals = {
             inserted: change.inserted,
           }
 
-          Replace(
+          addInterval(
+            deltaBefore,
             start,
             end,
             deltaAfter + delta,
@@ -584,13 +619,21 @@ module Intervals = {
           //                          ┣━━━━━━━━━━━━━━━━┫
           //                          changeStart      changeEnd
           //
-          Replace(
+
+          addInterval(
+            deltaBefore,
             start,
             end,
             deltaAfter,
             applyChangeAux(tail, deltaAfter, translation, list{change, ...changes}),
           )
-        | _ => Js.Exn.raiseError("Not a possible case")
+        | _ =>
+          Js.Exn.raiseError(
+            "Not a possible case: " ++
+            Source.toString(changeRemovalStart) ++
+            " " ++
+            Source.toString(changeRemovalEnd),
+          )
         }
       }
     }
@@ -888,8 +931,16 @@ module Module: Module = {
       ->Array.map(Change.fromTextDocumentContentChangeEvent)
 
     // update the deltas
+    // if changes->Array.length != 0 {
+      Js.log("Changes: " ++ changes->Array.map(Change.toString)->Array.join(", "))
+      Js.log("Deltas before: " ++ Intervals.toString(self.deltas))
+    // }
+
     self.deltas = Intervals.applyChanges(self.deltas, changes)
 
+    // if changes->Array.length != 0 {
+      Js.log("        after: " ++ Intervals.toString(self.deltas))
+    // }
     // generate new vscodeTokens from the new deltas and the agdaTokens
     let (aspects, _, _) =
       self

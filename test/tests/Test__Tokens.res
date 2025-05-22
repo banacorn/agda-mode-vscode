@@ -14,8 +14,7 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, _, range)) =>
-              Editor.Range.toString(range) ++ " " ++ Token.toString(token),
+            ((token, _, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
           )
         Assert.deepEqual(Array.length(tokens), 28)
       },
@@ -29,8 +28,7 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, _, range)) =>
-              Editor.Range.toString(range) ++ " " ++ Token.toString(token),
+            ((token, _, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
           )
 
         let srcOfPrimitive = switch ctx.state.agdaVersion {
@@ -119,6 +117,25 @@ describe("Tokens", () => {
         )
       },
     )
+
+    // it_only(
+    //   "`applyChanges` twice should result in correct intervals with changes",
+    //   () => {
+    //     let batch1 = [{Change.offset: 67, removed: 1, inserted: 0}]
+    //     let batch2 = []
+    //     let batches = [batch1, batch2]
+
+    //     let intervals = Intervals.empty->Intervals.applyChanges(batch1)
+    //     Js.log("intervals:  " ++ intervals->Intervals.toString)
+    //     let intervals = intervals->Intervals.applyChanges(batch2)
+    //     // Js.log("intervals:  " ++ intervals->Intervals.toString)
+    //     // let intervals = intervals->Intervals.applyChanges(batch3)
+    //     Js.log("intervals:  " ++ intervals->Intervals.toString)
+    //     Assert.deepStrictEqual(intervals->Intervals.hasError, None)
+
+    //     intervals->Intervals.isValidWRTChangeBatches(batches)->Assert.ok
+    //   },
+    // )
 
     it(
       "`applyChanges` twice should result in correct intervals with changes",
