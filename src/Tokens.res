@@ -394,7 +394,7 @@ module Intervals = {
       | Before(int) // exists in the original document at this offset before the existing insertion
       | InInsertion(int)
       | After(int) // exists in the original document at this offset after the existing insertion
-    
+
     let toString = x =>
       switch x {
       | Before(x) => "Before " ++ string_of_int(x)
@@ -921,7 +921,7 @@ module Module: Module = {
     ->Highlighting__Decoration.toVSCodeDecorations(editor)
   }
 
-  type action = Remove | Translate(int)
+  type action = Remove | Translate(int) | NextInterval(Intervals.t)
 
   // Apply edit event to the deltas, and return the updated vscodeTokens accordingly
   let applyEdit = (self, editor, event) => {
@@ -931,66 +931,42 @@ module Module: Module = {
       ->Array.map(Change.fromTextDocumentContentChangeEvent)
 
     // update the deltas
-    // if changes->Array.length != 0 {
-      Js.log("Changes: " ++ changes->Array.map(Change.toString)->Array.join(", "))
-      Js.log("Deltas before: " ++ Intervals.toString(self.deltas))
-    // }
-
     self.deltas = Intervals.applyChanges(self.deltas, changes)
 
-    // if changes->Array.length != 0 {
-      Js.log("        after: " ++ Intervals.toString(self.deltas))
-    // }
     // generate new vscodeTokens from the new deltas and the agdaTokens
-    let (aspects, _, _) =
-      self
-      ->toArray
-      ->Array.reduce(([], self.deltas, 0), (
-        (acc, interval, deltaBefore),
-        (token, (offsetStart, offsetEnd), range),
-      ) => {
-        let document = editor->VSCode.TextEditor.document
-        // the token WITHIN the rmeoval interval should be removed
-        // the token AFTER the removal interval and BEFORE the next removal interval should be translated by the said delta
-        let (action, interval, deltaAfter) = switch interval {
-        | EOF => (Translate(deltaBefore), interval, deltaBefore)
-        // | Replace(removalStart, removeEnd, delta, EOF) =>
-        //   if offsetEnd < removalStart {
-        //     //    interval         ┣━━━━━━━━━━━━━━┫
-        //     //    token    ┣━━━━━━┫
-        //     (Translate(deltaBefore), interval, deltaBefore)
-        //   } else if offsetStart < removeEnd {
-        //     //    interval ┣━━━━━━━━━━━━━━┫
-        //     //    token    ┣━━━━━━┫
-        //     // this token should be removed
-        //     (Remove, interval, deltaBefore)
-        //   } else {
-        //     //    interval ┣━━━━━━━━━━━━━━┫ EOF
-        //     //    token                     ┣━━━━━━┫
-        //     // this token should be translated
-        //     (Translate(delta), EOF, delta)
-        //   }
+    let document = editor->VSCode.TextEditor.document
+    let tokens = self->toArray
+
+    let rec convert = (acc, tokens, i, intervals, deltaBefore) =>
+      switch tokens[i] {
+      | None => acc
+      | Some((token, (offsetStart, offsetEnd), range)) =>
+        // token WITHIN the rmeoval interval should be removed
+        // token AFTER the removal interval should be translated
+        let (action, deltaAfter) = switch intervals {
+        | Intervals.EOF => (Translate(deltaBefore), deltaBefore)
         | Replace(removalStart, removeEnd, delta, tail) =>
           if offsetEnd < removalStart {
             //    interval         ┣━━━━━━━━━━━━━━┫
             //    token    ┣━━━━━━┫
-            (Translate(deltaBefore), interval, deltaBefore)
+            (Translate(deltaBefore), deltaBefore)
           } else if offsetStart < removeEnd {
             //    interval ┣━━━━━━━━━━━━━━┫
             //    token    ┣━━━━━━┫
             // this token should be removed
-            (Remove, interval, deltaBefore)
+            (Remove, deltaBefore)
           } else {
             //    interval ┣━━━━━━━━━━━━━━┫ EOF
             //    token                     ┣━━━━━━┫
             // this token should be translated
-            (Translate(delta), tail, delta)
+            (NextInterval(tail), delta)
           }
         }
 
-        let tokens = switch action {
-        | Remove => // remove the token
-          []
+        switch action {
+        | Remove =>
+          // remove this token, move on to the next one
+          convert(acc, tokens, i + 1, intervals, deltaAfter)
         | Translate(delta) =>
           let offsetStart = offsetStart + delta
           let offsetEnd = offsetEnd + delta
@@ -1003,11 +979,13 @@ module Module: Module = {
             document,
             range,
           )
-          singleLineRanges->Array.map(range => (token.aspects, range))
+          let result = singleLineRanges->Array.map(range => (token.Token.aspects, range))
+          convert([...acc, ...result], tokens, i + 1, intervals, deltaAfter)
+        | NextInterval(tail) => convert(acc, tokens, i, tail, deltaAfter)
         }
+      }
 
-        ([...acc, ...tokens], interval, deltaAfter)
-      })
+    let aspects = convert([], tokens, 0, self.deltas, 0)
 
     let (decorations, semanticTokens) = fromAspects(editor, aspects)
 

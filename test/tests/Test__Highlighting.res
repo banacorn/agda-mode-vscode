@@ -1,12 +1,12 @@
 open Mocha
 open Test__Util
 
-describe_only("Highlighting", () => {
+describe("Highlighting", () => {
   let fileContent = ref("")
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Issue180.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("Issue180.agda"), fileContent.contents))
 
-  Async.it_skip("should work after inserting a newline", async () => {
+  Async.it("should work after inserting a newline", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
     let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(6, 0), "\n")
 
@@ -26,7 +26,6 @@ describe_only("Highlighting", () => {
 
     Assert.deepStrictEqual(actual, expected)
   })
-
 
   Async.it("should work after deleting an empty line", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
