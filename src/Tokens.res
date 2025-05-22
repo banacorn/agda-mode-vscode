@@ -620,7 +620,7 @@ module type Module = {
   let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
   let clear: t => unit
 
-  let toArray: t => array<(Token.t, int, VSCode.Range.t)>
+  let toArray: t => array<(Token.t, (int, int), VSCode.Range.t)>
 
   let lookupSrcLoc: (
     t,
@@ -687,7 +687,12 @@ module Module: Module = {
     mutable tempFiles: array<TempFile.t>,
     // Tokens from Agda, indexed by the starting offset
     // because AVLTree is crap, we need to save the index (starting offset) alongside the value for easy access
-    mutable agdaTokens: AVLTree.t<(Token.t, int, VSCode.Range.t)>,
+    mutable agdaTokens: AVLTree.t<(Token.t, (int, int), VSCode.Range.t)>,
+    // Keep track of edits to the document
+    mutable deltas: Intervals.t,
+    // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
+    // expected to be updated along with the deltas
+    mutable vscodeTokens: array<Highlighting__SemanticToken.t>,
   }
 
   let toString = self => {
@@ -715,30 +720,35 @@ module Module: Module = {
   let make = () => {
     tempFiles: [],
     agdaTokens: AVLTree.make(),
+    deltas: Intervals.empty,
+    vscodeTokens: [],
   }
 
   // insert a bunch of Tokens
   // merge Aspects with the existing Token that occupies the same Range
   let insert = (self, editor, tokens: array<Token.t>) => {
+    let document = editor->VSCode.TextEditor.document
+    let text = Editor.Text.getAll(document)
+    let offsetConverter = Agda.OffsetConverter.make(text)
     tokens->Array.forEach(info => {
-      let document = editor->VSCode.TextEditor.document
-      let text = Editor.Text.getAll(document)
-      let offsetConverter = Agda.OffsetConverter.make(text)
-      let startOffset = Agda.OffsetConverter.convert(offsetConverter, info.start)
-      let existing = self.agdaTokens->AVLTree.find(startOffset)
+      let offsetStart = Agda.OffsetConverter.convert(offsetConverter, info.start)
+      let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, info.end_)
+      let existing = self.agdaTokens->AVLTree.find(offsetStart)
       switch existing {
       | None =>
-        let start = VSCode.TextDocument.positionAt(document, startOffset)
+        let start = VSCode.TextDocument.positionAt(document, offsetStart)
 
         let end_ = VSCode.TextDocument.positionAt(
           document,
           Agda.OffsetConverter.convert(offsetConverter, info.end_),
         )
         let range = VSCode.Range.make(start, end_)
-        self.agdaTokens->AVLTree.insert(startOffset, (info, startOffset, range))->ignore
-      | Some((old, offset, range)) =>
+        self.agdaTokens
+        ->AVLTree.insert(offsetStart, (info, (offsetStart, offsetEnd), range))
+        ->ignore
+      | Some((old, offses, range)) =>
         // merge Aspects
-        self.agdaTokens->AVLTree.remove(startOffset)->ignore
+        self.agdaTokens->AVLTree.remove(offsetStart)->ignore
         // often the new aspects would look exactly like the old ones
         // don't duplicate them in that case
         let newAspects =
@@ -747,7 +757,7 @@ module Module: Module = {
           ...old,
           aspects: newAspects,
         }
-        self.agdaTokens->AVLTree.insert(startOffset, (new, offset, range))
+        self.agdaTokens->AVLTree.insert(offsetStart, (new, offses, range))
       }
     })
   }
@@ -794,20 +804,9 @@ module Module: Module = {
     })
   }
 
-  // for the new semantic highlighting
-  let toDecorationsAndSemanticTokens = (tokens, editor) => {
+  let fromAspects = (editor, xs) => {
     let (semanticTokens, decorations) =
-      tokens
-      ->toArray
-      ->Array.map(((info: Token.t, offset, range)) => {
-        // split the range in case that it spans multiple lines
-        let ranges = Highlighting__SemanticToken.SingleLineRange.splitRange(
-          VSCode.TextEditor.document(editor),
-          range,
-        )
-        ranges->Array.map(range => (info.aspects, range))
-      })
-      ->Array.flat
+      xs
       ->Array.filterMap(((aspects, range)) => {
         // convert Aspects to TokenType / TokenModifiers / Backgrounds
         let (tokenTypeAndModifiers, decorations) =
@@ -838,6 +837,52 @@ module Module: Module = {
     (decorations, semanticTokens)
   }
 
+  // for the new semantic highlighting
+  let toDecorationsAndSemanticTokens = (tokens, editor) => {
+    let xs =
+      tokens
+      ->toArray
+      ->Array.map(((info: Token.t, offset, range)) => {
+        // split the range in case that it spans multiple lines
+        let ranges = Highlighting__SemanticToken.SingleLineRange.splitRange(
+          VSCode.TextEditor.document(editor),
+          range,
+        )
+        ranges->Array.map(range => (info.aspects, range))
+      })
+      ->Array.flat
+
+    fromAspects(editor, xs)
+    //   ->Array.filterMap(((aspects, range)) => {
+    //     // convert Aspects to TokenType / TokenModifiers / Backgrounds
+    //     let (tokenTypeAndModifiers, decorations) =
+    //       aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
+    //     let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
+    //     // merge TokenType / TokenModifiers / Backgrounds
+    //     let tokenTypes = tokenTypes->Array.filterMap(x => x)
+    //     let tokenModifiers = tokenModifiers->Array.flat
+    //     let decorations =
+    //       decorations->Array.filterMap(x =>
+    //         x->Option.map(
+    //           x => (x, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)),
+    //         )
+    //       )
+
+    //     // only 1 TokenType is allowed, so we take the first one
+    //     let semanticToken = tokenTypes[0]->Option.map(tokenType => {
+    //       Highlighting__SemanticToken.range,
+    //       type_: tokenType,
+    //       modifiers: Some(tokenModifiers),
+    //     })
+    //     Some(semanticToken, decorations)
+    //   })
+    //   ->Belt.Array.unzip
+    // let semanticTokens = semanticTokens->Array.filterMap(x => x)
+    // let decorations = decorations->Array.flat->Highlighting__Decoration.toVSCodeDecorations(editor)
+
+    // (decorations, semanticTokens)
+  }
+
   // for traditional fixed-color highlighting
   let toDecorations = (self, editor): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
     let aspects: array<(Aspect.t, VSCode.Range.t)> =
@@ -852,6 +897,86 @@ module Module: Module = {
     aspects
     ->Array.filterMap(((aspect, range)) => Aspect.toDecoration(aspect)->Option.map(x => (x, range)))
     ->Highlighting__Decoration.toVSCodeDecorations(editor)
+  }
+
+  type action = Remove | Translate(int)
+
+  // Apply edit changes to the deltas, and return the updated vscodeTokens accordingly
+  let applyEdits = (self, editor, changes) => {
+    // update the deltas
+    self.deltas = Intervals.applyChanges(self.deltas, changes)
+
+    // generate new vscodeTokens from the new deltas and the agdaTokens
+    let (aspects, _, _) =
+      self
+      ->toArray
+      ->Array.reduce(([], self.deltas, 0), (
+        (acc, interval, deltaBefore),
+        (token, (offsetStart, offsetEnd), range),
+      ) => {
+        let document = editor->VSCode.TextEditor.document
+        // the token WITHIN the rmeoval interval should be removed
+        // the token AFTER the removal interval and BEFORE the next removal interval should be translated by the said delta
+        let (action, interval, deltaAfter) = switch interval {
+        | EOF => (Translate(deltaBefore), interval, deltaBefore)
+        // | Replace(removalStart, removeEnd, delta, EOF) =>
+        //   if offsetEnd < removalStart {
+        //     //    interval         ┣━━━━━━━━━━━━━━┫
+        //     //    token    ┣━━━━━━┫
+        //     (Translate(deltaBefore), interval, deltaBefore)
+        //   } else if offsetStart < removeEnd {
+        //     //    interval ┣━━━━━━━━━━━━━━┫
+        //     //    token    ┣━━━━━━┫
+        //     // this token should be removed
+        //     (Remove, interval, deltaBefore)
+        //   } else {
+        //     //    interval ┣━━━━━━━━━━━━━━┫ EOF
+        //     //    token                     ┣━━━━━━┫
+        //     // this token should be translated
+        //     (Translate(delta), EOF, delta)
+        //   }
+        | Replace(removalStart, removeEnd, delta, tail) =>
+          if offsetEnd < removalStart {
+            //    interval         ┣━━━━━━━━━━━━━━┫
+            //    token    ┣━━━━━━┫
+            (Translate(deltaBefore), interval, deltaBefore)
+          } else if offsetStart < removeEnd {
+            //    interval ┣━━━━━━━━━━━━━━┫
+            //    token    ┣━━━━━━┫
+            // this token should be removed
+            (Remove, interval, deltaBefore)
+          } else {
+            //    interval ┣━━━━━━━━━━━━━━┫ EOF
+            //    token                     ┣━━━━━━┫
+            // this token should be translated
+            (Translate(delta), tail, delta)
+          }
+        }
+
+        let tokens = switch action {
+        | Remove => // remove the token
+          []
+        | Translate(delta) =>
+          let offsetStart = offsetStart + delta
+          let offsetEnd = offsetEnd + delta
+          let range = VSCode.Range.make(
+            document->VSCode.TextDocument.positionAt(offsetStart),
+            document->VSCode.TextDocument.positionAt(offsetEnd),
+          )
+          // split the range in case that it spans multiple lines
+          let singleLineRanges = Highlighting__SemanticToken.SingleLineRange.splitRange(
+            document,
+            range,
+          )
+          singleLineRanges->Array.map(range => (token.aspects, range))
+        }
+
+        ([...acc, ...tokens], interval, deltaAfter)
+      })
+
+    let (decorations, semanticTokens) = fromAspects(editor, aspects)
+
+    self.vscodeTokens = semanticTokens
   }
 }
 
