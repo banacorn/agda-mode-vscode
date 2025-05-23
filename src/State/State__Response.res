@@ -101,10 +101,7 @@ let rec handle = async (
       state.tokens->Tokens.insert(state.editor, annotations)
     | HighlightingInfoIndirect(filepath) => state.tokens->Tokens.addEmacsFilePath(filepath)
     | HighlightingInfoIndirectJSON(filepath) => state.tokens->Tokens.addJSONFilePath(filepath)
-    | ClearHighlighting =>
-      Js.log("ClearHighlighting")
-      state.tokens->Tokens.reset
-      // state.highlighting->Highlighting.clear
+    | ClearHighlighting => state.tokens->Tokens.reset
     | Status(_checked, _displayImplicit) => // display(
       //   "Status",
       //   Some(
@@ -217,7 +214,6 @@ let rec handle = async (
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)
-      Js.log("CompleteHighlightingAndMakePromptReappear")
       state.tokens->Tokens.generate(state.editor)
     // await Highlighting.apply(state.highlighting, state.tokens, state.editor)
     | _ => ()

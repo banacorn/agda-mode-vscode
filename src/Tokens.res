@@ -647,6 +647,7 @@ module Intervals = {
     })
     ->snd
 
+  // NOTE: the incoming changes should be in ascending order
   let applyChanges = (xs: t, changes: array<Change.t>) => {
     applyChangeAux(xs, 0, 0, List.fromArray(changes->preprocessChangeBatch))
   }
@@ -995,8 +996,6 @@ module Module: Module = {
     let aspects = convert([], self->toArray, 0, self.deltas, 0)
 
     let (decorations, semanticTokens) = fromAspects(editor, aspects)
-    // Js.log("Decorations: " ++ decorations->Array.length->Int.toString)
-    Js.log("setting SemanticTokens: " ++ semanticTokens->Array.length->Int.toString)
     self.vscodeTokens->Resource.set(semanticTokens)
   }
 
@@ -1008,7 +1007,7 @@ module Module: Module = {
       ->Array.map(Change.fromTextDocumentContentChangeEvent)
 
     // update the deltas
-    self.deltas = Intervals.applyChanges(self.deltas, changes)
+    self.deltas = Intervals.applyChanges(self.deltas, changes->Array.toReversed)
 
     generate(self, editor)
   }
