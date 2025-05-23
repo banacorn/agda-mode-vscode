@@ -657,11 +657,14 @@ module type Module = {
   let toString: t => string
 
   let make: option<Resource.t<array<Highlighting__SemanticToken.t>>> => t
+
+  // Receive tokens from Agda
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
   let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
   let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
-  let clear: t => unit
+
+  let reset: t => unit
 
   let toArray: t => array<(Token.t, (int, int), VSCode.Range.t)>
 
@@ -676,6 +679,7 @@ module type Module = {
     VSCode.TextEditor.t,
   ) => (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<Highlighting__SemanticToken.t>)
 
+  let generate: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
@@ -824,12 +828,24 @@ module Module: Module = {
     self.tempFiles = []
   }
 
-  let clear = self => {
+  let reset = self => {
     // delete all unhandded temp files
     self.tempFiles->Array.forEach(format => {
       N.Fs.unlink(TempFile.toFilepath(format), _ => ())
     })
+
+    // reset the AgdaTokens
     self.agdaTokens = AVLTree.make()
+
+    // reset the deltas
+    self.deltas = Intervals.empty
+
+    // reset the vscodeTokens (only when it has ever been set)
+    if self.vscodeTokens->Resource.isPending {
+      ()
+    } else {
+      self.vscodeTokens->Resource.set([])
+    }
   }
 
   let toArray = self => self.agdaTokens->AVLTree.toArray
@@ -923,19 +939,10 @@ module Module: Module = {
 
   type action = Remove | Translate(int) | NextInterval(Intervals.t)
 
-  // Apply edit event to the deltas, and return the updated vscodeTokens accordingly
-  let applyEdit = (self, editor, event) => {
-    let changes =
-      event
-      ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(Change.fromTextDocumentContentChangeEvent)
-
-    // update the deltas
-    self.deltas = Intervals.applyChanges(self.deltas, changes)
-
+  // Generate tokens from the deltas and agdaTokens
+  let generate = (self, editor) => {
     // generate new vscodeTokens from the new deltas and the agdaTokens
     let document = editor->VSCode.TextEditor.document
-    let tokens = self->toArray
 
     let rec convert = (acc, tokens, i, intervals, deltaBefore) =>
       switch tokens[i] {
@@ -985,11 +992,25 @@ module Module: Module = {
         }
       }
 
-    let aspects = convert([], tokens, 0, self.deltas, 0)
+    let aspects = convert([], self->toArray, 0, self.deltas, 0)
 
     let (decorations, semanticTokens) = fromAspects(editor, aspects)
-
+    // Js.log("Decorations: " ++ decorations->Array.length->Int.toString)
+    Js.log("setting SemanticTokens: " ++ semanticTokens->Array.length->Int.toString)
     self.vscodeTokens->Resource.set(semanticTokens)
+  }
+
+  // Update the deltas and generate new tokens
+  let applyEdit = (self, editor, event) => {
+    let changes =
+      event
+      ->VSCode.TextDocumentChangeEvent.contentChanges
+      ->Array.map(Change.fromTextDocumentContentChangeEvent)
+
+    // update the deltas
+    self.deltas = Intervals.applyChanges(self.deltas, changes)
+
+    generate(self, editor)
   }
 
   let getVSCodeTokens = self => self.vscodeTokens

@@ -16,13 +16,13 @@ module type Module = {
     int,
   ) => (VSCode.TextEditorDecorationType.t, VSCode.TextEditorDecorationType.t)
 
-  let apply: (t, Tokens.t, VSCode.TextEditor.t) => promise<unit>
-  let clear: t => unit
+  // let clear: t => unit
   // redecorate everything after the TextEditor has been replaced
   let redecorate: (t, VSCode.TextEditor.t) => unit
 
   // let updateSemanticHighlighting: (t, VSCode.TextDocumentChangeEvent.t) => promise<unit>
-  let getSemanticTokens: t => Resource.t<array<SemanticToken.t>>
+  // let getSemanticTokens: t => Resource.t<array<SemanticToken.t>>
+  // let apply: (t, Tokens.t, VSCode.TextEditor.t) => promise<unit>
 }
 
 module Module: Module = {

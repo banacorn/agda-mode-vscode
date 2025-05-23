@@ -33,7 +33,7 @@ module Module: {
         let semanticTokens = state.tokens->Tokens.getVSCodeTokens
         {
           state: Some(state),
-          semanticTokens, 
+          semanticTokens,
         }
       }
   }
@@ -56,8 +56,7 @@ module Module: {
     | Some(entry) =>
       switch entry.state {
       | Some(state) => entry.state = Some(state) // update the state
-      | None =>
-        dict->Dict.set(fileName, Entry.make(Some(state)))
+      | None => dict->Dict.set(fileName, Entry.make(Some(state)))
       }
     }
 
