@@ -242,6 +242,96 @@ module Module: Module = {
     }
   }
 
+  // rewrite question marks "?" to holes "{!   !}"
+  // and update the tokens infos to reflect the changes
+  let rewriteQuestionMarks = async (state: State.t, editor: VSCode.TextEditor.t): unit => {
+    let document = VSCode.TextEditor.document(editor)
+
+    let questionMarkTokens =
+      state.tokens
+      ->Tokens.getHoles
+      ->Map.values
+      ->Iterator.toArray
+      ->Array.filterMap(((token, _offset, range)) => {
+        let content = VSCode.TextDocument.getText(document, Some(range))
+        if content == "?" {
+          Some((token, (range, "{!   !}")))
+        } else {
+          None
+        }
+      })
+
+    let rewrites = questionMarkTokens->Array.map(snd)
+    Js.log("rewriting " ++ string_of_int(rewrites->Array.length) ++ " question marks")
+    let _ = await Editor.Text.batchReplace(document, rewrites)
+
+    // to restore the tokens destroyed when replacing the question marks
+    // we need to update the positions of the destroyed tokens
+    Js.log(
+      "destroyed tokens: " ++
+      questionMarkTokens
+      ->Array.map(((token, _)) => Tokens.Token.toString(token))
+      ->Util.Pretty.array,
+    )
+    let revivedQuestionMarkTokens =
+      questionMarkTokens
+      ->Array.reduce(([], 0), ((acc, delta), (token, _)) => {
+        (
+          [
+            ...acc,
+            {
+              ...token,
+              start: token.start + delta,
+              end_: token.end_ + delta + 6,
+            },
+          ],
+          delta + 6,
+        )
+      })
+      ->fst
+
+    Js.log(
+      "revived tokens: " ++
+      revivedQuestionMarkTokens
+      ->Array.map(token => Tokens.Token.toString(token))
+      ->Util.Pretty.array,
+    )
+    Tokens.insert(state.tokens, editor, revivedQuestionMarkTokens)
+  }
+
+  // NOTE: holes should only be decorated when all question marks have been replaced as "{!   !}"
+  let decorateHoles = async (
+    state: State.t,
+    editor: VSCode.TextEditor.t,
+    indices: array<int>,
+  ): array<Goal.t> => {
+    Js.log("decorating " ++ string_of_int(indices->Array.length) ++ " holes")
+    Js.log(
+      "holes: " ++
+      state.tokens
+      ->Tokens.getHolesSorted
+      ->Array.map(((token, _, _)) => Tokens.Token.toString(token))
+      ->Util.Pretty.array,
+    )
+    state.tokens
+    ->Tokens.getHolesSorted
+    ->Belt.Array.zip(indices)
+    ->Array.map((((token, interval, _range), index)) => {
+      Js.log("decorating hole #" ++ string_of_int(index) ++ " " ++ Editor.Range.toString(_range))
+      let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
+        editor,
+        interval,
+        index,
+      )
+      {
+        Goal.index,
+        interval,
+        decorationBackground,
+        decorationIndex,
+      }
+    })
+  }
+
   let instantiate = async (state: State.t, indices) => {
     // destroy all existing goals
     state.goals->Array.forEach(Goal.destroyDecoration)
@@ -256,7 +346,9 @@ module Module: Module = {
     let cursorEnd = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection))
 
     // instantiate new ones
-    let goals = await Goal.makeMany(state.editor, indices)
+    await rewriteQuestionMarks(state, state.editor)
+    let goals = await decorateHoles(state, state.editor, indices)
+    // let goals = await Goal.makeMany(state.editor, holes)
     goals->Array.forEach(goal => {
       // if there's a cursor that touches the hole's "boundary"
       //

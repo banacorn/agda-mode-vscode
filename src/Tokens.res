@@ -674,16 +674,18 @@ module type Module = {
     int,
   ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
 
-  let toDecorations: (t, VSCode.TextEditor.t) => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
-  let toDecorationsAndSemanticTokens: (
-    t,
-    VSCode.TextEditor.t,
-  ) => (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<Highlighting__SemanticToken.t>)
+  // let toDecorations: (t, VSCode.TextEditor.t) => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
+  // let toDecorationsAndSemanticTokens: (
+  //   t,
+  //   VSCode.TextEditor.t,
+  // ) => (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<Highlighting__SemanticToken.t>)
 
   let generate: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
+  let getHoles: t => Map.t<int, (Token.t, (int, int), VSCode.Range.t)>
+  let getHolesSorted: t => array<(Token.t, (int, int), VSCode.Range.t)>
 }
 
 module Module: Module = {
@@ -745,6 +747,8 @@ module Module: Module = {
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
+    // ranges of holes
+    mutable holes: Map.t<int, (Token.t, (int, int), VSCode.Range.t)>,
   }
 
   let toString = self => {
@@ -777,6 +781,7 @@ module Module: Module = {
     | None => Resource.make()
     | Some(resource) => resource
     },
+    holes: Map.make(),
   }
 
   // insert a bunch of Tokens
@@ -785,9 +790,9 @@ module Module: Module = {
     let document = editor->VSCode.TextEditor.document
     let text = Editor.Text.getAll(document)
     let offsetConverter = Agda.OffsetConverter.make(text)
-    tokens->Array.forEach(info => {
-      let offsetStart = Agda.OffsetConverter.convert(offsetConverter, info.start)
-      let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, info.end_)
+    tokens->Array.forEach(token => {
+      let offsetStart = Agda.OffsetConverter.convert(offsetConverter, token.start)
+      let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, token.end_)
       let existing = self.agdaTokens->AVLTree.find(offsetStart)
       switch existing {
       | None =>
@@ -795,24 +800,33 @@ module Module: Module = {
 
         let end_ = VSCode.TextDocument.positionAt(
           document,
-          Agda.OffsetConverter.convert(offsetConverter, info.end_),
+          Agda.OffsetConverter.convert(offsetConverter, token.end_),
         )
         let range = VSCode.Range.make(start, end_)
         self.agdaTokens
-        ->AVLTree.insert(offsetStart, (info, (offsetStart, offsetEnd), range))
+        ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd), range))
         ->ignore
+        if token.aspects->Array.some(x => x == Aspect.Hole) {
+          // if the token is a Hole, then we need to add it to the holes map
+          self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+        }
       | Some((old, offses, range)) =>
         // merge Aspects
         self.agdaTokens->AVLTree.remove(offsetStart)->ignore
         // often the new aspects would look exactly like the old ones
         // don't duplicate them in that case
         let newAspects =
-          old.aspects == info.aspects ? old.aspects : Array.concat(old.aspects, info.aspects)
+          old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
         let new = {
           ...old,
           aspects: newAspects,
         }
         self.agdaTokens->AVLTree.insert(offsetStart, (new, offses, range))
+
+        if token.aspects->Array.some(x => x == Aspect.Hole) {
+          // if the token is a Hole, then we need to add it to the holes map
+          self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+        }
       }
     })
   }
@@ -871,6 +885,7 @@ module Module: Module = {
     })
   }
 
+  // Converts a list of Agda Aspects to a list of VSCode Tokens
   let fromAspects = (editor, xs) => {
     let (semanticTokens, decorations) =
       xs
@@ -905,38 +920,46 @@ module Module: Module = {
   }
 
   // for the new semantic highlighting
-  let toDecorationsAndSemanticTokens = (tokens, editor) => {
-    let xs =
-      tokens
-      ->toArray
-      ->Array.map(((info: Token.t, offset, range)) => {
-        // split the range in case that it spans multiple lines
-        let ranges = Highlighting__SemanticToken.SingleLineRange.splitRange(
-          VSCode.TextEditor.document(editor),
-          range,
-        )
-        ranges->Array.map(range => (info.aspects, range))
-      })
-      ->Array.flat
+  // let toDecorationsAndSemanticTokens = (tokens, editor) => {
+  //   let holes = []
 
-    fromAspects(editor, xs)
-  }
+  //   let xs =
+  //     tokens
+  //     ->toArray
+  //     ->Array.map(((info: Token.t, offset, range)) => {
+  //       // if the token is a Hole, then we collect it in the holes array
+  //       if info.aspects->Array.some(x => x == Aspect.Hole) {
+  //         holes->Array.push((info, offset, range))
+  //       }
+  //       // split the range in case that it spans multiple lines
+  //       let ranges = Highlighting__SemanticToken.SingleLineRange.splitRange(
+  //         VSCode.TextEditor.document(editor),
+  //         range,
+  //       )
+  //       ranges->Array.map(range => (info.aspects, range))
+  //     })
+  //     ->Array.flat
+
+  //   Js.log("holes: " ++ holes->Array.map(((token, _, _)) => Token.toString(token))->Array.join(", "))
+
+  //   fromAspects(editor, xs)
+  // }
 
   // for traditional fixed-color highlighting
-  let toDecorations = (self, editor): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
-    let aspects: array<(Aspect.t, VSCode.Range.t)> =
-      self
-      ->toArray
-      ->Array.map(((info, offset, range)) =>
-        // pair the aspect with the range
-        info.aspects->Array.map(aspect => (aspect, range))
-      )
-      ->Array.flat
+  // let toDecorations = (self, editor): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
+  //   let aspects: array<(Aspect.t, VSCode.Range.t)> =
+  //     self
+  //     ->toArray
+  //     ->Array.map(((info, offset, range)) =>
+  //       // pair the aspect with the range
+  //       info.aspects->Array.map(aspect => (aspect, range))
+  //     )
+  //     ->Array.flat
 
-    aspects
-    ->Array.filterMap(((aspect, range)) => Aspect.toDecoration(aspect)->Option.map(x => (x, range)))
-    ->Highlighting__Decoration.toVSCodeDecorations(editor)
-  }
+  //   aspects
+  //   ->Array.filterMap(((aspect, range)) => Aspect.toDecoration(aspect)->Option.map(x => (x, range)))
+  //   ->Highlighting__Decoration.toVSCodeDecorations(editor)
+  // }
 
   type action = Remove | Translate(int) | NextInterval(Intervals.t)
 
@@ -945,9 +968,9 @@ module Module: Module = {
     // generate new vscodeTokens from the new deltas and the agdaTokens
     let document = editor->VSCode.TextEditor.document
 
-    let rec convert = (acc, tokens, i, intervals, deltaBefore) =>
+    let rec convert = ((acc, holes), tokens, i, intervals, deltaBefore) =>
       switch tokens[i] {
-      | None => acc
+      | None => (acc, holes)
       | Some((token, (offsetStart, offsetEnd), range)) =>
         // token WITHIN the rmeoval interval should be removed
         // token AFTER the removal interval should be translated
@@ -974,7 +997,7 @@ module Module: Module = {
         switch action {
         | Remove =>
           // remove this token, move on to the next one
-          convert(acc, tokens, i + 1, intervals, deltaAfter)
+          convert((acc, holes), tokens, i + 1, intervals, deltaAfter)
         | Translate(delta) =>
           let offsetStart = offsetStart + delta
           let offsetEnd = offsetEnd + delta
@@ -982,18 +1005,25 @@ module Module: Module = {
             document->VSCode.TextDocument.positionAt(offsetStart),
             document->VSCode.TextDocument.positionAt(offsetEnd),
           )
+
+          // see if the token is a Hole, then we collect it in the holes array
+          if token.Token.aspects->Array.some(x => x == Aspect.Hole) {
+            holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+          }
           // split the range in case that it spans multiple lines
           let singleLineRanges = Highlighting__SemanticToken.SingleLineRange.splitRange(
             document,
             range,
           )
           let result = singleLineRanges->Array.map(range => (token.Token.aspects, range))
-          convert([...acc, ...result], tokens, i + 1, intervals, deltaAfter)
-        | NextInterval(tail) => convert(acc, tokens, i, tail, deltaAfter)
+          convert(([...acc, ...result], holes), tokens, i + 1, intervals, deltaAfter)
+        | NextInterval(tail) => convert((acc, holes), tokens, i, tail, deltaAfter)
         }
       }
 
-    let aspects = convert([], self->toArray, 0, self.deltas, 0)
+    let (aspects, holes) = convert(([], Map.make()), self->toArray, 0, self.deltas, 0)
+
+    self.holes = holes
 
     let (decorations, semanticTokens) = fromAspects(editor, aspects)
     self.vscodeTokens->Resource.set(semanticTokens)
@@ -1013,6 +1043,12 @@ module Module: Module = {
   }
 
   let getVSCodeTokens = self => self.vscodeTokens
+  let getHoles = self => self.holes
+  let getHolesSorted = self =>
+    self.holes
+    ->Map.values
+    ->Iterator.toArray
+    ->Array.toSorted(((_, (x, _), _), (_, (y, _), _)) => Int.compare(x, y))
 }
 
 include Module

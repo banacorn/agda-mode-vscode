@@ -12,7 +12,10 @@ module type Module = {
   //
   let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
-  let makeMany: (VSCode.TextEditor.t, array<int>) => promise<array<t>>
+  let makeMany: (
+    VSCode.TextEditor.t,
+    array<(int, ((int, int), VSCode.Range.t))>,
+  ) => promise<array<t>>
   // get the content inside the hole
   let getContent: (t, VSCode.TextDocument.t) => string
   // set the content inside the hole
@@ -43,31 +46,51 @@ module Module: Module = {
 
   // make an array of Goal.t with given goal indices
   // modifies the text buffer along the way
-  let makeMany = async (editor: VSCode.TextEditor.t, indices: array<int>): array<t> => {
+  let makeMany = async (
+    editor: VSCode.TextEditor.t,
+    holes: array<(int, ((int, int), VSCode.Range.t))>,
+  ): array<t> => {
     let document = VSCode.TextEditor.document(editor)
+    let indices = holes->Array.map(fst)
+    // we need to convert question marks "?" to holes "{!   !}"
+    let replacements = holes->Array.filterMap(((index, (offset, range))) => {
+      let content = VSCode.TextDocument.getText(document, Some(range))
+      if content == "?" {
+        Js.log("found a hole at " ++ string_of_int(index) ++ " " ++ Editor.Range.toString(range))
+        Some((range, "{!   !}"))
+      } else {
+        Js.log("found a non-hole at " ++ string_of_int(index) ++ " " ++ Editor.Range.toString(range))
+        None
+      }
+    })
+
     let diffs = generateDiffs(document, indices)
     // scan through the diffs to modify the text buffer one by one
 
     let delta = ref(0)
-    let replacements =
-      diffs
-      ->Array.filter(diff => diff.changed)
-      ->Array.map(diff => {
-        let range = VSCode.Range.make(
-          document->VSCode.TextDocument.positionAt(fst(diff.originalInterval) - delta.contents),
-          document->VSCode.TextDocument.positionAt(snd(diff.originalInterval) - delta.contents),
-        )
+    // let replacements =
+    //   diffs
+    //   ->Array.filter(diff => diff.changed)
+    //   ->Array.mapWithIndex((diff, i) => {
+    //     let range = VSCode.Range.make(
+    //       document->VSCode.TextDocument.positionAt(fst(diff.originalInterval) - delta.contents),
+    //       document->VSCode.TextDocument.positionAt(snd(diff.originalInterval) - delta.contents),
+    //     )
 
-        // update the delta
-        delta :=
-          delta.contents +
-          (snd(diff.modifiedInterval) - fst(diff.modifiedInterval)) -
-          (snd(diff.originalInterval) -
-          fst(diff.originalInterval))
+    //     // update the delta
+    //     delta :=
+    //       delta.contents +
+    //       (snd(diff.modifiedInterval) - fst(diff.modifiedInterval)) -
+    //       (snd(diff.originalInterval) -
+    //       fst(diff.originalInterval))
 
-        let text = diff.content
-        (range, text)
-      })
+    //     Js.log("goal range: " ++ Editor.Range.toString(range))
+    //     Js.log("expected content: " ++ diff.content)
+    //     Js.log("actual content: " ++ contents[i]->Option.getOr(""))
+
+    //     let text = diff.content
+    //     (range, text)
+    //   })
 
     let _ = await Editor.Text.batchReplace(document, replacements)
     diffs->Array.map(diff => {
