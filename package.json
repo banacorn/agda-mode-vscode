@@ -1005,11 +1005,6 @@
 					"scope": "machine-overridable",
 					"description": "How agda-mode receives highlighting information from Agda. Via either standard input/output or temporary files (which may require frequent disk access)."
 				},
-				"agdaMode.highlighting.getHighlightWithThemeColors": {
-					"type": "boolean",
-					"default": true,
-					"description": "Highlight stuff with theme colors"
-				},
 				"agdaMode.backend": {
 					"type": "string",
 					"default": "GHC",

@@ -143,61 +143,31 @@ let registerDocumentSemanticTokensProvider = () => {
   let tokenModifiers = Highlighting.SemanticToken.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
-    let useSemanticHighlighting = Config.Highlighting.getHighlightWithThemeColors()
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    if useSemanticHighlighting {
-      Registry.requestSemanticTokens(fileName)
-      ->Promise.thenResolve(tokens => {
-        open Editor.Provider.Mock
+    Registry.requestSemanticTokens(fileName)
+    ->Promise.thenResolve(tokens => {
+      open Editor.Provider.Mock
 
-        let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-          tokenTypes,
-          tokenModifiers,
+      let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
+        tokenTypes,
+        tokenModifiers,
+      )
+      let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+
+      tokens->Array.forEach(({range, type_, modifiers}) => {
+        SemanticTokensBuilder.pushLegend(
+          builder,
+          Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
+          Highlighting.SemanticToken.TokenType.toString(type_),
+          modifiers->Option.map(
+            xs => xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString),
+          ),
         )
-        let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-        tokens->Array.forEach(({range, type_, modifiers}) => {
-          SemanticTokensBuilder.pushLegend(
-            builder,
-            Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
-            Highlighting.SemanticToken.TokenType.toString(type_),
-            modifiers->Option.map(
-              xs => xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString),
-            ),
-          )
-        })
-
-        SemanticTokensBuilder.build(builder)
       })
-      ->(x => Some(x))
-    } else {
-      // Registry.get(fileName)->Option.map(state => {
-      //   Decoration.SemanticHighlighting.get(state.decoration)->Promise.map(tokensRef => {
-      //     open Editor.Provider.Mock
 
-      //     let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-      //       tokenTypes,
-      //       tokenModifiers,
-      //     )
-      //     let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-      //     tokensRef.contents->Array.forEach(({range, type_, modifiers}) => {
-      //       SemanticTokensBuilder.pushLegend(
-      //         builder,
-      //         Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
-      //         Highlighting.SemanticToken.TokenType.toString(type_),
-      //         modifiers->Option.map(xs =>
-      //           xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString)
-      //         ),
-      //       )
-      //     })
-
-      //     SemanticTokensBuilder.build(builder)
-      //   })
-      // })
-
-      None
-    }
+      SemanticTokensBuilder.build(builder)
+    })
+    ->(x => Some(x))
   }
 
   Editor.Provider.registerDocumentSemanticTokensProvider(

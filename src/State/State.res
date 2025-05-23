@@ -91,7 +91,14 @@ type t = {
   channels: channels,
 }
 
-let make = (channels, globalStorageUri, extensionPath, memento, editor, semanticTokens: option<Resource.t<array<Highlighting.SemanticToken.t>>>) => {
+let make = (
+  channels,
+  globalStorageUri,
+  extensionPath,
+  memento,
+  editor,
+  semanticTokens: option<Resource.t<array<Highlighting.SemanticToken.t>>>,
+) => {
   connection: None,
   agdaVersion: None,
   editor,
@@ -100,7 +107,7 @@ let make = (channels, globalStorageUri, extensionPath, memento, editor, semantic
   runningInfoLog: [],
   goals: [],
   tokens: Tokens.make(semanticTokens),
-  highlighting: Highlighting.make(semanticTokens),
+  highlighting: Highlighting.make(),
   cursor: None,
   editorIM: IM.make(channels.inputMethod),
   promptIM: IM.make(channels.inputMethod),
