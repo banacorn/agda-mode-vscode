@@ -1,10 +1,14 @@
 module Aspect = Highlighting__AgdaAspect
 
+// phantom types for differentiating offsets counted by Agda and VSCode
+type agdaOffset
+type vscodeOffset
+
 // information of Tokens from Agda
 module Token = {
   open Parser.SExpression
   type filepath = string
-  type t = {
+  type t<'a> = {
     start: int, // agda offset
     end: int, // agda offset
     aspects: array<Aspect.t>, // a list of names of aspects
@@ -25,7 +29,7 @@ module Token = {
     }
 
   // from SExpression
-  let parse: Parser.SExpression.t => option<t> = x =>
+  let parse: Parser.SExpression.t => option<t<agdaOffset>> = x =>
     switch x {
     | A(_) => None
     | L(xs) =>
@@ -73,7 +77,7 @@ module Token = {
     }
 
   // from SExpression
-  let parseDirectHighlightings: array<Parser.SExpression.t> => array<t> = tokens =>
+  let parseDirectHighlightings: array<Parser.SExpression.t> => array<t<agdaOffset>> = tokens =>
     tokens->Array.sliceToEnd(~start=2)->Array.map(parse)->Array.filterMap(x => x)
 
   // from JSON
@@ -663,12 +667,12 @@ module type Module = {
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
   let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
-  let insertWithVSCodeOffsets: (t, int, int, Token.t) => unit
-  let insertTokens: (t, VSCode.TextEditor.t, array<Token.t>) => unit
+  let insertWithVSCodeOffsets: (t, Token.t<vscodeOffset>) => unit
+  let insertTokens: (t, VSCode.TextEditor.t, array<Token.t<agdaOffset>>) => unit
 
   let reset: t => unit
 
-  let toArray: t => array<(Token.t, (int, int))>
+  let toArray: t => array<Token.t<vscodeOffset>>
 
   // let lookupSrcLoc: (
   //   t,
@@ -687,8 +691,8 @@ module type Module = {
   let toOriginalOffset: (t, int) => option<int>
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
-  let getHoles: t => Map.t<int, (Token.t, (int, int))>
-  let getHolesSorted: t => array<(Token.t, (int, int))>
+  let getHoles: t => Map.t<int, Token.t<vscodeOffset>>
+  let getHolesSorted: t => array<Token.t<vscodeOffset>>
 }
 
 module Module: Module = {
@@ -743,15 +747,14 @@ module Module: Module = {
     // from addEmacsFilePath/addJSONFilePath
     mutable tempFiles: array<TempFile.t>,
     // Tokens from Agda, indexed by the starting offset
-    // because AVLTree is crap, we need to save the index (starting offset) alongside the value for easy access
-    mutable agdaTokens: AVLTree.t<(Token.t, (int, int))>,
+    mutable agdaTokens: AVLTree.t<Token.t<vscodeOffset>>,
     // Keep track of edits to the document
     mutable deltas: Intervals.t,
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     // ranges of holes
-    mutable holes: Map.t<int, (Token.t, (int, int))>,
+    mutable holes: Map.t<int, Token.t<vscodeOffset>>,
   }
 
   let toString = self => {
@@ -764,8 +767,8 @@ module Module: Module = {
     let tokens =
       self.agdaTokens
       ->AVLTree.toArray
-      ->Array.map(((token, (start, end))) =>
-        Token.toString(token) ++ " " ++ Int.toString(start) ++ "-" ++ Int.toString(end)
+      ->Array.map(token =>
+        Token.toString(token) ++ " " ++ Int.toString(token.start) ++ "-" ++ Int.toString(token.end)
       )
       ->Array.join("\n    ")
     "Tokens:\n  tempFiles (" ++
@@ -787,8 +790,8 @@ module Module: Module = {
     holes: Map.make(),
   }
 
-  let insertWithVSCodeOffsets = (self, offsetStart, offsetEnd, token: Token.t) => {
-    let existing = self.agdaTokens->AVLTree.find(offsetStart)
+  let insertWithVSCodeOffsets = (self, token: Token.t<vscodeOffset>) => {
+    let existing = self.agdaTokens->AVLTree.find(token.start)
     switch existing {
     | None =>
       // convert the current offsets (affected by the deltas) to the original offsets (the same as in agdaTokens)
@@ -798,14 +801,14 @@ module Module: Module = {
       //   VSCode.TextDocument.positionAt(document, offsetEnd),
       // )
       self.agdaTokens
-      ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd)))
+      ->AVLTree.insert(token.start, token)
       ->ignore
       if token.aspects->Array.some(x => x == Aspect.Hole) {
-        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
+        self.holes->Map.set(token.start, token)
       }
-    | Some((old, offses)) =>
+    | Some(old) =>
       // merge Aspects
-      self.agdaTokens->AVLTree.remove(offsetStart)->ignore
+      self.agdaTokens->AVLTree.remove(token.start)->ignore
       // often the new aspects would look exactly like the old ones
       // don't duplicate them in that case
       let newAspects =
@@ -814,11 +817,11 @@ module Module: Module = {
         ...old,
         aspects: newAspects,
       }
-      self.agdaTokens->AVLTree.insert(offsetStart, (new, offses))
+      self.agdaTokens->AVLTree.insert(token.start, new)
 
       if token.aspects->Array.some(x => x == Aspect.Hole) {
         // if the token is a Hole, then we need to add it to the holes map
-        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
+        self.holes->Map.set(token.start, token)
       }
     }
   }
@@ -829,14 +832,21 @@ module Module: Module = {
 
   // insert a bunch of Tokens
   // merge Aspects with the existing Token that occupies the same Range
-  let insertTokens = (self, editor, tokens: array<Token.t>) => {
+  let insertTokens = (self, editor, tokens: array<Token.t<agdaOffset>>) => {
     let document = editor->VSCode.TextEditor.document
     let text = Editor.Text.getAll(document)
     let offsetConverter = Agda.OffsetConverter.make(text)
     tokens->Array.forEach(token => {
-      let offsetStart = Agda.OffsetConverter.convert(offsetConverter, token.start)
-      let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, token.end)
-      insertWithVSCodeOffsets(self, offsetStart, offsetEnd, token)
+      let start = Agda.OffsetConverter.convert(offsetConverter, token.start)
+      let end = Agda.OffsetConverter.convert(offsetConverter, token.end)
+      insertWithVSCodeOffsets(
+        self,
+        {
+          ...token,
+          start,
+          end,
+        },
+      )
     })
   }
 
@@ -976,39 +986,29 @@ module Module: Module = {
   let traverseIntervals = (
     tokens,
     deltas,
-    f: ('acc, Token.t, (int, int), action) => 'acc,
+    f: ('acc, Token.t<vscodeOffset>, action) => 'acc,
     init: 'acc,
   ) => {
     let rec traverse = (acc, i, intervals, deltaBefore) =>
       switch tokens[i] {
       | None => acc
-      | Some((token, (offsetStart, offsetEnd))) =>
+      | Some(token) =>
         // token WITHIN the rmeoval interval should be removed
         // token AFTER the removal interval should be translated
         switch intervals {
         | Intervals.EOF =>
           //    token    ┣━━━━━━┫
-          traverse(
-            f(acc, token, (offsetStart, offsetEnd), Translate(deltaBefore)),
-            i + 1,
-            intervals,
-            deltaBefore,
-          )
+          traverse(f(acc, token, Translate(deltaBefore)), i + 1, intervals, deltaBefore)
         | Replace(removalStart, removeEnd, delta, tail) =>
-          if offsetEnd < removalStart {
+          if token.end < removalStart {
             //    interval         ┣━━━━━━━━━━━━━━┫
             //    token    ┣━━━━━━┫
-            traverse(
-              f(acc, token, (offsetStart, offsetEnd), Translate(deltaBefore)),
-              i + 1,
-              intervals,
-              deltaBefore,
-            )
-          } else if offsetStart < removeEnd {
+            traverse(f(acc, token, Translate(deltaBefore)), i + 1, intervals, deltaBefore)
+          } else if token.start < removeEnd {
             //    interval ┣━━━━━━━━━━━━━━┫
             //    token    ┣━━━━━━┫
             // remove this token, move on to the next one
-            traverse(f(acc, token, (offsetStart, offsetEnd), Remove), i + 1, intervals, deltaBefore)
+            traverse(f(acc, token, Remove), i + 1, intervals, deltaBefore)
           } else {
             //    interval ┣━━━━━━━━━━━━━━┫ EOF
             //    token                     ┣━━━━━━┫
@@ -1029,13 +1029,13 @@ module Module: Module = {
     let (aspects, holes) = traverseIntervals(
       self->toArray,
       self.deltas,
-      ((acc, holes), token, (start, end), action) =>
+      ((acc, holes), token, action) =>
         switch action {
         | Remove => // remove this token, move on to the next one
           (acc, holes)
         | Translate(delta) =>
-          let offsetStart = start + delta
-          let offsetEnd = end + delta
+          let offsetStart = token.start + delta
+          let offsetEnd = token.end + delta
           let range = VSCode.Range.make(
             document->VSCode.TextDocument.positionAt(offsetStart),
             document->VSCode.TextDocument.positionAt(offsetEnd),
@@ -1043,7 +1043,7 @@ module Module: Module = {
 
           // see if the token is a Hole, then we collect it in the holes array
           if token.aspects->Array.some(x => x == Aspect.Hole) {
-            holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
+            holes->Map.set(offsetStart, token)
           }
           // split the range in case that it spans multiple lines
           let singleLineRanges = Highlighting__SemanticToken.SingleLineRange.splitRange(
@@ -1080,11 +1080,11 @@ module Module: Module = {
     traverseIntervals(
       self->toArray,
       self.deltas,
-      (acc, _, (start, end), action) =>
+      (acc, token, action) =>
         switch action {
         | Remove => acc // the offset is not within this removal interval, so we ignore it
         | Translate(delta) =>
-          if offset >= start + delta && offset < end + delta {
+          if offset >= token.start + delta && offset < token.end + delta {
             // the offset is within this token, so we restore it to the original offset by subtracting the delta
             Some(offset - delta)
           } else {
@@ -1103,7 +1103,7 @@ module Module: Module = {
     self.holes
     ->Map.values
     ->Iterator.toArray
-    ->Array.toSorted(((_, (x, _)), (_, (y, _))) => Int.compare(x, y))
+    ->Array.toSorted((x, y) => Int.compare(x.start, y.start))
 }
 
 include Module

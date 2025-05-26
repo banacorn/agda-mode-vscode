@@ -186,12 +186,12 @@ let rec handle = async (
             }
           })
           Js.log2("holeTokens: ", holeTokens)
-          holeTokens->Array.forEach(token =>{
+          holeTokens->Array.forEach(token => {
             let start = Tokens.toOriginalOffset(state.tokens, token.start)
             let end = Tokens.toOriginalOffset(state.tokens, token.end)
             // Js.log2("start: ", token.start, start)
             Js.log2("end: ", end)
-            Tokens.insertWithVSCodeOffsets(state.tokens, token.start, token.end, token)
+            Tokens.insertWithVSCodeOffsets(state.tokens, token)
           })
           await State__Goal.removeBoundaryAndDestroy(state, goal)
 

@@ -256,10 +256,10 @@ module Module: Module = {
       ->Tokens.getHoles
       ->Map.values
       ->Iterator.toArray
-      ->Array.filterMap(((token, (start, end))) => {
+      ->Array.filterMap(token => {
         let range = VSCode.Range.make(
-          VSCode.TextDocument.positionAt(document, start),
-          VSCode.TextDocument.positionAt(document, end),
+          VSCode.TextDocument.positionAt(document, token.start),
+          VSCode.TextDocument.positionAt(document, token.end),
         )
         let content = VSCode.TextDocument.getText(document, Some(range))
         if content == "?" {
@@ -304,16 +304,16 @@ module Module: Module = {
     state.tokens
     ->Tokens.getHolesSorted
     ->Belt.Array.zip(indices)
-    ->Array.map((((token, interval), index)) => {
-      Js.log("interval: " ++ Int.toString(fst(interval)) ++ " - " ++ Int.toString(snd(interval)))
+    ->Array.map(((token, index)) => {
+      Js.log("interval: " ++ Tokens.Token.toString(token))
       let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
         editor,
-        interval,
+        (token.start, token.end),
         index,
       )
       {
         Goal.index,
-        interval,
+        interval: (token.start, token.end),
         decorationBackground,
         decorationIndex,
       }

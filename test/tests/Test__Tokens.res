@@ -14,10 +14,10 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, (start, end))) => {
+            token => {
               let range = VSCode.Range.make(
-                VSCode.TextDocument.positionAt(ctx.state.document, start),
-                VSCode.TextDocument.positionAt(ctx.state.document, end),
+                VSCode.TextDocument.positionAt(ctx.state.document, token.start),
+                VSCode.TextDocument.positionAt(ctx.state.document, token.end),
               )
               Editor.Range.toString(range) ++ " " ++ Token.toString(token)
             },
@@ -34,10 +34,10 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, (start, end))) => {
+            token => {
               let range = VSCode.Range.make(
-                VSCode.TextDocument.positionAt(ctx.state.document, start),
-                VSCode.TextDocument.positionAt(ctx.state.document, end),
+                VSCode.TextDocument.positionAt(ctx.state.document, token.start),
+                VSCode.TextDocument.positionAt(ctx.state.document, token.end),
               )
               Editor.Range.toString(range) ++ " " ++ Token.toString(token)
             },
