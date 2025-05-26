@@ -14,7 +14,13 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, _, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
+            ((token, (start, end))) => {
+              let range = VSCode.Range.make(
+                VSCode.TextDocument.positionAt(ctx.state.document, start),
+                VSCode.TextDocument.positionAt(ctx.state.document, end),
+              )
+              Editor.Range.toString(range) ++ " " ++ Token.toString(token)
+            },
           )
         Assert.deepEqual(Array.length(tokens), 28)
       },
@@ -28,9 +34,14 @@ describe("Tokens", () => {
           ctx.state.tokens
           ->toArray
           ->Array.map(
-            ((token, _, range)) => Editor.Range.toString(range) ++ " " ++ Token.toString(token),
+            ((token, (start, end))) => {
+              let range = VSCode.Range.make(
+                VSCode.TextDocument.positionAt(ctx.state.document, start),
+                VSCode.TextDocument.positionAt(ctx.state.document, end),
+              )
+              Editor.Range.toString(range) ++ " " ++ Token.toString(token)
+            },
           )
-
         let srcOfPrimitive = switch ctx.state.agdaVersion {
         | Some(version) =>
           if Util.Version.gte(version, "2.6.4") {

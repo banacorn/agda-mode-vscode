@@ -668,12 +668,12 @@ module type Module = {
 
   let reset: t => unit
 
-  let toArray: t => array<(Token.t, (int, int), VSCode.Range.t)>
+  let toArray: t => array<(Token.t, (int, int))>
 
-  let lookupSrcLoc: (
-    t,
-    int,
-  ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
+  // let lookupSrcLoc: (
+  //   t,
+  //   int,
+  // ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
 
   // let toDecorations: (t, VSCode.TextEditor.t) => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
   // let toDecorationsAndSemanticTokens: (
@@ -685,8 +685,8 @@ module type Module = {
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
-  let getHoles: t => Map.t<int, (Token.t, (int, int), VSCode.Range.t)>
-  let getHolesSorted: t => array<(Token.t, (int, int), VSCode.Range.t)>
+  let getHoles: t => Map.t<int, (Token.t, (int, int))>
+  let getHolesSorted: t => array<(Token.t, (int, int))>
 }
 
 module Module: Module = {
@@ -742,14 +742,14 @@ module Module: Module = {
     mutable tempFiles: array<TempFile.t>,
     // Tokens from Agda, indexed by the starting offset
     // because AVLTree is crap, we need to save the index (starting offset) alongside the value for easy access
-    mutable agdaTokens: AVLTree.t<(Token.t, (int, int), VSCode.Range.t)>,
+    mutable agdaTokens: AVLTree.t<(Token.t, (int, int))>,
     // Keep track of edits to the document
     mutable deltas: Intervals.t,
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     // ranges of holes
-    mutable holes: Map.t<int, (Token.t, (int, int), VSCode.Range.t)>,
+    mutable holes: Map.t<int, (Token.t, (int, int))>,
   }
 
   let toString = self => {
@@ -762,8 +762,8 @@ module Module: Module = {
     let tokens =
       self.agdaTokens
       ->AVLTree.toArray
-      ->Array.map(((token, offset, range)) =>
-        Token.toString(token) ++ " " ++ Editor.Range.toString(range)
+      ->Array.map(((token, (start, end))) =>
+        Token.toString(token) ++ " " ++ Int.toString(start) ++ "-" ++ Int.toString(end)
       )
       ->Array.join("\n    ")
     "Tokens:\n  tempFiles (" ++
@@ -795,13 +795,13 @@ module Module: Module = {
         VSCode.TextDocument.positionAt(document, offsetEnd),
       )
       self.agdaTokens
-      ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd), range))
+      ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd)))
       ->ignore
       if token.aspects->Array.some(x => x == Aspect.Hole) {
         Js.log("start: " ++ string_of_int(token.start) ++ " => " ++ string_of_int(offsetStart))
-        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
       }
-    | Some((old, offses, range)) =>
+    | Some((old, offses)) =>
       // merge Aspects
       self.agdaTokens->AVLTree.remove(offsetStart)->ignore
       // often the new aspects would look exactly like the old ones
@@ -812,11 +812,11 @@ module Module: Module = {
         ...old,
         aspects: newAspects,
       }
-      self.agdaTokens->AVLTree.insert(offsetStart, (new, offses, range))
+      self.agdaTokens->AVLTree.insert(offsetStart, (new, offses))
 
       if token.aspects->Array.some(x => x == Aspect.Hole) {
         // if the token is a Hole, then we need to add it to the holes map
-        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
       }
     }
   }
@@ -869,24 +869,24 @@ module Module: Module = {
   let toArray = self => self.agdaTokens->AVLTree.toArray
 
   // for goto definition
-  let lookupSrcLoc = (self, offset): option<
-    promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
-  > => {
-    self.agdaTokens
-    ->AVLTree.lowerBound(offset)
-    ->Option.flatMap(((info, offset, range)) =>
-      info.source->Option.map(((filepath, offset)) => (range, filepath, offset))
-    )
-    ->Option.map(((range, filepath, offset)) => {
-      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
-        let text = Editor.Text.getAll(document)
-        let offsetConverter = Agda.OffsetConverter.make(text)
-        let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
-        let position = VSCode.TextDocument.positionAt(document, offset)
-        [(range, filepath, position)]
-      })
-    })
-  }
+  // let lookupSrcLoc = (self, offset): option<
+  //   promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
+  // > => {
+  //   self.agdaTokens
+  //   ->AVLTree.lowerBound(offset)
+  //   ->Option.flatMap(((info, offset)) =>
+  //     info.source->Option.map(((filepath, offset)) => (filepath, offset))
+  //   )
+  //   ->Option.map(((filepath, offset)) => {
+  //     VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
+  //       let text = Editor.Text.getAll(document)
+  //       let offsetConverter = Agda.OffsetConverter.make(text)
+  //       let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
+  //       let position = VSCode.TextDocument.positionAt(document, offset)
+  //       [(range, filepath, position)]
+  //     })
+  //   })
+  // }
 
   // Converts a list of Agda Aspects to a list of VSCode Tokens
   let fromAspects = (editor, xs) => {
@@ -974,7 +974,7 @@ module Module: Module = {
     let rec convert = ((acc, holes), tokens, i, intervals, deltaBefore) =>
       switch tokens[i] {
       | None => (acc, holes)
-      | Some((token, (offsetStart, offsetEnd), range)) =>
+      | Some((token, (offsetStart, offsetEnd))) =>
         // token WITHIN the rmeoval interval should be removed
         // token AFTER the removal interval should be translated
         let (action, deltaAfter) = switch intervals {
@@ -1011,7 +1011,7 @@ module Module: Module = {
 
           // see if the token is a Hole, then we collect it in the holes array
           if token.Token.aspects->Array.some(x => x == Aspect.Hole) {
-            holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+            holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
           }
           // split the range in case that it spans multiple lines
           let singleLineRanges = Highlighting__SemanticToken.SingleLineRange.splitRange(
@@ -1051,7 +1051,7 @@ module Module: Module = {
     self.holes
     ->Map.values
     ->Iterator.toArray
-    ->Array.toSorted(((_, (x, _), _), (_, (y, _), _)) => Int.compare(x, y))
+    ->Array.toSorted(((_, (x, _)), (_, (y, _))) => Int.compare(x, y))
 }
 
 include Module

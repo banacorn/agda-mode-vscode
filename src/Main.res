@@ -119,19 +119,19 @@ let initialize = (
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
   })->subscribe
 
-  // definition provider for go-to-definition
-  Editor.Provider.registerDefinitionProvider((fileName, position) => {
-    // only provide source location, when the filename matched
-    let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
-    let normalizedFileName = Parser.filepath(fileName)
-    let offset = VSCode.TextDocument.offsetAt(state.document, position)
+  // // definition provider for go-to-definition
+  // Editor.Provider.registerDefinitionProvider((fileName, position) => {
+  //   // only provide source location, when the filename matched
+  //   let currentFileName = state.document->VSCode.TextDocument.fileName->Parser.filepath
+  //   let normalizedFileName = Parser.filepath(fileName)
+  //   let offset = VSCode.TextDocument.offsetAt(state.document, position)
 
-    if normalizedFileName == currentFileName {
-      state.tokens->Tokens.lookupSrcLoc(offset)
-    } else {
-      None
-    }
-  })->subscribe
+  //   if normalizedFileName == currentFileName {
+  //     state.tokens->Tokens.lookupSrcLoc(offset)
+  //   } else {
+  //     None
+  //   }
+  // })->subscribe
 
   // add this state to the Registry
   state

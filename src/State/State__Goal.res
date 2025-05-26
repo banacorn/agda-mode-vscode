@@ -256,7 +256,11 @@ module Module: Module = {
       ->Tokens.getHoles
       ->Map.values
       ->Iterator.toArray
-      ->Array.filterMap(((token, _offset, range)) => {
+      ->Array.filterMap(((token, (start, end))) => {
+        let range = VSCode.Range.make(
+          VSCode.TextDocument.positionAt(document, start),
+          VSCode.TextDocument.positionAt(document, end),
+        )
         let content = VSCode.TextDocument.getText(document, Some(range))
         if content == "?" {
           Some((token, (range, "{!   !}")))
@@ -300,7 +304,7 @@ module Module: Module = {
     state.tokens
     ->Tokens.getHolesSorted
     ->Belt.Array.zip(indices)
-    ->Array.map((((token, interval, _range), index)) => {
+    ->Array.map((((token, interval), index)) => {
       Js.log("interval: " ++ Int.toString(fst(interval)) ++ " - " ++ Int.toString(snd(interval)))
       let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
         editor,
