@@ -663,7 +663,7 @@ module type Module = {
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
   let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
-  let insertWithVSCodeOffsets: (t, VSCode.TextEditor.t, int, int, Token.t) => unit
+  let insertWithVSCodeOffsets: (t, int, int, Token.t) => unit
   let insertTokens: (t, VSCode.TextEditor.t, array<Token.t>) => unit
 
   let reset: t => unit
@@ -683,6 +683,8 @@ module type Module = {
 
   let generate: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
+
+  let toOriginalOffset: (t, int) => option<int>
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
   let getHoles: t => Map.t<int, (Token.t, (int, int))>
@@ -785,20 +787,20 @@ module Module: Module = {
     holes: Map.make(),
   }
 
-  let insertWithVSCodeOffsets = (self, editor, offsetStart, offsetEnd, token: Token.t) => {
-    let document = editor->VSCode.TextEditor.document
+  let insertWithVSCodeOffsets = (self, offsetStart, offsetEnd, token: Token.t) => {
     let existing = self.agdaTokens->AVLTree.find(offsetStart)
     switch existing {
     | None =>
-      let range = VSCode.Range.make(
-        VSCode.TextDocument.positionAt(document, offsetStart),
-        VSCode.TextDocument.positionAt(document, offsetEnd),
-      )
+      // convert the current offsets (affected by the deltas) to the original offsets (the same as in agdaTokens)
+
+      // let range = VSCode.Range.make(
+      //   VSCode.TextDocument.positionAt(document, offsetStart),
+      //   VSCode.TextDocument.positionAt(document, offsetEnd),
+      // )
       self.agdaTokens
       ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd)))
       ->ignore
       if token.aspects->Array.some(x => x == Aspect.Hole) {
-        Js.log("start: " ++ string_of_int(token.start) ++ " => " ++ string_of_int(offsetStart))
         self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
       }
     | Some((old, offses)) =>
@@ -821,6 +823,10 @@ module Module: Module = {
     }
   }
 
+  // let insertHole = (self, start, end) => {
+
+  // }
+
   // insert a bunch of Tokens
   // merge Aspects with the existing Token that occupies the same Range
   let insertTokens = (self, editor, tokens: array<Token.t>) => {
@@ -830,7 +836,7 @@ module Module: Module = {
     tokens->Array.forEach(token => {
       let offsetStart = Agda.OffsetConverter.convert(offsetConverter, token.start)
       let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, token.end)
-      insertWithVSCodeOffsets(self, editor, offsetStart, offsetEnd, token)
+      insertWithVSCodeOffsets(self, offsetStart, offsetEnd, token)
     })
   }
 
@@ -964,53 +970,79 @@ module Module: Module = {
   //   ->Highlighting__Decoration.toVSCodeDecorations(editor)
   // }
 
-  type action = Remove | Translate(int) | NextInterval(Intervals.t)
+  type action = Remove | Translate(int)
+
+  // Traverse the intervals with a list of tokens with a function to determine what to do with each of them.
+  let traverseIntervals = (
+    tokens,
+    deltas,
+    f: ('acc, Token.t, (int, int), action) => 'acc,
+    init: 'acc,
+  ) => {
+    let rec traverse = (acc, i, intervals, deltaBefore) =>
+      switch tokens[i] {
+      | None => acc
+      | Some((token, (offsetStart, offsetEnd))) =>
+        // token WITHIN the rmeoval interval should be removed
+        // token AFTER the removal interval should be translated
+        switch intervals {
+        | Intervals.EOF =>
+          //    token    ┣━━━━━━┫
+          traverse(
+            f(acc, token, (offsetStart, offsetEnd), Translate(deltaBefore)),
+            i + 1,
+            intervals,
+            deltaBefore,
+          )
+        | Replace(removalStart, removeEnd, delta, tail) =>
+          if offsetEnd < removalStart {
+            //    interval         ┣━━━━━━━━━━━━━━┫
+            //    token    ┣━━━━━━┫
+            traverse(
+              f(acc, token, (offsetStart, offsetEnd), Translate(deltaBefore)),
+              i + 1,
+              intervals,
+              deltaBefore,
+            )
+          } else if offsetStart < removeEnd {
+            //    interval ┣━━━━━━━━━━━━━━┫
+            //    token    ┣━━━━━━┫
+            // remove this token, move on to the next one
+            traverse(f(acc, token, (offsetStart, offsetEnd), Remove), i + 1, intervals, deltaBefore)
+          } else {
+            //    interval ┣━━━━━━━━━━━━━━┫ EOF
+            //    token                     ┣━━━━━━┫
+            // ignore this interval and move on to the next one
+            traverse(acc, i, tail, delta)
+          }
+        }
+      }
+
+    traverse(init, 0, deltas, 0)
+  }
 
   // Generate tokens from the deltas and agdaTokens
   let generate = (self, editor) => {
     // generate new vscodeTokens from the new deltas and the agdaTokens
     let document = editor->VSCode.TextEditor.document
 
-    let rec convert = ((acc, holes), tokens, i, intervals, deltaBefore) =>
-      switch tokens[i] {
-      | None => (acc, holes)
-      | Some((token, (offsetStart, offsetEnd))) =>
-        // token WITHIN the rmeoval interval should be removed
-        // token AFTER the removal interval should be translated
-        let (action, deltaAfter) = switch intervals {
-        | Intervals.EOF => (Translate(deltaBefore), deltaBefore)
-        | Replace(removalStart, removeEnd, delta, tail) =>
-          if offsetEnd < removalStart {
-            //    interval         ┣━━━━━━━━━━━━━━┫
-            //    token    ┣━━━━━━┫
-            (Translate(deltaBefore), deltaBefore)
-          } else if offsetStart < removeEnd {
-            //    interval ┣━━━━━━━━━━━━━━┫
-            //    token    ┣━━━━━━┫
-            // this token should be removed
-            (Remove, deltaBefore)
-          } else {
-            //    interval ┣━━━━━━━━━━━━━━┫ EOF
-            //    token                     ┣━━━━━━┫
-            // this token should be translated
-            (NextInterval(tail), delta)
-          }
-        }
-
+    let (aspects, holes) = traverseIntervals(
+      self->toArray,
+      self.deltas,
+      ((acc, holes), token, (start, end), action) =>
         switch action {
-        | Remove =>
-          // remove this token, move on to the next one
-          convert((acc, holes), tokens, i + 1, intervals, deltaAfter)
+        | Remove => // remove this token, move on to the next one
+          (acc, holes)
         | Translate(delta) =>
-          let offsetStart = offsetStart + delta
-          let offsetEnd = offsetEnd + delta
+          let offsetStart = start + delta
+          let offsetEnd = end + delta
           let range = VSCode.Range.make(
             document->VSCode.TextDocument.positionAt(offsetStart),
             document->VSCode.TextDocument.positionAt(offsetEnd),
           )
 
           // see if the token is a Hole, then we collect it in the holes array
-          if token.Token.aspects->Array.some(x => x == Aspect.Hole) {
+          if token.aspects->Array.some(x => x == Aspect.Hole) {
             holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd)))
           }
           // split the range in case that it spans multiple lines
@@ -1019,12 +1051,10 @@ module Module: Module = {
             range,
           )
           let result = singleLineRanges->Array.map(range => (token.Token.aspects, range))
-          convert(([...acc, ...result], holes), tokens, i + 1, intervals, deltaAfter)
-        | NextInterval(tail) => convert((acc, holes), tokens, i, tail, deltaAfter)
-        }
-      }
-
-    let (aspects, holes) = convert(([], Map.make()), self->toArray, 0, self.deltas, 0)
+          ([...acc, ...result], holes)
+        },
+      ([], Map.make()),
+    )
 
     self.holes = holes
 
@@ -1045,8 +1075,30 @@ module Module: Module = {
     generate(self, editor)
   }
 
+  // Calculate the original offset from the deltas
+  let toOriginalOffset = (self, offset) =>
+    traverseIntervals(
+      self->toArray,
+      self.deltas,
+      (acc, _, (start, end), action) =>
+        switch action {
+        | Remove => acc // the offset is not within this removal interval, so we ignore it
+        | Translate(delta) =>
+          if offset >= start + delta && offset < end + delta {
+            // the offset is within this token, so we restore it to the original offset by subtracting the delta
+            Some(offset - delta)
+          } else {
+            // the offset is not within this token, so we ignore it
+            acc
+          }
+        },
+      None,
+    )
+
   let getVSCodeTokens = self => self.vscodeTokens
-  let getHoles = self => self.holes
+  let getHoles = self => {
+    self.holes
+  }
   let getHolesSorted = self =>
     self.holes
     ->Map.values
