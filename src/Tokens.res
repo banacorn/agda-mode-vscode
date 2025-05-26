@@ -6,7 +6,7 @@ module Token = {
   type filepath = string
   type t = {
     start: int, // agda offset
-    end_: int, // agda offset
+    end: int, // agda offset
     aspects: array<Aspect.t>, // a list of names of aspects
     isTokenBased: bool,
     note: option<string>,
@@ -16,7 +16,7 @@ module Token = {
     "(" ++
     string_of_int(self.start) ++
     ", " ++
-    string_of_int(self.end_) ++
+    string_of_int(self.end) ++
     ") " ++
     Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
     switch self.source {
@@ -30,13 +30,13 @@ module Token = {
     | A(_) => None
     | L(xs) =>
       switch xs {
-      | [A(start'), A(end_'), aspects, _, _, L([A(filepath), _, A(index')])] =>
+      | [A(start'), A(end'), aspects, _, _, L([A(filepath), _, A(index')])] =>
         int_of_string_opt(start')->Option.flatMap(start =>
-          int_of_string_opt(end_')->Option.flatMap(end_ =>
+          int_of_string_opt(end')->Option.flatMap(end =>
             int_of_string_opt(index')->Option.map(
               index => {
                 start: start - 1,
-                end_: end_ - 1,
+                end: end - 1,
                 aspects: flatten(aspects)->Array.map(Aspect.parse),
                 isTokenBased: false, // NOTE: fix this
                 note: None, // NOTE: fix this
@@ -46,22 +46,22 @@ module Token = {
           )
         )
 
-      | [A(start'), A(end_'), aspects] =>
+      | [A(start'), A(end'), aspects] =>
         int_of_string_opt(start')->Option.flatMap(start =>
-          int_of_string_opt(end_')->Option.map(end_ => {
+          int_of_string_opt(end')->Option.map(end => {
             start: start - 1,
-            end_: end_ - 1,
+            end: end - 1,
             aspects: flatten(aspects)->Array.map(Aspect.parse),
             isTokenBased: false, // NOTE: fix this
             note: None, // NOTE: fix this
             source: None,
           })
         )
-      | [A(start'), A(end_'), aspects, _] =>
+      | [A(start'), A(end'), aspects, _] =>
         int_of_string_opt(start')->Option.flatMap(start =>
-          int_of_string_opt(end_')->Option.map(end_ => {
+          int_of_string_opt(end')->Option.map(end => {
             start: start - 1,
-            end_: end_ - 1,
+            end: end - 1,
             aspects: flatten(aspects)->Array.map(Aspect.parse),
             isTokenBased: false, // NOTE: fix this
             note: None, // NOTE: fix this
@@ -86,9 +86,9 @@ module Token = {
       bool,
       option(string),
       option(pair(string, int)),
-    )->map(((start, end_, aspects, isTokenBased, note, source)) => {
+    )->map(((start, end, aspects, isTokenBased, note, source)) => {
       start: start - 1,
-      end_: end_ - 1,
+      end: end - 1,
       aspects: aspects->Array.map(Aspect.parse),
       isTokenBased,
       note,
@@ -663,7 +663,8 @@ module type Module = {
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
   let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
-  let insert: (t, VSCode.TextEditor.t, array<Token.t>) => unit
+  let insertWithVSCodeOffsets: (t, VSCode.TextEditor.t, int, int, Token.t) => unit
+  let insertTokens: (t, VSCode.TextEditor.t, array<Token.t>) => unit
 
   let reset: t => unit
 
@@ -784,50 +785,52 @@ module Module: Module = {
     holes: Map.make(),
   }
 
+  let insertWithVSCodeOffsets = (self, editor, offsetStart, offsetEnd, token: Token.t) => {
+    let document = editor->VSCode.TextEditor.document
+    let existing = self.agdaTokens->AVLTree.find(offsetStart)
+    switch existing {
+    | None =>
+      let range = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, offsetStart),
+        VSCode.TextDocument.positionAt(document, offsetEnd),
+      )
+      self.agdaTokens
+      ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd), range))
+      ->ignore
+      if token.aspects->Array.some(x => x == Aspect.Hole) {
+        Js.log("start: " ++ string_of_int(token.start) ++ " => " ++ string_of_int(offsetStart))
+        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+      }
+    | Some((old, offses, range)) =>
+      // merge Aspects
+      self.agdaTokens->AVLTree.remove(offsetStart)->ignore
+      // often the new aspects would look exactly like the old ones
+      // don't duplicate them in that case
+      let newAspects =
+        old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
+      let new = {
+        ...old,
+        aspects: newAspects,
+      }
+      self.agdaTokens->AVLTree.insert(offsetStart, (new, offses, range))
+
+      if token.aspects->Array.some(x => x == Aspect.Hole) {
+        // if the token is a Hole, then we need to add it to the holes map
+        self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
+      }
+    }
+  }
+
   // insert a bunch of Tokens
   // merge Aspects with the existing Token that occupies the same Range
-  let insert = (self, editor, tokens: array<Token.t>) => {
+  let insertTokens = (self, editor, tokens: array<Token.t>) => {
     let document = editor->VSCode.TextEditor.document
     let text = Editor.Text.getAll(document)
     let offsetConverter = Agda.OffsetConverter.make(text)
     tokens->Array.forEach(token => {
       let offsetStart = Agda.OffsetConverter.convert(offsetConverter, token.start)
-      let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, token.end_)
-      let existing = self.agdaTokens->AVLTree.find(offsetStart)
-      switch existing {
-      | None =>
-        let start = VSCode.TextDocument.positionAt(document, offsetStart)
-
-        let end_ = VSCode.TextDocument.positionAt(
-          document,
-          Agda.OffsetConverter.convert(offsetConverter, token.end_),
-        )
-        let range = VSCode.Range.make(start, end_)
-        self.agdaTokens
-        ->AVLTree.insert(offsetStart, (token, (offsetStart, offsetEnd), range))
-        ->ignore
-        if token.aspects->Array.some(x => x == Aspect.Hole) {
-          // if the token is a Hole, then we need to add it to the holes map
-          self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
-        }
-      | Some((old, offses, range)) =>
-        // merge Aspects
-        self.agdaTokens->AVLTree.remove(offsetStart)->ignore
-        // often the new aspects would look exactly like the old ones
-        // don't duplicate them in that case
-        let newAspects =
-          old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
-        let new = {
-          ...old,
-          aspects: newAspects,
-        }
-        self.agdaTokens->AVLTree.insert(offsetStart, (new, offses, range))
-
-        if token.aspects->Array.some(x => x == Aspect.Hole) {
-          // if the token is a Hole, then we need to add it to the holes map
-          self.holes->Map.set(offsetStart, (token, (offsetStart, offsetEnd), range))
-        }
-      }
+      let offsetEnd = Agda.OffsetConverter.convert(offsetConverter, token.end)
+      insertWithVSCodeOffsets(self, editor, offsetStart, offsetEnd, token)
     })
   }
 
@@ -839,7 +842,7 @@ module Module: Module = {
     // read and parse and concat them
     let xs = await self.tempFiles->Array.map(TempFile.readAndParse)->Promise.all
     let tokens = xs->Array.map(snd)->Array.flat
-    insert(self, editor, tokens)
+    insertTokens(self, editor, tokens)
     self.tempFiles = []
   }
 

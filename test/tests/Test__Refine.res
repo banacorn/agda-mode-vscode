@@ -1,9 +1,8 @@
 open Mocha
 open Test__Util
 
-describe_only("agda-mode.refine", () => {
+describe("agda-mode.refine", () => {
   describe("Issue #158", () => {
-
     let fileContent = ref("")
 
     Async.before(async () => fileContent := (await File.read(Path.asset("Issue158.agda"))))
@@ -21,3 +20,27 @@ describe_only("agda-mode.refine", () => {
     )
   })
 })
+
+describe("State__Goal", () => {
+  describe("parseHolesFromRefineResult", () => {
+    Async.it(
+      "should parse holes correctly",
+      async () => {
+        let raw = "record
+{ very-long-field-name-1 = ?
+; very-long-field-name-2 = ?
+; very-long-field-name-3 = ?
+} "
+        let actual = State__Goal.parseHolesFromRefineResult(raw)
+        let expected = [34, 63, 92]
+        Assert.deepStrictEqual(actual, expected)
+      },
+    )
+  })
+})
+
+// record
+// { very-long-field-name-1 = ?
+// ; very-long-field-name-2 = ?
+// ; very-long-field-name-3 = ?
+// } 

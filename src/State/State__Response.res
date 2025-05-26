@@ -98,7 +98,7 @@ let rec handle = async (
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
-      state.tokens->Tokens.insert(state.editor, annotations)
+      state.tokens->Tokens.insertTokens(state.editor, annotations)
     | HighlightingInfoIndirect(filepath) => state.tokens->Tokens.addEmacsFilePath(filepath)
     | HighlightingInfoIndirectJSON(filepath) => state.tokens->Tokens.addJSONFilePath(filepath)
     | ClearHighlighting => state.tokens->Tokens.reset
@@ -164,10 +164,42 @@ let rec handle = async (
           // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
           //    safer choice
           let defaultIndentation = 2
-          await State__Goal.modify(state, goal, _ =>
-            Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
+          let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
+          // convert question marks "?" to proper expanded holes "{!   !}"
+
+          let holeOffsets = State__Goal.parseHolesFromRefineResult(indented)
+          Js.log2("holeOffsets: ", holeOffsets)
+          // modify the document
+          await State__Goal.modify(state, goal, _ => indented)
+          // insert new tokens for holes ourselves
+          let offset = fst(goal.interval)
+          let holeTokens = holeOffsets->Array.map(start => {
+            let start = start + offset
+            let end = start + 6 // "{!   !}"
+            {
+              Tokens.Token.start,
+              end,
+              aspects: [Tokens.Aspect.Hole],
+              isTokenBased: true,
+              note: None,
+              source: None,
+            }
+          })
+          Js.log2("holeTokens: ", holeTokens)
+          holeTokens->Array.forEach(token =>
+            Tokens.insertWithVSCodeOffsets(
+              state.tokens,
+              state.editor,
+              token.start,
+              token.end,
+              token,
+            )
           )
           await State__Goal.removeBoundaryAndDestroy(state, goal)
+
+        // ->Array.map(((x, _, _)) => x.)
+        // ->Util.Pretty.array
+        // ->Js.log
         }
       }
     | MakeCase(makeCaseType, lines) =>

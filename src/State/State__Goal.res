@@ -12,6 +12,9 @@ module type Module = {
   let redecorate: State.t => unit
   let next: State.t => unit
   let previous: State.t => unit
+
+  // helper functions
+  let parseHolesFromRefineResult: string => array<int>
 }
 
 module Module: Module = {
@@ -245,6 +248,7 @@ module Module: Module = {
   // rewrite question marks "?" to holes "{!   !}"
   // and update the tokens infos to reflect the changes
   let rewriteQuestionMarks = async (state: State.t, editor: VSCode.TextEditor.t): unit => {
+    Js.log("rewriteQuestionMarks")
     let document = VSCode.TextEditor.document(editor)
 
     let questionMarkTokens =
@@ -267,12 +271,6 @@ module Module: Module = {
 
     // to restore the tokens destroyed when replacing the question marks
     // we need to update the positions of the destroyed tokens
-    Js.log(
-      "destroyed tokens: " ++
-      questionMarkTokens
-      ->Array.map(((token, _)) => Tokens.Token.toString(token))
-      ->Util.Pretty.array,
-    )
     let revivedQuestionMarkTokens =
       questionMarkTokens
       ->Array.reduce(([], 0), ((acc, delta), (token, _)) => {
@@ -282,7 +280,7 @@ module Module: Module = {
             {
               ...token,
               start: token.start + delta,
-              end_: token.end_ + delta + 6,
+              end: token.end + delta + 6,
             },
           ],
           delta + 6,
@@ -290,13 +288,7 @@ module Module: Module = {
       })
       ->fst
 
-    Js.log(
-      "revived tokens: " ++
-      revivedQuestionMarkTokens
-      ->Array.map(token => Tokens.Token.toString(token))
-      ->Util.Pretty.array,
-    )
-    Tokens.insert(state.tokens, editor, revivedQuestionMarkTokens)
+    Tokens.insertTokens(state.tokens, editor, revivedQuestionMarkTokens)
   }
 
   // NOTE: holes should only be decorated when all question marks have been replaced as "{!   !}"
@@ -305,19 +297,11 @@ module Module: Module = {
     editor: VSCode.TextEditor.t,
     indices: array<int>,
   ): array<Goal.t> => {
-    Js.log("decorating " ++ string_of_int(indices->Array.length) ++ " holes")
-    Js.log(
-      "holes: " ++
-      state.tokens
-      ->Tokens.getHolesSorted
-      ->Array.map(((token, _, _)) => Tokens.Token.toString(token))
-      ->Util.Pretty.array,
-    )
     state.tokens
     ->Tokens.getHolesSorted
     ->Belt.Array.zip(indices)
     ->Array.map((((token, interval, _range), index)) => {
-      Js.log("decorating hole #" ++ string_of_int(index) ++ " " ++ Editor.Range.toString(_range))
+      Js.log("interval: " ++ Int.toString(fst(interval)) ++ " - " ++ Int.toString(snd(interval)))
       let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
         editor,
         interval,
@@ -330,6 +314,36 @@ module Module: Module = {
         decorationIndex,
       }
     })
+  }
+
+  // New holes may be introduced by a refine command, however, we don't have highlighting information
+  // for the result of the refine command.
+  // So we need to parse the holes from the refine result and decorate them ourself.
+  // This function calculates the offsets of the question marks
+  let parseHolesFromRefineResult = raw => {
+    let goalQuestionMark = %re("/([\s\(\{\_\;\.\\\"@]|^)(\?)([\s\)\}\_\;\.\\\"@]|$)/gm")
+    // the chunks may contain:
+    //   1. the question mark itself              (\?)
+    //   2. the part before the question mark     ([\s\(\{\_\;\.\\\"@]|^)
+    //   3. the part after the question mark      ([\s\)\}\_\;\.\\\"@]|$)
+    //   4. other strings not matching the regex
+    let chunks = raw->String.splitByRegExp(goalQuestionMark)
+
+    chunks
+    ->Array.reduce(([], 0), ((offsets, i), chunk) =>
+      switch chunk {
+      | None => (offsets, i)
+      | Some(chunk) =>
+        if chunk == "?" {
+          let offset = i
+          ([...offsets, offset], offset + 1)
+        } else {
+          // not a question mark, just append it to the string
+          (offsets, i + String.length(chunk))
+        }
+      }
+    )
+    ->fst
   }
 
   let instantiate = async (state: State.t, indices) => {
