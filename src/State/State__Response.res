@@ -167,32 +167,34 @@ let rec handle = async (
           let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
           // convert question marks "?" to proper expanded holes "{!   !}"
 
-          let holeOffsets = State__Goal.parseHolesFromRefineResult(indented)
-          Js.log2("holeOffsets: ", holeOffsets)
           // modify the document
           await State__Goal.modify(state, goal, _ => indented)
           // insert new tokens for holes ourselves
-          let offset = fst(goal.interval)
-          let holeTokens = holeOffsets->Array.map(start => {
-            let start = start + offset
-            let end = start + 6 // "{!   !}"
-            {
-              Tokens.Token.start,
-              end,
-              aspects: [Tokens.Aspect.Hole],
-              isTokenBased: true,
-              note: None,
-              source: None,
-            }
-          })
-          Js.log2("holeTokens: ", holeTokens)
-          holeTokens->Array.forEach(token => {
-            let start = Tokens.toOriginalOffset(state.tokens, token.start)
-            let end = Tokens.toOriginalOffset(state.tokens, token.end)
-            // Js.log2("start: ", token.start, start)
-            Js.log2("end: ", end)
-            Tokens.insertWithVSCodeOffsets(state.tokens, token)
-          })
+
+          let holeOffsetsFromRefine = State__Goal.parseHolesFromRefineResult(indented)
+          Js.log2("holeOffsetsFromRefine: ", holeOffsetsFromRefine)
+
+          // let offset = fst(goal.interval)
+          // let holeTokens = holeOffsets->Array.map(start => {
+          //   let start = start + offset
+          //   let end = start + 6 // "{!   !}"
+          //   {
+          //     Tokens.Token.start,
+          //     end,
+          //     aspects: [Tokens.Aspect.Hole],
+          //     isTokenBased: true,
+          //     note: None,
+          //     source: None,
+          //   }
+          // })
+          // Js.log2("holeTokens: ", holeTokens)
+          // holeTokens->Array.forEach(token => {
+          //   let start = Tokens.toOriginalOffset(state.tokens, token.start)
+          //   let end = Tokens.toOriginalOffset(state.tokens, token.end)
+          //   // Js.log2("start: ", token.start, start)
+          //   Js.log2("end: ", end)
+          //   Tokens.insertWithVSCodeOffsets(state.tokens, token)
+          // })
           await State__Goal.removeBoundaryAndDestroy(state, goal)
 
         // ->Array.map(((x, _, _)) => x.)
@@ -244,8 +246,9 @@ let rec handle = async (
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)
-      state.tokens->Tokens.generate(state.editor)
-    // await Highlighting.apply(state.highlighting, state.tokens, state.editor)
+
+      // generate highlighting
+      state.tokens->Tokens.generateHighlighting(state.editor)
     | _ => ()
     }
 

@@ -685,12 +685,14 @@ module type Module = {
   //   VSCode.TextEditor.t,
   // ) => (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<Highlighting__SemanticToken.t>)
 
-  let generate: (t, VSCode.TextEditor.t) => unit
+  // Generate highlighting from the deltas and agdaTokens
+  let generateHighlighting: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
 
   let toOriginalOffset: (t, int) => option<int>
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
+  let getHolesOffsets: t => Resource.t<Map.t<int, int>>
   let getHoles: t => Map.t<int, Token.t<vscodeOffset>>
   let getHolesSorted: t => array<Token.t<vscodeOffset>>
 }
@@ -755,6 +757,7 @@ module Module: Module = {
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
+    mutable holesOffsets: Resource.t<Map.t<int, int>>,
   }
 
   let toString = self => {
@@ -788,6 +791,7 @@ module Module: Module = {
     | Some(resource) => resource
     },
     holes: Map.make(),
+    holesOffsets: Resource.make(),
   }
 
   let insertWithVSCodeOffsets = (self, token: Token.t<vscodeOffset>) => {
@@ -1021,9 +1025,8 @@ module Module: Module = {
     traverse(init, 0, deltas, 0)
   }
 
-  // Generate tokens from the deltas and agdaTokens
-  let generate = (self, editor) => {
-    // generate new vscodeTokens from the new deltas and the agdaTokens
+  // Generate highlighting from the deltas and agdaTokens
+  let generateHighlighting = (self, editor) => {
     let document = editor->VSCode.TextEditor.document
 
     let (aspects, holes) = traverseIntervals(
@@ -1043,7 +1046,7 @@ module Module: Module = {
 
           // see if the token is a Hole, then we collect it in the holes array
           if token.aspects->Array.some(x => x == Aspect.Hole) {
-            holes->Map.set(offsetStart, token)
+            holes->Map.set(offsetStart, offsetEnd)
           }
           // split the range in case that it spans multiple lines
           let singleLineRanges = Highlighting__SemanticToken.SingleLineRange.splitRange(
@@ -1056,10 +1059,12 @@ module Module: Module = {
       ([], Map.make()),
     )
 
-    self.holes = holes
-
     let (decorations, semanticTokens) = fromAspects(editor, aspects)
+
+    // set the highlighting
     self.vscodeTokens->Resource.set(semanticTokens)
+    // set the holes offsets
+    self.holesOffsets->Resource.set(holes)
   }
 
   // Update the deltas and generate new tokens
@@ -1072,7 +1077,7 @@ module Module: Module = {
     // update the deltas
     self.deltas = Intervals.applyChanges(self.deltas, changes->Array.toReversed)
 
-    generate(self, editor)
+    let _ = generateHighlighting(self, editor)
   }
 
   // Calculate the original offset from the deltas
@@ -1096,6 +1101,7 @@ module Module: Module = {
     )
 
   let getVSCodeTokens = self => self.vscodeTokens
+  let getHolesOffsets = self => self.holesOffsets
   let getHoles = self => {
     self.holes
   }
