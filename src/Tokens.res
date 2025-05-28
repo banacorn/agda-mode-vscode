@@ -692,7 +692,7 @@ module type Module = {
   let toOriginalOffset: (t, int) => option<int>
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
-  let getHolesOffsets: t => Resource.t<Map.t<int, int>>
+  let getHolePositionsFromLoad: t => Resource.t<Map.t<int, int>>
   let getHoles: t => Map.t<int, Token.t<vscodeOffset>>
   let getHolesSorted: t => array<Token.t<vscodeOffset>>
 }
@@ -757,7 +757,7 @@ module Module: Module = {
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
-    mutable holesOffsets: Resource.t<Map.t<int, int>>,
+    mutable holePositions: Resource.t<Map.t<int, int>>,
   }
 
   let toString = self => {
@@ -791,7 +791,7 @@ module Module: Module = {
     | Some(resource) => resource
     },
     holes: Map.make(),
-    holesOffsets: Resource.make(),
+    holePositions: Resource.make(),
   }
 
   let insertWithVSCodeOffsets = (self, token: Token.t<vscodeOffset>) => {
@@ -1029,13 +1029,13 @@ module Module: Module = {
   let generateHighlighting = (self, editor) => {
     let document = editor->VSCode.TextEditor.document
 
-    let (aspects, holes) = traverseIntervals(
+    let (aspects, holePositions) = traverseIntervals(
       self->toArray,
       self.deltas,
-      ((acc, holes), token, action) =>
+      ((acc, holePositions), token, action) =>
         switch action {
         | Remove => // remove this token, move on to the next one
-          (acc, holes)
+          (acc, holePositions)
         | Translate(delta) =>
           let offsetStart = token.start + delta
           let offsetEnd = token.end + delta
@@ -1046,7 +1046,7 @@ module Module: Module = {
 
           // see if the token is a Hole, then we collect it in the holes array
           if token.aspects->Array.some(x => x == Aspect.Hole) {
-            holes->Map.set(offsetStart, offsetEnd)
+            holePositions->Map.set(offsetStart, offsetEnd)
           }
           // split the range in case that it spans multiple lines
           let singleLineRanges = Highlighting__SemanticToken.SingleLineRange.splitRange(
@@ -1054,7 +1054,7 @@ module Module: Module = {
             range,
           )
           let result = singleLineRanges->Array.map(range => (token.Token.aspects, range))
-          ([...acc, ...result], holes)
+          ([...acc, ...result], holePositions)
         },
       ([], Map.make()),
     )
@@ -1063,8 +1063,9 @@ module Module: Module = {
 
     // set the highlighting
     self.vscodeTokens->Resource.set(semanticTokens)
-    // set the holes offsets
-    self.holesOffsets->Resource.set(holes)
+    Js.log("setting hole positions: " ++ Map.size(holePositions)->string_of_int)
+    // set the holes positions
+    self.holePositions->Resource.set(holePositions)
   }
 
   // Update the deltas and generate new tokens
@@ -1101,7 +1102,7 @@ module Module: Module = {
     )
 
   let getVSCodeTokens = self => self.vscodeTokens
-  let getHolesOffsets = self => self.holesOffsets
+  let getHolePositionsFromLoad = self => self.holePositions
   let getHoles = self => {
     self.holes
   }

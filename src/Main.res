@@ -115,6 +115,8 @@ let initialize = (
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
     // updates positions of semantic highlighting tokens accordingly
     state.tokens->Tokens.applyEdit(editor, event)
+    // updates positions of goals accordingly
+    state.goals2->Goals.updatePositions(event)
 
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
   })->subscribe

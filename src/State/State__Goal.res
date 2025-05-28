@@ -362,48 +362,49 @@ module Module: Module = {
   }
 
   let instantiate = async (state: State.t, indices) => {
-    // destroy all existing goals
-    state.goals->Array.forEach(Goal.destroyDecoration)
+    // // destroy all existing goals
+    // state.goals->Array.forEach(Goal.destroyDecoration)
 
-    // get the cursor position before editing the text buffer
-    // so that we can place the cursor inside a goal later
-    let selection = VSCode.TextEditor.selection(state.editor)
-    let cursorStart = VSCode.TextDocument.offsetAt(
-      state.document,
-      VSCode.Selection.start(selection),
-    )
-    let cursorEnd = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection))
+    // // get the cursor position before editing the text buffer
+    // // so that we can place the cursor inside a goal later
+    // let selection = VSCode.TextEditor.selection(state.editor)
+    // let cursorStart = VSCode.TextDocument.offsetAt(
+    //   state.document,
+    //   VSCode.Selection.start(selection),
+    // )
+    // let cursorEnd = VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection))
 
-    // instantiate new ones
-    // let holeOffsets = await rewriteQuestionMarks(state, state.editor)
-    // let goals = await decorateHoles(state.editor, holeOffsets, indices)
+    // // instantiate new ones
+    // // let holeOffsets = await rewriteQuestionMarks(state, state.editor)
+    // // let goals = await decorateHoles(state.editor, holeOffsets, indices)
 
-    let holeOffsets = await state.tokens->Tokens.getHolesOffsets->Resource.get
-    let goals = await instantiateGoals(state, state.editor, holeOffsets, indices)
-    goals->Array.forEach(goal => {
-      // if there's a cursor that touches the hole's "boundary"
-      //
-      //                 {! some hole !}
-      //                 ^^           ^^
-      //
-      //  move the cursor inside the hole
-      //
-      //                 {! some hole !}
-      //                    ^
-      //
-      let (left, right) = goal.interval
-      let touched =
-        (left <= cursorStart && cursorStart <= left + 2) ||
-        right - 2 <= cursorStart && cursorStart <= right ||
-        left <= cursorEnd && cursorEnd <= left + 2 ||
-        (right - 2 <= cursorEnd && cursorEnd <= right)
+    // let holeOffsets = await state.tokens->Tokens.getHolesOffsets->Resource.get
+    // let goals = await instantiateGoals(state, state.editor, holeOffsets, indices)
+    // goals->Array.forEach(goal => {
+    //   // if there's a cursor that touches the hole's "boundary"
+    //   //
+    //   //                 {! some hole !}
+    //   //                 ^^           ^^
+    //   //
+    //   //  move the cursor inside the hole
+    //   //
+    //   //                 {! some hole !}
+    //   //                    ^
+    //   //
+    //   let (left, right) = goal.interval
+    //   let touched =
+    //     (left <= cursorStart && cursorStart <= left + 2) ||
+    //     right - 2 <= cursorStart && cursorStart <= right ||
+    //     left <= cursorEnd && cursorEnd <= left + 2 ||
+    //     (right - 2 <= cursorEnd && cursorEnd <= right)
 
-      if touched {
-        Goal.setCursor(goal, state.editor)
-      }
-    })
+    //   if touched {
+    //     Goal.setCursor(goal, state.editor)
+    //   }
+    // })
 
-    state.goals = goals
+    // state.goals = goals
+    ()
   }
 
   let pointed = (state: State.t): option<(Goal.t, string)> => {

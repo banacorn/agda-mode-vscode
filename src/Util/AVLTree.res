@@ -62,3 +62,15 @@ let toArray = (self: t<'a>): array<'a> => {
   })
   accum
 }
+
+let forEach = (self: t<'a>, f: 'a => unit): unit =>
+  self->traverseInOrder(node => node->Node.getValue->f)
+
+let forEachWithIndex = (self: t<'a>, f: (int, 'a) => unit): unit => {
+  let index = ref(0)
+  self->traverseInOrder(node => {
+    let value = node->Node.getValue
+    f(index.contents, value)
+    index := index.contents + 1
+  })
+}

@@ -136,7 +136,10 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-    | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
+    | InteractionPoints(indices) =>
+      let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
+      state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
+      await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
@@ -244,9 +247,9 @@ let rec handle = async (
       state.runningInfoLog->Array.push((verbosity, message))->ignore
       await State__View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
+      Js.log("CompleteHighlightingAndMakePromptReappear")
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)
-
       // generate highlighting
       state.tokens->Tokens.generateHighlighting(state.editor)
     | _ => ()
