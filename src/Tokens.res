@@ -1063,7 +1063,6 @@ module Module: Module = {
 
     // set the highlighting
     self.vscodeTokens->Resource.set(semanticTokens)
-    Js.log("setting hole positions: " ++ Map.size(holePositions)->string_of_int)
     // set the holes positions
     self.holePositions->Resource.set(holePositions)
   }

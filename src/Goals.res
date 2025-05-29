@@ -11,7 +11,7 @@ module type Module = {
   let updatePositions: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
 
   // for testing
-  let getGoals: t => Map.t<int, (int, int)>
+  let serialize: t => array<string>
 }
 
 module Module: Module = {
@@ -64,10 +64,10 @@ module Module: Module = {
       }
     }
 
-    let destroy = goal => {
-      goal.decorationBackground->Editor.Decoration.destroy
-      goal.decorationIndex->Editor.Decoration.destroy
-    }
+    // let destroy = goal => {
+    //   goal.decorationBackground->Editor.Decoration.destroy
+    //   goal.decorationIndex->Editor.Decoration.destroy
+    // }
 
     let toString = goal => {
       "#" ++
@@ -91,9 +91,32 @@ module Module: Module = {
     }
   }
 
+  let serialize = self =>
+    self.goals
+    ->Map.values
+    ->Iterator.toArray
+    ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
+    ->Array.map(Goal.toString)
+
+  let destroyGoal = (self, goal: Goal.t) => {
+    // destroy the goal's decorations
+    goal.decorationBackground->Editor.Decoration.destroy
+    goal.decorationIndex->Editor.Decoration.destroy
+    // remove the goal from the goals map
+    self.goals->Map.delete(goal.index)->ignore
+    // remove the goal from the positions tree
+    self.positions->AVLTree.remove(goal.start)->ignore
+  }
+
   // Destory and clear all goals
   let clear = self => {
-    self.goals->Map.values->Iterator.toArray->Array.forEach(Goal.destroy)
+    self.goals
+    ->Map.values
+    ->Iterator.toArray
+    ->Array.forEach(goal => {
+      goal.decorationBackground->Editor.Decoration.destroy
+      goal.decorationIndex->Editor.Decoration.destroy
+    })
     self.goals = Map.make()
     self.positions = AVLTree.make()
   }
@@ -138,7 +161,7 @@ module Module: Module = {
     // update the goal's start and end positions
 
     let updatedGoal = if redecorate {
-      Goal.destroy(goal)
+      destroyGoal(self, goal)
       Goal.make(editor, newStart, newEnd, goal.index)
     } else {
       {...goal, start: newStart, end: newEnd}
@@ -184,6 +207,7 @@ module Module: Module = {
 
   type action =
     | Destroy(Goal.t)
+    // | Restore(Goal.t)
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
 
   let updatePositions = (self, editor, event) => {
@@ -196,11 +220,11 @@ module Module: Module = {
 
     // there are 4 cases to consider when a change overlaps with a hole:
 
-    // 1. the hole is completely after the change, skip the change and move on
+    // 1. the hole is after the change, skip the change and move on
     //      removal  ┣━━━━━┫
     //      hole              ┣━━━━━┫
 
-    // 2. the hole is completely before the change, skip the hole and move on
+    // 2. the hole is before the change, skip the hole and move on
     //      removal                    ┣━━━━━┫
     //      hole              ┣━━━━━┫
 
@@ -240,14 +264,18 @@ module Module: Module = {
         } else if goal.start >= removalStart && goal.end <= removalEnd {
           if goal.end - goal.start == 1 && change.removed == 1 && change.inserted == 7 {
             // the hole is being expanded from a question mark to a hole
-            let delta = delta + change.inserted - change.removed
+            let delta' = delta + change.inserted - change.removed
             let redecorate = true
-            list{UpdatePosition(goal, delta - 6, delta, redecorate), ...go(delta, goals, changes)}
+            list{UpdatePosition(goal, delta, delta', redecorate), ...go(delta', goals, changes)}
           } else {
             // the hole is completely destroyed
             let delta = delta + change.inserted - change.removed
             list{Destroy(goal), ...go(delta, goals, changes)}
           }
+        } else if goal.start + 2 <= removalStart && goal.end - 2 >= removalEnd {
+          // hole boundaries remain intact, only the content is changed
+          let delta' = delta + change.inserted - change.removed
+          list{UpdatePosition(goal, delta, delta', false), ...go(delta', goals, changes)}
         } else {
           // the hole is partially damaged
           let delta = delta + change.inserted - change.removed
@@ -267,31 +295,20 @@ module Module: Module = {
 
       go(0, goals, changes)->List.forEach(action => {
         switch action {
-        | Destroy(goal) =>
-          self.goals->Map.delete(goal.index)->ignore
-          self.positions->AVLTree.remove(goal.start)->ignore
-          Goal.destroy(goal) // destroy the goal's decorations
+        | Destroy(goal) => destroyGoal(self, goal)
+        // | Restore(goal)
         | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
           updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
         }
       })
+
+      Js.log(
+        "Goals after update: " ++
+        self
+        ->serialize
+        ->Array.join(", "),
+      )
     }
-
-    Js.log(
-      "Goals after update: " ++
-      self.goals
-      ->Map.values
-      ->Iterator.toArray
-      ->Array.map(Goal.toString)
-      ->Array.join(", "),
-    )
   }
-
-  let getGoals = self =>
-    self.goals
-    ->Map.entries
-    ->Iterator.toArray
-    ->Array.map(((index, goal)) => (index, (goal.start, goal.end)))
-    ->Map.fromArray
 }
 include Module

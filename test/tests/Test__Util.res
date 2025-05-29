@@ -23,7 +23,8 @@ module File = {
     )
     let succeed = await Editor.Text.replace(document, replaceRange, content)
     if succeed {
-      let _ = await VSCode.TextDocument.save(document)
+      let saveResult = await VSCode.TextDocument.save(document)
+      Js.log("Saved " ++ fileName ++ ": " ++ string_of_bool(saveResult))
     } else {
       raise(Failure("Failed to write to " ++ fileName))
     }
@@ -329,7 +330,7 @@ module AgdaMode = {
     mutable state: State.t,
   }
 
-  let makeAndLoad = async (filepath) => {
+  let makeAndLoad = async filepath => {
     let filepath = Path.asset(filepath)
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
@@ -344,7 +345,6 @@ module AgdaMode = {
           resolve()
         }
       })
-
       let _ = await File.open_(filepath) // need to open the file first somehow
       switch await executeCommand("agda-mode.load") {
       | None => raise(Failure("Cannot load " ++ filepath))

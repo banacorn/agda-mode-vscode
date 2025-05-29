@@ -139,7 +139,6 @@ let rec handle = async (
     | InteractionPoints(indices) =>
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       await state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
-      // await State__Goal.instantiate(state, indices)
     | GiveAction(index, give) =>
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
