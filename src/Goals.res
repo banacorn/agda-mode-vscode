@@ -1,9 +1,14 @@
 module type Module = {
   type t
   let make: unit => t
-  let instantiateGoalsFromLoad: (t, VSCode.TextEditor.t, array<int>, Map.t<int, int>) => unit
+  let instantiateGoalsFromLoad: (
+    t,
+    VSCode.TextEditor.t,
+    array<int>,
+    Map.t<int, int>,
+  ) => promise<unit>
 
-  let updatePositions: (t, VSCode.TextDocumentChangeEvent.t) => unit
+  let updatePositions: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
 }
 
 module Module: Module = {
@@ -11,10 +16,54 @@ module Module: Module = {
     type index = int
     type t = {
       index: index,
-      start: int,
-      end: int,
+      mutable start: int,
+      mutable end: int,
       decorationBackground: Editor.Decoration.t,
       decorationIndex: Editor.Decoration.t,
+    }
+
+    let decorate = (editor: VSCode.TextEditor.t, start: int, end: int, index: int) => {
+      let document = VSCode.TextEditor.document(editor)
+      let backgroundRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, start),
+        VSCode.TextDocument.positionAt(document, end),
+      )
+
+      let background = Editor.Decoration.highlightBackground(
+        editor,
+        "editor.selectionHighlightBackground",
+        [backgroundRange],
+      )
+      let indexText = string_of_int(index)
+      let indexRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, start),
+        VSCode.TextDocument.positionAt(document, end - 2),
+      )
+
+      let index = Editor.Decoration.overlayText(
+        editor,
+        "editorLightBulb.foreground",
+        indexText,
+        indexRange,
+      )
+
+      (background, index)
+    }
+
+    let make = (editor: VSCode.TextEditor.t, start: int, end: int, index: index) => {
+      let (decorationBackground, decorationIndex) = decorate(editor, start, end, index)
+      {
+        index,
+        start,
+        end,
+        decorationBackground,
+        decorationIndex,
+      }
+    }
+
+    let destroy = goal => {
+      goal.decorationBackground->Editor.Decoration.destroy
+      goal.decorationIndex->Editor.Decoration.destroy
     }
 
     let toString = goal => {
@@ -39,7 +88,70 @@ module Module: Module = {
     }
   }
 
-  let instantiateGoalsFromLoad = (self, editor, indices, positions) => {
+  // Batch replace all goals of question marks to holes
+  let expandQuestionMarkGoals = async (self, document) => {
+    let rewrites =
+      self.goals
+      ->Map.values
+      ->Iterator.toArray
+      ->Array.filterMap(goal => {
+        let range = VSCode.Range.make(
+          VSCode.TextDocument.positionAt(document, goal.start),
+          VSCode.TextDocument.positionAt(document, goal.end),
+        )
+        let content = VSCode.TextDocument.getText(document, Some(range))
+        if content == "?" {
+          Some((range, "{!   !}"))
+        } else {
+          None
+        }
+      })
+    // execute the batch replacement of question marks to holes
+    let _ = await Editor.Text.batchReplace(document, rewrites)
+  }
+
+  let updateGoalPosition = (
+    self,
+    editor,
+    goal: Goal.t,
+    deltaStart: int,
+    deltaEnd: int,
+    redecorate: bool,
+  ) => {
+    // update the position of the goal
+    let newStart = goal.start + deltaStart
+    let newEnd = goal.end + deltaEnd
+
+    // remove the old goal from the positions tree
+    self.positions->AVLTree.remove(goal.start)->ignore
+
+    // update the goal's start and end positions
+
+    let updatedGoal = if redecorate {
+      Goal.destroy(goal)
+      Goal.make(editor, newStart, newEnd, goal.index)
+    } else {
+      {...goal, start: newStart, end: newEnd}
+    }
+
+    Js.log(
+      "Update " ++
+      Goal.toString(goal) ++
+      " => " ++
+      Goal.toString(updatedGoal) ++
+      " (deltaStart: " ++
+      string_of_int(deltaStart) ++
+      ", deltaEnd: " ++
+      string_of_int(deltaEnd) ++ ")",
+    )
+    // add the updated goal back to the positions tree
+    self.positions->AVLTree.insert(newStart, updatedGoal.index)
+
+    // update the goal in the goals map
+    self.goals->Map.set(updatedGoal.index, updatedGoal)
+  }
+
+  let instantiateGoalsFromLoad = async (self, editor, indices, positions) => {
     positions
     ->Map.entries
     ->Iterator.toArray
@@ -47,29 +159,20 @@ module Module: Module = {
       switch indices[i] {
       | None => ()
       | Some(index) =>
-        let (decorationBackground, decorationIndex) = Highlighting.decorateHole(
-          editor,
-          (start, end),
-          index,
-        )
-        let goal = {
-          Goal.index,
-          start,
-          end,
-          decorationBackground,
-          decorationIndex,
-        }
+        let goal = Goal.make(editor, start, end, index)
         self.goals->Map.set(index, goal)
         self.positions->AVLTree.insert(start, index)
       }
     })
+
+    await expandQuestionMarkGoals(self, editor->VSCode.TextEditor.document)
   }
 
   type action =
     | Destroy(Goal.index)
-    | UpdatePosition(Goal.index, int) // delta
+    | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
 
-  let updatePositions = (self, event) => {
+  let updatePositions = (self, editor, event) => {
     let changes =
       event
       ->VSCode.TextDocumentChangeEvent.contentChanges
@@ -105,7 +208,7 @@ module Module: Module = {
       | (list{}, _) => list{} // no goals left
       | (list{goal, ...goals}, list{}) =>
         if delta != 0 {
-          list{UpdatePosition(goal.index, delta), ...go(delta, goals, changes)}
+          list{UpdatePosition(goal, delta, delta, false), ...go(delta, goals, changes)}
         } else {
           go(delta, goals, changes)
         }
@@ -121,9 +224,16 @@ module Module: Module = {
           // the hole is completely before the change
           go(delta, goals, list{change, ...changes})
         } else if goal.start >= removalStart && goal.end <= removalEnd {
-          // the hole is completely destroyed
-          let delta = delta + change.inserted - change.removed
-          list{Destroy(goal.index), ...go(delta, goals, changes)}
+          if goal.end - goal.start == 1 && change.removed == 1 && change.inserted == 7 {
+            // the hole is being expanded from a question mark to a hole
+            let delta = delta + change.inserted - change.removed
+            let redecorate = true
+            list{UpdatePosition(goal, delta - 6, delta, redecorate), ...go(delta, goals, changes)}
+          } else {
+            // the hole is completely destroyed
+            let delta = delta + change.inserted - change.removed
+            list{Destroy(goal.index), ...go(delta, goals, changes)}
+          }
         } else {
           // the hole is partially damaged
           let delta = delta + change.inserted - change.removed
@@ -146,13 +256,8 @@ module Module: Module = {
         | Destroy(index) => Js.log2("Destroying goal: ", index)
         // self.goals->Map.delete(index)
         // self.positions->AVLTree.remove(index)
-        | UpdatePosition(index, delta) =>
-          Js.log(
-            "Updating position for: #" ++
-            string_of_int(index) ++
-            " with delta: " ++
-            string_of_int(delta),
-          )
+        | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
+          updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
         }
         // self.goals->AVLTree.insert(goal.start, goal)
       })
