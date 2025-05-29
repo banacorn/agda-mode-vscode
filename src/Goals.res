@@ -9,6 +9,9 @@ module type Module = {
   ) => promise<unit>
 
   let updatePositions: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
+
+  // for testing
+  let getGoals: t => Map.t<int, (int, int)>
 }
 
 module Module: Module = {
@@ -88,6 +91,13 @@ module Module: Module = {
     }
   }
 
+  // Destory and clear all goals
+  let clear = self => {
+    self.goals->Map.values->Iterator.toArray->Array.forEach(Goal.destroy)
+    self.goals = Map.make()
+    self.positions = AVLTree.make()
+  }
+
   // Batch replace all goals of question marks to holes
   let expandQuestionMarkGoals = async (self, document) => {
     let rewrites =
@@ -151,7 +161,11 @@ module Module: Module = {
     self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
 
+  // Instantiate goals after the Load command is executed.
+  // Also destoys all existing goals
   let instantiateGoalsFromLoad = async (self, editor, indices, positions) => {
+    clear(self)
+
     positions
     ->Map.entries
     ->Iterator.toArray
@@ -169,7 +183,7 @@ module Module: Module = {
   }
 
   type action =
-    | Destroy(Goal.index)
+    | Destroy(Goal.t)
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
 
   let updatePositions = (self, editor, event) => {
@@ -232,12 +246,12 @@ module Module: Module = {
           } else {
             // the hole is completely destroyed
             let delta = delta + change.inserted - change.removed
-            list{Destroy(goal.index), ...go(delta, goals, changes)}
+            list{Destroy(goal), ...go(delta, goals, changes)}
           }
         } else {
           // the hole is partially damaged
           let delta = delta + change.inserted - change.removed
-          list{Destroy(goal.index), ...go(delta, goals, changes)}
+          list{Destroy(goal), ...go(delta, goals, changes)}
         }
       }
     }
@@ -253,15 +267,31 @@ module Module: Module = {
 
       go(0, goals, changes)->List.forEach(action => {
         switch action {
-        | Destroy(index) => Js.log2("Destroying goal: ", index)
-        // self.goals->Map.delete(index)
-        // self.positions->AVLTree.remove(index)
+        | Destroy(goal) =>
+          self.goals->Map.delete(goal.index)->ignore
+          self.positions->AVLTree.remove(goal.start)->ignore
+          Goal.destroy(goal) // destroy the goal's decorations
         | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
           updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
         }
-        // self.goals->AVLTree.insert(goal.start, goal)
       })
     }
+
+    Js.log(
+      "Goals after update: " ++
+      self.goals
+      ->Map.values
+      ->Iterator.toArray
+      ->Array.map(Goal.toString)
+      ->Array.join(", "),
+    )
   }
+
+  let getGoals = self =>
+    self.goals
+    ->Map.entries
+    ->Iterator.toArray
+    ->Array.map(((index, goal)) => (index, (goal.start, goal.end)))
+    ->Map.fromArray
 }
 include Module

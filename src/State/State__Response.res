@@ -247,7 +247,6 @@ let rec handle = async (
       state.runningInfoLog->Array.push((verbosity, message))->ignore
       await State__View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
-      Js.log("CompleteHighlightingAndMakePromptReappear")
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)
       // generate highlighting
