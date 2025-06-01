@@ -116,7 +116,7 @@ let initialize = (
     // updates positions of semantic highlighting tokens accordingly
     state.tokens->Tokens.applyEdit(editor, event)
     // updates positions of goals accordingly
-    state.goals2->Goals.updatePositions(editor, event)
+    state.goals2->Goals.updatePositions(editor, event)->Promise.done
 
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
   })->subscribe

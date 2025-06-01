@@ -47,16 +47,23 @@ describe_only("Goals", () => {
     )
   })
 
-  // Async.it("should restore a goal after it has been partially damaged", async () => {
-  //   let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-  //   let _ = await Editor.Text.delete(
-  //     ctx.state.document,
-  //     VSCode.Range.make(VSCode.Position.make(9, 18), VSCode.Position.make(9, 26)),
-  //   )
-  //   // check the positions of the goals
-  //   Assert.deepStrictEqual(
-  //     ctx.state.goals2->Goals.getGoals,
-  //     [(0, (92, 99)), (1, (118, 125)), (2, (145, 152)), (3, (171, 178))]->Map.fromArray,
-  //   )
-  // })
+  Async.it_only("should restore a goal after it has been partially damaged (type A)", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+    let _ = await Editor.Text.delete(
+      ctx.state.document,
+      VSCode.Range.make(VSCode.Position.make(9, 18), VSCode.Position.make(9, 20)),
+    )
+    // check the file content 
+    let range = VSCode.Range.make(
+      VSCode.Position.make(9, 19),
+      VSCode.Position.make(9, 26),
+    )
+    let actual = Editor.Text.get(ctx.state.document, range)
+    Assert.deepStrictEqual(actual, "{!   !}")
+    // check the positions of the goals
+    // Assert.deepStrictEqual(
+    //   Goals.serialize(ctx.state.goals2),
+    //   ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [170-177)"],
+    // )
+  })
 })

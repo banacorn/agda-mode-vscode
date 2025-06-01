@@ -8,7 +8,7 @@ module type Module = {
     Map.t<int, int>,
   ) => promise<unit>
 
-  let updatePositions: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
+  let updatePositions: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => promise<unit>
 
   // for testing
   let serialize: t => array<string>
@@ -19,8 +19,8 @@ module Module: Module = {
     type index = int
     type t = {
       index: index,
-      mutable start: int,
-      mutable end: int,
+      start: int,
+      end: int,
       decorationBackground: Editor.Decoration.t,
       decorationIndex: Editor.Decoration.t,
     }
@@ -205,12 +205,29 @@ module Module: Module = {
     await expandQuestionMarkGoals(self, editor->VSCode.TextEditor.document)
   }
 
+  // Damage done to a hole. The letters correspond to the boundaries of the hole like this:
+  //    {!   !}
+  //    AB   CD
+  // So for example, if "!   !}" is damaged, we represent it as "BCD"
+  type damage =
+    | A(int) // "{" deleted, how many characters before "{" were deleted
+    | AB
+    | ABC
+    | B
+    | BC
+    | BCD
+    | C
+    | CD
+    | D
+
   type action =
     | Destroy(Goal.t)
-    // | Restore(Goal.t)
+    | Restore(Goal.t, damage)
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
 
-  let updatePositions = (self, editor, event) => {
+  let updatePositions = async (self, editor, event) => {
+    Js.log(" ======= Update positions ======= ")
+    let document = VSCode.TextEditor.document(editor)
     let changes =
       event
       ->VSCode.TextDocumentChangeEvent.contentChanges
@@ -278,8 +295,37 @@ module Module: Module = {
           list{UpdatePosition(goal, delta, delta', false), ...go(delta', goals, changes)}
         } else {
           // the hole is partially damaged
+          Js.log("partially damaged goal: " ++ Goal.toString(goal))
+
+          let damage = if removalStart <= goal.start {
+            // starts with A
+            if removalEnd == goal.start + 1 {
+              A(goal.start - removalStart)
+            } else if removalEnd == goal.end - 1 {
+              ABC
+            } else {
+              AB
+            }
+          } else if removalStart == goal.start + 1 {
+            // starts with B
+            if removalEnd <= goal.end - 2 {
+              B
+            } else if removalEnd == goal.end - 1 {
+              BC
+            } else {
+              BCD
+            }
+          } else if removalStart == goal.end - 1 {
+            D
+          } // starts with C
+          else if removalEnd == goal.end - 1 {
+            C
+          } else {
+            CD
+          }
+
           let delta = delta + change.inserted - change.removed
-          list{Destroy(goal), ...go(delta, goals, changes)}
+          list{Restore(goal, damage), ...go(delta, goals, changes)}
         }
       }
     }
@@ -293,21 +339,51 @@ module Module: Module = {
         ->Array.filterMap(index => self.goals->Map.get(index))
         ->List.fromArray
 
-      go(0, goals, changes)->List.forEach(action => {
-        switch action {
-        | Destroy(goal) => destroyGoal(self, goal)
-        // | Restore(goal)
-        | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
-          updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
-        }
-      })
+      let rewrites =
+        go(0, goals, changes)
+        ->List.toArray
+        ->Array.filterMap(action => {
+          switch action {
+          | Destroy(goal) =>
+            destroyGoal(self, goal)
+            None // no rewrite needed
+          | Restore(goal, A(delta)) =>
+            Js.log("type A")
+            updateGoalPosition(self, editor, goal, -delta, -delta - 1, false)
+            // restore "{"
+            let position = VSCode.TextDocument.positionAt(document, goal.start - delta)
+            let range = VSCode.Range.make(position, position)
+            Some((range, "{"))
+          | Restore(goal, damange) => None
+          | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
+            updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
+            None
+          }
+        })
 
       Js.log(
         "Goals after update: " ++
         self
         ->serialize
-        ->Array.join(", "),
+        ->Util.Pretty.array,
       )
+
+      Js.log(
+        "rewrites: " ++
+        rewrites
+        ->Array.map(((range, text)) =>
+          Editor.Range.toString(range) ++
+          " " ++
+          Int.toString(VSCode.TextDocument.offsetAt(document, VSCode.Range.start(range))) ++
+          " => " ++
+          text
+        )
+        ->Util.Pretty.array,
+      )
+      let _ =
+        await rewrites
+        ->Array.map(((range, text)) => document->Editor.Text.replace(range, text))
+        ->Promise.all
     }
   }
 }

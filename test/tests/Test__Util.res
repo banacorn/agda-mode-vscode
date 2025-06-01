@@ -23,8 +23,7 @@ module File = {
     )
     let succeed = await Editor.Text.replace(document, replaceRange, content)
     if succeed {
-      let saveResult = await VSCode.TextDocument.save(document)
-      Js.log("Saved " ++ fileName ++ ": " ++ string_of_bool(saveResult))
+      let _ = await VSCode.TextDocument.save(document)
     } else {
       raise(Failure("Failed to write to " ++ fileName))
     }
