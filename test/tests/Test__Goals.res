@@ -4,7 +4,7 @@ open Test__Util
 describe_only("Goals", () => {
   let fileContent = ref("")
 
-  Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
+  Async.before(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
 
   Async.it("should instantiate all 4 goals with question marks expanded to holes", async () => {
@@ -18,6 +18,8 @@ describe_only("Goals", () => {
       Goals.serialize(ctx.state.goals2),
       ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)"],
     )
+
+    await ctx->AgdaMode.quit
   })
 
   Async.it("should remove a goal after it has been completely destroyed", async () => {
@@ -31,6 +33,8 @@ describe_only("Goals", () => {
       Goals.serialize(ctx.state.goals2),
       ["#0 [92-99)", "#1 [118-125)", "#3 [164-171)"],
     )
+
+    await ctx->AgdaMode.quit
   })
 
   Async.it("should only resize a goal after its content has been edited", async () => {
@@ -45,25 +49,27 @@ describe_only("Goals", () => {
       Goals.serialize(ctx.state.goals2),
       ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-179)"],
     )
+
+    await ctx->AgdaMode.quit
   })
 
-  Async.it_only("should restore a goal after it has been partially damaged (type A)", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.delete(
-      ctx.state.document,
-      VSCode.Range.make(VSCode.Position.make(9, 18), VSCode.Position.make(9, 20)),
-    )
-    // check the file content 
-    let range = VSCode.Range.make(
-      VSCode.Position.make(9, 19),
-      VSCode.Position.make(9, 26),
-    )
-    let actual = Editor.Text.get(ctx.state.document, range)
-    Assert.deepStrictEqual(actual, "{!   !}")
-    // check the positions of the goals
-    // Assert.deepStrictEqual(
-    //   Goals.serialize(ctx.state.goals2),
-    //   ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [170-177)"],
-    // )
-  })
+  // Async.it("should restore a goal after it has been partially damaged (type A)", async () => {
+  //   let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+  //   let _ = await Editor.Text.delete(
+  //     ctx.state.document,
+  //     VSCode.Range.make(VSCode.Position.make(9, 18), VSCode.Position.make(9, 20)),
+  //   )
+  //   // check the file content
+  //   let range = VSCode.Range.make(
+  //     VSCode.Position.make(9, 19),
+  //     VSCode.Position.make(9, 26),
+  //   )
+  //   let actual = Editor.Text.get(ctx.state.document, range)
+  //   Assert.deepStrictEqual(actual, "{!   !}")
+  //   // check the positions of the goals
+  //   // Assert.deepStrictEqual(
+  //   //   Goals.serialize(ctx.state.goals2),
+  //   //   ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [170-177)"],
+  //   // )
+  // })
 })

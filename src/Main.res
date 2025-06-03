@@ -116,7 +116,16 @@ let initialize = (
     // updates positions of semantic highlighting tokens accordingly
     state.tokens->Tokens.applyEdit(editor, event)
     // updates positions of goals accordingly
-    state.goals2->Goals.updatePositions(editor, event)->Promise.done
+    let changes =
+      event
+      ->VSCode.TextDocumentChangeEvent.contentChanges
+      ->Array.map(Tokens.Change.fromTextDocumentContentChangeEvent)
+      ->Array.toReversed
+    if Array.length(changes) != 0 {
+      Js.log("triggered by onDidChangeTextDocument")
+      Js.log("changes: " ++ changes->Array.map(Tokens.Change.toString)->Array.join(", "))
+      state.goals2->Goals.scanAllGoals(editor, changes)->Promise.done
+    }
 
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
   })->subscribe
