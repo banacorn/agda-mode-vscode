@@ -10,7 +10,7 @@
   ],
   "repository": {
     "agda-block": {
-      "begin": "(^|\\G)(\\s*)(```)(\\s*)(agda)(\\s*$)",
+      "begin": "(^|\\G)(\\s*)(```)(\\s*)(agda)?(\\s*$)",
       "end": "(^|\\G)(\\2)(```)(\\s*$)",
       "name": "markup.fenced_code.block.markdown",
       "contentName": "meta.embedded.block.agda",
