@@ -122,8 +122,6 @@ let initialize = (
       ->Array.map(Tokens.Change.fromTextDocumentContentChangeEvent)
       ->Array.toReversed
     if Array.length(changes) != 0 {
-      Js.log("triggered by onDidChangeTextDocument")
-      Js.log("changes: " ++ changes->Array.map(Tokens.Change.toString)->Array.join(", "))
       state.goals2->Goals.scanAllGoals(editor, changes)->Promise.done
     }
 

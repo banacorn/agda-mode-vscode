@@ -1,12 +1,12 @@
 open Common
 module type Module = {
-  let instantiate: (State.t, array<int>) => promise<unit>
-  let instantiateGoals: (
-    State.t,
-    VSCode.TextEditor.t,
-    Map.t<int, int>,
-    array<int>,
-  ) => promise<array<Goal.t>>
+  // let instantiate: (State.t, array<int>) => promise<unit>
+  // let instantiateGoals: (
+  //   State.t,
+  //   VSCode.TextEditor.t,
+  //   Map.t<int, int>,
+  //   array<int>,
+  // ) => promise<array<Goal.t>>
   let modify: (State.t, Goal.t, string => string) => promise<unit>
   let removeBoundaryAndDestroy: (State.t, Goal.t) => promise<unit>
   let pointed: State.t => option<(Goal.t, string)>
@@ -316,20 +316,20 @@ module Module: Module = {
     })
   }
 
-  let instantiateGoals = async (
-    state: State.t,
-    editor: VSCode.TextEditor.t,
-    holeOffsets: Map.t<int, int>,
-    indices: array<int>,
-  ): array<Goal.t> => {
-    // let holeOffsets =
-    //   holeOffsets
-    //   ->Map.entries
-    //   ->Iterator.toArray
-    // Js.log2("Instantiating goals with offsets: ", holeOffsets)
+  // let instantiateGoals = async (
+  //   state: State.t,
+  //   editor: VSCode.TextEditor.t,
+  //   holeOffsets: Map.t<int, int>,
+  //   indices: array<int>,
+  // ): array<Goal.t> => {
+  //   // let holeOffsets =
+  //   //   holeOffsets
+  //   //   ->Map.entries
+  //   //   ->Iterator.toArray
+  //   // Js.log2("Instantiating goals with offsets: ", holeOffsets)
 
-    await decorateHoles(editor, holeOffsets, indices)
-  }
+  //   await decorateHoles(editor, holeOffsets, indices)
+  // }
 
   // New holes may be introduced by a refine command, however, we don't have highlighting information
   // for the result of the refine command.

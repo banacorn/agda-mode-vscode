@@ -119,7 +119,7 @@ describe_only("Goals", () => {
       },
     )
 
-    Async.it_only(
+    Async.it(
       "should protect against a deletion on the left boundary",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")

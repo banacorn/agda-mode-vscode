@@ -148,28 +148,6 @@ module Module: Module = {
     self.positions = AVLTree.make()
   }
 
-  // // Batch replace all goals of question marks to holes
-  // let expandQuestionMarkGoals = async (self, document) => {
-  //   let rewrites =
-  //     self.goals
-  //     ->Map.values
-  //     ->Iterator.toArray
-  //     ->Array.filterMap(goal => {
-  //       let range = VSCode.Range.make(
-  //         VSCode.TextDocument.positionAt(document, goal.start),
-  //         VSCode.TextDocument.positionAt(document, goal.end),
-  //       )
-  //       let content = VSCode.TextDocument.getText(document, Some(range))
-  //       if content == "?" {
-  //         Some((range, "{!   !}"))
-  //       } else {
-  //         None
-  //       }
-  //     })
-  //   // execute the batch replacement of question marks to holes
-  //   let _ = await Editor.Text.batchReplace(document, rewrites)
-  // }
-
   let updateGoalPosition = (
     self,
     editor,
@@ -194,16 +172,6 @@ module Module: Module = {
       {...goal, start: newStart, end: newEnd}
     }
 
-    Js.log(
-      "Update " ++
-      Goal.toString(goal) ++
-      " => " ++
-      Goal.toString(updatedGoal) ++
-      " (deltaStart: " ++
-      string_of_int(deltaStart) ++
-      ", deltaEnd: " ++
-      string_of_int(deltaEnd) ++ ")",
-    )
     // add the updated goal back to the positions tree
     self.positions->AVLTree.insert(newStart, updatedGoal.index)
 
@@ -233,13 +201,6 @@ module Module: Module = {
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
 
   let scanAllGoals = async (self, editor, changes) => {
-    Js.log(
-      " ======= Update positions ======= " ++ if self->isBusy {
-        "BUSY!"
-      } else {
-        ""
-      },
-    )
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
 
@@ -282,7 +243,6 @@ module Module: Module = {
       // the hole may be replaced with some text like "  {!       !} ", in that case, we'll need to update the positions
       let leftBoundary = String.indexOfOpt(holeText, "{!")
       let rightBoundary = String.lastIndexOfOpt(holeText, "!}")
-
       let holeIsIntact = rightBoundary->Option.isSome && leftBoundary->Option.isSome
 
       // a goal will completely destroyed during the expansion from a question mark to a hole
@@ -299,32 +259,10 @@ module Module: Module = {
       | _ => (0, 0)
       }
 
-      Js.log(
-        "  delta: " ++
-        string_of_int(delta) ++
-        ", deltaStart: " ++
-        string_of_int(deltaStart) ++
-        ", deltaEnd: " ++
-        string_of_int(deltaEnd) ++
-        ", destroyed: " ++
-        string_of_bool(destroyed) ++
-        ", intact: " ++
-        string_of_bool(holeIsIntact) ++
-        ", resizing: " ++
-        string_of_int(resizeStart) ++
-        "/" ++
-        string_of_int(resizeEnd) ++
-        ", goal: " ++
-        Goal.toString(goal) ++
-        "  \t\"" ++
-        holeText ++ "\"",
-      )
-
       if holeText == "?" {
         [Rewrite(range, "{!   !}")]
       } // expand question mark to hole
       else if destroyed && !isQuestionMarkExpansion {
-        Js.log("DESTROY: " ++ Goal.toString(goal))
         [Destroy(goal)]
       } else if holeIsIntact {
         [
@@ -332,46 +270,37 @@ module Module: Module = {
             goal,
             delta + deltaStart + resizeStart,
             delta + deltaEnd + resizeEnd,
-            false,
+            isQuestionMarkExpansion, // redecorate if it was a question mark expansion
           ),
         ]
-      } else {
-        Js.log("\nDAMAGED: " ++ Goal.toString(goal) ++ "\n")
-
-        if holeText->String.startsWith("{!") {
-          switch holeText->String.charAt(holeTextLength - 1) {
-          | "!" => [
-              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-              Rewrite(range, holeText ++ "}"),
-            ]
-
-          | "}" => [
-              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-              Rewrite(range, holeText->String.substring(~start=0, ~end=holeTextLength - 1) ++ "!}"),
-            ]
-
-          | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
-          }
-        } else if holeText->String.endsWith("!}") {
-          switch holeText->String.charAt(0) {
-          | "{" => [
-              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-              Rewrite(range, "{!" ++ holeText->String.substringToEnd(~start=1)),
-            ]
-
-          | "!" =>
-            Js.log("HOLE TEXT: \"" ++ holeText ++ "\"")
-
-            [
-              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-              Rewrite(range, "{" ++ holeText),
-            ]
-
-          | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
-          }
-        } else {
-          [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
+      } else if holeText->String.startsWith("{!") {
+        switch holeText->String.charAt(holeTextLength - 1) {
+        | "!" => [
+            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+            Rewrite(range, holeText ++ "}"),
+          ]
+        | "}" => [
+            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+            Rewrite(range, holeText->String.substring(~start=0, ~end=holeTextLength - 1) ++ "!}"),
+          ]
+        | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
         }
+      } else if holeText->String.endsWith("!}") {
+        switch holeText->String.charAt(0) {
+        | "{" => [
+            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+            Rewrite(range, "{!" ++ holeText->String.substringToEnd(~start=1)),
+          ]
+
+        | "!" => [
+            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+            Rewrite(range, "{" ++ holeText),
+          ]
+
+        | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
+        }
+      } else {
+        [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
       }
     }
 
@@ -384,8 +313,8 @@ module Module: Module = {
       | (list{goal, ...goals}, list{change, ...changes}) =>
         let removalStart = change.offset
         let removalEnd = change.offset + change.removed
-        if removalEnd <= goal.start {
-          // the hole is completely after the change
+        if removalEnd < goal.start {
+          // the hole is completely after the change (separated by a least a character)
           let delta = delta + change.inserted - change.removed
           go(delta, list{goal, ...goals}, changes)
         } else if removalStart >= goal.end {
@@ -398,7 +327,6 @@ module Module: Module = {
           let delta' = delta + change.inserted - change.removed
           [...actions, ...go(delta', goals, changes)]
         } else {
-          Js.log("partially damaged goal: " ++ Goal.toString(goal))
           let deltaStart = if removalStart <= goal.start {
             removalStart - goal.start
           } else {
@@ -438,26 +366,6 @@ module Module: Module = {
       }
     })
 
-    Js.log(
-      "Goals after update: " ++
-      self
-      ->serialize
-      ->Util.Pretty.array,
-    )
-
-    Js.log(
-      "rewrites: " ++
-      rewrites
-      ->Array.map(((range, text)) =>
-        Editor.Range.toString(range) ++
-        " " ++
-        Int.toString(VSCode.TextDocument.offsetAt(document, VSCode.Range.start(range))) ++
-        " => " ++
-        text
-      )
-      ->Util.Pretty.array,
-    )
-
     if Array.length(rewrites) != 0 {
       // set busy
       setBusy(self)
@@ -485,9 +393,7 @@ module Module: Module = {
       }
     })
 
-    Js.log("triggered by instantiateGoalsFromLoad")
     await scanAllGoals(self, editor, [])
-    // await expandQuestionMarkGoals(self, editor->VSCode.TextEditor.document)
   }
 }
 include Module
