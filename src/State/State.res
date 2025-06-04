@@ -122,7 +122,8 @@ let make = (
 }
 
 // construction/destruction
-let destroy = (state, alsoRemoveFromRegistry) => {
+let destroy = async (state, alsoRemoveFromRegistry) => {
+  await state.goals2->Goals.waitUntilNotBusy
   if alsoRemoveFromRegistry {
     state.onRemoveFromRegistry->Chan.emit()
   }
@@ -130,7 +131,7 @@ let destroy = (state, alsoRemoveFromRegistry) => {
   state.goals->Array.forEach(Goal.destroyDecoration)
   state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state.connection->Connection.destroy
+  await state.connection->Connection.destroy
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 

@@ -10,6 +10,9 @@ module type Module = {
 
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
+  let isBusy: t => bool
+  let waitUntilNotBusy: t => promise<unit>
+
   // for testing
   let serialize: t => array<string>
 }
@@ -82,14 +85,38 @@ module Module: Module = {
   type t = {
     mutable goals: Map.t<Goal.index, Goal.t>, // goal index => goal
     mutable positions: AVLTree.t<Goal.index>, // start position => goal index
+    mutable isBusy: option<(promise<unit>, unit => unit)>, // semaphore for busy state
   }
 
   let make = () => {
     {
       goals: Map.make(),
       positions: AVLTree.make(),
+      isBusy: None,
     }
   }
+
+  let isBusy = self => self.isBusy->Option.isSome
+  let setBusy = self =>
+    switch self.isBusy {
+    | Some(_) => () // already busy, do nothing
+    | None =>
+      let (promise, resolve, _) = Util.Promise_.pending()
+      self.isBusy = Some(promise, resolve)
+    }
+  let setNotBusy = self =>
+    switch self.isBusy {
+    | None => () // not busy, do nothing
+    | Some((_, resolve)) =>
+      self.isBusy = None // clear the busy state
+      resolve() // resolve the promise
+    }
+
+  let waitUntilNotBusy = self =>
+    switch self.isBusy {
+    | None => Promise.resolve()
+    | Some((promise, _)) => promise
+    }
 
   let serialize = self =>
     self.goals
@@ -206,7 +233,13 @@ module Module: Module = {
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
 
   let scanAllGoals = async (self, editor, changes) => {
-    Js.log(" ======= Update positions ======= ")
+    Js.log(
+      " ======= Update positions ======= " ++ if self->isBusy {
+        "BUSY!"
+      } else {
+        ""
+      },
+    )
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
 
@@ -245,6 +278,7 @@ module Module: Module = {
         VSCode.TextDocument.positionAt(document, goal.end + delta + deltaEnd),
       )
       let holeText = Editor.Text.get(document, range)
+      let holeTextLength = goal.end - goal.start + deltaEnd - deltaStart
       // the hole may be replaced with some text like "  {!       !} ", in that case, we'll need to update the positions
       let leftBoundary = String.indexOfOpt(holeText, "{!")
       let rightBoundary = String.lastIndexOfOpt(holeText, "!}")
@@ -287,42 +321,56 @@ module Module: Module = {
       )
 
       if holeText == "?" {
-        (0, [Rewrite(range, "{!   !}")]) // expand question mark to hole
-      } else if destroyed && !isQuestionMarkExpansion {
+        [Rewrite(range, "{!   !}")]
+      } // expand question mark to hole
+      else if destroyed && !isQuestionMarkExpansion {
         Js.log("DESTROY: " ++ Goal.toString(goal))
-        (0, [Destroy(goal)])
+        [Destroy(goal)]
       } else if holeIsIntact {
-        (
-          0,
-          [
-            UpdatePosition(
-              goal,
-              delta + deltaStart + resizeStart,
-              delta + deltaEnd + resizeEnd,
-              false,
-            ),
-          ],
-        )
+        [
+          UpdatePosition(
+            goal,
+            delta + deltaStart + resizeStart,
+            delta + deltaEnd + resizeEnd,
+            false,
+          ),
+        ]
       } else {
         Js.log("\nDAMAGED: " ++ Goal.toString(goal) ++ "\n")
 
-        // let range = VSCode.Range.make(
-        //   VSCode.TextDocument.positionAt(document, goal.start + delta + deltaStart),
-        //   VSCode.TextDocument.positionAt(document, goal.start + delta + deltaStart),
-        // )
-
-        if holeText->String.startsWith("{!") &&
-           holeText->String.endsWith("!") {
-          Js.log("FIX!")
-          (
-            0,
-            [
+        if holeText->String.startsWith("{!") {
+          switch holeText->String.charAt(holeTextLength - 1) {
+          | "!" => [
               UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
               Rewrite(range, holeText ++ "}"),
-            ],
-          )
+            ]
+
+          | "}" => [
+              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+              Rewrite(range, holeText->String.substring(~start=0, ~end=holeTextLength - 1) ++ "!}"),
+            ]
+
+          | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
+          }
+        } else if holeText->String.endsWith("!}") {
+          switch holeText->String.charAt(0) {
+          | "{" => [
+              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+              Rewrite(range, "{!" ++ holeText->String.substringToEnd(~start=1)),
+            ]
+
+          | "!" =>
+            Js.log("HOLE TEXT: \"" ++ holeText ++ "\"")
+
+            [
+              UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
+              Rewrite(range, "{" ++ holeText),
+            ]
+
+          | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
+          }
         } else {
-          (0, [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)])
+          [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
         }
       }
     }
@@ -331,8 +379,8 @@ module Module: Module = {
       switch (goals, changes) {
       | (list{}, _) => [] // no goals left
       | (list{goal, ...goals}, list{}) =>
-        let (deltaFromScan, actions) = scanGoal(delta, goal, 0, 0, false)
-        [...actions, ...go(delta + deltaFromScan, goals, changes)]
+        let actions = scanGoal(delta, goal, 0, 0, false)
+        [...actions, ...go(delta, goals, changes)]
       | (list{goal, ...goals}, list{change, ...changes}) =>
         let removalStart = change.offset
         let removalEnd = change.offset + change.removed
@@ -346,8 +394,8 @@ module Module: Module = {
         } else if goal.start >= removalStart && goal.end <= removalEnd {
           let deltaStart = removalStart - goal.start
           let deltaEnd = deltaStart + change.inserted - change.removed
-          let (deltaFromScan, actions) = scanGoal(delta, goal, deltaStart, deltaEnd, true)
-          let delta' = delta + change.inserted - change.removed + deltaFromScan
+          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, true)
+          let delta' = delta + change.inserted - change.removed
           [...actions, ...go(delta', goals, changes)]
         } else {
           Js.log("partially damaged goal: " ++ Goal.toString(goal))
@@ -357,119 +405,16 @@ module Module: Module = {
             0
           }
           let deltaEnd = if removalEnd >= goal.end {
-            // the change ends after the hole
             removalStart - goal.end + change.inserted
           } else {
-            removalStart - removalEnd + change.inserted
+            change.inserted - change.removed
           }
 
-          // let range = VSCode.Range.make(
-          //   VSCode.TextDocument.positionAt(document, goal.start + delta + deltaStart),
-          //   VSCode.TextDocument.positionAt(document, goal.end + delta + deltaEnd),
-          // )
-
-          // let holeText = Editor.Text.get(document, range)
-          // let holeIsIntact = String.startsWith(holeText, "{!") && String.endsWith(holeText, "!}")
-          // Js.log("Hole text: \"" ++ holeText ++ "\" / " ++ string_of_bool(holeIsIntact))
-          let (deltaFromScan, actions) = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          let delta' = delta + change.inserted - change.removed + deltaFromScan
+          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
+          let delta' = delta + change.inserted - change.removed
 
           [...actions, ...go(delta', goals, changes)]
         }
-      // if removalEnd <= goal.start {
-      //   Js.log("AFTER")
-      //   // the hole is completely after the change
-      //   let delta = delta + change.inserted - change.removed
-      //   go(delta, list{goal, ...goals}, changes)
-      // } else if removalStart >= goal.end {
-      //   Js.log("BEFORE")
-      //   // the hole is completely before the change
-      //   go(delta, goals, list{change, ...changes})
-      // } else if goal.start >= removalStart && goal.end <= removalEnd {
-      //   if goal.end - goal.start == 1 && change.removed == 1 && change.inserted == 7 {
-      //     Js.log("EXPAND")
-      //     // the hole is being expanded from a question mark to a hole
-      //     let delta' = delta + change.inserted - change.removed
-      //     let redecorate = true
-      //     list{UpdatePosition(goal, delta, delta', redecorate), ...go(delta', goals, changes)}
-      //   } else {
-      //     Js.log("DESTROY")
-      //     // the hole is completely destroyed
-      //     let delta = delta + change.inserted - change.removed
-      //     list{Destroy(goal), ...go(delta, goals, changes)}
-      //   }
-      // } else if goal.start + 2 <= removalStart && goal.end - 2 >= removalEnd {
-      //   // hole boundaries remain intact, only the content is changed
-      //   let delta' = delta + change.inserted - change.removed
-      //   list{UpdatePosition(goal, delta, delta', false), ...go(delta', goals, changes)}
-      // } else {
-      //   // the hole is partially damaged
-      //   Js.log("partially damaged goal: " ++ Goal.toString(goal))
-
-      //   let deltaStart = if removalStart <= goal.start {
-      //     // the change starts before the hole
-      //     removalStart - goal.start
-      //   } else {
-      //     0
-      //   }
-      //   let deltaEnd = if removalEnd >= goal.end {
-      //     // the change ends after the hole
-      //     goal.start - goal.end
-      //   } else {
-      //     goal.start - removalEnd
-      //   }
-
-      //   Js.log(
-      //     "deltaStart: " ++ string_of_int(deltaStart) ++
-      //     ", deltaEnd: " ++ string_of_int(deltaEnd),
-      //   )
-
-      //   let range = VSCode.Range.make(
-      //     VSCode.TextDocument.positionAt(
-      //       document,
-      //       goal.start + delta + deltaStart,
-      //     ),
-      //     VSCode.TextDocument.positionAt(
-      //       document,
-      //       goal.end + delta + deltaStart + deltaEnd,
-      //     ),
-      //   )
-
-      //   let holeText = Editor.Text.get(document, range)
-      //   let holeIsIntact = String.startsWith(holeText, "{!") &&
-      //     String.endsWith(holeText, "!}")
-      //   Js.log("Hole text: \"" ++ holeText ++ "\" hole is intact: " ++ string_of_bool(holeIsIntact))
-
-      //   let damage = if removalStart <= goal.start {
-      //     // starts with A
-      //     if removalEnd == goal.start + 1 {
-      //       A(goal.start - removalStart)
-      //     } else if removalEnd == goal.end - 1 {
-      //       ABC
-      //     } else {
-      //       AB
-      //     }
-      //   } else if removalStart == goal.start + 1 {
-      //     // starts with B
-      //     if removalEnd <= goal.end - 2 {
-      //       B
-      //     } else if removalEnd == goal.end - 1 {
-      //       BC
-      //     } else {
-      //       BCD
-      //     }
-      //   } else if removalStart == goal.end - 1 {
-      //     D
-      //   } // starts with C
-      //   else if removalEnd == goal.end - 1 {
-      //     C
-      //   } else {
-      //     CD
-      //   }
-
-      //   let delta = delta + change.inserted - change.removed
-      //   list{Restore(goal, damage), ...go(delta, goals, changes)}
-      // }
       }
     }
 
@@ -514,7 +459,11 @@ module Module: Module = {
     )
 
     if Array.length(rewrites) != 0 {
+      // set busy
+      setBusy(self)
       let _ = await Editor.Text.batchReplace(document, rewrites)
+    } else {
+      setNotBusy(self)
     }
   }
 

@@ -68,7 +68,11 @@ module Module: {
     | None => ()
     | Some(entry) =>
       remove(fileName)
-      entry.state->Option.forEach(state => State.destroy(state, false)->ignore)
+      switch entry.state {
+      | None => ()
+      | Some(state) =>
+        let _ = await State.destroy(state, false)
+      }
     }
 
   let removeAndDestroyAll = async () => {
