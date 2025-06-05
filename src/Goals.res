@@ -89,7 +89,7 @@ module Module: Module = {
   type t = {
     mutable goals: Map.t<Goal.index, Goal.t>, // goal index => goal
     mutable positions: AVLTree.t<Goal.index>, // start position => goal index
-    mutable isBusy: option<(promise<unit>, unit => unit)>, // semaphore for busy state
+    mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
   }
 
   let make = () => {
@@ -104,22 +104,20 @@ module Module: Module = {
   let setBusy = self =>
     switch self.isBusy {
     | Some(_) => () // already busy, do nothing
-    | None =>
-      let (promise, resolve, _) = Util.Promise_.pending()
-      self.isBusy = Some(promise, resolve)
+    | None => self.isBusy = Some(Resource.make())
     }
   let setNotBusy = self =>
     switch self.isBusy {
     | None => () // not busy, do nothing
-    | Some((_, resolve)) =>
+    | Some(resource) =>
       self.isBusy = None // clear the busy state
-      resolve() // resolve the promise
+      resource->Resource.set() // resolve the promise
     }
 
   let waitUntilNotBusy = self =>
     switch self.isBusy {
     | None => Promise.resolve()
-    | Some((promise, _)) => promise
+    | Some(resource) => resource->Resource.get
     }
 
   let serialize = self =>
@@ -400,7 +398,7 @@ module Module: Module = {
     await scanAllGoals(self, editor, [])
   }
 
-  let jmupToGoal = (self, editor, goal: Goal.t) => {
+  let jmupToGoal = (editor, goal: Goal.t) => {
     let document = VSCode.TextEditor.document(editor)
     let spaceInsideBoundaries = goal.end - goal.start - 4
     let offset = if spaceInsideBoundaries == 0 {
@@ -427,7 +425,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jmupToGoal(self, editor, goal)
+    | Some(goal) => jmupToGoal(editor, goal)
     }
   }
 
@@ -458,7 +456,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jmupToGoal(self, editor, goal)
+    | Some(goal) => jmupToGoal(editor, goal)
     }
   }
 }

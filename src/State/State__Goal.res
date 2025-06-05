@@ -17,7 +17,7 @@ module type Module = {
 
   let redecorate: State.t => unit
   // let next: State.t => unit
-  let previous: State.t => unit
+  // let previous: State.t => unit
 
   // helper functions
   let parseHolesFromRefineResult: string => array<int>
@@ -200,61 +200,6 @@ module Module: Module = {
     }
   }
 
-  let next = (state: State.t): unit => {
-    updateIntervals(state)
-
-    let nextGoal = ref(None)
-    let cursorOffset = VSCode.TextDocument.offsetAt(state.document, Editor.Cursor.get(state.editor))
-    let offsets = getOffsets(state)
-
-    // find the first Goal after the cursor
-    offsets->Array.forEach(offset =>
-      if cursorOffset < offset && nextGoal.contents === None {
-        nextGoal := Some(offset)
-      }
-    )
-
-    // if there's no Goal after the cursor, then loop back and return the first Goal
-    if nextGoal.contents === None {
-      nextGoal := offsets[0]
-    }
-
-    switch nextGoal.contents {
-    | None => ()
-    | Some(offset) =>
-      let point = state.document->VSCode.TextDocument.positionAt(offset)
-      Editor.Cursor.set(state.editor, point)
-      state->jumpToOffset(offset)
-    }
-  }
-
-  let previous = (state: State.t): unit => {
-    updateIntervals(state)
-
-    let previousGoal = ref(None)
-    let cursorOffset = VSCode.TextDocument.offsetAt(state.document, Editor.Cursor.get(state.editor))
-    let offsets = getOffsets(state)
-
-    // find the last Goal before the cursor
-    offsets->Array.forEach(offset =>
-      if cursorOffset > offset {
-        previousGoal := Some(offset)
-      }
-    )
-
-    // loop back if this is already the first Goal
-    if previousGoal.contents === None {
-      previousGoal := offsets[Array.length(offsets) - 1]
-    }
-
-    switch previousGoal.contents {
-    | None => ()
-    | Some(offset) =>
-      let point = state.document->VSCode.TextDocument.positionAt(offset)
-      Editor.Cursor.set(state.editor, point)
-      state->jumpToOffset(offset)
-    }
-  }
 
   // Given offsets of holes, instantiate Goals and decorate them
   // rewrite question marks "?" to holes "{!   !}" when necessary
