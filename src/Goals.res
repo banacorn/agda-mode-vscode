@@ -13,6 +13,10 @@ module type Module = {
   let isBusy: t => bool
   let waitUntilNotBusy: t => promise<unit>
 
+  // jumping between goals
+  let jmupToTheNextGoal: (t, VSCode.TextEditor.t) => unit
+  let jmupToThePreviousGoal: (t, VSCode.TextEditor.t) => unit
+
   // for testing
   let serialize: t => array<string>
 }
@@ -394,6 +398,68 @@ module Module: Module = {
     })
 
     await scanAllGoals(self, editor, [])
+  }
+
+  let jmupToGoal = (self, editor, goal: Goal.t) => {
+    let document = VSCode.TextEditor.document(editor)
+    let spaceInsideBoundaries = goal.end - goal.start - 4
+    let offset = if spaceInsideBoundaries == 0 {
+      // {!!}
+      goal.start + 2
+    } else {
+      // {! !}
+      goal.start + 3
+    }
+
+    let position = VSCode.TextDocument.positionAt(document, offset)
+    Editor.Cursor.set(editor, position)
+  }
+
+  let jmupToTheNextGoal = (self, editor) => {
+    let document = VSCode.TextEditor.document(editor)
+    let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
+
+    // find the first Goal after the cursor
+    let goal = switch self.positions->AVLTree.upperBound(cursorOffset) {
+    | None => self.goals->Map.get(0) // if no goal is found, maybe we are at the end of the document, try to return the first goal
+    | Some(index) => self.goals->Map.get(index)
+    }
+
+    switch goal {
+    | None => () // no goal found, do nothing
+    | Some(goal) => jmupToGoal(self, editor, goal)
+    }
+  }
+
+  let jmupToThePreviousGoal = (self, editor) => {
+    let document = VSCode.TextEditor.document(editor)
+    let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
+
+    // find the first Goal after the cursor
+    let goal = switch self.positions->AVLTree.lowerBound(cursorOffset) {
+    | None => self.goals->Map.get(Map.size(self.goals) - 1) // if no goal is found, maybe we are at the beginning of the document, try to return the last goal
+    | Some(index) =>
+      // if we are already in a goal, finding the lower bound will return the goal itself, we need to return the predecessor instead
+      switch self.goals->Map.get(index) {
+      | None => None // no goal found, do nothing
+      | Some(goal) =>
+        if cursorOffset >= goal.start && cursorOffset < goal.end {
+          let previousIndex = if index == 0 {
+            Map.size(self.goals) - 1 // wrap around to the last goal
+          } else {
+            index - 1 // get the previous goal
+          }
+          self.goals->Map.get(previousIndex) // return the previous goal
+        } else {
+          Some(goal) // return the current goal
+        }
+      }
+    }
+
+    switch goal {
+    | None => () // no goal found, do nothing
+    | Some(goal) => jmupToGoal(self, editor, goal)
+    }
   }
 }
 include Module

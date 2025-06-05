@@ -8,17 +8,22 @@ describe_only("Goals", () => {
   Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
   Async.after(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
 
-  Async.it("should instantiate all 4 goals with question marks expanded to holes", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    await ctx->AgdaMode.quit
-    // compare file content before and after
-    let actual = await File.read(Path.asset("Goals.agda"))
-    let expected = await File.read(Path.asset("Goals.agda.out"))
-    Assert.deepStrictEqual(actual, expected)
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)"],
+  describe("On document change", () => {
+    Async.it(
+      "should instantiate all 4 goals with question marks expanded to holes",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        await ctx->AgdaMode.quit
+        // compare file content before and after
+        let actual = await File.read(Path.asset("Goals.agda"))
+        let expected = await File.read(Path.asset("Goals.agda.out"))
+        Assert.deepStrictEqual(actual, expected)
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+        )
+      },
     )
   })
 
@@ -32,7 +37,7 @@ describe_only("Goals", () => {
     // check the positions of the goals
     Assert.deepStrictEqual(
       Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#3 [164-171)"],
+      ["#0 [92-99)", "#1 [118-125)", "#3 [164-168)"],
     )
   })
 
@@ -48,7 +53,7 @@ describe_only("Goals", () => {
     // check the positions of the goals
     Assert.deepStrictEqual(
       Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-179)"],
+      ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-176)"],
     )
   })
 
@@ -70,7 +75,7 @@ describe_only("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)"],
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
         )
       },
     )
@@ -92,7 +97,7 @@ describe_only("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)"],
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
         )
       },
     )
@@ -114,7 +119,7 @@ describe_only("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)"],
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
         )
       },
     )
@@ -136,8 +141,66 @@ describe_only("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)"],
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
         )
+      },
+    )
+  })
+
+  describe("Jumping between goals", () => {
+    Async.it(
+      "should jump to the next goal",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(0, 0))
+
+        // should land on the first goal
+        await ctx->AgdaMode.nextGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(7, 14))
+
+        // should land on the second goal
+        await ctx->AgdaMode.nextGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(8, 21))
+
+        // should land on the third goal
+        await ctx->AgdaMode.nextGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(9, 22))
+
+        // should land on the fourth goal
+        await ctx->AgdaMode.nextGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 20))
+
+        // should land on the first goal again
+        await ctx->AgdaMode.nextGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(7, 14))
+      },
+    )
+
+    Async.it(
+      "should jump to the previous goal",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(0, 0))
+
+        // should land on the last goal
+        await ctx->AgdaMode.previousGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 20))
+
+        // should land on the third goal
+        await ctx->AgdaMode.previousGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(9, 22))
+
+        // should land on the second goal
+        await ctx->AgdaMode.previousGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(8, 21))
+
+        // should land on the first goal
+        await ctx->AgdaMode.previousGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(7, 14))
+
+        // should land on the last goal again
+        await ctx->AgdaMode.previousGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 20))
       },
     )
   })

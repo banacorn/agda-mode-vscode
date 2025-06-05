@@ -16,7 +16,7 @@ module type Module = {
   let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, Interval.t)
 
   let redecorate: State.t => unit
-  let next: State.t => unit
+  // let next: State.t => unit
   let previous: State.t => unit
 
   // helper functions

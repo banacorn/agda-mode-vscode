@@ -44,8 +44,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     | Some((goal, _)) => await sendAgdaRequest(SolveConstraints(normalization, goal))
     }
   | ShowGoals(normalization) => await sendAgdaRequest(ShowGoals(normalization))
-  | NextGoal => State__Goal.next(state)
-  | PreviousGoal => State__Goal.previous(state)
+  | NextGoal => state.goals2->Goals.jmupToTheNextGoal(state.editor)
+  | PreviousGoal => state.goals2->Goals.jmupToThePreviousGoal(state.editor)
   | SearchAbout(normalization) =>
     await State__View.Panel.prompt(
       state,

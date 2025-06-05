@@ -452,6 +452,26 @@ module AgdaMode = {
       raise(Failure(header ++ "\n" ++ body))
     }
   }
+
+  let nextGoal = async self => {
+    switch await executeCommand("agda-mode.next-goal") {
+    | None => raise(Failure("Cannot jump to the next goal in " ++ self.filepath))
+    | Some(Ok(state)) => self.state = state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+  }
+
+  let previousGoal = async self => {
+    switch await executeCommand("agda-mode.previous-goal") {
+    | None => raise(Failure("Cannot jump to the previous goal in " ++ self.filepath))
+    | Some(Ok(state)) => self.state = state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+  }
 }
 
 // helper function for filtering out Highlighting & RunningInfo related responses
