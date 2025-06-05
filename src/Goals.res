@@ -1,29 +1,35 @@
 module type Module = {
+  type index = int
   type t
   let make: unit => t
   let instantiateGoalsFromLoad: (
     t,
     VSCode.TextEditor.t,
-    array<int>,
+    array<index>,
     Map.t<int, int>,
   ) => promise<unit>
 
+  // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
-  let isBusy: t => bool
-  let waitUntilNotBusy: t => promise<unit>
+  // let getGoalByIndex: (t, int) => option<Goal.t>
+  let getGoalIndexAndContentAtCursor: (t, VSCode.TextEditor.t) => option<(index, string)>
 
   // jumping between goals
   let jmupToTheNextGoal: (t, VSCode.TextEditor.t) => unit
   let jmupToThePreviousGoal: (t, VSCode.TextEditor.t) => unit
+
+  // semaphore for busy state
+  let isBusy: t => bool
+  let waitUntilNotBusy: t => promise<unit>
 
   // for testing
   let serialize: t => array<string>
 }
 
 module Module: Module = {
+  type index = int
   module Goal = {
-    type index = int
     type t = {
       index: index,
       start: int,
@@ -71,11 +77,6 @@ module Module: Module = {
       }
     }
 
-    // let destroy = goal => {
-    //   goal.decorationBackground->Editor.Decoration.destroy
-    //   goal.decorationIndex->Editor.Decoration.destroy
-    // }
-
     let toString = goal => {
       "#" ++
       string_of_int(goal.index) ++
@@ -87,8 +88,8 @@ module Module: Module = {
   }
 
   type t = {
-    mutable goals: Map.t<Goal.index, Goal.t>, // goal index => goal
-    mutable positions: AVLTree.t<Goal.index>, // start position => goal index
+    mutable goals: Map.t<index, Goal.t>, // goal index => goal
+    mutable positions: AVLTree.t<index>, // start position => goal index
     mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
   }
 
@@ -126,6 +127,32 @@ module Module: Module = {
     ->Iterator.toArray
     ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
     ->Array.map(Goal.toString)
+
+  // let getGoalByIndex = (self, index) => self.goals->Map.get(index)
+  let getGoalIndexAndContentAtCursor = (self, editor) => {
+    let document = VSCode.TextEditor.document(editor)
+    let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
+    self.positions
+    ->AVLTree.lowerBound(cursorOffset)
+    ->Option.flatMap(index => {
+      switch self.goals->Map.get(index) {
+      | None => None // no goal found
+      | Some(goal) =>
+        if cursorOffset >= goal.start && cursorOffset < goal.end {
+          let goalContent = Editor.Text.get(
+            document,
+            VSCode.Range.make(
+              VSCode.TextDocument.positionAt(document, goal.start),
+              VSCode.TextDocument.positionAt(document, goal.end - 2),
+            ),
+          )
+          Some(goal.index, goalContent) // return the index of the goal
+        } else {
+          None // no goal found at the cursor position
+        }
+      }
+    })
+  }
 
   let destroyGoal = (self, goal: Goal.t) => {
     // destroy the goal's decorations

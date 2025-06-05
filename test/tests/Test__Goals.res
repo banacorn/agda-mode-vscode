@@ -1,7 +1,7 @@
 open Mocha
 open Test__Util
 
-describe_only("Goals", () => {
+describe("Goals", () => {
   let fileContent = ref("")
 
   Async.before(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))

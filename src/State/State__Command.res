@@ -39,9 +39,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | ToggleDisplayOfIrrelevantArguments => await sendAgdaRequest(ToggleDisplayOfIrrelevantArguments)
   | ShowConstraints => await sendAgdaRequest(ShowConstraints)
   | SolveConstraints(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch state.goals2->Goals.getGoalIndexAndContentAtCursor(state.editor) {
     | None => await sendAgdaRequest(SolveConstraintsGlobal(normalization))
-    | Some((goal, _)) => await sendAgdaRequest(SolveConstraints(normalization, goal))
+    | Some(index, _) => await sendAgdaRequest(SolveConstraints(normalization, index))
     }
   | ShowGoals(normalization) => await sendAgdaRequest(ShowGoals(normalization))
   | NextGoal => state.goals2->Goals.jmupToTheNextGoal(state.editor)

@@ -1,10 +1,11 @@
+
 type t =
   | Load
   | Compile
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
-  | SolveConstraints(Command.Normalization.t, Goal.t)
+  | SolveConstraints(Command.Normalization.t, int)
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
@@ -119,9 +120,9 @@ let encode = (
 
   | ShowConstraints => `${commonPart(NonInteractive)}( Cmd_constraints )`
 
-  | SolveConstraints(normalization, goal) =>
+  | SolveConstraints(normalization, index) =>
     let normalization = Command.Normalization.encode(normalization)
-    let index = string_of_int(goal.index)
+    let index = string_of_int(index)
 
     `${commonPart(NonInteractive)}( Cmd_solveOne ${normalization} ${index} noRange "" )`
 
