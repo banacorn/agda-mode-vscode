@@ -140,7 +140,7 @@ let rec handle = async (
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       await state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
     | GiveAction(index, give) =>
-      switch Goals.getGoalByIndex(state.goals2, state.document, index) {
+      switch Goals.getGoalByIndex(state.goals2, index) {
       | None =>
         await State__View.Panel.display(
           state,
@@ -153,7 +153,7 @@ let rec handle = async (
           await state.goals2->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
         | GiveNoParen => () // no need to modify the document
         | GiveString(content) =>
-          let (indentationWidth, _text, _) = Goals.indentationWidth(goal, state.document)
+          let (indentationWidth, _text, _) = Goal2.indentationWidth(goal, state.document)
           // 1. ideally, we want to add "\t" or equivalent spaces based on
           //    "editor.tabSize" and "editor.insertSpaces"
           //    but we cannot load the "editor.tabSize" here
@@ -221,7 +221,7 @@ let rec handle = async (
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
-        switch Goals.getGoalByIndex(state.goals2, state.document, index) {
+        switch Goals.getGoalByIndex(state.goals2, index) {
         | None => Js.log3("Not found goal: ", index, solution)
         | Some(goal) =>
           // modify the goal content

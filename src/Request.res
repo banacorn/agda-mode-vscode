@@ -4,12 +4,12 @@ type t =
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
-  | SolveConstraints(Command.Normalization.t, Goals.goal)
+  | SolveConstraints(Command.Normalization.t, Goal2.t)
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
   | Give(Goal.t)
-  | Give2(Goals.goal)
+  | Give2(Goal2.t)
   | Refine(Goal.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
   | Auto(Command.Normalization.t, Goal.t)
@@ -98,7 +98,7 @@ let encode = (
   }
 
   let buildRange = goal => Goal.buildHaskellRange(goal, document, version, filepath)
-  let buildRange2 = goal => Goals.makeHaskellRange(goal, document, version, filepath)
+  let buildRange2 = goal => Goal2.makeHaskellRange(goal, document, version, filepath)
 
   // assemble them
   switch request {
@@ -159,14 +159,13 @@ let encode = (
     }
   | Give2(goal) =>
     let range = buildRange2(goal)
+    let content = Goal2.read(goal, document)
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
           NonInteractive,
-        )}( Cmd_give WithoutForce ${goal.indexString} ${range} "${goal.readContent()}" )`
+        )}( Cmd_give WithoutForce ${goal.indexString} ${range} "${content}" )`
     } else {
-      `${commonPart(
-          NonInteractive,
-        )}( Cmd_give ${goal.indexString} ${range} "${goal.readContent()}" )`
+      `${commonPart(NonInteractive)}( Cmd_give ${goal.indexString} ${range} "${content}" )`
     }
 
   | Refine(goal) =>

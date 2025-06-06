@@ -2,18 +2,6 @@ module type Module = {
   type t
   type index = int
 
-  // External representation of a goal in the editor
-  type goal = {
-    index: int,
-    indexString: string,
-    readContent: unit => string,
-    start: int,
-    end: int,
-  }
-  // helper function for building Haskell Agda ranges
-  let makeHaskellRange: (goal, VSCode.TextDocument.t, string, string) => string
-  let indentationWidth: (goal, VSCode.TextDocument.t) => (int, string, VSCode.Range.t)
-
   let make: unit => t
   let size: t => int
   let instantiateGoalsFromLoad: (
@@ -26,13 +14,13 @@ module type Module = {
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
-  let getGoalByIndex: (t, VSCode.TextDocument.t, index) => option<goal>
+  let getGoalByIndex: (t, index) => option<Goal2.t>
 
   // let read: (t, VSCode.TextDocument.t, index) => option<string>
   let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
   let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
   // get the goal at the cursor position
-  let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<goal>
+  let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<Goal2.t>
 
   // jumping between goals
   let jmupToTheNextGoal: (t, VSCode.TextEditor.t) => unit
@@ -120,64 +108,6 @@ module Module: Module = {
         VSCode.TextDocument.positionAt(document, goal.end),
       )
   }
-  type goal = {
-    index: int,
-    indexString: string, // for serialization
-    readContent: unit => string, // function to read the content of the goal
-    start: int,
-    end: int,
-  }
-
-  let makeHaskellRange = (goalInfo, document, version, filepath) => {
-    let startPoint = VSCode.TextDocument.positionAt(document, goalInfo.start)
-    let endPoint = VSCode.TextDocument.positionAt(document, goalInfo.end)
-
-    let startIndex = string_of_int(goalInfo.start + 3)
-    let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
-    let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
-    let startPart = `${startIndex} ${startRow} ${startColumn}`
-    let endIndex' = string_of_int(goalInfo.end - 3)
-    let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
-    let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
-    let endPart = `${endIndex'} ${endRow} ${endColumn}`
-
-    if Util.Version.gte(version, "2.8.0") {
-      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval () (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.8.0
-    } else if Util.Version.gte(version, "2.5.1") {
-      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1, before (not including) 2.8.0
-    } else {
-      `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
-    }
-  }
-
-  // returns the width of indentation of the first line of a goal
-  // along with the text and the range before the goal
-  let indentationWidth = (goal, document) => {
-    let goalStart = document->VSCode.TextDocument.positionAt(goal.start)
-    let lineNo = VSCode.Position.line(goalStart)
-    let range = VSCode.Range.make(VSCode.Position.make(lineNo, 0), goalStart)
-    let textBeforeGoal = Editor.Text.get(document, range)
-    // tally the number of blank characters
-    // ' ', '\012', '\n', '\r', and '\t'
-    let indentedBy = s => {
-      let n = ref(0)
-      for i in 0 to String.length(s) - 1 {
-        switch String.charAt(s, i) {
-        | " "
-        | ""
-        | "
-"
-        | "	" =>
-          if i == n.contents {
-            n := n.contents + 1
-          }
-        | _ => ()
-        }
-      }
-      n.contents
-    }
-    (indentedBy(textBeforeGoal), textBeforeGoal, range)
-  }
 
   type t = {
     mutable goals: Map.t<index, Goal.t>, // goal index => goal
@@ -239,14 +169,13 @@ module Module: Module = {
     Editor.Text.get(document, innerRange)->String.trim
   }
 
-  let getGoalByIndex = (self, document, index): option<goal> =>
+  let getGoalByIndex = (self, index): option<Goal2.t> =>
     self.goals
     ->Map.get(index)
     ->Option.map(goal => {
       {
-        index: goal.index,
+        Goal2.index: goal.index,
         indexString: Int.toString(goal.index),
-        readContent: () => read(goal, document),
         start: goal.start,
         end: goal.end,
       }
@@ -286,18 +215,9 @@ module Module: Module = {
       | None => None // no goal found
       | Some(goal) =>
         if cursorOffset >= goal.start && cursorOffset < goal.end {
-          let goalContent =
-            Editor.Text.get(
-              document,
-              VSCode.Range.make(
-                VSCode.TextDocument.positionAt(document, goal.start + 2),
-                VSCode.TextDocument.positionAt(document, goal.end - 2),
-              ),
-            )->String.trim
           Some({
-            index: goal.index,
+            Goal2.index: goal.index,
             indexString: Int.toString(goal.index),
-            readContent: () => read(goal, document),
             start: goal.start,
             end: goal.end,
           }) // return the index of the goal
