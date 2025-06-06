@@ -140,8 +140,19 @@ let rec handle = async (
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       await state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
     | GiveAction(index, give) =>
-      // switch state.goals2->Goals.getGoalIndexAndContentAtCursor
-
+      // if state.goals2->Goals.exist(index) {
+      //   switch give {
+      //   | GiveParen => Js.log("GiveParen")
+      //   | GiveNoParen => Js.log("GiveNoParen")
+      //   | GiveString(content) => Js.log2("GiveString", content)
+      //   }
+      // } else {
+      //   await State__View.Panel.display(
+      //     state,
+      //     Error("Error: Give failed"),
+      //     [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
+      //   )
+      // }
 
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
@@ -219,12 +230,13 @@ let rec handle = async (
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
-        let goal = state.goals->Array.find(goal => goal.index == index)
-        switch goal {
+        switch Goals.getGoalInfoByIndex(state.goals2, index) {
         | None => ()
         | Some(goal) =>
-          await State__Goal.modify(state, goal, _ => solution)
-          await sendAgdaRequest(Give(goal))
+          // modify the goal content
+          await Goals.modify(state.goals2, state.document, index, _ => solution)
+          // send the give request to Agda
+          await sendAgdaRequest(Give2(goal))
         }
       }
       // solve them one by one
@@ -238,6 +250,26 @@ let rec handle = async (
       } else {
         await State__View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
+    // let solveOne = ((index, solution)) => async () => {
+    //   let goal = state.goals->Array.find(goal => goal.index == index)
+    //   switch goal {
+    //   | None => ()
+    //   | Some(goal) =>
+    //     await State__Goal.modify(state, goal, _ => solution)
+    //     await sendAgdaRequest(Give(goal))
+    //   }
+    // }
+    // // solve them one by one
+    // let _ =
+    //   await solutions
+    //   ->Array.map(solveOne)
+    //   ->Util.Promise_.oneByOne
+    // let size = Array.length(solutions)
+    // if size == 0 {
+    //   await State__View.Panel.display(state, Error("No solutions found"), [])
+    // } else {
+    //   await State__View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
+    // }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
       await State__View.Panel.displayInAppendMode(

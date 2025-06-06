@@ -29,7 +29,7 @@ let run = normalization => {
   })
 }
 
-describe_only("agda-mode.solve-constraints", () => {
+describe("agda-mode.solve-constraints", () => {
   describe("Simplified", () => {
     run(Simplified)
   })

@@ -1,6 +1,16 @@
 module type Module = {
-  type index = int
   type t
+  type index = int
+
+  // External representation of a goal in the editor
+  type goalInfo = {
+    index: string,
+    content: string,
+    start: int,
+    end: int,
+  }
+  let makeHaskellRangeFromGoalInfo: (goalInfo, VSCode.TextDocument.t, string, string) => string
+
   let make: unit => t
   let instantiateGoalsFromLoad: (
     t,
@@ -12,7 +22,14 @@ module type Module = {
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
-  // let getGoalByIndex: (t, int) => option<Goal.t>
+  let getGoalInfoByIndex: (t, index) => option<goalInfo>
+
+  // let read: (t, VSCode.TextDocument.t, index) => option<string>
+  let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
+  // let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<unit>
+  // helper function for building Haskell Agda ranges
+  // let buildHaskellRange: (Goal.t, VSCode.TextDocument.t, string, string) => string
+  // get the goal at the cursor position
   let getGoalIndexAndContentAtCursor: (t, VSCode.TextEditor.t) => option<(index, string)>
 
   // jumping between goals
@@ -29,9 +46,13 @@ module type Module = {
 
 module Module: Module = {
   type index = int
+
+  // Internal representation of a goal in the editor
   module Goal = {
+    type index = int
     type t = {
       index: index,
+      content: string,
       start: int,
       end: int,
       decorationBackground: Editor.Decoration.t,
@@ -68,10 +89,19 @@ module Module: Module = {
 
     let make = (editor: VSCode.TextEditor.t, start: int, end: int, index: index) => {
       let (decorationBackground, decorationIndex) = decorate(editor, start, end, index)
+      let document = VSCode.TextEditor.document(editor)
+
+      let innerRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, start + 2),
+        VSCode.TextDocument.positionAt(document, end - 2),
+      )
+      let content = Editor.Text.get(document, innerRange)->String.trim
+
       {
         index,
         start,
         end,
+        content,
         decorationBackground,
         decorationIndex,
       }
@@ -84,6 +114,46 @@ module Module: Module = {
       string_of_int(goal.start) ++
       "-" ++
       string_of_int(goal.end) ++ ")"
+    }
+
+    let makeInnerRange = (goal, document) =>
+      VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, goal.start + 2),
+        VSCode.TextDocument.positionAt(document, goal.end - 2),
+      )
+
+    let makeOuterRange = (goal, document) =>
+      VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, goal.start),
+        VSCode.TextDocument.positionAt(document, goal.end),
+      )
+  }
+  type goalInfo = {
+    index: string,
+    content: string,
+    start: int,
+    end: int,
+  }
+
+  let makeHaskellRangeFromGoalInfo = (goalInfo, document, version, filepath) => {
+    let startPoint = VSCode.TextDocument.positionAt(document, goalInfo.start)
+    let endPoint = VSCode.TextDocument.positionAt(document, goalInfo.end)
+
+    let startIndex = string_of_int(goalInfo.start + 3)
+    let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
+    let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
+    let startPart = `${startIndex} ${startRow} ${startColumn}`
+    let endIndex' = string_of_int(goalInfo.end - 3)
+    let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
+    let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
+    let endPart = `${endIndex'} ${endRow} ${endColumn}`
+
+    if Util.Version.gte(version, "2.8.0") {
+      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval () (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.8.0
+    } else if Util.Version.gte(version, "2.5.1") {
+      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1, before (not including) 2.8.0
+    } else {
+      `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
     }
   }
 
@@ -128,7 +198,52 @@ module Module: Module = {
     ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
     ->Array.map(Goal.toString)
 
-  // let getGoalByIndex = (self, index) => self.goals->Map.get(index)
+  let getGoalByIndex = (self, index) => self.goals->Map.get(index)
+  let getGoalInfoByIndex = (self, index): option<goalInfo> =>
+    self.goals
+    ->Map.get(index)
+    ->Option.map(goal => {
+      index: Int.toString(goal.index),
+      content: goal.content,
+      start: goal.start,
+      end: goal.end,
+    })
+
+  let read = (goal, document) => {
+    let innerRange = Goal.makeInnerRange(goal, document)
+    Editor.Text.get(document, innerRange)->String.trim
+  }
+
+  let modify = async (self, document, index, f) =>
+    switch getGoalByIndex(self, index) {
+    | Some(goal) =>
+      let innerRange = Goal.makeInnerRange(goal, document)
+      let goalContent = read(goal, document)
+      let _ = await Editor.Text.replace(document, innerRange, " " ++ f(goalContent) ++ " ")
+    | None => ()
+    }
+
+  // let removeBoundaryAndDestroy = async (self, document, index) => {
+  //   let innerRange = getInnerRange(self, document, index)
+  //   let outerRange = Map.get(self.goals, index)->Option.map(goal => {
+  //     VSCode.Range.make(
+  //       VSCode.TextDocument.positionAt(document, goal.start),
+  //       VSCode.TextDocument.positionAt(document, goal.end),
+  //     )
+  //   })
+
+  //   let content = read(self, document, index)
+  //   if await Editor.Text.replace(state.document, outerRange, content) {
+  //     Goal.destroyDecoration(goal)
+  //   } else {
+  //     await State__View.Panel.display(
+  //       state,
+  //       Error("Goal-related Error"),
+  //       [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(goal.index))],
+  //     )
+  //   }
+  // }
+
   let getGoalIndexAndContentAtCursor = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
@@ -139,13 +254,14 @@ module Module: Module = {
       | None => None // no goal found
       | Some(goal) =>
         if cursorOffset >= goal.start && cursorOffset < goal.end {
-          let goalContent = Editor.Text.get(
-            document,
-            VSCode.Range.make(
-              VSCode.TextDocument.positionAt(document, goal.start),
-              VSCode.TextDocument.positionAt(document, goal.end - 2),
-            ),
-          )
+          let goalContent =
+            Editor.Text.get(
+              document,
+              VSCode.Range.make(
+                VSCode.TextDocument.positionAt(document, goal.start + 2),
+                VSCode.TextDocument.positionAt(document, goal.end - 2),
+              ),
+            )->String.trim
           Some(goal.index, goalContent) // return the index of the goal
         } else {
           None // no goal found at the cursor position
@@ -208,7 +324,7 @@ module Module: Module = {
     self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
 
-  // Damage done to a hole. The letters correspond to the boundaries of the hole like this:
+  // Damage done to a goal. The letters correspond to the boundaries of the goal like this:
   //    {!   !}
   //    AB   CD
   // So for example, if "!   !}" is damaged, we represent it as "BCD"
@@ -227,73 +343,73 @@ module Module: Module = {
     | Rewrite(VSCode.Range.t, string) // range, text to replace
     | Destroy(Goal.t)
     // | Restore(Goal.t, damage)
-    | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the hole be redecorated?
+    | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the goal be redecorated?
 
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
 
-    // there are 4 cases to consider when a change overlaps with a hole:
+    // there are 4 cases to consider when a change overlaps with a goal:
 
-    // 1. the hole is after the change, skip the change and move on
+    // 1. the goal is after the change, skip the change and move on
     //      removal  ┣━━━━━┫
-    //      hole              ┣━━━━━┫
+    //      goal              ┣━━━━━┫
 
-    // 2. the hole is before the change, skip the hole and move on
+    // 2. the goal is before the change, skip the goal and move on
     //      removal                    ┣━━━━━┫
-    //      hole              ┣━━━━━┫
+    //      goal              ┣━━━━━┫
 
-    // 3. the hole is completely destroyed, we regard this as the intention to remove the hole
+    // 3. the goal is completely destroyed, we regard this as the intention to remove the goal
     //      removal        ┣━━━━━━━━━━━┫
-    //      hole              ┣━━━━━┫
+    //      goal              ┣━━━━━┫
 
-    // 4. the hole is partially damaged, we should restore the hole afterwards
+    // 4. the goal is partially damaged, we should restore the goal afterwards
     //      removal        ┣━━━━━┫
-    //      hole              ┣━━━━━┫
+    //      goal              ┣━━━━━┫
     //
     //      removal           ┣━━━━━┫
-    //      hole           ┣━━━━━━━━━━━┫
+    //      goal           ┣━━━━━━━━━━━┫
     //
     //      removal              ┣━━━━━┫
-    //      hole              ┣━━━━━┫
+    //      goal              ┣━━━━━┫
 
-    // Given a goal, see if the document text of the range of the goal still constitutes a hole.
-    // If it's still a hole like "{!   !}", we do nothing or update its position (in case that there's a change before it).
-    // It the hole is a question mark like "?", we expand it to a hole "{!   !}".
-    // If the hole is completely destroyed, we remove it.
-    // If the hole is partially damaged, we restore it to a hole with the same content as before.
+    // Given a goal, see if the document text of the range of the goal still constitutes a goal.
+    // If it's still a goal like "{!   !}", we do nothing or update its position (in case that there's a change before it).
+    // It the goal is a question mark like "?", we expand it to a goal "{!   !}".
+    // If the goal is completely destroyed, we remove it.
+    // If the goal is partially damaged, we restore it to a goal with the same content as before.
     let scanGoal = (delta, goal: Goal.t, deltaStart, deltaEnd, destroyed: bool) => {
       let range = VSCode.Range.make(
         VSCode.TextDocument.positionAt(document, goal.start + delta + deltaStart),
         VSCode.TextDocument.positionAt(document, goal.end + delta + deltaEnd),
       )
-      let holeText = Editor.Text.get(document, range)
-      let holeTextLength = goal.end - goal.start + deltaEnd - deltaStart
-      // the hole may be replaced with some text like "  {!       !} ", in that case, we'll need to update the positions
-      let leftBoundary = String.indexOfOpt(holeText, "{!")
-      let rightBoundary = String.lastIndexOfOpt(holeText, "!}")
-      let holeIsIntact = rightBoundary->Option.isSome && leftBoundary->Option.isSome
+      let goalText = Editor.Text.get(document, range)
+      let goalTextLength = goal.end - goal.start + deltaEnd - deltaStart
+      // the goal may be replaced with some text like "  {!       !} ", in that case, we'll need to update the positions
+      let leftBoundary = String.indexOfOpt(goalText, "{!")
+      let rightBoundary = String.lastIndexOfOpt(goalText, "!}")
+      let goalIsIntact = rightBoundary->Option.isSome && leftBoundary->Option.isSome
 
-      // a goal will completely destroyed during the expansion from a question mark to a hole
+      // a goal will completely destroyed during the expansion from a question mark to a goal
       // to prevent this action from being interpreted as a goal removal, we check if the goal is indeed a question mark expansion by checking if it was a question mark before the change
       let isQuestionMarkExpansion = destroyed && goal.start + 1 == goal.end
 
       let (resizeStart, resizeEnd) = switch (leftBoundary, rightBoundary) {
       | (Some(leftIndex), Some(rightIndex)) =>
-        if leftIndex == 0 && rightIndex + 2 == String.length(holeText) {
+        if leftIndex == 0 && rightIndex + 2 == String.length(goalText) {
           (0, 0) // no resizing needed
         } else {
-          (-leftIndex, rightIndex + 2 - String.length(holeText))
+          (-leftIndex, rightIndex + 2 - String.length(goalText))
         }
       | _ => (0, 0)
       }
 
-      if holeText == "?" {
+      if goalText == "?" {
         [Rewrite(range, "{!   !}")]
-      } // expand question mark to hole
+      } // expand question mark to goal
       else if destroyed && !isQuestionMarkExpansion {
         [Destroy(goal)]
-      } else if holeIsIntact {
+      } else if goalIsIntact {
         [
           UpdatePosition(
             goal,
@@ -302,28 +418,28 @@ module Module: Module = {
             isQuestionMarkExpansion, // redecorate if it was a question mark expansion
           ),
         ]
-      } else if holeText->String.startsWith("{!") {
-        switch holeText->String.charAt(holeTextLength - 1) {
+      } else if goalText->String.startsWith("{!") {
+        switch goalText->String.charAt(goalTextLength - 1) {
         | "!" => [
             UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, holeText ++ "}"),
+            Rewrite(range, goalText ++ "}"),
           ]
         | "}" => [
             UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, holeText->String.substring(~start=0, ~end=holeTextLength - 1) ++ "!}"),
+            Rewrite(range, goalText->String.substring(~start=0, ~end=goalTextLength - 1) ++ "!}"),
           ]
         | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
         }
-      } else if holeText->String.endsWith("!}") {
-        switch holeText->String.charAt(0) {
+      } else if goalText->String.endsWith("!}") {
+        switch goalText->String.charAt(0) {
         | "{" => [
             UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, "{!" ++ holeText->String.substringToEnd(~start=1)),
+            Rewrite(range, "{!" ++ goalText->String.substringToEnd(~start=1)),
           ]
 
         | "!" => [
             UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, "{" ++ holeText),
+            Rewrite(range, "{" ++ goalText),
           ]
 
         | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
@@ -343,11 +459,11 @@ module Module: Module = {
         let removalStart = change.offset
         let removalEnd = change.offset + change.removed
         if removalEnd < goal.start {
-          // the hole is completely after the change (separated by a least a character)
+          // the goal is completely after the change (separated by a least a character)
           let delta = delta + change.inserted - change.removed
           go(delta, list{goal, ...goals}, changes)
         } else if removalStart >= goal.end {
-          // the hole is completely before the change, skip the hole
+          // the goal is completely before the change, skip the goal
           go(delta, goals, list{change, ...changes})
         } else if goal.start >= removalStart && goal.end <= removalEnd {
           let deltaStart = removalStart - goal.start

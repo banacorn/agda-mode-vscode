@@ -1,15 +1,15 @@
-
 type t =
   | Load
   | Compile
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
-  | SolveConstraints(Command.Normalization.t, int)
+  | SolveConstraints(Command.Normalization.t, Goals.index)
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
   | Give(Goal.t)
+  | Give2(Goals.goalInfo)
   | Refine(Goal.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
   | Auto(Command.Normalization.t, Goal.t)
@@ -41,6 +41,7 @@ let toString = x =>
   | ShowGoals(_) => "ShowGoals"
   | SearchAbout(_, _) => "SearchAbout"
   | Give(_) => "Give"
+  | Give2(_) => "Give"
   | Refine(_) => "Refine"
   | ElaborateAndGive(_, _, _) => "ElaborateAndGive"
   | Auto(_) => "Auto"
@@ -97,6 +98,7 @@ let encode = (
   }
 
   let buildRange = goal => Goal.buildHaskellRange(goal, document, version, filepath)
+  let buildRange2 = goal => Goals.makeHaskellRangeFromGoalInfo(goal, document, version, filepath)
 
   // assemble them
   switch request {
@@ -151,11 +153,20 @@ let encode = (
   | Give(goal) =>
     let index: string = string_of_int(goal.index)
     let content: string = Goal.getContent(goal, document)->Parser.escape
-    let range: string = buildRange(goal)
+    let range = buildRange(goal)
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(NonInteractive)}( Cmd_give WithoutForce ${index} ${range} "${content}" )`
     } else {
       `${commonPart(NonInteractive)}( Cmd_give ${index} ${range} "${content}" )`
+    }
+  | Give2(goal) =>
+    let range = buildRange2(goal)
+    if Util.Version.gte(version, "2.5.3") {
+      `${commonPart(
+          NonInteractive,
+        )}( Cmd_give WithoutForce ${goal.index} ${range} "${goal.content}" )`
+    } else {
+      `${commonPart(NonInteractive)}( Cmd_give ${goal.index} ${range} "${goal.content}" )`
     }
 
   | Refine(goal) =>
@@ -182,16 +193,13 @@ let encode = (
     if Util.Version.gte(version, "2.7.0") {
       // after 2.7.0
       `${commonPart(NonInteractive)}( Cmd_autoOne ${normalization} ${index} ${range} "${content}" )`
+    } else if Util.Version.gte(version, "2.6.0.1") {
+      // after 2.6.0.1
+      `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
     } else {
-      if Util.Version.gte(version, "2.6.0.1") {
-        // after 2.6.0.1
-        `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
-      } else {
-        // the old way
-        `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
-      }
+      // the old way
+      `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
     }
-
 
   | Case(goal) =>
     let index: string = string_of_int(goal.index)

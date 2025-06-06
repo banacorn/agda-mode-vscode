@@ -411,6 +411,16 @@ module AgdaMode = {
     }
   }
 
+  let execute = async (self, command) => {
+    switch await executeCommand("agda-mode." ++ command) {
+    | None => raise(Failure("Cannot execute command " ++ command ++ " in " ++ self.filepath))
+    | Some(Ok(state)) => self.state = state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+  }
+
   let refine = async (self, ~cursor=?, ~payload=?) => {
     let editor = await File.open_(self.filepath)
     // edit the file
@@ -425,13 +435,25 @@ module AgdaMode = {
       Editor.Cursor.set(editor, cursor)
     }
 
-    switch await executeCommand("agda-mode.refine") {
-    | None => raise(Failure("Cannot case refine " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
+    await execute(self, "refine")
+  }
+
+
+  let give = async (self, ~cursor=?, ~payload=?) => {
+    let editor = await File.open_(self.filepath)
+    // edit the file
+    switch cursor {
+    | None => ()
+    | Some(cursor) =>
+      switch payload {
+      | None => ()
+      | Some(payload) =>
+        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
+      }
+      Editor.Cursor.set(editor, cursor)
     }
+
+    await execute(self, "give")
   }
 
   let solveConstraints = async (self, normalization, ~cursor=?) => {
@@ -442,36 +464,11 @@ module AgdaMode = {
     | Some(cursor) => Editor.Cursor.set(editor, cursor)
     }
 
-    switch await executeCommand(
-      "agda-mode.solve-constraints[" ++ Command.Normalization.encode(normalization) ++ "]",
-    ) {
-    | None => raise(Failure("Cannot case solve constraints " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
+    await execute(self, "solve-constraints[" ++ Command.Normalization.encode(normalization) ++ "]")
   }
 
-  let nextGoal = async self => {
-    switch await executeCommand("agda-mode.next-goal") {
-    | None => raise(Failure("Cannot jump to the next goal in " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
-  }
-
-  let previousGoal = async self => {
-    switch await executeCommand("agda-mode.previous-goal") {
-    | None => raise(Failure("Cannot jump to the previous goal in " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
-  }
+  let nextGoal = execute(_, "next-goal")
+  let previousGoal = execute(_, "previous-goal")
 }
 
 // helper function for filtering out Highlighting & RunningInfo related responses
@@ -481,6 +478,7 @@ let filteredResponse = response =>
   | Response.ClearRunningInfo => false
   | ClearHighlighting => false
   | HighlightingInfoIndirect(_) => false
+  | HighlightingInfoDirect(_) => false
   | CompleteHighlightingAndMakePromptReappear => false
   // status & running info
   | Status(_, _) => false
