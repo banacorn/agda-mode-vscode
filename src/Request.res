@@ -4,12 +4,12 @@ type t =
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
-  | SolveConstraints(Command.Normalization.t, Goals.index)
+  | SolveConstraints(Command.Normalization.t, Goals.goal)
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
   | Give(Goal.t)
-  | Give2(Goals.goalInfo)
+  | Give2(Goals.goal)
   | Refine(Goal.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
   | Auto(Command.Normalization.t, Goal.t)
@@ -98,7 +98,7 @@ let encode = (
   }
 
   let buildRange = goal => Goal.buildHaskellRange(goal, document, version, filepath)
-  let buildRange2 = goal => Goals.makeHaskellRangeFromGoalInfo(goal, document, version, filepath)
+  let buildRange2 = goal => Goals.makeHaskellRange(goal, document, version, filepath)
 
   // assemble them
   switch request {
@@ -122,11 +122,9 @@ let encode = (
 
   | ShowConstraints => `${commonPart(NonInteractive)}( Cmd_constraints )`
 
-  | SolveConstraints(normalization, index) =>
+  | SolveConstraints(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
-    let index = string_of_int(index)
-
-    `${commonPart(NonInteractive)}( Cmd_solveOne ${normalization} ${index} noRange "" )`
+    `${commonPart(NonInteractive)}( Cmd_solveOne ${normalization} ${goal.indexString} noRange "" )`
 
   | SolveConstraintsGlobal(normalization) =>
     let normalization = Command.Normalization.encode(normalization)
@@ -164,9 +162,9 @@ let encode = (
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
           NonInteractive,
-        )}( Cmd_give WithoutForce ${goal.index} ${range} "${goal.content}" )`
+        )}( Cmd_give WithoutForce ${goal.indexString} ${range} "${goal.content}" )`
     } else {
-      `${commonPart(NonInteractive)}( Cmd_give ${goal.index} ${range} "${goal.content}" )`
+      `${commonPart(NonInteractive)}( Cmd_give ${goal.indexString} ${range} "${goal.content}" )`
     }
 
   | Refine(goal) =>

@@ -140,19 +140,75 @@ let rec handle = async (
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       await state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
     | GiveAction(index, give) =>
-      // if state.goals2->Goals.exist(index) {
-      //   switch give {
-      //   | GiveParen => Js.log("GiveParen")
-      //   | GiveNoParen => Js.log("GiveNoParen")
-      //   | GiveString(content) => Js.log2("GiveString", content)
-      //   }
-      // } else {
-      //   await State__View.Panel.display(
-      //     state,
-      //     Error("Error: Give failed"),
-      //     [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
-      //   )
-      // }
+      switch Goals.getGoalByIndex(state.goals2, index) {
+      | None =>
+        await State__View.Panel.display(
+          state,
+          Error("Error: Give failed"),
+          [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
+        )
+      | Some(goal) =>
+        switch give {
+        | GiveParen =>
+          await state.goals2->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
+        | GiveNoParen => () // no need to modify the document
+        | GiveString(content) =>
+          let (indentationWidth, _text, _) = Goals.indentationWidth(goal, state.document)
+          // 1. ideally, we want to add "\t" or equivalent spaces based on
+          //    "editor.tabSize" and "editor.insertSpaces"
+          //    but we cannot load the "editor.tabSize" here
+          //    so as a workaround, we use a default value of 2
+          //    maybe consider storing these attributes in the state in the future
+          // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
+          //    safer choice
+          let defaultIndentation = 2
+          let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
+          // convert question marks "?" to proper expanded holes "{!   !}"
+
+          // modify the document
+          await state.goals2->Goals.modify(state.document, index, _ => indented)
+        // insert new tokens for holes ourselves
+        // let holeOffsetsFromRefine = State__Goal.parseHolesFromRefineResult(indented)
+        // Js.log2("holeOffsetsFromRefine: ", holeOffsetsFromRefine)
+
+        // let offset = fst(goal.interval)
+        // let holeTokens = holeOffsets->Array.map(start => {
+        //   let start = start + offset
+        //   let end = start + 6 // "{!   !}"
+        //   {
+        //     Tokens.Token.start,
+        //     end,
+        //     aspects: [Tokens.Aspect.Hole],
+        //     isTokenBased: true,
+        //     note: None,
+        //     source: None,
+        //   }
+        // })
+        // Js.log2("holeTokens: ", holeTokens)
+        // holeTokens->Array.forEach(token => {
+        //   let start = Tokens.toOriginalOffset(state.tokens, token.start)
+        //   let end = Tokens.toOriginalOffset(state.tokens, token.end)
+        //   // Js.log2("start: ", token.start, start)
+        //   Js.log2("end: ", end)
+        //   Tokens.insertWithVSCodeOffsets(state.tokens, token)
+        // })
+        // await State__Goal.removeBoundaryAndDestroy(state, goal)
+
+        // ->Array.map(((x, _, _)) => x.)
+        // ->Util.Pretty.array
+        // ->Js.log
+        }
+
+        if await Goals.removeBoundaryAndDestroy(state.goals2, state.document, index) {
+          ()
+        } else {
+          await State__View.Panel.display(
+            state,
+            Error("Goal-related Error"),
+            [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(index))],
+          )
+        }
+      }
 
       let found = state.goals->Array.filter(goal => goal.index == index)
       switch found[0] {
@@ -230,7 +286,7 @@ let rec handle = async (
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
-        switch Goals.getGoalInfoByIndex(state.goals2, index) {
+        switch Goals.getGoalByIndex(state.goals2, index) {
         | None => ()
         | Some(goal) =>
           // modify the goal content

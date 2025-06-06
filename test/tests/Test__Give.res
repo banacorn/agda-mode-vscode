@@ -11,7 +11,8 @@ describe_only("agda-mode.give", () => {
 
     let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
       Request.Give2({
-        index: "0",
+        index: 0,
+        indexString: "0",
         content: "y",
         start: 91,
         end: 98,
@@ -19,7 +20,7 @@ describe_only("agda-mode.give", () => {
     )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepEqual(
+    Assert.deepStrictEqual(
       filteredResponses,
       [
         GiveAction(0, GiveNoParen),
@@ -32,10 +33,10 @@ describe_only("agda-mode.give", () => {
   Async.it("should remove the give goal", async () => {
     let ctx = await AgdaMode.makeAndLoad("Give.agda")
     await AgdaMode.give(ctx, ~cursor=VSCode.Position.make(7, 14), ~payload="y")
-    Assert.deepEqual(ctx.state.goals->Array.length, 0)
+    Assert.deepEqual(ctx.state.goals2->Goals.size, 1)
 
     let actual = await File.read(Path.asset("Give.agda"))
     let expected = await File.read(Path.asset("Give.agda.out"))
-    Assert.equal(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 })

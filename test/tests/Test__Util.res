@@ -438,7 +438,6 @@ module AgdaMode = {
     await execute(self, "refine")
   }
 
-
   let give = async (self, ~cursor=?, ~payload=?) => {
     let editor = await File.open_(self.filepath)
     // edit the file

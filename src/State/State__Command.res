@@ -39,9 +39,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | ToggleDisplayOfIrrelevantArguments => await sendAgdaRequest(ToggleDisplayOfIrrelevantArguments)
   | ShowConstraints => await sendAgdaRequest(ShowConstraints)
   | SolveConstraints(normalization) =>
-    switch state.goals2->Goals.getGoalIndexAndContentAtCursor(state.editor) {
+    switch state.goals2->Goals.getGoalAtCursor(state.editor) {
     | None => await sendAgdaRequest(SolveConstraintsGlobal(normalization))
-    | Some(index, _) => await sendAgdaRequest(SolveConstraints(normalization, index))
+    | Some(goal) => await sendAgdaRequest(SolveConstraints(normalization, goal))
     }
   | ShowGoals(normalization) => await sendAgdaRequest(ShowGoals(normalization))
   | NextGoal => state.goals2->Goals.jmupToTheNextGoal(state.editor)
@@ -54,26 +54,29 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       expr => sendAgdaRequest(SearchAbout(normalization, expr)),
     )
   | Give =>
-    switch State__Goal.pointed(state) {
+    switch state.goals2->Goals.getGoalAtCursor(state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: Some("expression to give:"),
-          value: None,
-        },
-        async expr =>
-          if expr == "" {
-            await sendAgdaRequest(Give(goal))
-          } else {
-            await State__Goal.modify(state, goal, _ => expr)
-            await sendAgdaRequest(Give(goal))
+    | Some(goal) =>
+      if goal.content == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder: Some("expression to give:"),
+            value: None,
           },
-      )
-    | Some((goal, _)) => await sendAgdaRequest(Give(goal))
+          async expr =>
+            if expr == "" {
+              await sendAgdaRequest(Give2(goal))
+            } else {
+              await state.goals2->Goals.modify(state.document, goal.index, _ => expr)
+              await sendAgdaRequest(Give2(goal))
+            },
+        )
+      } else {
+        await sendAgdaRequest(Give2(goal))
+      }
     }
   | Refine =>
     switch State__Goal.pointed(state) {

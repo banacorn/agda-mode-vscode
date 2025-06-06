@@ -3,15 +3,19 @@ module type Module = {
   type index = int
 
   // External representation of a goal in the editor
-  type goalInfo = {
-    index: string,
+  type goal = {
+    index: int,
+    indexString: string,
     content: string,
     start: int,
     end: int,
   }
-  let makeHaskellRangeFromGoalInfo: (goalInfo, VSCode.TextDocument.t, string, string) => string
+  // helper function for building Haskell Agda ranges
+  let makeHaskellRange: (goal, VSCode.TextDocument.t, string, string) => string
+  let indentationWidth: (goal, VSCode.TextDocument.t) => (int, string, VSCode.Range.t)
 
   let make: unit => t
+  let size: t => int
   let instantiateGoalsFromLoad: (
     t,
     VSCode.TextEditor.t,
@@ -22,15 +26,13 @@ module type Module = {
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
-  let getGoalInfoByIndex: (t, index) => option<goalInfo>
+  let getGoalByIndex: (t, index) => option<goal>
 
   // let read: (t, VSCode.TextDocument.t, index) => option<string>
   let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
-  // let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<unit>
-  // helper function for building Haskell Agda ranges
-  // let buildHaskellRange: (Goal.t, VSCode.TextDocument.t, string, string) => string
+  let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
   // get the goal at the cursor position
-  let getGoalIndexAndContentAtCursor: (t, VSCode.TextEditor.t) => option<(index, string)>
+  let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<goal>
 
   // jumping between goals
   let jmupToTheNextGoal: (t, VSCode.TextEditor.t) => unit
@@ -128,14 +130,15 @@ module Module: Module = {
         VSCode.TextDocument.positionAt(document, goal.end),
       )
   }
-  type goalInfo = {
-    index: string,
+  type goal = {
+    index: int,
+    indexString: string, // for serialization
     content: string,
     start: int,
     end: int,
   }
 
-  let makeHaskellRangeFromGoalInfo = (goalInfo, document, version, filepath) => {
+  let makeHaskellRange = (goalInfo, document, version, filepath) => {
     let startPoint = VSCode.TextDocument.positionAt(document, goalInfo.start)
     let endPoint = VSCode.TextDocument.positionAt(document, goalInfo.end)
 
@@ -157,6 +160,35 @@ module Module: Module = {
     }
   }
 
+  // returns the width of indentation of the first line of a goal
+  // along with the text and the range before the goal
+  let indentationWidth = (goal, document) => {
+    let goalStart = document->VSCode.TextDocument.positionAt(goal.start)
+    let lineNo = VSCode.Position.line(goalStart)
+    let range = VSCode.Range.make(VSCode.Position.make(lineNo, 0), goalStart)
+    let textBeforeGoal = Editor.Text.get(document, range)
+    // tally the number of blank characters
+    // ' ', '\012', '\n', '\r', and '\t'
+    let indentedBy = s => {
+      let n = ref(0)
+      for i in 0 to String.length(s) - 1 {
+        switch String.charAt(s, i) {
+        | " "
+        | ""
+        | "
+"
+        | "	" =>
+          if i == n.contents {
+            n := n.contents + 1
+          }
+        | _ => ()
+        }
+      }
+      n.contents
+    }
+    (indentedBy(textBeforeGoal), textBeforeGoal, range)
+  }
+
   type t = {
     mutable goals: Map.t<index, Goal.t>, // goal index => goal
     mutable positions: AVLTree.t<index>, // start position => goal index
@@ -169,6 +201,18 @@ module Module: Module = {
       positions: AVLTree.make(),
       isBusy: None,
     }
+  }
+
+  let size = self => Map.size(self.goals)
+
+  let destroyGoal = (self, goal: Goal.t) => {
+    // destroy the goal's decorations
+    goal.decorationBackground->Editor.Decoration.destroy
+    goal.decorationIndex->Editor.Decoration.destroy
+    // remove the goal from the goals map
+    self.goals->Map.delete(goal.index)->ignore
+    // remove the goal from the positions tree
+    self.positions->AVLTree.remove(goal.start)->ignore
   }
 
   let isBusy = self => self.isBusy->Option.isSome
@@ -198,12 +242,13 @@ module Module: Module = {
     ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
     ->Array.map(Goal.toString)
 
-  let getGoalByIndex = (self, index) => self.goals->Map.get(index)
-  let getGoalInfoByIndex = (self, index): option<goalInfo> =>
+  let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
+  let getGoalByIndex = (self, index): option<goal> =>
     self.goals
     ->Map.get(index)
     ->Option.map(goal => {
-      index: Int.toString(goal.index),
+      index: goal.index,
+      indexString: Int.toString(goal.index),
       content: goal.content,
       start: goal.start,
       end: goal.end,
@@ -215,7 +260,7 @@ module Module: Module = {
   }
 
   let modify = async (self, document, index, f) =>
-    switch getGoalByIndex(self, index) {
+    switch getInternalGoalByIndex(self, index) {
     | Some(goal) =>
       let innerRange = Goal.makeInnerRange(goal, document)
       let goalContent = read(goal, document)
@@ -223,28 +268,23 @@ module Module: Module = {
     | None => ()
     }
 
-  // let removeBoundaryAndDestroy = async (self, document, index) => {
-  //   let innerRange = getInnerRange(self, document, index)
-  //   let outerRange = Map.get(self.goals, index)->Option.map(goal => {
-  //     VSCode.Range.make(
-  //       VSCode.TextDocument.positionAt(document, goal.start),
-  //       VSCode.TextDocument.positionAt(document, goal.end),
-  //     )
-  //   })
+  let removeBoundaryAndDestroy = async (self, document, index) =>
+    switch getInternalGoalByIndex(self, index) {
+    | None => true
+    | Some(goal) =>
+      let outerRange = Goal.makeOuterRange(goal, document)
 
-  //   let content = read(self, document, index)
-  //   if await Editor.Text.replace(state.document, outerRange, content) {
-  //     Goal.destroyDecoration(goal)
-  //   } else {
-  //     await State__View.Panel.display(
-  //       state,
-  //       Error("Goal-related Error"),
-  //       [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(goal.index))],
-  //     )
-  //   }
-  // }
+      let content = read(goal, document)
 
-  let getGoalIndexAndContentAtCursor = (self, editor) => {
+      if await Editor.Text.replace(document, outerRange, content) {
+        self->destroyGoal(goal)
+        true
+      } else {
+        false
+      }
+    }
+
+  let getGoalAtCursor = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
     self.positions
@@ -262,22 +302,18 @@ module Module: Module = {
                 VSCode.TextDocument.positionAt(document, goal.end - 2),
               ),
             )->String.trim
-          Some(goal.index, goalContent) // return the index of the goal
+          Some({
+            index: goal.index,
+            indexString: Int.toString(goal.index),
+            content: goalContent,
+            start: goal.start,
+            end: goal.end,
+          }) // return the index of the goal
         } else {
           None // no goal found at the cursor position
         }
       }
     })
-  }
-
-  let destroyGoal = (self, goal: Goal.t) => {
-    // destroy the goal's decorations
-    goal.decorationBackground->Editor.Decoration.destroy
-    goal.decorationIndex->Editor.Decoration.destroy
-    // remove the goal from the goals map
-    self.goals->Map.delete(goal.index)->ignore
-    // remove the goal from the positions tree
-    self.positions->AVLTree.remove(goal.start)->ignore
   }
 
   // Destory and clear all goals
