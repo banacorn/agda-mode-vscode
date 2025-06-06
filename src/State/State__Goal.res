@@ -8,11 +8,11 @@ module type Module = {
   //   array<int>,
   // ) => promise<array<Goal.t>>
   let modify: (State.t, Goal.t, string => string) => promise<unit>
-  let removeBoundaryAndDestroy: (State.t, Goal.t) => promise<unit>
+  // let removeBoundaryAndDestroy: (State.t, Goal.t) => promise<unit>
   let pointed: State.t => option<(Goal.t, string)>
   let replaceWithLines: (State.t, Goal.t, array<string>) => promise<unit>
   let replaceWithLambda: (State.t, Goal.t, array<string>) => promise<unit>
-  let indentationWidth: (VSCode.TextDocument.t, Goal.t) => (int, string, VSCode.Range.t)
+  // let indentationWidth: (VSCode.TextDocument.t, Goal.t) => (int, string, VSCode.Range.t)
   let caseSplitAux: (VSCode.TextDocument.t, AgdaModeVscode.Goal.t) => (bool, int, Interval.t)
 
   let redecorate: State.t => unit

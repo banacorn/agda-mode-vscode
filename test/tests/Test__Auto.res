@@ -23,12 +23,12 @@ let run = normalization => {
           switch ctx.state.agdaVersion {
           | Some(version) =>
             if Util.Version.gte(version, "2.7.0") {
-              Assert.deepEqual(
+              Assert.deepStrictEqual(
                 filteredResponses,
                 [GiveAction(0, GiveString("n")), InteractionPoints([1])],
               )
             } else {
-              Assert.deepEqual(
+              Assert.deepStrictEqual(
                 filteredResponses,
                 [
                   GiveAction(0, GiveString("n")),
@@ -60,12 +60,12 @@ let run = normalization => {
           switch ctx.state.agdaVersion {
           | Some(version) =>
             if Util.Version.gte(version, "2.7.0") {
-              Assert.deepEqual(
+              Assert.deepStrictEqual(
                 filteredResponses,
                 [GiveAction(1, GiveString("n")), InteractionPoints([0])],
               )
             } else {
-              Assert.deepEqual(
+              Assert.deepStrictEqual(
                 filteredResponses,
                 [
                   GiveAction(1, GiveString("m")),

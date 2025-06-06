@@ -15,7 +15,7 @@ let run = normalization =>
             )
           let filteredResponses = responses->Array.filter(filteredResponse)
 
-          Assert.deepEqual(filteredResponses, [DisplayInfo(NormalForm("S Z"))])
+          Assert.deepStrictEqual(filteredResponses, [DisplayInfo(NormalForm("S Z"))])
         },
       )
 
@@ -30,7 +30,7 @@ let run = normalization =>
             )
           let filteredResponses = responses->Array.filter(filteredResponse)
 
-          Assert.deepEqual(filteredResponses, [DisplayInfo(NormalForm("S (S Z)"))])
+          Assert.deepStrictEqual(filteredResponses, [DisplayInfo(NormalForm("S (S Z)"))])
         },
       )
     })

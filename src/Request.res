@@ -162,9 +162,11 @@ let encode = (
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
           NonInteractive,
-        )}( Cmd_give WithoutForce ${goal.indexString} ${range} "${goal.content}" )`
+        )}( Cmd_give WithoutForce ${goal.indexString} ${range} "${goal.readContent()}" )`
     } else {
-      `${commonPart(NonInteractive)}( Cmd_give ${goal.indexString} ${range} "${goal.content}" )`
+      `${commonPart(
+          NonInteractive,
+        )}( Cmd_give ${goal.indexString} ${range} "${goal.readContent()}" )`
     }
 
   | Refine(goal) =>

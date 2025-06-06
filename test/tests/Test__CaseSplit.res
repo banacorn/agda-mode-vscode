@@ -23,7 +23,7 @@ open Test__Util
 //       },
 //     )
 
-//     Assert.deepEqual(
+//     Assert.deepStrictEqual(
 //       results,
 //       [
 //         (false, 9, `x → {!   !}`),
@@ -50,6 +50,6 @@ describe("agda-mode:case", () => {
   Async.it("should have more goals after splitting", async () => {
     let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
     await ctx->AgdaMode.case(Some(VSCode.Position.make(7, 16), "x"))
-    Assert.deepEqual(Array.length(ctx.state.goals), 10)
+    Assert.deepStrictEqual(Array.length(ctx.state.goals), 10)
   })
 })

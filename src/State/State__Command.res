@@ -57,7 +57,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     switch state.goals2->Goals.getGoalAtCursor(state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      if goal.content == "" {
+      if goal.readContent() == "" {
         await State__View.Panel.prompt(
           state,
           header,

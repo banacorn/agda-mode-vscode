@@ -140,7 +140,7 @@ let rec handle = async (
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       await state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
     | GiveAction(index, give) =>
-      switch Goals.getGoalByIndex(state.goals2, index) {
+      switch Goals.getGoalByIndex(state.goals2, state.document, index) {
       | None =>
         await State__View.Panel.display(
           state,
@@ -209,71 +209,6 @@ let rec handle = async (
           )
         }
       }
-
-      let found = state.goals->Array.filter(goal => goal.index == index)
-      switch found[0] {
-      | None =>
-        await State__View.Panel.display(
-          state,
-          Error("Error: Give failed"),
-          [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
-        )
-      | Some(goal) =>
-        switch give {
-        | GiveParen =>
-          await State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))
-          await State__Goal.removeBoundaryAndDestroy(state, goal)
-        | GiveNoParen =>
-          // do nothing
-          await State__Goal.removeBoundaryAndDestroy(state, goal)
-        | GiveString(content) =>
-          let (indentationWidth, _text, _) = State__Goal.indentationWidth(state.document, goal)
-          // 1. ideally, we want to add "\t" or equivalent spaces based on
-          //    "editor.tabSize" and "editor.insertSpaces"
-          //    but we cannot load the "editor.tabSize" here
-          //    so as a workaround, we use a default value of 2
-          //    maybe consider storing these attributes in the state in the future
-          // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
-          //    safer choice
-          let defaultIndentation = 2
-          let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
-          // convert question marks "?" to proper expanded holes "{!   !}"
-
-          // modify the document
-          await State__Goal.modify(state, goal, _ => indented)
-          // insert new tokens for holes ourselves
-
-          let holeOffsetsFromRefine = State__Goal.parseHolesFromRefineResult(indented)
-          Js.log2("holeOffsetsFromRefine: ", holeOffsetsFromRefine)
-
-          // let offset = fst(goal.interval)
-          // let holeTokens = holeOffsets->Array.map(start => {
-          //   let start = start + offset
-          //   let end = start + 6 // "{!   !}"
-          //   {
-          //     Tokens.Token.start,
-          //     end,
-          //     aspects: [Tokens.Aspect.Hole],
-          //     isTokenBased: true,
-          //     note: None,
-          //     source: None,
-          //   }
-          // })
-          // Js.log2("holeTokens: ", holeTokens)
-          // holeTokens->Array.forEach(token => {
-          //   let start = Tokens.toOriginalOffset(state.tokens, token.start)
-          //   let end = Tokens.toOriginalOffset(state.tokens, token.end)
-          //   // Js.log2("start: ", token.start, start)
-          //   Js.log2("end: ", end)
-          //   Tokens.insertWithVSCodeOffsets(state.tokens, token)
-          // })
-          await State__Goal.removeBoundaryAndDestroy(state, goal)
-
-        // ->Array.map(((x, _, _)) => x.)
-        // ->Util.Pretty.array
-        // ->Js.log
-        }
-      }
     | MakeCase(makeCaseType, lines) =>
       switch State__Goal.pointed(state) {
       | None => await State__View.Panel.displayOutOfGoalError(state)
@@ -286,8 +221,8 @@ let rec handle = async (
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
-        switch Goals.getGoalByIndex(state.goals2, index) {
-        | None => ()
+        switch Goals.getGoalByIndex(state.goals2, state.document, index) {
+        | None => Js.log3("Not found goal: ", index, solution)
         | Some(goal) =>
           // modify the goal content
           await Goals.modify(state.goals2, state.document, index, _ => solution)

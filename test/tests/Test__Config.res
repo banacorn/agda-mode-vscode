@@ -12,13 +12,13 @@ describe("Config", () => {
             await Config.Connection.setAgdaPaths(expected)
             let actual = Config.Connection.getAgdaPaths()
 
-            Assert.deepEqual(actual, expected)
+            Assert.deepStrictEqual(actual, expected)
 
             let expected = ["some/path", "some/other/path"]->Array.map(Connection__URI.parse)
             await Config.Connection.setAgdaPaths(expected)
             let actual = Config.Connection.getAgdaPaths()
 
-            Assert.deepEqual(actual, expected)
+            Assert.deepStrictEqual(actual, expected)
           },
         )
 
@@ -30,7 +30,7 @@ describe("Config", () => {
             await Config.Connection.setAgdaPaths(expected)
             let actual = Config.Connection.getAgdaPaths()
 
-            Assert.deepEqual(actual, expected)
+            Assert.deepStrictEqual(actual, expected)
           },
         )
 
@@ -42,7 +42,7 @@ describe("Config", () => {
             await Config.Connection.setAgdaPaths(expected)
             let actual = Config.Connection.getAgdaPaths()
 
-            Assert.deepEqual(actual, expected)
+            Assert.deepStrictEqual(actual, expected)
           },
         )
       },

@@ -22,7 +22,7 @@ describe("Tokens", () => {
               Editor.Range.toString(range) ++ " " ++ Token.toString(token)
             },
           )
-        Assert.deepEqual(Array.length(tokens), 28)
+        Assert.deepStrictEqual(Array.length(tokens), 28)
       },
     )
 
@@ -52,7 +52,7 @@ describe("Tokens", () => {
         | None => raise(Failure("No Agda version found"))
         }
 
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           tokens,
           [
             "0:0-6 (0, 6) [Keyword]",

@@ -6,7 +6,7 @@ module type Module = {
   type goal = {
     index: int,
     indexString: string,
-    content: string,
+    readContent: unit => string,
     start: int,
     end: int,
   }
@@ -26,7 +26,7 @@ module type Module = {
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
-  let getGoalByIndex: (t, index) => option<goal>
+  let getGoalByIndex: (t, VSCode.TextDocument.t, index) => option<goal>
 
   // let read: (t, VSCode.TextDocument.t, index) => option<string>
   let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
@@ -54,7 +54,6 @@ module Module: Module = {
     type index = int
     type t = {
       index: index,
-      content: string,
       start: int,
       end: int,
       decorationBackground: Editor.Decoration.t,
@@ -91,19 +90,10 @@ module Module: Module = {
 
     let make = (editor: VSCode.TextEditor.t, start: int, end: int, index: index) => {
       let (decorationBackground, decorationIndex) = decorate(editor, start, end, index)
-      let document = VSCode.TextEditor.document(editor)
-
-      let innerRange = VSCode.Range.make(
-        VSCode.TextDocument.positionAt(document, start + 2),
-        VSCode.TextDocument.positionAt(document, end - 2),
-      )
-      let content = Editor.Text.get(document, innerRange)->String.trim
-
       {
         index,
         start,
         end,
-        content,
         decorationBackground,
         decorationIndex,
       }
@@ -133,7 +123,7 @@ module Module: Module = {
   type goal = {
     index: int,
     indexString: string, // for serialization
-    content: string,
+    readContent: unit => string, // function to read the content of the goal
     start: int,
     end: int,
   }
@@ -243,21 +233,24 @@ module Module: Module = {
     ->Array.map(Goal.toString)
 
   let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
-  let getGoalByIndex = (self, index): option<goal> =>
-    self.goals
-    ->Map.get(index)
-    ->Option.map(goal => {
-      index: goal.index,
-      indexString: Int.toString(goal.index),
-      content: goal.content,
-      start: goal.start,
-      end: goal.end,
-    })
 
   let read = (goal, document) => {
     let innerRange = Goal.makeInnerRange(goal, document)
     Editor.Text.get(document, innerRange)->String.trim
   }
+
+  let getGoalByIndex = (self, document, index): option<goal> =>
+    self.goals
+    ->Map.get(index)
+    ->Option.map(goal => {
+      {
+        index: goal.index,
+        indexString: Int.toString(goal.index),
+        readContent: () => read(goal, document),
+        start: goal.start,
+        end: goal.end,
+      }
+    })
 
   let modify = async (self, document, index, f) =>
     switch getInternalGoalByIndex(self, index) {
@@ -275,7 +268,6 @@ module Module: Module = {
       let outerRange = Goal.makeOuterRange(goal, document)
 
       let content = read(goal, document)
-
       if await Editor.Text.replace(document, outerRange, content) {
         self->destroyGoal(goal)
         true
@@ -305,7 +297,7 @@ module Module: Module = {
           Some({
             index: goal.index,
             indexString: Int.toString(goal.index),
-            content: goalContent,
+            readContent: () => read(goal, document),
             start: goal.start,
             end: goal.end,
           }) // return the index of the goal

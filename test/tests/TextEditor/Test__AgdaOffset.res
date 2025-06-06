@@ -16,7 +16,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       () => {
         let expected = 1
         let actual = Agda.OffsetConverter.characterWidth("𝐀")
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
     it(
@@ -24,7 +24,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       () => {
         let expected = 1
         let actual = Agda.OffsetConverter.characterWidth("a")
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
   })
@@ -33,20 +33,20 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     it(
       "should work",
       () => {
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(
             "𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀", // String literal updated to v10.1.4
           ),
           [0, 2, 4, 6, 9, 11, 13, 15],
         )
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices(
             "𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na", // String literal updated to v10.1.4
           ),
           [0, 3, 7, 10, 14, 17, 19, 21],
         )
         // Issue #7
-        Assert.deepEqual(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7), [23])
+        Assert.deepStrictEqual(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7), [23])
       },
     )
   )
@@ -56,7 +56,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       "should work",
       () => {
         open Agda.Indices
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           "𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀" // String literal updated to v10.1.4
           ->Agda.OffsetConverter.computeUTF16SurrogatePairIndices
           ->make
@@ -64,7 +64,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
           ->fst,
           [(0, 0), (1, 1), (2, 2), (3, 3), (4, 5), (6, 6), (7, 7), (8, 8)],
         )
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           "𝐀a𝐁bb𝐂c𝐃dd𝐄e𝐅𝐆𝐇\na" // String literal updated to v10.1.4
           ->Agda.OffsetConverter.computeUTF16SurrogatePairIndices
           ->make
@@ -86,23 +86,23 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
             "𝐀𝐀𝐀𝐀\n𝐀𝐀𝐀𝐀", // String literal updated to v10.1.4
           ),
         )
-        Assert.deepEqual(convert(a, 0), 0)
-        Assert.deepEqual(a->expose->snd, 0)
-        Assert.deepEqual(convert(a, 1), 2)
-        Assert.deepEqual(a->expose->snd, 1)
-        Assert.deepEqual(convert(a, 2), 4)
-        Assert.deepEqual(a->expose->snd, 2)
-        Assert.deepEqual(convert(a, 3), 6)
-        Assert.deepEqual(a->expose->snd, 3)
-        Assert.deepEqual(convert(a, 0), 0)
-        Assert.deepEqual(a->expose->snd, 0)
-        Assert.deepEqual(convert(a, 4), 8)
-        Assert.deepEqual(convert(a, 5), 9)
-        Assert.deepEqual(convert(a, 6), 11)
-        Assert.deepEqual(convert(a, 7), 13)
-        Assert.deepEqual(convert(a, 8), 15)
-        Assert.deepEqual(convert(a, 9), 17)
-        Assert.deepEqual(a->expose->snd, 8)
+        Assert.deepStrictEqual(convert(a, 0), 0)
+        Assert.deepStrictEqual(a->expose->snd, 0)
+        Assert.deepStrictEqual(convert(a, 1), 2)
+        Assert.deepStrictEqual(a->expose->snd, 1)
+        Assert.deepStrictEqual(convert(a, 2), 4)
+        Assert.deepStrictEqual(a->expose->snd, 2)
+        Assert.deepStrictEqual(convert(a, 3), 6)
+        Assert.deepStrictEqual(a->expose->snd, 3)
+        Assert.deepStrictEqual(convert(a, 0), 0)
+        Assert.deepStrictEqual(a->expose->snd, 0)
+        Assert.deepStrictEqual(convert(a, 4), 8)
+        Assert.deepStrictEqual(convert(a, 5), 9)
+        Assert.deepStrictEqual(convert(a, 6), 11)
+        Assert.deepStrictEqual(convert(a, 7), 13)
+        Assert.deepStrictEqual(convert(a, 8), 15)
+        Assert.deepStrictEqual(convert(a, 9), 17)
+        Assert.deepStrictEqual(a->expose->snd, 8)
       },
     )
 
@@ -111,31 +111,31 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
       () => {
         open Agda.Indices
         let a = make(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7))
-        Assert.deepEqual(convert(a, 0), 0)
-        Assert.deepEqual(convert(a, 6), 6)
-        Assert.deepEqual(convert(a, 14), 14)
-        Assert.deepEqual(convert(a, 19), 19)
-        Assert.deepEqual(convert(a, 20), 20)
-        Assert.deepEqual(a->expose->snd, 0)
-        Assert.deepEqual(convert(a, 24), 25)
-        Assert.deepEqual(a->expose->snd, 1)
-        Assert.deepEqual(convert(a, 27), 28)
-        Assert.deepEqual(convert(a, 28), 29)
-        Assert.deepEqual(convert(a, 29), 30)
-        Assert.deepEqual(convert(a, 36), 37)
-        Assert.deepEqual(a->expose->snd, 1)
-        Assert.deepEqual(convert(a, 0), 0)
-        Assert.deepEqual(a->expose->snd, 0) // the cursor should be reset to 0
-        Assert.deepEqual(convert(a, 6), 6)
-        Assert.deepEqual(convert(a, 7), 7)
-        Assert.deepEqual(convert(a, 14), 14)
-        Assert.deepEqual(convert(a, 19), 19)
-        Assert.deepEqual(convert(a, 20), 20)
-        Assert.deepEqual(a->expose->snd, 0)
-        Assert.deepEqual(convert(a, 24), 25)
-        Assert.deepEqual(a->expose->snd, 1)
-        Assert.deepEqual(convert(a, 0), 0)
-        Assert.deepEqual(a->expose->snd, 0) // the cursor should be reset to 0
+        Assert.deepStrictEqual(convert(a, 0), 0)
+        Assert.deepStrictEqual(convert(a, 6), 6)
+        Assert.deepStrictEqual(convert(a, 14), 14)
+        Assert.deepStrictEqual(convert(a, 19), 19)
+        Assert.deepStrictEqual(convert(a, 20), 20)
+        Assert.deepStrictEqual(a->expose->snd, 0)
+        Assert.deepStrictEqual(convert(a, 24), 25)
+        Assert.deepStrictEqual(a->expose->snd, 1)
+        Assert.deepStrictEqual(convert(a, 27), 28)
+        Assert.deepStrictEqual(convert(a, 28), 29)
+        Assert.deepStrictEqual(convert(a, 29), 30)
+        Assert.deepStrictEqual(convert(a, 36), 37)
+        Assert.deepStrictEqual(a->expose->snd, 1)
+        Assert.deepStrictEqual(convert(a, 0), 0)
+        Assert.deepStrictEqual(a->expose->snd, 0) // the cursor should be reset to 0
+        Assert.deepStrictEqual(convert(a, 6), 6)
+        Assert.deepStrictEqual(convert(a, 7), 7)
+        Assert.deepStrictEqual(convert(a, 14), 14)
+        Assert.deepStrictEqual(convert(a, 19), 19)
+        Assert.deepStrictEqual(convert(a, 20), 20)
+        Assert.deepStrictEqual(a->expose->snd, 0)
+        Assert.deepStrictEqual(convert(a, 24), 25)
+        Assert.deepStrictEqual(a->expose->snd, 1)
+        Assert.deepStrictEqual(convert(a, 0), 0)
+        Assert.deepStrictEqual(a->expose->snd, 0) // the cursor should be reset to 0
       },
     )
   })

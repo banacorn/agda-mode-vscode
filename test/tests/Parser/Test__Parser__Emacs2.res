@@ -12,7 +12,7 @@ describe("when running Emacs__Parser2.parseGoalType", () => {
 ————————————————————————————————————————————————————————————`
     let actual = Emacs__Parser2.parseGoalType(raw)
     let expected = Dict.fromArray([("goal", ["Goal: ℕ"])])
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 
   it("should parse goal + have", () => {
@@ -21,7 +21,7 @@ Have: ℕ
 ————————————————————————————————————————————————————————————`
     let actual = Emacs__Parser2.parseGoalType(raw)
     let expected = Dict.fromArray([("goal", ["Goal: ℕ"]), ("have", ["Have: ℕ"])])
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 
   it("should parse goal + have + context", () => {
@@ -36,7 +36,7 @@ x : ℕ`
       ("have", ["Have: ℕ"]),
       ("interactionMetas", ["y : ℕ", "x : ℕ"]),
     ])
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 })
 
@@ -52,7 +52,7 @@ Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
       ("interactionMetas", ["?0 : ℕ", "?1 : ℕ"]),
       ("hiddenMetas", ["Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]"]),
     ])
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 
   it("should parse goals + errors", () => {
@@ -65,7 +65,7 @@ Unsolved constraints`
       ("interactionMetas", ["?0 : _2"]),
       ("errors", ["Unsolved constraints"]),
     ])
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 
   it("should parse goals that span multiple lines", () => {
@@ -81,7 +81,7 @@ Unsolved constraints`
         ],
       ),
     ])->tempNormalize
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 })
 
@@ -103,7 +103,7 @@ when checking that the clause a has type _8`,
         ],
       ),
     ])->tempNormalize
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
   it("should parse an error + warnings", () => {
     let raw = `———— Error —————————————————————————————————————————————————
@@ -142,6 +142,6 @@ definition: boo`,
         ],
       ),
     ])->tempNormalize
-    Assert.deepEqual(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 })

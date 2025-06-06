@@ -157,39 +157,39 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual(log, [IM.Log.Activate])
+        Assert.deepStrictEqual(log, [IM.Log.Activate])
         let log = await IM.insertChar(setup, "l")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           log,
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "←")]), UpdateView, RewriteApplied],
         )
         Assert.equal("←", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal("←a", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "m")
-        Assert.deepEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal("←am", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "b")
-        Assert.deepEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal("←amb", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "d")
-        Assert.deepEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal("←ambd", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           log,
           [IM.Log.RewriteIssued([(((0, 0), (0, 6)), "λ")]), UpdateView, RewriteApplied],
         )
         Assert.equal("λ", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "b")
-        Assert.deepEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal("λb", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal("λba", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "r")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           log,
           [IM.Log.RewriteIssued([(((0, 0), (0, 4)), "ƛ")]), Deactivate, RewriteApplied],
         )
@@ -203,15 +203,15 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "b")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "♭")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("♭", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "n")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 2)), "𝕟")]), Deactivate, RewriteApplied],
           log,
         )
@@ -225,9 +225,9 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "\\")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "\\")]), Deactivate, RewriteApplied],
           log,
         )
@@ -241,39 +241,39 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("a", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "s")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("as", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "t")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 3)), "∗")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("∗", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "e")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("∗e", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "r")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("∗er", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "i")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("∗eri", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "s")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("∗eris", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "k")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 6)), "⁎")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("⁎", document->Editor.Text.getAll)
         let log = await IM.deactivate(setup)
-        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
         Assert.equal("⁎", document->Editor.Text.getAll)
       },
     )
@@ -286,48 +286,48 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "l")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "←")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("←", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("←a", document->Editor.Text.getAll)
         let log = await IM.backspace(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "←")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("←", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("←a", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "m")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("←am", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "b")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("←amb", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "d")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("←ambd", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 6)), "λ")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("λ", document->Editor.Text.getAll)
         let log = await IM.backspace(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 0)), "lambd")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("lambd", document->Editor.Text.getAll)
         let log = await IM.deactivate(setup)
-        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
         Assert.equal("lambd", document->Editor.Text.getAll)
       },
     )
@@ -340,15 +340,15 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "b")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "♭")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("♭", document->Editor.Text.getAll)
         let log = await IM.deactivate(setup)
-        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
         Assert.equal("♭", document->Editor.Text.getAll)
       },
     )
@@ -359,12 +359,12 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("a", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "d")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), Deactivate, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), Deactivate, RewriteApplied], log)
         Assert.equal("ad", document->Editor.Text.getAll)
       },
     )
@@ -375,12 +375,12 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("a", document->Editor.Text.getAll)
         let log = await IM.backspace(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 0)), "")]), Deactivate, RewriteApplied],
           log,
         )
@@ -396,12 +396,12 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("a", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "n")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("an", document->Editor.Text.getAll)
         // messing with the cursor
         await IM.select(setup, [(0, 0)])
@@ -411,13 +411,13 @@ describe("Input Method (Editor)", () => {
         await IM.select(setup, [(0, 2)])
         // resume insertion
         let log = await IM.insertChar(setup, "d")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 3)), "∧")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("∧", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "=")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 2)), "≙")]), Deactivate, RewriteApplied],
           log,
         )
@@ -433,16 +433,16 @@ describe("Input Method (Editor)", () => {
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "123")
         let log = await IM.activate(setup, ~positions, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("123a", document->Editor.Text.getAll)
         let log = await IM.insertChar(setup, "n")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("123an", document->Editor.Text.getAll)
         // messing with the cursor
         let log = await IM.selectAndWait(setup, [(1, 1)])
-        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
       },
     )
   })
@@ -455,45 +455,45 @@ describe("Input Method (Editor)", () => {
         let document = setup.editor->VSCode.TextEditor.document
         // activate the input method
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         // insert "("
         let log = await IM.insertChar(setup, "(")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "(")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("(", document->Editor.Text.getAll)
         // right arrow
         let log = await IM.rightArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "[")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("[", document->Editor.Text.getAll)
         // down arrow
         let log = await IM.downArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "⟪")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("⟪", document->Editor.Text.getAll)
         // left arrow
         let log = await IM.leftArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "⟨")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("⟨", document->Editor.Text.getAll)
         // up arrow
         let log = await IM.upArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "(")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("(", document->Editor.Text.getAll)
         // deactivate
         let log = await IM.deactivate(setup)
-        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
         Assert.equal("(", document->Editor.Text.getAll)
       },
     )
@@ -505,38 +505,38 @@ describe("Input Method (Editor)", () => {
         let document = setup.editor->VSCode.TextEditor.document
         // activate the input method
         let log = await IM.activate(setup, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         // insert "!"
         let log = await IM.insertChar(setup, "!")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "！")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("！", document->Editor.Text.getAll)
         // right arrow
         let log = await IM.rightArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "¡")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("¡", document->Editor.Text.getAll)
         // up arrow
         let log = await IM.upArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "！")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("！", document->Editor.Text.getAll)
         // down arrow
         let log = await IM.downArrow(setup)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "¡")]), UpdateView, RewriteApplied],
           log,
         )
         Assert.equal("¡", document->Editor.Text.getAll)
         // deactivate
         let log = await IM.deactivate(setup)
-        Assert.deepEqual([IM.Log.Deactivate], log)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
         Assert.equal("¡", document->Editor.Text.getAll)
       },
     )
@@ -559,9 +559,9 @@ describe("Input Method (Editor)", () => {
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
         let log = await IM.activate(setup, ~positions, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "b")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [
             IM.Log.RewriteIssued([
               (((0, 0), (0, 1)), "♭"),
@@ -579,7 +579,7 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal("♭\n♭\n♭\n♭", Editor.Text.getAll(document)->replaceCRLF)
         let log = await IM.insertChar(setup, "n")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [
             IM.Log.RewriteIssued([
               (((0, 0), (0, 2)), "𝕟"),
@@ -614,15 +614,15 @@ describe("Input Method (Editor)", () => {
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
         let log = await IM.activate(setup, ~positions, ())
-        Assert.deepEqual([IM.Log.Activate], log)
+        Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied], log)
         Assert.equal("a123\n1a23\n12a3\n123a", Editor.Text.getAll(document)->replaceCRLF)
         let log = await IM.insertChar(setup, "n")
-        Assert.deepEqual([IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied], log)
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied], log)
         Assert.equal("an123\n1an23\n12an3\n123an", Editor.Text.getAll(document)->replaceCRLF)
         let log = await IM.insertChar(setup, "d")
-        Assert.deepEqual(
+        Assert.deepStrictEqual(
           [
             IM.Log.RewriteIssued([
               (((0, 0), (0, 3)), "∧"),

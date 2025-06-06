@@ -62,7 +62,7 @@
 //     Async.it(`should be successful`, async () => {
 //         let setup = acquire(setup)
 //         let log = await IM.activate(setup, ())
-//         Assert.deepEqual([IM.Log.Activate], log)
+//         Assert.deepStrictEqual([IM.Log.Activate], log)
 //       },
 //     )
 //   })
