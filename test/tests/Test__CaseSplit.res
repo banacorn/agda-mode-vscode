@@ -52,40 +52,57 @@ open Test__Util
 //   })
 // })
 
-describe_only("agda-mode.give", () => {
+describe("agda-mode.case", () => {
   let fileContent = ref("")
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset("CaseSplit.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("CaseSplit.agda"), fileContent.contents))
 
-  Async.it("should be responded with the correct responses", async () => {
+  // Async.it("should be responded with the correct responses", async () => {
+  //   let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
+
+  //   let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 11), "x")
+  //   let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
+  //     Request.Case({
+  //       index: 0,
+  //       indexString: "0",
+  //       start: 181,
+  //       end: 188,
+  //     }),
+  //   )
+
+  //   let filteredResponses = responses->Array.filter(filteredResponse)
+  //   Assert.deepStrictEqual(
+  //     filteredResponses,
+  //     [
+  //       // InteractionPoints([0, 1, 2, 3, 4, 5, 6, 7, 8]),
+  //       // MakeCase(ExtendedLambda, ["Z → ?", "(S x) → ?"]),
+  //     ],
+  //   )
+  // })
+
+  Async.it("should handle both MakeCase::ExtendedLambda and MakeCase::Function", async () => {
     let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
+    // 6 goals before case splitting
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 6)
 
-    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 16), "x")
-    let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
-      Request.Case2({
-        index: 0,
-        indexString: "0",
-        start: 89,
-        end: 96,
-      }),
-    )
-
-    let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepStrictEqual(
-      filteredResponses,
-      [
-        InteractionPoints([0, 1, 2, 3, 4, 5, 6, 7, 8]),
-        MakeCase(ExtendedLambda, ["Z → ?", "(S x) → ?"]),
-      ],
-    )
-  })
-
-  Async.it("should handle MakeCase::ExtendedLambda", async () => {
-    let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
-    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(7, 16), ~payload="x")
-
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(8, 11), ~payload="x")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 7)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(13, 16), ~payload="x")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 8)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(18, 11), ~payload="x")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 9)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(23, 20), ~payload="x")
     Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 10)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(28, 9), ~payload="x")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 11)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(32, 21), ~payload="x")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 12)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(9, 13), ~payload="y")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 13)
+    await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(15, 20), ~payload="x")
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 14)
 
+    // compare file content before and after
     let actual = await File.read(Path.asset("CaseSplit.agda"))
     let expected = await File.read(Path.asset("CaseSplit.agda.out"))
     Assert.deepStrictEqual(actual, expected)

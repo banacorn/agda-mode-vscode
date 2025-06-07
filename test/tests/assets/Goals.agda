@@ -7,5 +7,5 @@ data ℕ : Set where
 _+_ : ℕ → ℕ → ℕ
 zero + y = {!   !}
 suc zero + zero = {!   !}
-suc zero + suc y = ?
+suc zero + suc y = {!   !}
 suc (suc x) + y = {!!}

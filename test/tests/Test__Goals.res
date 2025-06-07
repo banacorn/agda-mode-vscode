@@ -27,11 +27,26 @@ describe("Goals", () => {
     )
   })
 
-  Async.it("should remove a goal after it has been completely destroyed", async () => {
+  Async.it("should destroy a goal after it has been completely deleted", async () => {
     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
     let _ = await Editor.Text.delete(
       ctx.state.document,
       VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
+    )
+    await ctx->AgdaMode.quit
+    // check the positions of the goals
+    Assert.deepStrictEqual(
+      Goals.serialize(ctx.state.goals2),
+      ["#0 [92-99)", "#1 [118-125)", "#3 [164-168)"],
+    )
+  })
+
+  Async.it_skip("should destroy a goal after it has been completely replaced", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+    let _ = await Editor.Text.replace(
+      ctx.state.document,
+      VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
+      "       "
     )
     await ctx->AgdaMode.quit
     // check the positions of the goals
@@ -57,7 +72,7 @@ describe("Goals", () => {
     )
   })
 
-  describe("Restore hole damanged boundaries", () => {
+  describe_skip("Restore hole damanged boundaries", () => {
     Async.it(
       "should protect against a backspace on the right boundary",
       async () => {

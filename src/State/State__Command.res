@@ -133,15 +133,15 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           },
           async expr =>
             if expr == "" {
-              await sendAgdaRequest(Case2(goal))
+              await sendAgdaRequest(Case(goal))
             } else {
               // place the queried expression in the goal
               await state.goals2->Goals.modify(state.document, goal.index, _ => expr)
-              await sendAgdaRequest(Case2(goal))
+              await sendAgdaRequest(Case(goal))
             },
         )
       } else {
-        await sendAgdaRequest(Case2(goal))
+        await sendAgdaRequest(Case(goal))
       }
     }
 

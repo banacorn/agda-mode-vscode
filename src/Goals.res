@@ -114,6 +114,9 @@ module Module: Module = {
       )
   }
 
+  // flag for controlling the restoration of damaged goals
+  let restoreGoals = false
+
   type t = {
     mutable goals: Map.t<index, Goal.t>, // goal index => goal
     mutable positions: AVLTree.t<index>, // start position => goal index
@@ -380,7 +383,7 @@ module Module: Module = {
             isQuestionMarkExpansion, // redecorate if it was a question mark expansion
           ),
         ]
-      } else if goalText->String.startsWith("{!") {
+      } else if restoreGoals && goalText->String.startsWith("{!") {
         switch goalText->String.charAt(goalTextLength - 1) {
         | "!" => [
             UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
@@ -392,7 +395,7 @@ module Module: Module = {
           ]
         | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
         }
-      } else if goalText->String.endsWith("!}") {
+      } else if restoreGoals && goalText->String.endsWith("!}") {
         switch goalText->String.charAt(0) {
         | "{" => [
             UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),

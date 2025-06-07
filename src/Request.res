@@ -13,8 +13,7 @@ type t =
   | Refine(Goal.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
   | Auto(Command.Normalization.t, Goal.t)
-  | Case(Goal.t)
-  | Case2(Goal2.t)
+  | Case(Goal2.t)
   | HelperFunctionType(Command.Normalization.t, string, Goal.t)
   | InferType(Command.Normalization.t, string, Goal.t)
   | InferTypeGlobal(Command.Normalization.t, string)
@@ -47,7 +46,6 @@ let toString = x =>
   | ElaborateAndGive(_, _, _) => "ElaborateAndGive"
   | Auto(_) => "Auto"
   | Case(_) => "Case"
-  | Case2(_) => "Case"
   | HelperFunctionType(_, _, _) => "HelperFunctionType"
   | InferType(_, _, _) => "InferType"
   | InferTypeGlobal(_, _) => "InferTypeGlobal"
@@ -203,12 +201,6 @@ let encode = (
     }
 
   | Case(goal) =>
-    let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
-    let range: string = buildRange(goal)
-    `${commonPart(NonInteractive)}( Cmd_make_case ${index} ${range} "${content}" )`
-
-  | Case2(goal) =>
     let range = buildRange2(goal)
     let content = Goal2.read(goal, document)->Parser.escape
     `${commonPart(NonInteractive)}( Cmd_make_case ${goal.indexString} ${range} "${content}" )`
