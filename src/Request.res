@@ -12,7 +12,7 @@ type t =
   | Give2(Goal2.t)
   | Refine(Goal.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
-  | Auto(Command.Normalization.t, Goal.t)
+  | Auto(Command.Normalization.t, Goal2.t)
   | Case(Goal2.t)
   | HelperFunctionType(Command.Normalization.t, string, Goal.t)
   | InferType(Command.Normalization.t, string, Goal.t)
@@ -159,7 +159,7 @@ let encode = (
     }
   | Give2(goal) =>
     let range = buildRange2(goal)
-    let content = Goal2.read(goal, document)->Parser.escape
+    let content = Goal2.getContent(goal, document)->Parser.escape
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
           NonInteractive,
@@ -186,8 +186,8 @@ let encode = (
   | Auto(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
-    let range: string = buildRange(goal)
+    let content: string = Goal2.getContent(goal, document)->Parser.escape
+    let range: string = buildRange2(goal)
 
     if Util.Version.gte(version, "2.7.0") {
       // after 2.7.0
@@ -202,7 +202,7 @@ let encode = (
 
   | Case(goal) =>
     let range = buildRange2(goal)
-    let content = Goal2.read(goal, document)->Parser.escape
+    let content = Goal2.getContent(goal, document)->Parser.escape
     `${commonPart(NonInteractive)}( Cmd_make_case ${goal.indexString} ${range} "${content}" )`
 
   | HelperFunctionType(normalization, expr, goal) =>

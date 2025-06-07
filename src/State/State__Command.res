@@ -57,7 +57,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     switch state.goals2->Goals.getGoalAtCursor(state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      if Goal2.read(goal, state.document) == "" {
+      if Goal2.getContent(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,
@@ -108,9 +108,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       }
     }
   | Auto(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(Auto(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(Auto(normalization, goal))
     }
   | Case =>
     let placeholder = Some("variable(s) to case split:")
@@ -120,7 +120,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       // remember that this goal is being case-split
       // because the information of this goal will not be available when handling the `MakeCase` response
       Goals.markAsCaseSplited(state.goals2, goal)
-      if Goal2.read(goal, state.document) == "" {
+      if Goal2.getContent(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,

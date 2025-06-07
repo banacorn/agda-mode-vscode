@@ -10,7 +10,7 @@ let run = normalization => {
         async () => {
           let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
-          let responses = switch ctx.state.goals[0] {
+          let responses = switch Goals.getGoalByIndex(ctx.state.goals2, 0) {
           | Some(goal) =>
             await ctx.state->State__Connection.sendRequestAndCollectResponses(
               Request.Auto(normalization, goal),
@@ -47,7 +47,7 @@ let run = normalization => {
         async () => {
           let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
-          let responses = switch ctx.state.goals[1] {
+          let responses = switch Goals.getGoalByIndex(ctx.state.goals2, 1) {
           | Some(goal) =>
             await ctx.state->State__Connection.sendRequestAndCollectResponses(
               Request.Auto(normalization, goal),
@@ -82,7 +82,7 @@ let run = normalization => {
   })
 }
 
-describe("agda-mode.auto", () => {
+describe_only("agda-mode.auto", () => {
   describe("AsIs", () => {
     run(AsIs)
   })

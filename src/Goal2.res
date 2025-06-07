@@ -7,7 +7,7 @@ module type Module = {
     end: int,
   }
 
-  let read: (t, VSCode.TextDocument.t) => string
+  let getContent: (t, VSCode.TextDocument.t) => string
 
   let indentationWidth: (t, VSCode.TextDocument.t) => (int, string, VSCode.Range.t)
   // helper function for building Haskell Agda ranges
@@ -57,7 +57,7 @@ module Module: Module = {
     }
   }
 
-  let read = (goal, document) => {
+  let getContent = (goal, document) => {
     let innerRange = VSCode.Range.make(
       VSCode.TextDocument.positionAt(document, goal.start + 2),
       VSCode.TextDocument.positionAt(document, goal.end - 2),
