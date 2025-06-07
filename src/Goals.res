@@ -10,6 +10,7 @@ module type Module = {
     array<index>,
     Map.t<int, int>,
   ) => promise<unit>
+  let destroyGoalByIndex: (t, index) => unit
 
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
@@ -29,6 +30,10 @@ module type Module = {
   // semaphore for busy state
   let isBusy: t => bool
   let waitUntilNotBusy: t => promise<unit>
+
+  // keep track of the last case split goal
+  let markAsCaseSplited: (t, Goal2.t) => unit
+  let getRecentlyCaseSplited: t => option<Goal2.t>
 
   // for testing
   let serialize: t => array<string>
@@ -113,6 +118,7 @@ module Module: Module = {
     mutable goals: Map.t<index, Goal.t>, // goal index => goal
     mutable positions: AVLTree.t<index>, // start position => goal index
     mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
+    mutable recentlyCaseSplited: option<Goal2.t>, // keep track of the last case split goal, because it won't be available during the case split
   }
 
   let make = () => {
@@ -120,6 +126,7 @@ module Module: Module = {
       goals: Map.make(),
       positions: AVLTree.make(),
       isBusy: None,
+      recentlyCaseSplited: None,
     }
   }
 
@@ -134,6 +141,12 @@ module Module: Module = {
     // remove the goal from the positions tree
     self.positions->AVLTree.remove(goal.start)->ignore
   }
+
+  let destroyGoalByIndex = (self, index) =>
+    switch self.goals->Map.get(index) {
+    | None => () // goal not found, do nothing
+    | Some(goal) => destroyGoal(self, goal)
+    }
 
   let isBusy = self => self.isBusy->Option.isSome
   let setBusy = self =>
@@ -208,6 +221,7 @@ module Module: Module = {
   let getGoalAtCursor = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
+
     self.positions
     ->AVLTree.lowerBound(cursorOffset)
     ->Option.flatMap(index => {
@@ -550,5 +564,19 @@ module Module: Module = {
     | Some(goal) => jmupToGoal(editor, goal)
     }
   }
+
+  let markAsCaseSplited = (self, goal) => {
+    self.recentlyCaseSplited = Some(goal)
+  }
+
+  let getRecentlyCaseSplited = self =>
+    self.recentlyCaseSplited->Option.map(goal => {
+      {
+        Goal2.index: goal.index,
+        indexString: Int.toString(goal.index),
+        start: goal.start,
+        end: goal.end,
+      }
+    })
 }
 include Module

@@ -210,19 +210,39 @@ let rec handle = async (
         }
       }
     | MakeCase(makeCaseType, lines) =>
-      switch State__Goal.pointed(state) {
-      | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, _)) =>
-        switch makeCaseType {
-        | Function => await State__Goal.replaceWithLines(state, goal, lines)
-        | ExtendedLambda => await State__Goal.replaceWithLambda(state, goal, lines)
+      // the information about the goal being split is not available at this point of time
+      switch state.goals2->Goals.getRecentlyCaseSplited {
+      | None =>
+        await State__View.Panel.display(
+          state,
+          Error("Cannot split the goal"),
+          [Item.plainText("Failed to remember the goal being split")],
+        )
+      | Some(goal) =>
+        let result = switch makeCaseType {
+        | Function => await Goal2.replaceWithLines(goal, state.document, lines)
+        | ExtendedLambda => await Goal2.replaceWithLambda(goal, state.document, lines)
+        }
+
+        switch result {
+        | Some(rangeToBeReplaced, indentedLines) =>
+          // destroy the old goal
+          Goals.destroyGoalByIndex(state.goals2, goal.index)
+          // locate the first new goal and place the cursor there
+          Goal2.placeCursorAtFirstNewGoal(state.editor, rangeToBeReplaced, indentedLines)
+        | None =>
+          await State__View.Panel.display(
+            state,
+            Error("Goal-related Error"),
+            [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
+          )
         }
         await dispatchCommand(Load)
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
         switch Goals.getGoalByIndex(state.goals2, index) {
-        | None => Js.log3("Not found goal: ", index, solution)
+        | None => ()
         | Some(goal) =>
           // modify the goal content
           await Goals.modify(state.goals2, state.document, index, _ => solution)

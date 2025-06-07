@@ -371,19 +371,15 @@ module AgdaMode = {
     await Registry.removeAndDestroy(self.filepath)
   }
 
-  let case = async (self, cursorAndPayload) => {
+  let case = async (self, ~cursor, ~payload) => {
     let editor = await File.open_(self.filepath)
 
     // set cursor and insert the target for case splitting
-    switch cursorAndPayload {
-    | None => ()
-    | Some(cursor, payload) =>
-      let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
-      if !succeed {
-        raise(Failure("Failed to insert text"))
-      }
-      Editor.Cursor.set(editor, cursor)
+    let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
+    if !succeed {
+      raise(Failure("Failed to insert text"))
     }
+    Editor.Cursor.set(editor, cursor)
 
     // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
     // listen to the `agda-mode.load` command to know when the whole case split process is done

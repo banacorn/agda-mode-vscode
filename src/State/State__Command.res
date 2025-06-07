@@ -112,11 +112,15 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some((goal, _)) => await sendAgdaRequest(Auto(normalization, goal))
     }
-  | Case => {
-      let placeholder = Some("variable(s) to case split:")
-      switch State__Goal.pointed(state) {
-      | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, "")) =>
+  | Case =>
+    let placeholder = Some("variable(s) to case split:")
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
+    | None => await State__View.Panel.displayOutOfGoalError(state)
+    | Some(goal) =>
+      // remember that this goal is being case-split
+      // because the information of this goal will not be available when handling the `MakeCase` response
+      Goals.markAsCaseSplited(state.goals2, goal)
+      if Goal2.read(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,
@@ -129,16 +133,43 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           },
           async expr =>
             if expr == "" {
-              await sendAgdaRequest(Case(goal))
+              await sendAgdaRequest(Case2(goal))
             } else {
               // place the queried expression in the goal
-              await State__Goal.modify(state, goal, _ => expr)
-              await sendAgdaRequest(Case(goal))
+              await state.goals2->Goals.modify(state.document, goal.index, _ => expr)
+              await sendAgdaRequest(Case2(goal))
             },
         )
-      | Some((goal, _)) => await sendAgdaRequest(Case(goal))
+      } else {
+        await sendAgdaRequest(Case2(goal))
       }
     }
+
+  // let placeholder = Some("variable(s) to case split:")
+  // switch State__Goal.pointed(state) {
+  // | None => await State__View.Panel.displayOutOfGoalError(state)
+  // | Some((goal, "")) =>
+  //   await State__View.Panel.prompt(
+  //     state,
+  //     header,
+  //     {
+  //       body: Some(
+  //         "Please specify which variable(s) you wish to split, multiple variables are delimited by whitespaces",
+  //       ),
+  //       placeholder,
+  //       value: None,
+  //     },
+  //     async expr =>
+  //       if expr == "" {
+  //         await sendAgdaRequest(Case(goal))
+  //       } else {
+  //         // place the queried expression in the goal
+  //         await State__Goal.modify(state, goal, _ => expr)
+  //         await sendAgdaRequest(Case(goal))
+  //       },
+  //   )
+  // | Some((goal, _)) => await sendAgdaRequest(Case(goal))
+  // }
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
       switch State__Goal.pointed(state) {

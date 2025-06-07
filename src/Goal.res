@@ -12,10 +12,10 @@ module type Module = {
   //
   let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
-  let makeMany: (
-    VSCode.TextEditor.t,
-    array<(int, ((int, int), VSCode.Range.t))>,
-  ) => promise<array<t>>
+  // let makeMany: (
+  //   VSCode.TextEditor.t,
+  //   array<(int, ((int, int), VSCode.Range.t))>,
+  // ) => promise<array<t>>
   // get the content inside the hole
   let getContent: (t, VSCode.TextDocument.t) => string
   // set the content inside the hole
