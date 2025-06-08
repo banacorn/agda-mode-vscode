@@ -138,7 +138,8 @@ let rec handle = async (
       }
     | InteractionPoints(indices) =>
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
-      await state.goals2->Goals.instantiateGoalsFromLoad(state.editor, indices, holePositions)
+      state.goals2->Goals.addGoalPositions(Map.entries(holePositions)->Iterator.toArray)
+      await state.goals2->Goals.resetGoalIndices(state.editor, indices)
     | GiveAction(index, give) =>
       switch Goals.getGoalByIndex(state.goals2, index) {
       | None =>
@@ -163,40 +164,13 @@ let rec handle = async (
           //    safer choice
           let defaultIndentation = 2
           let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
-          // convert question marks "?" to proper expanded holes "{!   !}"
 
           // modify the document
           await state.goals2->Goals.modify(state.document, index, _ => indented)
-        // insert new tokens for holes ourselves
-        // let holeOffsetsFromRefine = State__Goal.parseHolesFromRefineResult(indented)
-        // Js.log2("holeOffsetsFromRefine: ", holeOffsetsFromRefine)
 
-        // let offset = fst(goal.interval)
-        // let holeTokens = holeOffsets->Array.map(start => {
-        //   let start = start + offset
-        //   let end = start + 6 // "{!   !}"
-        //   {
-        //     Tokens.Token.start,
-        //     end,
-        //     aspects: [Tokens.Aspect.Hole],
-        //     isTokenBased: true,
-        //     note: None,
-        //     source: None,
-        //   }
-        // })
-        // Js.log2("holeTokens: ", holeTokens)
-        // holeTokens->Array.forEach(token => {
-        //   let start = Tokens.toOriginalOffset(state.tokens, token.start)
-        //   let end = Tokens.toOriginalOffset(state.tokens, token.end)
-        //   // Js.log2("start: ", token.start, start)
-        //   Js.log2("end: ", end)
-        //   Tokens.insertWithVSCodeOffsets(state.tokens, token)
-        // })
-        // await State__Goal.removeBoundaryAndDestroy(state, goal)
-
-        // ->Array.map(((x, _, _)) => x.)
-        // ->Util.Pretty.array
-        // ->Js.log
+          // add goal positions
+          let goalPositions = Goals.parseGoalPositionsFromRefine(indented)
+          state.goals2->Goals.addGoalPositions(goalPositions)
         }
 
         if await Goals.removeBoundaryAndDestroy(state.goals2, state.document, index) {

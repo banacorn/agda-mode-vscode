@@ -82,7 +82,7 @@ let run = normalization => {
   })
 }
 
-describe_only("agda-mode.auto", () => {
+describe("agda-mode.auto", () => {
   describe("AsIs", () => {
     run(AsIs)
   })

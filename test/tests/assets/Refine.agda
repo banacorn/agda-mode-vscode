@@ -1,4 +1,5 @@
-module Issue158 where
+-- from issue #158
+module Refine where
 
 postulate
   A : Set
@@ -11,3 +12,6 @@ record Foo : Set where
 
 foo : Foo
 foo = {!   !}
+
+bar : Foo
+bar = {!   !}

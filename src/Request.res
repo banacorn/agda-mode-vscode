@@ -10,7 +10,7 @@ type t =
   | SearchAbout(Command.Normalization.t, string)
   | Give(Goal.t)
   | Give2(Goal2.t)
-  | Refine(Goal.t)
+  | Refine(Goal2.t)
   | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
   | Auto(Command.Normalization.t, Goal2.t)
   | Case(Goal2.t)
@@ -170,8 +170,8 @@ let encode = (
 
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
-    let range: string = buildRange(goal)
+    let content: string = Goal2.getContent(goal, document)->Parser.escape
+    let range: string = buildRange2(goal)
     `${commonPart(NonInteractive)}( Cmd_refine_or_intro False ${index} ${range} "${content}" )`
 
   | ElaborateAndGive(normalization, expr, goal) =>

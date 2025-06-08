@@ -4,12 +4,9 @@ module type Module = {
 
   let make: unit => t
   let size: t => int
-  let instantiateGoalsFromLoad: (
-    t,
-    VSCode.TextEditor.t,
-    array<index>,
-    Map.t<int, int>,
-  ) => promise<unit>
+  let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let addGoalPositions: (t, array<(int, int)>) => unit
+  let parseGoalPositionsFromRefine: string => array<(int, int)>
   let destroyGoalByIndex: (t, index) => unit
 
   // scan all goals and update their positions after document changes
@@ -17,7 +14,6 @@ module type Module = {
 
   let getGoalByIndex: (t, index) => option<Goal2.t>
 
-  // let read: (t, VSCode.TextDocument.t, index) => option<string>
   let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
   let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
   // get the goal at the cursor position
@@ -119,17 +115,21 @@ module Module: Module = {
 
   type t = {
     mutable goals: Map.t<index, Goal.t>, // goal index => goal
+    mutable goalsWithoutIndices: Map.t<int, int>, // mapping of start position => end position, goals without indices
     mutable positions: AVLTree.t<index>, // start position => goal index
     mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
     mutable recentlyCaseSplited: option<Goal2.t>, // keep track of the last case split goal, because it won't be available during the case split
+    mutable goalPositionsFromRefine: array<int>, // positions of the goals from the refine result
   }
 
   let make = () => {
     {
       goals: Map.make(),
+      goalsWithoutIndices: Map.make(),
       positions: AVLTree.make(),
       isBusy: None,
       recentlyCaseSplited: None,
+      goalPositionsFromRefine: [],
     }
   }
 
@@ -288,21 +288,6 @@ module Module: Module = {
     // update the goal in the goals map
     self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
-
-  // Damage done to a goal. The letters correspond to the boundaries of the goal like this:
-  //    {!   !}
-  //    AB   CD
-  // So for example, if "!   !}" is damaged, we represent it as "BCD"
-  // type damage =
-  //   | A(int) // "{" deleted, how many characters before "{" were deleted
-  //   | AB
-  //   | ABC
-  //   | B
-  //   | BC
-  //   | BCD
-  //   | C
-  //   | CD
-  //   | D
 
   type action =
     | Rewrite(VSCode.Range.t, string) // range, text to replace
@@ -485,12 +470,12 @@ module Module: Module = {
     }
   }
 
-  // Instantiate goals after the Load command is executed.
-  // Also destoys all existing goals
-  let instantiateGoalsFromLoad = async (self, editor, indices, positions) => {
+  // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
+  // The indices are ordered by the start position of the goals.
+  let resetGoalIndices = async (self, editor, indices) => {
     clear(self)
 
-    positions
+    self.goalsWithoutIndices
     ->Map.entries
     ->Iterator.toArray
     ->Array.forEachWithIndex(((start, end), i) => {
@@ -503,8 +488,73 @@ module Module: Module = {
       }
     })
 
+    self.goalsWithoutIndices = Map.make() // clear the goals without indices
+
     await scanAllGoals(self, editor, [])
   }
+
+  // Add goal positions without indices, e.g. from the Load or Refine command
+  let addGoalPositions = (self, positions) => {
+    positions->Array.forEach(((start, end)) => {
+      self.goalsWithoutIndices->Map.set(start, end)
+    })
+  }
+
+  // New holes may be introduced by a refine command, however, we don't have highlighting information
+  // for the result of the refine command.
+  // So we need to parse the holes from the refine result and decorate them ourself.
+  // This function calculates the offsets of the question marks
+  let parseGoalPositionsFromRefine = raw => {
+    let goalQuestionMark = %re("/([\s\(\{\_\;\.\\\"@]|^)(\?)([\s\)\}\_\;\.\\\"@]|$)/gm")
+    // the chunks may contain:
+    //   1. the question mark itself              (\?)
+    //   2. the part before the question mark     ([\s\(\{\_\;\.\\\"@]|^)
+    //   3. the part after the question mark      ([\s\)\}\_\;\.\\\"@]|$)
+    //   4. other strings not matching the regex
+    let chunks = raw->String.splitByRegExp(goalQuestionMark)
+
+    chunks
+    ->Array.reduce(([], 0), ((offsets, i), chunk) =>
+      switch chunk {
+      | None => (offsets, i)
+      | Some(chunk) =>
+        if chunk == "?" {
+          let offset = i
+          ([...offsets, (offset, offset + 1)], offset + 1)
+        } else {
+          // not a question mark, just append it to the string
+          (offsets, i + String.length(chunk))
+        }
+      }
+    )
+    ->fst
+  }
+
+  // Instantiate goals after the Refine command is executed.
+  // However, we won't have the positions and indices of the goals together at once like in `setGoalIndices`:
+  //  * positions: determined by the question marks in the refine result
+  //  * indices: supplied from `InteractionPoints` later
+
+  // let supplyGoalPositionsFromRefine = (self, refinement) => {
+  //   self.goalPositionsFromRefine = parseHolePositionsFromRefine(refinement)
+  // }
+
+  // let instantiateGoalsFromRefine = async (self, editor, indices) => {
+  //   clear(self)
+
+  //   self.goalPositionsFromRefine->Array.forEachWithIndex((start, i) => {
+  //     switch indices[i] {
+  //     | None => ()
+  //     | Some(index) =>
+  //       let goal = Goal.make(editor, start, start + 1, index)
+  //       self.goals->Map.set(index, goal)
+  //       self.positions->AVLTree.insert(start, index)
+  //     }
+  //   })
+  //   self.goalPositionsFromRefine = [] // clear the positions after instantiation
+
+  //   await scanAllGoals(self, editor, [])
+  // }
 
   let jmupToGoal = (editor, goal: Goal.t) => {
     let document = VSCode.TextEditor.document(editor)

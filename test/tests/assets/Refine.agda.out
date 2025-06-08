@@ -1,4 +1,4 @@
-module Issue158 where
+module Refine where
 
 postulate
   A : Set
@@ -15,3 +15,6 @@ foo = record
   ; very-long-field-name-2 = {!   !}
   ; very-long-field-name-3 = {!   !}
   }
+
+bar : Foo
+bar = {!   !}
