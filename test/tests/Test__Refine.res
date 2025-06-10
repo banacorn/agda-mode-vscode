@@ -1,7 +1,7 @@
 open Mocha
 open Test__Util
 
-describe_only("agda-mode.refine", () => {
+describe("agda-mode.refine", () => {
   describe("Issue #158", () => {
     let fileContent = ref("")
 

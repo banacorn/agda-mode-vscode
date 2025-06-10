@@ -6,6 +6,7 @@ module type Module = {
     start: int,
     end: int,
   }
+  let toString: t => string
 
   let getContent: (t, VSCode.TextDocument.t) => string
 
@@ -25,6 +26,9 @@ module type Module = {
     array<string>,
   ) => promise<option<(VSCode.Range.t, string)>>
   let placeCursorAtFirstNewGoal: (VSCode.TextEditor.t, VSCode.Range.t, string) => unit
+
+  // for property-based testing
+  let arbitraryBatch: (~size: int=?, ~after: int=?) => FastCheck.Arbitrary.arbitrary<array<t>>
 }
 
 module Module: Module = {
@@ -34,6 +38,9 @@ module Module: Module = {
     start: int,
     end: int,
   }
+
+  let toString = goal =>
+    `#${goal.indexString} [${string_of_int(goal.start)}-${string_of_int(goal.end)})`
 
   let makeHaskellRange = (goalInfo, document, version, filepath) => {
     let startPoint = VSCode.TextDocument.positionAt(document, goalInfo.start)
@@ -260,6 +267,33 @@ module Module: Module = {
         Editor.Cursor.set(editor, position)
       }
     })
+  }
+
+  open FastCheck.Arbitrary
+
+  // Given an offset, generates a Goal's range
+  let arbitraryInterval = (after): arbitrary<(int, int)> => {
+    integerRange(after, after + 10)->Derive.chain(start => {
+      integerRange(start + 4, start + 10)->Derive.map(end => (start, end))
+    })
+  }
+
+  let arbitraryBatch = (~size=10, ~after=0): arbitrary<array<t>> => {
+    let rec aux = ((acc, after), index) =>
+      if index >= size {
+        Combinators.constant((acc, after))
+      } else {
+        arbitraryInterval(after)->Derive.chain(((start, end)) => {
+          let goal = {
+            index,
+            indexString: string_of_int(index),
+            start,
+            end,
+          }
+          aux(([...acc, goal], end), index + 1)
+        })
+      }
+    aux(([], after), 0)->Derive.map(fst)
   }
 }
 include Module

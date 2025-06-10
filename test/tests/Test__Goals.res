@@ -25,6 +25,31 @@ describe("Goals", () => {
         )
       },
     )
+
+    open FastCheck
+    open Property.Sync
+    it_only(
+      "should calculate the effects of document changes on the goals",
+      () =>
+        assert_(
+          property2(
+            Goal2.arbitraryBatch(),
+            Tokens.Change.arbitraryBatch(),
+            (goals, changes) => {
+              Js.log(
+                "\nchanges:    " ++ changes->Array.map(Tokens.Change.toString)->Util.Pretty.array,
+              )
+              Js.log("goals:      " ++ goals->Array.map(Goal2.toString)->Util.Pretty.array)
+
+              // let result = Intervals.empty->Intervals.applyChanges(changes)
+              // // Js.log("intervals:  " ++ result->Intervals.toString)
+              // Intervals.debugIsValid(result)
+              // result->Intervals.hasError == None && result->Intervals.isValidWRTChanges(changes)
+              true
+            },
+          ),
+        ),
+    )
   })
 
   Async.it("should destroy a goal after it has been completely deleted", async () => {
@@ -41,12 +66,12 @@ describe("Goals", () => {
     )
   })
 
-  Async.it_skip("should destroy a goal after it has been completely replaced", async () => {
+  Async.it("should destroy a goal after it has been completely replaced", async () => {
     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
     let _ = await Editor.Text.replace(
       ctx.state.document,
       VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
-      "       "
+      "       ",
     )
     await ctx->AgdaMode.quit
     // check the positions of the goals
@@ -72,7 +97,7 @@ describe("Goals", () => {
     )
   })
 
-  describe_skip("Restore hole damanged boundaries", () => {
+  describe("Restore hole damanged boundaries", () => {
     Async.it(
       "should protect against a backspace on the right boundary",
       async () => {

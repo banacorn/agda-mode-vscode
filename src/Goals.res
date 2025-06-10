@@ -10,6 +10,11 @@ module type Module = {
   let destroyGoalByIndex: (t, index) => unit
 
   // scan all goals and update their positions after document changes
+  let applyChanges: (
+    (int, int) => string,
+    array<(int, int)>,
+    array<Tokens.Change.t>,
+  ) => array<string>
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
   let getGoalByIndex: (t, index) => option<Goal2.t>
@@ -295,6 +300,10 @@ module Module: Module = {
     // | Restore(Goal.t, damage)
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the goal be redecorated?
 
+  let applyChanges = (getText, goals, changes) => {
+    []
+  }
+
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
@@ -410,18 +419,60 @@ module Module: Module = {
         let removalEnd = change.offset + change.removed
         if removalEnd < goal.start {
           // the goal is completely after the change (separated by a least a character)
+          //      removal  ┣━━━━━┫
+          //      goal              ┣━━━━━┫
           let delta = delta + change.inserted - change.removed
           go(delta, list{goal, ...goals}, changes)
         } else if removalStart >= goal.end {
           // the goal is completely before the change, skip the goal
+          //      removal                    ┣━━━━━┫
+          //      goal              ┣━━━━━┫
           go(delta, goals, list{change, ...changes})
         } else if goal.start >= removalStart && goal.end <= removalEnd {
+          //      removal        ┣━━━━━━━━━━━┫
+          //      goal              ┣━━━━━┫
           let deltaStart = removalStart - goal.start
           let deltaEnd = deltaStart + change.inserted - change.removed
           let actions = scanGoal(delta, goal, deltaStart, deltaEnd, true)
           let delta' = delta + change.inserted - change.removed
           [...actions, ...go(delta', goals, changes)]
         } else {
+          // if removalStart < goal.start {
+          //   //      removal        ┣━━━━━┫
+          //   //      goal              ┣━━━━━┫
+
+          //   let deltaStart = removalStart - goal.start
+          //   let deltaEnd = change.inserted - change.removed
+          //   Js.log("restore 1")
+
+          //   let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
+          //   let delta' = delta + change.inserted - change.removed
+
+          //   [...actions, ...go(delta', list{goal, ...goals}, changes)]
+          // } else if removalEnd <= goal.end {
+          //   //      removal           ┣━━━━━┫
+          //   //      goal           ┣━━━━━━━━━━━┫
+          //   let deltaStart = 0
+          //   let deltaEnd = change.inserted - change.removed
+          //   Js.log("restore 2")
+
+          //   let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
+          //   let delta' = delta + change.inserted - change.removed
+
+          //   [...actions, ...go(delta', list{goal, ...goals}, changes)]
+          // } else {
+          //   //      removal              ┣━━━━━┫
+          //   //      goal              ┣━━━━━┫
+          //   let deltaStart = 0
+          //   let deltaEnd = removalStart - goal.end + change.inserted // ?
+          //   Js.log("restore 3")
+
+          //   let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
+          //   let delta' = delta + change.inserted - change.removed
+
+          //   [...actions, ...go(delta', goals, changes)]
+          // }
+
           let deltaStart = if removalStart <= goal.start {
             removalStart - goal.start
           } else {
