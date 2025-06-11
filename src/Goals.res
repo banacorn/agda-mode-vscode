@@ -9,12 +9,15 @@ module type Module = {
   let parseGoalPositionsFromRefine: string => array<(int, int)>
   let destroyGoalByIndex: (t, index) => unit
 
-  // scan all goals and update their positions after document changes
-  let applyChanges: (
+  type action2 = UpdatePosition(int, int) | Rewrite(VSCode.Range.t, string) | Destroy
+
+  let actionsFromChanges: (
     (int, int) => string,
     array<(int, int)>,
     array<Tokens.Change.t>,
-  ) => array<string>
+  ) => array<action2>
+
+  // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
   let getGoalByIndex: (t, index) => option<Goal2.t>
@@ -294,15 +297,17 @@ module Module: Module = {
     self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
 
+  type action2 = UpdatePosition(int, int) | Rewrite(VSCode.Range.t, string) | Destroy
+
+  let actionsFromChanges = (getText, goals, changes) => {
+    []
+  }
+
   type action =
     | Rewrite(VSCode.Range.t, string) // range, text to replace
     | Destroy(Goal.t)
     // | Restore(Goal.t, damage)
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the goal be redecorated?
-
-  let applyChanges = (getText, goals, changes) => {
-    []
-  }
 
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)

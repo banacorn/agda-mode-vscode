@@ -1,6 +1,89 @@
 open Mocha
 open Test__Util
 
+// Assults on Goals, for property-based testing
+module Assult = {
+  type t = Move(Tokens.Change.t) // only moves boundaries without damaging them
+
+  let toString = assult =>
+    switch assult {
+    | Move(change) => "Move(" ++ Tokens.Change.toString(change) ++ ")"
+    }
+
+  // let toChange = assult =>
+  //   switch assult {
+  //   | Move(offset, delta) => {
+  //         offset: offset,
+  //         removed: int, // length of the removed text
+  //         inserted: int, // length of the inserted text
+  //       }
+  //   }
+  //     // Tokens.Change.make(
+  //     //   VSCode.Range.make(VSCode.Position.make(0, offset), VSCode.Position.make(0, offset + 1)),
+  //     //   String.repeat(" ", delta),
+  //     // )
+  //   }
+
+  open FastCheck.Arbitrary
+
+  let arbitraryMoveAfter = (goals: array<Goal2.t>, after) => {
+    // return the gaps between the boundaries of the goals after the given offset
+    let gapsBetweenBoundariesAfter =
+      goals
+      ->Array.reduce(([], 0), ((acc, prevEnd), goal) => (
+        if prevEnd >= after {
+          if goal.end - goal.start >= 4 {
+            // between !}  {! and between {! !}
+            [(prevEnd, goal.start), (goal.start + 2, goal.end - 2), ...acc]
+          } else {
+            // between !}  {!
+            [(prevEnd, goal.start), ...acc]
+          }
+        } else {
+          acc
+        },
+        goal.end,
+      ))
+      ->fst
+
+    let length = Array.length(gapsBetweenBoundariesAfter)
+
+    let pickedGap = if length == 0 {
+      Combinators.constant(None)
+    } else {
+      integerRange(0, length - 1)->Derive.map(index => gapsBetweenBoundariesAfter[index])
+    }
+
+    pickedGap->Derive.chain(gap =>
+      switch gap {
+      | None =>
+        //  no gaps, generate a arbitrary move
+        integerRange(after, after + 20)->Derive.chain(offset => {
+          integerRange(0, 10)->Derive.chain(
+            inserted =>
+              integerRange(0, 10)->Derive.map(removed => Move({offset, inserted, removed})),
+          )
+        })
+      | Some((gapStart, gapEnd)) =>
+        integerRange(gapStart, gapEnd)->Derive.chain(offset => {
+          // at most `offset - gapStart` characters can be removed
+          // no limit on how many characters can be inserted
+          integerRange(0, offset - gapStart)->Derive.chain(
+            removed => {
+              integerRange(0, 10)->Derive.map(inserted => Move({offset, inserted, removed}))
+            },
+          )
+        })
+      }
+    )
+  }
+
+  let arbitraryMoveWithGoals = () =>
+    Goal2.arbitraryBatch()->Derive.chain(goals =>
+      arbitraryMoveAfter(goals, 0)->Derive.map(move => (goals, move))
+    )
+}
+
 describe("Goals", () => {
   let fileContent = ref("")
 
@@ -26,30 +109,42 @@ describe("Goals", () => {
       },
     )
 
-    open FastCheck
-    open Property.Sync
-    it_only(
-      "should calculate the effects of document changes on the goals",
-      () =>
-        assert_(
-          property2(
-            Goal2.arbitraryBatch(),
-            Tokens.Change.arbitraryBatch(),
-            (goals, changes) => {
-              Js.log(
-                "\nchanges:    " ++ changes->Array.map(Tokens.Change.toString)->Util.Pretty.array,
-              )
-              Js.log("goals:      " ++ goals->Array.map(Goal2.toString)->Util.Pretty.array)
+    // open FastCheck
+    // open Property.Sync
 
-              // let result = Intervals.empty->Intervals.applyChanges(changes)
-              // // Js.log("intervals:  " ++ result->Intervals.toString)
-              // Intervals.debugIsValid(result)
-              // result->Intervals.hasError == None && result->Intervals.isValidWRTChanges(changes)
-              true
-            },
-          ),
-        ),
-    )
+    // describe(
+    //   "Move only changes",
+    //   () => {
+    //     it_only(
+    //       "should result in only move actions",
+    //       () =>
+    //         assert_(
+    //           property1(
+    //             Assult.arbitraryMoveWithGoals(),
+    //             ((goals, assult)) => {
+    //               Js.log("\nassult:    " ++ assult->Assult.toString)
+    //               Js.log("goals:      " ++ goals->Array.map(Goal2.toString)->Util.Pretty.array)
+
+    //               let readText = (_, _) => ""
+    //               let goals = goals->Array.map(goal => (goal.start, goal.end))
+
+    //               let actions = switch assult {
+    //               | Move(change) => Goals.actionsFromChanges(readText, goals, [change])
+    //               }
+
+    //               actions->Array.every(
+    //                 action =>
+    //                   switch action {
+    //                   | Goals.UpdatePosition(_, _) => true
+    //                   | _ => false
+    //                   },
+    //               )
+    //             },
+    //           ),
+    //         ),
+    //     )
+    //   },
+    // )
   })
 
   Async.it("should destroy a goal after it has been completely deleted", async () => {
