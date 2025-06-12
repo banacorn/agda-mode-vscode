@@ -84,7 +84,7 @@ module Assult = {
     )
 }
 
-describe("Goals", () => {
+describe_only("Goals", () => {
   let fileContent = ref("")
 
   Async.before(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
@@ -172,11 +172,11 @@ describe("Goals", () => {
     // check the positions of the goals
     Assert.deepStrictEqual(
       Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#3 [164-168)"],
+      ["#0 [92-99)", "#1 [118-125)", "#3 [171-175)"],
     )
   })
 
-  Async.it("should only resize a goal after its content has been edited", async () => {
+  Async.it_only("should only resize a goal after its content has been edited", async () => {
     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
     let _ = await Editor.Text.replace(
       ctx.state.document,

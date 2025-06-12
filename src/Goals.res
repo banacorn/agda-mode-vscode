@@ -9,14 +9,6 @@ module type Module = {
   let parseGoalPositionsFromRefine: string => array<(int, int)>
   let destroyGoalByIndex: (t, index) => unit
 
-  type action2 = UpdatePosition(int, int) | Rewrite(VSCode.Range.t, string) | Destroy
-
-  let actionsFromChanges: (
-    (int, int) => string,
-    array<(int, int)>,
-    array<Tokens.Change.t>,
-  ) => array<action2>
-
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
@@ -297,17 +289,123 @@ module Module: Module = {
     self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
 
-  type action2 = UpdatePosition(int, int) | Rewrite(VSCode.Range.t, string) | Destroy
-
-  let actionsFromChanges = (getText, goals, changes) => {
-    []
-  }
+  let updateGoalPositionByIndex = (
+    self,
+    editor,
+    index: index,
+    deltaStart: int,
+    deltaEnd: int,
+    redecorate: bool,
+  ) =>
+    switch getInternalGoalByIndex(self, index) {
+    | None => () // goal not found, do nothing
+    | Some(goal) => updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
+    }
 
   type action =
     | Rewrite(VSCode.Range.t, string) // range, text to replace
     | Destroy(Goal.t)
     // | Restore(Goal.t, damage)
     | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the goal be redecorated?
+
+  module StateMap = {
+    module State = {
+      // type state = {
+      //   startDelta: int,
+      //   endDelta: int,
+      // }
+
+      type t =
+        | Destroyed
+        | UpdatePositionAndRewrite(array<(int, int, bool)>, array<(VSCode.Range.t, string)>)
+
+      let toString = x =>
+        switch x {
+        | Destroyed => "Destroyed"
+        | UpdatePositionAndRewrite(translations, rewrites) =>
+          "UpdatePosition " ++
+          translations
+          ->Array.map(((start, end, redecorate)) => {
+            "(" ++
+            Int.toString(start) ++
+            ", " ++
+            Int.toString(end) ++
+            ", " ++
+            string_of_bool(redecorate) ++ ")"
+          })
+          ->Array.join(", ") ++
+          ", " ++
+          rewrites
+          ->Array.map(((range, text)) => {
+            "Rewrite(" ++ Editor.Range.toString(range) ++ ", \"" ++ text ++ "\")"
+          })
+          ->Array.join(", ")
+        }
+
+      let merge = (x, y) =>
+        switch (x, y) {
+        | (Destroyed, _) => Destroyed
+        | (_, Destroyed) => Destroyed
+        | (
+            UpdatePositionAndRewrite(translations1, rewrites1),
+            UpdatePositionAndRewrite(translations2, rewrites2),
+          ) =>
+          UpdatePositionAndRewrite(
+            [...translations1, ...translations2],
+            [...rewrites1, ...rewrites2],
+          )
+        }
+    }
+    type t = Map.t<index, State.t>
+
+    let toArray = (map: t) =>
+      map
+      ->Map.entries
+      ->Iterator.toArray
+
+    let toString = (map: t) =>
+      map
+      ->toArray
+      ->Array.map(((index, state)) => {
+        "#" ++ Int.toString(index) ++ ": " ++ State.toString(state)
+      })
+      ->Array.join("\n")
+
+    let insert = (map: t, index, action): t =>
+      switch action {
+      | UpdatePosition(_, 0, 0, _) => // no position update needed, skip the action
+        map
+      | UpdatePosition(_, startDelta, endDelta, redecorate) =>
+        switch Map.get(map, index) {
+        | None =>
+          Map.set(
+            map,
+            index,
+            State.UpdatePositionAndRewrite([(startDelta, endDelta, redecorate)], []),
+          )
+        | Some(state) =>
+          Map.set(
+            map,
+            index,
+            State.merge(state, UpdatePositionAndRewrite([(startDelta, endDelta, redecorate)], [])),
+          )
+        }
+        map
+      | Rewrite(range, text) =>
+        switch Map.get(map, index) {
+        | None => Map.set(map, index, UpdatePositionAndRewrite([], [(range, text)]))
+        | Some(state) =>
+          Map.set(map, index, State.merge(state, UpdatePositionAndRewrite([], [(range, text)])))
+        }
+        map
+      | Destroy(_) =>
+        Map.set(map, index, Destroyed)
+        map
+      }
+
+    let insertMany = (map: t, goal: Goal.t, actions): t =>
+      actions->Array.reduce(map, (map, action) => insert(map, goal.index, action))
+  }
 
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
@@ -343,6 +441,16 @@ module Module: Module = {
     // If the goal is completely destroyed, we remove it.
     // If the goal is partially damaged, we restore it to a goal with the same content as before.
     let scanGoal = (delta, goal: Goal.t, deltaStart, deltaEnd, destroyed: bool) => {
+      Js.log(
+        "deltaStart: " ++
+        Int.toString(deltaStart) ++
+        ", deltaEnd: " ++
+        Int.toString(deltaEnd) ++
+        ", delta: " ++
+        Int.toString(delta) ++
+        ", goal: " ++
+        Goal.toString(goal),
+      )
       let range = VSCode.Range.make(
         VSCode.TextDocument.positionAt(document, goal.start + delta + deltaStart),
         VSCode.TextDocument.positionAt(document, goal.end + delta + deltaEnd),
@@ -409,16 +517,20 @@ module Module: Module = {
         | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
         }
       } else {
-        [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
+        // [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
+        Js.log("Goal text is not intact: " ++ goalText)
+        [Destroy(goal)]
       }
     }
 
-    let rec go = (delta, goals: list<Goal.t>, changes: list<Tokens.Change.t>) => {
+    let rec go = (delta, goals: list<Goal.t>, changes: list<Tokens.Change.t>): StateMap.t => {
       switch (goals, changes) {
-      | (list{}, _) => [] // no goals left
+      | (list{}, _) => Map.make()
       | (list{goal, ...goals}, list{}) =>
         let actions = scanGoal(delta, goal, 0, 0, false)
-        [...actions, ...go(delta, goals, changes)]
+
+        go(delta, goals, changes)->StateMap.insertMany(goal, actions)
+
       | (list{goal, ...goals}, list{change, ...changes}) =>
         let removalStart = change.offset
         let removalEnd = change.offset + change.removed
@@ -440,59 +552,64 @@ module Module: Module = {
           let deltaEnd = deltaStart + change.inserted - change.removed
           let actions = scanGoal(delta, goal, deltaStart, deltaEnd, true)
           let delta' = delta + change.inserted - change.removed
-          [...actions, ...go(delta', goals, changes)]
+          go(delta', goals, changes)->StateMap.insertMany(goal, actions)
+        } else if removalStart < goal.start {
+          //      removal        ┣━━━━━┫
+          //      goal              ┣━━━━━┫
+
+          let deltaStart = removalStart - goal.start
+          let deltaEnd = change.inserted - change.removed
+          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
+          let delta' = delta + change.inserted - change.removed
+          Js.log(
+            "restore 1: removalStart: " ++
+            Int.toString(removalStart) ++
+            ", removalEnd: " ++
+            Int.toString(removalEnd) ++
+            ", goal.start: " ++
+            Int.toString(goal.start) ++
+            ", goal.end: " ++
+            Int.toString(goal.end),
+          )
+
+          go(delta', list{goal, ...goals}, changes)->StateMap.insertMany(goal, actions)
+        } else if removalEnd <= goal.end {
+          //      removal           ┣━━━━━┫
+          //      goal           ┣━━━━━━━━━━━┫
+          let deltaStart = 0
+          let deltaEnd = change.inserted - change.removed
+          Js.log(
+            "restore 2: removalStart: " ++
+            Int.toString(removalStart) ++
+            ", removalEnd: " ++
+            Int.toString(removalEnd) ++
+            ", goal.start: " ++
+            Int.toString(goal.start) ++
+            ", goal.end: " ++
+            Int.toString(goal.end),
+          )
+          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
+          let delta' = delta + change.inserted - change.removed
+          go(delta', list{goal, ...goals}, changes)->StateMap.insertMany(goal, actions)
         } else {
-          // if removalStart < goal.start {
-          //   //      removal        ┣━━━━━┫
-          //   //      goal              ┣━━━━━┫
-
-          //   let deltaStart = removalStart - goal.start
-          //   let deltaEnd = change.inserted - change.removed
-          //   Js.log("restore 1")
-
-          //   let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          //   let delta' = delta + change.inserted - change.removed
-
-          //   [...actions, ...go(delta', list{goal, ...goals}, changes)]
-          // } else if removalEnd <= goal.end {
-          //   //      removal           ┣━━━━━┫
-          //   //      goal           ┣━━━━━━━━━━━┫
-          //   let deltaStart = 0
-          //   let deltaEnd = change.inserted - change.removed
-          //   Js.log("restore 2")
-
-          //   let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          //   let delta' = delta + change.inserted - change.removed
-
-          //   [...actions, ...go(delta', list{goal, ...goals}, changes)]
-          // } else {
-          //   //      removal              ┣━━━━━┫
-          //   //      goal              ┣━━━━━┫
-          //   let deltaStart = 0
-          //   let deltaEnd = removalStart - goal.end + change.inserted // ?
-          //   Js.log("restore 3")
-
-          //   let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          //   let delta' = delta + change.inserted - change.removed
-
-          //   [...actions, ...go(delta', goals, changes)]
-          // }
-
-          let deltaStart = if removalStart <= goal.start {
-            removalStart - goal.start
-          } else {
-            0
-          }
-          let deltaEnd = if removalEnd >= goal.end {
-            removalStart - goal.end + change.inserted
-          } else {
-            change.inserted - change.removed
-          }
-
+          Js.log(
+            "restore 3: removalStart: " ++
+            Int.toString(removalStart) ++
+            ", removalEnd: " ++
+            Int.toString(removalEnd) ++
+            ", goal.start: " ++
+            Int.toString(goal.start) ++
+            ", goal.end: " ++
+            Int.toString(goal.end),
+          )
+          //      removal              ┣━━━━━┫
+          //      goal              ┣━━━━━┫
+          let deltaStart = 0
+          let deltaEnd = removalStart - goal.end + change.inserted // ?
           let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
           let delta' = delta + change.inserted - change.removed
 
-          [...actions, ...go(delta', goals, changes)]
+          go(delta', goals, changes)->StateMap.insertMany(goal, actions)
         }
       }
     }
@@ -505,17 +622,36 @@ module Module: Module = {
       ->Array.filterMap(index => self.goals->Map.get(index))
       ->List.fromArray
 
-    let rewrites = go(0, goals, changes)->Array.filterMap(action => {
-      switch action {
-      | Destroy(goal) =>
-        destroyGoal(self, goal)
-        None // no rewrite needed
-      | Rewrite(range, text) => Some((range, text))
-      | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
-        updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
-        None
-      }
-    })
+    // go(0, goals, changes)->StateMap.toString->Js.log
+
+    let rewrites =
+      go(0, goals, changes)
+      ->StateMap.toArray
+      ->Array.filterMap(((index, state)) => {
+        switch state {
+        | Destroyed =>
+          destroyGoalByIndex(self, index)
+          None // no rewrite needed
+        | UpdatePositionAndRewrite(translations, rewrites) =>
+          translations->Array.forEach(((deltaStart, deltaEnd, redecorate)) =>
+            updateGoalPositionByIndex(self, editor, index, deltaStart, deltaEnd, redecorate)
+          )
+          Some(rewrites)
+        }
+      })
+      ->Array.flat
+
+    // let rewrites = go(0, goals, changes)->Array.filterMap(action => {
+    //   switch action {
+    //   | Destroy(goal) =>
+    //     destroyGoal(self, goal)
+    //     None // no rewrite needed
+    //   | Rewrite(range, text) => Some((range, text))
+    //   | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
+    //     updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
+    //     None
+    //   }
+    // })
 
     if Array.length(rewrites) != 0 {
       // set busy
