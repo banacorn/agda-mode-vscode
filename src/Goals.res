@@ -110,9 +110,6 @@ module Module: Module = {
       )
   }
 
-  // flag for controlling the restoration of damaged goals
-  let restoreGoals = false
-
   type t = {
     mutable goals: Map.t<index, Goal.t>, // goal index => goal
     mutable goalsWithoutIndices: Map.t<int, int>, // mapping of start position => end position, goals without indices
@@ -302,61 +299,33 @@ module Module: Module = {
     | Some(goal) => updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
     }
 
-  type action =
-    | Rewrite(VSCode.Range.t, string) // range, text to replace
-    | Destroy(Goal.t)
-    // | Restore(Goal.t, damage)
-    | UpdatePosition(Goal.t, int, int, bool) // goal, delta of start, delta of end, should the goal be redecorated?
-
-  module StateMap = {
+  module StateMap2 = {
     module State = {
-      // type state = {
-      //   startDelta: int,
-      //   endDelta: int,
-      // }
+      type boundary =
+        | Damaged
+        | Intact(int) // delta
+        | Unknown
+
+      let boundaryToString = x =>
+        switch x {
+        | Damaged => "Damaged"
+        | Intact(x) => "Intact(" ++ string_of_int(x) ++ ")"
+        | Unknown => "Unknown"
+        }
 
       type t =
-        | Destroyed
-        | UpdatePositionAndRewrite(array<(int, int, bool)>, array<(VSCode.Range.t, string)>)
+        | IsQuestionMark(int) // offset of the question mark
+        | IsHole(boundary, boundary)
 
       let toString = x =>
         switch x {
-        | Destroyed => "Destroyed"
-        | UpdatePositionAndRewrite(translations, rewrites) =>
-          "UpdatePosition " ++
-          translations
-          ->Array.map(((start, end, redecorate)) => {
-            "(" ++
-            Int.toString(start) ++
-            ", " ++
-            Int.toString(end) ++
-            ", " ++
-            string_of_bool(redecorate) ++ ")"
-          })
-          ->Array.join(", ") ++
-          ", " ++
-          rewrites
-          ->Array.map(((range, text)) => {
-            "Rewrite(" ++ Editor.Range.toString(range) ++ ", \"" ++ text ++ "\")"
-          })
-          ->Array.join(", ")
-        }
-
-      let merge = (x, y) =>
-        switch (x, y) {
-        | (Destroyed, _) => Destroyed
-        | (_, Destroyed) => Destroyed
-        | (
-            UpdatePositionAndRewrite(translations1, rewrites1),
-            UpdatePositionAndRewrite(translations2, rewrites2),
-          ) =>
-          UpdatePositionAndRewrite(
-            [...translations1, ...translations2],
-            [...rewrites1, ...rewrites2],
-          )
+        | IsQuestionMark(x) => "QM " ++ string_of_int(x)
+        | IsHole(left, right) => "Hole " ++ boundaryToString(left) ++ " " ++ boundaryToString(right)
         }
     }
     type t = Map.t<index, State.t>
+
+    let make = () => Map.make()
 
     let toArray = (map: t) =>
       map
@@ -371,287 +340,314 @@ module Module: Module = {
       })
       ->Array.join("\n")
 
-    let insert = (map: t, index, action): t =>
-      switch action {
-      | UpdatePosition(_, 0, 0, _) => // no position update needed, skip the action
+    // let insert = (map: t, index, state): t =>
+    //   switch Map.get(map, index) {
+    //   | None =>
+    //     Map.set(map, index, state)
+    //     map
+    //   | Some(oldState) =>
+    //     Map.set(map, index, State.merge(oldState, state))
+    //     map
+    //   }
+
+    let addLeftBoundary = (map: t, index, delta): t =>
+      switch Map.get(map, index) {
+      | None =>
+        Map.set(map, index, IsHole(Intact(delta), Unknown))
         map
-      | UpdatePosition(_, startDelta, endDelta, redecorate) =>
-        switch Map.get(map, index) {
-        | None =>
-          Map.set(
-            map,
-            index,
-            State.UpdatePositionAndRewrite([(startDelta, endDelta, redecorate)], []),
-          )
-        | Some(state) =>
-          Map.set(
-            map,
-            index,
-            State.merge(state, UpdatePositionAndRewrite([(startDelta, endDelta, redecorate)], [])),
-          )
-        }
-        map
-      | Rewrite(range, text) =>
-        switch Map.get(map, index) {
-        | None => Map.set(map, index, UpdatePositionAndRewrite([], [(range, text)]))
-        | Some(state) =>
-          Map.set(map, index, State.merge(state, UpdatePositionAndRewrite([], [(range, text)])))
-        }
-        map
-      | Destroy(_) =>
-        Map.set(map, index, Destroyed)
+      | Some(IsQuestionMark(_)) => map
+      | Some(IsHole(Damaged, _)) => map
+      | Some(IsHole(Intact(_), _)) => map
+      | Some(IsHole(Unknown, right)) =>
+        Map.set(map, index, IsHole(Intact(delta), right))
         map
       }
 
-    let insertMany = (map: t, goal: Goal.t, actions): t =>
-      actions->Array.reduce(map, (map, action) => insert(map, goal.index, action))
+    let markLeftBoundaryDamaged = (map: t, index): t =>
+      switch Map.get(map, index) {
+      | None =>
+        Map.set(map, index, IsHole(Damaged, Unknown))
+        map
+      | Some(IsQuestionMark(_)) =>
+        Js.log("Cannot mark left boundary damaged for a question mark")
+        map
+      | Some(IsHole(_, right)) =>
+        Map.set(map, index, IsHole(Damaged, right))
+        map
+      }
+
+    let addRightBoundary = (map: t, index, delta): t =>
+      switch Map.get(map, index) {
+      | None =>
+        Map.set(map, index, IsHole(Unknown, Intact(delta)))
+        map
+      | Some(IsQuestionMark(_)) => map
+      | Some(IsHole(_, Damaged)) => map
+      | Some(IsHole(_, Intact(_))) => map
+      | Some(IsHole(left, Unknown)) =>
+        Map.set(map, index, IsHole(left, Intact(delta)))
+        map
+      }
+
+    let markRightBoundaryDamaged = (map: t, index): t =>
+      switch Map.get(map, index) {
+      | None =>
+        Map.set(map, index, IsHole(Unknown, Damaged))
+        map
+      | Some(IsQuestionMark(_)) =>
+        Js.log("Cannot mark right boundary damaged for a question mark")
+        map
+      | Some(IsHole(left, _)) =>
+        Map.set(map, index, IsHole(left, Damaged))
+        map
+      }
+
+    let addQuestionMark = (map: t, index, delta): t =>
+      switch Map.get(map, index) {
+      | None =>
+        Map.set(map, index, IsQuestionMark(delta))
+        map
+      | Some(IsHole(_, _)) => map
+      | Some(IsQuestionMark(_)) => map
+      }
   }
 
-  let scanAllGoals = async (self, editor, changes) => {
+  // Token parts of a goal
+  type part =
+    | LeftBoundary // {!
+    | RightBoundary // !}
+    | QuestionMark // ?
+
+  let goalToParts = (goal: Goal.t): array<(index, int, part)> => {
+    if goal.start + 1 == goal.end {
+      [(goal.index, goal.start, QuestionMark)]
+    } else {
+      [(goal.index, goal.start, LeftBoundary), (goal.index, goal.end - 2, RightBoundary)]
+    }
+  }
+
+  // let expectToBeQuestionMark = (text: string):  =>
+  //   goal.start + 1 == goal.end // a question mark is a goal with start and end positions being the same
+
+  // there are 6 cases to consider when a change overlaps with a goal part:
+
+  // 1. the part is after the change, skip the change and move on
+  //      removal  ┣━━━━━┫
+  //      part              ┣━━━━━┫
+  //
+  // 2. the part is damaged, we'll also need to see if there's another change that damages this part
+  //      removal        ┣━━━━━┫
+  //      part              ┣━━━━━┫
+  //
+  // 3. the part is damaged, we'll also need to see if there's another part damaged by this change
+  //      removal        ┣━━━━━━━━━━━┫
+  //      part              ┣━━━━━┫
+  //
+  // 4. the part is damaged, we'll also need to see if there's another change that damages this part
+  //      removal           ┣━━━━━┫
+  //      part           ┣━━━━━━━━━━━┫
+  //
+  // 5. the part is damaged, we'll also need to see if there's another part damaged by this change
+  //      removal              ┣━━━━━┫
+  //      part              ┣━━━━━┫
+  //
+  // 6. the part is before the change, skip the part and move on
+  //      removal                    ┣━━━━━┫
+  //      part              ┣━━━━━┫
+
+  let checkAllParts = async (self, editor, changes) => {
+    Js.log(" ==== Checking all parts ====")
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
 
-    // there are 4 cases to consider when a change overlaps with a goal:
-
-    // 1. the goal is after the change, skip the change and move on
-    //      removal  ┣━━━━━┫
-    //      goal              ┣━━━━━┫
-
-    // 2. the goal is before the change, skip the goal and move on
-    //      removal                    ┣━━━━━┫
-    //      goal              ┣━━━━━┫
-
-    // 3. the goal is completely destroyed, we regard this as the intention to remove the goal
-    //      removal        ┣━━━━━━━━━━━┫
-    //      goal              ┣━━━━━┫
-
-    // 4. the goal is partially damaged, we should restore the goal afterwards
-    //      removal        ┣━━━━━┫
-    //      goal              ┣━━━━━┫
-    //
-    //      removal           ┣━━━━━┫
-    //      goal           ┣━━━━━━━━━━━┫
-    //
-    //      removal              ┣━━━━━┫
-    //      goal              ┣━━━━━┫
-
-    // Given a goal, see if the document text of the range of the goal still constitutes a goal.
-    // If it's still a goal like "{!   !}", we do nothing or update its position (in case that there's a change before it).
-    // It the goal is a question mark like "?", we expand it to a goal "{!   !}".
-    // If the goal is completely destroyed, we remove it.
-    // If the goal is partially damaged, we restore it to a goal with the same content as before.
-    let scanGoal = (delta, goal: Goal.t, deltaStart, deltaEnd, destroyed: bool) => {
-      Js.log(
-        "deltaStart: " ++
-        Int.toString(deltaStart) ++
-        ", deltaEnd: " ++
-        Int.toString(deltaEnd) ++
-        ", delta: " ++
-        Int.toString(delta) ++
-        ", goal: " ++
-        Goal.toString(goal),
-      )
-      let range = VSCode.Range.make(
-        VSCode.TextDocument.positionAt(document, goal.start + delta + deltaStart),
-        VSCode.TextDocument.positionAt(document, goal.end + delta + deltaEnd),
-      )
-      let goalText = Editor.Text.get(document, range)
-      let goalTextLength = goal.end - goal.start + deltaEnd - deltaStart
-      // the goal may be replaced with some text like "  {!       !} ", in that case, we'll need to update the positions
-      let leftBoundary = String.indexOfOpt(goalText, "{!")
-      let rightBoundary = String.lastIndexOfOpt(goalText, "!}")
-      let goalIsIntact = rightBoundary->Option.isSome && leftBoundary->Option.isSome
-
-      // a goal will completely destroyed during the expansion from a question mark to a goal
-      // to prevent this action from being interpreted as a goal removal, we check if the goal is indeed a question mark expansion by checking if it was a question mark before the change
-      let isQuestionMarkExpansion = destroyed && goal.start + 1 == goal.end
-
-      let (resizeStart, resizeEnd) = switch (leftBoundary, rightBoundary) {
-      | (Some(leftIndex), Some(rightIndex)) =>
-        if leftIndex == 0 && rightIndex + 2 == String.length(goalText) {
-          (0, 0) // no resizing needed
-        } else {
-          (-leftIndex, rightIndex + 2 - String.length(goalText))
-        }
-      | _ => (0, 0)
-      }
-
-      if goalText == "?" {
-        [Rewrite(range, "{!   !}")]
-      } // expand question mark to goal
-      else if destroyed && !isQuestionMarkExpansion {
-        [Destroy(goal)]
-      } else if goalIsIntact {
-        [
-          UpdatePosition(
-            goal,
-            delta + deltaStart + resizeStart,
-            delta + deltaEnd + resizeEnd,
-            isQuestionMarkExpansion, // redecorate if it was a question mark expansion
-          ),
-        ]
-      } else if restoreGoals && goalText->String.startsWith("{!") {
-        switch goalText->String.charAt(goalTextLength - 1) {
-        | "!" => [
-            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, goalText ++ "}"),
-          ]
-        | "}" => [
-            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, goalText->String.substring(~start=0, ~end=goalTextLength - 1) ++ "!}"),
-          ]
-        | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
-        }
-      } else if restoreGoals && goalText->String.endsWith("!}") {
-        switch goalText->String.charAt(0) {
-        | "{" => [
-            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, "{!" ++ goalText->String.substringToEnd(~start=1)),
-          ]
-
-        | "!" => [
-            UpdatePosition(goal, delta + deltaStart, delta + deltaEnd + 1, false),
-            Rewrite(range, "{" ++ goalText),
-          ]
-
-        | _ => [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
-        }
-      } else {
-        // [UpdatePosition(goal, delta + deltaStart, delta + deltaEnd, false)]
-        Js.log("Goal text is not intact: " ++ goalText)
-        [Destroy(goal)]
-      }
-    }
-
-    let rec go = (delta, goals: list<Goal.t>, changes: list<Tokens.Change.t>): StateMap.t => {
-      switch (goals, changes) {
-      | (list{}, _) => Map.make()
-      | (list{goal, ...goals}, list{}) =>
-        let actions = scanGoal(delta, goal, 0, 0, false)
-
-        go(delta, goals, changes)->StateMap.insertMany(goal, actions)
-
-      | (list{goal, ...goals}, list{change, ...changes}) =>
+    let rec go = (
+      accMap: StateMap2.t,
+      accDeltaBeforePart: int,
+      accDeltaAfterPart: int,
+      parts: list<(index, int, part)>,
+      changes: list<Tokens.Change.t>,
+    ): StateMap2.t => {
+      switch (parts, changes) {
+      | (list{}, _) => accMap
+      | (list{(index, start, part), ...parts}, list{}) =>
+        switch part {
+        | LeftBoundary => accMap->StateMap2.addLeftBoundary(index, accDeltaBeforePart)
+        | RightBoundary => accMap->StateMap2.addRightBoundary(index, accDeltaBeforePart)
+        | QuestionMark => accMap->StateMap2.addQuestionMark(index, accDeltaBeforePart)
+        }->go(accDeltaAfterPart, accDeltaAfterPart, parts, changes)
+      | (list{(index, start, part), ...parts}, list{change, ...changes}) =>
         let removalStart = change.offset
         let removalEnd = change.offset + change.removed
-        if removalEnd < goal.start {
-          // the goal is completely after the change (separated by a least a character)
-          //      removal  ┣━━━━━┫
-          //      goal              ┣━━━━━┫
-          let delta = delta + change.inserted - change.removed
-          go(delta, list{goal, ...goals}, changes)
-        } else if removalStart >= goal.end {
-          // the goal is completely before the change, skip the goal
-          //      removal                    ┣━━━━━┫
-          //      goal              ┣━━━━━┫
-          go(delta, goals, list{change, ...changes})
-        } else if goal.start >= removalStart && goal.end <= removalEnd {
-          //      removal        ┣━━━━━━━━━━━┫
-          //      goal              ┣━━━━━┫
-          let deltaStart = removalStart - goal.start
-          let deltaEnd = deltaStart + change.inserted - change.removed
-          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, true)
-          let delta' = delta + change.inserted - change.removed
-          go(delta', goals, changes)->StateMap.insertMany(goal, actions)
-        } else if removalStart < goal.start {
-          //      removal        ┣━━━━━┫
-          //      goal              ┣━━━━━┫
+        let delta = change.inserted - change.removed
 
-          let deltaStart = removalStart - goal.start
-          let deltaEnd = change.inserted - change.removed
-          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          let delta' = delta + change.inserted - change.removed
-          Js.log(
-            "restore 1: removalStart: " ++
-            Int.toString(removalStart) ++
-            ", removalEnd: " ++
-            Int.toString(removalEnd) ++
-            ", goal.start: " ++
-            Int.toString(goal.start) ++
-            ", goal.end: " ++
-            Int.toString(goal.end),
-          )
+        let end = switch part {
+        | LeftBoundary => start + 2 // {!
+        | RightBoundary => start + 2 // !}
+        | QuestionMark => start + 1 // ?
+        }
 
-          go(delta', list{goal, ...goals}, changes)->StateMap.insertMany(goal, actions)
-        } else if removalEnd <= goal.end {
+        Js.log(
+          " removalStart: " ++
+          Int.toString(removalStart) ++
+          " removalEnd: " ++
+          Int.toString(removalEnd) ++
+          " start: " ++
+          Int.toString(start) ++
+          " end: " ++
+          Int.toString(end),
+        )
+        if removalStart < start {
+          if removalEnd <= start {
+            // 1. the part is after the change, skip the change and move on
+            //      removal  ┣━━━━━┫
+            //      part              ┣━━━━━┫
+            accMap->go(
+              accDeltaBeforePart + delta,
+              accDeltaAfterPart + delta,
+              list{(index, start, part), ...parts},
+              changes,
+            )
+          } else if removalEnd <= end {
+            // 2. the part is damaged
+            //      removal        ┣━━━━━┫
+            //      part              ┣━━━━━┫
+            switch part {
+            | LeftBoundary => accMap->StateMap2.markLeftBoundaryDamaged(index)
+            | RightBoundary => accMap->StateMap2.markRightBoundaryDamaged(index)
+            | QuestionMark => accMap
+            }->go(
+              accDeltaBeforePart,
+              accDeltaAfterPart + delta,
+              list{(index, start, part), ...parts},
+              changes,
+            )
+          } else {
+            // 3. the part is damaged
+            //      removal        ┣━━━━━━━━━━━┫
+            //      part              ┣━━━━━┫
+            //
+            switch part {
+            | LeftBoundary => accMap->StateMap2.markLeftBoundaryDamaged(index)
+            | RightBoundary => accMap->StateMap2.markRightBoundaryDamaged(index)
+            | QuestionMark => accMap
+            }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
+          }
+        } else if removalEnd <= end {
+          // 4. the part is damaged
           //      removal           ┣━━━━━┫
-          //      goal           ┣━━━━━━━━━━━┫
-          let deltaStart = 0
-          let deltaEnd = change.inserted - change.removed
-          Js.log(
-            "restore 2: removalStart: " ++
-            Int.toString(removalStart) ++
-            ", removalEnd: " ++
-            Int.toString(removalEnd) ++
-            ", goal.start: " ++
-            Int.toString(goal.start) ++
-            ", goal.end: " ++
-            Int.toString(goal.end),
-          )
-          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          let delta' = delta + change.inserted - change.removed
-          go(delta', list{goal, ...goals}, changes)->StateMap.insertMany(goal, actions)
-        } else {
-          Js.log(
-            "restore 3: removalStart: " ++
-            Int.toString(removalStart) ++
-            ", removalEnd: " ++
-            Int.toString(removalEnd) ++
-            ", goal.start: " ++
-            Int.toString(goal.start) ++
-            ", goal.end: " ++
-            Int.toString(goal.end),
-          )
+          //      part           ┣━━━━━━━━━━━┫
+          switch part {
+          | LeftBoundary =>
+            accMap
+            ->StateMap2.markLeftBoundaryDamaged(index)
+            ->go(
+              accDeltaBeforePart,
+              accDeltaAfterPart + delta,
+              list{(index, start, part), ...parts},
+              changes,
+            )
+          | RightBoundary =>
+            accMap
+            ->StateMap2.markLeftBoundaryDamaged(index)
+            ->go(
+              accDeltaBeforePart,
+              accDeltaAfterPart + delta,
+              list{(index, start, part), ...parts},
+              changes,
+            )
+          | QuestionMark =>
+            accMap
+            ->StateMap2.addLeftBoundary(index, accDeltaBeforePart)
+            ->StateMap2.addRightBoundary(index, accDeltaBeforePart + 6)
+            ->go(accDeltaAfterPart + delta, accDeltaAfterPart + delta, parts, changes)
+          }
+        } else if removalStart < end {
+          // 5. the part is damaged
           //      removal              ┣━━━━━┫
-          //      goal              ┣━━━━━┫
-          let deltaStart = 0
-          let deltaEnd = removalStart - goal.end + change.inserted // ?
-          let actions = scanGoal(delta, goal, deltaStart, deltaEnd, false)
-          let delta' = delta + change.inserted - change.removed
-
-          go(delta', goals, changes)->StateMap.insertMany(goal, actions)
+          //      part              ┣━━━━━┫
+          switch part {
+          | LeftBoundary => accMap->StateMap2.markLeftBoundaryDamaged(index)
+          | RightBoundary => accMap->StateMap2.markRightBoundaryDamaged(index)
+          | QuestionMark => accMap
+          }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
+        } else {
+          // 6. the part is before the change, skip the part and move on
+          //      removal                    ┣━━━━━┫
+          //      part              ┣━━━━━┫
+          switch part {
+          | LeftBoundary => accMap->StateMap2.addLeftBoundary(index, accDeltaBeforePart)
+          | RightBoundary => accMap->StateMap2.addRightBoundary(index, accDeltaBeforePart)
+          | QuestionMark => accMap->StateMap2.addQuestionMark(index, accDeltaBeforePart)
+          }->go(accDeltaAfterPart, accDeltaAfterPart, parts, list{change, ...changes})
         }
       }
     }
 
     // update the positions when there are changes
-    // list of goals ordered by their start position
-    let goals =
+    // list of goal parts ordered by their start position
+    let parts =
       self.positions
       ->AVLTree.toArray
-      ->Array.filterMap(index => self.goals->Map.get(index))
+      ->Array.filterMap(index => self.goals->Map.get(index)->Option.map(goalToParts))
+      ->Array.flat
       ->List.fromArray
 
-    // go(0, goals, changes)->StateMap.toString->Js.log
-
-    let rewrites =
-      go(0, goals, changes)
-      ->StateMap.toArray
-      ->Array.filterMap(((index, state)) => {
-        switch state {
-        | Destroyed =>
-          destroyGoalByIndex(self, index)
-          None // no rewrite needed
-        | UpdatePositionAndRewrite(translations, rewrites) =>
-          translations->Array.forEach(((deltaStart, deltaEnd, redecorate)) =>
-            updateGoalPositionByIndex(self, editor, index, deltaStart, deltaEnd, redecorate)
-          )
-          Some(rewrites)
+    Js.log(
+      "Parts: " ++
+      parts
+      ->List.map(((index, start, part)) => {
+        "#" ++
+        Int.toString(index) ++
+        " " ++
+        switch part {
+        | LeftBoundary => "{! " ++ Int.toString(start)
+        | RightBoundary => "!} " ++ Int.toString(start)
+        | QuestionMark => "? " ++ Int.toString(start)
         }
       })
-      ->Array.flat
+      ->Util.Pretty.list,
+    )
 
-    // let rewrites = go(0, goals, changes)->Array.filterMap(action => {
-    //   switch action {
-    //   | Destroy(goal) =>
-    //     destroyGoal(self, goal)
-    //     None // no rewrite needed
-    //   | Rewrite(range, text) => Some((range, text))
-    //   | UpdatePosition(goal, deltaStart, deltaEnd, redecorate) =>
-    //     updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
-    //     None
-    //   }
-    // })
+    let map = go(StateMap2.make(), 0, 0, parts, changes)
+
+    Js.log("StateMap2: " ++ StateMap2.toString(map))
+
+    let rewrites =
+      map
+      ->StateMap2.toArray
+      ->Array.filterMap(((index, state)) => {
+        switch state {
+        | IsQuestionMark(delta) =>
+          let rewrites = switch getInternalGoalByIndex(self, index) {
+          | None => None
+          | Some(goal) =>
+            Some((
+              VSCode.Range.make(
+                VSCode.TextDocument.positionAt(document, goal.start),
+                VSCode.TextDocument.positionAt(document, goal.start + 1),
+              ),
+              "{!   !}",
+            ))
+          }
+          rewrites
+        | IsHole(Intact(a), Intact(b)) =>
+          updateGoalPositionByIndex(self, editor, index, a, b, false)
+          None
+        | IsHole(_) =>
+          Js.log("Destroying goal #" ++ Int.toString(index))
+          destroyGoalByIndex(self, index)
+          None
+        }
+      })
+
+    Js.log(
+      "Rewrites: " ++
+      rewrites
+      ->Array.map(((range, text)) => {
+        "Rewrite(" ++ Editor.Range.toString(range) ++ ", \"" ++ text ++ "\")"
+      })
+      ->Array.join(", "),
+    )
 
     if Array.length(rewrites) != 0 {
       // set busy
@@ -661,6 +657,8 @@ module Module: Module = {
       setNotBusy(self)
     }
   }
+
+  let scanAllGoals = checkAllParts
 
   // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
   // The indices are ordered by the start position of the goals.
@@ -721,32 +719,6 @@ module Module: Module = {
     )
     ->fst
   }
-
-  // Instantiate goals after the Refine command is executed.
-  // However, we won't have the positions and indices of the goals together at once like in `setGoalIndices`:
-  //  * positions: determined by the question marks in the refine result
-  //  * indices: supplied from `InteractionPoints` later
-
-  // let supplyGoalPositionsFromRefine = (self, refinement) => {
-  //   self.goalPositionsFromRefine = parseHolePositionsFromRefine(refinement)
-  // }
-
-  // let instantiateGoalsFromRefine = async (self, editor, indices) => {
-  //   clear(self)
-
-  //   self.goalPositionsFromRefine->Array.forEachWithIndex((start, i) => {
-  //     switch indices[i] {
-  //     | None => ()
-  //     | Some(index) =>
-  //       let goal = Goal.make(editor, start, start + 1, index)
-  //       self.goals->Map.set(index, goal)
-  //       self.positions->AVLTree.insert(start, index)
-  //     }
-  //   })
-  //   self.goalPositionsFromRefine = [] // clear the positions after instantiation
-
-  //   await scanAllGoals(self, editor, [])
-  // }
 
   let jmupToGoal = (editor, goal: Goal.t) => {
     let document = VSCode.TextEditor.document(editor)

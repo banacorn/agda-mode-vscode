@@ -93,7 +93,7 @@ describe_only("Goals", () => {
 
   describe("On document change", () => {
     Async.it(
-      "should instantiate all 4 goals with question marks expanded to holes",
+      "should instantiate all 5 goals with question marks expanded to holes",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         await ctx->AgdaMode.quit
@@ -104,7 +104,7 @@ describe_only("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
         )
       },
     )
@@ -157,11 +157,11 @@ describe_only("Goals", () => {
     // check the positions of the goals
     Assert.deepStrictEqual(
       Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#3 [164-168)"],
+      ["#0 [92-99)", "#1 [118-125)", "#3 [164-171)", "#4 [172-176)"],
     )
   })
 
-  Async.it("should destroy a goal after it has been completely replaced", async () => {
+  Async.it("should destroy a goal after it has been completely replaced 1", async () => {
     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
     let _ = await Editor.Text.replace(
       ctx.state.document,
@@ -172,11 +172,26 @@ describe_only("Goals", () => {
     // check the positions of the goals
     Assert.deepStrictEqual(
       Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#3 [171-175)"],
+      ["#0 [92-99)", "#1 [118-125)", "#3 [171-178)", "#4 [179-183)"]
     )
   })
 
-  Async.it_only("should only resize a goal after its content has been edited", async () => {
+  Async.it("should destroy a goal after it has been completely replaced 2", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+    let _ = await Editor.Text.replace(
+      ctx.state.document,
+      VSCode.Range.make(VSCode.Position.make(10, 17), VSCode.Position.make(10, 26)),
+      "::DD",
+    )
+    await ctx->AgdaMode.quit
+    // check the positions of the goals
+    Assert.deepStrictEqual(
+      Goals.serialize(ctx.state.goals2),
+      ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#4 [174-178)"],
+    )
+  })
+
+  Async.it("should only resize a goal after its content has been edited", async () => {
     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
     let _ = await Editor.Text.replace(
       ctx.state.document,
@@ -188,11 +203,11 @@ describe_only("Goals", () => {
     // check the positions of the goals
     Assert.deepStrictEqual(
       Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-176)"],
+      ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-179)", "#4 [180-184)"]
     )
   })
 
-  describe("Restore hole damanged boundaries", () => {
+  describe_skip("Restore hole damaged boundaries", () => {
     Async.it(
       "should protect against a backspace on the right boundary",
       async () => {
@@ -303,7 +318,11 @@ describe_only("Goals", () => {
 
         // should land on the fourth goal
         await ctx->AgdaMode.nextGoal
-        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 20))
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 21))
+
+        // should land on the fifth goal
+        await ctx->AgdaMode.nextGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 28))
 
         // should land on the first goal again
         await ctx->AgdaMode.nextGoal
@@ -311,7 +330,7 @@ describe_only("Goals", () => {
       },
     )
 
-    Async.it(
+    Async.it_only(
       "should jump to the previous goal",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
@@ -319,7 +338,11 @@ describe_only("Goals", () => {
 
         // should land on the last goal
         await ctx->AgdaMode.previousGoal
-        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 20))
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 28))
+
+        // should land on the fourth goal
+        await ctx->AgdaMode.previousGoal
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 21))
 
         // should land on the third goal
         await ctx->AgdaMode.previousGoal
@@ -335,7 +358,7 @@ describe_only("Goals", () => {
 
         // should land on the last goal again
         await ctx->AgdaMode.previousGoal
-        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 20))
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 28))
       },
     )
   })

@@ -8,4 +8,4 @@ _+_ : ℕ → ℕ → ℕ
 zero + y = {!   !}
 suc zero + zero = {!   !}
 suc zero + suc y = {!   !}
-suc (suc x) + y = {!!}
+suc (suc x) + y = {!   !} {!!}
