@@ -169,8 +169,13 @@ let rec handle = async (
           await state.goals2->Goals.modify(state.document, index, _ => indented)
 
           // add goal positions
-          let goalPositions = Goals.parseGoalPositionsFromRefine(indented)
-          state.goals2->Goals.addGoalPositions(goalPositions)
+          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(indented)
+          let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals2, index) {
+          | None => [] // should not happen
+          | Some((offset, _)) =>
+            goalPositionsRelative->Array.map(((start, end)) => (start + offset, end + offset))
+          }
+          state.goals2->Goals.addGoalPositions(goalPositionsAbsolute)
         }
 
         if await Goals.removeBoundaryAndDestroy(state.goals2, state.document, index) {

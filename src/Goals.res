@@ -7,6 +7,7 @@ module type Module = {
   let size: t => int
   let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
+  let getGoalPositionByIndex: (t, index) => option<(int, int)>
   let parseGoalPositionsFromRefine: string => array<(int, int)>
   let destroyGoalByIndex: (t, index) => unit
 
@@ -455,7 +456,7 @@ module Module: Module = {
     //      removal                    ┣━━━━━┫
     //      part              ┣━━━━━┫
     | Case6
- 
+
   let caseAnalysis = (removalStart: int, removalEnd: int, start: int, end: int): case => {
     if removalStart == start && removalEnd == start {
       Case1
@@ -717,6 +718,13 @@ module Module: Module = {
     positions->Array.forEach(((start, end)) => {
       self.goalsWithoutIndices->Map.set(start, end)
     })
+  }
+
+  let getGoalPositionByIndex = (self, index) => {
+    switch self.goals->Map.get(index) {
+    | None => None // goal not found
+    | Some(goal) => Some((goal.start, goal.end))
+    }
   }
 
   // New holes may be introduced by a refine command, however, we don't have highlighting information

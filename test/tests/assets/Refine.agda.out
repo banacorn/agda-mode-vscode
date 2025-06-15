@@ -1,3 +1,4 @@
+-- from issue #158
 module Refine where
 
 postulate

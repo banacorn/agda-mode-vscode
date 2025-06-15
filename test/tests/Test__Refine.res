@@ -13,6 +13,8 @@ describe("agda-mode.refine", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Refine.agda")
         await ctx->AgdaMode.refine(~cursor=VSCode.Position.make(13, 9))
+
+        await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset("Refine.agda"))
         let expected = await File.read(Path.asset("Refine.agda.out"))
         Assert.deepStrictEqual(actual, expected)
@@ -20,27 +22,3 @@ describe("agda-mode.refine", () => {
     )
   })
 })
-
-// describe("State__Goal", () => {
-//   describe("parseHolesFromRefineResult", () => {
-//     Async.it(
-//       "should parse holes correctly",
-//       async () => {
-//         let raw = "record
-// { very-long-field-name-1 = ?
-// ; very-long-field-name-2 = ?
-// ; very-long-field-name-3 = ?
-// } "
-//         let actual = State__Goal.parseHolesFromRefineResult(raw)
-//         let expected = [34, 63, 92]
-//         Assert.deepStrictEqual(actual, expected)
-//       },
-//     )
-//   })
-// })
-
-// record
-// { very-long-field-name-1 = ?
-// ; very-long-field-name-2 = ?
-// ; very-long-field-name-3 = ?
-// } 
