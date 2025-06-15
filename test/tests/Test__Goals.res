@@ -91,75 +91,44 @@ describe_only("Goals", () => {
   Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
   Async.after(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
 
-  describe("On document change", () => {
-    Async.it(
-      "should instantiate all 5 goals with question marks expanded to holes",
-      async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+  Async.it("should instantiate all 5 goals with question marks expanded to holes", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
 
-        // check the positions of the goals
-        Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
-        )
-
-        // compare file content before and after
-        await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset("Goals.agda"))
-        let expected = await File.read(Path.asset("Goals.agda.out"))
-        Assert.deepStrictEqual(actual, expected)
-      },
+    // check the positions of the goals
+    Assert.deepStrictEqual(
+      Goals.serialize(ctx.state.goals2),
+      ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
     )
 
-    // Async.it(
-    //   "should translate goals after an insertion immediately before a goal",
-    //   async () => {
-    //     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    //     await ctx->AgdaMode.quit
-    //     // check the positions of the goals
-    //     Assert.deepStrictEqual(
-    //       Goals.serialize(ctx.state.goals2),
-    //       ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
-    //     )
-    //   },
-    // )
+    // compare file content before and after
+    await ctx->AgdaMode.quit
+    let actual = await File.read(Path.asset("Goals.agda"))
+    let expected = await File.read(Path.asset("Goals.agda.out"))
+    Assert.deepStrictEqual(actual, expected)
+  })
 
-    // open FastCheck
-    // open Property.Sync
+  Async.it("should translate goals on an insertion immediately before a goal", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 18), " ")
+    // check the positions of the goals
+    Assert.deepStrictEqual(
+      Goals.serialize(ctx.state.goals2),
+      ["#0 [92-99)", "#1 [119-126)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
+    )
 
-    // describe(
-    //   "Move only changes",
-    //   () => {
-    //     it_only(
-    //       "should result in only move actions",
-    //       () =>
-    //         assert_(
-    //           property1(
-    //             Assult.arbitraryMoveWithGoals(),
-    //             ((goals, assult)) => {
-    //               Js.log("\nassult:    " ++ assult->Assult.toString)
-    //               Js.log("goals:      " ++ goals->Array.map(Goal2.toString)->Util.Pretty.array)
+    await ctx->AgdaMode.quit
+  })
 
-    //               let readText = (_, _) => ""
-    //               let goals = goals->Array.map(goal => (goal.start, goal.end))
+  Async.it("should translate goals on an insertion immediately after a goal", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 25), " ")
+    // check the positions of the goals
+    Assert.deepStrictEqual(
+      Goals.serialize(ctx.state.goals2),
+      ["#0 [92-99)", "#1 [118-125)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
+    )
 
-    //               let actions = switch assult {
-    //               | Move(change) => Goals.actionsFromChanges(readText, goals, [change])
-    //               }
-
-    //               actions->Array.every(
-    //                 action =>
-    //                   switch action {
-    //                   | Goals.UpdatePosition(_, _) => true
-    //                   | _ => false
-    //                   },
-    //               )
-    //             },
-    //           ),
-    //         ),
-    //     )
-    //   },
-    // )
+    await ctx->AgdaMode.quit
   })
 
   Async.it("should destroy a goal after it has been completely deleted", async () => {

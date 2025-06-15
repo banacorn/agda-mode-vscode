@@ -414,6 +414,13 @@ module Module: Module = {
     | RightBoundary // !}
     | QuestionMark // ?
 
+  let partToString = x =>
+    switch x {
+    | LeftBoundary => "{!"
+    | RightBoundary => "!}"
+    | QuestionMark => "?"
+    }
+
   let goalToParts = (goal: Goal.t): array<(index, int, part)> => {
     if goal.start + 1 == goal.end {
       [(goal.index, goal.start, QuestionMark)]
@@ -448,9 +455,11 @@ module Module: Module = {
     //      removal                    ┣━━━━━┫
     //      part              ┣━━━━━┫
     | Case6
-
+ 
   let caseAnalysis = (removalStart: int, removalEnd: int, start: int, end: int): case => {
-    if removalStart < start {
+    if removalStart == start && removalEnd == start {
+      Case1
+    } else if removalStart < start {
       if removalEnd <= start {
         Case1 // Case 1
       } else if removalEnd <= end {
@@ -458,7 +467,7 @@ module Module: Module = {
       } else {
         Case3 // Case 3
       }
-    } else if removalEnd <= end {
+    } else if removalEnd <= end && removalStart < end {
       Case4 // Case 4
     } else if removalStart < end {
       Case5 // Case 5
@@ -500,6 +509,7 @@ module Module: Module = {
 
         switch caseAnalysis(removalStart, removalEnd, start, end) {
         | Case1 =>
+          Js.log("Case 1, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 1. the part is after the change, skip the change and move on
           //      removal  ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -510,6 +520,16 @@ module Module: Module = {
             changes,
           )
         | Case2 =>
+          Js.log(
+            "Case 2, goal #" ++
+            Int.toString(index) ++
+            ", part: " ++
+            partToString(part) ++
+            ", removal: " ++
+            Int.toString(removalStart) ++
+            "-" ++
+            Int.toString(removalEnd),
+          )
           // 2. the part is damaged
           //      removal        ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -524,6 +544,7 @@ module Module: Module = {
             changes,
           )
         | Case3 =>
+          Js.log("Case 3, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 3. the part is damaged
           //      removal        ┣━━━━━━━━━━━┫
           //      part              ┣━━━━━┫
@@ -534,6 +555,16 @@ module Module: Module = {
           | QuestionMark => accMap
           }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
         | Case4 =>
+          Js.log(
+            "Case 4, goal #" ++
+            Int.toString(index) ++
+            ", part: " ++
+            partToString(part) ++
+            ", removal: " ++
+            Int.toString(removalStart) ++
+            "-" ++
+            Int.toString(removalEnd),
+          )
           // 4. the part is damaged
           //      removal           ┣━━━━━┫
           //      part           ┣━━━━━━━━━━━┫
@@ -549,7 +580,7 @@ module Module: Module = {
             )
           | RightBoundary =>
             accMap
-            ->States.markLeftBoundaryDamaged(index)
+            ->States.markRightBoundaryDamaged(index)
             ->go(
               accDeltaBeforePart,
               accDeltaAfterPart + delta,
@@ -563,6 +594,7 @@ module Module: Module = {
             ->go(accDeltaAfterPart + delta, accDeltaAfterPart + delta, parts, changes)
           }
         | Case5 =>
+          Js.log("Case 5, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 5. the part is damaged
           //      removal              ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -572,6 +604,7 @@ module Module: Module = {
           | QuestionMark => accMap
           }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
         | Case6 =>
+          Js.log("Case 6, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 6. the part is before the change, skip the part and move on
           //      removal                    ┣━━━━━┫
           //      part              ┣━━━━━┫
