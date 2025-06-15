@@ -24,7 +24,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
     let _ = await VSCode.Window.showTextDocumentWithShowOptions(state.document, options)
     await sendAgdaRequest(Load)
-  | Quit => ()
+  | Quit =>
+    let _ = await State.destroy(state, true)
   | Restart =>
     // clear the RunningInfo log
     state.runningInfoLog = []
