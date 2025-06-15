@@ -339,7 +339,7 @@ module Module: Module = {
       ->Map.entries
       ->Iterator.toArray
 
-    let toString = (map: t) =>
+    let _toString = (map: t) =>
       map
       ->toArray
       ->Array.map(((index, state)) => {
@@ -365,9 +365,7 @@ module Module: Module = {
       | None =>
         Map.set(map, index, IsHole(Damaged, Unknown))
         map
-      | Some(IsQuestionMark(_)) =>
-        Js.log("Cannot mark left boundary damaged for a question mark")
-        map
+      | Some(IsQuestionMark(_)) => map
       | Some(IsHole(_, right)) =>
         Map.set(map, index, IsHole(Damaged, right))
         map
@@ -391,9 +389,7 @@ module Module: Module = {
       | None =>
         Map.set(map, index, IsHole(Unknown, Damaged))
         map
-      | Some(IsQuestionMark(_)) =>
-        Js.log("Cannot mark right boundary damaged for a question mark")
-        map
+      | Some(IsQuestionMark(_)) => map
       | Some(IsHole(left, _)) =>
         Map.set(map, index, IsHole(left, Damaged))
         map
@@ -415,7 +411,7 @@ module Module: Module = {
     | RightBoundary // !}
     | QuestionMark // ?
 
-  let partToString = x =>
+  let _partToString = x =>
     switch x {
     | LeftBoundary => "{!"
     | RightBoundary => "!}"
@@ -478,7 +474,6 @@ module Module: Module = {
   }
 
   let checkAllParts = async (self, editor, changes) => {
-    Js.log(" ==== Checking all parts ====")
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
 
@@ -510,7 +505,6 @@ module Module: Module = {
 
         switch caseAnalysis(removalStart, removalEnd, start, end) {
         | Case1 =>
-          Js.log("Case 1, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 1. the part is after the change, skip the change and move on
           //      removal  ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -521,16 +515,6 @@ module Module: Module = {
             changes,
           )
         | Case2 =>
-          Js.log(
-            "Case 2, goal #" ++
-            Int.toString(index) ++
-            ", part: " ++
-            partToString(part) ++
-            ", removal: " ++
-            Int.toString(removalStart) ++
-            "-" ++
-            Int.toString(removalEnd),
-          )
           // 2. the part is damaged
           //      removal        ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -545,7 +529,6 @@ module Module: Module = {
             changes,
           )
         | Case3 =>
-          Js.log("Case 3, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 3. the part is damaged
           //      removal        ┣━━━━━━━━━━━┫
           //      part              ┣━━━━━┫
@@ -556,16 +539,6 @@ module Module: Module = {
           | QuestionMark => accMap
           }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
         | Case4 =>
-          Js.log(
-            "Case 4, goal #" ++
-            Int.toString(index) ++
-            ", part: " ++
-            partToString(part) ++
-            ", removal: " ++
-            Int.toString(removalStart) ++
-            "-" ++
-            Int.toString(removalEnd),
-          )
           // 4. the part is damaged
           //      removal           ┣━━━━━┫
           //      part           ┣━━━━━━━━━━━┫
@@ -595,7 +568,6 @@ module Module: Module = {
             ->go(accDeltaAfterPart + delta, accDeltaAfterPart + delta, parts, changes)
           }
         | Case5 =>
-          Js.log("Case 5, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 5. the part is damaged
           //      removal              ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -605,7 +577,6 @@ module Module: Module = {
           | QuestionMark => accMap
           }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
         | Case6 =>
-          Js.log("Case 6, goal #" ++ Int.toString(index) ++ ", part: " ++ partToString(part))
           // 6. the part is before the change, skip the part and move on
           //      removal                    ┣━━━━━┫
           //      part              ┣━━━━━┫
@@ -627,25 +598,7 @@ module Module: Module = {
       ->Array.flat
       ->List.fromArray
 
-    Js.log(
-      "Parts: " ++
-      parts
-      ->List.map(((index, start, part)) => {
-        "#" ++
-        Int.toString(index) ++
-        " " ++
-        switch part {
-        | LeftBoundary => "{! " ++ Int.toString(start)
-        | RightBoundary => "!} " ++ Int.toString(start)
-        | QuestionMark => "? " ++ Int.toString(start)
-        }
-      })
-      ->Util.Pretty.list,
-    )
-
     let map = go(States.make(), 0, 0, parts, changes)
-
-    Js.log("States: " ++ States.toString(map))
 
     let rewrites =
       map
@@ -664,20 +617,10 @@ module Module: Module = {
           updateGoalPositionByIndex(self, editor, index, a, b)
           None
         | IsHole(_) =>
-          Js.log("Destroying goal #" ++ Int.toString(index))
           destroyGoalByIndex(self, index)
           None
         }
       })
-
-    Js.log(
-      "Rewrites: " ++
-      rewrites
-      ->Array.map(((range, text)) => {
-        "Rewrite(" ++ Editor.Range.toString(range) ++ ", \"" ++ text ++ "\")"
-      })
-      ->Array.join(", "),
-    )
 
     if Array.length(rewrites) != 0 {
       // set busy

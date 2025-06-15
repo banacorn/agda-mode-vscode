@@ -8,10 +8,9 @@ type t =
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
-  | Give(Goal.t)
-  | Give2(Goal2.t)
+  | Give(Goal2.t)
   | Refine(Goal2.t)
-  | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
+  | ElaborateAndGive(Command.Normalization.t, string, Goal2.t)
   | Auto(Command.Normalization.t, Goal2.t)
   | Case(Goal2.t)
   | HelperFunctionType(Command.Normalization.t, string, Goal.t)
@@ -41,7 +40,6 @@ let toString = x =>
   | ShowGoals(_) => "ShowGoals"
   | SearchAbout(_, _) => "SearchAbout"
   | Give(_) => "Give"
-  | Give2(_) => "Give"
   | Refine(_) => "Refine"
   | ElaborateAndGive(_, _, _) => "ElaborateAndGive"
   | Auto(_) => "Auto"
@@ -97,8 +95,7 @@ let encode = (
     "IOTCM \"" ++ (filepath ++ ("\" " ++ (level ++ (" " ++ highlightingMethod))))
   }
 
-  let buildRange = goal => Goal.buildHaskellRange(goal, document, version, filepath)
-  let buildRange2 = goal => Goal2.makeHaskellRange(goal, document, version, filepath)
+  let buildRange = goal => Goal2.makeHaskellRange(goal, document, version, filepath)
 
   // assemble them
   switch request {
@@ -149,16 +146,7 @@ let encode = (
   // https://github.com/agda/agda/issues/2730
   // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
   | Give(goal) =>
-    let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range = buildRange(goal)
-    if Util.Version.gte(version, "2.5.3") {
-      `${commonPart(NonInteractive)}( Cmd_give WithoutForce ${index} ${range} "${content}" )`
-    } else {
-      `${commonPart(NonInteractive)}( Cmd_give ${index} ${range} "${content}" )`
-    }
-  | Give2(goal) =>
-    let range = buildRange2(goal)
     let content = Goal2.getContent(goal, document)->Parser.escape
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
@@ -171,7 +159,7 @@ let encode = (
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
     let content: string = Goal2.getContent(goal, document)->Parser.escape
-    let range: string = buildRange2(goal)
+    let range: string = buildRange(goal)
     `${commonPart(NonInteractive)}( Cmd_refine_or_intro False ${index} ${range} "${content}" )`
 
   | ElaborateAndGive(normalization, expr, goal) =>
@@ -187,7 +175,7 @@ let encode = (
     let normalization = Command.Normalization.encode(normalization)
     let index: string = string_of_int(goal.index)
     let content: string = Goal2.getContent(goal, document)->Parser.escape
-    let range: string = buildRange2(goal)
+    let range: string = buildRange(goal)
 
     if Util.Version.gte(version, "2.7.0") {
       // after 2.7.0
@@ -201,7 +189,7 @@ let encode = (
     }
 
   | Case(goal) =>
-    let range = buildRange2(goal)
+    let range = buildRange(goal)
     let content = Goal2.getContent(goal, document)->Parser.escape
     `${commonPart(NonInteractive)}( Cmd_make_case ${goal.indexString} ${range} "${content}" )`
 

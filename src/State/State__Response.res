@@ -226,7 +226,7 @@ let rec handle = async (
           // modify the goal content
           await Goals.modify(state.goals2, state.document, index, _ => solution)
           // send the give request to Agda
-          await sendAgdaRequest(Give2(goal))
+          await sendAgdaRequest(Give(goal))
         }
       }
       // solve them one by one

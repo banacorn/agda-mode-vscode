@@ -69,14 +69,14 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           },
           async expr =>
             if expr == "" {
-              await sendAgdaRequest(Give2(goal))
+              await sendAgdaRequest(Give(goal))
             } else {
               await state.goals2->Goals.modify(state.document, goal.index, _ => expr)
-              await sendAgdaRequest(Give2(goal))
+              await sendAgdaRequest(Give(goal))
             },
         )
       } else {
-        await sendAgdaRequest(Give2(goal))
+        await sendAgdaRequest(Give(goal))
       }
     }
   | Refine =>
@@ -86,26 +86,30 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
-      switch State__Goal.pointed(state) {
+      switch Goals.getGoalAtCursor(state.goals2, state.editor) {
       | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, "")) =>
-        await State__View.Panel.prompt(
-          state,
-          header,
-          {
-            body: None,
-            placeholder,
-            value: None,
-          },
-          async expr =>
-            if expr == "" {
-              await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
-            } else {
-              await State__Goal.modify(state, goal, _ => expr)
-              await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+      | Some(goal) =>
+        let expr = Goal2.getContent(goal, state.document)
+        if expr == "" {
+          await State__View.Panel.prompt(
+            state,
+            header,
+            {
+              body: None,
+              placeholder,
+              value: None,
             },
-        )
-      | Some((goal, expr)) => await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+            async expr =>
+              if expr == "" {
+                await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+              } else {
+                await state.goals2->Goals.modify(state.document, goal.index, _ => expr)
+                await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+              },
+          )
+        } else {
+          await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+        }
       }
     }
   | Auto(normalization) =>

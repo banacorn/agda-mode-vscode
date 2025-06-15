@@ -8,7 +8,7 @@ module type Module = {
   }
 
   // helper function for building strings for Agda
-  let buildHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
+  // let buildHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
   //
   let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
@@ -136,28 +136,28 @@ module Module: Module = {
     editor->VSCode.TextEditor.revealRange(range, None)
   }
 
-  let buildHaskellRange = (self, document, version, filepath: string) => {
-    let (start, end_) = self.interval
-    let startPoint = VSCode.TextDocument.positionAt(document, start)
-    let endPoint = VSCode.TextDocument.positionAt(document, end_)
+  // let buildHaskellRange = (self, document, version, filepath: string) => {
+  //   let (start, end_) = self.interval
+  //   let startPoint = VSCode.TextDocument.positionAt(document, start)
+  //   let endPoint = VSCode.TextDocument.positionAt(document, end_)
 
-    let startIndex = string_of_int(start + 3)
-    let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
-    let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
-    let startPart = `${startIndex} ${startRow} ${startColumn}`
-    let endIndex' = string_of_int(end_ - 3)
-    let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
-    let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
-    let endPart = `${endIndex'} ${endRow} ${endColumn}`
+  //   let startIndex = string_of_int(start + 3)
+  //   let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
+  //   let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
+  //   let startPart = `${startIndex} ${startRow} ${startColumn}`
+  //   let endIndex' = string_of_int(end_ - 3)
+  //   let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
+  //   let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
+  //   let endPart = `${endIndex'} ${endRow} ${endColumn}`
 
-    if Util.Version.gte(version, "2.8.0") {
-      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval () (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.8.0
-    } else if Util.Version.gte(version, "2.5.1") {
-      `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1, before (not including) 2.8.0
-    } else {
-      `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
-    }
-  }
+  //   if Util.Version.gte(version, "2.8.0") {
+  //     `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval () (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.8.0
+  //   } else if Util.Version.gte(version, "2.5.1") {
+  //     `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.5.1, before (not including) 2.8.0
+  //   } else {
+  //     `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
+  //   }
+  // }
 
   let refreshDecoration = (self, editor: VSCode.TextEditor.t) => {
     // redecorate the background

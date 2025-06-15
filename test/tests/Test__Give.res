@@ -11,7 +11,7 @@ describe("agda-mode.give", () => {
 
     let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 14), "y")
     let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
-      Request.Give2({
+      Request.Give({
         index: 0,
         indexString: "0",
         start: 91,
@@ -35,6 +35,7 @@ describe("agda-mode.give", () => {
     await AgdaMode.give(ctx, ~cursor=VSCode.Position.make(7, 14), ~payload="y")
     Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 1)
 
+    await ctx->AgdaMode.quit
     let actual = await File.read(Path.asset("Give.agda"))
     let expected = await File.read(Path.asset("Give.agda.out"))
     Assert.deepStrictEqual(actual, expected)
