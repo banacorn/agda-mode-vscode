@@ -45,8 +45,7 @@ module Module: Module = {
       index: index,
       start: int,
       end: int,
-      decorationBackground: Editor.Decoration.t,
-      decorationIndex: Editor.Decoration.t,
+      decoration: option<(Editor.Decoration.t, Editor.Decoration.t)>, // (background, index)
     }
 
     let decorate = (editor: VSCode.TextEditor.t, start: int, end: int, index: int) => {
@@ -78,13 +77,16 @@ module Module: Module = {
     }
 
     let make = (editor: VSCode.TextEditor.t, start: int, end: int, index: index) => {
-      let (decorationBackground, decorationIndex) = decorate(editor, start, end, index)
+      let isQuestionMark = start + 1 == end
       {
         index,
         start,
         end,
-        decorationBackground,
-        decorationIndex,
+        decoration: if isQuestionMark {
+          None // no decoration for question mark goals
+        } else {
+          Some(decorate(editor, start, end, index))
+        },
       }
     }
 
@@ -134,8 +136,10 @@ module Module: Module = {
 
   let destroyGoal = (self, goal: Goal.t) => {
     // destroy the goal's decorations
-    goal.decorationBackground->Editor.Decoration.destroy
-    goal.decorationIndex->Editor.Decoration.destroy
+    goal.decoration->Option.forEach(((background, index)) => {
+      background->Editor.Decoration.destroy
+      index->Editor.Decoration.destroy
+    })
     // remove the goal from the goals map
     self.goals->Map.delete(goal.index)->ignore
     // remove the goal from the positions tree
@@ -248,21 +252,17 @@ module Module: Module = {
     ->Map.values
     ->Iterator.toArray
     ->Array.forEach(goal => {
-      goal.decorationBackground->Editor.Decoration.destroy
-      goal.decorationIndex->Editor.Decoration.destroy
+      // destroy the goal's decorations
+      goal.decoration->Option.forEach(((background, index)) => {
+        background->Editor.Decoration.destroy
+        index->Editor.Decoration.destroy
+      })
     })
     self.goals = Map.make()
     self.positions = AVLTree.make()
   }
 
-  let updateGoalPosition = (
-    self,
-    editor,
-    goal: Goal.t,
-    deltaStart: int,
-    deltaEnd: int,
-    redecorate: bool,
-  ) => {
+  let updateGoalPosition = (self, editor, goal: Goal.t, deltaStart: int, deltaEnd: int) => {
     // update the position of the goal
     let newStart = goal.start + deltaStart
     let newEnd = goal.end + deltaEnd
@@ -270,9 +270,12 @@ module Module: Module = {
     // remove the old goal from the positions tree
     self.positions->AVLTree.remove(goal.start)->ignore
 
-    // update the goal's start and end positions
+    // decorate the goal in case that it has been expanded from a question mark to a hole
+    let wasQuestionMark = goal.start + 1 == goal.end
+    let isQuestionMark = newStart + 1 == newEnd
+    let isQuestionMarkExpansion = wasQuestionMark && !isQuestionMark
 
-    let updatedGoal = if redecorate {
+    let updatedGoal = if isQuestionMarkExpansion {
       destroyGoal(self, goal)
       Goal.make(editor, newStart, newEnd, goal.index)
     } else {
@@ -286,20 +289,13 @@ module Module: Module = {
     self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
 
-  let updateGoalPositionByIndex = (
-    self,
-    editor,
-    index: index,
-    deltaStart: int,
-    deltaEnd: int,
-    redecorate: bool,
-  ) =>
+  let updateGoalPositionByIndex = (self, editor, index: index, deltaStart: int, deltaEnd: int) =>
     switch getInternalGoalByIndex(self, index) {
     | None => () // goal not found, do nothing
-    | Some(goal) => updateGoalPosition(self, editor, goal, deltaStart, deltaEnd, redecorate)
+    | Some(goal) => updateGoalPosition(self, editor, goal, deltaStart, deltaEnd)
     }
 
-  module StateMap2 = {
+  module States = {
     module State = {
       type boundary =
         | Damaged
@@ -339,16 +335,6 @@ module Module: Module = {
         "#" ++ Int.toString(index) ++ ": " ++ State.toString(state)
       })
       ->Array.join("\n")
-
-    // let insert = (map: t, index, state): t =>
-    //   switch Map.get(map, index) {
-    //   | None =>
-    //     Map.set(map, index, state)
-    //     map
-    //   | Some(oldState) =>
-    //     Map.set(map, index, State.merge(oldState, state))
-    //     map
-    //   }
 
     let addLeftBoundary = (map: t, index, delta): t =>
       switch Map.get(map, index) {
@@ -402,10 +388,10 @@ module Module: Module = {
         map
       }
 
-    let addQuestionMark = (map: t, index, delta): t =>
+    let addQuestionMark = (map: t, index, offset): t =>
       switch Map.get(map, index) {
       | None =>
-        Map.set(map, index, IsQuestionMark(delta))
+        Map.set(map, index, IsQuestionMark(offset))
         map
       | Some(IsHole(_, _)) => map
       | Some(IsQuestionMark(_)) => map
@@ -426,34 +412,50 @@ module Module: Module = {
     }
   }
 
-  // let expectToBeQuestionMark = (text: string):  =>
-  //   goal.start + 1 == goal.end // a question mark is a goal with start and end positions being the same
-
   // there are 6 cases to consider when a change overlaps with a goal part:
+  type case =
+    // 1. the part is after the change, skip the change and move on
+    //      removal  ┣━━━━━┫
+    //      part              ┣━━━━━┫
+    | Case1
+    // 2. the part is damaged, we'll also need to see if there's another change that damages this part
+    //      removal        ┣━━━━━┫
+    //      part              ┣━━━━━┫
+    | Case2
+    // 3. the part is damaged, we'll also need to see if there's another part damaged by this change
+    //      removal        ┣━━━━━━━━━━━┫
+    //      part              ┣━━━━━┫
+    | Case3
+    // 4. the part is damaged, we'll also need to see if there's another change that damages this part
+    //      removal           ┣━━━━━┫
+    //      part           ┣━━━━━━━━━━━┫
+    | Case4
+    // 5. the part is damaged, we'll also need to see if there's another part damaged by this change
+    //      removal              ┣━━━━━┫
+    //      part              ┣━━━━━┫
+    | Case5
+    // 6. the part is before the change, skip the part and move on
+    //      removal                    ┣━━━━━┫
+    //      part              ┣━━━━━┫
+    | Case6
 
-  // 1. the part is after the change, skip the change and move on
-  //      removal  ┣━━━━━┫
-  //      part              ┣━━━━━┫
-  //
-  // 2. the part is damaged, we'll also need to see if there's another change that damages this part
-  //      removal        ┣━━━━━┫
-  //      part              ┣━━━━━┫
-  //
-  // 3. the part is damaged, we'll also need to see if there's another part damaged by this change
-  //      removal        ┣━━━━━━━━━━━┫
-  //      part              ┣━━━━━┫
-  //
-  // 4. the part is damaged, we'll also need to see if there's another change that damages this part
-  //      removal           ┣━━━━━┫
-  //      part           ┣━━━━━━━━━━━┫
-  //
-  // 5. the part is damaged, we'll also need to see if there's another part damaged by this change
-  //      removal              ┣━━━━━┫
-  //      part              ┣━━━━━┫
-  //
-  // 6. the part is before the change, skip the part and move on
-  //      removal                    ┣━━━━━┫
-  //      part              ┣━━━━━┫
+  let caseAnalysis = (removalStart: int, removalEnd: int, start: int, end: int): case => {
+    if removalStart < start {
+      if removalEnd <= start {
+        Case1 // Case 1
+      } else if removalEnd <= end {
+        Case2 // Case 2
+      } else {
+        Case3 // Case 3
+      }
+    } else if removalEnd <= end {
+      Case4 // Case 4
+    } else if removalStart < end {
+      Case5 // Case 5
+    } else {
+      Case6 // Case 6
+    }
+  }
 
   let checkAllParts = async (self, editor, changes) => {
     Js.log(" ==== Checking all parts ====")
@@ -461,19 +463,19 @@ module Module: Module = {
     let changes = changes->List.fromArray
 
     let rec go = (
-      accMap: StateMap2.t,
+      accMap: States.t,
       accDeltaBeforePart: int,
       accDeltaAfterPart: int,
       parts: list<(index, int, part)>,
       changes: list<Tokens.Change.t>,
-    ): StateMap2.t => {
+    ): States.t => {
       switch (parts, changes) {
       | (list{}, _) => accMap
       | (list{(index, start, part), ...parts}, list{}) =>
         switch part {
-        | LeftBoundary => accMap->StateMap2.addLeftBoundary(index, accDeltaBeforePart)
-        | RightBoundary => accMap->StateMap2.addRightBoundary(index, accDeltaBeforePart)
-        | QuestionMark => accMap->StateMap2.addQuestionMark(index, accDeltaBeforePart)
+        | LeftBoundary => accMap->States.addLeftBoundary(index, accDeltaBeforePart)
+        | RightBoundary => accMap->States.addRightBoundary(index, accDeltaBeforePart)
+        | QuestionMark => accMap->States.addQuestionMark(index, start + accDeltaBeforePart)
         }->go(accDeltaAfterPart, accDeltaAfterPart, parts, changes)
       | (list{(index, start, part), ...parts}, list{change, ...changes}) =>
         let removalStart = change.offset
@@ -486,60 +488,49 @@ module Module: Module = {
         | QuestionMark => start + 1 // ?
         }
 
-        Js.log(
-          " removalStart: " ++
-          Int.toString(removalStart) ++
-          " removalEnd: " ++
-          Int.toString(removalEnd) ++
-          " start: " ++
-          Int.toString(start) ++
-          " end: " ++
-          Int.toString(end),
-        )
-        if removalStart < start {
-          if removalEnd <= start {
-            // 1. the part is after the change, skip the change and move on
-            //      removal  ┣━━━━━┫
-            //      part              ┣━━━━━┫
-            accMap->go(
-              accDeltaBeforePart + delta,
-              accDeltaAfterPart + delta,
-              list{(index, start, part), ...parts},
-              changes,
-            )
-          } else if removalEnd <= end {
-            // 2. the part is damaged
-            //      removal        ┣━━━━━┫
-            //      part              ┣━━━━━┫
-            switch part {
-            | LeftBoundary => accMap->StateMap2.markLeftBoundaryDamaged(index)
-            | RightBoundary => accMap->StateMap2.markRightBoundaryDamaged(index)
-            | QuestionMark => accMap
-            }->go(
-              accDeltaBeforePart,
-              accDeltaAfterPart + delta,
-              list{(index, start, part), ...parts},
-              changes,
-            )
-          } else {
-            // 3. the part is damaged
-            //      removal        ┣━━━━━━━━━━━┫
-            //      part              ┣━━━━━┫
-            //
-            switch part {
-            | LeftBoundary => accMap->StateMap2.markLeftBoundaryDamaged(index)
-            | RightBoundary => accMap->StateMap2.markRightBoundaryDamaged(index)
-            | QuestionMark => accMap
-            }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
-          }
-        } else if removalEnd <= end {
+        switch caseAnalysis(removalStart, removalEnd, start, end) {
+        | Case1 =>
+          // 1. the part is after the change, skip the change and move on
+          //      removal  ┣━━━━━┫
+          //      part              ┣━━━━━┫
+          accMap->go(
+            accDeltaBeforePart + delta,
+            accDeltaAfterPart + delta,
+            list{(index, start, part), ...parts},
+            changes,
+          )
+        | Case2 =>
+          // 2. the part is damaged
+          //      removal        ┣━━━━━┫
+          //      part              ┣━━━━━┫
+          switch part {
+          | LeftBoundary => accMap->States.markLeftBoundaryDamaged(index)
+          | RightBoundary => accMap->States.markRightBoundaryDamaged(index)
+          | QuestionMark => accMap
+          }->go(
+            accDeltaBeforePart,
+            accDeltaAfterPart + delta,
+            list{(index, start, part), ...parts},
+            changes,
+          )
+        | Case3 =>
+          // 3. the part is damaged
+          //      removal        ┣━━━━━━━━━━━┫
+          //      part              ┣━━━━━┫
+          //
+          switch part {
+          | LeftBoundary => accMap->States.markLeftBoundaryDamaged(index)
+          | RightBoundary => accMap->States.markRightBoundaryDamaged(index)
+          | QuestionMark => accMap
+          }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
+        | Case4 =>
           // 4. the part is damaged
           //      removal           ┣━━━━━┫
           //      part           ┣━━━━━━━━━━━┫
           switch part {
           | LeftBoundary =>
             accMap
-            ->StateMap2.markLeftBoundaryDamaged(index)
+            ->States.markLeftBoundaryDamaged(index)
             ->go(
               accDeltaBeforePart,
               accDeltaAfterPart + delta,
@@ -548,7 +539,7 @@ module Module: Module = {
             )
           | RightBoundary =>
             accMap
-            ->StateMap2.markLeftBoundaryDamaged(index)
+            ->States.markLeftBoundaryDamaged(index)
             ->go(
               accDeltaBeforePart,
               accDeltaAfterPart + delta,
@@ -557,27 +548,27 @@ module Module: Module = {
             )
           | QuestionMark =>
             accMap
-            ->StateMap2.addLeftBoundary(index, accDeltaBeforePart)
-            ->StateMap2.addRightBoundary(index, accDeltaBeforePart + 6)
+            ->States.addLeftBoundary(index, accDeltaBeforePart)
+            ->States.addRightBoundary(index, accDeltaBeforePart + 6)
             ->go(accDeltaAfterPart + delta, accDeltaAfterPart + delta, parts, changes)
           }
-        } else if removalStart < end {
+        | Case5 =>
           // 5. the part is damaged
           //      removal              ┣━━━━━┫
           //      part              ┣━━━━━┫
           switch part {
-          | LeftBoundary => accMap->StateMap2.markLeftBoundaryDamaged(index)
-          | RightBoundary => accMap->StateMap2.markRightBoundaryDamaged(index)
+          | LeftBoundary => accMap->States.markLeftBoundaryDamaged(index)
+          | RightBoundary => accMap->States.markRightBoundaryDamaged(index)
           | QuestionMark => accMap
           }->go(accDeltaBeforePart, accDeltaAfterPart, parts, list{change, ...changes})
-        } else {
+        | Case6 =>
           // 6. the part is before the change, skip the part and move on
           //      removal                    ┣━━━━━┫
           //      part              ┣━━━━━┫
           switch part {
-          | LeftBoundary => accMap->StateMap2.addLeftBoundary(index, accDeltaBeforePart)
-          | RightBoundary => accMap->StateMap2.addRightBoundary(index, accDeltaBeforePart)
-          | QuestionMark => accMap->StateMap2.addQuestionMark(index, accDeltaBeforePart)
+          | LeftBoundary => accMap->States.addLeftBoundary(index, accDeltaBeforePart)
+          | RightBoundary => accMap->States.addRightBoundary(index, accDeltaBeforePart)
+          | QuestionMark => accMap->States.addQuestionMark(index, start + accDeltaBeforePart)
           }->go(accDeltaAfterPart, accDeltaAfterPart, parts, list{change, ...changes})
         }
       }
@@ -608,30 +599,25 @@ module Module: Module = {
       ->Util.Pretty.list,
     )
 
-    let map = go(StateMap2.make(), 0, 0, parts, changes)
+    let map = go(States.make(), 0, 0, parts, changes)
 
-    Js.log("StateMap2: " ++ StateMap2.toString(map))
+    Js.log("States: " ++ States.toString(map))
 
     let rewrites =
       map
-      ->StateMap2.toArray
+      ->States.toArray
       ->Array.filterMap(((index, state)) => {
         switch state {
-        | IsQuestionMark(delta) =>
-          let rewrites = switch getInternalGoalByIndex(self, index) {
-          | None => None
-          | Some(goal) =>
-            Some((
-              VSCode.Range.make(
-                VSCode.TextDocument.positionAt(document, goal.start),
-                VSCode.TextDocument.positionAt(document, goal.start + 1),
-              ),
-              "{!   !}",
-            ))
-          }
-          rewrites
+        | IsQuestionMark(offset) =>
+          Some(
+            VSCode.Range.make(
+              VSCode.TextDocument.positionAt(document, offset),
+              VSCode.TextDocument.positionAt(document, offset + 1),
+            ),
+            "{!   !}",
+          )
         | IsHole(Intact(a), Intact(b)) =>
-          updateGoalPositionByIndex(self, editor, index, a, b, false)
+          updateGoalPositionByIndex(self, editor, index, a, b)
           None
         | IsHole(_) =>
           Js.log("Destroying goal #" ++ Int.toString(index))
