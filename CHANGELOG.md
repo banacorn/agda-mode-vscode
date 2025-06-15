@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Revamped the whole token highlighting and goal management
 
 ### Added
-- Testings for `agda-mode.next-goal` and `agda-mode.previous-goal`
+- Testings for:
+    - `agda-mode.next-goal`
+    - `agda-mode.previous-goal`
+    - `agda-mode.refine`
+    - `agda-mode.helper-function-type` of all 3 normalizations
 
 ## v0.5.6 - 2025-04-23
 

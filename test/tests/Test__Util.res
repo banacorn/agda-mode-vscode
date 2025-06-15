@@ -451,6 +451,24 @@ module AgdaMode = {
     await execute(self, "give")
   }
 
+
+  let helperFunctionType = async (self, normalization, ~cursor=?, ~payload=?) => {
+    let editor = await File.open_(self.filepath)
+    // edit the file
+    switch cursor {
+    | None => ()
+    | Some(cursor) =>
+      switch payload {
+      | None => ()
+      | Some(payload) =>
+        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
+      }
+      Editor.Cursor.set(editor, cursor)
+    }
+
+    await execute(self, "helper-function-type[" ++ Command.Normalization.encode(normalization) ++ "]")
+  }
+
   let elaborateAndGive = async (self, normalization, ~cursor=?, ~payload=?) => {
     let editor = await File.open_(self.filepath)
     // edit the file

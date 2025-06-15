@@ -150,47 +150,26 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       }
     }
 
-  // let placeholder = Some("variable(s) to case split:")
-  // switch State__Goal.pointed(state) {
-  // | None => await State__View.Panel.displayOutOfGoalError(state)
-  // | Some((goal, "")) =>
-  //   await State__View.Panel.prompt(
-  //     state,
-  //     header,
-  //     {
-  //       body: Some(
-  //         "Please specify which variable(s) you wish to split, multiple variables are delimited by whitespaces",
-  //       ),
-  //       placeholder,
-  //       value: None,
-  //     },
-  //     async expr =>
-  //       if expr == "" {
-  //         await sendAgdaRequest(Case(goal))
-  //       } else {
-  //         // place the queried expression in the goal
-  //         await State__Goal.modify(state, goal, _ => expr)
-  //         await sendAgdaRequest(Case(goal))
-  //       },
-  //   )
-  // | Some((goal, _)) => await sendAgdaRequest(Case(goal))
-  // }
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
-      switch State__Goal.pointed(state) {
+      switch Goals.getGoalAtCursor(state.goals2, state.editor) {
       | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, "")) =>
-        await State__View.Panel.prompt(
-          state,
-          header,
-          {
-            body: None,
-            placeholder,
-            value: None,
-          },
-          expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
-        )
-      | Some((goal, expr)) => await sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
+      | Some(goal) =>
+        let expr = Goal2.getContent(goal, state.document)
+        if expr == "" {
+          await State__View.Panel.prompt(
+            state,
+            header,
+            {
+              body: None,
+              placeholder,
+              value: None,
+            },
+            expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
+          )
+        } else {
+          await sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
+        }
       }
     }
   | InferType(normalization) =>

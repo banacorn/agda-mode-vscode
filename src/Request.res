@@ -13,7 +13,7 @@ type t =
   | ElaborateAndGive(Command.Normalization.t, string, Goal2.t)
   | Auto(Command.Normalization.t, Goal2.t)
   | Case(Goal2.t)
-  | HelperFunctionType(Command.Normalization.t, string, Goal.t)
+  | HelperFunctionType(Command.Normalization.t, string, Goal2.t)
   | InferType(Command.Normalization.t, string, Goal.t)
   | InferTypeGlobal(Command.Normalization.t, string)
   | Context(Command.Normalization.t, Goal.t)

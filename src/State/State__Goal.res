@@ -7,7 +7,7 @@ module type Module = {
   //   Map.t<int, int>,
   //   array<int>,
   // ) => promise<array<Goal.t>>
-  let modify: (State.t, Goal.t, string => string) => promise<unit>
+  // let modify: (State.t, Goal.t, string => string) => promise<unit>
   // let removeBoundaryAndDestroy: (State.t, Goal.t) => promise<unit>
   let pointed: State.t => option<(Goal.t, string)>
   // let replaceWithLines: (State.t, Goal.t, array<string>) => promise<unit>
@@ -186,19 +186,19 @@ module Module: Module = {
     )
   }
 
-  let modify = async (state: State.t, goal, f) => {
-    updateIntervals(state)
-    let content = Goal.getContent(goal, state.document)
-    if await Goal.setContent(goal, state.document, f(content)) {
-      updateIntervals(state)
-    } else {
-      await State__View.Panel.display(
-        state,
-        Error("Goal-related Error"),
-        [Item.plainText("Failed to modify the content of goal #" ++ string_of_int(goal.index))],
-      )
-    }
-  }
+  // let modify = async (state: State.t, goal, f) => {
+  //   updateIntervals(state)
+  //   let content = Goal.getContent(goal, state.document)
+  //   if await Goal.setContent(goal, state.document, f(content)) {
+  //     updateIntervals(state)
+  //   } else {
+  //     await State__View.Panel.display(
+  //       state,
+  //       Error("Goal-related Error"),
+  //       [Item.plainText("Failed to modify the content of goal #" ++ string_of_int(goal.index))],
+  //     )
+  //   }
+  // }
 
 
   // Given offsets of holes, instantiate Goals and decorate them
