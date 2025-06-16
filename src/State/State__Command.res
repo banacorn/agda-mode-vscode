@@ -178,7 +178,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     }
   | InferType(normalization) =>
     let placeholder = Some("expression to infer:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None =>
       await State__View.Panel.prompt(
         state,
@@ -190,18 +190,22 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         },
         expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)),
       )
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(InferType(normalization, expr, goal)),
-      )
-    | Some((goal, expr)) => await sendAgdaRequest(InferType(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal2.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(InferType(normalization, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(InferType(normalization, expr, goal))
+      }
     }
   | Context(normalization) =>
     switch State__Goal.pointed(state) {
