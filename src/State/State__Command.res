@@ -236,21 +236,24 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     }
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-      )
-    | Some((goal, expr)) =>
-      await sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal2.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
+      }
     }
   | ModuleContents(normalization) =>
     let placeholder = Some("module name:")
