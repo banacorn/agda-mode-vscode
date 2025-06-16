@@ -23,7 +23,7 @@ type t =
   | GoalTypeContextAndCheckedType(Command.Normalization.t, string, Goal2.t)
   | ModuleContents(Command.Normalization.t, string, Goal2.t)
   | ModuleContentsGlobal(Command.Normalization.t, string)
-  | ComputeNormalForm(Command.ComputeMode.t, string, Goal.t)
+  | ComputeNormalForm(Command.ComputeMode.t, string, Goal2.t)
   | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
   | WhyInScope(string, Goal.t)
   | WhyInScopeGlobal(string)

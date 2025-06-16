@@ -7,3 +7,6 @@ data ℕ : Set where
 _+_ : ℕ → ℕ → ℕ
 Z + n = n
 (S n) + m = S (n + m)
+
+hole : ℕ
+hole = {!   !}
