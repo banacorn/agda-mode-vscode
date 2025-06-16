@@ -21,6 +21,7 @@ module type Module = {
   let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
   // get the goal at the cursor position
   let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<Goal2.t>
+  let setCursorByIndex: (t, VSCode.TextEditor.t, int) => unit
 
   // jumping between goals
   let jmupToTheNextGoal: (t, VSCode.TextEditor.t) => unit
@@ -269,6 +270,18 @@ module Module: Module = {
       }
     })
   }
+
+  let setCursorByIndex = (self, editor, index) =>
+    switch getInternalGoalByIndex(self, index) {
+    | None => () // goal not found, do nothing
+    | Some(goal) =>
+      let document = VSCode.TextEditor.document(editor)
+      let position = VSCode.TextDocument.positionAt(document, goal.start + 3)
+      Editor.Cursor.set(editor, position)
+      // scroll to that part of the document
+      let range = Goal.makeOuterRange(goal, document)
+      editor->VSCode.TextEditor.revealRange(range, None)
+    }
 
   // Destory and clear all goals
   let clear = self => {

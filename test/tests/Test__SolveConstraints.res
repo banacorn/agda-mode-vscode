@@ -24,7 +24,7 @@ let run = normalization => {
   Async.it("should solve all goals", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue204.agda")
     await AgdaMode.execute(ctx, SolveConstraints(normalization))
-    Assert.deepStrictEqual(ctx.state.goals->Array.length, 0)
+    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 0)
 
     let actual = await File.read(Path.asset("Issue204.agda"))
     let expected = await File.read(Path.asset("Issue204.agda.out"))

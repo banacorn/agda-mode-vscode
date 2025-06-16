@@ -75,7 +75,7 @@ type t = {
   // view
   panelCache: ViewCache.t,
   mutable runningInfoLog: array<(int, string)>,
-  mutable goals: array<Goal.t>,
+  // mutable goals: array<Goal.t>,
   tokens: Tokens.t,
   goals2: Goals.t,
   mutable highlighting: Highlighting.t,
@@ -106,7 +106,7 @@ let make = (
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
   runningInfoLog: [],
-  goals: [],
+  // goals: [],
   goals2: Goals.make(),
   tokens: Tokens.make(semanticTokens),
   highlighting: Highlighting.make(),

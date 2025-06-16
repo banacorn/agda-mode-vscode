@@ -410,12 +410,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
             state.editor->VSCode.TextEditor.revealRange(range, None)
           })
         }
-      | Hole(index) =>
-        let goal = state.goals->Array.find((goal: Goal.t) => goal.index == index)
-        switch goal {
-        | None => ()
-        | Some(goal) => Goal.setCursor(goal, state.editor)
-        }
+      | Hole(index) => Goals.setCursorByIndex(state.goals2, state.editor, index)
       }
     }
   | Escape =>
