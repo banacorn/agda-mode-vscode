@@ -33,7 +33,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Refresh =>
     state.highlighting->Highlighting.redecorate(state.editor)
     State__View.Panel.restore(state)
-    State__Goal.redecorate(state)
+    Goals.redecorate(state.goals2, state.editor)
     await State__View.DebugBuffer.restore(state)
   | Compile => await sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => await sendAgdaRequest(ToggleDisplayOfImplicitArguments)

@@ -3,6 +3,7 @@ module type Module = {
   type index = int
 
   let make: unit => t
+  let redecorate: (t, VSCode.TextEditor.t) => unit
   let destroy: t => unit
   let size: t => int
   let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
@@ -144,6 +145,18 @@ module Module: Module = {
     self.goals->Map.delete(goal.index)->ignore
     // remove the goal from the positions tree
     self.positions->AVLTree.remove(goal.start)->ignore
+  }
+
+  let redecorate = (self, editor) => {
+    let newGoals =
+      self.goals
+      ->Map.values
+      ->Iterator.toArray
+      ->Array.map(goal => {
+        destroyGoal(self, goal)
+        Goal.make(editor, goal.start, goal.end, goal.index)
+      })
+    self.goals = Map.fromArray(newGoals->Array.map(goal => (goal.index, goal)))
   }
 
   let destroy = self => {
