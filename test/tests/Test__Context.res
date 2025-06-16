@@ -7,7 +7,7 @@ let run = normalization => {
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset(filename))))
   Async.afterEach(async () => await File.write(Path.asset(filename), fileContent.contents))
 
-  Async.it("should be responded with the correct responses", async () => {
+  Async.it("should be responded with correct responses", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
     let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
       Request.Context(

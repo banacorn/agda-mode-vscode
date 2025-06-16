@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agda-mode.goal-type-and-context`
     - `agda-mode.goal-type-context-and-inferred-type`
     - `agda-mode.goal-type-context-and-checked-type`
+    - `agda-mode.module-contents`
 
 ## v0.5.6 - 2025-04-23
 

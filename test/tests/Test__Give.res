@@ -6,7 +6,7 @@ describe("agda-mode.give", () => {
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Give.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("Give.agda"), fileContent.contents))
 
-  Async.it("should be responded with the correct responses", async () => {
+  Async.it("should be responded with correct responses", async () => {
     let ctx = await AgdaMode.makeAndLoad("Give.agda")
 
     let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 14), "y")

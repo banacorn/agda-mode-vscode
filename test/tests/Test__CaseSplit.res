@@ -57,7 +57,7 @@ describe("agda-mode.case", () => {
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset("CaseSplit.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("CaseSplit.agda"), fileContent.contents))
 
-  // Async.it("should be responded with the correct responses", async () => {
+  // Async.it("should be responded with correct responses", async () => {
   //   let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
 
   //   let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 11), "x")

@@ -257,7 +257,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     }
   | ModuleContents(normalization) =>
     let placeholder = Some("module name:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None =>
       await State__View.Panel.prompt(
         state,
@@ -269,18 +269,22 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         },
         expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)),
       )
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
-      )
-    | Some((goal, expr)) => await sendAgdaRequest(ModuleContents(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal2.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(ModuleContents(normalization, expr, goal))
+      }
     }
   | ComputeNormalForm(computeMode) =>
     let placeholder = Some("expression to normalize:")

@@ -2,7 +2,7 @@ open Mocha
 open Test__Util
 
 let run = normalization => {
-  Async.it("should be responded with the correct responses 1", async () => {
+  Async.it("should be responded with correct responses 1", async () => {
     let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
     let responses = switch Goals.getGoalByIndex(ctx.state.goals2, 0) {
@@ -36,7 +36,7 @@ let run = normalization => {
     }
   })
 
-  Async.it("should be responded with the correct responses 2", async () => {
+  Async.it("should be responded with correct responses 2", async () => {
     let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
     let responses = switch Goals.getGoalByIndex(ctx.state.goals2, 1) {

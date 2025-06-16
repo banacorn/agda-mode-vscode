@@ -21,7 +21,7 @@ type t =
   | GoalTypeAndContext(Command.Normalization.t, Goal2.t)
   | GoalTypeContextAndInferredType(Command.Normalization.t, string, Goal2.t)
   | GoalTypeContextAndCheckedType(Command.Normalization.t, string, Goal2.t)
-  | ModuleContents(Command.Normalization.t, string, Goal.t)
+  | ModuleContents(Command.Normalization.t, string, Goal2.t)
   | ModuleContentsGlobal(Command.Normalization.t, string)
   | ComputeNormalForm(Command.ComputeMode.t, string, Goal.t)
   | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
