@@ -16,7 +16,7 @@ type t =
   | HelperFunctionType(Command.Normalization.t, string, Goal2.t)
   | InferType(Command.Normalization.t, string, Goal2.t)
   | InferTypeGlobal(Command.Normalization.t, string)
-  | Context(Command.Normalization.t, Goal.t)
+  | Context(Command.Normalization.t, Goal2.t)
   | GoalType(Command.Normalization.t, Goal.t)
   | GoalTypeAndContext(Command.Normalization.t, Goal.t)
   | GoalTypeContextAndInferredType(Command.Normalization.t, string, Goal.t)

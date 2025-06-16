@@ -2,44 +2,37 @@ open Mocha
 open Test__Util
 
 let run = normalization => {
-  let filename = "InferType.agda"
+  let filename = "Context.agda"
   let fileContent = ref("")
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset(filename))))
   Async.afterEach(async () => await File.write(Path.asset(filename), fileContent.contents))
 
   Async.it("should be responded with the correct responses", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
-
     let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
-      Request.InferType(
+      Request.Context(
         normalization,
-        "x",
         {
           index: 0,
           indexString: "0",
-          start: 88,
-          end: 95,
+          start: 270,
+          end: 277,
         },
       ),
     )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepStrictEqual(filteredResponses, [DisplayInfo(InferredType("ℕ"))])
+    Assert.deepStrictEqual(filteredResponses, [DisplayInfo(Context("x : ℕ\ny : ℕ\nb : Bool"))])
   })
 
   Async.it("should work", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
-    await AgdaMode.execute(
-      ctx,
-      InferType(normalization),
-      ~cursor=VSCode.Position.make(7, 11),
-      ~payload="x",
-    )
+    await AgdaMode.execute(ctx, Context(normalization), ~cursor=VSCode.Position.make(15, 26))
     await ctx->AgdaMode.quit
   })
 }
 
-describe("agda-mode.infer-type", () => {
+describe_only("agda-mode.context", () => {
   describe("Simplified", () => {
     run(Simplified)
   })

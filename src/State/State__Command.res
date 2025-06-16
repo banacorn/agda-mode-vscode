@@ -208,9 +208,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       }
     }
   | Context(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(Context(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(Context(normalization, goal))
     }
   | GoalType(normalization) =>
     switch State__Goal.pointed(state) {
