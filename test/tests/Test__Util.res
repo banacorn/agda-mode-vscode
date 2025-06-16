@@ -407,14 +407,56 @@ module AgdaMode = {
     }
   }
 
+  // let execute = async (self, command) => {
+  //   switch await executeCommand("agda-mode." ++ command) {
+  //   | None => raise(Failure("Cannot execute command " ++ command ++ " in " ++ self.filepath))
+  //   | Some(Ok(state)) => self.state = state
+  //   | Some(Error(error)) =>
+  //     let (header, body) = Connection.Error.toString(error)
+  //     raise(Failure(header ++ "\n" ++ body))
+  //   }
+  // }
+
   let execute = async (self, command) => {
-    switch await executeCommand("agda-mode." ++ command) {
-    | None => raise(Failure("Cannot execute command " ++ command ++ " in " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let destructor = self.state.channels.commandHandled->Chan.on(handledCommand => {
+      if handledCommand == command {
+        resolve()
+      }
+    })
+
+    switch await executeCommand("agda-mode." ++ Command.toKeybinding(command)) {
+    | None =>
+      raise(
+        Failure("Cannot execute command " ++ Command.toString(command) ++ " in " ++ self.filepath),
+      )
+    | Some(Ok(state)) =>
+      // wait for the  command to be handled
+      await promise
+      // stop listening to commands
+      destructor()
+
+      // update the context with the new state
+      self.state = state
     | Some(Error(error)) =>
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
+
+    // switch await executeCommand("agda-mode.case") {
+    // | None => raise(Failure("Cannot case split " ++ self.filepath))
+    // | Some(Ok(state)) =>
+    //   // wait for the `agda-mode.load` command to be handled
+    //   await promise
+    //   // stop listening to commands
+    //   destructor()
+
+    //   // update the context with the new state
+    //   self.state = state
+    // | Some(Error(error)) =>
+    //   let (header, body) = Connection.Error.toString(error)
+    //   raise(Failure(header ++ "\n" ++ body))
+    // }
   }
 
   let refine = async (self, ~cursor=?, ~payload=?) => {
@@ -431,7 +473,7 @@ module AgdaMode = {
       Editor.Cursor.set(editor, cursor)
     }
 
-    await execute(self, "refine")
+    await execute(self, Refine)
   }
 
   let give = async (self, ~cursor=?, ~payload=?) => {
@@ -448,9 +490,8 @@ module AgdaMode = {
       Editor.Cursor.set(editor, cursor)
     }
 
-    await execute(self, "give")
+    await execute(self, Give)
   }
-
 
   let helperFunctionType = async (self, normalization, ~cursor=?, ~payload=?) => {
     let editor = await File.open_(self.filepath)
@@ -466,7 +507,7 @@ module AgdaMode = {
       Editor.Cursor.set(editor, cursor)
     }
 
-    await execute(self, "helper-function-type[" ++ Command.Normalization.encode(normalization) ++ "]")
+    await execute(self, HelperFunctionType(normalization))
   }
 
   let elaborateAndGive = async (self, normalization, ~cursor=?, ~payload=?) => {
@@ -483,7 +524,7 @@ module AgdaMode = {
       Editor.Cursor.set(editor, cursor)
     }
 
-    await execute(self, "elaborate-and-give[" ++ Command.Normalization.encode(normalization) ++ "]")
+    await execute(self, ElaborateAndGive(normalization))
   }
 
   let solveConstraints = async (self, normalization, ~cursor=?) => {
@@ -494,11 +535,11 @@ module AgdaMode = {
     | Some(cursor) => Editor.Cursor.set(editor, cursor)
     }
 
-    await execute(self, "solve-constraints[" ++ Command.Normalization.encode(normalization) ++ "]")
+    await execute(self, SolveConstraints(normalization))
   }
 
-  let nextGoal = execute(_, "next-goal")
-  let previousGoal = execute(_, "previous-goal")
+  let nextGoal = execute(_, NextGoal)
+  let previousGoal = execute(_, PreviousGoal)
 }
 
 // helper function for filtering out Highlighting & RunningInfo related responses

@@ -176,8 +176,67 @@ let names: array<(t, string)> = [
   (InputMethod(InsertChar("{")), "input-symbol[InsertOpenCurlyBraces]"),
   (InputMethod(InsertChar("(")), "input-symbol[InsertOpenParenthesis]"),
   (LookupSymbol, "lookup-symbol"),
-  (OpenDebugBuffer, "open-debug-buffer")
+  (OpenDebugBuffer, "open-debug-buffer"),
 ]
+
+// like `names`
+let toKeybinding = x =>
+  switch x {
+  | Load => "load"
+  | Quit => "quit"
+  | Restart => "restart"
+  | Refresh => "refresh"
+  | Compile => "compile"
+  | ToggleDisplayOfImplicitArguments => "toggle-display-of-implicit-arguments"
+  | ToggleDisplayOfIrrelevantArguments => "toggle-display-of-irrelevant-arguments"
+  | ShowConstraints => "show-constraints"
+  | SolveConstraints(normalization) =>
+    "solve-constraints[" ++ Normalization.encode(normalization) ++ "]"
+  | ShowGoals(normalization) => "show-goals[" ++ Normalization.encode(normalization) ++ "]"
+  | NextGoal => "next-goal"
+  | PreviousGoal => "previous-goal"
+  | SearchAbout(normalization) => "search-about[" ++ Normalization.encode(normalization) ++ "]"
+  | Give => "give"
+  | Refine => "refine"
+  | ElaborateAndGive(normalization) =>
+    "elaborate-and-give[" ++ Normalization.encode(normalization) ++ "]"
+  | Auto(normalization) => "auto[" ++ Normalization.encode(normalization) ++ "]"
+  | Case => "case"
+  | HelperFunctionType(normalization) =>
+    "helper-function-type[" ++ Normalization.encode(normalization) ++ "]"
+  | InferType(normalization) => "infer-type[" ++ Normalization.encode(normalization) ++ "]"
+  | Context(normalization) => "context[" ++ Normalization.encode(normalization) ++ "]"
+  | GoalType(normalization) => "goal-type[" ++ Normalization.encode(normalization) ++ "]"
+  | GoalTypeAndContext(normalization) =>
+    "goal-type-and-context[" ++ Normalization.encode(normalization) ++ "]"
+  | GoalTypeContextAndInferredType(normalization) =>
+    "goal-type-context-and-inferred-type[" ++ Normalization.encode(normalization) ++ "]"
+  | GoalTypeContextAndCheckedType(normalization) =>
+    "goal-type-context-and-checked-type[" ++ Normalization.encode(normalization) ++ "]"
+  | ModuleContents(normalization) =>
+    "module-contents[" ++ Normalization.encode(normalization) ++ "]"
+  | ComputeNormalForm(mode) => "compute-normal-form[" ++ ComputeMode.encode(mode) ++ "]"
+  | WhyInScope => "why-in-scope"
+  | SwitchAgdaVersion => "switch-agda-version"
+  | Escape => "escape"
+  | InputMethod(action) =>
+    switch action {
+    | InputMethod.Activate => "input-symbol[Activate]"
+    | InputMethod.BrowseUp => "input-symbol[BrowseUp]"
+    | InputMethod.BrowseRight => "input-symbol[BrowseRight]"
+    | InputMethod.BrowseDown => "input-symbol[BrowseDown]"
+    | InputMethod.BrowseLeft => "input-symbol[BrowseLeft]"
+    | InputMethod.InsertChar(char) =>
+      switch char {
+      | "{" => "input-symbol[InsertOpenCurlyBraces]"
+      | "(" => "input-symbol[InsertOpenParenthesis]"
+      | _ => "input-symbol[" ++ char ++ "]"
+      }
+    }
+  | LookupSymbol => "lookup-symbol"
+  | OpenDebugBuffer => "open-debug-buffer"
+  | EventFromView(event) => "event-from-view[" ++ View.EventFromView.toString(event) ++ "]"
+  }
 
 // for human
 let toString = x =>

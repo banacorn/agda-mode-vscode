@@ -45,8 +45,12 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     | Some(goal) => await sendAgdaRequest(SolveConstraints(normalization, goal))
     }
   | ShowGoals(normalization) => await sendAgdaRequest(ShowGoals(normalization))
-  | NextGoal => state.goals2->Goals.jmupToTheNextGoal(state.editor)
-  | PreviousGoal => state.goals2->Goals.jmupToThePreviousGoal(state.editor)
+  | NextGoal =>
+    state.goals2->Goals.jmupToTheNextGoal(state.editor)
+    state.channels.commandHandled->Chan.emit(NextGoal)
+  | PreviousGoal =>
+    state.goals2->Goals.jmupToThePreviousGoal(state.editor)
+    state.channels.commandHandled->Chan.emit(PreviousGoal)
   | SearchAbout(normalization) =>
     await State__View.Panel.prompt(
       state,
