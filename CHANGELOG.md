@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agda-mode.helper-function-type`
     - `agda-mode.infer-type`
     - `agda-mode.context`
+    - `agda-mode.goal-type`
+    - `agda-mode.goal-type-and-context`
 
 ## v0.5.6 - 2025-04-23
 

@@ -10,7 +10,7 @@ let run = normalization => {
   Async.it("should be responded with the correct responses", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
     let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
-      Request.Context(
+      Request.GoalTypeAndContext(
         normalization,
         {
           index: 0,
@@ -22,17 +22,17 @@ let run = normalization => {
     )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepStrictEqual(filteredResponses, [DisplayInfo(Context("x : ℕ\ny : ℕ\nb : Bool"))])
+    Assert.deepStrictEqual(filteredResponses, [DisplayInfo(GoalType("Goal: ℕ\n————————————————————————————————————————————————————————————\nb : Bool\ny : ℕ\nx : ℕ"))])
   })
 
   Async.it("should work", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
-    await AgdaMode.execute(ctx, Context(normalization), ~cursor=VSCode.Position.make(15, 26))
+    await AgdaMode.execute(ctx, GoalTypeAndContext(normalization), ~cursor=VSCode.Position.make(15, 26))
     await ctx->AgdaMode.quit
   })
 }
 
-describe("agda-mode.context", () => {
+describe("agda-mode.goal-type-and-context", () => {
   describe("Simplified", () => {
     run(Simplified)
   })

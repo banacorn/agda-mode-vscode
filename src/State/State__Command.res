@@ -213,23 +213,26 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     | Some(goal) => await sendAgdaRequest(Context(normalization, goal))
     }
   | GoalType(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(GoalType(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(GoalType(normalization, goal))
     }
   | GoalTypeAndContext(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
     }
   | GoalTypeContextAndInferredType(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, "")) =>
-      // fallback to `GoalTypeAndContext` when there's no content
-      await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
-    | Some((goal, expr)) =>
-      await sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal2.getContent(goal, state.document)
+      if expr == "" {
+        // fallback to `GoalTypeAndContext` when there's no payload
+        await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
+      } else {
+        await sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal))
+      }
     }
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")

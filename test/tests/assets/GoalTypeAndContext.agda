@@ -1,4 +1,4 @@
-module Context where
+module GoalTypeAndContext where
 
 data Bool : Set where
   true  : Bool
