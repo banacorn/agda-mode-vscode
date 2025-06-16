@@ -10,22 +10,22 @@ module type Module = {
   // helper function for building strings for Agda
   // let buildHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
   //
-  let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
+  // let generateDiffs: (VSCode.TextDocument.t, array<int>) => array<SourceFile.Diff.t>
 
   // let makeMany: (
   //   VSCode.TextEditor.t,
   //   array<(int, ((int, int), VSCode.Range.t))>,
   // ) => promise<array<t>>
   // get the content inside the hole
-  let getContent: (t, VSCode.TextDocument.t) => string
+  // let getContent: (t, VSCode.TextDocument.t) => string
   // set the content inside the hole
-  let setContent: (t, VSCode.TextDocument.t, string) => promise<bool>
+  // let setContent: (t, VSCode.TextDocument.t, string) => promise<bool>
   // set cursor inside the hole {! cursor here !}
   //                               ^
   let setCursor: (t, VSCode.TextEditor.t) => unit
   // let getInnerRange: (t, VSCode.TextDocument.t) => VSCode.Range.t
-  let refreshDecoration: (t, VSCode.TextEditor.t) => unit
-  let destroyDecoration: t => unit
+  // let refreshDecoration: (t, VSCode.TextEditor.t) => unit
+  // let destroyDecoration: t => unit
 }
 
 module Module: Module = {
@@ -36,13 +36,13 @@ module Module: Module = {
     decorationIndex: Editor.Decoration.t,
   }
 
-  let generateDiffs = (document: VSCode.TextDocument.t, indices: array<int>): array<
-    SourceFile.Diff.t,
-  > => {
-    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    let source = Editor.Text.getAll(document)
-    SourceFile.parse(indices, fileName, source)
-  }
+  // let generateDiffs = (document: VSCode.TextDocument.t, indices: array<int>): array<
+  //   SourceFile.Diff.t,
+  // > => {
+  //   let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
+  //   let source = Editor.Text.getAll(document)
+  //   SourceFile.parse(indices, fileName, source)
+  // }
 
   // make an array of Goal.t with given goal indices
   // modifies the text buffer along the way
@@ -109,22 +109,22 @@ module Module: Module = {
   //   })
   // }
 
-  let getInnerRange = (self, document) => {
-    let interval = (fst(self.interval) + 2, snd(self.interval) - 2)
-    Interval.toVSCodeRange(document, interval)
-  }
+  // let getInnerRange = (self, document) => {
+  //   let interval = (fst(self.interval) + 2, snd(self.interval) - 2)
+  //   Interval.toVSCodeRange(document, interval)
+  // }
 
   let getOuterRange = (self, document) => Interval.toVSCodeRange(document, self.interval)
 
-  let getContent = (self, document) => {
-    let innerRange = getInnerRange(self, document)
-    Editor.Text.get(document, innerRange)->String.trim
-  }
+  // let getContent = (self, document) => {
+  //   let innerRange = getInnerRange(self, document)
+  //   Editor.Text.get(document, innerRange)->String.trim
+  // }
 
-  let setContent = (self, document, text) => {
-    let innerRange = getInnerRange(self, document)
-    Editor.Text.replace(document, innerRange, " " ++ text ++ " ")
-  }
+  // let setContent = (self, document, text) => {
+  //   let innerRange = getInnerRange(self, document)
+  //   Editor.Text.replace(document, innerRange, " " ++ text ++ " ")
+  // }
 
   let setCursor = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
@@ -159,21 +159,21 @@ module Module: Module = {
   //   }
   // }
 
-  let refreshDecoration = (self, editor: VSCode.TextEditor.t) => {
-    // redecorate the background
-    let range = getOuterRange(self, VSCode.TextEditor.document(editor))
-    Editor.Decoration.decorate(editor, self.decorationBackground, [range])
-    // redecorate the index
-    let range = VSCode.Range.make(
-      VSCode.Range.start(range),
-      VSCode.Position.translate(VSCode.Range.end_(range), 0, -2),
-    )
-    Editor.Decoration.decorate(editor, self.decorationIndex, [range])
-  }
+  // let refreshDecoration = (self, editor: VSCode.TextEditor.t) => {
+  //   // redecorate the background
+  //   let range = getOuterRange(self, VSCode.TextEditor.document(editor))
+  //   Editor.Decoration.decorate(editor, self.decorationBackground, [range])
+  //   // redecorate the index
+  //   let range = VSCode.Range.make(
+  //     VSCode.Range.start(range),
+  //     VSCode.Position.translate(VSCode.Range.end_(range), 0, -2),
+  //   )
+  //   Editor.Decoration.decorate(editor, self.decorationIndex, [range])
+  // }
 
-  let destroyDecoration = self => {
-    self.decorationBackground->Editor.Decoration.destroy
-    self.decorationIndex->Editor.Decoration.destroy
-  }
+  // let destroyDecoration = self => {
+  //   self.decorationBackground->Editor.Decoration.destroy
+  //   self.decorationIndex->Editor.Decoration.destroy
+  // }
 }
 include Module

@@ -38,7 +38,7 @@ let run = normalization => {
   })
 }
 
-describe_only("agda-mode.compute-normal-form", () => {
+describe("agda-mode.compute-normal-form", () => {
   describe("DefaultCompute", () => {
     run(DefaultCompute)
   })

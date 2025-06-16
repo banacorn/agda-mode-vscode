@@ -128,7 +128,6 @@ let destroy = async (state, alsoRemoveFromRegistry) => {
     state.onRemoveFromRegistry->Chan.emit()
   }
   state.onRemoveFromRegistry->Chan.destroy
-  state.goals->Array.forEach(Goal.destroyDecoration)
   state.goals2->Goals.destroy
   state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
