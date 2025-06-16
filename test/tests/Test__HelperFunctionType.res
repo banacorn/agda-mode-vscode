@@ -37,7 +37,7 @@ let run = normalization => {
 
   Async.it("should copy type to the pasteboard", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
-    await AgdaMode.helperFunctionType(ctx, normalization, ~cursor=VSCode.Position.make(15, 3))
+    await AgdaMode.execute(ctx, HelperFunctionType(normalization), ~cursor=VSCode.Position.make(15, 3))
     // await ctx->AgdaMode.quit
     let text = await VSCode.Env.clipboard->VSCode.Clipboard.readText()
     Assert.deepStrictEqual(

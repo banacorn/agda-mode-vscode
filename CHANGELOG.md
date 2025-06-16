@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agda-mode.next-goal`
     - `agda-mode.previous-goal`
     - `agda-mode.refine`
-    - `agda-mode.helper-function-type` of all 3 normalizations
+    - `agda-mode.helper-function-type`
 
 ## v0.5.6 - 2025-04-23
 

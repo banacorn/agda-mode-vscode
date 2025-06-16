@@ -15,12 +15,15 @@ let run = normalization => {
       )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepStrictEqual(filteredResponses, [InteractionPoints([0, 1]), SolveAll([(0, "4"), (1, "4")])])
+    Assert.deepStrictEqual(
+      filteredResponses,
+      [InteractionPoints([0, 1]), SolveAll([(0, "4"), (1, "4")])],
+    )
   })
 
   Async.it("should solve all goals", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue204.agda")
-    await AgdaMode.solveConstraints(ctx, normalization)
+    await AgdaMode.execute(ctx, SolveConstraints(normalization))
     Assert.deepStrictEqual(ctx.state.goals->Array.length, 0)
 
     let actual = await File.read(Path.asset("Issue204.agda"))

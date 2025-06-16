@@ -32,7 +32,12 @@ describe("agda-mode.give", () => {
 
   Async.it("should remove the given goal", async () => {
     let ctx = await AgdaMode.makeAndLoad("Give.agda")
-    await AgdaMode.give(ctx, ~cursor=VSCode.Position.make(7, 14), ~payload="y")
+    await AgdaMode.execute(
+      ctx,
+      Give,
+      ~cursor=VSCode.Position.make(7, 14),
+      ~payload="y",
+    )
     Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 1)
 
     await ctx->AgdaMode.quit

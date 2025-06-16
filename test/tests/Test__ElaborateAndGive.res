@@ -9,9 +9,8 @@ let run = normalization => {
 
   Async.it("should remove the given goal", async () => {
     let ctx = await AgdaMode.makeAndLoad("Give.agda")
-    await AgdaMode.elaborateAndGive(
-      ctx,
-      normalization,
+    await ctx->AgdaMode.execute(
+      ElaborateAndGive(normalization),
       ~cursor=VSCode.Position.make(7, 14),
       ~payload="y",
     )

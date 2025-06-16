@@ -12,7 +12,7 @@ describe("agda-mode.refine", () => {
       "should result in the correct refinement",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Refine.agda")
-        await ctx->AgdaMode.refine(~cursor=VSCode.Position.make(13, 9))
+        await ctx->AgdaMode.execute(Refine, ~cursor=VSCode.Position.make(13, 9))
 
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset("Refine.agda"))

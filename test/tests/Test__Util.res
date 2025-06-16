@@ -407,16 +407,6 @@ module AgdaMode = {
     }
   }
 
-  // let execute = async (self, command) => {
-  //   switch await executeCommand("agda-mode." ++ command) {
-  //   | None => raise(Failure("Cannot execute command " ++ command ++ " in " ++ self.filepath))
-  //   | Some(Ok(state)) => self.state = state
-  //   | Some(Error(error)) =>
-  //     let (header, body) = Connection.Error.toString(error)
-  //     raise(Failure(header ++ "\n" ++ body))
-  //   }
-  // }
-
   let execute = async (self, command) => {
     let (promise, resolve, _) = Util.Promise_.pending()
     let destructor = self.state.channels.commandHandled->Chan.on(handledCommand => {
@@ -442,26 +432,11 @@ module AgdaMode = {
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }
-
-    // switch await executeCommand("agda-mode.case") {
-    // | None => raise(Failure("Cannot case split " ++ self.filepath))
-    // | Some(Ok(state)) =>
-    //   // wait for the `agda-mode.load` command to be handled
-    //   await promise
-    //   // stop listening to commands
-    //   destructor()
-
-    //   // update the context with the new state
-    //   self.state = state
-    // | Some(Error(error)) =>
-    //   let (header, body) = Connection.Error.toString(error)
-    //   raise(Failure(header ++ "\n" ++ body))
-    // }
   }
 
-  let refine = async (self, ~cursor=?, ~payload=?) => {
+  let execute = async (self, command, ~cursor=?, ~payload=?) => {
     let editor = await File.open_(self.filepath)
-    // edit the file
+    // set the cursor and insert the payload
     switch cursor {
     | None => ()
     | Some(cursor) =>
@@ -472,70 +447,8 @@ module AgdaMode = {
       }
       Editor.Cursor.set(editor, cursor)
     }
-
-    await execute(self, Refine)
-  }
-
-  let give = async (self, ~cursor=?, ~payload=?) => {
-    let editor = await File.open_(self.filepath)
-    // edit the file
-    switch cursor {
-    | None => ()
-    | Some(cursor) =>
-      switch payload {
-      | None => ()
-      | Some(payload) =>
-        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
-      }
-      Editor.Cursor.set(editor, cursor)
-    }
-
-    await execute(self, Give)
-  }
-
-  let helperFunctionType = async (self, normalization, ~cursor=?, ~payload=?) => {
-    let editor = await File.open_(self.filepath)
-    // edit the file
-    switch cursor {
-    | None => ()
-    | Some(cursor) =>
-      switch payload {
-      | None => ()
-      | Some(payload) =>
-        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
-      }
-      Editor.Cursor.set(editor, cursor)
-    }
-
-    await execute(self, HelperFunctionType(normalization))
-  }
-
-  let elaborateAndGive = async (self, normalization, ~cursor=?, ~payload=?) => {
-    let editor = await File.open_(self.filepath)
-    // edit the file
-    switch cursor {
-    | None => ()
-    | Some(cursor) =>
-      switch payload {
-      | None => ()
-      | Some(payload) =>
-        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
-      }
-      Editor.Cursor.set(editor, cursor)
-    }
-
-    await execute(self, ElaborateAndGive(normalization))
-  }
-
-  let solveConstraints = async (self, normalization, ~cursor=?) => {
-    let editor = await File.open_(self.filepath)
-    // set cursor
-    switch cursor {
-    | None => ()
-    | Some(cursor) => Editor.Cursor.set(editor, cursor)
-    }
-
-    await execute(self, SolveConstraints(normalization))
+    // execute the command
+    await execute(self, command)
   }
 
   let nextGoal = execute(_, NextGoal)
