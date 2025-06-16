@@ -25,7 +25,7 @@ type t =
   | ModuleContentsGlobal(Command.Normalization.t, string)
   | ComputeNormalForm(Command.ComputeMode.t, string, Goal2.t)
   | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
-  | WhyInScope(string, Goal.t)
+  | WhyInScope(string, Goal2.t)
   | WhyInScopeGlobal(string)
 
 let toString = x =>
