@@ -206,7 +206,7 @@ let rec handle = async (
         switch result {
         | Some(rangeToBeReplaced, indentedLines) =>
           // destroy the old goal
-          Goals.destroyGoalByIndex(state.goals2, goal.index)
+          Goals.removeGoalByIndex(state.goals2, goal.index)
           // locate the first new goal and place the cursor there
           Goal.placeCursorAtFirstNewGoal(state.editor, rangeToBeReplaced, indentedLines)
         | None =>

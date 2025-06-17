@@ -32,7 +32,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     await dispatchCommand(Load)
   | Refresh =>
     State__View.Panel.restore(state)
-    Goals.redecorate(state.goals2, state.editor)
+    Goals.redecorate(state.goals2)
     Tokens.redecorate(state.tokens, state.editor)
     await State__View.DebugBuffer.restore(state)
   | Compile => await sendAgdaRequest(Compile)

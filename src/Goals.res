@@ -3,14 +3,14 @@ module type Module = {
   type index = int
 
   let make: unit => t
-  let redecorate: (t, VSCode.TextEditor.t) => unit
+  let redecorate: t => unit
   let destroy: t => unit
   let size: t => int
   let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
   let parseGoalPositionsFromRefine: string => array<(int, int)>
-  let destroyGoalByIndex: (t, index) => unit
+  let removeGoalByIndex: (t, index) => unit
 
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
@@ -37,6 +37,7 @@ module type Module = {
 
   // for testing
   let serialize: t => array<string>
+  let toString: t => string
 }
 
 module Module: Module = {
@@ -50,38 +51,48 @@ module Module: Module = {
       index: index,
       start: int,
       end: int,
-      decoration: option<(Editor.Decoration.t, Editor.Decoration.t)>, // (background, index)
+      mutable decoration: option<(Editor.Decoration.t, Editor.Decoration.t)>, // (background, index)
     }
 
-    let decorate = (editor: VSCode.TextEditor.t, start: int, end: int, index: int) => {
-      let document = VSCode.TextEditor.document(editor)
-      let backgroundRange = VSCode.Range.make(
-        VSCode.TextDocument.positionAt(document, start),
-        VSCode.TextDocument.positionAt(document, end),
-      )
+    let decorate = (start: int, end: int, index: int) =>
+      VSCode.Window.activeTextEditor->Option.map(editor => {
+        let document = VSCode.TextEditor.document(editor)
+        let backgroundRange = VSCode.Range.make(
+          VSCode.TextDocument.positionAt(document, start),
+          VSCode.TextDocument.positionAt(document, end),
+        )
 
-      let background = Editor.Decoration.highlightBackground(
-        editor,
-        "editor.selectionHighlightBackground",
-        [backgroundRange],
-      )
-      let indexText = string_of_int(index)
-      let indexRange = VSCode.Range.make(
-        VSCode.TextDocument.positionAt(document, start),
-        VSCode.TextDocument.positionAt(document, end - 2),
-      )
+        let background = Editor.Decoration.highlightBackground(
+          editor,
+          "editor.selectionHighlightBackground",
+          [backgroundRange],
+        )
 
-      let index = Editor.Decoration.overlayText(
-        editor,
-        "editorLightBulb.foreground",
-        indexText,
-        indexRange,
-      )
+        let indexText = string_of_int(index)
+        let indexRange = VSCode.Range.make(
+          VSCode.TextDocument.positionAt(document, end - 2),
+          VSCode.TextDocument.positionAt(document, end - 2),
+        )
 
-      (background, index)
+        let index = Editor.Decoration.overlayText(
+          editor,
+          "editorLightBulb.foreground",
+          indexText,
+          indexRange,
+        )
+
+        (background, index)
+      })
+
+    let undecorate = (goal: t) => {
+      // destroy the goal's decorations
+      goal.decoration->Option.forEach(((background, index)) => {
+        background->Editor.Decoration.destroy
+        index->Editor.Decoration.destroy
+      })
     }
 
-    let make = (editor: VSCode.TextEditor.t, start: int, end: int, index: index) => {
+    let make = (start: int, end: int, index: index) => {
       let isQuestionMark = start + 1 == end
       {
         index,
@@ -90,7 +101,7 @@ module Module: Module = {
         decoration: if isQuestionMark {
           None // no decoration for question mark goals
         } else {
-          Some(decorate(editor, start, end, index))
+          decorate(start, end, index)
         },
       }
     }
@@ -137,45 +148,62 @@ module Module: Module = {
     }
   }
 
-  let destroyGoal = (self, goal: InternalGoal.t) => {
+  let insertGoal = (self, start, end, index) => {
+    let goal = InternalGoal.make(start, end, index)
+    self.goals->Map.set(index, goal)
+    self.positions->AVLTree.insert(start, index)
+  }
+
+  let removeGoal = (self, goal: InternalGoal.t) => {
     // destroy the goal's decorations
-    goal.decoration->Option.forEach(((background, index)) => {
-      background->Editor.Decoration.destroy
-      index->Editor.Decoration.destroy
-    })
+    InternalGoal.undecorate(goal)
     // remove the goal from the goals map
     self.goals->Map.delete(goal.index)->ignore
     // remove the goal from the positions tree
     self.positions->AVLTree.remove(goal.start)->ignore
   }
 
-  let redecorate = (self, editor) => {
-    let newGoals =
+  let redecorate = self =>
+    VSCode.Window.activeTextEditor->Option.forEach(editor => {
       self.goals
       ->Map.values
       ->Iterator.toArray
-      ->Array.map(goal => {
-        destroyGoal(self, goal)
-        InternalGoal.make(editor, goal.start, goal.end, goal.index)
+      ->Array.forEach(goal => {
+        // re-decorate the editor with the existing decorations
+        goal.decoration->Option.forEach(
+          ((background, index)) => {
+            let document = VSCode.TextEditor.document(editor)
+            let backgroundRange = VSCode.Range.make(
+              VSCode.TextDocument.positionAt(document, goal.start),
+              VSCode.TextDocument.positionAt(document, goal.end),
+            )
+
+            let indexRange = VSCode.Range.make(
+              VSCode.TextDocument.positionAt(document, goal.end - 2),
+              VSCode.TextDocument.positionAt(document, goal.end - 2),
+            )
+            Editor.Decoration.decorate(editor, background, [backgroundRange])
+            Editor.Decoration.decorate(editor, index, [indexRange])
+          },
+        )
       })
-    self.goals = Map.fromArray(newGoals->Array.map(goal => (goal.index, goal)))
-  }
+    })
 
   let destroy = self => {
     self.goals
     ->Map.values
     ->Iterator.toArray
-    ->Array.forEach(goal => destroyGoal(self, goal))
+    ->Array.forEach(goal => removeGoal(self, goal))
     self.goals = Map.make()
     self.positions = AVLTree.make()
   }
 
   let size = self => Map.size(self.goals)
 
-  let destroyGoalByIndex = (self, index) =>
+  let removeGoalByIndex = (self, index) =>
     switch self.goals->Map.get(index) {
     | None => () // goal not found, do nothing
-    | Some(goal) => destroyGoal(self, goal)
+    | Some(goal) => removeGoal(self, goal)
     }
 
   let isBusy = self => self.isBusy->Option.isSome
@@ -204,6 +232,11 @@ module Module: Module = {
     ->Iterator.toArray
     ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
     ->Array.map(InternalGoal.toString)
+
+  let toString = self =>
+    self
+    ->serialize
+    ->Array.join("\n")
 
   let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
 
@@ -241,7 +274,7 @@ module Module: Module = {
 
       let content = read(goal, document)
       if await Editor.Text.replace(document, outerRange, content) {
-        self->destroyGoal(goal)
+        self->removeGoal(goal)
         true
       } else {
         false
@@ -289,18 +322,12 @@ module Module: Module = {
     self.goals
     ->Map.values
     ->Iterator.toArray
-    ->Array.forEach(goal => {
-      // destroy the goal's decorations
-      goal.decoration->Option.forEach(((background, index)) => {
-        background->Editor.Decoration.destroy
-        index->Editor.Decoration.destroy
-      })
-    })
+    ->Array.forEach(InternalGoal.undecorate)
     self.goals = Map.make()
     self.positions = AVLTree.make()
   }
 
-  let updateGoalPosition = (self, editor, goal: InternalGoal.t, deltaStart: int, deltaEnd: int) => {
+  let updateGoalPosition = (self, goal: InternalGoal.t, deltaStart: int, deltaEnd: int) => {
     // update the position of the goal
     let newStart = goal.start + deltaStart
     let newEnd = goal.end + deltaEnd
@@ -313,24 +340,24 @@ module Module: Module = {
     let isQuestionMark = newStart + 1 == newEnd
     let isQuestionMarkExpansion = wasQuestionMark && !isQuestionMark
 
-    let updatedGoal = if isQuestionMarkExpansion {
-      destroyGoal(self, goal)
-      InternalGoal.make(editor, newStart, newEnd, goal.index)
+    if isQuestionMarkExpansion {
+      removeGoal(self, goal)
+      insertGoal(self, newStart, newEnd, goal.index)
     } else {
-      {...goal, start: newStart, end: newEnd}
+      let updatedGoal = {...goal, start: newStart, end: newEnd}
+
+      // add the updated goal back to the positions tree
+      self.positions->AVLTree.insert(newStart, updatedGoal.index)
+
+      // update the goal in the goals map
+      self.goals->Map.set(updatedGoal.index, updatedGoal)
     }
-
-    // add the updated goal back to the positions tree
-    self.positions->AVLTree.insert(newStart, updatedGoal.index)
-
-    // update the goal in the goals map
-    self.goals->Map.set(updatedGoal.index, updatedGoal)
   }
 
-  let updateGoalPositionByIndex = (self, editor, index: index, deltaStart: int, deltaEnd: int) =>
+  let updateGoalPositionByIndex = (self, index: index, deltaStart: int, deltaEnd: int) =>
     switch getInternalGoalByIndex(self, index) {
     | None => () // goal not found, do nothing
-    | Some(goal) => updateGoalPosition(self, editor, goal, deltaStart, deltaEnd)
+    | Some(goal) => updateGoalPosition(self, goal, deltaStart, deltaEnd)
     }
 
   module States = {
@@ -501,7 +528,7 @@ module Module: Module = {
     }
   }
 
-  let checkAllParts = async (self, editor, changes) => {
+  let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
     let changes = changes->List.fromArray
 
@@ -642,10 +669,10 @@ module Module: Module = {
             "{!   !}",
           )
         | IsHole(Intact(a), Intact(b)) =>
-          updateGoalPositionByIndex(self, editor, index, a, b)
+          updateGoalPositionByIndex(self, index, a, b)
           None
         | IsHole(_) =>
-          destroyGoalByIndex(self, index)
+          removeGoalByIndex(self, index)
           None
         }
       })
@@ -659,8 +686,6 @@ module Module: Module = {
     }
   }
 
-  let scanAllGoals = checkAllParts
-
   // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
   // The indices are ordered by the start position of the goals.
   let resetGoalIndices = async (self, editor, indices) => {
@@ -672,10 +697,7 @@ module Module: Module = {
     ->Array.forEachWithIndex(((start, end), i) => {
       switch indices[i] {
       | None => ()
-      | Some(index) =>
-        let goal = InternalGoal.make(editor, start, end, index)
-        self.goals->Map.set(index, goal)
-        self.positions->AVLTree.insert(start, index)
+      | Some(index) => insertGoal(self, start, end, index)
       }
     })
 
