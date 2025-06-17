@@ -4,28 +4,28 @@ type t =
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
-  | SolveConstraints(Command.Normalization.t, Goal2.t)
+  | SolveConstraints(Command.Normalization.t, Goal.t)
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
   | SearchAbout(Command.Normalization.t, string)
-  | Give(Goal2.t)
-  | Refine(Goal2.t)
-  | ElaborateAndGive(Command.Normalization.t, string, Goal2.t)
-  | Auto(Command.Normalization.t, Goal2.t)
-  | Case(Goal2.t)
-  | HelperFunctionType(Command.Normalization.t, string, Goal2.t)
-  | InferType(Command.Normalization.t, string, Goal2.t)
+  | Give(Goal.t)
+  | Refine(Goal.t)
+  | ElaborateAndGive(Command.Normalization.t, string, Goal.t)
+  | Auto(Command.Normalization.t, Goal.t)
+  | Case(Goal.t)
+  | HelperFunctionType(Command.Normalization.t, string, Goal.t)
+  | InferType(Command.Normalization.t, string, Goal.t)
   | InferTypeGlobal(Command.Normalization.t, string)
-  | Context(Command.Normalization.t, Goal2.t)
-  | GoalType(Command.Normalization.t, Goal2.t)
-  | GoalTypeAndContext(Command.Normalization.t, Goal2.t)
-  | GoalTypeContextAndInferredType(Command.Normalization.t, string, Goal2.t)
-  | GoalTypeContextAndCheckedType(Command.Normalization.t, string, Goal2.t)
-  | ModuleContents(Command.Normalization.t, string, Goal2.t)
+  | Context(Command.Normalization.t, Goal.t)
+  | GoalType(Command.Normalization.t, Goal.t)
+  | GoalTypeAndContext(Command.Normalization.t, Goal.t)
+  | GoalTypeContextAndInferredType(Command.Normalization.t, string, Goal.t)
+  | GoalTypeContextAndCheckedType(Command.Normalization.t, string, Goal.t)
+  | ModuleContents(Command.Normalization.t, string, Goal.t)
   | ModuleContentsGlobal(Command.Normalization.t, string)
-  | ComputeNormalForm(Command.ComputeMode.t, string, Goal2.t)
+  | ComputeNormalForm(Command.ComputeMode.t, string, Goal.t)
   | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
-  | WhyInScope(string, Goal2.t)
+  | WhyInScope(string, Goal.t)
   | WhyInScopeGlobal(string)
 
 let toString = x =>
@@ -95,7 +95,7 @@ let encode = (
     "IOTCM \"" ++ (filepath ++ ("\" " ++ (level ++ (" " ++ highlightingMethod))))
   }
 
-  let buildRange = goal => Goal2.makeHaskellRange(goal, document, version, filepath)
+  let buildRange = goal => Goal.makeHaskellRange(goal, document, version, filepath)
 
   // assemble them
   switch request {
@@ -147,7 +147,7 @@ let encode = (
   // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
   | Give(goal) =>
     let range = buildRange(goal)
-    let content = Goal2.getContent(goal, document)->Parser.escape
+    let content = Goal.getContent(goal, document)->Parser.escape
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
           NonInteractive,
@@ -158,7 +158,7 @@ let encode = (
 
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal2.getContent(goal, document)->Parser.escape
+    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range: string = buildRange(goal)
     `${commonPart(NonInteractive)}( Cmd_refine_or_intro False ${index} ${range} "${content}" )`
 
@@ -174,7 +174,7 @@ let encode = (
   | Auto(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
     let index: string = string_of_int(goal.index)
-    let content: string = Goal2.getContent(goal, document)->Parser.escape
+    let content: string = Goal.getContent(goal, document)->Parser.escape
     let range: string = buildRange(goal)
 
     if Util.Version.gte(version, "2.7.0") {
@@ -190,7 +190,7 @@ let encode = (
 
   | Case(goal) =>
     let range = buildRange(goal)
-    let content = Goal2.getContent(goal, document)->Parser.escape
+    let content = Goal.getContent(goal, document)->Parser.escape
     `${commonPart(NonInteractive)}( Cmd_make_case ${goal.indexString} ${range} "${content}" )`
 
   | HelperFunctionType(normalization, expr, goal) =>

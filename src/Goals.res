@@ -15,12 +15,12 @@ module type Module = {
   // scan all goals and update their positions after document changes
   let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
 
-  let getGoalByIndex: (t, index) => option<Goal2.t>
+  let getGoalByIndex: (t, index) => option<Goal.t>
 
   let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
   let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
   // get the goal at the cursor position
-  let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<Goal2.t>
+  let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<Goal.t>
   let setCursorByIndex: (t, VSCode.TextEditor.t, int) => unit
 
   // jumping between goals
@@ -32,8 +32,8 @@ module type Module = {
   let waitUntilNotBusy: t => promise<unit>
 
   // keep track of the last case split goal
-  let markAsCaseSplited: (t, Goal2.t) => unit
-  let getRecentlyCaseSplited: t => option<Goal2.t>
+  let markAsCaseSplited: (t, Goal.t) => unit
+  let getRecentlyCaseSplited: t => option<Goal.t>
 
   // for testing
   let serialize: t => array<string>
@@ -43,7 +43,8 @@ module Module: Module = {
   type index = int
 
   // Internal representation of a goal in the editor
-  module Goal = {
+  // TODO: merge this with State.t below
+  module InternalGoal = {
     type index = int
     type t = {
       index: index,
@@ -117,11 +118,11 @@ module Module: Module = {
   }
 
   type t = {
-    mutable goals: Map.t<index, Goal.t>, // goal index => goal
+    mutable goals: Map.t<index, InternalGoal.t>, // goal index => goal
     mutable goalsWithoutIndices: Map.t<int, int>, // mapping of start position => end position, goals without indices
     mutable positions: AVLTree.t<index>, // start position => goal index
     mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
-    mutable recentlyCaseSplited: option<Goal2.t>, // keep track of the last case split goal, because it won't be available during the case split
+    mutable recentlyCaseSplited: option<Goal.t>, // keep track of the last case split goal, because it won't be available during the case split
     mutable goalPositionsFromRefine: array<int>, // positions of the goals from the refine result
   }
 
@@ -136,7 +137,7 @@ module Module: Module = {
     }
   }
 
-  let destroyGoal = (self, goal: Goal.t) => {
+  let destroyGoal = (self, goal: InternalGoal.t) => {
     // destroy the goal's decorations
     goal.decoration->Option.forEach(((background, index)) => {
       background->Editor.Decoration.destroy
@@ -155,7 +156,7 @@ module Module: Module = {
       ->Iterator.toArray
       ->Array.map(goal => {
         destroyGoal(self, goal)
-        Goal.make(editor, goal.start, goal.end, goal.index)
+        InternalGoal.make(editor, goal.start, goal.end, goal.index)
       })
     self.goals = Map.fromArray(newGoals->Array.map(goal => (goal.index, goal)))
   }
@@ -202,21 +203,21 @@ module Module: Module = {
     ->Map.values
     ->Iterator.toArray
     ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
-    ->Array.map(Goal.toString)
+    ->Array.map(InternalGoal.toString)
 
   let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
 
   let read = (goal, document) => {
-    let innerRange = Goal.makeInnerRange(goal, document)
+    let innerRange = InternalGoal.makeInnerRange(goal, document)
     Editor.Text.get(document, innerRange)->String.trim
   }
 
-  let getGoalByIndex = (self, index): option<Goal2.t> =>
+  let getGoalByIndex = (self, index): option<Goal.t> =>
     self.goals
     ->Map.get(index)
     ->Option.map(goal => {
       {
-        Goal2.index: goal.index,
+        Goal.index: goal.index,
         indexString: Int.toString(goal.index),
         start: goal.start,
         end: goal.end,
@@ -226,7 +227,7 @@ module Module: Module = {
   let modify = async (self, document, index, f) =>
     switch getInternalGoalByIndex(self, index) {
     | Some(goal) =>
-      let innerRange = Goal.makeInnerRange(goal, document)
+      let innerRange = InternalGoal.makeInnerRange(goal, document)
       let goalContent = read(goal, document)
       let _ = await Editor.Text.replace(document, innerRange, " " ++ f(goalContent) ++ " ")
     | None => ()
@@ -236,7 +237,7 @@ module Module: Module = {
     switch getInternalGoalByIndex(self, index) {
     | None => true
     | Some(goal) =>
-      let outerRange = Goal.makeOuterRange(goal, document)
+      let outerRange = InternalGoal.makeOuterRange(goal, document)
 
       let content = read(goal, document)
       if await Editor.Text.replace(document, outerRange, content) {
@@ -259,7 +260,7 @@ module Module: Module = {
       | Some(goal) =>
         if cursorOffset >= goal.start && cursorOffset < goal.end {
           Some({
-            Goal2.index: goal.index,
+            Goal.index: goal.index,
             indexString: Int.toString(goal.index),
             start: goal.start,
             end: goal.end,
@@ -279,7 +280,7 @@ module Module: Module = {
       let position = VSCode.TextDocument.positionAt(document, goal.start + 3)
       Editor.Cursor.set(editor, position)
       // scroll to that part of the document
-      let range = Goal.makeOuterRange(goal, document)
+      let range = InternalGoal.makeOuterRange(goal, document)
       editor->VSCode.TextEditor.revealRange(range, None)
     }
 
@@ -299,7 +300,7 @@ module Module: Module = {
     self.positions = AVLTree.make()
   }
 
-  let updateGoalPosition = (self, editor, goal: Goal.t, deltaStart: int, deltaEnd: int) => {
+  let updateGoalPosition = (self, editor, goal: InternalGoal.t, deltaStart: int, deltaEnd: int) => {
     // update the position of the goal
     let newStart = goal.start + deltaStart
     let newEnd = goal.end + deltaEnd
@@ -314,7 +315,7 @@ module Module: Module = {
 
     let updatedGoal = if isQuestionMarkExpansion {
       destroyGoal(self, goal)
-      Goal.make(editor, newStart, newEnd, goal.index)
+      InternalGoal.make(editor, newStart, newEnd, goal.index)
     } else {
       {...goal, start: newStart, end: newEnd}
     }
@@ -333,6 +334,7 @@ module Module: Module = {
     }
 
   module States = {
+    // TODO: merge this with InternalGoal.t above
     module State = {
       type boundary =
         | Damaged
@@ -444,7 +446,7 @@ module Module: Module = {
     | QuestionMark => "?"
     }
 
-  let goalToParts = (goal: Goal.t): array<(index, int, part)> => {
+  let goalToParts = (goal: InternalGoal.t): array<(index, int, part)> => {
     if goal.start + 1 == goal.end {
       [(goal.index, goal.start, QuestionMark)]
     } else {
@@ -671,7 +673,7 @@ module Module: Module = {
       switch indices[i] {
       | None => ()
       | Some(index) =>
-        let goal = Goal.make(editor, start, end, index)
+        let goal = InternalGoal.make(editor, start, end, index)
         self.goals->Map.set(index, goal)
         self.positions->AVLTree.insert(start, index)
       }
@@ -726,7 +728,7 @@ module Module: Module = {
     ->fst
   }
 
-  let jmupToGoal = (editor, goal: Goal.t) => {
+  let jmupToGoal = (editor, goal: InternalGoal.t) => {
     let document = VSCode.TextEditor.document(editor)
     let spaceInsideBoundaries = goal.end - goal.start - 4
     let offset = if spaceInsideBoundaries == 0 {
@@ -795,7 +797,7 @@ module Module: Module = {
   let getRecentlyCaseSplited = self =>
     self.recentlyCaseSplited->Option.map(goal => {
       {
-        Goal2.index: goal.index,
+        Goal.index: goal.index,
         indexString: Int.toString(goal.index),
         start: goal.start,
         end: goal.end,

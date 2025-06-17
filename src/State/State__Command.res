@@ -62,7 +62,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     switch state.goals2->Goals.getGoalAtCursor(state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      if Goal2.getContent(goal, state.document) == "" {
+      if Goal.getContent(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,
@@ -93,7 +93,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       switch Goals.getGoalAtCursor(state.goals2, state.editor) {
       | None => await State__View.Panel.displayOutOfGoalError(state)
       | Some(goal) =>
-        let expr = Goal2.getContent(goal, state.document)
+        let expr = Goal.getContent(goal, state.document)
         if expr == "" {
           await State__View.Panel.prompt(
             state,
@@ -129,7 +129,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       // remember that this goal is being case-split
       // because the information of this goal will not be available when handling the `MakeCase` response
       Goals.markAsCaseSplited(state.goals2, goal)
-      if Goal2.getContent(goal, state.document) == "" {
+      if Goal.getContent(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,
@@ -159,7 +159,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       switch Goals.getGoalAtCursor(state.goals2, state.editor) {
       | None => await State__View.Panel.displayOutOfGoalError(state)
       | Some(goal) =>
-        let expr = Goal2.getContent(goal, state.document)
+        let expr = Goal.getContent(goal, state.document)
         if expr == "" {
           await State__View.Panel.prompt(
             state,
@@ -191,7 +191,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)),
       )
     | Some(goal) =>
-      let expr = Goal2.getContent(goal, state.document)
+      let expr = Goal.getContent(goal, state.document)
       if expr == "" {
         await State__View.Panel.prompt(
           state,
@@ -226,7 +226,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      let expr = Goal2.getContent(goal, state.document)
+      let expr = Goal.getContent(goal, state.document)
       if expr == "" {
         // fallback to `GoalTypeAndContext` when there's no payload
         await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
@@ -239,7 +239,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     switch Goals.getGoalAtCursor(state.goals2, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      let expr = Goal2.getContent(goal, state.document)
+      let expr = Goal.getContent(goal, state.document)
       if expr == "" {
         await State__View.Panel.prompt(
           state,
@@ -270,7 +270,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)),
       )
     | Some(goal) =>
-      let expr = Goal2.getContent(goal, state.document)
+      let expr = Goal.getContent(goal, state.document)
       if expr == "" {
         await State__View.Panel.prompt(
           state,
@@ -301,7 +301,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)),
       )
     | Some(goal) =>
-      let expr = Goal2.getContent(goal, state.document)
+      let expr = Goal.getContent(goal, state.document)
       if expr == "" {
         await State__View.Panel.prompt(
           state,
@@ -332,7 +332,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         expr => sendAgdaRequest(WhyInScopeGlobal(expr)),
       )
     | Some(goal) =>
-      let expr = Goal2.getContent(goal, state.document)
+      let expr = Goal.getContent(goal, state.document)
       if expr == "" {
         await State__View.Panel.prompt(
           state,

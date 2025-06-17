@@ -154,7 +154,7 @@ let rec handle = async (
           await state.goals2->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
         | GiveNoParen => () // no need to modify the document
         | GiveString(content) =>
-          let (indentationWidth, _text, _) = Goal2.indentationWidth(goal, state.document)
+          let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
           // 1. ideally, we want to add "\t" or equivalent spaces based on
           //    "editor.tabSize" and "editor.insertSpaces"
           //    but we cannot load the "editor.tabSize" here
@@ -199,8 +199,8 @@ let rec handle = async (
         )
       | Some(goal) =>
         let result = switch makeCaseType {
-        | Function => await Goal2.replaceWithLines(goal, state.document, lines)
-        | ExtendedLambda => await Goal2.replaceWithLambda(goal, state.document, lines)
+        | Function => await Goal.replaceWithLines(goal, state.document, lines)
+        | ExtendedLambda => await Goal.replaceWithLambda(goal, state.document, lines)
         }
 
         switch result {
@@ -208,7 +208,7 @@ let rec handle = async (
           // destroy the old goal
           Goals.destroyGoalByIndex(state.goals2, goal.index)
           // locate the first new goal and place the cursor there
-          Goal2.placeCursorAtFirstNewGoal(state.editor, rangeToBeReplaced, indentedLines)
+          Goal.placeCursorAtFirstNewGoal(state.editor, rangeToBeReplaced, indentedLines)
         | None =>
           await State__View.Panel.display(
             state,

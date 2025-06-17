@@ -26,7 +26,7 @@ module Assult = {
 
   open FastCheck.Arbitrary
 
-  let arbitraryMoveAfter = (goals: array<Goal2.t>, after) => {
+  let arbitraryMoveAfter = (goals: array<Goal.t>, after) => {
     // return the gaps between the boundaries of the goals after the given offset
     let gapsBetweenBoundariesAfter =
       goals
@@ -79,7 +79,7 @@ module Assult = {
   }
 
   let arbitraryMoveWithGoals = () =>
-    Goal2.arbitraryBatch()->Derive.chain(goals =>
+    Goal.arbitraryBatch()->Derive.chain(goals =>
       arbitraryMoveAfter(goals, 0)->Derive.map(move => (goals, move))
     )
 }
