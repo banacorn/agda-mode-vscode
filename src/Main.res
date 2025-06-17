@@ -148,8 +148,8 @@ let initialize = (
 
 let registerDocumentSemanticTokensProvider = () => {
   // these two arrays are called "legends"
-  let tokenTypes = Highlighting.SemanticToken.TokenType.enumurate
-  let tokenModifiers = Highlighting.SemanticToken.TokenModifier.enumurate
+  let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
+  let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
     let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
@@ -166,10 +166,10 @@ let registerDocumentSemanticTokensProvider = () => {
       tokens->Array.forEach(({range, type_, modifiers}) => {
         SemanticTokensBuilder.pushLegend(
           builder,
-          Highlighting.SemanticToken.SingleLineRange.toVsCodeRange(range),
-          Highlighting.SemanticToken.TokenType.toString(type_),
+          Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
+          Highlighting__SemanticToken.TokenType.toString(type_),
           modifiers->Option.map(
-            xs => xs->Array.map(Highlighting.SemanticToken.TokenModifier.toString),
+            xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
           ),
         )
       })

@@ -2,7 +2,7 @@ module Module: {
   module Entry: {
     type t = {
       mutable state: option<State.t>,
-      semanticTokens: Resource.t<array<Highlighting.SemanticToken.t>>,
+      semanticTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     }
   }
 
@@ -15,10 +15,10 @@ module Module: {
   let removeAndDestroyAll: unit => promise<unit>
   let isEmpty: unit => bool
 
-  let requestSemanticTokens: string => promise<array<Highlighting.SemanticToken.t>>
+  let requestSemanticTokens: string => promise<array<Highlighting__SemanticToken.t>>
 } = {
   module Entry = {
-    type tokens = array<Highlighting.SemanticToken.t>
+    type tokens = array<Highlighting__SemanticToken.t>
 
     type t = {
       mutable state: option<State.t>,

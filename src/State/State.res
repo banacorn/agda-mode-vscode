@@ -78,7 +78,6 @@ type t = {
   // mutable goals: array<Goal.t>,
   tokens: Tokens.t,
   goals2: Goals.t,
-  mutable highlighting: Highlighting.t,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,
   promptIM: IM.t,
@@ -98,7 +97,7 @@ let make = (
   extensionPath,
   memento,
   editor,
-  semanticTokens: option<Resource.t<array<Highlighting.SemanticToken.t>>>,
+  semanticTokens: option<Resource.t<array<Highlighting__SemanticToken.t>>>,
 ) => {
   connection: None,
   agdaVersion: None,
@@ -109,7 +108,6 @@ let make = (
   // goals: [],
   goals2: Goals.make(),
   tokens: Tokens.make(semanticTokens),
-  highlighting: Highlighting.make(),
   cursor: None,
   editorIM: IM.make(channels.inputMethod),
   promptIM: IM.make(channels.inputMethod),
@@ -129,7 +127,6 @@ let destroy = async (state, alsoRemoveFromRegistry) => {
   }
   state.onRemoveFromRegistry->Chan.destroy
   state.goals2->Goals.destroy
-  state.highlighting->Highlighting.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   await state.connection->Connection.destroy
   // TODO: delete files in `.indirectHighlightingFileNames`

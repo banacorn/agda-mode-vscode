@@ -688,6 +688,7 @@ module type Module = {
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
+  let redecorate: (t, VSCode.TextEditor.t) => unit
 
   let toOriginalOffset: (t, int) => option<int>
 
@@ -755,6 +756,7 @@ module Module: Module = {
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
+    mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
     mutable holePositions: Resource.t<Map.t<int, int>>,
@@ -790,6 +792,7 @@ module Module: Module = {
     | None => Resource.make()
     | Some(resource) => resource
     },
+    decorations: [],
     holes: Map.make(),
     holePositions: Resource.make(),
   }
@@ -909,7 +912,7 @@ module Module: Module = {
   // }
 
   // Converts a list of Agda Aspects to a list of VSCode Tokens
-  let fromAspects = (editor, xs) => {
+  let convertFromAgdaAspectsAndApplyDecorations = (editor, xs) => {
     let (semanticTokens, decorations) =
       xs
       ->Array.filterMap(((aspects, range)) => {
@@ -937,52 +940,10 @@ module Module: Module = {
       })
       ->Belt.Array.unzip
     let semanticTokens = semanticTokens->Array.filterMap(x => x)
-    let decorations = decorations->Array.flat->Highlighting__Decoration.toVSCodeDecorations(editor)
+    let decorations = decorations->Array.flat->Highlighting__Decoration.apply(editor)
 
     (decorations, semanticTokens)
   }
-
-  // for the new semantic highlighting
-  // let toDecorationsAndSemanticTokens = (tokens, editor) => {
-  //   let holes = []
-
-  //   let xs =
-  //     tokens
-  //     ->toArray
-  //     ->Array.map(((info: Token.t, offset, range)) => {
-  //       // if the token is a Hole, then we collect it in the holes array
-  //       if info.aspects->Array.some(x => x == Aspect.Hole) {
-  //         holes->Array.push((info, offset, range))
-  //       }
-  //       // split the range in case that it spans multiple lines
-  //       let ranges = Highlighting__SemanticToken.SingleLineRange.splitRange(
-  //         VSCode.TextEditor.document(editor),
-  //         range,
-  //       )
-  //       ranges->Array.map(range => (info.aspects, range))
-  //     })
-  //     ->Array.flat
-
-  //   Js.log("holes: " ++ holes->Array.map(((token, _, _)) => Token.toString(token))->Array.join(", "))
-
-  //   fromAspects(editor, xs)
-  // }
-
-  // for traditional fixed-color highlighting
-  // let toDecorations = (self, editor): array<(Editor.Decoration.t, array<VSCode.Range.t>)> => {
-  //   let aspects: array<(Aspect.t, VSCode.Range.t)> =
-  //     self
-  //     ->toArray
-  //     ->Array.map(((info, offset, range)) =>
-  //       // pair the aspect with the range
-  //       info.aspects->Array.map(aspect => (aspect, range))
-  //     )
-  //     ->Array.flat
-
-  //   aspects
-  //   ->Array.filterMap(((aspect, range)) => Aspect.toDecoration(aspect)->Option.map(x => (x, range)))
-  //   ->Highlighting__Decoration.toVSCodeDecorations(editor)
-  // }
 
   type action = Remove | Translate(int)
 
@@ -1059,12 +1020,20 @@ module Module: Module = {
       ([], Map.make()),
     )
 
-    let (decorations, semanticTokens) = fromAspects(editor, aspects)
+    let (decorations, semanticTokens) = convertFromAgdaAspectsAndApplyDecorations(editor, aspects)
 
     // set the highlighting
     self.vscodeTokens->Resource.set(semanticTokens)
+    self.decorations = decorations
     // set the holes positions
     self.holePositions->Resource.set(holePositions)
+  }
+
+  let redecorate = (self, editor) => {
+    // re-decorate the editor with the new decorations
+    self.decorations->Array.forEach(((decoration, ranges)) => {
+      Editor.Decoration.decorate(editor, decoration, ranges)
+    })
   }
 
   // Update the deltas and generate new tokens
