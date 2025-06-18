@@ -291,7 +291,7 @@ module Module: Module = {
       switch self.goals->Map.get(index) {
       | None => None // no goal found
       | Some(goal) =>
-        if cursorOffset >= goal.start && cursorOffset < goal.end {
+        if cursorOffset >= goal.start && cursorOffset <= goal.end {
           Some({
             Goal.index: goal.index,
             indexString: Int.toString(goal.index),

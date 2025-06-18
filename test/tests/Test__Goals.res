@@ -91,191 +91,287 @@ describe("Goals", () => {
   Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
   Async.after(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
 
-  Async.it("should instantiate all 5 goals with question marks expanded to holes", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
-    )
-
-    // compare file content before and after
-    await ctx->AgdaMode.quit
-    let actual = await File.read(Path.asset("Goals.agda"))
-    let expected = await File.read(Path.asset("Goals.agda.out"))
-    Assert.deepStrictEqual(actual, expected)
-  })
-
-  Async.it("should translate goals on an insertion immediately before a goal", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 18), " ")
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [119-126)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
-    )
-
-    await ctx->AgdaMode.quit
-  })
-
-  Async.it("should translate goals on an insertion immediately after a goal", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 25), " ")
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
-    )
-
-    await ctx->AgdaMode.quit
-  })
-
-  Async.it("should destroy a goal after it has been completely deleted", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.delete(
-      ctx.state.document,
-      VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
-    )
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#3 [164-171)", "#4 [172-176)"],
-    )
-    await ctx->AgdaMode.quit
-  })
-
-  Async.it("should destroy a goal after it has been completely replaced 1", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.replace(
-      ctx.state.document,
-      VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
-      "       ",
-    )
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#3 [171-178)", "#4 [179-183)"],
-    )
-    await ctx->AgdaMode.quit
-  })
-
-  Async.it("should destroy a goal after it has been completely replaced 2", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.replace(
-      ctx.state.document,
-      VSCode.Range.make(VSCode.Position.make(10, 17), VSCode.Position.make(10, 26)),
-      "::DD",
-    )
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#4 [174-178)"],
-    )
-    await ctx->AgdaMode.quit
-  })
-
-  Async.it("should only resize a goal after its content has been edited", async () => {
-    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-    let _ = await Editor.Text.replace(
-      ctx.state.document,
-      VSCode.Range.make(VSCode.Position.make(9, 22), VSCode.Position.make(9, 23)),
-      ":D",
-    )
-
-    // check the positions of the goals
-    Assert.deepStrictEqual(
-      Goals.serialize(ctx.state.goals2),
-      ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-179)", "#4 [180-184)"],
-    )
-    await ctx->AgdaMode.quit
-  })
-
-  describe_skip("Restore hole damaged boundaries", () => {
+  describe("Handle `onDidChangeTextDocument`", () => {
     Async.it(
-      "should protect against a backspace on the right boundary",
+      "should instantiate all 5 goals with question marks expanded to holes",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
+        )
+
+        // compare file content before and after
+        await ctx->AgdaMode.quit
+        let actual = await File.read(Path.asset("Goals.agda"))
+        let expected = await File.read(Path.asset("Goals.agda.out"))
+        Assert.deepStrictEqual(actual, expected)
+      },
+    )
+
+    Async.it(
+      "should translate goals on an insertion immediately before a goal",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 18), " ")
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [119-126)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
+        )
+
+        await ctx->AgdaMode.quit
+      },
+    )
+
+    Async.it(
+      "should translate goals on an insertion immediately after a goal",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 25), " ")
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [118-125)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
+        )
+
+        await ctx->AgdaMode.quit
+      },
+    )
+
+    Async.it(
+      "should destroy a goal after it has been completely deleted",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.delete(
           ctx.state.document,
-          VSCode.Range.make(VSCode.Position.make(9, 25), VSCode.Position.make(9, 26)),
+          VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
         )
-        await ctx->AgdaMode.quit
-
-        // check the file content
-        let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
-        let actual = Editor.Text.get(ctx.state.document, range)
-        Assert.deepStrictEqual(actual, "{!   !}")
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+          ["#0 [92-99)", "#1 [118-125)", "#3 [164-171)", "#4 [172-176)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+
+    Async.it(
+      "should destroy a goal after it has been completely replaced 1",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let _ = await Editor.Text.replace(
+          ctx.state.document,
+          VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
+          "       ",
+        )
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [118-125)", "#3 [171-178)", "#4 [179-183)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+
+    Async.it(
+      "should destroy a goal after it has been completely replaced 2",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let _ = await Editor.Text.replace(
+          ctx.state.document,
+          VSCode.Range.make(VSCode.Position.make(10, 17), VSCode.Position.make(10, 26)),
+          "::DD",
+        )
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#4 [174-178)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+
+    Async.it(
+      "should only resize a goal after its content has been edited",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let _ = await Editor.Text.replace(
+          ctx.state.document,
+          VSCode.Range.make(VSCode.Position.make(9, 22), VSCode.Position.make(9, 23)),
+          ":D",
+        )
+
+        // check the positions of the goals
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals2),
+          ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-179)", "#4 [180-184)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+
+    describe_skip(
+      "Restore hole damaged boundaries",
+      () => {
+        Async.it(
+          "should protect against a backspace on the right boundary",
+          async () => {
+            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let _ = await Editor.Text.delete(
+              ctx.state.document,
+              VSCode.Range.make(VSCode.Position.make(9, 25), VSCode.Position.make(9, 26)),
+            )
+            await ctx->AgdaMode.quit
+
+            // check the file content
+            let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
+            let actual = Editor.Text.get(ctx.state.document, range)
+            Assert.deepStrictEqual(actual, "{!   !}")
+            // check the positions of the goals
+            Assert.deepStrictEqual(
+              Goals.serialize(ctx.state.goals2),
+              ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+            )
+          },
+        )
+
+        Async.it(
+          "should protect against a deletion on the right boundary",
+          async () => {
+            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let _ = await Editor.Text.delete(
+              ctx.state.document,
+              VSCode.Range.make(VSCode.Position.make(9, 24), VSCode.Position.make(9, 25)),
+            )
+            await ctx->AgdaMode.quit
+
+            // check the file content
+            let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
+            let actual = Editor.Text.get(ctx.state.document, range)
+            Assert.deepStrictEqual(actual, "{!   !}")
+            // check the positions of the goals
+            Assert.deepStrictEqual(
+              Goals.serialize(ctx.state.goals2),
+              ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+            )
+          },
+        )
+
+        Async.it(
+          "should protect against a backspace on the left boundary",
+          async () => {
+            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let _ = await Editor.Text.delete(
+              ctx.state.document,
+              VSCode.Range.make(VSCode.Position.make(9, 20), VSCode.Position.make(9, 21)),
+            )
+            await ctx->AgdaMode.quit
+
+            // check the file content
+            let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
+            let actual = Editor.Text.get(ctx.state.document, range)
+            Assert.deepStrictEqual(actual, "{!   !}")
+            // check the positions of the goals
+            Assert.deepStrictEqual(
+              Goals.serialize(ctx.state.goals2),
+              ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+            )
+          },
+        )
+
+        Async.it(
+          "should protect against a deletion on the left boundary",
+          async () => {
+            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let _ = await Editor.Text.delete(
+              ctx.state.document,
+              VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 20)),
+            )
+            await ctx->AgdaMode.quit
+
+            // check the file content
+            let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
+            let actual = Editor.Text.get(ctx.state.document, range)
+            Assert.deepStrictEqual(actual, "{!   !}")
+            // check the positions of the goals
+            Assert.deepStrictEqual(
+              Goals.serialize(ctx.state.goals2),
+              ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+            )
+          },
+        )
+      },
+    )
+  })
+
+  describe("`getGoalAtCursor`", () => {
+    Async.it(
+      "should return `None` when the cursor is not in a hole",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(0, 0))
+
+        let actual = ctx.state.goals2->Goals.getGoalAtCursor(ctx.state.editor)
+        Assert.deepStrictEqual(actual, None)
+      },
+    )
+
+    Async.it(
+      "should return the goal when the cursor is inside a hole",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 14))
+
+        let actual = ctx.state.goals2->Goals.getGoalAtCursor(ctx.state.editor)
+        Assert.deepStrictEqual(
+          actual,
+          Some({
+            index: 0,
+            indexString: "0",
+            start: 92,
+            end: 99,
+          }),
         )
       },
     )
 
     Async.it(
-      "should protect against a deletion on the right boundary",
+      "should return the goal when the cursor is immediately before a hole",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-        let _ = await Editor.Text.delete(
-          ctx.state.document,
-          VSCode.Range.make(VSCode.Position.make(9, 24), VSCode.Position.make(9, 25)),
-        )
-        await ctx->AgdaMode.quit
+        ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 11))
 
-        // check the file content
-        let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
-        let actual = Editor.Text.get(ctx.state.document, range)
-        Assert.deepStrictEqual(actual, "{!   !}")
-        // check the positions of the goals
+        let actual = ctx.state.goals2->Goals.getGoalAtCursor(ctx.state.editor)
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+          actual,
+          Some({
+            index: 0,
+            indexString: "0",
+            start: 92,
+            end: 99,
+          }),
         )
       },
     )
 
     Async.it(
-      "should protect against a backspace on the left boundary",
+      "should return the goal when the cursor is immediately after a hole",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-        let _ = await Editor.Text.delete(
-          ctx.state.document,
-          VSCode.Range.make(VSCode.Position.make(9, 20), VSCode.Position.make(9, 21)),
-        )
-        await ctx->AgdaMode.quit
+        ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 18))
 
-        // check the file content
-        let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
-        let actual = Editor.Text.get(ctx.state.document, range)
-        Assert.deepStrictEqual(actual, "{!   !}")
-        // check the positions of the goals
+        let actual = ctx.state.goals2->Goals.getGoalAtCursor(ctx.state.editor)
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
-        )
-      },
-    )
-
-    Async.it(
-      "should protect against a deletion on the left boundary",
-      async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-        let _ = await Editor.Text.delete(
-          ctx.state.document,
-          VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 20)),
-        )
-        await ctx->AgdaMode.quit
-
-        // check the file content
-        let range = VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26))
-        let actual = Editor.Text.get(ctx.state.document, range)
-        Assert.deepStrictEqual(actual, "{!   !}")
-        // check the positions of the goals
-        Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals2),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
+          actual,
+          Some({
+            index: 0,
+            indexString: "0",
+            start: 92,
+            end: 99,
+          }),
         )
       },
     )
