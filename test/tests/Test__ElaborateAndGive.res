@@ -14,7 +14,7 @@ let run = normalization => {
       ~cursor=VSCode.Position.make(7, 14),
       ~payload="y",
     )
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 1)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 1)
 
     await ctx->AgdaMode.quit
     let actual = await File.read(Path.asset("Give.agda"))

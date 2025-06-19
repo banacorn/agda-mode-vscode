@@ -122,7 +122,7 @@ let initialize = (
       ->Array.map(Tokens.Change.fromTextDocumentContentChangeEvent)
       ->Array.toReversed
     if Array.length(changes) != 0 {
-      state.goals2->Goals.scanAllGoals(editor, changes)->Promise.done
+      state.goals->Goals.scanAllGoals(editor, changes)->Promise.done
     }
 
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done

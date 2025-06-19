@@ -83,24 +83,24 @@ describe("agda-mode.case", () => {
   Async.it("should handle both MakeCase::ExtendedLambda and MakeCase::Function", async () => {
     let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
     // 6 goals before case splitting
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 6)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 6)
 
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(8, 11), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 7)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 7)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(13, 16), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 8)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 8)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(18, 11), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 9)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 9)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(23, 20), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 10)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 10)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(28, 9), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 11)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 11)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(32, 21), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 12)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 12)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(9, 13), ~payload="y")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 13)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 13)
     await AgdaMode.case(ctx, ~cursor=VSCode.Position.make(15, 20), ~payload="x")
-    Assert.deepStrictEqual(ctx.state.goals2->Goals.size, 14)
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 14)
 
     // compare file content before and after
     let actual = await File.read(Path.asset("CaseSplit.agda"))

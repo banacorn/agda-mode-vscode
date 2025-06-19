@@ -138,10 +138,10 @@ let rec handle = async (
       }
     | InteractionPoints(indices) =>
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
-      state.goals2->Goals.addGoalPositions(Map.entries(holePositions)->Iterator.toArray)
-      await state.goals2->Goals.resetGoalIndices(state.editor, indices)
+      state.goals->Goals.addGoalPositions(Map.entries(holePositions)->Iterator.toArray)
+      await state.goals->Goals.resetGoalIndices(state.editor, indices)
     | GiveAction(index, give) =>
-      switch Goals.getGoalByIndex(state.goals2, index) {
+      switch Goals.getGoalByIndex(state.goals, index) {
       | None =>
         await State__View.Panel.display(
           state,
@@ -151,7 +151,7 @@ let rec handle = async (
       | Some(goal) =>
         switch give {
         | GiveParen =>
-          await state.goals2->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
+          await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
         | GiveNoParen => () // no need to modify the document
         | GiveString(content) =>
           let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
@@ -166,19 +166,19 @@ let rec handle = async (
           let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
 
           // modify the document
-          await state.goals2->Goals.modify(state.document, index, _ => indented)
+          await state.goals->Goals.modify(state.document, index, _ => indented)
 
           // add goal positions
           let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(indented)
-          let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals2, index) {
+          let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
           | None => [] // should not happen
           | Some((offset, _)) =>
             goalPositionsRelative->Array.map(((start, end)) => (start + offset, end + offset))
           }
-          state.goals2->Goals.addGoalPositions(goalPositionsAbsolute)
+          state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
         }
 
-        if await Goals.removeBoundaryAndDestroy(state.goals2, state.document, index) {
+        if await Goals.removeBoundaryAndDestroy(state.goals, state.document, index) {
           ()
         } else {
           await State__View.Panel.display(
@@ -190,7 +190,7 @@ let rec handle = async (
       }
     | MakeCase(makeCaseType, lines) =>
       // the information about the goal being split is not available at this point of time
-      switch state.goals2->Goals.getRecentlyCaseSplited {
+      switch state.goals->Goals.getRecentlyCaseSplited {
       | None =>
         await State__View.Panel.display(
           state,
@@ -206,7 +206,7 @@ let rec handle = async (
         switch result {
         | Some(rangeToBeReplaced, indentedLines) =>
           // destroy the old goal
-          Goals.removeGoalByIndex(state.goals2, goal.index)
+          Goals.removeGoalByIndex(state.goals, goal.index)
           // locate the first new goal and place the cursor there
           Goal.placeCursorAtFirstNewGoal(state.editor, rangeToBeReplaced, indentedLines)
         | None =>
@@ -220,11 +220,11 @@ let rec handle = async (
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
-        switch Goals.getGoalByIndex(state.goals2, index) {
+        switch Goals.getGoalByIndex(state.goals, index) {
         | None => ()
         | Some(goal) =>
           // modify the goal content
-          await Goals.modify(state.goals2, state.document, index, _ => solution)
+          await Goals.modify(state.goals, state.document, index, _ => solution)
           // send the give request to Agda
           await sendAgdaRequest(Give(goal))
         }

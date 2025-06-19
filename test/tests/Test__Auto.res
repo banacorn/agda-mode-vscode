@@ -5,7 +5,7 @@ let run = normalization => {
   Async.it("should be responded with correct responses 1", async () => {
     let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
-    let responses = switch Goals.getGoalByIndex(ctx.state.goals2, 0) {
+    let responses = switch Goals.getGoalByIndex(ctx.state.goals, 0) {
     | Some(goal) =>
       await ctx.state->State__Connection.sendRequestAndCollectResponses(
         Request.Auto(normalization, goal),
@@ -39,7 +39,7 @@ let run = normalization => {
   Async.it("should be responded with correct responses 2", async () => {
     let ctx = await AgdaMode.makeAndLoad("Auto.agda")
 
-    let responses = switch Goals.getGoalByIndex(ctx.state.goals2, 1) {
+    let responses = switch Goals.getGoalByIndex(ctx.state.goals, 1) {
     | Some(goal) =>
       await ctx.state->State__Connection.sendRequestAndCollectResponses(
         Request.Auto(normalization, goal),

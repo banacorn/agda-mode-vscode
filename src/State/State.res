@@ -77,7 +77,7 @@ type t = {
   mutable runningInfoLog: array<(int, string)>,
   // mutable goals: array<Goal.t>,
   tokens: Tokens.t,
-  goals2: Goals.t,
+  goals: Goals.t,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,
   promptIM: IM.t,
@@ -106,7 +106,7 @@ let make = (
   panelCache: ViewCache.make(),
   runningInfoLog: [],
   // goals: [],
-  goals2: Goals.make(),
+  goals: Goals.make(),
   tokens: Tokens.make(semanticTokens),
   cursor: None,
   editorIM: IM.make(channels.inputMethod),
@@ -121,12 +121,12 @@ let make = (
 
 // construction/destruction
 let destroy = async (state, alsoRemoveFromRegistry) => {
-  await state.goals2->Goals.waitUntilNotBusy
+  await state.goals->Goals.waitUntilNotBusy
   if alsoRemoveFromRegistry {
     state.onRemoveFromRegistry->Chan.emit()
   }
   state.onRemoveFromRegistry->Chan.destroy
-  state.goals2->Goals.destroy
+  state.goals->Goals.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
   await state.connection->Connection.destroy
   // TODO: delete files in `.indirectHighlightingFileNames`
