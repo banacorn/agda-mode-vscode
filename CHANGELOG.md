@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agda-mode.module-contents`
     - `agda-mode.why-in-scope`
 
+### Fixed
+- #211: Nested comments confuse the parser
+
 ## v0.5.6 - 2025-04-23
 
 ### Added

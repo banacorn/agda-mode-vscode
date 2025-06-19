@@ -442,4 +442,21 @@ describe("Goals", () => {
       },
     )
   })
+
+  describe("Issue #211", () => {
+    Async.it(
+      "should create a hole on the second line instead of the first line",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Issue211.agda")
+
+        // check the goal positions
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals),
+          ["#0 [106-113)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+  })
+
 })
