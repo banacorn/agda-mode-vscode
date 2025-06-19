@@ -5,7 +5,7 @@ open Tokens
 
 describe("Tokens", () => {
   This.timeout(10000)
-  describe("GotoDefinition.agda", () => {
+  describe("Token generation", () => {
     Async.it(
       "should produce 28 tokens",
       async () => {
@@ -85,6 +85,31 @@ describe("Tokens", () => {
             "6:8-15 (92, 99) [Hole]",
           ],
         )
+      },
+    )
+  })
+
+  describe("`goToDefinition`", () => {
+    Async.it(
+      "should return the position of the definition",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Lib.agda")
+        let filepath = ctx.state.document->VSCode.TextDocument.fileName
+        let position = VSCode.Position.make(12, 27)
+
+        switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(filepath, position) {
+        | None => raise(Failure("No definition found for the given position"))
+        | Some(thunk) =>
+          let actual = await thunk
+          let expected = [
+            (
+              VSCode.Range.make(VSCode.Position.make(12, 26), VSCode.Position.make(12, 27)),
+              filepath,
+              VSCode.Position.make(12, 22),
+            ),
+          ]
+          Assert.deepStrictEqual(actual, expected)
+        }
       },
     )
   })

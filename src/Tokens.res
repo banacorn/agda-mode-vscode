@@ -674,16 +674,14 @@ module type Module = {
 
   let toArray: t => array<Token.t<vscodeOffset>>
 
-  // let lookupSrcLoc: (
-  //   t,
-  //   int,
-  // ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
-
-  // let toDecorations: (t, VSCode.TextEditor.t) => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
-  // let toDecorationsAndSemanticTokens: (
-  //   t,
-  //   VSCode.TextEditor.t,
-  // ) => (array<(Editor.Decoration.t, array<VSCode.Range.t>)>, array<Highlighting__SemanticToken.t>)
+  // definition provider for go-to-definition
+  let goToDefinition: (
+    t,
+    VSCode.TextDocument.t,
+  ) => (
+    string,
+    VSCode.Position.t,
+  ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
 
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting: (t, VSCode.TextEditor.t) => unit
@@ -892,24 +890,42 @@ module Module: Module = {
   let toArray = self => self.agdaTokens->AVLTree.toArray
 
   // for goto definition
-  // let lookupSrcLoc = (self, offset): option<
-  //   promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
-  // > => {
-  //   self.agdaTokens
-  //   ->AVLTree.lowerBound(offset)
-  //   ->Option.flatMap(((info, offset)) =>
-  //     info.source->Option.map(((filepath, offset)) => (filepath, offset))
-  //   )
-  //   ->Option.map(((filepath, offset)) => {
-  //     VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
-  //       let text = Editor.Text.getAll(document)
-  //       let offsetConverter = Agda.OffsetConverter.make(text)
-  //       let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
-  //       let position = VSCode.TextDocument.positionAt(document, offset)
-  //       [(range, filepath, position)]
-  //     })
-  //   })
-  // }
+  let lookupSrcLoc = (self, document, offset): option<
+    promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
+  > => {
+    self.agdaTokens
+    ->AVLTree.lowerBound(offset)
+    ->Option.flatMap(token => {
+      let srcRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, token.start),
+        VSCode.TextDocument.positionAt(document, token.end),
+      )
+      token.source->Option.map(((filepath, offset)) => (srcRange, filepath, offset))
+    })
+    ->Option.map(((srcRange, filepath, offset)) => {
+      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
+        let text = Editor.Text.getAll(document)
+        let offsetConverter = Agda.OffsetConverter.make(text)
+        let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
+        let position = VSCode.TextDocument.positionAt(document, offset)
+        [(srcRange, filepath, position)]
+      })
+    })
+  }
+
+  // definition provider for go-to-definition
+  let goToDefinition = (self, document) => (fileName, position) => {
+    // only provide source location, when the filename matched
+    let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
+    let normalizedFileName = Parser.filepath(fileName)
+    let offset = VSCode.TextDocument.offsetAt(document, position)
+
+    if normalizedFileName == currentFileName {
+      self->lookupSrcLoc(document, offset)
+    } else {
+      None
+    }
+  }
 
   // Converts a list of Agda Aspects to a list of VSCode Tokens
   let convertFromAgdaAspectsAndApplyDecorations = (editor, xs) => {
