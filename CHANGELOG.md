@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - #211: Nested comments confuse the parser
+- #214: Too permissible hole matching in literate markdown files
 
 ## v0.5.6 - 2025-04-23
 

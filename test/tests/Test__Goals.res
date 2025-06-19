@@ -10,20 +10,6 @@ module Assult = {
     | Move(change) => "Move(" ++ Tokens.Change.toString(change) ++ ")"
     }
 
-  // let toChange = assult =>
-  //   switch assult {
-  //   | Move(offset, delta) => {
-  //         offset: offset,
-  //         removed: int, // length of the removed text
-  //         inserted: int, // length of the inserted text
-  //       }
-  //   }
-  //     // Tokens.Change.make(
-  //     //   VSCode.Range.make(VSCode.Position.make(0, offset), VSCode.Position.make(0, offset + 1)),
-  //     //   String.repeat(" ", delta),
-  //     // )
-  //   }
-
   open FastCheck.Arbitrary
 
   let arbitraryMoveAfter = (goals: array<Goal.t>, after) => {
@@ -453,6 +439,22 @@ describe("Goals", () => {
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
           ["#0 [106-113)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+  })
+
+  describe("Issue #214", () => {
+    Async.it(
+      "should not create a hole in non-Agda code blocks",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Issue214.lagda.md")
+
+        // check the goal positions
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals),
+          ["#0 [121-127)"],
         )
         await ctx->AgdaMode.quit
       },
