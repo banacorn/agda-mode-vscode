@@ -19,10 +19,10 @@ describe("Path Searching", () => {
   //       switch await Resolver.search(FromFile("temp"), ~timeout=1000) {
   //       | Error(err) => Exn.raiseError(Resolver.Error.toString(err))
   //       | Ok(ViaPipe(command, args, options, source)) =>
-  //         Assert.deepEqual(command, "temp")
-  //         Assert.deepEqual(args, [])
-  //         Assert.deepEqual(options, None)
-  //         Assert.deepEqual(source, FromFile("temp"))
+  //         Assert.deepStrictEqual(command, "temp")
+  //         Assert.deepStrictEqual(args, [])
+  //         Assert.deepStrictEqual(options, None)
+  //         Assert.deepStrictEqual(source, FromFile("temp"))
   //       | Ok(ViaTCP(_)) => Exn.raiseError("Expected ViaCommand")
   //       }
   //     },
@@ -32,7 +32,7 @@ describe("Path Searching", () => {
   //     "for file that doesn't exist",
   //     async () => {
   //       switch await Resolver.search(FromFile("temp-non-existing"), ~timeout=1000) {
-  //       | Error(error) => Assert.deepEqual(error, File("temp-non-existing"))
+  //       | Error(error) => Assert.deepStrictEqual(error, File("temp-non-existing"))
   //       | Ok(ViaPipe(_)) => Exn.raiseError("Expected Error")
   //       | Ok(ViaTCP(_)) => Exn.raiseError("Expected Error")
   //       }
@@ -58,10 +58,10 @@ describe("Path Searching", () => {
   //         | Ok(path) => path
   //         }
 
-  //         Assert.deepEqual(command, path)
-  //         Assert.deepEqual(args, [])
-  //         Assert.deepEqual(options, None)
-  //         Assert.deepEqual(source, FromCommand("which"))
+  //         Assert.deepStrictEqual(command, path)
+  //         Assert.deepStrictEqual(args, [])
+  //         Assert.deepStrictEqual(options, None)
+  //         Assert.deepStrictEqual(source, FromCommand("which"))
   //       | Ok(ViaTCP(_)) => Exn.raiseError("Expected ViaCommand")
   //       }
   //     },
@@ -71,7 +71,7 @@ describe("Path Searching", () => {
   //     "for command that doesn't exist",
   //     async () => {
   //       switch await Resolver.search(FromCommand("temp-non-existing")) {
-  //       | Error(error) => Assert.deepEqual(error, Command("temp-non-existing", NotFound))
+  //       | Error(error) => Assert.deepStrictEqual(error, Command("temp-non-existing", NotFound))
   //       | Ok(ViaPipe(_)) => Exn.raiseError("Expected Error")
   //       | Ok(ViaTCP(_)) => Exn.raiseError("Expected Error")
   //       }
@@ -102,9 +102,9 @@ describe("Path Searching", () => {
   //       | Error(err) => Exn.raiseError(Resolver.Error.toString(err))
   //       | Ok(ViaPipe(_)) => Exn.raiseError("Expected ViaTCP")
   //       | Ok(ViaTCP(url, source)) =>
-  //         Assert.deepEqual(url.port, 23456)
-  //         Assert.deepEqual(url.hostname, "localhost")
-  //         Assert.deepEqual(source, FromTCP(NodeJs.Url.make("lsp://localhost:23456")))
+  //         Assert.deepStrictEqual(url.port, 23456)
+  //         Assert.deepStrictEqual(url.hostname, "localhost")
+  //         Assert.deepStrictEqual(source, FromTCP(NodeJs.Url.make("lsp://localhost:23456")))
   //       }
   //     },
   //   )
@@ -117,9 +117,9 @@ describe("Path Searching", () => {
   //         ~timeout=5000,
   //       ) {
   //       | Error(TCP(url, error)) =>
-  //         Assert.deepEqual(url.port, 23457)
-  //         Assert.deepEqual(url.hostname, "localhost")
-  //         Assert.deepEqual(Resolver.TCP.Error.toString(error), "AggregateError")
+  //         Assert.deepStrictEqual(url.port, 23457)
+  //         Assert.deepStrictEqual(url.hostname, "localhost")
+  //         Assert.deepStrictEqual(Resolver.TCP.Error.toString(error), "AggregateError")
   //       | Error(_) => raise(Failure("Expecting TCP-related error"))
   //       | Ok(ViaPipe(_)) => Exn.raiseError("Expecting Error")
   //       | Ok(ViaTCP(_)) => Exn.raiseError("Expecting Error")
@@ -135,23 +135,23 @@ describe("Path Searching", () => {
   //         ~timeout=5000,
   //       ) {
   //       | Error(TCP(url, error)) =>
-  //         Assert.deepEqual(url.port, 23458)
-  //         Assert.deepEqual(url.hostname, "remotehost")
+  //         Assert.deepStrictEqual(url.port, 23458)
+  //         Assert.deepStrictEqual(url.hostname, "remotehost")
   //         let result = await Resolver.GitHub.Platform.determine()
   //         switch result["os"] {
   //         | "darwin" =>
-  //           Assert.deepEqual(
+  //           Assert.deepStrictEqual(
   //             Resolver.TCP.Error.toString(error),
   //             "Error: getaddrinfo ENOTFOUND remotehost",
   //           )
   //         | "win32" =>
-  //           Assert.deepEqual(
+  //           Assert.deepStrictEqual(
   //             Resolver.TCP.Error.toString(error),
   //             "Error: getaddrinfo ENOTFOUND remotehost",
   //           )
   //         | "linux" =>
   //           if result["dist"] == "Ubuntu" {
-  //             Assert.deepEqual(
+  //             Assert.deepStrictEqual(
   //               Resolver.TCP.Error.toString(error),
   //               "Error: getaddrinfo EAI_AGAIN remotehost",
   //             )
@@ -253,24 +253,24 @@ describe("Path Searching", () => {
   //         }
 
   //         // `command` should be the path to the download directory + "/als"
-  //         Assert.deepEqual(command, NodeJs.Path.join2(downloadDir, "als"))
+  //         Assert.deepStrictEqual(command, NodeJs.Path.join2(downloadDir, "als"))
   //         // no arguments supplied in this test case
-  //         Assert.deepEqual(args, [])
+  //         Assert.deepStrictEqual(args, [])
   //         // `options` should include "Agda_datadir" in the environment variable
   //         let expectedOptions = Some({
   //           Connection__Target__ALS__LSP__Binding.env: Dict.fromArray([
   //             ("Agda_datadir", NodeJs.Path.join2(downloadDir, "data")),
   //           ]),
   //         })
-  //         Assert.deepEqual(options, expectedOptions)
+  //         Assert.deepStrictEqual(options, expectedOptions)
 
   //         switch source {
   //         | FromGitHub(repo, release, _) =>
-  //           Assert.deepEqual(repo.username, "agda")
-  //           Assert.deepEqual(repo.repository, "agda-language-server")
-  //           Assert.deepEqual(repo.userAgent, "agda/agda-mode-vscode")
-  //           Assert.deepEqual(repo.globalStoragePath, "./")
-  //           Assert.deepEqual(release.tag_name, "v0.2.6.4.0.3")
+  //           Assert.deepStrictEqual(repo.username, "agda")
+  //           Assert.deepStrictEqual(repo.repository, "agda-language-server")
+  //           Assert.deepStrictEqual(repo.userAgent, "agda/agda-mode-vscode")
+  //           Assert.deepStrictEqual(repo.globalStoragePath, "./")
+  //           Assert.deepStrictEqual(release.tag_name, "v0.2.6.4.0.3")
   //         | _ => Exn.raiseError("Expected FromGitHub")
   //         }
 
@@ -293,24 +293,24 @@ describe("Path Searching", () => {
   //         }
 
   //         // `command` should be the path to the download directory + "/als"
-  //         Assert.deepEqual(command, NodeJs.Path.join2(downloadDir, "als"))
+  //         Assert.deepStrictEqual(command, NodeJs.Path.join2(downloadDir, "als"))
   //         // no arguments supplied in this test case
-  //         Assert.deepEqual(args, [])
+  //         Assert.deepStrictEqual(args, [])
   //         // `options` should include "Agda_datadir" in the environment variable
   //         let expectedOptions = Some({
   //           Connection__Target__ALS__LSP__Binding.env: Dict.fromArray([
   //             ("Agda_datadir", NodeJs.Path.join2(downloadDir, "data")),
   //           ]),
   //         })
-  //         Assert.deepEqual(options, expectedOptions)
+  //         Assert.deepStrictEqual(options, expectedOptions)
 
   //         switch source {
   //         | FromGitHub(repo, release, _) =>
-  //           Assert.deepEqual(repo.username, "agda")
-  //           Assert.deepEqual(repo.repository, "agda-language-server")
-  //           Assert.deepEqual(repo.userAgent, "agda/agda-mode-vscode")
-  //           Assert.deepEqual(repo.globalStoragePath, "./")
-  //           Assert.deepEqual(release.tag_name, "v0.2.6.4.0.3")
+  //           Assert.deepStrictEqual(repo.username, "agda")
+  //           Assert.deepStrictEqual(repo.repository, "agda-language-server")
+  //           Assert.deepStrictEqual(repo.userAgent, "agda/agda-mode-vscode")
+  //           Assert.deepStrictEqual(repo.globalStoragePath, "./")
+  //           Assert.deepStrictEqual(release.tag_name, "v0.2.6.4.0.3")
   //         | _ => Exn.raiseError("Expected FromGitHub")
   //         }
 

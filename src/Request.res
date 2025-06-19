@@ -95,7 +95,7 @@ let encode = (
     "IOTCM \"" ++ (filepath ++ ("\" " ++ (level ++ (" " ++ highlightingMethod))))
   }
 
-  let buildRange = goal => Goal.buildHaskellRange(goal, document, version, filepath)
+  let buildRange = goal => Goal.makeHaskellRange(goal, document, version, filepath)
 
   // assemble them
   switch request {
@@ -121,9 +121,7 @@ let encode = (
 
   | SolveConstraints(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
-    let index = string_of_int(goal.index)
-
-    `${commonPart(NonInteractive)}( Cmd_solveOne ${normalization} ${index} noRange "" )`
+    `${commonPart(NonInteractive)}( Cmd_solveOne ${normalization} ${goal.indexString} noRange "" )`
 
   | SolveConstraintsGlobal(normalization) =>
     let normalization = Command.Normalization.encode(normalization)
@@ -148,13 +146,14 @@ let encode = (
   // https://github.com/agda/agda/issues/2730
   // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
   | Give(goal) =>
-    let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
-    let range: string = buildRange(goal)
+    let range = buildRange(goal)
+    let content = Goal.getContent(goal, document)->Parser.escape
     if Util.Version.gte(version, "2.5.3") {
-      `${commonPart(NonInteractive)}( Cmd_give WithoutForce ${index} ${range} "${content}" )`
+      `${commonPart(
+          NonInteractive,
+        )}( Cmd_give WithoutForce ${goal.indexString} ${range} "${content}" )`
     } else {
-      `${commonPart(NonInteractive)}( Cmd_give ${index} ${range} "${content}" )`
+      `${commonPart(NonInteractive)}( Cmd_give ${goal.indexString} ${range} "${content}" )`
     }
 
   | Refine(goal) =>
@@ -181,22 +180,18 @@ let encode = (
     if Util.Version.gte(version, "2.7.0") {
       // after 2.7.0
       `${commonPart(NonInteractive)}( Cmd_autoOne ${normalization} ${index} ${range} "${content}" )`
+    } else if Util.Version.gte(version, "2.6.0.1") {
+      // after 2.6.0.1
+      `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
     } else {
-      if Util.Version.gte(version, "2.6.0.1") {
-        // after 2.6.0.1
-        `${commonPart(NonInteractive)}( Cmd_autoOne ${index} ${range} "${content}" )`
-      } else {
-        // the old way
-        `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
-      }
+      // the old way
+      `${commonPart(NonInteractive)}( Cmd_auto ${index} ${range} "${content}" )`
     }
 
-
   | Case(goal) =>
-    let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
-    let range: string = buildRange(goal)
-    `${commonPart(NonInteractive)}( Cmd_make_case ${index} ${range} "${content}" )`
+    let range = buildRange(goal)
+    let content = Goal.getContent(goal, document)->Parser.escape
+    `${commonPart(NonInteractive)}( Cmd_make_case ${goal.indexString} ${range} "${content}" )`
 
   | HelperFunctionType(normalization, expr, goal) =>
     let index = string_of_int(goal.index)

@@ -120,7 +120,7 @@ module DisplayInfo = {
 
 type t =
   // agda2-highlight-add-annotations
-  | HighlightingInfoDirect(bool, array<Tokens.Token.t>)
+  | HighlightingInfoDirect(bool, array<Tokens.Token.t<Tokens.agdaOffset>>)
   // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
   | HighlightingInfoIndirectJSON(filepath)

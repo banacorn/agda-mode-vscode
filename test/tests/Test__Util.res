@@ -329,7 +329,7 @@ module AgdaMode = {
     mutable state: State.t,
   }
 
-  let makeAndLoad = async (filepath) => {
+  let makeAndLoad = async filepath => {
     let filepath = Path.asset(filepath)
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
@@ -344,7 +344,6 @@ module AgdaMode = {
           resolve()
         }
       })
-
       let _ = await File.open_(filepath) // need to open the file first somehow
       switch await executeCommand("agda-mode.load") {
       | None => raise(Failure("Cannot load " ++ filepath))
@@ -368,19 +367,19 @@ module AgdaMode = {
     }
   }
 
-  let case = async (self, cursorAndPayload) => {
+  let quit = async (self: t) => {
+    await Registry.removeAndDestroy(self.filepath)
+  }
+
+  let case = async (self, ~cursor, ~payload) => {
     let editor = await File.open_(self.filepath)
 
     // set cursor and insert the target for case splitting
-    switch cursorAndPayload {
-    | None => ()
-    | Some(cursor, payload) =>
-      let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
-      if !succeed {
-        raise(Failure("Failed to insert text"))
-      }
-      Editor.Cursor.set(editor, cursor)
+    let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
+    if !succeed {
+      raise(Failure("Failed to insert text"))
     }
+    Editor.Cursor.set(editor, cursor)
 
     // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
     // listen to the `agda-mode.load` command to know when the whole case split process is done
@@ -408,9 +407,36 @@ module AgdaMode = {
     }
   }
 
-  let refine = async (self, ~cursor=?, ~payload=?) => {
+  let execute = async (self, command) => {
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let destructor = self.state.channels.commandHandled->Chan.on(handledCommand => {
+      if handledCommand == command {
+        resolve()
+      }
+    })
+
+    switch await executeCommand("agda-mode." ++ Command.toKeybinding(command)) {
+    | None =>
+      raise(
+        Failure("Cannot execute command " ++ Command.toString(command) ++ " in " ++ self.filepath),
+      )
+    | Some(Ok(state)) =>
+      // wait for the  command to be handled
+      await promise
+      // stop listening to commands
+      destructor()
+
+      // update the context with the new state
+      self.state = state
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+  }
+
+  let execute = async (self, command, ~cursor=?, ~payload=?) => {
     let editor = await File.open_(self.filepath)
-    // edit the file
+    // set the cursor and insert the payload
     switch cursor {
     | None => ()
     | Some(cursor) =>
@@ -421,34 +447,12 @@ module AgdaMode = {
       }
       Editor.Cursor.set(editor, cursor)
     }
-
-    switch await executeCommand("agda-mode.refine") {
-    | None => raise(Failure("Cannot case refine " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
+    // execute the command
+    await execute(self, command)
   }
 
-  let solveConstraints = async (self, normalization, ~cursor=?) => {
-    let editor = await File.open_(self.filepath)
-    // set cursor
-    switch cursor {
-    | None => ()
-    | Some(cursor) => Editor.Cursor.set(editor, cursor)
-    }
-
-    switch await executeCommand(
-      "agda-mode.solve-constraints[" ++ Command.Normalization.encode(normalization) ++ "]",
-    ) {
-    | None => raise(Failure("Cannot case solve constraints " ++ self.filepath))
-    | Some(Ok(state)) => self.state = state
-    | Some(Error(error)) =>
-      let (header, body) = Connection.Error.toString(error)
-      raise(Failure(header ++ "\n" ++ body))
-    }
-  }
+  let nextGoal = execute(_, NextGoal)
+  let previousGoal = execute(_, PreviousGoal)
 }
 
 // helper function for filtering out Highlighting & RunningInfo related responses
@@ -458,6 +462,7 @@ let filteredResponse = response =>
   | Response.ClearRunningInfo => false
   | ClearHighlighting => false
   | HighlightingInfoIndirect(_) => false
+  | HighlightingInfoDirect(_) => false
   | CompleteHighlightingAndMakePromptReappear => false
   // status & running info
   | Status(_, _) => false

@@ -8,7 +8,8 @@ type t = {
   dark: face,
 }
 
-let toVSCodeDecorations = (input: array<(t, VSCode.Range.t)>, editor: VSCode.TextEditor.t): array<(
+// Returns instances for later destruction
+let apply = (input: array<(t, VSCode.Range.t)>, editor: VSCode.TextEditor.t): array<(
   Editor.Decoration.t,
   array<VSCode.Range.t>,
 )> => {

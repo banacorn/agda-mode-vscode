@@ -10,19 +10,19 @@ describe("Highlighting", () => {
     let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
     let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(6, 0), "\n")
 
-    open Highlighting__SemanticToken
     let expected = [
-      make(7, (0, 3), Function, Some([])),
-      make(7, (6, 7), Type, Some([])),
-      make(7, (10, 11), Type, Some([])),
-      make(7, (14, 15), Type, Some([])),
-      make(8, (0, 1), Variable, Some([])),
-      make(8, (2, 3), Function, Some([])),
-      make(8, (4, 5), Variable, Some([])),
+      "(7:0-3) function",
+      "(7:6-7) type",
+      "(7:10-11) type",
+      "(7:14-15) type",
+      "(8:0-1) variable",
+      "(8:2-3) function",
+      "(8:4-5) variable",
     ]
 
-    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
-    let actual = tokens->Array.sliceToEnd(~start=12)
+    let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+    let actual =
+      tokens->Array.sliceToEnd(~start=12)->Array.map(Highlighting__SemanticToken.toString)
 
     Assert.deepStrictEqual(actual, expected)
   })
@@ -35,18 +35,18 @@ describe("Highlighting", () => {
       VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(6, 0)),
     )
 
-    open Highlighting__SemanticToken
     let expected = [
-      make(5, (0, 3), Function, Some([])),
-      make(5, (6, 7), Type, Some([])),
-      make(5, (10, 11), Type, Some([])),
-      make(5, (14, 15), Type, Some([])),
-      make(6, (0, 1), Variable, Some([])),
-      make(6, (2, 3), Function, Some([])),
-      make(6, (4, 5), Variable, Some([])),
+      "(5:0-3) function",
+      "(5:6-7) type",
+      "(5:10-11) type",
+      "(5:14-15) type",
+      "(6:0-1) variable",
+      "(6:2-3) function",
+      "(6:4-5) variable",
     ]
-    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
-    let actual = tokens->Array.sliceToEnd(~start=12)
+    let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+    let actual =
+      tokens->Array.sliceToEnd(~start=12)->Array.map(Highlighting__SemanticToken.toString)
 
     Assert.deepStrictEqual(actual, expected)
   })
@@ -59,14 +59,10 @@ describe("Highlighting", () => {
       VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(7, 0)),
     )
 
-    open Highlighting__SemanticToken
-    let expected = [
-      make(5, (0, 1), Variable, Some([])),
-      make(5, (2, 3), Function, Some([])),
-      make(5, (4, 5), Variable, Some([])),
-    ]
-    let tokens = await ctx.state.highlighting->Highlighting.getSemanticTokens->Resource.get
-    let actual = tokens->Array.sliceToEnd(~start=12)
+    let expected = ["(5:0-1) variable", "(5:2-3) function", "(5:4-5) variable"]
+    let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+    let actual =
+      tokens->Array.sliceToEnd(~start=12)->Array.map(Highlighting__SemanticToken.toString)
 
     Assert.deepStrictEqual(actual, expected)
   })

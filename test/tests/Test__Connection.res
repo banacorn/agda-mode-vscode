@@ -15,7 +15,7 @@ describe("Connection", () => {
       async () => {
         let actual = Connection__URI.parse("lsp://path/to/als")
         let expected = Connection__URI.URL(NodeJs.Url.make("lsp://path/to/als"))
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -28,7 +28,7 @@ describe("Connection", () => {
         } else {
           Connection__URI.Filepath("path\\to\\als")
         }
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -42,7 +42,7 @@ describe("Connection", () => {
           Connection__URI.Filepath("c:\\path\\to\\agda")
         }
 
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
 
         let actual = Connection__URI.parse("/d/path/to/agda")
         let expected = if OS.onUnix {
@@ -51,7 +51,7 @@ describe("Connection", () => {
           Connection__URI.Filepath("d:\\path\\to\\agda")
         }
 
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
   })
@@ -90,7 +90,7 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = Ok(agdaMockTarget)
 
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -126,7 +126,7 @@ describe("Connection", () => {
           ])
         }
 
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -169,7 +169,7 @@ describe("Connection", () => {
           ])
         }
 
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -194,7 +194,7 @@ describe("Connection", () => {
         let actual = await Connection__Target.getPicked(memento, paths)
         let expected = Ok(agdaMockTarget)
 
-        Assert.deepEqual(actual, expected)
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -278,7 +278,7 @@ describe("Connection", () => {
 
         let expected = await getAgdaTarget()
 
-        Assert.deepEqual(result, Ok(expected))
+        Assert.deepStrictEqual(result, Ok(expected))
       },
     )
 
@@ -292,7 +292,7 @@ describe("Connection", () => {
 
         let expected = await getAgdaTarget()
 
-        Assert.deepEqual(result, Ok(expected))
+        Assert.deepStrictEqual(result, Ok(expected))
       },
     )
 
@@ -309,7 +309,7 @@ describe("Connection", () => {
         let commands = ["non-existent-command", "agda", "als"]
         let result = await Connection.fromPathsAndCommands(memento, paths, commands)
 
-        Assert.deepEqual(result, Ok(agdaTarget))
+        Assert.deepStrictEqual(result, Ok(agdaTarget))
       },
     )
 
@@ -337,7 +337,7 @@ describe("Connection", () => {
           commands: [Connection__Command.Error.NotFound("non-existent-command")],
         }
 
-        Assert.deepEqual(result, Error(expected))
+        Assert.deepStrictEqual(result, Error(expected))
       },
     )
   })
@@ -404,10 +404,10 @@ describe("Connection", () => {
           downloadLatestALS,
         )
 
-        Assert.deepEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
+        Assert.deepStrictEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
 
         // should not ask the user for download policy
-        Assert.deepEqual(getDownloadPolicyCount.contents, 0)
+        Assert.deepStrictEqual(getDownloadPolicyCount.contents, 0)
       },
     )
 
@@ -438,10 +438,10 @@ describe("Connection", () => {
           downloadLatestALS,
         )
 
-        Assert.deepEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
+        Assert.deepStrictEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
 
         // should not ask the user for download policy
-        Assert.deepEqual(getDownloadPolicyCount.contents, 0)
+        Assert.deepStrictEqual(getDownloadPolicyCount.contents, 0)
       },
     )
 
@@ -467,13 +467,13 @@ describe("Connection", () => {
           alreadyDownloaded,
           downloadLatestALS,
         )
-        Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
+        Assert.deepStrictEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
 
         let policy = Config.Connection.DownloadPolicy.get()
-        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
 
         // should not ask the user for download policy
-        Assert.deepEqual(getDownloadPolicyCount.contents, 0)
+        Assert.deepStrictEqual(getDownloadPolicyCount.contents, 0)
       },
     )
 
@@ -499,13 +499,13 @@ describe("Connection", () => {
           alreadyDownloaded,
           downloadLatestALS,
         )
-        Assert.deepEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
+        Assert.deepStrictEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
 
         let policy = Config.Connection.DownloadPolicy.get()
-        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.No)
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
 
         // should ask the user for download policy exactly once
-        Assert.deepEqual(getDownloadPolicyCount.contents, 1)
+        Assert.deepStrictEqual(getDownloadPolicyCount.contents, 1)
       },
     )
 
@@ -537,11 +537,11 @@ describe("Connection", () => {
           alreadyDownloaded,
           downloadLatestALS,
         )
-        Assert.deepEqual(checkedCache.contents, true)
-        Assert.deepEqual(result, Ok(target))
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        Assert.deepStrictEqual(result, Ok(target))
 
         let policy = Config.Connection.DownloadPolicy.get()
-        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
 
         let paths = Config.Connection.getAgdaPaths()->Array.map(Connection.URI.toString)
         Assert.ok(
@@ -581,12 +581,12 @@ describe("Connection", () => {
           alreadyDownloaded,
           downloadLatestALS,
         )
-        Assert.deepEqual(checkedCache.contents, true)
-        Assert.deepEqual(checkedDownload.contents, true)
-        Assert.deepEqual(result, Ok(target))
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        Assert.deepStrictEqual(checkedDownload.contents, true)
+        Assert.deepStrictEqual(result, Ok(target))
 
         let policy = Config.Connection.DownloadPolicy.get()
-        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
 
         let paths = Config.Connection.getAgdaPaths()->Array.map(Connection.URI.toString)
         Assert.ok(
@@ -620,9 +620,9 @@ describe("Connection", () => {
           alreadyDownloaded,
           downloadLatestALS,
         )
-        Assert.deepEqual(checkedCache.contents, true)
-        Assert.deepEqual(checkedDownload.contents, true)
-        Assert.deepEqual(
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        Assert.deepStrictEqual(checkedDownload.contents, true)
+        Assert.deepStrictEqual(
           result,
           Error(
             Aggregated(
@@ -632,7 +632,7 @@ describe("Connection", () => {
         )
 
         let policy = Config.Connection.DownloadPolicy.get()
-        Assert.deepEqual(policy, Config.Connection.DownloadPolicy.Yes)
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
       },
     )
   })

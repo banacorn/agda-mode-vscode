@@ -6,7 +6,7 @@ let run = normalization => {
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Issue204.agda"))))
   Async.afterEach(async () => await File.write(Path.asset("Issue204.agda"), fileContent.contents))
 
-  Async.it("should be responded with the correct responses", async () => {
+  Async.it("should be responded with correct responses", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue204.agda")
 
     let responses =
@@ -15,17 +15,20 @@ let run = normalization => {
       )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepEqual(filteredResponses, [InteractionPoints([0, 1]), SolveAll([(0, "4"), (1, "4")])])
+    Assert.deepStrictEqual(
+      filteredResponses,
+      [InteractionPoints([0, 1]), SolveAll([(0, "4"), (1, "4")])],
+    )
   })
 
   Async.it("should solve all goals", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue204.agda")
-    await AgdaMode.solveConstraints(ctx, normalization)
-    Assert.deepEqual(ctx.state.goals->Array.length, 0)
+    await AgdaMode.execute(ctx, SolveConstraints(normalization))
+    Assert.deepStrictEqual(ctx.state.goals->Goals.size, 0)
 
     let actual = await File.read(Path.asset("Issue204.agda"))
     let expected = await File.read(Path.asset("Issue204.agda.out"))
-    Assert.equal(actual, expected)
+    Assert.deepStrictEqual(actual, expected)
   })
 }
 

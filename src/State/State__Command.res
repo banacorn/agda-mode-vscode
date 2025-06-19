@@ -24,28 +24,33 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
     let _ = await VSCode.Window.showTextDocumentWithShowOptions(state.document, options)
     await sendAgdaRequest(Load)
-  | Quit => ()
+  | Quit =>
+    let _ = await State.destroy(state, true)
   | Restart =>
     // clear the RunningInfo log
     state.runningInfoLog = []
     await dispatchCommand(Load)
   | Refresh =>
-    state.highlighting->Highlighting.redecorate(state.editor)
     State__View.Panel.restore(state)
-    State__Goal.redecorate(state)
+    Goals.redecorate(state.goals)
+    Tokens.redecorate(state.tokens, state.editor)
     await State__View.DebugBuffer.restore(state)
   | Compile => await sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => await sendAgdaRequest(ToggleDisplayOfImplicitArguments)
   | ToggleDisplayOfIrrelevantArguments => await sendAgdaRequest(ToggleDisplayOfIrrelevantArguments)
   | ShowConstraints => await sendAgdaRequest(ShowConstraints)
   | SolveConstraints(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch state.goals->Goals.getGoalAtCursor(state.editor) {
     | None => await sendAgdaRequest(SolveConstraintsGlobal(normalization))
-    | Some((goal, _)) => await sendAgdaRequest(SolveConstraints(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(SolveConstraints(normalization, goal))
     }
   | ShowGoals(normalization) => await sendAgdaRequest(ShowGoals(normalization))
-  | NextGoal => State__Goal.next(state)
-  | PreviousGoal => State__Goal.previous(state)
+  | NextGoal =>
+    state.goals->Goals.jmupToTheNextGoal(state.editor)
+    state.channels.commandHandled->Chan.emit(NextGoal)
+  | PreviousGoal =>
+    state.goals->Goals.jmupToThePreviousGoal(state.editor)
+    state.channels.commandHandled->Chan.emit(PreviousGoal)
   | SearchAbout(normalization) =>
     await State__View.Panel.prompt(
       state,
@@ -54,66 +59,77 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       expr => sendAgdaRequest(SearchAbout(normalization, expr)),
     )
   | Give =>
-    switch State__Goal.pointed(state) {
+    switch state.goals->Goals.getGoalAtCursor(state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder: Some("expression to give:"),
-          value: None,
-        },
-        async expr =>
-          if expr == "" {
-            await sendAgdaRequest(Give(goal))
-          } else {
-            await State__Goal.modify(state, goal, _ => expr)
-            await sendAgdaRequest(Give(goal))
-          },
-      )
-    | Some((goal, _)) => await sendAgdaRequest(Give(goal))
-    }
-  | Refine =>
-    switch State__Goal.pointed(state) {
-    | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(Refine(goal))
-    }
-  | ElaborateAndGive(normalization) => {
-      let placeholder = Some("expression to elaborate and give:")
-      switch State__Goal.pointed(state) {
-      | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, "")) =>
+    | Some(goal) =>
+      if Goal.getContent(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,
           {
             body: None,
-            placeholder,
+            placeholder: Some("expression to give:"),
             value: None,
           },
           async expr =>
             if expr == "" {
-              await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+              await sendAgdaRequest(Give(goal))
             } else {
-              await State__Goal.modify(state, goal, _ => expr)
-              await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+              await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+              await sendAgdaRequest(Give(goal))
             },
         )
-      | Some((goal, expr)) => await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+      } else {
+        await sendAgdaRequest(Give(goal))
+      }
+    }
+  | Refine =>
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
+    | None => await State__View.Panel.displayOutOfGoalError(state)
+    | Some(goal) => await sendAgdaRequest(Refine(goal))
+    }
+  | ElaborateAndGive(normalization) => {
+      let placeholder = Some("expression to elaborate and give:")
+      switch Goals.getGoalAtCursor(state.goals, state.editor) {
+      | None => await State__View.Panel.displayOutOfGoalError(state)
+      | Some(goal) =>
+        let expr = Goal.getContent(goal, state.document)
+        if expr == "" {
+          await State__View.Panel.prompt(
+            state,
+            header,
+            {
+              body: None,
+              placeholder,
+              value: None,
+            },
+            async expr =>
+              if expr == "" {
+                await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+              } else {
+                await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+                await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+              },
+          )
+        } else {
+          await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
+        }
       }
     }
   | Auto(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(Auto(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(Auto(normalization, goal))
     }
-  | Case => {
-      let placeholder = Some("variable(s) to case split:")
-      switch State__Goal.pointed(state) {
-      | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, "")) =>
+  | Case =>
+    let placeholder = Some("variable(s) to case split:")
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
+    | None => await State__View.Panel.displayOutOfGoalError(state)
+    | Some(goal) =>
+      // remember that this goal is being case-split
+      // because the information of this goal will not be available when handling the `MakeCase` response
+      Goals.markAsCaseSplited(state.goals, goal)
+      if Goal.getContent(goal, state.document) == "" {
         await State__View.Panel.prompt(
           state,
           header,
@@ -129,34 +145,40 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               await sendAgdaRequest(Case(goal))
             } else {
               // place the queried expression in the goal
-              await State__Goal.modify(state, goal, _ => expr)
+              await state.goals->Goals.modify(state.document, goal.index, _ => expr)
               await sendAgdaRequest(Case(goal))
             },
         )
-      | Some((goal, _)) => await sendAgdaRequest(Case(goal))
+      } else {
+        await sendAgdaRequest(Case(goal))
       }
     }
+
   | HelperFunctionType(normalization) => {
       let placeholder = Some("expression:")
-      switch State__Goal.pointed(state) {
+      switch Goals.getGoalAtCursor(state.goals, state.editor) {
       | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, "")) =>
-        await State__View.Panel.prompt(
-          state,
-          header,
-          {
-            body: None,
-            placeholder,
-            value: None,
-          },
-          expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
-        )
-      | Some((goal, expr)) => await sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
+      | Some(goal) =>
+        let expr = Goal.getContent(goal, state.document)
+        if expr == "" {
+          await State__View.Panel.prompt(
+            state,
+            header,
+            {
+              body: None,
+              placeholder,
+              value: None,
+            },
+            expr => sendAgdaRequest(HelperFunctionType(normalization, expr, goal)),
+          )
+        } else {
+          await sendAgdaRequest(HelperFunctionType(normalization, expr, goal))
+        }
       }
     }
   | InferType(normalization) =>
     let placeholder = Some("expression to infer:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None =>
       await State__View.Panel.prompt(
         state,
@@ -168,64 +190,74 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         },
         expr => sendAgdaRequest(InferTypeGlobal(normalization, expr)),
       )
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(InferType(normalization, expr, goal)),
-      )
-    | Some((goal, expr)) => await sendAgdaRequest(InferType(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(InferType(normalization, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(InferType(normalization, expr, goal))
+      }
     }
   | Context(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(Context(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(Context(normalization, goal))
     }
   | GoalType(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(GoalType(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(GoalType(normalization, goal))
     }
   | GoalTypeAndContext(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, _)) => await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
+    | Some(goal) => await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
     }
   | GoalTypeContextAndInferredType(normalization) =>
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, "")) =>
-      // fallback to `GoalTypeAndContext` when there's no content
-      await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
-    | Some((goal, expr)) =>
-      await sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal.getContent(goal, state.document)
+      if expr == "" {
+        // fallback to `GoalTypeAndContext` when there's no payload
+        await sendAgdaRequest(GoalTypeAndContext(normalization, goal))
+      } else {
+        await sendAgdaRequest(GoalTypeContextAndInferredType(normalization, expr, goal))
+      }
     }
   | GoalTypeContextAndCheckedType(normalization) =>
     let placeholder = Some("expression to type:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
-      )
-    | Some((goal, expr)) =>
-      await sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(GoalTypeContextAndCheckedType(normalization, expr, goal))
+      }
     }
   | ModuleContents(normalization) =>
     let placeholder = Some("module name:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None =>
       await State__View.Panel.prompt(
         state,
@@ -237,22 +269,26 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         },
         expr => sendAgdaRequest(ModuleContentsGlobal(normalization, expr)),
       )
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
-      )
-    | Some((goal, expr)) => await sendAgdaRequest(ModuleContents(normalization, expr, goal))
+    | Some(goal) =>
+      let expr = Goal.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(ModuleContents(normalization, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(ModuleContents(normalization, expr, goal))
+      }
     }
   | ComputeNormalForm(computeMode) =>
     let placeholder = Some("expression to normalize:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None =>
       await State__View.Panel.prompt(
         state,
@@ -264,22 +300,26 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         },
         expr => sendAgdaRequest(ComputeNormalFormGlobal(computeMode, expr)),
       )
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
-      )
-    | Some((goal, expr)) => await sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal))
+    | Some(goal) =>
+      let expr = Goal.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(ComputeNormalForm(computeMode, expr, goal))
+      }
     }
   | WhyInScope =>
     let placeholder = Some("name:")
-    switch State__Goal.pointed(state) {
+    switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None =>
       await State__View.Panel.prompt(
         state,
@@ -291,18 +331,22 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         },
         expr => sendAgdaRequest(WhyInScopeGlobal(expr)),
       )
-    | Some((goal, "")) =>
-      await State__View.Panel.prompt(
-        state,
-        header,
-        {
-          body: None,
-          placeholder,
-          value: None,
-        },
-        expr => sendAgdaRequest(WhyInScope(expr, goal)),
-      )
-    | Some((goal, expr)) => await sendAgdaRequest(WhyInScope(expr, goal))
+    | Some(goal) =>
+      let expr = Goal.getContent(goal, state.document)
+      if expr == "" {
+        await State__View.Panel.prompt(
+          state,
+          header,
+          {
+            body: None,
+            placeholder,
+            value: None,
+          },
+          expr => sendAgdaRequest(WhyInScope(expr, goal)),
+        )
+      } else {
+        await sendAgdaRequest(WhyInScope(expr, goal))
+      }
     }
   | SwitchAgdaVersion => await State__SwitchVersion.run(state)
   | EventFromView(event) =>
@@ -366,12 +410,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
             state.editor->VSCode.TextEditor.revealRange(range, None)
           })
         }
-      | Hole(index) =>
-        let goal = state.goals->Array.find((goal: Goal.t) => goal.index == index)
-        switch goal {
-        | None => ()
-        | Some(goal) => Goal.setCursor(goal, state.editor)
-        }
+      | Hole(index) => Goals.setCursorByIndex(state.goals, state.editor, index)
       }
     }
   | Escape =>

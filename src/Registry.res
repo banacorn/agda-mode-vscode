@@ -2,7 +2,7 @@ module Module: {
   module Entry: {
     type t = {
       mutable state: option<State.t>,
-      semanticTokens: Resource.t<array<Highlighting.SemanticToken.t>>,
+      semanticTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     }
   }
 
@@ -15,10 +15,10 @@ module Module: {
   let removeAndDestroyAll: unit => promise<unit>
   let isEmpty: unit => bool
 
-  let requestSemanticTokens: string => promise<array<Highlighting.SemanticToken.t>>
+  let requestSemanticTokens: string => promise<array<Highlighting__SemanticToken.t>>
 } = {
   module Entry = {
-    type tokens = array<Highlighting.SemanticToken.t>
+    type tokens = array<Highlighting__SemanticToken.t>
 
     type t = {
       mutable state: option<State.t>,
@@ -30,10 +30,10 @@ module Module: {
       switch state {
       | None => {state: None, semanticTokens: Resource.make()}
       | Some(state: State.t) =>
-        let semanticTokens = state.highlighting->Highlighting.getSemanticTokens
+        let semanticTokens = state.tokens->Tokens.getVSCodeTokens
         {
           state: Some(state),
-          semanticTokens, 
+          semanticTokens,
         }
       }
   }
@@ -56,8 +56,7 @@ module Module: {
     | Some(entry) =>
       switch entry.state {
       | Some(state) => entry.state = Some(state) // update the state
-      | None =>
-        dict->Dict.set(fileName, Entry.make(Some(state)))
+      | None => dict->Dict.set(fileName, Entry.make(Some(state)))
       }
     }
 
@@ -69,7 +68,11 @@ module Module: {
     | None => ()
     | Some(entry) =>
       remove(fileName)
-      entry.state->Option.forEach(state => State.destroy(state, false)->ignore)
+      switch entry.state {
+      | None => ()
+      | Some(state) =>
+        let _ = await State.destroy(state, false)
+      }
     }
 
   let removeAndDestroyAll = async () => {

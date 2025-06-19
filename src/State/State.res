@@ -75,9 +75,9 @@ type t = {
   // view
   panelCache: ViewCache.t,
   mutable runningInfoLog: array<(int, string)>,
-  mutable goals: array<Goal.t>,
+  // mutable goals: array<Goal.t>,
   tokens: Tokens.t,
-  mutable highlighting: Highlighting.t,
+  goals: Goals.t,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,
   promptIM: IM.t,
@@ -91,16 +91,23 @@ type t = {
   channels: channels,
 }
 
-let make = (channels, globalStorageUri, extensionPath, memento, editor, semanticTokens: option<Resource.t<array<Highlighting.SemanticToken.t>>>) => {
+let make = (
+  channels,
+  globalStorageUri,
+  extensionPath,
+  memento,
+  editor,
+  semanticTokens: option<Resource.t<array<Highlighting__SemanticToken.t>>>,
+) => {
   connection: None,
   agdaVersion: None,
   editor,
   document: VSCode.TextEditor.document(editor),
   panelCache: ViewCache.make(),
   runningInfoLog: [],
-  goals: [],
-  tokens: Tokens.make(),
-  highlighting: Highlighting.make(semanticTokens),
+  // goals: [],
+  goals: Goals.make(),
+  tokens: Tokens.make(semanticTokens),
   cursor: None,
   editorIM: IM.make(channels.inputMethod),
   promptIM: IM.make(channels.inputMethod),
@@ -113,15 +120,15 @@ let make = (channels, globalStorageUri, extensionPath, memento, editor, semantic
 }
 
 // construction/destruction
-let destroy = (state, alsoRemoveFromRegistry) => {
+let destroy = async (state, alsoRemoveFromRegistry) => {
+  await state.goals->Goals.waitUntilNotBusy
   if alsoRemoveFromRegistry {
     state.onRemoveFromRegistry->Chan.emit()
   }
   state.onRemoveFromRegistry->Chan.destroy
-  state.goals->Array.forEach(Goal.destroyDecoration)
-  state.highlighting->Highlighting.destroy
+  state.goals->Goals.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  state.connection->Connection.destroy
+  await state.connection->Connection.destroy
   // TODO: delete files in `.indirectHighlightingFileNames`
 }
 

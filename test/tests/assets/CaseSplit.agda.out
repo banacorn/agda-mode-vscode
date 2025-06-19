@@ -1,0 +1,36 @@
+module CaseSplit where
+
+data ℕ : Set where
+  Z : ℕ
+  S : ℕ → ℕ
+
+-- MakeCaseType::Function
+_+_ : ℕ → ℕ → ℕ
+Z + y = {!   !}
+S x + Z = {!   !}
+S x + S y = {!   !}
+
+-- MakeCaseType::ExtendedLambda
+f0 : ℕ → ℕ 
+f0 = λ { Z → {!   !}
+       ; (S Z) → {!   !}
+       ; (S (S x)) → {!   !} }
+
+f1 : ℕ → ℕ 
+f1 = λ 
+  { Z → {!   !}
+  ; (S x) → {!   !}
+  }
+
+g0 : ℕ → ℕ 
+g0 = λ where Z → {!   !}
+             (S x) → {!   !}
+
+g1 : ℕ → ℕ 
+g1 = λ where 
+  Z → {!   !}
+  (S x) → {!   !}
+
+issue16 : ℕ → ℕ
+issue16 = λ { Z → {!   !}
+            ; (S x) → {!   !} }

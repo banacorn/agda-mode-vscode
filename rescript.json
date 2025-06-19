@@ -22,6 +22,7 @@
   "namespace": true,
   "bs-dependencies": [
     "@glennsl/rescript-json-combinators",
+    "rescript-fast-check",
     "rescript-vscode",
     "rescript-webapi",
     "rescript-nodejs",

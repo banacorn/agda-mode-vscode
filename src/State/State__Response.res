@@ -98,12 +98,10 @@ let rec handle = async (
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
-      state.tokens->Tokens.insert(state.editor, annotations)
+      state.tokens->Tokens.insertTokens(state.editor, annotations)
     | HighlightingInfoIndirect(filepath) => state.tokens->Tokens.addEmacsFilePath(filepath)
     | HighlightingInfoIndirectJSON(filepath) => state.tokens->Tokens.addJSONFilePath(filepath)
-    | ClearHighlighting =>
-      state.tokens->Tokens.clear
-      state.highlighting->Highlighting.clear
+    | ClearHighlighting => state.tokens->Tokens.reset
     | Status(_checked, _displayImplicit) => // display(
       //   "Status",
       //   Some(
@@ -138,10 +136,12 @@ let rec handle = async (
         let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
         Editor.Cursor.set(state.editor, point)
       }
-    | InteractionPoints(indices) => await State__Goal.instantiate(state, indices)
+    | InteractionPoints(indices) =>
+      let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
+      state.goals->Goals.addGoalPositions(Map.entries(holePositions)->Iterator.toArray)
+      await state.goals->Goals.resetGoalIndices(state.editor, indices)
     | GiveAction(index, give) =>
-      let found = state.goals->Array.filter(goal => goal.index == index)
-      switch found[0] {
+      switch Goals.getGoalByIndex(state.goals, index) {
       | None =>
         await State__View.Panel.display(
           state,
@@ -151,13 +151,10 @@ let rec handle = async (
       | Some(goal) =>
         switch give {
         | GiveParen =>
-          await State__Goal.modify(state, goal, content => "(" ++ (content ++ ")"))
-          await State__Goal.removeBoundaryAndDestroy(state, goal)
-        | GiveNoParen =>
-          // do nothing
-          await State__Goal.removeBoundaryAndDestroy(state, goal)
+          await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
+        | GiveNoParen => () // no need to modify the document
         | GiveString(content) =>
-          let (indentationWidth, _text, _) = State__Goal.indentationWidth(state.document, goal)
+          let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
           // 1. ideally, we want to add "\t" or equivalent spaces based on
           //    "editor.tabSize" and "editor.insertSpaces"
           //    but we cannot load the "editor.tabSize" here
@@ -166,29 +163,69 @@ let rec handle = async (
           // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
           //    safer choice
           let defaultIndentation = 2
-          await State__Goal.modify(state, goal, _ =>
-            Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
+          let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
+
+          // modify the document
+          await state.goals->Goals.modify(state.document, index, _ => indented)
+
+          // add goal positions
+          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(indented)
+          let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
+          | None => [] // should not happen
+          | Some((offset, _)) =>
+            goalPositionsRelative->Array.map(((start, end)) => (start + offset, end + offset))
+          }
+          state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
+        }
+
+        if await Goals.removeBoundaryAndDestroy(state.goals, state.document, index) {
+          ()
+        } else {
+          await State__View.Panel.display(
+            state,
+            Error("Goal-related Error"),
+            [Item.plainText("Unable to remove the boundary of goal #" ++ string_of_int(index))],
           )
-          await State__Goal.removeBoundaryAndDestroy(state, goal)
         }
       }
     | MakeCase(makeCaseType, lines) =>
-      switch State__Goal.pointed(state) {
-      | None => await State__View.Panel.displayOutOfGoalError(state)
-      | Some((goal, _)) =>
-        switch makeCaseType {
-        | Function => await State__Goal.replaceWithLines(state, goal, lines)
-        | ExtendedLambda => await State__Goal.replaceWithLambda(state, goal, lines)
+      // the information about the goal being split is not available at this point of time
+      switch state.goals->Goals.getRecentlyCaseSplited {
+      | None =>
+        await State__View.Panel.display(
+          state,
+          Error("Cannot split the goal"),
+          [Item.plainText("Failed to remember the goal being split")],
+        )
+      | Some(goal) =>
+        let result = switch makeCaseType {
+        | Function => await Goal.replaceWithLines(goal, state.document, lines)
+        | ExtendedLambda => await Goal.replaceWithLambda(goal, state.document, lines)
+        }
+
+        switch result {
+        | Some(rangeToBeReplaced, indentedLines) =>
+          // destroy the old goal
+          Goals.removeGoalByIndex(state.goals, goal.index)
+          // locate the first new goal and place the cursor there
+          Goal.placeCursorAtFirstNewGoal(state.editor, rangeToBeReplaced, indentedLines)
+        | None =>
+          await State__View.Panel.display(
+            state,
+            Error("Goal-related Error"),
+            [Item.plainText("Unable to replace the lines of goal #" ++ string_of_int(goal.index))],
+          )
         }
         await dispatchCommand(Load)
       }
     | SolveAll(solutions) =>
       let solveOne = ((index, solution)) => async () => {
-        let goal = state.goals->Array.find(goal => goal.index == index)
-        switch goal {
+        switch Goals.getGoalByIndex(state.goals, index) {
         | None => ()
         | Some(goal) =>
-          await State__Goal.modify(state, goal, _ => solution)
+          // modify the goal content
+          await Goals.modify(state.goals, state.document, index, _ => solution)
+          // send the give request to Agda
           await sendAgdaRequest(Give(goal))
         }
       }
@@ -203,6 +240,26 @@ let rec handle = async (
       } else {
         await State__View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
       }
+    // let solveOne = ((index, solution)) => async () => {
+    //   let goal = state.goals->Array.find(goal => goal.index == index)
+    //   switch goal {
+    //   | None => ()
+    //   | Some(goal) =>
+    //     await State__Goal.modify(state, goal, _ => solution)
+    //     await sendAgdaRequest(Give(goal))
+    //   }
+    // }
+    // // solve them one by one
+    // let _ =
+    //   await solutions
+    //   ->Array.map(solveOne)
+    //   ->Util.Promise_.oneByOne
+    // let size = Array.length(solutions)
+    // if size == 0 {
+    //   await State__View.Panel.display(state, Error("No solutions found"), [])
+    // } else {
+    //   await State__View.Panel.display(state, Success(string_of_int(size) ++ " goals solved"), [])
+    // }
     | DisplayInfo(info) => await DisplayInfo.handle(state, info)
     | RunningInfo(1, message) =>
       await State__View.Panel.displayInAppendMode(
@@ -216,7 +273,8 @@ let rec handle = async (
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
       await Tokens.readTempFiles(state.tokens, state.editor)
-      await Highlighting.apply(state.highlighting, state.tokens, state.editor)
+      // generate highlighting
+      state.tokens->Tokens.generateHighlighting(state.editor)
     | _ => ()
     }
 
