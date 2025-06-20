@@ -314,14 +314,23 @@ module Golden = {
 }
 
 module AgdaMode = {
-  let exists = async command => {
+  let versionGTE = async (command, expectedVersion) => {
     switch await Connection.findCommands([command]) {
-    | Error(_error) =>
-      // let (header, body) = Connection.Error.toString(Aggregated(error))
-      raise(Failure("Cannot find \"" ++ command ++ "\" in PATH"))
-    | Ok(_conn) => ()
+    | Error(_error) => false
+    | Ok(connection) =>
+      let actualVersion = switch connection {
+      | Agda(version, _) => version
+      | ALS(version, _, _) => version
+      }
+      Util.Version.gte(actualVersion, expectedVersion)
     }
   }
+
+  let commandExists = async command =>
+    switch await Connection.findCommands([command]) {
+    | Error(_error) => raise(Failure("Cannot find \"" ++ command ++ "\" in PATH"))
+    | Ok(_) => ()
+    }
 
   type t = {
     filepath: string,
@@ -334,7 +343,7 @@ module AgdaMode = {
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     // make sure that "agda" exists in PATH
-    await exists("agda")
+    await commandExists("agda")
     //
     let load = async (channels: State.channels, filepath) => {
       let (promise, resolve, _) = Util.Promise_.pending()

@@ -7,43 +7,53 @@ let run = normalization => {
   Async.beforeEach(async () => fileContent := (await File.read(Path.asset(filename))))
   Async.afterEach(async () => await File.write(Path.asset(filename), fileContent.contents))
 
-  Async.it("should be responded with correct responses", async () => {
-    let ctx = await AgdaMode.makeAndLoad(filename)
+  Async.it("should be responded with correct responses (>= 2.7.0)", async () => {
+    let versionValid = await AgdaMode.versionGTE("agda", "2.7.0")
+    if versionValid {
+      let ctx = await AgdaMode.makeAndLoad(filename)
 
-    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 14), "y")
-    let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
-      Request.HelperFunctionType(
-        normalization,
-        "helper t'",
-        {
-          index: 0,
-          indexString: "0",
-          start: 316,
-          end: 329,
-        },
-      ),
-    )
-
-    let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepStrictEqual(
-      filteredResponses,
-      [
-        DisplayInfo(
-          HelperFunction("helper : ∀ {m} {t : T m} → T (test m t .fst) → Σ ℕ T\n"),
+      let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 14), "y")
+      let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
+        Request.HelperFunctionType(
+          normalization,
+          "helper t'",
+          {
+            index: 0,
+            indexString: "0",
+            start: 316,
+            end: 329,
+          },
         ),
-      ],
-    )
+      )
+
+      let filteredResponses = responses->Array.filter(filteredResponse)
+      Assert.deepStrictEqual(
+        filteredResponses,
+        [
+          DisplayInfo(
+            HelperFunction("helper : ∀ {m} {t : T m} → T (test m t .fst) → Σ ℕ T\n"),
+          ),
+        ],
+      )
+    }
   })
 
-  Async.it("should copy type to the pasteboard", async () => {
-    let ctx = await AgdaMode.makeAndLoad(filename)
-    await AgdaMode.execute(ctx, HelperFunctionType(normalization), ~cursor=VSCode.Position.make(15, 3))
-    // await ctx->AgdaMode.quit
-    let text = await VSCode.Env.clipboard->VSCode.Clipboard.readText()
-    Assert.deepStrictEqual(
-      text,
-      "helper : ∀ {m} {t : T m} → T (test m t .fst) → Σ ℕ T\n",
-    )
+  Async.it("should copy type to the pasteboard (>= 2.7.0)", async () => {
+    let versionValid = await AgdaMode.versionGTE("agda", "2.7.0")
+    if versionValid {
+      let ctx = await AgdaMode.makeAndLoad(filename)
+      await AgdaMode.execute(
+        ctx,
+        HelperFunctionType(normalization),
+        ~cursor=VSCode.Position.make(15, 3),
+      )
+      // await ctx->AgdaMode.quit
+      let text = await VSCode.Env.clipboard->VSCode.Clipboard.readText()
+      Assert.deepStrictEqual(
+        text,
+        "helper : ∀ {m} {t : T m} → T (test m t .fst) → Σ ℕ T\n",
+      )
+    }
   })
 }
 
