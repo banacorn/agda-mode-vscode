@@ -256,6 +256,62 @@ module Error = {
     }
 }
 
+module Filepath: {
+  type t
+  // constructor & destructor
+  let make: string => t
+  let toString: t => string
+  // equality on paths
+  // NOTE: DO NOT use === or == for equality checks
+  let equal: (t, t) => bool
+} = {
+  type t = NodeJs.Path.t
+
+  // remove the Windows Bidi control character
+  let removedBidi = raw =>
+    if String.charCodeAt(raw, 0) === 8234.0 {
+      String.sliceToEnd(~start=1, raw)
+    } else {
+      raw
+    }
+
+  let make = raw => {
+    raw->removedBidi->NodeJs.Path.normalize->NodeJs.Path.parse
+  }
+
+  // Like `NodeJs.Path.format`, but:
+  //  1. Make all characters in the root upper case
+  //  2. Replace all backslashes OR slashes WITH platform-specific path separator
+  // ┌─────────────────────┬────────────┐
+  // │          dir        │    base    │
+  // ├──────┬              ├──────┬─────┤
+  // │ root │              │ name │ ext │
+  // " C:\      path\dir   \ file  .txt "
+  // └──────┴──────────────┴──────┴─────┘
+  let toString = (x: t) => {
+    let replaceSeparator = s =>
+      s
+      ->String.splitByRegExp(%re("/[\\/]/g"))
+      ->Array.filterMap(x => x)
+      ->NodeJs.Path.join
+
+    let reconstituted = if OS.onUnix {
+      x
+    } else {
+      let rootLength = String.length(x.root)
+      let oldRoot = String.slice(~start=0, ~end=rootLength, x.dir)
+      let newRoot = oldRoot->String.toUpperCase
+      {...x, root: newRoot}
+    }
+
+    reconstituted->NodeJs.Path.format->replaceSeparator
+  }
+
+  let equal = (x, y) => {
+    toString(x) == toString(y)
+  }
+}
+
 // 1. Normalize the path with `Node.Path.normalize`
 // 2. Remove the Windows Bidi control character
 // 3. Replace Windows' backslash with slash

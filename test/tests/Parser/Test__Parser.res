@@ -46,6 +46,34 @@ describe("Parser.unescapeEOL", () => {
   })
 })
 
+describe_only("Parser.Filepath", () => {
+  it("should remove Windows Bidi control characters", () => {
+    let actual = Parser.Filepath.make("\u202A/path/to/file.agda")
+    let expected = Parser.Filepath.make("/path/to/file.agda")
+    Assert.ok(Parser.Filepath.equal(actual, expected))
+  })
+
+  it("should normalize paths", () => {
+    let actual = Parser.Filepath.make("/path/./to/../file.agda")
+    let expected = Parser.Filepath.make("/path/file.agda")
+    Assert.ok(Parser.Filepath.equal(actual, expected))
+  })
+
+  it("should be neutral regaring separators (backslash vs slash)", () => {
+    let actual = Parser.Filepath.make("C:\\path\\to\\file.agda")
+    let expected = Parser.Filepath.make("C:/path/to/file.agda")
+    Assert.ok(Parser.Filepath.equal(actual, expected))
+  })
+
+  if !OS.onUnix {
+    it("should convert small case roots to upper case on Windows", () => {
+      let actual = Parser.Filepath.make("c:\\path\\dir\\file.txt")
+      let expected = Parser.Filepath.make("C:\\path\\dir\\file.txt")
+      Assert.ok(Parser.Filepath.equal(actual, expected))
+    })
+  }
+})
+
 describe("Parser.filepath", () => {
   it("should remove Windows Bidi control characters", () => {
     let raw = "\u202A/path/to/file.agda"

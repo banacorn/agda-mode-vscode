@@ -119,7 +119,8 @@ module Path = {
   // replacement of ExtensionContext.globalStoragePath as ExtensionContext.t is out ofreach
   let globalStorageUri = VSCode.Uri.file(toAbsolute("../../../../test/globalStoragePath"))
 
-  let asset = filepath => NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])
+  let asset = filepath =>
+    Parser.filepath(NodeJs.Path.join([extensionPath, "test/tests/assets", filepath]))
 }
 
 // to prevent an extension from being activated twice

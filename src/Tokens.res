@@ -44,7 +44,7 @@ module Token = {
                 aspects: flatten(aspects)->Array.map(Aspect.parse),
                 isTokenBased: false, // NOTE: fix this
                 note: None, // NOTE: fix this
-                source: Some((filepath, index)),
+                source: Some((Parser.filepath(filepath), index)),
               },
             )
           )
