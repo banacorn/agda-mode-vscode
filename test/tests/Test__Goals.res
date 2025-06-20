@@ -436,10 +436,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue211.agda")
 
         // check the goal positions
-        Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
-          ["#0 [106-113)"],
-        )
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [106-113)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -452,13 +449,27 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue214.lagda.md")
 
         // check the goal positions
-        Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
-          ["#0 [121-127)"],
-        )
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [121-127)"])
         await ctx->AgdaMode.quit
       },
     )
   })
 
+  describe("Issue #229", () => {
+    Async.it(
+      "should not create a hole in an indentifier with a question mark",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Issue229.agda")
+
+        await AgdaMode.execute(ctx, Refine, ~cursor=VSCode.Position.make(12, 11))
+
+        // check the goal positions
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals),
+          ["#1 [318-325)", "#2 [249-256)", "#3 [257-264)"],
+        )
+        await ctx->AgdaMode.quit
+      },
+    )
+  })
 })
