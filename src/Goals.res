@@ -678,9 +678,22 @@ module Module: Module = {
       })
 
     if Array.length(rewrites) != 0 {
+      let originalCursorPosition = Editor.Cursor.get(editor)
       // set busy
       setBusy(self)
       let _ = await Editor.Text.batchReplace(document, rewrites)
+
+      // place the cursor inside a hole if it was there before the rewrite
+      let cursorWasWithinRewrites =
+        rewrites->Array.some(((range, _)) => VSCode.Range.contains(range, originalCursorPosition))
+      if cursorWasWithinRewrites {
+        switch getGoalAtCursor(self, editor) {
+        | None => () // no goal at cursor, do nothing
+        | Some(goal) =>
+          // set the cursor to the goal
+          setCursorByIndex(self, editor, goal.index)
+        }
+      }
     } else {
       setNotBusy(self)
     }

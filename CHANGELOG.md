@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.6.0 - TBA
 
 ### Changed
-- Revamped the whole token highlighting and goal management
+- New algorithm for token highlighting
+- Get goal positions from highlighting information from Agda instead of parsing them with our crappy parser
+- Revamped goal/hole management
 
 ### Added
-- Testings for:
+- More testings for:
     - `agda-mode.next-goal`
     - `agda-mode.previous-goal`
     - `agda-mode.refine`

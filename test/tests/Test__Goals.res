@@ -1,75 +1,6 @@
 open Mocha
 open Test__Util
 
-// Assults on Goals, for property-based testing
-module Assult = {
-  type t = Move(Tokens.Change.t) // only moves boundaries without damaging them
-
-  let toString = assult =>
-    switch assult {
-    | Move(change) => "Move(" ++ Tokens.Change.toString(change) ++ ")"
-    }
-
-  open FastCheck.Arbitrary
-
-  let arbitraryMoveAfter = (goals: array<Goal.t>, after) => {
-    // return the gaps between the boundaries of the goals after the given offset
-    let gapsBetweenBoundariesAfter =
-      goals
-      ->Array.reduce(([], 0), ((acc, prevEnd), goal) => (
-        if prevEnd >= after {
-          if goal.end - goal.start >= 4 {
-            // between !}  {! and between {! !}
-            [(prevEnd, goal.start), (goal.start + 2, goal.end - 2), ...acc]
-          } else {
-            // between !}  {!
-            [(prevEnd, goal.start), ...acc]
-          }
-        } else {
-          acc
-        },
-        goal.end,
-      ))
-      ->fst
-
-    let length = Array.length(gapsBetweenBoundariesAfter)
-
-    let pickedGap = if length == 0 {
-      Combinators.constant(None)
-    } else {
-      integerRange(0, length - 1)->Derive.map(index => gapsBetweenBoundariesAfter[index])
-    }
-
-    pickedGap->Derive.chain(gap =>
-      switch gap {
-      | None =>
-        //  no gaps, generate a arbitrary move
-        integerRange(after, after + 20)->Derive.chain(offset => {
-          integerRange(0, 10)->Derive.chain(
-            inserted =>
-              integerRange(0, 10)->Derive.map(removed => Move({offset, inserted, removed})),
-          )
-        })
-      | Some((gapStart, gapEnd)) =>
-        integerRange(gapStart, gapEnd)->Derive.chain(offset => {
-          // at most `offset - gapStart` characters can be removed
-          // no limit on how many characters can be inserted
-          integerRange(0, offset - gapStart)->Derive.chain(
-            removed => {
-              integerRange(0, 10)->Derive.map(inserted => Move({offset, inserted, removed}))
-            },
-          )
-        })
-      }
-    )
-  }
-
-  let arbitraryMoveWithGoals = () =>
-    Goal.arbitraryBatch()->Derive.chain(goals =>
-      arbitraryMoveAfter(goals, 0)->Derive.map(move => (goals, move))
-    )
-}
-
 describe("Goals", () => {
   let fileContent = ref("")
 
@@ -425,6 +356,25 @@ describe("Goals", () => {
         // should land on the last goal again
         await ctx->AgdaMode.previousGoal
         Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(10, 28))
+      },
+    )
+  })
+
+  describe("Cursor placement", () => {
+    let filename = "Goals.agda"
+    Async.it(
+      "should place the cursor inside a nearby hole after expanding it",
+      async () => {
+        let filepath = Path.asset(filename)
+        let _ = await VSCode.Workspace.openTextDocumentWithFileName(filepath)
+        switch VSCode.Window.activeTextEditor {
+        | None => Assert.fail("Cannot open editor for " ++ filename)
+        | Some(editor) =>
+          editor->Editor.Cursor.set(VSCode.Position.make(8, 18))
+        }
+
+        let ctx = await AgdaMode.makeAndLoad(filename)
+        Assert.deepStrictEqual(Editor.Cursor.get(ctx.state.editor), VSCode.Position.make(8, 21))
       },
     )
   })
