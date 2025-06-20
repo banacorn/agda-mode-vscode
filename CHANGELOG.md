@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agda-mode.why-in-scope`
 
 ### Fixed
+- #157: Nested holes are not highlighted properly
 - #159: Holes spanning multiple lines are not handled (in literate files)
 - #211: Nested comments confuse the parser
 - #214: Too permissible hole matching in literate markdown files

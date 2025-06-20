@@ -429,6 +429,19 @@ describe("Goals", () => {
     )
   })
 
+  describe("Issue #157", () => {
+    Async.it(
+      "should handle nested holes correctly",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Issue157.agda")
+
+        // check the goal positions
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [86-107)"])
+        await ctx->AgdaMode.quit
+      },
+    )
+  })
+
   describe("Issue #159", () => {
     Async.it(
       "should create holes in literate agda files",
