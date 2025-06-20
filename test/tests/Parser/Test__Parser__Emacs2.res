@@ -6,7 +6,7 @@ let tempNormalize = xs => {
   }, xs)
 }
 
-describe_only("when running Emacs__Parser2.parseGoalType", () => {
+describe("when running Emacs__Parser2.parseGoalType", () => {
   it("should parse goal only", () => {
     let raw = `Goal: ℕ
 ————————————————————————————————————————————————————————————`

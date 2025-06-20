@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.6.0 - TBA
+## v0.6.0 - 2025-06-20
 
 ### Changed
 - New algorithm for token highlighting
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agda-mode.why-in-scope`
 
 ### Fixed
+- Highlighting & Go-to-definition
 - #157: Nested holes are not highlighted properly
 - #159: Holes spanning multiple lines are not handled (in literate files)
 - #211: Nested comments confuse the parser
