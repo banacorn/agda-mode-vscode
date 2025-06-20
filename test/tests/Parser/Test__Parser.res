@@ -1,6 +1,6 @@
 open Mocha
 
-describe("when running Parser.escape", () => {
+describe("Parser.escape", () => {
   it("should make escaped backslash explicit", () => {
     let raw = "\\ x -> x"
     let expected = "\\\\ x -> x"
@@ -30,7 +30,7 @@ describe("when running Parser.escape", () => {
   })
 })
 
-describe("when running Parser.unescapeEOL", () => {
+describe("Parser.unescapeEOL", () => {
   it("should make explicit newline on Unix implicit", () => {
     let raw = "x\\ny"
     let expected = "x\ny"
@@ -44,4 +44,36 @@ describe("when running Parser.unescapeEOL", () => {
     let actual = Parser.unescapeEOL(raw)
     Assert.deepStrictEqual(actual, expected)
   })
+})
+
+describe("Parser.filepath", () => {
+  it("should remove Windows Bidi control characters", () => {
+    let raw = "\u202A/path/to/file.agda"
+    let expected = "/path/to/file.agda"
+    let actual = Parser.filepath(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  it("should normalize the path", () => {
+    let raw = "/path/./to/../file.agda"
+    let expected = "/path/file.agda"
+    let actual = Parser.filepath(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  it("should replace Windows backslash with slash", () => {
+    let raw = "C:\\path\\to\\file.agda"
+    let expected = "C:/path/to/file.agda"
+    let actual = Parser.filepath(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  if !OS.onUnix {
+    it("should convert small case Windows roots to upper case", () => {
+      let raw = "c:\\path\\dir\\file.txt"
+      let expected = "C:/path/dir/file.txt"
+      let actual = Parser.filepath(raw)
+      Assert.deepStrictEqual(actual, expected)
+    })
+  }
 })

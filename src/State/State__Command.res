@@ -383,25 +383,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       | SrcLoc(Range(None, _intervals)) => ()
       | SrcLoc(Range(Some(fileName), intervals)) =>
         let fileName = Parser.filepath(fileName)
-        // Issue #44
-        //  In Windows, paths from Agda start from something like "c://" while they are "C://" from VS Code
-        //  We need to remove the root from the path before comparing them
-        let removeRoot = path => {
-          let obj = NodeJs.Path.parse(path)
-          let rootLength = String.length(obj.root)
-          let newDir = String.sliceToEnd(~start=rootLength, obj.dir)
-          let newObj: NodeJs.Path.t = {
-            root: "",
-            dir: newDir,
-            ext: obj.ext,
-            name: obj.name,
-            base: obj.base,
-          }
-          NodeJs.Path.format(newObj)
-        }
-
         // only select the ranges when it's on the same file
-        if removeRoot(path) == removeRoot(fileName) {
+        if Parser.filepath(path) == Parser.filepath(fileName) {
           let ranges = intervals->Array.map(Common.AgdaInterval.toVSCodeRange)
           // set cursor selections
           Editor.Selection.setMany(state.editor, ranges)
