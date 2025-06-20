@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #214: Too permissible hole matching in literate markdown files
 - #222: How is the Agda Syntax implemented in agda-mode-vscode?
 - #229: Refining a hole can modify other tokens containing the character '?'
+- #231: Markdown code blocks without agda identifier by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #232: Revert "agda mandatory for md" by [@fredrik-bakke](https://github.com/fredrik-bakke)
 
 ## v0.5.6 - 2025-04-23
 
