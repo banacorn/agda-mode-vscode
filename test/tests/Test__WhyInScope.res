@@ -22,12 +22,14 @@ describe("agda-mode.why-in-scope", () => {
     )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
+    let dependencyFilepath = Path.asset("Lib.agda")
     Assert.deepStrictEqual(
       filteredResponses,
       [
         DisplayInfo(
           WhyInScope(
-            "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at /Users/banacorn/rescript/agda-mode-vscode/test/tests/assets/Lib.agda:4,3-7",
+            "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at " ++
+            dependencyFilepath ++ ":4,3-7",
           ),
         ),
       ],
@@ -42,12 +44,14 @@ describe("agda-mode.why-in-scope", () => {
       )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
+    let dependencyFilepath = Path.asset("Lib.agda")
     Assert.deepStrictEqual(
       filteredResponses,
       [
         DisplayInfo(
           WhyInScope(
-            "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at /Users/banacorn/rescript/agda-mode-vscode/test/tests/assets/Lib.agda:4,3-7",
+            "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at " ++
+            dependencyFilepath ++ ":4,3-7",
           ),
         ),
       ],

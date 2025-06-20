@@ -6,7 +6,7 @@ let tempNormalize = xs => {
   }, xs)
 }
 
-describe("when running Emacs__Parser2.parseGoalType", () => {
+describe_only("when running Emacs__Parser2.parseGoalType", () => {
   it("should parse goal only", () => {
     let raw = `Goal: ℕ
 ————————————————————————————————————————————————————————————`
@@ -45,12 +45,12 @@ describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
     let raw = `
 ?0 : ℕ
 ?1 : ℕ
-Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]
+Sort _0  [ at /path/to/agda/examples/A.agda:11,5-20 ]
 `
     let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals*", raw)
     let expected = Dict.fromArray([
       ("interactionMetas", ["?0 : ℕ", "?1 : ℕ"]),
-      ("hiddenMetas", ["Sort _0  [ at /Users/banacorn/agda/examples/A.agda:11,5-20 ]"]),
+      ("hiddenMetas", ["Sort _0  [ at /path/to/agda/examples/A.agda:11,5-20 ]"]),
     ])
     Assert.deepStrictEqual(actual, expected)
   })
@@ -87,7 +87,7 @@ Unsolved constraints`
 
 describe("when running Emacs__Parser2.parseError", () => {
   it("should parse an error only", () => {
-    let raw = `/Users/banacorn/agda/examples/A.agda:15,1-2
+    let raw = `/path/to/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
 when checking that the clause a has type _8`
@@ -96,7 +96,7 @@ when checking that the clause a has type _8`
       (
         "errors",
         [
-          `/Users/banacorn/agda/examples/A.agda:15,1-2
+          `/path/to/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
 when checking that the clause a has type _8`,
@@ -107,16 +107,16 @@ when checking that the clause a has type _8`,
   })
   it("should parse an error + warnings", () => {
     let raw = `———— Error —————————————————————————————————————————————————
-/Users/banacorn/agda/examples/A.agda:15,1-2
+/path/to/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
 when checking that the clause a has type _8
 
 ———— Warning(s) ————————————————————————————————————————————
-/Users/banacorn/agda/examples/A.agda:17,1-8
+/path/to/agda/examples/A.agda:17,1-8
 The following names are declared but not accompanied by a
 definition: boo
-/Users/banacorn/agda/examples/A.agda:9,1-10
+/path/to/agda/examples/A.agda:9,1-10
 Unreachable clause
 when checking the definition of _+_`
     let actual = Emacs__Parser2.parseError(raw)
@@ -124,7 +124,7 @@ when checking the definition of _+_`
       (
         "errors",
         [
-          `/Users/banacorn/agda/examples/A.agda:15,1-2
+          `/path/to/agda/examples/A.agda:15,1-2
 The right-hand side can only be omitted if there is an absurd
 pattern, () or {}, in the left-hand side.
 when checking that the clause a has type _8`,
@@ -133,10 +133,10 @@ when checking that the clause a has type _8`,
       (
         "warnings",
         [
-          `/Users/banacorn/agda/examples/A.agda:9,1-10
+          `/path/to/agda/examples/A.agda:9,1-10
 Unreachable clause
 when checking the definition of _+_`,
-          `/Users/banacorn/agda/examples/A.agda:17,1-8
+          `/path/to/agda/examples/A.agda:17,1-8
 The following names are declared but not accompanied by a
 definition: boo`,
         ],
