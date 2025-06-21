@@ -14,7 +14,7 @@ module Token = {
     aspects: array<Aspect.t>, // a list of names of aspects
     isTokenBased: bool,
     note: option<string>,
-    source: option<(filepath, int)>, // The defining module and the position in that module
+    source: option<(Parser.Filepath.t, int)>, // The defining module and the position in that module
   }
   let toString = self =>
     "(" ++
@@ -44,7 +44,7 @@ module Token = {
                 aspects: flatten(aspects)->Array.map(Aspect.parse),
                 isTokenBased: false, // NOTE: fix this
                 note: None, // NOTE: fix this
-                source: Some((Parser.filepath(filepath), index)),
+                source: Some((Parser.Filepath.make(filepath), index)),
               },
             )
           )
@@ -96,7 +96,7 @@ module Token = {
       aspects: aspects->Array.map(Aspect.parse),
       isTokenBased,
       note,
-      source,
+      source: source->Option.map(((filepath, offset)) => (Parser.Filepath.make(filepath), offset)),
     })
   }
 
@@ -679,9 +679,9 @@ module type Module = {
     t,
     VSCode.TextDocument.t,
   ) => (
-    string,
+    Parser.Filepath.t,
     VSCode.Position.t,
-  ) => option<promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>>
+  ) => option<promise<array<(VSCode.Range.t, string, VSCode.Position.t)>>>
 
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting: (t, VSCode.TextEditor.t) => unit
@@ -891,7 +891,7 @@ module Module: Module = {
 
   // for goto definition
   let lookupSrcLoc = (self, document, offset): option<
-    promise<array<(VSCode.Range.t, Token.filepath, VSCode.Position.t)>>,
+    promise<array<(VSCode.Range.t, string, VSCode.Position.t)>>,
   > => {
     self.agdaTokens
     ->AVLTree.lowerBound(offset)
@@ -900,7 +900,11 @@ module Module: Module = {
         VSCode.TextDocument.positionAt(document, token.start),
         VSCode.TextDocument.positionAt(document, token.end),
       )
-      token.source->Option.map(((filepath, offset)) => (srcRange, filepath, offset))
+      token.source->Option.map(((filepath, offset)) => (
+        srcRange,
+        Parser.Filepath.toString(filepath),
+        offset,
+      ))
     })
     ->Option.map(((srcRange, filepath, offset)) => {
       VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
@@ -916,8 +920,8 @@ module Module: Module = {
   // definition provider for go-to-definition
   let goToDefinition = (self, document) => (fileName, position) => {
     // only provide source location, when the filename matched
-    let currentFileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    let normalizedFileName = Parser.filepath(fileName)
+    let currentFileName = document->VSCode.TextDocument.fileName->Parser.Filepath.make
+    let normalizedFileName = fileName
     let offset = VSCode.TextDocument.offsetAt(document, position)
 
     if normalizedFileName == currentFileName {

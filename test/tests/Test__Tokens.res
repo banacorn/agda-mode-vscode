@@ -94,7 +94,7 @@ describe("Tokens", () => {
       "should return the position of the definition",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Lib.agda")
-        let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.filepath
+        let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.Filepath.make
         let position = VSCode.Position.make(12, 27)
 
         switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(filepath, position) {
@@ -104,7 +104,7 @@ describe("Tokens", () => {
           let expected = [
             (
               VSCode.Range.make(VSCode.Position.make(12, 26), VSCode.Position.make(12, 27)),
-              filepath,
+              filepath->Parser.Filepath.toString,
               VSCode.Position.make(12, 22),
             ),
           ]

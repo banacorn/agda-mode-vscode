@@ -261,11 +261,8 @@ module Filepath: {
   // constructor & destructor
   let make: string => t
   let toString: t => string
-  // equality on paths
-  // NOTE: DO NOT use === or == for equality checks
-  let equal: (t, t) => bool
 } = {
-  type t = NodeJs.Path.t
+  type t = string
 
   // remove the Windows Bidi control character
   let removedBidi = raw =>
@@ -276,7 +273,20 @@ module Filepath: {
     }
 
   let make = raw => {
-    raw->removedBidi->NodeJs.Path.normalize->NodeJs.Path.parse
+    // replace all backslashes OR slashes WITH platform-specific path separator
+    let replaceSeparator = s => s->String.replaceAllRegExp(%re("/[\\/]/g"), NodeJs.Path.sep)
+
+    // convert small case Windows roots to upper case
+    let makeRootsUpperCaseOnWindows = path => {
+      let obj = NodeJs.Path.parse(path)
+      let rootLength = String.length(obj.root)
+      let oldRoot = String.slice(~start=0, ~end=rootLength, path)
+      let rest = String.sliceToEnd(~start=rootLength, path)
+      let newRoot = String.toUpperCase(oldRoot)
+      newRoot ++ rest
+    }
+
+    raw->removedBidi->NodeJs.Path.normalize->replaceSeparator->makeRootsUpperCaseOnWindows
   }
 
   // Like `NodeJs.Path.format`, but:
@@ -288,28 +298,7 @@ module Filepath: {
   // │ root │              │ name │ ext │
   // " C:\      path\dir   \ file  .txt "
   // └──────┴──────────────┴──────┴─────┘
-  let toString = (x: t) => {
-    let replaceSeparator = s =>
-      s
-      ->String.splitByRegExp(%re("/[\\/]/g"))
-      ->Array.filterMap(x => x)
-      ->NodeJs.Path.join
-
-    let reconstituted = if OS.onUnix {
-      x
-    } else {
-      let rootLength = String.length(x.root)
-      let oldRoot = String.slice(~start=0, ~end=rootLength, x.dir)
-      let newRoot = oldRoot->String.toUpperCase
-      {...x, root: newRoot}
-    }
-
-    reconstituted->NodeJs.Path.format->replaceSeparator
-  }
-
-  let equal = (x, y) => {
-    toString(x) == toString(y)
-  }
+  let toString = x => x
 }
 
 // 1. Normalize the path with `Node.Path.normalize`

@@ -129,8 +129,8 @@ let initialize = (
   })->subscribe
 
   // definition provider for go-to-definition
-  Editor.Provider.registerDefinitionProvider(
-    Tokens.goToDefinition(state.tokens, state.document),
+  Editor.Provider.registerDefinitionProvider((filepath, position) =>
+    Tokens.goToDefinition(state.tokens, state.document)(Parser.Filepath.make(filepath), position)
   )->subscribe
 
   // add this state to the Registry
