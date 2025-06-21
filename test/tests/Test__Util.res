@@ -120,7 +120,7 @@ module Path = {
   let globalStorageUri = VSCode.Uri.file(toAbsolute("../../../../test/globalStoragePath"))
 
   let asset = filepath =>
-    Parser.filepath(NodeJs.Path.join([extensionPath, "test/tests/assets", filepath]))
+    NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])->Parser.Filepath.make->Parser.Filepath.toString
 }
 
 // to prevent an extension from being activated twice

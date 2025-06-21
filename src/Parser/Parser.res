@@ -289,11 +289,7 @@ module Filepath: {
   // " C:\      path\dir   \ file  .txt "
   // └──────┴──────────────┴──────┴─────┘
   let toString = (x: t) => {
-    let replaceSeparator = s =>
-      s
-      ->String.splitByRegExp(%re("/[\\/]/g"))
-      ->Array.filterMap(x => x)
-      ->NodeJs.Path.join
+    let replaceSeparator = s => s->String.replaceAllRegExp(%re("/[\\/]/g"), NodeJs.Path.sep)
 
     let reconstituted = if OS.onUnix {
       x
