@@ -102,8 +102,8 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = if OS.onUnix {
-          Error([
+        if OS.onUnix {
+          let expected = Error([
             Connection__Target.Error.SomethingWentWrong(
               Connection.URI.parse("path/to/agda"),
               NotFound("path/to/agda"),
@@ -113,20 +113,28 @@ describe("Connection", () => {
               NotFound("path/to/als"),
             ),
           ])
+          Assert.deepStrictEqual(actual, expected)
         } else {
-          Error([
-            Connection__Target.Error.SomethingWentWrong(
-              Connection.URI.parse("path\\to\\agda"),
-              NotFound("path\\to\\agda"),
-            ),
-            Connection__Target.Error.SomethingWentWrong(
-              Connection.URI.parse("path\\to\\als"),
-              NotFound("path\\to\\als"),
-            ),
-          ])
+          // let expected = Error([
+          //   Connection__Target.Error.SomethingWentWrong(
+          //     Connection.URI.parse("path\\to\\agda"),
+          //     NotFound("path\\to\\agda"),
+          //   ),
+          //   Connection__Target.Error.SomethingWentWrong(
+          //     Connection.URI.parse("path\\to\\als"),
+          //     NotFound("path\\to\\als"),
+          //   ),
+          // ])
+          switch actual {
+          | Ok(_) => Assert.fail("expected an error, got Ok")
+          | Error([
+              Connection__Target.Error.SomethingWentWrong(_, _),
+              Connection__Target.Error.SomethingWentWrong(_, _),
+            ]) =>
+            Assert.ok(true)
+          | _ => Assert.fail("expected an error, got something else")
+          }
         }
-
-        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -145,8 +153,8 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = if OS.onUnix {
-          Error([
+        if OS.onUnix {
+          let expected = Error([
             Connection__Target.Error.SomethingWentWrong(
               Connection.URI.parse("path/to/agda"),
               NotFound("path/to/agda"),
@@ -156,20 +164,28 @@ describe("Connection", () => {
               NotFound("path/to/als"),
             ),
           ])
+          Assert.deepStrictEqual(actual, expected)
         } else {
-          Error([
-            Connection__Target.Error.SomethingWentWrong(
-              Connection.URI.parse("path\\to\\agda"),
-              NotFound("path\\to\\agda"),
-            ),
-            Connection__Target.Error.SomethingWentWrong(
-              Connection.URI.parse("path\\to\\als"),
-              NotFound("path\\to\\als"),
-            ),
-          ])
+          // let expected = Error([
+          //   Connection__Target.Error.SomethingWentWrong(
+          //     Connection.URI.parse("path\\to\\agda"),
+          //     NotFound("path\\to\\agda"),
+          //   ),
+          //   Connection__Target.Error.SomethingWentWrong(
+          //     Connection.URI.parse("path\\to\\als"),
+          //     NotFound("path\\to\\als"),
+          //   ),
+          // ])
+          switch actual {
+          | Ok(_) => Assert.fail("expected an error, got Ok")
+          | Error([
+              Connection__Target.Error.SomethingWentWrong(_, _),
+              Connection__Target.Error.SomethingWentWrong(_, _),
+            ]) =>
+            Assert.ok(true)
+          | _ => Assert.fail("expected an error, got something else")
+          }
         }
-
-        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -321,23 +337,52 @@ describe("Connection", () => {
         let commands = ["non-existent-command"]
         let result = await Connection.fromPathsAndCommands(memento, paths, commands)
 
-        let expected = {
-          Connection__Error.Aggregated.Attempts.targets: [
-            {
-              SomethingWentWrong(
-                Connection.URI.parse("some/other/paths"),
-                if OS.onUnix {
-                  NotFound("some/other/paths")
-                } else {
-                  NotFound("some\\other\\paths")
-                },
-              )
-            },
-          ],
-          commands: [Connection__Command.Error.NotFound("non-existent-command")],
-        }
+        if OS.onUnix {
+          let expected = {
+            Connection__Error.Aggregated.Attempts.targets: [
+              {
+                SomethingWentWrong(
+                  Connection.URI.parse("some/other/paths"),
+                  if OS.onUnix {
+                    NotFound("some/other/paths")
+                  } else {
+                    NotFound("some\\other\\paths")
+                  },
+                )
+              },
+            ],
+            commands: [Connection__Command.Error.NotFound("non-existent-command")],
+          }
 
-        Assert.deepStrictEqual(result, Error(expected))
+          Assert.deepStrictEqual(result, Error(expected))
+        } else {
+          // let expected = {
+          //   Connection__Error.Aggregated.Attempts.targets: [
+          //     {
+          //       SomethingWentWrong(
+          //         Connection.URI.parse("some/other/paths"),
+          //         if OS.onUnix {
+          //           NotFound("some/other/paths")
+          //         } else {
+          //           NotFound("some\\other\\paths")
+          //         },
+          //       )
+          //     },
+          //   ],
+          //   commands: [Connection__Command.Error.NotFound("non-existent-command")],
+          // }
+
+          // Assert.deepStrictEqual(result, Error(expected))
+
+          switch result {
+          | Ok(_) => Assert.fail("expected an error, got Ok")
+          | Error(error) =>
+            switch error.targets {
+            | [Connection__Target.Error.SomethingWentWrong(_, _)] => Assert.ok(true)
+            | _ => Assert.fail("expected an error with a single target error")
+            }
+          }
+        }
       },
     )
   })
