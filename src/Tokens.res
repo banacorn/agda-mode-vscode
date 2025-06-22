@@ -16,17 +16,19 @@ module Token = {
     note: option<string>,
     source: option<(Parser.Filepath.t, int)>, // The defining module and the position in that module
   }
+  let toStringWithoutOffsets = self =>
+    Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
+    switch self.source {
+    | None => ""
+    | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
+    }
   let toString = self =>
     "(" ++
     string_of_int(self.start) ++
     ", " ++
     string_of_int(self.end) ++
     ") " ++
-    Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
-    switch self.source {
-    | None => ""
-    | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
-    }
+    toStringWithoutOffsets(self)
 
   // from SExpression
   let parse: Parser.SExpression.t => option<t<agdaOffset>> = x =>
