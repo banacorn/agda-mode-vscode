@@ -142,20 +142,22 @@ module type Indices = {
 }
 
 module Indices: Indices = {
-  //    Problem:  Symbols like "𝕁" should be treated like a single character as in UTF-8,
-  //              however, it's treated like 2 characters in UTF-16 (which is what VS Code uses)
+  //    Problem:  Symbols outside the Basic Multilingual Plane like "𝕁" are treated as
+  //              a single character (code point) by Agda; however, they are treated
+  //              as 2 characters (code *units*) in UTF-16/UCS-2 (which is what
+  //              VS Code uses to compute character offsets).
   type t = {
     intervals: array<(int, int)>,
     lastInterval: int,
     mutable cursor: int,
   }
 
-  // compiles an array of UTF-8 based offset intervals
-  // for faster UTF-8 => UTF-16 conversion
+  // compiles an array of code point based offset intervals
+  // for faster code point => code unit conversion
   let make = (indicesUTF16: array<int>): t => {
     //  Suppose that, there are surrogate pairs at [6000, 6001] and [6003, 6004]
 
-    //        UTF-8       UTF-16
+    //        codepoints  code units
     //        --------------------
     //        5999        5999
     //        6000        6000           <
@@ -165,26 +167,26 @@ module Indices: Indices = {
     //                    6004
     //        6003        6005
 
-    //  When converting from a UTF-8 based index, say, `6003`,
+    //  When converting from a code point based index, say, `6003`,
     //  we need to know how many surrogate pairs are there before `6003`
 
     //  Here's what we have computed:
-    //    * UTF-16 based indices of surrogate pairs: [6000, 6003]
+    //    * code unit based indices of surrogate pairs: [6000, 6003]
 
     //  Here's what we are going to compute next:
-    //    * UTF-8 based indices of surrogate pairs: [6000, 6002]
-    //    * intervals of UTF-8 based indices [(0, 6000), (6001, 6002)]
+    //    * code point based indices of surrogate pairs: [6000, 6002]
+    //    * intervals of code point based indices [(0, 6000), (6001, 6002)]
 
     //  NOTE: the last interval (6003, ...) will not be included
 
     //  indicesUTF16 = [6000, 6003]
 
     // [6000, 6002]
-    let indicesUTF8 = indicesUTF16->Array.mapWithIndex((x, i) => x - i)
+    let indicesCodepoint = indicesUTF16->Array.mapWithIndex((x, i) => x - i)
 
     // [(0, 6000), (6001, 6002)]
-    let intervals = indicesUTF8->Array.mapWithIndex((rightEndpoint, i) => {
-      let leftEndpoint = switch indicesUTF8[i - 1] {
+    let intervals = indicesCodepoint->Array.mapWithIndex((rightEndpoint, i) => {
+      let leftEndpoint = switch indicesCodepoint[i - 1] {
       | Some(x) => x + 1
       // first interval
       | None => 0
@@ -250,7 +252,7 @@ module OffsetConverter: OffsetConverter = {
   // returns an array of UTF-16 based indices where surrogate pairs occur,
   // for example, suppose that there are surrogate pairs at [6000, 6001] and [6003, 6004]
 
-  //        UTF-8       UTF-16
+  //        codepoints  code units
   //        --------------------
   //        5999        5999
   //        6000        6000
@@ -264,7 +266,7 @@ module OffsetConverter: OffsetConverter = {
   let computeUTF16SurrogatePairIndices = (text: string): array<int> => {
     let surrogatePairs = []
 
-    // length in code units (16 bits), not the actual UTF-8 length
+    // length in code units (16 bits), not the actual code point length
     let lengthInCodeUnits = String.length(text)
 
     // iterate through the text to find surrogate pairs
@@ -310,7 +312,7 @@ module OffsetConverter: OffsetConverter = {
   }
 
   type t = {
-    // cached lookup table for fast UTF8 => UTF16 offset conversion
+    // cached lookup table for fast code point => code unit offset conversion
     utf16indices: Indices.t,
     // cached lookup table for fast LF => CRLF => LF offset conversion
     eolIndices: Indices.t,
@@ -322,7 +324,7 @@ module OffsetConverter: OffsetConverter = {
   }
 
   let convert = (self, offset) => {
-    // UTF8 -> UTF16
+    // code point -> code unit
     let offset = Indices.convert(self.utf16indices, offset)
     // LF -> CRLF
     Indices.convert(self.eolIndices, offset)
