@@ -106,14 +106,28 @@ module Module: Module = {
       }
     }
 
-    let toString = goal => {
-      "#" ++
-      string_of_int(goal.index) ++
-      " [" ++
-      string_of_int(goal.start) ++
-      "-" ++
-      string_of_int(goal.end) ++ ")"
-    }
+    let toString = goal =>
+      switch VSCode.Window.activeTextEditor {
+      | Some(editor) =>
+        let document = VSCode.TextEditor.document(editor)
+        let startPoint = VSCode.TextDocument.positionAt(document, goal.start)
+        let endPoint = VSCode.TextDocument.positionAt(document, goal.end)
+        let startLine = VSCode.Position.line(startPoint) + 1
+        let startColumn = VSCode.Position.character(startPoint) + 1
+        let endLine = VSCode.Position.line(endPoint) + 1
+        let endColumn = VSCode.Position.character(endPoint) + 1
+        if startLine == endLine {
+          `#${string_of_int(goal.index)} [${string_of_int(startLine)}:${string_of_int(
+              startColumn,
+            )}-${string_of_int(endColumn)})`
+        } else {
+          `#${string_of_int(goal.index)} [${string_of_int(startLine)}:${string_of_int(
+              startColumn,
+            )}-${string_of_int(endLine)}:${string_of_int(endColumn)})`
+        }
+      | None =>
+        `#${string_of_int(goal.index)} offset [${string_of_int(goal.start)}-${string_of_int(goal.end)})`
+      }
 
     let makeInnerRange = (goal, document) =>
       VSCode.Range.make(

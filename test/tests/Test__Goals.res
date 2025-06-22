@@ -17,7 +17,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-178)", "#4 [179-183)"],
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
         // compare file content before and after
@@ -36,7 +36,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [119-126)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
+          ["#0 [8:12-19)", "#1 [9:20-27)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
         await ctx->AgdaMode.quit
@@ -51,7 +51,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [146-153)", "#3 [172-179)", "#4 [180-184)"],
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
         await ctx->AgdaMode.quit
@@ -69,7 +69,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [118-125)", "#3 [164-171)", "#4 [172-176)"],
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
         await ctx->AgdaMode.quit
       },
@@ -87,7 +87,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [118-125)", "#3 [171-178)", "#4 [179-183)"],
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
         await ctx->AgdaMode.quit
       },
@@ -105,7 +105,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#4 [174-178)"],
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#4 [11:22-26)"],
         )
         await ctx->AgdaMode.quit
       },
@@ -124,7 +124,7 @@ describe("Goals", () => {
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#0 [92-99)", "#1 [118-125)", "#2 [145-153)", "#3 [172-179)", "#4 [180-184)"],
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-28)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
         await ctx->AgdaMode.quit
       },
@@ -242,16 +242,9 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 14))
 
-        let actual = ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)
-        Assert.deepStrictEqual(
-          actual,
-          Some({
-            index: 0,
-            indexString: "0",
-            start: 92,
-            end: 99,
-          }),
-        )
+        let actual =
+          ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)->Option.map(Goal.toString)
+        Assert.deepStrictEqual(actual, Some("#0 [8:12-19)"))
       },
     )
 
@@ -261,16 +254,9 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 11))
 
-        let actual = ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)
-        Assert.deepStrictEqual(
-          actual,
-          Some({
-            index: 0,
-            indexString: "0",
-            start: 92,
-            end: 99,
-          }),
-        )
+        let actual =
+          ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)->Option.map(Goal.toString)
+        Assert.deepStrictEqual(actual, Some("#0 [8:12-19)"))
       },
     )
 
@@ -280,16 +266,9 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 18))
 
-        let actual = ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)
-        Assert.deepStrictEqual(
-          actual,
-          Some({
-            index: 0,
-            indexString: "0",
-            start: 92,
-            end: 99,
-          }),
-        )
+        let actual =
+          ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)->Option.map(Goal.toString)
+        Assert.deepStrictEqual(actual, Some("#0 [8:12-19)"))
       },
     )
   })
@@ -369,8 +348,7 @@ describe("Goals", () => {
         let _ = await VSCode.Workspace.openTextDocumentWithFileName(filepath)
         switch VSCode.Window.activeTextEditor {
         | None => Assert.fail("Cannot open editor for " ++ filename)
-        | Some(editor) =>
-          editor->Editor.Cursor.set(VSCode.Position.make(8, 18))
+        | Some(editor) => editor->Editor.Cursor.set(VSCode.Position.make(8, 18))
         }
 
         let ctx = await AgdaMode.makeAndLoad(filename)
@@ -386,7 +364,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue157.agda")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [86-107)"])
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [4:5-26)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -399,7 +377,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue159.lagda.tex")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [99-105)"])
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [5:5-7:3)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -412,7 +390,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue211.agda")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [106-113)"])
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [5:5-12)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -425,7 +403,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue214.lagda.md")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [121-127)"])
+        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [9:11-17)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -442,7 +420,7 @@ describe("Goals", () => {
         // check the goal positions
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
-          ["#1 [318-325)", "#2 [249-256)", "#3 [257-264)"],
+          ["#1 [19:9-16)", "#2 [13:13-20)", "#3 [13:21-28)"],
         )
         await ctx->AgdaMode.quit
       },
