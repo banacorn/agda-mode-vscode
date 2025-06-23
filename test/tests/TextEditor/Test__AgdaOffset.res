@@ -140,14 +140,14 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     )
   })
 
-  describe("Editor.toUTF8Offset", () => {
+  describe("Editor.toCodepointOffset", () => {
     Async.it(
       "should do it right",
       async () => {
         let textEditor = await openEditorWithContent("𝐀a𝐁bb𝐂c\\na")
-        let f = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
+        let f = n => textEditor->VSCode.TextEditor.document->Editor.toCodepointOffset(n)
         Assert.equal(f(0), 0)
-        Assert.equal(f(1), 1) // cuts grapheme in half, toUTF8Offset is a partial function
+        Assert.equal(f(1), 1) // cuts grapheme in half, toCodepointOffset is a partial function
         Assert.equal(f(2), 1)
         Assert.equal(f(3), 2)
         Assert.equal(f(5), 3)
@@ -161,11 +161,11 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     )
 
     Async.it(
-      "should be a left inverse of Editor.fromUTF8Offset",
+      "should be a left inverse of Editor.fromCodepointOffset",
       async () => {
-        // toUTF8Offset . fromUTF8Offset = id
+        // toCodepointOffset . fromCodepointOffset = id
         let textEditor = await openEditorWithContent("𝐀a𝐁bb𝐂c\\na")
-        let f = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
+        let f = n => textEditor->VSCode.TextEditor.document->Editor.toCodepointOffset(n)
         let g = n =>
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices("𝐀a𝐁bb𝐂c\\na")
           ->Agda.Indices.make
@@ -184,16 +184,16 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     )
 
     Async.it(
-      "should be a right inverse of Editor.fromUTF8Offset ()",
+      "should be a right inverse of Editor.fromCodepointOffset ()",
       async () => {
-        // NOTE: toUTF8Offset is a partial function
-        // fromUTF8Offset . toUTF8Offset = id
+        // NOTE: toCodepointOffset is a partial function
+        // fromCodepointOffset . toCodepointOffset = id
         let textEditor = await openEditorWithContent("𝐀a𝐁bb𝐂c\\na")
         let f = n =>
           Agda.OffsetConverter.computeUTF16SurrogatePairIndices("𝐀a𝐁bb𝐂c\\na")
           ->Agda.Indices.make
           ->Agda.Indices.convert(n)
-        let g = n => textEditor->VSCode.TextEditor.document->Editor.toUTF8Offset(n)
+        let g = n => textEditor->VSCode.TextEditor.document->Editor.toCodepointOffset(n)
         Assert.equal(f(g(0)), 0)
         Assert.equal(f(g(2)), 2)
         Assert.equal(f(g(3)), 3)
