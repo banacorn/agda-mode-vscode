@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.6.0 - 2025-06-20
+## v0.6.0 - 2025-06-23
 
 ### Changed
 - New algorithm for token highlighting
@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #229: Refining a hole can modify other tokens containing the character '?'
 - #231: Markdown code blocks without agda identifier by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #232: Revert "agda mandatory for md" by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #233: Error message `a.getOr(...).filter is not a function` when I load an Agda file
 
 ## v0.5.7 - 2025-05-15
 

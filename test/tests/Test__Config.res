@@ -45,6 +45,24 @@ describe("Config", () => {
             Assert.deepStrictEqual(actual, expected)
           },
         )
+
+        // https://github.com/banacorn/agda-mode-vscode/issues/233
+        Async.it(
+          "`parseAgdaPaths` should be able to handle corrupted data (Issue #233)",
+          async () => {
+            Assert.deepStrictEqual(Config.Connection.parseAgdaPaths("[]"), [])
+            Assert.deepStrictEqual(
+              Config.Connection.parseAgdaPaths(
+                "[\"/Users/banacorn/.local/bin/agda\", \"/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als\"]",
+              ),
+              [
+                "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
+                "/Users/banacorn/.local/bin/agda",
+              ],
+            )
+            Assert.deepStrictEqual(Config.Connection.parseAgdaPaths("{\"enabled\": true}"), [])
+          },
+        )
       },
     )
   })

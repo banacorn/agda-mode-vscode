@@ -46,20 +46,33 @@ module Connection = {
       )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", paths, None)
     }
 
+  // TODO: apply this exception-safe parsing to all parsing of configurations
+  let parseAgdaPaths = raw => {
+    let rawPaths: array<string> = switch JSON.parseExn(raw) {
+    | Array(strings) =>
+      strings->Array.filterMap(s =>
+        switch s {
+        | String(s) => Some(s)
+        | _ => None
+        }
+      )
+    | _ => []
+    | exception Exn.Error(_) => []
+    }
+
+    rawPaths->Array.filter(s => Parser.filepath(s) != "")->Array.toReversed
+  }
+
   let getAgdaPaths = () =>
     if inTestingMode.contents {
       agdaPathsInTestingMode.contents
     } else {
-      let rawPaths: option<array<string>> =
-        Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-          "connection.paths",
-        )
-
       let paths =
-        rawPaths
-        ->Option.getOr([])
-        ->Array.filter(s => Parser.filepath(s) != "")
-      Array.reverse(paths)
+        Workspace.getConfiguration(Some("agdaMode"), None)
+        ->WorkspaceConfiguration.get("connection.paths")
+        ->Option.getOr("[]")
+        ->parseAgdaPaths
+
       paths->Array.map(Connection__URI.parse)
     }
 
