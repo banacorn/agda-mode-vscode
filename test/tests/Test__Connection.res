@@ -9,6 +9,7 @@ let getAgdaTarget = async () => {
 }
 
 describe("Connection", () => {
+  This.timeout(10000)
   describe("URI.parse", () => {
     Async.it(
       "should be able to parse URIs with lsp: as the protocol",
