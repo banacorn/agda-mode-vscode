@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.6.0 - 2025-06-23
 
 ### Changed
-- New algorithm for token highlighting
-- Get goal positions from highlighting information from Agda instead of parsing them with our crappy parser
+- New algorithm for adjusting token highlightings on document changes
+- Source goal positions from highlighting information from Agda instead of parsing them with our crappy parser
 - Revamped goal/hole management
 
 ### Added
@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #231: Markdown code blocks without agda identifier by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #232: Revert "agda mandatory for md" by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #233: Error message `a.getOr(...).filter is not a function` when I load an Agda file
+- #235: Fix character offset when jumping to error by [@ncfavier](https://github.com/ncfavier)
 
 ## v0.5.7 - 2025-05-15
 
