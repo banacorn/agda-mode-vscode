@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #214: Too permissible hole matching in literate markdown files
 - #222: How is the Agda Syntax implemented in agda-mode-vscode?
 - #229: Refining a hole can modify other tokens containing the character '?'
+- #230: Upgrade @datastructures-js/binary-search-tree to v5.3.2 by [@andy0130tw](https://github.com/andy0130tw)
 - #231: Markdown code blocks without agda identifier by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #232: Revert "agda mandatory for md" by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #233: Error message `a.getOr(...).filter is not a function` when I load an Agda file
