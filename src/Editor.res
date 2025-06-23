@@ -422,7 +422,7 @@ module Provider = {
   }
 }
 
-let toUTF8Offset = (document, offset) => {
+let toCodepointOffset = (document, offset) => {
   let range = VSRange.make(VSCode.Position.make(0, 0), document->TextDocument.positionAt(offset)) // start // end
   let text = document->TextDocument.getText(Some(range))
   Agda.OffsetConverter.characterWidth(text)

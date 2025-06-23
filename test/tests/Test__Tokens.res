@@ -26,7 +26,7 @@ describe("Tokens", () => {
       },
     )
 
-    Async.it_only(
+    Async.it(
       "should produce correct tokens",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")

@@ -133,7 +133,10 @@ let rec handle = async (
       // when it's on the same file
       let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
       if path == filepath {
-        let point = state.document->VSCode.TextDocument.positionAt(offset - 1)
+        let text = Editor.Text.getAll(state.document)
+        let converter = Agda.OffsetConverter.make(text)
+        let offset_ = Agda.OffsetConverter.convert(converter, offset - 1)
+        let point = state.document->VSCode.TextDocument.positionAt(offset_)
         Editor.Cursor.set(state.editor, point)
       }
     | InteractionPoints(indices) =>
