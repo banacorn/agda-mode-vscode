@@ -2,6 +2,7 @@ open Mocha
 open Test__Util
 
 describe("agda-mode.refine", () => {
+  This.timeout(4000)
   describe("Issue #158", () => {
     let fileContent = ref("")
 

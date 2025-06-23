@@ -3,9 +3,9 @@ module VSRange = Range
 
 module Position = {
   let toString = position =>
-    string_of_int(VSCode.Position.line(position)) ++
+    string_of_int(VSCode.Position.line(position) + 1) ++
     ":" ++
-    string_of_int(VSCode.Position.character(position))
+    string_of_int(VSCode.Position.character(position) + 1)
 }
 
 module Range = {
@@ -13,11 +13,11 @@ module Range = {
     let start = VSCode.Range.start(range)
     let end = VSCode.Range.end_(range)
     if VSCode.Position.line(start) == VSCode.Position.line(end) {
-      string_of_int(VSCode.Position.line(start)) ++
+      string_of_int(VSCode.Position.line(start) + 1) ++
       ":" ++
-      string_of_int(VSCode.Position.character(start)) ++
+      string_of_int(VSCode.Position.character(start) + 1) ++
       "-" ++
-      string_of_int(VSCode.Position.character(end))
+      string_of_int(VSCode.Position.character(end) + 1)
     } else {
       Position.toString(start) ++ "-" ++ Position.toString(end)
     }

@@ -126,7 +126,9 @@ module Module: Module = {
             )}-${string_of_int(endLine)}:${string_of_int(endColumn)})`
         }
       | None =>
-        `#${string_of_int(goal.index)} offset [${string_of_int(goal.start)}-${string_of_int(goal.end)})`
+        `#${string_of_int(goal.index)} offset [${string_of_int(goal.start)}-${string_of_int(
+            goal.end,
+          )})`
       }
 
     let makeInnerRange = (goal, document) =>
@@ -544,6 +546,7 @@ module Module: Module = {
 
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
+
     let changes = changes->List.fromArray
 
     let rec go = (
@@ -758,6 +761,12 @@ module Module: Module = {
     //   2. the part before the question mark     ([\s\(\{\_\;\.\\\"@]|^)
     //   3. the part after the question mark      ([\s\)\}\_\;\.\\\"@]|$)
     //   4. other strings not matching the regex
+
+    // result of refinement from Agda uses LF "\n" as line endings
+    // we need to convert it to the system line endings
+    // so that the positions of the question marks can be calculated correctly
+    let raw = raw->Parser.splitToLines->Array.join(NodeJs.Os.eol)
+
     let chunks = raw->String.splitByRegExp(goalQuestionMark)
 
     chunks
