@@ -120,7 +120,9 @@ module Path = {
   let globalStorageUri = VSCode.Uri.file(toAbsolute("../../../../test/globalStoragePath"))
 
   let asset = filepath =>
-    NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])->Parser.Filepath.make->Parser.Filepath.toString
+    NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])
+    ->Parser.Filepath.make
+    ->Parser.Filepath.toString
 }
 
 // to prevent an extension from being activated twice
@@ -329,7 +331,8 @@ module AgdaMode = {
 
   let commandExists = async command =>
     switch await Connection.findCommands([command]) {
-    | Error(_error) => raise(Failure("Cannot find \"" ++ command ++ "\" in PATH"))
+    | Error(error) =>
+      raise(Failure(error->Array.map(Connection__Command.Error.toString)->Array.join("\n")))
     | Ok(_) => ()
     }
 
