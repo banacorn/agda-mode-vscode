@@ -80,9 +80,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .vscode-test
-          key: .vscode-test
+          key: vscode-${{ runner.os }}-${{ runner.arch }}
           restore-keys: |
-              .vscode-test
+              vscode-${{ runner.os }}-
         
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v4
@@ -182,15 +182,26 @@ jobs:
       - name: 🚗 Run tests
         run: |
           if [[ ${{ runner.os }} == "Linux" ]]; then
-            xvfb-run -a npm test
+            xvfb-run -a npm test 2>&1 | tee test-output.log
           else
-            npm test
+            npm test 2>&1 | tee test-output.log
+          fi
+
+      - name: 🔍 Check if VS Code was downloaded
+        id: check-vscode-download
+        run: |
+          if grep -q "Downloading.*MB" test-output.log; then
+            echo "downloaded=true" >> $GITHUB_OUTPUT
+            echo "✨ Newer VS Code version detected and downloaded"
+          else
+            echo "downloaded=false" >> $GITHUB_OUTPUT
+            echo "📦 Using cached VS Code version (no newer version available)"
           fi
 
       - name: 💾 Cache VSCode in .vscode-test
-        if:   always() && steps.vscode.outputs.cache-hit != 'true'
+        if:   always() && (steps.vscode.outputs.cache-hit != 'true' || steps.check-vscode-download.outputs.downloaded == 'true')
         uses: actions/cache/save@v4
         with:
           path: .vscode-test
-          key: ${{ steps.vscode.outputs.cache-primary-key }}
+          key: vscode-${{ runner.os }}-${{ runner.arch }}
     
