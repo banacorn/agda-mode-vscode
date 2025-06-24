@@ -66,6 +66,17 @@ jobs:
       #     restore-keys: |
       #         ${{ runner.os }}-stack-binaries
         
+      - name: 💾 Restore NPM dependencies
+        id: npm-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
       - name: 💾 Restore Agda from ${{ env.DIST }}
         id:   agda-artefacts
         uses: actions/cache/restore@v4
@@ -174,7 +185,7 @@ jobs:
           key: ${{ steps.agda-artefacts.outputs.cache-primary-key }}
     
       - name: ⏬ Install NPM Dependencies
-        run: npm install
+        run: npm ci --cache .npm
         
       - name: 🔨 Build stuff 
         run: npm run build
@@ -204,4 +215,12 @@ jobs:
         with:
           path: .vscode-test
           key: vscode-${{ runner.os }}-${{ runner.arch }}
-    
+
+      - name: 💾 Cache NPM dependencies
+        if: always() && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
