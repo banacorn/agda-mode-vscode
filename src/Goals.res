@@ -17,8 +17,8 @@ module type Module = {
 
   let getGoalByIndex: (t, index) => option<Goal.t>
 
-  let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
-  let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
+  let modify: (t, VSCode.TextEditor.t, index, string => string) => promise<unit>
+  let removeBoundaryAndDestroy: (t, VSCode.TextEditor.t, index) => promise<bool>
   // get the goal at the cursor position
   let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<Goal.t>
   let setCursorByIndex: (t, VSCode.TextEditor.t, int) => unit
@@ -131,17 +131,20 @@ module Module: Module = {
           )})`
       }
 
-    let makeInnerRange = (goal, document) =>
+    let makeInnerRange = (goal, editor) => {
+      let document = VSCode.TextEditor.document(editor)
       VSCode.Range.make(
         VSCode.TextDocument.positionAt(document, goal.start + 2),
         VSCode.TextDocument.positionAt(document, goal.end - 2),
       )
+    }
 
-    let makeOuterRange = (goal, document) =>
+    let makeOuterRange = (goal, editor) =>{
+      let document = VSCode.TextEditor.document(editor)
       VSCode.Range.make(
         VSCode.TextDocument.positionAt(document, goal.start),
         VSCode.TextDocument.positionAt(document, goal.end),
-      )
+      )}
   }
 
   type t = {
@@ -256,8 +259,9 @@ module Module: Module = {
 
   let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
 
-  let read = (goal, document) => {
-    let innerRange = InternalGoal.makeInnerRange(goal, document)
+  let read = (goal, editor) => {
+    let innerRange = InternalGoal.makeInnerRange(goal, editor)
+    let document = VSCode.TextEditor.document(editor)
     Editor.Text.get(document, innerRange)->String.trim
   }
 
@@ -273,12 +277,12 @@ module Module: Module = {
       }
     })
 
-  let modify = async (self, document, index, f) =>
+  let modify = async (self, editor, index, f) =>
     switch getInternalGoalByIndex(self, index) {
     | Some(goal) =>
-      let innerRange = InternalGoal.makeInnerRange(goal, document)
-      let goalContent = read(goal, document)
-      let _ = await Editor.Text.replace(document, innerRange, " " ++ f(goalContent) ++ " ")
+      let innerRange = InternalGoal.makeInnerRange(goal, editor)
+      let goalContent = read(goal, editor)
+      let _ = await Editor.Text.replace(editor, innerRange, " " ++ f(goalContent) ++ " ")
     | None => ()
     }
 
@@ -329,7 +333,7 @@ module Module: Module = {
       let position = VSCode.TextDocument.positionAt(document, goal.start + 3)
       Editor.Cursor.set(editor, position)
       // scroll to that part of the document
-      let range = InternalGoal.makeOuterRange(goal, document)
+      let range = InternalGoal.makeOuterRange(goal, editor)
       editor->VSCode.TextEditor.revealRange(range, None)
     }
 

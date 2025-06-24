@@ -146,10 +146,11 @@ module Text = {
   let get = (document, range) => document->TextDocument.getText(Some(range))
   let getAll = document => document->TextDocument.getText(None)
 
-  let replace = (document, range, text) => {
-    let workspaceEdit = WorkspaceEdit.make()
-    workspaceEdit->WorkspaceEdit.replace(document->TextDocument.uri, range, text, None)
-    Workspace.applyEdit(workspaceEdit)
+  let replace = (editor, range, text) => {
+    editor->VSCode.TextEditor.edit(
+      editBuilder => editBuilder->TextEditorEdit.replaceAtRange(range, text),
+      None,
+    )
   }
   let batchReplace = (document, replacements) => {
     let workspaceEdit = WorkspaceEdit.make()

@@ -80,7 +80,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.replace(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
           "       ",
         )
@@ -98,7 +98,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.replace(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(10, 17), VSCode.Position.make(10, 26)),
           "::DD",
         )
@@ -116,7 +116,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.replace(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(9, 22), VSCode.Position.make(9, 23)),
           ":D",
         )

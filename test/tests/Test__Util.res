@@ -21,7 +21,7 @@ module File = {
       VSCode.Position.make(0, 0),
       VSCode.Position.make(lineCount, 0),
     )
-    let succeed = await Editor.Text.replace(document, replaceRange, content)
+    let succeed = await Editor.Text.replace(editor, replaceRange, content)
     if succeed {
       let _ = await VSCode.TextDocument.save(document)
     } else {

@@ -14,7 +14,7 @@ let acquire = setup =>
 
 let cleanup = async setup => {
   let range = VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(100, 0))
-  let _ = await setup.editor->VSCode.TextEditor.document->Editor.Text.replace(range, "")
+  let _ = await setup.editor->Editor.Text.replace(range, "")
 }
 
 module IM = {
