@@ -249,6 +249,9 @@ module Module: Module = {
 
     let end_ = VSCode.TextDocument.positionAt(document, goal.end)
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
+
+    // don't add a "undo stop" after this operation
+    // so that we can lump this operation with the next one (hole expansion), making case split undoable
     if await Editor.Text.replace(editor, rangeToBeReplaced, indentedLines) {
       Some(rangeToBeReplaced, indentedLines)
     } else {

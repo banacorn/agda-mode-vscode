@@ -146,47 +146,33 @@ module Text = {
   let get = (document, range) => document->TextDocument.getText(Some(range))
   let getAll = document => document->TextDocument.getText(None)
 
-  let replace = (editor, range, text) => {
+  let replace = (editor, range, text, ~option=?) => {
     editor->VSCode.TextEditor.edit(
       editBuilder => editBuilder->TextEditorEdit.replaceAtRange(range, text),
-      None,
+      option,
     )
   }
-  let batchReplace = (document, replacements) => {
-    let workspaceEdit = WorkspaceEdit.make()
-    replacements->Array.forEach(((range, text)) =>
-      workspaceEdit->WorkspaceEdit.replace(document->TextDocument.uri, range, text, None)
-    )
-    Workspace.applyEdit(workspaceEdit)
+  let batchReplace = (editor, replacements, ~option=?) => {
+    editor->TextEditor.edit(editBuilder => {
+      replacements->Array.forEach(((range, text)) =>
+        editBuilder->TextEditorEdit.replaceAtRange(range, text)
+      )
+    }, option)
   }
-  // let batchReplace' = (editor, replacements) => {
-  //   editor->TextEditor.edit(editBuilder => {
-  //     replacements->Array.forEach(((range, text)) =>
-  //       editBuilder->TextEditorEdit.replaceAtRange(range, text)
-  //     )
-  //   }, None)
-  // }
 
-  let insert = (document, point, text) => {
-    let workspaceEdit = WorkspaceEdit.make()
-    workspaceEdit->WorkspaceEdit.insert(document->TextDocument.uri, point, text, None)
-    Workspace.applyEdit(workspaceEdit)
+  let insert = (editor, point, text, ~option=?) => {
+    editor->VSCode.TextEditor.edit(
+      editBuilder => editBuilder->TextEditorEdit.insert(point, text),
+      option,
+    )
   }
-  let batchInsert = (document, points, text) => {
-    let workspaceEdit = WorkspaceEdit.make()
-    let textEdits = points->Array.map(point => TextEdit.insert(point, text))
-    workspaceEdit->WorkspaceEdit.set(document->TextDocument.uri, textEdits)
-    Workspace.applyEdit(workspaceEdit)
+  let batchInsert = (editor, points, text, ~option=?) => {
+    editor->VSCode.TextEditor.edit(editBuilder => {
+      points->Array.forEach(point => editBuilder->TextEditorEdit.insert(point, text))
+    }, option)
   }
-  // let batchInsert' = (editor, points, text) => {
-  //   editor->TextEditor.edit(editBuilder => {
-  //     points->Array.forEach(point => editBuilder->TextEditorEdit.insert(point, text))
-  //   }, None)
-  // }
-  let delete = (document, range) => {
-    let workspaceEdit = WorkspaceEdit.make()
-    workspaceEdit->WorkspaceEdit.delete(document->TextDocument.uri, range, None)
-    Workspace.applyEdit(workspaceEdit)
+  let delete = (editor, range, ~option=?) => {
+    editor->VSCode.TextEditor.edit(editBuilder => editBuilder->TextEditorEdit.delete(range), option)
   }
 }
 

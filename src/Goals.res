@@ -139,12 +139,13 @@ module Module: Module = {
       )
     }
 
-    let makeOuterRange = (goal, editor) =>{
+    let makeOuterRange = (goal, editor) => {
       let document = VSCode.TextEditor.document(editor)
       VSCode.Range.make(
         VSCode.TextDocument.positionAt(document, goal.start),
         VSCode.TextDocument.positionAt(document, goal.end),
-      )}
+      )
+    }
   }
 
   type t = {
@@ -702,7 +703,9 @@ module Module: Module = {
       let originalCursorPosition = Editor.Cursor.get(editor)
       // set busy
       setBusy(self)
-      let _ = await Editor.Text.batchReplace(document, rewrites)
+
+      // add a "undo stop" after this operation
+      let _ = await Editor.Text.batchReplace(editor, rewrites)
 
       // place the cursor inside a hole if it was there before the rewrite
       let cursorWasWithinRewrites =

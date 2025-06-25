@@ -388,7 +388,7 @@ module AgdaMode = {
     let editor = await File.open_(self.filepath)
 
     // set cursor and insert the target for case splitting
-    let succeed = await Editor.Text.insert(self.state.document, cursor, payload)
+    let succeed = await Editor.Text.insert(self.state.editor, cursor, payload)
     if !succeed {
       raise(Failure("Failed to insert text"))
     }
@@ -456,7 +456,7 @@ module AgdaMode = {
       switch payload {
       | None => ()
       | Some(payload) =>
-        let _ = await Editor.Text.insert(self.state.document, cursor, payload)
+        let _ = await Editor.Text.insert(self.state.editor, cursor, payload)
       }
       Editor.Cursor.set(editor, cursor)
     }
