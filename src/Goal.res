@@ -17,12 +17,12 @@ module type Module = {
   // for case splitting
   let replaceWithLines: (
     t,
-    VSCode.TextDocument.t,
+    VSCode.TextEditor.t,
     array<string>,
   ) => promise<option<(VSCode.Range.t, string)>>
   let replaceWithLambda: (
     t,
-    VSCode.TextDocument.t,
+    VSCode.TextEditor.t,
     array<string>,
   ) => promise<option<(VSCode.Range.t, string)>>
   let placeCursorAtFirstNewGoal: (VSCode.TextEditor.t, VSCode.Range.t, string) => unit
@@ -138,7 +138,8 @@ module Module: Module = {
   //      λ where x → ?
   //        ^------------------- the "where" token
 
-  let caseSplitAux = (goal, document) => {
+  let caseSplitAux = (goal, editor) => {
+    let document = VSCode.TextEditor.document(editor)
     let textBeforeGoal = {
       let range = VSCode.Range.make(
         VSCode.TextDocument.positionAt(document, 0),
@@ -233,8 +234,9 @@ module Module: Module = {
 
   // replace and insert one or more lines of content at the goal
   // usage: case split
-  let replaceWithLines = async (goal, document, lines) => {
+  let replaceWithLines = async (goal, editor, lines) => {
     // get the width of indentation from the first line of the goal
+    let document = VSCode.TextEditor.document(editor)
     let (indentWidth, _, _) = indentationWidth(goal, document)
     let indentation = String.repeat(" ", indentWidth)
     let indentedLines = indentation ++ lines->Array.join("\n" ++ indentation)
@@ -247,7 +249,10 @@ module Module: Module = {
 
     let end_ = VSCode.TextDocument.positionAt(document, goal.end)
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
-    if await Editor.Text.replace(document, rangeToBeReplaced, indentedLines) {
+
+    // don't add a "undo stop" after this operation
+    // so that we can lump this operation with the next one (hole expansion), making case split undoable
+    if await Editor.Text.replace(editor, rangeToBeReplaced, indentedLines) {
       Some(rangeToBeReplaced, indentedLines)
     } else {
       None
@@ -264,14 +269,14 @@ module Module: Module = {
   //  2.  λ where
   //          x → ?
   //          y → ?
-  let replaceWithLambda = async (goal, document, lines) => {
-    let (inWhereClause, indentWidth, rewriteRange) = caseSplitAux(goal, document)
+  let replaceWithLambda = async (goal, editor, lines) => {
+    let (inWhereClause, indentWidth, rewriteRange) = caseSplitAux(goal, editor)
     let rewriteText = if inWhereClause {
       lines->Array.join("\n" ++ String.repeat(" ", indentWidth))
     } else {
       lines->Array.join("\n" ++ (String.repeat(" ", indentWidth - 2) ++ "; "))
     }
-    if await Editor.Text.replace(document, rewriteRange, rewriteText) {
+    if await Editor.Text.replace(editor, rewriteRange, rewriteText) {
       Some(rewriteRange, rewriteText)
     } else {
       None

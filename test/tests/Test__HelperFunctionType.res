@@ -12,7 +12,7 @@ let run = normalization => {
     if versionValid {
       let ctx = await AgdaMode.makeAndLoad(filename)
 
-      let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 14), "y")
+      let _ = await Editor.Text.insert(ctx.state.editor, VSCode.Position.make(7, 14), "y")
       let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
         Request.HelperFunctionType(
           normalization,

@@ -154,7 +154,7 @@ let rec handle = async (
       | Some(goal) =>
         switch give {
         | GiveParen =>
-          await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
+          await state.goals->Goals.modify(state.editor, index, content => "(" ++ content ++ ")")
         | GiveNoParen => () // no need to modify the document
         | GiveString(content) =>
           let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
@@ -169,7 +169,7 @@ let rec handle = async (
           let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
 
           // modify the document
-          await state.goals->Goals.modify(state.document, index, _ => indented)
+          await state.goals->Goals.modify(state.editor, index, _ => indented)
 
           // add goal positions
           let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(indented)
@@ -181,7 +181,7 @@ let rec handle = async (
           state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
         }
 
-        if await Goals.removeBoundaryAndDestroy(state.goals, state.document, index) {
+        if await Goals.removeBoundaryAndDestroy(state.goals, state.editor, index) {
           ()
         } else {
           await State__View.Panel.display(
@@ -202,8 +202,8 @@ let rec handle = async (
         )
       | Some(goal) =>
         let result = switch makeCaseType {
-        | Function => await Goal.replaceWithLines(goal, state.document, lines)
-        | ExtendedLambda => await Goal.replaceWithLambda(goal, state.document, lines)
+        | Function => await Goal.replaceWithLines(goal, state.editor, lines)
+        | ExtendedLambda => await Goal.replaceWithLambda(goal, state.editor, lines)
         }
 
         switch result {
@@ -227,7 +227,7 @@ let rec handle = async (
         | None => ()
         | Some(goal) =>
           // modify the goal content
-          await Goals.modify(state.goals, state.document, index, _ => solution)
+          await Goals.modify(state.goals, state.editor, index, _ => solution)
           // send the give request to Agda
           await sendAgdaRequest(Give(goal))
         }

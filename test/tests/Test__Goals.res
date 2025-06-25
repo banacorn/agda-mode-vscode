@@ -32,7 +32,7 @@ describe("Goals", () => {
       "should translate goals on an insertion immediately before a goal",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 18), " ")
+        let _ = await Editor.Text.insert(ctx.state.editor, VSCode.Position.make(8, 18), " ")
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
@@ -47,7 +47,7 @@ describe("Goals", () => {
       "should translate goals on an insertion immediately after a goal",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
-        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 25), " ")
+        let _ = await Editor.Text.insert(ctx.state.editor, VSCode.Position.make(8, 25), " ")
         // check the positions of the goals
         Assert.deepStrictEqual(
           Goals.serialize(ctx.state.goals),
@@ -63,7 +63,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.delete(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
         )
         // check the positions of the goals
@@ -80,7 +80,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.replace(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
           "       ",
         )
@@ -98,7 +98,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.replace(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(10, 17), VSCode.Position.make(10, 26)),
           "::DD",
         )
@@ -116,7 +116,7 @@ describe("Goals", () => {
       async () => {
         let ctx = await AgdaMode.makeAndLoad("Goals.agda")
         let _ = await Editor.Text.replace(
-          ctx.state.document,
+          ctx.state.editor,
           VSCode.Range.make(VSCode.Position.make(9, 22), VSCode.Position.make(9, 23)),
           ":D",
         )
@@ -138,7 +138,7 @@ describe("Goals", () => {
           async () => {
             let ctx = await AgdaMode.makeAndLoad("Goals.agda")
             let _ = await Editor.Text.delete(
-              ctx.state.document,
+              ctx.state.editor,
               VSCode.Range.make(VSCode.Position.make(9, 25), VSCode.Position.make(9, 26)),
             )
             await ctx->AgdaMode.quit
@@ -160,7 +160,7 @@ describe("Goals", () => {
           async () => {
             let ctx = await AgdaMode.makeAndLoad("Goals.agda")
             let _ = await Editor.Text.delete(
-              ctx.state.document,
+              ctx.state.editor,
               VSCode.Range.make(VSCode.Position.make(9, 24), VSCode.Position.make(9, 25)),
             )
             await ctx->AgdaMode.quit
@@ -182,7 +182,7 @@ describe("Goals", () => {
           async () => {
             let ctx = await AgdaMode.makeAndLoad("Goals.agda")
             let _ = await Editor.Text.delete(
-              ctx.state.document,
+              ctx.state.editor,
               VSCode.Range.make(VSCode.Position.make(9, 20), VSCode.Position.make(9, 21)),
             )
             await ctx->AgdaMode.quit
@@ -204,7 +204,7 @@ describe("Goals", () => {
           async () => {
             let ctx = await AgdaMode.makeAndLoad("Goals.agda")
             let _ = await Editor.Text.delete(
-              ctx.state.document,
+              ctx.state.editor,
               VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 20)),
             )
             await ctx->AgdaMode.quit

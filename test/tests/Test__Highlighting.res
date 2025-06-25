@@ -8,7 +8,7 @@ describe("Highlighting", () => {
 
   Async.it("should work after inserting a newline", async () => {
     let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
-    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(6, 0), "\n")
+    let _ = await Editor.Text.insert(ctx.state.editor, VSCode.Position.make(6, 0), "\n")
 
     let expected = [
       "(7:0-3) function",
@@ -31,7 +31,7 @@ describe("Highlighting", () => {
     let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
 
     let _ = await Editor.Text.delete(
-      ctx.state.document,
+      ctx.state.editor,
       VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(6, 0)),
     )
 
@@ -55,7 +55,7 @@ describe("Highlighting", () => {
     let ctx = await AgdaMode.makeAndLoad("Issue180.agda")
 
     let _ = await Editor.Text.delete(
-      ctx.state.document,
+      ctx.state.editor,
       VSCode.Range.make(VSCode.Position.make(5, 0), VSCode.Position.make(7, 0)),
     )
 

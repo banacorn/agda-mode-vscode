@@ -28,7 +28,7 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
-          let _ = await Editor.Text.batchReplace(state.document, replacements)
+          let _ = await Editor.Text.batchReplace(state.editor, replacements)
           resolve()
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])
@@ -245,7 +245,7 @@ module Module: Module = {
       let char = String.charAt(char, 0)
       let positions = Editor.Cursor.getMany(state.editor)
 
-      let _ = await state.document->Editor.Text.batchInsert(positions, char)
+      let _ = await state.editor->Editor.Text.batchInsert(positions, char)
       Editor.focus(state.document)
     | Prompt => await PromptIM.insertChar(state, char)
     | None => ()

@@ -9,7 +9,7 @@ describe("agda-mode.give", () => {
   Async.it("should be responded with correct responses", async () => {
     let ctx = await AgdaMode.makeAndLoad("Give.agda")
 
-    let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 14), "y")
+    let _ = await Editor.Text.insert(ctx.state.editor, VSCode.Position.make(7, 14), "y")
     let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
       Request.Give({
         index: 0,
