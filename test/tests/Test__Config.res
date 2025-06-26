@@ -50,17 +50,28 @@ describe("Config", () => {
         Async.it(
           "`parseAgdaPaths` should be able to handle corrupted data (Issue #233)",
           async () => {
-            Assert.deepStrictEqual(Config.Connection.parseAgdaPaths("[]"), [])
+            Assert.deepStrictEqual(Config.Connection.parseAgdaPaths(JSON.Null), [])
+            Assert.deepStrictEqual(Config.Connection.parseAgdaPaths(JSON.Array([])), [])
             Assert.deepStrictEqual(
               Config.Connection.parseAgdaPaths(
-                "[\"/Users/banacorn/.local/bin/agda\", \"/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als\"]",
+                JSON.Array([
+                  JSON.String("/Users/banacorn/.local/bin/agda"),
+                  JSON.String(
+                    "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
+                  ),
+                ]),
               ),
               [
                 "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
                 "/Users/banacorn/.local/bin/agda",
               ],
             )
-            Assert.deepStrictEqual(Config.Connection.parseAgdaPaths("{\"enabled\": true}"), [])
+            Assert.deepStrictEqual(
+              Config.Connection.parseAgdaPaths(
+                JSON.Object(Dict.fromArray([("enabled", JSON.Boolean(true))])),
+              ),
+              [],
+            )
           },
         )
       },

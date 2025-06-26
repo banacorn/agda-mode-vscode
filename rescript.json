@@ -33,8 +33,7 @@
     "rescript-mocha"
   ],
   "bsc-flags": [
-    "-open RescriptCore",
-    "-bs-g"
+    "-open RescriptCore"
   ],
   "ppx-flags": []
 }

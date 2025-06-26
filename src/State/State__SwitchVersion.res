@@ -282,6 +282,8 @@ let rec run = async state => {
     miscItems,
   ])
   qp.items = items
+
+  Js.log(Config.Connection.getAgdaPaths())
   qp->QP.render
 
   // downloadable"
