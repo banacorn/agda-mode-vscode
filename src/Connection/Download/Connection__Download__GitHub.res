@@ -332,7 +332,6 @@ let chmodExecutable = async path =>
   | exception Exn.Error(_) => Error(Error.CannotChmodFile(path))
   }
 
-
 module Repo = {
   type t = {
     // GitHub
@@ -370,7 +369,7 @@ module Callbacks = {
 
 module ReleaseManifest: {
   // age of the release manifest cache in seconds
-  let cacheAgeInSecs: State__Memento.t => int
+  let cacheAgeInSecs: State__Memento.t => option<int>
   // fetch the release manifest from the cache or GitHub
   let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
   // fresh fetch from GitHub and cache it
@@ -390,12 +389,12 @@ module ReleaseManifest: {
   // return the time difference in seconds since the cache was last fetched
   let cacheAgeInSecs = memento => {
     switch readTimestamp(memento) {
-    | None => 0
+    | None => None
     | Some(timestamp) =>
       let currentTime = Date.now()
       let lastModifiedTime = Date.getTime(timestamp)
       // time difference in seconds
-      int_of_float((currentTime -. lastModifiedTime) /. 1000.0)
+      Some(int_of_float((currentTime -. lastModifiedTime) /. 1000.0))
     }
   }
 
@@ -447,8 +446,14 @@ module ReleaseManifest: {
   // fetch from GitHub if the cache is too old
   // also returns a boolean indicating if the result is from cache
   let fetch = async (repo: Repo.t) => {
-    let cacheAge = cacheAgeInSecs(repo.memento)
-    if cacheAge > repo.cacheInvalidateExpirationSecs {
+    // let cacheAge = cacheAgeInSecs(repo.memento)
+
+    let cacheInvalidated = switch cacheAgeInSecs(repo.memento) {
+    | None => true
+    | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
+    }
+
+    if cacheInvalidated {
       (await fetchFromGitHubAndCache(repo), false)
     } else {
       (await fetchFromCache(repo.memento), true)

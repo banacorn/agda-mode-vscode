@@ -309,7 +309,6 @@ module LatestALS = {
     switch await getALSReleaseManifest(memento, globalStorageUri) {
     | Error(error) => Error(error)
     | Ok(releases) =>
-
       // only releases after 2024-12-18 are considered
       let laterReleases =
         releases->Array.filter(release =>
@@ -317,7 +316,6 @@ module LatestALS = {
         )
       // present only the latest release at the moment
 
-      
       // NOTE: using only v0.2.7.0.1.5 for now, we'll remove this constraint later
       let pinnedRelease = laterReleases->Array.find(release => release.name == "v0.2.7.0.1.5")
 

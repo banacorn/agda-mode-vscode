@@ -202,7 +202,7 @@ let rec run = async state => {
   ]
 
   //
-  //  Installations
+  //  Installed Agda or Agda Language Server
   //
 
   let picked = await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths())
@@ -264,26 +264,25 @@ let rec run = async state => {
       }
     }
 
-  // other installations
-  let installationsSeperator = [
+  // other installed
+  let installedSeperator = [
     {
-      VSCode.QuickPickItem.label: "Installations",
+      VSCode.QuickPickItem.label: "Installed",
       kind: Separator,
     },
   ]
   let installationTargets = await Connection.Target.fromURIs(Config.Connection.getAgdaPaths())
-  let installationsItems = installationTargets->Array.map(targetToItem)
+  let installedItems = installationTargets->Array.map(targetToItem)
 
   let items = Array.flat([
-    // installation
-    installationsSeperator,
-    installationsItems,
+    // installed targets
+    installedSeperator,
+    installedItems,
     // misc operations
     miscItems,
   ])
   qp.items = items
 
-  Js.log(Config.Connection.getAgdaPaths())
   qp->QP.render
 
   // downloadable"
