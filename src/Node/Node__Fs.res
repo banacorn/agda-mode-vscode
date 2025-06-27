@@ -1,6 +1,17 @@
 @module("fs")
 external readdir: (string, (Js.nullable<Js.Exn.t>, array<string>) => unit) => unit = "readdir"
 
+let readdir = filepath => {
+  Promise.make((resolve, reject) => {
+    readdir(filepath, (error, files) => {
+      switch Js.Nullable.toOption(error) {
+      | Some(err) => reject(err)
+      | None => resolve(files)
+      }
+    })
+  })
+}
+
 @module("fs")
 external access: (string, Js.null<Js.Exn.t> => unit) => unit = "access"
 

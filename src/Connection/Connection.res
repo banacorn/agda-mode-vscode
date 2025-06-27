@@ -44,6 +44,9 @@ module type Module = {
   let findCommands: array<string> => promise<result<Target.t, array<Connection__Command.Error.t>>>
 
   // misc
+  let getInstalledTargetsAndPersistThem: VSCode.Uri.t => promise<
+    Dict.t<result<Target.t, Target.Error.t>>,
+  >
   let makeAgdaLanguageServerRepo: (
     State__Memento.t,
     VSCode.Uri.t,
@@ -270,6 +273,90 @@ module Module: Module = {
       | Ok(_) => Ok(target)
       }
     }
+  }
+
+  // 1. Get all installed targets from:
+  //    * `agdaMode.connection.paths` in the settings
+  //    * `agda` and `als` from the PATH
+  //    * `agda` and `als` from the download folder
+  // 2. Persist them in the settings
+  let getInstalledTargetsAndPersistThem = async (globalStorageUri: VSCode.Uri.t) => {
+    // from `agdaMode.connection.paths` in the settings
+    let dict = {
+      let pairs =
+        await Config.Connection.getAgdaPaths()
+        ->Array.map(async uri => {
+          let target = await Target.fromURI(uri)
+          (Connection__URI.toString(uri), target)
+        })
+        ->Promise.all
+
+      Dict.fromArray(pairs)
+    }
+
+    // add `agda` and `als` from the PATH
+    switch await findCommands(["agda"]) {
+    | Ok(agda) =>
+      let uri = agda->Connection__Target.toURI
+      await Config.Connection.addAgdaPath(uri)
+      dict->Dict.set(uri->Target.URI.toString, Ok(agda))
+    | Error(_) => ()
+    }
+    switch await findCommands(["als"]) {
+    | Ok(als) =>
+      let uri = als->Connection__Target.toURI
+      await Config.Connection.addAgdaPath(uri)
+      dict->Dict.set(uri->Target.URI.toString, Ok(als))
+    | Error(_) => ()
+    }
+
+    // add `agda` and `als` from the download folder
+    // assuming that all `als` and `agda` executables are placed in folders one level below the download folder
+    let downloadPath = VSCode.Uri.fsPath(globalStorageUri)
+    switch await Node__Fs.readdir(downloadPath) {
+    | folders =>
+      let _ =
+        await folders
+        ->Array.map(async folder => {
+          let folderPath = NodeJs.Path.join([downloadPath, folder])
+          switch await Node__Fs.readdir(folderPath) {
+          | files =>
+            let agdaFile = files->Array.find(file => file == "agda" || file == "agda.exe")
+            let alsFile = files->Array.find(file => file == "als" || file == "als.exe")
+
+            switch agdaFile {
+            | Some(fileName) =>
+              let executablePath = NodeJs.Path.join([folderPath, fileName])
+              switch await Target.fromRawPath(executablePath) {
+              | Ok(target) =>
+                let uri = target->Connection__Target.toURI
+                await Config.Connection.addAgdaPath(uri)
+                dict->Dict.set(uri->Target.URI.toString, Ok(target))
+              | Error(_) => ()
+              }
+            | None => ()
+            }
+
+            switch alsFile {
+            | Some(fileName) =>
+              let executablePath = NodeJs.Path.join([folderPath, fileName])
+              switch await Target.fromRawPath(executablePath) {
+              | Ok(target) =>
+                let uri = target->Connection__Target.toURI
+                await Config.Connection.addAgdaPath(uri)
+                dict->Dict.set(uri->Target.URI.toString, Ok(target))
+              | Error(_) => ()
+              }
+            | None => ()
+            }
+          | exception _ => ()
+          }
+        })
+        ->Promise.all
+    | exception _ => ()
+    }
+
+    dict
   }
 
   let makeAgdaLanguageServerRepo: (

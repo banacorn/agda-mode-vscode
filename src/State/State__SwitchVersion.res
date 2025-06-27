@@ -273,38 +273,7 @@ let rec run = async state => {
     },
   ]
 
-  let installedTargets = {
-    // from `agdaMode.connection.paths` in the settings
-    let dict = {
-      let pairs =
-        await Config.Connection.getAgdaPaths()
-        ->Array.map(async uri => {
-          let target = await Connection.Target.fromURI(uri)
-          (Connection__URI.toString(uri), target)
-        })
-        ->Promise.all
-
-      Dict.fromArray(pairs)
-    }
-
-    // add `agda` and `als` from the PATH
-    switch await Connection.findCommands(["agda"]) {
-    | Ok(agda) =>
-      let uri = agda->Connection__Target.toURI
-      await Config.Connection.addAgdaPath(uri)
-      dict->Dict.set(uri->Connection.Target.URI.toString, Ok(agda))
-    | Error(_) => ()
-    }
-    switch await Connection.findCommands(["als"]) {
-    | Ok(als) =>
-      let uri = als->Connection__Target.toURI
-      await Config.Connection.addAgdaPath(uri)
-      dict->Dict.set(uri->Connection.Target.URI.toString, Ok(als))
-    | Error(_) => ()
-    }
-
-    dict
-  }
+  let installedTargets = await Connection.getInstalledTargetsAndPersistThem(state.globalStorageUri)
 
   let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(targetToItem)
 

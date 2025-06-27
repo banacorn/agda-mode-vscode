@@ -232,7 +232,7 @@ module Golden = {
   // get all filepaths of golden tests (asynchronously)
   let getGoldenFilepaths = async directoryPath => {
     let directoryPath = Path.toAbsolute(directoryPath)
-    let readdir = N.Util.promisify(N.Fs.readdir, ...)
+    let readdir = Node__Fs.readdir
     let isInFile = x => x->String.endsWith(".in")
     let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
 
