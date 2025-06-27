@@ -205,14 +205,15 @@ let rec run = async state => {
   //  Installed Agda or Agda Language Server
   //
 
-  let picked = await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths())
-  let isPicked = target =>
-    switch picked {
+  let selected = await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths())
+
+  let isSelected = target =>
+    switch selected {
     | Error(_) => false
-    | Ok(picked) =>
+    | Ok(selected) =>
       switch target {
       | Error(_) => false
-      | Ok(target) => Connection.Target.toURI(picked) == Connection.Target.toURI(target)
+      | Ok(target) => Connection.Target.toURI(selected) == Connection.Target.toURI(target)
       }
     }
 
@@ -221,7 +222,7 @@ let rec run = async state => {
     switch target {
     | Ok(Connection.Target.Agda(version, path)) => {
         VSCode.QuickPickItem.label: "Agda v" ++ version,
-        description: if isPicked(target) {
+        description: if isSelected(target) {
           "Selected"
         } else {
           ""
@@ -237,7 +238,7 @@ let rec run = async state => {
         agdaVersion ++
         " Language Server v" ++
         alsVersion,
-        description: if isPicked(target) {
+        description: if isSelected(target) {
           "Selected"
         } else {
           ""
@@ -264,20 +265,53 @@ let rec run = async state => {
       }
     }
 
-  // other installed
+  // installed Agda or Agda Language Server
   let installedSeperator = [
     {
       VSCode.QuickPickItem.label: "Installed",
       kind: Separator,
     },
   ]
-  let installationTargets = await Connection.Target.fromURIs(Config.Connection.getAgdaPaths())
-  let installedItems = installationTargets->Array.map(targetToItem)
+
+  let installedTargets = {
+    // from `agdaMode.connection.paths` in the settings
+    let dict = {
+      let pairs =
+        await Config.Connection.getAgdaPaths()
+        ->Array.map(async uri => {
+          let target = await Connection.Target.fromURI(uri)
+          (Connection__URI.toString(uri), target)
+        })
+        ->Promise.all
+
+      Dict.fromArray(pairs)
+    }
+
+    // add `agda` and `als` from the PATH
+    switch await Connection.findCommands(["agda"]) {
+    | Ok(agda) =>
+      let uri = agda->Connection__Target.toURI
+      await Config.Connection.addAgdaPath(uri)
+      dict->Dict.set(uri->Connection.Target.URI.toString, Ok(agda))
+    | Error(_) => ()
+    }
+    switch await Connection.findCommands(["als"]) {
+    | Ok(als) =>
+      let uri = als->Connection__Target.toURI
+      await Config.Connection.addAgdaPath(uri)
+      dict->Dict.set(uri->Connection.Target.URI.toString, Ok(als))
+    | Error(_) => ()
+    }
+
+    dict
+  }
+
+  let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(targetToItem)
 
   let items = Array.flat([
     // installed targets
     installedSeperator,
-    installedItems,
+    installedItemsFromSettings,
     // misc operations
     miscItems,
   ])
