@@ -164,10 +164,10 @@ let rec run = async state => {
 
   // items to be shown in the quick pick
   let miscItems = [
-    {
-      VSCode.QuickPickItem.label: "Download",
-      kind: Separator,
-    },
+    // {
+    //   VSCode.QuickPickItem.label: "Misc",
+    //   kind: Separator,
+    // },
     // if latestALSAlreadyDownloaded {
     //   let ageInSecs = Connection__Download__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
     //   let description = switch ageInSecs / 3600 {
@@ -264,6 +264,32 @@ let rec run = async state => {
         detail: Connection__Target.Error.toString(error),
       }
     }
+  let fetchSpecToItem = (globalStoragePath: VSCode.Uri.t, installedPaths: array<string>) => (
+    fetchSpec: Connection__Download__GitHub.FetchSpec.t,
+  ) => {
+    let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
+      asset.name
+      ->String.replaceRegExp(%re("/als-Agda-/"), "")
+      ->String.replaceRegExp(%re("/-.*/"), "")
+    let agdaVersion = getAgdaVersion(fetchSpec.asset)
+    let alsVersion =
+      fetchSpec.release.name->String.split(".")->Array.last->Option.getOr(fetchSpec.release.name) // take the last digit as the version
+
+    let filename = NodeJs.Path.join([ VSCode.Uri.fsPath(globalStoragePath), fetchSpec.saveAsFileName, "als"])
+    let downloaded = Array.includes(installedPaths, filename)
+    {
+      VSCode.QuickPickItem.label: "$(squirrel)  Agda v" ++
+      agdaVersion ++
+      " Language Server v" ++
+      alsVersion,
+      description: if downloaded {
+        "Downloaded and installed"
+      } else {
+        ""
+      },
+      detail: fetchSpec.release.html_url,
+    }
+  }
 
   // installed Agda or Agda Language Server
   let installedSeperator = [
@@ -274,13 +300,45 @@ let rec run = async state => {
   ]
 
   let installedTargets = await Connection.getInstalledTargetsAndPersistThem(state.globalStorageUri)
-
+  let installedPaths =
+    installedTargets
+    ->Dict.valuesToArray
+    ->Array.filterMap(x =>
+      switch x {
+      | Error(_) => None
+      | Ok(target) => Some(Connection.Target.toURI(target)->Connection.URI.toString)
+      }
+    )
   let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(targetToItem)
+
+  let downloadSeperator = [
+    {
+      VSCode.QuickPickItem.label: "Available for download",
+      kind: Separator,
+    },
+  ]
+
+  let downloadableFetchSpecs = switch await Connection__Download__Platform.determine() {
+  | Error(_) => []
+  | Ok(platform) =>
+    switch await Connection.LatestALS.getFetchSpec(
+      state.memento,
+      state.globalStorageUri,
+      platform,
+    ) {
+    | Error(_) => []
+    | Ok(fetchSpec) => [fetchSpec]
+    }
+  }
+  let downloadableItems = downloadableFetchSpecs->Array.map(fetchSpecToItem(state.globalStorageUri, installedPaths))
 
   let items = Array.flat([
     // installed targets
     installedSeperator,
     installedItemsFromSettings,
+    // downloadable targets
+    downloadSeperator,
+    downloadableItems,
     // misc operations
     miscItems,
   ])

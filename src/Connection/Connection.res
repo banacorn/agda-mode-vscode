@@ -392,7 +392,7 @@ module LatestALS = {
     release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
   }
 
-  let getTarget = async (memento, globalStorageUri, platform) =>
+  let getFetchSpec = async (memento, globalStorageUri, platform) =>
     switch await getALSReleaseManifest(memento, globalStorageUri) {
     | Error(error) => Error(error)
     | Ok(releases) =>
@@ -443,9 +443,9 @@ module LatestALS = {
 
   // download the latest ALS and return the path of the downloaded file
   let download = (memento, globalStorageUri) => async platform =>
-    switch await getTarget(memento, globalStorageUri, platform) {
+    switch await getFetchSpec(memento, globalStorageUri, platform) {
     | Error(error) => Error(error)
-    | Ok(target) => await Connection__Download.download(memento, globalStorageUri, target)
+    | Ok(fetchSpec) => await Connection__Download.download(memento, globalStorageUri, fetchSpec)
     }
 
   // check if the latest ALS is already downloaded
