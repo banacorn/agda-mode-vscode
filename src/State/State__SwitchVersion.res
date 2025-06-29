@@ -108,17 +108,30 @@ module QP = {
 
 let handleSelection = async (
   self: QP.t,
-  _memento: State__Memento.t,
-  _globalStoragePath: VSCode.Uri.t,
+  memento: State__Memento.t,
+  globalStorageUri: VSCode.Uri.t,
   selection: VSCode.QuickPickItem.t,
 ) => {
   switch selection.label {
   | "$(folder-opened)  Open download folder" =>
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
-  // | "$(cloud-download)  Download the latest Agda Language Server" =>
-  //   let _ = await Connection.downloadLatestALS(memento, globalStoragePath, _ => ())
-  //   await self.rerender()
+  | "$(cloud-download)  Download the latest Agda Language Server" =>
+    Js.log("Downloading the latest Agda Language Server...")
+
+    switch await Connection__Download__Platform.determine() {
+    | Error(_) =>
+      Js.log("Failed to determine the platform for downloading the Agda Language Server")
+    | Ok(platform) =>
+      switch await Connection.LatestALS.download(memento, globalStorageUri)(platform) {
+      | Error(_) => Js.log("Failed to download the latest Agda Language Server")
+      | Ok(target) =>
+        Js.log("Downloaded Agda Language Server")
+        await self.rerender()
+      }
+    }
+
+  // await self.rerender()
   // | "$(sync)  Check for updates" =>
   //   let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
   //   let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
@@ -264,6 +277,7 @@ let rec run = async state => {
         detail: Connection__Target.Error.toString(error),
       }
     }
+
   let fetchSpecToItem = (globalStoragePath: VSCode.Uri.t, installedPaths: array<string>) => (
     fetchSpec: Connection__Download__GitHub.FetchSpec.t,
   ) => {
@@ -275,19 +289,21 @@ let rec run = async state => {
     let alsVersion =
       fetchSpec.release.name->String.split(".")->Array.last->Option.getOr(fetchSpec.release.name) // take the last digit as the version
 
-    let filename = NodeJs.Path.join([ VSCode.Uri.fsPath(globalStoragePath), fetchSpec.saveAsFileName, "als"])
+    let filename = NodeJs.Path.join([
+      VSCode.Uri.fsPath(globalStoragePath),
+      fetchSpec.saveAsFileName,
+      "als",
+    ])
     let downloaded = Array.includes(installedPaths, filename)
+    let versionString = "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
     {
-      VSCode.QuickPickItem.label: "$(squirrel)  Agda v" ++
-      agdaVersion ++
-      " Language Server v" ++
-      alsVersion,
+      VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
       description: if downloaded {
         "Downloaded and installed"
       } else {
         ""
       },
-      detail: fetchSpec.release.html_url,
+      detail: versionString,
     }
   }
 
@@ -313,24 +329,27 @@ let rec run = async state => {
 
   let downloadSeperator = [
     {
-      VSCode.QuickPickItem.label: "Available for download",
+      VSCode.QuickPickItem.label: "Download",
       kind: Separator,
     },
   ]
 
-  let downloadableFetchSpecs = switch await Connection__Download__Platform.determine() {
-  | Error(_) => []
+  let downloadLatestALSFetchSpec = switch await Connection__Download__Platform.determine() {
+  | Error(_) => None
   | Ok(platform) =>
     switch await Connection.LatestALS.getFetchSpec(
       state.memento,
       state.globalStorageUri,
       platform,
     ) {
-    | Error(_) => []
-    | Ok(fetchSpec) => [fetchSpec]
+    | Error(_) => None
+    | Ok(fetchSpec) => Some(fetchSpec)
     }
   }
-  let downloadableItems = downloadableFetchSpecs->Array.map(fetchSpecToItem(state.globalStorageUri, installedPaths))
+  let downloadLatestALSItems = switch downloadLatestALSFetchSpec {
+  | None => []
+  | Some(fetchSpec) => [fetchSpecToItem(state.globalStorageUri, installedPaths)(fetchSpec)]
+  }
 
   let items = Array.flat([
     // installed targets
@@ -338,7 +357,7 @@ let rec run = async state => {
     installedItemsFromSettings,
     // downloadable targets
     downloadSeperator,
-    downloadableItems,
+    downloadLatestALSItems,
     // misc operations
     miscItems,
   ])
