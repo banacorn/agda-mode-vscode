@@ -450,7 +450,7 @@ module LatestALS = {
 
   // check if the latest ALS is already downloaded
   let alreadyDownloaded = globalStorageUri => async () => {
-    let path = NodeJs.Path.join([VSCode.Uri.fsPath(globalStorageUri), "latest-als"])
+    let path = NodeJs.Path.join([VSCode.Uri.fsPath(globalStorageUri), "latest-als", "als"])
     switch await NodeJs.Fs.access(path) {
     | () =>
       switch await Target.fromRawPath(path) {

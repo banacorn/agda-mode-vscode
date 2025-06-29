@@ -117,17 +117,38 @@ let handleSelection = async (
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | "$(cloud-download)  Download the latest Agda Language Server" =>
-    Js.log("Downloading the latest Agda Language Server...")
-
-    switch await Connection__Download__Platform.determine() {
-    | Error(_) =>
-      Js.log("Failed to determine the platform for downloading the Agda Language Server")
+    let result = switch await Connection__Download__Platform.determine() {
+    | Error(_) => Error("Failed to determine the platform for downloading the Agda Language Server")
     | Ok(platform) =>
-      switch await Connection.LatestALS.download(memento, globalStorageUri)(platform) {
-      | Error(_) => Js.log("Failed to download the latest Agda Language Server")
-      | Ok(target) =>
-        Js.log("Downloaded Agda Language Server")
+      switch await Connection.LatestALS.alreadyDownloaded(globalStorageUri)() {
+      | None =>
+        switch await Connection.LatestALS.download(memento, globalStorageUri)(platform) {
+        | Error(error) => Error(AgdaModeVscode.Connection__Download.Error.toString(error))
+        | Ok(target) => Ok(target, false) // false means that the target was not already downloaded
+        }
+      | Some(target) => Ok(target, true) // true means that the target was already downloaded
+      }
+    }
+
+    switch result {
+    | Error(message) =>
+      let _ = await VSCode.Window.showErrorMessage(message, [])
+    | Ok((target, alreadyDownloaded)) =>
+      // show a popup message indicating the successful download
+      let version = switch target {
+      | Agda(version, _) => "Agda v" ++ version
+      | ALS(alsVersion, agdaVersion, _) =>
+        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+      }
+      if alreadyDownloaded {
+        let _ = await VSCode.Window.showInformationMessage(version ++ " is already downloaded", [])
+      } else {
+        // rerender the quick pick so that the downloaded target is shown as installed
         await self.rerender()
+        let _ = await VSCode.Window.showInformationMessage(
+          version ++ " successfully downloaded",
+          [],
+        )
       }
     }
 
