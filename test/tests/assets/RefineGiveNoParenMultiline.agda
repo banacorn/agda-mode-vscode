@@ -1,0 +1,9 @@
+-- Test for multiline content in GiveNoParen
+module RefineGiveNoParenMultiline where
+
+open import Lib
+
+foo : Bool
+foo = {! if_then_else_ true 
+        ?
+        ? !}

@@ -154,9 +154,24 @@ let rec handle = async (
       | Some(goal) =>
         switch give {
         | GiveParen =>
+          Js.log("GiveParen")
+
           await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
-        | GiveNoParen => () // no need to modify the document
+        | GiveNoParen =>
+          Js.log("GiveNoParen")
+
+          // add goal positions
+          let goalContent = Goal.getContent(goal, state.document)
+          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(goalContent)
+          let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
+          | None => [] // should not happen
+          | Some((offset, _)) =>
+            goalPositionsRelative->Array.map(((start, end)) => (start + offset, end + offset))
+          }
+          state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
         | GiveString(content) =>
+          Js.log("GiveString: " ++ content)
+
           let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
           // 1. ideally, we want to add "\t" or equivalent spaces based on
           //    "editor.tabSize" and "editor.insertSpaces"

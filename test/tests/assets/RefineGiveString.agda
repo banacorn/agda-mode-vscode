@@ -1,5 +1,5 @@
--- from issue #158
-module Refine where
+-- https://github.com/banacorn/agda-mode-vscode/issues/158
+module RefineGiveString where
 
 postulate
   A : Set
@@ -11,11 +11,7 @@ record Foo : Set where
     very-long-field-name-3 : A
 
 foo : Foo
-foo = record
-  { very-long-field-name-1 = {!   !}
-  ; very-long-field-name-2 = {!   !}
-  ; very-long-field-name-3 = {!   !}
-  }
+foo = {!   !}
 
 bar : Foo
 bar = {!   !}
