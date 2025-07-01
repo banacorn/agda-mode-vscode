@@ -19,6 +19,7 @@ let run = normalization => {
       filteredResponses,
       [InteractionPoints([0, 1]), SolveAll([(0, "4"), (1, "4")])],
     )
+    await ctx->AgdaMode.quit
   })
 
   Async.it("should solve all goals", async () => {
@@ -29,6 +30,8 @@ let run = normalization => {
     let actual = await File.read(Path.asset("Issue204.agda"))
     let expected = await File.read(Path.asset("Issue204.agda.out"))
     Assert.deepStrictEqual(actual, expected)
+
+    await ctx->AgdaMode.quit
   })
 }
 

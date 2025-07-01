@@ -7,6 +7,7 @@ module type Module = {
   let destroy: t => unit
   let size: t => int
   let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndicesNew: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
   let parseGoalPositionsFromRefine: string => array<(int, int)>
@@ -719,12 +720,49 @@ module Module: Module = {
   // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
   // The indices are ordered by the start position of the goals.
   let resetGoalIndices = async (self, editor, indices) => {
-    clear(self)
+    Js.log("=== resetGoalIndices called ===")
+    Js.log(
+      "Indices from Agda: [" ++ Array.join(indices->Array.map(i => Int.toString(i)), ", ") ++ "]",
+    )
+    Js.log("Current goals before clear: " ++ self->toString)
+    Js.log(
+      "Current goalsWithoutIndices before clear: " ++
+      Array.join(
+        Map.entries(self.goalsWithoutIndices)
+        ->Iterator.toArray
+        ->Array.map(((start, end)) =>
+          "(" ++ Int.toString(start) ++ "," ++ Int.toString(end) ++ ")"
+        ),
+        ", ",
+      ),
+    )
 
-    self.goalsWithoutIndices
-    ->Map.entries
-    ->Iterator.toArray
-    ->Array.forEachWithIndex(((start, end), i) => {
+    clear(self)
+    Js.log("After clear: " ++ self->toString)
+
+    let positionsArray =
+      self.goalsWithoutIndices
+      ->Map.entries
+      ->Iterator.toArray
+    Js.log(
+      "Positions array: " ++
+      Array.join(
+        positionsArray->Array.map(((start, end)) =>
+          "(" ++ Int.toString(start) ++ "," ++ Int.toString(end) ++ ")"
+        ),
+        ", ",
+      ),
+    )
+
+    positionsArray->Array.forEachWithIndex(((start, end), i) => {
+      Js.log(
+        "Processing position " ++
+        Int.toString(i) ++
+        ": (" ++
+        Int.toString(start) ++
+        "," ++
+        Int.toString(end) ++ ")",
+      )
       switch indices[i] {
       | None => ()
       | Some(index) => insertGoal(self, start, end, index)
@@ -732,7 +770,43 @@ module Module: Module = {
     })
 
     self.goalsWithoutIndices = Map.make() // clear the goals without indices
+    await scanAllGoals(self, editor, [])
+  }
 
+  // New version that properly handles both existing goals and new positions from refine operations
+  let resetGoalIndicesNew = async (self, editor, indices: array<int>) => {
+    // Collect existing goals indexed by positions
+    let existingPositions =
+      self.goals
+      ->Map.values
+      ->Iterator.toArray
+      ->Array.map(goal => (goal.start, (goal.end, Some(goal))))
+      ->Map.fromArray
+
+    // Add new goal positions from refine operations to the map of existing goals indexed by positions
+    self.goalsWithoutIndices->Map.forEachWithKey((end, start) => {
+      existingPositions->Map.set(start, (end, None)) // None indicates no goal index yet
+    })
+
+    // Combine all positions and sort by start offset
+    let allPositions =
+      existingPositions
+      ->Map.entries
+      ->Iterator.toArray
+      ->Array.toSorted(((start1, _), (start2, _)) => Int.compare(start1, start2))
+
+    // Clear existing goals
+    clear(self)
+
+    // Assign indices to all positions in order
+    allPositions->Array.forEachWithIndex(((start, (end, _)), i) => {
+      switch indices[i] {
+      | None => () // should not happen
+      | Some(index) => insertGoal(self, start, end, index)
+      }
+    })
+
+    self.goalsWithoutIndices = Map.make() // clear the goals without indices
     await scanAllGoals(self, editor, [])
   }
 
@@ -764,7 +838,7 @@ module Module: Module = {
     // Include all whitespace characters like the original regex [\s\(\{\_\;\.\\\"@]
     let delimiters = [" ", "\t", "\n", "\r", "(", ")", "{", "}", "_", ";", ".", "\\", "\"", "@"]
     let isDelimiter = char => delimiters->Array.includes(char)
-    
+
     let rec findQuestionMarks = (text, offset) => {
       switch String.indexOf(text, "?") {
       | -1 => [] // No more question marks
@@ -780,21 +854,21 @@ module Module: Module = {
         } else {
           None
         }
-        
+
         // Check if this ? is standalone (surrounded by delimiters or boundaries)
         let beforeOk = switch beforeChar {
         | None => true // Start of string
         | Some(char) => isDelimiter(char)
         }
-        
+
         let afterOk = switch afterChar {
-        | None => true // End of string  
+        | None => true // End of string
         | Some(char) => isDelimiter(char)
         }
-        
+
         let remainingText = String.sliceToEnd(text, ~start=index + 1)
         let nextResults = findQuestionMarks(remainingText, offset + index + 1)
-        
+
         if beforeOk && afterOk {
           [(actualPosition, actualPosition + 1), ...nextResults]
         } else {
@@ -802,7 +876,7 @@ module Module: Module = {
         }
       }
     }
-    
+
     findQuestionMarks(raw, 0)
   }
 

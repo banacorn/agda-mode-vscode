@@ -142,7 +142,7 @@ let rec handle = async (
     | InteractionPoints(indices) =>
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       state.goals->Goals.addGoalPositions(Map.entries(holePositions)->Iterator.toArray)
-      await state.goals->Goals.resetGoalIndices(state.editor, indices)
+      await state.goals->Goals.resetGoalIndicesNew(state.editor, indices)
     | GiveAction(index, give) =>
       switch Goals.getGoalByIndex(state.goals, index) {
       | None =>
@@ -163,7 +163,10 @@ let rec handle = async (
           | None => [] // should not happen
           | Some((offset, _)) =>
             // adjust for the opening parenthesis "(" which shifts positions by 1
-            goalPositionsRelative->Array.map(((start, end)) => (start + offset + 1, end + offset + 1))
+            goalPositionsRelative->Array.map(((start, end)) => (
+              start + offset + 1,
+              end + offset + 1,
+            ))
           }
           state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
 

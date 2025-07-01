@@ -17,6 +17,13 @@ describe("agda-mode.refine", () => {
         let ctx = await AgdaMode.makeAndLoad(filename)
         await ctx->AgdaMode.execute(Refine, ~cursor=VSCode.Position.make(13, 9))
 
+        // examine the goals after the refinement
+        let actual = Goals.serialize(ctx.state.goals)
+        Assert.deepStrictEqual(
+          actual,
+          ["#1 [26:11-18)", "#2 [26:19-26)", "#3 [15:30-37)", "#4 [16:30-37)", "#5 [17:30-37)"],
+        )
+
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
         let expected = await File.read(Path.asset(filename ++ ".GiveString1.out"))
