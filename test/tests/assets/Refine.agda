@@ -1,5 +1,5 @@
 -- https://github.com/banacorn/agda-mode-vscode/issues/158
-module RefineGiveString where
+module Refine where
 
 postulate
   A : Set
@@ -13,5 +13,10 @@ record Foo : Set where
 foo : Foo
 foo = {!   !}
 
-bar : Foo
-bar = {!   !}
+open import Lib
+
+fst : Bool → Bool → Bool
+fst a b = a
+
+bar : Bool
+bar = fst ? ?
