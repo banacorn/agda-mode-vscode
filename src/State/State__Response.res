@@ -156,6 +156,17 @@ let rec handle = async (
         | GiveParen =>
           Js.log("GiveParen")
 
+          // add goal positions - get content before modifying
+          let goalContent = Goal.getContent(goal, state.document)
+          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(goalContent)
+          let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
+          | None => [] // should not happen
+          | Some((offset, _)) =>
+            // adjust for the opening parenthesis "(" which shifts positions by 1
+            goalPositionsRelative->Array.map(((start, end)) => (start + offset + 1, end + offset + 1))
+          }
+          state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
+
           await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
         | GiveNoParen =>
           Js.log("GiveNoParen")

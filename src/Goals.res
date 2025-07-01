@@ -755,35 +755,55 @@ module Module: Module = {
   // So we need to parse the holes from the refine result and decorate them ourself.
   // This function calculates the offsets of the question marks
   let parseGoalPositionsFromRefine = raw => {
-    let goalQuestionMark = %re("/([\s\(\{\_\;\.\\\"@]|^)(\?)([\s\)\}\_\;\.\\\"@]|$)/gm")
-    // the chunks may contain:
-    //   1. the question mark itself              (\?)
-    //   2. the part before the question mark     ([\s\(\{\_\;\.\\\"@]|^)
-    //   3. the part after the question mark      ([\s\)\}\_\;\.\\\"@]|$)
-    //   4. other strings not matching the regex
-
     // result of refinement from Agda uses LF "\n" as line endings
     // we need to convert it to the system line endings
     // so that the positions of the question marks can be calculated correctly
     let raw = raw->Parser.splitToLines->Array.join(NodeJs.Os.eol)
 
-    let chunks = raw->String.splitByRegExp(goalQuestionMark)
-
-    chunks
-    ->Array.reduce(([], 0), ((offsets, i), chunk) =>
-      switch chunk {
-      | None => (offsets, i)
-      | Some(chunk) =>
-        if chunk == "?" {
-          let offset = i
-          ([...offsets, (offset, offset + 1)], offset + 1)
+    // Find all standalone question marks without problematic regex splitting
+    // Include all whitespace characters like the original regex [\s\(\{\_\;\.\\\"@]
+    let delimiters = [" ", "\t", "\n", "\r", "(", ")", "{", "}", "_", ";", ".", "\\", "\"", "@"]
+    let isDelimiter = char => delimiters->Array.includes(char)
+    
+    let rec findQuestionMarks = (text, offset) => {
+      switch String.indexOf(text, "?") {
+      | -1 => [] // No more question marks
+      | index =>
+        let actualPosition = offset + index
+        let beforeChar = if actualPosition > 0 {
+          Some(String.charAt(raw, actualPosition - 1))
         } else {
-          // not a question mark, just append it to the string
-          (offsets, i + String.length(chunk))
+          None
+        }
+        let afterChar = if actualPosition < String.length(raw) - 1 {
+          Some(String.charAt(raw, actualPosition + 1))
+        } else {
+          None
+        }
+        
+        // Check if this ? is standalone (surrounded by delimiters or boundaries)
+        let beforeOk = switch beforeChar {
+        | None => true // Start of string
+        | Some(char) => isDelimiter(char)
+        }
+        
+        let afterOk = switch afterChar {
+        | None => true // End of string  
+        | Some(char) => isDelimiter(char)
+        }
+        
+        let remainingText = String.sliceToEnd(text, ~start=index + 1)
+        let nextResults = findQuestionMarks(remainingText, offset + index + 1)
+        
+        if beforeOk && afterOk {
+          [(actualPosition, actualPosition + 1), ...nextResults]
+        } else {
+          nextResults
         }
       }
-    )
-    ->fst
+    }
+    
+    findQuestionMarks(raw, 0)
   }
 
   let jmupToGoal = (editor, goal: InternalGoal.t) => {

@@ -1,7 +1,7 @@
 open Mocha
 open Test__Util
 
-describe_only("agda-mode.refine", () => {
+describe("agda-mode.refine", () => {
   This.timeout(4000)
   describe("On GiveString 1, Issue #158", () => {
     let fileContent = ref("")
@@ -25,7 +25,7 @@ describe_only("agda-mode.refine", () => {
     )
   })
 
-  describe_only("On GiveString 2", () => {
+  describe("On GiveString 2", () => {
     let fileContent = ref("")
 
     let filename = "Refine.agda"
