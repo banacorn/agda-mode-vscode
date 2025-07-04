@@ -14,7 +14,7 @@ let acquire = setup =>
 
 let cleanup = async setup => {
   let range = VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(100, 0))
-  let _ = await setup.editor->VSCode.TextEditor.document->Editor.Text.replace(range, "")
+  let _ = await setup.editor->Editor.Text.replace(range, "")
 }
 
 module IM = {
@@ -59,10 +59,7 @@ module IM = {
 
     let positions = Editor.Cursor.getMany(setup.editor)
 
-    let succeed =
-      await setup.editor
-      ->VSCode.TextEditor.document
-      ->Editor.Text.batchInsert(positions, char)
+    let succeed = await setup.editor->Editor.Text.batchInsert(positions, char)
 
     if succeed {
       await promise
@@ -104,10 +101,7 @@ module IM = {
     let end_ = Editor.Cursor.get(setup.editor)
     let start = end_->VSCode.Position.translate(0, -1)
     let range = VSCode.Range.make(start, end_)
-    let succeed =
-      await setup.editor
-      ->VSCode.TextEditor.document
-      ->Editor.Text.delete(range)
+    let succeed = await setup.editor->Editor.Text.delete(range)
 
     if succeed {
       await promise
@@ -431,7 +425,7 @@ describe("Input Method (Editor)", () => {
         let setup = acquire(setup)
         let positions = [VSCode.Position.make(0, 3)]
         let document = setup.editor->VSCode.TextEditor.document
-        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "123")
+        let _ = await setup.editor->Editor.Text.insert(VSCode.Position.make(0, 0), "123")
         let log = await IM.activate(setup, ~positions, ())
         Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
@@ -557,7 +551,7 @@ describe("Input Method (Editor)", () => {
 
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
-        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
+        let _ = await setup.editor->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
         let log = await IM.activate(setup, ~positions, ())
         Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "b")
@@ -612,14 +606,21 @@ describe("Input Method (Editor)", () => {
 
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
-        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
+        let _ =
+          await setup.editor->Editor.Text.insert(VSCode.Position.make(0, 0), "123\n123\n123\n123")
         let log = await IM.activate(setup, ~positions, ())
         Assert.deepStrictEqual([IM.Log.Activate], log)
         let log = await IM.insertChar(setup, "a")
-        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied], log)
+        Assert.deepStrictEqual(
+          [IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied],
+          log,
+        )
         Assert.equal("a123\n1a23\n12a3\n123a", Editor.Text.getAll(document)->replaceCRLF)
         let log = await IM.insertChar(setup, "n")
-        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied], log)
+        Assert.deepStrictEqual(
+          [IM.Log.RewriteIssued([]), IM.Log.UpdateView, IM.Log.RewriteApplied],
+          log,
+        )
         Assert.equal("an123\n1an23\n12an3\n123an", Editor.Text.getAll(document)->replaceCRLF)
         let log = await IM.insertChar(setup, "d")
         Assert.deepStrictEqual(
