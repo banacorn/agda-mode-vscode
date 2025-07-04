@@ -98,9 +98,17 @@ let rec handle = async (
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
-      state.tokens->Tokens.insertTokens(state.editor, annotations)
-    | HighlightingInfoIndirect(filepath) => state.tokens->Tokens.addEmacsFilePath(filepath)
-    | HighlightingInfoIndirectJSON(filepath) => state.tokens->Tokens.addJSONFilePath(filepath)
+      if !state.isInRefineOperation {
+        state.tokens->Tokens.insertTokens(state.editor, annotations)
+      }
+    | HighlightingInfoIndirect(filepath) =>
+      if !state.isInRefineOperation {
+        state.tokens->Tokens.addEmacsFilePath(filepath)
+      }
+    | HighlightingInfoIndirectJSON(filepath) =>
+      if !state.isInRefineOperation {
+        state.tokens->Tokens.addJSONFilePath(filepath)
+      }
     | ClearHighlighting => state.tokens->Tokens.reset
     | Status(_checked, _displayImplicit) => // display(
       //   "Status",
@@ -141,7 +149,8 @@ let rec handle = async (
       }
     | InteractionPoints(indices) =>
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
-      state.goals->Goals.addGoalPositions(Map.entries(holePositions)->Iterator.toArray)
+      let positionsArray = Map.entries(holePositions)->Iterator.toArray
+      state.goals->Goals.addGoalPositions(positionsArray)
       await state.goals->Goals.resetGoalIndicesNew(state.editor, indices)
     | GiveAction(index, give) =>
       switch Goals.getGoalByIndex(state.goals, index) {
@@ -154,8 +163,6 @@ let rec handle = async (
       | Some(goal) =>
         switch give {
         | GiveParen =>
-          Js.log("GiveParen")
-
           // add goal positions - get content before modifying
           let goalContent = Goal.getContent(goal, state.document)
           let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(goalContent)
@@ -172,8 +179,6 @@ let rec handle = async (
 
           await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
         | GiveNoParen =>
-          Js.log("GiveNoParen")
-
           // add goal positions
           let goalContent = Goal.getContent(goal, state.document)
           let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(goalContent)
@@ -182,10 +187,9 @@ let rec handle = async (
           | Some((offset, _)) =>
             goalPositionsRelative->Array.map(((start, end)) => (start + offset, end + offset))
           }
+
           state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
         | GiveString(content) =>
-          Js.log("GiveString: " ++ content)
-
           let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
           // 1. ideally, we want to add "\t" or equivalent spaces based on
           //    "editor.tabSize" and "editor.insertSpaces"
@@ -307,6 +311,9 @@ let rec handle = async (
       await Tokens.readTempFiles(state.tokens, state.editor)
       // generate highlighting
       state.tokens->Tokens.generateHighlighting(state.editor)
+
+      // reset refine operation flag
+      state.isInRefineOperation = false
     | _ => ()
     }
 

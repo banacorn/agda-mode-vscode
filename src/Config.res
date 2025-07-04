@@ -215,8 +215,8 @@ module Highlighting = {
         "highlighting.IPC",
       )
     switch raw {
-    | Some("Standard input/output") => true
-    | _ => false
+    | Some("Temporary Files") => false
+    | _ => true
     }
   }
 }

@@ -89,6 +89,9 @@ type t = {
   memento: State__Memento.t,
   // for logging and testing
   channels: channels,
+  // Skip HighlightingInfo during refine operations because Agda sends faulty token positions
+  // that conflict with the extension's correctly calculated positions.
+  mutable isInRefineOperation: bool,
 }
 
 let make = (
@@ -117,6 +120,7 @@ let make = (
   extensionPath,
   memento: State__Memento.make(memento),
   channels,
+  isInRefineOperation: false,
 }
 
 // construction/destruction

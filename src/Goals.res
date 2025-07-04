@@ -151,7 +151,6 @@ module Module: Module = {
     mutable positions: AVLTree.t<index>, // start position => goal index
     mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
     mutable recentlyCaseSplited: option<Goal.t>, // keep track of the last case split goal, because it won't be available during the case split
-    mutable goalPositionsFromRefine: array<int>, // positions of the goals from the refine result
   }
 
   let make = () => {
@@ -161,7 +160,6 @@ module Module: Module = {
       positions: AVLTree.make(),
       isBusy: None,
       recentlyCaseSplited: None,
-      goalPositionsFromRefine: [],
     }
   }
 
@@ -720,54 +718,19 @@ module Module: Module = {
   // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
   // The indices are ordered by the start position of the goals.
   let resetGoalIndices = async (self, editor, indices) => {
-    Js.log("=== resetGoalIndices called ===")
-    Js.log(
-      "Indices from Agda: [" ++ Array.join(indices->Array.map(i => Int.toString(i)), ", ") ++ "]",
-    )
-    Js.log("Current goals before clear: " ++ self->toString)
-    Js.log(
-      "Current goalsWithoutIndices before clear: " ++
-      Array.join(
-        Map.entries(self.goalsWithoutIndices)
-        ->Iterator.toArray
-        ->Array.map(((start, end)) =>
-          "(" ++ Int.toString(start) ++ "," ++ Int.toString(end) ++ ")"
-        ),
-        ", ",
-      ),
-    )
-
     clear(self)
-    Js.log("After clear: " ++ self->toString)
 
     let positionsArray =
       self.goalsWithoutIndices
       ->Map.entries
       ->Iterator.toArray
-    Js.log(
-      "Positions array: " ++
-      Array.join(
-        positionsArray->Array.map(((start, end)) =>
-          "(" ++ Int.toString(start) ++ "," ++ Int.toString(end) ++ ")"
-        ),
-        ", ",
-      ),
-    )
 
-    positionsArray->Array.forEachWithIndex(((start, end), i) => {
-      Js.log(
-        "Processing position " ++
-        Int.toString(i) ++
-        ": (" ++
-        Int.toString(start) ++
-        "," ++
-        Int.toString(end) ++ ")",
-      )
+    positionsArray->Array.forEachWithIndex(((start, end), i) =>
       switch indices[i] {
       | None => ()
       | Some(index) => insertGoal(self, start, end, index)
       }
-    })
+    )
 
     self.goalsWithoutIndices = Map.make() // clear the goals without indices
     await scanAllGoals(self, editor, [])
@@ -811,11 +774,10 @@ module Module: Module = {
   }
 
   // Add goal positions without indices, e.g. from the Load or Refine command
-  let addGoalPositions = (self, positions) => {
+  let addGoalPositions = (self, positions) =>
     positions->Array.forEach(((start, end)) => {
       self.goalsWithoutIndices->Map.set(start, end)
     })
-  }
 
   let getGoalPositionByIndex = (self, index) => {
     switch self.goals->Map.get(index) {

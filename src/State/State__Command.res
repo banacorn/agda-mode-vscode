@@ -86,7 +86,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Refine =>
     switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some(goal) => await sendAgdaRequest(Refine(goal))
+    | Some(goal) => 
+      state.isInRefineOperation = true
+      await sendAgdaRequest(Refine(goal))
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
