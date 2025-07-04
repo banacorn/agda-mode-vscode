@@ -30,6 +30,17 @@ module File = {
   }
 }
 
+// Utility to get platform-specific expected file paths
+module ExpectedFiles = {
+  let getExpectedFilename = (baseFilename: string): string => {
+    if OS.onUnix {
+      baseFilename ++ ".out"
+    } else {
+      baseFilename ++ ".win.out"
+    }
+  }
+}
+
 // wrapper around BsMocha's Assertions
 let runner: (unit => unit) => promise<result<'a, exn>> = %raw(` function(f) {
 
