@@ -25,11 +25,12 @@ describe("agda-mode.refine", () => {
         )
 
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString1")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(13, 6), VSCode.Position.make(13, 12)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "record")
       },
     )
   })
@@ -49,11 +50,12 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~payload="fst", ~cursor=VSCode.Position.make(21, 13))
 
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 6), VSCode.Position.make(21, 42)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "fst (fst {!   !} {!   !}) {!   !}")
       },
     )
   })
@@ -82,13 +84,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
 
@@ -108,13 +111,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
 
@@ -134,13 +138,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
 
@@ -160,13 +165,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
 
@@ -186,13 +192,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
 
@@ -212,13 +219,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
 
@@ -271,13 +279,14 @@ describe("agda-mode.refine", () => {
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
-        // verify the refined content
+        // verify the refined content  
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 31)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "(fst {!   !} {!   !})")
       },
     )
   })
