@@ -301,11 +301,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
 
@@ -320,11 +321,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
 
@@ -339,11 +341,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
 
@@ -362,11 +365,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
 
@@ -381,11 +385,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
 
@@ -400,11 +405,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
 
@@ -447,11 +453,12 @@ describe("agda-mode.refine", () => {
 
         // verify the refined content
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(
-          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        let document = VSCode.TextEditor.document(ctx.state.editor)
+        let actual = Editor.Text.get(
+          document,
+          VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(21, 14)),
         )
-        Assert.deepStrictEqual(actual, expected)
+        Assert.strictEqual(actual, "true")
       },
     )
   })
