@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.6.1 - 2025-07-04
+
+### Changed
+- CI: Cache VS Code & NPM dependencies
+
+### Added
+- Better UI for managing connection/installation of Agda/ALS:
+    - Display popup message on the result of the download lastest ALS request
+    - Display and provide the latest ALS for download
+    - Display connection targets in the download folder as installations
+    - Display agda/als in PATH as installed targets
+
+### Fixed
+- #236: Refine keeps inserting new holes 
+- Invalidate cache of ALS release manifest when it does not exist
+- Settings `agdaMode.highlighting.IPC`
+
 ## v0.6.0 - 2025-06-23
 
 ### Changed
