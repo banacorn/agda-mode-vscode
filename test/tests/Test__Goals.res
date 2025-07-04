@@ -331,7 +331,11 @@ describe("Goals", () => {
         let input = "record\n{ very-long-field-name-1 = ?\n; very-long-field-name-2 = ?\n; very-long-field-name-3 = ?\n}"
         let actual = Goals.parseGoalPositionsFromRefine(input)
         // Now that the function works, expect all 3 question marks
-        let expected = [(34, 35), (63, 64), (92, 93)]
+        let expected = if OS.onUnix {
+          [(34, 35), (63, 64), (92, 93)]
+        } else {
+          [(35, 36), (65, 66), (95, 96)]
+        }
         Assert.deepStrictEqual(actual, expected)
       },
     )

@@ -23,4 +23,4 @@ fst : Bool → Bool → Bool
 fst a b = a
 
 bar : Bool
-bar = fst {!   !} {!   !}
+bar = fst {!   !} {!   !}

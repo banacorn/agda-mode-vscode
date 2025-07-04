@@ -26,7 +26,9 @@ describe("agda-mode.refine", () => {
 
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString1")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString1")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -48,7 +50,9 @@ describe("agda-mode.refine", () => {
 
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -81,7 +85,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -105,7 +111,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -129,7 +137,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -153,7 +163,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -177,7 +189,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -201,7 +215,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -209,12 +225,13 @@ describe("agda-mode.refine", () => {
     Async.it(
       "should handle multiline payload with spaces and track goal positions correctly",
       async () => {
+        let payload = if OS.onUnix {
+          "  fst\n    ?\n    ?  "
+        } else {
+          "  fst\r\n    ?\r\n    ?  "
+        }
         let ctx = await AgdaMode.makeAndLoad(filename)
-        await ctx->AgdaMode.execute(
-          Refine,
-          ~payload="  fst\n    ?\n    ?  ",
-          ~cursor=VSCode.Position.make(21, 13),
-        )
+        await ctx->AgdaMode.execute(Refine, ~payload, ~cursor=VSCode.Position.make(21, 13))
 
         // verify the goals
         Assert.deepStrictEqual(
@@ -225,11 +242,16 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let document = VSCode.TextEditor.document(ctx.state.editor)
-        let refinedContent = Editor.Text.get(
+        let actual = Editor.Text.get(
           document,
           VSCode.Range.make(VSCode.Position.make(21, 10), VSCode.Position.make(23, 12)), // Start of refined content (opening paren) // End of refined content spanning multiple lines
         )
-        Assert.strictEqual(refinedContent, "(fst\n    {!   !}\n    {!   !})")
+        let expected = if OS.onUnix {
+          "(fst\n    {!   !}\n    {!   !})"
+        } else {
+          "(fst\r\n    {!   !}\r\n    {!   !})"
+        }
+        Assert.strictEqual(actual, expected)
       },
     )
 
@@ -252,7 +274,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveString2")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -278,7 +302,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -295,7 +321,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -312,7 +340,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -333,7 +363,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -350,7 +382,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -367,7 +401,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -412,7 +448,9 @@ describe("agda-mode.refine", () => {
         // verify the refined content
         await ctx->AgdaMode.quit
         let actual = await File.read(Path.asset(filename))
-        let expected = await File.read(Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")))
+        let expected = await File.read(
+          Path.asset(ExpectedFiles.getExpectedFilename(filename ++ ".GiveNoParen")),
+        )
         Assert.deepStrictEqual(actual, expected)
       },
     )

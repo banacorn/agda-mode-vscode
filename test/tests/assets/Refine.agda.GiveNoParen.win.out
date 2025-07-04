@@ -19,4 +19,4 @@ fst : Bool → Bool → Bool
 fst a b = a
 
 bar : Bool
-bar = fst true {!   !}
+bar = fst true {!   !}
