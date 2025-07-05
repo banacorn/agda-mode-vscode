@@ -25,8 +25,8 @@ module type Module = {
   let setCursorByIndex: (t, VSCode.TextEditor.t, int) => unit
 
   // jumping between goals
-  let jmupToTheNextGoal: (t, VSCode.TextEditor.t) => unit
-  let jmupToThePreviousGoal: (t, VSCode.TextEditor.t) => unit
+  let jumpToTheNextGoal: (t, VSCode.TextEditor.t) => unit
+  let jumpToThePreviousGoal: (t, VSCode.TextEditor.t) => unit
 
   // semaphore for busy state
   let isBusy: t => bool
@@ -55,34 +55,44 @@ module Module: Module = {
       mutable decoration: option<(Editor.Decoration.t, Editor.Decoration.t)>, // (background, index)
     }
 
+    let makeDecorationRanges = (document, start: int, end: int) => {
+      let backgroundRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, start),
+        VSCode.TextDocument.positionAt(document, end),
+      )
+
+      let indexRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, end - 2),
+        VSCode.TextDocument.positionAt(document, end - 2),
+      )
+
+      (backgroundRange, indexRange)
+    }
+
+    let createDecorations = (editor, start: int, end: int, index: int) => {
+      let document = VSCode.TextEditor.document(editor)
+      let (backgroundRange, indexRange) = makeDecorationRanges(document, start, end)
+
+      let background = Editor.Decoration.highlightBackground(
+        editor,
+        "editor.selectionHighlightBackground",
+        [backgroundRange],
+      )
+
+      let indexText = string_of_int(index)
+      let index = Editor.Decoration.overlayText(
+        editor,
+        "editorLightBulb.foreground",
+        indexText,
+        indexRange,
+      )
+
+      (background, index)
+    }
+
     let decorate = (start: int, end: int, index: int) =>
       VSCode.Window.activeTextEditor->Option.map(editor => {
-        let document = VSCode.TextEditor.document(editor)
-        let backgroundRange = VSCode.Range.make(
-          VSCode.TextDocument.positionAt(document, start),
-          VSCode.TextDocument.positionAt(document, end),
-        )
-
-        let background = Editor.Decoration.highlightBackground(
-          editor,
-          "editor.selectionHighlightBackground",
-          [backgroundRange],
-        )
-
-        let indexText = string_of_int(index)
-        let indexRange = VSCode.Range.make(
-          VSCode.TextDocument.positionAt(document, end - 2),
-          VSCode.TextDocument.positionAt(document, end - 2),
-        )
-
-        let index = Editor.Decoration.overlayText(
-          editor,
-          "editorLightBulb.foreground",
-          indexText,
-          indexRange,
-        )
-
-        (background, index)
+        createDecorations(editor, start, end, index)
       })
 
     let undecorate = (goal: t) => {
@@ -188,14 +198,10 @@ module Module: Module = {
         goal.decoration->Option.forEach(
           ((background, index)) => {
             let document = VSCode.TextEditor.document(editor)
-            let backgroundRange = VSCode.Range.make(
-              VSCode.TextDocument.positionAt(document, goal.start),
-              VSCode.TextDocument.positionAt(document, goal.end),
-            )
-
-            let indexRange = VSCode.Range.make(
-              VSCode.TextDocument.positionAt(document, goal.end - 2),
-              VSCode.TextDocument.positionAt(document, goal.end - 2),
+            let (backgroundRange, indexRange) = InternalGoal.makeDecorationRanges(
+              document,
+              goal.start,
+              goal.end,
             )
             Editor.Decoration.decorate(editor, background, [backgroundRange])
             Editor.Decoration.decorate(editor, index, [indexRange])
@@ -842,7 +848,7 @@ module Module: Module = {
     findQuestionMarks(raw, 0)
   }
 
-  let jmupToGoal = (editor, goal: InternalGoal.t) => {
+  let jumpToGoal = (editor, goal: InternalGoal.t) => {
     let document = VSCode.TextEditor.document(editor)
     let spaceInsideBoundaries = goal.end - goal.start - 4
     let offset = if spaceInsideBoundaries == 0 {
@@ -857,7 +863,7 @@ module Module: Module = {
     Editor.Cursor.set(editor, position)
   }
 
-  let jmupToTheNextGoal = (self, editor) => {
+  let jumpToTheNextGoal = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
 
@@ -869,11 +875,11 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jmupToGoal(editor, goal)
+    | Some(goal) => jumpToGoal(editor, goal)
     }
   }
 
-  let jmupToThePreviousGoal = (self, editor) => {
+  let jumpToThePreviousGoal = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
 
@@ -900,7 +906,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jmupToGoal(editor, goal)
+    | Some(goal) => jumpToGoal(editor, goal)
     }
   }
 
