@@ -44,6 +44,37 @@ module type Module = {
 module Module: Module = {
   type index = int
 
+  // Boundary validation utilities
+  module Boundary = {
+    let contains = (containerStart: int, containerEnd: int, pointStart: int, pointEnd: int) =>
+      containerStart <= pointStart && pointEnd <= containerEnd
+      
+    let overlaps = (start1: int, end1: int, start2: int, end2: int) =>
+      !(end1 <= start2 || end2 <= start1)
+      
+    let getOverlapRange = (start1: int, end1: int, start2: int, end2: int) => {
+      if overlaps(start1, end1, start2, end2) {
+        let overlapStart = start1 > start2 ? start1 : start2
+        let overlapEnd = end1 < end2 ? end1 : end2
+        Some((overlapStart, overlapEnd))
+      } else {
+        None
+      }
+    }
+    
+    // Specific helper for cursor position checking (inclusive bounds)
+    let containsCursor = (start: int, end: int, cursorOffset: int) =>
+      start <= cursorOffset && cursorOffset <= end
+      
+    // Specific helper for cursor position checking (exclusive end bound)  
+    let containsCursorExclusive = (start: int, end: int, cursorOffset: int) =>
+      start <= cursorOffset && cursorOffset < end
+      
+    // Specific helper for Case4 logic: removal starts before part ends and removal ends within part
+    let isContainedOrOverlapsEnd = (partStart: int, partEnd: int, removalStart: int, removalEnd: int) =>
+      removalEnd <= partEnd && removalStart < partEnd
+  }
+
   // Internal representation of a goal in the editor
   // TODO: merge this with State.t below
   module InternalGoal = {
@@ -312,7 +343,7 @@ module Module: Module = {
       switch self.goals->Map.get(index) {
       | None => None // no goal found
       | Some(goal) =>
-        if cursorOffset >= goal.start && cursorOffset <= goal.end {
+        if Boundary.containsCursor(goal.start, goal.end, cursorOffset) {
           Some({
             Goal.index: goal.index,
             indexString: Int.toString(goal.index),
@@ -533,14 +564,14 @@ module Module: Module = {
     if removalStart == start && removalEnd == start {
       Case1
     } else if removalStart < start {
-      if removalEnd <= start {
+      if !Boundary.overlaps(removalStart, removalEnd, start, end) {
         Case1 // Case 1
       } else if removalEnd <= end {
         Case2 // Case 2
       } else {
         Case3 // Case 3
       }
-    } else if removalEnd <= end && removalStart < end {
+    } else if Boundary.isContainedOrOverlapsEnd(start, end, removalStart, removalEnd) {
       Case4 // Case 4
     } else if removalStart < end {
       Case5 // Case 5
@@ -891,7 +922,7 @@ module Module: Module = {
       switch self.goals->Map.get(index) {
       | None => None // no goal found, do nothing
       | Some(goal) =>
-        if cursorOffset >= goal.start && cursorOffset < goal.end {
+        if Boundary.containsCursorExclusive(goal.start, goal.end, cursorOffset) {
           let previousIndex = if index == 0 {
             Map.size(self.goals) - 1 // wrap around to the last goal
           } else {
