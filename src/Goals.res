@@ -1,3 +1,20 @@
+/*
+This module manages Agda goals in the VSCode editor. It handles the tricky
+problem of keeping track of goal positions when users edit the document. 
+
+The main challenge: Agda goals like {!   !} and ? have fragile boundaries that break
+if you type near them. This system detects when edits damage goals and either fixes 
+them or removes them cleanly.
+
+Everything uses absolute character offsets because they're simpler to work with
+than line/column coordinates. When the document changes, the code scans through all 
+goal parts and figures out how each change affects them.
+
+The core algorithm processes document changes atomically - it takes all the changes
+that happened since the last scan and processes them together. This prevents race
+conditions and keeps goals consistent.
+*/
+
 module type Module = {
   type t
   type index = int
@@ -44,15 +61,33 @@ module type Module = {
 module Module: Module = {
   type index = int
 
-  // Boundary validation utilities
+  /*
+  These boundary functions handle the geometry of range overlaps and containment.
+  They're essential for maintaining goal integrity during document edits.
+
+  Document changes can damage goal boundaries in subtle ways. A single character 
+  insertion can corrupt a "{!" or "!}" boundary, making the goal unrecognizable. 
+  These utilities provide precise overlap detection to prevent such corruption.
+
+  The overlap detection uses !(end1 <= start2 || end2 <= start1) which says two 
+  ranges overlap if neither is completely before the other. This avoids the bugs 
+  that come from trying to write overlap logic directly.
+
+  Some functions check inclusive bounds (containsCursor) while others use exclusive 
+  bounds (containsCursorExclusive). The difference matters for user interaction - 
+  clicking exactly at a boundary might count as "inside" for some purposes but not others.
+  */
   module Boundary = {
-    let contains = (containerStart: int, containerEnd: int, pointStart: int, pointEnd: int) =>
+    // Tests if point range is fully contained within container range
+    let _contains = (containerStart: int, containerEnd: int, pointStart: int, pointEnd: int) =>
       containerStart <= pointStart && pointEnd <= containerEnd
       
+    // Two ranges overlap if neither is completely before the other
     let overlaps = (start1: int, end1: int, start2: int, end2: int) =>
       !(end1 <= start2 || end2 <= start1)
       
-    let getOverlapRange = (start1: int, end1: int, start2: int, end2: int) => {
+    // Calculates the actual overlap range between two ranges, if any
+    let _getOverlapRange = (start1: int, end1: int, start2: int, end2: int) => {
       if overlaps(start1, end1, start2, end2) {
         let overlapStart = start1 > start2 ? start1 : start2
         let overlapEnd = end1 < end2 ? end1 : end2
@@ -62,16 +97,16 @@ module Module: Module = {
       }
     }
     
-    // Specific helper for cursor position checking (inclusive bounds)
+    // Cursor position checking with inclusive end bound - cursor AT boundary counts as inside
     let containsCursor = (start: int, end: int, cursorOffset: int) =>
       start <= cursorOffset && cursorOffset <= end
       
-    // Specific helper for cursor position checking (exclusive end bound)  
+    // Cursor position checking with exclusive end bound - cursor AT end boundary is outside
     let containsCursorExclusive = (start: int, end: int, cursorOffset: int) =>
       start <= cursorOffset && cursorOffset < end
       
-    // Specific helper for Case4 logic: removal starts before part ends and removal ends within part
-    let isContainedOrOverlapsEnd = (partStart: int, partEnd: int, removalStart: int, removalEnd: int) =>
+    // For Case4 logic: checks if removal operation affects the goal's end
+    let isContainedOrOverlapsEnd = (_partStart: int, partEnd: int, removalStart: int, removalEnd: int) =>
       removalEnd <= partEnd && removalStart < partEnd
   }
 
@@ -533,29 +568,40 @@ module Module: Module = {
     }
   }
 
-  // there are 6 cases to consider when a change overlaps with a goal part:
+  /*
+  Case analysis handles the core problem: when a document change happens, how does 
+  it affect each goal part? There are exactly 6 ways a change can relate to a goal 
+  part geometrically.
+
+  This drives the entire goal maintenance system. Each case determines whether the 
+  goal part gets damaged, updated, or left alone. The cases also control how the 
+  algorithm advances through the lists of changes and parts.
+
+  Case4 is special - it's where question marks can expand into holes. This happens 
+  when the user types inside a ? goal, turning it into {!   !}.
+  */
   type case =
-    // 1. the part is after the change, skip the change and move on
+    // Change is completely before the part - accumulate position delta and continue
     //      removal  ┣━━━━━┫
     //      part              ┣━━━━━┫
     | Case1
-    // 2. the part is damaged, we'll also need to see if there's another change that damages this part
+    // Change clips the left edge of the part - mark boundary damaged
     //      removal        ┣━━━━━┫
     //      part              ┣━━━━━┫
     | Case2
-    // 3. the part is damaged, we'll also need to see if there's another part damaged by this change
+    // Change completely engulfs the part - mark damaged, keep change for next part
     //      removal        ┣━━━━━━━━━━━┫
     //      part              ┣━━━━━┫
     | Case3
-    // 4. the part is damaged, we'll also need to see if there's another change that damages this part
+    // Change is inside the part or overlaps its end - handle question mark expansion
     //      removal           ┣━━━━━┫
     //      part           ┣━━━━━━━━━━━┫
     | Case4
-    // 5. the part is damaged, we'll also need to see if there's another part damaged by this change
+    // Change clips the right edge of the part - mark damaged, keep change for next part
     //      removal              ┣━━━━━┫
     //      part              ┣━━━━━┫
     | Case5
-    // 6. the part is before the change, skip the part and move on
+    // Change is completely after the part - apply delta and move to next part
     //      removal                    ┣━━━━━┫
     //      part              ┣━━━━━┫
     | Case6
@@ -580,6 +626,22 @@ module Module: Module = {
     }
   }
 
+  /*
+  This is the main function that gets called every time the document changes.
+  It's responsible for keeping all goals valid and correctly positioned.
+
+  The algorithm works in two phases:
+  1. Scan through all goal parts and changes to build a state map
+  2. Apply the state map to update goal positions or remove damaged goals
+
+  Everything is processed atomically - all changes since the last scan are 
+  handled together. This prevents race conditions and ensures consistency.
+
+  The scanning uses two delta accumulators: accDeltaBeforePart tracks the 
+  cumulative offset for parts we haven't processed yet, while accDeltaAfterPart 
+  includes the current change. This ensures correct position calculations as 
+  the algorithm moves left to right through the document.
+  */
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
 
