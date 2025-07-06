@@ -1,3 +1,125 @@
+// Pure business logic modules
+module VersionDisplay = {
+  // Format version strings for display
+  let formatAgdaVersion = (version: string): string => "Agda v" ++ version
+  
+  let formatALSVersion = (alsVersion: string, agdaVersion: string): string =>
+    "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+    
+  let formatSwitchingMessage = (version: string): string => "Switching to " ++ version
+  
+  let formatSwitchedMessage = (version: string): string => "Switched to " ++ version
+}
+
+module SelectionParsing = {
+  // Parse selection types from quick pick items
+  type selectionType = 
+    | OpenFolder
+    | DownloadLatestALS  
+    | SwitchToTarget(string)
+    
+  let parseSelection = (label: string, detail: option<string>): selectionType =>
+    switch label {
+    | "$(folder-opened)  Open download folder" => OpenFolder
+    | "$(cloud-download)  Download the latest Agda Language Server" => DownloadLatestALS
+    | _ => 
+      switch detail {
+      | Some(path) => SwitchToTarget(path)
+      | None => SwitchToTarget("")
+      }
+    }
+}
+
+module DownloadWorkflow = {
+  // Download result type
+  type downloadResult = 
+    | Success(Connection.Target.t, bool) // target, was already downloaded
+    | Failure(string) // error message
+    
+  // Check if ALS is already downloaded and download if needed
+  let downloadLatestALS = async (memento: State__Memento.t, globalStorageUri: VSCode.Uri.t) => {
+    switch await Connection__Download__Platform.determine() {
+    | Error(_) => Failure("Failed to determine the platform for downloading the Agda Language Server")
+    | Ok(platform) =>
+      switch await Connection.LatestALS.alreadyDownloaded(globalStorageUri)() {
+      | None =>
+        switch await Connection.LatestALS.download(memento, globalStorageUri)(platform) {
+        | Error(error) => Failure(AgdaModeVscode.Connection__Download.Error.toString(error))
+        | Ok(target) => Success(target, false) // false means it was not already downloaded
+        }
+      | Some(target) => Success(target, true) // true means it was already downloaded
+      }
+    }
+  }
+  
+  // Show appropriate message based on download result
+  let handleDownloadResult = async (result: downloadResult, rerender: unit => promise<unit>) => {
+    switch result {
+    | Failure(message) =>
+      let _ = await VSCode.Window.showErrorMessage(message, [])
+    | Success(target, alreadyDownloaded) =>
+      let version = switch target {
+      | Agda(version, _) => VersionDisplay.formatAgdaVersion(version)
+      | ALS(alsVersion, agdaVersion, _) => VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+      }
+      if alreadyDownloaded {
+        let _ = await VSCode.Window.showInformationMessage(version ++ " is already downloaded", [])
+      } else {
+        // rerender the quick pick so that the downloaded target is shown as installed
+        await rerender()
+        let _ = await VSCode.Window.showInformationMessage(
+          version ++ " successfully downloaded",
+          [],
+        )
+      }
+    }
+  }
+}
+
+module ItemCreation = {
+  // Create QuickPick items for various targets and operations
+  let createSeparatorItem = (label: string): VSCode.QuickPickItem.t => {
+    VSCode.QuickPickItem.label: label,
+    kind: Separator,
+  }
+  
+  let createFolderItem = (): VSCode.QuickPickItem.t => {
+    VSCode.QuickPickItem.label: "$(folder-opened)  Open download folder",
+    description: "Where the language servers are downloaded to",
+  }
+  
+  let createDownloadItem = (downloaded: bool, versionString: string): VSCode.QuickPickItem.t => {
+    VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
+    description: if downloaded { "Downloaded and installed" } else { "" },
+    detail: versionString,
+  }
+  
+  let createAgdaItem = (version: string, path: string, isSelected: bool, extensionPath: string): VSCode.QuickPickItem.t => {
+    VSCode.QuickPickItem.label: VersionDisplay.formatAgdaVersion(version),
+    description: if isSelected { "Selected" } else { "" },
+    detail: path,
+    iconPath: VSCode.IconPath.fromDarkAndLight({
+      "dark": VSCode.Uri.joinPath(VSCode.Uri.file(extensionPath), ["asset/dark.png"]),
+      "light": VSCode.Uri.joinPath(VSCode.Uri.file(extensionPath), ["asset/light.png"]),
+    }),
+  }
+  
+  let createALSItem = (alsVersion: string, agdaVersion: string, method: Connection__Target__IPC.t, isSelected: bool): VSCode.QuickPickItem.t => {
+    VSCode.QuickPickItem.label: "$(squirrel)  " ++ VersionDisplay.formatALSVersion(alsVersion, agdaVersion),
+    description: if isSelected { "Selected" } else { "" },
+    detail: switch method {
+    | ViaTCP(url) => url.toString()
+    | ViaPipe(path, _, _) => path
+    },
+  }
+  
+  let createErrorItem = (error: Connection__Target.Error.t): VSCode.QuickPickItem.t => {
+    VSCode.QuickPickItem.label: "$(error)  Bad path",
+    description: "",
+    detail: Connection__Target.Error.toString(error),
+  }
+}
+
 let openGlobalStorageFolder = async (state: State.t) => {
   let _result = await VSCode.Env.openExternal(state.globalStorageUri)
 }
@@ -10,7 +132,7 @@ let switchAgdaVersion = async (state: State.t) => {
       await State__View.Panel.displayStatus(state, "")
       await State__View.Panel.display(
         state,
-        View.Header.Plain("Switching to Agda v" ++ version),
+        View.Header.Plain(VersionDisplay.formatSwitchingMessage(VersionDisplay.formatAgdaVersion(version))),
         [],
       )
     }
@@ -18,9 +140,7 @@ let switchAgdaVersion = async (state: State.t) => {
       await State__View.Panel.displayStatus(state, "")
       await State__View.Panel.display(
         state,
-        View.Header.Plain(
-          "Switching to Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
-        ),
+        View.Header.Plain(VersionDisplay.formatSwitchingMessage(VersionDisplay.formatALSVersion(alsVersion, agdaVersion))),
         [],
       )
     }
@@ -45,23 +165,20 @@ let switchAgdaVersion = async (state: State.t) => {
     switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
     | Error(_) => ()
     | Ok(Agda(version, _path)) => {
-        await State__View.Panel.displayStatus(state, "Agda v" ++ version)
+        let formattedVersion = VersionDisplay.formatAgdaVersion(version)
+        await State__View.Panel.displayStatus(state, formattedVersion)
         await State__View.Panel.display(
           state,
-          View.Header.Success("Switched to Agda v" ++ version),
+          View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
           [],
         )
       }
     | Ok(ALS(alsVersion, agdaVersion, _)) => {
-        await State__View.Panel.displayStatus(
-          state,
-          "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
-        )
+        let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+        await State__View.Panel.displayStatus(state, formattedVersion)
         await State__View.Panel.display(
           state,
-          View.Header.Success(
-            "Switched to Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion,
-          ),
+          View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
           [],
         )
       }
@@ -112,78 +229,34 @@ let handleSelection = async (
   globalStorageUri: VSCode.Uri.t,
   selection: VSCode.QuickPickItem.t,
 ) => {
-  switch selection.label {
-  | "$(folder-opened)  Open download folder" =>
+  switch SelectionParsing.parseSelection(selection.label, selection.detail) {
+  | OpenFolder =>
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
-  | "$(cloud-download)  Download the latest Agda Language Server" =>
-    let result = switch await Connection__Download__Platform.determine() {
-    | Error(_) => Error("Failed to determine the platform for downloading the Agda Language Server")
-    | Ok(platform) =>
-      switch await Connection.LatestALS.alreadyDownloaded(globalStorageUri)() {
-      | None =>
-        switch await Connection.LatestALS.download(memento, globalStorageUri)(platform) {
-        | Error(error) => Error(AgdaModeVscode.Connection__Download.Error.toString(error))
-        | Ok(target) => Ok(target, false) // false means that the target was not already downloaded
-        }
-      | Some(target) => Ok(target, true) // true means that the target was already downloaded
-      }
-    }
+  | DownloadLatestALS =>
+    let result = await DownloadWorkflow.downloadLatestALS(memento, globalStorageUri)
+    await DownloadWorkflow.handleDownloadResult(result, self.rerender)
 
-    switch result {
-    | Error(message) =>
-      let _ = await VSCode.Window.showErrorMessage(message, [])
-    | Ok((target, alreadyDownloaded)) =>
-      // show a popup message indicating the successful download
-      let version = switch target {
-      | Agda(version, _) => "Agda v" ++ version
-      | ALS(alsVersion, agdaVersion, _) =>
-        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-      }
-      if alreadyDownloaded {
-        let _ = await VSCode.Window.showInformationMessage(version ++ " is already downloaded", [])
-      } else {
-        // rerender the quick pick so that the downloaded target is shown as installed
-        await self.rerender()
-        let _ = await VSCode.Window.showInformationMessage(
-          version ++ " successfully downloaded",
-          [],
-        )
-      }
-    }
-
-  // await self.rerender()
-  // | "$(sync)  Check for updates" =>
-  //   let repo = Connection.makeAgdaLanguageServerRepo(memento, globalStoragePath)
-  //   let _ = await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHubAndCache(repo)
-  //   await self.rerender()
-  | _ =>
+  | SwitchToTarget(rawPath) =>
     switch await Connection.Target.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
     | Error(_) =>
-      // self->QP.destroy // close the quick pick
       await self.rerender()
     | Ok(original) =>
-      // self->QP.destroy // close the quick pick
-      switch selection.detail {
-      | None => ()
-      | Some(rawPath) =>
-        let selectionChanged =
-          rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
-        if selectionChanged {
-          switch Connection.URI.parse(rawPath) {
-          | URL(url) => Js.log("Trying to connect with: " ++ url.toString())
-          | Filepath(path) =>
-            switch await Connection.Target.fromRawPath(path) {
-            | Error(e) => Js.log(e)
-            | Ok(newTarget) =>
-              // save the selected connection as the "picked" connection
-              await Connection.Target.setPicked(self.state.memento, Some(newTarget))
-              await switchAgdaVersion(self.state)
-              await self.rerender()
-            }
+      let selectionChanged =
+        rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
+      if selectionChanged {
+        switch Connection.URI.parse(rawPath) {
+        | URL(url) => Js.log("Trying to connect with: " ++ url.toString())
+        | Filepath(path) =>
+          switch await Connection.Target.fromRawPath(path) {
+          | Error(e) => Js.log(e)
+          | Ok(newTarget) =>
+            // save the selected connection as the "picked" connection
+            await Connection.Target.setPicked(self.state.memento, Some(newTarget))
+            await switchAgdaVersion(self.state)
+            await self.rerender()
           }
         }
-      // }
       }
     }
   }
@@ -197,43 +270,7 @@ let rec run = async state => {
   // let latestALSAlreadyDownloaded = await State__Connection.LatestALS.alreadyDownloaded(state)()
 
   // items to be shown in the quick pick
-  let miscItems = [
-    // {
-    //   VSCode.QuickPickItem.label: "Misc",
-    //   kind: Separator,
-    // },
-    // if latestALSAlreadyDownloaded {
-    //   let ageInSecs = Connection__Download__GitHub.ReleaseManifest.cacheAgeInSecs(state.memento)
-    //   let description = switch ageInSecs / 3600 {
-    //   | 0 =>
-    //     switch ageInSecs / 60 {
-    //     | 0 => "last checked: less than a minute ago"
-    //     | 1 => "last checked: 1 minute ago"
-    //     | minutes => "last checked: " ++ string_of_int(minutes) ++ " minutes ago"
-    //     }
-    //   | 1 => "last checked: 1 hour ago"
-    //   | hours if hours >= 24 => "last checked: more than a day ago"
-    //   | hours => "last checked: " ++ string_of_int(hours) ++ " hours ago"
-    //   }
-
-    //   {
-    //     VSCode.QuickPickItem.label: "$(sync)  Check for updates",
-    //     description,
-    //   }
-    // } else {
-    //   {
-    //     VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
-    //     description: "automatically kept up-to-date",
-    //   }
-    // },
-    // {
-    //   VSCode.QuickPickItem.label: "$(cloud-download)  Download other versions of Agda Language Server",
-    // },
-    {
-      VSCode.QuickPickItem.label: "$(folder-opened)  Open download folder",
-      description: "Where the language servers are downloaded to",
-    },
-  ]
+  let miscItems = [ItemCreation.createFolderItem()]
 
   //
   //  Installed Agda or Agda Language Server
@@ -254,49 +291,12 @@ let rec run = async state => {
   // converting a target to a quick pick item
   let targetToItem = target =>
     switch target {
-    | Ok(Connection.Target.Agda(version, path)) => {
-        VSCode.QuickPickItem.label: "Agda v" ++ version,
-        description: if isSelected(target) {
-          "Selected"
-        } else {
-          ""
-        },
-        detail: path,
-        iconPath: VSCode.IconPath.fromDarkAndLight({
-          "dark": VSCode.Uri.joinPath(VSCode.Uri.file(state.extensionPath), ["asset/dark.png"]),
-          "light": VSCode.Uri.joinPath(VSCode.Uri.file(state.extensionPath), ["asset/light.png"]),
-        }),
-      }
-    | Ok(ALS(alsVersion, agdaVersion, method)) => {
-        VSCode.QuickPickItem.label: "$(squirrel)  Agda v" ++
-        agdaVersion ++
-        " Language Server v" ++
-        alsVersion,
-        description: if isSelected(target) {
-          "Selected"
-        } else {
-          ""
-        },
-        detail: switch method {
-        | ViaTCP(url) => url.toString()
-        | ViaPipe(path, _, _) => path
-        },
-      }
-    // | Error(Connection__Error.SomethingWentWrong(path, error)) => {
-    //     VSCode.QuickPickItem.label: "$(error)  Error",
-    //     description: Connection__Process__Exec.Error.toString(error),
-    //     detail: path,
-    //   }
-    // | Error(CannotHandleURLsATM(url)) => {
-    //     VSCode.QuickPickItem.label: "$(question)  Error",
-    //     description: "cannot handle URLs at the moment",
-    //     detail: url,
-    //   }
-    | Error(error) => {
-        VSCode.QuickPickItem.label: "$(error)  Bad path",
-        description: "",
-        detail: Connection__Target.Error.toString(error),
-      }
+    | Ok(Connection.Target.Agda(version, path)) => 
+      ItemCreation.createAgdaItem(version, path, isSelected(target), state.extensionPath)
+    | Ok(ALS(alsVersion, agdaVersion, method)) => 
+      ItemCreation.createALSItem(alsVersion, agdaVersion, method, isSelected(target))
+    | Error(error) => 
+      ItemCreation.createErrorItem(error)
     }
 
   let fetchSpecToItem = (globalStoragePath: VSCode.Uri.t, installedPaths: array<string>) => (
@@ -316,25 +316,12 @@ let rec run = async state => {
       "als",
     ])
     let downloaded = Array.includes(installedPaths, filename)
-    let versionString = "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-    {
-      VSCode.QuickPickItem.label: "$(cloud-download)  Download the latest Agda Language Server",
-      description: if downloaded {
-        "Downloaded and installed"
-      } else {
-        ""
-      },
-      detail: versionString,
-    }
+    let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+    ItemCreation.createDownloadItem(downloaded, versionString)
   }
 
   // installed Agda or Agda Language Server
-  let installedSeperator = [
-    {
-      VSCode.QuickPickItem.label: "Installed",
-      kind: Separator,
-    },
-  ]
+  let installedSeperator = [ItemCreation.createSeparatorItem("Installed")]
 
   let installedTargets = await Connection.getInstalledTargetsAndPersistThem(state.globalStorageUri)
   let installedPaths =
@@ -348,12 +335,7 @@ let rec run = async state => {
     )
   let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(targetToItem)
 
-  let downloadSeperator = [
-    {
-      VSCode.QuickPickItem.label: "Download",
-      kind: Separator,
-    },
-  ]
+  let downloadSeperator = [ItemCreation.createSeparatorItem("Download")]
 
   let downloadLatestALSFetchSpec = switch await Connection__Download__Platform.determine() {
   | Error(_) => None
