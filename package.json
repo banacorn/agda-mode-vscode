@@ -1083,6 +1083,11 @@
 					"default": true,
 					"description": "Enable Unicode input method. Disable this if you are using a different input method extension like `latex-input`."
 				},
+				"agdaMode.devMode.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable development mode to access experimental features like WASM support."
+				},
 				"agdaMode.buffer.fontSize": {
 					"type": [
 						"number",

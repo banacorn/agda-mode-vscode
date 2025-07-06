@@ -4,6 +4,34 @@ module VSRange = Range
 // this flag should be set as TRUE when testing
 let inTestingMode = ref(false)
 
+// for enabling experimental features like WASM support
+module DevMode = {
+  // Default value for dev mode
+  let defaultValue = false
+  
+  // Parse and validate dev mode value from VSCode config
+  let parseFromConfig = (configValue: option<JSON.t>): bool =>
+    switch configValue {
+    | Some(value) => 
+      switch value {
+      | JSON.Boolean(true) => true
+      | JSON.Boolean(false) => false
+      | _ => defaultValue
+      }
+    | None => defaultValue
+    }
+
+  let get = () =>
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.get("devMode.enabled")
+    ->parseFromConfig
+
+  let set = (value: bool) => {
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.updateGlobalSettings("devMode.enabled", value, None)
+  }
+}
+
 module Connection = {
   // in testing mode, configs are read and written from here instead
   let agdaVersionInTestingMode = ref("agda")
