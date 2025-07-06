@@ -80,7 +80,7 @@ module ItemCreation = {
   // Create QuickPick items for various targets and operations
   let createSeparatorItem = (label: string): VSCode.QuickPickItem.t => {
     VSCode.QuickPickItem.label: label,
-    kind: Separator,
+    kind: VSCode.QuickPickItemKind.Separator,
   }
   
   let createFolderItem = (): VSCode.QuickPickItem.t => {
