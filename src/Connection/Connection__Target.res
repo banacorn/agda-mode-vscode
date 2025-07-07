@@ -2,6 +2,20 @@ module IPC = Connection__Target__IPC
 module URI = Connection__URI
 module Process = Connection__Process
 
+// Helper function to check for prebuilt data directory
+let checkForPrebuiltDataDirectory = async (executablePath: string) => {
+  // the executable needs to be accompanied by a `data` directory
+  // which can be specified by the environment variable "Agda_datadir"
+  // prebuilt executables on GitHub have this directory placed alongside the executable
+  let prebuildDataDirPath = NodeJs.Path.join([executablePath, "..", "data"])
+  let prebuildDataDirURI = VSCode.Uri.file(prebuildDataDirPath)
+
+  switch await VSCode.FileSystem.stat(VSCode.Workspace.fs, prebuildDataDirURI) {
+  | _ => Some(NodeJs.Path.join([executablePath, "..", "data"]))
+  | exception _ => None
+  }
+}
+
 module Error = {
   type t =
     | NotAgdaOrALS(URI.t)
@@ -65,24 +79,12 @@ module Module: {
         // try ALS
         switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
         | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-          // the executable needs to be accompanied by a `data` directory
-          // which can be specified by the environment variable "Agda_datadir"
-          // prebuilt executables on GitHub have this directory placed alongside the executable
-          let prebuildDataDirPath = NodeJs.Path.join([path, "..", "data"])
-          let isPrebuilt = switch await NodeJs.Fs.access(prebuildDataDirPath) {
-          | () => true
-          | exception _ => false
-          }
-          let lspOptions = if isPrebuilt {
-            let assetPath = NodeJs.Path.join([path, "..", "data"])
+          let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
+          | Some(assetPath) => 
             let env = Dict.fromArray([("Agda_datadir", assetPath)])
-            Some({
-              Connection__Target__ALS__LSP__Binding.env: env,
-            })
-          } else {
-            None
+            Some({Connection__Target__ALS__LSP__Binding.env: env})
+          | None => None
           }
-
           Ok(ALS(alsVersion, agdaVersion, Connection__Target__IPC.ViaPipe(path, [], lspOptions)))
         | _ => Error(Error.NotAgdaOrALS(uri))
         }

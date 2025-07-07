@@ -682,4 +682,60 @@ describe("Connection", () => {
       },
     )
   })
+
+  describe_only("checkForPrebuiltDataDirectory", () => {
+    Async.it(
+      "should return asset path when data directory exists",
+      async () => {
+        // Create a temporary directory structure
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let execPath = NodeJs.Path.join([tempDir, "bin", "agda-language-server"])
+        let dataDir = NodeJs.Path.join([tempDir, "bin", "data"])
+
+        // Create the directory structure
+        await NodeJs.Fs.mkdir(NodeJs.Path.join([tempDir, "bin"]), {recursive: true, mode: 0o777})
+        await NodeJs.Fs.mkdir(dataDir, {recursive: true, mode: 0o777})
+
+        // Test the function
+        let result = await Connection__Target.checkForPrebuiltDataDirectory(execPath)
+
+        // Should return Some with asset path
+        let expectedAssetPath = NodeJs.Path.join([execPath, "..", "data"])
+        Assert.deepStrictEqual(result, Some(expectedAssetPath))
+
+        // Cleanup
+        NodeJs.Fs.rmdirSync(dataDir)
+        NodeJs.Fs.rmdirSync(NodeJs.Path.join([tempDir, "bin"]))
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return None when data directory does not exist",
+      async () => {
+        // Create a temporary directory structure without data directory
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let execPath = NodeJs.Path.join([tempDir, "bin", "agda-language-server"])
+
+        // Create only the bin directory, no data directory
+        await NodeJs.Fs.mkdir(NodeJs.Path.join([tempDir, "bin"]), {recursive: true, mode: 0o777})
+
+        // Test the function
+        let result = await Connection__Target.checkForPrebuiltDataDirectory(execPath)
+
+        // Should return None
+        Assert.deepStrictEqual(result, None)
+
+        // Cleanup
+        NodeJs.Fs.rmdirSync(NodeJs.Path.join([tempDir, "bin"]))
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+  })
 })
