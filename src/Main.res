@@ -335,6 +335,18 @@ let activate = context => {
     ->VSCode.Uri.with_({
       scheme: "file",
     })
+
+  // Simple platform detection - check if we're in Node.js or browser
+  let isWeb = try {
+    let _ = %external(process)
+    false // If process exists, we're in Node.js (desktop)
+  } catch {
+  | _ => true // If process doesn't exist, we're in browser (web)
+  }
+  let env = isWeb ? "web" : "desktop"
+  
+  Js.Console.log(`agda-mode: ${env} environment, isWeb(): ${isWeb ? "true" : "false"}`)
+
   activateWithoutContext(
     subscriptions,
     extensionPath,
