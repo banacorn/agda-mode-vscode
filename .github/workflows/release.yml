@@ -24,8 +24,20 @@ jobs:
           pat: ${{ secrets.OPEN_VSX }}
         continue-on-error: true
 
+      - name: Extract version info
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          MINOR_VERSION=$(echo $VERSION | cut -d. -f2)
+          IS_PRERELEASE=$((MINOR_VERSION % 2))
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR_VERSION" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
+
       - name: Publish to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
+          preRelease: ${{ steps.version.outputs.is_prerelease == '1' }}

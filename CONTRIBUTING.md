@@ -31,3 +31,23 @@ npm run dev
 
 Press <kbd>F5</kbd> in VS Code and you should have a extension development host with agda-mode running!
 
+# Versioning Policy
+
+This extension follows VS Code's recommended versioning scheme for extensions:
+
+- **Release versions**: Use even minor numbers (e.g., `0.6.x`, `0.8.x`, `1.0.x`)
+- **Prerelease versions**: Use odd minor numbers (e.g., `0.7.x`, `0.9.x`, `1.1.x`)
+
+## Examples:
+- `0.6.1` - Stable release
+- `0.7.0` - First prerelease with new features (e.g., web support)
+- `0.7.1` - Prerelease bug fixes and improvements
+- `0.8.0` - Next stable release incorporating prerelease features
+
+## Publishing:
+- **Release versions** are published as stable extensions
+- **Prerelease versions** are published with `preRelease: true` flag
+- Users must explicitly opt-in to install prerelease versions
+
+This versioning makes it clear to users which versions are stable and which are experimental.
+
