@@ -335,6 +335,15 @@ let activate = context => {
     ->VSCode.Uri.with_({
       scheme: "file",
     })
+
+  // Add platform detection test command
+  let platformTestCommand = VSCode.Commands.registerCommand("agda-mode.test-platform", () => {
+    Platform.testPlatformDetection()
+    let env = Platform.getEnvironment()
+    VSCode.Window.showInformationMessage(`Platform detection: ${env} environment`, [])->ignore
+  })
+  subscriptions->Array.push(platformTestCommand)
+
   activateWithoutContext(
     subscriptions,
     extensionPath,

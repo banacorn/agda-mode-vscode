@@ -1,15 +1,24 @@
 {
-	"name": "agda-mode",
-	"displayName": "agda-mode",
-	"description": "agda-mode on vscode",
+	"name": "agda-mode-web",
+	"displayName": "agda-mode-web",
+	"description": "🧪 Experimental agda-mode for VS Code Web (github.dev)",
 	"icon": "asset/logo.png",
 	"publisher": "banacorn",
-	"version": "0.6.1",
+	"version": "0.6.1-web.0",
 	"engines": {
 		"vscode": "^1.94.0"
 	},
 	"categories": [
 		"Other"
+	],
+	"keywords": [
+		"agda",
+		"dependently typed",
+		"functional programming",
+		"proof assistant",
+		"web",
+		"github.dev",
+		"vscode-web"
 	],
 	"main": "./dist/app.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
