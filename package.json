@@ -21,6 +21,7 @@
 		"vscode-web"
 	],
 	"main": "./dist/app.bundle.js",
+	"browser": "./dist/app.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"scripts": {
 		"clean": "npx rescript clean",
