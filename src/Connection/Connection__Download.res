@@ -72,11 +72,9 @@ let download = async (memento, globalStorageUri, fetchSpec) => {
 // Download directly from a URL without GitHub release metadata
 let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
-  let globalStoragePath = VSCode.Uri.fsPath(globalStorageUri)
   
-  // Create directory if it doesn't exist
-  let destDir = NodeJs.Path.join([globalStoragePath, saveAsFileName])
-  let destDirUri = VSCode.Uri.file(destDir)
+  // Create directory if it doesn't exist using URI operations
+  let destDirUri = VSCode.Uri.joinPath(globalStorageUri, [saveAsFileName])
   switch await FS.stat(destDirUri) {
   | Error(_) => 
     // Directory doesn't exist, create it
@@ -85,10 +83,10 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   }
   
   // Check if already downloaded
-  let execPath = NodeJs.Path.join([destDir, "als"])
-  let execPathUri = VSCode.Uri.file(execPath)
+  let execPathUri = VSCode.Uri.joinPath(destDirUri, ["als"])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
+    let execPath = VSCode.Uri.fsPath(execPathUri)
     let destPath = Connection__URI.parse(execPath)
     await Config.Connection.addAgdaPath(destPath)
     switch await Connection__Target.fromURI(destPath) {
@@ -104,8 +102,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
       let host = urlObj["hostname"]
       let path = urlObj["pathname"] ++ (urlObj["search"]->Option.getOr(""))
       
-      let tempFilePath = NodeJs.Path.join([destDir, "download.tmp"])
-      let tempFileUri = VSCode.Uri.file(tempFilePath)
+      let tempFileUri = VSCode.Uri.joinPath(destDirUri, ["download.tmp"])
       
       // Download file using existing utilities
       let httpOptions = {
@@ -129,39 +126,39 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         Error(Error.CannotDownloadFromURL(convertedError))
       | Ok() =>
         // Validate that we got a ZIP file, not HTML by checking first 4 bytes
-        let fileHandle = await NodeJs.Fs.open_(tempFilePath, NodeJs.Fs.Flag.read)
-        let buffer = await NodeJs.Fs.FileHandle.readFile(fileHandle)
-        await NodeJs.Fs.FileHandle.close(fileHandle)
-        
-        // Check if file starts with ZIP signature (first 4 bytes should be PK\x03\x04)
-        // Check for ZIP signature: bytes 0x50, 0x4B, 0x03, 0x04 (which is "PK\x03\x04")
-        let isPKHeader = if NodeJs.Buffer.length(buffer) >= 4 {
-          NodeJs.Buffer.readUint8(buffer, ~offset=0) == 80. && // 0x50
-          NodeJs.Buffer.readUint8(buffer, ~offset=1) == 75. && // 0x4B
-          NodeJs.Buffer.readUint8(buffer, ~offset=2) == 3. &&  // 0x03
-          NodeJs.Buffer.readUint8(buffer, ~offset=3) == 4.     // 0x04
-        } else {
-          false
+        let readResult = await FS.readFile(tempFileUri)
+        let isPKHeader = switch readResult {
+        | Error(_) => false
+        | Ok(uint8Array) =>
+          // Check if file starts with ZIP signature (first 4 bytes should be PK\x03\x04)
+          // Check for ZIP signature: bytes 0x50, 0x4B, 0x03, 0x04 (which is "PK\x03\x04")
+          if TypedArray.length(uint8Array) >= 4 {
+            TypedArray.get(uint8Array, 0)->Option.getOr(0) == 80 && // 0x50
+            TypedArray.get(uint8Array, 1)->Option.getOr(0) == 75 && // 0x4B
+            TypedArray.get(uint8Array, 2)->Option.getOr(0) == 3 &&  // 0x03
+            TypedArray.get(uint8Array, 3)->Option.getOr(0) == 4     // 0x04
+          } else {
+            false
+          }
         }
         if !isPKHeader { // Not a ZIP file signature
           // Not a ZIP file - likely HTML error page
-          let _ = await Connection__Download__GitHub.Nd.Fs.unlink(tempFilePath)
+          let _ = await FS.delete(tempFileUri)
           let genericError = Obj.magic({"message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link."})
           Error(Error.CannotDownloadFromURL(Connection__Download__GitHub.Error.CannotReadFile(genericError)))
         } else {
           // Proceed with extraction
-          let zipFilePath = NodeJs.Path.join([destDir, "download.zip"])
-          let _ = await Connection__Download__GitHub.Nd.Fs.rename(tempFilePath, zipFilePath)
+          let zipFileUri = VSCode.Uri.joinPath(destDirUri, ["download.zip"])
+          let _ = await FS.rename(tempFileUri, zipFileUri)
           
           // Extract ZIP file
-          let zipFileUri = VSCode.Uri.file(zipFilePath)
-          let destDirUri = VSCode.Uri.file(destDir)
           await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
           
           // Remove ZIP file after extraction
-          let _ = await Connection__Download__GitHub.Nd.Fs.unlink(zipFilePath)
+          let _ = await FS.delete(zipFileUri)
           
           // Add the path of the downloaded file to the config
+          let execPath = VSCode.Uri.fsPath(execPathUri)
           let destPath = Connection__URI.parse(execPath)
           await Config.Connection.addAgdaPath(destPath)
           switch await Connection__Target.fromURI(destPath) {
