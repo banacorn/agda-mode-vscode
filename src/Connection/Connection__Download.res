@@ -152,13 +152,10 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
           let _ = await FS.rename(tempFileUri, zipFileUri)
           
           // Extract ZIP file
-          switch await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri) {
-          | Error(error) => 
-            let genericError = Obj.magic({"message": "Failed to extract ZIP file: " ++ error})
-            Error(Error.CannotDownloadFromURL(Connection__Download__GitHub.Error.CannotUnzipFile(error)))
-          | Ok() =>
-            // Remove ZIP file after extraction
-            let _ = await FS.delete(zipFileUri)
+          await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
+          
+          // Remove ZIP file after extraction
+          let _ = await FS.delete(zipFileUri)
           
           // Add the path of the downloaded file to the config
           let execPath = VSCode.Uri.fsPath(execPathUri)

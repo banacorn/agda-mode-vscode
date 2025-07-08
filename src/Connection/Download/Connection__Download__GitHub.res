@@ -18,7 +18,6 @@ module Error = {
     | CannotReadFile(Js.Exn.t)
     | CannotDeleteFile(string)
     | CannotRenameFile(string)
-    | CannotUnzipFile(string)
     // OS
     | CannotDetermineOS(Js.Exn.t)
 
@@ -41,7 +40,6 @@ module Error = {
     | CannotReadFile(exn) => "Cannot to read files:\n" ++ Util.JsError.toString(exn)
     | CannotDeleteFile(msg) => "Cannot to delete files:\n" ++ msg
     | CannotRenameFile(msg) => "Cannot to rename files:\n" ++ msg
-    | CannotUnzipFile(msg) => "Cannot extract ZIP file:\n" ++ msg
     // OS
     | CannotDetermineOS(exn) => "Cannot determine OS:\n" ++ Util.JsError.toString(exn)
     }
@@ -447,14 +445,11 @@ module Module: {
       | Error(e) => Error(Error.CannotRenameFile(e))
       | Ok() =>
         // unzip the downloaded file
-        switch await Unzip.run(inFlightDownloadZipUri, destPath) {
-        | Error(e) => Error(Error.CannotUnzipFile(e))
-        | Ok() =>
-          // remove the zip file
-          switch await FS.delete(inFlightDownloadZipUri) {
-          | Error(e) => Error(Error.CannotDeleteFile(e))
-          | Ok() => Ok()
-          }
+        await Unzip.run(inFlightDownloadZipUri, destPath)
+        // remove the zip file
+        switch await FS.delete(inFlightDownloadZipUri) {
+        | Error(e) => Error(Error.CannotDeleteFile(e))
+        | Ok() => Ok()
         }
       }
     }
