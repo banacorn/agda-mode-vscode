@@ -530,35 +530,46 @@ module Target = {
   module Agda = {
     // given a version and the desired name of the executable, create a mock Agda executable and returns the path
     let mock = async (~version, ~name) => {
-      // creates a executable with nodejs
-      let (path, content) = if OS.onUnix {
+      // creates a executable with nodejs in temp directory
+      let (fileName, content) = if OS.onUnix {
         (
-          NodeJs.Path.resolve([name]),
+          name,
           "#!/usr/bin/env node\nconsole.log('Agda version " ++ version ++ "')",
         )
       } else {
         (
-          NodeJs.Path.resolve([name ++ ".bat"]),
+          name ++ ".bat",
           "@echo off\nnode -e \"console.log('Agda version " ++ version ++ "')\"",
         )
       }
-      // Use web-compatible file writing
-      let uint8Array = TextEncoder.make()->TextEncoder.encode(content)
-      switch await FS.writeFile(VSCode.Uri.file(path), uint8Array) {
-      | Error(error) => raise(Failure("Cannot write mock executable: " ++ error))
-      | Ok() => ()
+      
+      // Create file in temp directory to avoid permission issues
+      let tempFile = NodeJs.Path.join([
+        NodeJs.Os.tmpdir(),
+        fileName ++ "-" ++ string_of_int(int_of_float(Js.Date.now()))
+      ])
+      
+      // Use Node.js file writing for executable creation (tests only)
+      NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
+      // chmod +x for Unix systems
+      if OS.onUnix {
+        switch await NodeJs.Fs.chmod(tempFile, ~mode=0o755) {
+        | exception Js.Exn.Error(obj) => 
+          raise(Failure("Cannot chmod mock executable: " ++ Js.Exn.message(obj)->Option.getOr("unknown error")))
+        | _ => ()
+        }
       }
-      // chmod +x is not supported in web environment, but not needed for tests
-      // await NodeJs.Fs.chmod(path, ~mode=0o755)
-      path
+      tempFile
     }
 
-    let destroy = async target =>
-      switch await FS.delete(
-        target->Connection.Target.toURI->Connection.URI.toString->VSCode.Uri.file,
-      ) {
-      | Error(error) => raise(Failure("Cannot delete mock Agda executable: " ++ error))
-      | Ok(_) => ()
+    let destroy = async target => {
+      let path = target->Connection.Target.toURI->Connection.URI.toString
+      try {
+        NodeJs.Fs.unlinkSync(path)
+      } catch {
+      | Js.Exn.Error(obj) => 
+        raise(Failure("Cannot delete mock Agda executable: " ++ Js.Exn.message(obj)->Option.getOr("unknown error")))
       }
+    }
   }
 }
