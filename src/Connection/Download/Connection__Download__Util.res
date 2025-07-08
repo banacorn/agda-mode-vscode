@@ -20,6 +20,8 @@ module Error = {
     }
 }
 
+@send external arrayBuffer: Fetch.Response.t => promise<ArrayBuffer.t> = "arrayBuffer"
+
 module Event = {
   type t =
     | Start
@@ -189,11 +191,11 @@ module Module: {
         }
         
         // Use arrayBuffer instead of streaming for simplicity with rescript-fetch
-        let arrayBuffer = await %raw(`response.arrayBuffer()`)
-        let uint8Array = %raw(`new Uint8Array(arrayBuffer)`)
+        let arrayBuffer = await arrayBuffer(response)
+        let uint8Array = Core__Uint8Array.fromBuffer(arrayBuffer)
         
         // Report progress
-        let fileSize = %raw(`uint8Array.length`)
+        let fileSize = Core__TypedArray.length(uint8Array)
         onDownload(Event.Progress(fileSize, totalSize))
         
         // Write to file using FS module
