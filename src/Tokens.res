@@ -713,7 +713,17 @@ module Module: Module = {
 
     let readAndParse = async format => {
       try {
-        let content = await Node__Fs.readFile(toFilepath(format))
+        let filepath = toFilepath(format)
+        let uri = VSCode.Uri.file(filepath)
+        let readResult = await FS.readFile(uri)
+        let content = switch readResult {
+        | Ok(uint8Array) => 
+          // Convert Uint8Array to string using TextDecoder
+          let decoder = %raw(`new TextDecoder()`)
+          decoder->%raw(`function(decoder, arr) { return decoder.decode(arr) }`)(uint8Array)
+        | Error(error) => 
+          Js.Exn.raiseError("Failed to read file: " ++ error)
+        }
         switch format {
         | Emacs(_) =>
           let tokens = switch Parser.SExpression.parse(content)[0] {
