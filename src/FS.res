@@ -64,3 +64,13 @@ let readFile = async (uri: VSCode.Uri.t): result<RescriptCore.Uint8Array.t, stri
   | _ => Error("Unknown file system error")
   }
 }
+
+let rename = async (source: VSCode.Uri.t, target: VSCode.Uri.t): result<unit, string> => {
+  try {
+    await VSCode.Workspace.fs->VSCode.FileSystem.rename(source, target)
+    Ok()
+  } catch {
+  | Js.Exn.Error(obj) => Error(Js.Exn.message(obj)->Option.getOr("Unknown file system error"))
+  | _ => Error("Unknown file system error")
+  }
+}

@@ -614,4 +614,162 @@ describe("FS", () => {
       },
     )
   })
+
+  describe("rename", () => {
+    Async.it(
+      "should rename file successfully when source exists",
+      async () => {
+        // Create source file
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-rename-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let sourceFile = NodeJs.Path.join([tempDir, "source.txt"])
+        let targetFile = NodeJs.Path.join([tempDir, "target.txt"])
+        
+        // Create directory and source file
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        let content = "test file content"
+        NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString(content))
+        
+        // Verify source exists before rename
+        Assert.ok(NodeJs.Fs.existsSync(sourceFile))
+        Assert.ok(!NodeJs.Fs.existsSync(targetFile))
+        
+        // Test FS.rename
+        let sourceUri = VSCode.Uri.file(sourceFile)
+        let targetUri = VSCode.Uri.file(targetFile)
+        let result = await FS.rename(sourceUri, targetUri)
+        
+        switch result {
+        | Ok() =>
+          // Verify source no longer exists and target exists with same content
+          Assert.ok(!NodeJs.Fs.existsSync(sourceFile))
+          Assert.ok(NodeJs.Fs.existsSync(targetFile))
+          
+          let targetContent = NodeJs.Fs.readFileSync(targetFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(targetContent, content)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(targetFile)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return Error when source file does not exist",
+      async () => {
+        // Use non-existent source file
+        let nonExistentSource = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "non-existent-rename-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        let targetFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "rename-target-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        
+        let sourceUri = VSCode.Uri.file(nonExistentSource)
+        let targetUri = VSCode.Uri.file(targetFile)
+        let result = await FS.rename(sourceUri, targetUri)
+        
+        switch result {
+        | Ok() => Assert.fail("Expected Error for non-existent source, got Ok")
+        | Error(errorMsg) =>
+          // Should get an error message
+          Assert.ok(String.length(errorMsg) > 0)
+        }
+      },
+    )
+
+    Async.it(
+      "should rename directory successfully when source exists",
+      async () => {
+        // Create source directory with contents
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-rename-dir-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let sourceDir = NodeJs.Path.join([tempDir, "sourcedir"])
+        let targetDir = NodeJs.Path.join([tempDir, "targetdir"])
+        let testFile = NodeJs.Path.join([sourceDir, "test.txt"])
+        
+        // Create directory structure
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        await NodeJs.Fs.mkdir(sourceDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(testFile, NodeJs.Buffer.fromString("test content"))
+        
+        // Verify source exists before rename
+        Assert.ok(NodeJs.Fs.existsSync(sourceDir))
+        Assert.ok(NodeJs.Fs.existsSync(testFile))
+        Assert.ok(!NodeJs.Fs.existsSync(targetDir))
+        
+        // Test FS.rename on directory
+        let sourceUri = VSCode.Uri.file(sourceDir)
+        let targetUri = VSCode.Uri.file(targetDir)
+        let result = await FS.rename(sourceUri, targetUri)
+        
+        switch result {
+        | Ok() =>
+          // Verify source no longer exists and target exists with contents
+          Assert.ok(!NodeJs.Fs.existsSync(sourceDir))
+          Assert.ok(NodeJs.Fs.existsSync(targetDir))
+          
+          let renamedFile = NodeJs.Path.join([targetDir, "test.txt"])
+          Assert.ok(NodeJs.Fs.existsSync(renamedFile))
+          
+          let content = NodeJs.Fs.readFileSync(renamedFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(content, "test content")
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(NodeJs.Path.join([targetDir, "test.txt"]))
+        NodeJs.Fs.rmdirSync(targetDir)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should create parent directories when renaming to non-existent destination directory",
+      async () => {
+        // Create source file
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-rename-parent-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let sourceFile = NodeJs.Path.join([tempDir, "source.txt"])
+        let targetFile = NodeJs.Path.join([tempDir, "nonexistent", "target.txt"])
+        
+        // Create directory and source file
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString("test content"))
+        
+        let sourceUri = VSCode.Uri.file(sourceFile)
+        let targetUri = VSCode.Uri.file(targetFile)
+        let result = await FS.rename(sourceUri, targetUri)
+        
+        switch result {
+        | Ok() =>
+          // VS Code automatically creates parent directories for rename
+          Assert.ok(!NodeJs.Fs.existsSync(sourceFile))
+          Assert.ok(NodeJs.Fs.existsSync(targetFile))
+          
+          let content = NodeJs.Fs.readFileSync(targetFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(content, "test content")
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(targetFile)
+        NodeJs.Fs.rmdirSync(NodeJs.Path.join([tempDir, "nonexistent"]))
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+  })
 })
