@@ -880,9 +880,12 @@ module Module: Module = {
   }
 
   let reset = self => {
-    // delete all unhandded temp files
+    // delete all unhandled temp files
     self.tempFiles->Array.forEach(format => {
-      N.Fs.unlink(TempFile.toFilepath(format), _ => ())
+      let filepath = TempFile.toFilepath(format)
+      let uri = VSCode.Uri.file(filepath)
+      // Fire-and-forget: start deletion but don't wait for completion
+      let _ = FS.delete(uri)
     })
 
     // reset the AgdaTokens

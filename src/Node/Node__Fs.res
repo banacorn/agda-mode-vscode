@@ -12,8 +12,8 @@ let readdir = filepath => {
   })
 }
 
-@module("fs")
-external access: (string, Js.null<Js.Exn.t> => unit) => unit = "access"
+// @module("fs")
+// external access: (string, Js.null<Js.Exn.t> => unit) => unit = "access"
 
 @module("fs")
 external unlink: (string, Js.nullable<Js.Exn.t> => unit) => unit = "unlink"
