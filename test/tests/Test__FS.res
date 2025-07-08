@@ -303,4 +303,127 @@ describe("FS", () => {
       },
     )
   })
+
+  describe("delete", () => {
+    Async.it(
+      "should delete file successfully when file exists",
+      async () => {
+        // Create a file to delete
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-delete-file-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        
+        // Create the file
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("test content"))
+        
+        // Verify it exists
+        let existsBefore = NodeJs.Fs.existsSync(tempFile)
+        Assert.ok(existsBefore)
+        
+        // Test FS.delete
+        let uri = VSCode.Uri.file(tempFile)
+        let result = await FS.delete(uri)
+        
+        switch result {
+        | Ok() =>
+          // Verify file was deleted
+          let existsAfter = NodeJs.Fs.existsSync(tempFile)
+          Assert.ok(!existsAfter)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+      },
+    )
+
+    Async.it(
+      "should delete directory successfully when directory exists and is empty",
+      async () => {
+        // Create an empty directory to delete
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-delete-dir-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        
+        // Create the directory
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        
+        // Verify it exists
+        let existsBefore = NodeJs.Fs.existsSync(tempDir)
+        Assert.ok(existsBefore)
+        
+        // Test FS.delete
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.delete(uri)
+        
+        switch result {
+        | Ok() =>
+          // Verify directory was deleted
+          let existsAfter = NodeJs.Fs.existsSync(tempDir)
+          Assert.ok(!existsAfter)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+      },
+    )
+
+    Async.it(
+      "should return Error when trying to delete non-empty directory",
+      async () => {
+        // Create a directory with files
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-delete-nonempty-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let file1 = NodeJs.Path.join([tempDir, "file1.txt"])
+        
+        // Create directory structure
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(file1, NodeJs.Buffer.fromString("content1"))
+        
+        // Verify everything exists
+        Assert.ok(NodeJs.Fs.existsSync(tempDir))
+        Assert.ok(NodeJs.Fs.existsSync(file1))
+        
+        // Test FS.delete on non-empty directory (should fail)
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.delete(uri)
+        
+        switch result {
+        | Ok() => Assert.fail("Expected Error for non-empty directory, got Ok")
+        | Error(errorMsg) =>
+          // Should get an error message about directory not being empty
+          Assert.ok(String.length(errorMsg) > 0)
+          // Directory and file should still exist
+          Assert.ok(NodeJs.Fs.existsSync(tempDir))
+          Assert.ok(NodeJs.Fs.existsSync(file1))
+        }
+        
+        // Cleanup manually
+        NodeJs.Fs.unlinkSync(file1)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return Error when trying to delete non-existent file",
+      async () => {
+        // Use non-existent file path
+        let nonExistentFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "non-existent-delete-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        
+        let uri = VSCode.Uri.file(nonExistentFile)
+        let result = await FS.delete(uri)
+        
+        switch result {
+        | Ok() => Assert.fail("Expected Error for non-existent file, got Ok")
+        | Error(errorMsg) =>
+          // Should get an error message
+          Assert.ok(String.length(errorMsg) > 0)
+        }
+      },
+    )
+  })
 })
