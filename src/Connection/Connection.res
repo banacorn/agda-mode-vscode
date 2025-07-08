@@ -353,7 +353,7 @@ module Module: Module = {
     //     await folders
     //     ->Array.map(async folder => {
     //       let folderPath = NodeJs.Path.join([downloadPath, folder])
-    //       switch await Node__Fs.readdir(folderPath) {
+    //       switch await \(folderPath) {
     //       | files =>
     //         let agdaFile = files->Array.find(file => file == "agda" || file == "agda.exe")
     //         let alsFile = files->Array.find(file => file == "als" || file == "als.exe")
@@ -484,14 +484,14 @@ module LatestALS = {
 
   // check if the latest ALS is already downloaded
   let alreadyDownloaded = globalStorageUri => async () => {
-    let path = NodeJs.Path.join([VSCode.Uri.fsPath(globalStorageUri), "latest-als", "als"])
-    switch await NodeJs.Fs.access(path) {
-    | () =>
-      switch await Target.fromRawPath(path) {
+    let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
+    switch await FS.stat(uri) {
+    | Ok(_) =>
+      switch await Target.fromVSCodeUri(uri) {
       | Ok(target) => Some(target)
       | Error(_) => None
       }
-    | exception _ => None
+    | Error(_) => None
     }
   }
 }

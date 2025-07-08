@@ -57,6 +57,9 @@ module Module: {
   let fromRawPath: string => promise<result<t, Error.t>>
   let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
 
+  // from VSCode.Uri.t to Target
+  let fromVSCodeUri: VSCode.Uri.t => promise<result<t, Error.t>>
+
   // configuration
   let getPicked: (State__Memento.t, array<Connection__URI.t>) => promise<result<t, array<Error.t>>>
   let setPicked: (State__Memento.t, option<t>) => promise<unit>
@@ -107,6 +110,8 @@ module Module: {
     let uri = URI.parse(rawPath)
     await fromURI(uri)
   }
+
+  let fromVSCodeUri = uri => uri->VSCode.Uri.toString->fromRawPath
 
   // plural form of `fromRawPath`
   let fromRawPaths = paths => paths->Array.map(fromRawPath)->Promise.all
