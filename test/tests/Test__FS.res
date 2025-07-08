@@ -772,4 +772,152 @@ describe("FS", () => {
       },
     )
   })
+
+  describe("stat", () => {
+    Async.it(
+      "should return file stats when file exists",
+      async () => {
+        // Create a temporary file
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-stat-file-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        let content = "test file content for stat"
+        
+        // Create the file
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
+        
+        // Test FS.stat
+        let uri = VSCode.Uri.file(tempFile)
+        let result = await FS.stat(uri)
+        
+        switch result {
+        | Ok(fileStat) =>
+          // Verify it's a file and has the correct size
+          Assert.ok(VSCode.FileStat.type_(fileStat) == VSCode.FileType.File)
+          Assert.deepStrictEqual(VSCode.FileStat.size(fileStat), String.length(content))
+          
+          // Verify timestamps are reasonable (should be recent)
+          let now = Js.Date.now()
+          let mtime = VSCode.FileStat.mtime(fileStat)->Int.toFloat
+          let ctime = VSCode.FileStat.ctime(fileStat)->Int.toFloat
+          
+          // File should have been created/modified within the last minute
+          Assert.ok(now -. mtime < 60000.0) // 60 seconds
+          Assert.ok(now -. ctime < 60000.0) // 60 seconds
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(tempFile)
+      },
+    )
+
+    Async.it(
+      "should return directory stats when directory exists",
+      async () => {
+        // Create a temporary directory
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-stat-dir-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        
+        // Create the directory
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        
+        // Test FS.stat
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.stat(uri)
+        
+        switch result {
+        | Ok(fileStat) =>
+          // Verify it's a directory
+          Assert.ok(VSCode.FileStat.type_(fileStat) == VSCode.FileType.Directory)
+          
+          // Directory size may vary by platform, just check it's non-negative
+          Assert.ok(VSCode.FileStat.size(fileStat) >= 0)
+          
+          // Verify timestamps are reasonable
+          let now = Js.Date.now()
+          let mtime = VSCode.FileStat.mtime(fileStat)->Int.toFloat
+          let ctime = VSCode.FileStat.ctime(fileStat)->Int.toFloat
+          
+          Assert.ok(now -. mtime < 60000.0) // 60 seconds
+          Assert.ok(now -. ctime < 60000.0) // 60 seconds
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return Error when file does not exist",
+      async () => {
+        // Use non-existent file path
+        let nonExistentFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "non-existent-stat-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        
+        let uri = VSCode.Uri.file(nonExistentFile)
+        let result = await FS.stat(uri)
+        
+        switch result {
+        | Ok(_) => Assert.fail("Expected Error for non-existent file, got Ok")
+        | Error(errorMsg) =>
+          // Should get an error message
+          Assert.ok(String.length(errorMsg) > 0)
+        }
+      },
+    )
+
+    Async.it(
+      "should distinguish between files and directories",
+      async () => {
+        // Create both a file and a directory
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-stat-types-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let testFile = NodeJs.Path.join([tempDir, "test.txt"])
+        let testSubdir = NodeJs.Path.join([tempDir, "subdir"])
+        
+        // Create directory structure
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(testFile, NodeJs.Buffer.fromString("test"))
+        await NodeJs.Fs.mkdir(testSubdir, {recursive: true, mode: 0o777})
+        
+        // Test file stat
+        let fileUri = VSCode.Uri.file(testFile)
+        let fileResult = await FS.stat(fileUri)
+        
+        // Test directory stat
+        let dirUri = VSCode.Uri.file(testSubdir)
+        let dirResult = await FS.stat(dirUri)
+        
+        switch (fileResult, dirResult) {
+        | (Ok(fileStat), Ok(dirStat)) =>
+          // Verify types are different
+          Assert.ok(VSCode.FileStat.type_(fileStat) == VSCode.FileType.File)
+          Assert.ok(VSCode.FileStat.type_(dirStat) == VSCode.FileType.Directory)
+          
+          // File should have content size, directory should be different
+          Assert.ok(VSCode.FileStat.size(fileStat) == 4) // "test" = 4 bytes
+          Assert.ok(VSCode.FileStat.size(dirStat) != VSCode.FileStat.size(fileStat))
+          
+        | (Error(fileErr), _) => Assert.fail("Expected Ok for file stat, got Error: " ++ fileErr)
+        | (_, Error(dirErr)) => Assert.fail("Expected Ok for directory stat, got Error: " ++ dirErr)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(testFile)
+        NodeJs.Fs.rmdirSync(testSubdir)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+  })
 })

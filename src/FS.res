@@ -55,7 +55,7 @@ let readDirectory = async (uri: VSCode.Uri.t): result<
   }
 }
 
-let readFile = async (uri: VSCode.Uri.t): result<RescriptCore.Uint8Array.t, string> => {
+let readFile = async (uri: VSCode.Uri.t): result<Uint8Array.t, string> => {
   try {
     let content = await VSCode.Workspace.fs->VSCode.FileSystem.readFile(uri)
     Ok(content)
@@ -69,6 +69,16 @@ let rename = async (source: VSCode.Uri.t, target: VSCode.Uri.t): result<unit, st
   try {
     await VSCode.Workspace.fs->VSCode.FileSystem.rename(source, target)
     Ok()
+  } catch {
+  | Js.Exn.Error(obj) => Error(Js.Exn.message(obj)->Option.getOr("Unknown file system error"))
+  | _ => Error("Unknown file system error")
+  }
+}
+
+let stat = async (uri: VSCode.Uri.t): result<VSCode.FileStat.t, string> => {
+  try {
+    let fileStat = await VSCode.Workspace.fs->VSCode.FileSystem.stat(uri)
+    Ok(fileStat)
   } catch {
   | Js.Exn.Error(obj) => Error(Js.Exn.message(obj)->Option.getOr("Unknown file system error"))
   | _ => Error("Unknown file system error")
