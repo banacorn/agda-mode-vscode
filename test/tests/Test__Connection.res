@@ -683,7 +683,7 @@ describe("Connection", () => {
     )
   })
 
-  describe_only("checkForPrebuiltDataDirectory", () => {
+  describe("checkForPrebuiltDataDirectory", () => {
     Async.it(
       "should return asset path when data directory exists",
       async () => {

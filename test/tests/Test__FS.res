@@ -170,7 +170,7 @@ describe("FS", () => {
     )
 
     Async.it(
-      "should return Error when destination directory does not exist",
+      "should create parent directories when copying to non-existent destination directory",
       async () => {
         // Create source file
         let tempDir = NodeJs.Path.join([
@@ -182,21 +182,123 @@ describe("FS", () => {
         
         // Create directory and source file
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString("test"))
+        NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString("test content"))
         
         let sourceUri = VSCode.Uri.file(sourceFile)
         let destUri = VSCode.Uri.file(destFile)
         let result = await FS.copy(sourceUri, destUri)
         
         switch result {
-        | Ok() => Assert.fail("Expected Error for non-existent destination directory, got Ok")
-        | Error(errorMsg) =>
-          // Should get an error message
-          Assert.ok(String.length(errorMsg) > 0)
+        | Ok() =>
+          // VS Code automatically creates parent directories
+          let exists = NodeJs.Fs.existsSync(destFile)
+          Assert.ok(exists)
+          
+          let content = NodeJs.Fs.readFileSync(destFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(content, "test content")
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
         }
         
         // Cleanup
         NodeJs.Fs.unlinkSync(sourceFile)
+        NodeJs.Fs.unlinkSync(destFile)
+        NodeJs.Fs.rmdirSync(NodeJs.Path.join([tempDir, "nonexistent"]))
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+  })
+
+  describe("createDirectory", () => {
+    Async.it(
+      "should create directory successfully when parent exists",
+      async () => {
+        // Create parent directory
+        let parentDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-mkdir-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let newDir = NodeJs.Path.join([parentDir, "newdir"])
+        
+        // Create parent directory
+        await NodeJs.Fs.mkdir(parentDir, {recursive: true, mode: 0o777})
+        
+        // Test FS.createDirectory
+        let uri = VSCode.Uri.file(newDir)
+        let result = await FS.createDirectory(uri)
+        
+        switch result {
+        | Ok() =>
+          // Verify directory was created
+          let exists = NodeJs.Fs.existsSync(newDir)
+          Assert.ok(exists)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.rmdirSync(newDir)
+        NodeJs.Fs.rmdirSync(parentDir)
+      },
+    )
+
+    Async.it(
+      "should create parent directories recursively when they don't exist",
+      async () => {
+        // Use non-existent parent directory
+        let nonExistentParent = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "non-existent-parent-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let newDir = NodeJs.Path.join([nonExistentParent, "newdir"])
+        
+        let uri = VSCode.Uri.file(newDir)
+        let result = await FS.createDirectory(uri)
+        
+        switch result {
+        | Ok() =>
+          // VS Code creates parent directories recursively
+          let exists = NodeJs.Fs.existsSync(newDir)
+          Assert.ok(exists)
+          
+          let parentExists = NodeJs.Fs.existsSync(nonExistentParent)
+          Assert.ok(parentExists)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.rmdirSync(newDir)
+        NodeJs.Fs.rmdirSync(nonExistentParent)
+      },
+    )
+
+    Async.it(
+      "should succeed when directory already exists (idempotent)",
+      async () => {
+        // Create directory first
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-mkdir-existing-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        
+        // Create the directory first
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        
+        // Try to create it again with FS.createDirectory
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.createDirectory(uri)
+        
+        switch result {
+        | Ok() =>
+          // VS Code createDirectory is idempotent - doesn't error on existing dirs
+          let exists = NodeJs.Fs.existsSync(tempDir)
+          Assert.ok(exists)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
         NodeJs.Fs.rmdirSync(tempDir)
       },
     )
