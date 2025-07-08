@@ -215,7 +215,34 @@ module Pretty = {
 }
 
 module JsError = {
-  let toString = (_e: Js.Exn.t): string => %raw("_e.toString()")
+  let toString = (e: Js.Exn.t): string => {
+    // Try to extract meaningful error information
+    let message = Js.Exn.message(e)->Option.getOr("")
+    let name = %raw("e.name || 'Error'")
+    let stack = %raw("e.stack || ''")
+    
+    if String.length(message) > 0 {
+      if String.length(stack) > 0 && stack != message {
+        name ++ ": " ++ message ++ "\n" ++ stack
+      } else {
+        name ++ ": " ++ message
+      }
+    } else {
+      // Fallback to toString if no message
+      let stringified = %raw("e.toString()")
+      if stringified == "[object Object]" {
+        // Try to JSON stringify as last resort
+        let jsonString = try {
+          %raw("JSON.stringify(e, null, 2)")
+        } catch {
+        | _ => "Unknown error (cannot stringify)"
+        }
+        "Error: " ++ jsonString
+      } else {
+        stringified
+      }
+    }
+  }
 }
 
 module Promise_ = {

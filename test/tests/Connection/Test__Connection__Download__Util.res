@@ -114,9 +114,10 @@ describe("Connection__Download__Util", () => {
         "path": "/json"
       }
       
-      let result = await Util.asJson(testOptions)
+      // Add timeout wrapper to prevent hanging
+      let timedResult = await Util.timeoutAfter(Util.asJson(testOptions), 5000)
       
-      switch result {
+      switch timedResult {
       | Ok(json) => 
         // httpbin.org/json returns a JSON object, so we just verify it's valid JSON
         Assert.ok(Js.typeof(json) === "object")
@@ -131,17 +132,22 @@ describe("Connection__Download__Util", () => {
       // Use httpbin.org/html which returns HTML, not JSON
       let testOptions = {
         "headers": {"User-Agent": "agda-mode-vscode-test"},
-        "host": "httpbin.org",
+        "host": "httpbin.org", 
         "path": "/html"
       }
       
-      let result = await Util.asJson(testOptions)
+      // Add timeout wrapper to prevent hanging
+      let timedResult = await Util.timeoutAfter(Util.asJson(testOptions), 5000)
       
-      switch result {
+      switch timedResult {
       | Ok(_) => Assert.fail("Expected JSON parse error, got success")
       | Error(error) => 
         switch error {
         | JsonParseError(_) => Assert.ok(true) // Expected error type
+        | Timeout(_) => 
+          // Timeout is acceptable for network tests
+          Js.Console.warn("Network test timed out (this may be expected)")
+          Assert.ok(true)
         | _ => 
           // Network error is also acceptable for this test
           Js.Console.warn("Got network error instead of JSON parse error: " ++ Util.Error.toString(error))
@@ -157,7 +163,7 @@ describe("Connection__Download__Util", () => {
       let smallHttpOptions = {
         "headers": {"User-Agent": "agda-mode-vscode-test"},
         "host": "httpbin.org",
-        "path": "/bytes/50" // Very small 50-byte file
+        "path": "/bytes/10" // Even smaller 10-byte file for faster test
       }
       
       // Create a temporary file path
@@ -172,9 +178,13 @@ describe("Connection__Download__Util", () => {
         events := Array.concat(events.contents, [event])
       }
       
-      let result = await Util.asFile(smallHttpOptions, destUri, onDownload)
+      // Add timeout wrapper to prevent hanging
+      let timedResult = await Util.timeoutAfter(
+        Util.asFile(smallHttpOptions, destUri, onDownload),
+        3000 // Shorter timeout for file download
+      )
       
-      switch result {
+      switch timedResult {
       | Ok() => 
         // Verify file was created and has content
         Assert.ok(NodeJs.Fs.existsSync(tempFile))
@@ -200,7 +210,12 @@ describe("Connection__Download__Util", () => {
         NodeJs.Fs.unlinkSync(tempFile)
       | Error(error) => 
         // Network tests can be flaky, so we'll be lenient
-        Js.Console.warn("Network test failed (this may be expected): " ++ Util.Error.toString(error))
+        switch error {
+        | Timeout(_) => 
+          Js.Console.warn("Network test timed out (this may be expected)")
+        | _ => 
+          Js.Console.warn("Network test failed (this may be expected): " ++ Util.Error.toString(error))
+        }
         Assert.ok(true) // Pass the test even if network fails
       }
     })

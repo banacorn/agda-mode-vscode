@@ -199,51 +199,67 @@ module Module: {
         | _ => 0
         }
         
-        // Get readable stream reader
-        let reader = %raw(`response.body.getReader()`)
-        let chunks = ref([])
-        let accumSize = ref(0)
-        
-        // Read chunks and track progress
-        let rec readChunks = async () => {
-          let result = await %raw(`reader.read()`)
-          let done = %raw(`result.done`)
-          let value = %raw(`result.value`)
-          
-          if !done {
-            // Add chunk to accumulator
-            chunks := Array.concat(chunks.contents, [value])
-            
-            // Update progress
-            let chunkSize = %raw(`value.length`)
-            accumSize := accumSize.contents + chunkSize
-            onDownload(Event.Progress(accumSize.contents, totalSize))
-            
-            await readChunks()
+        // Get readable stream reader with null check
+        let reader = try {
+          if %raw(`response.body === null || response.body === undefined`) {
+            raise(Failure("Response body is null or undefined"))
           }
+          Ok(%raw(`response.body.getReader()`))
+        } catch {
+        | Failure(msg) => Error(msg)
+        | Js.Exn.Error(exn) => Error(Js.Exn.message(exn)->Option.getOr("Failed to get response body reader"))
+        | _ => Error("Unknown error getting response body reader")
         }
         
-        await readChunks()
-        
-        // Combine all chunks into one Uint8Array
-        let totalLength = accumSize.contents
-        let combinedArray = %raw(`new Uint8Array(totalLength)`)
-        let offset = ref(0)
-        
-        chunks.contents->Array.forEach(chunk => {
-          %raw(`combinedArray.set(chunk, offset.contents)`)
-          let chunkLength = %raw(`chunk.length`)
-          offset := offset.contents + chunkLength
-        })
-        
-        // Write to file using FS module
-        switch await FS.writeFile(destUri, combinedArray) {
-        | Ok() =>
-          onDownload(Event.Finish)
-          Ok()
-        | Error(error) => 
-          let exn = Obj.magic({"message": error})
-          Error(Error.CannotWriteFile(exn))
+        switch reader {
+        | Error(msg) => 
+          let error = Obj.magic({"message": msg})
+          Error(Error.CannotWriteFile(error))
+        | Ok(reader) =>
+          let chunks = ref([])
+          let accumSize = ref(0)
+          
+          // Read chunks and track progress
+          let rec readChunks = async () => {
+            let result = await %raw(`reader.read()`)
+            let done = %raw(`result.done`)
+            let value = %raw(`result.value`)
+            
+            if !done {
+              // Add chunk to accumulator
+              chunks := Array.concat(chunks.contents, [value])
+              
+              // Update progress
+              let chunkSize = %raw(`value.length`)
+              accumSize := accumSize.contents + chunkSize
+              onDownload(Event.Progress(accumSize.contents, totalSize))
+              
+              await readChunks()
+            }
+          }
+          
+          await readChunks()
+          
+          // Combine all chunks into one Uint8Array
+          let totalLength = accumSize.contents
+          let combinedArray = %raw(`new Uint8Array(totalLength)`)
+          let offset = ref(0)
+          
+          chunks.contents->Array.forEach(chunk => {
+            %raw(`combinedArray.set(chunk, offset.contents)`)
+            let chunkLength = %raw(`chunk.length`)
+            offset := offset.contents + chunkLength
+          })
+          
+          // Write to file using FS module
+          switch await FS.writeFile(destUri, combinedArray) {
+          | Ok() =>
+            onDownload(Event.Finish)
+            Ok()
+          | Error(error) => 
+            let exn = Obj.magic({"message": error})
+            Error(Error.CannotWriteFile(exn))
+          }
         }
       } catch {
       | Js.Exn.Error(obj) => Error(Error.CannotWriteFile(obj))
