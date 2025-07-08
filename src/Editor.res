@@ -239,7 +239,10 @@ module Provider = {
               strings,
               range,
             )) => {
-              let markdownStrings = strings->Array.map(string => MarkdownString.make(string, true))
+              let markdownStrings =
+                strings->Array.map(string =>
+                  MarkdownString.make(~value=string, ~supportThemeIcons=true)
+                )
               Hover.makeWithRange(markdownStrings, range)
             }),
         }
