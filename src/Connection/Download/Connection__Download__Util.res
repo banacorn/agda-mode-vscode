@@ -1,12 +1,16 @@
-module Https = {
-  @module("https")
-  external get: (
-    {"host": string, "path": string, "headers": {"User-Agent": string}},
-    NodeJs.Http.IncomingMessage.t => unit,
-  ) => unit = "get"
-
-  @module("https")
-  external getWithUrl: (string, NodeJs.Http.IncomingMessage.t => unit) => unit = "get"
+// Web-compatible fetch implementation
+module Fetch = {
+  type response
+  type readableStreamReader
+  type readResult = {done: bool, value: option<Uint8Array.t>}
+  
+  @val external fetch: (string, {"headers": {"User-Agent": string}}) => promise<response> = "fetch"
+  @get external ok: response => bool = "ok"
+  @get external status: response => int = "status"
+  @get external headers: response => {"location": option<string>} = "headers"
+  @get external body: response => readableStreamReader = "body"
+  @send external getReader: readableStreamReader => readableStreamReader = "getReader"
+  @send external read: readableStreamReader => promise<readResult> = "read"
 }
 
 module Error = {
@@ -111,37 +115,40 @@ module Module: {
 
   let timeoutAfter: (promise<result<'a, Error.t>>, int) => promise<result<'a, Error.t>>
 } = {
-  let gatherDataFromResponseStream = res => {
-    open NodeJs.Http.IncomingMessage
-    let body = ref("")
-    Promise.make((resolve, _) => {
-      res->onData(buf => body := body.contents ++ NodeJs.Buffer.toString(buf))->ignore
-      res->onError(error => resolve(Error(Error.ServerResponseError(error))))->ignore
-      res->onClose(() => resolve(Ok(body.contents)))->ignore
-    })
+  // Convert http options to URL
+  let optionsToUrl = options => 
+    "https://" ++ options["host"] ++ options["path"]
+
+  // Web-compatible fetch with redirects (fetch handles redirects automatically)
+  let fetchWithRedirects = async (url, options) => {
+    try {
+      let response = await Fetch.fetch(url, options)
+      if Fetch.ok(response) {
+        Ok(response)
+      } else {
+        // Create a generic error for non-200 status codes
+        let error = Obj.magic({"message": "HTTP " ++ Belt.Int.toString(Fetch.status(response))})
+        Error(Error.ServerResponseError(error))
+      }
+    } catch {
+    | Js.Exn.Error(obj) => Error(Error.ServerResponseError(obj))
+    | _ => 
+      let error = Obj.magic({"message": "Network error"})
+      Error(Error.ServerResponseError(error))
+    }
   }
 
-  // with HTTP 301/302 redirect
-  let getWithRedirects = options => {
-    Promise.make((resolve, _) => {
-      Https.get(options, res => {
-        // check the response status code first
-        let statusCode = NodeJs.Http.IncomingMessage.statusCode(res)
-        switch statusCode {
-        // redirect
-        | 301
-        | 302 =>
-          let headers = NodeJs.Http.IncomingMessage.headers(res)
-          switch headers.location {
-          | None => resolve(Error(Error.NoRedirectLocation))
-          | Some(urlAfterRedirect) =>
-            Https.getWithUrl(urlAfterRedirect, resAfterRedirect => resolve(Ok(resAfterRedirect)))
-          }
-        // ok ?
-        | _ => resolve(Ok(res))
-        }
-      })
-    })
+  // Read response body as text for JSON
+  let gatherDataFromResponse = async response => {
+    try {
+      let text = await %raw(`response.text()`)
+      Ok(text)
+    } catch {
+    | Js.Exn.Error(obj) => Error(Error.ServerResponseError(obj))
+    | _ => 
+      let error = Obj.magic({"message": "Failed to read response body"})
+      Error(Error.ServerResponseError(error))
+    }
   }
 
   // helper combinator for timeout
@@ -154,10 +161,12 @@ module Module: {
     ])
   }
 
-  let asJson = async httpOptions =>
-    switch await getWithRedirects(httpOptions) {
-    | Ok(res) =>
-      switch await gatherDataFromResponseStream(res) {
+  let asJson = async httpOptions => {
+    let url = optionsToUrl(httpOptions)
+    let fetchOptions = {"headers": httpOptions["headers"]}
+    switch await fetchWithRedirects(url, fetchOptions) {
+    | Ok(response) =>
+      switch await gatherDataFromResponse(response) {
       | Ok(raw) =>
         try {
           Ok(Js.Json.parseExn(raw))
@@ -168,40 +177,82 @@ module Module: {
       }
     | Error(e) => Error(e)
     }
+  }
 
-  let asFile = async (httpOptions, destUri, onDownload) =>
-    switch await getWithRedirects(httpOptions) {
-    | Ok(res) =>
+  let asFile = async (httpOptions, destUri, onDownload) => {
+    let url = optionsToUrl(httpOptions)
+    let fetchOptions = {"headers": httpOptions["headers"]}
+    switch await fetchWithRedirects(url, fetchOptions) {
+    | Ok(response) =>
       onDownload(Event.Start)
-      // calculate and report download progress
-      let totalSize =
-        NodeJs.Http.IncomingMessage.headers(res).contentLenth->Option.mapOr(0, int_of_string)
-      let accumSize = ref(0)
-      res
-      ->NodeJs.Http.IncomingMessage.onData(chunk => {
-        let chunkSize = NodeJs.Buffer.length(chunk)
-        accumSize := accumSize.contents + chunkSize
-        onDownload(Event.Progress(accumSize.contents, totalSize))
-      })
-      ->ignore
-
-      // pipe the response to a file
-      await Promise.make((resolve, _) => {
-        let fileStream = NodeJs.Fs.createWriteStream(destUri->VSCode.Uri.fsPath)
-        fileStream
-        ->NodeJs.Fs.WriteStream.onError(exn => resolve(Error(Error.CannotWriteFile(exn))))
-        ->ignore
-        fileStream
-        ->NodeJs.Fs.WriteStream.onClose(() => {
-          // report Event.Finish
-          onDownload(Finish)
-          // resolve the promise
-          resolve(Ok())
+      
+      try {
+        // Get content length for progress tracking
+        let contentLength = try {
+          Some(%raw(`response.headers.get('content-length')`))
+        } catch {
+        | _ => None
+        }
+        let totalSize = switch contentLength {
+        | Some(length) when length != %raw(`null`) => 
+          Belt.Int.fromString(%raw(`length`))->Option.getOr(0)
+        | _ => 0
+        }
+        
+        // Get readable stream reader
+        let reader = %raw(`response.body.getReader()`)
+        let chunks = ref([])
+        let accumSize = ref(0)
+        
+        // Read chunks and track progress
+        let rec readChunks = async () => {
+          let result = await %raw(`reader.read()`)
+          let done = %raw(`result.done`)
+          let value = %raw(`result.value`)
+          
+          if !done {
+            // Add chunk to accumulator
+            chunks := Array.concat(chunks.contents, [value])
+            
+            // Update progress
+            let chunkSize = %raw(`value.length`)
+            accumSize := accumSize.contents + chunkSize
+            onDownload(Event.Progress(accumSize.contents, totalSize))
+            
+            await readChunks()
+          }
+        }
+        
+        await readChunks()
+        
+        // Combine all chunks into one Uint8Array
+        let totalLength = accumSize.contents
+        let combinedArray = %raw(`new Uint8Array(totalLength)`)
+        let offset = ref(0)
+        
+        chunks.contents->Array.forEach(chunk => {
+          %raw(`combinedArray.set(chunk, offset.contents)`)
+          let chunkLength = %raw(`chunk.length`)
+          offset := offset.contents + chunkLength
         })
-        ->ignore
-        res->NodeJs.Http.IncomingMessage.pipe(fileStream)->ignore
-      })
+        
+        // Write to file using FS module
+        switch await FS.writeFile(destUri, combinedArray) {
+        | Ok() =>
+          onDownload(Event.Finish)
+          Ok()
+        | Error(error) => 
+          let exn = Obj.magic({"message": error})
+          Error(Error.CannotWriteFile(exn))
+        }
+      } catch {
+      | Js.Exn.Error(obj) => Error(Error.CannotWriteFile(obj))
+      | _ => 
+        let error = Obj.magic({"message": "Failed to download file"})
+        Error(Error.CannotWriteFile(error))
+      }
     | Error(e) => Error(e)
     }
+  }
 }
 include Module
