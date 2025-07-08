@@ -10,9 +10,9 @@ let checkForPrebuiltDataDirectory = async (executablePath: string) => {
   let prebuildDataDirPath = NodeJs.Path.join([executablePath, "..", "data"])
   let prebuildDataDirURI = VSCode.Uri.file(prebuildDataDirPath)
 
-  switch await VSCode.FileSystem.stat(VSCode.Workspace.fs, prebuildDataDirURI) {
-  | _ => Some(NodeJs.Path.join([executablePath, "..", "data"]))
-  | exception _ => None
+  switch await FS.stat(prebuildDataDirURI) {
+  | Ok(_) => Some(NodeJs.Path.join([executablePath, "..", "data"]))
+  | Error(_) => None
   }
 }
 
@@ -80,7 +80,7 @@ module Module: {
         switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
         | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
           let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
-          | Some(assetPath) => 
+          | Some(assetPath) =>
             let env = Dict.fromArray([("Agda_datadir", assetPath)])
             Some({Connection__Target__ALS__LSP__Binding.env: env})
           | None => None
