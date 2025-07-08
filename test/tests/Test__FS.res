@@ -426,4 +426,71 @@ describe("FS", () => {
       },
     )
   })
+
+  describe("isWritableFileSystem", () => {
+    Async.it(
+      "should return Ok(true) for writable file system (local files)",
+      async () => {
+        // Use a writable local directory
+        let writableDir = NodeJs.Os.tmpdir()
+        let uri = VSCode.Uri.file(writableDir)
+        let result = FS.isWritableFileSystem(uri)
+        
+        switch result {
+        | Ok(isWritable) => Assert.ok(isWritable) // Local file system should be writable
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+      },
+    )
+
+    Async.it(
+      "should handle file URIs correctly",
+      async () => {
+        // Create a temporary file and test its file system writability
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-writable-test-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        
+        // Create the file
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("test"))
+        
+        let uri = VSCode.Uri.file(tempFile)
+        let result = FS.isWritableFileSystem(uri)
+        
+        switch result {
+        | Ok(isWritable) => 
+          // Local file system should be writable
+          Assert.ok(isWritable)
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(tempFile)
+      },
+    )
+
+    Async.it(
+      "should return consistent results for the same file system",
+      async () => {
+        // Test multiple paths on the same file system
+        let tempDir1 = NodeJs.Path.join([NodeJs.Os.tmpdir(), "test1"])
+        let tempDir2 = NodeJs.Path.join([NodeJs.Os.tmpdir(), "test2"])
+        
+        let uri1 = VSCode.Uri.file(tempDir1)
+        let uri2 = VSCode.Uri.file(tempDir2)
+        
+        let result1 = FS.isWritableFileSystem(uri1)
+        let result2 = FS.isWritableFileSystem(uri2)
+        
+        switch (result1, result2) {
+        | (Ok(writable1), Ok(writable2)) =>
+          // Both should have the same writability since they're on the same file system
+          Assert.deepStrictEqual(writable1, writable2)
+        | (Error(err1), _) => Assert.fail("Expected Ok for first URI, got Error: " ++ err1)
+        | (_, Error(err2)) => Assert.fail("Expected Ok for second URI, got Error: " ++ err2)
+        }
+      },
+    )
+  })
 })

@@ -40,3 +40,13 @@ let delete = async (uri: VSCode.Uri.t): result<unit, string> => {
   | _ => Error("Unknown file system error")
   }
 }
+
+let isWritableFileSystem = (uri: VSCode.Uri.t): result<bool, string> => {
+  try {
+    let isWritable = VSCode.Workspace.fs->VSCode.FileSystem.isWritableFileSystem(uri)
+    Ok(isWritable)
+  } catch {
+  | Js.Exn.Error(obj) => Error(Js.Exn.message(obj)->Option.getOr("Unknown file system error"))
+  | _ => Error("Unknown file system error")
+  }
+}
