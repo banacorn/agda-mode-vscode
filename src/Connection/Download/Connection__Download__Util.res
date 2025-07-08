@@ -1,17 +1,4 @@
-// Web-compatible fetch implementation
-module Fetch = {
-  type response
-  type readableStreamReader
-  type readResult = {done: bool, value: option<Uint8Array.t>}
-  
-  @val external fetch: (string, {"headers": {"User-Agent": string}}) => promise<response> = "fetch"
-  @get external ok: response => bool = "ok"
-  @get external status: response => int = "status"
-  @get external headers: response => {"location": option<string>} = "headers"
-  @get external body: response => readableStreamReader = "body"
-  @send external getReader: readableStreamReader => readableStreamReader = "getReader"
-  @send external read: readableStreamReader => promise<readResult> = "read"
-}
+// Web-compatible fetch implementation using rescript-fetch
 
 module Error = {
   type t =
@@ -122,12 +109,15 @@ module Module: {
   // Web-compatible fetch with redirects (fetch handles redirects automatically)
   let fetchWithRedirects = async (url, options) => {
     try {
-      let response = await Fetch.fetch(url, options)
-      if Fetch.ok(response) {
+      let response = await Fetch.fetch(url, {
+        method: #GET,
+        headers: Fetch.Headers.make(Fetch.Headers.Init.object(options)),
+      })
+      if Fetch.Response.ok(response) {
         Ok(response)
       } else {
         // Create a generic error for non-200 status codes
-        let error = Obj.magic({"message": "HTTP " ++ Belt.Int.toString(Fetch.status(response))})
+        let error = Obj.magic({"message": "HTTP " ++ Belt.Int.toString(Fetch.Response.status(response))})
         Error(Error.ServerResponseError(error))
       }
     } catch {
@@ -141,7 +131,7 @@ module Module: {
   // Read response body as text for JSON
   let gatherDataFromResponse = async response => {
     try {
-      let text = await %raw(`response.text()`)
+      let text = await Fetch.Response.text(response)
       Ok(text)
     } catch {
     | Js.Exn.Error(obj) => Error(Error.ServerResponseError(obj))
@@ -189,77 +179,31 @@ module Module: {
       try {
         // Get content length for progress tracking
         let contentLength = try {
-          Some(%raw(`response.headers.get('content-length')`))
+          Some(Fetch.Response.headers(response)->Fetch.Headers.get("content-length"))
         } catch {
         | _ => None
         }
         let totalSize = switch contentLength {
-        | Some(length) when length != %raw(`null`) => 
-          Belt.Int.fromString(%raw(`length`))->Option.getOr(0)
+        | Some(Some(length)) => Belt.Int.fromString(length)->Option.getOr(0)
         | _ => 0
         }
         
-        // Get readable stream reader with null check
-        let reader = try {
-          if %raw(`response.body === null || response.body === undefined`) {
-            raise(Failure("Response body is null or undefined"))
-          }
-          Ok(%raw(`response.body.getReader()`))
-        } catch {
-        | Failure(msg) => Error(msg)
-        | Js.Exn.Error(exn) => Error(Js.Exn.message(exn)->Option.getOr("Failed to get response body reader"))
-        | _ => Error("Unknown error getting response body reader")
-        }
+        // Use arrayBuffer instead of streaming for simplicity with rescript-fetch
+        let arrayBuffer = await %raw(`response.arrayBuffer()`)
+        let uint8Array = %raw(`new Uint8Array(arrayBuffer)`)
         
-        switch reader {
-        | Error(msg) => 
-          let error = Obj.magic({"message": msg})
-          Error(Error.CannotWriteFile(error))
-        | Ok(reader) =>
-          let chunks = ref([])
-          let accumSize = ref(0)
-          
-          // Read chunks and track progress
-          let rec readChunks = async () => {
-            let result = await %raw(`reader.read()`)
-            let done = %raw(`result.done`)
-            let value = %raw(`result.value`)
-            
-            if !done {
-              // Add chunk to accumulator
-              chunks := Array.concat(chunks.contents, [value])
-              
-              // Update progress
-              let chunkSize = %raw(`value.length`)
-              accumSize := accumSize.contents + chunkSize
-              onDownload(Event.Progress(accumSize.contents, totalSize))
-              
-              await readChunks()
-            }
-          }
-          
-          await readChunks()
-          
-          // Combine all chunks into one Uint8Array
-          let totalLength = accumSize.contents
-          let combinedArray = %raw(`new Uint8Array(totalLength)`)
-          let offset = ref(0)
-          
-          chunks.contents->Array.forEach(chunk => {
-            %raw(`combinedArray.set(chunk, offset.contents)`)
-            let chunkLength = %raw(`chunk.length`)
-            offset := offset.contents + chunkLength
-          })
-          
-          // Write to file using FS module
-          switch await FS.writeFile(destUri, combinedArray) {
-          | Ok() =>
-            onDownload(Event.Finish)
-            Ok()
-          | Error(error) => 
-            let exn = Obj.magic({"message": error})
-            Error(Error.CannotWriteFile(exn))
-          }
+        // Report progress
+        let fileSize = %raw(`uint8Array.length`)
+        onDownload(Event.Progress(fileSize, totalSize))
+        
+        // Write to file using FS module
+        switch await FS.writeFile(destUri, uint8Array) {
+        | Ok() =>
+          onDownload(Event.Finish)
+          Ok()
+        | Error(error) => 
+          let exn = Obj.magic({"message": error})
+          Error(Error.CannotWriteFile(exn))
         }
       } catch {
       | Js.Exn.Error(obj) => Error(Error.CannotWriteFile(obj))
