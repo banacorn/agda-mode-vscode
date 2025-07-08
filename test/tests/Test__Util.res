@@ -241,15 +241,19 @@ module Golden = {
     }
   }
   // get all filepaths of golden tests (asynchronously)
-  let getGoldenFilepaths = async directoryPath => {
-    let directoryPath = Path.toAbsolute(directoryPath)
-    let readdir = Node__Fs.readdir
-    let isInFile = x => x->String.endsWith(".in")
-    let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
+  // let getGoldenFilepaths = async directoryPath => {
+  //   let directoryUri = Path.toAbsolute(directoryPath)->VSCode.Uri.file
+  //   // let readdir = Node__Fs.readdir
+  //   let isInFile = ((x, _)) => x->String.endsWith(".in")
+  //   let toBasename = path => NodeJs.Path.join2(directoryPath, NodeJs.Path.basenameExt(path, ".in"))
 
-    let paths = await readdir(directoryPath)
-    paths->Array.filter(isInFile)->Array.map(toBasename)
-  }
+  //   // let paths = await readdir(directoryPath)
+
+  //   switch await FS.readDirectory(directoryUri) {
+  //   | Error(error) => raise(Failure("Cannot read directory " ++ directoryPath ++ ": " ++ error))
+  //   | Ok(paths) => paths->Array.filter(isInFile)->Array.map(toBasename)
+  //   }
+  // }
 
   // get all filepaths of golden tests (synchronously)
   let getGoldenFilepathsSync = directoryPath => {
@@ -283,8 +287,15 @@ module Golden = {
   // FilePath -> Promise (Golden String)
   let readFile = async filepath => {
     let filepath = Path.toAbsolute(filepath)
-    let inFile = await Node__Fs.readFile(filepath ++ ".in")
-    let outFile = await Node__Fs.readFile(filepath ++ ".out")
+    let inFile = switch await FS.readFile(VSCode.Uri.file(filepath ++ ".in")) {
+    | Error(error) => raise(Failure("Cannot read file " ++ filepath ++ ".in: " ++ error))
+    | Ok(content) => content->TypedArray.toString
+    }
+
+    let outFile = switch await FS.readFile(VSCode.Uri.file(filepath ++ ".out")) {
+    | Error(error) => raise(Failure("Cannot read file " ++ filepath ++ ".out: " ++ error))
+    | Ok(content) => content->TypedArray.toString
+    }
 
     Golden(filepath, inFile, outFile)
   }
@@ -517,7 +528,12 @@ module Target = {
       path
     }
 
-    let destroy = target =>
-      Node__Fs.unlink(target->Connection.Target.toURI->Connection.URI.toString, _ => ())
+    let destroy = async target =>
+      switch await FS.delete(
+        target->Connection.Target.toURI->Connection.URI.toString->VSCode.Uri.file,
+      ) {
+      | Error(error) => raise(Failure("Cannot delete mock Agda executable: " ++ error))
+      | Ok(_) => ()
+      }
   }
 }

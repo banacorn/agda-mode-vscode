@@ -220,7 +220,7 @@ describe("Connection", () => {
         // cleanup the Agda mock
         switch agdaMockTarget.contents {
         | Some(target) =>
-          Target.Agda.destroy(target)
+          await Target.Agda.destroy(target)
           agdaMockTarget := None
         | None => ()
         }
@@ -416,7 +416,7 @@ describe("Connection", () => {
         // cleanup the Agda mock
         switch agdaMockTarget.contents {
         | Some(target) =>
-          Target.Agda.destroy(target)
+          await Target.Agda.destroy(target)
           agdaMockTarget := None
         | None => ()
         }
