@@ -76,20 +76,27 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   
   // Create directory if it doesn't exist
   let destDir = NodeJs.Path.join([globalStoragePath, saveAsFileName])
-  if !NodeJs.Fs.existsSync(destDir) {
-    await NodeJs.Fs.mkdir(destDir, {recursive: true, mode: 0o777})
+  let destDirUri = VSCode.Uri.file(destDir)
+  switch await FS.stat(destDirUri) {
+  | Error(_) => 
+    // Directory doesn't exist, create it
+    let _ = await FS.createDirectory(destDirUri)
+  | Ok(_) => () // Directory already exists
   }
   
   // Check if already downloaded
   let execPath = NodeJs.Path.join([destDir, "als"])
-  if NodeJs.Fs.existsSync(execPath) {
+  let execPathUri = VSCode.Uri.file(execPath)
+  switch await FS.stat(execPathUri) {
+  | Ok(_) => {
     let destPath = Connection__URI.parse(execPath)
     await Config.Connection.addAgdaPath(destPath)
     switch await Connection__Target.fromURI(destPath) {
     | Error(e) => Error(Error.CannotConnectToALS(e))
     | Ok(target) => Ok(target)
     }
-  } else {
+  }
+  | Error(_) => {
     // Parse URL and create HTTP options 
     try {
       // Parse URL to extract host and path using Node.js url module
@@ -169,5 +176,6 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
       let genericError = Obj.magic({"message": "Invalid URL"})
       Error(Error.CannotDownloadFromURL(Connection__Download__GitHub.Error.CannotReadFile(genericError)))
     }
+  }
   }
 }
