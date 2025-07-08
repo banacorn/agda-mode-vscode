@@ -32,7 +32,7 @@ let makeRepo: (State__Memento.t, VSCode.Uri.t) => Connection__Download__GitHub.R
   repository: "agda-language-server",
   userAgent: "agda/agda-mode-vscode",
   memento,
-  globalStoragePath: VSCode.Uri.fsPath(globalStorageUri),
+  globalStorageUri,
   cacheInvalidateExpirationSecs: 86400,
 }
 
@@ -48,16 +48,16 @@ let getReleaseManifest = async (memento, globalStorageUri) => {
 // Download the given FetchSpec and return the path of the downloaded file
 let download = async (memento, globalStorageUri, fetchSpec) => {
   let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-  let globalStoragePath = VSCode.Uri.fsPath(globalStorageUri)
   switch await Connection__Download__GitHub.download(
     fetchSpec,
     memento,
-    globalStoragePath,
+    globalStorageUri,
     reportProgress,
   ) {
   | Error(error) => Error(Error.CannotDownloadALS(error))
   | Ok(_isCached) =>
     // add the path of the downloaded file to the config
+    let globalStoragePath = VSCode.Uri.fsPath(globalStorageUri)
     let destPath = Connection__URI.parse(
       NodeJs.Path.join([globalStoragePath, fetchSpec.saveAsFileName, "als"]),
     )
@@ -98,6 +98,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
       let path = urlObj["pathname"] ++ (urlObj["search"]->Option.getOr(""))
       
       let tempFilePath = NodeJs.Path.join([destDir, "download.tmp"])
+      let tempFileUri = VSCode.Uri.file(tempFilePath)
       
       // Download file using existing utilities
       let httpOptions = {
@@ -108,7 +109,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         },
       }
       
-      switch await Connection__Download__Util.asFile(httpOptions, tempFilePath, reportProgress) {
+      switch await Connection__Download__Util.asFile(httpOptions, tempFileUri, reportProgress) {
       | Error(error) => 
         // Convert Connection__Download__Util.Error.t to Connection__Download__GitHub.Error.t
         let convertedError = switch error {
@@ -146,7 +147,9 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
           let _ = await Connection__Download__GitHub.Nd.Fs.rename(tempFilePath, zipFilePath)
           
           // Extract ZIP file
-          await Connection__Download__GitHub.Unzip.run(zipFilePath, destDir)
+          let zipFileUri = VSCode.Uri.file(zipFilePath)
+          let destDirUri = VSCode.Uri.file(destDir)
+          await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
           
           // Remove ZIP file after extraction
           let _ = await Connection__Download__GitHub.Nd.Fs.unlink(zipFilePath)

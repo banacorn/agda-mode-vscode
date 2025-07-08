@@ -401,7 +401,7 @@ module Module: Module = {
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
     memento,
-    globalStoragePath: VSCode.Uri.fsPath(globalStorageUri),
+    globalStorageUri,
     cacheInvalidateExpirationSecs: 86400,
   }
 }

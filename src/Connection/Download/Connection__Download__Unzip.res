@@ -4,12 +4,14 @@ module Unzipper = {
   external extract: {"path": string} => NodeJs.Fs.WriteStream.t = "Extract"
 }
 
-let run = (src, dest) =>
+let run = (srcUri: VSCode.Uri.t, destUri: VSCode.Uri.t) =>
   Promise.make((resolve, _) => {
     // resolve the promise after the read stream has been closed by the Unzipper
-    let readStream = NodeJs.Fs.createReadStream(src)
+    let readStream = NodeJs.Fs.createReadStream(srcUri->VSCode.Uri.fsPath)
     readStream->NodeJs.Fs.ReadStream.onCloseOnce(resolve)->ignore
 
     // start unzipping the file
-    readStream->NodeJs.Fs.ReadStream.pipe(Unzipper.extract({"path": dest}))->ignore
+    readStream
+    ->NodeJs.Fs.ReadStream.pipe(Unzipper.extract({"path": destUri->VSCode.Uri.fsPath}))
+    ->ignore
   })

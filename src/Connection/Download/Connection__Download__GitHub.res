@@ -90,8 +90,8 @@ module Error = {
     | CannotChmodFile(string)
     | CannotStatFile(string)
     | CannotReadFile(Js.Exn.t)
-    | CannotDeleteFile(Js.Exn.t)
-    | CannotRenameFile(Js.Exn.t)
+    | CannotDeleteFile(string)
+    | CannotRenameFile(string)
     // OS
     | CannotDetermineOS(Js.Exn.t)
 
@@ -112,8 +112,8 @@ module Error = {
     | CannotStatFile(path) => "Cannot stat file \"" ++ path ++ "\""
     | CannotChmodFile(path) => "Cannot chmod file \"" ++ path ++ "\""
     | CannotReadFile(exn) => "Cannot to read files:\n" ++ Util.JsError.toString(exn)
-    | CannotDeleteFile(exn) => "Cannot to delete files:\n" ++ Util.JsError.toString(exn)
-    | CannotRenameFile(exn) => "Cannot to rename files:\n" ++ Util.JsError.toString(exn)
+    | CannotDeleteFile(msg) => "Cannot to delete files:\n" ++ msg
+    | CannotRenameFile(msg) => "Cannot to rename files:\n" ++ msg
     // OS
     | CannotDetermineOS(exn) => "Cannot determine OS:\n" ++ Util.JsError.toString(exn)
     }
@@ -340,7 +340,7 @@ module Repo = {
     userAgent: string,
     // for caching
     memento: State__Memento.t,
-    globalStoragePath: string,
+    globalStorageUri: VSCode.Uri.t,
     cacheInvalidateExpirationSecs: int,
   }
 
@@ -351,7 +351,7 @@ module Repo = {
       ("username", self.username),
       ("repository", self.repository),
       ("userAgent", self.userAgent),
-      ("globalStoragePath", self.globalStoragePath),
+      ("globalStorageUri", self.globalStorageUri->VSCode.Uri.toString),
       ("cacheInvalidateExpirationSecs", string_of_int(self.cacheInvalidateExpirationSecs)),
     ])
     ->Js.Dict.entries
@@ -465,7 +465,7 @@ module Module: {
   let download: (
     FetchSpec.t,
     State__Memento.t,
-    string,
+    VSCode.Uri.t,
     Download.Event.t => unit,
   ) => promise<result<bool, Error.t>>
 } = {
@@ -473,21 +473,26 @@ module Module: {
 
   // in-flight download will be named as "in-flight.download"
   // see if "in-flight.download" already exists
-  let isDownloading = async globalStoragePath => {
+  let isDownloading = async globalStorageUri => {
     try {
-      let exists = switch await NodeJs.Fs.access(globalStoragePath) {
-      | () => true
-      | exception _ => false
+      let exists = switch await FS.stat(globalStorageUri) {
+      | Ok(_) => true
+      | Error(_) => false
       }
 
       if exists {
-        let inFlightDownloadPath = NodeJs.Path.join2(globalStoragePath, inFlightDownloadFileName)
-        let fileNames = await Nd.Fs.readdir(globalStoragePath)
-        let matched = fileNames->Array.filter(fileName => fileName == inFlightDownloadPath)
-        matched[0]->Option.isSome
+        let inFlightDownloadPath = VSCode.Uri.joinPath(globalStorageUri, [inFlightDownloadFileName])
+        let readResult = await FS.readDirectory(globalStorageUri)
+        switch readResult {
+        | Ok(entries) =>
+          let fileNames = entries->Array.map(((name, _type)) => name)
+          let matched = fileNames->Array.filter(fileName => fileName == inFlightDownloadFileName)
+          matched[0]->Option.isSome
+        | Error(_) => false
+        }
       } else {
         // create a directory for `context.globalStoragePath` if it doesn't exist
-        await NodeJs.Fs.mkdir(globalStoragePath, {mode: 0o777})
+        let _ = await FS.createDirectory(globalStorageUri)
         false
       }
     } catch {
@@ -505,20 +510,21 @@ module Module: {
       },
     }
 
-    let inFlightDownloadPath = NodeJs.Path.join2(repo.globalStoragePath, inFlightDownloadFileName)
-    let destPath = NodeJs.Path.join2(repo.globalStoragePath, fetchSpec.saveAsFileName)
+    let inFlightDownloadUri = VSCode.Uri.joinPath(repo.globalStorageUri, [inFlightDownloadFileName])
+    let inFlightDownloadZipUri = VSCode.Uri.joinPath(inFlightDownloadUri, [".zip"])
+    let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
 
-    let result = switch await Download.asFile(httpOptions, inFlightDownloadPath, onDownload) {
+    let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
       // suffix with ".zip" after downloaded
-      switch await Nd.Fs.rename(inFlightDownloadPath, inFlightDownloadPath ++ ".zip") {
+      switch await FS.rename(inFlightDownloadUri, inFlightDownloadZipUri) {
       | Error(e) => Error(Error.CannotRenameFile(e))
       | Ok() =>
         // unzip the downloaded file
-        await Unzip.run(inFlightDownloadPath ++ ".zip", destPath)
+        await Unzip.run(inFlightDownloadZipUri, destPath)
         // remove the zip file
-        switch await Nd.Fs.unlink(inFlightDownloadPath ++ ".zip") {
+        switch await FS.delete(inFlightDownloadZipUri) {
         | Error(e) => Error(Error.CannotDeleteFile(e))
         | Ok() => Ok()
         }
@@ -528,46 +534,41 @@ module Module: {
     // cleanup on error
     switch result {
     | Error(error) =>
-      let remove = async path => {
-        if NodeJs.Fs.existsSync(path) {
-          let _ = await Nd.Fs.unlink(path)
-        } else {
-          ()
-        }
+      let delete = async uri => {
+        let _ = await FS.delete(uri)
       }
-      let _ = await Promise.all([
-        remove(inFlightDownloadPath),
-        remove(inFlightDownloadPath ++ ".zip"),
-      ])
+
+      let _ = await Promise.all([delete(inFlightDownloadUri), delete(inFlightDownloadZipUri)])
       Error(error)
     | Ok() => Ok()
     }
   }
 
-  let download = async (fetchSpec: FetchSpec.t, memento, globalStoragePath, reportProgress) => {
+  let download = async (fetchSpec: FetchSpec.t, memento, globalStorageUri, reportProgress) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",
       userAgent: "agda/agda-mode-vscode",
       memento,
-      globalStoragePath,
+      globalStorageUri,
       cacheInvalidateExpirationSecs: 86400,
     }
 
-    let ifIsDownloading = await isDownloading(repo.globalStoragePath)
+    let ifIsDownloading = await isDownloading(repo.globalStorageUri)
     if ifIsDownloading {
       Error(Error.AlreadyDownloading)
     } else {
       // don't download from GitHub if `fetchSpec.fileName` already exists
-      let destPath = NodeJs.Path.join2(repo.globalStoragePath, fetchSpec.saveAsFileName)
-      if NodeJs.Fs.existsSync(destPath) {
-        Ok(true)
-      } else {
+      let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
+      switch await FS.stat(destUri) {
+      | Ok(_) => Ok(true)
+      | Error(_) => 
         switch await downloadLanguageServer(repo, reportProgress, fetchSpec) {
         | Error(error) => Error(error)
         | Ok() =>
           // chmod the executable after download
           // (no need to chmod if it's on Windows)
+          let destPath = VSCode.Uri.fsPath(destUri)
           let execPath = NodeJs.Path.join2(destPath, "als")
           let shouldChmod = OS.onUnix
           if shouldChmod {

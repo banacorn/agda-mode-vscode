@@ -105,7 +105,7 @@ module Module: {
   >
   let asFile: (
     {"headers": {"User-Agent": string}, "host": string, "path": string},
-    string,
+    VSCode.Uri.t,
     Event.t => unit,
   ) => promise<result<unit, Error.t>>
 
@@ -169,7 +169,7 @@ module Module: {
     | Error(e) => Error(e)
     }
 
-  let asFile = async (httpOptions, destPath, onDownload) =>
+  let asFile = async (httpOptions, destUri, onDownload) =>
     switch await getWithRedirects(httpOptions) {
     | Ok(res) =>
       onDownload(Event.Start)
@@ -187,7 +187,7 @@ module Module: {
 
       // pipe the response to a file
       await Promise.make((resolve, _) => {
-        let fileStream = NodeJs.Fs.createWriteStream(destPath)
+        let fileStream = NodeJs.Fs.createWriteStream(destUri->VSCode.Uri.fsPath)
         fileStream
         ->NodeJs.Fs.WriteStream.onError(exn => resolve(Error(Error.CannotWriteFile(exn))))
         ->ignore
