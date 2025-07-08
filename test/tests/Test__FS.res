@@ -1,5 +1,12 @@
 open Mocha
 
+module TextEncoder = {
+  type t
+
+  @new external make: unit => t = "TextEncoder"
+  @send external encode: (t, string) => Uint8Array.t = "encode"
+}
+
 describe("FS", () => {
   This.timeout(10000)
 
@@ -626,33 +633,33 @@ describe("FS", () => {
         ])
         let sourceFile = NodeJs.Path.join([tempDir, "source.txt"])
         let targetFile = NodeJs.Path.join([tempDir, "target.txt"])
-        
+
         // Create directory and source file
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
         let content = "test file content"
         NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString(content))
-        
+
         // Verify source exists before rename
         Assert.ok(NodeJs.Fs.existsSync(sourceFile))
         Assert.ok(!NodeJs.Fs.existsSync(targetFile))
-        
+
         // Test FS.rename
         let sourceUri = VSCode.Uri.file(sourceFile)
         let targetUri = VSCode.Uri.file(targetFile)
         let result = await FS.rename(sourceUri, targetUri)
-        
+
         switch result {
         | Ok() =>
           // Verify source no longer exists and target exists with same content
           Assert.ok(!NodeJs.Fs.existsSync(sourceFile))
           Assert.ok(NodeJs.Fs.existsSync(targetFile))
-          
+
           let targetContent = NodeJs.Fs.readFileSync(targetFile)->NodeJs.Buffer.toString
           Assert.deepStrictEqual(targetContent, content)
-          
+
         | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
         }
-        
+
         // Cleanup
         NodeJs.Fs.unlinkSync(targetFile)
         NodeJs.Fs.rmdirSync(tempDir)
@@ -671,11 +678,11 @@ describe("FS", () => {
           NodeJs.Os.tmpdir(),
           "rename-target-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
         ])
-        
+
         let sourceUri = VSCode.Uri.file(nonExistentSource)
         let targetUri = VSCode.Uri.file(targetFile)
         let result = await FS.rename(sourceUri, targetUri)
-        
+
         switch result {
         | Ok() => Assert.fail("Expected Error for non-existent source, got Ok")
         | Error(errorMsg) =>
@@ -696,37 +703,37 @@ describe("FS", () => {
         let sourceDir = NodeJs.Path.join([tempDir, "sourcedir"])
         let targetDir = NodeJs.Path.join([tempDir, "targetdir"])
         let testFile = NodeJs.Path.join([sourceDir, "test.txt"])
-        
+
         // Create directory structure
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
         await NodeJs.Fs.mkdir(sourceDir, {recursive: true, mode: 0o777})
         NodeJs.Fs.writeFileSync(testFile, NodeJs.Buffer.fromString("test content"))
-        
+
         // Verify source exists before rename
         Assert.ok(NodeJs.Fs.existsSync(sourceDir))
         Assert.ok(NodeJs.Fs.existsSync(testFile))
         Assert.ok(!NodeJs.Fs.existsSync(targetDir))
-        
+
         // Test FS.rename on directory
         let sourceUri = VSCode.Uri.file(sourceDir)
         let targetUri = VSCode.Uri.file(targetDir)
         let result = await FS.rename(sourceUri, targetUri)
-        
+
         switch result {
         | Ok() =>
           // Verify source no longer exists and target exists with contents
           Assert.ok(!NodeJs.Fs.existsSync(sourceDir))
           Assert.ok(NodeJs.Fs.existsSync(targetDir))
-          
+
           let renamedFile = NodeJs.Path.join([targetDir, "test.txt"])
           Assert.ok(NodeJs.Fs.existsSync(renamedFile))
-          
+
           let content = NodeJs.Fs.readFileSync(renamedFile)->NodeJs.Buffer.toString
           Assert.deepStrictEqual(content, "test content")
-          
+
         | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
         }
-        
+
         // Cleanup
         NodeJs.Fs.unlinkSync(NodeJs.Path.join([targetDir, "test.txt"]))
         NodeJs.Fs.rmdirSync(targetDir)
@@ -744,27 +751,27 @@ describe("FS", () => {
         ])
         let sourceFile = NodeJs.Path.join([tempDir, "source.txt"])
         let targetFile = NodeJs.Path.join([tempDir, "nonexistent", "target.txt"])
-        
+
         // Create directory and source file
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
         NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString("test content"))
-        
+
         let sourceUri = VSCode.Uri.file(sourceFile)
         let targetUri = VSCode.Uri.file(targetFile)
         let result = await FS.rename(sourceUri, targetUri)
-        
+
         switch result {
         | Ok() =>
           // VS Code automatically creates parent directories for rename
           Assert.ok(!NodeJs.Fs.existsSync(sourceFile))
           Assert.ok(NodeJs.Fs.existsSync(targetFile))
-          
+
           let content = NodeJs.Fs.readFileSync(targetFile)->NodeJs.Buffer.toString
           Assert.deepStrictEqual(content, "test content")
-          
+
         | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
         }
-        
+
         // Cleanup
         NodeJs.Fs.unlinkSync(targetFile)
         NodeJs.Fs.rmdirSync(NodeJs.Path.join([tempDir, "nonexistent"]))
@@ -783,32 +790,32 @@ describe("FS", () => {
           "fs-stat-file-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
         ])
         let content = "test file content for stat"
-        
+
         // Create the file
         NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
-        
+
         // Test FS.stat
         let uri = VSCode.Uri.file(tempFile)
         let result = await FS.stat(uri)
-        
+
         switch result {
         | Ok(fileStat) =>
           // Verify it's a file and has the correct size
           Assert.ok(VSCode.FileStat.type_(fileStat) == VSCode.FileType.File)
           Assert.deepStrictEqual(VSCode.FileStat.size(fileStat), String.length(content))
-          
+
           // Verify timestamps are reasonable (should be recent)
           let now = Js.Date.now()
           let mtime = VSCode.FileStat.mtime(fileStat)->Int.toFloat
           let ctime = VSCode.FileStat.ctime(fileStat)->Int.toFloat
-          
+
           // File should have been created/modified within the last minute
           Assert.ok(now -. mtime < 60000.0) // 60 seconds
           Assert.ok(now -. ctime < 60000.0) // 60 seconds
-          
+
         | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
         }
-        
+
         // Cleanup
         NodeJs.Fs.unlinkSync(tempFile)
       },
@@ -822,33 +829,33 @@ describe("FS", () => {
           NodeJs.Os.tmpdir(),
           "fs-stat-dir-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
-        
+
         // Create the directory
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
-        
+
         // Test FS.stat
         let uri = VSCode.Uri.file(tempDir)
         let result = await FS.stat(uri)
-        
+
         switch result {
         | Ok(fileStat) =>
           // Verify it's a directory
           Assert.ok(VSCode.FileStat.type_(fileStat) == VSCode.FileType.Directory)
-          
+
           // Directory size may vary by platform, just check it's non-negative
           Assert.ok(VSCode.FileStat.size(fileStat) >= 0)
-          
+
           // Verify timestamps are reasonable
           let now = Js.Date.now()
           let mtime = VSCode.FileStat.mtime(fileStat)->Int.toFloat
           let ctime = VSCode.FileStat.ctime(fileStat)->Int.toFloat
-          
+
           Assert.ok(now -. mtime < 60000.0) // 60 seconds
           Assert.ok(now -. ctime < 60000.0) // 60 seconds
-          
+
         | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
         }
-        
+
         // Cleanup
         NodeJs.Fs.rmdirSync(tempDir)
       },
@@ -862,10 +869,10 @@ describe("FS", () => {
           NodeJs.Os.tmpdir(),
           "non-existent-stat-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
         ])
-        
+
         let uri = VSCode.Uri.file(nonExistentFile)
         let result = await FS.stat(uri)
-        
+
         switch result {
         | Ok(_) => Assert.fail("Expected Error for non-existent file, got Ok")
         | Error(errorMsg) =>
@@ -885,38 +892,193 @@ describe("FS", () => {
         ])
         let testFile = NodeJs.Path.join([tempDir, "test.txt"])
         let testSubdir = NodeJs.Path.join([tempDir, "subdir"])
-        
+
         // Create directory structure
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
         NodeJs.Fs.writeFileSync(testFile, NodeJs.Buffer.fromString("test"))
         await NodeJs.Fs.mkdir(testSubdir, {recursive: true, mode: 0o777})
-        
+
         // Test file stat
         let fileUri = VSCode.Uri.file(testFile)
         let fileResult = await FS.stat(fileUri)
-        
+
         // Test directory stat
         let dirUri = VSCode.Uri.file(testSubdir)
         let dirResult = await FS.stat(dirUri)
-        
+
         switch (fileResult, dirResult) {
         | (Ok(fileStat), Ok(dirStat)) =>
           // Verify types are different
           Assert.ok(VSCode.FileStat.type_(fileStat) == VSCode.FileType.File)
           Assert.ok(VSCode.FileStat.type_(dirStat) == VSCode.FileType.Directory)
-          
+
           // File should have content size, directory should be different
           Assert.ok(VSCode.FileStat.size(fileStat) == 4) // "test" = 4 bytes
           Assert.ok(VSCode.FileStat.size(dirStat) != VSCode.FileStat.size(fileStat))
-          
+
         | (Error(fileErr), _) => Assert.fail("Expected Ok for file stat, got Error: " ++ fileErr)
         | (_, Error(dirErr)) => Assert.fail("Expected Ok for directory stat, got Error: " ++ dirErr)
         }
-        
+
         // Cleanup
         NodeJs.Fs.unlinkSync(testFile)
         NodeJs.Fs.rmdirSync(testSubdir)
         NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+  })
+
+  describe("writeFile", () => {
+    Async.it(
+      "should write file content successfully",
+      async () => {
+        // Create path for new file
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-writefile-test-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        let content = "Hello from FS.writeFile!"
+
+        // Convert string to Uint8Array
+        let uint8Array = TextEncoder.make()->TextEncoder.encode(content)
+
+        // Test FS.writeFile
+        let uri = VSCode.Uri.file(tempFile)
+        let result = await FS.writeFile(uri, uint8Array)
+
+        switch result {
+        | Ok() =>
+          // Verify file was created and has correct content
+          Assert.ok(NodeJs.Fs.existsSync(tempFile))
+
+          let writtenContent = NodeJs.Fs.readFileSync(tempFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(writtenContent, content)
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(tempFile)
+      },
+    )
+
+    Async.it(
+      "should overwrite existing file content",
+      async () => {
+        // Create existing file
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-writefile-overwrite-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        let originalContent = "Original content"
+        let newContent = "New content from FS.writeFile"
+
+        // Create file with original content
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(originalContent))
+
+        // Verify original content
+        let readContent1 = NodeJs.Fs.readFileSync(tempFile)->NodeJs.Buffer.toString
+        Assert.deepStrictEqual(readContent1, originalContent)
+
+        // Convert new content to Uint8Array
+        let uint8Array = TextEncoder.make()->TextEncoder.encode(newContent)
+
+        // Test FS.writeFile (overwrite)
+        let uri = VSCode.Uri.file(tempFile)
+        let result = await FS.writeFile(uri, uint8Array)
+
+        switch result {
+        | Ok() =>
+          // Verify file was overwritten with new content
+          let readContent2 = NodeJs.Fs.readFileSync(tempFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(readContent2, newContent)
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(tempFile)
+      },
+    )
+
+    Async.it(
+      "should create parent directories when writing to non-existent directory",
+      async () => {
+        // Create path with non-existent parent directory
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-writefile-parent-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let tempFile = NodeJs.Path.join([tempDir, "nested", "test.txt"])
+        let content = "Content in nested directory"
+
+        // Verify parent directories don't exist
+        Assert.ok(!NodeJs.Fs.existsSync(tempDir))
+        Assert.ok(!NodeJs.Fs.existsSync(NodeJs.Path.join([tempDir, "nested"])))
+
+        // Convert content to Uint8Array
+        let uint8Array = TextEncoder.make()->TextEncoder.encode(content)
+
+        // Test FS.writeFile
+        let uri = VSCode.Uri.file(tempFile)
+        let result = await FS.writeFile(uri, uint8Array)
+
+        switch result {
+        | Ok() =>
+          // VS Code automatically creates parent directories
+          Assert.ok(NodeJs.Fs.existsSync(tempFile))
+
+          let writtenContent = NodeJs.Fs.readFileSync(tempFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(writtenContent, content)
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(tempFile)
+        NodeJs.Fs.rmdirSync(NodeJs.Path.join([tempDir, "nested"]))
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should handle binary file content correctly",
+      async () => {
+        // Create path for binary file
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-writefile-binary-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".bin",
+        ])
+
+        // Create binary content (some bytes including null bytes)
+        let binaryData = [0, 1, 255, 127, 0, 42]
+        let buffer = NodeJs.Buffer.fromArray(binaryData)
+        let uint8Array = Uint8Array.fromArray(binaryData)
+
+        // Test FS.writeFile
+        let uri = VSCode.Uri.file(tempFile)
+        let result = await FS.writeFile(uri, uint8Array)
+
+        switch result {
+        | Ok() =>
+          // Verify file was created with correct binary content
+          Assert.ok(NodeJs.Fs.existsSync(tempFile))
+
+          let writtenBuffer = NodeJs.Fs.readFileSync(tempFile)
+          Assert.deepStrictEqual(writtenBuffer->NodeJs.Buffer.length, buffer->NodeJs.Buffer.length)
+
+          // Compare each byte
+          for i in 0 to buffer->NodeJs.Buffer.length - 1 {
+            let originalByte = buffer->NodeJs.Buffer.readUint8(~offset=i)->Float.toInt
+            let writtenByte = writtenBuffer->NodeJs.Buffer.readUint8(~offset=i)->Float.toInt
+            Assert.deepStrictEqual(writtenByte, originalByte)
+          }
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(tempFile)
       },
     )
   })

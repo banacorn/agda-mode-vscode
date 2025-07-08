@@ -84,3 +84,13 @@ let stat = async (uri: VSCode.Uri.t): result<VSCode.FileStat.t, string> => {
   | _ => Error("Unknown file system error")
   }
 }
+
+let writeFile = async (uri: VSCode.Uri.t, content: Uint8Array.t): result<unit, string> => {
+  try {
+    await VSCode.Workspace.fs->VSCode.FileSystem.writeFile(uri, content)
+    Ok()
+  } catch {
+  | Js.Exn.Error(obj) => Error(Js.Exn.message(obj)->Option.getOr("Unknown file system error"))
+  | _ => Error("Unknown file system error")
+  }
+}
