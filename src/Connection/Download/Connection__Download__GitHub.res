@@ -1,80 +1,6 @@
 module Unzip = Connection__Download__Unzip
 module Download = Connection__Download__Util
 
-module Nd = {
-  module Fs = {
-    @module("node:fs") @scope("promises")
-    external readdir: string => promise<array<string>> = "readdir"
-
-    @module("fs")
-    external unlink_raw: (string, Js.null<Js.Exn.t> => unit) => unit = "unlink"
-    let unlink = path =>
-      Promise.make((resolve, _) => {
-        unlink_raw(path, error => {
-          switch Js.nullToOption(error) {
-          | None => resolve(Ok())
-          | Some(error) => resolve(Error(error))
-          }
-        })
-      })
-
-    @module("fs")
-    external rename_raw: (string, string, Js.null<Js.Exn.t> => unit) => unit = "rename"
-    let rename = (old, new) =>
-      Promise.make((resolve, _) => {
-        rename_raw(old, new, error => {
-          switch Js.nullToOption(error) {
-          | None => resolve(Ok())
-          | Some(error) => resolve(Error(error))
-          }
-        })
-      })
-
-    let readFile = async filepath => {
-      let fileHandle = await NodeJs.Fs.open_(filepath, NodeJs.Fs.Flag.read)
-      let buffer = await NodeJs.Fs.FileHandle.readFile(fileHandle)
-      await NodeJs.Fs.FileHandle.close(fileHandle)
-      NodeJs.Buffer.toString(buffer)
-    }
-
-    // @module("fs")
-    // external writeFile_raw: (string, NodeJs.Buffer.t, Js.null<Js.Exn.t> => unit) => unit =
-    //   "writeFile"
-    // let writeFile = (path, data) =>
-    //   Promise.make((resolve, _) => {
-    //     writeFile_raw(path, data, error => {
-    //       switch Js.nullToOption(error) {
-    //       | None => resolve(Ok())
-    //       | Some(error) => resolve(Error(error))
-    //       }
-    //     })
-    //   })
-
-    let writeFile = async (filepath, string) => {
-      let fileHandle = await NodeJs.Fs.open_(filepath, NodeJs.Fs.Flag.write)
-      let _ = await NodeJs.Fs.FileHandle.writeFile(fileHandle, NodeJs.Buffer.fromString(string))
-      await NodeJs.Fs.FileHandle.close(fileHandle)
-    }
-
-    @module("fs")
-    external createWriteStream: string => NodeJs.Fs.WriteStream.t = "createWriteStream"
-
-    @module("fs")
-    external createWriteStreamWithOptions: (string, {"mode": int}) => NodeJs.Fs.WriteStream.t =
-      "createWriteStream"
-
-    type rmOptions = {
-      force?: bool,
-      maxRetries?: int,
-      recursive?: bool,
-      retryDelay?: int,
-    }
-
-    @module("node:fs") @scope("promises")
-    external rmWithOptions: (string, rmOptions) => promise<unit> = "rm"
-  }
-}
-
 module Error = {
   type t =
     | ResponseDecodeError(string, Js.Json.t)
@@ -468,6 +394,7 @@ module Module: {
     VSCode.Uri.t,
     Download.Event.t => unit,
   ) => promise<result<bool, Error.t>>
+  let isDownloading: VSCode.Uri.t => promise<bool>
 } = {
   let inFlightDownloadFileName = "in-flight.download"
 
@@ -481,14 +408,10 @@ module Module: {
       }
 
       if exists {
-        let inFlightDownloadPath = VSCode.Uri.joinPath(globalStorageUri, [inFlightDownloadFileName])
-        let readResult = await FS.readDirectory(globalStorageUri)
-        switch readResult {
-        | Ok(entries) =>
-          let fileNames = entries->Array.map(((name, _type)) => name)
-          let matched = fileNames->Array.filter(fileName => fileName == inFlightDownloadFileName)
-          matched[0]->Option.isSome
-        | Error(_) => false
+        let inFlightDownloadUri = VSCode.Uri.joinPath(globalStorageUri, [inFlightDownloadFileName])
+        switch await FS.stat(inFlightDownloadUri) {
+        | Ok(_) => true  // File exists, download is in progress
+        | Error(_) => false  // File doesn't exist, no download in progress
         }
       } else {
         // create a directory for `context.globalStoragePath` if it doesn't exist
@@ -562,7 +485,7 @@ module Module: {
       let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
       switch await FS.stat(destUri) {
       | Ok(_) => Ok(true)
-      | Error(_) => 
+      | Error(_) =>
         switch await downloadLanguageServer(repo, reportProgress, fetchSpec) {
         | Error(error) => Error(error)
         | Ok() =>
