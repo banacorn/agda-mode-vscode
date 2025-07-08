@@ -1,7 +1,7 @@
 open Mocha
 open Test__Util
 
-describe_only("FS", () => {
+describe("FS", () => {
   This.timeout(10000)
   
   describe("readDirectory", () => {
@@ -98,6 +98,106 @@ describe_only("FS", () => {
         
         // Cleanup
         NodeJs.Fs.unlinkSync(tempFile)
+      },
+    )
+  })
+
+  describe("copy", () => {
+    Async.it(
+      "should copy file successfully when source exists",
+      async () => {
+        // Create source file
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-copy-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let sourceFile = NodeJs.Path.join([tempDir, "source.txt"])
+        let destFile = NodeJs.Path.join([tempDir, "dest.txt"])
+        
+        // Create directory and source file
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        let content = "test file content"
+        NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString(content))
+        
+        // Test FS.copy
+        let sourceUri = VSCode.Uri.file(sourceFile)
+        let destUri = VSCode.Uri.file(destFile)
+        let result = await FS.copy(sourceUri, destUri)
+        
+        switch result {
+        | Ok() =>
+          // Verify destination file exists and has same content
+          let exists = NodeJs.Fs.existsSync(destFile)
+          Assert.ok(exists)
+          
+          let destContent = NodeJs.Fs.readFileSync(destFile)->NodeJs.Buffer.toString
+          Assert.deepStrictEqual(destContent, content)
+          
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(sourceFile)
+        NodeJs.Fs.unlinkSync(destFile)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return Error when source file does not exist",
+      async () => {
+        // Use non-existent source file
+        let nonExistentSource = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "non-existent-source-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        let destFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "dest-" ++ string_of_int(int_of_float(Js.Date.now())) ++ ".txt",
+        ])
+        
+        let sourceUri = VSCode.Uri.file(nonExistentSource)
+        let destUri = VSCode.Uri.file(destFile)
+        let result = await FS.copy(sourceUri, destUri)
+        
+        switch result {
+        | Ok() => Assert.fail("Expected Error for non-existent source, got Ok")
+        | Error(errorMsg) =>
+          // Should get an error message
+          Assert.ok(String.length(errorMsg) > 0)
+        }
+      },
+    )
+
+    Async.it(
+      "should return Error when destination directory does not exist",
+      async () => {
+        // Create source file
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-copy-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let sourceFile = NodeJs.Path.join([tempDir, "source.txt"])
+        let destFile = NodeJs.Path.join([tempDir, "nonexistent", "dest.txt"])
+        
+        // Create directory and source file
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(sourceFile, NodeJs.Buffer.fromString("test"))
+        
+        let sourceUri = VSCode.Uri.file(sourceFile)
+        let destUri = VSCode.Uri.file(destFile)
+        let result = await FS.copy(sourceUri, destUri)
+        
+        switch result {
+        | Ok() => Assert.fail("Expected Error for non-existent destination directory, got Ok")
+        | Error(errorMsg) =>
+          // Should get an error message
+          Assert.ok(String.length(errorMsg) > 0)
+        }
+        
+        // Cleanup
+        NodeJs.Fs.unlinkSync(sourceFile)
+        NodeJs.Fs.rmdirSync(tempDir)
       },
     )
   })
