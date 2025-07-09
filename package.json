@@ -4,7 +4,7 @@
 	"description": "agda-mode on vscode",
 	"icon": "asset/logo.png",
 	"publisher": "banacorn",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"engines": {
 		"vscode": "^1.94.0"
 	},
@@ -12,31 +12,42 @@
 		"Other"
 	],
 	"main": "./dist/app.bundle.js",
-	"browser": "./dist/app.bundle.js",
+	"browser": "./dist/web.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"scripts": {
 		"clean": "npx rescript clean",
 		"build": "npx rescript build -with-deps && npx lessc style/style.less dist/style.css && webpack --mode development",
+		"build-web": "npx rescript build -with-deps && npx lessc style/style.less dist/style.css && webpack --mode development --env target=web",
 		"dev": "npx rescript build -w & npx less-watch-compiler style/ dist/ & webpack --mode development --watch",
+		"dev-web": "npx rescript build -w & npx less-watch-compiler style/ dist/ & webpack --mode development --watch --env target=web",
 		"vscode:prepublish": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production",
+		"package-web": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production --env target=web",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js",
 		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
 		"@vscode/test-electron": "^2.3.8",
+		"buffer": "^6.0.3",
 		"copy-webpack-plugin": "^6.0.3",
+		"crypto-browserify": "^3.12.1",
 		"glob": "^7.1.6",
 		"less": "^4.1.1",
 		"less-loader": "^7.0.2",
 		"less-watch-compiler": "^1.14.6",
 		"mocha": "^10.4.0",
+		"path-browserify": "^1.0.1",
+		"process": "^0.11.10",
 		"rescript-fast-check": "github:banacorn/rescript-fast-check",
 		"rescript-mocha": "github:DZakh-forks/rescript-mocha#uncurried",
+		"stream-browserify": "^3.0.0",
+		"url": "^0.11.4",
 		"webpack": "^5.76.0",
-		"webpack-cli": "^4.2.0"
+		"webpack-cli": "^4.2.0",
+		"webpack-node-externals": "^3.0.0"
 	},
 	"dependencies": {
 		"@datastructures-js/binary-search-tree": "^5.3.2",
+		"@glennsl/rescript-fetch": "^v0.2.3",
 		"@glennsl/rescript-json-combinators": "^1.4.0",
 		"@rescript/core": "^1.3.0",
 		"@rescript/react": "^0.13.0",
@@ -49,7 +60,6 @@
 		"rescript": "^11.1.4",
 		"rescript-nodejs": "github:banacorn/rescript-nodejs#3db4de107a442d6a5c9b1406032ef6afbe18d8f5",
 		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.38",
-		"@glennsl/rescript-fetch": "^v0.2.3",
 		"rescript-webapi": ">=0.2.0",
 		"untildify": "^4.0.0",
 		"unzipper": "^0.10.11",
