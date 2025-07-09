@@ -3,8 +3,13 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
+// Get folder path from command line argument, default to current directory
+const folderPath = process.argv[2] || '.';
+
 console.log("🌐 Starting VS Code Web Extension Development with Watch Mode");
 console.log("=============================================================");
+console.log(`📁 Opening folder: ${path.resolve(folderPath)}`);
+console.log("");
 
 // Initial build
 console.log("1. Initial web extension build...");
@@ -50,7 +55,8 @@ buildProcess.on('close', (code) => {
             '--extensionDevelopmentPath=.',
             '--quality=stable',
             '--port=3000',
-            '--browser=none'
+            '--browser=none',
+            folderPath
         ], {
             stdio: 'inherit'
         });
