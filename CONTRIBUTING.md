@@ -51,3 +51,58 @@ This extension follows VS Code's recommended versioning scheme for extensions:
 
 This versioning makes it clear to users which versions are stable and which are experimental.
 
+# NPM Scripts
+
+This project includes several npm scripts for development and building:
+
+## Development Scripts
+
+### `npm run dev`
+**Desktop development with watch mode**
+- Starts ReScript compiler in watch mode
+- Compiles Less styles automatically
+- Runs webpack in development watch mode
+- Use with VS Code's <kbd>F5</kbd> to launch Extension Development Host
+
+### `npm run dev-web [folder]`
+**Web extension development workflow**
+- Builds web extension (production mode)
+- Starts ReScript, Less, and Webpack watchers
+- Launches VS Code Web on `localhost:3000`
+- Opens specified folder (defaults to current directory)
+- **Usage**: `npm run dev-web` or `npm run dev-web /path/to/project`
+
+## Build Scripts
+
+### `npm run build`
+**Production build for both desktop and web**
+- Compiles ReScript to JavaScript
+- Compiles Less styles to CSS
+- Creates production webpack bundles for both desktop and web targets
+- Outputs: `dist/app.bundle.js` (desktop) and `dist/web.bundle.js` (web)
+
+### `npm run clean`
+**Clean build artifacts**
+- Removes ReScript compilation artifacts
+- Use when you need a fresh build
+
+## Publishing Scripts
+
+### `npm run vscode:prepublish`
+**VS Code marketplace publishing**
+- Production build for desktop extension
+- Automatically runs before `vsce publish`
+- Creates optimized bundle for VS Code marketplace
+
+### `npm run vfx-dry-run`
+**Pre-publishing dependency check**
+- Lists all production dependencies that will be packaged
+- Helps verify what gets included in the published extension
+- Run before publishing to ensure clean dependency tree
+
+## Testing Scripts
+
+### `npm run test`
+**Run test suite**
+- Executes project test suite
+- Tests are written in ReScript using the test framework
