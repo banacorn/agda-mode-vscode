@@ -23,8 +23,8 @@ module type Module = {
   let redecorate: t => unit
   let destroy: t => unit
   let size: t => int
-  let resetGoalIndices: (t, VSCode.TextEditor.t, bool, array<index>) => promise<unit>
-  let resetGoalIndicesNew: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndicesOnLoad: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndicesOnRefine: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
   let parseGoalPositionsFromRefine: string => array<(int, int)>
@@ -818,32 +818,10 @@ module Module: Module = {
     }
   }
 
-  // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
+  // Set indices of goals from `Responses.InteractionPoints` on Load
   // The indices are ordered by the start position of the goals.
-  let resetGoalIndices = async (self, editor, isInRefineOperation, indices) => {
-    // Js.log("=========================================== refine: " ++ string_of_bool(isInRefineOperation))
-    // Js.log("Old goals: " ++ self->toString)
-    // Js.log("Indices: " ++ indices->Util.Pretty.array(string_of_int))
-
-    // don't clear the goals if we are in a refine operation
-    if !isInRefineOperation {
-      clear(self)
-    }
-
-    // Js.log(
-    //   "Goals without indices: " ++
-    //   self.goalsWithoutIndices
-    //   ->Map.entries
-    //   ->Iterator.toArray
-    //   ->Array.map(((start, end)) => {
-    //     let document = VSCode.TextEditor.document(editor)
-    //     let start = VSCode.TextDocument.positionAt(document, start)
-    //     let end = VSCode.TextDocument.positionAt(document, end)
-    //     let range = VSCode.Range.make(start, end)
-    //     Editor.Range.toString(range)
-    //   })
-    //   ->Util.Pretty.array(x => x),
-    // )
+  let resetGoalIndicesOnLoad = async (self, editor, indices) => {
+    clear(self)
 
     let positionsArray =
       self.goalsWithoutIndices
@@ -861,8 +839,8 @@ module Module: Module = {
     await scanAllGoals(self, editor, [])
   }
 
-  // New version that properly handles both existing goals and new positions from refine operations
-  let resetGoalIndicesNew = async (self, editor, indices: array<int>) => {
+  // Set indices of goals from `Responses.InteractionPoints` on Refine
+  let resetGoalIndicesOnRefine = async (self, editor, indices: array<int>) => {
     // Collect existing goals indexed by positions
     let existingPositions =
       self.goals
