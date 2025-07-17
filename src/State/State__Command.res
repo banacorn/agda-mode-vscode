@@ -89,6 +89,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     | Some(goal) => 
       state.isInRefineOperation = true
       await sendAgdaRequest(Refine(goal))
+      state.isInRefineOperation = false
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")

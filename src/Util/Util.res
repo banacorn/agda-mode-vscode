@@ -210,8 +210,14 @@ module Version: {
 }
 
 module Pretty = {
-  let array = xs => "[" ++ (Array.join(xs, ", ") ++ "]")
-  let list = xs => xs->List.toArray->array
+  let array = (xs, f) => "[" ++ (Array.join(Array.map(xs, f), ", ") ++ "]")
+  let list = (xs, f) => xs->List.toArray->array(f)
+  let map = (xs, f, g) =>
+    xs
+    ->Map.entries
+    ->Iterator.toArray
+    ->Array.map(((k, v)) => f(k) ++ ": " ++ g(v))
+    ->(xs => "[" ++ (Array.join(xs, ", ") ++ "]"))
 }
 
 module JsError = {
@@ -220,7 +226,7 @@ module JsError = {
     let message = Js.Exn.message(e)->Option.getOr("")
     let name = %raw("e.name || 'Error'")
     let stack = %raw("e.stack || ''")
-    
+
     if String.length(message) > 0 {
       if String.length(stack) > 0 && stack != message {
         name ++ ": " ++ message ++ "\n" ++ stack

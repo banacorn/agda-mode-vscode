@@ -17,11 +17,11 @@ module Token = {
     source: option<(Parser.Filepath.t, int)>, // The defining module and the position in that module
   }
   let toStringWithoutOffsets = self =>
-    Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
-    switch self.source {
-    | None => ""
-    | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
-    }
+    self.aspects->Util.Pretty.array(Aspect.toString) ++
+      switch self.source {
+      | None => ""
+      | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
+      }
   let toString = self =>
     "(" ++
     string_of_int(self.start) ++
@@ -717,12 +717,11 @@ module Module: Module = {
         let uri = VSCode.Uri.file(filepath)
         let readResult = await FS.readFile(uri)
         let content = switch readResult {
-        | Ok(uint8Array) => 
+        | Ok(uint8Array) =>
           // Convert Uint8Array to string using TextDecoder
           let decoder = %raw(`new TextDecoder()`)
           decoder->%raw(`function(decoder, arr) { return decoder.decode(arr) }`)(uint8Array)
-        | Error(error) => 
-          Js.Exn.raiseError("Failed to read file: " ++ error)
+        | Error(error) => Js.Exn.raiseError("Failed to read file: " ++ error)
         }
         switch format {
         | Emacs(_) =>
@@ -811,34 +810,39 @@ module Module: Module = {
     let existing = self.agdaTokens->AVLTree.find(token.start)
     switch existing {
     | None =>
-      // convert the current offsets (affected by the deltas) to the original offsets (the same as in agdaTokens)
-
-      // let range = VSCode.Range.make(
-      //   VSCode.TextDocument.positionAt(document, offsetStart),
-      //   VSCode.TextDocument.positionAt(document, offsetEnd),
-      // )
       self.agdaTokens
       ->AVLTree.insert(token.start, token)
       ->ignore
+
+      // if the token is a Hole, then we need to add it to the holes map
       if token.aspects->Array.some(x => x == Aspect.Hole) {
         self.holes->Map.set(token.start, token)
       }
     | Some(old) =>
-      // merge Aspects
-      self.agdaTokens->AVLTree.remove(token.start)->ignore
       // often the new aspects would look exactly like the old ones
       // don't duplicate them in that case
-      let newAspects =
-        old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
-      let new = {
-        ...old,
-        aspects: newAspects,
-      }
-      self.agdaTokens->AVLTree.insert(token.start, new)
+      let areTheSameTokens =
+        old.aspects == token.aspects && old.start == token.start && old.end == token.end
 
-      if token.aspects->Array.some(x => x == Aspect.Hole) {
-        // if the token is a Hole, then we need to add it to the holes map
-        self.holes->Map.set(token.start, token)
+      if !areTheSameTokens {
+        // TODO: reexamine if we need to merge the aspects or not
+        // merge Aspects only when they are different (TODO: should be sets)
+        let newAspects =
+          old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
+
+        let new = {
+          ...old,
+          aspects: newAspects,
+        }
+
+        // merge Aspects
+        self.agdaTokens->AVLTree.remove(token.start)->ignore
+        self.agdaTokens->AVLTree.insert(token.start, new)
+
+        if token.aspects->Array.some(x => x == Aspect.Hole) {
+          // if the token is a Hole, then we need to add it to the holes map
+          self.holes->Map.set(token.start, token)
+        }
       }
     }
   }
@@ -1080,7 +1084,6 @@ module Module: Module = {
 
     // update the deltas
     self.deltas = Intervals.applyChanges(self.deltas, changes->Array.toReversed)
-
     let _ = generateHighlighting(self, editor)
   }
 

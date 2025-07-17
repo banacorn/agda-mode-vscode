@@ -23,7 +23,7 @@ module type Module = {
   let redecorate: t => unit
   let destroy: t => unit
   let size: t => int
-  let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndices: (t, VSCode.TextEditor.t, bool, array<index>) => promise<unit>
   let resetGoalIndicesNew: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
@@ -76,16 +76,16 @@ module Module: Module = {
   Some functions check inclusive bounds (containsCursor) while others use exclusive 
   bounds (containsCursorExclusive). The difference matters for user interaction - 
   clicking exactly at a boundary might count as "inside" for some purposes but not others.
-  */
+ */
   module Boundary = {
     // Tests if point range is fully contained within container range
     let _contains = (containerStart: int, containerEnd: int, pointStart: int, pointEnd: int) =>
       containerStart <= pointStart && pointEnd <= containerEnd
-      
+
     // Two ranges overlap if neither is completely before the other
     let overlaps = (start1: int, end1: int, start2: int, end2: int) =>
       !(end1 <= start2 || end2 <= start1)
-      
+
     // Calculates the actual overlap range between two ranges, if any
     let _getOverlapRange = (start1: int, end1: int, start2: int, end2: int) => {
       if overlaps(start1, end1, start2, end2) {
@@ -96,18 +96,22 @@ module Module: Module = {
         None
       }
     }
-    
+
     // Cursor position checking with inclusive end bound - cursor AT boundary counts as inside
     let containsCursor = (start: int, end: int, cursorOffset: int) =>
       start <= cursorOffset && cursorOffset <= end
-      
+
     // Cursor position checking with exclusive end bound - cursor AT end boundary is outside
     let containsCursorExclusive = (start: int, end: int, cursorOffset: int) =>
       start <= cursorOffset && cursorOffset < end
-      
+
     // For Case4 logic: checks if removal operation affects the goal's end
-    let isContainedOrOverlapsEnd = (_partStart: int, partEnd: int, removalStart: int, removalEnd: int) =>
-      removalEnd <= partEnd && removalStart < partEnd
+    let isContainedOrOverlapsEnd = (
+      _partStart: int,
+      partEnd: int,
+      removalStart: int,
+      removalEnd: int,
+    ) => removalEnd <= partEnd && removalStart < partEnd
   }
 
   // Internal representation of a goal in the editor
@@ -579,7 +583,7 @@ module Module: Module = {
 
   Case4 is special - it's where question marks can expand into holes. This happens 
   when the user types inside a ? goal, turning it into {!   !}.
-  */
+ */
   type case =
     // Change is completely before the part - accumulate position delta and continue
     //      removal  ┣━━━━━┫
@@ -641,7 +645,7 @@ module Module: Module = {
   cumulative offset for parts we haven't processed yet, while accDeltaAfterPart 
   includes the current change. This ensures correct position calculations as 
   the algorithm moves left to right through the document.
-  */
+ */
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
 
@@ -816,8 +820,30 @@ module Module: Module = {
 
   // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
   // The indices are ordered by the start position of the goals.
-  let resetGoalIndices = async (self, editor, indices) => {
-    clear(self)
+  let resetGoalIndices = async (self, editor, isInRefineOperation, indices) => {
+    // Js.log("=========================================== refine: " ++ string_of_bool(isInRefineOperation))
+    // Js.log("Old goals: " ++ self->toString)
+    // Js.log("Indices: " ++ indices->Util.Pretty.array(string_of_int))
+
+    // don't clear the goals if we are in a refine operation
+    if !isInRefineOperation {
+      clear(self)
+    }
+
+    // Js.log(
+    //   "Goals without indices: " ++
+    //   self.goalsWithoutIndices
+    //   ->Map.entries
+    //   ->Iterator.toArray
+    //   ->Array.map(((start, end)) => {
+    //     let document = VSCode.TextEditor.document(editor)
+    //     let start = VSCode.TextDocument.positionAt(document, start)
+    //     let end = VSCode.TextDocument.positionAt(document, end)
+    //     let range = VSCode.Range.make(start, end)
+    //     Editor.Range.toString(range)
+    //   })
+    //   ->Util.Pretty.array(x => x),
+    // )
 
     let positionsArray =
       self.goalsWithoutIndices

@@ -151,7 +151,7 @@ let rec handle = async (
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       let positionsArray = Map.entries(holePositions)->Iterator.toArray
       state.goals->Goals.addGoalPositions(positionsArray)
-      await state.goals->Goals.resetGoalIndicesNew(state.editor, indices)
+      await state.goals->Goals.resetGoalIndices(state.editor, state.isInRefineOperation, indices)
     | GiveAction(index, give) =>
       switch Goals.getGoalByIndex(state.goals, index) {
       | None =>
@@ -311,9 +311,6 @@ let rec handle = async (
       await Tokens.readTempFiles(state.tokens, state.editor)
       // generate highlighting
       state.tokens->Tokens.generateHighlighting(state.editor)
-
-      // reset refine operation flag
-      state.isInRefineOperation = false
     | _ => ()
     }
 
