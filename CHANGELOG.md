@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - #239: Holes in commented out code (v0.6.1)
+- #240: "Next goal" doesn't move the view
 
 ## v0.6.1 - 2025-07-04
 

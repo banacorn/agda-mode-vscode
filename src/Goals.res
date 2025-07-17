@@ -14,7 +14,6 @@ The core algorithm processes document changes atomically - it takes all the chan
 that happened since the last scan and processes them together. This prevents race
 conditions and keeps goals consistent.
 */
-
 module type Module = {
   type t
   type index = int
@@ -396,16 +395,29 @@ module Module: Module = {
     })
   }
 
+  let setCursor = (editor, goal: InternalGoal.t) => {
+    let document = VSCode.TextEditor.document(editor)
+    // determine where to set the cursor
+    let spaceInsideBoundaries = goal.end - goal.start - 4
+    let offset = if spaceInsideBoundaries == 0 {
+      // {!!}
+      goal.start + 2
+    } else {
+      // {! !}
+      goal.start + 3
+    }
+    let position = VSCode.TextDocument.positionAt(document, offset)
+    // set the cursor to the start of the goal
+    Editor.Cursor.set(editor, position)
+    // scroll to that part of the document
+    let range = InternalGoal.makeOuterRange(goal, document)
+    editor->VSCode.TextEditor.revealRange(range, None)
+  }
+
   let setCursorByIndex = (self, editor, index) =>
     switch getInternalGoalByIndex(self, index) {
     | None => () // goal not found, do nothing
-    | Some(goal) =>
-      let document = VSCode.TextEditor.document(editor)
-      let position = VSCode.TextDocument.positionAt(document, goal.start + 3)
-      Editor.Cursor.set(editor, position)
-      // scroll to that part of the document
-      let range = InternalGoal.makeOuterRange(goal, document)
-      editor->VSCode.TextEditor.revealRange(range, None)
+    | Some(goal) => setCursor(editor, goal)
     }
 
   // Destory and clear all goals
@@ -878,16 +890,16 @@ module Module: Module = {
     let existingPositions = collectExistingGoalPositions()
     let mergedPositions = mergeGoalPositions(existingPositions)
     let sortedPositions = sortPositionsByOffset(mergedPositions)
-    
+
     // Clear existing goals before reassigning
     clear(self)
-    
+
     // Assign new indices to all positions
     assignIndices(sortedPositions)
-    
+
     // Clear processed goals without indices
     self.goalsWithoutIndices = Map.make()
-    
+
     // Update goal positions after document changes
     await scanAllGoals(self, editor, [])
   }
@@ -961,21 +973,6 @@ module Module: Module = {
     findQuestionMarks(raw, 0)
   }
 
-  let jumpToGoal = (editor, goal: InternalGoal.t) => {
-    let document = VSCode.TextEditor.document(editor)
-    let spaceInsideBoundaries = goal.end - goal.start - 4
-    let offset = if spaceInsideBoundaries == 0 {
-      // {!!}
-      goal.start + 2
-    } else {
-      // {! !}
-      goal.start + 3
-    }
-
-    let position = VSCode.TextDocument.positionAt(document, offset)
-    Editor.Cursor.set(editor, position)
-  }
-
   let jumpToTheNextGoal = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
@@ -988,7 +985,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jumpToGoal(editor, goal)
+    | Some(goal) => setCursor(editor, goal)
     }
   }
 
@@ -1019,7 +1016,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jumpToGoal(editor, goal)
+    | Some(goal) => setCursor(editor, goal)
     }
   }
 
