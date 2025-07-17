@@ -841,38 +841,54 @@ module Module: Module = {
 
   // Set indices of goals from `Responses.InteractionPoints` on Refine
   let resetGoalIndicesOnRefine = async (self, editor, indices: array<int>) => {
-    // Collect existing goals indexed by positions
-    let existingPositions =
+    // Helper function to collect goal positions from existing goals
+    let collectExistingGoalPositions = () =>
       self.goals
       ->Map.values
       ->Iterator.toArray
       ->Array.map(goal => (goal.start, (goal.end, Some(goal))))
       ->Map.fromArray
 
-    // Add new goal positions from refine operations to the map of existing goals indexed by positions
-    self.goalsWithoutIndices->Map.forEachWithKey((end, start) => {
-      existingPositions->Map.set(start, (end, None)) // None indicates no goal index yet
-    })
-
-    // Combine all positions and sort by start offset
-    let allPositions =
+    // Helper function to merge new goal positions with existing ones
+    let mergeGoalPositions = existingPositions => {
+      self.goalsWithoutIndices->Map.forEachWithKey((end, start) => {
+        existingPositions->Map.set(start, (end, None)) // None indicates no goal index yet
+      })
       existingPositions
+    }
+
+    // Helper function to sort positions by start offset
+    let sortPositionsByOffset = positions =>
+      positions
       ->Map.entries
       ->Iterator.toArray
       ->Array.toSorted(((start1, _), (start2, _)) => Int.compare(start1, start2))
 
-    // Clear existing goals
+    // Helper function to assign indices to sorted positions
+    let assignIndices = sortedPositions => {
+      sortedPositions->Array.forEachWithIndex(((start, (end, _)), i) => {
+        switch indices[i] {
+        | None => () // should not happen
+        | Some(index) => insertGoal(self, start, end, index)
+        }
+      })
+    }
+
+    // Main refactoring logic
+    let existingPositions = collectExistingGoalPositions()
+    let mergedPositions = mergeGoalPositions(existingPositions)
+    let sortedPositions = sortPositionsByOffset(mergedPositions)
+    
+    // Clear existing goals before reassigning
     clear(self)
-
-    // Assign indices to all positions in order
-    allPositions->Array.forEachWithIndex(((start, (end, _)), i) => {
-      switch indices[i] {
-      | None => () // should not happen
-      | Some(index) => insertGoal(self, start, end, index)
-      }
-    })
-
-    self.goalsWithoutIndices = Map.make() // clear the goals without indices
+    
+    // Assign new indices to all positions
+    assignIndices(sortedPositions)
+    
+    // Clear processed goals without indices
+    self.goalsWithoutIndices = Map.make()
+    
+    // Update goal positions after document changes
     await scanAllGoals(self, editor, [])
   }
 
