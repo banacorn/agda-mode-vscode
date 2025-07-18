@@ -5,6 +5,9 @@
       "include": "#agda-block"
     },
     {
+      "include": "#html-comment"
+    },
+    {
       "include": "text.html.markdown"
     }
   ],
@@ -27,6 +30,24 @@
           "include": "source.agda"
         }
       ]
+    },
+    "html-comment": {
+      "begin": "(^|\\G)\\s*(<!--)",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.comment.html"
+        },
+        "2": {
+          "name": "punctuation.definition.comment.html"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#agda-block"
+        }
+      ],
+      "end": "(-->)",
+      "name": "comment.block.html"
     }
   }
 }

@@ -5,6 +5,9 @@
       "include": "#agda-block"
     },
     {
+      "include": "#iffalse-block"
+    },
+    {
       "include": "text.tex"
     }
   ],
@@ -23,6 +26,32 @@
       "patterns": [
         {
           "include": "source.agda"
+        }
+      ]
+    },
+    "iffalse-block": {
+      "begin": "(?<=^\\s*)((\\\\)iffalse)(?!\\s*[{}]\\s*\\\\fi\\b)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.tex"
+        },
+        "2": {
+          "name": "punctuation.definition.keyword.tex"
+        }
+      },
+      "contentName": "comment.line.percentage.tex",
+      "end": "((\\\\)(?:else|fi)\\b)",
+      "endCaptures": {
+        "1": {
+          "name": "keyword.control.tex"
+        },
+        "2": {
+          "name": "punctuation.definition.keyword.tex"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#agda-block"
         }
       ]
     }
