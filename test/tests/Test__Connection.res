@@ -68,7 +68,11 @@ describe("Connection", () => {
 
         switch await Connection.Target.fromRawPath(agdaMockPath.contents) {
         | Ok(target) => agdaMockTarget := Some(target)
-        | Error(_) => failwith("Got error when trying to construct a mock for Agda ")
+        | Error(error) =>
+          let errorMessage = Connection__Target.Error.toString(error)
+          failwith(
+            "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
+          )
         }
       },
     )
@@ -398,12 +402,21 @@ describe("Connection", () => {
 
     Async.before(
       async () => {
-        // setup the Agda mock
-        let path = await Target.Agda.mock(~version="2.7.0.1", ~name="agda-mock")
+        try {
+          // setup the Agda mock
+          let path = await Target.Agda.mock(~version="2.7.0.1", ~name="agda-mock")
 
-        switch await Connection.Target.fromRawPath(path) {
-        | Ok(target) => agdaMockTarget := Some(target)
-        | Error(_) => failwith("Got error when trying to construct a mock for Agda ")
+          switch await Connection.Target.fromRawPath(path) {
+          | Ok(target) => agdaMockTarget := Some(target)
+          | Error(error) =>
+            let errorMessage = Connection__Target.Error.toString(error)
+            failwith(
+              "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
+            )
+          }
+        } catch {
+        | Failure(msg) => failwith(msg) // Preserve detailed error from Test__Util.res
+        | _ => failwith("Got error when trying to construct target from mock Agda: unknown error")
         }
       },
     )
