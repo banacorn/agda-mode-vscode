@@ -12,34 +12,25 @@
 		"Other"
 	],
 	"main": "./dist/app.bundle.js",
-	"browser": "./dist/web.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
 	"scripts": {
 		"clean": "npx rescript clean",
 		"dev": "npx rescript build -w & npx less-watch-compiler style/ dist/ & webpack --mode development --watch",
-		"dev-web": "node run-web-extension.js",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js",
-		"build": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production && webpack --mode production --env target=web",
+		"build": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"vscode:prepublish": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production",
 		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
 		"@vscode/test-electron": "^2.3.8",
-		"@vscode/test-web": "^0.0.71",
-		"buffer": "^6.0.3",
 		"copy-webpack-plugin": "^6.0.3",
-		"crypto-browserify": "^3.12.1",
 		"glob": "^7.1.6",
 		"less": "^4.1.1",
 		"less-loader": "^7.0.2",
 		"less-watch-compiler": "^1.14.6",
 		"mocha": "^10.4.0",
-		"path-browserify": "^1.0.1",
-		"process": "^0.11.10",
 		"rescript-fast-check": "github:banacorn/rescript-fast-check",
 		"rescript-mocha": "github:DZakh-forks/rescript-mocha#uncurried",
-		"stream-browserify": "^3.0.0",
-		"url": "^0.11.4",
 		"webpack": "^5.76.0",
 		"webpack-bundle-analyzer": "^4.10.2",
 		"webpack-cli": "^4.2.0",
@@ -592,11 +583,6 @@
 			{
 				"command": "agda-mode.open-debug-buffer",
 				"title": "Open Debug Buffer",
-				"category": "Agda"
-			},
-			{
-				"command": "agda-mode.hello-web",
-				"title": "Hello Web (Test Command)",
 				"category": "Agda"
 			}
 		],
