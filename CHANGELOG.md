@@ -5,11 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.6.2 - TBA
+## v0.6.2 - 2025-07-19
+
+### Changed
+- Replaced Node.js filesystem operations with VSCode FileSystem API for web compatibility
+- Release on EVEN minor versions, pre-release on ODD minor versions
+- Dev mode flag in settings
 
 ### Fixed
 - #239: Holes in commented out code (v0.6.1)
 - #240: "Next goal" doesn't move the view
+- #241: Giving an expression with two question marks is broken 
+- #242: No syntax highlighting until first edit 
+- #243: Background highlighting does not reevaluate upon loading file with C-c C-l as it should 
+- #245: Can't toggle Agda comments under markup comments in literate Agda files by [@ncfavier](https://github.com/ncfavier)
+- #246: .lagda.{md,tex}: recognise Agda blocks under comments by [@ncfavier](https://github.com/ncfavier)
+- Windows filepath normalization issues in Registry that caused test failures
+- Mock Agda executable creation on Windows
 
 ## v0.6.1 - 2025-07-04
 
