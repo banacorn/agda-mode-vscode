@@ -25,7 +25,7 @@ module Inputs: {
         VSCode.Window.activeTextEditor->Option.map(
           editor => {
             let fileName =
-              editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+              editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
             if isAgda(fileName) {
               callback(command, editor)
             } else {
@@ -214,7 +214,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
 
   // on open editor
   Inputs.onOpenEditor(editor => {
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
 
     // filter out ".agda.git" files
     if isAgda(fileName) {
@@ -262,7 +262,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
   })->subscribe
   // on triggering commands
   Inputs.onTriggerCommand(async (command, editor) => {
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
     // destroy
     switch command {
     | Quit =>
