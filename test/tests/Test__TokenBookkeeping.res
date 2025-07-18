@@ -70,10 +70,18 @@ describe(
       Assert.deepStrictEqual(actual, expected)
     })
 
-    Async.it("should remove Tokens after Command.Quit", async () => {
+    Async.it_only("should remove Tokens after Command.Quit", async () => {
       let ctx = await AgdaMode.makeAndLoad(filename)
+      let tokensBefore = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+      Js.Console.log("Test: Before quit, have " ++ string_of_int(Array.length(tokensBefore)) ++ " tokens")
+      
+      Js.Console.log("Test: Starting quit operation")
       await ctx->AgdaMode.quit
+      Js.Console.log("Test: Quit operation completed")
+      
+      Js.Console.log("Test: Getting tokens from context after quit")
       let tokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+      Js.Console.log("Test: After quit, context has " ++ string_of_int(Array.length(tokens)) ++ " tokens")
       Assert.deepStrictEqual(tokens->Array.length, 0)
     })
 

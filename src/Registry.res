@@ -41,39 +41,62 @@ module Module: {
   // FileName-Entry Registry
   let dict: Dict.t<Entry.t> = Dict.make()
 
-  let getEntry = fileName => dict->Dict.get(fileName)
+  let getEntry = fileName => {
+    Js.Console.log("Registry.getEntry: Looking up entry for " ++ fileName)
+    let result = dict->Dict.get(fileName)
+    switch result {
+    | Some(_) => Js.Console.log("Registry.getEntry: Found entry for " ++ fileName)
+    | None =>
+      Js.Console.log("Registry.getEntry: No entry found for " ++ fileName)
+      // Log all existing keys for debugging
+      let allKeys = dict->Dict.keysToArray
+      Js.Console.log("Registry.getEntry: All existing keys: " ++ allKeys->Array.join(", "))
+    }
+    result
+  }
   let getState = fileName => getEntry(fileName)->Option.flatMap(x => x.state)
 
   //  Get all existing States
   let getAllStates = () => dict->Dict.valuesToArray->Array.filterMap(getEntry => getEntry.state)
 
   // Adds an instantiated State to the Registry
-  let add = (fileName, state: State.t) =>
+  let add = (fileName, state: State.t) => {
+    Js.Console.log("Registry.add: Adding entry for " ++ fileName)
     switch getEntry(fileName) {
     | None =>
       // entry not found, create a new one
+      Js.Console.log("Registry.add: Creating new entry for " ++ fileName)
       dict->Dict.set(fileName, Entry.make(Some(state)))
     | Some(entry) =>
+      Js.Console.log("Registry.add: Updating existing entry for " ++ fileName)
       switch entry.state {
       | Some(state) => entry.state = Some(state) // update the state
       | None => dict->Dict.set(fileName, Entry.make(Some(state)))
       }
     }
+  }
 
   // Removes the entry (but without triggering State.destroy() )
   let remove = fileName => Dict.delete(dict, fileName)
 
-  let removeAndDestroy = async fileName =>
+  let removeAndDestroy = async fileName => {
+    Js.Console.log("Registry.removeAndDestroy: Starting for " ++ fileName)
     switch getEntry(fileName) {
-    | None => ()
+    | None => Js.Console.log("Registry.removeAndDestroy: No entry found for " ++ fileName)
     | Some(entry) =>
+      Js.Console.log("Registry.removeAndDestroy: Found entry for " ++ fileName)
       remove(fileName)
+      Js.Console.log("Registry.removeAndDestroy: Removed entry for " ++ fileName)
       switch entry.state {
-      | None => ()
+      | None => Js.Console.log("Registry.removeAndDestroy: No state to destroy for " ++ fileName)
       | Some(state) =>
+        Js.Console.log("Registry.removeAndDestroy: Destroying state for " ++ fileName)
         let _ = await State.destroy(state, false)
+        Js.Console.log("Registry.removeAndDestroy: Completed state destruction for " ++ fileName)
       }
     }
+    Js.Console.log("Registry.removeAndDestroy: Completed for " ++ fileName)
+  }
 
   let removeAndDestroyAll = async () => {
     let _ =
@@ -87,15 +110,28 @@ module Module: {
 
   // Requesting Semantic Tokens
   let requestSemanticTokens = async fileName => {
+    Js.Console.log("Registry.requestSemanticTokens: Starting request for " ++ fileName)
     switch getEntry(fileName) {
     | Some(entry) =>
+      Js.Console.log("Registry.requestSemanticTokens: Found existing entry for " ++ fileName)
       let tokens = await entry.semanticTokens->Resource.get
+      Js.Console.log(
+        "Registry.requestSemanticTokens: Got " ++
+        string_of_int(Array.length(tokens)) ++ " tokens from existing entry",
+      )
       tokens
     | None =>
       // entry not found, create a new one
+      Js.Console.log(
+        "Registry.requestSemanticTokens: No entry found, creating new one for " ++ fileName,
+      )
       let entry = Entry.make(None)
       dict->Dict.set(fileName, entry)
       let tokens = await entry.semanticTokens->Resource.get
+      Js.Console.log(
+        "Registry.requestSemanticTokens: Got " ++
+        string_of_int(Array.length(tokens)) ++ " tokens from new entry",
+      )
       tokens
     }
   }

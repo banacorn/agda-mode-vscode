@@ -386,6 +386,7 @@ module AgdaMode = {
 
   let makeAndLoad = async filepath => {
     let filepath = Path.asset(filepath)
+    Js.Console.log("AgdaMode.makeAndLoad: Using filepath " ++ filepath)
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     // make sure that "agda" exists in PATH
@@ -415,6 +416,7 @@ module AgdaMode = {
     let channels = activateExtension()
     let state = await load(channels, filepath)
 
+    Js.Console.log("AgdaMode.makeAndLoad: Created context with filepath " ++ filepath)
     {
       filepath,
       channels,
@@ -423,7 +425,9 @@ module AgdaMode = {
   }
 
   let quit = async (self: t) => {
+    Js.Console.log("AgdaMode.quit: Starting quit for " ++ self.filepath)
     await Registry.removeAndDestroy(self.filepath)
+    Js.Console.log("AgdaMode.quit: Completed quit for " ++ self.filepath)
   }
 
   let case = async (self, ~cursor, ~payload) => {
