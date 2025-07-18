@@ -125,15 +125,25 @@ let make = (
 
 // construction/destruction
 let destroy = async (state, alsoRemoveFromRegistry) => {
+  Js.Console.log("State.destroy: Starting destruction")
   await state.goals->Goals.waitUntilNotBusy
+  Js.Console.log("State.destroy: Goals are not busy")
   if alsoRemoveFromRegistry {
+    Js.Console.log("State.destroy: Emitting remove from registry")
     state.onRemoveFromRegistry->Chan.emit()
   }
   state.onRemoveFromRegistry->Chan.destroy
+  Js.Console.log("State.destroy: Destroyed onRemoveFromRegistry channel")
   state.goals->Goals.destroy
+  Js.Console.log("State.destroy: Destroyed goals")
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
+  Js.Console.log("State.destroy: Disposed subscriptions")
+  Js.Console.log("State.destroy: Resetting tokens")
   state.tokens->Tokens.reset
-  await state.connection->Connection.destroy
+  Js.Console.log("State.destroy: Tokens reset completed")
+  let result = await state.connection->Connection.destroy
+  Js.Console.log("State.destroy: Connection destroyed, destruction complete")
+  result
 }
 
 // control the scope of command key-binding

@@ -883,6 +883,7 @@ module Module: Module = {
   }
 
   let reset = self => {
+    Js.Console.log("Tokens.reset: Starting token reset")
     // delete all unhandled temp files
     self.tempFiles->Array.forEach(format => {
       let filepath = TempFile.toFilepath(format)
@@ -890,19 +891,26 @@ module Module: Module = {
       // Fire-and-forget: start deletion but don't wait for completion
       let _ = FS.delete(uri)
     })
+    Js.Console.log("Tokens.reset: Deleted temp files")
 
     // reset the AgdaTokens
     self.agdaTokens = AVLTree.make()
+    Js.Console.log("Tokens.reset: Reset agdaTokens")
 
     // reset the deltas
     self.deltas = Intervals.empty
+    Js.Console.log("Tokens.reset: Reset deltas")
 
     // reset the vscodeTokens (only when it has ever been set)
     if self.vscodeTokens->Resource.isPending {
+      Js.Console.log("Tokens.reset: vscodeTokens is pending, not resetting")
       ()
     } else {
+      Js.Console.log("Tokens.reset: Setting vscodeTokens to empty array")
       self.vscodeTokens->Resource.set([])
+      Js.Console.log("Tokens.reset: vscodeTokens set to empty array")
     }
+    Js.Console.log("Tokens.reset: Token reset completed")
   }
 
   let toTokenArray = self => self.agdaTokens->AVLTree.toArray
