@@ -18,7 +18,7 @@ let checkForPrebuiltDataDirectory = async (executablePath: string) => {
 
 module Error = {
   type t =
-    | NotAgdaOrALS(URI.t)
+    | NotAgdaOrALS(URI.t, string) // URI and the actual output received
     | SomethingWentWrong(URI.t, Connection__Process__Exec.Error.t)
     | CannotHandleURLsATM(URI.t)
 
@@ -30,9 +30,14 @@ module Error = {
         uri,
       ) ++ ": Cannot handle URLs at the moment, this will be supported again in the future"
 
-    | NotAgdaOrALS(uri) =>
+    | NotAgdaOrALS(uri, output) =>
       // "Not Agda or Agda Language Server",
-      URI.toString(uri) ++ ": doesn't seem to be an Agda executable or an Agda Language Server"
+      let outputInfo = if output == "" {
+        "no output (empty string)"
+      } else {
+        "'" ++ output ++ "'"
+      }
+      URI.toString(uri) ++ ": doesn't seem to be an Agda executable or an Agda Language Server. Output received: " ++ outputInfo
     | SomethingWentWrong(uri, e) =>
       URI.toString(uri) ++ ": " ++ Connection__Process__Exec.Error.toString(e)
     }
@@ -89,7 +94,7 @@ module Module: {
           | None => None
           }
           Ok(ALS(alsVersion, agdaVersion, Connection__Target__IPC.ViaPipe(path, [], lspOptions)))
-        | _ => Error(Error.NotAgdaOrALS(uri))
+        | _ => Error(Error.NotAgdaOrALS(uri, output))
         }
       }
     | Error(error) => Error(Error.SomethingWentWrong(uri, error))

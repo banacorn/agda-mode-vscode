@@ -534,32 +534,55 @@ module Target = {
       let (fileName, content) = if OS.onUnix {
         (
           name,
-          "#!/usr/bin/env node\nconsole.log('Agda version " ++ version ++ "')",
+          "#!/bin/sh\necho 'Agda version " ++ version ++ "'\nexit 0",
         )
       } else {
         (
           name ++ ".bat",
-          "@echo off\nnode -e \"console.log('Agda version " ++ version ++ "')\"",
+          "@echo Agda version " ++ version,
         )
       }
       
       // Create file in temp directory to avoid permission issues
       let tempFile = NodeJs.Path.join([
         NodeJs.Os.tmpdir(),
-        fileName ++ "-" ++ string_of_int(int_of_float(Js.Date.now()))
+        fileName
       ])
       
       // Use Node.js file writing for executable creation (tests only)
-      NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
-      // chmod +x for Unix systems
-      if OS.onUnix {
-        switch await NodeJs.Fs.chmod(tempFile, ~mode=0o755) {
-        | exception Js.Exn.Error(obj) => 
-          raise(Failure("Cannot chmod mock executable: " ++ Js.Exn.message(obj)->Option.getOr("unknown error")))
-        | _ => ()
+      try {
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
+        
+        // chmod +x for Unix systems
+        if OS.onUnix {
+          switch await NodeJs.Fs.chmod(tempFile, ~mode=0o755) {
+          | exception Js.Exn.Error(obj) => 
+            let errorMsg = Js.Exn.message(obj)->Option.getOr("unknown chmod error")
+            raise(Failure("Cannot chmod mock executable at " ++ tempFile ++ ": " ++ errorMsg))
+          | _ => ()
+          }
         }
+        tempFile
+      } catch {
+      | Js.Exn.Error(obj) => 
+        let errorMsg = Js.Exn.message(obj)->Option.getOr("unknown error")
+        let detailedError = "Got error when trying to construct a mock for Agda:\n" ++
+          "  - Target file: " ++ tempFile ++ "\n" ++
+          "  - Platform: " ++ (OS.onUnix ? "Unix" : "Windows") ++ "\n" ++
+          "  - Temp directory: " ++ NodeJs.Os.tmpdir() ++ "\n" ++
+          "  - Error: " ++ errorMsg ++ "\n" ++
+          "  - Content length: " ++ string_of_int(String.length(content)) ++ "\n" ++
+          "  - Content: " ++ content
+        raise(Failure(detailedError))
+      | _ => 
+        let detailedError = "Got error when trying to construct a mock for Agda:\n" ++
+          "  - Target file: " ++ tempFile ++ "\n" ++
+          "  - Platform: " ++ (OS.onUnix ? "Unix" : "Windows") ++ "\n" ++
+          "  - Temp directory: " ++ NodeJs.Os.tmpdir() ++ "\n" ++
+          "  - Error: unknown error type\n" ++
+          "  - Content: " ++ content
+        raise(Failure(detailedError))
       }
-      tempFile
     }
 
     let destroy = async target => {
@@ -568,7 +591,11 @@ module Target = {
         NodeJs.Fs.unlinkSync(path)
       } catch {
       | Js.Exn.Error(obj) => 
-        raise(Failure("Cannot delete mock Agda executable: " ++ Js.Exn.message(obj)->Option.getOr("unknown error")))
+        // Don't raise an error for cleanup failures, just log warning
+        Js.Console.warn("Warning: Cannot delete mock Agda executable: " ++ Js.Exn.message(obj)->Option.getOr("unknown error"))
+      | _ => 
+        // Ignore other cleanup failures to prevent test failures
+        ()
       }
     }
   }

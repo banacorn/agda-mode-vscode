@@ -214,7 +214,7 @@ describe("State__SwitchVersion", () => {
     
     describe("createErrorItem", () => {
       it("should create error item correctly", () => {
-        let mockError = Connection__Target.Error.NotAgdaOrALS(Connection__URI.parse("/bad/path"))
+        let mockError = Connection__Target.Error.NotAgdaOrALS(Connection__URI.parse("/bad/path"), "invalid output")
         let actual = ItemCreation.createErrorItem(mockError)
         Assert.strictEqual(actual.label, "$(error)  Bad path")
         switch actual.description {
