@@ -17,11 +17,11 @@ module Token = {
     source: option<(Parser.Filepath.t, int)>, // The defining module and the position in that module
   }
   let toStringWithoutOffsets = self =>
-    Util.Pretty.list(List.fromArray(Array.map(self.aspects, Aspect.toString))) ++
-    switch self.source {
-    | None => ""
-    | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
-    }
+    self.aspects->Util.Pretty.array(Aspect.toString) ++
+      switch self.source {
+      | None => ""
+      | Some((_s, i)) => " [src: " ++ string_of_int(i) ++ "]"
+      }
   let toString = self =>
     "(" ++
     string_of_int(self.start) ++
@@ -665,6 +665,9 @@ module type Module = {
 
   let make: option<Resource.t<array<Highlighting__SemanticToken.t>>> => t
 
+  let toTokenArray: t => array<Token.t<vscodeOffset>>
+  let toDecorations: t => Map.t<Editor.Decoration.t, array<VSCode.Range.t>>
+
   // Receive tokens from Agda
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
@@ -672,9 +675,8 @@ module type Module = {
   let insertWithVSCodeOffsets: (t, Token.t<vscodeOffset>) => unit
   let insertTokens: (t, VSCode.TextEditor.t, array<Token.t<agdaOffset>>) => unit
 
+  // Remove everything
   let reset: t => unit
-
-  let toArray: t => array<Token.t<vscodeOffset>>
 
   // definition provider for go-to-definition
   let goToDefinition: (
@@ -688,7 +690,8 @@ module type Module = {
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
-  let redecorate: (t, VSCode.TextEditor.t) => unit
+  let removeDecorations: (t, VSCode.TextEditor.t) => unit
+  let applyDecorations: (t, VSCode.TextEditor.t) => unit
 
   let toOriginalOffset: (t, int) => option<int>
 
@@ -713,7 +716,16 @@ module Module: Module = {
 
     let readAndParse = async format => {
       try {
-        let content = await Node__Fs.readFile(toFilepath(format))
+        let filepath = toFilepath(format)
+        let uri = VSCode.Uri.file(filepath)
+        let readResult = await FS.readFile(uri)
+        let content = switch readResult {
+        | Ok(uint8Array) =>
+          // Convert Uint8Array to string using TextDecoder
+          let decoder = %raw(`new TextDecoder()`)
+          decoder->%raw(`function(decoder, arr) { return decoder.decode(arr) }`)(uint8Array)
+        | Error(error) => Js.Exn.raiseError("Failed to read file: " ++ error)
+        }
         switch format {
         | Emacs(_) =>
           let tokens = switch Parser.SExpression.parse(content)[0] {
@@ -756,7 +768,7 @@ module Module: Module = {
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
-    mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
+    mutable decorations: Map.t<Editor.Decoration.t, array<VSCode.Range.t>>,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
     mutable holePositions: Resource.t<Map.t<int, int>>,
@@ -792,7 +804,7 @@ module Module: Module = {
     | None => Resource.make()
     | Some(resource) => resource
     },
-    decorations: [],
+    decorations: Map.make(),
     holes: Map.make(),
     holePositions: Resource.make(),
   }
@@ -801,41 +813,42 @@ module Module: Module = {
     let existing = self.agdaTokens->AVLTree.find(token.start)
     switch existing {
     | None =>
-      // convert the current offsets (affected by the deltas) to the original offsets (the same as in agdaTokens)
-
-      // let range = VSCode.Range.make(
-      //   VSCode.TextDocument.positionAt(document, offsetStart),
-      //   VSCode.TextDocument.positionAt(document, offsetEnd),
-      // )
       self.agdaTokens
       ->AVLTree.insert(token.start, token)
       ->ignore
+
+      // if the token is a Hole, then we need to add it to the holes map
       if token.aspects->Array.some(x => x == Aspect.Hole) {
         self.holes->Map.set(token.start, token)
       }
     | Some(old) =>
-      // merge Aspects
-      self.agdaTokens->AVLTree.remove(token.start)->ignore
       // often the new aspects would look exactly like the old ones
       // don't duplicate them in that case
-      let newAspects =
-        old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
-      let new = {
-        ...old,
-        aspects: newAspects,
-      }
-      self.agdaTokens->AVLTree.insert(token.start, new)
+      let areTheSameTokens =
+        old.aspects == token.aspects && old.start == token.start && old.end == token.end
 
-      if token.aspects->Array.some(x => x == Aspect.Hole) {
-        // if the token is a Hole, then we need to add it to the holes map
-        self.holes->Map.set(token.start, token)
+      if !areTheSameTokens {
+        // TODO: reexamine if we need to merge the aspects or not
+        // merge Aspects only when they are different (TODO: should be sets)
+        let newAspects =
+          old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
+
+        let new = {
+          ...old,
+          aspects: newAspects,
+        }
+
+        // merge Aspects
+        self.agdaTokens->AVLTree.remove(token.start)->ignore
+        self.agdaTokens->AVLTree.insert(token.start, new)
+
+        if token.aspects->Array.some(x => x == Aspect.Hole) {
+          // if the token is a Hole, then we need to add it to the holes map
+          self.holes->Map.set(token.start, token)
+        }
       }
     }
   }
-
-  // let insertHole = (self, start, end) => {
-
-  // }
 
   // insert a bunch of Tokens
   // merge Aspects with the existing Token that occupies the same Range
@@ -870,9 +883,12 @@ module Module: Module = {
   }
 
   let reset = self => {
-    // delete all unhandded temp files
+    // delete all unhandled temp files
     self.tempFiles->Array.forEach(format => {
-      N.Fs.unlink(TempFile.toFilepath(format), _ => ())
+      let filepath = TempFile.toFilepath(format)
+      let uri = VSCode.Uri.file(filepath)
+      // Fire-and-forget: start deletion but don't wait for completion
+      let _ = FS.delete(uri)
     })
 
     // reset the AgdaTokens
@@ -889,7 +905,8 @@ module Module: Module = {
     }
   }
 
-  let toArray = self => self.agdaTokens->AVLTree.toArray
+  let toTokenArray = self => self.agdaTokens->AVLTree.toArray
+  let toDecorations = self => self.decorations
 
   // for goto definition
   let lookupSrcLoc = (self, document, offset): option<
@@ -933,36 +950,65 @@ module Module: Module = {
     }
   }
 
-  // Converts a list of Agda Aspects to a list of VSCode Tokens
-  let convertFromAgdaAspectsAndApplyDecorations = (editor, xs) => {
-    let (semanticTokens, decorations) =
-      xs
-      ->Array.filterMap(((aspects, range)) => {
-        // convert Aspects to TokenType / TokenModifiers / Backgrounds
-        let (tokenTypeAndModifiers, decorations) =
-          aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
-        let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
-        // merge TokenType / TokenModifiers / Backgrounds
-        let tokenTypes = tokenTypes->Array.filterMap(x => x)
-        let tokenModifiers = tokenModifiers->Array.flat
-        let decorations =
-          decorations->Array.filterMap(x =>
-            x->Option.map(
-              x => (x, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)),
-            )
-          )
+  // remove decorations from the editor
+  let removeDecorations = (self, editor) => {
+    // in order to remove decorations, we need to go through all types of decorations and set them empty
+    self.decorations
+    ->Map.keys
+    ->Iterator.toArray
+    ->Array.forEach(decoration => {
+      // remove the decoration by applying it with an empty array of ranges
+      Editor.Decoration.apply(editor, decoration, [])
+    })
+  }
 
-        // only 1 TokenType is allowed, so we take the first one
-        let semanticToken = tokenTypes[0]->Option.map(tokenType => {
-          Highlighting__SemanticToken.range,
-          type_: tokenType,
-          modifiers: Some(tokenModifiers),
-        })
-        Some(semanticToken, decorations)
+  // apply decorations to the editor
+  let applyDecorations = (self, editor) => {
+    // apply the decorations to the editor
+    self.decorations
+    ->Map.entries
+    ->Iterator.toArray
+    ->Array.forEach(((decoration, ranges)) => {
+      Editor.Decoration.apply(editor, decoration, ranges)
+    })
+  }
+
+  // Converts a list of Agda Aspects to a list of VSCode Tokens and decorations
+  let convertFromAgdaAspects = xs => {
+    let decorations = Map.make()
+    let semanticTokens = xs->Array.filterMap(((aspects, range)) => {
+      // convert Aspects to TokenType / TokenModifiers / Backgrounds
+      let (tokenTypeAndModifiers, emacsDecos) =
+        aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
+      let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
+      // merge TokenType / TokenModifiers / Backgrounds
+      let tokenTypes = tokenTypes->Array.filterMap(x => x)
+      let tokenModifiers = tokenModifiers->Array.flat
+      emacsDecos->Array.forEach(emacsDeco =>
+        switch emacsDeco {
+        | None => ()
+        | Some(emacsDeco) =>
+          let decoration = Highlighting__Decoration.toDecoration(emacsDeco)
+          let existingRanges = switch decorations->Map.get(decoration) {
+          | None => []
+          | Some(ranges) => ranges
+          }
+          decorations->Map.set(
+            decoration,
+            [...existingRanges, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)],
+          )
+        }
+      )
+
+      // only 1 TokenType is allowed, so we take the first one
+      let semanticToken = tokenTypes[0]->Option.map(tokenType => {
+        Highlighting__SemanticToken.range,
+        type_: tokenType,
+        modifiers: Some(tokenModifiers),
       })
-      ->Belt.Array.unzip
+      Some(semanticToken)
+    })
     let semanticTokens = semanticTokens->Array.filterMap(x => x)
-    let decorations = decorations->Array.flat->Highlighting__Decoration.apply(editor)
 
     (decorations, semanticTokens)
   }
@@ -1013,7 +1059,7 @@ module Module: Module = {
     let document = editor->VSCode.TextEditor.document
 
     let (aspects, holePositions) = traverseIntervals(
-      self->toArray,
+      self->toTokenArray,
       self.deltas,
       ((acc, holePositions), token, action) =>
         switch action {
@@ -1042,20 +1088,17 @@ module Module: Module = {
       ([], Map.make()),
     )
 
-    let (decorations, semanticTokens) = convertFromAgdaAspectsAndApplyDecorations(editor, aspects)
+    let (decorations, semanticTokens) = convertFromAgdaAspects(aspects)
 
-    // set the highlighting
+    // provide the highlighting
     self.vscodeTokens->Resource.set(semanticTokens)
+
+    // set the decorations
+    removeDecorations(self, editor)
     self.decorations = decorations
+    applyDecorations(self, editor)
     // set the holes positions
     self.holePositions->Resource.set(holePositions)
-  }
-
-  let redecorate = (self, editor) => {
-    // re-decorate the editor with the new decorations
-    self.decorations->Array.forEach(((decoration, ranges)) => {
-      Editor.Decoration.decorate(editor, decoration, ranges)
-    })
   }
 
   // Update the deltas and generate new tokens
@@ -1067,14 +1110,13 @@ module Module: Module = {
 
     // update the deltas
     self.deltas = Intervals.applyChanges(self.deltas, changes->Array.toReversed)
-
     let _ = generateHighlighting(self, editor)
   }
 
   // Calculate the original offset from the deltas
   let toOriginalOffset = (self, offset) =>
     traverseIntervals(
-      self->toArray,
+      self->toTokenArray,
       self.deltas,
       (acc, token, action) =>
         switch action {

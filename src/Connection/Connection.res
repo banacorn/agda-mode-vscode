@@ -310,51 +310,85 @@ module Module: Module = {
     | Error(_) => ()
     }
 
-    // add `agda` and `als` from the download folder
     // assuming that all `als` and `agda` executables are placed in folders one level below the download folder
-    let downloadPath = VSCode.Uri.fsPath(globalStorageUri)
-    switch await Node__Fs.readdir(downloadPath) {
-    | folders =>
-      let _ =
-        await folders
-        ->Array.map(async folder => {
-          let folderPath = NodeJs.Path.join([downloadPath, folder])
-          switch await Node__Fs.readdir(folderPath) {
-          | files =>
-            let agdaFile = files->Array.find(file => file == "agda" || file == "agda.exe")
-            let alsFile = files->Array.find(file => file == "als" || file == "als.exe")
-
-            switch agdaFile {
-            | Some(fileName) =>
-              let executablePath = NodeJs.Path.join([folderPath, fileName])
-              switch await Target.fromRawPath(executablePath) {
-              | Ok(target) =>
-                let uri = target->Connection__Target.toURI
-                await Config.Connection.addAgdaPath(uri)
-                dict->Dict.set(uri->Target.URI.toString, Ok(target))
-              | Error(_) => ()
-              }
-            | None => ()
-            }
-
-            switch alsFile {
-            | Some(fileName) =>
-              let executablePath = NodeJs.Path.join([folderPath, fileName])
-              switch await Target.fromRawPath(executablePath) {
-              | Ok(target) =>
-                let uri = target->Connection__Target.toURI
-                await Config.Connection.addAgdaPath(uri)
-                dict->Dict.set(uri->Target.URI.toString, Ok(target))
-              | Error(_) => ()
-              }
-            | None => ()
-            }
-          | exception _ => ()
-          }
-        })
-        ->Promise.all
-    | exception _ => ()
+    // add `agda` and `als` from the download folder
+    let addAgdaOrALS = async (folderURI, fileName) => {
+      let executablePath = VSCode.Uri.joinPath(folderURI, [fileName])
+      switch await Target.fromRawPath(VSCode.Uri.fsPath(executablePath)) {
+      | Ok(target) =>
+        let uri = target->Connection__Target.toURI
+        await Config.Connection.addAgdaPath(uri)
+        dict->Dict.set(uri->Target.URI.toString, Ok(target))
+      | Error(_) => ()
+      }
     }
+
+    // handle files in the folders in the global storage
+    let handleFile = folderPath => async ((filename, _fileType)) =>
+      switch filename {
+      | "agda" | "agda.exe" | "als" | "als.exe " => await addAgdaOrALS(folderPath, filename)
+      | _ => ()
+      }
+
+    // handle folders in the global storage
+    let handleFolder = async ((filename, _fileType)) => {
+      let uri = VSCode.Uri.joinPath(globalStorageUri, [filename])
+      switch await FS.readDirectory(uri) {
+      | Ok(files) =>
+        let _ = await files->Array.map(handleFile(uri))->Promise.all
+      | Error(_) => ()
+      }
+    }
+
+    // read the global storage directory and handle each folder
+    switch await FS.readDirectory(globalStorageUri) {
+    | Ok(folders) =>
+      let _ = await folders->Array.map(handleFolder)->Promise.all
+    | Error(_) => ()
+    }
+
+    // switch await Node__Fs.readdir(downloadPath) {
+    // | folders =>
+    //   let _ =
+    //     await folders
+    //     ->Array.map(async folder => {
+    //       let folderPath = NodeJs.Path.join([downloadPath, folder])
+    //       switch await \(folderPath) {
+    //       | files =>
+    //         let agdaFile = files->Array.find(file => file == "agda" || file == "agda.exe")
+    //         let alsFile = files->Array.find(file => file == "als" || file == "als.exe")
+
+    //         switch agdaFile {
+    //         | Some(fileName) =>
+    //           let executablePath = NodeJs.Path.join([folderPath, fileName])
+    //           switch await Target.fromRawPath(executablePath) {
+    //           | Ok(target) =>
+    //             let uri = target->Connection__Target.toURI
+    //             await Config.Connection.addAgdaPath(uri)
+    //             dict->Dict.set(uri->Target.URI.toString, Ok(target))
+    //           | Error(_) => ()
+    //           }
+    //         | None => ()
+    //         }
+
+    //         switch alsFile {
+    //         | Some(fileName) =>
+    //           let executablePath = NodeJs.Path.join([folderPath, fileName])
+    //           switch await Target.fromRawPath(executablePath) {
+    //           | Ok(target) =>
+    //             let uri = target->Connection__Target.toURI
+    //             await Config.Connection.addAgdaPath(uri)
+    //             dict->Dict.set(uri->Target.URI.toString, Ok(target))
+    //           | Error(_) => ()
+    //           }
+    //         | None => ()
+    //         }
+    //       | exception _ => ()
+    //       }
+    //     })
+    //     ->Promise.all
+    // | exception _ => ()
+    // }
 
     dict
   }
@@ -367,7 +401,7 @@ module Module: Module = {
     repository: "agda-language-server",
     userAgent: "agda/agda-mode-vscode",
     memento,
-    globalStoragePath: VSCode.Uri.fsPath(globalStorageUri),
+    globalStorageUri,
     cacheInvalidateExpirationSecs: 86400,
   }
 }
@@ -450,14 +484,14 @@ module LatestALS = {
 
   // check if the latest ALS is already downloaded
   let alreadyDownloaded = globalStorageUri => async () => {
-    let path = NodeJs.Path.join([VSCode.Uri.fsPath(globalStorageUri), "latest-als", "als"])
-    switch await NodeJs.Fs.access(path) {
-    | () =>
-      switch await Target.fromRawPath(path) {
+    let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
+    switch await FS.stat(uri) {
+    | Ok(_) =>
+      switch await Target.fromVSCodeUri(uri) {
       | Ok(target) => Some(target)
       | Error(_) => None
       }
-    | exception _ => None
+    | Error(_) => None
     }
   }
 }

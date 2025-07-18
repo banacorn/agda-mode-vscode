@@ -99,18 +99,6 @@ module Module: {
       tokens
     }
   }
-
-  // let provideSemanticTokens = tokens =>
-  //   switch getEntry(tokens.fileName) {
-  //   | Some(entry) =>
-  //     entry.semanticTokens->Option.forEach(semanticTokens => semanticTokens(tokens))
-  //     entry.state->Option.forEach(state => State.provideSemanticTokens(state, tokens))
-  //   | None =>
-  //     // entry not found, create a new one
-  //     let (entry, _) = Entry.make(Some(tokens.state))
-  //     dict->Dict.set(tokens.fileName, entry)
-  //     entry.semanticTokens->Option.forEach(semanticTokens => semanticTokens(tokens))
-  //   }
 }
 
 include Module

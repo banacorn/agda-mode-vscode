@@ -33,7 +33,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Refresh =>
     State__View.Panel.restore(state)
     Goals.redecorate(state.goals)
-    Tokens.redecorate(state.tokens, state.editor)
+    // re-decorate the editor with the new decorations
+    Tokens.removeDecorations(state.tokens, state.editor)
+    Tokens.applyDecorations(state.tokens, state.editor)
     await State__View.DebugBuffer.restore(state)
   | Compile => await sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => await sendAgdaRequest(ToggleDisplayOfImplicitArguments)
@@ -86,9 +88,10 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Refine =>
     switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
-    | Some(goal) => 
+    | Some(goal) =>
       state.isInRefineOperation = true
       await sendAgdaRequest(Refine(goal))
+      state.isInRefineOperation = false
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
@@ -385,6 +388,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       | SrcLoc(Range(None, _intervals)) => ()
       | SrcLoc(Range(Some(fileName), intervals)) =>
         let fileName = Parser.filepath(fileName)
+
         // only select the ranges when it's on the same file
         if Parser.filepath(path) == Parser.filepath(fileName) {
           let ranges = intervals->Array.map(Common.AgdaInterval.toVSCodeRange)

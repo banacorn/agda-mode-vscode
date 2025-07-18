@@ -65,10 +65,10 @@ let initialize = (
   // Set panel's font size by configuration
   state->State__View.Panel.setFontSize(Config.Buffer.getFontSize())->ignore
   // remove it from the Registry on request
-  state.onRemoveFromRegistry
-  ->Chan.once
-  ->Promise.finally(() => Registry.remove(fileName))
-  ->Promise.done
+  // state.onRemoveFromRegistry
+  // ->Chan.once
+  // ->Promise.finally(() => Registry.remove(fileName))
+  // ->Promise.done
 
   ////////////////////////////////////////////////////////////////
   // input events
@@ -335,6 +335,7 @@ let activate = context => {
     ->VSCode.Uri.with_({
       scheme: "file",
     })
+
   activateWithoutContext(
     subscriptions,
     extensionPath,

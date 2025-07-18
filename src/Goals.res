@@ -14,7 +14,6 @@ The core algorithm processes document changes atomically - it takes all the chan
 that happened since the last scan and processes them together. This prevents race
 conditions and keeps goals consistent.
 */
-
 module type Module = {
   type t
   type index = int
@@ -23,8 +22,8 @@ module type Module = {
   let redecorate: t => unit
   let destroy: t => unit
   let size: t => int
-  let resetGoalIndices: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
-  let resetGoalIndicesNew: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndicesOnLoad: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndicesOnRefine: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
   let parseGoalPositionsFromRefine: string => array<(int, int)>
@@ -76,16 +75,16 @@ module Module: Module = {
   Some functions check inclusive bounds (containsCursor) while others use exclusive 
   bounds (containsCursorExclusive). The difference matters for user interaction - 
   clicking exactly at a boundary might count as "inside" for some purposes but not others.
-  */
+ */
   module Boundary = {
     // Tests if point range is fully contained within container range
     let _contains = (containerStart: int, containerEnd: int, pointStart: int, pointEnd: int) =>
       containerStart <= pointStart && pointEnd <= containerEnd
-      
+
     // Two ranges overlap if neither is completely before the other
     let overlaps = (start1: int, end1: int, start2: int, end2: int) =>
       !(end1 <= start2 || end2 <= start1)
-      
+
     // Calculates the actual overlap range between two ranges, if any
     let _getOverlapRange = (start1: int, end1: int, start2: int, end2: int) => {
       if overlaps(start1, end1, start2, end2) {
@@ -96,18 +95,22 @@ module Module: Module = {
         None
       }
     }
-    
+
     // Cursor position checking with inclusive end bound - cursor AT boundary counts as inside
     let containsCursor = (start: int, end: int, cursorOffset: int) =>
       start <= cursorOffset && cursorOffset <= end
-      
+
     // Cursor position checking with exclusive end bound - cursor AT end boundary is outside
     let containsCursorExclusive = (start: int, end: int, cursorOffset: int) =>
       start <= cursorOffset && cursorOffset < end
-      
+
     // For Case4 logic: checks if removal operation affects the goal's end
-    let isContainedOrOverlapsEnd = (_partStart: int, partEnd: int, removalStart: int, removalEnd: int) =>
-      removalEnd <= partEnd && removalStart < partEnd
+    let isContainedOrOverlapsEnd = (
+      _partStart: int,
+      partEnd: int,
+      removalStart: int,
+      removalEnd: int,
+    ) => removalEnd <= partEnd && removalStart < partEnd
   }
 
   // Internal representation of a goal in the editor
@@ -135,30 +138,25 @@ module Module: Module = {
       (backgroundRange, indexRange)
     }
 
-    let createDecorations = (editor, start: int, end: int, index: int) => {
+    let createAndApplyDecoration = (editor, start: int, end: int, index: int) => {
       let document = VSCode.TextEditor.document(editor)
       let (backgroundRange, indexRange) = makeDecorationRanges(document, start, end)
 
-      let background = Editor.Decoration.highlightBackground(
-        editor,
-        "editor.selectionHighlightBackground",
-        [backgroundRange],
-      )
+      let background = Editor.Decoration.createBackground("editor.selectionHighlightBackground")
+      Editor.Decoration.apply(editor, background, [backgroundRange])
 
       let indexText = string_of_int(index)
-      let index = Editor.Decoration.overlayText(
-        editor,
-        "editorLightBulb.foreground",
-        indexText,
-        indexRange,
-      )
+      let index = Editor.Decoration.createTextOverlay("editorLightBulb.foreground", indexText)
+      Editor.Decoration.apply(editor, index, [indexRange])
 
       (background, index)
     }
 
     let decorate = (start: int, end: int, index: int) =>
       VSCode.Window.activeTextEditor->Option.map(editor => {
-        createDecorations(editor, start, end, index)
+        let (background, index) = createAndApplyDecoration(editor, start, end, index)
+
+        (background, index)
       })
 
     let undecorate = (goal: t) => {
@@ -269,8 +267,8 @@ module Module: Module = {
               goal.start,
               goal.end,
             )
-            Editor.Decoration.decorate(editor, background, [backgroundRange])
-            Editor.Decoration.decorate(editor, index, [indexRange])
+            Editor.Decoration.apply(editor, background, [backgroundRange])
+            Editor.Decoration.apply(editor, index, [indexRange])
           },
         )
       })
@@ -392,16 +390,29 @@ module Module: Module = {
     })
   }
 
+  let setCursor = (editor, goal: InternalGoal.t) => {
+    let document = VSCode.TextEditor.document(editor)
+    // determine where to set the cursor
+    let spaceInsideBoundaries = goal.end - goal.start - 4
+    let offset = if spaceInsideBoundaries == 0 {
+      // {!!}
+      goal.start + 2
+    } else {
+      // {! !}
+      goal.start + 3
+    }
+    let position = VSCode.TextDocument.positionAt(document, offset)
+    // set the cursor to the start of the goal
+    Editor.Cursor.set(editor, position)
+    // scroll to that part of the document
+    let range = InternalGoal.makeOuterRange(goal, document)
+    editor->VSCode.TextEditor.revealRange(range, None)
+  }
+
   let setCursorByIndex = (self, editor, index) =>
     switch getInternalGoalByIndex(self, index) {
     | None => () // goal not found, do nothing
-    | Some(goal) =>
-      let document = VSCode.TextEditor.document(editor)
-      let position = VSCode.TextDocument.positionAt(document, goal.start + 3)
-      Editor.Cursor.set(editor, position)
-      // scroll to that part of the document
-      let range = InternalGoal.makeOuterRange(goal, document)
-      editor->VSCode.TextEditor.revealRange(range, None)
+    | Some(goal) => setCursor(editor, goal)
     }
 
   // Destory and clear all goals
@@ -579,7 +590,7 @@ module Module: Module = {
 
   Case4 is special - it's where question marks can expand into holes. This happens 
   when the user types inside a ? goal, turning it into {!   !}.
-  */
+ */
   type case =
     // Change is completely before the part - accumulate position delta and continue
     //      removal  ┣━━━━━┫
@@ -641,7 +652,7 @@ module Module: Module = {
   cumulative offset for parts we haven't processed yet, while accDeltaAfterPart 
   includes the current change. This ensures correct position calculations as 
   the algorithm moves left to right through the document.
-  */
+ */
   let scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
 
@@ -814,9 +825,9 @@ module Module: Module = {
     }
   }
 
-  // Set indices of goals from `Responses.InteractionPoints` from commands like Load or Refine
+  // Set indices of goals from `Responses.InteractionPoints` on Load
   // The indices are ordered by the start position of the goals.
-  let resetGoalIndices = async (self, editor, indices) => {
+  let resetGoalIndicesOnLoad = async (self, editor, indices) => {
     clear(self)
 
     let positionsArray =
@@ -835,40 +846,56 @@ module Module: Module = {
     await scanAllGoals(self, editor, [])
   }
 
-  // New version that properly handles both existing goals and new positions from refine operations
-  let resetGoalIndicesNew = async (self, editor, indices: array<int>) => {
-    // Collect existing goals indexed by positions
-    let existingPositions =
+  // Set indices of goals from `Responses.InteractionPoints` on Refine
+  let resetGoalIndicesOnRefine = async (self, editor, indices: array<int>) => {
+    // Helper function to collect goal positions from existing goals
+    let collectExistingGoalPositions = () =>
       self.goals
       ->Map.values
       ->Iterator.toArray
       ->Array.map(goal => (goal.start, (goal.end, Some(goal))))
       ->Map.fromArray
 
-    // Add new goal positions from refine operations to the map of existing goals indexed by positions
-    self.goalsWithoutIndices->Map.forEachWithKey((end, start) => {
-      existingPositions->Map.set(start, (end, None)) // None indicates no goal index yet
-    })
-
-    // Combine all positions and sort by start offset
-    let allPositions =
+    // Helper function to merge new goal positions with existing ones
+    let mergeGoalPositions = existingPositions => {
+      self.goalsWithoutIndices->Map.forEachWithKey((end, start) => {
+        existingPositions->Map.set(start, (end, None)) // None indicates no goal index yet
+      })
       existingPositions
+    }
+
+    // Helper function to sort positions by start offset
+    let sortPositionsByOffset = positions =>
+      positions
       ->Map.entries
       ->Iterator.toArray
       ->Array.toSorted(((start1, _), (start2, _)) => Int.compare(start1, start2))
 
-    // Clear existing goals
+    // Helper function to assign indices to sorted positions
+    let assignIndices = sortedPositions => {
+      sortedPositions->Array.forEachWithIndex(((start, (end, _)), i) => {
+        switch indices[i] {
+        | None => () // should not happen
+        | Some(index) => insertGoal(self, start, end, index)
+        }
+      })
+    }
+
+    // Main refactoring logic
+    let existingPositions = collectExistingGoalPositions()
+    let mergedPositions = mergeGoalPositions(existingPositions)
+    let sortedPositions = sortPositionsByOffset(mergedPositions)
+
+    // Clear existing goals before reassigning
     clear(self)
 
-    // Assign indices to all positions in order
-    allPositions->Array.forEachWithIndex(((start, (end, _)), i) => {
-      switch indices[i] {
-      | None => () // should not happen
-      | Some(index) => insertGoal(self, start, end, index)
-      }
-    })
+    // Assign new indices to all positions
+    assignIndices(sortedPositions)
 
-    self.goalsWithoutIndices = Map.make() // clear the goals without indices
+    // Clear processed goals without indices
+    self.goalsWithoutIndices = Map.make()
+
+    // Update goal positions after document changes
     await scanAllGoals(self, editor, [])
   }
 
@@ -941,21 +968,6 @@ module Module: Module = {
     findQuestionMarks(raw, 0)
   }
 
-  let jumpToGoal = (editor, goal: InternalGoal.t) => {
-    let document = VSCode.TextEditor.document(editor)
-    let spaceInsideBoundaries = goal.end - goal.start - 4
-    let offset = if spaceInsideBoundaries == 0 {
-      // {!!}
-      goal.start + 2
-    } else {
-      // {! !}
-      goal.start + 3
-    }
-
-    let position = VSCode.TextDocument.positionAt(document, offset)
-    Editor.Cursor.set(editor, position)
-  }
-
   let jumpToTheNextGoal = (self, editor) => {
     let document = VSCode.TextEditor.document(editor)
     let cursorOffset = VSCode.TextDocument.offsetAt(document, Editor.Cursor.get(editor))
@@ -968,7 +980,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jumpToGoal(editor, goal)
+    | Some(goal) => setCursor(editor, goal)
     }
   }
 
@@ -999,7 +1011,7 @@ module Module: Module = {
 
     switch goal {
     | None => () // no goal found, do nothing
-    | Some(goal) => jumpToGoal(editor, goal)
+    | Some(goal) => setCursor(editor, goal)
     }
   }
 

@@ -2,17 +2,18 @@ open Mocha
 open Test__Util
 
 describe("Goals", () => {
+  let filename = "Goals.agda"
   let fileContent = ref("")
 
-  Async.before(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
-  Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
-  Async.after(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
+  Async.before(async () => fileContent := (await File.read(Path.asset(filename))))
+  Async.afterEach(async () => await File.write(Path.asset(filename), fileContent.contents))
+  Async.after(async () => await File.write(Path.asset(filename), fileContent.contents))
 
   describe("Handle `onDidChangeTextDocument`", () => {
     Async.it(
       "should instantiate all 5 goals with question marks expanded to holes",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
 
         // check the positions of the goals
         Assert.deepStrictEqual(
@@ -22,7 +23,7 @@ describe("Goals", () => {
 
         // compare file content before and after
         await ctx->AgdaMode.quit
-        let actual = await File.read(Path.asset("Goals.agda"))
+        let actual = await File.read(Path.asset(filename))
         let expected = await File.read(Path.asset("Goals.agda.out"))
         Assert.deepStrictEqual(actual, expected)
       },
@@ -31,7 +32,7 @@ describe("Goals", () => {
     Async.it(
       "should translate goals on an insertion immediately before a goal",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 18), " ")
         // check the positions of the goals
         Assert.deepStrictEqual(
@@ -46,7 +47,7 @@ describe("Goals", () => {
     Async.it(
       "should translate goals on an insertion immediately after a goal",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 25), " ")
         // check the positions of the goals
         Assert.deepStrictEqual(
@@ -61,7 +62,7 @@ describe("Goals", () => {
     Async.it(
       "should destroy a goal after it has been completely deleted",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let _ = await Editor.Text.delete(
           ctx.state.document,
           VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
@@ -78,7 +79,7 @@ describe("Goals", () => {
     Async.it(
       "should destroy a goal after it has been completely replaced 1",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let _ = await Editor.Text.replace(
           ctx.state.document,
           VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 26)),
@@ -96,7 +97,7 @@ describe("Goals", () => {
     Async.it(
       "should destroy a goal after it has been completely replaced 2",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let _ = await Editor.Text.replace(
           ctx.state.document,
           VSCode.Range.make(VSCode.Position.make(10, 17), VSCode.Position.make(10, 26)),
@@ -114,7 +115,7 @@ describe("Goals", () => {
     Async.it(
       "should only resize a goal after its content has been edited",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let _ = await Editor.Text.replace(
           ctx.state.document,
           VSCode.Range.make(VSCode.Position.make(9, 22), VSCode.Position.make(9, 23)),
@@ -136,7 +137,7 @@ describe("Goals", () => {
         Async.it(
           "should protect against a backspace on the right boundary",
           async () => {
-            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let ctx = await AgdaMode.makeAndLoad(filename)
             let _ = await Editor.Text.delete(
               ctx.state.document,
               VSCode.Range.make(VSCode.Position.make(9, 25), VSCode.Position.make(9, 26)),
@@ -158,7 +159,7 @@ describe("Goals", () => {
         Async.it(
           "should protect against a deletion on the right boundary",
           async () => {
-            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let ctx = await AgdaMode.makeAndLoad(filename)
             let _ = await Editor.Text.delete(
               ctx.state.document,
               VSCode.Range.make(VSCode.Position.make(9, 24), VSCode.Position.make(9, 25)),
@@ -180,7 +181,7 @@ describe("Goals", () => {
         Async.it(
           "should protect against a backspace on the left boundary",
           async () => {
-            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let ctx = await AgdaMode.makeAndLoad(filename)
             let _ = await Editor.Text.delete(
               ctx.state.document,
               VSCode.Range.make(VSCode.Position.make(9, 20), VSCode.Position.make(9, 21)),
@@ -202,7 +203,7 @@ describe("Goals", () => {
         Async.it(
           "should protect against a deletion on the left boundary",
           async () => {
-            let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+            let ctx = await AgdaMode.makeAndLoad(filename)
             let _ = await Editor.Text.delete(
               ctx.state.document,
               VSCode.Range.make(VSCode.Position.make(9, 19), VSCode.Position.make(9, 20)),
@@ -368,7 +369,7 @@ describe("Goals", () => {
     Async.it(
       "should return `None` when the cursor is not in a hole",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(0, 0))
 
         let actual = ctx.state.goals->Goals.getGoalAtCursor(ctx.state.editor)
@@ -380,7 +381,7 @@ describe("Goals", () => {
     Async.it(
       "should return the goal when the cursor is inside a hole",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 14))
 
         let actual =
@@ -393,7 +394,7 @@ describe("Goals", () => {
     Async.it(
       "should return the goal when the cursor is immediately before a hole",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 11))
 
         let actual =
@@ -406,7 +407,7 @@ describe("Goals", () => {
     Async.it(
       "should return the goal when the cursor is immediately after a hole",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(7, 18))
 
         let actual =
@@ -421,7 +422,7 @@ describe("Goals", () => {
     Async.it(
       "should jump to the next goal",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
 
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(0, 0))
 
@@ -456,7 +457,7 @@ describe("Goals", () => {
     Async.it(
       "should jump to the previous goal",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+        let ctx = await AgdaMode.makeAndLoad(filename)
         ctx.state.editor->Editor.Cursor.set(VSCode.Position.make(0, 0))
 
         // should land on the last goal
@@ -489,7 +490,7 @@ describe("Goals", () => {
   })
 
   describe("Cursor placement", () => {
-    let filename = "Goals.agda"
+    let filename = filename
     Async.it(
       "should place the cursor inside a nearby hole after expanding it",
       async () => {
@@ -571,6 +572,35 @@ describe("Goals", () => {
           Goals.serialize(ctx.state.goals),
           ["#1 [19:9-16)", "#2 [13:13-20)", "#3 [13:21-28)"],
         )
+        await ctx->AgdaMode.quit
+      },
+    )
+  })
+
+  describe("Issue #239", () => {
+    Async.it(
+      "should commented out holes should be ignored",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad(filename)
+
+        // check the goal positions and make sure they are correct
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals),
+          ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
+        )
+
+        // comment out Line 8 which contains the first goal
+        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(7, 0), "-- ")
+
+        // reload
+        await AgdaMode.execute(ctx, Load)
+
+        // check the goal positions again
+        Assert.deepStrictEqual(
+          Goals.serialize(ctx.state.goals),
+          ["#0 [9:19-26)", "#1 [10:20-27)", "#2 [11:19-26)", "#3 [11:27-31)"],
+        )
+
         await ctx->AgdaMode.quit
       },
     )

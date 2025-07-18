@@ -201,7 +201,7 @@ module Module: Module = {
     let modifiers = switch token.modifiers {
     | None => ""
     | Some([]) => ""
-    | Some(xs) => " " ++ xs->Array.map(TokenModifier.toString)->Util.Pretty.array
+    | Some(xs) => " " ++ xs->Util.Pretty.array(TokenModifier.toString)
     }
     "(" ++ SingleLineRange.toString(token.range) ++ ") " ++ tokenType ++ modifiers
   }

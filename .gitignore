@@ -9,6 +9,7 @@ test/globalStoragePath
 # Editor
 # NOTE: Exceptions like launch.json should be placed ahead
 .vscode-test
+.vscode-test-web
 
 # OCaml
 .DS_Store

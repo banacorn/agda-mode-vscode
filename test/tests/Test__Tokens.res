@@ -12,7 +12,7 @@ describe("Tokens", () => {
         let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
         let tokens =
           ctx.state.tokens
-          ->toArray
+          ->toTokenArray
           ->Array.map(
             token => {
               let range = VSCode.Range.make(
@@ -32,7 +32,7 @@ describe("Tokens", () => {
         let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
         let tokens =
           ctx.state.tokens
-          ->toArray
+          ->toTokenArray
           ->Array.map(
             token => {
               let range = VSCode.Range.make(

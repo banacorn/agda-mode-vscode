@@ -172,17 +172,16 @@ let toString = x =>
     ((displayed ? "displayed, " : "not displayed, ") ++
     ("module " ++ (checked ? "type checked" : "not type checked")))
   | JumpToError(filepath, n) => "JumpToError " ++ (filepath ++ (" " ++ string_of_int(n)))
-  | InteractionPoints(points) =>
-    "InteractionPoints " ++ points->Array.map(string_of_int)->Util.Pretty.array
+  | InteractionPoints(points) => "InteractionPoints " ++ points->Util.Pretty.array(string_of_int)
   | GiveAction(index, GiveParen) => "GiveAction " ++ (string_of_int(index) ++ " Paren")
   | GiveAction(index, GiveNoParen) => "GiveAction " ++ (string_of_int(index) ++ " NoParen")
   | GiveAction(index, GiveString(string)) =>
     "GiveAction " ++ (string_of_int(index) ++ (" String " ++ string))
-  | MakeCase(Function, payload) => "MakeCase Function " ++ Util.Pretty.array(payload)
-  | MakeCase(ExtendedLambda, payload) => "MakeCase ExtendedLambda " ++ Util.Pretty.array(payload)
+  | MakeCase(Function, payload) => "MakeCase Function " ++ payload->Util.Pretty.array(x => x)
+  | MakeCase(ExtendedLambda, payload) =>
+    "MakeCase ExtendedLambda " ++ payload->Util.Pretty.array(x => x)
   | SolveAll(solutions) =>
-    "SolveAll " ++
-    solutions->Array.map(((i, s)) => string_of_int(i) ++ (" " ++ s))->Util.Pretty.array
+    "SolveAll " ++ solutions->Util.Pretty.array(((i, s)) => string_of_int(i) ++ (" " ++ s))
   | DisplayInfo(info) => "DisplayInfo " ++ DisplayInfo.toString(info)
   | ClearRunningInfo => "ClearRunningInfo"
   | RunningInfo(int, string) => "RunningInfo " ++ (string_of_int(int) ++ (" " ++ string))

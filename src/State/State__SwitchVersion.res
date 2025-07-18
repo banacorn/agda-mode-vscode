@@ -51,7 +51,6 @@ module DownloadWorkflow = {
       }
     }
   }
-  
   // Show appropriate message based on download result
   let handleDownloadResult = async (result: downloadResult, rerender: unit => promise<unit>) => {
     switch result {

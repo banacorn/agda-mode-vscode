@@ -114,10 +114,11 @@ module Module: Module = {
       | Some(editor) =>
         let document = VSCode.TextEditor.document(editor)
         let range = Interval.toVSCodeRange(document, interval)
+        let textUnderlineDecoration = Editor.Decoration.createTextUnderline()
+        Editor.Decoration.apply(editor, textUnderlineDecoration, [range])
         {
           interval,
-          // range,
-          decoration: Some(Editor.Decoration.underlineText(editor, range)),
+          decoration: Some(textUnderlineDecoration),
           buffer: Buffer.make(),
         }
       }
@@ -130,7 +131,10 @@ module Module: Module = {
       let document = VSCode.TextEditor.document(editor)
       let range = Interval.toVSCodeRange(document, instance.interval)
 
-      instance.decoration = Some(Editor.Decoration.underlineText(editor, range))
+      let textUnderlineDecoration = Editor.Decoration.createTextUnderline()
+      Editor.Decoration.apply(editor, textUnderlineDecoration, [range])
+
+      instance.decoration = Some(textUnderlineDecoration)
     }
 
     let destroy = instance => instance.decoration->Option.forEach(Editor.Decoration.destroy)
