@@ -62,16 +62,20 @@ module Module: {
   // Adds an instantiated State to the Registry
   let add = (fileName, state: State.t) => {
     Js.Console.log("Registry.add: Adding entry for " ++ fileName)
+    
     switch getEntry(fileName) {
     | None =>
       // entry not found, create a new one
       Js.Console.log("Registry.add: Creating new entry for " ++ fileName)
-      dict->Dict.set(fileName, Entry.make(Some(state)))
+      let entry = Entry.make(Some(state))
+      dict->Dict.set(fileName, entry)
     | Some(entry) =>
       Js.Console.log("Registry.add: Updating existing entry for " ++ fileName)
       switch entry.state {
       | Some(state) => entry.state = Some(state) // update the state
-      | None => dict->Dict.set(fileName, Entry.make(Some(state)))
+      | None => 
+        let newEntry = Entry.make(Some(state))
+        dict->Dict.set(fileName, newEntry)
       }
     }
   }

@@ -385,8 +385,8 @@ module AgdaMode = {
   }
 
   let makeAndLoad = async filepath => {
-    let filepath = Path.asset(filepath)
-    Js.Console.log("AgdaMode.makeAndLoad: Using filepath " ++ filepath)
+    let rawFilepath = NodeJs.Path.join([Path.extensionPath, "test/tests/assets", filepath])
+    Js.Console.log("AgdaMode.makeAndLoad: Using raw filepath " ++ rawFilepath)
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     // make sure that "agda" exists in PATH
@@ -414,11 +414,18 @@ module AgdaMode = {
     }
 
     let channels = activateExtension()
-    let state = await load(channels, filepath)
+    let state = await load(channels, rawFilepath)
 
-    Js.Console.log("AgdaMode.makeAndLoad: Created context with filepath " ++ filepath)
+    Js.Console.log("AgdaMode.makeAndLoad: Created context with filepath " ++ rawFilepath)
+    
+    // On Windows, ensure the registry entry uses the same path format as the context
+    // The state may have been stored with a normalized path, so we need to update it
+    if !OS.onUnix {
+      Registry.add(rawFilepath, state)
+    }
+    
     {
-      filepath,
+      filepath: rawFilepath,
       channels,
       state,
     }
