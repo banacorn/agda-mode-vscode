@@ -306,18 +306,15 @@ module Filepath: {
 // 3. Replace Windows' backslash with slash
 // 4. Convert small case Windows roots from Agda like "c://" to "C://" (Issue #44)
 let filepath = s => {
-  Js.Console.log("Parser.filepath: Input " ++ s)
   // remove the Windows Bidi control character
   let removedBidi = if String.charCodeAt(s, 0) === 8234.0 {
     String.sliceToEnd(~start=1, s)
   } else {
     s
   }
-  Js.Console.log("Parser.filepath: After removing Bidi " ++ removedBidi)
 
   // normalize the path with Node.Path.normalize
   let normalized = NodeJs.Path.normalize(removedBidi)
-  Js.Console.log("Parser.filepath: After normalize " ++ normalized)
 
   // convert small case Windows roots to upper case
   let makeRootsUpperCaseOnWindows = path => {
@@ -331,16 +328,13 @@ let filepath = s => {
 
   let upperCased = if !OS.onUnix {
     let result = makeRootsUpperCaseOnWindows(normalized)
-    Js.Console.log("Parser.filepath: After uppercasing (Windows) " ++ result)
     result
   } else {
-    Js.Console.log("Parser.filepath: No uppercasing (Unix) " ++ normalized)
     normalized
   }
 
   // replace Windows' stupid backslash with slash
   let replaced = upperCased->String.replaceRegExp(%re("/\\/g"), "/")
-  Js.Console.log("Parser.filepath: Final result " ++ replaced)
 
   replaced
 }
