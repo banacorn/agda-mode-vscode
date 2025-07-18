@@ -665,6 +665,9 @@ module type Module = {
 
   let make: option<Resource.t<array<Highlighting__SemanticToken.t>>> => t
 
+  let toTokenArray: t => array<Token.t<vscodeOffset>>
+  let toDecorationArray: t => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
+
   // Receive tokens from Agda
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
@@ -672,9 +675,8 @@ module type Module = {
   let insertWithVSCodeOffsets: (t, Token.t<vscodeOffset>) => unit
   let insertTokens: (t, VSCode.TextEditor.t, array<Token.t<agdaOffset>>) => unit
 
+  // Remove everything
   let reset: t => unit
-
-  let toArray: t => array<Token.t<vscodeOffset>>
 
   // definition provider for go-to-definition
   let goToDefinition: (
@@ -847,10 +849,6 @@ module Module: Module = {
     }
   }
 
-  // let insertHole = (self, start, end) => {
-
-  // }
-
   // insert a bunch of Tokens
   // merge Aspects with the existing Token that occupies the same Range
   let insertTokens = (self, editor, tokens: array<Token.t<agdaOffset>>) => {
@@ -906,7 +904,8 @@ module Module: Module = {
     }
   }
 
-  let toArray = self => self.agdaTokens->AVLTree.toArray
+  let toTokenArray = self => self.agdaTokens->AVLTree.toArray
+  let toDecorationArray = self => self.decorations
 
   // for goto definition
   let lookupSrcLoc = (self, document, offset): option<
@@ -1025,12 +1024,20 @@ module Module: Module = {
     traverse(init, 0, deltas, 0)
   }
 
+  // re-decorate the editor with the new decorations
+  let redecorate = (self, editor) => {
+    Js.log("REDECORATE!")
+    // re-decorate the editor with the new decorations
+    self.decorations->Array.forEach(((decoration, ranges)) => {
+      Editor.Decoration.decorate(editor, decoration, ranges)
+    })
+  }
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting = (self, editor) => {
     let document = editor->VSCode.TextEditor.document
 
     let (aspects, holePositions) = traverseIntervals(
-      self->toArray,
+      self->toTokenArray,
       self.deltas,
       ((acc, holePositions), token, action) =>
         switch action {
@@ -1066,13 +1073,8 @@ module Module: Module = {
     self.decorations = decorations
     // set the holes positions
     self.holePositions->Resource.set(holePositions)
-  }
-
-  let redecorate = (self, editor) => {
     // re-decorate the editor with the new decorations
-    self.decorations->Array.forEach(((decoration, ranges)) => {
-      Editor.Decoration.decorate(editor, decoration, ranges)
-    })
+    redecorate(self, editor)
   }
 
   // Update the deltas and generate new tokens
@@ -1090,7 +1092,7 @@ module Module: Module = {
   // Calculate the original offset from the deltas
   let toOriginalOffset = (self, offset) =>
     traverseIntervals(
-      self->toArray,
+      self->toTokenArray,
       self.deltas,
       (acc, token, action) =>
         switch action {

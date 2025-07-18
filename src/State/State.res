@@ -132,8 +132,8 @@ let destroy = async (state, alsoRemoveFromRegistry) => {
   state.onRemoveFromRegistry->Chan.destroy
   state.goals->Goals.destroy
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
+  state.tokens->Tokens.reset
   await state.connection->Connection.destroy
-  // TODO: delete files in `.indirectHighlightingFileNames`
 }
 
 // control the scope of command key-binding

@@ -65,10 +65,10 @@ let initialize = (
   // Set panel's font size by configuration
   state->State__View.Panel.setFontSize(Config.Buffer.getFontSize())->ignore
   // remove it from the Registry on request
-  state.onRemoveFromRegistry
-  ->Chan.once
-  ->Promise.finally(() => Registry.remove(fileName))
-  ->Promise.done
+  // state.onRemoveFromRegistry
+  // ->Chan.once
+  // ->Promise.finally(() => Registry.remove(fileName))
+  // ->Promise.done
 
   ////////////////////////////////////////////////////////////////
   // input events
@@ -335,17 +335,6 @@ let activate = context => {
     ->VSCode.Uri.with_({
       scheme: "file",
     })
-
-  // Simple platform detection - check if we're in Node.js or browser
-  let isWeb = try {
-    let _ = %external(process)
-    false // If process exists, we're in Node.js (desktop)
-  } catch {
-  | _ => true // If process doesn't exist, we're in browser (web)
-  }
-  let env = isWeb ? "web" : "desktop"
-  
-  Js.Console.log(`agda-mode: ${env} environment, isWeb(): ${isWeb ? "true" : "false"}`)
 
   activateWithoutContext(
     subscriptions,
