@@ -138,30 +138,25 @@ module Module: Module = {
       (backgroundRange, indexRange)
     }
 
-    let createDecorations = (editor, start: int, end: int, index: int) => {
+    let createAndApplyDecoration = (editor, start: int, end: int, index: int) => {
       let document = VSCode.TextEditor.document(editor)
       let (backgroundRange, indexRange) = makeDecorationRanges(document, start, end)
 
-      let background = Editor.Decoration.highlightBackground(
-        editor,
-        "editor.selectionHighlightBackground",
-        [backgroundRange],
-      )
+      let background = Editor.Decoration.createBackground("editor.selectionHighlightBackground")
+      Editor.Decoration.apply(editor, background, [backgroundRange])
 
       let indexText = string_of_int(index)
-      let index = Editor.Decoration.overlayText(
-        editor,
-        "editorLightBulb.foreground",
-        indexText,
-        indexRange,
-      )
+      let index = Editor.Decoration.createTextOverlay("editorLightBulb.foreground", indexText)
+      Editor.Decoration.apply(editor, index, [indexRange])
 
       (background, index)
     }
 
     let decorate = (start: int, end: int, index: int) =>
       VSCode.Window.activeTextEditor->Option.map(editor => {
-        createDecorations(editor, start, end, index)
+        let (background, index) = createAndApplyDecoration(editor, start, end, index)
+
+        (background, index)
       })
 
     let undecorate = (goal: t) => {
@@ -272,8 +267,8 @@ module Module: Module = {
               goal.start,
               goal.end,
             )
-            Editor.Decoration.decorate(editor, background, [backgroundRange])
-            Editor.Decoration.decorate(editor, index, [indexRange])
+            Editor.Decoration.apply(editor, background, [backgroundRange])
+            Editor.Decoration.apply(editor, index, [indexRange])
           },
         )
       })

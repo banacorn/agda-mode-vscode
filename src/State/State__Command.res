@@ -34,7 +34,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     State__View.Panel.restore(state)
     Goals.redecorate(state.goals)
     // re-decorate the editor with the new decorations
-    Tokens.redecorate(state.tokens, state.editor)
+    Tokens.removeDecorations(state.tokens, state.editor)
+    Tokens.applyDecorations(state.tokens, state.editor)
     await State__View.DebugBuffer.restore(state)
   | Compile => await sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => await sendAgdaRequest(ToggleDisplayOfImplicitArguments)

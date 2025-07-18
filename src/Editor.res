@@ -30,80 +30,49 @@ module Decoration = {
   type foregroundStyle = string
   type color = string
 
-  let decorate = (editor: TextEditor.t, decoration: t, ranges: array<VSRange.t>) =>
+  // to remove the decoration, apply it with an empty array of ranges
+  let apply = (editor: TextEditor.t, decoration: t, ranges: array<VSRange.t>) =>
     editor->TextEditor.setDecorations(decoration, ranges)
 
-  let highlightBackgroundPrim = (
-    editor: TextEditor.t,
-    backgroundColor: VSCode.StringOr.t<ThemeColor.t>,
-    ranges: array<VSRange.t>,
-  ) => {
+  let createBackgroundPrim = (backgroundColor: VSCode.StringOr.t<ThemeColor.t>) => {
     let rangeBehavior = DecorationRangeBehavior.ClosedClosed
     let options = DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ())
-    let decoration = Window.createTextEditorDecorationType(options)
-    editor->decorate(decoration, ranges)
-    decoration
+    Window.createTextEditorDecorationType(options)
   }
-  let highlightBackground = (
-    editor: TextEditor.t,
-    style: backgroundStyle,
-    ranges: array<VSRange.t>,
-  ) => highlightBackgroundPrim(editor, VSCode.StringOr.make(Others(ThemeColor.make(style))), ranges)
 
-  let highlightBackgroundWithColor = (
-    editor: TextEditor.t,
-    color: color,
-    ranges: array<VSRange.t>,
-  ) => highlightBackgroundPrim(editor, VSCode.StringOr.make(String(color)), ranges)
+  let createBackground = (style: backgroundStyle) =>
+    createBackgroundPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))))
 
-  let decorateTextPrim = (
-    editor: TextEditor.t,
-    color: VSCode.StringOr.t<ThemeColor.t>,
-    ranges: array<VSRange.t>,
-  ) => {
+  let createBackgroundWithColor = (color: color) =>
+    createBackgroundPrim(VSCode.StringOr.make(String(color)))
+
+  let createTextPrim = (color: VSCode.StringOr.t<ThemeColor.t>) => {
     let rangeBehavior = DecorationRangeBehavior.ClosedClosed
     let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ())
-    let decoration = Window.createTextEditorDecorationType(options)
-    editor->decorate(decoration, ranges)
-    decoration
+    Window.createTextEditorDecorationType(options)
   }
-  let decorateText = (editor: TextEditor.t, style: backgroundStyle, ranges: array<VSRange.t>) =>
-    decorateTextPrim(editor, VSCode.StringOr.make(Others(ThemeColor.make(style))), ranges)
+  let createText = (style: backgroundStyle) =>
+    createTextPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))))
 
-  let decorateTextWithColor = (editor: TextEditor.t, color: color, ranges: array<VSRange.t>) =>
-    decorateTextPrim(editor, VSCode.StringOr.make(String(color)), ranges)
+  let createTextWithColor = (color: color) => createTextPrim(VSCode.StringOr.make(String(color)))
 
-  let overlayTextPrim = (
-    editor: TextEditor.t,
-    color: VSCode.StringOr.t<ThemeColor.t>,
-    text: string,
-    range: VSRange.t,
-  ) => {
+  let createTextOverlayPrim = (color: VSCode.StringOr.t<ThemeColor.t>, text: string) => {
     let after = ThemableDecorationAttachmentRenderOptions.t(~contentText=text, ~color, ())
-
     let options = DecorationRenderOptions.t(~after, ())
-    let decoration = Window.createTextEditorDecorationType(options)
-    editor->decorate(decoration, [range])
-    decoration
+    Window.createTextEditorDecorationType(options)
   }
 
-  let overlayText = (
-    editor: TextEditor.t,
-    style: foregroundStyle,
-    text: string,
-    range: VSRange.t,
-  ) => overlayTextPrim(editor, VSCode.StringOr.make(Others(ThemeColor.make(style))), text, range)
+  let createTextOverlay = (style: foregroundStyle, text: string) =>
+    createTextOverlayPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))), text)
 
-  let overlayTextWithColor = (editor: TextEditor.t, color: color, text: string, range: VSRange.t) =>
-    overlayTextPrim(editor, VSCode.StringOr.make(String(color)), text, range)
+  let createTextOverlayWithColor = (color: color, text: string) =>
+    createTextOverlayPrim(VSCode.StringOr.make(String(color)), text)
 
-  let underlineText = (editor: TextEditor.t, range: VSRange.t) => {
+  let createTextUnderline = () => {
     let rangeBehavior = DecorationRangeBehavior.ClosedOpen
     let textDecoration = "underline dotted"
     let options = DecorationRenderOptions.t(~rangeBehavior, ~textDecoration, ())
-    let decoration = Window.createTextEditorDecorationType(options)
-    editor->decorate(decoration, [range])
-    decoration
+    Window.createTextEditorDecorationType(options)
   }
 
   let destroy = TextEditorDecorationType.dispose

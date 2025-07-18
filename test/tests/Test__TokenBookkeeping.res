@@ -77,7 +77,7 @@ describe(
       Assert.deepStrictEqual(tokens->Array.length, 0)
     })
 
-    Async.it_only("should update Tokens after Command.Load", async () => {
+    Async.it("should update tokens & decorations after each Command.Load", async () => {
       // helper function to filter tokens with TerminationProblem aspect
       let filterTerminationProblem = Array.filter(
         _,
@@ -93,7 +93,8 @@ describe(
         ctx.state.tokens->Tokens.toTokenArray->filterTerminationProblem
       Assert.deepStrictEqual(tokensWithTerminationProblem->Array.length, 0)
       // should result no decorations
-      let decorationRanges = ctx.state.tokens->Tokens.toDecorationArray->Array.map(snd)->Array.flat
+      let decorationRanges =
+        ctx.state.tokens->Tokens.toDecorations->Map.values->Iterator.toArray->Array.flat
       Assert.deepStrictEqual(decorationRanges->Array.length, 0)
 
       // Replace the line
@@ -112,7 +113,8 @@ describe(
         ctx.state.tokens->Tokens.toTokenArray->filterTerminationProblem
       Assert.deepStrictEqual(tokensWithTerminationProblem->Array.length, 2)
       // should result in 2 decorations
-      let decorationRanges = ctx.state.tokens->Tokens.toDecorationArray->Array.map(snd)->Array.flat
+      let decorationRanges =
+        ctx.state.tokens->Tokens.toDecorations->Map.values->Iterator.toArray->Array.flat
       Assert.deepStrictEqual(decorationRanges->Array.length, 2)
 
       // Restore the line
@@ -130,7 +132,8 @@ describe(
         ctx.state.tokens->Tokens.toTokenArray->filterTerminationProblem
       Assert.deepStrictEqual(tokensWithTerminationProblem->Array.length, 0)
       // should result no decorations
-      let decorationRanges = ctx.state.tokens->Tokens.toDecorationArray->Array.map(snd)->Array.flat
+      let decorationRanges =
+        ctx.state.tokens->Tokens.toDecorations->Map.values->Iterator.toArray->Array.flat
       Assert.deepStrictEqual(decorationRanges->Array.length, 0)
     })
   },

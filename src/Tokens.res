@@ -666,7 +666,7 @@ module type Module = {
   let make: option<Resource.t<array<Highlighting__SemanticToken.t>>> => t
 
   let toTokenArray: t => array<Token.t<vscodeOffset>>
-  let toDecorationArray: t => array<(Editor.Decoration.t, array<VSCode.Range.t>)>
+  let toDecorations: t => Map.t<Editor.Decoration.t, array<VSCode.Range.t>>
 
   // Receive tokens from Agda
   let addEmacsFilePath: (t, string) => unit
@@ -690,7 +690,8 @@ module type Module = {
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting: (t, VSCode.TextEditor.t) => unit
   let applyEdit: (t, VSCode.TextEditor.t, VSCode.TextDocumentChangeEvent.t) => unit
-  let redecorate: (t, VSCode.TextEditor.t) => unit
+  let removeDecorations: (t, VSCode.TextEditor.t) => unit
+  let applyDecorations: (t, VSCode.TextEditor.t) => unit
 
   let toOriginalOffset: (t, int) => option<int>
 
@@ -767,7 +768,7 @@ module Module: Module = {
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
-    mutable decorations: array<(Editor.Decoration.t, array<VSCode.Range.t>)>,
+    mutable decorations: Map.t<Editor.Decoration.t, array<VSCode.Range.t>>,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
     mutable holePositions: Resource.t<Map.t<int, int>>,
@@ -803,7 +804,7 @@ module Module: Module = {
     | None => Resource.make()
     | Some(resource) => resource
     },
-    decorations: [],
+    decorations: Map.make(),
     holes: Map.make(),
     holePositions: Resource.make(),
   }
@@ -905,7 +906,7 @@ module Module: Module = {
   }
 
   let toTokenArray = self => self.agdaTokens->AVLTree.toArray
-  let toDecorationArray = self => self.decorations
+  let toDecorations = self => self.decorations
 
   // for goto definition
   let lookupSrcLoc = (self, document, offset): option<
@@ -949,36 +950,65 @@ module Module: Module = {
     }
   }
 
-  // Converts a list of Agda Aspects to a list of VSCode Tokens
-  let convertFromAgdaAspectsAndApplyDecorations = (editor, xs) => {
-    let (semanticTokens, decorations) =
-      xs
-      ->Array.filterMap(((aspects, range)) => {
-        // convert Aspects to TokenType / TokenModifiers / Backgrounds
-        let (tokenTypeAndModifiers, decorations) =
-          aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
-        let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
-        // merge TokenType / TokenModifiers / Backgrounds
-        let tokenTypes = tokenTypes->Array.filterMap(x => x)
-        let tokenModifiers = tokenModifiers->Array.flat
-        let decorations =
-          decorations->Array.filterMap(x =>
-            x->Option.map(
-              x => (x, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)),
-            )
-          )
+  // remove decorations from the editor
+  let removeDecorations = (self, editor) => {
+    // in order to remove decorations, we need to go through all types of decorations and set them empty
+    self.decorations
+    ->Map.keys
+    ->Iterator.toArray
+    ->Array.forEach(decoration => {
+      // remove the decoration by applying it with an empty array of ranges
+      Editor.Decoration.apply(editor, decoration, [])
+    })
+  }
 
-        // only 1 TokenType is allowed, so we take the first one
-        let semanticToken = tokenTypes[0]->Option.map(tokenType => {
-          Highlighting__SemanticToken.range,
-          type_: tokenType,
-          modifiers: Some(tokenModifiers),
-        })
-        Some(semanticToken, decorations)
+  // apply decorations to the editor
+  let applyDecorations = (self, editor) => {
+    // apply the decorations to the editor
+    self.decorations
+    ->Map.entries
+    ->Iterator.toArray
+    ->Array.forEach(((decoration, ranges)) => {
+      Editor.Decoration.apply(editor, decoration, ranges)
+    })
+  }
+
+  // Converts a list of Agda Aspects to a list of VSCode Tokens and decorations
+  let convertFromAgdaAspects = xs => {
+    let decorations = Map.make()
+    let semanticTokens = xs->Array.filterMap(((aspects, range)) => {
+      // convert Aspects to TokenType / TokenModifiers / Backgrounds
+      let (tokenTypeAndModifiers, emacsDecos) =
+        aspects->Array.map(Aspect.toTokenTypeAndModifiersAndDecoration)->Belt.Array.unzip
+      let (tokenTypes, tokenModifiers) = tokenTypeAndModifiers->Belt.Array.unzip
+      // merge TokenType / TokenModifiers / Backgrounds
+      let tokenTypes = tokenTypes->Array.filterMap(x => x)
+      let tokenModifiers = tokenModifiers->Array.flat
+      emacsDecos->Array.forEach(emacsDeco =>
+        switch emacsDeco {
+        | None => ()
+        | Some(emacsDeco) =>
+          let decoration = Highlighting__Decoration.toDecoration(emacsDeco)
+          let existingRanges = switch decorations->Map.get(decoration) {
+          | None => []
+          | Some(ranges) => ranges
+          }
+          decorations->Map.set(
+            decoration,
+            [...existingRanges, Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range)],
+          )
+        }
+      )
+
+      // only 1 TokenType is allowed, so we take the first one
+      let semanticToken = tokenTypes[0]->Option.map(tokenType => {
+        Highlighting__SemanticToken.range,
+        type_: tokenType,
+        modifiers: Some(tokenModifiers),
       })
-      ->Belt.Array.unzip
+      Some(semanticToken)
+    })
     let semanticTokens = semanticTokens->Array.filterMap(x => x)
-    let decorations = decorations->Array.flat->Highlighting__Decoration.apply(editor)
 
     (decorations, semanticTokens)
   }
@@ -1024,14 +1054,6 @@ module Module: Module = {
     traverse(init, 0, deltas, 0)
   }
 
-  // re-decorate the editor with the new decorations
-  let redecorate = (self, editor) => {
-    Js.log("REDECORATE!")
-    // re-decorate the editor with the new decorations
-    self.decorations->Array.forEach(((decoration, ranges)) => {
-      Editor.Decoration.decorate(editor, decoration, ranges)
-    })
-  }
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting = (self, editor) => {
     let document = editor->VSCode.TextEditor.document
@@ -1066,15 +1088,17 @@ module Module: Module = {
       ([], Map.make()),
     )
 
-    let (decorations, semanticTokens) = convertFromAgdaAspectsAndApplyDecorations(editor, aspects)
+    let (decorations, semanticTokens) = convertFromAgdaAspects(aspects)
 
-    // set the highlighting
+    // provide the highlighting
     self.vscodeTokens->Resource.set(semanticTokens)
+
+    // set the decorations
+    removeDecorations(self, editor)
     self.decorations = decorations
+    applyDecorations(self, editor)
     // set the holes positions
     self.holePositions->Resource.set(holePositions)
-    // re-decorate the editor with the new decorations
-    redecorate(self, editor)
   }
 
   // Update the deltas and generate new tokens
