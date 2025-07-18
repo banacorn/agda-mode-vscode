@@ -43,6 +43,12 @@ module Log = {
     | CommandHandled(Command.t)
     | RequestSent(Request.t)
     | ResponseHandled(Response.t)
+    | RegistryLookup(string, bool) // filepath, found
+    | RegistryAdd(string) // filepath
+    | RegistryRemove(string) // filepath
+    | ParserFilepath(string, string) // input, output
+    | TokensReset(string) // reason
+    | AgdaModeOperation(string, string) // operation, filepath
     | Others(string) // generic string
 
   let toString = log =>
@@ -51,6 +57,12 @@ module Log = {
     | RequestSent(request) => "   <- " ++ Request.toString(request)
     | ResponseHandled(response) => "    > " ++ Response.toString(response)
     | CommandHandled(command) => " ===> " ++ Command.toString(command)
+    | RegistryLookup(filepath, found) => "Registry lookup: " ++ filepath ++ " " ++ (found ? "found" : "not found")
+    | RegistryAdd(filepath) => "Registry add: " ++ filepath
+    | RegistryRemove(filepath) => "Registry remove: " ++ filepath
+    | ParserFilepath(input, output) => "Parser.filepath: " ++ input ++ " -> " ++ output
+    | TokensReset(reason) => "Tokens reset: " ++ reason
+    | AgdaModeOperation(operation, filepath) => "AgdaMode." ++ operation ++ ": " ++ filepath
     | Others(str) => str
     }
 }
@@ -125,24 +137,24 @@ let make = (
 
 // construction/destruction
 let destroy = async (state, alsoRemoveFromRegistry) => {
-  Js.Console.log("State.destroy: Starting destruction")
+  state.channels.log->Chan.emit(Others("State.destroy: Starting destruction"))
   await state.goals->Goals.waitUntilNotBusy
-  Js.Console.log("State.destroy: Goals are not busy")
+  state.channels.log->Chan.emit(Others("State.destroy: Goals are not busy"))
   if alsoRemoveFromRegistry {
-    Js.Console.log("State.destroy: Emitting remove from registry")
+    state.channels.log->Chan.emit(Others("State.destroy: Emitting remove from registry"))
     state.onRemoveFromRegistry->Chan.emit()
   }
   state.onRemoveFromRegistry->Chan.destroy
-  Js.Console.log("State.destroy: Destroyed onRemoveFromRegistry channel")
+  state.channels.log->Chan.emit(Others("State.destroy: Destroyed onRemoveFromRegistry channel"))
   state.goals->Goals.destroy
-  Js.Console.log("State.destroy: Destroyed goals")
+  state.channels.log->Chan.emit(Others("State.destroy: Destroyed goals"))
   state.subscriptions->Array.forEach(VSCode.Disposable.dispose)
-  Js.Console.log("State.destroy: Disposed subscriptions")
-  Js.Console.log("State.destroy: Resetting tokens")
+  state.channels.log->Chan.emit(Others("State.destroy: Disposed subscriptions"))
+  state.channels.log->Chan.emit(TokensReset("State.destroy"))
   state.tokens->Tokens.reset
-  Js.Console.log("State.destroy: Tokens reset completed")
+  state.channels.log->Chan.emit(Others("State.destroy: Tokens reset completed"))
   let result = await state.connection->Connection.destroy
-  Js.Console.log("State.destroy: Connection destroyed, destruction complete")
+  state.channels.log->Chan.emit(Others("State.destroy: Connection destroyed, destruction complete"))
   result
 }
 
