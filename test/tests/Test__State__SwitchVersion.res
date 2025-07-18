@@ -223,7 +223,8 @@ describe("State__SwitchVersion", () => {
         }
         switch actual.detail {
         | Some(detail) => {
-          Assert.ok(detail->String.includes("/bad/path"))
+          // Check for path in both Unix and Windows formats
+          Assert.ok(detail->String.includes("/bad/path") || detail->String.includes("bad/path") || detail->String.includes("\\bad\\path"))
           Assert.ok(detail->String.includes("doesn't seem to be an Agda executable"))
         }
         | None => Assert.fail("Expected detail to be set")
