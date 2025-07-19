@@ -5,124 +5,6 @@ module Aspect = Highlighting__AgdaAspect
 type agdaOffset = Token.agdaOffset
 type vscodeOffset = Token.vscodeOffset
 
-module Change = {
-  type t = {
-    offset: int, // offset of where the replacement starts
-    removed: int, // length of the removed text
-    inserted: int, // length of the inserted text
-  }
-
-  let toString = self =>
-    "-" ++
-    string_of_int(self.removed) ++
-    " +" ++
-    string_of_int(self.inserted) ++
-    " @ " ++
-    string_of_int(self.offset)
-
-  let fromTextDocumentContentChangeEvent = event => {
-    offset: event->VSCode.TextDocumentContentChangeEvent.rangeOffset,
-    removed: event->VSCode.TextDocumentContentChangeEvent.rangeLength,
-    inserted: event->VSCode.TextDocumentContentChangeEvent.text->String.length,
-  }
-
-  let delta = x => x.inserted - x.removed
-  let totalDelta = xs => xs->Array.reduce(0, (acc, x) => acc + delta(x))
-
-  let isUseless = x =>
-    if x.removed == 0 && x.inserted == 0 {
-      true
-    } else {
-      false
-    }
-
-  let removedInterval = x =>
-    if x.removed == 0 {
-      None
-    } else {
-      Some(x.offset, x.offset + x.removed)
-    }
-
-  // An array of changes are valid if:
-  //    1. The changes are non-overlapping
-  //    2. The changes are in ascending order
-  let areValid = xs =>
-    xs
-    ->Array.reduce((true, None), ((acc, prevEnd), x) => {
-      let end = x.offset + x.removed
-      switch prevEnd {
-      | None => // we are at the beginning
-        (true, Some(end))
-      | Some(prevEnd) =>
-        if prevEnd > x.offset {
-          (false, Some(end)) // overlapping intervals
-        } else {
-          (acc, Some(end))
-        }
-      }
-    })
-    ->fst
-
-  let translate = (x, delta) => {
-    offset: x.offset + delta,
-    removed: x.removed,
-    inserted: x.inserted,
-  }
-
-  open FastCheck.Arbitrary
-
-  // The kind of change are we generating
-  type kind = RemovalOnly | InsertionOnly | Mixed
-
-  // Given an offset, generates a Change.t with a random offset after that offset (within offset + 10),
-  // and random removed and inserted lengths (within 0-10).
-  let arbitrary = (after, ~kind=Mixed): arbitrary<t> => {
-    integerRange(after, after + 10)->Derive.chain(offset => {
-      Combinators.tuple2(integerRange(0, offset), integerRange(0, 10))->Derive.map(((
-        removed,
-        inserted,
-      )) =>
-        switch kind {
-        | RemovalOnly => {
-            offset,
-            removed,
-            inserted: 0,
-          }
-        | InsertionOnly => {
-            offset,
-            removed: 0,
-            inserted,
-          }
-        | Mixed => {
-            offset,
-            removed,
-            inserted,
-          }
-        }
-      )
-    })
-  }
-
-  // Returns an array of non-overlapping Change.t
-  let arbitraryBatch = (~batchSize=?, ~kind=Mixed): arbitrary<array<t>> => {
-    let rec aux = (after, size) => {
-      if size == 0 {
-        Combinators.constant([])
-      } else {
-        Derive.chain(arbitrary(after, ~kind), change => {
-          Derive.map(aux(change.offset + change.removed + 1, size - 1), changes => {
-            [change, ...changes]
-          })
-        })
-      }
-    }
-    switch batchSize {
-    | None => Derive.chain(integerRange(0, 10), size => aux(0, size))
-    | Some(batchSize) => aux(0, batchSize)
-    }
-  }
-}
-
 module Intervals = {
   // For example: if we replace the text
   //    1. between [12-16) with a 6-character-long string
@@ -252,9 +134,10 @@ module Intervals = {
   //    2. The intervals have the same total delta as the changes
   //    3. The intervals have the same removed intervals as the changes
   let isValidWRTChanges = (xs, changes) => {
-    let sameTotalDelta = totalDelta(xs) == Change.totalDelta(changes)
+    let sameTotalDelta = totalDelta(xs) == TokenChange.totalDelta(changes)
     let sameRemovedIntervals =
-      removedIntervals(xs) == changes->Array.map(Change.removedInterval)->Array.filterMap(x => x)
+      removedIntervals(xs) ==
+        changes->Array.map(TokenChange.removedInterval)->Array.filterMap(x => x)
     hasError(xs) == None && sameTotalDelta && sameRemovedIntervals
   }
 
@@ -263,9 +146,10 @@ module Intervals = {
   //    2. The intervals have the same total delta as the batches of changes
   let isValidWRTChangeBatches = (xs, batches) => {
     let sameTotalDelta =
-      totalDelta(xs) == batches->Array.reduce(0, (acc, changes) => acc + Change.totalDelta(changes))
+      totalDelta(xs) ==
+        batches->Array.reduce(0, (acc, changes) => acc + TokenChange.totalDelta(changes))
     // let sameRemovedIntervals =
-    //   removedIntervals(xs) == changes->Array.map(Change.removedInterval)->Array.filterMap(x => x)
+    //   removedIntervals(xs) == changes->Array.map(TokenChange.removedInterval)->Array.filterMap(x => x)
     hasError(xs) == None && sameTotalDelta
   }
 
@@ -335,7 +219,12 @@ module Intervals = {
   // xs: intervals
   // changes: list of incoming changes
   // deltaBefore: for calculating insertion of intervals
-  let rec applyChangeAux = (xs: t, deltaBefore: int, translation: int, changes: list<Change.t>) =>
+  let rec applyChangeAux = (
+    xs: t,
+    deltaBefore: int,
+    translation: int,
+    changes: list<TokenChange.t>,
+  ) =>
     switch changes {
     | list{} =>
       switch xs {
@@ -353,7 +242,7 @@ module Intervals = {
     | list{change, ...changes} =>
       switch xs {
       | EOF =>
-        let deltaAfter = deltaBefore + Change.delta(change)
+        let deltaAfter = deltaBefore + TokenChange.delta(change)
 
         addInterval(
           deltaBefore,
@@ -441,7 +330,7 @@ module Intervals = {
           //    ┣━━━━━━━━━━━━━┫
           //    changeStart   changeEnd
           //
-          let delta = Change.delta(change)
+          let delta = TokenChange.delta(change)
 
           addInterval(
             deltaBefore,
@@ -464,7 +353,7 @@ module Intervals = {
           let delta = changeStart - end + deltaBefore - deltaAfter
 
           let change' = {
-            Change.offset: end + deltaAfter + delta,
+            TokenChange.offset: end + deltaAfter + delta,
             removed: change.removed + delta,
             inserted: change.inserted,
           }
@@ -494,7 +383,7 @@ module Intervals = {
           let delta = changeEnd - end - change.removed
 
           let change' = {
-            Change.offset: end + deltaAfter + delta,
+            TokenChange.offset: end + deltaAfter + delta,
             removed: change.removed + delta,
             inserted: change.inserted,
           }
@@ -541,16 +430,16 @@ module Intervals = {
     }
 
   // TODO: see if we can merge this with the above function
-  let preprocessChangeBatch = (changes: array<Change.t>) =>
+  let preprocessChangeBatch = (changes: array<TokenChange.t>) =>
     changes
     ->Array.reduce((0, []), ((delta, acc), x) => {
-      let acc = [...acc, x->Change.translate(delta)]
-      (delta + Change.delta(x), acc)
+      let acc = [...acc, x->TokenChange.translate(delta)]
+      (delta + TokenChange.delta(x), acc)
     })
     ->snd
 
   // NOTE: the incoming changes should be in ascending order
-  let applyChanges = (xs: t, changes: array<Change.t>) => {
+  let applyChanges = (xs: t, changes: array<TokenChange.t>) => {
     applyChangeAux(xs, 0, 0, List.fromArray(changes->preprocessChangeBatch))
   }
 }
@@ -1002,7 +891,7 @@ module Module: Module = {
     let changes =
       event
       ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(Change.fromTextDocumentContentChangeEvent)
+      ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
 
     // update the deltas
     self.deltas = Intervals.applyChanges(self.deltas, changes->Array.toReversed)

@@ -119,7 +119,7 @@ let initialize = (
     let changes =
       event
       ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(Tokens.Change.fromTextDocumentContentChangeEvent)
+      ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
       ->Array.toReversed
     if Array.length(changes) != 0 {
       state.goals->Goals.scanAllGoals(editor, changes)->Promise.done

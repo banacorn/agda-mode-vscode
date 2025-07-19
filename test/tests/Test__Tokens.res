@@ -121,7 +121,7 @@ describe("Tokens", () => {
     it(
       "`arbitraryBatch` should generate valid changes",
       () => {
-        assert_(property1(Change.arbitraryBatch(), xs => Change.areValid(xs)))
+        assert_(property1(TokenChange.arbitraryBatch(), xs => TokenChange.areValid(xs)))
       },
     )
   })
@@ -141,9 +141,9 @@ describe("Tokens", () => {
       () => {
         assert_(
           property1(
-            Change.arbitraryBatch(),
+            TokenChange.arbitraryBatch(),
             changes => {
-              // Js.log("\nchanges:    " ++ changes->Array.map(Change.toString)->Util.Pretty.array)
+              // Js.log("\nchanges:    " ++ changes->Array.map(TokenChange.toString)->Util.Pretty.array)
               let result = Intervals.empty->Intervals.applyChanges(changes)
               // Js.log("intervals:  " ++ result->Intervals.toString)
               Intervals.debugIsValid(result)
@@ -159,8 +159,8 @@ describe("Tokens", () => {
       () => {
         assert_(
           property2(
-            Change.arbitraryBatch(),
-            Change.arbitraryBatch(),
+            TokenChange.arbitraryBatch(),
+            TokenChange.arbitraryBatch(),
             (batch1, batch2) => {
               let batches = [batch1, batch2]
 
