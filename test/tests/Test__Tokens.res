@@ -132,7 +132,7 @@ describe("Tokens", () => {
     it(
       "`empty` should should be valid",
       () => {
-        Assert.deepStrictEqual(Intervals.empty->Intervals.hasError, None)
+        Assert.deepStrictEqual(TokenIntervals.empty->TokenIntervals.hasError, None)
       },
     )
 
@@ -143,11 +143,10 @@ describe("Tokens", () => {
           property1(
             TokenChange.arbitraryBatch(),
             changes => {
-              // Js.log("\nchanges:    " ++ changes->Array.map(TokenChange.toString)->Util.Pretty.array)
-              let result = Intervals.empty->Intervals.applyChanges(changes)
-              // Js.log("intervals:  " ++ result->Intervals.toString)
-              Intervals.debugIsValid(result)
-              result->Intervals.hasError == None && result->Intervals.isValidWRTChanges(changes)
+              let result = TokenIntervals.empty->TokenIntervals.applyChanges(changes)
+              TokenIntervals.debugIsValid(result)
+              result->TokenIntervals.hasError == None &&
+                result->TokenIntervals.isValidWRTChanges(changes)
             },
           ),
         )
@@ -165,9 +164,11 @@ describe("Tokens", () => {
               let batches = [batch1, batch2]
 
               let intervals =
-                Intervals.empty->Intervals.applyChanges(batch1)->Intervals.applyChanges(batch2)
-              Assert.deepStrictEqual(intervals->Intervals.hasError, None)
-              intervals->Intervals.isValidWRTChangeBatches(batches)
+                TokenIntervals.empty
+                ->TokenIntervals.applyChanges(batch1)
+                ->TokenIntervals.applyChanges(batch2)
+              Assert.deepStrictEqual(intervals->TokenIntervals.hasError, None)
+              intervals->TokenIntervals.isValidWRTChangeBatches(batches)
             },
           ),
         )
