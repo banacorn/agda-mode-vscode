@@ -475,4 +475,82 @@ describe("TokenChange", () => {
       Assert.deepStrictEqual(result, expected)
     })
   })
+
+  describe("FastCheck Properties", () => {
+    open FastCheck
+    open Property.Sync
+    
+    describe("Composition Associativity", () => {
+      it("delta composition should be associative", () => {
+        assert_(
+          property3(
+            TokenChange.arbitrary(0),
+            TokenChange.arbitrary(50), 
+            TokenChange.arbitrary(100),
+            (a, b, c) => {
+              // Test associativity of delta accumulation: (a + b) + c == a + (b + c)
+              let leftAssoc = TokenChange.delta(a) + TokenChange.delta(b) + TokenChange.delta(c)
+              let rightAssoc = TokenChange.delta(a) + (TokenChange.delta(b) + TokenChange.delta(c))
+              let totalDelta = TokenChange.totalDelta([a, b, c])
+              
+              // All three should be equal
+              leftAssoc == rightAssoc && leftAssoc == totalDelta
+            }
+          )
+        )
+      })
+      
+      it("batch composition should be associative", () => {
+        assert_(
+          property3(
+            TokenChange.arbitraryBatch(~batchSize=2),
+            TokenChange.arbitraryBatch(~batchSize=2),
+            TokenChange.arbitraryBatch(~batchSize=2),
+            (batch1, batch2, batch3) => {
+              // Test that grouping doesn't affect total delta: ((a + b) + c) == (a + (b + c))
+              let leftGroup = [
+                ...batch1,
+                ...batch2
+              ]
+              let leftTotal = TokenChange.totalDelta(leftGroup) + TokenChange.totalDelta(batch3)
+              
+              let rightGroup = [
+                ...batch2, 
+                ...batch3
+              ]
+              let rightTotal = TokenChange.totalDelta(batch1) + TokenChange.totalDelta(rightGroup)
+              
+              let allBatches = TokenChange.totalDelta([...batch1, ...batch2, ...batch3])
+              
+              leftTotal == rightTotal && leftTotal == allBatches
+            }
+          )
+        )
+      })
+      
+      it("translation composition should be associative", () => {
+        assert_(
+          property4(
+            TokenChange.arbitrary(0),
+            FastCheck.Arbitrary.integerRange(-50, 50),
+            FastCheck.Arbitrary.integerRange(-50, 50), 
+            FastCheck.Arbitrary.integerRange(-50, 50),
+            (change, delta1, delta2, delta3) => {
+              // Test that translate(translate(translate(c, d1), d2), d3) == translate(c, d1 + d2 + d3)
+              let stepByStep = change
+                ->TokenChange.translate(delta1)
+                ->TokenChange.translate(delta2)
+                ->TokenChange.translate(delta3)
+              
+              let allAtOnce = TokenChange.translate(change, delta1 + delta2 + delta3)
+              
+              stepByStep.offset == allAtOnce.offset &&
+              stepByStep.removed == allAtOnce.removed &&
+              stepByStep.inserted == allAtOnce.inserted
+            }
+          )
+        )
+      })
+    })
+  })
 })
