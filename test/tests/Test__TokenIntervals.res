@@ -578,7 +578,7 @@ describe("TokenIntervals", () => {
     })
   })
 
-  describe("TokenIntervals FastCheck Properties", () => {
+  describe(" FastCheck Properties", () => {
     open FastCheck
     open Property.Sync
     
@@ -589,7 +589,7 @@ describe("TokenIntervals", () => {
             TokenChange.arbitraryBatch(~batchSize=5),
             changes => {
               // Test that applying changes sequentially produces consistent cumulative deltas
-              let isValid = changes->Array.reduceWithIndex(true, (acc, change, i) => {
+              let isValid = changes->Array.reduceWithIndex(true, (acc, _change, i) => {
                 if !acc {
                   false
                 } else {
@@ -625,6 +625,156 @@ describe("TokenIntervals", () => {
                 intervalsDelta == changesDelta
               | Some(_) => true // Skip validation for invalid intervals
               }
+            }
+          )
+        )
+      })
+    })
+    
+    describe("Source Offset Calculation Accuracy", () => {
+      it("should correctly map modified positions back to original positions", () => {
+        assert_(
+          property4(
+            FastCheck.Arbitrary.integerRange(0, 20),   // deltaBefore
+            FastCheck.Arbitrary.integerRange(10, 30),  // start  
+            FastCheck.Arbitrary.integerRange(10, 30),  // end
+            FastCheck.Arbitrary.integerRange(-10, 10), // deltaAfter
+            (deltaBefore, start, end, deltaAfter) => {
+              // Ensure start <= end for valid intervals
+              let actualStart = if start <= end { start } else { end }
+              let actualEnd = if start <= end { end } else { start }
+              
+              // Test various positions within and around the interval
+              let testPositions = [
+                deltaBefore + actualStart - 5,  // Before the interval
+                deltaBefore + actualStart,      // At interval start
+                deltaBefore + actualStart + 1,  // Just after start
+                deltaBefore + actualEnd - 1,    // Just before end
+                deltaBefore + actualEnd,        // At interval end
+                deltaBefore + actualEnd + deltaAfter - 1,  // Just before end + deltaAfter
+                deltaBefore + actualEnd + deltaAfter,      // At end + deltaAfter
+                deltaBefore + actualEnd + deltaAfter + 1   // After the interval
+              ]
+              
+              testPositions->Array.every(testOffset => {
+                let source = TokenIntervals.Source.calculateOriginalOffset(
+                  deltaBefore, 
+                  actualStart, 
+                  actualEnd, 
+                  deltaAfter, 
+                  testOffset
+                )
+                
+                // The actual logic from calculateOriginalOffset:
+                // if x >= end + deltaAfter { After(x - deltaAfter) }
+                // else if x <= deltaBefore + start { Before(x - deltaBefore) }  
+                // else { InInsertion(x - deltaBefore) }
+                
+                if testOffset >= actualEnd + deltaAfter {
+                  // Should be After
+                  switch source {
+                  | TokenIntervals.Source.After(originalOffset) => originalOffset == testOffset - deltaAfter
+                  | _ => false
+                  }
+                } else if testOffset <= deltaBefore + actualStart {
+                  // Should be Before
+                  switch source {
+                  | TokenIntervals.Source.Before(originalOffset) => originalOffset == testOffset - deltaBefore
+                  | _ => false
+                  }
+                } else {
+                  // Should be InInsertion
+                  switch source {
+                  | TokenIntervals.Source.InInsertion(originalOffset) => originalOffset == testOffset - deltaBefore
+                  | _ => false
+                  }
+                }
+              })
+            }
+          )
+        )
+      })
+      
+      it("should handle boundary conditions correctly", () => {
+        assert_(
+          property3(
+            FastCheck.Arbitrary.integerRange(0, 10),   // deltaBefore
+            FastCheck.Arbitrary.integerRange(5, 15),   // start
+            FastCheck.Arbitrary.integerRange(-5, 5),   // deltaAfter
+            (deltaBefore, start, deltaAfter) => {
+              let end = start + 5  // Fixed interval size for boundary testing
+              
+              // Test exact boundary positions
+              let atStartBoundary = deltaBefore + start
+              let atEndBoundary = end + deltaAfter
+              
+              // Skip edge case where boundaries coincide or when there's no insertion region
+              if atStartBoundary == atEndBoundary || atStartBoundary > atEndBoundary {
+                true // Skip cases where logic becomes complex due to overlapping conditions
+              } else {
+                let sourceAtStart = TokenIntervals.Source.calculateOriginalOffset(
+                  deltaBefore, start, end, deltaAfter, atStartBoundary
+                )
+                
+                let sourceAtEnd = TokenIntervals.Source.calculateOriginalOffset(
+                  deltaBefore, start, end, deltaAfter, atEndBoundary
+                )
+                
+                // At start boundary: x <= deltaBefore + start, so should be Before
+                let startValid = switch sourceAtStart {
+                | TokenIntervals.Source.Before(offset) => offset == atStartBoundary - deltaBefore
+                | _ => false
+                }
+                
+                // At end boundary: x >= end + deltaAfter, so should be After  
+                let endValid = switch sourceAtEnd {
+                | TokenIntervals.Source.After(offset) => offset == atEndBoundary - deltaAfter
+                | _ => false
+                }
+                
+                startValid && endValid
+              }
+            }
+          )
+        )
+      })
+      
+      it("should preserve offset relationships across transformations", () => {
+        assert_(
+          property2(
+            FastCheck.Arbitrary.integerRange(1, 10),   // deltaBefore
+            FastCheck.Arbitrary.integerRange(5, 15),   // intervalSize
+            (deltaBefore, intervalSize) => {
+              let start = 10
+              let end = start + intervalSize
+              let deltaAfter = 3
+              
+              // Test that relative ordering is preserved
+              let pos1 = deltaBefore + start - 2  // Before interval
+              let pos2 = deltaBefore + start + 1  // In insertion
+              let pos3 = deltaBefore + end + deltaAfter + 1  // After interval
+              
+              let source1 = TokenIntervals.Source.calculateOriginalOffset(
+                deltaBefore, start, end, deltaAfter, pos1
+              )
+              let source2 = TokenIntervals.Source.calculateOriginalOffset(
+                deltaBefore, start, end, deltaAfter, pos2  
+              )
+              let source3 = TokenIntervals.Source.calculateOriginalOffset(
+                deltaBefore, start, end, deltaAfter, pos3
+              )
+              
+              // Extract original offsets for comparison
+              let getOffset = source => switch source {
+              | TokenIntervals.Source.Before(offset) | TokenIntervals.Source.InInsertion(offset) | TokenIntervals.Source.After(offset) => offset
+              }
+              
+              let offset1 = getOffset(source1)
+              let offset2 = getOffset(source2) 
+              let offset3 = getOffset(source3)
+              
+              // Original positions should maintain relative order
+              offset1 < offset2 && offset2 <= offset3
             }
           )
         )
