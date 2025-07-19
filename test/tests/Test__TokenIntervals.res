@@ -577,4 +577,58 @@ describe("TokenIntervals", () => {
       Assert.deepStrictEqual(result, expected)
     })
   })
+
+  describe("TokenIntervals FastCheck Properties", () => {
+    open FastCheck
+    open Property.Sync
+    
+    describe("Monotonic Delta Progression", () => {
+      it("should have monotonically consistent delta progression when applying changes sequentially", () => {
+        assert_(
+          property1(
+            TokenChange.arbitraryBatch(~batchSize=5),
+            changes => {
+              // Test that applying changes sequentially produces consistent cumulative deltas
+              let isValid = changes->Array.reduceWithIndex(true, (acc, change, i) => {
+                if !acc {
+                  false
+                } else {
+                  // Apply changes up to index i (inclusive)
+                  let partialChanges = changes->Array.slice(~start=0, ~end=i + 1)
+                  let intervals = TokenIntervals.empty->TokenIntervals.applyChanges(partialChanges)
+                  let intervalsDelta = TokenIntervals.totalDelta(intervals)
+                  let expectedDelta = TokenChange.totalDelta(partialChanges)
+                  
+                  // Verify that intervals delta equals the sum of individual change deltas
+                  intervalsDelta == expectedDelta
+                }
+              })
+              
+              isValid
+            }
+          )
+        )
+      })
+      
+      it("should maintain delta consistency when intervals have no errors", () => {
+        assert_(
+          property1(
+            TokenChange.arbitraryBatch(~batchSize=3),
+            changes => {
+              let intervals = TokenIntervals.empty->TokenIntervals.applyChanges(changes)
+              
+              // If intervals are valid (no errors), total delta should equal sum of change deltas
+              switch TokenIntervals.hasError(intervals) {
+              | None => 
+                let intervalsDelta = TokenIntervals.totalDelta(intervals)
+                let changesDelta = TokenChange.totalDelta(changes)
+                intervalsDelta == changesDelta
+              | Some(_) => true // Skip validation for invalid intervals
+              }
+            }
+          )
+        )
+      })
+    })
+  })
 })
