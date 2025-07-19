@@ -1,8 +1,6 @@
 type filepath = string
 type index = int
 
-module Token = Parser.SExpression
-
 module GiveAction = {
   type t =
     | GiveParen
@@ -78,7 +76,7 @@ module DisplayInfo = {
     | Version(string) => "Version " ++ string
     }
 
-  let parse = (xs: array<Token.t>): option<t> => {
+  let parse = (xs: array<Parser.SExpression.t>): option<t> => {
     switch xs[1] {
     | Some(A(rawPayload)) =>
       // there are some explicitly escaped EOLs like "\n" or "\r\n" in the s-expressions
@@ -120,7 +118,7 @@ module DisplayInfo = {
 
 type t =
   // agda2-highlight-add-annotations
-  | HighlightingInfoDirect(bool, array<Tokens.Token.t<Tokens.agdaOffset>>)
+  | HighlightingInfoDirect(bool, array<Token.t<Tokens.agdaOffset>>)
   // agda2-highlight-load-and-delete-action
   | HighlightingInfoIndirect(filepath)
   | HighlightingInfoIndirectJSON(filepath)
@@ -191,14 +189,14 @@ let toString = x =>
   | CompleteHighlightingAndMakePromptReappear => "CompleteHighlightingAndMakePromptReappear"
   }
 
-let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
-  let err = n => Error(Parser.Error.Response(n, tokens))
-  switch tokens {
+let parse = (xs: Parser.SExpression.t): result<t, Parser.Error.t> => {
+  let err = n => Error(Parser.Error.Response(n, xs))
+  switch xs {
   | A(_) => err(0)
   | L(xs) =>
     switch xs[0] {
     | Some(A("agda2-highlight-add-annotations")) =>
-      let annotations = Tokens.Token.parseDirectHighlightings(xs)
+      let annotations = Token.parseDirectHighlightings(xs)
       switch xs[1] {
       | Some(A("remove")) => Ok(HighlightingInfoDirect(false, annotations))
       | Some(A("nil")) => Ok(HighlightingInfoDirect(true, annotations))
@@ -226,7 +224,7 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       }
     | Some(A("agda2-goals-action")) =>
       switch xs[1] {
-      | Some(xs) => Ok(InteractionPoints(xs->Token.flatten->Array.filterMap(int_of_string_opt)))
+      | Some(xs) => Ok(InteractionPoints(xs->Parser.SExpression.flatten->Array.filterMap(int_of_string_opt)))
       | _ => err(5)
       }
     | Some(A("agda2-give-action")) =>
@@ -247,26 +245,26 @@ let parse = (tokens: Token.t): result<t, Parser.Error.t> => {
       }
     | Some(A("agda2-make-case-action")) =>
       switch xs[1] {
-      | Some(xs) => Ok(MakeCase(Function, Token.flatten(xs)))
+      | Some(xs) => Ok(MakeCase(Function, Parser.SExpression.flatten(xs)))
       | _ => err(8)
       }
     | Some(A("agda2-make-case-action-extendlam")) =>
       switch xs[1] {
-      | Some(xs) => Ok(MakeCase(ExtendedLambda, Token.flatten(xs)))
+      | Some(xs) => Ok(MakeCase(ExtendedLambda, Parser.SExpression.flatten(xs)))
       | _ => err(9)
       }
     | Some(A("agda2-solveAll-action")) =>
       switch xs[1] {
       | Some(xs) =>
-        let tokens = Token.flatten(xs)
+        let xs = Parser.SExpression.flatten(xs)
 
         let isEven = i => Int32.rem(Int32.of_int(i), Int32.of_int(2)) == Int32.of_int(0)
 
         let i = ref(0)
-        let solutions = tokens->Array.filterMap(token => {
+        let solutions = xs->Array.filterMap(token => {
           let solution = if isEven(i.contents) {
             int_of_string_opt(token)->Option.flatMap(index =>
-              tokens[i.contents + 1]->Option.map(s => (index, s))
+              xs[i.contents + 1]->Option.map(s => (index, s))
             )
           } else {
             None
@@ -322,7 +320,7 @@ module Prioritized = {
     | Last(n, response) => "Last(" ++ (string_of_int(n) ++ (") " ++ toString(response)))
     }
 
-  let parse = (tokens: Token.t): result<t, Parser.Error.t> =>
+  let parse = (xs: Parser.SExpression.t): result<t, Parser.Error.t> =>
     switch //        the following text from `agda-mode.el` explains what are those
     //        "last . n" prefixes for:
     //            Every command is run by this function, unless it has the form
@@ -335,9 +333,9 @@ module Prioritized = {
     // Read the priorities of expressions like this:
     //  [["last", ".", "1"], ".", ["agda2-goals-action", []]]
     // Expressions without the prefix have priority `0` (gets executed first)
-    tokens {
+    xs {
     | L([L([A("last"), A("."), A(priority)]), A("."), xs]) =>
       parse(xs)->Result.map(response => Last(int_of_string(priority), response))
-    | _ => parse(tokens)->Result.map(response => NonLast(response))
+    | _ => parse(xs)->Result.map(response => NonLast(response))
     }
 }

@@ -116,7 +116,7 @@ module ALSResponse = {
       switch x {
       | "ResponseHighlightingInfoDirect" =>
         Payload(
-          Tokens.Token.decodeResponseHighlightingInfoDirect->map(((
+          Token.decodeResponseHighlightingInfoDirect->map(((
             keepHighlighting,
             infos,
           )) => ResponseNonLast(Response.HighlightingInfoDirect(keepHighlighting, infos))),
