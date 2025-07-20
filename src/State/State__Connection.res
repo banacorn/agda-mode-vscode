@@ -1,21 +1,3 @@
-let askUserAboutDownloadPolicy = async () => {
-  let messageOptions = {
-    VSCode.MessageOptions.modal: true,
-    detail: "Do you want to download and install the latest Agda Language Server?",
-  }
-  let result = await VSCode.Window.showWarningMessageWithOptions(
-    "Cannot find Agda or Agda Language Server",
-    messageOptions,
-    [Config.Connection.DownloadPolicy.toString(Yes), Config.Connection.DownloadPolicy.toString(No)],
-  ) // 📺
-
-  // parse the result
-  result->Option.mapOr(
-    Config.Connection.DownloadPolicy.No,
-    Config.Connection.DownloadPolicy.fromString,
-  )
-}
-
 let sendRequest = async (
   state: State.t,
   handleResponse: Response.t => promise<unit>,
@@ -51,15 +33,13 @@ let sendRequest = async (
 
   switch state.connection {
   | None =>
-    let platform = await Connection__Download__Platform.determine()
+    let platformDeps = Platform.makeDesktop()
     switch await Connection.make(
+      platformDeps,
       state.memento,
+      state.globalStorageUri,
       Config.Connection.getAgdaPaths(),
       ["als", "agda"],
-      platform,
-      askUserAboutDownloadPolicy,
-      Connection.LatestALS.alreadyDownloaded(state.globalStorageUri),
-      Connection.LatestALS.download(state.memento, state.globalStorageUri),
     ) {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(connection) =>

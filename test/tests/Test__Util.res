@@ -360,7 +360,8 @@ module Golden = {
 
 module AgdaMode = {
   let versionGTE = async (command, expectedVersion) => {
-    switch await Connection.findCommands([command]) {
+    let platformDeps = Platform.makeDesktop()
+    switch await Connection.findCommands(platformDeps, [command]) {
     | Error(_error) => false
     | Ok(connection) =>
       let actualVersion = switch connection {
@@ -371,12 +372,14 @@ module AgdaMode = {
     }
   }
 
-  let commandExists = async command =>
-    switch await Connection.findCommands([command]) {
+  let commandExists = async command => {
+    let platformDeps = Platform.makeDesktop()
+    switch await Connection.findCommands(platformDeps, [command]) {
     | Error(error) =>
       raise(Failure(error->Array.map(Connection__Command.Error.toString)->Array.join("\n")))
     | Ok(_) => ()
     }
+  }
 
   type t = {
     filepath: string,

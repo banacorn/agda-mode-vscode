@@ -50,3 +50,21 @@ let search = async (name, ~timeout=1000) => {
     }
   }
 }
+
+// search through a list of commands until one is found
+let findCommands = async commands => {
+  let commands = List.fromArray(commands)
+  let rec step = async (acc, commands) =>
+    switch commands {
+    | list{} => Error(acc)
+    | list{command, ...rest} =>
+      switch await search(command) {
+      | Ok(path) => Ok(path) // found, stop searching
+      | Error(error) => await step(list{error, ...acc}, rest) // accumulate the error and continue searching
+      }
+    }
+  switch await step(list{}, commands) {
+  | Error(error) => Error(List.toArray(error))
+  | Ok(path) => Ok(path)
+  }
+}
