@@ -354,8 +354,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       }
     }
   | SwitchAgdaVersion => 
-    let platformDeps = Platform.makeDesktop()
-    await State__SwitchVersion.run(state, platformDeps)
+    await State__SwitchVersion.run(state, state.platformDeps)
   | EventFromView(event) =>
     switch event {
     | Initialized => ()

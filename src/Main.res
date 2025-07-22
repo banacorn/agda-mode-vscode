@@ -39,6 +39,7 @@ module Inputs: {
 }
 
 let initialize = (
+  platformDeps,
   channels,
   extensionPath,
   globalStorageUri,
@@ -55,6 +56,7 @@ let initialize = (
 
   // not in the Registry, instantiate a State
   let state = State.make(
+    platformDeps,
     channels,
     globalStorageUri,
     extensionPath,
@@ -193,6 +195,10 @@ let finalize = isRestart => {
 let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, memento) => {
   let subscribe = x => subscriptions->Array.push(x)->ignore
   let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
+  
+  // Create platform dependencies once at the top level for dependency injection
+  let platformDeps = Platform.makeDesktop()
+  
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   let channels = {
@@ -281,6 +287,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
       switch Registry.getEntry(fileName) {
       | None =>
         let state = initialize(
+          platformDeps,
           channels,
           extensionPath,
           globalStorageUri,
@@ -295,6 +302,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
         | None =>
           // State not found, create a new one
           let state = initialize(
+            platformDeps,
             channels,
             extensionPath,
             globalStorageUri,

@@ -78,6 +78,8 @@ type channels = {
 }
 
 type t = {
+  // platform dependencies for dependency injection
+  platformDeps: Platform.platformDeps,
   // connection
   mutable connection: option<Connection.t>,
   mutable agdaVersion: option<string>, // Agda version is set when connection is established
@@ -107,6 +109,7 @@ type t = {
 }
 
 let make = (
+  platformDeps,
   channels,
   globalStorageUri,
   extensionPath,
@@ -114,6 +117,7 @@ let make = (
   editor,
   semanticTokens: option<Resource.t<array<Highlighting__SemanticToken.t>>>,
 ) => {
+  platformDeps,
   connection: None,
   agdaVersion: None,
   editor,

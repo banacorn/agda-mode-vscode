@@ -33,9 +33,8 @@ let sendRequest = async (
 
   switch state.connection {
   | None =>
-    let platformDeps = Platform.makeDesktop()
     switch await Connection.make(
-      platformDeps,
+      state.platformDeps,
       state.memento,
       state.globalStorageUri,
       Config.Connection.getAgdaPaths(),

@@ -180,9 +180,8 @@ let switchAgdaVersion = async (state: State.t) => {
   let _ = await state.connection->Connection.destroy
 
   // start with the new connection
-  let platformDeps = Platform.makeDesktop()
   switch await Connection.make(
-    platformDeps,
+    state.platformDeps,
     state.memento,
     state.globalStorageUri,
     Config.Connection.getAgdaPaths(),
