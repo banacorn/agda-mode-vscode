@@ -20,7 +20,9 @@ module WebviewPanel: {
   type t = VSCode.WebviewPanel.t
 
   let makeHTML = (webview, extensionPath) => {
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - extensionPath:", extensionPath)
     let extensionUri = VSCode.Uri.file(extensionPath)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - extensionUri:", extensionUri)
     // generates gibberish
     let nonce = {
       let text = ref("")
@@ -37,33 +39,56 @@ module WebviewPanel: {
       text.contents
     }
 
-    let scriptUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "bundled-view.js"]),
-      )->VSCode.Uri.toString
+    // Check if we're in VS Code Web and use direct HTTP URLs
+    // For now, detect web by checking if extensionPath starts with "/static"
+    let isWeb = String.startsWith(extensionPath, "/static")
+    
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - isWeb:", isWeb)
+
+    let (scriptUri, styleUri, codiconsUri) = if isWeb {
+      // Use direct HTTP URLs for VS Code Web
+      let baseUrl = "http://localhost:3000/static/devextensions/dist/"
+      (
+        baseUrl ++ "bundled-view.js",
+        baseUrl ++ "style.css", 
+        baseUrl ++ "codicon/codicon.css"
+      )
+    } else {
+      // Use webview URIs for desktop
+      let scriptPath = VSCode.Uri.joinPath(extensionUri, ["dist", "bundled-view.js"])
+      let stylePath = VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"])
+      let codiconsPath = VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"])
+      (
+        VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString,
+        VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString,
+        VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
+      )
+    }
+    
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - scriptUri:", scriptUri)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - styleUri:", styleUri)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - codiconsUri:", codiconsUri)
 
     let cspSourceUri = VSCode.Webview.cspSource(webview)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - cspSourceUri:", cspSourceUri)
 
-    let styleUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"]),
-      )->VSCode.Uri.toString
-
-    let codiconsUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"]),
-      )->VSCode.Uri.toString
-
-    // Content-Security-Policy
+    // Content-Security-Policy - allow localhost URLs for web
     let defaultSrc = "default-src 'none'; "
-    let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "
-    let styleSrc = "style-src " ++ cspSourceUri ++ "; "
-    // let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
-    let fontSrc = "font-src " ++ cspSourceUri ++ "; "
-    // let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
+    let scriptSrc = if isWeb {
+      "script-src 'nonce-" ++ nonce ++ "' http://localhost:3000; "
+    } else {
+      "script-src 'nonce-" ++ nonce ++ "'; "
+    }
+    let styleSrc = if isWeb {
+      "style-src " ++ cspSourceUri ++ " http://localhost:3000; "
+    } else {
+      "style-src " ++ cspSourceUri ++ "; "
+    }
+    let fontSrc = if isWeb {
+      "font-src " ++ cspSourceUri ++ " http://localhost:3000; "
+    } else {
+      "font-src " ++ cspSourceUri ++ "; "
+    }
     let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
 
     `

@@ -334,8 +334,10 @@ let activateWithoutContext = (platformDeps, subscriptions, extensionPath, global
 
 // this function is the entry point of the whole extension
 let activate = (platformDeps, context) => {
+  Js.Console.log("[AGDA-MODE] Main.activate - Extension activating...")
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
+  Js.Console.log2("[AGDA-MODE] Main.activate - extensionPath:", extensionPath)
 
   let globalStorageUri =
     context
@@ -343,7 +345,9 @@ let activate = (platformDeps, context) => {
     ->VSCode.Uri.with_({
       scheme: "file",
     })
+  Js.Console.log2("[AGDA-MODE] Main.activate - globalStorageUri:", globalStorageUri)
 
+  Js.Console.log("[AGDA-MODE] Main.activate - calling activateWithoutContext")
   activateWithoutContext(
     platformDeps,
     subscriptions,
