@@ -37,14 +37,15 @@ module DownloadWorkflow = {
     | Failure(string) // error message
 
   // Check if ALS is already downloaded and download if needed
-  let downloadLatestALS = async (memento: State__Memento.t, globalStorageUri: VSCode.Uri.t) => {
-    switch await Connection__Download__Platform.determine() {
+  let downloadLatestALS = async (platformDeps: Platform.platformDeps, memento: State__Memento.t, globalStorageUri: VSCode.Uri.t) => {
+    module PlatformOps = unpack(platformDeps)
+    switch await PlatformOps.determinePlatform() {
     | Error(_) =>
       Failure("Failed to determine the platform for downloading the Agda Language Server")
     | Ok(platform) =>
-      switch await Connection__LatestALS.alreadyDownloaded(globalStorageUri)() {
+      switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
       | None =>
-        switch await Connection__LatestALS.download(memento, globalStorageUri)(platform) {
+        switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
         | Error(error) => Failure(AgdaModeVscode.Connection__Download.Error.toString(error))
         | Ok(target) => Success(target, false) // false means it was not already downloaded
         }
@@ -261,7 +262,8 @@ let handleSelection = async (
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | DownloadLatestALS =>
-    let result = await DownloadWorkflow.downloadLatestALS(memento, globalStorageUri)
+    let platformDeps = Platform.makeDesktop()
+    let result = await DownloadWorkflow.downloadLatestALS(platformDeps, memento, globalStorageUri)
     await DownloadWorkflow.handleDownloadResult(result, self.rerender)
 
   | SwitchToTarget(rawPath) =>
@@ -287,8 +289,8 @@ let handleSelection = async (
   }
 }
 
-let rec run = async state => {
-  let qp = QP.make(state, run)
+let rec run = async (state, platformDeps: Platform.platformDeps) => {
+  let qp = QP.make(state, state => run(state, platformDeps))
   // set placeholder
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
 
@@ -347,7 +349,6 @@ let rec run = async state => {
   // installed Agda or Agda Language Server
   let installedSeperator = [ItemCreation.createSeparatorItem("Installed")]
 
-  let platformDeps = Platform.makeDesktop()
   module PlatformOps = unpack(platformDeps)
   let installedTargets = await PlatformOps.getInstalledTargetsAndPersistThem(state.globalStorageUri)
   let installedPaths =
@@ -363,7 +364,7 @@ let rec run = async state => {
 
   let downloadSeperator = [ItemCreation.createSeparatorItem("Download")]
 
-  let downloadLatestALSFetchSpec = switch await Connection__Download__Platform.determine() {
+  let downloadLatestALSFetchSpec = switch await PlatformOps.determinePlatform() {
   | Error(_) => None
   | Ok(platform) =>
     switch await Connection__LatestALS.getFetchSpec(
