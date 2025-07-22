@@ -1,8 +1,11 @@
+// Common logic extracted from Main.res for shared use between desktop and web entry points
+
 // if end with '.agda' or '.lagda'
 let isAgda = (fileName): bool => {
   let fileName = fileName->Parser.filepath
   RegExp.test(%re("/\.agda$|\.lagda/i"), fileName)
 }
+
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
@@ -192,12 +195,9 @@ let finalize = isRestart => {
   }
 }
 
-let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, memento) => {
+let activateWithoutContext = (platformDeps, subscriptions, extensionPath, globalStorageUri, memento) => {
   let subscribe = x => subscriptions->Array.push(x)->ignore
   let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
-  
-  // Create platform dependencies once at the top level for dependency injection
-  let platformDeps = Platform.makeDesktop()
   
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
@@ -333,7 +333,7 @@ let activateWithoutContext = (subscriptions, extensionPath, globalStorageUri, me
 }
 
 // this function is the entry point of the whole extension
-let activate = context => {
+let activate = (platformDeps, context) => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
 
@@ -345,6 +345,7 @@ let activate = context => {
     })
 
   activateWithoutContext(
+    platformDeps,
     subscriptions,
     extensionPath,
     globalStorageUri,

@@ -5,7 +5,7 @@ describe("Platform dependent utilities", () => {
     Async.it(
       "should create Desktop platform and have working operations",
       async () => {
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         module PlatformOps = unpack(platformDeps)
 
         // Test that platform operations are actually callable and return proper types
@@ -28,7 +28,7 @@ describe("Platform dependent utilities", () => {
     Async.it(
       "should create Web platform and return expected errors",
       async () => {
-        let platformDeps = Platform.makeWeb()
+        let platformDeps = Web.make()
         module PlatformOps = unpack(platformDeps)
 
         // Web platform should consistently return errors for unsupported operations
@@ -52,39 +52,13 @@ describe("Platform dependent utilities", () => {
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
       },
     )
-
-    Async.it(
-      "should demonstrate platform factory runtime selection",
-      async () => {
-        // Test factory function with runtime selection
-        let webPlatform = Platform.makePlatform(~isWeb=true)
-        let desktopPlatform = Platform.makePlatform(~isWeb=false)
-
-        module WebOps = unpack(webPlatform)
-        module DesktopOps = unpack(desktopPlatform)
-
-        // Verify they behave differently at runtime
-        let webResult = await WebOps.determinePlatform()
-        let desktopResult = await DesktopOps.determinePlatform()
-
-        switch (webResult, desktopResult) {
-        | (Error(webRaw), _) => Assert.deepStrictEqual(webRaw["os"], "web") // Web should fail predictably
-        | _ => Assert.fail("Web platform should return error")
-        }
-
-        // Desktop result can be either Ok or Error depending on environment
-        switch desktopResult {
-        | Ok(_) | Error(_) => Assert.ok(true) // Both are valid for desktop in test env
-        }
-      },
-    )
   })
 
   describe("Connection Integration", () => {
     Async.it(
       "should allow Connection.make to be called with platform dependencies",
       async () => {
-        let platformDeps = Platform.makeWeb() // Use web for predictable mock behavior
+        let platformDeps = Web.make() // Use web for predictable mock behavior
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let paths = []
@@ -103,7 +77,7 @@ describe("Platform dependent utilities", () => {
     Async.it(
       "should allow Connection.fromDownloads to be called with platform dependencies",
       async () => {
-        let platformDeps = Platform.makeWeb() // Use web for predictable mock behavior
+        let platformDeps = Web.make() // Use web for predictable mock behavior
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let attempts = {
@@ -145,7 +119,7 @@ describe("Platform dependent utilities", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.No)
         }
 
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         module PlatformOps = unpack(mockPlatformDeps)
 
         // Test the mock behavior

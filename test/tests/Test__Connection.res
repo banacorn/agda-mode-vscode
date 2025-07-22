@@ -2,7 +2,7 @@ open Mocha
 open Test__Util
 
 let getAgdaTarget = async () => {
-  let platformDeps = Platform.makeDesktop()
+  let platformDeps = Desktop.make()
   switch await Connection.findCommands(platformDeps, ["agda"]) {
   | Ok(target) => target
   | Error(_) => failwith("expected to find `agda`")
@@ -270,7 +270,7 @@ describe("Connection", () => {
       "should return the connection when a command is found",
       async () => {
         let commands = ["agda", "als"]
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         switch await Connection.findCommands(platformDeps, commands) {
         | Ok(_) => ()
         | Error(_) => failwith("expected to find `agda` or `als`")
@@ -282,7 +282,7 @@ describe("Connection", () => {
       "should return an error when the command is not found",
       async () => {
         let commands = ["non-existent-command"]
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         switch await Connection.findCommands(platformDeps, commands) {
         | Ok(_) => failwith("expected to not find `non-existent-command`")
         | Error(_) => ()
@@ -298,7 +298,7 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let paths = []
         let commands = ["agda", "als"]
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         let result = await Connection.fromPathsAndCommands(platformDeps, memento, paths, commands)
 
         let expected = await getAgdaTarget()
@@ -313,7 +313,7 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let paths = [Connection__URI.parse("some/other/paths")]
         let commands = ["agda", "als"]
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         let result = await Connection.fromPathsAndCommands(platformDeps, memento, paths, commands)
 
         let expected = await getAgdaTarget()
@@ -333,7 +333,7 @@ describe("Connection", () => {
           Connection__URI.parse("some/other/paths"),
         ]
         let commands = ["non-existent-command", "agda", "als"]
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         let result = await Connection.fromPathsAndCommands(platformDeps, memento, paths, commands)
 
         Assert.deepStrictEqual(result, Ok(agdaTarget))
@@ -346,7 +346,7 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let paths = [Connection__URI.parse("some/other/paths")]
         let commands = ["non-existent-command"]
-        let platformDeps = Platform.makeDesktop()
+        let platformDeps = Desktop.make()
         let result = await Connection.fromPathsAndCommands(platformDeps, memento, paths, commands)
 
         if OS.onUnix {
@@ -467,7 +467,7 @@ describe("Connection", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.No)
         }
         
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -505,7 +505,7 @@ describe("Connection", () => {
           }
         }
         
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -548,7 +548,7 @@ describe("Connection", () => {
           }
         }
         
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -597,7 +597,7 @@ describe("Connection", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
         
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -653,7 +653,7 @@ describe("Connection", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
         
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -704,7 +704,7 @@ describe("Connection", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
         
-        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        let mockPlatformDeps: Platform.t = module(MockPlatform)
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(

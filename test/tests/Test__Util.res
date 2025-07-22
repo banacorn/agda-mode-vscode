@@ -161,11 +161,18 @@ let activationSingleton = ref(None)
 let activateExtension = (): State.channels => {
   switch activationSingleton.contents {
   | None =>
+    let platformDeps = Desktop.make()
     // activate the extension
     let disposables = []
     let extensionPath = Path.extensionPath
     let globalStorageUri = Path.globalStorageUri
-    let channels = Main.activateWithoutContext(disposables, extensionPath, globalStorageUri, None)
+    let channels = Main.activateWithoutContext(
+      platformDeps,
+      disposables,
+      extensionPath,
+      globalStorageUri,
+      None,
+    )
     // store the singleton of activation
     activationSingleton := Some(channels)
     channels
@@ -360,7 +367,7 @@ module Golden = {
 
 module AgdaMode = {
   let versionGTE = async (command, expectedVersion) => {
-    let platformDeps = Platform.makeDesktop()
+    let platformDeps = Desktop.make()
     switch await Connection.findCommands(platformDeps, [command]) {
     | Error(_error) => false
     | Ok(connection) =>
@@ -373,7 +380,7 @@ module AgdaMode = {
   }
 
   let commandExists = async command => {
-    let platformDeps = Platform.makeDesktop()
+    let platformDeps = Desktop.make()
     switch await Connection.findCommands(platformDeps, [command]) {
     | Error(error) =>
       raise(Failure(error->Array.map(Connection__Command.Error.toString)->Array.join("\n")))
@@ -419,7 +426,7 @@ module AgdaMode = {
     let state = await load(channels, rawFilepath)
 
     state.channels.log->Chan.emit(AgdaModeOperation("makeAndLoad", rawFilepath))
-    
+
     // On Windows, ensure the registry entry uses the same path format as the context
     // The state may have been stored with a normalized path, so we need to update it
     if !OS.onUnix {
@@ -429,7 +436,7 @@ module AgdaMode = {
       // Also store with the raw path for the test context
       Registry.add(rawFilepath, state)
     }
-    
+
     {
       filepath: rawFilepath,
       channels,
@@ -549,31 +556,22 @@ module Target = {
     let mock = async (~version, ~name) => {
       // creates a executable with nodejs in temp directory
       let (fileName, content) = if OS.onUnix {
-        (
-          name,
-          "#!/bin/sh\necho 'Agda version " ++ version ++ "'\nexit 0",
-        )
+        (name, "#!/bin/sh\necho 'Agda version " ++ version ++ "'\nexit 0")
       } else {
-        (
-          name ++ ".bat",
-          "@echo Agda version " ++ version,
-        )
+        (name ++ ".bat", "@echo Agda version " ++ version)
       }
-      
+
       // Create file in temp directory to avoid permission issues
-      let tempFile = NodeJs.Path.join([
-        NodeJs.Os.tmpdir(),
-        fileName
-      ])
-      
+      let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
+
       // Use Node.js file writing for executable creation (tests only)
       try {
         NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
-        
+
         // chmod +x for Unix systems
         if OS.onUnix {
           switch await NodeJs.Fs.chmod(tempFile, ~mode=0o755) {
-          | exception Js.Exn.Error(obj) => 
+          | exception Js.Exn.Error(obj) =>
             let errorMsg = Js.Exn.message(obj)->Option.getOr("unknown chmod error")
             raise(Failure("Cannot chmod mock executable at " ++ tempFile ++ ": " ++ errorMsg))
           | _ => ()
@@ -581,23 +579,43 @@ module Target = {
         }
         tempFile
       } catch {
-      | Js.Exn.Error(obj) => 
+      | Js.Exn.Error(obj) =>
         let errorMsg = Js.Exn.message(obj)->Option.getOr("unknown error")
-        let detailedError = "Got error when trying to construct a mock for Agda:\n" ++
-          "  - Target file: " ++ tempFile ++ "\n" ++
-          "  - Platform: " ++ (OS.onUnix ? "Unix" : "Windows") ++ "\n" ++
-          "  - Temp directory: " ++ NodeJs.Os.tmpdir() ++ "\n" ++
-          "  - Error: " ++ errorMsg ++ "\n" ++
-          "  - Content length: " ++ string_of_int(String.length(content)) ++ "\n" ++
-          "  - Content: " ++ content
+        let detailedError =
+          "Got error when trying to construct a mock for Agda:\n" ++
+          "  - Target file: " ++
+          tempFile ++
+          "\n" ++
+          "  - Platform: " ++
+          (OS.onUnix ? "Unix" : "Windows") ++
+          "\n" ++
+          "  - Temp directory: " ++
+          NodeJs.Os.tmpdir() ++
+          "\n" ++
+          "  - Error: " ++
+          errorMsg ++
+          "\n" ++
+          "  - Content length: " ++
+          string_of_int(String.length(content)) ++
+          "\n" ++
+          "  - Content: " ++
+          content
         raise(Failure(detailedError))
-      | _ => 
-        let detailedError = "Got error when trying to construct a mock for Agda:\n" ++
-          "  - Target file: " ++ tempFile ++ "\n" ++
-          "  - Platform: " ++ (OS.onUnix ? "Unix" : "Windows") ++ "\n" ++
-          "  - Temp directory: " ++ NodeJs.Os.tmpdir() ++ "\n" ++
+      | _ =>
+        let detailedError =
+          "Got error when trying to construct a mock for Agda:\n" ++
+          "  - Target file: " ++
+          tempFile ++
+          "\n" ++
+          "  - Platform: " ++
+          (OS.onUnix ? "Unix" : "Windows") ++
+          "\n" ++
+          "  - Temp directory: " ++
+          NodeJs.Os.tmpdir() ++
+          "\n" ++
           "  - Error: unknown error type\n" ++
-          "  - Content: " ++ content
+          "  - Content: " ++
+          content
         raise(Failure(detailedError))
       }
     }
@@ -607,11 +625,13 @@ module Target = {
       try {
         NodeJs.Fs.unlinkSync(path)
       } catch {
-      | Js.Exn.Error(obj) => 
+      | Js.Exn.Error(obj) =>
         // Don't raise an error for cleanup failures, just log warning
-        Js.Console.warn("Warning: Cannot delete mock Agda executable: " ++ Js.Exn.message(obj)->Option.getOr("unknown error"))
-      | _ => 
-        // Ignore other cleanup failures to prevent test failures
+        Js.Console.warn(
+          "Warning: Cannot delete mock Agda executable: " ++
+          Js.Exn.message(obj)->Option.getOr("unknown error"),
+        )
+      | _ => // Ignore other cleanup failures to prevent test failures
         ()
       }
     }

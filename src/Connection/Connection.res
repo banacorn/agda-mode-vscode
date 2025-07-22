@@ -8,11 +8,9 @@ module type Module = {
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
 
   // Platform dependencies type
-  type platformDeps = Platform.platformDeps
-
   // lifecycle
   let make: (
-    platformDeps,
+    Platform.t,
     State__Memento.t,
     VSCode.Uri.t,
     array<Connection__URI.t>,
@@ -22,13 +20,13 @@ module type Module = {
 
   // components (now use platform dependencies)
   let fromPathsAndCommands: (
-    platformDeps,
+    Platform.t,
     State__Memento.t,
     array<Connection__URI.t>,
     array<string>,
   ) => promise<result<Target.t, Error.Aggregated.Attempts.t>>
   let fromDownloads: (
-    platformDeps,
+    Platform.t,
     State__Memento.t,
     VSCode.Uri.t,
     Error.Aggregated.Attempts.t,
@@ -44,7 +42,7 @@ module type Module = {
 
   // command (uses platform dependencies)
   let findCommands: (
-    platformDeps,
+    Platform.t,
     array<string>,
   ) => promise<result<Target.t, array<Connection__Command.Error.t>>>
 }
@@ -68,9 +66,6 @@ module Module: Module = {
 
   // internal state singleton
   type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
-
-  // Platform dependencies type
-  type platformDeps = Platform.platformDeps
 
   let destroy = async connection =>
     switch connection {
@@ -104,7 +99,7 @@ module Module: Module = {
     }
 
   // search through a list of commands until one is found
-  let findCommands = async (platformDeps: platformDeps, commands) => {
+  let findCommands = async (platformDeps: Platform.t, commands) => {
     module PlatformOps = unpack(platformDeps)
     await PlatformOps.findCommands(commands)
   }
@@ -114,7 +109,7 @@ module Module: Module = {
   // 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
   // 3. Try the `als` command, add it to the list of targets if it works
   let fromPathsAndCommands = async (
-    platformDeps: platformDeps,
+    platformDeps: Platform.t,
     memento: State__Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
@@ -152,7 +147,7 @@ module Module: Module = {
   //      Failed    : exit with the `DownloadALS` error ❌
 
   let fromDownloads = async (
-    platformDeps: platformDeps,
+    platformDeps: Platform.t,
     memento: State__Memento.t,
     globalStorageUri: VSCode.Uri.t,
     attempts: Error.Aggregated.Attempts.t,
@@ -198,7 +193,7 @@ module Module: Module = {
   //  1. `fromPathsAndCommands` to connect to Agda or ALS with paths and commands
   //  2. `fromDownloads` to download the latest ALS
   let make = async (
-    platformDeps: platformDeps,
+    platformDeps: Platform.t,
     memento: State__Memento.t,
     globalStorageUri: VSCode.Uri.t,
     paths: array<Connection__URI.t>,

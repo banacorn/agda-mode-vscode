@@ -36,7 +36,7 @@ module.exports = (env, argv) => {
         },
         {
             target: isWeb ? "webworker" : "node",
-            entry: isWeb ? './lib/js/src/web/WebMain.bs.js' : './lib/js/src/Main.bs.js',
+            entry: isWeb ? './lib/js/src/Main/Web.bs.js' : './lib/js/src/Main/Desktop.bs.js',
             output: {
                 path: path.join(__dirname, 'dist'),
                 filename: isWeb ? 'web.bundle.js' : 'app.bundle.js',

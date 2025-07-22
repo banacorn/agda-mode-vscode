@@ -79,7 +79,7 @@ type channels = {
 
 type t = {
   // platform dependencies for dependency injection
-  platformDeps: Platform.platformDeps,
+  platformDeps: Platform.t,
   // connection
   mutable connection: option<Connection.t>,
   mutable agdaVersion: option<string>, // Agda version is set when connection is established

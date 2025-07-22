@@ -37,7 +37,7 @@ module DownloadWorkflow = {
     | Failure(string) // error message
 
   // Check if ALS is already downloaded and download if needed
-  let downloadLatestALS = async (platformDeps: Platform.platformDeps, memento: State__Memento.t, globalStorageUri: VSCode.Uri.t) => {
+  let downloadLatestALS = async (platformDeps: Platform.t, memento: State__Memento.t, globalStorageUri: VSCode.Uri.t) => {
     module PlatformOps = unpack(platformDeps)
     switch await PlatformOps.determinePlatform() {
     | Error(_) =>
@@ -252,6 +252,7 @@ module QP = {
 
 let handleSelection = async (
   self: QP.t,
+  platformDeps: Platform.t,
   memento: State__Memento.t,
   globalStorageUri: VSCode.Uri.t,
   selection: VSCode.QuickPickItem.t,
@@ -261,7 +262,6 @@ let handleSelection = async (
     self->QP.destroy
     await openGlobalStorageFolder(self.state)
   | DownloadLatestALS =>
-    let platformDeps = Platform.makeDesktop()
     let result = await DownloadWorkflow.downloadLatestALS(platformDeps, memento, globalStorageUri)
     await DownloadWorkflow.handleDownloadResult(result, self.rerender)
 
@@ -288,7 +288,7 @@ let handleSelection = async (
   }
 }
 
-let rec run = async (state, platformDeps: Platform.platformDeps) => {
+let rec run = async (state, platformDeps: Platform.t) => {
   let qp = QP.make(state, state => run(state, platformDeps))
   // set placeholder
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Agda Version")
@@ -400,7 +400,7 @@ let rec run = async (state, platformDeps: Platform.platformDeps) => {
   qp.quickPick
   ->VSCode.QuickPick.onDidChangeSelection(selectedItems => {
     selectedItems[0]->Option.forEach(item =>
-      handleSelection(qp, state.memento, state.globalStorageUri, item)->ignore
+      handleSelection(qp, platformDeps, state.memento, state.globalStorageUri, item)->ignore
     )
   })
   ->Util.Disposable.add(qp.subscriptions)
