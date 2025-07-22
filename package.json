@@ -4,7 +4,7 @@
 	"description": "agda-mode on vscode",
 	"icon": "asset/logo.png",
 	"publisher": "banacorn",
-	"version": "0.7.2",
+	"version": "0.7.3",
 	"engines": {
 		"vscode": "^1.94.0"
 	},
@@ -20,8 +20,7 @@
 		"dev-web": "node run-web-extension.js",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js",
 		"build": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production && webpack --mode production --env target=web",
-		"vscode:prepublish": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production",
-		"vfx-dry-run": "npm list --production --parseable --depth=99999 --loglevel=error"
+		"vscode:prepublish": "npm run build && npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
 		"@vscode/test-electron": "^2.3.8",
