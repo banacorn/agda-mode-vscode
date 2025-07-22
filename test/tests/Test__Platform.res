@@ -1,45 +1,166 @@
 open Mocha
 
-describe("Platform", () => {
-  describe("Desktop Platform", () => {
-    it("should create desktop platform instance", () => {
-      let platform = Platform.makeDesktop()
-      // Just test that it can be created without errors
-      Assert.ok(true)
-    })
+describe("Platform dependent utilities", () => {
+  describe("Platform Abstraction", () => {
+    Async.it(
+      "should create Desktop platform and have working operations",
+      async () => {
+        let platformDeps = Platform.makeDesktop()
+        module PlatformOps = unpack(platformDeps)
+
+        // Test that platform operations are actually callable and return proper types
+        let platformResult = await PlatformOps.determinePlatform()
+        // Desktop should either succeed or fail with a proper error structure
+        switch platformResult {
+        | Ok(_) => Assert.ok(true) // Valid platform detected
+        | Error(_) => Assert.ok(true) // Valid error structure (may fail in CI/test environment)
+        }
+
+        // Test command finding - should return proper Result type
+        let commandResult = await PlatformOps.findCommands(["nonexistent-command"])
+        switch commandResult {
+        | Ok(_) => Assert.fail("Should not find nonexistent command")
+        | Error(errors) => Assert.ok(Array.length(errors) > 0) // Should return array of errors
+        }
+      },
+    )
+
+    Async.it(
+      "should create Web platform and return expected errors",
+      async () => {
+        let platformDeps = Platform.makeWeb()
+        module PlatformOps = unpack(platformDeps)
+
+        // Web platform should consistently return errors for unsupported operations
+        let platformResult = await PlatformOps.determinePlatform()
+        switch platformResult {
+        | Error(raw) =>
+          Assert.deepStrictEqual(raw["os"], "web")
+          Assert.deepStrictEqual(raw["dist"], "browser")
+        | Ok(_) => Assert.fail("Web platform should return Error for determinePlatform")
+        }
+
+        let commandResult = await PlatformOps.findCommands(["agda"])
+        switch commandResult {
+        | Error([Connection__Command.Error.NotFound(msg)]) =>
+          Assert.ok(String.includes(msg, "web environment"))
+        | _ => Assert.fail("Web platform should return specific NotFound error")
+        }
+
+        // Test download policy - should return No for web
+        let policy = await PlatformOps.askUserAboutDownloadPolicy()
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
+      },
+    )
+
+    Async.it(
+      "should demonstrate platform factory runtime selection",
+      async () => {
+        // Test factory function with runtime selection
+        let webPlatform = Platform.makePlatform(~isWeb=true)
+        let desktopPlatform = Platform.makePlatform(~isWeb=false)
+
+        module WebOps = unpack(webPlatform)
+        module DesktopOps = unpack(desktopPlatform)
+
+        // Verify they behave differently at runtime
+        let webResult = await WebOps.determinePlatform()
+        let desktopResult = await DesktopOps.determinePlatform()
+
+        switch (webResult, desktopResult) {
+        | (Error(webRaw), _) => Assert.deepStrictEqual(webRaw["os"], "web") // Web should fail predictably
+        | _ => Assert.fail("Web platform should return error")
+        }
+
+        // Desktop result can be either Ok or Error depending on environment
+        switch desktopResult {
+        | Ok(_) | Error(_) => Assert.ok(true) // Both are valid for desktop in test env
+        }
+      },
+    )
   })
 
-  describe("Web Platform", () => {
-    it("should create web platform instance", () => {
-      let platform = Platform.makeWeb()
-      // Just test that it can be created without errors  
-      Assert.ok(true)
-    })
+  describe("Connection Integration", () => {
+    Async.it(
+      "should allow Connection.make to be called with platform dependencies",
+      async () => {
+        let platformDeps = Platform.makeWeb() // Use web for predictable mock behavior
+        let memento = State__Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let paths = []
+        let commands = ["agda"]
 
-    it("should have proper interface", () => {
-      // Test that Web module has all the required functions
-      module PlatformOps = Platform.Web
-      
-      // Check that functions exist by testing their types
-      let _determinePlatform: unit => promise<result<Connection__Download__Platform.t, Connection__Download__Platform.raw>> = PlatformOps.determinePlatform
-      let _findCommands: array<string> => promise<result<Connection__Target.t, array<Connection__Command.Error.t>>> = PlatformOps.findCommands
-      let _askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t> = PlatformOps.askUserAboutDownloadPolicy
-      
-      Assert.ok(true)
-    })
+        // This should not crash and should return an error (since web platform doesn't support real connections)
+        let result = await Connection.make(platformDeps, memento, globalStorageUri, paths, commands)
+
+        switch result {
+        | Error(_) => Assert.ok(true) // Expected for web platform
+        | Ok(_) => Assert.fail("Web platform should not succeed in making real connections")
+        }
+      },
+    )
+
+    Async.it(
+      "should allow Connection.fromDownloads to be called with platform dependencies",
+      async () => {
+        let platformDeps = Platform.makeWeb() // Use web for predictable mock behavior
+        let memento = State__Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let attempts = {
+          Connection__Error.Aggregated.Attempts.targets: [],
+          commands: [],
+        }
+
+        // This should not crash and should return an error (since web platform doesn't support downloads)
+        let result = await Connection.fromDownloads(
+          platformDeps,
+          memento,
+          globalStorageUri,
+          attempts,
+        )
+
+        switch result {
+        | Error(_) => Assert.ok(true) // Expected for web platform
+        | Ok(_) => Assert.fail("Web platform should not succeed in downloading")
+        }
+      },
+    )
   })
 
-  describe("Platform factory", () => {
-    it("should create web platform when isWeb=true", () => {
-      let platform = Platform.makePlatform(~isWeb=true)
-      // Just test that it can be created without errors
-      Assert.ok(true)
-    })
+  describe("Mock Platform for Testing", () => {
+    Async.it(
+      "should allow custom mock platforms to be created for testing",
+      async () => {
+        // Create a custom mock platform for testing
+        module MockPlatform: Platform.PlatformOps = {
+          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Windows))
+          let findCommands = _commands =>
+            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+          let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let getInstalledTargetsAndPersistThem = _globalStorageUri =>
+            Promise.resolve(Dict.fromArray([]))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.No)
+        }
 
-    it("should create desktop platform when isWeb=false", () => {
-      let platform = Platform.makePlatform(~isWeb=false)
-      // Just test that it can be created without errors
-      Assert.ok(true)
-    })
+        let mockPlatformDeps: Platform.platformDeps = module(MockPlatform)
+        module PlatformOps = unpack(mockPlatformDeps)
+
+        // Test the mock behavior
+        let platformResult = await PlatformOps.determinePlatform()
+        switch platformResult {
+        | Ok(Connection__Download__Platform.Windows) => Assert.ok(true)
+        | _ => Assert.fail("Mock platform should return Windows")
+        }
+
+        let commandResult = await PlatformOps.findCommands(["test"])
+        switch commandResult {
+        | Error([Connection__Command.Error.NotFound("mock")]) => Assert.ok(true)
+        | _ => Assert.fail("Mock platform should return NotFound error")
+        }
+      },
+    )
   })
 })
