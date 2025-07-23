@@ -73,9 +73,13 @@ module WebviewPanel: {
     let isGitHubDev = includesGitHubDev || includesVscodeCdn || cspIncludesGitHubCdn
     let isWeb = isLocalWeb || isGitHubDev
     
+    // Additional check: if we're clearly in a web environment (any vscode web context)
+    let isAnyWebEnvironment = isWeb || String.includes(cspSourceUri, "vscode-")
+    
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isLocalWeb:", isLocalWeb)
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isGitHubDev:", isGitHubDev)
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isWeb:", isWeb)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isAnyWebEnvironment:", isAnyWebEnvironment)
 
     let (scriptUri, styleUri, codiconsUri) = if isLocalWeb {
       Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - LOCAL WEB PATH ===")
@@ -96,22 +100,40 @@ module WebviewPanel: {
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev extensionPath:", extensionPath)
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev extensionUri:", extensionUri)
       
-      // Try webview URIs first and log what we get
-      let scriptPath = VSCode.Uri.joinPath(extensionUri, ["dist", "bundled-view.js"])
-      let stylePath = VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"])
-      let codiconsPath = VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"])
+      // Extract the CDN base URL from cspSourceUri
+      // CSP format: "https://banacorn.vscode-unpkg.net/banacorn/agda-mode/0.7.5/extension/ 'self' https://*.vscode-cdn.net"
+      let cspParts = String.split(cspSourceUri, " ")
+      let cdnBaseUrl = cspParts->Array.get(0)->Option.getOr("")
       
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev scriptPath BEFORE asWebviewUri:", scriptPath)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev stylePath BEFORE asWebviewUri:", stylePath)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev codiconsPath BEFORE asWebviewUri:", codiconsPath)
+      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - CSP parts:", cspParts)
+      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev extracted CDN base URL:", cdnBaseUrl)
       
-      let scriptUri = VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString
-      let styleUri = VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString
-      let codiconsUri = VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
+      // Ensure the URL ends with a slash for proper concatenation
+      let normalizedCdnUrl = if String.endsWith(cdnBaseUrl, "/") {
+        cdnBaseUrl
+      } else {
+        cdnBaseUrl ++ "/"
+      }
       
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev scriptUri AFTER asWebviewUri:", scriptUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev styleUri AFTER asWebviewUri:", styleUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev codiconsUri AFTER asWebviewUri:", codiconsUri)
+      // Validate the extracted CDN URL
+      let finalCdnUrl = if String.length(normalizedCdnUrl) > 10 && String.includes(normalizedCdnUrl, "https://") {
+        normalizedCdnUrl
+      } else {
+        // Fallback: try to construct from extension path if CSP parsing failed
+        Js.Console.log("[AGDA-MODE] WebviewPanel.makeHTML - CSP parsing failed, trying fallback...")
+        "https://banacorn.vscode-unpkg.net" ++ extensionPath ++ "/"
+      }
+      
+      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL CDN base URL:", finalCdnUrl)
+      
+      // Construct direct CDN URLs using the final CDN URL
+      let scriptUri = finalCdnUrl ++ "dist/bundled-view.js"
+      let styleUri = finalCdnUrl ++ "dist/style.css"
+      let codiconsUri = finalCdnUrl ++ "dist/codicon/codicon.css"
+      
+      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev DIRECT scriptUri:", scriptUri)
+      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev DIRECT styleUri:", styleUri)
+      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev DIRECT codiconsUri:", codiconsUri)
       
       (scriptUri, styleUri, codiconsUri)
     } else {
