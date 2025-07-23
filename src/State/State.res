@@ -99,7 +99,7 @@ type t = {
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
   globalStorageUri: VSCode.Uri.t,
-  extensionPath: string,
+  extensionUri: VSCode.Uri.t,
   memento: State__Memento.t,
   // for logging and testing
   channels: channels,
@@ -112,7 +112,7 @@ let make = (
   platformDeps,
   channels,
   globalStorageUri,
-  extensionPath,
+  extensionUri,
   memento,
   editor,
   semanticTokens: option<Resource.t<array<Highlighting__SemanticToken.t>>>,
@@ -133,7 +133,7 @@ let make = (
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   globalStorageUri,
-  extensionPath,
+  extensionUri,
   memento: State__Memento.make(memento),
   channels,
   isInRefineOperation: false,

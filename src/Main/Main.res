@@ -43,14 +43,14 @@ module Inputs: {
 let initialize = (
   platformDeps,
   channels,
-  extensionPath,
+  extensionUri,
   globalStorageUri,
   memento,
   editor,
   fileName,
   semanticTokensRequest,
 ) => {
-  let panel = Singleton.Panel.make(extensionPath)
+  let panel = Singleton.Panel.make(extensionUri)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)
   ->Promise.finally(() => Registry.removeAndDestroyAll()->ignore)
@@ -61,7 +61,7 @@ let initialize = (
     platformDeps,
     channels,
     globalStorageUri,
-    extensionPath,
+    extensionUri,
     memento,
     editor,
     semanticTokensRequest,
@@ -197,7 +197,7 @@ let finalize = isRestart => {
 let activateWithoutContext = (
   platformDeps,
   subscriptions,
-  extensionPath,
+  extensionUri,
   globalStorageUri,
   memento,
 ) => {
@@ -294,7 +294,7 @@ let activateWithoutContext = (
         let state = initialize(
           platformDeps,
           channels,
-          extensionPath,
+          extensionUri,
           globalStorageUri,
           memento,
           editor,
@@ -309,7 +309,7 @@ let activateWithoutContext = (
           let state = initialize(
             platformDeps,
             channels,
-            extensionPath,
+            extensionUri,
             globalStorageUri,
             memento,
             editor,
@@ -340,13 +340,13 @@ let activateWithoutContext = (
 // this function is the entry point of the whole extension
 let activate = (platformDeps, context) => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
-  let extensionPath = VSCode.ExtensionContext.extensionPath(context)
+  let extensionUri = VSCode.ExtensionContext.extensionUri(context)
 
   let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
   activateWithoutContext(
     platformDeps,
     subscriptions,
-    extensionPath,
+    extensionUri,
     globalStorageUri,
     Some(VSCode.ExtensionContext.workspaceState(context)),
   )

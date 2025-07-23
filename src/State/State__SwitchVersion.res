@@ -37,7 +37,11 @@ module DownloadWorkflow = {
     | Failure(string) // error message
 
   // Check if ALS is already downloaded and download if needed
-  let downloadLatestALS = async (platformDeps: Platform.t, memento: State__Memento.t, globalStorageUri: VSCode.Uri.t) => {
+  let downloadLatestALS = async (
+    platformDeps: Platform.t,
+    memento: State__Memento.t,
+    globalStorageUri: VSCode.Uri.t,
+  ) => {
     module PlatformOps = unpack(platformDeps)
     switch await PlatformOps.determinePlatform() {
     | Error(_) =>
@@ -103,7 +107,7 @@ module ItemCreation = {
     version: string,
     path: string,
     isSelected: bool,
-    extensionPath: string,
+    extensionUri: VSCode.Uri.t,
   ): VSCode.QuickPickItem.t => {
     VSCode.QuickPickItem.label: VersionDisplay.formatAgdaVersion(version),
     description: if isSelected {
@@ -113,8 +117,8 @@ module ItemCreation = {
     },
     detail: path,
     iconPath: VSCode.IconPath.fromDarkAndLight({
-      "dark": VSCode.Uri.joinPath(VSCode.Uri.file(extensionPath), ["asset/dark.png"]),
-      "light": VSCode.Uri.joinPath(VSCode.Uri.file(extensionPath), ["asset/light.png"]),
+      "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
+      "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
     }),
   }
 
@@ -318,7 +322,7 @@ let rec run = async (state, platformDeps: Platform.t) => {
   let targetToItem = target =>
     switch target {
     | Ok(Connection.Target.Agda(version, path)) =>
-      ItemCreation.createAgdaItem(version, path, isSelected(target), state.extensionPath)
+      ItemCreation.createAgdaItem(version, path, isSelected(target), state.extensionUri)
     | Ok(ALS(alsVersion, agdaVersion, method)) =>
       ItemCreation.createALSItem(alsVersion, agdaVersion, method, isSelected(target))
     | Error(error) => ItemCreation.createErrorItem(error)

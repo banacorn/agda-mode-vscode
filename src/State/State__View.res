@@ -20,7 +20,7 @@ module type Panel = {
 }
 
 module Panel: Panel = {
-  let get = (state: State.t) => Singleton.Panel.make(state.extensionPath)
+  let get = (state: State.t) => Singleton.Panel.make(state.extensionUri)
 
   let sendEvent = (state: State.t, event: View.EventToView.t) => {
     state.panelCache->State.ViewCache.cacheEvent(event)
@@ -120,7 +120,7 @@ module type DebugBuffer = {
 }
 
 module DebugBuffer: DebugBuffer = {
-  let make = (state: State.t) => Singleton.DebugBuffer.make(state.extensionPath)
+  let make = (state: State.t) => Singleton.DebugBuffer.make(state.extensionUri)
   let exists = () => Singleton.DebugBuffer.get()->Option.isSome
   let destroy = Singleton.DebugBuffer.destroy
 

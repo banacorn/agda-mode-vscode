@@ -144,13 +144,14 @@ module Path = {
   let toAbsolute = filepath => NodeJs.Path.resolve([NodeJs.Global.dirname, filepath])
 
   // replacement of ExtensionContext.getExtensionPath as ExtensionContext.t is out of reach
-  let extensionPath = toAbsolute("../../../../")
+  let extensionUri = VSCode.Uri.file(toAbsolute("../../../../"))
 
   // replacement of ExtensionContext.globalStoragePath as ExtensionContext.t is out ofreach
   let globalStorageUri = VSCode.Uri.file(toAbsolute("../../../../test/globalStoragePath"))
 
   let asset = filepath =>
-    NodeJs.Path.join([extensionPath, "test/tests/assets", filepath])
+    VSCode.Uri.joinPath(extensionUri, ["test/tests/assets", filepath])
+    ->VSCode.Uri.fsPath
     ->Parser.Filepath.make
     ->Parser.Filepath.toString
 }
@@ -164,12 +165,12 @@ let activateExtension = (): State.channels => {
     let platformDeps = Desktop.make()
     // activate the extension
     let disposables = []
-    let extensionPath = Path.extensionPath
+    let extensionUri = Path.extensionUri
     let globalStorageUri = Path.globalStorageUri
     let channels = Main.activateWithoutContext(
       platformDeps,
       disposables,
-      extensionPath,
+      extensionUri,
       globalStorageUri,
       None,
     )
@@ -395,7 +396,8 @@ module AgdaMode = {
   }
 
   let makeAndLoad = async filepath => {
-    let rawFilepath = NodeJs.Path.join([Path.extensionPath, "test/tests/assets", filepath])
+    let rawFilepath =
+      VSCode.Uri.joinPath(Path.extensionUri, ["test/tests/assets", filepath])->VSCode.Uri.fsPath
     // set name for searching Agda
     await Config.Connection.setAgdaVersion("agda")
     // make sure that "agda" exists in PATH

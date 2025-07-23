@@ -145,7 +145,7 @@ describe("State__SwitchVersion", () => {
     
     describe("createAgdaItem", () => {
       it("should create Agda item for non-selected version", () => {
-        let actual = ItemCreation.createAgdaItem("2.6.4", "/usr/bin/agda", false, "/extension/path")
+        let actual = ItemCreation.createAgdaItem("2.6.4", "/usr/bin/agda", false, VSCode.Uri.file("/extension/path"))
         Assert.strictEqual(actual.label, "Agda v2.6.4")
         switch actual.description {
         | Some(desc) => Assert.strictEqual(desc, "")
@@ -163,7 +163,7 @@ describe("State__SwitchVersion", () => {
       })
       
       it("should create Agda item for selected version", () => {
-        let actual = ItemCreation.createAgdaItem("2.6.4", "/usr/bin/agda", true, "/extension/path")
+        let actual = ItemCreation.createAgdaItem("2.6.4", "/usr/bin/agda", true, VSCode.Uri.file("/extension/path"))
         Assert.strictEqual(actual.label, "Agda v2.6.4")
         switch actual.description {
         | Some(desc) => Assert.strictEqual(desc, "Selected")

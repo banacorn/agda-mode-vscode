@@ -1,14 +1,14 @@
 module Panel: {
   // methods
-  let make: string => WebviewPanel.t
+  let make: VSCode.Uri.t => WebviewPanel.t
   let destroy: unit => unit
   let get: unit => option<WebviewPanel.t>
 } = {
   let handle: ref<option<WebviewPanel.t>> = ref(None)
-  let make = extensionPath =>
+  let make = extensionUri =>
     switch handle.contents {
     | None =>
-      let panel = WebviewPanel.make("Agda", extensionPath)
+      let panel = WebviewPanel.make("Agda", extensionUri)
       handle := Some(panel)
       // free the handle when the view has been forcibly destructed
       WebviewPanel.onceDestroyed(panel)
@@ -30,15 +30,15 @@ module Panel: {
 
 module DebugBuffer: {
   let get: unit => option<WebviewPanel.t>
-  let make: string => WebviewPanel.t
+  let make: VSCode.Uri.t => WebviewPanel.t
   let destroy: unit => unit
 } = {
   let handle: ref<option<WebviewPanel.t>> = ref(None)
   let get = () => handle.contents
-  let make = extensionPath =>
+  let make = extensionUri =>
     switch handle.contents {
     | None =>
-      let panel = WebviewPanel.make("Agda Debug Buffer", extensionPath)
+      let panel = WebviewPanel.make("Agda Debug Buffer", extensionUri)
       handle := Some(panel)
       // free the handle when the view has been forcibly destructed
       WebviewPanel.onceDestroyed(panel)
