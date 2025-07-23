@@ -21,14 +21,12 @@ module WebviewPanel: {
   // for webview panels across different platforms (desktop, web localhost, github.dev, etc.)
   module Environment = {
     // Represents the different VS Code environments where the extension can run
-    // - Desktop: Standard VS Code desktop application (also used as fallback)
-    // - WebLocalhost: Local web development server (localhost:3000)
+    // - Desktop: Standard VS Code desktop application (also used as fallback for localhost:3000)
     // - WebGitHub: GitHub.dev or similar web platforms with CDN resources
-    type t = Desktop | WebLocalhost | WebGitHub
+    type t = Desktop | WebGitHub
 
     // Constants for environment detection
     module Constants = {
-      let localhostBaseUrl = "http://localhost:3000/static/devextensions/dist/"
       let fallbackCdnBaseUrl = "https://banacorn.vscode-unpkg.net"
 
       // Resource file names
@@ -38,17 +36,10 @@ module WebviewPanel: {
 
       // Path segments
       let distDir = "dist"
-      let staticPrefix = "/static"
     }
 
     // Detects the current VS Code environment based on extension path and CSP source URI
     let detect = (extensionUri: VSCode.Uri.t, cspSourceUri: string): t => {
-      // Local development: extension path starts with "/static"
-      let isLocalDevelopment = String.startsWith(
-        VSCode.Uri.path(extensionUri),
-        Constants.staticPrefix,
-      )
-
       // GitHub.dev indicators in extension path
       let hasGitHubDevInPath = String.includes(VSCode.Uri.path(extensionUri), "github.dev")
       let hasVscodeCdnInPath = String.includes(VSCode.Uri.path(extensionUri), "vscode-cdn")
@@ -58,13 +49,11 @@ module WebviewPanel: {
         String.includes(cspSourceUri, "vscode-unpkg.net") ||
         String.includes(cspSourceUri, "github.dev")
 
-      // Environment detection logic (order matters)
-      if isLocalDevelopment {
-        WebLocalhost
-      } else if hasGitHubDevInPath || hasVscodeCdnInPath || hasGitHubCdnInCsp {
+      // Environment detection logic
+      if hasGitHubDevInPath || hasVscodeCdnInPath || hasGitHubCdnInCsp {
         WebGitHub
       } else {
-        // Default to Desktop for all other cases (including unknown web environments)
+        // Default to Desktop for all other cases (including localhost:3000 and unknown environments)
         Desktop
       }
     }
@@ -102,9 +91,6 @@ module WebviewPanel: {
       | Desktop =>
         // Desktop uses webview.asWebviewUri() which requires webview context
         None
-      | WebLocalhost =>
-        // Local development server URLs
-        Some(Constants.localhostBaseUrl)
       | WebGitHub =>
         // GitHub.dev: Extract CDN base URL and construct direct resource URLs
         Some(extractCdnBaseUrl(cspSourceUri, extensionUri) ++ Constants.distDir ++ "/")
@@ -128,11 +114,6 @@ module WebviewPanel: {
           `script-src 'nonce-${nonce}'; `,
           `style-src ${cspSourceUri}; `,
           `font-src ${cspSourceUri}; `,
-        )
-      | WebLocalhost => (
-          `script-src 'nonce-${nonce}' http://localhost:3000; `,
-          `style-src ${cspSourceUri} http://localhost:3000; `,
-          `font-src ${cspSourceUri} http://localhost:3000; `,
         )
       | WebGitHub => {
           // Allow multiple CDN domains for GitHub.dev
