@@ -14,3 +14,11 @@ style/**
 .merlin
 bsconfig.json
 webpack.config.js
+
+# Development and build files
+run-web-extension.js
+rescript.json
+empty-module.js
+
+# Duplicate assets (already included in dist/)
+asset/codicon/**
