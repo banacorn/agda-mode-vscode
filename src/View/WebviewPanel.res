@@ -58,14 +58,19 @@ module WebviewPanel: {
     let includesGitHubDev = String.includes(extensionPath, "github.dev")
     let includesVscodeCdn = String.includes(extensionPath, "vscode-cdn")
     let includesDevExtensions = String.includes(extensionPath, "devextensions")
+    // Check if CSP source includes github.dev CDN patterns  
+    let cspSourceUri = VSCode.Webview.cspSource(webview)
+    let cspIncludesGitHubCdn = String.includes(cspSourceUri, "vscode-unpkg.net") || String.includes(cspSourceUri, "github.dev")
     
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - startsWithStatic:", startsWithStatic)
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - includesGitHubDev:", includesGitHubDev)
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - includesVscodeCdn:", includesVscodeCdn)
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - includesDevExtensions:", includesDevExtensions)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - cspSourceUri:", cspSourceUri)
+    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - cspIncludesGitHubCdn:", cspIncludesGitHubCdn)
     
     let isLocalWeb = startsWithStatic
-    let isGitHubDev = includesGitHubDev || includesVscodeCdn
+    let isGitHubDev = includesGitHubDev || includesVscodeCdn || cspIncludesGitHubCdn
     let isWeb = isLocalWeb || isGitHubDev
     
     Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isLocalWeb:", isLocalWeb)
@@ -143,7 +148,7 @@ module WebviewPanel: {
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL scriptSrc:", src)
       src
     } else if isGitHubDev {
-      let src = "script-src 'nonce-" ++ nonce ++ "' https://*.github.dev https://*.vscode-cdn.net; "
+      let src = "script-src 'nonce-" ++ nonce ++ "' https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net; "
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV scriptSrc:", src)
       src
     } else {
@@ -156,7 +161,7 @@ module WebviewPanel: {
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL styleSrc:", src)
       src
     } else if isGitHubDev {
-      let src = "style-src " ++ cspSourceUri ++ " https://*.github.dev https://*.vscode-cdn.net; "
+      let src = "style-src " ++ cspSourceUri ++ " https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net; "
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV styleSrc:", src)
       src
     } else {
@@ -169,7 +174,7 @@ module WebviewPanel: {
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL fontSrc:", src)
       src
     } else if isGitHubDev {
-      let src = "font-src " ++ cspSourceUri ++ " https://*.github.dev https://*.vscode-cdn.net; "
+      let src = "font-src " ++ cspSourceUri ++ " https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net; "
       Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV fontSrc:", src)
       src
     } else {
