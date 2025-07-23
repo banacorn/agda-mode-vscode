@@ -17,115 +17,14 @@ module WebviewPanel: {
   let moveToBottom: unit => unit
   let moveToRight: unit => unit
 } = {
-  // Environment module handles VS Code environment detection and resource management
-  // for webview panels across different platforms (desktop, web localhost, github.dev, etc.)
-  module Environment = {
-    // Represents the different VS Code environments where the extension can run
-    // - Desktop: Standard VS Code desktop application (also used as fallback for localhost:3000)
-    // - WebGitHub: GitHub.dev or similar web platforms with CDN resources
-    type t = Desktop | WebGitHub
+  module Path = {
+    // Resource file names
+    let scriptFile = "bundled-view.js"
+    let styleFile = "style.css"
+    let codiconsFile = "codicon/codicon.css"
 
-    // Constants for environment detection
-    module Constants = {
-      let fallbackCdnBaseUrl = "https://banacorn.vscode-unpkg.net"
-
-      // Resource file names
-      let scriptFile = "bundled-view.js"
-      let styleFile = "style.css"
-      let codiconsFile = "codicon/codicon.css"
-
-      // Path segments
-      let distDir = "dist"
-    }
-
-    // Detects the current VS Code environment based on extension path and CSP source URI
-    let detect = (extensionUri: VSCode.Uri.t, cspSourceUri: string): t => {
-      // GitHub.dev indicators in extension path
-      let hasGitHubDevInPath = String.includes(VSCode.Uri.path(extensionUri), "github.dev")
-      let hasVscodeCdnInPath = String.includes(VSCode.Uri.path(extensionUri), "vscode-cdn")
-
-      // GitHub.dev indicators in CSP source URI
-      let hasGitHubCdnInCsp =
-        String.includes(cspSourceUri, "vscode-unpkg.net") ||
-        String.includes(cspSourceUri, "github.dev")
-
-      // Environment detection logic
-      if hasGitHubDevInPath || hasVscodeCdnInPath || hasGitHubCdnInCsp {
-        Desktop
-      } else {
-        // Default to Desktop for all other cases (including localhost:3000 and unknown environments)
-        Desktop
-      }
-    }
-
-    // Helper function to extract and validate CDN base URL from CSP source URI
-    // Used specifically for GitHub.dev environments
-    let extractCdnBaseUrl = (cspSourceUri: string, extensionUri: VSCode.Uri.t): string => {
-      // CSP format example: "https://banacorn.vscode-unpkg.net/banacorn/agda-mode/0.7.5/extension/ 'self' https://*.vscode-cdn.net"
-      let cspParts = String.split(cspSourceUri, " ")
-      let rawCdnUrl = cspParts->Array.get(0)->Option.getOr("")
-
-      // Normalize URL (ensure trailing slash)
-      let normalizedUrl = if String.endsWith(rawCdnUrl, "/") {
-        rawCdnUrl
-      } else {
-        rawCdnUrl ++ "/"
-      }
-
-      // Validate extracted URL and provide fallback
-      if String.length(normalizedUrl) > 10 && String.includes(normalizedUrl, "https://") {
-        normalizedUrl
-      } else {
-        // Fallback: construct CDN URL from extension path
-        Constants.fallbackCdnBaseUrl ++ VSCode.Uri.path(extensionUri) ++ "/"
-      }
-    }
-
-    // Generates resource URLs (script, style, codicons) for the given environment
-    let getResourceUrls = (env: t, extensionUri: VSCode.Uri.t, cspSourceUri: string): option<(
-      string,
-      string,
-      string,
-    )> => {
-      let baseUrl = switch env {
-      | Desktop =>
-        // Desktop uses webview.asWebviewUri() which requires webview context
-        None
-      | WebGitHub =>
-        // GitHub.dev: Extract CDN base URL and construct direct resource URLs
-        Some(extractCdnBaseUrl(cspSourceUri, extensionUri) ++ Constants.distDir ++ "/")
-      }
-
-      switch baseUrl {
-      | None => None
-      | Some(baseUrl) =>
-        Some(
-          baseUrl ++ Constants.scriptFile,
-          baseUrl ++ Constants.styleFile,
-          baseUrl ++ Constants.codiconsFile,
-        )
-      }
-    }
-
-    // Generates Content Security Policy rules for the given environment
-    let getCspRules = (env: t, nonce: string, cspSourceUri: string): (string, string, string) => {
-      switch env {
-      | Desktop => (
-          `script-src 'nonce-${nonce}'; `,
-          `style-src ${cspSourceUri}; `,
-          `font-src ${cspSourceUri}; `,
-        )
-      | WebGitHub => {
-          // Allow multiple CDN domains for GitHub.dev
-          let webDomains = "https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net"
-          (
-            `script-src 'nonce-${nonce}' ${webDomains}; `,
-            `style-src ${cspSourceUri} ${webDomains}; `,
-            `font-src ${cspSourceUri} ${webDomains}; `,
-          )
-        }
-      }
-    }
+    // Path segments
+    let distDir = "dist"
   }
 
   type t = VSCode.WebviewPanel.t
@@ -151,44 +50,26 @@ module WebviewPanel: {
 
     // Environment detection and resource URL generation
     let cspSourceUri = VSCode.Webview.cspSource(webview)
-    let environment = Environment.detect(extensionUri, cspSourceUri)
 
     // Generate resource URLs based on the detected environment
     // Desktop requires special handling due to webview.asWebviewUri() dependency
-    let (scriptUri, styleUri, codiconsUri) = switch Environment.getResourceUrls(
-      environment,
-      extensionUri,
-      cspSourceUri,
-    ) {
-    | None => {
-        // Desktop: Use webview.asWebviewUri() for proper file:// to vscode-webview:// conversion
-        let scriptPath = VSCode.Uri.joinPath(
-          extensionUri,
-          [Environment.Constants.distDir, Environment.Constants.scriptFile],
-        )
-        let stylePath = VSCode.Uri.joinPath(
-          extensionUri,
-          [Environment.Constants.distDir, Environment.Constants.styleFile],
-        )
-        let codiconsPath = VSCode.Uri.joinPath(
-          extensionUri,
-          [Environment.Constants.distDir, Environment.Constants.codiconsFile],
-        )
+    let scriptPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir, Path.scriptFile])
+    let stylePath = VSCode.Uri.joinPath(extensionUri, [Path.distDir, Path.styleFile])
+    let codiconsPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir, Path.codiconsFile])
 
-        let scriptUri = VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString
-        let styleUri = VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString
-        let codiconsUri = VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
-
-        (scriptUri, styleUri, codiconsUri)
-      }
-    | Some(scriptUri, styleUri, codiconsUri) => (scriptUri, styleUri, codiconsUri)
-    }
+    let scriptUri = VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString
+    let styleUri = VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString
+    let codiconsUri = VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
 
     // Generate Content Security Policy with environment-specific rules
     // Follows principle of least privilege - only allow necessary sources
     let generateContentSecurityPolicy = (): string => {
       let defaultSrc = "default-src 'none'; " // Deny all by default
-      let (scriptSrc, styleSrc, fontSrc) = Environment.getCspRules(environment, nonce, cspSourceUri)
+      let (scriptSrc, styleSrc, fontSrc) = (
+        `script-src 'nonce-${nonce}'; `,
+        `style-src ${cspSourceUri}; `,
+        `font-src ${cspSourceUri}; `,
+      )
       defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
     }
 
@@ -225,8 +106,7 @@ module WebviewPanel: {
   // Creates a new webview panel with environment-aware resource loading
   let make = (title, extensionUri) => {
     // Configure allowed local resource roots for security
-    let distPath =
-      VSCode.Uri.joinPath(extensionUri, [Environment.Constants.distDir])->VSCode.Uri.fsPath
+    let distPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir])->VSCode.Uri.fsPath
     let distUri = VSCode.Uri.file(distPath)
 
     let webviewOptions = VSCode.WebviewAndWebviewPanelOptions.make(
