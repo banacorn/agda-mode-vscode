@@ -17,197 +17,203 @@ module WebviewPanel: {
   let moveToBottom: unit => unit
   let moveToRight: unit => unit
 } = {
+  // Environment module handles VS Code environment detection and resource management
+  // for webview panels across different platforms (desktop, web localhost, github.dev, etc.)
+  module Environment = {
+    // Represents the different VS Code environments where the extension can run
+    // - Desktop: Standard VS Code desktop application (also used as fallback)
+    // - WebLocalhost: Local web development server (localhost:3000)
+    // - WebGitHub: GitHub.dev or similar web platforms with CDN resources
+    type t = Desktop | WebLocalhost | WebGitHub
+
+    // Constants for environment detection
+    module Constants = {
+      let localhostBaseUrl = "http://localhost:3000/static/devextensions/dist/"
+      let fallbackCdnBaseUrl = "https://banacorn.vscode-unpkg.net"
+
+      // Resource file names
+      let scriptFile = "bundled-view.js"
+      let styleFile = "style.css"
+      let codiconsFile = "codicon/codicon.css"
+
+      // Path segments
+      let distDir = "dist"
+      let staticPrefix = "/static"
+    }
+
+    // Detects the current VS Code environment based on extension path and CSP source URI
+    let detect = (extensionPath: string, cspSourceUri: string): t => {
+      // Local development: extension path starts with "/static"
+      let isLocalDevelopment = String.startsWith(extensionPath, Constants.staticPrefix)
+
+      // GitHub.dev indicators in extension path
+      let hasGitHubDevInPath = String.includes(extensionPath, "github.dev")
+      let hasVscodeCdnInPath = String.includes(extensionPath, "vscode-cdn")
+
+      // GitHub.dev indicators in CSP source URI
+      let hasGitHubCdnInCsp =
+        String.includes(cspSourceUri, "vscode-unpkg.net") ||
+        String.includes(cspSourceUri, "github.dev")
+
+      // Environment detection logic (order matters)
+      if isLocalDevelopment {
+        WebLocalhost
+      } else if hasGitHubDevInPath || hasVscodeCdnInPath || hasGitHubCdnInCsp {
+        WebGitHub
+      } else {
+        // Default to Desktop for all other cases (including unknown web environments)
+        Desktop
+      }
+    }
+
+    // Helper function to extract and validate CDN base URL from CSP source URI
+    // Used specifically for GitHub.dev environments
+    let extractCdnBaseUrl = (cspSourceUri: string, extensionPath: string): string => {
+      // CSP format example: "https://banacorn.vscode-unpkg.net/banacorn/agda-mode/0.7.5/extension/ 'self' https://*.vscode-cdn.net"
+      let cspParts = String.split(cspSourceUri, " ")
+      let rawCdnUrl = cspParts->Array.get(0)->Option.getOr("")
+
+      // Normalize URL (ensure trailing slash)
+      let normalizedUrl = if String.endsWith(rawCdnUrl, "/") {
+        rawCdnUrl
+      } else {
+        rawCdnUrl ++ "/"
+      }
+
+      // Validate extracted URL and provide fallback
+      if String.length(normalizedUrl) > 10 && String.includes(normalizedUrl, "https://") {
+        normalizedUrl
+      } else {
+        // Fallback: construct CDN URL from extension path
+        Constants.fallbackCdnBaseUrl ++ extensionPath ++ "/"
+      }
+    }
+
+    // Generates resource URLs (script, style, codicons) for the given environment
+    let getResourceUrls = (env: t, extensionPath: string, cspSourceUri: string): option<(
+      string,
+      string,
+      string,
+    )> => {
+      let baseUrl = switch env {
+      | Desktop =>
+        // Desktop uses webview.asWebviewUri() which requires webview context
+        None
+      | WebLocalhost =>
+        // Local development server URLs
+        Some(Constants.localhostBaseUrl)
+      | WebGitHub =>
+        // GitHub.dev: Extract CDN base URL and construct direct resource URLs
+        Some(extractCdnBaseUrl(cspSourceUri, extensionPath) ++ Constants.distDir ++ "/")
+      }
+
+      switch baseUrl {
+      | None => None
+      | Some(baseUrl) =>
+        Some(
+          baseUrl ++ Constants.scriptFile,
+          baseUrl ++ Constants.styleFile,
+          baseUrl ++ Constants.codiconsFile,
+        )
+      }
+    }
+
+    // Generates Content Security Policy rules for the given environment
+    let getCspRules = (env: t, nonce: string, cspSourceUri: string): (string, string, string) => {
+      switch env {
+      | Desktop => (
+          `script-src 'nonce-${nonce}'; `,
+          `style-src ${cspSourceUri}; `,
+          `font-src ${cspSourceUri}; `,
+        )
+      | WebLocalhost => (
+          `script-src 'nonce-${nonce}' http://localhost:3000; `,
+          `style-src ${cspSourceUri} http://localhost:3000; `,
+          `font-src ${cspSourceUri} http://localhost:3000; `,
+        )
+      | WebGitHub => {
+          // Allow multiple CDN domains for GitHub.dev
+          let webDomains = "https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net"
+          (
+            `script-src 'nonce-${nonce}' ${webDomains}; `,
+            `style-src ${cspSourceUri} ${webDomains}; `,
+            `font-src ${cspSourceUri} ${webDomains}; `,
+          )
+        }
+      }
+    }
+  }
+
   type t = VSCode.WebviewPanel.t
 
+  // Generates HTML content for the webview panel with environment-specific resource URLs
+  // and Content Security Policy rules
   let makeHTML = (webview, extensionPath) => {
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - STARTING ===")
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - extensionPath:", extensionPath)
-    
     let extensionUri = VSCode.Uri.file(extensionPath)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - extensionUri:", extensionUri)
-    
-    // Log current location info if available (only in webview context)
-    try {
-      let location = Webapi.Dom.Window.location(Webapi.Dom.window)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - window.location.href:", Webapi.Dom.Location.href(location))
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - window.location.origin:", Webapi.Dom.Location.origin(location))
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - window.location.hostname:", Webapi.Dom.Location.hostname(location))
-    } catch {
-    | _ => Js.Console.log("[AGDA-MODE] WebviewPanel.makeHTML - window not available (extension context)")
-    }
-    // generates gibberish
-    let nonce = {
+
+    // Generate cryptographically secure nonce for Content Security Policy
+    // Uses alphanumeric characters to create a 32-character random string
+    let generateSecurityNonce = (): string => {
       let text = ref("")
-      let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-      let cardinality = String.length(charaterSet)
+      let charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+      let charsetLength = String.length(charset)
+
       for _ in 0 to 32 {
-        text :=
-          text.contents ++
-          String.charAt(
-            charaterSet,
-            Int.fromFloat(Math.floor(Math.random() *. float_of_int(cardinality))),
-          )
+        let randomIndex = Int.fromFloat(Math.floor(Math.random() *. float_of_int(charsetLength)))
+        text := text.contents ++ String.charAt(charset, randomIndex)
       }
       text.contents
     }
 
-    // Check if we're in VS Code Web and use direct HTTP URLs
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - ENVIRONMENT DETECTION ===")
-    
-    let startsWithStatic = String.startsWith(extensionPath, "/static")
-    let includesGitHubDev = String.includes(extensionPath, "github.dev")
-    let includesVscodeCdn = String.includes(extensionPath, "vscode-cdn")
-    let includesDevExtensions = String.includes(extensionPath, "devextensions")
-    // Check if CSP source includes github.dev CDN patterns  
+    let nonce = generateSecurityNonce()
+
+    // Environment detection and resource URL generation
     let cspSourceUri = VSCode.Webview.cspSource(webview)
-    let cspIncludesGitHubCdn = String.includes(cspSourceUri, "vscode-unpkg.net") || String.includes(cspSourceUri, "github.dev")
-    
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - startsWithStatic:", startsWithStatic)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - includesGitHubDev:", includesGitHubDev)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - includesVscodeCdn:", includesVscodeCdn)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - includesDevExtensions:", includesDevExtensions)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - cspSourceUri:", cspSourceUri)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - cspIncludesGitHubCdn:", cspIncludesGitHubCdn)
-    
-    let isLocalWeb = startsWithStatic
-    let isGitHubDev = includesGitHubDev || includesVscodeCdn || cspIncludesGitHubCdn
-    let isWeb = isLocalWeb || isGitHubDev
-    
-    // Additional check: if we're clearly in a web environment (any vscode web context)
-    let isAnyWebEnvironment = isWeb || String.includes(cspSourceUri, "vscode-")
-    
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isLocalWeb:", isLocalWeb)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isGitHubDev:", isGitHubDev)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isWeb:", isWeb)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL isAnyWebEnvironment:", isAnyWebEnvironment)
+    let environment = Environment.detect(extensionPath, cspSourceUri)
 
-    let (scriptUri, styleUri, codiconsUri) = if isLocalWeb {
-      Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - LOCAL WEB PATH ===")
-      // Use direct HTTP URLs for local VS Code Web
-      let baseUrl = "http://localhost:3000/static/devextensions/dist/"
-      let scriptUri = baseUrl ++ "bundled-view.js"
-      let styleUri = baseUrl ++ "style.css"
-      let codiconsUri = baseUrl ++ "codicon/codicon.css"
-      
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL baseUrl:", baseUrl)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL scriptUri:", scriptUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL styleUri:", styleUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL codiconsUri:", codiconsUri)
-      
-      (scriptUri, styleUri, codiconsUri)
-    } else if isGitHubDev {
-      Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV PATH ===")
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev extensionPath:", extensionPath)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev extensionUri:", extensionUri)
-      
-      // Extract the CDN base URL from cspSourceUri
-      // CSP format: "https://banacorn.vscode-unpkg.net/banacorn/agda-mode/0.7.5/extension/ 'self' https://*.vscode-cdn.net"
-      let cspParts = String.split(cspSourceUri, " ")
-      let cdnBaseUrl = cspParts->Array.get(0)->Option.getOr("")
-      
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - CSP parts:", cspParts)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev extracted CDN base URL:", cdnBaseUrl)
-      
-      // Ensure the URL ends with a slash for proper concatenation
-      let normalizedCdnUrl = if String.endsWith(cdnBaseUrl, "/") {
-        cdnBaseUrl
-      } else {
-        cdnBaseUrl ++ "/"
+    // Generate resource URLs based on the detected environment
+    // Desktop requires special handling due to webview.asWebviewUri() dependency
+    let (scriptUri, styleUri, codiconsUri) = switch Environment.getResourceUrls(
+      environment,
+      extensionPath,
+      cspSourceUri,
+    ) {
+    | None => {
+        // Desktop: Use webview.asWebviewUri() for proper file:// to vscode-webview:// conversion
+        let scriptPath = VSCode.Uri.joinPath(
+          extensionUri,
+          [Environment.Constants.distDir, Environment.Constants.scriptFile],
+        )
+        let stylePath = VSCode.Uri.joinPath(
+          extensionUri,
+          [Environment.Constants.distDir, Environment.Constants.styleFile],
+        )
+        let codiconsPath = VSCode.Uri.joinPath(
+          extensionUri,
+          [Environment.Constants.distDir, Environment.Constants.codiconsFile],
+        )
+
+        let scriptUri = VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString
+        let styleUri = VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString
+        let codiconsUri = VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
+
+        (scriptUri, styleUri, codiconsUri)
       }
-      
-      // Validate the extracted CDN URL
-      let finalCdnUrl = if String.length(normalizedCdnUrl) > 10 && String.includes(normalizedCdnUrl, "https://") {
-        normalizedCdnUrl
-      } else {
-        // Fallback: try to construct from extension path if CSP parsing failed
-        Js.Console.log("[AGDA-MODE] WebviewPanel.makeHTML - CSP parsing failed, trying fallback...")
-        "https://banacorn.vscode-unpkg.net" ++ extensionPath ++ "/"
-      }
-      
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL CDN base URL:", finalCdnUrl)
-      
-      // Construct direct CDN URLs using the final CDN URL
-      let scriptUri = finalCdnUrl ++ "dist/bundled-view.js"
-      let styleUri = finalCdnUrl ++ "dist/style.css"
-      let codiconsUri = finalCdnUrl ++ "dist/codicon/codicon.css"
-      
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev DIRECT scriptUri:", scriptUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev DIRECT styleUri:", styleUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GitHub.dev DIRECT codiconsUri:", codiconsUri)
-      
-      (scriptUri, styleUri, codiconsUri)
-    } else {
-      Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - DESKTOP PATH ===")
-      // Use webview URIs for desktop
-      let scriptPath = VSCode.Uri.joinPath(extensionUri, ["dist", "bundled-view.js"])
-      let stylePath = VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"])
-      let codiconsPath = VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"])
-      
-      let scriptUri = VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString
-      let styleUri = VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString
-      let codiconsUri = VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
-      
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - DESKTOP scriptUri:", scriptUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - DESKTOP styleUri:", styleUri)
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - DESKTOP codiconsUri:", codiconsUri)
-      
-      (scriptUri, styleUri, codiconsUri)
+    | Some(scriptUri, styleUri, codiconsUri) => (scriptUri, styleUri, codiconsUri)
     }
-    
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - FINAL URIS ===")
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL scriptUri:", scriptUri)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL styleUri:", styleUri)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL codiconsUri:", codiconsUri)
 
-    let cspSourceUri = VSCode.Webview.cspSource(webview)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - cspSourceUri:", cspSourceUri)
+    // Generate Content Security Policy with environment-specific rules
+    // Follows principle of least privilege - only allow necessary sources
+    let generateContentSecurityPolicy = (): string => {
+      let defaultSrc = "default-src 'none'; " // Deny all by default
+      let (scriptSrc, styleSrc, fontSrc) = Environment.getCspRules(environment, nonce, cspSourceUri)
+      defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
+    }
 
-    // Content-Security-Policy - allow web URLs for different environments
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - CSP GENERATION ===")
-    let defaultSrc = "default-src 'none'; "
-    let scriptSrc = if isLocalWeb {
-      let src = "script-src 'nonce-" ++ nonce ++ "' http://localhost:3000; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL scriptSrc:", src)
-      src
-    } else if isGitHubDev {
-      let src = "script-src 'nonce-" ++ nonce ++ "' https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV scriptSrc:", src)
-      src
-    } else {
-      let src = "script-src 'nonce-" ++ nonce ++ "'; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - DESKTOP scriptSrc:", src)
-      src
-    }
-    let styleSrc = if isLocalWeb {
-      let src = "style-src " ++ cspSourceUri ++ " http://localhost:3000; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL styleSrc:", src)
-      src
-    } else if isGitHubDev {
-      let src = "style-src " ++ cspSourceUri ++ " https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV styleSrc:", src)
-      src
-    } else {
-      let src = "style-src " ++ cspSourceUri ++ "; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - DESKTOP styleSrc:", src)
-      src
-    }
-    let fontSrc = if isLocalWeb {
-      let src = "font-src " ++ cspSourceUri ++ " http://localhost:3000; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - LOCAL fontSrc:", src)
-      src
-    } else if isGitHubDev {
-      let src = "font-src " ++ cspSourceUri ++ " https://*.github.dev https://*.vscode-cdn.net https://*.vscode-unpkg.net; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - GITHUB.DEV fontSrc:", src)
-      src
-    } else {
-      let src = "font-src " ++ cspSourceUri ++ "; "
-      Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - DESKTOP fontSrc:", src)
-      src
-    }
-    let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
-    
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - FINAL CSP:", scp)
-    
+    let csp = generateContentSecurityPolicy()
+
+    // Generate the complete HTML document for the webview
+    // Includes proper CSP headers, resource links, and React root element
     let html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -216,82 +222,51 @@ module WebviewPanel: {
         <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
         <meta name="theme-color" content="#000000">
 
-        <!--
-					Use a content security policy to only allow loading images from https or from our extension directory,
-					and only allow scripts that have a specific nonce.
-				-->
-        <meta http-equiv="Content-Security-Policy" content="${scp}">
+        <!-- Content Security Policy: Environment-specific rules for secure resource loading -->
+        <meta http-equiv="Content-Security-Policy" content="${csp}">
 
-        <title>React App</title>
-        <link href="${styleUri}"    rel="stylesheet" type="text/css" >
-        <link href="${codiconsUri}" rel="stylesheet" />
+        <title>Agda Mode</title>
+        <link href="${styleUri}" rel="stylesheet" type="text/css">
+        <link href="${codiconsUri}" rel="stylesheet">
       </head>
       <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
         <script nonce="${nonce}" src="${scriptUri}"></script>
-        
-        <!-- Debug info embedded in HTML -->
-        <script>
-          console.log("[AGDA-MODE] HTML - Environment Detection:");
-          console.log("[AGDA-MODE] HTML - extensionPath: ${extensionPath}");
-          console.log("[AGDA-MODE] HTML - isLocalWeb: ${string_of_bool(isLocalWeb)}");
-          console.log("[AGDA-MODE] HTML - isGitHubDev: ${string_of_bool(isGitHubDev)}");
-          console.log("[AGDA-MODE] HTML - scriptUri: ${scriptUri}");
-          console.log("[AGDA-MODE] HTML - styleUri: ${styleUri}");
-          console.log("[AGDA-MODE] HTML - codiconsUri: ${codiconsUri}");
-          console.log("[AGDA-MODE] HTML - CSP: ${scp}");
-        </script>
       </body>
       </html>
     `
-    
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.makeHTML - HTML GENERATION COMPLETE ===")
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.makeHTML - Generated HTML preview (first 500 chars):", String.substring(html, ~start=0, ~end=500))
-    
+
     html
   }
 
+  // Creates a new webview panel with environment-aware resource loading
   let make = (title, extensionPath) => {
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.make - STARTING ===")
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - title:", title)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - extensionPath:", extensionPath)
-    
-    let distPath = NodeJs.Path.join2(extensionPath, "dist")
+    // Configure allowed local resource roots for security
+    let distPath = NodeJs.Path.join2(extensionPath, Environment.Constants.distDir)
     let distUri = VSCode.Uri.file(distPath)
-    
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - distPath:", distPath)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - distUri:", distUri)
-    
+
     let webviewOptions = VSCode.WebviewAndWebviewPanelOptions.make(
       ~enableScripts=true,
-      // So that the view don't get wiped out when it's not in the foreground
+      // Preserve panel state when not in foreground (better UX)
       ~retainContextWhenHidden=true,
-      // And restrict the webview to only loading content from our extension's `media` directory.
+      // Security: restrict webview to only load resources from dist directory
       ~localResourceRoots=[distUri],
       (),
     )
-    
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - webviewOptions:", webviewOptions)
-    
+
+    // Create the webview panel in column 3 (rightmost)
     let panel = VSCode.Window.createWebviewPanel(
       "panel",
       title,
       {"preserveFocus": true, "viewColumn": 3},
       Some(webviewOptions),
     )
-    
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - panel created:", panel)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - panel.webview:", VSCode.WebviewPanel.webview(panel))
 
-    Js.Console.log("[AGDA-MODE] WebviewPanel.make - About to call makeHTML...")
+    // Generate and set the HTML content with environment-specific resources
     let html = makeHTML(VSCode.WebviewPanel.webview(panel), extensionPath)
-    Js.Console.log2("[AGDA-MODE] WebviewPanel.make - Generated HTML length:", String.length(html))
-    
-    Js.Console.log("[AGDA-MODE] WebviewPanel.make - Setting HTML on webview...")
     panel->VSCode.WebviewPanel.webview->VSCode.Webview.setHtml(html)
-    
-    Js.Console.log("=== [AGDA-MODE] WebviewPanel.make - COMPLETED ===")
+
     panel
   }
 
