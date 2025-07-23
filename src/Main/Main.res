@@ -27,8 +27,7 @@ module Inputs: {
       VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
         VSCode.Window.activeTextEditor->Option.map(
           editor => {
-            let fileName =
-              editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+            let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
             if isAgda(fileName) {
               callback(command, editor)
             } else {
@@ -195,10 +194,16 @@ let finalize = isRestart => {
   }
 }
 
-let activateWithoutContext = (platformDeps, subscriptions, extensionPath, globalStorageUri, memento) => {
+let activateWithoutContext = (
+  platformDeps,
+  subscriptions,
+  extensionPath,
+  globalStorageUri,
+  memento,
+) => {
   let subscribe = x => subscriptions->Array.push(x)->ignore
   let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
-  
+
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
   let channels = {
@@ -334,20 +339,10 @@ let activateWithoutContext = (platformDeps, subscriptions, extensionPath, global
 
 // this function is the entry point of the whole extension
 let activate = (platformDeps, context) => {
-  Js.Console.log("[AGDA-MODE] Main.activate - Extension activating...")
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionPath = VSCode.ExtensionContext.extensionPath(context)
-  Js.Console.log2("[AGDA-MODE] Main.activate - extensionPath:", extensionPath)
 
-  let globalStorageUri =
-    context
-    ->VSCode.ExtensionContext.globalStorageUri
-    ->VSCode.Uri.with_({
-      scheme: "file",
-    })
-  Js.Console.log2("[AGDA-MODE] Main.activate - globalStorageUri:", globalStorageUri)
-
-  Js.Console.log("[AGDA-MODE] Main.activate - calling activateWithoutContext")
+  let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
   activateWithoutContext(
     platformDeps,
     subscriptions,
