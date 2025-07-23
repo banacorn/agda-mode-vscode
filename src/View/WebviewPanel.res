@@ -51,7 +51,7 @@ module WebviewPanel: {
 
       // Environment detection logic
       if hasGitHubDevInPath || hasVscodeCdnInPath || hasGitHubCdnInCsp {
-        WebGitHub
+        Desktop
       } else {
         // Default to Desktop for all other cases (including localhost:3000 and unknown environments)
         Desktop
