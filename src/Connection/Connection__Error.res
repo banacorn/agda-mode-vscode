@@ -58,5 +58,5 @@ let toString = x =>
   switch x {
   | Agda(e, _) => Connection__Target__Agda__Error.toString(e)
   | ALS(e) => Connection__Target__ALS__Error.toString(e)
-  | Aggregated(e) => ("Error", Aggregated.toString(e))
+  | Aggregated(e) => ("Connection Error", Aggregated.toString(e))
   }

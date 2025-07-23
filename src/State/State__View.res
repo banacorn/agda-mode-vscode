@@ -42,7 +42,7 @@ module Panel: Panel = {
 
   let displayConnectionError = (state, error) => {
     let (header, body) = Connection.Error.toString(error)
-    display(state, Error("Connection Error: " ++ header), [Item.plainText(body)])
+    display(state, Error(header), [Item.plainText(body)])
   }
 
   // display connection status
