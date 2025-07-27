@@ -60,17 +60,17 @@ describe("Connection", () => {
 
   describe("Target", () => {
     let agdaMockPath = ref("")
-    let agdaMockTarget = ref(None)
+    let agdaMockEndpoint = ref(None)
 
     Async.before(
       async () => {
         // setup the Agda mock
-        agdaMockPath := (await Target.Agda.mock(~version="2.7.0.1", ~name="agda-mock"))
+        agdaMockPath := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock"))
 
-        switch await Connection.Target.fromRawPath(agdaMockPath.contents) {
-        | Ok(target) => agdaMockTarget := Some(target)
+        switch await Connection.Endpoint.fromRawPath(agdaMockPath.contents) {
+        | Ok(target) => agdaMockEndpoint := Some(target)
         | Error(error) =>
-          let errorMessage = Connection__Target.Error.toString(error)
+          let errorMessage = Connection__Endpoint.Error.toString(error)
           failwith(
             "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
           )
@@ -82,19 +82,19 @@ describe("Connection", () => {
       "should return the previously picked connection",
       async () => {
         // access the Agda mock
-        let agdaMockTarget = switch agdaMockTarget.contents {
+        let agdaMockEndpoint = switch agdaMockEndpoint.contents {
         | Some(target) => target
         | None => failwith("Unable to access the Agda mock target")
         }
 
         // setup the memento
         let memento = State__Memento.make(None)
-        await Connection.Target.setPicked(memento, Some(agdaMockTarget))
+        await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
 
         let paths = [agdaMockPath.contents, "path/to/als"]->Array.map(Connection__URI.parse)
 
-        let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = Ok(agdaMockTarget)
+        let actual = await Connection__Endpoint.getPicked(memento, paths)
+        let expected = Ok(agdaMockEndpoint)
 
         Assert.deepStrictEqual(actual, expected)
       },
@@ -107,14 +107,14 @@ describe("Connection", () => {
         let memento = State__Memento.make(None)
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
-        let actual = await Connection__Target.getPicked(memento, paths)
+        let actual = await Connection__Endpoint.getPicked(memento, paths)
         if OS.onUnix {
           let expected = Error([
-            Connection__Target.Error.SomethingWentWrong(
+            Connection__Endpoint.Error.SomethingWentWrong(
               Connection.URI.parse("path/to/agda"),
               NotFound("path/to/agda"),
             ),
-            Connection__Target.Error.SomethingWentWrong(
+            Connection__Endpoint.Error.SomethingWentWrong(
               Connection.URI.parse("path/to/als"),
               NotFound("path/to/als"),
             ),
@@ -122,11 +122,11 @@ describe("Connection", () => {
           Assert.deepStrictEqual(actual, expected)
         } else {
           // let expected = Error([
-          //   Connection__Target.Error.SomethingWentWrong(
+          //   Connection__Endpoint.Error.SomethingWentWrong(
           //     Connection.URI.parse("path\\to\\agda"),
           //     NotFound("path\\to\\agda"),
           //   ),
-          //   Connection__Target.Error.SomethingWentWrong(
+          //   Connection__Endpoint.Error.SomethingWentWrong(
           //     Connection.URI.parse("path\\to\\als"),
           //     NotFound("path\\to\\als"),
           //   ),
@@ -134,8 +134,8 @@ describe("Connection", () => {
           switch actual {
           | Ok(_) => Assert.fail("expected an error, got Ok")
           | Error([
-              Connection__Target.Error.SomethingWentWrong(_, _),
-              Connection__Target.Error.SomethingWentWrong(_, _),
+              Connection__Endpoint.Error.SomethingWentWrong(_, _),
+              Connection__Endpoint.Error.SomethingWentWrong(_, _),
             ]) =>
             Assert.ok(true)
           | _ => Assert.fail("expected an error, got something else")
@@ -148,24 +148,24 @@ describe("Connection", () => {
       "should return nothing when the previously picked connection is not in the supplied paths",
       async () => {
         // access the Agda mock
-        let agdaMockTarget = switch agdaMockTarget.contents {
+        let agdaMockEndpoint = switch agdaMockEndpoint.contents {
         | Some(target) => target
         | None => failwith("Unable to access the Agda mock target")
         }
 
         // setup the memento
         let memento = State__Memento.make(None)
-        await Connection.Target.setPicked(memento, Some(agdaMockTarget))
+        await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
-        let actual = await Connection__Target.getPicked(memento, paths)
+        let actual = await Connection__Endpoint.getPicked(memento, paths)
         if OS.onUnix {
           let expected = Error([
-            Connection__Target.Error.SomethingWentWrong(
+            Connection__Endpoint.Error.SomethingWentWrong(
               Connection.URI.parse("path/to/agda"),
               NotFound("path/to/agda"),
             ),
-            Connection__Target.Error.SomethingWentWrong(
+            Connection__Endpoint.Error.SomethingWentWrong(
               Connection.URI.parse("path/to/als"),
               NotFound("path/to/als"),
             ),
@@ -173,11 +173,11 @@ describe("Connection", () => {
           Assert.deepStrictEqual(actual, expected)
         } else {
           // let expected = Error([
-          //   Connection__Target.Error.SomethingWentWrong(
+          //   Connection__Endpoint.Error.SomethingWentWrong(
           //     Connection.URI.parse("path\\to\\agda"),
           //     NotFound("path\\to\\agda"),
           //   ),
-          //   Connection__Target.Error.SomethingWentWrong(
+          //   Connection__Endpoint.Error.SomethingWentWrong(
           //     Connection.URI.parse("path\\to\\als"),
           //     NotFound("path\\to\\als"),
           //   ),
@@ -185,8 +185,8 @@ describe("Connection", () => {
           switch actual {
           | Ok(_) => Assert.fail("expected an error, got Ok")
           | Error([
-              Connection__Target.Error.SomethingWentWrong(_, _),
-              Connection__Target.Error.SomethingWentWrong(_, _),
+              Connection__Endpoint.Error.SomethingWentWrong(_, _),
+              Connection__Endpoint.Error.SomethingWentWrong(_, _),
             ]) =>
             Assert.ok(true)
           | _ => Assert.fail("expected an error, got something else")
@@ -199,7 +199,7 @@ describe("Connection", () => {
       "should return the first usable connection target when the previously picked connection is invalid or not in the supplied paths",
       async () => {
         // access the Agda mock
-        let agdaMockTarget = switch agdaMockTarget.contents {
+        let agdaMockEndpoint = switch agdaMockEndpoint.contents {
         | Some(target) => target
         | None => failwith("Unable to access the Agda mock target")
         }
@@ -213,8 +213,8 @@ describe("Connection", () => {
             "path/to/non-existent-als",
           ]->Array.map(Connection__URI.parse)
 
-        let actual = await Connection__Target.getPicked(memento, paths)
-        let expected = Ok(agdaMockTarget)
+        let actual = await Connection__Endpoint.getPicked(memento, paths)
+        let expected = Ok(agdaMockEndpoint)
 
         Assert.deepStrictEqual(actual, expected)
       },
@@ -223,10 +223,10 @@ describe("Connection", () => {
     Async.after(
       async () => {
         // cleanup the Agda mock
-        switch agdaMockTarget.contents {
+        switch agdaMockEndpoint.contents {
         | Some(target) =>
-          await Target.Agda.destroy(target)
-          agdaMockTarget := None
+          await Endpoint.Agda.destroy(target)
+          agdaMockEndpoint := None
         | None => ()
         }
       },
@@ -329,7 +329,7 @@ describe("Connection", () => {
 
         let memento = State__Memento.make(None)
         let paths = [
-          Connection__Target.toURI(agdaTarget),
+          Connection__Endpoint.toURI(agdaTarget),
           Connection__URI.parse("some/other/paths"),
         ]
         let commands = ["non-existent-command", "agda", "als"]
@@ -351,7 +351,7 @@ describe("Connection", () => {
 
         if OS.onUnix {
           let expected = {
-            Connection__Error.Aggregated.Attempts.targets: [
+            Connection__Error.Aggregated.Attempts.endpoints: [
               {
                 SomethingWentWrong(
                   Connection.URI.parse("some/other/paths"),
@@ -389,9 +389,9 @@ describe("Connection", () => {
           switch result {
           | Ok(_) => Assert.fail("expected an error, got Ok")
           | Error(error) =>
-            switch error.targets {
-            | [Connection__Target.Error.SomethingWentWrong(_, _)] => Assert.ok(true)
-            | _ => Assert.fail("expected an error with a single target error")
+            switch error.endpoints {
+            | [Connection__Endpoint.Error.SomethingWentWrong(_, _)] => Assert.ok(true)
+            | _ => Assert.fail("expected an error with a single endpoint error")
             }
           }
         }
@@ -401,22 +401,22 @@ describe("Connection", () => {
 
   describe("`fromDownloads`", () => {
     let attempts = {
-      Connection__Error.Aggregated.Attempts.targets: [],
+      Connection__Error.Aggregated.Attempts.endpoints: [],
       commands: [],
     }
 
-    let agdaMockTarget = ref(None)
+    let agdaMockEndpoint = ref(None)
 
     Async.before(
       async () => {
         try {
           // setup the Agda mock
-          let path = await Target.Agda.mock(~version="2.7.0.1", ~name="agda-mock")
+          let path = await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock")
 
-          switch await Connection.Target.fromRawPath(path) {
-          | Ok(target) => agdaMockTarget := Some(target)
+          switch await Connection.Endpoint.fromRawPath(path) {
+          | Ok(target) => agdaMockEndpoint := Some(target)
           | Error(error) =>
-            let errorMessage = Connection__Target.Error.toString(error)
+            let errorMessage = Connection__Endpoint.Error.toString(error)
             failwith(
               "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
             )
@@ -431,13 +431,13 @@ describe("Connection", () => {
     Async.after(
       async () => {
         await Config.Connection.setAgdaPaths([])
-        await Connection.Target.setPicked(State__Memento.make(None), None)
+        await Connection.Endpoint.setPicked(State__Memento.make(None), None)
 
         // cleanup the Agda mock
-        switch agdaMockTarget.contents {
+        switch agdaMockEndpoint.contents {
         | Some(target) =>
-          await Target.Agda.destroy(target)
-          agdaMockTarget := None
+          await Endpoint.Agda.destroy(target)
+          agdaMockEndpoint := None
         | None => ()
         }
       },
@@ -461,7 +461,7 @@ describe("Connection", () => {
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform => 
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledTargetsAndPersistThem = _globalStorageUri => 
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri => 
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () => 
             Promise.resolve(Config.Connection.DownloadPolicy.No)
@@ -497,7 +497,7 @@ describe("Connection", () => {
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform => 
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledTargetsAndPersistThem = _globalStorageUri => 
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri => 
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () => {
             getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
@@ -540,7 +540,7 @@ describe("Connection", () => {
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform => 
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledTargetsAndPersistThem = _globalStorageUri => 
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri => 
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () => {
             getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
@@ -573,7 +573,7 @@ describe("Connection", () => {
         let platform = Connection__Download__Platform.Windows
 
         // access the Agda mock
-        let target = switch agdaMockTarget.contents {
+        let target = switch agdaMockEndpoint.contents {
         | Some(target) => target
         | None => failwith("Unable to access the Agda mock target")
         }
@@ -591,7 +591,7 @@ describe("Connection", () => {
           }
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform => 
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledTargetsAndPersistThem = _globalStorageUri => 
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri => 
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () => 
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -614,7 +614,7 @@ describe("Connection", () => {
 
         let paths = Config.Connection.getAgdaPaths()->Array.map(Connection.URI.toString)
         Assert.ok(
-          paths->Util.Array.includes(Connection.URI.toString(Connection.Target.toURI(target))),
+          paths->Util.Array.includes(Connection.URI.toString(Connection.Endpoint.toURI(target))),
         )
       },
     )
@@ -625,7 +625,7 @@ describe("Connection", () => {
         let platform = Connection__Download__Platform.Windows
 
         // access the Agda mock
-        let target = switch agdaMockTarget.contents {
+        let target = switch agdaMockEndpoint.contents {
         | Some(target) => target
         | None => failwith("Unable to access the Agda mock target")
         }
@@ -647,7 +647,7 @@ describe("Connection", () => {
             checkedDownload := true
             Promise.resolve(Ok(target))
           }
-          let getInstalledTargetsAndPersistThem = _globalStorageUri => 
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri => 
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () => 
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -671,7 +671,7 @@ describe("Connection", () => {
 
         let paths = Config.Connection.getAgdaPaths()->Array.map(Connection.URI.toString)
         Assert.ok(
-          paths->Util.Array.includes(Connection.URI.toString(Connection.Target.toURI(target))),
+          paths->Util.Array.includes(Connection.URI.toString(Connection.Endpoint.toURI(target))),
         )
       },
     )
@@ -698,7 +698,7 @@ describe("Connection", () => {
             checkedDownload := true
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           }
-          let getInstalledTargetsAndPersistThem = _globalStorageUri => 
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri => 
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () => 
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -747,7 +747,7 @@ describe("Connection", () => {
         await NodeJs.Fs.mkdir(dataDir, {recursive: true, mode: 0o777})
 
         // Test the function
-        let result = await Connection__Target.checkForPrebuiltDataDirectory(execPath)
+        let result = await Connection__Endpoint.checkForPrebuiltDataDirectory(execPath)
 
         // Should return Some with asset path
         let expectedAssetPath = NodeJs.Path.join([execPath, "..", "data"])
@@ -774,7 +774,7 @@ describe("Connection", () => {
         await NodeJs.Fs.mkdir(NodeJs.Path.join([tempDir, "bin"]), {recursive: true, mode: 0o777})
 
         // Test the function
-        let result = await Connection__Target.checkForPrebuiltDataDirectory(execPath)
+        let result = await Connection__Endpoint.checkForPrebuiltDataDirectory(execPath)
 
         // Should return None
         Assert.deepStrictEqual(result, None)

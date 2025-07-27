@@ -81,7 +81,7 @@ describe("Platform dependent utilities", () => {
         let memento = State__Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let attempts = {
-          Connection__Error.Aggregated.Attempts.targets: [],
+          Connection__Error.Aggregated.Attempts.endpoints: [],
           commands: [],
         }
 
@@ -113,7 +113,7 @@ describe("Platform dependent utilities", () => {
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledTargetsAndPersistThem = _globalStorageUri =>
+          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.No)

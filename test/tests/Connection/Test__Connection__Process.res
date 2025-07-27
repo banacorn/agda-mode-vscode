@@ -1,6 +1,6 @@
 open Mocha
 
-module Process = Connection__Process
+module Process = Connection__Transport__Process
 
 describe("Process Interface", () => {
   describe("Use `echo` as the testing subject", () => {

@@ -552,7 +552,7 @@ let filteredResponse = response =>
   }
 
 // for mocking an Agda or Language Server executable with version and path
-module Target = {
+module Endpoint = {
   module Agda = {
     // given a version and the desired name of the executable, create a mock Agda executable and returns the path
     let mock = async (~version, ~name) => {
@@ -623,7 +623,7 @@ module Target = {
     }
 
     let destroy = async target => {
-      let path = target->Connection.Target.toURI->Connection.URI.toString
+      let path = target->Connection.Endpoint.toURI->Connection.URI.toString
       try {
         NodeJs.Fs.unlinkSync(path)
       } catch {

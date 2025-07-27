@@ -1,11 +1,11 @@
 module Error = Connection__Error
-module Agda = Connection__Target__Agda
-module ALS = Connection__Target__ALS
-module Target = Connection__Target
+module Agda = Connection__Endpoint__Agda
+module ALS = Connection__Endpoint__ALS
+module Endpoint = Connection__Endpoint
 module URI = Connection__URI
 
 module type Module = {
-  type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
+  type t = Agda(Agda.t, Endpoint.t) | ALS(ALS.t, Endpoint.t)
 
   // Platform dependencies type
   // lifecycle
@@ -24,13 +24,13 @@ module type Module = {
     State__Memento.t,
     array<Connection__URI.t>,
     array<string>,
-  ) => promise<result<Target.t, Error.Aggregated.Attempts.t>>
+  ) => promise<result<Endpoint.t, Error.Aggregated.Attempts.t>>
   let fromDownloads: (
     Platform.t,
     State__Memento.t,
     VSCode.Uri.t,
     Error.Aggregated.Attempts.t,
-  ) => promise<result<Target.t, Error.t>>
+  ) => promise<result<Endpoint.t, Error.t>>
 
   // messaging
   let sendRequest: (
@@ -38,13 +38,13 @@ module type Module = {
     VSCode.TextDocument.t,
     Request.t,
     Response.t => promise<unit>,
-  ) => promise<result<Target.t, Error.t>>
+  ) => promise<result<Endpoint.t, Error.t>>
 
   // command (uses platform dependencies)
   let findCommands: (
     Platform.t,
     array<string>,
-  ) => promise<result<Target.t, array<Connection__Command.Error.t>>>
+  ) => promise<result<Endpoint.t, array<Connection__Command.Error.t>>>
 }
 
 module Module: Module = {
@@ -65,7 +65,7 @@ module Module: Module = {
   }
 
   // internal state singleton
-  type t = Agda(Agda.t, Target.t) | ALS(ALS.t, Target.t)
+  type t = Agda(Agda.t, Endpoint.t) | ALS(ALS.t, Endpoint.t)
 
   let destroy = async connection =>
     switch connection {
@@ -83,18 +83,18 @@ module Module: Module = {
       }
     }
 
-  let makeWithTarget = async (target: Target.t): result<t, Error.t> =>
-    switch target {
+  let makeWithEndpoint = async (endpoint: Endpoint.t): result<t, Error.t> =>
+    switch endpoint {
     | Agda(version, path) =>
-      let method = Connection__Target__IPC.ViaPipe(path, [], None)
+      let method = Connection__Transport.ViaPipe(path, [], None)
       switch await Agda.make(method, version, path) {
       | Error(error) => Error(Error.Agda(error, path))
-      | Ok(conn) => Ok(Agda(conn, target))
+      | Ok(conn) => Ok(Agda(conn, endpoint))
       }
     | ALS(_, _, method) =>
       switch await ALS.make(method, InitOptions.getFromConfig()) {
       | Error(error) => Error(ALS(error))
-      | Ok(conn) => Ok(ALS(conn, target))
+      | Ok(conn) => Ok(ALS(conn, endpoint))
       }
     }
 
@@ -105,29 +105,29 @@ module Module: Module = {
   }
 
   // Try to connect to Agda or ALS, with paths and commands ('agda' and 'als'), in the following steps:
-  // 1. Go through the list of targets in the configuration, use the first one that works
-  // 2. Try the `agda` command, add it to the list of targets if it works, else proceed to 3.
-  // 3. Try the `als` command, add it to the list of targets if it works
+  // 1. Go through the list of endpoints in the configuration, use the first one that works
+  // 2. Try the `agda` command, add it to the list of endpoints if it works, else proceed to 3.
+  // 3. Try the `als` command, add it to the list of endpoints if it works
   let fromPathsAndCommands = async (
     platformDeps: Platform.t,
     memento: State__Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
-  ): result<Target.t, Error.Aggregated.Attempts.t> => {
-    switch await Target.getPicked(memento, paths) {
-    | Error(targetErrors) =>
+  ): result<Endpoint.t, Error.Aggregated.Attempts.t> => {
+    switch await Endpoint.getPicked(memento, paths) {
+    | Error(endpointErrors) =>
       switch await findCommands(platformDeps, commands) {
       | Error(commandErrors) =>
         let attempts = {
-          Error.Aggregated.Attempts.targets: targetErrors,
+          Error.Aggregated.Attempts.endpoints: endpointErrors,
           commands: commandErrors,
         }
 
         Error(attempts)
 
-      | Ok(target) => Ok(target)
+      | Ok(endpoint) => Ok(endpoint)
       }
-    | Ok(target) => Ok(target)
+    | Ok(endpoint) => Ok(endpoint)
     }
   }
 
@@ -143,7 +143,7 @@ module Module: Module = {
   //      Yes       : ✅
   //      No        : proceed to 4.
   // 4. Download the latest ALS:
-  //      Succeed   : add it to the list of targets ✅
+  //      Succeed   : add it to the list of endpoints ✅
   //      Failed    : exit with the `DownloadALS` error ❌
 
   let fromDownloads = async (
@@ -151,7 +151,7 @@ module Module: Module = {
     memento: State__Memento.t,
     globalStorageUri: VSCode.Uri.t,
     attempts: Error.Aggregated.Attempts.t,
-  ): result<Target.t, Error.t> => {
+  ): result<Endpoint.t, Error.t> => {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
@@ -174,15 +174,15 @@ module Module: Module = {
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
-        | Some(target) =>
-          await Config.Connection.addAgdaPath(Target.toURI(target))
-          Ok(target)
+        | Some(endpoint) =>
+          await Config.Connection.addAgdaPath(Endpoint.toURI(endpoint))
+          Ok(endpoint)
         | None =>
           switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
           | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
-          | Ok(target) =>
-            await Config.Connection.addAgdaPath(Connection__Target.toURI(target))
-            Ok(target)
+          | Ok(endpoint) =>
+            await Config.Connection.addAgdaPath(Connection__Endpoint.toURI(endpoint))
+            Ok(endpoint)
           }
         }
       }
@@ -203,13 +203,13 @@ module Module: Module = {
     | Error(attempts) =>
       switch await fromDownloads(platformDeps, memento, globalStorageUri, attempts) {
       | Error(error) => Error(error)
-      | Ok(target) =>
-        await Config.Connection.addAgdaPath(target->Target.toURI)
-        await makeWithTarget(target)
+      | Ok(endpoint) =>
+        await Config.Connection.addAgdaPath(endpoint->Endpoint.toURI)
+        await makeWithEndpoint(endpoint)
       }
-    | Ok(target) =>
-      await Config.Connection.addAgdaPath(target->Target.toURI)
-      await makeWithTarget(target)
+    | Ok(endpoint) =>
+      await Config.Connection.addAgdaPath(endpoint->Endpoint.toURI)
+      await makeWithEndpoint(endpoint)
     }
 
   let sendRequest = async (connection, document, request, handler) => {
@@ -223,23 +223,23 @@ module Module: Module = {
     }
 
     switch connection {
-    | ALS(conn, target) =>
+    | ALS(conn, endpoint) =>
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(ALS(conn, target)))
+        let _ = await destroy(Some(ALS(conn, endpoint)))
         Error(Error.ALS(error))
-      | Ok(_) => Ok(target)
+      | Ok(_) => Ok(endpoint)
       }
 
-    | Agda(conn, target) =>
+    | Agda(conn, endpoint) =>
       let (version, path) = Agda.getInfo(conn)
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(Agda(conn, target)))
+        let _ = await destroy(Some(Agda(conn, endpoint)))
         Error(Error.Agda(error, path))
-      | Ok(_) => Ok(target)
+      | Ok(_) => Ok(endpoint)
       }
     }
   }

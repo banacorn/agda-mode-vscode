@@ -33,7 +33,7 @@ module SelectionParsing = {
 module DownloadWorkflow = {
   // Download result type
   type downloadResult =
-    | Success(Connection.Target.t, bool) // target, was already downloaded
+    | Success(Connection.Endpoint.t, bool) // endpoint, was already downloaded
     | Failure(string) // error message
 
   // Check if ALS is already downloaded and download if needed
@@ -51,9 +51,9 @@ module DownloadWorkflow = {
       | None =>
         switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
         | Error(error) => Failure(AgdaModeVscode.Connection__Download.Error.toString(error))
-        | Ok(target) => Success(target, false) // false means it was not already downloaded
+        | Ok(endpoint) => Success(endpoint, false) // false means it was not already downloaded
         }
-      | Some(target) => Success(target, true) // true means it was already downloaded
+      | Some(endpoint) => Success(endpoint, true) // true means it was already downloaded
       }
     }
   }
@@ -62,15 +62,15 @@ module DownloadWorkflow = {
     switch result {
     | Failure(message) =>
       let _ = await VSCode.Window.showErrorMessage(message, [])
-    | Success(target, alreadyDownloaded) =>
-      let version = switch target {
+    | Success(endpoint, alreadyDownloaded) =>
+      let version = switch endpoint {
       | Agda(version, _) => VersionDisplay.formatAgdaVersion(version)
       | ALS(alsVersion, agdaVersion, _) => VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
       }
       if alreadyDownloaded {
         let _ = await VSCode.Window.showInformationMessage(version ++ " is already downloaded", [])
       } else {
-        // rerender the quick pick so that the downloaded target is shown as installed
+        // rerender the quick pick so that the downloaded endpoint is shown as installed
         await rerender()
         let _ = await VSCode.Window.showInformationMessage(
           version ++ " successfully downloaded",
@@ -82,7 +82,7 @@ module DownloadWorkflow = {
 }
 
 module ItemCreation = {
-  // Create QuickPick items for various targets and operations
+  // Create QuickPick items for various endpoints and operations
   let createSeparatorItem = (label: string): VSCode.QuickPickItem.t => {
     VSCode.QuickPickItem.label,
     kind: VSCode.QuickPickItemKind.Separator,
@@ -125,7 +125,7 @@ module ItemCreation = {
   let createALSItem = (
     alsVersion: string,
     agdaVersion: string,
-    method: Connection__Target__IPC.t,
+    method: Connection__Transport.t,
     isSelected: bool,
   ): VSCode.QuickPickItem.t => {
     VSCode.QuickPickItem.label: "$(squirrel)  " ++
@@ -141,10 +141,10 @@ module ItemCreation = {
     },
   }
 
-  let createErrorItem = (error: Connection__Target.Error.t): VSCode.QuickPickItem.t => {
+  let createErrorItem = (error: Connection__Endpoint.Error.t): VSCode.QuickPickItem.t => {
     VSCode.QuickPickItem.label: "$(error)  Bad path",
     description: "",
-    detail: Connection__Target.Error.toString(error),
+    detail: Connection__Endpoint.Error.toString(error),
   }
 }
 
@@ -154,7 +154,7 @@ let openGlobalStorageFolder = async (state: State.t) => {
 
 let switchAgdaVersion = async (state: State.t) => {
   // display what we are going to do
-  switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
+  switch await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
   | Error(_) => ()
   | Ok(Agda(version, _)) => {
       await State__View.Panel.displayStatus(state, "")
@@ -193,7 +193,7 @@ let switchAgdaVersion = async (state: State.t) => {
   ) {
   | Ok(conn) =>
     state.connection = Some(conn)
-    switch await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
+    switch await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
     | Error(_) => ()
     | Ok(Agda(version, _path)) => {
         let formattedVersion = VersionDisplay.formatAgdaVersion(version)
@@ -270,19 +270,19 @@ let handleSelection = async (
     await DownloadWorkflow.handleDownloadResult(result, self.rerender)
 
   | SwitchToTarget(rawPath) =>
-    switch await Connection.Target.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
+    switch await Connection.Endpoint.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
     | Error(_) => await self.rerender()
     | Ok(original) =>
-      let selectionChanged = rawPath !== Connection.Target.toURI(original)->Connection.URI.toString
+      let selectionChanged = rawPath !== Connection.Endpoint.toURI(original)->Connection.URI.toString
       if selectionChanged {
         switch Connection.URI.parse(rawPath) {
         | URL(url) => Js.log("Trying to connect with: " ++ url.toString())
         | Filepath(path) =>
-          switch await Connection.Target.fromRawPath(path) {
+          switch await Connection.Endpoint.fromRawPath(path) {
           | Error(e) => Js.log(e)
           | Ok(newTarget) =>
             // save the selected connection as the "picked" connection
-            await Connection.Target.setPicked(self.state.memento, Some(newTarget))
+            await Connection.Endpoint.setPicked(self.state.memento, Some(newTarget))
             await switchAgdaVersion(self.state)
             await self.rerender()
           }
@@ -306,25 +306,25 @@ let rec run = async (state, platformDeps: Platform.t) => {
   //  Installed Agda or Agda Language Server
   //
 
-  let selected = await Connection.Target.getPicked(state.memento, Config.Connection.getAgdaPaths())
+  let selected = await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths())
 
-  let isSelected = target =>
+  let isSelected = endpoint =>
     switch selected {
     | Error(_) => false
     | Ok(selected) =>
-      switch target {
+      switch endpoint {
       | Error(_) => false
-      | Ok(target) => Connection.Target.toURI(selected) == Connection.Target.toURI(target)
+      | Ok(endpoint) => Connection.Endpoint.toURI(selected) == Connection.Endpoint.toURI(endpoint)
       }
     }
 
-  // converting a target to a quick pick item
-  let targetToItem = target =>
-    switch target {
-    | Ok(Connection.Target.Agda(version, path)) =>
-      ItemCreation.createAgdaItem(version, path, isSelected(target), state.extensionUri)
+  // converting a endpoiont to a quick pick item
+  let endpointToItem = endpoiont =>
+    switch endpoiont {
+    | Ok(Connection.Endpoint.Agda(version, path)) =>
+      ItemCreation.createAgdaItem(version, path, isSelected(endpoiont), state.extensionUri)
     | Ok(ALS(alsVersion, agdaVersion, method)) =>
-      ItemCreation.createALSItem(alsVersion, agdaVersion, method, isSelected(target))
+      ItemCreation.createALSItem(alsVersion, agdaVersion, method, isSelected(endpoiont))
     | Error(error) => ItemCreation.createErrorItem(error)
     }
 
@@ -353,17 +353,17 @@ let rec run = async (state, platformDeps: Platform.t) => {
   let installedSeperator = [ItemCreation.createSeparatorItem("Installed")]
 
   module PlatformOps = unpack(platformDeps)
-  let installedTargets = await PlatformOps.getInstalledTargetsAndPersistThem(state.globalStorageUri)
+  let installedTargets = await PlatformOps.getInstalledEndpointsAndPersistThem(state.globalStorageUri)
   let installedPaths =
     installedTargets
     ->Dict.valuesToArray
     ->Array.filterMap(x =>
       switch x {
       | Error(_) => None
-      | Ok(target) => Some(Connection.Target.toURI(target)->Connection.URI.toString)
+      | Ok(endpoint) => Some(Connection.Endpoint.toURI(endpoint)->Connection.URI.toString)
       }
     )
-  let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(targetToItem)
+  let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(endpointToItem)
 
   let downloadSeperator = [ItemCreation.createSeparatorItem("Download")]
 
@@ -385,10 +385,10 @@ let rec run = async (state, platformDeps: Platform.t) => {
   }
 
   let items = Array.flat([
-    // installed targets
+    // installed endpoints
     installedSeperator,
     installedItemsFromSettings,
-    // downloadable targets
+    // downloadable endpoints
     downloadSeperator,
     downloadLatestALSItems,
     // misc operations

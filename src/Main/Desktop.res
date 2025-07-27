@@ -13,8 +13,8 @@ module Desktop: Platform.PlatformOps = {
   let downloadLatestALS = (memento, globalStorageUri) =>
     Connection__LatestALS.download(memento, globalStorageUri)
 
-  let getInstalledTargetsAndPersistThem = globalStorageUri =>
-    Connection__TargetManager.getInstalledTargetsAndPersistThem(findCommands, globalStorageUri)
+  let getInstalledEndpointsAndPersistThem = globalStorageUri =>
+    Connection__EndpointManager.getInstalledEndpointsAndPersistThem(findCommands, globalStorageUri)
 
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {

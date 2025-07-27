@@ -10,21 +10,21 @@ module type PlatformOps = {
 
   // Command/executable searching
   let findCommands: array<string> => promise<
-    result<Connection__Target.t, array<Connection__Command.Error.t>>,
+    result<Connection__Endpoint.t, array<Connection__Command.Error.t>>,
   >
 
   // Download operations
-  let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<Connection__Target.t>>
+  let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<Connection__Endpoint.t>>
   let downloadLatestALS: (
     State__Memento.t,
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<
-    result<Connection__Target.t, Connection__Download.Error.t>,
+    result<Connection__Endpoint.t, Connection__Download.Error.t>,
   >
 
   // Target operations
-  let getInstalledTargetsAndPersistThem: VSCode.Uri.t => promise<
-    Dict.t<result<Connection__Target.t, Connection__Target.Error.t>>,
+  let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<
+    Dict.t<result<Connection__Endpoint.t, Connection__Endpoint.Error.t>>,
   >
 
   // User interaction

@@ -184,7 +184,7 @@ describe("State__SwitchVersion", () => {
           "port": "4096",
           "toString": () => "lsp://localhost:4096"
         }
-        let method = Connection__Target__IPC.ViaTCP(mockUrl->Obj.magic)
+        let method = Connection__Transport.ViaTCP(mockUrl->Obj.magic)
         let actual = ItemCreation.createALSItem("1.2.3", "2.6.4", method, false)
         Assert.strictEqual(actual.label, "$(squirrel)  Agda v2.6.4 Language Server v1.2.3")
         switch actual.description {
@@ -198,7 +198,7 @@ describe("State__SwitchVersion", () => {
       })
       
       it("should create ALS item for pipe connection", () => {
-        let method = Connection__Target__IPC.ViaPipe("/path/to/als", [], None)
+        let method = Connection__Transport.ViaPipe("/path/to/als", [], None)
         let actual = ItemCreation.createALSItem("1.2.3", "2.6.4", method, true)
         Assert.strictEqual(actual.label, "$(squirrel)  Agda v2.6.4 Language Server v1.2.3")
         switch actual.description {
@@ -214,7 +214,7 @@ describe("State__SwitchVersion", () => {
     
     describe("createErrorItem", () => {
       it("should create error item correctly", () => {
-        let mockError = Connection__Target.Error.NotAgdaOrALS(Connection__URI.parse("/bad/path"), "invalid output")
+        let mockError = Connection__Endpoint.Error.NotAgdaOrALS(Connection__URI.parse("/bad/path"), "invalid output")
         let actual = ItemCreation.createErrorItem(mockError)
         Assert.strictEqual(actual.label, "$(error)  Bad path")
         switch actual.description {
