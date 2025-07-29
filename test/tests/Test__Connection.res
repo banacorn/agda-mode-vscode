@@ -88,7 +88,7 @@ describe("Connection", () => {
         }
 
         // setup the memento
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
 
         let paths = [agdaMockPath.contents, "path/to/als"]->Array.map(Connection__URI.parse)
@@ -104,7 +104,7 @@ describe("Connection", () => {
       "should return nothing when there's no previously picked connection",
       async () => {
         // setup the memento
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let actual = await Connection__Endpoint.getPicked(memento, paths)
@@ -154,7 +154,7 @@ describe("Connection", () => {
         }
 
         // setup the memento
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
@@ -205,7 +205,7 @@ describe("Connection", () => {
         }
 
         // setup the memento
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let paths =
           [
             "path/to/non-existent-agda",
@@ -295,7 +295,7 @@ describe("Connection", () => {
     Async.it(
       "should find commands when no paths are given",
       async () => {
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let paths = []
         let commands = ["agda", "als"]
         let platformDeps = Desktop.make()
@@ -310,7 +310,7 @@ describe("Connection", () => {
     Async.it(
       "should find commands even if all paths given are wrong",
       async () => {
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let paths = [Connection__URI.parse("some/other/paths")]
         let commands = ["agda", "als"]
         let platformDeps = Desktop.make()
@@ -327,7 +327,7 @@ describe("Connection", () => {
       async () => {
         let agdaTarget = await getAgdaTarget()
 
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let paths = [
           Connection__Endpoint.toURI(agdaTarget),
           Connection__URI.parse("some/other/paths"),
@@ -343,7 +343,7 @@ describe("Connection", () => {
     Async.it(
       "should throw an error when the command is not found",
       async () => {
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let paths = [Connection__URI.parse("some/other/paths")]
         let commands = ["non-existent-command"]
         let platformDeps = Desktop.make()
@@ -431,7 +431,7 @@ describe("Connection", () => {
     Async.after(
       async () => {
         await Config.Connection.setAgdaPaths([])
-        await Connection.Endpoint.setPicked(State__Memento.make(None), None)
+        await Connection.Endpoint.setPicked(Memento.make(None), None)
 
         // cleanup the Agda mock
         switch agdaMockEndpoint.contents {
@@ -468,7 +468,7 @@ describe("Connection", () => {
         }
         
         let mockPlatformDeps: Platform.t = module(MockPlatform)
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
           mockPlatformDeps,
@@ -506,7 +506,7 @@ describe("Connection", () => {
         }
         
         let mockPlatformDeps: Platform.t = module(MockPlatform)
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
           mockPlatformDeps,
@@ -549,7 +549,7 @@ describe("Connection", () => {
         }
         
         let mockPlatformDeps: Platform.t = module(MockPlatform)
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
           mockPlatformDeps,
@@ -598,7 +598,7 @@ describe("Connection", () => {
         }
         
         let mockPlatformDeps: Platform.t = module(MockPlatform)
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
           mockPlatformDeps,
@@ -654,7 +654,7 @@ describe("Connection", () => {
         }
         
         let mockPlatformDeps: Platform.t = module(MockPlatform)
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
           mockPlatformDeps,
@@ -705,7 +705,7 @@ describe("Connection", () => {
         }
         
         let mockPlatformDeps: Platform.t = module(MockPlatform)
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
           mockPlatformDeps,

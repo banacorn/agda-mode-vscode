@@ -100,7 +100,7 @@ type t = {
   onRemoveFromRegistry: Chan.t<unit>,
   globalStorageUri: VSCode.Uri.t,
   extensionUri: VSCode.Uri.t,
-  memento: State__Memento.t,
+  memento: Memento.t,
   // for logging and testing
   channels: channels,
   // Skip HighlightingInfo during refine operations because Agda sends faulty token positions
@@ -134,7 +134,7 @@ let make = (
   onRemoveFromRegistry: Chan.make(),
   globalStorageUri,
   extensionUri,
-  memento: State__Memento.make(memento),
+  memento: Memento.make(memento),
   channels,
   isInRefineOperation: false,
 }

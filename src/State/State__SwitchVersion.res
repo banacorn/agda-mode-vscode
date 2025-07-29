@@ -39,7 +39,7 @@ module DownloadWorkflow = {
   // Check if ALS is already downloaded and download if needed
   let downloadLatestALS = async (
     platformDeps: Platform.t,
-    memento: State__Memento.t,
+    memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
   ) => {
     module PlatformOps = unpack(platformDeps)
@@ -257,7 +257,7 @@ module QP = {
 let handleSelection = async (
   self: QP.t,
   platformDeps: Platform.t,
-  memento: State__Memento.t,
+  memento: Memento.t,
   globalStorageUri: VSCode.Uri.t,
   selection: VSCode.QuickPickItem.t,
 ) => {

@@ -16,7 +16,7 @@ module type PlatformOps = {
   // Download operations
   let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<Connection__Endpoint.t>>
   let downloadLatestALS: (
-    State__Memento.t,
+    Memento.t,
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<
     result<Connection__Endpoint.t, Connection__Download.Error.t>,

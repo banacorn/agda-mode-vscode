@@ -67,8 +67,8 @@ module Module: {
   let fromVSCodeUri: VSCode.Uri.t => promise<result<t, Error.t>>
 
   // configuration
-  let getPicked: (State__Memento.t, array<Connection__URI.t>) => promise<result<t, array<Error.t>>>
-  let setPicked: (State__Memento.t, option<t>) => promise<unit>
+  let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, array<Error.t>>>
+  let setPicked: (Memento.t, option<t>) => promise<unit>
 } = {
   type version = string
   type t =
@@ -134,7 +134,7 @@ module Module: {
   // Try to find the previously picked connection
   // The previously picked connection is stored in the memento, if it doesn't exist
   // the first usable connection endpoint from the supplied paths is returned
-  let getPicked = async (memento: State__Memento.t, rawSuppliedPaths: array<Connection__URI.t>) => {
+  let getPicked = async (memento: Memento.t, rawSuppliedPaths: array<Connection__URI.t>) => {
     // convert raw supplied paths to endpoints
     // and filter out the invalid ones
     let (suppliedEndpoints, suppliedEndpointErrors) =
@@ -145,13 +145,13 @@ module Module: {
     | Some(endpoint) => Ok(endpoint)
     }
 
-    switch memento->State__Memento.get("pickedConnection") {
+    switch memento->Memento.get("pickedConnection") {
     | Some(rawPathFromMemento) =>
       switch await fromRawPath(rawPathFromMemento) {
       | Error(_) =>
         // the path in the memento is invalid
         // remove it from the memento
-        await memento->State__Memento.set("pickedConnection", None)
+        await memento->Memento.set("pickedConnection", None)
         pickFromSuppliedEndpointsInstead
       | Ok(endpointFromMemento) =>
         let existsInSuppliedEndpoints = suppliedEndpoints->Util.Array.includes(endpointFromMemento)
@@ -160,7 +160,7 @@ module Module: {
         } else {
           // the path in the memento is not in the supplied paths
           // remove it from the memento
-          await memento->State__Memento.set("pickedConnection", None)
+          await memento->Memento.set("pickedConnection", None)
           pickFromSuppliedEndpointsInstead
         }
       }
@@ -168,11 +168,11 @@ module Module: {
     }
   }
 
-  let setPicked = (memento: State__Memento.t, endpoint) =>
+  let setPicked = (memento: Memento.t, endpoint) =>
     switch endpoint {
-    | None => memento->State__Memento.set("pickedConnection", None)
+    | None => memento->Memento.set("pickedConnection", None)
     | Some(endpoint) =>
-      memento->State__Memento.set("pickedConnection", Some(toURI(endpoint)->URI.toString))
+      memento->Memento.set("pickedConnection", Some(toURI(endpoint)->URI.toString))
     }
 }
 

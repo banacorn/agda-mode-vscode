@@ -11,7 +11,7 @@ module type Module = {
   // lifecycle
   let make: (
     Platform.t,
-    State__Memento.t,
+    Memento.t,
     VSCode.Uri.t,
     array<Connection__URI.t>,
     array<string>,
@@ -21,13 +21,13 @@ module type Module = {
   // components (now use platform dependencies)
   let fromPathsAndCommands: (
     Platform.t,
-    State__Memento.t,
+    Memento.t,
     array<Connection__URI.t>,
     array<string>,
   ) => promise<result<Endpoint.t, Error.Aggregated.Attempts.t>>
   let fromDownloads: (
     Platform.t,
-    State__Memento.t,
+    Memento.t,
     VSCode.Uri.t,
     Error.Aggregated.Attempts.t,
   ) => promise<result<Endpoint.t, Error.t>>
@@ -110,7 +110,7 @@ module Module: Module = {
   // 3. Try the `als` command, add it to the list of endpoints if it works
   let fromPathsAndCommands = async (
     platformDeps: Platform.t,
-    memento: State__Memento.t,
+    memento: Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
   ): result<Endpoint.t, Error.Aggregated.Attempts.t> => {
@@ -148,7 +148,7 @@ module Module: Module = {
 
   let fromDownloads = async (
     platformDeps: Platform.t,
-    memento: State__Memento.t,
+    memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     attempts: Error.Aggregated.Attempts.t,
   ): result<Endpoint.t, Error.t> => {
@@ -194,7 +194,7 @@ module Module: Module = {
   //  2. `fromDownloads` to download the latest ALS
   let make = async (
     platformDeps: Platform.t,
-    memento: State__Memento.t,
+    memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,

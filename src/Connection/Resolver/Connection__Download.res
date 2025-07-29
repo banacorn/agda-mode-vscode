@@ -24,7 +24,7 @@ module Error = {
     }
 }
 
-let makeRepo: (State__Memento.t, VSCode.Uri.t) => Connection__Download__GitHub.Repo.t = (
+let makeRepo: (Memento.t, VSCode.Uri.t) => Connection__Download__GitHub.Repo.t = (
   memento,
   globalStorageUri,
 ) => {

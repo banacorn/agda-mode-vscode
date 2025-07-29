@@ -59,7 +59,7 @@ describe("Platform dependent utilities", () => {
       "should allow Connection.make to be called with platform dependencies",
       async () => {
         let platformDeps = Web.make() // Use web for predictable mock behavior
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let paths = []
         let commands = ["agda"]
@@ -78,7 +78,7 @@ describe("Platform dependent utilities", () => {
       "should allow Connection.fromDownloads to be called with platform dependencies",
       async () => {
         let platformDeps = Web.make() // Use web for predictable mock behavior
-        let memento = State__Memento.make(None)
+        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let attempts = {
           Connection__Error.Aggregated.Attempts.endpoints: [],
