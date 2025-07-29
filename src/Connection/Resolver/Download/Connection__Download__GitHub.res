@@ -294,39 +294,14 @@ module Callbacks = {
 }
 
 module ReleaseManifest: {
-  // age of the release manifest cache in seconds
-  let cacheAgeInSecs: Memento.t => option<int>
   // fetch the release manifest from the cache or GitHub
   let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
   // fresh fetch from GitHub and cache it
   let fetchFromGitHubAndCache: Repo.t => promise<result<array<Release.t>, Error.t>>
 } = {
-  // timestamp for the release cache
-  let readTimestamp = memento =>
-    memento->Memento.get("alsReleaseCacheTimestamp")->Option.map(Date.fromString)
-  let writeTimestamp = (memento, timestamp) =>
-    memento->Memento.set("alsReleaseCacheTimestamp", Date.toString(timestamp))
-
-  // release cache
-  let readReleaseCache = memento => memento->Memento.get("alsReleaseCache")
-  let writeReleaseCache = (memento, releases) =>
-    memento->Memento.set("alsReleaseCache", releases)
-
-  // return the time difference in seconds since the cache was last fetched
-  let cacheAgeInSecs = memento => {
-    switch readTimestamp(memento) {
-    | None => None
-    | Some(timestamp) =>
-      let currentTime = Date.now()
-      let lastModifiedTime = Date.getTime(timestamp)
-      // time difference in seconds
-      Some(int_of_float((currentTime -. lastModifiedTime) /. 1000.0))
-    }
-  }
-
   let fetchFromCache = async memento => {
     // read the file and decode as json
-    switch readReleaseCache(memento) {
+    switch Memento.ALSReleaseCache.getReleases(memento) {
     | None => Ok([])
     | Some(string) =>
       // parse the json
@@ -343,8 +318,8 @@ module ReleaseManifest: {
 
   let writeToCache = async (memento, releases) => {
     let json = Release.encodeReleases(releases)->Js_json.stringify
-    await writeTimestamp(memento, Date.make())
-    await writeReleaseCache(memento, json)
+    await Memento.ALSReleaseCache.setTimestamp(memento, Date.make())
+    await Memento.ALSReleaseCache.setReleases(memento, json)
   }
 
   // fetch the latest release from GitHub and cache it
@@ -372,9 +347,7 @@ module ReleaseManifest: {
   // fetch from GitHub if the cache is too old
   // also returns a boolean indicating if the result is from cache
   let fetch = async (repo: Repo.t) => {
-    // let cacheAge = cacheAgeInSecs(repo.memento)
-
-    let cacheInvalidated = switch cacheAgeInSecs(repo.memento) {
+    let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(repo.memento) {
     | None => true
     | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
     }
@@ -410,8 +383,8 @@ module Module: {
       if exists {
         let inFlightDownloadUri = VSCode.Uri.joinPath(globalStorageUri, [inFlightDownloadFileName])
         switch await FS.stat(inFlightDownloadUri) {
-        | Ok(_) => true  // File exists, download is in progress
-        | Error(_) => false  // File doesn't exist, no download in progress
+        | Ok(_) => true // File exists, download is in progress
+        | Error(_) => false // File doesn't exist, no download in progress
         }
       } else {
         // create a directory for `context.globalStoragePath` if it doesn't exist

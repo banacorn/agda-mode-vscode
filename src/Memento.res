@@ -21,12 +21,20 @@ module Module: {
   module EndpointVersion: {
     type entry = {
       version: option<string>,
-      timestamp: Js.Date.t,
+      timestamp: Date.t,
       error: option<string>,
     }
     let get: (t, string) => option<entry>
     let setVersion: (t, string, string) => promise<unit>
     let setError: (t, string, string) => promise<unit>
+  }
+
+  module ALSReleaseCache: {
+    let getTimestamp: t => option<Date.t>
+    let setTimestamp: (t, Date.t) => promise<unit>
+    let getReleases: t => option<'releases>
+    let setReleases: (t, 'releases) => promise<unit>
+    let getCacheAgeInSecs: t => option<int>
   }
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
@@ -87,7 +95,7 @@ module Module: {
   module EndpointVersion = {
     type entry = {
       version: option<string>,
-      timestamp: Js.Date.t,
+      timestamp: Date.t,
       error: option<string>,
     }
 
@@ -100,16 +108,48 @@ module Module: {
 
     let setVersion = async (memento: t, path: string, version: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {version: Some(version), timestamp: Js.Date.make(), error: None}
+      let entry = {version: Some(version), timestamp: Date.make(), error: None}
       cache->Dict.set(path, entry)
       await memento->set(key, cache)
     }
 
     let setError = async (memento: t, path: string, error: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {version: None, timestamp: Js.Date.make(), error: Some(error)}
+      let entry = {version: None, timestamp: Date.make(), error: Some(error)}
       cache->Dict.set(path, entry)
       await memento->set(key, cache)
+    }
+  }
+
+  module ALSReleaseCache = {
+    let timestampKey = "alsReleaseCacheTimestamp"
+    let releasesKey = "alsReleaseCache"
+
+    let getTimestamp = (memento: t): option<Date.t> => {
+      memento->get(timestampKey)->Option.map(Date.fromString)
+    }
+
+    let setTimestamp = async (memento: t, timestamp: Date.t): unit => {
+      await memento->set(timestampKey, Date.toString(timestamp))
+    }
+
+    let getReleases = (memento: t): option<'releases> => {
+      memento->get(releasesKey)
+    }
+
+    let setReleases = async (memento: t, releases: 'releases): unit => {
+      await memento->set(releasesKey, releases)
+    }
+
+    // return the time difference in seconds since the cache was last fetched
+    let getCacheAgeInSecs = (memento: t): option<int> => {
+      switch getTimestamp(memento) {
+      | None => None
+      | Some(timestamp) =>
+        let now = Date.make()
+        let ageInMs = Date.getTime(now) -. Date.getTime(timestamp)
+        Some(int_of_float(ageInMs /. 1000.0))
+      }
     }
   }
 }
