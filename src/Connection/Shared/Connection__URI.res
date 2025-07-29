@@ -1,6 +1,6 @@
 @module external untildify: string => string = "untildify"
 
-type t = Filepath(string) | URL(NodeJs.Url.t)
+type t = FileURI(VSCode.Uri.t) | LspURI(NodeJs.Url.t)
 
 // trying to parse a raw path as a URL or else a file path
 let parse = path => {
@@ -19,7 +19,7 @@ let parse = path => {
   }
   // only treat URLs with the protocol "lsp:" as URLs
   switch result {
-  | Some(url) => URL(url)
+  | Some(url) => LspURI(url)
   | None =>
     // normailize the path by replacing the tild "~/" with the absolute path of home directory
     let path = untildify(path)
@@ -31,19 +31,19 @@ let parse = path => {
     } else {
       path->String.replaceRegExp(%re("/^\\([a-zA-Z])\\/"), "$1\:\\")
     }
-    Filepath(path)
+    FileURI(VSCode.Uri.file(path))
   }
 }
 
-let toString = path =>
-  switch path {
-  | Filepath(path) => NodeJs.Path.normalize(path)
-  | URL(url) => url.toString()
+let toString = uri =>
+  switch uri {
+  | FileURI(vscodeUri) => VSCode.Uri.fsPath(vscodeUri)
+  | LspURI(nodeJsUrl) => nodeJsUrl.toString()
   }
 
 let equal = (x, y) =>
   switch (x, y) {
-  | (Filepath(x), Filepath(y)) => x == y
-  | (URL(x), URL(y)) => x.toString() == y.toString()
+  | (FileURI(x), FileURI(y)) => VSCode.Uri.toString(x) == VSCode.Uri.toString(y)
+  | (LspURI(x), LspURI(y)) => x.toString() == y.toString()
   | _ => false
   }

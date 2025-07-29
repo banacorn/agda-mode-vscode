@@ -276,9 +276,9 @@ let handleSelection = async (
       let selectionChanged = rawPath !== Connection.Endpoint.toURI(original)->Connection.URI.toString
       if selectionChanged {
         switch Connection.URI.parse(rawPath) {
-        | URL(url) => Js.log("Trying to connect with: " ++ url.toString())
-        | Filepath(path) =>
-          switch await Connection.Endpoint.fromRawPath(path) {
+        | LspURI(url) => Js.log("Trying to connect with: " ++ url.toString())
+        | FileURI(path) =>
+          switch await Connection.Endpoint.fromVSCodeUri(path) {
           | Error(e) => Js.log(e)
           | Ok(newTarget) =>
             // save the selected connection as the "picked" connection

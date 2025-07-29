@@ -104,8 +104,8 @@ module Module: {
 
   let fromURI = async uri =>
     switch uri {
-    | URI.URL(_) => Error(Error.CannotHandleURLsATM(uri))
-    | Filepath(_) =>
+    | URI.LspURI(_) => Error(Error.CannotHandleURLsATM(uri))
+    | FileURI(_) =>
       switch await probeFilepath(uri) {
       | Ok(endpoint) => Ok(endpoint)
       | Error(error) => Error(error)
@@ -126,9 +126,9 @@ module Module: {
 
   let toURI = endpoint =>
     switch endpoint {
-    | Agda(_, path) => URI.Filepath(path)
-    | ALS(_, _, ViaPipe(path, _, _)) => URI.Filepath(path)
-    | ALS(_, _, ViaTCP(url)) => URI.URL(url)
+    | Agda(_, path) => URI.FileURI(VSCode.Uri.file(path))
+    | ALS(_, _, ViaPipe(path, _, _)) => URI.FileURI(VSCode.Uri.file(path))
+    | ALS(_, _, ViaTCP(url)) => URI.LspURI(url)
     }
 
   // Try to find the previously picked connection
