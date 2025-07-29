@@ -10,11 +10,6 @@ module Module: {
   type t
   // constructor
   let make: option<VSCode.Memento.t> => t
-  // primitive operations
-  let get: (t, string) => option<'a>
-  let getWithDefault: (t, string, 'a) => 'a
-  let keys: t => array<string>
-  let set: (t, string, 'a) => promise<unit>
   // for debugging
   let toString: t => string
 
@@ -35,6 +30,11 @@ module Module: {
     let getReleases: t => option<'releases>
     let setReleases: (t, 'releases) => promise<unit>
     let getCacheAgeInSecs: t => option<int>
+  }
+
+  module PickedConnection: {
+    let get: t => option<string>
+    let set: (t, option<string>) => promise<unit>
   }
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
@@ -60,11 +60,11 @@ module Module: {
       }
     }
 
-  let keys = context =>
-    switch context {
-    | Memento(context) => VSCode.Memento.keys(context)
-    | Mock(dict) => dict->Dict.keysToArray
-    }
+  // let keys = context =>
+  //   switch context {
+  //   | Memento(context) => VSCode.Memento.keys(context)
+  //   | Mock(dict) => dict->Dict.keysToArray
+  //   }
 
   let set = (context, key, value) =>
     switch context {
@@ -150,6 +150,18 @@ module Module: {
         let ageInMs = Date.getTime(now) -. Date.getTime(timestamp)
         Some(int_of_float(ageInMs /. 1000.0))
       }
+    }
+  }
+
+  module PickedConnection = {
+    let key = "pickedConnection"
+
+    let get = (memento: t): option<string> => {
+      memento->get(key)
+    }
+
+    let set = async (memento: t, path: option<string>): unit => {
+      await memento->set(key, path)
     }
   }
 }

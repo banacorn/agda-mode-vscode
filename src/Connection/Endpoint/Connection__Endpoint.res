@@ -145,13 +145,13 @@ module Module: {
     | Some(endpoint) => Ok(endpoint)
     }
 
-    switch memento->Memento.get("pickedConnection") {
+    switch Memento.PickedConnection.get(memento) {
     | Some(rawPathFromMemento) =>
       switch await fromRawPath(rawPathFromMemento) {
       | Error(_) =>
         // the path in the memento is invalid
         // remove it from the memento
-        await memento->Memento.set("pickedConnection", None)
+        await Memento.PickedConnection.set(memento, None)
         pickFromSuppliedEndpointsInstead
       | Ok(endpointFromMemento) =>
         let existsInSuppliedEndpoints = suppliedEndpoints->Util.Array.includes(endpointFromMemento)
@@ -160,7 +160,7 @@ module Module: {
         } else {
           // the path in the memento is not in the supplied paths
           // remove it from the memento
-          await memento->Memento.set("pickedConnection", None)
+          await Memento.PickedConnection.set(memento, None)
           pickFromSuppliedEndpointsInstead
         }
       }
@@ -170,9 +170,8 @@ module Module: {
 
   let setPicked = (memento: Memento.t, endpoint) =>
     switch endpoint {
-    | None => memento->Memento.set("pickedConnection", None)
-    | Some(endpoint) =>
-      memento->Memento.set("pickedConnection", Some(toURI(endpoint)->URI.toString))
+    | None => Memento.PickedConnection.set(memento, None)
+    | Some(endpoint) => Memento.PickedConnection.set(memento, Some(toURI(endpoint)->URI.toString))
     }
 }
 
