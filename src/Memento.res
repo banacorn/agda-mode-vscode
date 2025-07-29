@@ -19,9 +19,10 @@ module Module: {
       timestamp: Date.t,
       error: option<string>,
     }
-    let get: (t, string) => option<entry>
-    let setVersion: (t, string, string) => promise<unit>
-    let setError: (t, string, string) => promise<unit>
+    let entries: t => Dict.t<entry>
+    let get: (t, Connection__URI.t) => option<entry>
+    let setVersion: (t, Connection__URI.t, string) => promise<unit>
+    let setError: (t, Connection__URI.t, string) => promise<unit>
   }
 
   module ALSReleaseCache: {
@@ -60,12 +61,6 @@ module Module: {
       }
     }
 
-  // let keys = context =>
-  //   switch context {
-  //   | Memento(context) => VSCode.Memento.keys(context)
-  //   | Mock(dict) => dict->Dict.keysToArray
-  //   }
-
   let set = (context, key, value) =>
     switch context {
     | Memento(context) => VSCode.Memento.update(context, key, value)
@@ -101,22 +96,32 @@ module Module: {
 
     let key = "endpointVersion"
 
-    let get = (memento: t, path: string): option<entry> => {
+    let entries = (memento: t): Dict.t<entry> =>
+      switch memento {
+      | Memento(memento) => VSCode.Memento.getWithDefault(memento, key, Dict.make())
+      | Mock(dict) =>
+        switch Dict.get(dict, key) {
+        | Some(value) => value->Obj.magic
+        | None => Dict.make()
+        }
+      }
+
+    let get = (memento: t, uri: Connection__URI.t): option<entry> => {
       let cache = memento->getWithDefault(key, Dict.make())
-      cache->Dict.get(path)
+      cache->Dict.get(Connection__URI.toString(uri))
     }
 
-    let setVersion = async (memento: t, path: string, version: string): unit => {
+    let setVersion = async (memento: t, uri: Connection__URI.t, version: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
       let entry = {version: Some(version), timestamp: Date.make(), error: None}
-      cache->Dict.set(path, entry)
+      cache->Dict.set(Connection__URI.toString(uri), entry)
       await memento->set(key, cache)
     }
 
-    let setError = async (memento: t, path: string, error: string): unit => {
+    let setError = async (memento: t, uri: Connection__URI.t, error: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
       let entry = {version: None, timestamp: Date.make(), error: Some(error)}
-      cache->Dict.set(path, entry)
+      cache->Dict.set(Connection__URI.toString(uri), entry)
       await memento->set(key, cache)
     }
   }
