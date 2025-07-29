@@ -17,6 +17,17 @@ module Module: {
   let set: (t, string, 'a) => promise<unit>
   // for debugging
   let toString: t => string
+
+  module EndpointVersion: {
+    type entry = {
+      version: option<string>,
+      timestamp: Js.Date.t,
+      error: option<string>,
+    }
+    let get: (t, string) => option<entry>
+    let setVersion: (t, string, string) => promise<unit>
+    let setError: (t, string, string) => promise<unit>
+  }
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
 
@@ -72,6 +83,35 @@ module Module: {
         })
       "Mock: {\n" ++ Array.join(entries, "\n") ++ "}"
     }
+
+  module EndpointVersion = {
+    type entry = {
+      version: option<string>,
+      timestamp: Js.Date.t,
+      error: option<string>,
+    }
+
+    let key = "endpointVersion"
+
+    let get = (memento: t, path: string): option<entry> => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      cache->Dict.get(path)
+    }
+
+    let setVersion = async (memento: t, path: string, version: string): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let entry = {version: Some(version), timestamp: Js.Date.make(), error: None}
+      cache->Dict.set(path, entry)
+      await memento->set(key, cache)
+    }
+
+    let setError = async (memento: t, path: string, error: string): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let entry = {version: None, timestamp: Js.Date.make(), error: Some(error)}
+      cache->Dict.set(path, entry)
+      await memento->set(key, cache)
+    }
+  }
 }
 
 include Module
