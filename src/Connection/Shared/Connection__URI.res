@@ -37,7 +37,7 @@ let parse = path => {
 
 let toString = uri =>
   switch uri {
-  | FileURI(vscodeUri) => VSCode.Uri.fsPath(vscodeUri)
+  | FileURI(vscodeUri) => NodeJs.Path.normalize(VSCode.Uri.fsPath(vscodeUri))
   | LspURI(nodeJsUrl) => nodeJsUrl.toString()
   }
 

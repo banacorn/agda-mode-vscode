@@ -62,18 +62,43 @@ describe("Connection__URI", () => {
       },
     )
 
-    if !OS.onUnix {
-      it(
-        "should convert Windows-style paths on Windows",
-        () => {
-          let uri = URI.parse("/c/path/to/agda")
-          switch uri {
-          | FileURI(vscodeUri) => Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "c:\\path\\to\\agda")
-          | LspURI(_) => Assert.fail("Expected FileURI variant")
-          }
-        },
-      )
-    }
+
+    it(
+      "should be able to parse file paths",
+      () => {
+        let actual = URI.parse("path/to/als")
+        let expected = if OS.onUnix {
+          URI.FileURI(VSCode.Uri.file("path/to/als"))
+        } else {
+          URI.FileURI(VSCode.Uri.file("path\\to\\als"))
+        }
+        Assert.deepStrictEqual(actual, expected)
+      },
+    )
+
+    it(
+      "should be able to parse convert \"/c/path/to/agda\" to \"c:/path/to/agda\" on Windows",
+      () => {
+        let actual = URI.parse("/c/path/to/agda")
+        let expected = if OS.onUnix {
+          URI.FileURI(VSCode.Uri.file("/c/path/to/agda"))
+        } else {
+          URI.FileURI(VSCode.Uri.file("c:\\path\\to\\agda"))
+        }
+
+        Assert.deepStrictEqual(actual, expected)
+
+        let actual = URI.parse("/d/path/to/agda")
+        let expected = if OS.onUnix {
+          URI.FileURI(VSCode.Uri.file("/d/path/to/agda"))
+        } else {
+          URI.FileURI(VSCode.Uri.file("d:\\path\\to\\agda"))
+        }
+
+        Assert.deepStrictEqual(actual, expected)
+      },
+    )
+
   })
 
   describe("toString", () => {

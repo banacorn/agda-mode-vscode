@@ -11,52 +11,6 @@ let getAgdaTarget = async () => {
 
 describe("Connection", () => {
   This.timeout(10000)
-  describe("URI.parse", () => {
-    Async.it(
-      "should be able to parse URIs with lsp: as the protocol",
-      async () => {
-        let actual = Connection__URI.parse("lsp://path/to/als")
-        let expected = Connection__URI.LspURI(NodeJs.Url.make("lsp://path/to/als"))
-        Assert.deepStrictEqual(actual, expected)
-      },
-    )
-
-    Async.it(
-      "should be able to parse file paths",
-      async () => {
-        let actual = Connection__URI.parse("path/to/als")
-        let expected = if OS.onUnix {
-          Connection__URI.FileURI(VSCode.Uri.file("path/to/als"))
-        } else {
-          Connection__URI.FileURI(VSCode.Uri.file("path\\to\\als"))
-        }
-        Assert.deepStrictEqual(actual, expected)
-      },
-    )
-
-    Async.it(
-      "should be able to parse convert \"/c/path/to/agda\" to \"c:/path/to/agda\" on Windows",
-      async () => {
-        let actual = Connection__URI.parse("/c/path/to/agda")
-        let expected = if OS.onUnix {
-          Connection__URI.FileURI(VSCode.Uri.file("/c/path/to/agda"))
-        } else {
-          Connection__URI.FileURI(VSCode.Uri.file("c:\\path\\to\\agda"))
-        }
-
-        Assert.deepStrictEqual(actual, expected)
-
-        let actual = Connection__URI.parse("/d/path/to/agda")
-        let expected = if OS.onUnix {
-          Connection__URI.FileURI(VSCode.Uri.file("/d/path/to/agda"))
-        } else {
-          Connection__URI.FileURI(VSCode.Uri.file("d:\\path\\to\\agda"))
-        }
-
-        Assert.deepStrictEqual(actual, expected)
-      },
-    )
-  })
 
   describe("Target", () => {
     let agdaMockPath = ref("")
