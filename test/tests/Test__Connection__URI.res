@@ -216,6 +216,65 @@ describe("Connection__URI", () => {
         },
       )
     }
+
+    describe(
+      "Idempotency",
+      () => {
+        it(
+          "should be idempotent for relative paths",
+          () => {
+            let original = "relative/path/to/file.txt"
+            let firstParse = URI.parse(original)
+            let secondParse = URI.parse(URI.toString(firstParse))
+            Assert.ok(URI.equal(firstParse, secondParse))
+          },
+        )
+
+        it(
+          "should be idempotent for absolute paths",
+          () => {
+            let testPath = if OS.onUnix {
+              "/usr/bin/agda"
+            } else {
+              "C:\\usr\\bin\\agda"
+            }
+            let firstParse = URI.parse(testPath)
+            let secondParse = URI.parse(URI.toString(firstParse))
+            Assert.ok(URI.equal(firstParse, secondParse))
+          },
+        )
+
+        it(
+          "should be idempotent for tilde paths",
+          () => {
+            let original = "~/bin/agda"
+            let firstParse = URI.parse(original)
+            let secondParse = URI.parse(URI.toString(firstParse))
+            Assert.ok(URI.equal(firstParse, secondParse))
+          },
+        )
+
+        it(
+          "should be idempotent for paths with dots",
+          () => {
+            let original = "path/with/../dots/./file.txt"
+            let firstParse = URI.parse(original)
+            let secondParse = URI.parse(URI.toString(firstParse))
+            Assert.ok(URI.equal(firstParse, secondParse))
+          },
+        )
+
+        it(
+          "should be idempotent for LSP URLs",
+          () => {
+            let original = "lsp://localhost:8080"
+            let firstParse = URI.parse(original)
+            let secondParse = URI.parse(URI.toString(firstParse))
+            Assert.ok(URI.equal(firstParse, secondParse))
+          },
+        )
+      },
+    )
   })
 
   describe("toString", () => {

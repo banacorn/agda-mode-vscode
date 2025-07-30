@@ -12,22 +12,32 @@ let parse = path => {
   let result = try Some(NodeJs.Url.make(path)) catch {
   | _ => None
   }
-  // single out the URL with the protocol "lsp:"
+  // Handle URLs with specific protocols
   let result = switch result {
   | Some(url) =>
     if url.protocol == "lsp:" {
       Some(url)
+    } else if url.protocol == "file:" {
+      // Convert file:// URL back to file path
+      None // This will fall through to file path handling
     } else {
       None
     }
   | None => None
   }
-  // only treat URLs with the protocol "lsp:" as URLs
+  // Handle LSP URLs or fall back to file path processing
   switch result {
   | Some(url) => LspURI(url)
   | None =>
+    // Extract file path from file:// URLs
+    let filePath = if String.startsWith(path, "file://") {
+      // Convert file:// URL to file path using VSCode.Uri
+      VSCode.Uri.parse(path)->VSCode.Uri.fsPath
+    } else {
+      path
+    }
     // normalize the path by replacing the tilde "~/" with the absolute path of home directory
-    let path = untildify(path)
+    let path = untildify(filePath)
     let path = NodeJs.Path.normalize(path)
 
     // on Windows, paths that start with a drive letter like "/c/path/to/agda" will be converted to "c:/path/to/agda"
