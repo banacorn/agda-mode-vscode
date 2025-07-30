@@ -10,7 +10,7 @@ defaults:
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master, dev, ci, ci-* ]
+    branches: [ master, dev, web, ci, ci-* ]
   pull_request:
     branches: [ master, dev, ci, ci-* ]
 
