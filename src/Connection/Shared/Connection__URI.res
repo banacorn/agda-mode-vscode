@@ -2,7 +2,12 @@
 
 type t = FileURI(VSCode.Uri.t) | LspURI(NodeJs.Url.t)
 
-// trying to parse a raw path as a URL or else a file path
+// Trying to parse a raw path as a URI with lsp: scheme or as a file path.
+// Although file paths are stored using VSCode.Uri, it
+//    * does not resolve absolute paths with drive letters like "c:/" on Windows.
+//    * does not expanded paths with "~/" to the user's home directory.
+//    * does not normalize paths with ".." segments.
+// So we'll have to handle these cases before converting to VSCode.Uri.
 let parse = path => {
   let result = try Some(NodeJs.Url.make(path)) catch {
   | _ => None
@@ -31,21 +36,16 @@ let parse = path => {
     } else {
       path->String.replaceRegExp(%re("/^\\([a-zA-Z])\\/"), "$1\:\\")
     }
-    
-    // Convert relative paths to absolute paths before creating VSCode URI
-    let absolutePath = if NodeJs.Path.isAbsolute(path) {
-      path
-    } else {
-      NodeJs.Path.resolve([path])
-    }
-    
+
+    let absolutePath = NodeJs.Path.resolve([path])
+
     FileURI(VSCode.Uri.file(absolutePath))
   }
 }
 
 let toString = uri =>
   switch uri {
-  | FileURI(vscodeUri) => NodeJs.Path.normalize(VSCode.Uri.fsPath(vscodeUri))
+  | FileURI(vscodeUri) => VSCode.Uri.fsPath(vscodeUri) // TODO: use VSCode.Uri.toString instead
   | LspURI(nodeJsUrl) => nodeJsUrl.toString()
   }
 

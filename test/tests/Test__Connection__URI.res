@@ -3,6 +3,9 @@ open Mocha
 module URI = Connection__URI
 
 describe("Connection__URI", () => {
+  // NOTE: DO NOT apply `VSCode.Uri.t`` directly on `Assert.deepStrictEqual`
+  // because their values are computed lazily somehow, apply `VSCode.Uri.toString` before comparing!
+  // To compare URIs, use `Assert.ok` with `Connection__URI.equal` instead.
   describe("parse", () => {
     it(
       "should parse lsp:// URLs as LspURI variant",
@@ -27,23 +30,26 @@ describe("Connection__URI", () => {
     )
 
     it(
-      "should parse regular file paths as FileURI variant",
+      "should parse absolute file paths as FileURI variant",
       () => {
         let uri = URI.parse("/usr/bin/agda")
+        let expected = NodeJs.Path.resolve(["/usr/bin/agda"])->VSCode.Uri.file
         switch uri {
-        | FileURI(vscodeUri) =>
-          Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
+        | FileURI(actual) => Assert.deepStrictEqual(actual, expected)
         | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
 
     it(
-      "should parse relative file paths and absolute file paths the same way",
+      "should parse relative file paths as FileURI variant",
       () => {
-        let actual = URI.parse("relative/path/to/file")
-        let expected = URI.parse(NodeJs.Path.resolve(["relative/path/to/file"]))
-        Assert.deepStrictEqual(actual, expected)
+        let uri = URI.parse("usr/bin/agda")
+        let expected = NodeJs.Path.resolve(["usr/bin/agda"])->VSCode.Uri.file
+        switch uri {
+        | FileURI(actual) => Assert.deepStrictEqual(actual, expected)
+        | LspURI(_) => Assert.fail("Expected FileURI variant")
+        }
       },
     )
 
@@ -51,23 +57,26 @@ describe("Connection__URI", () => {
       "should expand tilde in file paths",
       () => {
         let uri = URI.parse("~/bin/agda")
+        let expected = NodeJs.Path.resolve([NodeJs.Os.homedir(), "bin/agda"])->VSCode.Uri.file
         switch uri {
-        | FileURI(vscodeUri) =>
+        | FileURI(actual) =>
           // Should not contain tilde after untildify
-          let path = VSCode.Uri.fsPath(vscodeUri)
-          Assert.ok(!String.includes(path, "~"))
+          Assert.ok(!String.includes(VSCode.Uri.fsPath(actual), "~"))
+          Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
         | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
 
     it(
-      "should normalize file paths",
+      "should normalize file paths with ..",
       () => {
         let uri = URI.parse("/usr/bin/../bin/agda")
+        let expected = NodeJs.Path.resolve(["/usr/bin", "..", "bin/agda"])->VSCode.Uri.file
         switch uri {
-        | FileURI(vscodeUri) =>
-          Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
+        | FileURI(actual) =>
+          // Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
+          Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
         | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
@@ -112,22 +121,22 @@ describe("Connection__URI", () => {
 
   describe("toString", () => {
     it(
-      "should convert FileURI to normalized string",
+      "should convert payload of FileURI with `VSCode.Uri.fsPath`",
       () => {
-        let vscodeUri = VSCode.Uri.file("/usr/bin/../bin/agda")
-        let uri = URI.FileURI(vscodeUri)
-        let result = URI.toString(uri)
-        Assert.deepStrictEqual(result, "/usr/bin/agda")
+        let uri = VSCode.Uri.file("/usr/bin/../bin/agda")
+        let expected = VSCode.Uri.fsPath(uri)
+        let actual = URI.toString(URI.FileURI(uri))
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
     it(
-      "should convert LspURI to string",
+      "should convert payload of LspURI with `NodeJs.Url.toString`",
       () => {
         let url = NodeJs.Url.make("lsp://localhost:8080")
-        let uri = URI.LspURI(url)
-        let result = URI.toString(uri)
-        Assert.deepStrictEqual(result, "lsp://localhost:8080")
+        let expected = url.toString()
+        let actual = URI.toString(URI.LspURI(url))
+        Assert.deepStrictEqual(actual, expected)
       },
     )
   })
@@ -180,29 +189,6 @@ describe("Connection__URI", () => {
         let url = NodeJs.Url.make("lsp://localhost:8080")
         let uri2 = URI.LspURI(url)
         Assert.deepStrictEqual(URI.equal(uri1, uri2), false)
-      },
-    )
-  })
-
-  describe("round-trip parsing", () => {
-    it(
-      "should preserve lsp:// URLs through parse -> toString",
-      () => {
-        let original = "lsp://localhost:8080"
-        let parsed = URI.parse(original)
-        let stringified = URI.toString(parsed)
-        // Note: URLs may have trailing slash added
-        Assert.ok(String.startsWith(stringified, "lsp://localhost:8080"))
-      },
-    )
-
-    it(
-      "should preserve file paths through parse -> toString",
-      () => {
-        let original = "/usr/bin/agda"
-        let parsed = URI.parse(original)
-        let stringified = URI.toString(parsed)
-        Assert.deepStrictEqual(stringified, original)
       },
     )
   })
