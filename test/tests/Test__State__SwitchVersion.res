@@ -76,17 +76,17 @@ describe("State__SwitchVersion", () => {
       
       it("should parse switch to target with detail", () => {
         let actual = SelectionParsing.parseSelection("Agda v2.6.4", Some("/usr/bin/agda"))
-        Assert.deepStrictEqual(actual, SelectionParsing.SwitchToTarget("/usr/bin/agda"))
+        Assert.deepStrictEqual(actual, SelectionParsing.SwitchToEndpoint("/usr/bin/agda"))
       })
       
       it("should parse switch to target without detail", () => {
         let actual = SelectionParsing.parseSelection("Some unknown label", None)
-        Assert.deepStrictEqual(actual, SelectionParsing.SwitchToTarget(""))
+        Assert.deepStrictEqual(actual, SelectionParsing.SwitchToEndpoint(""))
       })
       
       it("should handle ALS target selection", () => {
         let actual = SelectionParsing.parseSelection("$(squirrel)  Agda v2.6.4 Language Server v1.2.3", Some("lsp://localhost:4096"))
-        Assert.deepStrictEqual(actual, SelectionParsing.SwitchToTarget("lsp://localhost:4096"))
+        Assert.deepStrictEqual(actual, SelectionParsing.SwitchToEndpoint("lsp://localhost:4096"))
       })
     })
   })

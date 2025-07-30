@@ -21,7 +21,7 @@ let parse = path => {
   switch result {
   | Some(url) => LspURI(url)
   | None =>
-    // normailize the path by replacing the tild "~/" with the absolute path of home directory
+    // normalize the path by replacing the tilde "~/" with the absolute path of home directory
     let path = untildify(path)
     let path = NodeJs.Path.normalize(path)
 
@@ -31,7 +31,15 @@ let parse = path => {
     } else {
       path->String.replaceRegExp(%re("/^\\([a-zA-Z])\\/"), "$1\:\\")
     }
-    FileURI(VSCode.Uri.file(path))
+    
+    // Convert relative paths to absolute paths before creating VSCode URI
+    let absolutePath = if NodeJs.Path.isAbsolute(path) {
+      path
+    } else {
+      NodeJs.Path.resolve([path])
+    }
+    
+    FileURI(VSCode.Uri.file(absolutePath))
   }
 }
 

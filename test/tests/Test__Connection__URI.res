@@ -31,9 +31,19 @@ describe("Connection__URI", () => {
       () => {
         let uri = URI.parse("/usr/bin/agda")
         switch uri {
-        | FileURI(vscodeUri) => Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
+        | FileURI(vscodeUri) =>
+          Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
         | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
+      },
+    )
+
+    it(
+      "should parse relative file paths and absolute file paths the same way",
+      () => {
+        let actual = URI.parse("relative/path/to/file")
+        let expected = URI.parse(NodeJs.Path.resolve(["relative/path/to/file"]))
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -56,21 +66,21 @@ describe("Connection__URI", () => {
       () => {
         let uri = URI.parse("/usr/bin/../bin/agda")
         switch uri {
-        | FileURI(vscodeUri) => Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
+        | FileURI(vscodeUri) =>
+          Assert.deepStrictEqual(VSCode.Uri.fsPath(vscodeUri), "/usr/bin/agda")
         | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
-
 
     it(
       "should be able to parse file paths",
       () => {
         let actual = URI.parse("path/to/als")
         let expected = if OS.onUnix {
-          URI.FileURI(VSCode.Uri.file("path/to/als"))
+          URI.FileURI(VSCode.Uri.file(NodeJs.Path.resolve(["path/to/als"])))
         } else {
-          URI.FileURI(VSCode.Uri.file("path\\to\\als"))
+          URI.FileURI(VSCode.Uri.file(NodeJs.Path.resolve(["path\\to\\als"])))
         }
         Assert.deepStrictEqual(actual, expected)
       },
@@ -98,7 +108,6 @@ describe("Connection__URI", () => {
         Assert.deepStrictEqual(actual, expected)
       },
     )
-
   })
 
   describe("toString", () => {

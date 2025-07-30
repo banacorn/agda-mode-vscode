@@ -16,7 +16,7 @@ module SelectionParsing = {
   type selectionType =
     | OpenFolder
     | DownloadLatestALS
-    | SwitchToTarget(string)
+    | SwitchToEndpoint(string)
 
   let parseSelection = (label: string, detail: option<string>): selectionType =>
     switch label {
@@ -24,8 +24,8 @@ module SelectionParsing = {
     | "$(cloud-download)  Download the latest Agda Language Server" => DownloadLatestALS
     | _ =>
       switch detail {
-      | Some(path) => SwitchToTarget(path)
-      | None => SwitchToTarget("")
+      | Some(path) => SwitchToEndpoint(path)
+      | None => SwitchToEndpoint("")
       }
     }
 }
@@ -269,7 +269,7 @@ let handleSelection = async (
     let result = await DownloadWorkflow.downloadLatestALS(platformDeps, memento, globalStorageUri)
     await DownloadWorkflow.handleDownloadResult(result, self.rerender)
 
-  | SwitchToTarget(rawPath) =>
+  | SwitchToEndpoint(rawPath) =>
     switch await Connection.Endpoint.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
     | Error(_) => await self.rerender()
     | Ok(original) =>
@@ -280,9 +280,9 @@ let handleSelection = async (
         | FileURI(path) =>
           switch await Connection.Endpoint.fromVSCodeUri(path) {
           | Error(e) => Js.log(e)
-          | Ok(newTarget) =>
+          | Ok(newEndpoint) =>
             // save the selected connection as the "picked" connection
-            await Connection.Endpoint.setPicked(self.state.memento, Some(newTarget))
+            await Connection.Endpoint.setPicked(self.state.memento, Some(newEndpoint))
             await switchAgdaVersion(self.state)
             await self.rerender()
           }
@@ -353,9 +353,9 @@ let rec run = async (state, platformDeps: Platform.t) => {
   let installedSeperator = [ItemCreation.createSeparatorItem("Installed")]
 
   module PlatformOps = unpack(platformDeps)
-  let installedTargets = await PlatformOps.getInstalledEndpointsAndPersistThem(state.globalStorageUri)
+  let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(state.globalStorageUri)
   let installedPaths =
-    installedTargets
+    installedEndpoints
     ->Dict.valuesToArray
     ->Array.filterMap(x =>
       switch x {
@@ -363,7 +363,7 @@ let rec run = async (state, platformDeps: Platform.t) => {
       | Ok(endpoint) => Some(Connection.Endpoint.toURI(endpoint)->Connection.URI.toString)
       }
     )
-  let installedItemsFromSettings = installedTargets->Dict.valuesToArray->Array.map(endpointToItem)
+  let installedItemsFromSettings = installedEndpoints->Dict.valuesToArray->Array.map(endpointToItem)
 
   let downloadSeperator = [ItemCreation.createSeparatorItem("Download")]
 

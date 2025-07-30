@@ -61,40 +61,20 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
+        let expected = Error(
+          paths->Array.map(
+            uri => {
+              Connection__Endpoint.Error.SomethingWentWrong(
+                uri,
+                NotFound(uri->Connection__URI.toString),
+              )
+            },
+          ),
+        )
+
         let actual = await Connection__Endpoint.getPicked(memento, paths)
-        if OS.onUnix {
-          let expected = Error([
-            Connection__Endpoint.Error.SomethingWentWrong(
-              Connection.URI.parse("path/to/agda"),
-              NotFound("path/to/agda"),
-            ),
-            Connection__Endpoint.Error.SomethingWentWrong(
-              Connection.URI.parse("path/to/als"),
-              NotFound("path/to/als"),
-            ),
-          ])
-          Assert.deepStrictEqual(actual, expected)
-        } else {
-          // let expected = Error([
-          //   Connection__Endpoint.Error.SomethingWentWrong(
-          //     Connection.URI.parse("path\\to\\agda"),
-          //     NotFound("path\\to\\agda"),
-          //   ),
-          //   Connection__Endpoint.Error.SomethingWentWrong(
-          //     Connection.URI.parse("path\\to\\als"),
-          //     NotFound("path\\to\\als"),
-          //   ),
-          // ])
-          switch actual {
-          | Ok(_) => Assert.fail("expected an error, got Ok")
-          | Error([
-              Connection__Endpoint.Error.SomethingWentWrong(_, _),
-              Connection__Endpoint.Error.SomethingWentWrong(_, _),
-            ]) =>
-            Assert.ok(true)
-          | _ => Assert.fail("expected an error, got something else")
-          }
-        }
+
+        Assert.deepStrictEqual(actual, expected)
       },
     )
 
@@ -116,12 +96,12 @@ describe("Connection", () => {
         if OS.onUnix {
           let expected = Error([
             Connection__Endpoint.Error.SomethingWentWrong(
-              Connection.URI.parse("path/to/agda"),
-              NotFound("path/to/agda"),
+              paths[0]->Option.getExn,
+              NotFound(NodeJs.Path.resolve(["path/to/agda"])),
             ),
             Connection__Endpoint.Error.SomethingWentWrong(
-              Connection.URI.parse("path/to/als"),
-              NotFound("path/to/als"),
+              paths[1]->Option.getExn,
+              NotFound(NodeJs.Path.resolve(["path/to/als"])),
             ),
           ])
           Assert.deepStrictEqual(actual, expected)
@@ -308,11 +288,11 @@ describe("Connection", () => {
             Connection__Error.Aggregated.Attempts.endpoints: [
               {
                 SomethingWentWrong(
-                  Connection.URI.parse("some/other/paths"),
+                  paths[0]->Option.getExn,
                   if OS.onUnix {
-                    NotFound("some/other/paths")
+                    NotFound(NodeJs.Path.resolve(["some/other/paths"]))
                   } else {
-                    NotFound("some\\other\\paths")
+                    NotFound(NodeJs.Path.resolve(["some\\other\\paths"]))
                   },
                 )
               },
