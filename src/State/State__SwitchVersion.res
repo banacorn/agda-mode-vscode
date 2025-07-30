@@ -1,4 +1,54 @@
-// Pure business logic modules
+// Plan: Lazy Version Probing for State__SwitchVersion
+
+//   Phase 1: Modify QuickPick Item Creation
+
+//   1. Change endpointToItem function (line 322):
+//     - Instead of requiring full endpoint info with version, accept just URI + cached version info
+//     - Check Memento.EndpointVersion.get() for cached version data
+//     - Show version if cached, otherwise show just the URI path
+//   2. Update item creation functions:
+//     - createAgdaItem: Accept optional version, show "Unknown version" if not cached
+//     - createALSItem: Accept optional versions, show "Unknown version" if not cached
+//     - Add visual indicator (e.g., different icon/description) for uncached vs cached endpoints
+
+//   Phase 2: Replace Eager Probing
+
+//   1. Remove line 356: await PlatformOps.getInstalledEndpointsAndPersistThem()
+//   2. Replace with: Get raw URIs from Config.Connection.getAgdaPaths()
+//   3. For each URI: Check Memento.EndpointVersion.get() for cached info
+//   4. Create items: Show cached version info or "probe needed" placeholder
+
+//   Phase 3: Implement Lazy Probing on Selection
+
+//   1. Modify handleSelection (line 257):
+//     - When user selects an endpoint, check if version is cached
+//     - If not cached: probe the endpoint using Connection.Endpoint.fromVSCodeUri()
+//     - Cache success: Memento.EndpointVersion.setVersion()
+//     - Cache failure: Memento.EndpointVersion.setError()
+//     - Update the connection after probing
+//   2. Add progress indication:
+//     - Show "Probing endpoint..." message during version detection
+//     - Handle probe failures gracefully
+
+//   Phase 4: Update Rendering Logic
+
+//   1. Add refreshItems function: Regenerate quickpick items using latest cache
+//   2. Call after probing: Update quickpick to show newly discovered version info
+//   3. Handle errors: Show error items for endpoints that failed to probe
+
+//   Benefits:
+
+//   - Faster initial load: No upfront probing delays
+//   - Better UX: Immediate quickpick display, progressive enhancement
+//   - Caching: Avoid re-probing known endpoints
+//   - Error resilience: Don't block UI on individual endpoint failures
+
+//   Files to modify:
+
+//   - src/State/State__SwitchVersion.res (main changes)
+//   - Potentially update ItemCreation module for optional version display
+
+
 module VersionDisplay = {
   // Format version strings for display
   let formatAgdaVersion = (version: string): string => "Agda v" ++ version
