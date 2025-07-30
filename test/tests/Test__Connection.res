@@ -63,12 +63,15 @@ describe("Connection", () => {
 
         let expected = Error(
           paths->Array.map(
-            uri => {
-              Connection__Endpoint.Error.SomethingWentWrong(
-                uri,
-                NotFound(uri->Connection__URI.toString),
-              )
-            },
+            uri =>
+              switch uri {
+              | FileURI(vscodeUri) =>
+                Connection__Endpoint.Error.SomethingWentWrong(
+                  uri,
+                  NotFound(vscodeUri->VSCode.Uri.fsPath),
+                )
+              | LspURI(_) => failwith("Expected FileURI variant")
+              },
           ),
         )
 

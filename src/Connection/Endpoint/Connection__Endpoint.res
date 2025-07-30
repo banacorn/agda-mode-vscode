@@ -76,31 +76,34 @@ module Module: {
     | ALS(version, version, IPC.t) // ALS version, Agda version, method of IPC
 
   // see if it's a Agda executable or a language server
-  let probeFilepath = async uri => {
-    let path = URI.toString(uri)
-    let result = await Connection__Process__Exec.run(path, ["--version"])
-    switch result {
-    | Ok(output) =>
-      // try Agda
-      switch String.match(output, %re("/Agda version (.*)/")) {
-      | Some([_, Some(version)]) => Ok(Agda(version, path))
-      | _ =>
-        // try ALS
-        switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
-        | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-          let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
-          | Some(assetPath) =>
-            let env = Dict.fromArray([("Agda_datadir", assetPath)])
-            Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
-          | None => None
+  let probeFilepath = async uri =>
+    switch uri {
+    | URI.LspURI(_) => Error(Error.CannotHandleURLsATM(uri))
+    | URI.FileURI(vscodeUri) =>
+      let path = VSCode.Uri.fsPath(vscodeUri)
+      let result = await Connection__Process__Exec.run(path, ["--version"])
+      switch result {
+      | Ok(output) =>
+        // try Agda
+        switch String.match(output, %re("/Agda version (.*)/")) {
+        | Some([_, Some(version)]) => Ok(Agda(version, path))
+        | _ =>
+          // try ALS
+          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+            let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
+            | Some(assetPath) =>
+              let env = Dict.fromArray([("Agda_datadir", assetPath)])
+              Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
+            | None => None
+            }
+            Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, [], lspOptions)))
+          | _ => Error(Error.NotAgdaOrALS(uri, output))
           }
-          Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, [], lspOptions)))
-        | _ => Error(Error.NotAgdaOrALS(uri, output))
         }
+      | Error(error) => Error(Error.SomethingWentWrong(uri, error))
       }
-    | Error(error) => Error(Error.SomethingWentWrong(uri, error))
     }
-  }
 
   let fromURI = async uri =>
     switch uri {

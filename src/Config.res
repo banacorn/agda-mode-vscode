@@ -8,11 +8,11 @@ let inTestingMode = ref(false)
 module DevMode = {
   // Default value for dev mode
   let defaultValue = false
-  
+
   // Parse and validate dev mode value from VSCode config
   let parseFromConfig = (configValue: option<JSON.t>): bool =>
     switch configValue {
-    | Some(value) => 
+    | Some(value) =>
       switch value {
       | JSON.Boolean(true) => true
       | JSON.Boolean(false) => false
@@ -27,8 +27,11 @@ module DevMode = {
     ->parseFromConfig
 
   let set = (value: bool) => {
-    Workspace.getConfiguration(Some("agdaMode"), None)
-    ->WorkspaceConfiguration.updateGlobalSettings("devMode.enabled", value, None)
+    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.updateGlobalSettings(
+      "devMode.enabled",
+      value,
+      None,
+    )
   }
 }
 
@@ -67,7 +70,8 @@ module Connection = {
       agdaPathsInTestingMode := paths
       Promise.resolve()
     } else {
-      let paths: array<string> = paths->Array.map(Connection__URI.toString)
+      let paths: array<string> =
+        paths->Array.filterMap(Connection__URI.toVSCodeURI)->Array.map(VSCode.Uri.fsPath)
       Workspace.getConfiguration(
         Some("agdaMode"),
         None,
@@ -117,7 +121,8 @@ module Connection = {
         agdaPathsInTestingMode := newPaths
         Promise.resolve()
       } else {
-        let newPaths: array<string> = newPaths->Array.map(Connection__URI.toString)
+        let newPaths: array<string> =
+          newPaths->Array.filterMap(Connection__URI.toVSCodeURI)->Array.map(VSCode.Uri.fsPath)
         Workspace.getConfiguration(
           Some("agdaMode"),
           None,

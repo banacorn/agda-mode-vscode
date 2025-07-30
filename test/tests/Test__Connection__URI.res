@@ -121,10 +121,10 @@ describe("Connection__URI", () => {
 
   describe("toString", () => {
     it(
-      "should convert payload of FileURI with `VSCode.Uri.fsPath`",
+      "should convert payload of FileURI with `VSCode.Uri.toString`",
       () => {
         let uri = VSCode.Uri.file("/usr/bin/../bin/agda")
-        let expected = VSCode.Uri.fsPath(uri)
+        let expected = VSCode.Uri.toString(uri)
         let actual = URI.toString(URI.FileURI(uri))
         Assert.deepStrictEqual(actual, expected)
       },
