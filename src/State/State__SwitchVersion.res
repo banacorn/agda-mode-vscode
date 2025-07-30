@@ -48,7 +48,6 @@
 //   - src/State/State__SwitchVersion.res (main changes)
 //   - Potentially update ItemCreation module for optional version display
 
-
 module VersionDisplay = {
   // Format version strings for display
   let formatAgdaVersion = (version: string): string => "Agda v" ++ version
@@ -115,7 +114,8 @@ module DownloadWorkflow = {
     | Success(endpoint, alreadyDownloaded) =>
       let version = switch endpoint {
       | Agda(version, _) => VersionDisplay.formatAgdaVersion(version)
-      | ALS(alsVersion, agdaVersion, _) => VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+      | ALS(alsVersion, agdaVersion, _, _) =>
+        VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
       }
       if alreadyDownloaded {
         let _ = await VSCode.Window.showInformationMessage(version ++ " is already downloaded", [])
@@ -187,7 +187,7 @@ module ItemCreation = {
     },
     detail: switch method {
     | ViaTCP(url) => url.toString()
-    | ViaPipe(path, _, _) => path
+    | ViaPipe(path, _) => path
     },
   }
 
@@ -216,7 +216,7 @@ let switchAgdaVersion = async (state: State.t) => {
         [],
       )
     }
-  | Ok(ALS(alsVersion, agdaVersion, _)) => {
+  | Ok(ALS(alsVersion, agdaVersion, _, _)) => {
       await State__View.Panel.displayStatus(state, "")
       await State__View.Panel.display(
         state,
@@ -254,7 +254,7 @@ let switchAgdaVersion = async (state: State.t) => {
           [],
         )
       }
-    | Ok(ALS(alsVersion, agdaVersion, _)) => {
+    | Ok(ALS(alsVersion, agdaVersion, _, _)) => {
         let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
         await State__View.Panel.displayStatus(state, formattedVersion)
         await State__View.Panel.display(
@@ -320,10 +320,14 @@ let handleSelection = async (
     await DownloadWorkflow.handleDownloadResult(result, self.rerender)
 
   | SwitchToEndpoint(rawPath) =>
-    switch await Connection.Endpoint.getPicked(self.state.memento, Config.Connection.getAgdaPaths()) {
+    switch await Connection.Endpoint.getPicked(
+      self.state.memento,
+      Config.Connection.getAgdaPaths(),
+    ) {
     | Error(_) => await self.rerender()
     | Ok(original) =>
-      let selectionChanged = rawPath !== Connection.Endpoint.toURI(original)->Connection.URI.toString
+      let selectionChanged =
+        rawPath !== Connection.Endpoint.toURI(original)->Connection.URI.toString
       if selectionChanged {
         switch Connection.URI.parse(rawPath) {
         | LspURI(url) => Js.log("Trying to connect with: " ++ url.toString())
@@ -356,7 +360,10 @@ let rec run = async (state, platformDeps: Platform.t) => {
   //  Installed Agda or Agda Language Server
   //
 
-  let selected = await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths())
+  let selected = await Connection.Endpoint.getPicked(
+    state.memento,
+    Config.Connection.getAgdaPaths(),
+  )
 
   let isSelected = endpoint =>
     switch selected {
@@ -373,7 +380,7 @@ let rec run = async (state, platformDeps: Platform.t) => {
     switch endpoiont {
     | Ok(Connection.Endpoint.Agda(version, path)) =>
       ItemCreation.createAgdaItem(version, path, isSelected(endpoiont), state.extensionUri)
-    | Ok(ALS(alsVersion, agdaVersion, method)) =>
+    | Ok(ALS(alsVersion, agdaVersion, method, _)) =>
       ItemCreation.createALSItem(alsVersion, agdaVersion, method, isSelected(endpoiont))
     | Error(error) => ItemCreation.createErrorItem(error)
     }
@@ -403,7 +410,9 @@ let rec run = async (state, platformDeps: Platform.t) => {
   let installedSeperator = [ItemCreation.createSeparatorItem("Installed")]
 
   module PlatformOps = unpack(platformDeps)
-  let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(state.globalStorageUri)
+  let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
+    state.globalStorageUri,
+  )
   let installedPaths =
     installedEndpoints
     ->Dict.valuesToArray

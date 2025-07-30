@@ -92,7 +92,7 @@ module Module: Module = {
   let make = async (method, version, path) =>
     switch method {
     | Connection__Transport.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
-    | ViaPipe(_, _, _) =>
+    | ViaPipe(_, _) =>
       let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
       let conn = {
         process: Process.make(path, args),

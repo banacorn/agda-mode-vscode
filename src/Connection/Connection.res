@@ -86,13 +86,13 @@ module Module: Module = {
   let makeWithEndpoint = async (endpoint: Endpoint.t): result<t, Error.t> =>
     switch endpoint {
     | Agda(version, path) =>
-      let method = Connection__Transport.ViaPipe(path, [], None)
+      let method = Connection__Transport.ViaPipe(path, [])
       switch await Agda.make(method, version, path) {
       | Error(error) => Error(Error.Agda(error, path))
       | Ok(conn) => Ok(Agda(conn, endpoint))
       }
-    | ALS(_, _, method) =>
-      switch await ALS.make(method, InitOptions.getFromConfig()) {
+    | ALS(_, _, method, lspOptions) =>
+      switch await ALS.make(method, lspOptions, InitOptions.getFromConfig()) {
       | Error(error) => Error(ALS(error))
       | Ok(conn) => Ok(ALS(conn, endpoint))
       }

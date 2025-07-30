@@ -208,7 +208,11 @@ module type Module = {
     method: Connection__Transport.t,
   }
   // lifecycle
-  let make: (Connection__Transport.t, JSON.t) => promise<result<t, Error.t>>
+  let make: (
+    Connection__Transport.t,
+    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+    JSON.t,
+  ) => promise<result<t, Error.t>>
   let destroy: t => promise<result<unit, Error.t>>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
@@ -245,8 +249,8 @@ module Module: Module = {
   }
 
   // start the ALS client
-  let make = async (method, options) => {
-    switch await LSP.make("agda", "Agda Language Server", method, options) {
+  let make = async (method, lspOptions, options) => {
+    switch await LSP.make("agda", "Agda Language Server", method, lspOptions, options) {
     | Error(error) => Error(Error.ConnectionError(error))
     | exception Exn.Error(error) => Error(Error.ConnectionError(error))
     | Ok(client) =>

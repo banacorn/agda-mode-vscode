@@ -4,7 +4,13 @@ module IPC = Connection__Transport
 module type Module = {
   type t
   // lifecycle
-  let make: (string, string, IPC.t, Js.Json.t) => promise<result<t, Js.Exn.t>>
+  let make: (
+    string,
+    string,
+    IPC.t,
+    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+    Js.Json.t,
+  ) => promise<result<t, Js.Exn.t>>
   let destroy: t => promise<result<unit, Js.Exn.t>>
   // request / notification / error
   let sendRequest: (t, Js.Json.t) => promise<result<Js.Json.t, Js.Exn.t>>
@@ -69,12 +75,12 @@ module Module: Module = {
     Binding.LanguageClient.stop(self.client, Some(200))->fromJsPromise
   }
 
-  let make = async (id, name, method, initializationOptions) => {
+  let make = async (id, name, method, serverInitOptions, clientInitOptions) => {
     let errorChan = Chan.make()
 
     let serverOptions = switch method {
     | IPC.ViaTCP(url) => Binding.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
-    | ViaPipe(path, args, options) => Binding.ServerOptions.makeWithCommand(path, args, options)
+    | ViaPipe(path, args) => Binding.ServerOptions.makeWithCommand(path, args, serverInitOptions)
     }
 
     let clientOptions = {
@@ -114,7 +120,7 @@ module Module: Module = {
         documentSelector,
         synchronize,
         errorHandler,
-        initializationOptions,
+        clientInitOptions,
       )
     }
 

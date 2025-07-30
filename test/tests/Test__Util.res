@@ -374,7 +374,7 @@ module AgdaMode = {
     | Ok(connection) =>
       let actualVersion = switch connection {
       | Agda(version, _) => version
-      | ALS(version, _, _) => version
+      | ALS(version, _, _, _) => version
       }
       Util.Version.gte(actualVersion, expectedVersion)
     }

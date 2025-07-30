@@ -48,7 +48,12 @@ module Module: {
   type version = string
   type t =
     | Agda(version, string) // Agda version, path
-    | ALS(version, version, IPC.t) // ALS version, Agda version, method of IPC
+    | ALS(
+        version,
+        version,
+        IPC.t,
+        option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+      ) // ALS version, Agda version, method of IPC, LSP options
 
   // see if it's a Agda executable or a language server
   let probeFilepath: URI.t => promise<result<t, Error.t>>
@@ -73,7 +78,12 @@ module Module: {
   type version = string
   type t =
     | Agda(version, string) // Agda version, path
-    | ALS(version, version, IPC.t) // ALS version, Agda version, method of IPC
+    | ALS(
+        version,
+        version,
+        IPC.t,
+        option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+      ) // ALS version, Agda version, method of IPC, LSP options
 
   // see if it's a Agda executable or a language server
   let probeFilepath = async uri =>
@@ -97,7 +107,7 @@ module Module: {
               Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
             | None => None
             }
-            Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, [], lspOptions)))
+            Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, []), lspOptions))
           | _ => Error(Error.NotAgdaOrALS(uri, output))
           }
         }
@@ -130,8 +140,8 @@ module Module: {
   let toURI = endpoint =>
     switch endpoint {
     | Agda(_, path) => URI.FileURI(VSCode.Uri.file(path))
-    | ALS(_, _, ViaPipe(path, _, _)) => URI.FileURI(VSCode.Uri.file(path))
-    | ALS(_, _, ViaTCP(url)) => URI.LspURI(url)
+    | ALS(_, _, ViaPipe(path, _), _) => URI.FileURI(VSCode.Uri.file(path))
+    | ALS(_, _, ViaTCP(url), _) => URI.LspURI(url)
     }
 
   // Try to find the previously picked connection
