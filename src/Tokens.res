@@ -130,7 +130,7 @@ module Module: Module = {
     let tokens =
       self.agdaTokens
       ->AVLTree.toArray
-      ->Array.map(token =>
+      ->Array.map(((_, token)) =>
         Token.toString(token) ++ " " ++ Int.toString(token.start) ++ "-" ++ Int.toString(token.end)
       )
       ->Array.join("\n    ")
@@ -251,7 +251,7 @@ module Module: Module = {
     }
   }
 
-  let toTokenArray = self => self.agdaTokens->AVLTree.toArray
+  let toTokenArray = self => self.agdaTokens->AVLTree.toArray->Array.map(snd)
   let toDecorations = self => self.decorations
 
   // for goto definition

@@ -53,7 +53,7 @@ module type Module = {
   let getRecentlyCaseSplited: t => option<Goal.t>
 
   // for testing
-  let serialize: t => array<string>
+  let serializeGoals: t => array<string>
   let toString: t => string
 }
 
@@ -285,55 +285,34 @@ module Module: Module = {
 
   let size = self => Map.size(self.goals)
 
-  let serialize = self =>
+  let serializeGoals = self =>
     self.goals
     ->Map.values
     ->Iterator.toArray
     ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
     ->Array.map(InternalGoal.toString)
 
-  let toString = self =>
-    self
-    ->serialize
-    ->Array.join("\n")
+  let serializeGoalsWithoutIndices = self =>
+    self.goalsWithoutIndices
+    ->Map.entries
+    ->Iterator.toArray
+    ->Array.map(((start, end)) => `(${string_of_int(start)}, ${string_of_int(end)})`)
 
-  let toStringDebug = self => {
-    let goals = toString(self)
+  let serializePositions = self => {
+    self.positions
+    ->AVLTree.toArray
+    ->Array.map(((start, index)) => `(${string_of_int(start)}, ${string_of_int(index)})`)
+  }
 
-    let goalsWithoutIndices =
-      self.goalsWithoutIndices
-      ->Map.entries
-      ->Iterator.toArray
-      ->Array.map(((start, end)) =>
-        "Position (" ++ Int.toString(start) ++ "," ++ Int.toString(end) ++ ")"
-      )
-      ->Array.join("\n")
-
-    let positionsTree =
-      self.positions
-      ->AVLTree.toArray
-      ->Array.map(index => "Index " ++ Int.toString(index))
-      ->Array.join("\n")
-
-    "{\n" ++
-    "  goals (" ++
-    Int.toString(Map.size(self.goals)) ++
-    "):\n" ++
-    goals ++
-    "\n" ++
-    "  goalsWithoutIndices (" ++
-    Int.toString(Map.size(self.goalsWithoutIndices)) ++
-    "):\n" ++
-    goalsWithoutIndices ++
-    "\n" ++
-    "  positions (" ++
-    Int.toString(AVLTree.count(self.positions)) ++
-    "):\n" ++
-    positionsTree ++
-    "\n" ++
-    "  isBusy: " ++
-    (self.isBusy->Option.isSome ? "true" : "false") ++
-    "\n" ++ "}"
+  let toString = self => {
+    let goals = serializeGoals(self)->Array.join("\n")
+    let goalsWithoutIndices = serializeGoalsWithoutIndices(self)->Array.join(", ")
+    let positions = serializePositions(self)->Array.join(", ")
+    
+    "Goals:\n" ++ goals ++ 
+    "\nGoals without indices: [" ++ goalsWithoutIndices ++ "]" ++
+    "\nPositions: [" ++ positions ++ "]" ++
+    "\nBusy: " ++ (self.isBusy->Option.isSome ? "true" : "false")
   }
 
   let removeGoalByIndex = (self, index) => {
@@ -816,7 +795,7 @@ module Module: Module = {
     let parts =
       self.positions
       ->AVLTree.toArray
-      ->Array.filterMap(index => self.goals->Map.get(index)->Option.map(goalToParts))
+      ->Array.filterMap(((_, index)) => self.goals->Map.get(index)->Option.map(goalToParts))
       ->Array.flat
       ->List.fromArray
 
@@ -884,7 +863,7 @@ module Module: Module = {
   }
 
   // Set indices of goals from `Responses.InteractionPoints` on Refine or Give
-  // 
+  //
   // This function provides defensive handling against phantom goal positions that can occur
   // when Agda sends faulty token positions during refine/give operations. Unlike resetGoalIndicesOnLoad
   // which blindly trusts all positions from goalsWithoutIndices, this function preserves existing

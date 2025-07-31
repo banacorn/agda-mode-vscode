@@ -18,7 +18,7 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~cursor=VSCode.Position.make(13, 9))
 
         // examine the goals after the refinement
-        let actual = Goals.serialize(ctx.state.goals)
+        let actual = Goals.serializeGoals(ctx.state.goals)
         Assert.deepStrictEqual(
           actual,
           ["#1 [26:11-18)", "#2 [26:19-26)", "#3 [15:30-37)", "#4 [16:30-37)", "#5 [17:30-37)"],
@@ -80,7 +80,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -107,7 +107,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -134,7 +134,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -161,7 +161,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -188,7 +188,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -215,7 +215,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -243,7 +243,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [24:14-21)", "#3 [23:5-12)", "#4 [24:5-12)"],
         )
 
@@ -275,7 +275,7 @@ describe("agda-mode.refine", () => {
 
         // verify the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
         )
 
@@ -306,7 +306,7 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~payload="true", ~cursor=VSCode.Position.make(21, 13))
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -326,7 +326,7 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~payload="  true", ~cursor=VSCode.Position.make(21, 13))
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -346,7 +346,7 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~payload="true  ", ~cursor=VSCode.Position.make(21, 13))
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -370,7 +370,7 @@ describe("agda-mode.refine", () => {
         )
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -390,7 +390,7 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~payload="\ntrue", ~cursor=VSCode.Position.make(21, 13))
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -410,7 +410,7 @@ describe("agda-mode.refine", () => {
         await ctx->AgdaMode.execute(Refine, ~payload="true\n", ~cursor=VSCode.Position.make(21, 13))
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -434,7 +434,7 @@ describe("agda-mode.refine", () => {
         )
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit
@@ -458,7 +458,7 @@ describe("agda-mode.refine", () => {
         )
 
         // verify the goals
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [14:7-14)", "#2 [22:16-23)"])
 
         // verify the refined content
         await ctx->AgdaMode.quit

@@ -13,23 +13,17 @@ type t<'a>
 
 type compareFunction<'a> = ((int, 'a), (int, 'a)) => int
 
-type options = {
-  key?: string
-}
+type options = {key?: string}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor
 ////////////////////////////////////////////////////////////////////////////////
 
 @module("@datastructures-js/binary-search-tree") @new
-external makeInner: (
-  ~compare: compareFunction<'a>=?,
-  ~options: options=?,
-  unit
-) => t<'a> = "BinarySearchTree"
+external makeInner: (~compare: compareFunction<'a>=?, ~options: options=?, unit) => t<'a> =
+  "BinarySearchTree"
 
-let make = (): t<'a> =>
-  makeInner(~compare=((ka, _), (kb, _)) => ka - kb, ~options={ key: "0" }, ())
+let make = (): t<'a> => makeInner(~compare=((ka, _), (kb, _)) => ka - kb, ~options={key: "0"}, ())
 
 ////////////////////////////////////////////////////////////////////////////////
 // Methods
@@ -38,8 +32,7 @@ let make = (): t<'a> =>
 @send external count: t<'a> => int = "count"
 
 @send external insert: (t<'a>, (int, 'a)) => unit = "insert"
-let insert = (self: t<'a>, key: int, value: 'a) =>
-  self->insert((key, value))
+let insert = (self: t<'a>, key: int, value: 'a) => self->insert((key, value))
 
 @send external has: (t<'a>, int) => bool = "has"
 
@@ -77,11 +70,12 @@ let remove = (self: t<'a>, key: int): bool =>
 
 @send external traverseInOrder: (t<'a>, Node.t<'a> => unit) => unit = "traverseInOrder"
 
-let toArray = (self: t<'a>): array<'a> => {
+let toArray = (self: t<'a>): array<(int, 'a)> => {
   let accum = []
   self->traverseInOrder(node => {
+    let key = node->Node.getKeyValue->(((k, _)) => k)
     let value = node->Node.getValue
-    accum->Array.push(value)
+    accum->Array.push((key, value))
   })
   accum
 }

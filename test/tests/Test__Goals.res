@@ -17,7 +17,7 @@ describe("Goals", () => {
 
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
@@ -36,7 +36,7 @@ describe("Goals", () => {
         let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 18), " ")
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:20-27)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
@@ -51,7 +51,7 @@ describe("Goals", () => {
         let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(8, 25), " ")
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
@@ -69,7 +69,7 @@ describe("Goals", () => {
         )
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
         await ctx->AgdaMode.quit
@@ -87,7 +87,7 @@ describe("Goals", () => {
         )
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
         await ctx->AgdaMode.quit
@@ -105,7 +105,7 @@ describe("Goals", () => {
         )
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#4 [11:22-26)"],
         )
         await ctx->AgdaMode.quit
@@ -124,7 +124,7 @@ describe("Goals", () => {
 
         // check the positions of the goals
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-28)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
         await ctx->AgdaMode.quit
@@ -150,7 +150,7 @@ describe("Goals", () => {
             Assert.deepStrictEqual(actual, "{!   !}")
             // check the positions of the goals
             Assert.deepStrictEqual(
-              Goals.serialize(ctx.state.goals),
+              Goals.serializeGoals(ctx.state.goals),
               ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
             )
           },
@@ -172,7 +172,7 @@ describe("Goals", () => {
             Assert.deepStrictEqual(actual, "{!   !}")
             // check the positions of the goals
             Assert.deepStrictEqual(
-              Goals.serialize(ctx.state.goals),
+              Goals.serializeGoals(ctx.state.goals),
               ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
             )
           },
@@ -194,7 +194,7 @@ describe("Goals", () => {
             Assert.deepStrictEqual(actual, "{!   !}")
             // check the positions of the goals
             Assert.deepStrictEqual(
-              Goals.serialize(ctx.state.goals),
+              Goals.serializeGoals(ctx.state.goals),
               ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
             )
           },
@@ -216,7 +216,7 @@ describe("Goals", () => {
             Assert.deepStrictEqual(actual, "{!   !}")
             // check the positions of the goals
             Assert.deepStrictEqual(
-              Goals.serialize(ctx.state.goals),
+              Goals.serializeGoals(ctx.state.goals),
               ["#0 [92-99)", "#1 [118-125)", "#2 [145-152)", "#3 [171-175)"],
             )
           },
@@ -514,7 +514,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue157.agda")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [4:5-26)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [4:5-26)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -527,7 +527,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue159.lagda.tex")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [5:5-7:3)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [5:5-7:3)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -540,7 +540,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue211.agda")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [5:5-12)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [5:5-12)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -553,7 +553,7 @@ describe("Goals", () => {
         let ctx = await AgdaMode.makeAndLoad("Issue214.lagda.md")
 
         // check the goal positions
-        Assert.deepStrictEqual(Goals.serialize(ctx.state.goals), ["#0 [9:11-17)"])
+        Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [9:11-17)"])
         await ctx->AgdaMode.quit
       },
     )
@@ -569,7 +569,7 @@ describe("Goals", () => {
 
         // check the goal positions
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#1 [19:9-16)", "#2 [13:13-20)", "#3 [13:21-28)"],
         )
         await ctx->AgdaMode.quit
@@ -585,7 +585,7 @@ describe("Goals", () => {
 
         // check the goal positions and make sure they are correct
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
 
@@ -597,7 +597,7 @@ describe("Goals", () => {
 
         // check the goal positions again
         Assert.deepStrictEqual(
-          Goals.serialize(ctx.state.goals),
+          Goals.serializeGoals(ctx.state.goals),
           ["#0 [9:19-26)", "#1 [10:20-27)", "#2 [11:19-26)", "#3 [11:27-31)"],
         )
 
