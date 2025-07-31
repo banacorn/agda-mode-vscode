@@ -42,7 +42,7 @@ describe("agda-mode.give", () => {
   })
 
   // Test case for GitHub issue #249: give command bug when used twice without reloading
-  describe_only("Issue #249: consecutive give commands", () => {
+  describe("Issue #249: consecutive give commands", () => {
     let filename = "Issue249.agda"
     let fileContent = ref("")
     Async.beforeEach(async () => fileContent := (await File.read(Path.asset(filename))))

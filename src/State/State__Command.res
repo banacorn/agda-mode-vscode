@@ -75,23 +75,29 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           },
           async expr =>
             if expr == "" {
+              state.isInRefineOrGiveOperation = true
               await sendAgdaRequest(Give(goal))
+              state.isInRefineOrGiveOperation = false
             } else {
               await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+              state.isInRefineOrGiveOperation = true
               await sendAgdaRequest(Give(goal))
+              state.isInRefineOrGiveOperation = false
             },
         )
       } else {
+        state.isInRefineOrGiveOperation = true
         await sendAgdaRequest(Give(goal))
+        state.isInRefineOrGiveOperation = false
       }
     }
   | Refine =>
     switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      state.isInRefineOperation = true
+      state.isInRefineOrGiveOperation = true
       await sendAgdaRequest(Refine(goal))
-      state.isInRefineOperation = false
+      state.isInRefineOrGiveOperation = false
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")

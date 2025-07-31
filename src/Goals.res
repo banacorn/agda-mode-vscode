@@ -23,7 +23,7 @@ module type Module = {
   let destroy: t => unit
   let size: t => int
   let resetGoalIndicesOnLoad: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
-  let resetGoalIndicesOnRefine: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
+  let resetGoalIndicesOnRefineOrGive: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
   let parseGoalPositionsFromRefine: string => array<(int, int)>
@@ -285,11 +285,63 @@ module Module: Module = {
 
   let size = self => Map.size(self.goals)
 
-  let removeGoalByIndex = (self, index) =>
+  let serialize = self =>
+    self.goals
+    ->Map.values
+    ->Iterator.toArray
+    ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
+    ->Array.map(InternalGoal.toString)
+
+  let toString = self =>
+    self
+    ->serialize
+    ->Array.join("\n")
+
+  let toStringDebug = self => {
+    let goals = toString(self)
+
+    let goalsWithoutIndices =
+      self.goalsWithoutIndices
+      ->Map.entries
+      ->Iterator.toArray
+      ->Array.map(((start, end)) =>
+        "Position (" ++ Int.toString(start) ++ "," ++ Int.toString(end) ++ ")"
+      )
+      ->Array.join("\n")
+
+    let positionsTree =
+      self.positions
+      ->AVLTree.toArray
+      ->Array.map(index => "Index " ++ Int.toString(index))
+      ->Array.join("\n")
+
+    "{\n" ++
+    "  goals (" ++
+    Int.toString(Map.size(self.goals)) ++
+    "):\n" ++
+    goals ++
+    "\n" ++
+    "  goalsWithoutIndices (" ++
+    Int.toString(Map.size(self.goalsWithoutIndices)) ++
+    "):\n" ++
+    goalsWithoutIndices ++
+    "\n" ++
+    "  positions (" ++
+    Int.toString(AVLTree.count(self.positions)) ++
+    "):\n" ++
+    positionsTree ++
+    "\n" ++
+    "  isBusy: " ++
+    (self.isBusy->Option.isSome ? "true" : "false") ++
+    "\n" ++ "}"
+  }
+
+  let removeGoalByIndex = (self, index) => {
     switch self.goals->Map.get(index) {
-    | None => () // goal not found, do nothing
+    | None => ()
     | Some(goal) => removeGoal(self, goal)
     }
+  }
 
   let isBusy = self => self.isBusy->Option.isSome
   let setBusy = self =>
@@ -310,18 +362,6 @@ module Module: Module = {
     | None => Promise.resolve()
     | Some(resource) => resource->Resource.get
     }
-
-  let serialize = self =>
-    self.goals
-    ->Map.values
-    ->Iterator.toArray
-    ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
-    ->Array.map(InternalGoal.toString)
-
-  let toString = self =>
-    self
-    ->serialize
-    ->Array.join("\n")
 
   let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
 
@@ -423,6 +463,7 @@ module Module: Module = {
     ->Array.forEach(InternalGoal.undecorate)
     self.goals = Map.make()
     self.positions = AVLTree.make()
+    // NOTE: NOT clearing goalsWithoutIndices here - that's done in resetGoalIndicesOnLoad
   }
 
   let updateGoalPosition = (self, goal: InternalGoal.t, deltaStart: int, deltaEnd: int) => {
@@ -830,24 +871,26 @@ module Module: Module = {
   let resetGoalIndicesOnLoad = async (self, editor, indices) => {
     clear(self)
 
-    let positionsArray =
-      self.goalsWithoutIndices
-      ->Map.entries
-      ->Iterator.toArray
-
-    positionsArray->Array.forEachWithIndex(((start, end), i) =>
+    let positionsArray = self.goalsWithoutIndices->Map.entries->Iterator.toArray
+    positionsArray->Array.forEachWithIndex(((start, end), i) => {
       switch indices[i] {
       | None => ()
       | Some(index) => insertGoal(self, start, end, index)
       }
-    )
+    })
 
     self.goalsWithoutIndices = Map.make() // clear the goals without indices
     await scanAllGoals(self, editor, [])
   }
 
-  // Set indices of goals from `Responses.InteractionPoints` on Refine
-  let resetGoalIndicesOnRefine = async (self, editor, indices: array<int>) => {
+  // Set indices of goals from `Responses.InteractionPoints` on Refine or Give
+  // 
+  // This function provides defensive handling against phantom goal positions that can occur
+  // when Agda sends faulty token positions during refine/give operations. Unlike resetGoalIndicesOnLoad
+  // which blindly trusts all positions from goalsWithoutIndices, this function preserves existing
+  // valid goals and only assigns indices to positions that actually have corresponding indices
+  // from Agda's response. This prevents orphaned positions from becoming unwanted {!   !} goals.
+  let resetGoalIndicesOnRefineOrGive = async (self, editor, indices: array<int>) => {
     // Helper function to collect goal positions from existing goals
     let collectExistingGoalPositions = () =>
       self.goals
@@ -900,10 +943,11 @@ module Module: Module = {
   }
 
   // Add goal positions without indices, e.g. from the Load or Refine command
-  let addGoalPositions = (self, positions) =>
+  let addGoalPositions = (self, positions) => {
     positions->Array.forEach(((start, end)) => {
       self.goalsWithoutIndices->Map.set(start, end)
     })
+  }
 
   let getGoalPositionByIndex = (self, index) => {
     switch self.goals->Map.get(index) {

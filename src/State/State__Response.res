@@ -98,15 +98,15 @@ let rec handle = async (
   let handleResponse = async () =>
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
-      if !state.isInRefineOperation {
+      if !state.isInRefineOrGiveOperation {
         state.tokens->Tokens.insertTokens(state.editor, annotations)
       }
     | HighlightingInfoIndirect(filepath) =>
-      if !state.isInRefineOperation {
+      if !state.isInRefineOrGiveOperation {
         state.tokens->Tokens.addEmacsFilePath(filepath)
       }
     | HighlightingInfoIndirectJSON(filepath) =>
-      if !state.isInRefineOperation {
+      if !state.isInRefineOrGiveOperation {
         state.tokens->Tokens.addJSONFilePath(filepath)
       }
     | ClearHighlighting => state.tokens->Tokens.reset
@@ -151,8 +151,8 @@ let rec handle = async (
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       let positionsArray = Map.entries(holePositions)->Iterator.toArray
       state.goals->Goals.addGoalPositions(positionsArray)
-      if state.isInRefineOperation {
-        await state.goals->Goals.resetGoalIndicesOnRefine(state.editor, indices)
+      if state.isInRefineOrGiveOperation {
+        await state.goals->Goals.resetGoalIndicesOnRefineOrGive(state.editor, indices)
       } else {
         await state.goals->Goals.resetGoalIndicesOnLoad(state.editor, indices)
       }
@@ -191,7 +191,6 @@ let rec handle = async (
           | Some((offset, _)) =>
             goalPositionsRelative->Array.map(((start, end)) => (start + offset, end + offset))
           }
-
           state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
         | GiveString(content) =>
           let (indentationWidth, _text, _) = Goal.indentationWidth(goal, state.document)
