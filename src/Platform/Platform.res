@@ -22,9 +22,12 @@ module type PlatformOps = {
     result<Connection__Endpoint.t, Connection__Download.Error.t>,
   >
 
-  // Target operations
+  // Endpoint operations
   let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<
     Dict.t<result<Connection__Endpoint.t, Connection__Endpoint.Error.t>>,
+  >
+  let getInstalledEndpointsAndPersistThem2: VSCode.Uri.t => promise<
+    Dict.t<Memento.Endpoints.endpoint>,
   >
 
   // User interaction

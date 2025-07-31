@@ -19,6 +19,8 @@ module Web: Platform.PlatformOps = {
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
   let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.fromArray([]))
+  let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+    Promise.resolve(Dict.fromArray([]))
 
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.No)
 }

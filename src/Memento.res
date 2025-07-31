@@ -13,16 +13,21 @@ module Module: {
   // for debugging
   let toString: t => string
 
-  module EndpointVersion: {
+  module Endpoints: {
+    type filepath = string // raw file path
+    type endpoint =
+      | Agda(string)
+      | ALS(string, string) // ALS version & corresponding Agda version
+
     type entry = {
-      version: option<string>,
+      endpoint: option<endpoint>,
       timestamp: Date.t,
       error: option<string>,
     }
     let entries: t => Dict.t<entry>
-    let get: (t, Connection__URI.t) => option<entry>
-    let setVersion: (t, Connection__URI.t, string) => promise<unit>
-    let setError: (t, Connection__URI.t, string) => promise<unit>
+    let get: (t, filepath) => option<entry>
+    let setVersion: (t, filepath, endpoint) => promise<unit>
+    let setError: (t, filepath, string) => promise<unit>
   }
 
   module ALSReleaseCache: {
@@ -87,9 +92,14 @@ module Module: {
       "Mock: {\n" ++ Array.join(entries, "\n") ++ "}"
     }
 
-  module EndpointVersion = {
+  module Endpoints = {
+    type filepath = string // raw file path provided by the user or found in the system
+    // what kind of endpoint the file path leads to?
+    type endpoint =
+      | Agda(string)
+      | ALS(string, string) // ALS version & corresponding Agda version
     type entry = {
-      version: option<string>,
+      endpoint: option<endpoint>,
       timestamp: Date.t,
       error: option<string>,
     }
@@ -106,22 +116,22 @@ module Module: {
         }
       }
 
-    let get = (memento: t, uri: Connection__URI.t): option<entry> => {
+    let get = (memento: t, filepath: filepath): option<entry> => {
       let cache = memento->getWithDefault(key, Dict.make())
-      cache->Dict.get(Connection__URI.toString(uri))
+      cache->Dict.get(filepath)
     }
 
-    let setVersion = async (memento: t, uri: Connection__URI.t, version: string): unit => {
+    let setVersion = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {version: Some(version), timestamp: Date.make(), error: None}
-      cache->Dict.set(Connection__URI.toString(uri), entry)
+      let entry = {endpoint: Some(endpoint), timestamp: Date.make(), error: None}
+      cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
     }
 
-    let setError = async (memento: t, uri: Connection__URI.t, error: string): unit => {
+    let setError = async (memento: t, filepath: filepath, error: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {version: None, timestamp: Date.make(), error: Some(error)}
-      cache->Dict.set(Connection__URI.toString(uri), entry)
+      let entry = {endpoint: None, timestamp: Date.make(), error: Some(error)}
+      cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
     }
   }
