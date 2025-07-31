@@ -186,7 +186,7 @@ module ItemCreation = {
       ""
     },
     detail: switch method {
-    | ViaTCP(url) => url.toString()
+    | ViaTCP(_, url) => url.toString()
     | ViaPipe(path, _) => path
     },
   }
@@ -330,9 +330,9 @@ let handleSelection = async (
         rawPath !== Connection.Endpoint.toURI(original)->Connection.URI.toString
       if selectionChanged {
         switch Connection.URI.parse(rawPath) {
-        | LspURI(url) => Js.log("Trying to connect with: " ++ url.toString())
-        | FileURI(path) =>
-          switch await Connection.Endpoint.fromVSCodeUri(path) {
+        | LspURI(_, url) => Js.log("Trying to connect with: " ++ url.toString())
+        | FileURI(_, uri) =>
+          switch await Connection.Endpoint.fromVSCodeUri(uri) {
           | Error(e) => Js.log(e)
           | Ok(newEndpoint) =>
             // save the selected connection as the "picked" connection

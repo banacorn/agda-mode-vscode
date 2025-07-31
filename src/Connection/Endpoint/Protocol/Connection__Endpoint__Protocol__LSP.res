@@ -79,7 +79,7 @@ module Module: Module = {
     let errorChan = Chan.make()
 
     let serverOptions = switch method {
-    | IPC.ViaTCP(url) => Binding.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
+    | IPC.ViaTCP(_, url) => Binding.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
     | ViaPipe(path, args) => Binding.ServerOptions.makeWithCommand(path, args, serverInitOptions)
     }
 

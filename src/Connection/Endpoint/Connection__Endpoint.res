@@ -89,7 +89,7 @@ module Module: {
   let probeFilepath = async uri =>
     switch uri {
     | URI.LspURI(_) => Error(Error.CannotHandleURLsATM(uri))
-    | URI.FileURI(vscodeUri) =>
+    | URI.FileURI(_, vscodeUri) =>
       let path = VSCode.Uri.fsPath(vscodeUri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
       switch result {
@@ -137,11 +137,12 @@ module Module: {
 
   let fromURIs = uris => uris->Array.map(fromURI)->Promise.all
 
+  // TODO, reexamine this
   let toURI = endpoint =>
     switch endpoint {
-    | Agda(_, path) => URI.FileURI(VSCode.Uri.file(path))
-    | ALS(_, _, ViaPipe(path, _), _) => URI.FileURI(VSCode.Uri.file(path))
-    | ALS(_, _, ViaTCP(url), _) => URI.LspURI(url)
+    | Agda(_, raw) => URI.FileURI(raw, VSCode.Uri.file(raw))
+    | ALS(_, _, ViaPipe(raw, _), _) => URI.FileURI(raw, VSCode.Uri.file(raw))
+    | ALS(_, _, ViaTCP(raw, url), _) => URI.LspURI(raw, url)
     }
 
   // Try to find the previously picked connection

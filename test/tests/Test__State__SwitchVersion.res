@@ -306,7 +306,7 @@ describe("State__SwitchVersion", () => {
               "port": "4096",
               "toString": () => "lsp://localhost:4096",
             }
-            let method = Connection__Transport.ViaTCP(mockUrl->Obj.magic)
+            let method = Connection__Transport.ViaTCP(mockUrl["toString"](), mockUrl->Obj.magic)
             let actual = ItemCreation.createALSItem("1.2.3", "2.6.4", method, false)
             Assert.strictEqual(actual.label, "$(squirrel)  Agda v2.6.4 Language Server v1.2.3")
             switch actual.description {

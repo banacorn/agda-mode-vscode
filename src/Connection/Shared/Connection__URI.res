@@ -5,7 +5,8 @@
 // Union type representing different URI schemes supported by the Connection module.
 // - FileURI: Local file paths wrapped in VSCode.Uri.t
 // - LspURI: Language Server Protocol URLs wrapped in NodeJs.Url.t
-type t = FileURI(VSCode.Uri.t) | LspURI(NodeJs.Url.t)
+type raw = string
+type t = FileURI(raw, VSCode.Uri.t) | LspURI(raw, NodeJs.Url.t)
 
 // Parses a raw string into a Connection URI, handling various path formats and URL schemes.
 //
@@ -26,8 +27,8 @@ type t = FileURI(VSCode.Uri.t) | LspURI(NodeJs.Url.t)
 // parse("/usr/bin/../bin/agda") // -> FileURI with normalized path
 // parse("file:///absolute/path") // -> FileURI with extracted file path
 // parse("lsp://localhost:8080") // -> LspURI
-let parse = path => {
-  let result = try Some(NodeJs.Url.make(path)) catch {
+let parse = raw => {
+  let result = try Some(NodeJs.Url.make(raw)) catch {
   | _ => None
   }
   // Handle URLs with specific protocols
@@ -45,14 +46,14 @@ let parse = path => {
   }
   // Handle LSP URLs or fall back to file path processing
   switch result {
-  | Some(url) => LspURI(url)
+  | Some(url) => LspURI(raw, url)
   | None =>
     // Extract file path from file:// URLs
-    let filePath = if String.startsWith(path, "file://") {
+    let filePath = if String.startsWith(raw, "file://") {
       // Convert file:// URL to file path using VSCode.Uri
-      VSCode.Uri.parse(path)->VSCode.Uri.fsPath
+      VSCode.Uri.parse(raw)->VSCode.Uri.fsPath
     } else {
-      path
+      raw
     }
     // normalize the path by replacing the tilde "~/" with the absolute path of home directory
     let path = untildify(filePath)
@@ -67,26 +68,33 @@ let parse = path => {
 
     let absolutePath = NodeJs.Path.resolve([path])
 
-    FileURI(VSCode.Uri.file(absolutePath))
+    FileURI(raw, VSCode.Uri.file(absolutePath))
   }
 }
 
-// Extracts the VSCode.Uri from a FileURI variant, if possible.
-// This is useful when you need to work with VSCode APIs that expect VSCode.Uri.t directly.
-//
-// Returns Some(VSCode.Uri.t) for FileURI variants, None for LspURI variants.
-//
-// Examples:
-// let fileUri = parse("path/to/file.txt")
-// let vscodeUri = toVSCodeURI(fileUri) // -> Some(VSCode.Uri.t)
-//
-// let lspUri = parse("lsp://localhost:8080")
-// let vscodeUri = toVSCodeURI(lspUri) // -> None
-let toVSCodeURI = uri =>
+// Returns the original raw input string of the Connection URI.
+let getOriginalPath = uri =>
   switch uri {
-  | FileURI(uri) => Some(uri)
-  | LspURI(_) => None
+  | FileURI(raw, _) => raw
+  | LspURI(raw, _) => raw
   }
+
+// // Extracts the VSCode.Uri from a FileURI variant, if possible.
+// // This is useful when you need to work with VSCode APIs that expect VSCode.Uri.t directly.
+// //
+// // Returns Some(VSCode.Uri.t) for FileURI variants, None for LspURI variants.
+// //
+// // Examples:
+// // let fileUri = parse("path/to/file.txt")
+// // let vscodeUri = toVSCodeURI(fileUri) // -> Some(VSCode.Uri.t)
+// //
+// // let lspUri = parse("lsp://localhost:8080")
+// // let vscodeUri = toVSCodeURI(lspUri) // -> None
+// let toVSCodeURI = uri =>
+//   switch uri {
+//   | FileURI(_, uri) => Some(uri)
+//   | LspURI(_) => None
+//   }
 
 // Converts a Connection URI back to its string representation.
 //
@@ -105,15 +113,15 @@ let toVSCodeURI = uri =>
 // toString(lspUri) // -> "lsp://localhost:8080"
 let toString = uri =>
   switch uri {
-  | FileURI(vscodeUri) => VSCode.Uri.toString(vscodeUri)
-  | LspURI(nodeJsUrl) => nodeJsUrl.toString()
+  | FileURI(_, vscodeUri) => VSCode.Uri.toString(vscodeUri)
+  | LspURI(_, nodeJsUrl) => nodeJsUrl.toString()
   }
 
 // Checks if two Connection URIs are equal by comparing their string representations.
 //
 // Equality is determined by:
 // - FileURI vs FileURI: Compare VSCode.Uri.toString() outputs
-// - LspURI vs LspURI: Compare NodeJs.Url.toString() outputs  
+// - LspURI vs LspURI: Compare NodeJs.Url.toString() outputs
 // - Different variants: Always false
 //
 // This approach handles VSCode.Uri object identity issues by comparing the normalized
@@ -128,7 +136,7 @@ let toString = uri =>
 // equal(uri1, uri3) // -> false (different variants)
 let equal = (x, y) =>
   switch (x, y) {
-  | (FileURI(x), FileURI(y)) => VSCode.Uri.toString(x) == VSCode.Uri.toString(y)
-  | (LspURI(x), LspURI(y)) => x.toString() == y.toString()
+  | (FileURI(_, x), FileURI(_, y)) => VSCode.Uri.toString(x) == VSCode.Uri.toString(y)
+  | (LspURI(_, x), LspURI(_, y)) => x.toString() == y.toString()
   | _ => false
   }

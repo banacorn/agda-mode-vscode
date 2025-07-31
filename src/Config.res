@@ -70,8 +70,8 @@ module Connection = {
       agdaPathsInTestingMode := paths
       Promise.resolve()
     } else {
-      let paths: array<string> =
-        paths->Array.filterMap(Connection__URI.toVSCodeURI)->Array.map(VSCode.Uri.fsPath)
+      // use the original
+      let paths: array<string> = paths->Array.map(Connection__URI.getOriginalPath)
       Workspace.getConfiguration(
         Some("agdaMode"),
         None,
@@ -121,8 +121,7 @@ module Connection = {
         agdaPathsInTestingMode := newPaths
         Promise.resolve()
       } else {
-        let newPaths: array<string> =
-          newPaths->Array.filterMap(Connection__URI.toVSCodeURI)->Array.map(VSCode.Uri.fsPath)
+        let newPaths: array<string> = paths->Array.map(Connection__URI.getOriginalPath)
         Workspace.getConfiguration(
           Some("agdaMode"),
           None,
