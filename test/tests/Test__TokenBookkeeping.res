@@ -82,7 +82,7 @@ describe(
       let filterTerminationProblem = Array.filter(
         _,
         token =>
-          token.Tokens.Token.aspects->Array.some(
+          token.Token.aspects->Array.some(
             aspect => aspect == Highlighting__AgdaAspect.TerminationProblem,
           ),
       )

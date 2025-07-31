@@ -78,6 +78,8 @@ type channels = {
 }
 
 type t = {
+  // platform dependencies for dependency injection
+  platformDeps: Platform.t,
   // connection
   mutable connection: option<Connection.t>,
   mutable agdaVersion: option<string>, // Agda version is set when connection is established
@@ -97,8 +99,8 @@ type t = {
   // for self destruction
   onRemoveFromRegistry: Chan.t<unit>,
   globalStorageUri: VSCode.Uri.t,
-  extensionPath: string,
-  memento: State__Memento.t,
+  extensionUri: VSCode.Uri.t,
+  memento: Memento.t,
   // for logging and testing
   channels: channels,
   // Skip HighlightingInfo during refine operations because Agda sends faulty token positions
@@ -107,13 +109,15 @@ type t = {
 }
 
 let make = (
+  platformDeps,
   channels,
   globalStorageUri,
-  extensionPath,
+  extensionUri,
   memento,
   editor,
   semanticTokens: option<Resource.t<array<Highlighting__SemanticToken.t>>>,
 ) => {
+  platformDeps,
   connection: None,
   agdaVersion: None,
   editor,
@@ -129,8 +133,8 @@ let make = (
   subscriptions: [],
   onRemoveFromRegistry: Chan.make(),
   globalStorageUri,
-  extensionPath,
-  memento: State__Memento.make(memento),
+  extensionUri,
+  memento: Memento.make(memento),
   channels,
   isInRefineOperation: false,
 }

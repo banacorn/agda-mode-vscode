@@ -8,7 +8,7 @@ module type Panel = {
   let displayOutOfGoalError: State.t => promise<unit>
   let displayConnectionError: (State.t, Connection__Error.t) => promise<unit>
   let displayStatus: (State.t, string) => promise<unit>
-  let displayConnectionStatus: (State.t, Connection.Target.t) => promise<unit>
+  let displayConnectionStatus: (State.t, Connection.Endpoint.t) => promise<unit>
   // Input Method
   let updateIM: (State.t, View.EventToView.InputMethod.t) => promise<unit>
   let updatePromptIM: (State.t, string) => promise<unit>
@@ -20,7 +20,7 @@ module type Panel = {
 }
 
 module Panel: Panel = {
-  let get = (state: State.t) => Singleton.Panel.make(state.extensionPath)
+  let get = (state: State.t) => Singleton.Panel.make(state.extensionUri)
 
   let sendEvent = (state: State.t, event: View.EventToView.t) => {
     state.panelCache->State.ViewCache.cacheEvent(event)
@@ -42,17 +42,17 @@ module Panel: Panel = {
 
   let displayConnectionError = (state, error) => {
     let (header, body) = Connection.Error.toString(error)
-    display(state, Error("Connection Error: " ++ header), [Item.plainText(body)])
+    display(state, Error(header), [Item.plainText(body)])
   }
 
   // display connection status
   let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
   let displayConnectionStatus = (state, status) =>
     switch status {
-    | Connection.Target.Agda(version, _) => displayStatus(state, "Agda v" ++ version)
-    | ALS(alsVersion, agdaVersion, ViaPipe(_)) =>
+    | Connection.Endpoint.Agda(version, _) => displayStatus(state, "Agda v" ++ version)
+    | ALS(alsVersion, agdaVersion, ViaPipe(_), _) =>
       displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
-    | ALS(_, _, ViaTCP(_)) => displayStatus(state, "ALS (TCP)")
+    | ALS(_, _, ViaTCP(_), _) => displayStatus(state, "ALS (TCP)")
     }
 
   // update the Input Method
@@ -120,7 +120,7 @@ module type DebugBuffer = {
 }
 
 module DebugBuffer: DebugBuffer = {
-  let make = (state: State.t) => Singleton.DebugBuffer.make(state.extensionPath)
+  let make = (state: State.t) => Singleton.DebugBuffer.make(state.extensionUri)
   let exists = () => Singleton.DebugBuffer.get()->Option.isSome
   let destroy = Singleton.DebugBuffer.destroy
 

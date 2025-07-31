@@ -121,7 +121,7 @@ describe("Tokens", () => {
     it(
       "`arbitraryBatch` should generate valid changes",
       () => {
-        assert_(property1(Change.arbitraryBatch(), xs => Change.areValid(xs)))
+        assert_(property1(TokenChange.arbitraryBatch(), xs => TokenChange.areValid(xs)))
       },
     )
   })
@@ -132,7 +132,7 @@ describe("Tokens", () => {
     it(
       "`empty` should should be valid",
       () => {
-        Assert.deepStrictEqual(Intervals.empty->Intervals.hasError, None)
+        Assert.deepStrictEqual(TokenIntervals.empty->TokenIntervals.hasError, None)
       },
     )
 
@@ -141,13 +141,12 @@ describe("Tokens", () => {
       () => {
         assert_(
           property1(
-            Change.arbitraryBatch(),
+            TokenChange.arbitraryBatch(),
             changes => {
-              // Js.log("\nchanges:    " ++ changes->Array.map(Change.toString)->Util.Pretty.array)
-              let result = Intervals.empty->Intervals.applyChanges(changes)
-              // Js.log("intervals:  " ++ result->Intervals.toString)
-              Intervals.debugIsValid(result)
-              result->Intervals.hasError == None && result->Intervals.isValidWRTChanges(changes)
+              let result = TokenIntervals.empty->TokenIntervals.applyChanges(changes)
+              TokenIntervals.debugIsValid(result)
+              result->TokenIntervals.hasError == None &&
+                result->TokenIntervals.isValidWRTChanges(changes)
             },
           ),
         )
@@ -159,15 +158,17 @@ describe("Tokens", () => {
       () => {
         assert_(
           property2(
-            Change.arbitraryBatch(),
-            Change.arbitraryBatch(),
+            TokenChange.arbitraryBatch(),
+            TokenChange.arbitraryBatch(),
             (batch1, batch2) => {
               let batches = [batch1, batch2]
 
               let intervals =
-                Intervals.empty->Intervals.applyChanges(batch1)->Intervals.applyChanges(batch2)
-              Assert.deepStrictEqual(intervals->Intervals.hasError, None)
-              intervals->Intervals.isValidWRTChangeBatches(batches)
+                TokenIntervals.empty
+                ->TokenIntervals.applyChanges(batch1)
+                ->TokenIntervals.applyChanges(batch2)
+              Assert.deepStrictEqual(intervals->TokenIntervals.hasError, None)
+              intervals->TokenIntervals.isValidWRTChangeBatches(batches)
             },
           ),
         )

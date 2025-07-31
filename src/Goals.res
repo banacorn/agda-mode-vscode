@@ -30,7 +30,7 @@ module type Module = {
   let removeGoalByIndex: (t, index) => unit
 
   // scan all goals and update their positions after document changes
-  let scanAllGoals: (t, VSCode.TextEditor.t, array<Tokens.Change.t>) => promise<unit>
+  let scanAllGoals: (t, VSCode.TextEditor.t, array<TokenChange.t>) => promise<unit>
 
   let getGoalByIndex: (t, index) => option<Goal.t>
 
@@ -663,7 +663,7 @@ module Module: Module = {
       accDeltaBeforePart: int,
       accDeltaAfterPart: int,
       parts: list<(index, int, part)>,
-      changes: list<Tokens.Change.t>,
+      changes: list<TokenChange.t>,
     ): States.t => {
       switch (parts, changes) {
       | (list{}, _) => accMap

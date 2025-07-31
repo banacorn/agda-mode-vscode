@@ -2,7 +2,7 @@
 module WebviewPanel: {
   type t
   // constructor / destructor
-  let make: (string, string) => t
+  let make: (string, VSCode.Uri.t) => t
   let destroy: t => unit
   // messaging
   let send: (t, string) => promise<bool>
@@ -17,56 +17,67 @@ module WebviewPanel: {
   let moveToBottom: unit => unit
   let moveToRight: unit => unit
 } = {
+  module Path = {
+    // Resource file names
+    let scriptFile = "bundled-view.js"
+    let styleFile = "style.css"
+    let codiconsFile = "codicon/codicon.css"
+
+    // Path segments
+    let distDir = "dist"
+  }
+
   type t = VSCode.WebviewPanel.t
 
-  let makeHTML = (webview, extensionPath) => {
-    let extensionUri = VSCode.Uri.file(extensionPath)
-    // generates gibberish
-    let nonce = {
+  // Generates HTML content for the webview panel with environment-specific resource URLs
+  // and Content Security Policy rules
+  let makeHTML = (webview, extensionUri: VSCode.Uri.t) => {
+    // Generate cryptographically secure nonce for Content Security Policy
+    // Uses alphanumeric characters to create a 32-character random string
+    let generateSecurityNonce = (): string => {
       let text = ref("")
-      let charaterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-      let cardinality = String.length(charaterSet)
+      let charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+      let charsetLength = String.length(charset)
+
       for _ in 0 to 32 {
-        text :=
-          text.contents ++
-          String.charAt(
-            charaterSet,
-            Int.fromFloat(Math.floor(Math.random() *. float_of_int(cardinality))),
-          )
+        let randomIndex = Int.fromFloat(Math.floor(Math.random() *. float_of_int(charsetLength)))
+        text := text.contents ++ String.charAt(charset, randomIndex)
       }
       text.contents
     }
 
-    let scriptUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "bundled-view.js"]),
-      )->VSCode.Uri.toString
+    let nonce = generateSecurityNonce()
 
+    // Environment detection and resource URL generation
     let cspSourceUri = VSCode.Webview.cspSource(webview)
 
-    let styleUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "style.css"]),
-      )->VSCode.Uri.toString
+    // Generate resource URLs based on the detected environment
+    // Desktop requires special handling due to webview.asWebviewUri() dependency
+    let scriptPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir, Path.scriptFile])
+    let stylePath = VSCode.Uri.joinPath(extensionUri, [Path.distDir, Path.styleFile])
+    let codiconsPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir, Path.codiconsFile])
 
-    let codiconsUri =
-      VSCode.Webview.asWebviewUri(
-        webview,
-        VSCode.Uri.joinPath(extensionUri, ["dist", "codicon/codicon.css"]),
-      )->VSCode.Uri.toString
+    let scriptUri = VSCode.Webview.asWebviewUri(webview, scriptPath)->VSCode.Uri.toString
+    let styleUri = VSCode.Webview.asWebviewUri(webview, stylePath)->VSCode.Uri.toString
+    let codiconsUri = VSCode.Webview.asWebviewUri(webview, codiconsPath)->VSCode.Uri.toString
 
-    // Content-Security-Policy
-    let defaultSrc = "default-src 'none'; "
-    let scriptSrc = "script-src 'nonce-" ++ nonce ++ "'; "
-    let styleSrc = "style-src " ++ cspSourceUri ++ "; "
-    // let styleSrc = "style-src " ++ cspSourceUri ++ " " ++ styleUri ++ " " ++ codiconsUri ++ "; "
-    let fontSrc = "font-src " ++ cspSourceUri ++ "; "
-    // let fontSrc = "font-src " ++ codiconsFontUri ++ "; "
-    let scp = defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
+    // Generate Content Security Policy with environment-specific rules
+    // Follows principle of least privilege - only allow necessary sources
+    let generateContentSecurityPolicy = (): string => {
+      let defaultSrc = "default-src 'none'; " // Deny all by default
+      let (scriptSrc, styleSrc, fontSrc) = (
+        `script-src 'nonce-${nonce}'; `,
+        `style-src ${cspSourceUri}; `,
+        `font-src ${cspSourceUri}; `,
+      )
+      defaultSrc ++ fontSrc ++ scriptSrc ++ styleSrc
+    }
 
-    `
+    let csp = generateContentSecurityPolicy()
+
+    // Generate the complete HTML document for the webview
+    // Includes proper CSP headers, resource links, and React root element
+    let html = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -74,15 +85,12 @@ module WebviewPanel: {
         <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
         <meta name="theme-color" content="#000000">
 
-        <!--
-					Use a content security policy to only allow loading images from https or from our extension directory,
-					and only allow scripts that have a specific nonce.
-				-->
-        <meta http-equiv="Content-Security-Policy" content="${scp}">
+        <!-- Content Security Policy: Environment-specific rules for secure resource loading -->
+        <meta http-equiv="Content-Security-Policy" content="${csp}">
 
-        <title>React App</title>
-        <link href="${styleUri}"    rel="stylesheet" type="text/css" >
-        <link href="${codiconsUri}" rel="stylesheet" />
+        <title>Agda Mode</title>
+        <link href="${styleUri}" rel="stylesheet" type="text/css">
+        <link href="${codiconsUri}" rel="stylesheet">
       </head>
       <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -91,28 +99,35 @@ module WebviewPanel: {
       </body>
       </html>
     `
+
+    html
   }
 
-  let make = (title, extensionPath) => {
-    let distPath = NodeJs.Path.join2(extensionPath, "dist")
+  // Creates a new webview panel with environment-aware resource loading
+  let make = (title, extensionUri) => {
+    // Configure allowed local resource roots for security
+    let distPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir])->VSCode.Uri.fsPath
+    let distUri = VSCode.Uri.file(distPath)
+
+    let webviewOptions = VSCode.WebviewAndWebviewPanelOptions.make(
+      ~enableScripts=true,
+      // Preserve panel state when not in foreground (better UX)
+      ~retainContextWhenHidden=true,
+      // Security: restrict webview to only load resources from dist directory
+      ~localResourceRoots=[distUri],
+      (),
+    )
+
+    // Create the webview panel in column 3 (rightmost)
     let panel = VSCode.Window.createWebviewPanel(
       "panel",
       title,
       {"preserveFocus": true, "viewColumn": 3},
-      // None,
-      Some(
-        VSCode.WebviewAndWebviewPanelOptions.make(
-          ~enableScripts=true,
-          // So that the view don't get wiped out when it's not in the foreground
-          ~retainContextWhenHidden=true,
-          // And restrict the webview to only loading content from our extension's `media` directory.
-          ~localResourceRoots=[VSCode.Uri.file(distPath)],
-          (),
-        ),
-      ),
+      Some(webviewOptions),
     )
 
-    let html = makeHTML(VSCode.WebviewPanel.webview(panel), extensionPath)
+    // Generate and set the HTML content with environment-specific resources
+    let html = makeHTML(VSCode.WebviewPanel.webview(panel), extensionUri)
     panel->VSCode.WebviewPanel.webview->VSCode.Webview.setHtml(html)
 
     panel
@@ -167,7 +182,7 @@ module WebviewPanel: {
 module type Module = {
   type t
 
-  let make: (string, string) => t
+  let make: (string, VSCode.Uri.t) => t
   let destroy: t => unit
 
   let sendEvent: (t, View.EventToView.t) => promise<unit>
@@ -245,9 +260,9 @@ module Module: Module = {
     // Handle events from the webview
     view.onEvent->Chan.on(callback)->VSCode.Disposable.make
 
-  let make = (title, extensionPath) => {
+  let make = (title, extensionUri) => {
     let view = {
-      panel: WebviewPanel.make(title, extensionPath),
+      panel: WebviewPanel.make(title, extensionUri),
       subscriptions: [],
       onResponse: Chan.make(),
       onEvent: Chan.make(),
