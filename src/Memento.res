@@ -29,7 +29,7 @@ module Module: {
     let get: (t, filepath) => option<entry>
     let setVersion: (t, filepath, endpoint) => promise<unit>
     let setError: (t, filepath, string) => promise<unit>
-    let syncWithPaths: (t, Set.t<string>) => promise<unit>
+    let syncWithPaths: (t, Dict.t<endpoint>) => promise<unit>
   }
 
   module ALSReleaseCache: {
@@ -142,19 +142,19 @@ module Module: {
       await memento->set(key, cache)
     }
 
-    let syncWithPaths = async (memento: t, paths: Set.t<string>): unit => {
+    let syncWithPaths = async (memento: t, discoveredEndpoints: Dict.t<endpoint>): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
       let newCache = Dict.make()
       
-      // Add entries for all current paths
-      paths->Set.forEach(path => {
+      // Add entries for all discovered paths
+      discoveredEndpoints->Dict.toArray->Array.forEach(((path, discoveredEndpoint)) => {
         switch cache->Dict.get(path) {
         | Some(existingEntry) => 
-          // Keep existing cached data
+          // Keep existing cached data (preserves version info and errors)
           newCache->Dict.set(path, existingEntry)
         | None => 
-          // Add new path with unknown endpoint
-          let entry = {endpoint: Unknown, timestamp: Date.make(), error: None}
+          // Add new path with inferred endpoint type
+          let entry = {endpoint: discoveredEndpoint, timestamp: Date.make(), error: None}
           newCache->Dict.set(path, entry)
         }
       })

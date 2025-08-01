@@ -1,23 +1,6 @@
 // Lazy-loading version switching module with cached endpoint display
 
 module ItemCreation = {
-  // Infer endpoint type from filename
-  let inferEndpointType = (filename: string) => {
-    let baseName = filename->String.toLowerCase->NodeJs.Path.basename
-    // Remove common executable extensions
-    let cleanName = baseName
-      ->String.replace(".exe", "")
-      ->String.replace(".cmd", "")
-      ->String.replace(".bat", "")
-    
-    if cleanName == "agda" || cleanName->String.startsWith("agda-") {
-      Some(#Agda)
-    } else if cleanName == "als" || cleanName->String.startsWith("als-") {
-      Some(#ALS)  
-    } else {
-      None
-    }
-  }
 
   // Format endpoint information for display
   let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry) => {
@@ -33,12 +16,7 @@ module ItemCreation = {
     | (Unknown, Some(error)) =>
       ("$(error) " ++ filename, "Error: " ++ error)
     | (Unknown, None) => 
-      // No cached info - infer from filename for better decoration
-      switch inferEndpointType(filename) {
-      | Some(#Agda) => ("Agda", "version unknown")
-      | Some(#ALS) => ("$(squirrel)  ALS", "version unknown")
-      | None => ("$(question) " ++ filename, "Unknown executable")
-      }
+      ("$(question) " ++ filename, "Unknown executable")
     }
   }
 
@@ -53,15 +31,7 @@ module ItemCreation = {
         "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
         "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
       }))
-    | _ => 
-      // Also add icon for inferred Agda endpoints
-      switch inferEndpointType(filename) {
-      | Some(#Agda) => Some(VSCode.IconPath.fromDarkAndLight({
-          "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
-          "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
-        }))
-      | _ => None
-      }
+    | _ => None
     }
     
     let baseItem: VSCode.QuickPickItem.t = {
@@ -160,11 +130,11 @@ module EndpointSync = {
   let syncAndGetItems = async (state: State.t, platformDeps: Platform.t): array<VSCode.QuickPickItem.t> => {
     module PlatformOps = unpack(platformDeps)
     
-    // Discover new paths
-    let installedPaths = await PlatformOps.getInstalledEndpointsAndPersistThem2(state.globalStorageUri)
+    // Discover new endpoints with inferred types
+    let discoveredEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem2(state.globalStorageUri)
     
-    // Sync cache with discovered paths
-    await Memento.Endpoints.syncWithPaths(state.memento, installedPaths)
+    // Sync cache with discovered endpoints
+    await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
     
     // Return updated items
     let updatedEntries = Memento.Endpoints.entries(state.memento)

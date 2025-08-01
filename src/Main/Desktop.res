@@ -93,15 +93,40 @@ module Desktop: Platform.PlatformOps = {
     //    * `agda` and `als` from the PATH
     //    * `agda` and `als` from the download folder
 
-    let paths = Config.Connection.getAgdaPaths2()->Set.fromArray
+    let endpoints = Dict.make()
+
+    // Helper function to infer endpoint type from filename
+    let inferEndpointType = (filename: string) => {
+      let baseName = filename->String.toLowerCase->NodeJs.Path.basename
+      // Remove common executable extensions
+      let cleanName = baseName
+        ->String.replace(".exe", "")
+        ->String.replace(".cmd", "")
+        ->String.replace(".bat", "")
+      
+      if cleanName == "agda" || cleanName->String.startsWith("agda-") {
+        Memento.Endpoints.Agda(None)
+      } else if cleanName == "als" || cleanName->String.startsWith("als-") {
+        Memento.Endpoints.ALS(None)
+      } else {
+        Memento.Endpoints.Unknown
+      }
+    }
+
+    // Add paths from settings with inference
+    Config.Connection.getAgdaPaths2()->Array.forEach(path => {
+      let filename = NodeJs.Path.basename(path)
+      let endpoint = inferEndpointType(filename)
+      endpoints->Dict.set(path, endpoint)
+    })
 
     // add `agda` and `als` from the PATH
     switch await Connection__Command2.findCommands(["agda"]) {
-    | Ok(path) => paths->Set.add(path)
+    | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.Agda(None))
     | Error(_) => ()
     }
     switch await Connection__Command2.findCommands(["als"]) {
-    | Ok(path) => paths->Set.add(path)
+    | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.ALS(None))
     | Error(_) => ()
     }
 
@@ -110,7 +135,8 @@ module Desktop: Platform.PlatformOps = {
     let addAgdaOrALS = async (folderURI, fileName) => {
       let executablePath = VSCode.Uri.joinPath(folderURI, [fileName])
       let path = VSCode.Uri.fsPath(executablePath)
-      paths->Set.add(path)
+      let endpoint = inferEndpointType(fileName)
+      endpoints->Dict.set(path, endpoint)
     }
 
     // handle files in the folders in the global storage
@@ -137,7 +163,7 @@ module Desktop: Platform.PlatformOps = {
     | Error(_) => ()
     }
 
-    paths
+    endpoints
   }
 
   let askUserAboutDownloadPolicy = async () => {
