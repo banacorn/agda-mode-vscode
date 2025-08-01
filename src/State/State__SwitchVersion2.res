@@ -24,26 +24,31 @@ module QP = {
 
 let run = async (state: State.t, platformDeps: Platform.t) => {
   let qp = QP.make()
-  
+
   // Set placeholder
   qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Version (v2)")
-  
+
   // Fetch installed paths using the new function
   module PlatformOps = unpack(platformDeps)
-  let installedPaths = await PlatformOps.getInstalledEndpointsAndPersistThem2(state.globalStorageUri)
-  
+  let installedPaths = await PlatformOps.getInstalledEndpointsAndPersistThem2(
+    state.globalStorageUri,
+  )
+
   // Convert paths to quickpick items
-  let pathItems = installedPaths->Array.map(path => {
-    // Extract just the filename for the label
-    let filename = NodeJs.Path.basename(path)
-    let item: VSCode.QuickPickItem.t = {
-      label: "$(file-binary) " ++ filename,
-      description: "Unknown version (not probed yet)",
-      detail: path,
-    }
-    item
-  })
-  
+  let pathItems =
+    installedPaths
+    ->Set.toArray
+    ->Array.map(path => {
+      // Extract just the filename for the label
+      let filename = NodeJs.Path.basename(path)
+      let item: VSCode.QuickPickItem.t = {
+        label: "$(file-binary) " ++ filename,
+        description: "Unknown version (not probed yet)",
+        detail: path,
+      }
+      item
+    })
+
   // Add separator and dummy item if we have paths
   let items = if Array.length(pathItems) > 0 {
     let separator: VSCode.QuickPickItem.t = {
@@ -59,20 +64,20 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
     }
     [noPathsItem]
   }
-  
+
   // Set items
   qp.quickPick->VSCode.QuickPick.setItems(items)
-  
+
   // Show the quickpick
   qp->QP.render
-  
+
   // Handle selection - just close on any selection
   qp.quickPick
   ->VSCode.QuickPick.onDidChangeSelection(_selectedItems => {
     qp->QP.destroy
   })
   ->Util.Disposable.add(qp.subscriptions)
-  
+
   // Handle hide event
   qp.quickPick
   ->VSCode.QuickPick.onDidHide(() => {

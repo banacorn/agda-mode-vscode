@@ -400,7 +400,7 @@ describe("Connection", () => {
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve([])
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Set.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.No)
         }
@@ -437,7 +437,7 @@ describe("Connection", () => {
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve([])
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Set.make())
           let askUserAboutDownloadPolicy = () => {
             getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
             Promise.resolve(Config.Connection.DownloadPolicy.No)
@@ -481,7 +481,7 @@ describe("Connection", () => {
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve([])
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Set.make())
           let askUserAboutDownloadPolicy = () => {
             getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
             Promise.resolve(Config.Connection.DownloadPolicy.Undecided)
@@ -533,7 +533,7 @@ describe("Connection", () => {
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve([])
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Set.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -590,7 +590,7 @@ describe("Connection", () => {
           }
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve([])
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Set.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -642,7 +642,7 @@ describe("Connection", () => {
           }
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve([])
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Set.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }

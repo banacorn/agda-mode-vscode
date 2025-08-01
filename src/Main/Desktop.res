@@ -93,15 +93,15 @@ module Desktop: Platform.PlatformOps = {
     //    * `agda` and `als` from the PATH
     //    * `agda` and `als` from the download folder
 
-    let array = Config.Connection.getAgdaPaths2()
+    let paths = Config.Connection.getAgdaPaths2()->Set.fromArray
 
     // add `agda` and `als` from the PATH
     switch await Connection__Command2.findCommands(["agda"]) {
-    | Ok(path) => array->Array.push(path)
+    | Ok(path) => paths->Set.add(path)
     | Error(_) => ()
     }
     switch await Connection__Command2.findCommands(["als"]) {
-    | Ok(path) => array->Array.push(path)
+    | Ok(path) => paths->Set.add(path)
     | Error(_) => ()
     }
 
@@ -110,7 +110,7 @@ module Desktop: Platform.PlatformOps = {
     let addAgdaOrALS = async (folderURI, fileName) => {
       let executablePath = VSCode.Uri.joinPath(folderURI, [fileName])
       let path = VSCode.Uri.fsPath(executablePath)
-      array->Array.push(path)
+      paths->Set.add(path)
     }
 
     // handle files in the folders in the global storage
@@ -137,7 +137,7 @@ module Desktop: Platform.PlatformOps = {
     | Error(_) => ()
     }
 
-    array
+    paths
   }
 
   let askUserAboutDownloadPolicy = async () => {
