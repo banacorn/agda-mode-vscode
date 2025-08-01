@@ -21,7 +21,7 @@ module Normalization = {
     switch x {
     | AsIs => "(returned as is)"
     | Simplified => "(simplified)"
-    | Instantiated => "(instantiated)"
+    | Instantiated => "(neither explicitly normalised nor simplified)"
     | Normalised => "(normalised)"
     | HeadNormal => "(head normalized)"
     }
@@ -85,18 +85,18 @@ type t =
   | SearchAbout(Normalization.t)
   | Give
   | Refine
-  | ElaborateAndGive(Normalization.t)
+  | ElaborateAndGive(Normalization.t) // agda2-maybe-normalised
   | Auto(Normalization.t)
   | Case
-  | HelperFunctionType(Normalization.t)
-  | InferType(Normalization.t)
-  | Context(Normalization.t)
-  | GoalType(Normalization.t)
-  | GoalTypeAndContext(Normalization.t)
+  | HelperFunctionType(Normalization.t) // agda2-maybe-normalised-asis
+  | InferType(Normalization.t) // agda2-maybe-normalised
+  | Context(Normalization.t) // agda2-maybe-normalised
+  | GoalType(Normalization.t) // agda2-maybe-normalised
+  | GoalTypeAndContext(Normalization.t) // agda2-maybe-normalised
   | EventFromView(View.EventFromView.t)
-  | GoalTypeContextAndInferredType(Normalization.t)
-  | GoalTypeContextAndCheckedType(Normalization.t)
-  | ModuleContents(Normalization.t)
+  | GoalTypeContextAndInferredType(Normalization.t) // agda2-maybe-normalised
+  | GoalTypeContextAndCheckedType(Normalization.t) // agda2-maybe-normalised
+  | ModuleContents(Normalization.t) // agda2-maybe-normalised
   | ComputeNormalForm(ComputeMode.t)
   | WhyInScope
   | SwitchAgdaVersion
@@ -136,9 +136,10 @@ let names: array<(t, string)> = [
   (Auto(Normalised), "auto[Normalised]"),
   (Auto(HeadNormal), "auto[HeadNormal]"),
   (Case, "case"),
+  (HelperFunctionType(AsIs), "helper-function-type[AsIs]"),
   (HelperFunctionType(Simplified), "helper-function-type[Simplified]"),
-  (HelperFunctionType(Instantiated), "helper-function-type[Instantiated]"),
   (HelperFunctionType(Normalised), "helper-function-type[Normalised]"),
+  (HelperFunctionType(HeadNormal), "helper-function-type[HeadNormal]"),
   (InferType(Simplified), "infer-type[Simplified]"),
   (InferType(Instantiated), "infer-type[Instantiated]"),
   (InferType(Normalised), "infer-type[Normalised]"),

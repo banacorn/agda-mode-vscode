@@ -58,15 +58,19 @@ let run = normalization => {
 }
 
 describe("agda-mode.helper-function-type", () => {
+  describe("AsIs", () => {
+    run(AsIs)
+  })
+
   describe("Simplified", () => {
     run(Simplified)
   })
 
-  describe("Instantiated", () => {
-    run(Instantiated)
-  })
-
   describe("Normalised", () => {
     run(Normalised)
+  })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
   })
 })

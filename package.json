@@ -434,18 +434,23 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.helper-function-type[AsIs]",
+				"title": "Helper function type (returned as is)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.helper-function-type[Simplified]",
 				"title": "Helper function type (simplified)",
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.helper-function-type[Instantiated]",
-				"title": "Helper function type (instantiated)",
+				"command": "agda-mode.helper-function-type[Normalised]",
+				"title": "Helper function type (normalised)",
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.helper-function-type[Normalised]",
-				"title": "Helper function type (normalised)",
+				"command": "agda-mode.helper-function-type[HeadNormal]",
+				"title": "Helper function type (head normalised)",
 				"category": "Agda"
 			},
 			{
@@ -843,21 +848,27 @@
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.helper-function-type[Simplified]",
+				"command": "agda-mode.helper-function-type[AsIs]",
 				"key": "ctrl+c ctrl+h",
 				"mac": "ctrl+c ctrl+h",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.helper-function-type[Instantiated]",
+				"command": "agda-mode.helper-function-type[Simplified]",
 				"key": "ctrl+u ctrl+c ctrl+h",
 				"mac": "ctrl+u ctrl+c ctrl+h",
-				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !terminalFocus"
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
 				"command": "agda-mode.helper-function-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+h",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+h",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !terminalFocus"
+			},
+			{
+				"command": "agda-mode.helper-function-type[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+h",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+h",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{
