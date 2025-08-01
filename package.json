@@ -494,6 +494,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.infer-type[HeadNormal]",
+				"title": "Infer Type (head normalised)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.goal-type-and-context[Simplified]",
 				"title": "Goal type and context (simplified)",
 				"category": "Agda"
@@ -877,6 +882,12 @@
 				"command": "agda-mode.infer-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+d",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+d",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.infer-type[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+d",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+d",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{

@@ -141,6 +141,7 @@ let names: array<(t, string)> = [
   (InferType(Simplified), "infer-type[Simplified]"),
   (InferType(Instantiated), "infer-type[Instantiated]"),
   (InferType(Normalised), "infer-type[Normalised]"),
+  (InferType(HeadNormal), "infer-type[HeadNormal]"),
   (Context(Simplified), "context[Simplified]"),
   (Context(Instantiated), "context[Instantiated]"),
   (Context(Normalised), "context[Normalised]"),

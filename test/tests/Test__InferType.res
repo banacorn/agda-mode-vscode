@@ -51,4 +51,8 @@ describe("agda-mode.infer-type", () => {
   describe("Normalised", () => {
     run(Normalised)
   })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })

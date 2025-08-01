@@ -440,7 +440,7 @@ module AgdaMode = {
     }
 
     state.channels.log->Chan.emit(AgdaModeOperation("makeAndLoad", rawFilepath))
-    
+
     // On Windows, ensure the registry entry uses the same path format as the context
     // The state may have been stored with a normalized path, so we need to update it
     if !OS.onUnix {
@@ -450,7 +450,7 @@ module AgdaMode = {
       // Also store with the raw path for the test context
       Registry.add(rawFilepath, state)
     }
-    
+
     {
       filepath: rawFilepath,
       channels,
