@@ -133,7 +133,11 @@ module Module: {
 
     let setError = async (memento: t, filepath: filepath, error: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {endpoint: Unknown, timestamp: Date.make(), error: Some(error)}
+      let existingEndpoint = switch cache->Dict.get(filepath) {
+      | Some(existingEntry) => existingEntry.endpoint
+      | None => Unknown
+      }
+      let entry = {endpoint: existingEndpoint, timestamp: Date.make(), error: Some(error)}
       cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
     }
