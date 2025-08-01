@@ -1,30 +1,81 @@
 // Lazy-loading version switching module with cached endpoint display
 
 module ItemCreation = {
+  // Infer endpoint type from filename
+  let inferEndpointType = (filename: string) => {
+    let baseName = filename->String.toLowerCase->NodeJs.Path.basename
+    // Remove common executable extensions
+    let cleanName = baseName
+      ->String.replace(".exe", "")
+      ->String.replace(".cmd", "")
+      ->String.replace(".bat", "")
+    
+    if cleanName == "agda" || cleanName->String.startsWith("agda-") {
+      Some(#Agda)
+    } else if cleanName == "als" || cleanName->String.startsWith("als-") {
+      Some(#ALS)  
+    } else {
+      None
+    }
+  }
+
   // Format endpoint information for display
   let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry) => {
-    switch entry.endpoint {
-    | Some(Agda(version)) => 
-      ("$(file-binary) " ++ filename, "Agda v" ++ version)
-    | Some(ALS(alsVersion, agdaVersion)) => 
-      ("$(squirrel) " ++ filename, "ALS v" ++ alsVersion ++ ", Agda v" ++ agdaVersion)
-    | None => 
-      switch entry.error {
-      | Some(error) => ("$(error) " ++ filename, "Error: " ++ error)
-      | None => ("$(file-binary) " ++ filename, "Unknown version (not probed yet)")
+    switch (entry.endpoint, entry.error) {
+    | (Agda(Some(version)), _) => 
+      ("Agda", "Agda v" ++ version)
+    | (Agda(None), _) =>
+      ("Agda", "version unknown")
+    | (ALS(Some((alsVersion, agdaVersion))), _) => 
+      ("$(squirrel)  ALS", "ALS v" ++ alsVersion ++ ", Agda v" ++ agdaVersion)
+    | (ALS(None), _) =>
+      ("$(squirrel)  ALS", "version unknown")
+    | (Unknown, Some(error)) =>
+      ("$(error) " ++ filename, "Error: " ++ error)
+    | (Unknown, None) => 
+      // No cached info - infer from filename for better decoration
+      switch inferEndpointType(filename) {
+      | Some(#Agda) => ("Agda", "version unknown")
+      | Some(#ALS) => ("$(squirrel)  ALS", "version unknown")
+      | None => ("$(question) " ++ filename, "Unknown executable")
       }
     }
   }
 
   // Create quickpick item from endpoint entry
-  let createEndpointItem = (path: string, entry: Memento.Endpoints.entry): VSCode.QuickPickItem.t => {
+  let createEndpointItem = (path: string, entry: Memento.Endpoints.entry, extensionUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
     let filename = NodeJs.Path.basename(path)
     let (label, description) = formatEndpoint(filename, entry)
     
-    {
+    // Add Agda icon for Agda endpoints (like v1)
+    let iconPath = switch entry.endpoint {
+    | Agda(_) => Some(VSCode.IconPath.fromDarkAndLight({
+        "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
+        "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
+      }))
+    | _ => 
+      // Also add icon for inferred Agda endpoints
+      switch inferEndpointType(filename) {
+      | Some(#Agda) => Some(VSCode.IconPath.fromDarkAndLight({
+          "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
+          "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
+        }))
+      | _ => None
+      }
+    }
+    
+    let baseItem: VSCode.QuickPickItem.t = {
       label: label,
       description: description,
       detail: path,
+    }
+    
+    switch iconPath {
+    | Some(icon) => {
+        ...baseItem,
+        iconPath: icon,
+      }
+    | None => baseItem
     }
   }
 
@@ -92,11 +143,11 @@ module QuickPickManager = {
 
 module EndpointSync = {
   // Convert endpoint entries to quickpick items
-  let entriesToItems = (endpointEntries: Dict.t<Memento.Endpoints.entry>): array<VSCode.QuickPickItem.t> => {
+  let entriesToItems = (endpointEntries: Dict.t<Memento.Endpoints.entry>, extensionUri: VSCode.Uri.t): array<VSCode.QuickPickItem.t> => {
     let pathItems = 
       endpointEntries
       ->Dict.toArray
-      ->Array.map(((path, entry)) => ItemCreation.createEndpointItem(path, entry))
+      ->Array.map(((path, entry)) => ItemCreation.createEndpointItem(path, entry, extensionUri))
 
     if Array.length(pathItems) > 0 {
       Array.concat([ItemCreation.createSeparatorItem("Installed")], pathItems)
@@ -117,7 +168,7 @@ module EndpointSync = {
     
     // Return updated items
     let updatedEntries = Memento.Endpoints.entries(state.memento)
-    entriesToItems(updatedEntries)
+    entriesToItems(updatedEntries, state.extensionUri)
   }
 }
 
@@ -130,7 +181,7 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
   
   // PHASE 1: Show cached items immediately (instant UX)
   let cachedEntries = Memento.Endpoints.entries(state.memento)
-  let initialItems = EndpointSync.entriesToItems(cachedEntries)
+  let initialItems = EndpointSync.entriesToItems(cachedEntries, state.extensionUri)
   qp->QuickPickManager.updateItems(initialItems)
   qp->QuickPickManager.show
   

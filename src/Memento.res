@@ -16,11 +16,12 @@ module Module: {
   module Endpoints: {
     type filepath = string // raw file path
     type endpoint =
-      | Agda(string)
-      | ALS(string, string) // ALS version & corresponding Agda version
+      | Agda(option<string>) // Agda version
+      | ALS(option<(string, string)>) // ALS version & corresponding Agda version
+      | Unknown
 
     type entry = {
-      endpoint: option<endpoint>,
+      endpoint: endpoint,
       timestamp: Date.t,
       error: option<string>,
     }
@@ -97,10 +98,11 @@ module Module: {
     type filepath = string // raw file path provided by the user or found in the system
     // what kind of endpoint the file path leads to?
     type endpoint =
-      | Agda(string)
-      | ALS(string, string) // ALS version & corresponding Agda version
+      | Agda(option<string>) // Agda version
+      | ALS(option<(string, string)>) // ALS version & corresponding Agda version
+      | Unknown
     type entry = {
-      endpoint: option<endpoint>,
+      endpoint: endpoint,
       timestamp: Date.t,
       error: option<string>,
     }
@@ -124,14 +126,14 @@ module Module: {
 
     let setVersion = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {endpoint: Some(endpoint), timestamp: Date.make(), error: None}
+      let entry = {endpoint: endpoint, timestamp: Date.make(), error: None}
       cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
     }
 
     let setError = async (memento: t, filepath: filepath, error: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {endpoint: None, timestamp: Date.make(), error: Some(error)}
+      let entry = {endpoint: Unknown, timestamp: Date.make(), error: Some(error)}
       cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
     }
@@ -148,7 +150,7 @@ module Module: {
           newCache->Dict.set(path, existingEntry)
         | None => 
           // Add new path with unknown endpoint
-          let entry = {endpoint: None, timestamp: Date.make(), error: None}
+          let entry = {endpoint: Unknown, timestamp: Date.make(), error: None}
           newCache->Dict.set(path, entry)
         }
       })
