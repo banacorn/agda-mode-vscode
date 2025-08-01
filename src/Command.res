@@ -78,7 +78,7 @@ type t =
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
-  | SolveConstraints(Normalization.t)
+  | SolveConstraints(Normalization.t) // agda2-maybe-normalised-toplevel-asis-noprompt
   | ShowGoals(Normalization.t) // agda2-maybe-normalised-toplevel-asis-noprompt
   | NextGoal
   | PreviousGoal
@@ -114,9 +114,10 @@ let names: array<(t, string)> = [
   (ToggleDisplayOfImplicitArguments, "toggle-display-of-implicit-arguments"),
   (ToggleDisplayOfIrrelevantArguments, "toggle-display-of-irrelevant-arguments"),
   (ShowConstraints, "show-constraints"),
+  (SolveConstraints(AsIs), "solve-constraints[AsIs]"),
   (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
-  (SolveConstraints(Instantiated), "solve-constraints[Instantiated]"),
   (SolveConstraints(Normalised), "solve-constraints[Normalised]"),
+  (SolveConstraints(HeadNormal), "solve-constraints[HeadNormal]"),
   (ShowGoals(AsIs), "show-goals[AsIs]"),
   (ShowGoals(Simplified), "show-goals[Simplified]"),
   (ShowGoals(Normalised), "show-goals[Normalised]"),

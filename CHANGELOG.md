@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Keybindings for differenet levels of normalization changed for these commands:
     - Helper function type
+    - Show goals
+    - Solve constraints
 
 ## v0.6.3 - 2025-07-31
 

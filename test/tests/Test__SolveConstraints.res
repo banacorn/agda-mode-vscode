@@ -36,6 +36,10 @@ let run = normalization => {
 }
 
 describe("agda-mode.solve-constraints", () => {
+  describe("AsIs", () => {
+    run(AsIs)
+  })
+
   describe("Simplified", () => {
     run(Simplified)
   })
@@ -44,7 +48,7 @@ describe("agda-mode.solve-constraints", () => {
     run(Normalised)
   })
 
-  describe("Instantiated", () => {
-    run(Instantiated)
+  describe("HeadNormal", () => {
+    run(HeadNormal)
   })
 })

@@ -324,18 +324,23 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.solve-constraints[AsIs]",
+				"title": "Solve constraints (returned as is)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.solve-constraints[Simplified]",
 				"title": "Solve constraints (simplified)",
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.solve-constraints[Instantiated]",
-				"title": "Solve constraints (instantiated)",
+				"command": "agda-mode.solve-constraints[Normalised]",
+				"title": "Solve constraints (normalised)",
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.solve-constraints[Normalised]",
-				"title": "Solve constraints (normalised)",
+				"command": "agda-mode.solve-constraints[HeadNormal]",
+				"title": "Solve constraints (head normalised)",
 				"category": "Agda"
 			},
 			{
@@ -703,13 +708,13 @@
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.solve-constraints[Simplified]",
+				"command": "agda-mode.solve-constraints[AsIs]",
 				"key": "ctrl+c ctrl+s",
 				"mac": "ctrl+c ctrl+s",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.solve-constraints[Instantiated]",
+				"command": "agda-mode.solve-constraints[Simplified]",
 				"key": "ctrl+u ctrl+c ctrl+s",
 				"mac": "ctrl+u ctrl+c ctrl+s",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !terminalFocus"
@@ -718,6 +723,12 @@
 				"command": "agda-mode.solve-constraints[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+s",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+s",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.solve-constraints[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+s",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+s",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{
