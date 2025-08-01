@@ -22,21 +22,46 @@ module QP = {
   }
 }
 
-let run = async (_state: State.t, _platformDeps: Platform.t) => {
+let run = async (state: State.t, platformDeps: Platform.t) => {
   let qp = QP.make()
   
   // Set placeholder
-  qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Version (Dummy)")
+  qp.quickPick->VSCode.QuickPick.setPlaceholder("Switch Version (v2)")
   
-  // Create a dummy item
-  let dummyItem: VSCode.QuickPickItem.t = {
-    label: "$(star) Dummy Version Switcher",
-    description: "This is a placeholder implementation",
-    detail: "No actual functionality yet",
+  // Fetch installed paths using the new function
+  module PlatformOps = unpack(platformDeps)
+  let installedPaths = await PlatformOps.getInstalledEndpointsAndPersistThem2(state.globalStorageUri)
+  
+  // Convert paths to quickpick items
+  let pathItems = installedPaths->Array.map(path => {
+    // Extract just the filename for the label
+    let filename = NodeJs.Path.basename(path)
+    let item: VSCode.QuickPickItem.t = {
+      label: "$(file-binary) " ++ filename,
+      description: "Unknown version (not probed yet)",
+      detail: path,
+    }
+    item
+  })
+  
+  // Add separator and dummy item if we have paths
+  let items = if Array.length(pathItems) > 0 {
+    let separator: VSCode.QuickPickItem.t = {
+      label: "Installed",
+      kind: VSCode.QuickPickItemKind.Separator,
+    }
+    Array.concat([separator], pathItems)
+  } else {
+    let noPathsItem: VSCode.QuickPickItem.t = {
+      label: "$(info) No installations found",
+      description: "Try installing Agda or ALS first",
+      detail: "No executable paths detected",
+    }
+    [noPathsItem]
   }
   
   // Set items
-  qp.quickPick->VSCode.QuickPick.setItems([dummyItem])
+  qp.quickPick->VSCode.QuickPick.setItems(items)
   
   // Show the quickpick
   qp->QP.render
