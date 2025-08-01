@@ -169,6 +169,7 @@ let names: array<(t, string)> = [
   (ModuleContents(Simplified), "module-contents[Simplified]"),
   (ModuleContents(Instantiated), "module-contents[Instantiated]"),
   (ModuleContents(Normalised), "module-contents[Normalised]"),
+  (ModuleContents(HeadNormal), "module-contents[HeadNormal]"),
   (ComputeNormalForm(DefaultCompute), "compute-normal-form[DefaultCompute]"),
   (ComputeNormalForm(IgnoreAbstract), "compute-normal-form[IgnoreAbstract]"),
   (ComputeNormalForm(UseShowInstance), "compute-normal-form[UseShowInstance]"),

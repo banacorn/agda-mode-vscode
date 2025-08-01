@@ -68,4 +68,8 @@ describe("agda-mode.module-contents", () => {
   describe("Normalised", () => {
     run(Normalised)
   })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })

@@ -584,6 +584,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.module-contents[HeadNormal]",
+				"title": "Module contents (head normalised)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.compute-normal-form[DefaultCompute]",
 				"title": "Compute normal form",
 				"category": "Agda"
@@ -1015,6 +1020,12 @@
 				"command": "agda-mode.module-contents[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+o",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+o",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.module-contents[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+o",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+o",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{

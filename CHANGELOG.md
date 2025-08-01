@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Context
     - Infer type
     - Elaborate and give
+    - Module contents
 
 ## v0.6.3 - 2025-07-31
 
