@@ -26,8 +26,7 @@ You will get `command ... not found` if you try to trigger other commands withou
 * When it comes to combos like <kbd>C-c</kbd> <kbd>C-l</kbd>, you can often slur
 them into "hold <kbd>Ctrl</kbd> while pressing <kbd>c</kbd> and then <kbd>l</kbd>"
 
-Commands working with types (marked with the 🎚 emoji below) can have different levels of normalization. 
-Prefix commands with `C-u`, `C-u C-u`, or `C-u C-u  C-u` to change the level of normalization or rewrite like in Emacs.
+Commands working with terms or types (marked with the 🎚 emoji below) can be prefixed with <kbd>C-u</kbd> to compute without further normalisation, with <kbd>C-u</kbd> <kbd>C-u</kbd> to compute normal forms, and <kbd>C-u</kbd> <kbd>C-u</kbd> <kbd>C-u</kbd> to compute weak-head normal forms like in Emacs.
 
 ### Global commands
 
