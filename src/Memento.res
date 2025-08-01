@@ -150,8 +150,17 @@ module Module: {
       discoveredEndpoints->Dict.toArray->Array.forEach(((path, discoveredEndpoint)) => {
         switch cache->Dict.get(path) {
         | Some(existingEntry) => 
-          // Keep existing cached data (preserves version info and errors)
-          newCache->Dict.set(path, existingEntry)
+          // Update endpoint type if we have better inference, but preserve version info and errors
+          let updatedEndpoint = switch (existingEntry.endpoint, discoveredEndpoint) {
+          | (Unknown, newType) when newType != Unknown => 
+            // Update from Unknown to a specific type
+            newType
+          | (existingType, _) => 
+            // Keep existing type (it has version info or is already specific)
+            existingType
+          }
+          let updatedEntry = {...existingEntry, endpoint: updatedEndpoint, timestamp: Date.make()}
+          newCache->Dict.set(path, updatedEntry)
         | None => 
           // Add new path with inferred endpoint type
           let entry = {endpoint: discoveredEndpoint, timestamp: Date.make(), error: None}
