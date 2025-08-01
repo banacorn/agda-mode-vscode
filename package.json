@@ -339,18 +339,23 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.show-goals[AsIs]",
+				"title": "Show goals (returned as is)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.show-goals[Simplified]",
 				"title": "Show goals (simplified)",
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.show-goals[Instantiated]",
-				"title": "Show goals (instantiated)",
+				"command": "agda-mode.show-goals[Normalised]",
+				"title": "Show goals (normalised)",
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.show-goals[Normalised]",
-				"title": "Show goals (normalised)",
+				"command": "agda-mode.show-goals[HeadNormal]",
+				"title": "Show goals (head normalised)",
 				"category": "Agda"
 			},
 			{
@@ -716,25 +721,25 @@
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{
-				"command": "agda-mode.show-goals[Simplified]",
+				"command": "agda-mode.show-goals[AsIs]",
 				"key": "ctrl+c ctrl+?",
 				"mac": "ctrl+c ctrl+?",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.show-goals[Simplified]",
+				"command": "agda-mode.show-goals[AsIs]",
 				"key": "ctrl+c ctrl+shift+/",
 				"mac": "ctrl+c ctrl+shift+/",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.show-goals[Instantiated]",
+				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+u ctrl+c ctrl+?",
 				"mac": "ctrl+u ctrl+c ctrl+?",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.show-goals[Instantiated]",
+				"command": "agda-mode.show-goals[Simplified]",
 				"key": "ctrl+u ctrl+c ctrl+shift+/",
 				"mac": "ctrl+u ctrl+c ctrl+shift+/",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
@@ -749,6 +754,18 @@
 				"command": "agda-mode.show-goals[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+shift+/",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+shift+/",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-goals[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+?",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+?",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-goals[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+shift+/",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+shift+/",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{

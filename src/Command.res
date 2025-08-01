@@ -79,14 +79,14 @@ type t =
   | ToggleDisplayOfIrrelevantArguments
   | ShowConstraints
   | SolveConstraints(Normalization.t)
-  | ShowGoals(Normalization.t)
+  | ShowGoals(Normalization.t) // agda2-maybe-normalised-toplevel-asis-noprompt
   | NextGoal
   | PreviousGoal
   | SearchAbout(Normalization.t)
   | Give
   | Refine
   | ElaborateAndGive(Normalization.t) // agda2-maybe-normalised
-  | Auto(Normalization.t)
+  | Auto(Normalization.t) // agda2-maybe-normalised-asis
   | Case
   | HelperFunctionType(Normalization.t) // agda2-maybe-normalised-asis
   | InferType(Normalization.t) // agda2-maybe-normalised
@@ -117,9 +117,10 @@ let names: array<(t, string)> = [
   (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
   (SolveConstraints(Instantiated), "solve-constraints[Instantiated]"),
   (SolveConstraints(Normalised), "solve-constraints[Normalised]"),
+  (ShowGoals(AsIs), "show-goals[AsIs]"),
   (ShowGoals(Simplified), "show-goals[Simplified]"),
-  (ShowGoals(Instantiated), "show-goals[Instantiated]"),
   (ShowGoals(Normalised), "show-goals[Normalised]"),
+  (ShowGoals(HeadNormal), "show-goals[HeadNormal]"),
   (NextGoal, "next-goal"),
   (PreviousGoal, "previous-goal"),
   (SearchAbout(Simplified), "search-about[Simplified]"),
