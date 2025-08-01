@@ -389,6 +389,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.search-about[HeadNormal]",
+				"title": "Search about (head normalised)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.give",
 				"title": "Give",
 				"category": "Agda"
@@ -807,6 +812,12 @@
 				"command": "agda-mode.search-about[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+z",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+z",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.search-about[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+z",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+z",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{

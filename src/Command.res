@@ -82,7 +82,7 @@ type t =
   | ShowGoals(Normalization.t) // agda2-maybe-normalised-toplevel-asis-noprompt
   | NextGoal
   | PreviousGoal
-  | SearchAbout(Normalization.t)
+  | SearchAbout(Normalization.t) // agda2-maybe-normalised
   | Give
   | Refine
   | ElaborateAndGive(Normalization.t) // agda2-maybe-normalised
@@ -127,6 +127,7 @@ let names: array<(t, string)> = [
   (SearchAbout(Simplified), "search-about[Simplified]"),
   (SearchAbout(Instantiated), "search-about[Instantiated]"),
   (SearchAbout(Normalised), "search-about[Normalised]"),
+  (SearchAbout(HeadNormal), "search-about[HeadNormal]"),
   (Give, "give"),
   (Refine, "refine"),
   (ElaborateAndGive(Simplified), "elaborate-and-give[Simplified]"),

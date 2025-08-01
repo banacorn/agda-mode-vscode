@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Infer type
     - Elaborate and give
     - Module contents
+    - Search about
 
 ### Changed
 - Keybindings for differenet levels of normalization changed for these commands:
