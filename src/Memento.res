@@ -28,6 +28,7 @@ module Module: {
     let get: (t, filepath) => option<entry>
     let setVersion: (t, filepath, endpoint) => promise<unit>
     let setError: (t, filepath, string) => promise<unit>
+    let syncWithPaths: (t, Set.t<string>) => promise<unit>
   }
 
   module ALSReleaseCache: {
@@ -133,6 +134,29 @@ module Module: {
       let entry = {endpoint: None, timestamp: Date.make(), error: Some(error)}
       cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
+    }
+
+    let syncWithPaths = async (memento: t, paths: Set.t<string>): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let newCache = Dict.make()
+      
+      // Add entries for all current paths
+      paths->Set.forEach(path => {
+        switch cache->Dict.get(path) {
+        | Some(existingEntry) => 
+          // Keep existing cached data
+          newCache->Dict.set(path, existingEntry)
+        | None => 
+          // Add new path with unknown endpoint
+          let entry = {endpoint: None, timestamp: Date.make(), error: None}
+          newCache->Dict.set(path, entry)
+        }
+      })
+      
+      // Remove entries for paths that no longer exist (cleanup)
+      // This happens automatically since we only add current paths to newCache
+      
+      await memento->set(key, newCache)
     }
   }
 

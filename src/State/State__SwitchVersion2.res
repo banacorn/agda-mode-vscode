@@ -34,22 +34,42 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
     state.globalStorageUri,
   )
 
-  // Convert paths to quickpick items
+  // Sync Memento.Endpoints with discovered paths
+  await Memento.Endpoints.syncWithPaths(state.memento, installedPaths)
+
+  // Get the synced endpoint entries
+  let endpointEntries = Memento.Endpoints.entries(state.memento)
+
+  // Convert cached entries to quickpick items
   let pathItems =
-    installedPaths
-    ->Set.toArray
-    ->Array.map(path => {
+    endpointEntries
+    ->Dict.toArray
+    ->Array.map(((path, entry)) => {
       // Extract just the filename for the label
       let filename = NodeJs.Path.basename(path)
+      
+      // Create description based on cached endpoint info
+      let (label, description) = switch entry.endpoint {
+      | Some(Agda(version)) => 
+        ("$(file-binary) " ++ filename, "Agda v" ++ version)
+      | Some(ALS(alsVersion, agdaVersion)) => 
+        ("$(squirrel) " ++ filename, "ALS v" ++ alsVersion ++ ", Agda v" ++ agdaVersion)
+      | None => 
+        switch entry.error {
+        | Some(error) => ("$(error) " ++ filename, "Error: " ++ error)
+        | None => ("$(file-binary) " ++ filename, "Unknown version (not probed yet)")
+        }
+      }
+      
       let item: VSCode.QuickPickItem.t = {
-        label: "$(file-binary) " ++ filename,
-        description: "Unknown version (not probed yet)",
+        label: label,
+        description: description,
         detail: path,
       }
       item
     })
 
-  // Add separator and dummy item if we have paths
+  // Add separator and items if we have paths
   let items = if Array.length(pathItems) > 0 {
     let separator: VSCode.QuickPickItem.t = {
       label: "Installed",
