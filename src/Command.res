@@ -164,6 +164,7 @@ let names: array<(t, string)> = [
   (GoalTypeContextAndCheckedType(Simplified), "goal-type-context-and-checked-type[Simplified]"),
   (GoalTypeContextAndCheckedType(Instantiated), "goal-type-context-and-checked-type[Instantiated]"),
   (GoalTypeContextAndCheckedType(Normalised), "goal-type-context-and-checked-type[Normalised]"),
+  (GoalTypeContextAndCheckedType(HeadNormal), "goal-type-context-and-checked-type[HeadNormal]"),
   (ModuleContents(Simplified), "module-contents[Simplified]"),
   (ModuleContents(Instantiated), "module-contents[Instantiated]"),
   (ModuleContents(Normalised), "module-contents[Normalised]"),

@@ -59,4 +59,8 @@ describe("agda-mode.goal-type-context-and-checked-type", () => {
   describe("Normalised", () => {
     run(Normalised)
   })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })

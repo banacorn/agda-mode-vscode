@@ -559,6 +559,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.goal-type-context-and-checked-type[HeadNormal]",
+				"title": "Goal type, context and checked type (head normalised)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.module-contents[Simplified]",
 				"title": "Module contents (simplified)",
 				"category": "Agda"
@@ -975,6 +980,12 @@
 				"command": "agda-mode.goal-type-context-and-checked-type[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+;",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+;",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.goal-type-context-and-checked-type[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+;",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+;",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{
