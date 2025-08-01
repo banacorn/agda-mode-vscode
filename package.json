@@ -484,6 +484,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.context[HeadNormal]",
+				"title": "Context (head normalised)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.infer-type[Simplified]",
 				"title": "Infer Type (simplified)",
 				"category": "Agda"
@@ -890,6 +895,12 @@
 				"command": "agda-mode.context[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+e",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+e",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.context[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+e",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+e",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{

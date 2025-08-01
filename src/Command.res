@@ -146,6 +146,7 @@ let names: array<(t, string)> = [
   (Context(Simplified), "context[Simplified]"),
   (Context(Instantiated), "context[Instantiated]"),
   (Context(Normalised), "context[Normalised]"),
+  (Context(HeadNormal), "context[HeadNormal]"),
   (GoalType(Simplified), "goal-type[Simplified]"),
   (GoalType(Instantiated), "goal-type[Instantiated]"),
   (GoalType(Normalised), "goal-type[Normalised]"),

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Goal type and context
     - Goal type, context and inferred type
     - Goal type, context and checked type
+    - Context
     - Infer type
     - Elaborate and give
 
