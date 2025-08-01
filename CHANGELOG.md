@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - #251: Add weak head normalisation mode for goal type
-- Weak head normalisation mode for infer type
+- Weak head normalisation mode for infer type, elaborate and give
 
 ## v0.6.3 - 2025-07-31
 

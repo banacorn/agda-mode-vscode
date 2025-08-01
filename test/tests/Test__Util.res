@@ -508,6 +508,13 @@ module AgdaMode = {
       }
     })
 
+    // should be registered in the extension
+    if Command.names->Array.some(((registeredCommand, _)) => registeredCommand == command) {
+      ()
+    } else {
+      raise(Failure("Command " ++ Command.toString(command) ++ " is not registered"))
+    }
+
     switch await executeCommand("agda-mode." ++ Command.toKeybinding(command)) {
     | None =>
       raise(

@@ -130,6 +130,7 @@ let names: array<(t, string)> = [
   (ElaborateAndGive(Simplified), "elaborate-and-give[Simplified]"),
   (ElaborateAndGive(Instantiated), "elaborate-and-give[Instantiated]"),
   (ElaborateAndGive(Normalised), "elaborate-and-give[Normalised]"),
+  (ElaborateAndGive(HeadNormal), "elaborate-and-give[HeadNormal]"),
   (Auto(AsIs), "auto[AsIs]"),
   (Auto(Simplified), "auto[Simplified]"),
   (Auto(Normalised), "auto[Normalised]"),

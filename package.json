@@ -404,6 +404,11 @@
 				"category": "Agda"
 			},
 			{
+				"command": "agda-mode.elaborate-and-give[HeadNormal]",
+				"title": "Elaborate and give (head normalised)",
+				"category": "Agda"
+			},
+			{
 				"command": "agda-mode.auto[AsIs]",
 				"title": "Auto (returned as is)",
 				"category": "Agda"
@@ -774,6 +779,12 @@
 				"command": "agda-mode.elaborate-and-give[Normalised]",
 				"key": "ctrl+u ctrl+u ctrl+c ctrl+m",
 				"mac": "ctrl+u ctrl+u ctrl+c ctrl+m",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
+			},
+			{
+				"command": "agda-mode.elaborate-and-give[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+m",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+m",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/"
 			},
 			{

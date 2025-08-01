@@ -35,4 +35,8 @@ describe("agda-mode.elaborate-and-give", () => {
   describe("Normalised", () => {
     run(Normalised)
   })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })
