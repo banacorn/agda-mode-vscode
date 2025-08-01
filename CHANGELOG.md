@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.6.4 - 2025-08-01
 
 ### Added
-- #251: Add weak head normalisation mode for goal type
-- Weak head normalisation mode for infer type, elaborate and give, goal type and context
+- #251: Add weak head normalisation mode for these commands:
+    - Goal type
+    - Goal type and context
+    - Goal type, context and inferred type
+    - Infer type
+    - Elaborate and give
 
 ## v0.6.3 - 2025-07-31
 
