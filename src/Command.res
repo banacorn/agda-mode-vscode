@@ -153,6 +153,7 @@ let names: array<(t, string)> = [
   (GoalTypeAndContext(Simplified), "goal-type-and-context[Simplified]"),
   (GoalTypeAndContext(Instantiated), "goal-type-and-context[Instantiated]"),
   (GoalTypeAndContext(Normalised), "goal-type-and-context[Normalised]"),
+  (GoalTypeAndContext(HeadNormal), "goal-type-and-context[HeadNormal]"),
   (GoalTypeContextAndInferredType(Simplified), "goal-type-context-and-inferred-type[Simplified]"),
   (
     GoalTypeContextAndInferredType(Instantiated),

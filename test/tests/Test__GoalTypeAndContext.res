@@ -44,4 +44,8 @@ describe("agda-mode.goal-type-and-context", () => {
   describe("Normalised", () => {
     run(Normalised)
   })
+
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })
