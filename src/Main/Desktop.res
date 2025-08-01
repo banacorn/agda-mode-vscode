@@ -88,36 +88,20 @@ module Desktop: Platform.PlatformOps = {
   }
 
   let getInstalledEndpointsAndPersistThem2 = async (globalStorageUri: VSCode.Uri.t) => {
-    // 1. Get all installed endpoints from:
+    // Get all paths of Agda or ALS from:
     //    * `agdaMode.connection.paths` in the settings
     //    * `agda` and `als` from the PATH
     //    * `agda` and `als` from the download folder
-    // 2. Persist them in the settings
-    let dict = {
-      let pairs =
-        await Config.Connection.getAgdaPaths()
-        ->Array.map(async uri => {
-          let target = await Connection__Endpoint.fromURI(uri)
-          (Connection__URI.toString(uri), target)
-        })
-        ->Promise.all
 
-      Dict.fromArray(pairs)
-    }
+    let array = Config.Connection.getAgdaPaths2()
 
     // add `agda` and `als` from the PATH
-    switch await findCommands(["agda"]) {
-    | Ok(agda) =>
-      let uri = agda->Connection__Endpoint.toURI
-      await Config.Connection.addAgdaPath(uri)
-      dict->Dict.set(uri->Connection__URI.toString, Ok(agda))
+    switch await Connection__Command2.findCommands(["agda"]) {
+    | Ok(path) => array->Array.push(path)
     | Error(_) => ()
     }
-    switch await findCommands(["als"]) {
-    | Ok(als) =>
-      let uri = als->Connection__Endpoint.toURI
-      await Config.Connection.addAgdaPath(uri)
-      dict->Dict.set(uri->Connection__URI.toString, Ok(als))
+    switch await Connection__Command2.findCommands(["als"]) {
+    | Ok(path) => array->Array.push(path)
     | Error(_) => ()
     }
 
@@ -125,13 +109,8 @@ module Desktop: Platform.PlatformOps = {
     // add `agda` and `als` from the download folder
     let addAgdaOrALS = async (folderURI, fileName) => {
       let executablePath = VSCode.Uri.joinPath(folderURI, [fileName])
-      switch await Connection__Endpoint.fromRawPath(VSCode.Uri.fsPath(executablePath)) {
-      | Ok(target) =>
-        let uri = target->Connection__Endpoint.toURI
-        await Config.Connection.addAgdaPath(uri)
-        dict->Dict.set(uri->Connection__URI.toString, Ok(target))
-      | Error(_) => ()
-      }
+      let path = VSCode.Uri.fsPath(executablePath)
+      array->Array.push(path)
     }
 
     // handle files in the folders in the global storage
@@ -158,7 +137,7 @@ module Desktop: Platform.PlatformOps = {
     | Error(_) => ()
     }
 
-    Dict.fromArray([])
+    array
   }
 
   let askUserAboutDownloadPolicy = async () => {

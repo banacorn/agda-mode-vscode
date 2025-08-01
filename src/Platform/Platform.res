@@ -26,9 +26,7 @@ module type PlatformOps = {
   let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<
     Dict.t<result<Connection__Endpoint.t, Connection__Endpoint.Error.t>>,
   >
-  let getInstalledEndpointsAndPersistThem2: VSCode.Uri.t => promise<
-    Dict.t<Memento.Endpoints.endpoint>,
-  >
+  let getInstalledEndpointsAndPersistThem2: VSCode.Uri.t => promise<array<string>>
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>

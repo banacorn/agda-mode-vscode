@@ -39,6 +39,7 @@ module Connection = {
   // in testing mode, configs are read and written from here instead
   let agdaVersionInTestingMode = ref("agda")
   let agdaPathsInTestingMode = ref([])
+  let agdaPathsInTestingMode2 = ref([])
   let useAgdaLanguageServerInTestingMode = ref(false)
 
   // Agda version
@@ -104,6 +105,16 @@ module Connection = {
         ->parseAgdaPaths
 
       paths->Array.map(Connection__URI.parse)
+    }
+
+  let getAgdaPaths2 = () =>
+    if inTestingMode.contents {
+      agdaPathsInTestingMode2.contents
+    } else {
+      Workspace.getConfiguration(Some("agdaMode"), None)
+      ->WorkspaceConfiguration.get("connection.paths")
+      ->Option.getOr(JSON.Null)
+      ->parseAgdaPaths
     }
 
   // new path is APPENDED to the end of the list
