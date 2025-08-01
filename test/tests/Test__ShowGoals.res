@@ -15,30 +15,30 @@ let run = normalization => {
       )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
-    Assert.deepStrictEqual(filteredResponses, [DisplayInfo(CurrentGoal("ℕ"))])
+    Assert.deepStrictEqual(filteredResponses, [DisplayInfo(AllGoalsWarnings("*All Goals, Errors*", "?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at /Users/banacorn/rescript/agda-mode-vscode/test/tests/assets/Goals.agda:11,19-31 ]\n_11 : _10  [ at /Users/banacorn/rescript/agda-mode-vscode/test/tests/assets/Goals.agda:11,19-31 ]\n_14 : ℕ  [ at /Users/banacorn/rescript/agda-mode-vscode/test/tests/assets/Goals.agda:11,19-31 ]\n\n———— Error —————————————————————————————————————————————————\nUnsolved constraints"))])
   })
 
   Async.it("should work", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
-    await AgdaMode.execute(ctx, GoalType(normalization), ~cursor=VSCode.Position.make(15, 26))
+    await AgdaMode.execute(ctx, ShowGoals(normalization))
     await ctx->AgdaMode.quit
   })
 }
 
-// describe_only("agda-mode.show-goals", () => {
-//   describe("Simplified", () => {
-//     run(Simplified)
-//   })
+describe("agda-mode.show-goals", () => {
+  describe("AsIs", () => {
+    run(AsIs)
+  })
 
-//   describe("Instantiated", () => {
-//     run(Instantiated)
-//   })
+  describe("Simplified", () => {
+    run(Simplified)
+  })
 
-//   describe("Normalised", () => {
-//     run(Normalised)
-//   })
+  describe("Normalised", () => {
+    run(Normalised)
+  })
 
-//   describe("HeadNormal", () => {
-//     run(HeadNormal)
-//   })
-// })
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
+})
