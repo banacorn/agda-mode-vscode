@@ -2,9 +2,9 @@
 
 module ItemCreation = {
 
-  // Format endpoint information for display
-  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry) => {
-    switch (entry.endpoint, entry.error) {
+  // Format endpoint information for display with picked status
+  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry, isPicked: bool) => {
+    let (baseLabel, baseDescription) = switch (entry.endpoint, entry.error) {
     | (Agda(Some(version)), _) => 
       ("Agda", "v" ++ version)
     | (Agda(None), _) =>
@@ -18,12 +18,16 @@ module ItemCreation = {
     | (Unknown, None) => 
       ("$(question) " ++ filename, "Unknown executable")
     }
+    
+    // Add "Selected" suffix if this is the picked connection
+    let description = isPicked ? baseDescription ++ " (Selected)" : baseDescription
+    (baseLabel, description)
   }
 
-  // Create quickpick item from endpoint entry
-  let createEndpointItem = (path: string, entry: Memento.Endpoints.entry, extensionUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
+  // Create quickpick item from endpoint entry with picked status
+  let createEndpointItem = (path: string, entry: Memento.Endpoints.entry, extensionUri: VSCode.Uri.t, isPicked: bool): VSCode.QuickPickItem.t => {
     let filename = NodeJs.Path.basename(path)
-    let (label, description) = formatEndpoint(filename, entry)
+    let (label, description) = formatEndpoint(filename, entry, isPicked)
     
     // Add Agda icon for Agda endpoints (like v1)
     let iconPath = switch entry.endpoint {
@@ -88,6 +92,7 @@ module QuickPickManager = {
     self.items = items
     self.quickPick->VSCode.QuickPick.setItems(items)
   }
+  
 
   let show = (self: t): unit => {
     self.quickPick->VSCode.QuickPick.show
@@ -123,18 +128,33 @@ module EndpointManager = {
     extensionUri: state.extensionUri,
   }
   
-  // Convert current entries to quickpick items
-  let toItems = (self: t): array<VSCode.QuickPickItem.t> => {
+  // Convert current entries to quickpick items with picked connection marking
+  let toItems = (self: t, memento: Memento.t): array<VSCode.QuickPickItem.t> => {
+    let pickedPath = Memento.PickedConnection.get(memento)
+    
     let pathItems = 
       self.entries
       ->Dict.toArray
-      ->Array.map(((path, entry)) => ItemCreation.createEndpointItem(path, entry, self.extensionUri))
+      ->Array.map(((path, entry)) => {
+        let isPicked = switch pickedPath {
+        | Some(picked) => picked == path
+        | None => false
+        }
+        ItemCreation.createEndpointItem(path, entry, self.extensionUri, isPicked)
+      })
 
     if Array.length(pathItems) > 0 {
       Array.concat([ItemCreation.createSeparatorItem("Installed")], pathItems)
     } else {
       [ItemCreation.createNoInstallationsItem()]
     }
+  }
+  
+  
+  // Update items with visual marking of picked connection
+  let updateItems = (self: t, qp: QuickPickManager.t, memento: Memento.t): unit => {
+    let items = toItems(self, memento)
+    qp->QuickPickManager.updateItems(items)
   }
   
   // Update entries from memento and return whether anything changed
@@ -215,43 +235,51 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
   // Setup quickpick
   qp->QuickPickManager.setPlaceholder("Switch Version (v2)")
   
-  // PHASE 1: Show cached items immediately (instant UX)
-  let initialItems = endpointManager->EndpointManager.toItems
-  qp->QuickPickManager.updateItems(initialItems)
+  // PHASE 1: Show cached items immediately with visual marking
+  endpointManager->EndpointManager.updateItems(qp, state.memento)
   qp->QuickPickManager.show
   
   // Setup event handlers
-  qp->QuickPickManager.onSelection(_selectedItems => {
+  qp->QuickPickManager.onSelection(selectedItems => {
     qp->QuickPickManager.destroy
+    
+    // Save the user's selection to PickedConnection
+    switch selectedItems[0] {
+    | Some(selectedItem) => {
+      switch selectedItem.detail {
+      | Some(selectedPath) => {
+        let _ = Memento.PickedConnection.set(state.memento, Some(selectedPath))
+      }
+      | None => ()
+      }
+    }
+    | None => ()
+    }
   })
   
   qp->QuickPickManager.onHide(() => {
     qp->QuickPickManager.destroy
   })
   
-  // Background update process (sequential phases for safety)
+  // Background update process (sequential phases)
   let backgroundUpdate = async () => {
     try {
       // PHASE 2: Sync with filesystem (discover new paths)
       let phase2Changed = await endpointManager->EndpointManager.syncWithFilesystem(state, platformDeps)
       if phase2Changed {
-        let updatedItems = endpointManager->EndpointManager.toItems
-        qp->QuickPickManager.updateItems(updatedItems)
+        endpointManager->EndpointManager.updateItems(qp, state.memento)
       }
       
-      // PHASE 3: Probe version information (only after phase 2 completes)
+      // PHASE 3: Probe version information
       let phase3Changed = await endpointManager->EndpointManager.probeVersions(state)
       if phase3Changed {
-        let finalItems = endpointManager->EndpointManager.toItems
-        qp->QuickPickManager.updateItems(finalItems)
+        endpointManager->EndpointManager.updateItems(qp, state.memento)
       }
     } catch {
-    | exn => 
-      // Log error but don't crash the UI
-      Js.log("Background update failed: " ++ Js.String.make(exn))
+    | _exn => () // Ignore background update errors
     }
   }
   
   // Start background update
-  backgroundUpdate()->ignore
+  let _ = backgroundUpdate()
 }
