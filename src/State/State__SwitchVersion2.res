@@ -1,10 +1,14 @@
 // Lazy-loading version switching module with cached endpoint display
 
-module ItemCreation = {
+module ItemFormatting = {
+  type endpointInfo = {
+    endpoint: Memento.Endpoints.endpoint,
+    error: option<string>,
+  }
 
-  // Format endpoint information for display with picked status
-  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry, isPicked: bool) => {
-    let (baseLabel, baseDescription) = switch (entry.endpoint, entry.error) {
+  // Format endpoint display information
+  let formatEndpointInfo = (filename: string, endpointInfo: endpointInfo, isPicked: bool) => {
+    let (baseLabel, baseDescription) = switch (endpointInfo.endpoint, endpointInfo.error) {
     | (Agda(Some(version)), _) => 
       ("Agda", "v" ++ version)
     | (Agda(None), _) =>
@@ -24,18 +28,40 @@ module ItemCreation = {
     (baseLabel, description)
   }
 
+  // Determine if endpoint should have an icon
+  let shouldHaveIcon = (endpoint: Memento.Endpoints.endpoint): bool => {
+    switch endpoint {
+    | Agda(_) => true
+    | _ => false
+    }
+  }
+
+  // Format endpoint from entry
+  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry, isPicked: bool) => {
+    formatEndpointInfo(filename, {endpoint: entry.endpoint, error: entry.error}, isPicked)
+  }
+}
+
+module ItemCreation = {
+
+  // Format endpoint information for display with picked status
+  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry, isPicked: bool) => {
+    ItemFormatting.formatEndpoint(filename, entry, isPicked)
+  }
+
   // Create quickpick item from endpoint entry with picked status
   let createEndpointItem = (path: string, entry: Memento.Endpoints.entry, extensionUri: VSCode.Uri.t, isPicked: bool): VSCode.QuickPickItem.t => {
     let filename = NodeJs.Path.basename(path)
     let (label, description) = formatEndpoint(filename, entry, isPicked)
     
-    // Add Agda icon for Agda endpoints (like v1)
-    let iconPath = switch entry.endpoint {
-    | Agda(_) => Some(VSCode.IconPath.fromDarkAndLight({
+    // Add Agda icon for Agda endpoints
+    let iconPath = if ItemFormatting.shouldHaveIcon(entry.endpoint) {
+      Some(VSCode.IconPath.fromDarkAndLight({
         "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
         "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
       }))
-    | _ => None
+    } else {
+      None
     }
     
     let baseItem: VSCode.QuickPickItem.t = {
@@ -116,6 +142,54 @@ module QuickPickManager = {
   }
 }
 
+module EndpointLogic = {
+  // Determine picked connection
+  let getPickedPath = (memento: Memento.t): option<string> => {
+    Memento.PickedConnection.get(memento)
+  }
+
+  // Convert entries to items
+  let entriesToItems = (
+    entries: Dict.t<Memento.Endpoints.entry>,
+    extensionUri: VSCode.Uri.t,
+    pickedPath: option<string>
+  ): array<VSCode.QuickPickItem.t> => {
+    let pathItems = 
+      entries
+      ->Dict.toArray
+      ->Array.map(((path, entry)) => {
+        let isPicked = switch pickedPath {
+        | Some(picked) => picked == path
+        | None => false
+        }
+        ItemCreation.createEndpointItem(path, entry, extensionUri, isPicked)
+      })
+
+    if Array.length(pathItems) > 0 {
+      Array.concat([ItemCreation.createSeparatorItem("Installed")], pathItems)
+    } else {
+      [ItemCreation.createNoInstallationsItem()]
+    }
+  }
+
+  // Get paths that need version probing
+  let getPathsNeedingProbe = (entries: Dict.t<Memento.Endpoints.entry>): array<string> => {
+    entries
+    ->Dict.toArray
+    ->Array.filterMap(((path, entry)) => {
+      switch entry.endpoint {
+      | Agda(None) | ALS(None) => Some(path)
+      | _ => None
+      }
+    })
+  }
+
+  // Check if entries changed
+  let entriesChanged = (oldEntries: Dict.t<Memento.Endpoints.entry>, newEntries: Dict.t<Memento.Endpoints.entry>): bool => {
+    newEntries !== oldEntries
+  }
+}
+
 module EndpointManager = {
   // Single source of truth for endpoint entries
   type t = {
@@ -130,24 +204,8 @@ module EndpointManager = {
   
   // Convert current entries to quickpick items with picked connection marking
   let toItems = (self: t, memento: Memento.t): array<VSCode.QuickPickItem.t> => {
-    let pickedPath = Memento.PickedConnection.get(memento)
-    
-    let pathItems = 
-      self.entries
-      ->Dict.toArray
-      ->Array.map(((path, entry)) => {
-        let isPicked = switch pickedPath {
-        | Some(picked) => picked == path
-        | None => false
-        }
-        ItemCreation.createEndpointItem(path, entry, self.extensionUri, isPicked)
-      })
-
-    if Array.length(pathItems) > 0 {
-      Array.concat([ItemCreation.createSeparatorItem("Installed")], pathItems)
-    } else {
-      [ItemCreation.createNoInstallationsItem()]
-    }
+    let pickedPath = EndpointLogic.getPickedPath(memento)
+    EndpointLogic.entriesToItems(self.entries, self.extensionUri, pickedPath)
   }
   
   
@@ -160,7 +218,7 @@ module EndpointManager = {
   // Update entries from memento and return whether anything changed
   let refreshFromMemento = (self: t, memento: Memento.t): bool => {
     let newEntries = Memento.Endpoints.entries(memento)
-    let changed = newEntries !== self.entries
+    let changed = EndpointLogic.entriesChanged(self.entries, newEntries)
     if changed {
       self.entries = newEntries
     }
@@ -184,14 +242,7 @@ module EndpointManager = {
   // Phase 3: Probe for version information
   let probeVersions = async (self: t, state: State.t): bool => {
     // Get paths that need version probing
-    let pathsToProbe = self.entries
-      ->Dict.toArray
-      ->Array.filterMap(((path, entry)) => {
-        switch entry.endpoint {
-        | Agda(None) | ALS(None) => Some(path)
-        | _ => None
-        }
-      })
+    let pathsToProbe = EndpointLogic.getPathsNeedingProbe(self.entries)
     
     if Array.length(pathsToProbe) == 0 {
       false // Nothing to probe
