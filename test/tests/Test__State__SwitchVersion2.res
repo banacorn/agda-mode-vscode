@@ -36,32 +36,32 @@ describe("State__SwitchVersion2", () => {
         let endpointInfo = TestData.agdaEndpointInfo
         let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("agda", endpointInfo, false)
         
-        Assert.deepStrictEqual(label, "Agda")
-        Assert.deepStrictEqual(description, "v2.6.4")
+        Assert.deepStrictEqual(label, "Agda v2.6.4")
+        Assert.deepStrictEqual(description, "")
       })
 
       it("should format Agda endpoint without version", () => {
         let endpointInfo = TestData.createMockEndpointInfo(Agda(None), ())
         let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("agda", endpointInfo, false)
         
-        Assert.deepStrictEqual(label, "Agda")
-        Assert.deepStrictEqual(description, "version unknown")
+        Assert.deepStrictEqual(label, "Agda (version unknown)")
+        Assert.deepStrictEqual(description, "")
       })
 
       it("should format ALS endpoint with versions", () => {
         let endpointInfo = TestData.alsEndpointInfo
         let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("als", endpointInfo, false)
         
-        Assert.deepStrictEqual(label, "$(squirrel)  ALS")
-        Assert.deepStrictEqual(description, "v4.0.0, Agda v2.6.4")
+        Assert.deepStrictEqual(label, "$(squirrel)  ALS v4.0.0, Agda v2.6.4")
+        Assert.deepStrictEqual(description, "")
       })
 
-      it("should add (Selected) suffix when picked", () => {
+      it("should add Selected when picked", () => {
         let endpointInfo = TestData.agdaEndpointInfo
         let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("agda", endpointInfo, true)
         
-        Assert.deepStrictEqual(label, "Agda")
-        Assert.deepStrictEqual(description, "v2.6.4 (Selected)")
+        Assert.deepStrictEqual(label, "Agda v2.6.4")
+        Assert.deepStrictEqual(description, "Selected")
       })
 
       it("should format error endpoint", () => {
@@ -102,8 +102,8 @@ describe("State__SwitchVersion2", () => {
         let entry = TestData.agdaEntry
         let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpoint("agda", entry, true)
         
-        Assert.deepStrictEqual(label, "Agda")
-        Assert.deepStrictEqual(description, "v2.6.4 (Selected)")
+        Assert.deepStrictEqual(label, "Agda v2.6.4")
+        Assert.deepStrictEqual(description, "Selected")
       })
     })
   })
@@ -116,8 +116,8 @@ describe("State__SwitchVersion2", () => {
         let entry = TestData.agdaEntry
         let item = State__SwitchVersion2.ItemCreation.createEndpointItem("/usr/bin/agda", entry, extensionUri, false)
         
-        Assert.deepStrictEqual(item.label, "Agda")
-        Assert.deepStrictEqual(item.description, Some("v2.6.4"))
+        Assert.deepStrictEqual(item.label, "Agda v2.6.4")
+        Assert.deepStrictEqual(item.description, Some(""))
         Assert.deepStrictEqual(item.detail, Some("/usr/bin/agda"))
       })
 
@@ -165,11 +165,12 @@ describe("State__SwitchVersion2", () => {
 
     describe("createOpenFolderItem", () => {
       it("should create open folder item", () => {
-        let item = State__SwitchVersion2.ItemCreation.createOpenFolderItem()
+        let globalStorageUri = VSCode.Uri.file("/test/global/storage")
+        let item = State__SwitchVersion2.ItemCreation.createOpenFolderItem(globalStorageUri)
         
         Assert.deepStrictEqual(item.label, "$(folder-opened)  Open download folder")
         Assert.deepStrictEqual(item.description, Some("Where the language servers are downloaded to"))
-        Assert.deepStrictEqual(item.detail, Some("Open global storage directory"))
+        Assert.deepStrictEqual(item.detail, Some("/test/global/storage"))
       })
     })
 
@@ -230,10 +231,11 @@ describe("State__SwitchVersion2", () => {
 
     describe("entriesToItems", () => {
       let extensionUri = TestData.createMockExtensionUri()
+      let globalStorageUri = VSCode.Uri.file("/test/global/storage")
 
       it("should return no installations item and misc section when no entries", () => {
         let entries = Dict.make()
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ())
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
         
         Assert.deepStrictEqual(Array.length(items), 3) // No installations + Misc separator + Open folder
         Assert.deepStrictEqual(items[0]->Option.map(item => item.label), Some("$(info) No installations found"))
@@ -246,7 +248,7 @@ describe("State__SwitchVersion2", () => {
         entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
         entries->Dict.set("/usr/bin/als", TestData.alsEntry)
         
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ())
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
         
         Assert.deepStrictEqual(Array.length(items), 5) // Installed separator + 2 endpoints + Misc separator + Open folder
         Assert.deepStrictEqual(items[0]->Option.map(item => item.label), Some("Installed"))
@@ -260,7 +262,7 @@ describe("State__SwitchVersion2", () => {
         entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
         entries->Dict.set("/usr/bin/als", TestData.alsEntry)
         
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, Some("/usr/bin/agda"), ())
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, Some("/usr/bin/agda"), ())
         
         let agdaItem = items->Array.find(item => 
           switch item.detail {
@@ -272,7 +274,7 @@ describe("State__SwitchVersion2", () => {
         switch agdaItem {
         | Some(item) => 
           switch item.description {
-          | Some(desc) => Assert.ok(desc->String.includes("(Selected)"))
+          | Some(desc) => Assert.ok(desc->String.includes("Selected"))
           | None => Assert.fail("Expected description to be present")
           }
         | None => Assert.fail("Could not find Agda item")
@@ -283,7 +285,7 @@ describe("State__SwitchVersion2", () => {
         let entries = Dict.make()
         entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
         
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ())
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
         
         let agdaItem = items->Array.find(item => 
           switch item.detail {
@@ -295,7 +297,7 @@ describe("State__SwitchVersion2", () => {
         switch agdaItem {
         | Some(item) => 
           switch item.description {
-          | Some(desc) => Assert.ok(!(desc->String.includes("(Selected)")))
+          | Some(desc) => Assert.ok(!(desc->String.includes("Selected")))
           | None => Assert.fail("Expected description to be present")
           }
         | None => Assert.fail("Could not find Agda item")
@@ -307,7 +309,7 @@ describe("State__SwitchVersion2", () => {
         entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
         
         let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ~downloadItem, ())
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ~downloadItem, ())
         
         Assert.deepStrictEqual(Array.length(items), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Open folder
         
@@ -379,7 +381,7 @@ describe("State__SwitchVersion2", () => {
           extensionUri: extensionUri,
         }
         
-        let items = State__SwitchVersion2.EndpointManager.toItems(manager, memento, ())
+        let items = State__SwitchVersion2.EndpointManager.toItems(manager, memento, extensionUri, ())
         
         Assert.deepStrictEqual(Array.length(items), 4) // Installed separator + 1 item + Misc separator + Open folder
         
@@ -393,7 +395,7 @@ describe("State__SwitchVersion2", () => {
         switch agdaItem {
         | Some(item) => 
           switch item.description {
-          | Some(desc) => Assert.ok(desc->String.includes("(Selected)"))
+          | Some(desc) => Assert.ok(desc->String.includes("Selected"))
           | None => Assert.fail("Expected description to be present")
           }
         | None => Assert.fail("Could not find Agda item")
@@ -442,8 +444,9 @@ describe("State__SwitchVersion2", () => {
         entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
         
         let extensionUri = TestData.createMockExtensionUri()
+        let globalStorageUri = VSCode.Uri.file("/test/global/storage")
         let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ~downloadItem, ())
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ~downloadItem, ())
         
         // Should have: Installed separator + agda item + Download separator + download item + Misc separator + open folder
         Assert.deepStrictEqual(Array.length(items), 6)
@@ -461,7 +464,8 @@ describe("State__SwitchVersion2", () => {
         entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
         
         let extensionUri = TestData.createMockExtensionUri()
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ())
+        let globalStorageUri = VSCode.Uri.file("/test/global/storage")
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
         
         // Should have: Installed separator + agda item + Misc separator + open folder (no download section)
         Assert.deepStrictEqual(Array.length(items), 4)

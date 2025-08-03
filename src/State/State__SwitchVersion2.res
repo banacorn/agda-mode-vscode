@@ -9,19 +9,19 @@ module ItemFormatting = {
   // Format endpoint display information
   let formatEndpointInfo = (filename: string, endpointInfo: endpointInfo, isPicked: bool) => {
     let (baseLabel, baseDescription) = switch (endpointInfo.endpoint, endpointInfo.error) {
-    | (Agda(Some(version)), _) => ("Agda", "v" ++ version)
-    | (Agda(None), _) => ("Agda", "version unknown")
+    | (Agda(Some(version)), _) => ("Agda v" ++ version, "")
+    | (Agda(None), _) => ("Agda (version unknown)", "")
     | (ALS(Some((alsVersion, agdaVersion))), _) => (
-        "$(squirrel)  ALS",
-        "v" ++ alsVersion ++ ", Agda v" ++ agdaVersion,
+        "$(squirrel)  ALS v" ++ alsVersion ++ ", Agda v" ++ agdaVersion,
+        "",
       )
-    | (ALS(None), _) => ("$(squirrel)  ALS", "version unknown")
+    | (ALS(None), _) => ("$(squirrel)  ALS (version unknown)", "")
     | (Unknown, Some(error)) => ("$(error) " ++ filename, "Error: " ++ error)
     | (Unknown, None) => ("$(question) " ++ filename, "Unknown executable")
     }
 
-    // Add "Selected" suffix if this is the picked connection
-    let description = isPicked ? baseDescription ++ " (Selected)" : baseDescription
+    // Use description space for selection marking
+    let description = isPicked ? "Selected" : baseDescription
     (baseLabel, description)
   }
 
@@ -100,11 +100,11 @@ module ItemCreation = {
   }
 
   // Create "open download folder" item
-  let createOpenFolderItem = (): VSCode.QuickPickItem.t => {
+  let createOpenFolderItem = (globalStorageUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
     {
       label: "$(folder-opened)  Open download folder",
       description: "Where the language servers are downloaded to",
-      detail: "Open global storage directory",
+      detail: VSCode.Uri.fsPath(globalStorageUri),
     }
   }
 
@@ -176,6 +176,7 @@ module EndpointLogic = {
   let entriesToItems = (
     entries: Dict.t<Memento.Endpoints.entry>,
     extensionUri: VSCode.Uri.t,
+    globalStorageUri: VSCode.Uri.t,
     pickedPath: option<string>,
     ~downloadItem: option<VSCode.QuickPickItem.t>=?,
     ()
@@ -209,7 +210,7 @@ module EndpointLogic = {
     // Add misc section with open folder item
     let miscSection = [
       ItemCreation.createSeparatorItem("Misc"),
-      ItemCreation.createOpenFolderItem(),
+      ItemCreation.createOpenFolderItem(globalStorageUri),
     ]
 
     Array.flat([installedSection, downloadSection, miscSection])
@@ -249,14 +250,14 @@ module EndpointManager = {
   }
 
   // Convert current entries to quickpick items with picked connection marking
-  let toItems = (self: t, memento: Memento.t, ~downloadItem: option<VSCode.QuickPickItem.t>=?, ()): array<VSCode.QuickPickItem.t> => {
+  let toItems = (self: t, memento: Memento.t, globalStorageUri: VSCode.Uri.t, ~downloadItem: option<VSCode.QuickPickItem.t>=?, ()): array<VSCode.QuickPickItem.t> => {
     let pickedPath = EndpointLogic.getPickedPath(memento)
-    EndpointLogic.entriesToItems(self.entries, self.extensionUri, pickedPath, ~downloadItem?, ())
+    EndpointLogic.entriesToItems(self.entries, self.extensionUri, globalStorageUri, pickedPath, ~downloadItem?, ())
   }
 
   // Update items with visual marking of picked connection
-  let updateItems = (self: t, qp: QuickPickManager.t, memento: Memento.t, ~downloadItem: option<VSCode.QuickPickItem.t>=?, ()): unit => {
-    let items = toItems(self, memento, ~downloadItem?, ())
+  let updateItems = (self: t, qp: QuickPickManager.t, memento: Memento.t, globalStorageUri: VSCode.Uri.t, ~downloadItem: option<VSCode.QuickPickItem.t>=?, ()): unit => {
+    let items = toItems(self, memento, globalStorageUri, ~downloadItem?, ())
     qp->QuickPickManager.updateItems(items)
   }
 
@@ -392,7 +393,7 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
   qp->QuickPickManager.setPlaceholder("Switch Version")
 
   // PHASE 1: Show cached items immediately with visual marking
-  endpointManager->EndpointManager.updateItems(qp, state.memento, ())
+  endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ())
   qp->QuickPickManager.show
   
   // Create download item asynchronously in background
@@ -436,7 +437,7 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
                   | Ok(_endpoint) => 
                     // Refresh the UI to show new status
                     let newDownloadItem = await createDownloadItem(state, platformDeps)
-                    endpointManager->EndpointManager.updateItems(qp, state.memento, ~downloadItem=?newDownloadItem, ())
+                    endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem=?newDownloadItem, ())
                     let _ = await VSCode.Window.showInformationMessage(item.detail->Option.getOr("ALS") ++ " successfully downloaded", [])
                   }
                 }
@@ -473,18 +474,18 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
       let phase2Changed =
         await endpointManager->EndpointManager.syncWithFilesystem(state, platformDeps)
       if phase2Changed {
-        endpointManager->EndpointManager.updateItems(qp, state.memento, ~downloadItem?, ())
+        endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem?, ())
       }
 
       // PHASE 3: Probe version information
       let phase3Changed = await endpointManager->EndpointManager.probeVersions(state)
       if phase3Changed {
-        endpointManager->EndpointManager.updateItems(qp, state.memento, ~downloadItem?, ())
+        endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem?, ())
       }
       
       // Update UI with download item even if no other changes
       if !phase2Changed && !phase3Changed {
-        endpointManager->EndpointManager.updateItems(qp, state.memento, ~downloadItem?, ())
+        endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem?, ())
       }
     } catch {
     | _exn => () // Ignore background update errors
