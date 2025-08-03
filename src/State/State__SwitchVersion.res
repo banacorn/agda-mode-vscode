@@ -199,7 +199,8 @@ module ItemCreation = {
 }
 
 let openGlobalStorageFolder = async (state: State.t) => {
-  let _result = await VSCode.Env.openExternal(state.globalStorageUri)
+  let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
+  let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
 }
 
 let switchAgdaVersion = async (state: State.t) => {
