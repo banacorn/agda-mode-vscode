@@ -336,7 +336,7 @@ module EndpointManager = {
   }
 }
 
-// Create download item if available - using exact v1 logic
+// Create download item if available
 let createDownloadItem = async (state: State.t, platformDeps: Platform.t): option<VSCode.QuickPickItem.t> => {
   module PlatformOps = unpack(platformDeps)
   
@@ -347,7 +347,7 @@ let createDownloadItem = async (state: State.t, platformDeps: Platform.t): optio
     switch await Connection__LatestALS.getFetchSpec(state.memento, state.globalStorageUri, platform) {
     | Error(_) => None
     | Ok(fetchSpec) => 
-      // Use exact v1 UI detection logic (same as fetchSpecToItem)
+      // Use corrected detection logic
       let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(state.globalStorageUri)
       let installedPaths = installedEndpoints
         ->Dict.valuesToArray
@@ -368,7 +368,7 @@ let createDownloadItem = async (state: State.t, platformDeps: Platform.t): optio
       let downloaded = Array.includes(installedPaths, filenameAsUri)
       
       
-      // Use exact v1 version formatting logic
+      // Format version string for display
       let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
         asset.name
         ->String.replaceRegExp(%re("/als-Agda-/"), "")
@@ -412,7 +412,7 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
             let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
           } else if selectedItem.label == "$(cloud-download)  Download the latest Agda Language Server" {
-            // Check if already downloaded using our corrected v2 logic
+            // Check if already downloaded using our corrected logic
             switch await createDownloadItem(state, platformDeps) {
             | Some(item) => 
               // Check the item's description to see if it's already downloaded
@@ -425,7 +425,6 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
                 // Show "already downloaded" message
                 let _ = await VSCode.Window.showInformationMessage(item.detail->Option.getOr("ALS") ++ " is already downloaded", [])
               } else {
-                // Actually download using v1 infrastructure but bypass its detection
                 module PlatformOps = unpack(platformDeps)
                 switch await PlatformOps.determinePlatform() {
                 | Error(_) => 

@@ -401,4 +401,96 @@ describe("State__SwitchVersion2", () => {
       })
     })
   })
+
+  describe("End-to-End Download Integration", () => {
+    describe("Download Item Creation", () => {
+      it("should create download item with correct description based on download status", () => {
+        // Test when not downloaded
+        let item1 = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
+        Assert.deepStrictEqual(item1.description, Some(""))
+        
+        // Test when already downloaded  
+        let item2 = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "ALS v1.0.0")
+        Assert.deepStrictEqual(item2.description, Some("Downloaded and installed"))
+      })
+    })
+
+    describe("Download Status Logic", () => {
+      it("should correctly determine download status from description", () => {
+        let notDownloadedItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
+        let downloadedItem = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "ALS v1.0.0")
+        
+        // Test the same logic used in the actual download click handler
+        let isNotDownloaded = switch notDownloadedItem.description {
+        | Some("Downloaded and installed") => false
+        | _ => true
+        }
+        
+        let isDownloaded = switch downloadedItem.description {
+        | Some("Downloaded and installed") => true
+        | _ => false
+        }
+        
+        Assert.deepStrictEqual(isNotDownloaded, true)
+        Assert.deepStrictEqual(isDownloaded, true)
+      })
+    })
+
+    describe("UI Section Layout", () => {
+      it("should include download section when download item is provided", () => {
+        let entries = Dict.make()
+        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+        
+        let extensionUri = TestData.createMockExtensionUri()
+        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ~downloadItem, ())
+        
+        // Should have: Installed separator + agda item + Download separator + download item + Misc separator + open folder
+        Assert.deepStrictEqual(Array.length(items), 6)
+        
+        // Check that download section exists
+        let downloadSeparator = items->Array.find(item => item.label == "Download")
+        let downloadItemFound = items->Array.find(item => item.label == "$(cloud-download)  Download the latest Agda Language Server")
+        
+        Assert.ok(downloadSeparator->Option.isSome)
+        Assert.ok(downloadItemFound->Option.isSome)
+      })
+      
+      it("should not include download section when no download item is provided", () => {
+        let entries = Dict.make()
+        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+        
+        let extensionUri = TestData.createMockExtensionUri()
+        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, None, ())
+        
+        // Should have: Installed separator + agda item + Misc separator + open folder (no download section)
+        Assert.deepStrictEqual(Array.length(items), 4)
+        
+        // Check that no download section exists
+        let downloadSeparator = items->Array.find(item => item.label == "Download")
+        let downloadItemFound = items->Array.find(item => item.label == "$(cloud-download)  Download the latest Agda Language Server")
+        
+        Assert.ok(downloadSeparator->Option.isNone)
+        Assert.ok(downloadItemFound->Option.isNone)
+      })
+    })
+
+    describe("Message Formatting", () => {
+      it("should format already downloaded message correctly", () => {
+        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "Agda v2.6.4 Language Server v1.0.0")
+        let message = downloadItem.detail->Option.getOr("ALS") ++ " is already downloaded"
+        
+        Assert.ok(String.includes(message, "is already downloaded"))
+        Assert.ok(String.includes(message, "Agda v2.6.4 Language Server v1.0.0"))
+      })
+      
+      it("should format successfully downloaded message correctly", () => {
+        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "Agda v2.6.4 Language Server v1.0.0")
+        let message = downloadItem.detail->Option.getOr("ALS") ++ " successfully downloaded"
+        
+        Assert.ok(String.includes(message, "successfully downloaded"))
+        Assert.ok(String.includes(message, "Agda v2.6.4 Language Server v1.0.0"))
+      })
+    })
+  })
 })
