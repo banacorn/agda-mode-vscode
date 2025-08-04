@@ -1114,12 +1114,6 @@
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.switch-agda-version-2",
-				"key": "ctrl+x ctrl+s ctrl+2",
-				"mac": "ctrl+x ctrl+s ctrl+2",
-				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
-			},
-			{
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",

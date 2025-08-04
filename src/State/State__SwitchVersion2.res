@@ -1,128 +1,194 @@
-// Lazy-loading version switching module with cached endpoint display
+// Constants for reused UI strings
+module Constants = {
+  let agdaVersionPrefix = "Agda v"
+  let alsWithSquirrel = "$(squirrel)  ALS v"
+  let downloadLatestALS = "$(cloud-download)  Download the latest Agda Language Server"
+  let openDownloadFolder = "$(folder-opened)  Open download folder"
+  let downloadedAndInstalled = "Downloaded and installed"
+}
 
-module ItemFormatting = {
-  type endpointInfo = {
-    endpoint: Memento.Endpoints.endpoint,
-    error: option<string>,
+module ItemData = {
+  // UI item types
+  type itemType =
+    | Endpoint(string, Memento.Endpoints.entry) // path, entry
+    | DownloadAction(bool, string) // downloaded, versionString
+    | OpenFolder(string) // folderPath
+    | NoInstallations
+    | Separator(string) // label
+
+  type t = {
+    itemType: itemType,
+    isSelected: bool,
   }
 
-  // Format endpoint display information
-  let formatEndpointInfo = (filename: string, endpointInfo: endpointInfo, isPicked: bool) => {
-    let (baseLabel, baseDescription) = switch (endpointInfo.endpoint, endpointInfo.error) {
-    | (Agda(Some(version)), _) => ("Agda v" ++ version, "")
-    | (Agda(None), _) => ("Agda (version unknown)", "")
-    | (ALS(Some((alsVersion, agdaVersion))), _) => (
-        "$(squirrel)  ALS v" ++ alsVersion ++ ", Agda v" ++ agdaVersion,
-        "",
-      )
-    | (ALS(None), _) => ("$(squirrel)  ALS (version unknown)", "")
-    | (Unknown, Some(error)) => ("$(error) " ++ filename, "Error: " ++ error)
-    | (Unknown, None) => ("$(question) " ++ filename, "Unknown executable")
-    }
-
-    // Use description space for selection marking
-    let description = isPicked ? "Selected" : baseDescription
-    (baseLabel, description)
-  }
-
-  // Determine if endpoint should have an icon
-  let shouldHaveIcon = (endpoint: Memento.Endpoints.endpoint): bool => {
+  // UI display logic
+  let shouldEndpointHaveIcon = (endpoint: Memento.Endpoints.endpoint): bool => {
     switch endpoint {
     | Agda(_) => true
     | _ => false
     }
   }
 
-  // Format endpoint from entry
-  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry, isPicked: bool) => {
-    formatEndpointInfo(filename, {endpoint: entry.endpoint, error: entry.error}, isPicked)
-  }
-}
-
-module ItemCreation = {
-  // Format endpoint information for display with picked status
-  let formatEndpoint = (filename: string, entry: Memento.Endpoints.entry, isPicked: bool) => {
-    ItemFormatting.formatEndpoint(filename, entry, isPicked)
-  }
-
-  // Create quickpick item from endpoint entry with picked status
-  let createEndpointItem = (
-    path: string,
-    entry: Memento.Endpoints.entry,
-    extensionUri: VSCode.Uri.t,
-    isPicked: bool,
-  ): VSCode.QuickPickItem.t => {
-    let filename = NodeJs.Path.basename(path)
-    let (label, description) = formatEndpoint(filename, entry, isPicked)
-
-    // Add Agda icon for Agda endpoints
-    let iconPath = if ItemFormatting.shouldHaveIcon(entry.endpoint) {
-      Some(
-        VSCode.IconPath.fromDarkAndLight({
-          "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
-          "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
-        }),
+  let getEndpointDisplayInfo = (filename: string, entry: Memento.Endpoints.entry): (
+    string,
+    option<string>,
+  ) => {
+    switch (entry.endpoint, entry.error) {
+    | (Agda(Some(version)), _) => (Constants.agdaVersionPrefix ++ version, None)
+    | (Agda(None), _) => ("Agda (version unknown)", None)
+    | (ALS(Some((alsVersion, agdaVersion))), _) => (
+        Constants.alsWithSquirrel ++
+        alsVersion ++
+        ", " ++
+        Constants.agdaVersionPrefix ++
+        agdaVersion,
+        None,
       )
+    | (ALS(None), _) => (Constants.alsWithSquirrel ++ "(version unknown)", None)
+    | (Unknown, Some(error)) => ("$(error) " ++ filename, Some("Error: " ++ error))
+    | (Unknown, None) => ("$(question) " ++ filename, Some("Unknown executable"))
+    }
+  }
+
+  // Convert entries to item data
+  let entriesToItemData = (
+    entries: Dict.t<Memento.Endpoints.entry>,
+    pickedPath: option<string>,
+    downloadItem: option<(bool, string)>,
+    folderPath: string,
+  ): array<t> => {
+    // Pre-convert to array once for better performance
+    let entriesArray = entries->Dict.toArray
+    let hasEndpoints = Array.length(entriesArray) > 0
+
+    // Build endpoint items with optimized selection check
+    let endpointItems = switch pickedPath {
+    | Some(picked) =>
+      // Only do string comparison when there's a picked path
+      entriesArray->Array.map(((path, entry)) => {
+        {itemType: Endpoint(path, entry), isSelected: picked == path}
+      })
+    | None =>
+      // Avoid unnecessary comparisons when no path is picked
+      entriesArray->Array.map(((path, entry)) => {
+        {itemType: Endpoint(path, entry), isSelected: false}
+      })
+    }
+
+    // Build sections efficiently without Array.flat
+    // Add installed section
+    let sectionsWithInstalled = if hasEndpoints {
+      Array.concat([{itemType: Separator("Installed"), isSelected: false}], endpointItems)
     } else {
-      None
+      [{itemType: NoInstallations, isSelected: false}]
     }
 
-    let baseItem: VSCode.QuickPickItem.t = {
-      label,
-      description,
-      detail: path,
+    // Add download section if present
+    let sectionsWithDownload = switch downloadItem {
+    | Some((downloaded, versionString)) =>
+      Array.concat(
+        sectionsWithInstalled,
+        [
+          {itemType: Separator("Download"), isSelected: false},
+          {itemType: DownloadAction(downloaded, versionString), isSelected: false},
+        ],
+      )
+    | None => sectionsWithInstalled
     }
 
-    switch iconPath {
-    | Some(icon) => {
-        ...baseItem,
-        iconPath: icon,
-      }
-    | None => baseItem
-    }
-  }
-
-  // Create separator item
-  let createSeparatorItem = (label: string): VSCode.QuickPickItem.t => {
-    {
-      label,
-      kind: VSCode.QuickPickItemKind.Separator,
-    }
-  }
-
-  // Create "no installations" placeholder item
-  let createNoInstallationsItem = (): VSCode.QuickPickItem.t => {
-    {
-      label: "$(info) No installations found",
-      description: "Try installing Agda or ALS first",
-      detail: "No executable paths detected",
-    }
-  }
-
-  // Create "open download folder" item
-  let createOpenFolderItem = (globalStorageUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
-    {
-      label: "$(folder-opened)  Open download folder",
-      description: "Where the language servers are downloaded to",
-      detail: VSCode.Uri.fsPath(globalStorageUri),
-    }
-  }
-
-  // Create "download ALS" item
-  let createDownloadItem = (downloaded: bool, versionString: string): VSCode.QuickPickItem.t => {
-    {
-      label: "$(cloud-download)  Download the latest Agda Language Server",
-      description: if downloaded {
-        "Downloaded and installed"
-      } else {
-        ""
-      },
-      detail: versionString,
-    }
+    // Add misc section
+    Array.concat(
+      sectionsWithDownload,
+      [
+        {itemType: Separator("Misc"), isSelected: false},
+        {itemType: OpenFolder(folderPath), isSelected: false},
+      ],
+    )
   }
 }
 
-module QuickPickManager = {
+module Item = {
+  // Helper function to create QuickPickItem from label, description, and detail
+  let createQuickPickItem = (
+    label: string,
+    description: option<string>,
+    detail: option<string>,
+  ): VSCode.QuickPickItem.t => {
+    switch (description, detail) {
+    | (Some(desc), Some(det)) => {label, description: desc, detail: det}
+    | (Some(desc), None) => {label, description: desc}
+    | (None, Some(det)) => {label, detail: det}
+    | (None, None) => {label: label}
+    }
+  }
+
+  // Convert item data to VSCode QuickPick item
+  let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
+    // Convert item data to UI display information
+    let (label, description, detail): (string, option<string>, option<string>) = {
+      switch itemData.itemType {
+      | Endpoint(path, entry) => {
+          let filename = NodeJs.Path.basename(path)
+          let (label, errorDescription) = ItemData.getEndpointDisplayInfo(filename, entry)
+          let description = switch (itemData.isSelected, errorDescription) {
+          | (true, None) => "Selected"
+          | (false, None) => ""
+          | (_, Some(error)) => error
+          }
+          (label, Some(description), Some(path))
+        }
+      | DownloadAction(downloaded, versionString) => {
+          let label = Constants.downloadLatestALS
+          let description = downloaded ? Constants.downloadedAndInstalled : ""
+          (label, Some(description), Some(versionString))
+        }
+      | OpenFolder(folderPath) => {
+          let label = Constants.openDownloadFolder
+          let description = "Where the language servers are downloaded to"
+          (label, Some(description), Some(folderPath))
+        }
+      | NoInstallations => {
+          let label = "$(info) No installations found"
+          let description = "Try installing Agda or ALS first"
+          let detail = "No executable paths detected"
+          (label, Some(description), Some(detail))
+        }
+      | Separator(label) => (label, None, None)
+      }
+    }
+
+    switch itemData.itemType {
+    | Separator(_) => {
+        label,
+        kind: VSCode.QuickPickItemKind.Separator,
+      }
+    | Endpoint(_, entry) => {
+        let baseItem = createQuickPickItem(label, description, detail)
+        if ItemData.shouldEndpointHaveIcon(entry.endpoint) {
+          {
+            ...baseItem,
+            iconPath: VSCode.IconPath.fromDarkAndLight({
+              "dark": VSCode.Uri.joinPath(extensionUri, ["asset/dark.png"]),
+              "light": VSCode.Uri.joinPath(extensionUri, ["asset/light.png"]),
+            }),
+          }
+        } else {
+          baseItem
+        }
+      }
+    | _ => createQuickPickItem(label, description, detail)
+    }
+  }
+
+  // Convert array of item data to VSCode QuickPick items
+  let fromItemDataArray = (itemDataArray: array<ItemData.t>, extensionUri: VSCode.Uri.t): array<
+    VSCode.QuickPickItem.t,
+  > => {
+    itemDataArray->Array.map(itemData => fromItemData(itemData, extensionUri))
+  }
+}
+
+module View = {
   type t = {
     quickPick: VSCode.QuickPick.t<VSCode.QuickPickItem.t>,
     subscriptions: array<VSCode.Disposable.t>,
@@ -166,156 +232,83 @@ module QuickPickManager = {
   }
 }
 
-module EndpointLogic = {
-  // Determine picked connection
-  let getPickedPath = (memento: Memento.t): option<string> => {
-    Memento.PickedConnection.get(memento)
-  }
-
-  // Convert entries to items
-  let entriesToItems = (
-    entries: Dict.t<Memento.Endpoints.entry>,
-    extensionUri: VSCode.Uri.t,
-    globalStorageUri: VSCode.Uri.t,
-    pickedPath: option<string>,
-    ~downloadItem: option<VSCode.QuickPickItem.t>=?,
-    ()
-  ): array<VSCode.QuickPickItem.t> => {
-    let pathItems =
-      entries
-      ->Dict.toArray
-      ->Array.map(((path, entry)) => {
-        let isPicked = switch pickedPath {
-        | Some(picked) => picked == path
-        | None => false
-        }
-        ItemCreation.createEndpointItem(path, entry, extensionUri, isPicked)
-      })
-
-    let installedSection = if Array.length(pathItems) > 0 {
-      Array.concat([ItemCreation.createSeparatorItem("Installed")], pathItems)
-    } else {
-      [ItemCreation.createNoInstallationsItem()]
-    }
-
-    // Add download section if download item is provided
-    let downloadSection = switch downloadItem {
-    | Some(item) => [
-        ItemCreation.createSeparatorItem("Download"),
-        item
-      ]
-    | None => []
-    }
-
-    // Add misc section with open folder item
-    let miscSection = [
-      ItemCreation.createSeparatorItem("Misc"),
-      ItemCreation.createOpenFolderItem(globalStorageUri),
-    ]
-
-    Array.flat([installedSection, downloadSection, miscSection])
-  }
-
-  // Get paths that need version probing
-  let getPathsNeedingProbe = (entries: Dict.t<Memento.Endpoints.entry>): array<string> => {
-    entries
-    ->Dict.toArray
-    ->Array.filterMap(((path, entry)) => {
-      switch entry.endpoint {
-      | Agda(None) | ALS(None) => Some(path)
-      | _ => None
-      }
-    })
-  }
-
-  // Check if entries changed
-  let entriesChanged = (
-    oldEntries: Dict.t<Memento.Endpoints.entry>,
-    newEntries: Dict.t<Memento.Endpoints.entry>,
-  ): bool => {
-    newEntries !== oldEntries
-  }
-}
-
-module EndpointManager = {
-  // Single source of truth for endpoint entries
+module SwitchVersionManager = {
   type t = {
     mutable entries: Dict.t<Memento.Endpoints.entry>,
-    extensionUri: VSCode.Uri.t,
+    memento: Memento.t,
+    globalStorageUri: VSCode.Uri.t,
   }
 
   let make = (state: State.t): t => {
     entries: Memento.Endpoints.entries(state.memento),
-    extensionUri: state.extensionUri,
+    memento: state.memento,
+    globalStorageUri: state.globalStorageUri,
   }
 
-  // Convert current entries to quickpick items with picked connection marking
-  let toItems = (self: t, memento: Memento.t, globalStorageUri: VSCode.Uri.t, ~downloadItem: option<VSCode.QuickPickItem.t>=?, ()): array<VSCode.QuickPickItem.t> => {
-    let pickedPath = EndpointLogic.getPickedPath(memento)
-    EndpointLogic.entriesToItems(self.entries, self.extensionUri, globalStorageUri, pickedPath, ~downloadItem?, ())
+  // Get current items as data
+  let getItemData = (self: t, downloadInfo: option<(bool, string)>): array<ItemData.t> => {
+    let pickedPath = Memento.PickedConnection.get(self.memento)
+    let folderPath = VSCode.Uri.fsPath(self.globalStorageUri)
+    ItemData.entriesToItemData(self.entries, pickedPath, downloadInfo, folderPath)
   }
 
-  // Update items with visual marking of picked connection
-  let updateItems = (self: t, qp: QuickPickManager.t, memento: Memento.t, globalStorageUri: VSCode.Uri.t, ~downloadItem: option<VSCode.QuickPickItem.t>=?, ()): unit => {
-    let items = toItems(self, memento, globalStorageUri, ~downloadItem?, ())
-    qp->QuickPickManager.updateItems(items)
-  }
-
-  // Update entries from memento and return whether anything changed
-  let refreshFromMemento = (self: t, memento: Memento.t): bool => {
-    let newEntries = Memento.Endpoints.entries(memento)
-    let changed = EndpointLogic.entriesChanged(self.entries, newEntries)
+  // Update entries and return if changed
+  let refreshFromMemento = (self: t): bool => {
+    let newEntries = Memento.Endpoints.entries(self.memento)
+    let changed = newEntries !== self.entries
     if changed {
       self.entries = newEntries
     }
     changed
   }
 
-  // Phase 2: Discover and sync filesystem paths
-  let syncWithFilesystem = async (self: t, state: State.t, platformDeps: Platform.t): bool => {
+  // Filesystem sync (Phase 2)
+  let syncWithFilesystem = async (self: t, platformDeps: Platform.t): bool => {
     module PlatformOps = unpack(platformDeps)
 
-    // Discover new endpoints with inferred types
     let discoveredEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem2(
-      state.globalStorageUri,
+      self.globalStorageUri,
     )
 
-    // Sync cache with discovered endpoints
-    await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-
-    // Update our local entries and return if changed
-    refreshFromMemento(self, state.memento)
+    await Memento.Endpoints.syncWithPaths(self.memento, discoveredEndpoints)
+    refreshFromMemento(self)
   }
 
-  // Phase 3: Probe for version information
-  let probeVersions = async (self: t, state: State.t): bool => {
-    // Get paths that need version probing
-    let pathsToProbe = EndpointLogic.getPathsNeedingProbe(self.entries)
+  // Version probing (Phase 3)
+  let probeVersions = async (self: t): bool => {
+    let pathsToProbe =
+      self.entries
+      ->Dict.toArray
+      ->Array.filterMap(((path, entry)) => {
+        switch entry.endpoint {
+        | Agda(None) | ALS(None) => Some(path)
+        | _ => None
+        }
+      })
 
     if Array.length(pathsToProbe) == 0 {
-      false // Nothing to probe
+      false
     } else {
-      // Probe endpoints in parallel
       let probePromises = pathsToProbe->Array.map(async path => {
         let uri = Connection__URI.parse(path)
         switch await Connection__Endpoint.probeFilepath(uri) {
         | Ok(Connection__Endpoint.Agda(version, _)) =>
           await Memento.Endpoints.setVersion(
-            state.memento,
+            self.memento,
             path,
             Memento.Endpoints.Agda(Some(version)),
           )
           Some(path)
         | Ok(Connection__Endpoint.ALS(alsVersion, agdaVersion, _, _)) =>
           await Memento.Endpoints.setVersion(
-            state.memento,
+            self.memento,
             path,
             Memento.Endpoints.ALS(Some((alsVersion, agdaVersion))),
           )
           Some(path)
         | Error(error) =>
           await Memento.Endpoints.setError(
-            state.memento,
+            self.memento,
             path,
             Connection__Endpoint.Error.toString(error),
           )
@@ -327,8 +320,7 @@ module EndpointManager = {
       let updatedPaths = updateResults->Array.filterMap(x => x)
 
       if Array.length(updatedPaths) > 0 {
-        // Refresh our entries from memento
-        let _ = refreshFromMemento(self, state.memento)
+        let _ = refreshFromMemento(self)
         true
       } else {
         false
@@ -337,71 +329,97 @@ module EndpointManager = {
   }
 }
 
-// Create download item if available
-let createDownloadItem = async (state: State.t, platformDeps: Platform.t): option<VSCode.QuickPickItem.t> => {
-  module PlatformOps = unpack(platformDeps)
-  
-  // Check if we can download ALS for this platform
-  switch await PlatformOps.determinePlatform() {
-  | Error(_) => None
-  | Ok(platform) =>
-    switch await Connection__LatestALS.getFetchSpec(state.memento, state.globalStorageUri, platform) {
+// Download module - handles download-related business logic
+module Download = {
+  // Get available download info: (downloaded, versionString)
+  let getAvailableDownload = async (state: State.t, platformDeps: Platform.t): option<(
+    bool,
+    string,
+  )> => {
+    module PlatformOps = unpack(platformDeps)
+
+    // Check if we can download ALS for this platform
+    switch await PlatformOps.determinePlatform() {
     | Error(_) => None
-    | Ok(fetchSpec) => 
-      // Use corrected detection logic
-      let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(state.globalStorageUri)
-      let installedPaths = installedEndpoints
-        ->Dict.valuesToArray
-        ->Array.filterMap(x =>
-          switch x {
-          | Error(_) => None
-          | Ok(endpoint) => Some(Connection.Endpoint.toURI(endpoint)->Connection.URI.toString)
-          }
+    | Ok(platform) =>
+      switch await Connection__LatestALS.getFetchSpec(
+        state.memento,
+        state.globalStorageUri,
+        platform,
+      ) {
+      | Error(_) => None
+      | Ok(fetchSpec) =>
+        // Use corrected detection logic
+        let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
+          state.globalStorageUri,
         )
-      
-      let filename = NodeJs.Path.join([
-        VSCode.Uri.fsPath(state.globalStorageUri),
-        fetchSpec.saveAsFileName,
-        "als",
-      ])
-      // Convert filename to URI format to match installedPaths format
-      let filenameAsUri = VSCode.Uri.file(filename)->VSCode.Uri.toString
-      let downloaded = Array.includes(installedPaths, filenameAsUri)
-      
-      
-      // Format version string for display
-      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-        asset.name
-        ->String.replaceRegExp(%re("/als-Agda-/"), "")
-        ->String.replaceRegExp(%re("/-.*/"), "")
-      let agdaVersion = getAgdaVersion(fetchSpec.asset)
-      let alsVersion = fetchSpec.release.name->String.split(".")->Array.last->Option.getOr(fetchSpec.release.name)
-      
-      let versionString = State__SwitchVersion.VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
-      
-      Some(ItemCreation.createDownloadItem(downloaded, versionString))
+        let installedPaths =
+          installedEndpoints
+          ->Dict.valuesToArray
+          ->Array.filterMap(x =>
+            switch x {
+            | Error(_) => None
+            | Ok(endpoint) => Some(Connection.Endpoint.toURI(endpoint)->Connection.URI.toString)
+            }
+          )
+
+        let filename = NodeJs.Path.join([
+          VSCode.Uri.fsPath(state.globalStorageUri),
+          fetchSpec.saveAsFileName,
+          "als",
+        ])
+        // Convert filename to URI format to match installedPaths format
+        let filenameAsUri = VSCode.Uri.file(filename)->VSCode.Uri.toString
+        let downloaded = Array.includes(installedPaths, filenameAsUri)
+
+        // Format version string for display
+        let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
+          asset.name
+          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        let agdaVersion = getAgdaVersion(fetchSpec.asset)
+        let alsVersion =
+          fetchSpec.release.name
+          ->String.split(".")
+          ->Array.last
+          ->Option.getOr(fetchSpec.release.name)
+
+        let versionString = State__SwitchVersion.VersionDisplay.formatALSVersion(
+          alsVersion,
+          agdaVersion,
+        )
+
+        Some((downloaded, versionString))
+      }
     }
   }
 }
 
 // Main entry point
 let run = async (state: State.t, platformDeps: Platform.t) => {
-  let qp = QuickPickManager.make()
-  let endpointManager = EndpointManager.make(state)
+  let manager = SwitchVersionManager.make(state)
+  let view = View.make()
+
+  // Helper function to update UI with current state
+  let updateUI = (downloadInfo: option<(bool, string)>): unit => {
+    let itemData = SwitchVersionManager.getItemData(manager, downloadInfo)
+    let items = Item.fromItemDataArray(itemData, state.extensionUri)
+    view->View.updateItems(items)
+  }
 
   // Setup quickpick
-  qp->QuickPickManager.setPlaceholder("Switch Version")
+  view->View.setPlaceholder("Switch Agda Version")
 
   // PHASE 1: Show cached items immediately with visual marking
-  endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ())
-  qp->QuickPickManager.show
-  
-  // Create download item asynchronously in background
-  let downloadItemPromise = createDownloadItem(state, platformDeps)
+  updateUI(None)
+  view->View.show
+
+  // Get download info asynchronously in background
+  let downloadInfoPromise = Download.getAvailableDownload(state, platformDeps)
 
   // Setup event handlers
-  qp->QuickPickManager.onSelection(selectedItems => {
-    qp->QuickPickManager.destroy
+  view->View.onSelection(selectedItems => {
+    view->View.destroy
 
     // Handle user selection
     let _ = (
@@ -409,41 +427,55 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
           // Check if this is the open folder item
-          if selectedItem.label == "$(folder-opened)  Open download folder" {
+          if selectedItem.label == Constants.openDownloadFolder {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
             let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
-          } else if selectedItem.label == "$(cloud-download)  Download the latest Agda Language Server" {
+          } else if selectedItem.label == Constants.downloadLatestALS {
             // Check if already downloaded using our corrected logic
-            switch await createDownloadItem(state, platformDeps) {
-            | Some(item) => 
-              // Check the item's description to see if it's already downloaded
-              let alreadyDownloaded = switch item.description {
-              | Some("Downloaded and installed") => true
-              | _ => false
-              }
-              
+            switch await Download.getAvailableDownload(state, platformDeps) {
+            | Some((downloaded, versionString)) =>
+              let alreadyDownloaded = downloaded
+
               if alreadyDownloaded {
                 // Show "already downloaded" message
-                let _ = await VSCode.Window.showInformationMessage(item.detail->Option.getOr("ALS") ++ " is already downloaded", [])
+                let _ = await VSCode.Window.showInformationMessage(
+                  versionString ++ " is already downloaded",
+                  [],
+                )
               } else {
                 module PlatformOps = unpack(platformDeps)
                 switch await PlatformOps.determinePlatform() {
-                | Error(_) => 
-                  let _ = await VSCode.Window.showErrorMessage("Failed to determine platform", [])
+                | Error(_) =>
+                  let _ = await VSCode.Window.showErrorMessage(
+                    "Failed to determine the platform for downloading the Agda Language Server",
+                    [],
+                  )
                 | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(platform) {
-                  | Error(error) => 
-                    let _ = await VSCode.Window.showErrorMessage(AgdaModeVscode.Connection__Download.Error.toString(error), [])
-                  | Ok(_endpoint) => 
+                  switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(
+                    platform,
+                  ) {
+                  | Error(error) =>
+                    let _ = await VSCode.Window.showErrorMessage(
+                      AgdaModeVscode.Connection__Download.Error.toString(error),
+                      [],
+                    )
+                  | Ok(_endpoint) =>
                     // Refresh the UI to show new status
-                    let newDownloadItem = await createDownloadItem(state, platformDeps)
-                    endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem=?newDownloadItem, ())
-                    let _ = await VSCode.Window.showInformationMessage(item.detail->Option.getOr("ALS") ++ " successfully downloaded", [])
+                    let newDownloadInfo = await Download.getAvailableDownload(state, platformDeps)
+                    let _ = SwitchVersionManager.refreshFromMemento(manager)
+                    updateUI(newDownloadInfo)
+                    let _ = await VSCode.Window.showInformationMessage(
+                      versionString ++ " successfully downloaded",
+                      [],
+                    )
                   }
                 }
               }
-            | None => 
-              let _ = await VSCode.Window.showErrorMessage("Download not available for this platform", [])
+            | None =>
+              let _ = await VSCode.Window.showErrorMessage(
+                "Download not available for this platform",
+                [],
+              )
             }
           } else {
             // Regular endpoint selection - save to PickedConnection
@@ -460,32 +492,31 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
     )()
   })
 
-  qp->QuickPickManager.onHide(() => {
-    qp->QuickPickManager.destroy
+  view->View.onHide(() => {
+    view->View.destroy
   })
 
   // Background update process (sequential phases)
   let backgroundUpdate = async () => {
     try {
-      // Get download item
-      let downloadItem = await downloadItemPromise
-      
+      // Get download info
+      let downloadInfo = await downloadInfoPromise
+
       // PHASE 2: Sync with filesystem (discover new paths)
-      let phase2Changed =
-        await endpointManager->EndpointManager.syncWithFilesystem(state, platformDeps)
+      let phase2Changed = await SwitchVersionManager.syncWithFilesystem(manager, platformDeps)
       if phase2Changed {
-        endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem?, ())
+        updateUI(downloadInfo)
       }
 
       // PHASE 3: Probe version information
-      let phase3Changed = await endpointManager->EndpointManager.probeVersions(state)
+      let phase3Changed = await SwitchVersionManager.probeVersions(manager)
       if phase3Changed {
-        endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem?, ())
+        updateUI(downloadInfo)
       }
-      
+
       // Update UI with download item even if no other changes
       if !phase2Changed && !phase3Changed {
-        endpointManager->EndpointManager.updateItems(qp, state.memento, state.globalStorageUri, ~downloadItem?, ())
+        updateUI(downloadInfo)
       }
     } catch {
     | _exn => () // Ignore background update errors

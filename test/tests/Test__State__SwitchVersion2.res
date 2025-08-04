@@ -1,28 +1,22 @@
 open Mocha
-open Test__Util
+open State__SwitchVersion2.ItemData
 
 module TestData = {
   // Mock endpoint entries for testing
-  let createMockEntry = (endpoint: Memento.Endpoints.endpoint, ~error: option<string>=?, ()): Memento.Endpoints.entry => {
-    endpoint: endpoint,
+  let createMockEntry = (
+    endpoint: Memento.Endpoints.endpoint,
+    ~error: option<string>=?,
+    (),
+  ): Memento.Endpoints.entry => {
+    endpoint,
     timestamp: Date.make(),
-    error: error,
+    error,
   }
 
   let agdaEntry = createMockEntry(Agda(Some("2.6.4")), ())
   let agdaUnknownEntry = createMockEntry(Agda(None), ())
   let alsEntry = createMockEntry(ALS(Some(("4.0.0", "2.6.4"))), ())
-  let errorEntry = createMockEntry(Unknown, ~error="Permission denied", ())
-
-  // Test data for pure functions
-  let createMockEndpointInfo = (endpoint: Memento.Endpoints.endpoint, ~error: option<string>=?, ()): State__SwitchVersion2.ItemFormatting.endpointInfo => {
-    endpoint: endpoint,
-    error: error,
-  }
-
-  let agdaEndpointInfo = createMockEndpointInfo(Agda(Some("2.6.4")), ())
-  let alsEndpointInfo = createMockEndpointInfo(ALS(Some(("4.0.0", "2.6.4"))), ())
-  let unknownEndpointInfo = createMockEndpointInfo(Unknown, ~error="Permission denied", ())
+  let unknownEntry = createMockEntry(Unknown, ~error="Permission denied", ())
 
   // Simple mock functions for testing
   let createMockMemento = () => Memento.make(None)
@@ -30,471 +24,707 @@ module TestData = {
 }
 
 describe("State__SwitchVersion2", () => {
-  describe("ItemFormatting", () => {
-    describe("formatEndpointInfo", () => {
-      it("should format Agda endpoint with version", () => {
-        let endpointInfo = TestData.agdaEndpointInfo
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("agda", endpointInfo, false)
-        
-        Assert.deepStrictEqual(label, "Agda v2.6.4")
-        Assert.deepStrictEqual(description, "")
-      })
+  describe("Core", () => {
+    describe(
+      "getEndpointDisplayInfo",
+      () => {
+        it(
+          "should format Agda endpoint with version",
+          () => {
+            let entry = TestData.agdaEntry
+            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+              "agda",
+              entry,
+            )
 
-      it("should format Agda endpoint without version", () => {
-        let endpointInfo = TestData.createMockEndpointInfo(Agda(None), ())
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("agda", endpointInfo, false)
-        
-        Assert.deepStrictEqual(label, "Agda (version unknown)")
-        Assert.deepStrictEqual(description, "")
-      })
+            Assert.deepStrictEqual(label, "Agda v2.6.4")
+            Assert.deepStrictEqual(errorDescription, None)
+          },
+        )
 
-      it("should format ALS endpoint with versions", () => {
-        let endpointInfo = TestData.alsEndpointInfo
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("als", endpointInfo, false)
-        
-        Assert.deepStrictEqual(label, "$(squirrel)  ALS v4.0.0, Agda v2.6.4")
-        Assert.deepStrictEqual(description, "")
-      })
+        it(
+          "should format Agda endpoint without version",
+          () => {
+            let entry = TestData.agdaUnknownEntry
+            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+              "agda",
+              entry,
+            )
 
-      it("should add Selected when picked", () => {
-        let endpointInfo = TestData.agdaEndpointInfo
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("agda", endpointInfo, true)
-        
-        Assert.deepStrictEqual(label, "Agda v2.6.4")
-        Assert.deepStrictEqual(description, "Selected")
-      })
+            Assert.deepStrictEqual(label, "Agda (version unknown)")
+            Assert.deepStrictEqual(errorDescription, None)
+          },
+        )
 
-      it("should format error endpoint", () => {
-        let endpointInfo = TestData.unknownEndpointInfo
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("broken-agda", endpointInfo, false)
-        
-        Assert.deepStrictEqual(label, "$(error) broken-agda")
-        Assert.deepStrictEqual(description, "Error: Permission denied")
-      })
+        it(
+          "should format ALS endpoint with versions",
+          () => {
+            let entry = TestData.alsEntry
+            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+              "als",
+              entry,
+            )
 
-      it("should format unknown endpoint without error", () => {
-        let endpointInfo = TestData.createMockEndpointInfo(Unknown, ())
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpointInfo("mystery", endpointInfo, false)
-        
-        Assert.deepStrictEqual(label, "$(question) mystery")
-        Assert.deepStrictEqual(description, "Unknown executable")
-      })
-    })
+            Assert.deepStrictEqual(label, "$(squirrel)  ALS v4.0.0, Agda v2.6.4")
+            Assert.deepStrictEqual(errorDescription, None)
+          },
+        )
 
-    describe("shouldHaveIcon", () => {
-      it("should return true for Agda endpoints", () => {
-        Assert.deepStrictEqual(State__SwitchVersion2.ItemFormatting.shouldHaveIcon(Agda(Some("2.6.4"))), true)
-        Assert.deepStrictEqual(State__SwitchVersion2.ItemFormatting.shouldHaveIcon(Agda(None)), true)
-      })
+        it(
+          "should format error endpoint",
+          () => {
+            let entry = TestData.unknownEntry
+            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+              "broken-agda",
+              entry,
+            )
 
-      it("should return false for ALS endpoints", () => {
-        Assert.deepStrictEqual(State__SwitchVersion2.ItemFormatting.shouldHaveIcon(ALS(Some(("4.0.0", "2.6.4")))), false)
-        Assert.deepStrictEqual(State__SwitchVersion2.ItemFormatting.shouldHaveIcon(ALS(None)), false)
-      })
+            Assert.deepStrictEqual(label, "$(error) broken-agda")
+            Assert.deepStrictEqual(errorDescription, Some("Error: Permission denied"))
+          },
+        )
 
-      it("should return false for unknown endpoints", () => {
-        Assert.deepStrictEqual(State__SwitchVersion2.ItemFormatting.shouldHaveIcon(Unknown), false)
-      })
-    })
+        it(
+          "should format unknown endpoint without error",
+          () => {
+            let entry = TestData.createMockEntry(Unknown, ())
+            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+              "mystery",
+              entry,
+            )
 
-    describe("formatEndpoint", () => {
-      it("should format endpoint from entry", () => {
-        let entry = TestData.agdaEntry
-        let (label, description) = State__SwitchVersion2.ItemFormatting.formatEndpoint("agda", entry, true)
-        
-        Assert.deepStrictEqual(label, "Agda v2.6.4")
-        Assert.deepStrictEqual(description, "Selected")
-      })
-    })
+            Assert.deepStrictEqual(label, "$(question) mystery")
+            Assert.deepStrictEqual(errorDescription, Some("Unknown executable"))
+          },
+        )
+      },
+    )
+
+    describe(
+      "shouldEndpointHaveIcon",
+      () => {
+        it(
+          "should return true for Agda endpoints",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
+              true,
+            )
+            Assert.deepStrictEqual(
+              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Agda(None)),
+              true,
+            )
+          },
+        )
+
+        it(
+          "should return false for ALS endpoints",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
+              false,
+            )
+            Assert.deepStrictEqual(
+              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(ALS(None)),
+              false,
+            )
+          },
+        )
+
+        it(
+          "should return false for unknown endpoints",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Unknown),
+              false,
+            )
+          },
+        )
+      },
+    )
   })
 
-  describe("ItemCreation", () => {
+  describe("QuickPick", () => {
     let extensionUri = TestData.createMockExtensionUri()
 
-    describe("createEndpointItem", () => {
-      it("should create quickpick item with correct properties", () => {
-        let entry = TestData.agdaEntry
-        let item = State__SwitchVersion2.ItemCreation.createEndpointItem("/usr/bin/agda", entry, extensionUri, false)
-        
-        Assert.deepStrictEqual(item.label, "Agda v2.6.4")
-        Assert.deepStrictEqual(item.description, Some(""))
-        Assert.deepStrictEqual(item.detail, Some("/usr/bin/agda"))
-      })
+    describe(
+      "fromItemData",
+      () => {
+        it(
+          "should create quickpick item from endpoint data with correct properties",
+          () => {
+            let entry = TestData.agdaEntry
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: Endpoint("/usr/bin/agda", entry),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
-      it("should include icon for Agda endpoints", () => {
-        let entry = TestData.agdaEntry
-        let item = State__SwitchVersion2.ItemCreation.createEndpointItem("/usr/bin/agda", entry, extensionUri, false)
-        
-        // Check that iconPath is present for Agda
-        switch item.iconPath {
-        | Some(_) => () // Expected
-        | None => Assert.fail("Expected iconPath for Agda endpoint")
-        }
-      })
+            Assert.deepStrictEqual(item.label, "Agda v2.6.4")
+            Assert.deepStrictEqual(item.description, Some(""))
+            Assert.deepStrictEqual(item.detail, Some("/usr/bin/agda"))
+          },
+        )
 
-      it("should not include icon for ALS endpoints", () => {
-        let entry = TestData.alsEntry
-        let item = State__SwitchVersion2.ItemCreation.createEndpointItem("/usr/bin/als", entry, extensionUri, false)
-        
-        // Check that iconPath is absent for ALS
-        switch item.iconPath {
-        | None => () // Expected
-        | Some(_) => Assert.fail("Did not expect iconPath for ALS endpoint")
-        }
-      })
-    })
+        it(
+          "should include icon for Agda endpoints",
+          () => {
+            let entry = TestData.agdaEntry
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: Endpoint("/usr/bin/agda", entry),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
-    describe("createSeparatorItem", () => {
-      it("should create separator with correct kind", () => {
-        let item = State__SwitchVersion2.ItemCreation.createSeparatorItem("Test Section")
-        
-        Assert.deepStrictEqual(item.label, "Test Section")
-        Assert.deepStrictEqual(item.kind, Some(VSCode.QuickPickItemKind.Separator))
-      })
-    })
+            // Check that iconPath is present for Agda
+            switch item.iconPath {
+            | Some(_) => () // Expected
+            | None => Assert.fail("Expected iconPath for Agda endpoint")
+            }
+          },
+        )
 
-    describe("createNoInstallationsItem", () => {
-      it("should create placeholder item", () => {
-        let item = State__SwitchVersion2.ItemCreation.createNoInstallationsItem()
-        
-        Assert.deepStrictEqual(item.label, "$(info) No installations found")
-        Assert.deepStrictEqual(item.description, Some("Try installing Agda or ALS first"))
-        Assert.deepStrictEqual(item.detail, Some("No executable paths detected"))
-      })
-    })
+        it(
+          "should not include icon for ALS endpoints",
+          () => {
+            let entry = TestData.alsEntry
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: Endpoint("/usr/bin/als", entry),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
-    describe("createOpenFolderItem", () => {
-      it("should create open folder item", () => {
-        let globalStorageUri = VSCode.Uri.file("/test/global/storage")
-        let item = State__SwitchVersion2.ItemCreation.createOpenFolderItem(globalStorageUri)
-        
-        Assert.deepStrictEqual(item.label, "$(folder-opened)  Open download folder")
-        Assert.deepStrictEqual(item.description, Some("Where the language servers are downloaded to"))
-        Assert.deepStrictEqual(item.detail, Some("/test/global/storage"))
-      })
-    })
+            // Check that iconPath is absent for ALS
+            switch item.iconPath {
+            | None => () // Expected
+            | Some(_) => Assert.fail("Did not expect iconPath for ALS endpoint")
+            }
+          },
+        )
+      },
+    )
 
-    describe("createDownloadItem", () => {
-      it("should create download item when not downloaded", () => {
-        let item = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        
-        Assert.deepStrictEqual(item.label, "$(cloud-download)  Download the latest Agda Language Server")
-        Assert.deepStrictEqual(item.description, Some(""))
-        Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
-      })
+    describe(
+      "separator items",
+      () => {
+        it(
+          "should create separator with correct kind",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: Separator("Test Section"),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
-      it("should create download item when already downloaded", () => {
-        let item = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "ALS v1.0.0")
-        
-        Assert.deepStrictEqual(item.label, "$(cloud-download)  Download the latest Agda Language Server")
-        Assert.deepStrictEqual(item.description, Some("Downloaded and installed"))
-        Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
-      })
-    })
+            Assert.deepStrictEqual(item.label, "Test Section")
+            Assert.deepStrictEqual(item.kind, Some(VSCode.QuickPickItemKind.Separator))
+          },
+        )
+      },
+    )
+
+    describe(
+      "no installations item",
+      () => {
+        it(
+          "should create placeholder item",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: NoInstallations,
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+
+            Assert.deepStrictEqual(item.label, "$(info) No installations found")
+            Assert.deepStrictEqual(item.description, Some("Try installing Agda or ALS first"))
+            Assert.deepStrictEqual(item.detail, Some("No executable paths detected"))
+          },
+        )
+      },
+    )
+
+    describe(
+      "open folder item",
+      () => {
+        it(
+          "should create open folder item",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: OpenFolder("/test/global/storage"),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+
+            Assert.deepStrictEqual(item.label, "$(folder-opened)  Open download folder")
+            Assert.deepStrictEqual(
+              item.description,
+              Some("Where the language servers are downloaded to"),
+            )
+            Assert.deepStrictEqual(item.detail, Some("/test/global/storage"))
+          },
+        )
+      },
+    )
+
+    describe(
+      "download items",
+      () => {
+        it(
+          "should create download item when not downloaded",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(false, "ALS v1.0.0"),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+
+            Assert.deepStrictEqual(
+              item.label,
+              "$(cloud-download)  Download the latest Agda Language Server",
+            )
+            Assert.deepStrictEqual(item.description, Some(""))
+            Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
+          },
+        )
+
+        it(
+          "should create download item when already downloaded",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(true, "ALS v1.0.0"),
+              isSelected: false,
+            }
+            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+
+            Assert.deepStrictEqual(
+              item.label,
+              "$(cloud-download)  Download the latest Agda Language Server",
+            )
+            Assert.deepStrictEqual(item.description, Some("Downloaded and installed"))
+            Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
+          },
+        )
+      },
+    )
   })
 
-  describe("QuickPickManager", () => {
-    it("should create quickpick with correct initial state", () => {
-      let qp = State__SwitchVersion2.QuickPickManager.make()
-      
-      Assert.deepStrictEqual(Array.length(qp.items), 0)
-      Assert.deepStrictEqual(Array.length(qp.subscriptions), 0)
-    })
+  describe("View", () => {
+    it(
+      "should create quickpick with correct initial state",
+      () => {
+        let qp = State__SwitchVersion2.View.make()
 
-    it("should update items correctly", () => {
-      let qp = State__SwitchVersion2.QuickPickManager.make()
-      let items = [State__SwitchVersion2.ItemCreation.createNoInstallationsItem()]
-      
-      qp->State__SwitchVersion2.QuickPickManager.updateItems(items)
-      
-      Assert.deepStrictEqual(Array.length(qp.items), 1)
-      Assert.deepStrictEqual(qp.items[0]->Option.map(item => item.label), Some("$(info) No installations found"))
-    })
+        Assert.deepStrictEqual(Array.length(qp.items), 0)
+        Assert.deepStrictEqual(Array.length(qp.subscriptions), 0)
+      },
+    )
+
+    it(
+      "should update items correctly",
+      () => {
+        let qp = State__SwitchVersion2.View.make()
+        let itemData: State__SwitchVersion2.ItemData.t = {
+          itemType: NoInstallations,
+          isSelected: false,
+        }
+        let items = [
+          State__SwitchVersion2.Item.fromItemData(itemData, TestData.createMockExtensionUri()),
+        ]
+
+        qp->State__SwitchVersion2.View.updateItems(items)
+
+        Assert.deepStrictEqual(Array.length(qp.items), 1)
+        Assert.deepStrictEqual(
+          qp.items[0]->Option.map(item => item.label),
+          Some("$(info) No installations found"),
+        )
+      },
+    )
   })
 
-  describe("EndpointLogic", () => {
-    describe("getPickedPath", () => {
-      Async.it("should return picked path from memento", async () => {
-        let memento = TestData.createMockMemento()
-        await Memento.PickedConnection.set(memento, Some("/usr/bin/agda"))
-        
-        let pickedPath = State__SwitchVersion2.EndpointLogic.getPickedPath(memento)
-        Assert.deepStrictEqual(pickedPath, Some("/usr/bin/agda"))
-      })
+  describe("Core Integration Tests", () => {
+    describe(
+      "entriesToItemData",
+      () => {
+        it(
+          "should return no installations item when no entries",
+          () => {
+            let entries = Dict.make()
+            let itemData: array<
+              State__SwitchVersion2.ItemData.t,
+            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              entries,
+              None,
+              None,
+              "/test/global/storage",
+            )
 
-      it("should return None when no picked path", () => {
-        let memento = TestData.createMockMemento()
-        let pickedPath = State__SwitchVersion2.EndpointLogic.getPickedPath(memento)
-        Assert.deepStrictEqual(pickedPath, None)
-      })
-    })
+            Assert.deepStrictEqual(Array.length(itemData), 3) // No installations + Misc separator + Open folder
+            Assert.deepStrictEqual(
+              itemData[0]->Option.map(item => item.itemType),
+              Some(NoInstallations),
+            )
 
-    describe("entriesToItems", () => {
-      let extensionUri = TestData.createMockExtensionUri()
-      let globalStorageUri = VSCode.Uri.file("/test/global/storage")
+            switch itemData[1]->Option.map(item => item.itemType) {
+            | Some(Separator("Misc")) => () // Expected
+            | _ => Assert.fail("Expected Misc separator")
+            }
 
-      it("should return no installations item and misc section when no entries", () => {
-        let entries = Dict.make()
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
-        
-        Assert.deepStrictEqual(Array.length(items), 3) // No installations + Misc separator + Open folder
-        Assert.deepStrictEqual(items[0]->Option.map(item => item.label), Some("$(info) No installations found"))
-        Assert.deepStrictEqual(items[1]->Option.map(item => item.label), Some("Misc"))
-        Assert.deepStrictEqual(items[2]->Option.map(item => item.label), Some("$(folder-opened)  Open download folder"))
-      })
-
-      it("should create items with separator when entries exist", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        entries->Dict.set("/usr/bin/als", TestData.alsEntry)
-        
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
-        
-        Assert.deepStrictEqual(Array.length(items), 5) // Installed separator + 2 endpoints + Misc separator + Open folder
-        Assert.deepStrictEqual(items[0]->Option.map(item => item.label), Some("Installed"))
-        Assert.deepStrictEqual(items[0]->Option.flatMap(item => item.kind), Some(VSCode.QuickPickItemKind.Separator))
-        Assert.deepStrictEqual(items[3]->Option.map(item => item.label), Some("Misc"))
-        Assert.deepStrictEqual(items[4]->Option.map(item => item.label), Some("$(folder-opened)  Open download folder"))
-      })
-
-      it("should mark picked connection correctly", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        entries->Dict.set("/usr/bin/als", TestData.alsEntry)
-        
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, Some("/usr/bin/agda"), ())
-        
-        let agdaItem = items->Array.find(item => 
-          switch item.detail {
-          | Some("/usr/bin/agda") => true
-          | _ => false
-          }
+            switch itemData[2]->Option.map(item => item.itemType) {
+            | Some(OpenFolder("/test/global/storage")) => () // Expected
+            | _ => Assert.fail("Expected OpenFolder item")
+            }
+          },
         )
-        
-        switch agdaItem {
-        | Some(item) => 
-          switch item.description {
-          | Some(desc) => Assert.ok(desc->String.includes("Selected"))
-          | None => Assert.fail("Expected description to be present")
-          }
-        | None => Assert.fail("Could not find Agda item")
-        }
-      })
 
-      it("should not mark any item when no picked path", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
-        
-        let agdaItem = items->Array.find(item => 
-          switch item.detail {
-          | Some("/usr/bin/agda") => true
-          | _ => false
-          }
+        it(
+          "should create items with separator when entries exist",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+            entries->Dict.set("/usr/bin/als", TestData.alsEntry)
+
+            let itemData: array<
+              State__SwitchVersion2.ItemData.t,
+            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              entries,
+              None,
+              None,
+              "/test/global/storage",
+            )
+
+            Assert.deepStrictEqual(Array.length(itemData), 5) // Installed separator + 2 endpoints + Misc separator + Open folder
+
+            switch itemData[0]->Option.map(item => item.itemType) {
+            | Some(Separator("Installed")) => () // Expected
+            | _ => Assert.fail("Expected Installed separator")
+            }
+
+            switch itemData[3]->Option.map(item => item.itemType) {
+            | Some(Separator("Misc")) => () // Expected
+            | _ => Assert.fail("Expected Misc separator")
+            }
+
+            switch itemData[4]->Option.map(item => item.itemType) {
+            | Some(OpenFolder("/test/global/storage")) => () // Expected
+            | _ => Assert.fail("Expected OpenFolder item")
+            }
+          },
         )
-        
-        switch agdaItem {
-        | Some(item) => 
-          switch item.description {
-          | Some(desc) => Assert.ok(!(desc->String.includes("Selected")))
-          | None => Assert.fail("Expected description to be present")
-          }
-        | None => Assert.fail("Could not find Agda item")
-        }
-      })
 
-      it("should include download section when download item is provided", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        
-        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ~downloadItem, ())
-        
-        Assert.deepStrictEqual(Array.length(items), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Open folder
-        
-        // Check that download section exists
-        let downloadSeparator = items->Array.find(item => item.label == "Download")
-        let downloadItemFound = items->Array.find(item => item.label == "$(cloud-download)  Download the latest Agda Language Server")
-        
-        Assert.ok(downloadSeparator->Option.isSome)
-        Assert.ok(downloadItemFound->Option.isSome)
-      })
-    })
+        it(
+          "should mark picked connection correctly",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+            entries->Dict.set("/usr/bin/als", TestData.alsEntry)
 
-    describe("getPathsNeedingProbe", () => {
-      it("should return paths with unknown versions", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry) // Has version
-        entries->Dict.set("/usr/bin/agda-unknown", TestData.agdaUnknownEntry) // No version
-        entries->Dict.set("/usr/bin/als-unknown", TestData.createMockEntry(ALS(None), ())) // No version
-        
-        let pathsToProbe = State__SwitchVersion2.EndpointLogic.getPathsNeedingProbe(entries)
-        
-        Assert.deepStrictEqual(Array.length(pathsToProbe), 2)
-        Assert.ok(pathsToProbe->Array.includes("/usr/bin/agda-unknown"))
-        Assert.ok(pathsToProbe->Array.includes("/usr/bin/als-unknown"))
-        Assert.ok(!(pathsToProbe->Array.includes("/usr/bin/agda")))
-      })
+            let itemData: array<
+              State__SwitchVersion2.ItemData.t,
+            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              entries,
+              Some("/usr/bin/agda"),
+              None,
+              "/test/global/storage",
+            )
 
-      it("should return empty array when no paths need probing", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        entries->Dict.set("/usr/bin/als", TestData.alsEntry)
-        
-        let pathsToProbe = State__SwitchVersion2.EndpointLogic.getPathsNeedingProbe(entries)
-        
-        Assert.deepStrictEqual(Array.length(pathsToProbe), 0)
-      })
-    })
+            let agdaItemData = itemData->Array.find(
+              data =>
+                switch data.itemType {
+                | Endpoint("/usr/bin/agda", _) => true
+                | _ => false
+                },
+            )
 
-    describe("entriesChanged", () => {
-      it("should detect when entries are different objects", () => {
-        let entries1 = Dict.make()
-        let entries2 = Dict.make()
-        
-        let changed = State__SwitchVersion2.EndpointLogic.entriesChanged(entries1, entries2)
-        Assert.deepStrictEqual(changed, true)
-      })
+            switch agdaItemData {
+            | Some(data) => Assert.deepStrictEqual(data.isSelected, true)
+            | None => Assert.fail("Could not find Agda item data")
+            }
 
-      it("should return false when entries are same object", () => {
-        let entries = Dict.make()
-        
-        let changed = State__SwitchVersion2.EndpointLogic.entriesChanged(entries, entries)
-        Assert.deepStrictEqual(changed, false)
-      })
-    })
+            let alsItemData = itemData->Array.find(
+              data =>
+                switch data.itemType {
+                | Endpoint("/usr/bin/als", _) => true
+                | _ => false
+                },
+            )
+
+            switch alsItemData {
+            | Some(data) => Assert.deepStrictEqual(data.isSelected, false)
+            | None => Assert.fail("Could not find ALS item data")
+            }
+          },
+        )
+
+        it(
+          "should include download section when download info is provided",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            let itemData: array<
+              State__SwitchVersion2.ItemData.t,
+            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              entries,
+              None,
+              Some((false, "ALS v1.0.0")),
+              "/test/global/storage",
+            )
+
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Open folder
+
+            let downloadSeparator = itemData->Array.find(
+              data =>
+                switch data.itemType {
+                | Separator("Download") => true
+                | _ => false
+                },
+            )
+
+            let downloadAction = itemData->Array.find(
+              data =>
+                switch data.itemType {
+                | DownloadAction(false, "ALS v1.0.0") => true
+                | _ => false
+                },
+            )
+
+            Assert.ok(downloadSeparator->Option.isSome)
+            Assert.ok(downloadAction->Option.isSome)
+          },
+        )
+      },
+    )
   })
 
-  describe("EndpointManager Integration", () => {
-    describe("toItems", () => {
-      Async.it("should delegate to EndpointLogic.entriesToItems", async () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        
-        let memento = TestData.createMockMemento()
-        let extensionUri = TestData.createMockExtensionUri()
-        await Memento.PickedConnection.set(memento, Some("/usr/bin/agda"))
-        
-        let manager: State__SwitchVersion2.EndpointManager.t = {
-          entries: entries,
-          extensionUri: extensionUri,
-        }
-        
-        let items = State__SwitchVersion2.EndpointManager.toItems(manager, memento, extensionUri, ())
-        
-        Assert.deepStrictEqual(Array.length(items), 4) // Installed separator + 1 item + Misc separator + Open folder
-        
-        let agdaItem = items->Array.find(item => 
-          switch item.detail {
-          | Some("/usr/bin/agda") => true
-          | _ => false
-          }
+  describe("SwitchVersionManager Integration", () => {
+    describe(
+      "getItemData",
+      () => {
+        Async.it(
+          "should create item data with correct selection marking",
+          async () => {
+            // Create a mock state
+            let memento = TestData.createMockMemento()
+            let globalStorageUri = VSCode.Uri.file("/test/global/storage")
+            await Memento.PickedConnection.set(memento, Some("/usr/bin/agda"))
+
+            // Mock entries
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            // Create manager manually since we can't easily create a State.t in tests
+            let manager: State__SwitchVersion2.SwitchVersionManager.t = {
+              entries,
+              memento,
+              globalStorageUri,
+            }
+
+            let itemData = manager->State__SwitchVersion2.SwitchVersionManager.getItemData(None)
+
+            // Should have: "Installed" separator + agda item + "Misc" separator + open folder item
+            Assert.deepStrictEqual(Array.length(itemData), 4)
+
+            // Find the Agda endpoint item
+            let agdaItemData = itemData->Array.find(
+              data =>
+                switch data.itemType {
+                | Endpoint("/usr/bin/agda", _) => true
+                | _ => false
+                },
+            )
+
+            switch agdaItemData {
+            | Some(data) => Assert.deepStrictEqual(data.isSelected, true)
+            | None => Assert.fail("Could not find Agda item data")
+            }
+          },
         )
-        
-        switch agdaItem {
-        | Some(item) => 
-          switch item.description {
-          | Some(desc) => Assert.ok(desc->String.includes("Selected"))
-          | None => Assert.fail("Expected description to be present")
-          }
-        | None => Assert.fail("Could not find Agda item")
-        }
-      })
-    })
+      },
+    )
   })
 
   describe("End-to-End Download Integration", () => {
-    describe("Download Item Creation", () => {
-      it("should create download item with correct description based on download status", () => {
-        // Test when not downloaded
-        let item1 = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        Assert.deepStrictEqual(item1.description, Some(""))
-        
-        // Test when already downloaded  
-        let item2 = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "ALS v1.0.0")
-        Assert.deepStrictEqual(item2.description, Some("Downloaded and installed"))
-      })
-    })
+    describe(
+      "Download Item Creation",
+      () => {
+        it(
+          "should create download item with correct description based on download status",
+          () => {
+            // Test when not downloaded
+            let itemData1: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(false, "ALS v1.0.0"),
+              isSelected: false,
+            }
+            let item1 = State__SwitchVersion2.Item.fromItemData(
+              itemData1,
+              TestData.createMockExtensionUri(),
+            )
+            Assert.deepStrictEqual(item1.description, Some(""))
 
-    describe("Download Status Logic", () => {
-      it("should correctly determine download status from description", () => {
-        let notDownloadedItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        let downloadedItem = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "ALS v1.0.0")
-        
-        // Test the same logic used in the actual download click handler
-        let isNotDownloaded = switch notDownloadedItem.description {
-        | Some("Downloaded and installed") => false
-        | _ => true
-        }
-        
-        let isDownloaded = switch downloadedItem.description {
-        | Some("Downloaded and installed") => true
-        | _ => false
-        }
-        
-        Assert.deepStrictEqual(isNotDownloaded, true)
-        Assert.deepStrictEqual(isDownloaded, true)
-      })
-    })
+            // Test when already downloaded
+            let itemData2: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(true, "ALS v1.0.0"),
+              isSelected: false,
+            }
+            let item2 = State__SwitchVersion2.Item.fromItemData(
+              itemData2,
+              TestData.createMockExtensionUri(),
+            )
+            Assert.deepStrictEqual(item2.description, Some("Downloaded and installed"))
+          },
+        )
+      },
+    )
 
-    describe("UI Section Layout", () => {
-      it("should include download section when download item is provided", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        
-        let extensionUri = TestData.createMockExtensionUri()
-        let globalStorageUri = VSCode.Uri.file("/test/global/storage")
-        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "ALS v1.0.0")
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ~downloadItem, ())
-        
-        // Should have: Installed separator + agda item + Download separator + download item + Misc separator + open folder
-        Assert.deepStrictEqual(Array.length(items), 6)
-        
-        // Check that download section exists
-        let downloadSeparator = items->Array.find(item => item.label == "Download")
-        let downloadItemFound = items->Array.find(item => item.label == "$(cloud-download)  Download the latest Agda Language Server")
-        
-        Assert.ok(downloadSeparator->Option.isSome)
-        Assert.ok(downloadItemFound->Option.isSome)
-      })
-      
-      it("should not include download section when no download item is provided", () => {
-        let entries = Dict.make()
-        entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-        
-        let extensionUri = TestData.createMockExtensionUri()
-        let globalStorageUri = VSCode.Uri.file("/test/global/storage")
-        let items = State__SwitchVersion2.EndpointLogic.entriesToItems(entries, extensionUri, globalStorageUri, None, ())
-        
-        // Should have: Installed separator + agda item + Misc separator + open folder (no download section)
-        Assert.deepStrictEqual(Array.length(items), 4)
-        
-        // Check that no download section exists
-        let downloadSeparator = items->Array.find(item => item.label == "Download")
-        let downloadItemFound = items->Array.find(item => item.label == "$(cloud-download)  Download the latest Agda Language Server")
-        
-        Assert.ok(downloadSeparator->Option.isNone)
-        Assert.ok(downloadItemFound->Option.isNone)
-      })
-    })
+    describe(
+      "Download Status Logic",
+      () => {
+        it(
+          "should correctly determine download status from description",
+          () => {
+            let itemData1: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(false, "ALS v1.0.0"),
+              isSelected: false,
+            }
+            let notDownloadedItem = State__SwitchVersion2.Item.fromItemData(
+              itemData1,
+              TestData.createMockExtensionUri(),
+            )
+            let itemData2: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(true, "ALS v1.0.0"),
+              isSelected: false,
+            }
+            let downloadedItem = State__SwitchVersion2.Item.fromItemData(
+              itemData2,
+              TestData.createMockExtensionUri(),
+            )
 
-    describe("Message Formatting", () => {
-      it("should format already downloaded message correctly", () => {
-        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(true, "Agda v2.6.4 Language Server v1.0.0")
-        let message = downloadItem.detail->Option.getOr("ALS") ++ " is already downloaded"
-        
-        Assert.ok(String.includes(message, "is already downloaded"))
-        Assert.ok(String.includes(message, "Agda v2.6.4 Language Server v1.0.0"))
-      })
-      
-      it("should format successfully downloaded message correctly", () => {
-        let downloadItem = State__SwitchVersion2.ItemCreation.createDownloadItem(false, "Agda v2.6.4 Language Server v1.0.0")
-        let message = downloadItem.detail->Option.getOr("ALS") ++ " successfully downloaded"
-        
-        Assert.ok(String.includes(message, "successfully downloaded"))
-        Assert.ok(String.includes(message, "Agda v2.6.4 Language Server v1.0.0"))
-      })
-    })
+            // Test the same logic used in the actual download click handler
+            let isNotDownloaded = switch notDownloadedItem.description {
+            | Some("Downloaded and installed") => false
+            | _ => true
+            }
+
+            let isDownloaded = switch downloadedItem.description {
+            | Some("Downloaded and installed") => true
+            | _ => false
+            }
+
+            Assert.deepStrictEqual(isNotDownloaded, true)
+            Assert.deepStrictEqual(isDownloaded, true)
+          },
+        )
+      },
+    )
+
+    describe(
+      "UI Section Layout",
+      () => {
+        it(
+          "should include download section when download item is provided",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            let extensionUri = TestData.createMockExtensionUri()
+            let globalStorageUri = VSCode.Uri.file("/test/global/storage")
+            let folderPath = VSCode.Uri.fsPath(globalStorageUri)
+            let itemDataArray: array<
+              State__SwitchVersion2.ItemData.t,
+            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              entries,
+              None,
+              Some((false, "ALS v1.0.0")),
+              folderPath,
+            )
+            let items = State__SwitchVersion2.Item.fromItemDataArray(itemDataArray, extensionUri)
+
+            // Should have: Installed separator + agda item + Download separator + download item + Misc separator + open folder
+            Assert.deepStrictEqual(Array.length(items), 6)
+
+            // Check that download section exists
+            let downloadSeparator = items->Array.find(item => item.label == "Download")
+            let downloadItemFound =
+              items->Array.find(
+                item => item.label == "$(cloud-download)  Download the latest Agda Language Server",
+              )
+
+            Assert.ok(downloadSeparator->Option.isSome)
+            Assert.ok(downloadItemFound->Option.isSome)
+          },
+        )
+
+        it(
+          "should not include download section when no download item is provided",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            let extensionUri = TestData.createMockExtensionUri()
+            let globalStorageUri = VSCode.Uri.file("/test/global/storage")
+            let folderPath = VSCode.Uri.fsPath(globalStorageUri)
+            let itemDataArray: array<
+              State__SwitchVersion2.ItemData.t,
+            > = State__SwitchVersion2.ItemData.entriesToItemData(entries, None, None, folderPath)
+            let items = State__SwitchVersion2.Item.fromItemDataArray(itemDataArray, extensionUri)
+
+            // Should have: Installed separator + agda item + Misc separator + open folder (no download section)
+            Assert.deepStrictEqual(Array.length(items), 4)
+
+            // Check that no download section exists
+            let downloadSeparator = items->Array.find(item => item.label == "Download")
+            let downloadItemFound =
+              items->Array.find(
+                item => item.label == "$(cloud-download)  Download the latest Agda Language Server",
+              )
+
+            Assert.ok(downloadSeparator->Option.isNone)
+            Assert.ok(downloadItemFound->Option.isNone)
+          },
+        )
+      },
+    )
+
+    describe(
+      "Message Formatting",
+      () => {
+        it(
+          "should format already downloaded message correctly",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(true, "Agda v2.6.4 Language Server v1.0.0"),
+              isSelected: false,
+            }
+            let downloadItem = State__SwitchVersion2.Item.fromItemData(
+              itemData,
+              TestData.createMockExtensionUri(),
+            )
+            let message = downloadItem.detail->Option.getOr("ALS") ++ " is already downloaded"
+
+            Assert.ok(String.includes(message, "is already downloaded"))
+            Assert.ok(String.includes(message, "Agda v2.6.4 Language Server v1.0.0"))
+          },
+        )
+
+        it(
+          "should format successfully downloaded message correctly",
+          () => {
+            let itemData: State__SwitchVersion2.ItemData.t = {
+              itemType: DownloadAction(false, "Agda v2.6.4 Language Server v1.0.0"),
+              isSelected: false,
+            }
+            let downloadItem = State__SwitchVersion2.Item.fromItemData(
+              itemData,
+              TestData.createMockExtensionUri(),
+            )
+            let message = downloadItem.detail->Option.getOr("ALS") ++ " successfully downloaded"
+
+            Assert.ok(String.includes(message, "successfully downloaded"))
+            Assert.ok(String.includes(message, "Agda v2.6.4 Language Server v1.0.0"))
+          },
+        )
+      },
+    )
   })
 })
