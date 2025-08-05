@@ -329,6 +329,83 @@ module SwitchVersionManager = {
   }
 }
 
+// Connection switching logic
+let switchAgdaVersion = async (state: State.t) => {
+  // display what we are going to do
+  switch await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
+  | Error(_) => ()
+  | Ok(Agda(version, _)) => {
+      await State__View.Panel.displayStatus(state, "")
+      await State__View.Panel.display(
+        state,
+        AgdaModeVscode.View.Header.Plain(
+          State__SwitchVersion.VersionDisplay.formatSwitchingMessage(
+            State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
+          ),
+        ),
+        [],
+      )
+    }
+  | Ok(ALS(alsVersion, agdaVersion, _, _)) => {
+      await State__View.Panel.displayStatus(state, "")
+      await State__View.Panel.display(
+        state,
+        AgdaModeVscode.View.Header.Plain(
+          State__SwitchVersion.VersionDisplay.formatSwitchingMessage(
+            State__SwitchVersion.VersionDisplay.formatALSVersion(alsVersion, agdaVersion),
+          ),
+        ),
+        [],
+      )
+    }
+  }
+
+  // stop the old connection
+  let _ = await state.connection->Connection.destroy
+
+  // start with the new connection
+  switch await Connection.make(
+    state.platformDeps,
+    state.memento,
+    state.globalStorageUri,
+    Config.Connection.getAgdaPaths(),
+    ["als", "agda"],
+  ) {
+  | Ok(conn) =>
+    state.connection = Some(conn)
+    switch await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
+    | Error(_) => ()
+    | Ok(Agda(version, _path)) => {
+        let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
+        await State__View.Panel.displayStatus(state, formattedVersion)
+        await State__View.Panel.display(
+          state,
+          AgdaModeVscode.View.Header.Success(State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion)),
+          [],
+        )
+      }
+    | Ok(ALS(alsVersion, agdaVersion, _, _)) => {
+        let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+        await State__View.Panel.displayStatus(state, formattedVersion)
+        await State__View.Panel.display(
+          state,
+          AgdaModeVscode.View.Header.Success(State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion)),
+          [],
+        )
+      }
+    }
+
+  | Error(error) => {
+      let (errorHeader, errorBody) = Connection.Error.toString(error)
+      let header = AgdaModeVscode.View.Header.Error(
+        "Failed to switch to a different installation: " ++ errorHeader,
+      )
+      let body = [AgdaModeVscode.Item.plainText(errorBody)]
+      await State__View.Panel.display(state, header, body)
+    }
+  }
+}
+
 // Download module - handles download-related business logic
 module Download = {
   // Get available download info: (downloaded, versionString)
@@ -478,10 +555,24 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
               )
             }
           } else {
-            // Regular endpoint selection - save to PickedConnection
+            // Regular endpoint selection - check if selection changed
             switch selectedItem.detail {
             | Some(selectedPath) => {
-                let _ = Memento.PickedConnection.set(state.memento, Some(selectedPath))
+                switch await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
+                | Error(_) => {
+                    // No previous selection, save and switch
+                    let _ = await Memento.PickedConnection.set(state.memento, Some(selectedPath))
+                    await switchAgdaVersion(state)
+                  }
+                | Ok(original) => {
+                    let selectionChanged = selectedPath !== Connection.Endpoint.toURI(original)->Connection.URI.toString
+                    if selectionChanged {
+                      // Selection changed, save and switch
+                      let _ = await Memento.PickedConnection.set(state.memento, Some(selectedPath))
+                      await switchAgdaVersion(state)
+                    }
+                  }
+                }
               }
             | None => ()
             }

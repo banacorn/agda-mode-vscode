@@ -2,7 +2,7 @@ open Mocha
 open Test__Util
 
 // These commands do not have keybindings
-let noKeybinding = [Command.OpenDebugBuffer]
+let noKeybinding = [Command.OpenDebugBuffer, SwitchAgdaVersion2]
 
 // These commands are not actual Agda commands, but are used for input method or other purposes
 let pseudoCommand = [
