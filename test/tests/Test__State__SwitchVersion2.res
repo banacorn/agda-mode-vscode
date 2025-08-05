@@ -520,7 +520,7 @@ describe("State__SwitchVersion2", () => {
               globalStorageUri,
             }
 
-            let itemData = manager->State__SwitchVersion2.SwitchVersionManager.getItemData(None)
+            let itemData = await manager->State__SwitchVersion2.SwitchVersionManager.getItemData(None)
 
             // Should have: "Installed" separator + agda item + "Misc" separator + open folder item
             Assert.deepStrictEqual(Array.length(itemData), 4)

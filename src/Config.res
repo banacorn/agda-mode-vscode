@@ -132,11 +132,11 @@ module Connection = {
         agdaPathsInTestingMode := newPaths
         Promise.resolve()
       } else {
-        let newPaths: array<string> = paths->Array.map(Connection__URI.getOriginalPath)
+        let newPathsAsStrings: array<string> = newPaths->Array.map(Connection__URI.getOriginalPath)
         Workspace.getConfiguration(
           Some("agdaMode"),
           None,
-        )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
+        )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPathsAsStrings, None)
       }
     }
   }
