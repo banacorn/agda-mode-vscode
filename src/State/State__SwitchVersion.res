@@ -53,7 +53,7 @@ module VersionDisplay = {
   let formatAgdaVersion = (version: string): string => "Agda v" ++ version
 
   let formatALSVersion = (alsVersion: string, agdaVersion: string): string =>
-    "Agda Language Server v" ++ alsVersion ++ " (Agda v" ++ agdaVersion ++ ")"
+    "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
 
   let formatSwitchingMessage = (version: string): string => "Switching to " ++ version
 
