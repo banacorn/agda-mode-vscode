@@ -175,83 +175,71 @@ module Module: Module = {
     | Ok(endpoint) => Ok(endpoint)
     }
   }
+  // Combinator: try each item in array until one succeeds, or return all failures
+  let tryUntilSuccess = async (fn: 'a => promise<result<'b, 'e>>, items: array<'a>) => {
+    let rec loop = async (remaining, errors) => {
+      switch remaining[0] {
+      | Some(item) =>
+        switch await fn(item) {
+        | Ok(success) => Ok(success)
+        | Error(error) =>
+          let newErrors = errors->Array.concat([(item, error)])
+          let nextItems = remaining->Array.sliceToEnd(~start=1)
+          await loop(nextItems, newErrors)
+        }
+      | None => Error(errors)
+      }
+    }
+    await loop(items, [])
+  }
 
-  // Make a connection to Agda or ALS, by trying:
-  //  1. The previously picked endpoint, if it also exists in the settings
-  //  2. The first usable endpoint from the settings
-  //  3. The `agda` command
-  //  4. The `als` command
+  // Make a connection using raw paths and commands, by trying in order:
+  //  1. Previously picked path (if it exists in the supplied paths)
+  //  2. Each path from the paths array sequentially  
+  //  3. Each command from the commands array sequentially
+  // Returns Ok(connection) on first success, or Error with all collected failures
   let fromPathsAndCommands2 = async (
     platformDeps: Platform.t,
     memento: Memento.t,
     paths: array<string>,
     commands: array<string>,
   ): result<t, Error.Construction.Attempts.t> => {
-    let endpointErrors = Dict.make()
-    let commandErrors = []
     module PlatformOps = unpack(platformDeps)
-    
-    let tryRawPath = async (path) => {
-      switch await makeWithRawPath(path) {
-      | Ok(connection) => Ok(connection)
-      | Error(error) =>
-        endpointErrors->Dict.set(path, error)
-        Error(error)
-      }
-    }
-    
-    // Step 2: Try the first usable endpoint from the settings
-    let rec tryFirstUsableFromSettings = async (remainingPaths) => {
-        switch remainingPaths[0] {
-        | Some(path) =>
-          switch await tryRawPath(path) {
-          | Ok(connection) => Ok(connection)
-          | Error(_) => 
-            let nextPaths = remainingPaths->Array.sliceToEnd(~start=1)
-            await tryFirstUsableFromSettings(nextPaths)
-          }
-        | None =>
-          // Step 3: Try all commands in order
-          let rec tryCommands = async (remainingCommands) => {
-            switch remainingCommands[0] {
-            | Some(command) =>
-              switch await PlatformOps.findCommand(command) {
-              | Ok(rawPath) => 
-                switch await tryRawPath(rawPath) {
-                | Ok(connection) => Ok(connection)
-                | Error(_) =>
-                  let nextCommands = remainingCommands->Array.sliceToEnd(~start=1)
-                  await tryCommands(nextCommands)
-                }
-              | Error(commandError) =>
-                commandErrors->Array.push(commandError)->ignore
-                let nextCommands = remainingCommands->Array.sliceToEnd(~start=1)
-                await tryCommands(nextCommands)
-              }
-            | None =>
-              // All commands exhausted
-              let attempts = {
-                Error.Construction.Attempts.endpoints: endpointErrors,
-                commands: commandErrors,
-              }
-              Error(attempts)
-            }
-          }
-          await tryCommands(commands)
+
+    let tryCommand = async (command): result<t, Connection__Command.Error.t> => {
+      switch await PlatformOps.findCommand(command) {
+      | Ok(rawPath) =>
+        switch await makeWithRawPath(rawPath) {
+        | Ok(connection) => Ok(connection)
+        | Error(_endpointError) =>
+          // Convert endpoint error to a command error for consistency
+          Error(Connection__Command.Error.NotFound(command))
         }
+      | Error(commandError) => Error(commandError)
+      }
     }
 
-    // Follow the 4-step process as described in comments
-    // Step 1: Try the previously picked endpoint, if it also exists in the settings
-    switch await Endpoint.getPickedRaw(memento, paths) {
-    | Some(pickedPath) =>
-      switch await tryRawPath(pickedPath) {
+    // Build the complete list of things to try in order
+    let allPaths = switch await Endpoint.getPickedRaw(memento, paths) {
+    | Some(pickedPath) => [pickedPath]->Array.concat(paths)
+    | None => paths
+    }
+
+    // Step 1 & 2: Try picked path first, then all settings paths
+    switch await tryUntilSuccess(makeWithRawPath, allPaths) {
+    | Ok(connection) => Ok(connection)
+    | Error(pathErrors) =>
+      // Step 3: Try all commands
+      switch await tryUntilSuccess(tryCommand, commands) {
       | Ok(connection) => Ok(connection)
-      | Error(_) => await tryFirstUsableFromSettings(paths)
+      | Error(commandErrors) =>
+        // Build final error with both path and command failures
+        let attempts = {
+          Error.Construction.Attempts.endpoints: pathErrors->Dict.fromArray,
+          commands: commandErrors->Array.map(((_, error)) => error),
+        }
+        Error(attempts)
       }
-    | None => 
-      // Step 2: Try the first usable endpoint from the settings
-      await tryFirstUsableFromSettings(paths)
     }
   }
 
