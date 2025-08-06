@@ -176,6 +176,85 @@ module Module: Module = {
     }
   }
 
+  // Make a connection to Agda or ALS, by trying:
+  //  1. The previously picked endpoint, if it also exists in the settings
+  //  2. The first usable endpoint from the settings
+  //  3. The `agda` command
+  //  4. The `als` command
+  let fromPathsAndCommands2 = async (
+    platformDeps: Platform.t,
+    memento: Memento.t,
+    paths: array<string>,
+    commands: array<string>,
+  ): result<t, Error.Construction.Attempts.t> => {
+    let endpointErrors = Dict.make()
+    let commandErrors = []
+    module PlatformOps = unpack(platformDeps)
+    
+    let tryRawPath = async (path) => {
+      switch await makeWithRawPath(path) {
+      | Ok(connection) => Ok(connection)
+      | Error(error) =>
+        endpointErrors->Dict.set(path, error)
+        Error(error)
+      }
+    }
+    
+    // Step 2: Try the first usable endpoint from the settings
+    let rec tryFirstUsableFromSettings = async (remainingPaths) => {
+        switch remainingPaths[0] {
+        | Some(path) =>
+          switch await tryRawPath(path) {
+          | Ok(connection) => Ok(connection)
+          | Error(_) => 
+            let nextPaths = remainingPaths->Array.sliceToEnd(~start=1)
+            await tryFirstUsableFromSettings(nextPaths)
+          }
+        | None =>
+          // Step 3: Try all commands in order
+          let rec tryCommands = async (remainingCommands) => {
+            switch remainingCommands[0] {
+            | Some(command) =>
+              switch await PlatformOps.findCommand(command) {
+              | Ok(rawPath) => 
+                switch await tryRawPath(rawPath) {
+                | Ok(connection) => Ok(connection)
+                | Error(_) =>
+                  let nextCommands = remainingCommands->Array.sliceToEnd(~start=1)
+                  await tryCommands(nextCommands)
+                }
+              | Error(commandError) =>
+                commandErrors->Array.push(commandError)->ignore
+                let nextCommands = remainingCommands->Array.sliceToEnd(~start=1)
+                await tryCommands(nextCommands)
+              }
+            | None =>
+              // All commands exhausted
+              let attempts = {
+                Error.Construction.Attempts.endpoints: endpointErrors,
+                commands: commandErrors,
+              }
+              Error(attempts)
+            }
+          }
+          await tryCommands(commands)
+        }
+    }
+
+    // Follow the 4-step process as described in comments
+    // Step 1: Try the previously picked endpoint, if it also exists in the settings
+    switch await Endpoint.getPickedRaw(memento, paths) {
+    | Some(pickedPath) =>
+      switch await tryRawPath(pickedPath) {
+      | Ok(connection) => Ok(connection)
+      | Error(_) => await tryFirstUsableFromSettings(paths)
+      }
+    | None => 
+      // Step 2: Try the first usable endpoint from the settings
+      await tryFirstUsableFromSettings(paths)
+    }
+  }
+
   // Try to download ALS, with the following steps:
   // 1. See if the platform is supported:
   //      No  : exit with the `PlatformNotSupported` error ❌
