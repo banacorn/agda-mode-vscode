@@ -212,6 +212,36 @@ module Module: Module = {
       await makeWithEndpoint(endpoint)
     }
 
+  // Make a connection to Agda or ALS, by trying:
+  //  1. The previously picked endpoint, if it also exists in the settings
+  //  2. The first usable endpoint from the settings
+  //  3. The `agda` command
+  //  4. The `als` command
+  //  5. Downloading the latest ALS
+  // let make2 = async (
+  //   platformDeps: Platform.t,
+  //   memento: Memento.t,
+  //   paths: array<string>,
+  //   commands: array<string>,
+  // ): result<Endpoint.t, Error.Aggregated.Attempts.t> => {
+  //   Error(Error.Aggregated.Attempts.empty)
+  //   // switch await Endpoint.getPickedRaw(memento, paths) {
+  //   // | None =>
+  //   //   switch await findCommand(platformDeps, commands) {
+  //   //   | Error(commandErrors) =>
+  //   //     let attempts = {
+  //   //       Error.Aggregated.Attempts.endpoints: endpointErrors,
+  //   //       commands: commandErrors,
+  //   //     }
+
+  //   //     Error(attempts)
+
+  //   //   | Ok(endpoint) => Ok(endpoint)
+  //   //   }
+  //   // | Some(path) => Some(path)
+  //   // }
+  // }
+
   let sendRequest = async (connection, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {

@@ -6,6 +6,7 @@ module Desktop: Platform.PlatformOps = {
   let determinePlatform = Connection__Download__Platform.determine
 
   let findCommands = Connection__Command.findCommands
+  let findCommand = Connection__Command.findCommand
 
   let alreadyDownloaded = globalStorageUri =>
     Connection__LatestALS.alreadyDownloaded(globalStorageUri)

@@ -395,12 +395,15 @@ describe("Connection", () => {
           let determinePlatform = () => Promise.resolve(Error(platform))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.No)
         }
@@ -432,12 +435,15 @@ describe("Connection", () => {
           let determinePlatform = () => Promise.resolve(Ok(platform))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () => {
             getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
             Promise.resolve(Config.Connection.DownloadPolicy.No)
@@ -476,12 +482,15 @@ describe("Connection", () => {
           let determinePlatform = () => Promise.resolve(Ok(platform))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () => {
             getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
             Promise.resolve(Config.Connection.DownloadPolicy.Undecided)
@@ -525,6 +534,8 @@ describe("Connection", () => {
           let determinePlatform = () => Promise.resolve(Ok(platform))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => {
             checkedCache := true
             Promise.resolve(Some(target))
@@ -533,7 +544,8 @@ describe("Connection", () => {
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -580,6 +592,8 @@ describe("Connection", () => {
           let determinePlatform = () => Promise.resolve(Ok(platform))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => {
             checkedCache := true
             Promise.resolve(None)
@@ -590,7 +604,8 @@ describe("Connection", () => {
           }
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -632,6 +647,8 @@ describe("Connection", () => {
           let determinePlatform = () => Promise.resolve(Ok(platform))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => {
             checkedCache := true
             Promise.resolve(None)
@@ -642,7 +659,8 @@ describe("Connection", () => {
           }
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }

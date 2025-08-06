@@ -12,6 +12,7 @@ module type PlatformOps = {
   let findCommands: array<string> => promise<
     result<Connection__Endpoint.t, array<Connection__Command.Error.t>>,
   >
+  let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
   let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<Connection__Endpoint.t>>
@@ -26,7 +27,9 @@ module type PlatformOps = {
   let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<
     Dict.t<result<Connection__Endpoint.t, Connection__Endpoint.Error.t>>,
   >
-  let getInstalledEndpointsAndPersistThem2: VSCode.Uri.t => promise<Dict.t<Memento.Endpoints.endpoint>>
+  let getInstalledEndpointsAndPersistThem2: VSCode.Uri.t => promise<
+    Dict.t<Memento.Endpoints.endpoint>,
+  >
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>

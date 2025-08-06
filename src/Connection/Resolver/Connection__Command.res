@@ -34,7 +34,20 @@ let searchWith = async (command, name, ~timeout=1000) => {
     | Error(error) => Error(Error.NotValidTarget(name, path, error))
     }
   | Error(FromStderr(Some(1), "")) => Error(NotFound(name))
-  | Error(FromStderr(Some(1), "INFO: Could not find files for the given pattern(s).\r\n")) => Error(NotFound(name))
+  | Error(FromStderr(Some(1), "INFO: Could not find files for the given pattern(s).\r\n")) =>
+    Error(NotFound(name))
+  | Error(error) => Error(SomethingWentWrong(name, error))
+  }
+}
+
+let searchWithRaw = async (command, name, ~timeout=1000) => {
+  switch await Connection__Process__Exec.run(command, [name], ~timeout) {
+  | Ok(stdout) =>
+    let path = String.trim(stdout) // trim the string to remove the trailing newline
+    Ok(path)
+  | Error(FromStderr(Some(1), "")) => Error(Error.NotFound(name))
+  | Error(FromStderr(Some(1), "INFO: Could not find files for the given pattern(s).\r\n")) =>
+    Error(NotFound(name))
   | Error(error) => Error(SomethingWentWrong(name, error))
   }
 }
@@ -47,6 +60,18 @@ let search = async (name, ~timeout=1000) => {
     switch await searchWith("which", name, ~timeout) {
     | Ok(stdout) => Ok(stdout)
     | Error(_) => await searchWith("where.exe", name, ~timeout)
+    }
+  }
+}
+
+let findCommand = async (name, ~timeout=1000) => {
+  if OS.onUnix {
+    await searchWithRaw("which", name, ~timeout)
+  } else {
+    // try `which` first, then `where.exe`
+    switch await searchWithRaw("which", name, ~timeout) {
+    | Ok(stdout) => Ok(stdout)
+    | Error(_) => await searchWithRaw("where.exe", name, ~timeout)
     }
   }
 }

@@ -110,12 +110,15 @@ describe("Platform dependent utilities", () => {
           let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Windows))
           let findCommands = _commands =>
             Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+            Promise.resolve(Dict.make())
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.No)
         }
