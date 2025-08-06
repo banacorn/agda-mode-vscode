@@ -49,8 +49,8 @@ module Panel: Panel = {
   let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
   let displayConnectionStatus = (state, connection) =>
     switch connection {
-    | Connection.Agda(_, version, _) => displayStatus(state, "Agda v" ++ version)
-    | ALS(_, alsVersion, agdaVersion, _) =>
+    | Connection.Agda(_, version) => displayStatus(state, "Agda v" ++ version)
+    | ALS(_, alsVersion, agdaVersion) =>
       displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
     }
 

@@ -6,8 +6,8 @@ module URI = Connection__URI
 
 module type Module = {
   type t =
-    | Agda(Agda.t, string, Endpoint.t) // connection, version
-    | ALS(ALS.t, string, string, Endpoint.t) // connection, ALS version, Agda version
+    | Agda(Agda.t, string) // connection, version
+    | ALS(ALS.t, string, string) // connection, ALS version, Agda version
 
   // Platform dependencies type
   // lifecycle
@@ -68,18 +68,18 @@ module Module: Module = {
 
   // internal state singleton
   type t =
-    | Agda(Agda.t, string, Endpoint.t) // connection, version
-    | ALS(ALS.t, string, string, Endpoint.t) // connection, ALS version, Agda version
+    | Agda(Agda.t, string) // connection, version
+    | ALS(ALS.t, string, string) // connection, ALS version, Agda version
 
   let destroy = async connection =>
     switch connection {
     | None => Ok()
     | Some(connection) =>
       switch connection {
-      | Agda(conn, _, _) =>
+      | Agda(conn, _) =>
         await Agda.destroy(conn)
         Ok()
-      | ALS(conn, _, _, _) =>
+      | ALS(conn, _, _) =>
         switch await ALS.destroy(conn) {
         | Error(error) => Error(Error.ALS(error))
         | Ok(_) => Ok()
@@ -93,12 +93,12 @@ module Module: Module = {
       let method = Connection__Transport.ViaPipe(path, [])
       switch await Agda.make(method, version, path) {
       | Error(error) => Error(Error.Agda(error, path))
-      | Ok(conn) => Ok(Agda(conn, version, endpoint))
+      | Ok(conn) => Ok(Agda(conn, version))
       }
     | ALS(alsVersion, agdaVersion, method, lspOptions) =>
       switch await ALS.make(method, lspOptions, InitOptions.getFromConfig()) {
       | Error(error) => Error(ALS(error))
-      | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion, endpoint))
+      | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
       }
     }
 
@@ -257,20 +257,20 @@ module Module: Module = {
     }
 
     switch connection {
-    | ALS(conn, alsVersion, agdaVersion, endpoint) =>
+    | ALS(conn, alsVersion, agdaVersion) =>
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(ALS(conn, alsVersion, agdaVersion, endpoint)))
+        let _ = await destroy(Some(ALS(conn, alsVersion, agdaVersion)))
         Error(Error.ALS(error))
       | Ok() => Ok()
       }
 
-    | Agda(conn, version, endpoint) =>
+    | Agda(conn, version) =>
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(Agda(conn, version, endpoint)))
+        let _ = await destroy(Some(Agda(conn, version)))
         Error(Error.Agda(error, Agda.getPath(conn)))
       | Ok() => Ok()
       }
