@@ -8,7 +8,7 @@ module type Panel = {
   let displayOutOfGoalError: State.t => promise<unit>
   let displayConnectionError: (State.t, Connection__Error.t) => promise<unit>
   let displayStatus: (State.t, string) => promise<unit>
-  let displayConnectionStatus: (State.t, Connection.Endpoint.t) => promise<unit>
+  let displayConnectionStatus: (State.t, Connection.t) => promise<unit>
   // Input Method
   let updateIM: (State.t, View.EventToView.InputMethod.t) => promise<unit>
   let updatePromptIM: (State.t, string) => promise<unit>
@@ -47,12 +47,11 @@ module Panel: Panel = {
 
   // display connection status
   let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
-  let displayConnectionStatus = (state, status) =>
-    switch status {
-    | Connection.Endpoint.Agda(version, _) => displayStatus(state, "Agda v" ++ version)
-    | ALS(alsVersion, agdaVersion, ViaPipe(_), _) =>
+  let displayConnectionStatus = (state, connection) =>
+    switch connection {
+    | Connection.Agda(_, version, _) => displayStatus(state, "Agda v" ++ version)
+    | ALS(_, alsVersion, agdaVersion, _) =>
       displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
-    | ALS(_, _, ViaTCP(_), _) => displayStatus(state, "ALS (TCP)")
     }
 
   // update the Input Method

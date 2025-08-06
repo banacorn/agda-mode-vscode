@@ -20,13 +20,13 @@ let sendRequest = async (
     //  2. all responses have been handled
     switch await Connection.sendRequest(connection, state.document, request, onResponse) {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
-    | Ok(status) =>
+    | Ok() =>
       // display the connection status
-      await State__View.Panel.displayConnectionStatus(state, status)
-      // update the Agda version
-      switch status {
-      | Agda(version, _) => state.agdaVersion = Some(version)
-      | ALS(_alsVersion, agdaVersion, _, _) => state.agdaVersion = Some(agdaVersion)
+      await State__View.Panel.displayConnectionStatus(state, connection)
+      // update versions
+      switch connection {
+      | Agda(_, version, _) => state.agdaVersion = Some(version)
+      | ALS(_, _alsVersion, agdaVersion, _) => state.agdaVersion = Some(agdaVersion)
       }
     }
   }

@@ -9,7 +9,7 @@ module type Module = {
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
-  let getInfo: t => (string, string) // version and path
+  let getPath: t => string
 }
 
 module Module: Module = {
@@ -159,7 +159,7 @@ module Module: Module = {
     promise
   }
 
-  let getInfo = conn => (conn.version, conn.path)
+  let getPath = conn => conn.path
 }
 
 include Module
