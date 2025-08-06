@@ -17,8 +17,8 @@ let checkForPrebuiltDataDirectory = async (executablePath: string) => {
 
 module Error = {
   type t =
-    | NotAgdaOrALS(URI.t, string) // URI and the actual output received
-    | SomethingWentWrong(URI.t, Connection__Process__Exec.Error.t)
+    | NotAgdaOrALS(string, string) // path and the actual output received
+    | SomethingWentWrong(string, Connection__Process__Exec.Error.t) // path and the error
     | CannotHandleURLsATM(URI.t)
 
   let toString = x =>
@@ -29,18 +29,17 @@ module Error = {
         uri,
       ) ++ ": Cannot handle URLs at the moment, this will be supported again in the future"
 
-    | NotAgdaOrALS(uri, output) =>
+    | NotAgdaOrALS(path, output) =>
       // "Not Agda or Agda Language Server",
       let outputInfo = if output == "" {
         "no output (empty string)"
       } else {
         "'" ++ output ++ "'"
       }
-      URI.toString(uri) ++
+      path ++
       ": doesn't seem to be an Agda executable or an Agda Language Server. Output received: " ++
       outputInfo
-    | SomethingWentWrong(uri, e) =>
-      URI.toString(uri) ++ ": " ++ Connection__Process__Exec.Error.toString(e)
+    | SomethingWentWrong(path, e) => path ++ ": " ++ Connection__Process__Exec.Error.toString(e)
     }
 }
 
@@ -109,10 +108,10 @@ module Module: {
             | None => None
             }
             Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, []), lspOptions))
-          | _ => Error(Error.NotAgdaOrALS(uri, output))
+          | _ => Error(Error.NotAgdaOrALS(path, output))
           }
         }
-      | Error(error) => Error(Error.SomethingWentWrong(uri, error))
+      | Error(error) => Error(Error.SomethingWentWrong(path, error))
       }
     }
 
@@ -193,9 +192,9 @@ module Module: {
         // the path in the memento is not in the paths provided by the system
         // remove it from the memento
         await Memento.PickedConnection.set(memento, None)
-        fromSystem[0]
+        None
       }
-    | None => fromSystem[0]
+    | None => None
     }
   }
 

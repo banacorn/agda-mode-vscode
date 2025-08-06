@@ -25,8 +25,6 @@ module CommandErr = {
 }
 
 type t =
-  // the found program is not ALS
-  | Validation(string)
   // Errors from the LSP client
   | ConnectionError(Js.Exn.t)
   // Errors when sending Command to the server
@@ -59,5 +57,4 @@ let toString = error =>
       "Cannot decode responses from the server" ++ msg ++ "\n" ++ JSON.stringify(json),
     )
   | ResponseParseError(e) => ("Internal Parse Error", Parser.Error.toString(e))
-  | Validation(msg) => ("Validation Error", msg)
   }

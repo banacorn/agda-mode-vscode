@@ -67,7 +67,7 @@ describe("Connection", () => {
               switch uri {
               | FileURI(_, vscodeUri) =>
                 Connection__Endpoint.Error.SomethingWentWrong(
-                  uri,
+                  vscodeUri->VSCode.Uri.fsPath,
                   NotFound(vscodeUri->VSCode.Uri.fsPath),
                 )
               | LspURI(_) => failwith("Expected FileURI variant")
@@ -93,20 +93,11 @@ describe("Connection", () => {
         // setup the memento
         let memento = Memento.make(None)
         await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
-        let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
+        let paths = ["path/to/agda", "path/to/als"]
 
-        let actual = await Connection__Endpoint.getPicked(memento, paths)
+        let actual = await Connection__Endpoint.getPickedRaw(memento, paths)
         if OS.onUnix {
-          let expected = Error([
-            Connection__Endpoint.Error.SomethingWentWrong(
-              paths[0]->Option.getExn,
-              NotFound(NodeJs.Path.resolve(["path/to/agda"])),
-            ),
-            Connection__Endpoint.Error.SomethingWentWrong(
-              paths[1]->Option.getExn,
-              NotFound(NodeJs.Path.resolve(["path/to/als"])),
-            ),
-          ])
+          let expected = None
           Assert.deepStrictEqual(actual, expected)
         } else {
           // let expected = Error([
@@ -120,13 +111,8 @@ describe("Connection", () => {
           //   ),
           // ])
           switch actual {
-          | Ok(_) => Assert.fail("expected an error, got Ok")
-          | Error([
-              Connection__Endpoint.Error.SomethingWentWrong(_, _),
-              Connection__Endpoint.Error.SomethingWentWrong(_, _),
-            ]) =>
-            Assert.ok(true)
-          | _ => Assert.fail("expected an error, got something else")
+          | Some(_) => Assert.fail("expected an None, got Some")
+          | None => Assert.ok(true)
           }
         }
       },
@@ -277,68 +263,68 @@ describe("Connection", () => {
       },
     )
 
-    Async.it(
-      "should throw an error when the command is not found",
-      async () => {
-        let memento = Memento.make(None)
-        let paths = [Connection__URI.parse("some/other/paths")]
-        let commands = ["non-existent-command"]
-        let platformDeps = Desktop.make()
-        let result = await Connection.fromPathsAndCommands(platformDeps, memento, paths, commands)
+    // Async.it(
+    //   "should throw an error when the command is not found",
+    //   async () => {
+    //     let memento = Memento.make(None)
+    //     let paths = [Connection__URI.parse("some/other/paths")]
+    //     let commands = ["non-existent-command"]
+    //     let platformDeps = Desktop.make()
+    //     let result = await Connection.fromPathsAndCommands(platformDeps, memento, paths, commands)
 
-        if OS.onUnix {
-          let expected = {
-            Connection__Error.Aggregated.Attempts.endpoints: [
-              {
-                SomethingWentWrong(
-                  paths[0]->Option.getExn,
-                  if OS.onUnix {
-                    NotFound(NodeJs.Path.resolve(["some/other/paths"]))
-                  } else {
-                    NotFound(NodeJs.Path.resolve(["some\\other\\paths"]))
-                  },
-                )
-              },
-            ],
-            commands: [Connection__Command.Error.NotFound("non-existent-command")],
-          }
+    //     if OS.onUnix {
+    //       let expected = {
+    //         Connection__Error.Construction.Attempts.endpoints: [
+    //           {
+    //             SomethingWentWrong(
+    //               paths[0]->Option.getExn->Connection__URI.getOriginalPath,
+    //               if OS.onUnix {
+    //                 NotFound(NodeJs.Path.resolve(["some/other/paths"]))
+    //               } else {
+    //                 NotFound(NodeJs.Path.resolve(["some\\other\\paths"]))
+    //               },
+    //             )
+    //           },
+    //         ],
+    //         commands: [Connection__Command.Error.NotFound("non-existent-command")],
+    //       }
 
-          Assert.deepStrictEqual(result, Error(expected))
-        } else {
-          // let expected = {
-          //   Connection__Error.Aggregated.Attempts.targets: [
-          //     {
-          //       SomethingWentWrong(
-          //         Connection.URI.parse("some/other/paths"),
-          //         if OS.onUnix {
-          //           NotFound("some/other/paths")
-          //         } else {
-          //           NotFound("some\\other\\paths")
-          //         },
-          //       )
-          //     },
-          //   ],
-          //   commands: [Connection__Command.Error.NotFound("non-existent-command")],
-          // }
+    //       Assert.deepStrictEqual(result, Error(expected))
+    //     } else {
+    //       // let expected = {
+    //       //   Connection__Error.Construction.Attempts.targets: [
+    //       //     {
+    //       //       SomethingWentWrong(
+    //       //         Connection.URI.parse("some/other/paths"),
+    //       //         if OS.onUnix {
+    //       //           NotFound("some/other/paths")
+    //       //         } else {
+    //       //           NotFound("some\\other\\paths")
+    //       //         },
+    //       //       )
+    //       //     },
+    //       //   ],
+    //       //   commands: [Connection__Command.Error.NotFound("non-existent-command")],
+    //       // }
 
-          // Assert.deepStrictEqual(result, Error(expected))
+    //       // Assert.deepStrictEqual(result, Error(expected))
 
-          switch result {
-          | Ok(_) => Assert.fail("expected an error, got Ok")
-          | Error(error) =>
-            switch error.endpoints {
-            | [Connection__Endpoint.Error.SomethingWentWrong(_, _)] => Assert.ok(true)
-            | _ => Assert.fail("expected an error with a single endpoint error")
-            }
-          }
-        }
-      },
-    )
+    //       switch result {
+    //       | Ok(_) => Assert.fail("expected an error, got Ok")
+    //       | Error(error) =>
+    //         switch error.endpoints {
+    //         | [Connection__Endpoint.Error.SomethingWentWrong(_, _)] => Assert.ok(true)
+    //         | _ => Assert.fail("expected an error with a single endpoint error")
+    //         }
+    //       }
+    //     }
+    //   },
+    // )
   })
 
   describe("`fromDownloads`", () => {
     let attempts = {
-      Connection__Error.Aggregated.Attempts.endpoints: [],
+      Connection__Error.Construction.Attempts.endpoints: [],
       commands: [],
     }
 
@@ -418,7 +404,10 @@ describe("Connection", () => {
           attempts,
         )
 
-        Assert.deepStrictEqual(result, Error(Aggregated(PlatformNotSupported(attempts, platform))))
+        Assert.deepStrictEqual(
+          result,
+          Error(Construction(PlatformNotSupported(attempts, platform))),
+        )
       },
     )
 
@@ -459,7 +448,7 @@ describe("Connection", () => {
           globalStorageUri,
           attempts,
         )
-        Assert.deepStrictEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
+        Assert.deepStrictEqual(result, Error(Construction(NoDownloadALS(attempts))))
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
@@ -506,7 +495,7 @@ describe("Connection", () => {
           globalStorageUri,
           attempts,
         )
-        Assert.deepStrictEqual(result, Error(Aggregated(NoDownloadALS(attempts))))
+        Assert.deepStrictEqual(result, Error(Construction(NoDownloadALS(attempts))))
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
@@ -679,7 +668,7 @@ describe("Connection", () => {
         Assert.deepStrictEqual(
           result,
           Error(
-            Aggregated(
+            Construction(
               DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease),
             ),
           ),

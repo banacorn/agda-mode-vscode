@@ -1,4 +1,4 @@
-module Aggregated = {
+module Construction = {
   module Attempts = {
     type t = {
       endpoints: array<Connection__Endpoint.Error.t>,
@@ -50,13 +50,13 @@ module Aggregated = {
 }
 
 type t =
-  | Agda(Connection__Endpoint__Agda__Error.t, string)
+  | Agda(Connection__Endpoint__Agda__Error.t)
   | ALS(Connection__Endpoint__ALS__Error.t)
-  | Aggregated(Aggregated.t)
+  | Construction(Construction.t)
 
 let toString = x =>
   switch x {
-  | Agda(e, _) => Connection__Endpoint__Agda__Error.toString(e)
+  | Agda(e) => Connection__Endpoint__Agda__Error.toString(e)
   | ALS(e) => Connection__Endpoint__ALS__Error.toString(e)
-  | Aggregated(e) => ("Connection Error", Aggregated.toString(e))
+  | Construction(e) => ("Cannot Construct Connection", Construction.toString(e))
   }

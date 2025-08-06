@@ -26,12 +26,12 @@ module type Module = {
     Memento.t,
     array<Connection__URI.t>,
     array<string>,
-  ) => promise<result<Endpoint.t, Error.Aggregated.Attempts.t>>
+  ) => promise<result<Endpoint.t, Error.Construction.Attempts.t>>
   let fromDownloads: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
-    Error.Aggregated.Attempts.t,
+    Error.Construction.Attempts.t,
   ) => promise<result<Endpoint.t, Error.t>>
 
   // messaging
@@ -91,8 +91,8 @@ module Module: Module = {
     switch endpoint {
     | Agda(version, path) =>
       let method = Connection__Transport.ViaPipe(path, [])
-      switch await Agda.make(method, version, path) {
-      | Error(error) => Error(Error.Agda(error, path))
+      switch await Agda.make(path, version) {
+      | Error(error) => Error(Error.Agda(error))
       | Ok(conn) => Ok(Agda(conn, version))
       }
     | ALS(alsVersion, agdaVersion, method, lspOptions) =>
@@ -101,6 +101,51 @@ module Module: Module = {
       | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
       }
     }
+
+  let makeWithRawPath = async (rawpath: string): result<
+    t,
+    result<Connection__Error.t, Connection__Endpoint.Error.t>,
+  > => {
+    let uri = URI.parse(rawpath)
+    switch uri {
+    | URI.LspURI(_) => Error(Error(CannotHandleURLsATM(uri)))
+    | FileURI(_, uri) =>
+      let path = VSCode.Uri.fsPath(uri)
+      let result = await Connection__Process__Exec.run(path, ["--version"])
+      switch result {
+      | Ok(output) =>
+        // try Agda
+        switch String.match(output, %re("/Agda version (.*)/")) {
+        | Some([_, Some(version)]) =>
+          switch await Agda.make(path, version) {
+          | Error(error) => Error(Ok(Agda(error)))
+          | Ok(conn) => Ok(Agda(conn, version))
+          }
+        | _ =>
+          // try ALS
+          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+            let lspOptions = switch await Connection__Endpoint.checkForPrebuiltDataDirectory(path) {
+            | Some(assetPath) =>
+              let env = Dict.fromArray([("Agda_datadir", assetPath)])
+              Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
+            | None => None
+            }
+            switch await ALS.make(
+              Connection__Transport.ViaPipe(path, []),
+              lspOptions,
+              InitOptions.getFromConfig(),
+            ) {
+            | Error(error) => Error(Ok(ALS(error)))
+            | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
+            }
+          | _ => Error(Error(Connection__Endpoint.Error.NotAgdaOrALS(path, output)))
+          }
+        }
+      | Error(error) => Error(Error(SomethingWentWrong(path, error)))
+      }
+    }
+  }
 
   // search through a list of commands until one is found
   let findCommands = async (platformDeps: Platform.t, commands) => {
@@ -117,13 +162,13 @@ module Module: Module = {
     memento: Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
-  ): result<Endpoint.t, Error.Aggregated.Attempts.t> => {
+  ): result<Endpoint.t, Error.Construction.Attempts.t> => {
     switch await Endpoint.getPicked(memento, paths) {
     | Error(endpointErrors) =>
       switch await findCommands(platformDeps, commands) {
       | Error(commandErrors) =>
         let attempts = {
-          Error.Aggregated.Attempts.endpoints: endpointErrors,
+          Error.Construction.Attempts.endpoints: endpointErrors,
           commands: commandErrors,
         }
 
@@ -154,12 +199,12 @@ module Module: Module = {
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
-    attempts: Error.Aggregated.Attempts.t,
+    attempts: Error.Construction.Attempts.t,
   ): result<Endpoint.t, Error.t> => {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
-    | Error(platform) => Error(Error.Aggregated(PlatformNotSupported(attempts, platform)))
+    | Error(platform) => Error(Error.Construction(PlatformNotSupported(attempts, platform)))
     | Ok(platform) =>
       // if the policy has not been set, ask the user
       let policy = switch Config.Connection.DownloadPolicy.get() {
@@ -171,10 +216,10 @@ module Module: Module = {
       | Config.Connection.DownloadPolicy.Undecided =>
         // the user has clicked on "cancel" in the dialog, treat it as "No"
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Aggregated(NoDownloadALS(attempts)))
+        Error(Error.Construction(NoDownloadALS(attempts)))
       | No =>
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Aggregated(NoDownloadALS(attempts)))
+        Error(Error.Construction(NoDownloadALS(attempts)))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
@@ -183,7 +228,7 @@ module Module: Module = {
           Ok(endpoint)
         | None =>
           switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
-          | Error(error) => Error(Error.Aggregated(DownloadALS(attempts, error)))
+          | Error(error) => Error(Error.Construction(DownloadALS(attempts, error)))
           | Ok(endpoint) =>
             await Config.Connection.addAgdaPath(Connection__Endpoint.toURI(endpoint))
             Ok(endpoint)
@@ -227,14 +272,14 @@ module Module: Module = {
   //   memento: Memento.t,
   //   paths: array<string>,
   //   commands: array<string>,
-  // ): result<Endpoint.t, Error.Aggregated.Attempts.t> => {
-  //   Error(Error.Aggregated.Attempts.empty)
+  // ): result<Endpoint.t, Error.Construction.Attempts.t> => {
+  //   Error(Error.Construction.Attempts.empty)
   //   // switch await Endpoint.getPickedRaw(memento, paths) {
   //   // | None =>
   //   //   switch await findCommand(platformDeps, commands) {
   //   //   | Error(commandErrors) =>
   //   //     let attempts = {
-  //   //       Error.Aggregated.Attempts.endpoints: endpointErrors,
+  //   //       Error.Construction.Attempts.endpoints: endpointErrors,
   //   //       commands: commandErrors,
   //   //     }
 
@@ -271,7 +316,7 @@ module Module: Module = {
       | Error(error) =>
         // stop the connection on error
         let _ = await destroy(Some(Agda(conn, version)))
-        Error(Error.Agda(error, Agda.getPath(conn)))
+        Error(Error.Agda(error))
       | Ok() => Ok()
       }
     }

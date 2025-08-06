@@ -81,7 +81,7 @@ describe("Platform dependent utilities", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let attempts = {
-          Connection__Error.Aggregated.Attempts.endpoints: [],
+          Connection__Error.Construction.Attempts.endpoints: [],
           commands: [],
         }
 

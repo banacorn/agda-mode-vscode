@@ -5,11 +5,10 @@ module Process = Connection__Transport__Process
 module type Module = {
   type t
   // lifecycle
-  let make: (Connection__Transport.t, string, string) => promise<result<t, Error.t>>
+  let make: (string, string) => promise<result<t, Error.t>>
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
-  let getPath: t => string
 }
 
 module Module: Module = {
@@ -89,21 +88,18 @@ module Module: Module = {
       )->Some
   }
 
-  let make = async (method, version, path) =>
-    switch method {
-    | Connection__Transport.ViaTCP(_) => Error(Error.ConnectionViaTCPNotSupported)
-    | ViaPipe(_, _) =>
-      let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
-      let conn = {
-        process: Process.make(path, args),
-        version,
-        path,
-        chan: Chan.make(),
-        encountedFirstPrompt: false,
-      }
-      wire(conn)
-      Ok(conn)
+  let make = async (path, version) => {
+    let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
+    let conn = {
+      process: Process.make(path, args),
+      version,
+      path,
+      chan: Chan.make(),
+      encountedFirstPrompt: false,
     }
+    wire(conn)
+    Ok(conn)
+  }
 
   let onResponse = async (conn, callback) => {
     let scheduler = Scheduler.make()
@@ -158,8 +154,6 @@ module Module: Module = {
     Process.send(conn.process, request)->ignore
     promise
   }
-
-  let getPath = conn => conn.path
 }
 
 include Module
