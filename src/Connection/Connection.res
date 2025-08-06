@@ -90,7 +90,6 @@ module Module: Module = {
   let makeWithEndpoint = async (endpoint: Endpoint.t): result<t, Error.t> =>
     switch endpoint {
     | Agda(version, path) =>
-      let method = Connection__Transport.ViaPipe(path, [])
       switch await Agda.make(path, version) {
       | Error(error) => Error(Error.Agda(error))
       | Ok(conn) => Ok(Agda(conn, version))
@@ -102,13 +101,10 @@ module Module: Module = {
       }
     }
 
-  let makeWithRawPath = async (rawpath: string): result<
-    t,
-    result<Connection__Error.t, Connection__Endpoint.Error.t>,
-  > => {
+  let makeWithRawPath = async (rawpath: string): result<t, Connection__Endpoint.Error.t> => {
     let uri = URI.parse(rawpath)
     switch uri {
-    | URI.LspURI(_) => Error(Error(CannotHandleURLsATM))
+    | URI.LspURI(_) => Error(CannotHandleURLsATM)
     | FileURI(_, uri) =>
       let path = VSCode.Uri.fsPath(uri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
@@ -118,7 +114,7 @@ module Module: Module = {
         switch String.match(output, %re("/Agda version (.*)/")) {
         | Some([_, Some(version)]) =>
           switch await Agda.make(path, version) {
-          | Error(error) => Error(Ok(Agda(error)))
+          | Error(error) => Error(CannotMakeConnectionWithAgda(error))
           | Ok(conn) => Ok(Agda(conn, version))
           }
         | _ =>
@@ -136,13 +132,13 @@ module Module: Module = {
               lspOptions,
               InitOptions.getFromConfig(),
             ) {
-            | Error(error) => Error(Ok(ALS(error)))
+            | Error(error) => Error(CannotMakeConnectionWithALS(error))
             | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
             }
-          | _ => Error(Error(Connection__Endpoint.Error.NotAgdaOrALS(output)))
+          | _ => Error(Connection__Endpoint.Error.NotAgdaOrALS(output))
           }
         }
-      | Error(error) => Error(Error(SomethingWentWrong(error)))
+      | Error(error) => Error(CannotDetermineAgdaOrALS(error))
       }
     }
   }

@@ -68,7 +68,7 @@ describe("Connection", () => {
               switch uri {
               | FileURI(raw, vscodeUri) => (
                   raw,
-                  Connection__Endpoint.Error.SomethingWentWrong(
+                  Connection__Endpoint.Error.CannotDetermineAgdaOrALS(
                     NotFound(vscodeUri->VSCode.Uri.fsPath),
                   ),
                 )

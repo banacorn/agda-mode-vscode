@@ -18,8 +18,10 @@ let checkForPrebuiltDataDirectory = async (executablePath: string) => {
 module Error = {
   type t =
     | NotAgdaOrALS(string) // the actual output received
-    | SomethingWentWrong(Connection__Process__Exec.Error.t) // runtime error
+    | CannotDetermineAgdaOrALS(Connection__Process__Exec.Error.t) // cannot determine if it's Agda or ALS
     | CannotHandleURLsATM
+    | CannotMakeConnectionWithAgda(Connection__Endpoint__Agda__Error.t)
+    | CannotMakeConnectionWithALS(Connection__Endpoint__ALS__Error.t)
 
   let toString = x =>
     switch x {
@@ -35,7 +37,12 @@ module Error = {
       }
       "doesn't seem to be an Agda executable or an Agda Language Server. Output received: " ++
       outputInfo
-    | SomethingWentWrong(e) => Connection__Process__Exec.Error.toString(e)
+    | CannotDetermineAgdaOrALS(e) => Connection__Process__Exec.Error.toString(e)
+    | CannotMakeConnectionWithAgda(e) =>
+      "Cannot make connection with Agda: " ++ snd(Connection__Endpoint__Agda__Error.toString(e))
+    | CannotMakeConnectionWithALS(e) =>
+      "Cannot make connection with Agda Language Server: " ++
+      snd(Connection__Endpoint__ALS__Error.toString(e))
     }
 }
 
@@ -106,7 +113,7 @@ module Module: {
           | _ => Error(Error.NotAgdaOrALS(output))
           }
         }
-      | Error(error) => Error(Error.SomethingWentWrong(error))
+      | Error(error) => Error(Error.CannotDetermineAgdaOrALS(error))
       }
     }
 
