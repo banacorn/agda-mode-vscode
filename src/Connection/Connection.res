@@ -108,7 +108,7 @@ module Module: Module = {
   > => {
     let uri = URI.parse(rawpath)
     switch uri {
-    | URI.LspURI(_) => Error(Error(CannotHandleURLsATM(uri)))
+    | URI.LspURI(_) => Error(Error(CannotHandleURLsATM))
     | FileURI(_, uri) =>
       let path = VSCode.Uri.fsPath(uri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
@@ -139,10 +139,10 @@ module Module: Module = {
             | Error(error) => Error(Ok(ALS(error)))
             | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
             }
-          | _ => Error(Error(Connection__Endpoint.Error.NotAgdaOrALS(path, output)))
+          | _ => Error(Error(Connection__Endpoint.Error.NotAgdaOrALS(output)))
           }
         }
-      | Error(error) => Error(Error(SomethingWentWrong(path, error)))
+      | Error(error) => Error(Error(SomethingWentWrong(error)))
       }
     }
   }

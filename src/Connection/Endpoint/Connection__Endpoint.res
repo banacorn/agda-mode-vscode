@@ -17,29 +17,25 @@ let checkForPrebuiltDataDirectory = async (executablePath: string) => {
 
 module Error = {
   type t =
-    | NotAgdaOrALS(string, string) // path and the actual output received
-    | SomethingWentWrong(string, Connection__Process__Exec.Error.t) // path and the error
-    | CannotHandleURLsATM(URI.t)
+    | NotAgdaOrALS(string) // the actual output received
+    | SomethingWentWrong(Connection__Process__Exec.Error.t) // runtime error
+    | CannotHandleURLsATM
 
   let toString = x =>
     switch x {
-    | CannotHandleURLsATM(uri) =>
-      // "Cannot handle URLs at the moment",
-      URI.toString(
-        uri,
-      ) ++ ": Cannot handle URLs at the moment, this will be supported again in the future"
+    | CannotHandleURLsATM => // "Cannot handle URLs at the moment",
+      "Cannot handle URLs at the moment, this will be supported again in the future"
 
-    | NotAgdaOrALS(path, output) =>
+    | NotAgdaOrALS(output) =>
       // "Not Agda or Agda Language Server",
       let outputInfo = if output == "" {
         "no output (empty string)"
       } else {
         "'" ++ output ++ "'"
       }
-      path ++
-      ": doesn't seem to be an Agda executable or an Agda Language Server. Output received: " ++
+      "doesn't seem to be an Agda executable or an Agda Language Server. Output received: " ++
       outputInfo
-    | SomethingWentWrong(path, e) => path ++ ": " ++ Connection__Process__Exec.Error.toString(e)
+    | SomethingWentWrong(e) => Connection__Process__Exec.Error.toString(e)
     }
 }
 
@@ -59,7 +55,6 @@ module Module: {
 
   // from URI to Endpoint
   let fromURI: URI.t => promise<result<t, Error.t>>
-  let fromURIs: array<URI.t> => promise<array<result<t, Error.t>>>
   // from Endpoint to URI
   let toURI: t => URI.t
 
@@ -71,7 +66,7 @@ module Module: {
   let fromVSCodeUri: VSCode.Uri.t => promise<result<t, Error.t>>
 
   // configuration
-  let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, array<Error.t>>>
+  let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, Dict.t<Error.t>>>
   let getPickedRaw: (Memento.t, array<string>) => promise<option<string>>
   let setPicked: (Memento.t, option<t>) => promise<unit>
 } = {
@@ -88,7 +83,7 @@ module Module: {
   // see if it's a Agda executable or a language server
   let probeFilepath = async uri =>
     switch uri {
-    | URI.LspURI(_) => Error(Error.CannotHandleURLsATM(uri))
+    | URI.LspURI(_) => Error(Error.CannotHandleURLsATM)
     | URI.FileURI(_, vscodeUri) =>
       let path = VSCode.Uri.fsPath(vscodeUri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
@@ -108,16 +103,16 @@ module Module: {
             | None => None
             }
             Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, []), lspOptions))
-          | _ => Error(Error.NotAgdaOrALS(path, output))
+          | _ => Error(Error.NotAgdaOrALS(output))
           }
         }
-      | Error(error) => Error(Error.SomethingWentWrong(path, error))
+      | Error(error) => Error(Error.SomethingWentWrong(error))
       }
     }
 
   let fromURI = async uri =>
     switch uri {
-    | URI.LspURI(_) => Error(Error.CannotHandleURLsATM(uri))
+    | URI.LspURI(_) => Error(Error.CannotHandleURLsATM)
     | FileURI(_) =>
       switch await probeFilepath(uri) {
       | Ok(endpoint) => Ok(endpoint)
@@ -135,8 +130,6 @@ module Module: {
   // plural form of `fromRawPath`
   let fromRawPaths = paths => paths->Array.map(fromRawPath)->Promise.all
 
-  let fromURIs = uris => uris->Array.map(fromURI)->Promise.all
-
   // TODO, reexamine this
   let toURI = endpoint =>
     switch endpoint {
@@ -151,11 +144,24 @@ module Module: {
   let getPicked = async (memento: Memento.t, rawSuppliedPaths: array<Connection__URI.t>) => {
     // convert raw supplied paths to endpoints
     // and filter out the invalid ones
-    let (suppliedEndpoints, suppliedEndpointErrors) =
-      (await fromURIs(rawSuppliedPaths))->Util.Result.partition
+
+    let errors = Dict.make()
+
+    let suppliedEndpoints =
+      await rawSuppliedPaths
+      ->Array.map(async path => {
+        switch await fromURI(path) {
+        | Ok(endpoint) => Some(endpoint)
+        | Error(error) =>
+          errors->Dict.set(Connection__URI.getOriginalPath(path), error)
+          None
+        }
+      })
+      ->Promise.all
+    let suppliedEndpoints = suppliedEndpoints->Array.filterMap(x => x)
 
     let pickFromSuppliedEndpointsInstead = switch suppliedEndpoints[0] {
-    | None => Error(suppliedEndpointErrors)
+    | None => Error(errors)
     | Some(endpoint) => Ok(endpoint)
     }
 

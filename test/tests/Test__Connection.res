@@ -62,17 +62,20 @@ describe("Connection", () => {
         let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
 
         let expected = Error(
-          paths->Array.map(
+          paths
+          ->Array.map(
             uri =>
               switch uri {
-              | FileURI(_, vscodeUri) =>
-                Connection__Endpoint.Error.SomethingWentWrong(
-                  vscodeUri->VSCode.Uri.fsPath,
-                  NotFound(vscodeUri->VSCode.Uri.fsPath),
+              | FileURI(raw, vscodeUri) => (
+                  raw,
+                  Connection__Endpoint.Error.SomethingWentWrong(
+                    NotFound(vscodeUri->VSCode.Uri.fsPath),
+                  ),
                 )
               | LspURI(_) => failwith("Expected FileURI variant")
               },
-          ),
+          )
+          ->Dict.fromArray,
         )
 
         let actual = await Connection__Endpoint.getPicked(memento, paths)
@@ -324,7 +327,7 @@ describe("Connection", () => {
 
   describe("`fromDownloads`", () => {
     let attempts = {
-      Connection__Error.Construction.Attempts.endpoints: [],
+      Connection__Error.Construction.Attempts.endpoints: Dict.make(),
       commands: [],
     }
 

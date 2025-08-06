@@ -1,17 +1,20 @@
 module Construction = {
   module Attempts = {
     type t = {
-      endpoints: array<Connection__Endpoint.Error.t>,
+      endpoints: Dict.t<Connection__Endpoint.Error.t>, // mapping from path to error
       commands: array<Connection__Command.Error.t>,
     }
 
     let toString = attempts => {
-      if attempts.endpoints->Array.length == 0 {
-        "Tried to connect with the path from the configuration but there are none.\n"
+      if attempts.endpoints->Dict.toArray->Array.length == 0 {
+        "Tried to connect with the path from the settings and the system but there are none.\n"
       } else {
-        "Tried to connect with the path from the configuration but all failed:\n" ++
+        "Tried to connect with these paths but all failed:\n" ++
         attempts.endpoints
-        ->Array.map(Connection__Endpoint.Error.toString)
+        ->Dict.toArray
+        ->Array.map(((path, error)) =>
+          "  " ++ path ++ ": " ++ Connection__Endpoint.Error.toString(error)
+        )
         ->Array.join("\n") ++ "\n"
       } ++ if attempts.commands->Array.length == 0 {
         ""

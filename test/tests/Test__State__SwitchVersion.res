@@ -345,7 +345,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create error item correctly",
           () => {
-            let mockError = Connection__Endpoint.Error.NotAgdaOrALS("/bad/path", "invalid output")
+            let mockError = Connection__Endpoint.Error.NotAgdaOrALS("invalid output")
             let actual = ItemCreation.createErrorItem(mockError)
             Assert.strictEqual(actual.label, "$(error)  Bad path")
             switch actual.description {
@@ -353,15 +353,9 @@ describe("State__SwitchVersion", () => {
             | None => Assert.fail("Expected description to be set")
             }
             switch actual.detail {
-            | Some(detail) => {
-                // Check for path in both Unix and Windows formats
-                Assert.ok(
-                  detail->String.includes("/bad/path") ||
-                  detail->String.includes("bad/path") ||
-                  detail->String.includes("\\bad\\path"),
-                )
-                Assert.ok(detail->String.includes("doesn't seem to be an Agda executable"))
-              }
+            | Some(detail) =>
+              // Check for path in both Unix and Windows formats
+              Assert.deepStrictEqual(detail, "doesn't seem to be an Agda executable or an Agda Language Server. Output received: 'invalid output'")
             | None => Assert.fail("Expected detail to be set")
             }
           },
