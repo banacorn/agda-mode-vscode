@@ -529,6 +529,148 @@ module Download = {
   }
 }
 
+// Event handlers module for testability and debugging
+module Handler = {
+  let onSelection = (state: State.t, platformDeps: Platform.t, manager: SwitchVersionManager.t, updateUI, view: View.t, selectedItems: array<VSCode.QuickPickItem.t>) => {
+    view->View.destroy
+    let _ = (async () => {
+    switch selectedItems[0] {
+    | Some(selectedItem) =>
+      // Check if this is the open folder item
+      if selectedItem.label == Constants.openDownloadFolder {
+        let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
+        let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
+      } else if selectedItem.label == Constants.downloadLatestALS {
+        // Check if already downloaded using our corrected logic
+        switch await Download.getAvailableDownload(state, platformDeps) {
+        | Some((downloaded, versionString)) =>
+          let alreadyDownloaded = downloaded
+
+          if alreadyDownloaded {
+            // Show "already downloaded" message
+            let _ = await VSCode.Window.showInformationMessage(
+              versionString ++ " is already downloaded",
+              [],
+            )
+          } else {
+            module PlatformOps = unpack(platformDeps)
+            switch await PlatformOps.determinePlatform() {
+            | Error(_) =>
+              let _ = await VSCode.Window.showErrorMessage(
+                "Failed to determine the platform for downloading the Agda Language Server",
+                [],
+              )
+            | Ok(platform) =>
+              switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(
+                platform,
+              ) {
+              | Error(error) =>
+                let _ = await VSCode.Window.showErrorMessage(
+                  AgdaModeVscode.Connection__Download.Error.toString(error),
+                  [],
+                )
+              | Ok(_endpoint) =>
+                // Refresh the UI to show new status
+                let newDownloadInfo = await Download.getAvailableDownload(state, platformDeps)
+                let _ = SwitchVersionManager.refreshFromMemento(manager)
+                await updateUI(newDownloadInfo)
+                let _ = await VSCode.Window.showInformationMessage(
+                  versionString ++ " successfully downloaded",
+                  [],
+                )
+              }
+            }
+          }
+        | None =>
+          let _ = await VSCode.Window.showErrorMessage(
+            "Download not available for this platform",
+            [],
+          )
+        }
+      } else {
+        // Regular endpoint selection - check if selection changed
+        switch selectedItem.detail {
+        | Some(selectedPath) =>
+          switch await Connection.Endpoint.getPicked(
+            state.memento,
+            Config.Connection.getAgdaPaths(),
+          ) {
+          | Error(_) => {
+              // No previous selection, save and switch
+              // Convert filesystem path to URI format and create endpoint
+              let selectedPathAsUri = VSCode.Uri.file(selectedPath)->VSCode.Uri.toString
+
+              // Parse the URI and create endpoint object
+              let uri = Connection.URI.parse(selectedPathAsUri)
+              switch uri {
+              | FileURI(_, vsCodeUri) =>
+                switch await Connection.Endpoint.fromVSCodeUri(vsCodeUri) {
+                | Error(_) => ()
+                | Ok(endpoint) => {
+                    await Connection.Endpoint.setPicked(state.memento, Some(endpoint))
+
+                    // Also add the ALS path to the permanent configuration so future getPicked calls include it
+                    await Config.Connection.addAgdaPath(Connection.Endpoint.toURI(endpoint))
+
+                    await switchAgdaVersion(state)
+                  }
+                }
+              | LspURI(_, _) => ()
+              }
+            }
+          | Ok(original) => {
+              let originalPath = Connection.Endpoint.toURI(original)->Connection.URI.toString
+              let originalFsPath = if String.startsWith(originalPath, "file://") {
+                VSCode.Uri.parse(originalPath)->VSCode.Uri.fsPath
+              } else {
+                originalPath
+              }
+              let selectionChanged = selectedPath !== originalFsPath
+              if selectionChanged {
+                // Selection changed, save and switch
+                // Convert filesystem path to URI format and create endpoint
+                let selectedPathAsUri = VSCode.Uri.file(selectedPath)->VSCode.Uri.toString
+
+                // Parse the URI and create endpoint object
+                let uri = Connection.URI.parse(selectedPathAsUri)
+                switch uri {
+                | FileURI(_, vsCodeUri) =>
+                  switch await Connection.Endpoint.fromVSCodeUri(vsCodeUri) {
+                  | Error(_) => ()
+                  | Ok(endpoint) => {
+                      await Connection.Endpoint.setPicked(state.memento, Some(endpoint))
+
+                      // Also add the ALS path to the permanent configuration so future getPicked calls include it
+                      await Config.Connection.addAgdaPath(Connection.Endpoint.toURI(endpoint))
+
+                      await switchAgdaVersion(state)
+                    }
+                  }
+                | LspURI(_, _) => ()
+                }
+              }
+            }
+          }
+        | None => ()
+        }
+      }
+    | None => ()
+    }
+    })()
+  }
+
+  let onHide = (state: State.t, view: View.t) => {
+    // QuickPick was hidden/cancelled by user - clean up
+    state.channels.log->Chan.emit(State.Log.Others("SwitchVersion2: QuickPick hidden/cancelled"))
+    view->View.destroy
+  }
+  
+  // For programmatic simulation
+  let simulateSelection = (state: State.t, platformDeps: Platform.t, manager: SwitchVersionManager.t, updateUI, view: View.t, mockItem: VSCode.QuickPickItem.t) => {
+    onSelection(state, platformDeps, manager, updateUI, view, [mockItem])
+  }
+}
+
 // Main entry point
 let run = async (state: State.t, platformDeps: Platform.t) => {
   let manager = SwitchVersionManager.make(state)
@@ -567,141 +709,8 @@ let run = async (state: State.t, platformDeps: Platform.t) => {
   let downloadInfoPromise = Download.getAvailableDownload(state, platformDeps)
 
   // Setup event handlers
-  view->View.onSelection(selectedItems => {
-    view->View.destroy
-
-    // Handle user selection
-    let _ = (
-      async () => {
-        switch selectedItems[0] {
-        | Some(selectedItem) =>
-          // Check if this is the open folder item
-          if selectedItem.label == Constants.openDownloadFolder {
-            let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
-            let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
-          } else if selectedItem.label == Constants.downloadLatestALS {
-            // Check if already downloaded using our corrected logic
-            switch await Download.getAvailableDownload(state, platformDeps) {
-            | Some((downloaded, versionString)) =>
-              let alreadyDownloaded = downloaded
-
-              if alreadyDownloaded {
-                // Show "already downloaded" message
-                let _ = await VSCode.Window.showInformationMessage(
-                  versionString ++ " is already downloaded",
-                  [],
-                )
-              } else {
-                module PlatformOps = unpack(platformDeps)
-                switch await PlatformOps.determinePlatform() {
-                | Error(_) =>
-                  let _ = await VSCode.Window.showErrorMessage(
-                    "Failed to determine the platform for downloading the Agda Language Server",
-                    [],
-                  )
-                | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(
-                    platform,
-                  ) {
-                  | Error(error) =>
-                    let _ = await VSCode.Window.showErrorMessage(
-                      AgdaModeVscode.Connection__Download.Error.toString(error),
-                      [],
-                    )
-                  | Ok(_endpoint) =>
-                    // Refresh the UI to show new status
-                    let newDownloadInfo = await Download.getAvailableDownload(state, platformDeps)
-                    let _ = SwitchVersionManager.refreshFromMemento(manager)
-                    await updateUI(newDownloadInfo)
-                    let _ = await VSCode.Window.showInformationMessage(
-                      versionString ++ " successfully downloaded",
-                      [],
-                    )
-                  }
-                }
-              }
-            | None =>
-              let _ = await VSCode.Window.showErrorMessage(
-                "Download not available for this platform",
-                [],
-              )
-            }
-          } else {
-            // Regular endpoint selection - check if selection changed
-            switch selectedItem.detail {
-            | Some(selectedPath) =>
-              switch await Connection.Endpoint.getPicked(
-                state.memento,
-                Config.Connection.getAgdaPaths(),
-              ) {
-              | Error(_) => {
-                  // No previous selection, save and switch
-                  // Convert filesystem path to URI format and create endpoint
-                  let selectedPathAsUri = VSCode.Uri.file(selectedPath)->VSCode.Uri.toString
-
-                  // Parse the URI and create endpoint object
-                  let uri = Connection.URI.parse(selectedPathAsUri)
-                  switch uri {
-                  | FileURI(_, vsCodeUri) =>
-                    switch await Connection.Endpoint.fromVSCodeUri(vsCodeUri) {
-                    | Error(_) => ()
-                    | Ok(endpoint) => {
-                        await Connection.Endpoint.setPicked(state.memento, Some(endpoint))
-
-                        // Also add the ALS path to the permanent configuration so future getPicked calls include it
-                        await Config.Connection.addAgdaPath(Connection.Endpoint.toURI(endpoint))
-
-                        await switchAgdaVersion(state)
-                      }
-                    }
-                  | LspURI(_, _) => ()
-                  }
-                }
-              | Ok(original) => {
-                  let originalPath = Connection.Endpoint.toURI(original)->Connection.URI.toString
-                  let originalFsPath = if String.startsWith(originalPath, "file://") {
-                    VSCode.Uri.parse(originalPath)->VSCode.Uri.fsPath
-                  } else {
-                    originalPath
-                  }
-                  let selectionChanged = selectedPath !== originalFsPath
-                  if selectionChanged {
-                    // Selection changed, save and switch
-                    // Convert filesystem path to URI format and create endpoint
-                    let selectedPathAsUri = VSCode.Uri.file(selectedPath)->VSCode.Uri.toString
-
-                    // Parse the URI and create endpoint object
-                    let uri = Connection.URI.parse(selectedPathAsUri)
-                    switch uri {
-                    | FileURI(_, vsCodeUri) =>
-                      switch await Connection.Endpoint.fromVSCodeUri(vsCodeUri) {
-                      | Error(_) => ()
-                      | Ok(endpoint) => {
-                          await Connection.Endpoint.setPicked(state.memento, Some(endpoint))
-
-                          // Also add the ALS path to the permanent configuration so future getPicked calls include it
-                          await Config.Connection.addAgdaPath(Connection.Endpoint.toURI(endpoint))
-
-                          await switchAgdaVersion(state)
-                        }
-                      }
-                    | LspURI(_, _) => ()
-                    }
-                  }
-                }
-              }
-            | None => ()
-            }
-          }
-        | None => ()
-        }
-      }
-    )()
-  })
-
-  view->View.onHide(() => {
-    view->View.destroy
-  })
+  view->View.onSelection(selectedItems => Handler.onSelection(state, platformDeps, manager, updateUI, view, selectedItems))
+  view->View.onHide(() => Handler.onHide(state, view))
 
   // Background update process (sequential phases)
   let backgroundUpdate = async () => {
