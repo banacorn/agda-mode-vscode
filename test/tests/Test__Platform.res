@@ -113,7 +113,10 @@ describe("Platform dependent utilities", () => {
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))

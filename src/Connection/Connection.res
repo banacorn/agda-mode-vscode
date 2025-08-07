@@ -18,6 +18,13 @@ module type Module = {
     array<Connection__URI.t>,
     array<string>,
   ) => promise<result<t, Error.t>>
+  let make2: (
+    Platform.t,
+    Memento.t,
+    VSCode.Uri.t,
+    array<string>,
+    array<string>,
+  ) => promise<result<t, Error.t>>
   let destroy: option<t> => promise<result<unit, Error.t>>
 
   // components (now use platform dependencies)
@@ -301,6 +308,67 @@ module Module: Module = {
     }
   }
 
+  // Try to download ALS and create connection directly, with the following steps:
+  // 1. Check platform support
+  // 2. Check download policy 
+  // 3. Check if already downloaded or download latest ALS
+  // 4. Create connection directly from downloaded raw path
+  // Returns Ok(connection) on success, or Error with failure details
+  let fromDownloads2 = async (
+    platformDeps: Platform.t,
+    memento: Memento.t,
+    globalStorageUri: VSCode.Uri.t,
+    attempts: Error.Construction.Attempts.t,
+  ): result<t, Error.t> => {
+    module PlatformOps = unpack(platformDeps)
+
+    switch await PlatformOps.determinePlatform() {
+    | Error(platform) => Error(Error.Construction(PlatformNotSupported(attempts, platform)))
+    | Ok(platform) =>
+      // Check download policy
+      let policy = switch Config.Connection.DownloadPolicy.get() {
+      | Undecided => await PlatformOps.askUserAboutDownloadPolicy()
+      | policy => policy
+      }
+
+      switch policy {
+      | Config.Connection.DownloadPolicy.Undecided =>
+        // User cancelled, treat as No
+        await Config.Connection.DownloadPolicy.set(No)
+        Error(Error.Construction(NoDownloadALS(attempts)))
+      | No =>
+        await Config.Connection.DownloadPolicy.set(No)
+        Error(Error.Construction(NoDownloadALS(attempts)))
+      | Yes =>
+        await Config.Connection.DownloadPolicy.set(Yes)
+        // Check if already downloaded
+        switch await PlatformOps.alreadyDownloaded2(globalStorageUri)() {
+        | Some(rawPath) =>
+          // Already downloaded, create connection directly from raw path
+          switch await makeWithRawPath(rawPath) {
+          | Ok(connection) => 
+            await Config.Connection.addAgdaPath(URI.parse(rawPath))
+            Ok(connection)
+          | Error(endpointError) => Error(Error.Construction(DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease)))
+          }
+        | None =>
+          // Download latest ALS
+          switch await PlatformOps.downloadLatestALS2(memento, globalStorageUri)(platform) {
+          | Error(error) => Error(Error.Construction(DownloadALS(attempts, error)))
+          | Ok(rawPath) =>
+            // Create connection directly from downloaded raw path
+            switch await makeWithRawPath(rawPath) {
+            | Ok(connection) =>
+              await Config.Connection.addAgdaPath(URI.parse(rawPath))
+              Ok(connection)
+            | Error(endpointError) => Error(Error.Construction(DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease)))
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Try to make a connection to Agda or ALS, by trying:
   //  1. `fromPathsAndCommands` to connect to Agda or ALS with paths and commands
   //  2. `fromDownloads` to download the latest ALS
@@ -325,35 +393,27 @@ module Module: Module = {
     }
 
   // Make a connection to Agda or ALS, by trying:
-  //  1. The previously picked endpoint, if it also exists in the settings
-  //  2. The first usable endpoint from the settings
-  //  3. The `agda` command
-  //  4. The `als` command
-  //  5. Downloading the latest ALS
-  // let make2 = async (
-  //   platformDeps: Platform.t,
-  //   memento: Memento.t,
-  //   paths: array<string>,
-  //   commands: array<string>,
-  // ): result<Endpoint.t, Error.Construction.Attempts.t> => {
-  //   Error(Error.Construction.Attempts.empty)
-  //   // switch await Endpoint.getPickedRaw(memento, paths) {
-  //   // | None =>
-  //   //   switch await findCommand(platformDeps, commands) {
-  //   //   | Error(commandErrors) =>
-  //   //     let attempts = {
-  //   //       Error.Construction.Attempts.endpoints: endpointErrors,
-  //   //       commands: commandErrors,
-  //   //     }
+  //  1. The previously picked raw path if it exists in settings
+  //  2. Each raw path from the settings sequentially
+  //  3. Each command from the commands array sequentially  
+  //  4. Downloading the latest ALS
+  let make2 = async (
+    platformDeps: Platform.t,
+    memento: Memento.t,
+    globalStorageUri: VSCode.Uri.t,
+    paths: array<string>,
+    commands: array<string>,
+  ): result<t, Error.t> =>
+    switch await fromPathsAndCommands2(platformDeps, memento, paths, commands) {
+    | Ok(connection) => Ok(connection)
+    | Error(attempts) =>
+      switch await fromDownloads2(platformDeps, memento, globalStorageUri, attempts) {
+      | Error(error) => Error(error)
+      | Ok(connection) => Ok(connection)
+      }
+    }
 
-  //   //     Error(attempts)
-
-  //   //   | Ok(endpoint) => Ok(endpoint)
-  //   //   }
-  //   // | Some(path) => Some(path)
-  //   // }
-  // }
-
+    
   let sendRequest = async (connection, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {

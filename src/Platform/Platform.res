@@ -16,12 +16,19 @@ module type PlatformOps = {
 
   // Download operations
   let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<Connection__Endpoint.t>>
+  let alreadyDownloaded2: VSCode.Uri.t => unit => promise<option<string>> // returns the path to ALS if already downloaded
   let downloadLatestALS: (
     Memento.t,
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<
     result<Connection__Endpoint.t, Connection__Download.Error.t>,
   >
+  let downloadLatestALS2: (
+    Memento.t,
+    VSCode.Uri.t,
+  ) => Connection__Download__Platform.t => promise<
+    result<string, Connection__Download.Error.t>,
+  > // returns the path to the downloaded ALS executable on success
 
   // Endpoint operations
   let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<

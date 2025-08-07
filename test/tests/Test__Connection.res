@@ -387,7 +387,10 @@ describe("Connection", () => {
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
@@ -430,7 +433,10 @@ describe("Connection", () => {
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
@@ -477,7 +483,10 @@ describe("Connection", () => {
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
@@ -532,7 +541,13 @@ describe("Connection", () => {
             checkedCache := true
             Promise.resolve(Some(target))
           }
+          let alreadyDownloaded2 = _globalStorageUri => () => {
+            checkedCache := true
+            Promise.resolve(Some(target->Connection__Endpoint.toURI->Connection__URI.toString))
+          }
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
@@ -590,9 +605,17 @@ describe("Connection", () => {
             checkedCache := true
             Promise.resolve(None)
           }
+          let alreadyDownloaded2 = _globalStorageUri => () => {
+            checkedCache := true
+            Promise.resolve(None)
+          }
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
             checkedDownload := true
             Promise.resolve(Ok(target))
+          }
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
+            checkedDownload := true
+            Promise.resolve(Ok(target->Connection__Endpoint.toURI->Connection__URI.toString))
           }
           let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
             Promise.resolve(Dict.fromArray([]))
@@ -645,7 +668,15 @@ describe("Connection", () => {
             checkedCache := true
             Promise.resolve(None)
           }
+          let alreadyDownloaded2 = _globalStorageUri => () => {
+            checkedCache := true
+            Promise.resolve(None)
+          }
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
+            checkedDownload := true
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          }
+          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
             checkedDownload := true
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           }

@@ -369,26 +369,24 @@ let switchAgdaVersion = async (state: State.t) => {
 
   // start with the new connection
   // Get the selected path from memento and ensure it's included in the supplied paths
-  let configPaths = Config.Connection.getAgdaPaths()
+  let configPaths = Config.Connection.getAgdaPaths2()
   let storedPathBeforeConnection = Memento.PickedConnection.get(state.memento)
 
   let pathsFromSystem = switch storedPathBeforeConnection {
   | Some(selectedPath) => {
       // Convert path to URI and add to config paths if not already present
-      let selectedUri = Connection.URI.parse(selectedPath)
-      let pathExists =
-        configPaths->Array.some(configPath => Connection.URI.toString(configPath) == selectedPath)
+      let pathExists = configPaths->Array.includes(selectedPath)
       if pathExists {
         configPaths
       } else {
         // Put the selected path FIRST so it gets priority in getPicked()
-        Array.concat([selectedUri], configPaths)
+        Array.concat([selectedPath], configPaths)
       }
     }
   | None => configPaths
   }
 
-  switch await Connection.make(
+  switch await Connection.make2(
     state.platformDeps,
     state.memento,
     state.globalStorageUri,
@@ -398,35 +396,61 @@ let switchAgdaVersion = async (state: State.t) => {
   | Ok(conn) =>
     state.connection = Some(conn)
 
-    // Use the same pathsFromSystem we used for Connection.make() to ensure consistency
-    switch await Connection.Endpoint.getPicked(state.memento, pathsFromSystem) {
-    | Error(_) => ()
-    | Ok(Agda(version, _)) => {
-        let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
-        await State__View.Panel.displayStatus(state, formattedVersion)
-        await State__View.Panel.display(
-          state,
-          AgdaModeVscode.View.Header.Success(
-            State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
-          ),
-          [],
-        )
-      }
-    | Ok(ALS(alsVersion, agdaVersion, _, _)) => {
-        let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(
-          alsVersion,
-          agdaVersion,
-        )
-        await State__View.Panel.displayStatus(state, formattedVersion)
-        await State__View.Panel.display(
-          state,
-          AgdaModeVscode.View.Header.Success(
-            State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
-          ),
-          [],
-        )
-      }
+    switch conn {
+    | Agda(_, version) =>
+      let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
+      await State__View.Panel.displayStatus(state, formattedVersion)
+      await State__View.Panel.display(
+        state,
+        AgdaModeVscode.View.Header.Success(
+          State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+        ),
+        [],
+      )
+    | ALS(_, alsVersion, agdaVersion) =>
+      let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(
+        alsVersion,
+        agdaVersion,
+      )
+      await State__View.Panel.displayStatus(state, formattedVersion)
+      await State__View.Panel.display(
+        state,
+        AgdaModeVscode.View.Header.Success(
+          State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+        ),
+        [],
+      )
     }
+
+  // Use the same pathsFromSystem we used for Connection.make() to ensure consistency
+  // switch await Connection.Endpoint.getPickedRaw(state.memento, pathsFromSystem) {
+  // | None => ()
+  // // | Some(Agda(version, _)) => {
+  // //     let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
+  // //     await State__View.Panel.displayStatus(state, formattedVersion)
+  // //     await State__View.Panel.display(
+  // //       state,
+  // //       AgdaModeVscode.View.Header.Success(
+  // //         State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+  // //       ),
+  // //       [],
+  // //     )
+  // //   }
+  // // | Some(ALS(alsVersion, agdaVersion, _, _)) => {
+  // //     let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(
+  // //       alsVersion,
+  // //       agdaVersion,
+  // //     )
+  // //     await State__View.Panel.displayStatus(state, formattedVersion)
+  // //     await State__View.Panel.display(
+  // //       state,
+  // //       AgdaModeVscode.View.Header.Success(
+  // //         State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+  // //       ),
+  // //       [],
+  // //     )
+  // //   }
+  // }
 
   | Error(error) => {
       let (errorHeader, errorBody) = Connection.Error.toString(error)

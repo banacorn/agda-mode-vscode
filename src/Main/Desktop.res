@@ -11,8 +11,22 @@ module Desktop: Platform.PlatformOps = {
   let alreadyDownloaded = globalStorageUri =>
     Connection__LatestALS.alreadyDownloaded(globalStorageUri)
 
+  let alreadyDownloaded2 = globalStorageUri => async () => {
+    switch await Connection__LatestALS.alreadyDownloaded(globalStorageUri)() {
+    | Some(endpoint) => Some(endpoint->Connection__Endpoint.toURI->Connection__URI.toString)
+    | None => None
+    }
+  }
+
   let downloadLatestALS = (memento, globalStorageUri) =>
     Connection__LatestALS.download(memento, globalStorageUri)
+  
+  let downloadLatestALS2 = (memento, globalStorageUri) => async platform => {
+    switch await Connection__LatestALS.download(memento, globalStorageUri)(platform) {
+    | Ok(endpoint) => Ok(endpoint->Connection__Endpoint.toURI->Connection__URI.toString)
+    | Error(error) => Error(error)
+    }
+  }
 
   let getInstalledEndpointsAndPersistThem = async (globalStorageUri: VSCode.Uri.t) => {
     // 1. Get all installed endpoints from:
