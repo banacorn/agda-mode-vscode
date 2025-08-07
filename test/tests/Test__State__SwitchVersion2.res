@@ -763,9 +763,7 @@ describe("State__SwitchVersion2", () => {
         document: { fileName: "test.agda" }
       }`)
 
-      let mockUri = %raw(`{
-        fsPath: "/test/path"
-      }`)
+      let mockUri = VSCode.Uri.file("/test/path")
 
       State.make(makeMockPlatform(), channels, mockUri, mockUri, None, mockEditor, None)
     }
@@ -791,31 +789,48 @@ describe("State__SwitchVersion2", () => {
         State__SwitchVersion2.Handler.onHide(state, view)
 
         // Verify the logged events in correct order
-        Assert.deepStrictEqual(events, ["Handler.onHide called", "View.destroy completed"])
+        Assert.deepStrictEqual(
+          events,
+          [Others("Handler.onHide called"), Others("View.destroy completed")],
+        )
       },
     )
 
     Async.it_only(
-      "onActivate should ???",
+      "onActivate should have an endpoint marked as selected",
       async () => {
         let state = createTestState()
         let events = []
 
+        // Set up a picked connection so there's something to mark as selected
+        await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
+
+        // Populate endpoints in memento so the manager has entries
+        await Memento.Endpoints.setVersion(state.memento, "/usr/bin/agda", Agda(Some("2.6.4")))
+
         // Subscribe to log channel to capture SwitchVersionUI events
-        state.channels.log->Chan.on(
+        state.channels.log
+        ->Chan.on(
           logEvent => {
             switch logEvent {
             | State.Log.SwitchVersionUI(event) => events->Array.push(event)
             | _ => ()
             }
           },
-        )->ignore
+        )
+        ->ignore
 
-        // Test the Handler.onHide function directly
+        // Trigger onActivate
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
 
-        // Verify the logged events in correct order
-        Assert.deepStrictEqual(events, ["QuickPick shown"])
+        // Verify an endpoint is marked as selected
+        Assert.deepStrictEqual(
+          events,
+          [
+            UpdateEndpoints([("/usr/bin/agda", Agda(Some("2.6.4")), None)]),
+            Others("QuickPick shown"),
+          ],
+        )
       },
     )
 

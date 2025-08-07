@@ -38,6 +38,36 @@ module ViewCache = {
 
 // datatype for logging
 module Log = {
+  module SwitchVersion = {
+    type t =
+      | UpdateEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>)>) // array of (path, endpoint, optional error)
+      | Others(string)
+
+    let toString = event =>
+      switch event {
+      | UpdateEndpoints(entries) =>
+        "SwitchVersion.UpdateEndpoints: " ++
+        entries
+        ->Array.map(((path, endpoint, error)) =>
+          path ++
+          ": " ++
+          switch endpoint {
+          | Agda(Some(version)) => "Agda(" ++ version ++ ")"
+          | Agda(None) => "Agda(None)"
+          | ALS(Some(alsVersion, agdaVersion)) => "ALS(" ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
+          | ALS(None) => "ALS(None)"
+          | Unknown => "Unknown"
+          } ++
+          switch error {
+          | Some(err) => " [Error: " ++ err ++ "]"
+          | None => ""
+          }
+        )
+        ->Array.join("\n")
+      | Others(str) => str
+      }
+  }
+
   type t =
     | CommandDispatched(Command.t)
     | CommandHandled(Command.t)
@@ -49,7 +79,7 @@ module Log = {
     | ParserFilepath(string, string) // input, output
     | TokensReset(string) // reason
     | AgdaModeOperation(string, string) // operation, filepath
-    | SwitchVersionUI(string) // UI related events
+    | SwitchVersionUI(SwitchVersion.t) // SwitchVersion UI event
     | Others(string) // generic string
 
   let toString = log =>
@@ -65,7 +95,7 @@ module Log = {
     | ParserFilepath(input, output) => "Parser.filepath: " ++ input ++ " -> " ++ output
     | TokensReset(reason) => "Tokens reset: " ++ reason
     | AgdaModeOperation(operation, filepath) => "AgdaMode." ++ operation ++ ": " ++ filepath
-    | SwitchVersionUI(event) => "SwitchVersionUI: " ++ event
+    | SwitchVersionUI(event) => "SwitchVersionUI: " ++ SwitchVersion.toString(event)
     | Others(str) => str
     }
 }
@@ -77,7 +107,7 @@ type channels = {
   // emits when a Command has been handled
   commandHandled: Chan.t<Command.t>,
   // for debugging
-  log: Chan.t<Log.t>
+  log: Chan.t<Log.t>,
 }
 
 type t = {

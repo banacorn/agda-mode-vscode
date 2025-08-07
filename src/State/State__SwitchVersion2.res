@@ -7,16 +7,6 @@ module Constants = {
   let downloadedAndInstalled = "Downloaded and installed"
 }
 
-// Logging for testing
-module Log = {
-  type t
-  // module SwitchVersion = {
-  //   type t =
-  //     | Select(array<VSCode.QuickPickItem.t>) // array of selected items
-  //     | Hide
-  // }
-}
-
 module ItemData = {
   // UI item types
   type itemType =
@@ -549,9 +539,9 @@ module Handler = {
     view: View.t,
     selectedItems: array<VSCode.QuickPickItem.t>,
   ) => {
-    state.channels.log->Chan.emit(State.Log.SwitchVersionUI("Handler.onSelection called"))
+    state.channels.log->Chan.emit(State.Log.SwitchVersionUI(Others("Handler.onSelection called")))
     view->View.destroy
-    state.channels.log->Chan.emit(SwitchVersionUI("View.destroy completed"))
+    state.channels.log->Chan.emit(SwitchVersionUI(Others("View.destroy completed")))
     let _ = (
       async () => {
         switch selectedItems[0] {
@@ -682,9 +672,9 @@ module Handler = {
 
   let onHide = (state: State.t, view: View.t) => {
     // QuickPick was hidden/cancelled by user - clean up
-    state.channels.log->Chan.emit(SwitchVersionUI("Handler.onHide called"))
+    state.channels.log->Chan.emit(SwitchVersionUI(Others("Handler.onHide called")))
     view->View.destroy
-    state.channels.log->Chan.emit(SwitchVersionUI("View.destroy completed"))
+    state.channels.log->Chan.emit(SwitchVersionUI(Others("View.destroy completed")))
   }
 
   let onActivate = async (state: State.t, platformDeps: Platform.t) => {
@@ -709,6 +699,16 @@ module Handler = {
     // Helper function to update UI with current state
     let updateUI = async (downloadInfo: option<(bool, string)>): unit => {
       let itemData = await SwitchVersionManager.getItemData(manager, downloadInfo)
+
+      // Log selection marking for testing observability
+      let endpointItemDatas = itemData->Array.filterMap(item =>
+        switch item.itemType {
+        | Endpoint(path, entry) => Some(path, entry.endpoint, entry.error)
+        | _ => None
+        }
+      )
+      state.channels.log->Chan.emit(State.Log.SwitchVersionUI(UpdateEndpoints(endpointItemDatas)))
+
       let items = Item.fromItemDataArray(itemData, state.extensionUri)
       view->View.updateItems(items)
     }
@@ -719,7 +719,7 @@ module Handler = {
     // PHASE 1: Show cached items immediately with visual marking
     await updateUI(None)
     view->View.show
-    state.channels.log->Chan.emit(SwitchVersionUI("QuickPick shown"))
+    state.channels.log->Chan.emit(SwitchVersionUI(Others("QuickPick shown")))
 
     // Get download info asynchronously in background
     let downloadInfoPromise = Download.getAvailableDownload(state, platformDeps)
@@ -729,19 +729,6 @@ module Handler = {
       onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
     )
     view->View.onHide(() => onHide(state, view))
-
-    // Event listeners for simulation and testing - store the disposable
-    // let channelUnsubscribe = state.channels.switchVersion->Chan.on(event => {
-    //   switch event {
-    //   | State.Event.SwitchVersion.Select(selectedItems) =>
-    //     onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
-    //   | Hide => onHide(state, view)
-    //   }
-    // })
-
-    // Convert to VSCode disposable and add to view subscriptions so it gets cleaned up
-    // let channelDisposable = VSCode.Disposable.make(channelUnsubscribe)
-    // view.subscriptions->Array.push(channelDisposable)->ignore
 
     // Background update process (sequential phases)
     let backgroundUpdate = async () => {
