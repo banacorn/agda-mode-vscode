@@ -703,7 +703,7 @@ module Handler = {
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>
         switch item.itemType {
-        | Endpoint(path, entry) => Some(path, entry.endpoint, entry.error)
+        | Endpoint(path, entry) => Some(path, entry.endpoint, entry.error, item.isSelected)
         | _ => None
         }
       )

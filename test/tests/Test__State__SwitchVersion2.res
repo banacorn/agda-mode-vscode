@@ -827,10 +827,57 @@ describe("State__SwitchVersion2", () => {
         Assert.deepStrictEqual(
           events,
           [
-            UpdateEndpoints([("/usr/bin/agda", Agda(Some("2.6.4")), None)]),
+            UpdateEndpoints([("/usr/bin/agda", Agda(Some("2.6.4")), None, true)]),
             Others("QuickPick shown"),
           ],
         )
+      },
+    )
+
+    Async.it_only(
+      "should expose real-world selection problem: empty initial state",
+      async () => {
+        let state = createTestState()
+        let events = []
+
+        // Set up picked connection like real usage (user had previously selected agda)
+        await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
+        
+        // DON'T pre-populate endpoints in memento - this mimics real world where
+        // endpoints are discovered through filesystem sync during background update
+
+        // Subscribe to log channel
+        state.channels.log
+        ->Chan.on(
+          logEvent => {
+            switch logEvent {
+            | State.Log.SwitchVersionUI(event) => events->Array.push(event)
+            | _ => ()
+            }
+          },
+        )
+        ->ignore
+
+        // Trigger onActivate with empty initial state
+        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+
+        // In real world: initial UI has no endpoints, so no selection marking
+        // Even if background discovery happens, the selection marking logic might fail
+
+        // Check if any endpoint was marked as selected (isSelected: true)
+        let hasSelectedEndpoint = events->Array.some(event => {
+          switch event {
+          | UpdateEndpoints(endpoints) => 
+            endpoints->Array.some(((_, _, _, isSelected)) => isSelected)
+          | _ => false
+          }
+        })
+
+        if hasSelectedEndpoint {
+          Assert.ok(true) // Selection marking works
+        } else {
+          Assert.fail("No endpoint was marked as selected despite having picked connection. This exposes the real-world problem where items don't show as 'Selected'.")
+        }
       },
     )
 
