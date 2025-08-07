@@ -7,6 +7,16 @@ module Constants = {
   let downloadedAndInstalled = "Downloaded and installed"
 }
 
+// Logging for testing
+module Log = {
+  type t
+  // module SwitchVersion = {
+  //   type t =
+  //     | Select(array<VSCode.QuickPickItem.t>) // array of selected items
+  //     | Hide
+  // }
+}
+
 module ItemData = {
   // UI item types
   type itemType =
@@ -539,7 +549,9 @@ module Handler = {
     view: View.t,
     selectedItems: array<VSCode.QuickPickItem.t>,
   ) => {
+    state.channels.log->Chan.emit(State.Log.SwitchVersionUI("Handler.onSelection called"))
     view->View.destroy
+    state.channels.log->Chan.emit(SwitchVersionUI("View.destroy completed"))
     let _ = (
       async () => {
         switch selectedItems[0] {
@@ -670,94 +682,98 @@ module Handler = {
 
   let onHide = (state: State.t, view: View.t) => {
     // QuickPick was hidden/cancelled by user - clean up
-    state.channels.log->Chan.emit(State.Log.Others("SwitchVersion2: QuickPick hidden/cancelled"))
+    state.channels.log->Chan.emit(SwitchVersionUI("Handler.onHide called"))
     view->View.destroy
+    state.channels.log->Chan.emit(SwitchVersionUI("View.destroy completed"))
+  }
+
+  let onActivate = async (state: State.t, platformDeps: Platform.t) => {
+    let manager = SwitchVersionManager.make(state)
+    let view = View.make()
+
+    // Initialize picked connection if none is stored but there's an active connection
+    let _ = switch Memento.PickedConnection.get(manager.memento) {
+    | Some(_) => () // Already have a stored preference
+    | None =>
+      // No stored preference, try to set it from current connection
+      switch await Connection.Endpoint.getPickedRaw(
+        manager.memento,
+        Config.Connection.getAgdaPaths2(),
+      ) {
+      | None => () // No current connection either
+      | Some(path) =>
+        let _ = Memento.PickedConnection.set(manager.memento, Some(path))
+      }
+    }
+
+    // Helper function to update UI with current state
+    let updateUI = async (downloadInfo: option<(bool, string)>): unit => {
+      let itemData = await SwitchVersionManager.getItemData(manager, downloadInfo)
+      let items = Item.fromItemDataArray(itemData, state.extensionUri)
+      view->View.updateItems(items)
+    }
+
+    // Setup quickpick
+    view->View.setPlaceholder("Switch Agda Version")
+
+    // PHASE 1: Show cached items immediately with visual marking
+    await updateUI(None)
+    view->View.show
+    state.channels.log->Chan.emit(SwitchVersionUI("QuickPick shown"))
+
+    // Get download info asynchronously in background
+    let downloadInfoPromise = Download.getAvailableDownload(state, platformDeps)
+
+    // Setup event handlers
+    view->View.onSelection(selectedItems =>
+      onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
+    )
+    view->View.onHide(() => onHide(state, view))
+
+    // Event listeners for simulation and testing - store the disposable
+    // let channelUnsubscribe = state.channels.switchVersion->Chan.on(event => {
+    //   switch event {
+    //   | State.Event.SwitchVersion.Select(selectedItems) =>
+    //     onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
+    //   | Hide => onHide(state, view)
+    //   }
+    // })
+
+    // Convert to VSCode disposable and add to view subscriptions so it gets cleaned up
+    // let channelDisposable = VSCode.Disposable.make(channelUnsubscribe)
+    // view.subscriptions->Array.push(channelDisposable)->ignore
+
+    // Background update process (sequential phases)
+    let backgroundUpdate = async () => {
+      try {
+        // Get download info
+        let downloadInfo = await downloadInfoPromise
+
+        // PHASE 2: Sync with filesystem (discover new paths)
+        let phase2Changed = await SwitchVersionManager.syncWithFilesystem(manager, platformDeps)
+        if phase2Changed {
+          await updateUI(downloadInfo)
+        }
+
+        // PHASE 3: Probe version information
+        let phase3Changed = await SwitchVersionManager.probeVersions(manager)
+        if phase3Changed {
+          await updateUI(downloadInfo)
+        }
+
+        // Update UI with download item even if no other changes
+        if !phase2Changed && !phase3Changed {
+          await updateUI(downloadInfo)
+        }
+      } catch {
+      | _exn => () // Ignore background update errors
+      }
+    }
+
+    // Start background update
+    let _ = backgroundUpdate()
   }
 }
 
 // Main entry point
-let run = async (state: State.t, platformDeps: Platform.t) => {
-  let manager = SwitchVersionManager.make(state)
-  let view = View.make()
-
-  // Initialize picked connection if none is stored but there's an active connection
-  let _ = switch Memento.PickedConnection.get(manager.memento) {
-  | Some(_) => () // Already have a stored preference
-  | None =>
-    // No stored preference, try to set it from current connection
-    switch await Connection.Endpoint.getPickedRaw(
-      manager.memento,
-      Config.Connection.getAgdaPaths2(),
-    ) {
-    | None => () // No current connection either
-    | Some(path) =>
-      let _ = Memento.PickedConnection.set(manager.memento, Some(path))
-    }
-  }
-
-  // Helper function to update UI with current state
-  let updateUI = async (downloadInfo: option<(bool, string)>): unit => {
-    let itemData = await SwitchVersionManager.getItemData(manager, downloadInfo)
-    let items = Item.fromItemDataArray(itemData, state.extensionUri)
-    view->View.updateItems(items)
-  }
-
-  // Setup quickpick
-  view->View.setPlaceholder("Switch Agda Version")
-
-  // PHASE 1: Show cached items immediately with visual marking
-  await updateUI(None)
-  view->View.show
-
-  // Get download info asynchronously in background
-  let downloadInfoPromise = Download.getAvailableDownload(state, platformDeps)
-
-  // Setup event handlers
-  view->View.onSelection(selectedItems =>
-    Handler.onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
-  )
-  view->View.onHide(() => Handler.onHide(state, view))
-
-  // Event listeners for simulation and testing - store the disposable
-  let channelUnsubscribe = state.channels.switchVersion->Chan.on(event => {
-    switch event {
-    | State.Event.SwitchVersion.Select(selectedItems) =>
-      Handler.onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
-    | Hide => Handler.onHide(state, view)
-    }
-  })
-  
-  // Convert to VSCode disposable and add to view subscriptions so it gets cleaned up
-  let channelDisposable = VSCode.Disposable.make(channelUnsubscribe)
-  view.subscriptions->Array.push(channelDisposable)->ignore
-
-  // Background update process (sequential phases)
-  let backgroundUpdate = async () => {
-    try {
-      // Get download info
-      let downloadInfo = await downloadInfoPromise
-
-      // PHASE 2: Sync with filesystem (discover new paths)
-      let phase2Changed = await SwitchVersionManager.syncWithFilesystem(manager, platformDeps)
-      if phase2Changed {
-        await updateUI(downloadInfo)
-      }
-
-      // PHASE 3: Probe version information
-      let phase3Changed = await SwitchVersionManager.probeVersions(manager)
-      if phase3Changed {
-        await updateUI(downloadInfo)
-      }
-
-      // Update UI with download item even if no other changes
-      if !phase2Changed && !phase3Changed {
-        await updateUI(downloadInfo)
-      }
-    } catch {
-    | _exn => () // Ignore background update errors
-    }
-  }
-
-  // Start background update
-  let _ = backgroundUpdate()
-}
+let activate = Handler.onActivate

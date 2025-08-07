@@ -49,6 +49,7 @@ module Log = {
     | ParserFilepath(string, string) // input, output
     | TokensReset(string) // reason
     | AgdaModeOperation(string, string) // operation, filepath
+    | SwitchVersionUI(string) // UI related events
     | Others(string) // generic string
 
   let toString = log =>
@@ -64,17 +65,9 @@ module Log = {
     | ParserFilepath(input, output) => "Parser.filepath: " ++ input ++ " -> " ++ output
     | TokensReset(reason) => "Tokens reset: " ++ reason
     | AgdaModeOperation(operation, filepath) => "AgdaMode." ++ operation ++ ": " ++ filepath
+    | SwitchVersionUI(event) => "SwitchVersionUI: " ++ event
     | Others(str) => str
     }
-}
-
-// Input Events for similation and testing
-module Event = {
-  module SwitchVersion = {
-    type t =
-      | Select(array<VSCode.QuickPickItem.t>) // array of selected items
-      | Hide
-  }
 }
 
 type channels = {
@@ -84,9 +77,7 @@ type channels = {
   // emits when a Command has been handled
   commandHandled: Chan.t<Command.t>,
   // for debugging
-  log: Chan.t<Log.t>,
-  // for switching versions
-  switchVersion: Chan.t<Event.SwitchVersion.t>,
+  log: Chan.t<Log.t>
 }
 
 type t = {

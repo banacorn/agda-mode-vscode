@@ -520,7 +520,8 @@ describe("State__SwitchVersion2", () => {
               globalStorageUri,
             }
 
-            let itemData = await manager->State__SwitchVersion2.SwitchVersionManager.getItemData(None)
+            let itemData =
+              await manager->State__SwitchVersion2.SwitchVersionManager.getItemData(None)
 
             // Should have: "Installed" separator + agda item + "Misc" separator + open folder item
             Assert.deepStrictEqual(Array.length(itemData), 4)
@@ -726,5 +727,136 @@ describe("State__SwitchVersion2", () => {
         )
       },
     )
+  })
+
+  describe("Events", () => {
+    // Simple mock platform for testing
+    let makeMockPlatform = (): Platform.t => {
+      module MockPlatform = {
+        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+        let alreadyDownloaded = _ => () => Promise.resolve(None)
+        let alreadyDownloaded2 = _ => () => Promise.resolve(None)
+        let downloadLatestALS = (_, _) => _ =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let downloadLatestALS2 = (_, _) => _ =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let getInstalledEndpointsAndPersistThem = _ => Promise.resolve(Dict.make())
+        let getInstalledEndpointsAndPersistThem2 = _ => Promise.resolve(Dict.make())
+        let findCommand = (_command, ~timeout as _timeout=1000) =>
+          Promise.resolve(Error(Connection__Command.Error.NotFound("test")))
+        let findCommands = _ => Promise.resolve(Error([Connection__Command.Error.NotFound("test")]))
+      }
+      module(MockPlatform)
+    }
+
+    // Create a test state with proper channels
+    let createTestState = () => {
+      let channels = {
+        State.inputMethod: Chan.make(),
+        responseHandled: Chan.make(),
+        commandHandled: Chan.make(),
+        log: Chan.make(),
+      }
+
+      let mockEditor = %raw(`{
+        document: { fileName: "test.agda" }
+      }`)
+
+      let mockUri = %raw(`{
+        fsPath: "/test/path"
+      }`)
+
+      State.make(makeMockPlatform(), channels, mockUri, mockUri, None, mockEditor, None)
+    }
+
+    it(
+      "onHide should properly destroy view",
+      () => {
+        let state = createTestState()
+        let events = []
+
+        // Subscribe to log channel to capture SwitchVersionUI events
+        let _ = state.channels.log->Chan.on(
+          logEvent => {
+            switch logEvent {
+            | State.Log.SwitchVersionUI(event) => events->Array.push(event)
+            | _ => ()
+            }
+          },
+        )
+
+        // Test the Handler.onHide function directly
+        let view = State__SwitchVersion2.View.make()
+        State__SwitchVersion2.Handler.onHide(state, view)
+
+        // Verify the logged events in correct order
+        Assert.deepStrictEqual(events, ["Handler.onHide called", "View.destroy completed"])
+      },
+    )
+
+    Async.it_only(
+      "onActivate should ???",
+      async () => {
+        let state = createTestState()
+        let events = []
+
+        // Subscribe to log channel to capture SwitchVersionUI events
+        state.channels.log->Chan.on(
+          logEvent => {
+            switch logEvent {
+            | State.Log.SwitchVersionUI(event) => events->Array.push(event)
+            | _ => ()
+            }
+          },
+        )->ignore
+
+        // Test the Handler.onHide function directly
+        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+
+        // Verify the logged events in correct order
+        Assert.deepStrictEqual(events, ["QuickPick shown"])
+      },
+    )
+
+    // it(
+    //   "should log Handler.onSelection events correctly",
+    //   () => {
+    //     let state = createTestState()
+    //     let loggedEvents = ref([])
+
+    //     // Subscribe to log channel to capture SwitchVersionUI events
+    //     let _ = state.channels.log->Chan.on(
+    //       logEvent => {
+    //         switch logEvent {
+    //         | State.Log.SwitchVersionUI(event) => loggedEvents := [event, ...loggedEvents.contents]
+    //         | _ => ()
+    //         }
+    //       },
+    //     )
+
+    //     // Test the Handler.onSelection function directly
+    //     let view = State__SwitchVersion2.View.make()
+    //     let manager = State__SwitchVersion2.SwitchVersionManager.make(state)
+    //     let updateUI = async (_downloadInfo: option<(bool, string)>): unit => ()
+    //     let mockSelectedItems = []
+
+    //     State__SwitchVersion2.Handler.onSelection(
+    //       state,
+    //       makeMockPlatform(),
+    //       manager,
+    //       updateUI,
+    //       view,
+    //       mockSelectedItems,
+    //     )
+
+    //     // Verify the logged events in correct order
+    //     let events = loggedEvents.contents->Array.toReversed
+    //     Assert.deepStrictEqual(
+    //       events,
+    //       ["Handler.onSelection called", "View.destroy completed"],
+    //     )
+    //   },
+    // )
   })
 })
