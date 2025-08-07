@@ -211,6 +211,7 @@ let activateWithoutContext = (
     responseHandled: Chan.make(),
     commandHandled: Chan.make(),
     log: Chan.make(),
+    switchVersion: Chan.make(),
   }
   // subscribe to the logging channel when in debug mode
   let debug = false

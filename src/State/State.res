@@ -57,7 +57,8 @@ module Log = {
     | RequestSent(request) => "   <- " ++ Request.toString(request)
     | ResponseHandled(response) => "    > " ++ Response.toString(response)
     | CommandHandled(command) => " ===> " ++ Command.toString(command)
-    | RegistryLookup(filepath, found) => "Registry lookup: " ++ filepath ++ " " ++ (found ? "found" : "not found")
+    | RegistryLookup(filepath, found) =>
+      "Registry lookup: " ++ filepath ++ " " ++ (found ? "found" : "not found")
     | RegistryAdd(filepath) => "Registry add: " ++ filepath
     | RegistryRemove(filepath) => "Registry remove: " ++ filepath
     | ParserFilepath(input, output) => "Parser.filepath: " ++ input ++ " -> " ++ output
@@ -65,6 +66,15 @@ module Log = {
     | AgdaModeOperation(operation, filepath) => "AgdaMode." ++ operation ++ ": " ++ filepath
     | Others(str) => str
     }
+}
+
+// Input Events for similation and testing
+module Event = {
+  module SwitchVersion = {
+    type t =
+      | Select(array<VSCode.QuickPickItem.t>) // array of selected items
+      | Hide
+  }
 }
 
 type channels = {
@@ -75,6 +85,8 @@ type channels = {
   commandHandled: Chan.t<Command.t>,
   // for debugging
   log: Chan.t<Log.t>,
+  // for switching versions
+  switchVersion: Chan.t<Event.SwitchVersion.t>,
 }
 
 type t = {
