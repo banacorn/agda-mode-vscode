@@ -87,9 +87,10 @@ describe("Platform dependent utilities", () => {
         let platformDeps = Web.make() // Use web for predictable mock behavior
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let attempts = {
-          Connection__Error.Construction.Attempts.endpoints: Dict.make(),
+        let constructionError = {
+          Connection__Error.Construction.endpoints: Dict.make(),
           commands: Dict.make(),
+          download: None, // No download error for this test
         }
 
         // This should not crash and should return an error (since web platform doesn't support downloads)
@@ -97,7 +98,7 @@ describe("Platform dependent utilities", () => {
           platformDeps,
           memento,
           globalStorageUri,
-          attempts,
+          constructionError,
         )
 
         switch result {

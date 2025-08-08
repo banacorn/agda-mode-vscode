@@ -33,12 +33,12 @@ module type Module = {
     Memento.t,
     array<Connection__URI.t>,
     array<string>,
-  ) => promise<result<Endpoint.t, Error.Construction.Attempts.t>>
+  ) => promise<result<Endpoint.t, Error.Construction.t>>
   let fromDownloads: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
-    Error.Construction.Attempts.t,
+    Error.Construction.t,
   ) => promise<result<Endpoint.t, Error.t>>
 
   // messaging
@@ -183,17 +183,18 @@ module Module: Module = {
     memento: Memento.t,
     paths: array<Connection__URI.t>,
     commands: array<string>,
-  ): result<Endpoint.t, Error.Construction.Attempts.t> => {
+  ): result<Endpoint.t, Error.Construction.t> => {
     switch await Endpoint.getPicked(memento, paths) {
     | Error(endpointErrors) =>
       switch await findCommands(platformDeps, commands) {
       | Error(commandErrors) =>
-        let attempts = {
-          Error.Construction.Attempts.endpoints: endpointErrors,
+        let constructionError = {
+          Error.Construction.endpoints: endpointErrors,
           commands: commandErrors,
+          download: None,
         }
 
-        Error(attempts)
+        Error(constructionError)
 
       | Ok(endpoint) => Ok(endpoint)
       }
@@ -228,7 +229,7 @@ module Module: Module = {
     memento: Memento.t,
     paths: array<string>,
     commands: array<string>,
-  ): result<t, Error.Construction.Attempts.t> => {
+  ): result<t, Error.Construction.t> => {
     module PlatformOps = unpack(platformDeps)
 
     let tryCommand = async (command): result<t, Connection__Command.Error.t> => {
@@ -259,11 +260,12 @@ module Module: Module = {
       | Ok(connection) => Ok(connection)
       | Error(commandErrors) =>
         // Build final error with both path and command failures
-        let attempts = {
-          Error.Construction.Attempts.endpoints: pathErrors->Dict.fromArray,
+        let constructionError = {
+          Error.Construction.endpoints: pathErrors->Dict.fromArray,
           commands: commandErrors->Dict.fromArray,
+          download: None,
         }
-        Error(attempts)
+        Error(constructionError)
       }
     }
   }
@@ -287,13 +289,15 @@ module Module: Module = {
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
-    attempts: Error.Construction.Attempts.t,
+    constructionError: Error.Construction.t,
   ): result<Endpoint.t, Error.t> => {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
     | Error(platform) =>
-      Error(Error.Construction(DownloadALS(attempts, PlatformNotSupported(platform))))
+      let errors =
+        constructionError->Error.Construction.addDownloadError(PlatformNotSupported(platform))
+      Error(Error.Construction(errors))
     | Ok(platform) =>
       // if the policy has not been set, ask the user
       let policy = switch Config.Connection.DownloadPolicy.get() {
@@ -305,10 +309,10 @@ module Module: Module = {
       | Config.Connection.DownloadPolicy.Undecided =>
         // the user has clicked on "cancel" in the dialog, treat it as "No"
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(NoDownloadALS(attempts)))
+        Error(Error.Construction(constructionError))
       | No =>
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(NoDownloadALS(attempts)))
+        Error(Error.Construction(constructionError))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
@@ -317,7 +321,9 @@ module Module: Module = {
           Ok(endpoint)
         | None =>
           switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
-          | Error(error) => Error(Error.Construction(DownloadALS(attempts, error)))
+          | Error(error) =>
+            let errors = constructionError->Error.Construction.addDownloadError(error)
+            Error(Error.Construction(errors))
           | Ok(endpoint) =>
             await Config.Connection.addAgdaPath(Connection__Endpoint.toURI(endpoint))
             Ok(endpoint)
@@ -337,13 +343,15 @@ module Module: Module = {
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
-    attempts: Error.Construction.Attempts.t,
+    constructionError: Error.Construction.t,
   ): result<t, Error.t> => {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
     | Error(platform) =>
-      Error(Error.Construction(DownloadALS(attempts, PlatformNotSupported(platform))))
+      let errors =
+        constructionError->Error.Construction.addDownloadError(PlatformNotSupported(platform))
+      Error(Error.Construction(errors))
     | Ok(platform) =>
       // Check download policy
       let policy = switch Config.Connection.DownloadPolicy.get() {
@@ -355,11 +363,11 @@ module Module: Module = {
       | Config.Connection.DownloadPolicy.Undecided =>
         // User cancelled, treat as No
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(NoDownloadALS(attempts)))
+        Error(Error.Construction(constructionError))
       | No =>
         // User opted not to download, set policy and return error
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(NoDownloadALS(attempts)))
+        Error(Error.Construction(constructionError))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         // Get the downloaded path, download if not already done
@@ -367,7 +375,8 @@ module Module: Module = {
         | Some(path) => Ok(path)
         | None =>
           switch await PlatformOps.downloadLatestALS2(memento, globalStorageUri)(platform) {
-          | Error(error) => Error(Error.Construction(DownloadALS(attempts, error)))
+          | Error(error) =>
+            Error(Error.Construction(constructionError->Error.Construction.addDownloadError(error)))
           | Ok(path) => Ok(path)
           }
         }
@@ -379,7 +388,12 @@ module Module: Module = {
             await Config.Connection.addAgdaPath2(getPath(connection))
             await Memento.PickedConnection.set(memento, Some(getPath(connection)))
             Ok(connection)
-          | Error(error) => Error(Error.Construction(Endpoint(path, error)))
+          | Error(error) =>
+            Error(
+              Error.Construction(
+                Error.Construction.make()->Error.Construction.addEndpointError(path, error),
+              ),
+            )
           }
         | Error(error) => Error(error)
         }
@@ -398,8 +412,8 @@ module Module: Module = {
     commands: array<string>,
   ) =>
     switch await fromPathsAndCommands(platformDeps, memento, paths, commands) {
-    | Error(attempts) =>
-      switch await fromDownloads(platformDeps, memento, globalStorageUri, attempts) {
+    | Error(constructionError) =>
+      switch await fromDownloads(platformDeps, memento, globalStorageUri, constructionError) {
       | Error(error) => Error(error)
       | Ok(endpoint) =>
         await Config.Connection.addAgdaPath(endpoint->Endpoint.toURI)
@@ -427,8 +441,8 @@ module Module: Module = {
       await Config.Connection.addAgdaPath2(getPath(connection))
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
-    | Error(attempts) =>
-      switch await fromDownloads2(platformDeps, memento, globalStorageUri, attempts) {
+    | Error(constructionError) =>
+      switch await fromDownloads2(platformDeps, memento, globalStorageUri, constructionError) {
       | Ok(connection) =>
         await Config.Connection.addAgdaPath2(getPath(connection))
         await Memento.PickedConnection.set(memento, Some(getPath(connection)))
