@@ -491,18 +491,13 @@ module Download = {
       | Error(_) => None
       | Ok(fetchSpec) =>
         // Use corrected detection logic
-        let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
+        let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem2(
           state.globalStorageUri,
         )
         let installedPaths =
           installedEndpoints
-          ->Dict.valuesToArray
-          ->Array.filterMap(x =>
-            switch x {
-            | Error(_) => None
-            | Ok(endpoint) => Some(Connection.Endpoint.toURI(endpoint)->Connection.URI.toString)
-            }
-          )
+          ->Dict.toArray
+          ->Array.map(((path, _endpoint)) => path)
 
         let filename = NodeJs.Path.join([
           VSCode.Uri.fsPath(state.globalStorageUri),

@@ -90,6 +90,21 @@ module Log = {
       }
   }
 
+  module Connection = {
+    type t =
+      | ConnectedToAgda(string, string) // path, version
+      | ConnectedToALS(string, string, string) // path, ALS version, Agda version
+      | Disconnected(string) // path
+
+    let toString = event =>
+      switch event {
+      | ConnectedToAgda(path, version) => `ConnectedToAgda: ${path} - Agda v${version}`
+      | ConnectedToALS(path, alsVersion, agdaVersion) =>
+        `ConnectedToALS: ${path} - Agda v${agdaVersion} Language Server v${alsVersion}`
+      | Disconnected(path) => `Disconnected: ${path}`
+      }
+  }
+
   type t =
     | CommandDispatched(Command.t)
     | CommandHandled(Command.t)
@@ -102,6 +117,7 @@ module Log = {
     | TokensReset(string) // reason
     | AgdaModeOperation(string, string) // operation, filepath
     | SwitchVersionUI(SwitchVersion.t) // SwitchVersion UI event
+    | Connection(Connection.t) // Connection event
     | Others(string) // generic string
 
   let toString = log =>
@@ -118,6 +134,7 @@ module Log = {
     | TokensReset(reason) => "Tokens reset: " ++ reason
     | AgdaModeOperation(operation, filepath) => "AgdaMode." ++ operation ++ ": " ++ filepath
     | SwitchVersionUI(event) => "SwitchVersionUI: " ++ SwitchVersion.toString(event)
+    | Connection(event) => "Connection: " ++ Connection.toString(event)
     | Others(str) => str
     }
 }
