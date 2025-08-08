@@ -41,14 +41,32 @@ module Log = {
   module SwitchVersion = {
     type t =
       | Destroyed // when the SwitchVersion UI has been destroyed
-      | Selected(string) // when an item has been selected
+      | SelectedEndpoint(string, Memento.Endpoints.entry, bool)
+      | SelectedDownloadAction(bool, string) // downloaded, versionString
+      | SelectedOpenFolder(string)
+      | SelectedNoInstallations
       | UpdatedEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
       | Others(string)
 
     let toString = event =>
       switch event {
       | Destroyed => "Destroyed"
-      | Selected(item) => "Selected: " ++ item
+      | SelectedEndpoint(path, entry, isSelected) =>
+        "Endpoint: " ++
+        path ++
+        ", " ++
+        Memento.Endpoints.endpointToString(entry.endpoint) ++ if isSelected {
+          ", selected"
+        } else {
+          ""
+        }
+      | SelectedDownloadAction(downloaded, versionString) =>
+        "Selected Download Action: downloaded=" ++
+        string_of_bool(downloaded) ++
+        ", versionString=" ++
+        versionString
+      | SelectedOpenFolder(path) => "Selected Open Folder: " ++ path
+      | SelectedNoInstallations => "Selected No Installations"
       | UpdatedEndpoints(entries) =>
         "UpdatedEndpoints: " ++
         entries

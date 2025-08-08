@@ -554,13 +554,21 @@ module Handler = {
           // Check if this is the open folder item
           if selectedItem.label == Constants.openDownloadFolder {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
-            // state.channels.log->Chan.emit(State.Log.SwitchVersionUI(Selected(selectedItem.label)))
+            state.channels.log->Chan.emit(
+              State.Log.SwitchVersionUI(
+                SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath),
+              ),
+            )
             let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
           } else if selectedItem.label == Constants.downloadLatestALS {
             // Check if already downloaded using our corrected logic
             switch await Download.getAvailableDownload(state, platformDeps) {
             | Some((downloaded, versionString)) =>
               let alreadyDownloaded = downloaded
+
+              state.channels.log->Chan.emit(
+                State.Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
+              )
 
               if alreadyDownloaded {
                 // Show "already downloaded" message
@@ -613,6 +621,15 @@ module Handler = {
               | None => true // If no previous selection, treat as changed
               }
               if changed {
+                // Log the endpoint selection before processing it
+                switch manager.entries->Dict.get(selectedPath) {
+                | Some(entry) =>
+                  state.channels.log->Chan.emit(
+                    State.Log.SwitchVersionUI(SelectedEndpoint(selectedPath, entry, true)),
+                  )
+                | None => ()
+                }
+
                 let uri = Connection.URI.parse(selectedPath)
                 switch uri {
                 | FileURI(_, vsCodeUri) =>
@@ -632,9 +649,8 @@ module Handler = {
     )()
   }
 
-  let onHide = (state: State.t, view: View.t) => {
+  let onHide = (view: View.t) => {
     // QuickPick was hidden/cancelled by user - clean up
-    state.channels.log->Chan.emit(SwitchVersionUI(Others("Handler.onHide called")))
     view->View.destroy
   }
 
@@ -677,7 +693,7 @@ module Handler = {
     view->View.onSelection(selectedItems =>
       onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
     )
-    view->View.onHide(() => onHide(state, view))
+    view->View.onHide(() => onHide(view))
 
     // Background update process (sequential phases)
     let backgroundUpdate = async () => {
