@@ -407,7 +407,10 @@ module Module: {
     }
 
     let inFlightDownloadUri = VSCode.Uri.joinPath(repo.globalStorageUri, [inFlightDownloadFileName])
-    let inFlightDownloadZipUri = VSCode.Uri.joinPath(inFlightDownloadUri, [".zip"])
+    let inFlightDownloadZipUri = VSCode.Uri.joinPath(
+      repo.globalStorageUri,
+      [inFlightDownloadFileName ++ ".zip"],
+    )
     let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
 
     let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
