@@ -76,6 +76,7 @@ module Module: {
   let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, Dict.t<Error.t>>>
   let getPickedRaw: (Memento.t, array<string>) => promise<option<string>>
   let setPicked: (Memento.t, option<t>) => promise<unit>
+  let setPickedRaw: (Memento.t, option<string>) => promise<unit>
 } = {
   type version = string
   type t =
@@ -215,6 +216,12 @@ module Module: {
     switch endpoint {
     | None => Memento.PickedConnection.set(memento, None)
     | Some(endpoint) => Memento.PickedConnection.set(memento, Some(toURI(endpoint)->URI.toString))
+    }
+
+  let setPickedRaw = (memento: Memento.t, rawPath) =>
+    switch rawPath {
+    | None => Memento.PickedConnection.set(memento, None)
+    | Some(path) => Memento.PickedConnection.set(memento, Some(path))
     }
 }
 

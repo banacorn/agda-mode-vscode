@@ -141,6 +141,26 @@ module Connection = {
     }
   }
 
+  let addAgdaPath2 = (path: string) => {
+    let paths = getAgdaPaths2()
+    let alreadyExists = paths->Array.includes(path)
+
+    if alreadyExists {
+      Promise.resolve()
+    } else {
+      let newPaths = Array.concat(paths, [path])
+      if inTestingMode.contents {
+        agdaPathsInTestingMode2 := newPaths
+        Promise.resolve()
+      } else {
+        Workspace.getConfiguration(
+          Some("agdaMode"),
+          None,
+        )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
+      }
+    }
+  }
+
   // Agda command-line options
   let getCommandLineOptions = () =>
     Workspace.getConfiguration(Some("agdaMode"), None)

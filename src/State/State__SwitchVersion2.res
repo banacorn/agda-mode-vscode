@@ -249,6 +249,7 @@ module SwitchVersionManager = {
   let getItemData = async (self: t, downloadInfo: option<(bool, string)>): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
+    Js.log("getAgdaPaths2: " ++ Config.Connection.getAgdaPaths2()->Array.toString)
     let currentPath = await Connection.Endpoint.getPickedRaw(
       self.memento,
       Config.Connection.getAgdaPaths2(),
@@ -571,15 +572,16 @@ module Handler = {
                     [],
                   )
                 | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(
-                    platform,
-                  ) {
+                  switch await PlatformOps.downloadLatestALS2(
+                    state.memento,
+                    state.globalStorageUri,
+                  )(platform) {
                   | Error(error) =>
                     let _ = await VSCode.Window.showErrorMessage(
                       AgdaModeVscode.Connection__Download.Error.toString(error),
                       [],
                     )
-                  | Ok(_endpoint) =>
+                  | Ok(_) =>
                     // Refresh the UI to show new status
                     let newDownloadInfo = await Download.getAvailableDownload(state, platformDeps)
                     let _ = SwitchVersionManager.refreshFromMemento(manager)
@@ -601,64 +603,22 @@ module Handler = {
             // Regular endpoint selection - check if selection changed
             switch selectedItem.detail {
             | Some(selectedPath) =>
-              switch await Connection.Endpoint.getPicked(
+              let changed = switch await Connection.Endpoint.getPickedRaw(
                 state.memento,
-                Config.Connection.getAgdaPaths(),
+                Config.Connection.getAgdaPaths2(),
               ) {
-              | Error(_) => {
-                  // No previous selection, save and switch
-                  // Convert filesystem path to URI format and create endpoint
-                  let selectedPathAsUri = VSCode.Uri.file(selectedPath)->VSCode.Uri.toString
-
-                  // Parse the URI and create endpoint object
-                  let uri = Connection.URI.parse(selectedPathAsUri)
-                  switch uri {
-                  | FileURI(_, vsCodeUri) =>
-                    switch await Connection.Endpoint.fromVSCodeUri(vsCodeUri) {
-                    | Error(_) => ()
-                    | Ok(endpoint) => {
-                        await Connection.Endpoint.setPicked(state.memento, Some(endpoint))
-
-                        // Also add the ALS path to the permanent configuration so future getPicked calls include it
-                        await Config.Connection.addAgdaPath(Connection.Endpoint.toURI(endpoint))
-
-                        await switchAgdaVersion(state)
-                      }
-                    }
-                  | LspURI(_, _) => ()
-                  }
-                }
-              | Ok(original) => {
-                  let originalPath = Connection.Endpoint.toURI(original)->Connection.URI.toString
-                  let originalFsPath = if String.startsWith(originalPath, "file://") {
-                    VSCode.Uri.parse(originalPath)->VSCode.Uri.fsPath
-                  } else {
-                    originalPath
-                  }
-                  let selectionChanged = selectedPath !== originalFsPath
-                  if selectionChanged {
-                    // Selection changed, save and switch
-                    // Convert filesystem path to URI format and create endpoint
-                    let selectedPathAsUri = VSCode.Uri.file(selectedPath)->VSCode.Uri.toString
-
-                    // Parse the URI and create endpoint object
-                    let uri = Connection.URI.parse(selectedPathAsUri)
-                    switch uri {
-                    | FileURI(_, vsCodeUri) =>
-                      switch await Connection.Endpoint.fromVSCodeUri(vsCodeUri) {
-                      | Error(_) => ()
-                      | Ok(endpoint) => {
-                          await Connection.Endpoint.setPicked(state.memento, Some(endpoint))
-
-                          // Also add the ALS path to the permanent configuration so future getPicked calls include it
-                          await Config.Connection.addAgdaPath(Connection.Endpoint.toURI(endpoint))
-
-                          await switchAgdaVersion(state)
-                        }
-                      }
-                    | LspURI(_, _) => ()
-                    }
-                  }
+              | Some(path) => selectedPath !== path
+              | None => true // If no previous selection, treat as changed
+              }
+              if changed {
+                let uri = Connection.URI.parse(selectedPath)
+                switch uri {
+                | FileURI(_, vsCodeUri) =>
+                  let path = VSCode.Uri.fsPath(vsCodeUri)
+                  await Connection.Endpoint.setPickedRaw(state.memento, Some(path))
+                  await Config.Connection.addAgdaPath2(path)
+                  await switchAgdaVersion(state)
+                | LspURI(_, _) => ()
                 }
               }
             | None => ()
