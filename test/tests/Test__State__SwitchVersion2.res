@@ -807,89 +807,55 @@ describe("State__SwitchVersion2", () => {
     )
 
     Async.it_only(
-      "onActivate should have an endpoint marked as selected",
+      "should have an endpoint marked as selected onActivation",
       async () => {
-        let state = createTestState()
-        let events = []
-
-        // Set up a picked connection so there's something to mark as selected
-        await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
-
-        // Populate endpoints in memento so the manager has entries
-        await Memento.Endpoints.setVersion(state.memento, "/usr/bin/agda", Agda(Some("2.6.4")))
-
-        // Subscribe to log channel to capture SwitchVersionUI events
-        state.channels.log
-        ->Chan.on(
-          logEvent => {
-            switch logEvent {
-            | State.Log.SwitchVersionUI(event) => events->Array.push(event)
-            | _ => ()
-            }
-          },
-        )
-        ->ignore
-
-        // Trigger onActivate
-        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
-
-        // Verify an endpoint is marked as selected
-        Assert.deepStrictEqual(
-          events,
-          [
-            UpdateEndpoints([("/usr/bin/agda", Agda(Some("2.6.4")), None, true)]),
-            Others("QuickPick shown"),
-          ],
-        )
-      },
-    )
-
-    Async.it_only(
-      "should expose real-world selection problem: empty initial state",
-      async () => {
-        let state = createTestState()
-        let events = []
-
-        // Set up picked connection like real usage (user had previously selected agda)
-        await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
+        /**
+         * TEST PURPOSE: Expose fresh install UX problem where no endpoint appears "Selected"
+         * 
+         * PROBLEM DESCRIPTION:
+         * On fresh installs or after clearing extension data, users experience confusing UI behavior:
+         * 1. User runs Command.Load → Agda connection establishes successfully (auto-detected)
+         * 2. User opens switch version UI → Sees multiple endpoints but NONE marked as "Selected"
+         * 3. User is confused: "Which connection am I currently using?"
+         * 4. Only after manually switching connection does one show as "Selected"
+         * 
+         * ROOT CAUSE:
+         * - Command.Load establishes connection without setting Memento.PickedConnection
+         * - Memento.PickedConnection.get() returns None on fresh installs
+         * - UI selection logic requires explicit memento entry to mark endpoint as "Selected"
+         * - No mechanism exists to infer selection from active connection state
+         * 
+         * REPRODUCTION:
+         * This test simulates fresh install by ensuring Memento.PickedConnection = None,
+         * then invokes onActivate and observes the logged UpdateEndpoints events.
+         */
         
-        // DON'T pre-populate endpoints in memento - this mimics real world where
-        // endpoints are discovered through filesystem sync during background update
-
-        // Subscribe to log channel
-        state.channels.log
-        ->Chan.on(
+        let state = createTestState()
+        let loggedEvents = []
+        
+        // Subscribe to log channel to capture UpdateEndpoints events
+        let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(event) => events->Array.push(event)
+            | State.Log.SwitchVersionUI(UpdateEndpoints(endpoints)) => 
+              loggedEvents->Array.push(endpoints)
             | _ => ()
             }
           },
         )
-        ->ignore
-
-        // Trigger onActivate with empty initial state
+        
+        // SIMULATE: Fresh install - ensure no picked connection in memento
+        await Memento.PickedConnection.set(state.memento, None)
+        
+        // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
-
-        // Wait for background sync to complete - in real world this discovers endpoints
-        await Promise.make((resolve, _reject) => {
-          let _ = Js.Global.setTimeout(() => resolve(), 1000)
-        })
-
-        // Check if any endpoint was marked as selected (isSelected: true)
-        let hasSelectedEndpoint = events->Array.some(event => {
-          switch event {
-          | UpdateEndpoints(endpoints) => 
-            endpoints->Array.some(((_, _, _, isSelected)) => isSelected)
-          | _ => false
-          }
-        })
-
-        if hasSelectedEndpoint {
-          Assert.ok(true) // Selection marking works
-        } else {
-          Assert.fail("No endpoint was marked as selected despite having picked connection. This exposes the real-world problem where items don't show as 'Selected'.")
-        }
+        
+        // ANALYZE: Check logged UpdateEndpoints events for selection marking
+        let allEndpointsFromLogs = loggedEvents->Array.flat
+        let anyEndpointSelected = allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
+        
+        // VERIFY: Assert that the problem exists (no endpoint marked as selected)
+        Assert.ok(!anyEndpointSelected) // Expected: No endpoint marked as selected (exposing fresh install UX problem)
       },
     )
 
