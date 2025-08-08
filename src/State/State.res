@@ -40,13 +40,17 @@ module ViewCache = {
 module Log = {
   module SwitchVersion = {
     type t =
-      | UpdateEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
+      | Destroyed // when the SwitchVersion UI is destroyed
+      // | Selected(string) // when an item is selected, string is the path
+      | UpdatedEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
       | Others(string)
 
     let toString = event =>
       switch event {
-      | UpdateEndpoints(entries) =>
-        "SwitchVersion.UpdateEndpoints: " ++
+      | Destroyed => "Destroyed"
+      // | Selected(path) => "Selected: " ++ path
+      | UpdatedEndpoints(entries) =>
+        "UpdatedEndpoints: " ++
         entries
         ->Array.map(((path, endpoint, error, isSelected)) =>
           path ++
@@ -61,8 +65,7 @@ module Log = {
           switch error {
           | Some(err) => " [Error: " ++ err ++ "]"
           | None => ""
-          } ++
-          (isSelected ? " [Selected]" : "")
+          } ++ (isSelected ? " [Selected]" : "")
         )
         ->Array.join("\n")
       | Others(str) => str

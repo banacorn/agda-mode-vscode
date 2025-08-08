@@ -312,7 +312,7 @@ describe("State__SwitchVersion2", () => {
     it(
       "should create quickpick with correct initial state",
       () => {
-        let qp = State__SwitchVersion2.View.make()
+        let qp = State__SwitchVersion2.View.make(Chan.make())
 
         Assert.deepStrictEqual(Array.length(qp.items), 0)
         Assert.deepStrictEqual(Array.length(qp.subscriptions), 0)
@@ -322,7 +322,7 @@ describe("State__SwitchVersion2", () => {
     it(
       "should update items correctly",
       () => {
-        let qp = State__SwitchVersion2.View.make()
+        let qp = State__SwitchVersion2.View.make(Chan.make())
         let itemData: State__SwitchVersion2.ItemData.t = {
           itemType: NoInstallations,
           isSelected: false,
@@ -537,7 +537,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdateEndpoints(endpoints)) => 
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
@@ -591,7 +591,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdateEndpoints(endpoints)) => 
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
@@ -658,7 +658,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdateEndpoints(endpoints)) => 
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }

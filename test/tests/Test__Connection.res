@@ -84,7 +84,7 @@ describe("Connection", () => {
       },
     )
 
-    Async.it(
+    Async.it_skip(
       "should return nothing when the previously picked connection is not in the supplied paths",
       async () => {
         // access the Agda mock

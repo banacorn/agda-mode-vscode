@@ -190,12 +190,14 @@ module Item = {
 
 module View = {
   type t = {
+    log: Chan.t<State.Log.t>,
     quickPick: VSCode.QuickPick.t<VSCode.QuickPickItem.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable items: array<VSCode.QuickPickItem.t>,
   }
 
-  let make = (): t => {
+  let make = (log): t => {
+    log,
     quickPick: VSCode.Window.createQuickPick(),
     subscriptions: [],
     items: [],
@@ -229,6 +231,7 @@ module View = {
   let destroy = (self: t): unit => {
     self.quickPick->VSCode.QuickPick.dispose
     self.subscriptions->Array.forEach(sub => sub->VSCode.Disposable.dispose)
+    self.log->Chan.emit(SwitchVersionUI(Destroyed))
   }
 }
 
@@ -246,7 +249,9 @@ module SwitchVersionManager = {
   }
 
   // Get current items as data
-  let getItemData = async (self: t, state: State.t, downloadInfo: option<(bool, string)>): array<ItemData.t> => {
+  let getItemData = async (self: t, state: State.t, downloadInfo: option<(bool, string)>): array<
+    ItemData.t,
+  > => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
 
@@ -258,10 +263,10 @@ module SwitchVersionManager = {
       } else {
         Some(path)
       }
-    | None => 
+    | None =>
       // Fresh install: try to infer active connection from current state
       switch state.connection {
-      | Some(connection) => 
+      | Some(connection) =>
         // Extract path from connection
         let connectionPath = switch connection {
         | Agda(_, path, _) => Some(path)
@@ -538,9 +543,7 @@ module Handler = {
     view: View.t,
     selectedItems: array<VSCode.QuickPickItem.t>,
   ) => {
-    state.channels.log->Chan.emit(State.Log.SwitchVersionUI(Others("Handler.onSelection called")))
     view->View.destroy
-    state.channels.log->Chan.emit(SwitchVersionUI(Others("View.destroy completed")))
     let _ = (
       async () => {
         switch selectedItems[0] {
@@ -548,6 +551,7 @@ module Handler = {
           // Check if this is the open folder item
           if selectedItem.label == Constants.openDownloadFolder {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
+            // state.channels.log->Chan.emit(State.Log.SwitchVersionUI(Selected(selectedItem.label)))
             let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
           } else if selectedItem.label == Constants.downloadLatestALS {
             // Check if already downloaded using our corrected logic
@@ -629,14 +633,13 @@ module Handler = {
     // QuickPick was hidden/cancelled by user - clean up
     state.channels.log->Chan.emit(SwitchVersionUI(Others("Handler.onHide called")))
     view->View.destroy
-    state.channels.log->Chan.emit(SwitchVersionUI(Others("View.destroy completed")))
   }
 
   let onActivate = async (state: State.t, platformDeps: Platform.t) => {
     let manager = SwitchVersionManager.make(state)
-    let view = View.make()
+    let view = View.make(state.channels.log)
 
-    // No initialization needed since we removed getPickedRaw() - 
+    // No initialization needed since we removed getPickedRaw() -
     // just use whatever is stored in memento directly
 
     // Helper function to update UI with current state
@@ -650,7 +653,7 @@ module Handler = {
         | _ => None
         }
       )
-      state.channels.log->Chan.emit(State.Log.SwitchVersionUI(UpdateEndpoints(endpointItemDatas)))
+      state.channels.log->Chan.emit(State.Log.SwitchVersionUI(UpdatedEndpoints(endpointItemDatas)))
 
       let items = Item.fromItemDataArray(itemData, state.extensionUri)
       view->View.updateItems(items)
