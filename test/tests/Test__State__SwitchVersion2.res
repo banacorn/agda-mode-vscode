@@ -717,5 +717,83 @@ describe("State__SwitchVersion2", () => {
         Assert.ok(!hasErrors) // Should not have errors in normal download workflow
       },
     )
+
+    Async.it(
+      "should mark only one endpoint when multiple exist",
+      async () => {
+        /**
+         * TEST PURPOSE: Ensure only one endpoint is marked as selected when multiple endpoints exist
+         * 
+         * SCENARIO:
+         * Multiple endpoints are discovered (different Agda versions, different paths)
+         * Only the correctly matched endpoint should be marked as "Selected"
+         * All other endpoints should remain unselected
+         * 
+         * This tests:
+         * - Path matching logic works correctly across multiple endpoints
+         * - No logic errors cause multiple endpoints to be selected
+         * - Selection marking is precise and doesn't have false positives
+         */
+        
+        let state = createTestState()
+        let loggedEvents = []
+        
+        // Subscribe to log channel to capture UpdatedEndpoints events
+        let _ = state.channels.log->Chan.on(
+          logEvent => {
+            switch logEvent {
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
+              loggedEvents->Array.push(endpoints)
+            | _ => ()
+            }
+          },
+        )
+        
+        // SIMULATE: Multiple discovered endpoints at different paths
+        let discoveredEndpoints = Dict.make()
+        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
+        discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))  
+        discoveredEndpoints->Dict.set("/usr/local/bin/agda", Memento.Endpoints.Agda(Some("2.6.2")))
+        discoveredEndpoints->Dict.set("/usr/bin/als", Memento.Endpoints.ALS(Some(("4.0.0", "2.6.4"))))
+        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+        
+        // SIMULATE: User has explicitly selected one specific endpoint
+        await Memento.PickedConnection.set(state.memento, Some("/opt/homebrew/bin/agda"))
+        
+        // SIMULATE: But different endpoint is currently active (should be overridden by memento)
+        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
+        state.connection = Some(mockConnection)
+        
+        // INVOKE: onActivate to trigger the actual UI logic
+        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+        
+        // ANALYZE: Check selection marking across all endpoints
+        let allEndpointsFromLogs = loggedEvents->Array.flat
+        
+        // VERIFY: Exactly one endpoint should be selected
+        let selectedEndpoints = allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
+        Assert.deepStrictEqual(Array.length(selectedEndpoints), 1)
+        
+        // VERIFY: The correct endpoint (from memento) is selected
+        switch selectedEndpoints[0] {
+        | Some((path, _, _, _)) => 
+          Assert.deepStrictEqual(path, "/opt/homebrew/bin/agda") // Should be the memento selection
+        | None => 
+          Assert.fail("Expected exactly one endpoint to be selected")
+        }
+        
+        // VERIFY: All other endpoints are not selected
+        let unselectedEndpoints = allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => !isSelected)
+        Assert.deepStrictEqual(Array.length(unselectedEndpoints), 3) // Should be 3 unselected endpoints
+        
+        // VERIFY: The unselected endpoints are the expected ones
+        let unselectedPaths = unselectedEndpoints->Array.map(((path, _, _, _)) => path)->Array.toSorted(String.compare)
+        let expectedUnselectedPaths = ["/usr/bin/agda", "/usr/bin/als", "/usr/local/bin/agda"]->Array.toSorted(String.compare)
+        Assert.deepStrictEqual(unselectedPaths, expectedUnselectedPaths)
+        
+        // VERIFY: Total endpoint count is correct
+        Assert.deepStrictEqual(Array.length(allEndpointsFromLogs), 4) // Should have all 4 endpoints logged
+      },
+    )
   })
 })
