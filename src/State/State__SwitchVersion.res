@@ -48,18 +48,6 @@
 //   - src/State/State__SwitchVersion.res (main changes)
 //   - Potentially update ItemCreation module for optional version display
 
-module VersionDisplay = {
-  // Format version strings for display
-  let formatAgdaVersion = (version: string): string => "Agda v" ++ version
-
-  let formatALSVersion = (alsVersion: string, agdaVersion: string): string =>
-    "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-
-  let formatSwitchingMessage = (version: string): string => "Switching to " ++ version
-
-  let formatSwitchedMessage = (version: string): string => "Switched to " ++ version
-}
-
 module SelectionParsing = {
   // Parse selection types from quick pick items
   type selectionType =
@@ -113,9 +101,9 @@ module DownloadWorkflow = {
       let _ = await VSCode.Window.showErrorMessage(message, [])
     | Success(endpoint, alreadyDownloaded) =>
       let version = switch endpoint {
-      | Agda(version, _) => VersionDisplay.formatAgdaVersion(version)
+      | Agda(version, _) => State__SwitchVersion2.VersionDisplay.formatAgdaVersion(version)
       | ALS(alsVersion, agdaVersion, _, _) =>
-        VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+        State__SwitchVersion2.VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
       }
       if alreadyDownloaded {
         let _ = await VSCode.Window.showInformationMessage(version ++ " is already downloaded", [])
@@ -159,7 +147,7 @@ module ItemCreation = {
     isSelected: bool,
     extensionUri: VSCode.Uri.t,
   ): VSCode.QuickPickItem.t => {
-    VSCode.QuickPickItem.label: VersionDisplay.formatAgdaVersion(version),
+    VSCode.QuickPickItem.label: State__SwitchVersion2.VersionDisplay.formatAgdaVersion(version),
     description: if isSelected {
       "Selected"
     } else {
@@ -179,7 +167,7 @@ module ItemCreation = {
     isSelected: bool,
   ): VSCode.QuickPickItem.t => {
     VSCode.QuickPickItem.label: "$(squirrel)  " ++
-    VersionDisplay.formatALSVersion(alsVersion, agdaVersion),
+    State__SwitchVersion2.VersionDisplay.formatALSVersion(alsVersion, agdaVersion),
     description: if isSelected {
       "Selected"
     } else {
@@ -212,7 +200,7 @@ let switchAgdaVersion = async (state: State.t) => {
       await State__View.Panel.display(
         state,
         View.Header.Plain(
-          VersionDisplay.formatSwitchingMessage(VersionDisplay.formatAgdaVersion(version)),
+          State__SwitchVersion2.VersionDisplay.formatSwitchingMessage(State__SwitchVersion2.VersionDisplay.formatAgdaVersion(version)),
         ),
         [],
       )
@@ -222,8 +210,8 @@ let switchAgdaVersion = async (state: State.t) => {
       await State__View.Panel.display(
         state,
         View.Header.Plain(
-          VersionDisplay.formatSwitchingMessage(
-            VersionDisplay.formatALSVersion(alsVersion, agdaVersion),
+          State__SwitchVersion2.VersionDisplay.formatSwitchingMessage(
+            State__SwitchVersion2.VersionDisplay.formatALSVersion(alsVersion, agdaVersion),
           ),
         ),
         [],
@@ -247,20 +235,20 @@ let switchAgdaVersion = async (state: State.t) => {
     switch await Connection.Endpoint.getPicked(state.memento, Config.Connection.getAgdaPaths()) {
     | Error(_) => ()
     | Ok(Agda(version, _path)) => {
-        let formattedVersion = VersionDisplay.formatAgdaVersion(version)
+        let formattedVersion = State__SwitchVersion2.VersionDisplay.formatAgdaVersion(version)
         await State__View.Panel.displayStatus(state, formattedVersion)
         await State__View.Panel.display(
           state,
-          View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
+          View.Header.Success(State__SwitchVersion2.VersionDisplay.formatSwitchedMessage(formattedVersion)),
           [],
         )
       }
     | Ok(ALS(alsVersion, agdaVersion, _, _)) => {
-        let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+        let formattedVersion = State__SwitchVersion2.VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
         await State__View.Panel.displayStatus(state, formattedVersion)
         await State__View.Panel.display(
           state,
-          View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
+          View.Header.Success(State__SwitchVersion2.VersionDisplay.formatSwitchedMessage(formattedVersion)),
           [],
         )
       }
@@ -403,7 +391,7 @@ let rec run = async (state, platformDeps: Platform.t) => {
       "als",
     ])
     let downloaded = Array.includes(installedPaths, filename)
-    let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+    let versionString = State__SwitchVersion2.VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
     ItemCreation.createDownloadItem(downloaded, versionString)
   }
 

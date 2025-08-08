@@ -1,7 +1,7 @@
 open Mocha
 
 // Import the modules we want to test
-module VersionDisplay = State__SwitchVersion.VersionDisplay
+module VersionDisplay = State__SwitchVersion2.VersionDisplay
 module SelectionParsing = State__SwitchVersion.SelectionParsing
 module DownloadWorkflow = State__SwitchVersion.DownloadWorkflow
 module ItemCreation = State__SwitchVersion.ItemCreation

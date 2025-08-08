@@ -238,6 +238,18 @@ module View = {
   }
 }
 
+module VersionDisplay = {
+  // Format version strings for display
+  let formatAgdaVersion = (version: string): string => "Agda v" ++ version
+
+  let formatALSVersion = (alsVersion: string, agdaVersion: string): string =>
+    "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+
+  let formatSwitchingMessage = (version: string): string => "Switching to " ++ version
+
+  let formatSwitchedMessage = (version: string): string => "Switched to " ++ version
+}
+
 module SwitchVersionManager = {
   type t = {
     mutable entries: Dict.t<Memento.Endpoints.entry>,
@@ -406,17 +418,17 @@ let switchAgdaVersion = async (state: State.t) => {
 
     switch conn {
     | Agda(_, _, version) =>
-      let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
+      let formattedVersion = VersionDisplay.formatAgdaVersion(version)
       await State__View.Panel.displayStatus(state, formattedVersion)
       await State__View.Panel.display(
         state,
         AgdaModeVscode.View.Header.Success(
-          State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+          VersionDisplay.formatSwitchedMessage(formattedVersion),
         ),
         [],
       )
     | ALS(_, _, alsVersion, agdaVersion) =>
-      let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(
+      let formattedVersion = VersionDisplay.formatALSVersion(
         alsVersion,
         agdaVersion,
       )
@@ -424,7 +436,7 @@ let switchAgdaVersion = async (state: State.t) => {
       await State__View.Panel.display(
         state,
         AgdaModeVscode.View.Header.Success(
-          State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+          VersionDisplay.formatSwitchedMessage(formattedVersion),
         ),
         [],
       )
@@ -434,18 +446,18 @@ let switchAgdaVersion = async (state: State.t) => {
   // switch await Connection.Endpoint.getPickedRaw(state.memento, pathsFromSystem) {
   // | None => ()
   // // | Some(Agda(version, _)) => {
-  // //     let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
+  // //     let formattedVersion = VersionDisplay.formatAgdaVersion(version)
   // //     await State__View.Panel.displayStatus(state, formattedVersion)
   // //     await State__View.Panel.display(
   // //       state,
   // //       AgdaModeVscode.View.Header.Success(
-  // //         State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+  // //         VersionDisplay.formatSwitchedMessage(formattedVersion),
   // //       ),
   // //       [],
   // //     )
   // //   }
   // // | Some(ALS(alsVersion, agdaVersion, _, _)) => {
-  // //     let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(
+  // //     let formattedVersion = VersionDisplay.formatALSVersion(
   // //       alsVersion,
   // //       agdaVersion,
   // //     )
@@ -453,7 +465,7 @@ let switchAgdaVersion = async (state: State.t) => {
   // //     await State__View.Panel.display(
   // //       state,
   // //       AgdaModeVscode.View.Header.Success(
-  // //         State__SwitchVersion.VersionDisplay.formatSwitchedMessage(formattedVersion),
+  // //         VersionDisplay.formatSwitchedMessage(formattedVersion),
   // //       ),
   // //       [],
   // //     )
@@ -521,7 +533,7 @@ module Download = {
           ->Array.last
           ->Option.getOr(fetchSpec.release.name)
 
-        let versionString = State__SwitchVersion.VersionDisplay.formatALSVersion(
+        let versionString = VersionDisplay.formatALSVersion(
           alsVersion,
           agdaVersion,
         )
@@ -551,9 +563,7 @@ module Handler = {
           if selectedItem.label == Constants.openDownloadFolder {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
             state.channels.log->Chan.emit(
-              Log.SwitchVersionUI(
-                SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath),
-              ),
+              Log.SwitchVersionUI(SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath)),
             )
             let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
           } else if selectedItem.label == Constants.downloadLatestALS {
