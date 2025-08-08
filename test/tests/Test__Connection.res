@@ -96,9 +96,7 @@ describe("Connection", () => {
         // setup the memento
         let memento = Memento.make(None)
         await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
-        let paths = ["path/to/agda", "path/to/als"]
-
-        let actual = await Connection__Endpoint.getPickedRaw(memento, paths)
+        let actual = Memento.PickedConnection.get(memento)
         if OS.onUnix {
           let expected = None
           Assert.deepStrictEqual(actual, expected)

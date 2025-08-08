@@ -25,8 +25,8 @@ let sendRequest = async (
       await State__View.Panel.displayConnectionStatus(state, connection)
       // update versions
       switch connection {
-      | Agda(_, version) => state.agdaVersion = Some(version)
-      | ALS(_, _alsVersion, agdaVersion) => state.agdaVersion = Some(agdaVersion)
+      | Agda(_, _, version) => state.agdaVersion = Some(version)
+      | ALS(_, _, _alsVersion, agdaVersion) => state.agdaVersion = Some(agdaVersion)
       }
     }
   }

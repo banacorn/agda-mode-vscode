@@ -249,11 +249,6 @@ module SwitchVersionManager = {
   let getItemData = async (self: t, downloadInfo: option<(bool, string)>): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
-    Js.log("getAgdaPaths2: " ++ Config.Connection.getAgdaPaths2()->Array.toString)
-    let currentPath = await Connection.Endpoint.getPickedRaw(
-      self.memento,
-      Config.Connection.getAgdaPaths2(),
-    )
 
     let pickedPath = switch storedPath {
     | Some(path) =>
@@ -263,15 +258,7 @@ module SwitchVersionManager = {
       } else {
         Some(path)
       }
-    | None =>
-      // Convert current connection URI to filesystem path
-      currentPath->Option.map(path =>
-        if String.startsWith(path, "file://") {
-          VSCode.Uri.parse(path)->VSCode.Uri.fsPath
-        } else {
-          path
-        }
-      )
+    | None => None
     }
     let folderPath = VSCode.Uri.fsPath(self.globalStorageUri)
     ItemData.entriesToItemData(self.entries, pickedPath, downloadInfo, folderPath)
@@ -398,7 +385,7 @@ let switchAgdaVersion = async (state: State.t) => {
     state.connection = Some(conn)
 
     switch conn {
-    | Agda(_, version) =>
+    | Agda(_, _, version) =>
       let formattedVersion = State__SwitchVersion.VersionDisplay.formatAgdaVersion(version)
       await State__View.Panel.displayStatus(state, formattedVersion)
       await State__View.Panel.display(
@@ -408,7 +395,7 @@ let switchAgdaVersion = async (state: State.t) => {
         ),
         [],
       )
-    | ALS(_, alsVersion, agdaVersion) =>
+    | ALS(_, _, alsVersion, agdaVersion) =>
       let formattedVersion = State__SwitchVersion.VersionDisplay.formatALSVersion(
         alsVersion,
         agdaVersion,
@@ -603,10 +590,7 @@ module Handler = {
             // Regular endpoint selection - check if selection changed
             switch selectedItem.detail {
             | Some(selectedPath) =>
-              let changed = switch await Connection.Endpoint.getPickedRaw(
-                state.memento,
-                Config.Connection.getAgdaPaths2(),
-              ) {
+              let changed = switch Memento.PickedConnection.get(manager.memento) {
               | Some(path) => selectedPath !== path
               | None => true // If no previous selection, treat as changed
               }
@@ -615,7 +599,7 @@ module Handler = {
                 switch uri {
                 | FileURI(_, vsCodeUri) =>
                   let path = VSCode.Uri.fsPath(vsCodeUri)
-                  await Connection.Endpoint.setPickedRaw(state.memento, Some(path))
+                  await Memento.PickedConnection.set(state.memento, Some(path))
                   await Config.Connection.addAgdaPath2(path)
                   await switchAgdaVersion(state)
                 | LspURI(_, _) => ()
@@ -641,20 +625,8 @@ module Handler = {
     let manager = SwitchVersionManager.make(state)
     let view = View.make()
 
-    // Initialize picked connection if none is stored but there's an active connection
-    let _ = switch Memento.PickedConnection.get(manager.memento) {
-    | Some(_) => () // Already have a stored preference
-    | None =>
-      // No stored preference, try to set it from current connection
-      switch await Connection.Endpoint.getPickedRaw(
-        manager.memento,
-        Config.Connection.getAgdaPaths2(),
-      ) {
-      | None => () // No current connection either
-      | Some(path) =>
-        let _ = Memento.PickedConnection.set(manager.memento, Some(path))
-      }
-    }
+    // No initialization needed since we removed getPickedRaw() - 
+    // just use whatever is stored in memento directly
 
     // Helper function to update UI with current state
     let updateUI = async (downloadInfo: option<(bool, string)>): unit => {

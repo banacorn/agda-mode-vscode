@@ -6,8 +6,8 @@ module URI = Connection__URI
 
 module type Module = {
   type t =
-    | Agda(Agda.t, string) // connection, version
-    | ALS(ALS.t, string, string) // connection, ALS version, Agda version
+    | Agda(Agda.t, string, string) // connection, path, version
+    | ALS(ALS.t, string, string, string) // connection, path, ALS version, Agda version
 
   // Platform dependencies type
   // lifecycle
@@ -75,18 +75,18 @@ module Module: Module = {
 
   // internal state singleton
   type t =
-    | Agda(Agda.t, string) // connection, version
-    | ALS(ALS.t, string, string) // connection, ALS version, Agda version
+    | Agda(Agda.t, string, string) // connection, path, version
+    | ALS(ALS.t, string, string, string) // connection, path, ALS version, Agda version
 
   let destroy = async connection =>
     switch connection {
     | None => Ok()
     | Some(connection) =>
       switch connection {
-      | Agda(conn, _) =>
+      | Agda(conn, _, _) =>
         await Agda.destroy(conn)
         Ok()
-      | ALS(conn, _, _) =>
+      | ALS(conn, _, _, _) =>
         switch await ALS.destroy(conn) {
         | Error(error) => Error(Error.ALS(error))
         | Ok(_) => Ok()
@@ -94,17 +94,35 @@ module Module: Module = {
       }
     }
 
+  let getPath = connection =>
+    switch connection {
+    | Agda(_, path, _) => path
+    | ALS(_, path, _, _) => path
+    }
+
   let makeWithEndpoint = async (endpoint: Endpoint.t): result<t, Error.t> =>
     switch endpoint {
     | Agda(version, path) =>
       switch await Agda.make(path, version) {
       | Error(error) => Error(Error.Agda(error))
-      | Ok(conn) => Ok(Agda(conn, version))
+      | Ok(conn) => Ok(Agda(conn, path, version))
       }
     | ALS(alsVersion, agdaVersion, method, lspOptions) =>
       switch await ALS.make(method, lspOptions, InitOptions.getFromConfig()) {
       | Error(error) => Error(ALS(error))
-      | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
+      | Ok(conn) =>
+        switch method {
+        | Connection__Transport.ViaPipe(path, _) => Ok(ALS(conn, path, alsVersion, agdaVersion))
+        | Connection__Transport.ViaTCP(_, _) =>
+          Ok(
+            ALS(
+              conn,
+              Endpoint.toURI(endpoint)->Connection__Endpoint.URI.getOriginalPath,
+              alsVersion,
+              agdaVersion,
+            ),
+          )
+        }
       }
     }
 
@@ -122,7 +140,7 @@ module Module: Module = {
         | Some([_, Some(version)]) =>
           switch await Agda.make(path, version) {
           | Error(error) => Error(CannotMakeConnectionWithAgda(error))
-          | Ok(conn) => Ok(Agda(conn, version))
+          | Ok(conn) => Ok(Agda(conn, path, version))
           }
         | _ =>
           // try ALS
@@ -140,7 +158,7 @@ module Module: Module = {
               InitOptions.getFromConfig(),
             ) {
             | Error(error) => Error(CannotMakeConnectionWithALS(error))
-            | Ok(conn) => Ok(ALS(conn, alsVersion, agdaVersion))
+            | Ok(conn) => Ok(ALS(conn, path, alsVersion, agdaVersion))
             }
           | _ => Error(Connection__Endpoint.Error.NotAgdaOrALS(output))
           }
@@ -202,7 +220,7 @@ module Module: Module = {
 
   // Make a connection using raw paths and commands, by trying in order:
   //  1. Previously picked path (if it exists in the supplied paths)
-  //  2. Each path from the paths array sequentially  
+  //  2. Each path from the paths array sequentially
   //  3. Each command from the commands array sequentially
   // Returns Ok(connection) on first success, or Error with all collected failures
   let fromPathsAndCommands2 = async (
@@ -227,7 +245,7 @@ module Module: Module = {
     }
 
     // Build the complete list of things to try in order
-    let allPaths = switch await Endpoint.getPickedRaw(memento, paths) {
+    let allPaths = switch Memento.PickedConnection.get(memento) {
     | Some(pickedPath) => [pickedPath]->Array.concat(paths)
     | None => paths
     }
@@ -310,7 +328,7 @@ module Module: Module = {
 
   // Try to download ALS and create connection directly, with the following steps:
   // 1. Check platform support
-  // 2. Check download policy 
+  // 2. Check download policy
   // 3. Check if already downloaded or download latest ALS
   // 4. Create connection directly from downloaded raw path
   // Returns Ok(connection) on success, or Error with failure details
@@ -346,10 +364,15 @@ module Module: Module = {
         | Some(rawPath) =>
           // Already downloaded, create connection directly from raw path
           switch await makeWithRawPath(rawPath) {
-          | Ok(connection) => 
+          | Ok(connection) =>
             await Config.Connection.addAgdaPath(URI.parse(rawPath))
             Ok(connection)
-          | Error(endpointError) => Error(Error.Construction(DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease)))
+          | Error(endpointError) =>
+            Error(
+              Error.Construction(
+                DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease),
+              ),
+            )
           }
         | None =>
           // Download latest ALS
@@ -361,7 +384,12 @@ module Module: Module = {
             | Ok(connection) =>
               await Config.Connection.addAgdaPath(URI.parse(rawPath))
               Ok(connection)
-            | Error(endpointError) => Error(Error.Construction(DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease)))
+            | Error(endpointError) =>
+              Error(
+                Error.Construction(
+                  DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease),
+                ),
+              )
             }
           }
         }
@@ -395,7 +423,7 @@ module Module: Module = {
   // Make a connection to Agda or ALS, by trying:
   //  1. The previously picked raw path if it exists in settings
   //  2. Each raw path from the settings sequentially
-  //  3. Each command from the commands array sequentially  
+  //  3. Each command from the commands array sequentially
   //  4. Downloading the latest ALS
   let make2 = async (
     platformDeps: Platform.t,
@@ -405,15 +433,18 @@ module Module: Module = {
     commands: array<string>,
   ): result<t, Error.t> =>
     switch await fromPathsAndCommands2(platformDeps, memento, paths, commands) {
-    | Ok(connection) => Ok(connection)
+    | Ok(connection) =>
+      await Memento.PickedConnection.set(memento, Some(getPath(connection)))
+      Ok(connection)
     | Error(attempts) =>
       switch await fromDownloads2(platformDeps, memento, globalStorageUri, attempts) {
+      | Ok(connection) =>
+        await Memento.PickedConnection.set(memento, Some(getPath(connection)))
+        Ok(connection)
       | Error(error) => Error(error)
-      | Ok(connection) => Ok(connection)
       }
     }
 
-    
   let sendRequest = async (connection, document, request, handler) => {
     // encode the Request to some string
     let encodeRequest = (document, version) => {
@@ -425,20 +456,20 @@ module Module: Module = {
     }
 
     switch connection {
-    | ALS(conn, alsVersion, agdaVersion) =>
+    | ALS(conn, path, alsVersion, agdaVersion) =>
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(ALS(conn, alsVersion, agdaVersion)))
+        let _ = await destroy(Some(ALS(conn, path, alsVersion, agdaVersion)))
         Error(Error.ALS(error))
       | Ok() => Ok()
       }
 
-    | Agda(conn, version) =>
+    | Agda(conn, path, version) =>
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(Agda(conn, version)))
+        let _ = await destroy(Some(Agda(conn, path, version)))
         Error(Error.Agda(error))
       | Ok() => Ok()
       }

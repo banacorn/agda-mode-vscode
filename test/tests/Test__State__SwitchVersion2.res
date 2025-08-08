@@ -741,8 +741,18 @@ describe("State__SwitchVersion2", () => {
           Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
         let downloadLatestALS2 = (_, _) => _ =>
           Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let getInstalledEndpointsAndPersistThem = _ => Promise.resolve(Dict.make())
-        let getInstalledEndpointsAndPersistThem2 = _ => Promise.resolve(Dict.make())
+        let getInstalledEndpointsAndPersistThem = _ => {
+          // Mock the same endpoints for consistency
+          let endpoints = Dict.make()
+          endpoints->Dict.set("/usr/bin/agda", Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")))
+          Promise.resolve(endpoints)
+        }
+        let getInstalledEndpointsAndPersistThem2 = _ => {
+          // Mock discovering the agda endpoint during filesystem sync
+          let endpoints = Dict.make()
+          endpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
+          Promise.resolve(endpoints)
+        }
         let findCommand = (_command, ~timeout as _timeout=1000) =>
           Promise.resolve(Error(Connection__Command.Error.NotFound("test")))
         let findCommands = _ => Promise.resolve(Error([Connection__Command.Error.NotFound("test")]))
@@ -861,8 +871,10 @@ describe("State__SwitchVersion2", () => {
         // Trigger onActivate with empty initial state
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
 
-        // In real world: initial UI has no endpoints, so no selection marking
-        // Even if background discovery happens, the selection marking logic might fail
+        // Wait for background sync to complete - in real world this discovers endpoints
+        await Promise.make((resolve, _reject) => {
+          let _ = Js.Global.setTimeout(() => resolve(), 1000)
+        })
 
         // Check if any endpoint was marked as selected (isSelected: true)
         let hasSelectedEndpoint = events->Array.some(event => {

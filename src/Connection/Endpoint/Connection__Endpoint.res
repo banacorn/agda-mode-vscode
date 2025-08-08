@@ -74,9 +74,7 @@ module Module: {
 
   // configuration
   let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, Dict.t<Error.t>>>
-  let getPickedRaw: (Memento.t, array<string>) => promise<option<string>>
   let setPicked: (Memento.t, option<t>) => promise<unit>
-  let setPickedRaw: (Memento.t, option<string>) => promise<unit>
 } = {
   type version = string
   type t =
@@ -196,33 +194,12 @@ module Module: {
     }
   }
 
-  let getPickedRaw = async (memento: Memento.t, fromSystem: array<string>) => {
-    switch Memento.PickedConnection.get(memento) {
-    | Some(fromMemento) =>
-      let existsInSuppliedPaths = fromSystem->Array.includes(fromMemento)
-      if existsInSuppliedPaths {
-        Some(fromMemento)
-      } else {
-        // the path in the memento is not in the paths provided by the system
-        // remove it from the memento
-        await Memento.PickedConnection.set(memento, None)
-        None
-      }
-    | None => None
-    }
-  }
-
   let setPicked = (memento: Memento.t, endpoint) =>
     switch endpoint {
     | None => Memento.PickedConnection.set(memento, None)
     | Some(endpoint) => Memento.PickedConnection.set(memento, Some(toURI(endpoint)->URI.toString))
     }
 
-  let setPickedRaw = (memento: Memento.t, rawPath) =>
-    switch rawPath {
-    | None => Memento.PickedConnection.set(memento, None)
-    | Some(path) => Memento.PickedConnection.set(memento, Some(path))
-    }
 }
 
 include Module
