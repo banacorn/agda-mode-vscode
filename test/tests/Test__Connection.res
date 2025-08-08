@@ -901,7 +901,7 @@ describe("Connection", () => {
       },
     )
 
-    Async.it_skip(
+    Async.it(
       "should not log connection events when connection fails",
       async () => {
         /**
@@ -915,20 +915,16 @@ describe("Connection", () => {
         let loggedEvents = []
         let logChannel = Chan.make()
         
-        // Subscribe to log channel to capture any Connection events
+        // Subscribe to log channel to capture all log events
         let _ = logChannel->Chan.on(
           logEvent => {
-            switch logEvent {
-            | Log.Connection(_) =>
-              loggedEvents->Array.push(logEvent)
-            | _ => ()
-            }
+            loggedEvents->Array.push(logEvent)
           },
         )
 
-        // Create minimal memento and platformDeps
+        // Create minimal memento and platformDeps (using mock to avoid dialogs)
         let memento = Memento.make(None)
-        let platformDeps = Desktop.make()
+        let platformDeps = Mock.Platform.makeBasic()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         
         // INVOKE: Connection.make2 with invalid paths and commands
