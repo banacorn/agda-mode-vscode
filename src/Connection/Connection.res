@@ -292,7 +292,8 @@ module Module: Module = {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
-    | Error(platform) => Error(Error.Construction(PlatformNotSupported(attempts, platform)))
+    | Error(platform) =>
+      Error(Error.Construction(DownloadALS(attempts, PlatformNotSupported(platform))))
     | Ok(platform) =>
       // if the policy has not been set, ask the user
       let policy = switch Config.Connection.DownloadPolicy.get() {
@@ -341,7 +342,8 @@ module Module: Module = {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
-    | Error(platform) => Error(Error.Construction(PlatformNotSupported(attempts, platform)))
+    | Error(platform) =>
+      Error(Error.Construction(DownloadALS(attempts, PlatformNotSupported(platform))))
     | Ok(platform) =>
       // Check download policy
       let policy = switch Config.Connection.DownloadPolicy.get() {

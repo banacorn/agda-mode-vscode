@@ -1,8 +1,9 @@
 module Construction = {
   module Attempts = {
     type t = {
-      endpoints: Dict.t<Connection__Endpoint.Error.t>, // mapping from path to error
-      commands: array<Connection__Command.Error.t>,
+      endpoints: Dict.t<Connection__Endpoint.Error.t>, // errors encountered when trying to connect with a path
+      commands: array<Connection__Command.Error.t>, // errors encountered when trying to run a command
+      // download: option<Connection__Download.Error.t>, // error encountered when trying to download the Agda Language Server
     }
 
     let toString = attempts => {
@@ -27,19 +28,12 @@ module Construction = {
   }
 
   type t =
-    | PlatformNotSupported(Attempts.t, Connection__Download__Platform.raw)
     | NoDownloadALS(Attempts.t)
     | DownloadALS(Attempts.t, Connection__Download.Error.t)
     | Endpoint(string, Connection__Endpoint.Error.t)
 
   let toString = x =>
     switch x {
-    | PlatformNotSupported(attempts, platform) =>
-      Attempts.toString(attempts) ++
-      "\nTried to download the Agda Language Server but the platform `" ++
-      platform["os"] ++
-      "/" ++
-      platform["dist"] ++ "` is not supported.\n"
     | NoDownloadALS(attempts) =>
       Attempts.toString(
         attempts,
@@ -58,7 +52,7 @@ module Construction = {
 
   // the error should form a semigroup
   // let merge = (x, y) => switch (x, y) {
-    
+
   // }
 }
 

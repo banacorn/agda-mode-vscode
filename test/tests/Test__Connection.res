@@ -410,7 +410,7 @@ describe("Connection", () => {
 
         Assert.deepStrictEqual(
           result,
-          Error(Construction(PlatformNotSupported(attempts, platform))),
+          Error(Construction(DownloadALS(attempts, PlatformNotSupported(platform)))),
         )
       },
     )
