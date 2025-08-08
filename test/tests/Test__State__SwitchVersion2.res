@@ -425,41 +425,7 @@ describe("State__SwitchVersion2", () => {
 
   describe("Events", () => {
     // Simple mock platform for testing
-    let makeMockPlatform = (): Platform.t => {
-      module MockPlatform = {
-        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-        let alreadyDownloaded = _ => () => Promise.resolve(None)
-        let alreadyDownloaded2 = _ => () => Promise.resolve(None)
-        let downloadLatestALS = (_, _) => _ =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let downloadLatestALS2 = (_, _) => _ =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let getInstalledEndpointsAndPersistThem = _ => {
-          // Mock the same endpoints for consistency
-          let endpoints = Dict.make()
-          endpoints->Dict.set(
-            "/usr/bin/agda",
-            Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")),
-          )
-          Promise.resolve(endpoints)
-        }
-        let getInstalledEndpointsAndPersistThem2 = _ => {
-          // Mock discovering the agda endpoint during filesystem sync
-          let endpoints = Dict.make()
-          endpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-          Promise.resolve(endpoints)
-        }
-        let findCommand = (_command, ~timeout as _timeout=1000) =>
-          Promise.resolve(Error(Connection__Command.Error.NotFound))
-        let findCommands = async commands => Error(
-          commands
-          ->Array.map(command => (command, Connection__Command.Error.NotFound))
-          ->Dict.fromArray,
-        )
-      }
-      module(MockPlatform)
-    }
+    let makeMockPlatform = (): Platform.t => Mock.Platform.makeWithAgda()
 
     // Create a test state with proper channels
     let createTestState = () => {
@@ -653,38 +619,7 @@ describe("State__SwitchVersion2", () => {
 
         // PHASE 1: Test initial state (download available but not downloaded)
         // Mock platform to return download available
-        let makeMockPlatformWithDownload = (): Platform.t => {
-          module MockPlatform = {
-            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-            let alreadyDownloaded = _ => () => Promise.resolve(None)
-            let alreadyDownloaded2 = _ => () => Promise.resolve(None)
-            let downloadLatestALS = (_, _) => _ =>
-              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-            let downloadLatestALS2 = (_, _) => _ => Promise.resolve(Ok("/test/downloaded/als")) // Simulate successful download
-            let getInstalledEndpointsAndPersistThem = _ => {
-              let endpoints = Dict.make()
-              endpoints->Dict.set(
-                "/usr/bin/agda",
-                Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")),
-              )
-              Promise.resolve(endpoints)
-            }
-            let getInstalledEndpointsAndPersistThem2 = _ => {
-              let endpoints = Dict.make()
-              endpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-              Promise.resolve(endpoints)
-            }
-            let findCommand = (_command, ~timeout as _timeout=1000) =>
-              Promise.resolve(Error(Connection__Command.Error.NotFound))
-            let findCommands = async commands => Error(
-              commands
-              ->Array.map(command => (command, Connection__Command.Error.NotFound))
-              ->Dict.fromArray,
-            )
-          }
-          module(MockPlatform)
-        }
+        let makeMockPlatformWithDownload = (): Platform.t => Mock.Platform.makeWithAgda()
 
         // INVOKE: onActivate to trigger the actual UI logic with download available
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatformWithDownload())

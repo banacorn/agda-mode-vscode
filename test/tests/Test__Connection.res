@@ -375,31 +375,7 @@ describe("Connection", () => {
         }
 
         // Create a mock platform that returns an unsupported platform error
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Error(platform))
-
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () =>
-            Promise.resolve(Config.Connection.DownloadPolicy.No)
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let actual = await Connection.fromDownloads(
@@ -427,32 +403,7 @@ describe("Connection", () => {
         let getDownloadPolicyCount = ref(0)
 
         // Create a mock platform that simulates successful platform determination but No download policy
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () => {
-            getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
-            Promise.resolve(Config.Connection.DownloadPolicy.No)
-          }
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadPolicyCounter(Config.Connection.DownloadPolicy.No, getDownloadPolicyCount)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -480,32 +431,7 @@ describe("Connection", () => {
         let getDownloadPolicyCount = ref(0)
 
         // Create a mock platform that asks user and gets Undecided response
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () => {
-            getDownloadPolicyCount := getDownloadPolicyCount.contents + 1
-            Promise.resolve(Config.Connection.DownloadPolicy.Undecided)
-          }
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadPolicyCounter(Config.Connection.DownloadPolicy.Undecided, getDownloadPolicyCount)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -538,36 +464,7 @@ describe("Connection", () => {
         let checkedCache = ref(false)
 
         // Create a mock platform that returns cached ALS
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => {
-            checkedCache := true
-            Promise.resolve(Some(target))
-          }
-          let alreadyDownloaded2 = _globalStorageUri => () => {
-            checkedCache := true
-            Promise.resolve(Some(target->Connection__Endpoint.toURI->Connection__URI.toString))
-          }
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () =>
-            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithCachedDownloadAndFlag(target, checkedCache)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -605,40 +502,7 @@ describe("Connection", () => {
         let checkedDownload = ref(false)
 
         // Create a mock platform that downloads ALS
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => {
-            checkedCache := true
-            Promise.resolve(None)
-          }
-          let alreadyDownloaded2 = _globalStorageUri => () => {
-            checkedCache := true
-            Promise.resolve(None)
-          }
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
-            checkedDownload := true
-            Promise.resolve(Ok(target))
-          }
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
-            checkedDownload := true
-            Promise.resolve(Ok(target->Connection__Endpoint.toURI->Connection__URI.toString))
-          }
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () =>
-            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithSuccessfulDownloadAndFlags(target, checkedCache, checkedDownload)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(
@@ -671,40 +535,7 @@ describe("Connection", () => {
         let checkedDownload = ref(false)
 
         // Create a mock platform that fails to download ALS
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => {
-            checkedCache := true
-            Promise.resolve(None)
-          }
-          let alreadyDownloaded2 = _globalStorageUri => () => {
-            checkedCache := true
-            Promise.resolve(None)
-          }
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
-            checkedDownload := true
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          }
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
-            checkedDownload := true
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          }
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () =>
-            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadFailureAndFlags(checkedCache, checkedDownload)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(

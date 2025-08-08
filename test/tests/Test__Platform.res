@@ -114,37 +114,14 @@ describe("Platform dependent utilities", () => {
       "should allow custom mock platforms to be created for testing",
       async () => {
         // Create a custom mock platform for testing
-        module MockPlatform: Platform.PlatformOps = {
-          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Windows))
-          let findCommands = async commands => Error(
-            commands
-            ->Array.map(command => (command, Connection__Command.Error.NotFound))
-            ->Dict.fromArray,
-          )
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-          let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-          let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
-          let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-          let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-            Promise.resolve(Dict.fromArray([]))
-          let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-            Promise.resolve(Dict.make())
-          let askUserAboutDownloadPolicy = () =>
-            Promise.resolve(Config.Connection.DownloadPolicy.No)
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockPlatform)
+        let mockPlatformDeps = Mock.Platform.makeBasic()
         module PlatformOps = unpack(mockPlatformDeps)
 
         // Test the mock behavior
         let platformResult = await PlatformOps.determinePlatform()
         switch platformResult {
-        | Ok(Connection__Download__Platform.Windows) => Assert.ok(true)
-        | _ => Assert.fail("Mock platform should return Windows")
+        | Ok(Connection__Download__Platform.MacOS_Arm) => Assert.ok(true)
+        | _ => Assert.fail("Mock platform should return MacOS_Arm")
         }
 
         let commandResult = await PlatformOps.findCommands(["test"])

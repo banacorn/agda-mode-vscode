@@ -141,81 +141,13 @@ module Platform = {
     module(MockPlatform)
   }
 
-  // Mock platform that returns platform error
-  let makeWithPlatformError = (platform): Platform.t => {
-    module MockPlatform = {
-      let determinePlatform = () => Promise.resolve(Error(platform))
-      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-      let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-        Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
-        Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
-    }
-    module(MockPlatform)
-  }
-
-  // Mock platform that simulates successful download with dual flag tracking  
-  let makeWithSuccessfulDownloadAndFlags = (downloadedEndpoint: Connection.Endpoint.t, checkedCacheFlag: ref<bool>, checkedDownloadFlag: ref<bool>): Platform.t => {
+  // Mock platform that simulates cached download available
+  let makeWithCachedDownload = (cachedEndpoint: Connection.Endpoint.t): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-      let alreadyDownloaded = _globalStorageUri => () => {
-        checkedCacheFlag := true
-        Promise.resolve(None)
-      }
-      let alreadyDownloaded2 = _globalStorageUri => () => {
-        checkedCacheFlag := true
-        Promise.resolve(None)
-      }
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
-        checkedDownloadFlag := true
-        Promise.resolve(Ok(downloadedEndpoint))
-      }
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
-        checkedDownloadFlag := true
-        Promise.resolve(Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
-      }
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-        Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
-        Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
-    }
-    module(MockPlatform)
-  }
-
-  // Mock platform that simulates cached download available with flag tracking
-  let makeWithCachedDownloadAndFlag = (cachedEndpoint: Connection.Endpoint.t, checkedFlag: ref<bool>): Platform.t => {
-    module MockPlatform = {
-      let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-      let alreadyDownloaded = _globalStorageUri => () => {
-        checkedFlag := true
-        Promise.resolve(Some(cachedEndpoint))
-      }
-      let alreadyDownloaded2 = _globalStorageUri => () => {
-        checkedFlag := true
-        Promise.resolve(Some(cachedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
-      }
+      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(Some(cachedEndpoint))
+      let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(Some(cachedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
@@ -238,42 +170,6 @@ module Platform = {
   // Create basic mock platform that avoids dialogs
   let makeBasic = (): Platform.t => module(Basic)
   
-  // Mock platform that fails to download ALS with flag tracking
-  let makeWithDownloadFailureAndFlags = (checkedCacheFlag: ref<bool>, checkedDownloadFlag: ref<bool>): Platform.t => {
-    module MockPlatform = {
-      let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
-      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-      let alreadyDownloaded = _globalStorageUri => () => {
-        checkedCacheFlag := true
-        Promise.resolve(None)
-      }
-      let alreadyDownloaded2 = _globalStorageUri => () => {
-        checkedCacheFlag := true
-        Promise.resolve(None)
-      }
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
-        checkedDownloadFlag := true
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      }
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
-        checkedDownloadFlag := true
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      }
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
-        Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
-        Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
-    }
-    module(MockPlatform)
-  }
-
   // Create mock platform with Agda available
   let makeWithAgda = (): Platform.t => module(WithAgda)
 }
