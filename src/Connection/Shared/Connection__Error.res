@@ -30,6 +30,7 @@ module Construction = {
     | PlatformNotSupported(Attempts.t, Connection__Download__Platform.raw)
     | NoDownloadALS(Attempts.t)
     | DownloadALS(Attempts.t, Connection__Download.Error.t)
+    | Endpoint(string, Connection__Endpoint.Error.t)
 
   let toString = x =>
     switch x {
@@ -39,7 +40,6 @@ module Construction = {
       platform["os"] ++
       "/" ++
       platform["dist"] ++ "` is not supported.\n"
-
     | NoDownloadALS(attempts) =>
       Attempts.toString(
         attempts,
@@ -49,7 +49,17 @@ module Construction = {
       Attempts.toString(attempts) ++
       "\nTried to download the Agda Language Server but failed:\n" ++
       Connection__Download.Error.toString(error)
+    | Endpoint(path, error) =>
+      "Tried to connect with the path `" ++
+      path ++
+      "` but failed:\n" ++
+      Connection__Endpoint.Error.toString(error)
     }
+
+  // the error should form a semigroup
+  // let merge = (x, y) => switch (x, y) {
+    
+  // }
 }
 
 type t =
@@ -61,5 +71,5 @@ let toString = x =>
   switch x {
   | Agda(e) => Connection__Endpoint__Agda__Error.toString(e)
   | ALS(e) => Connection__Endpoint__ALS__Error.toString(e)
-  | Construction(e) => ("Cannot Construct Connection", Construction.toString(e))
+  | Construction(e) => ("Connection error", Construction.toString(e))
   }

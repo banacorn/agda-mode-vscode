@@ -355,43 +355,31 @@ module Module: Module = {
         await Config.Connection.DownloadPolicy.set(No)
         Error(Error.Construction(NoDownloadALS(attempts)))
       | No =>
+        // User opted not to download, set policy and return error
         await Config.Connection.DownloadPolicy.set(No)
         Error(Error.Construction(NoDownloadALS(attempts)))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
-        // Check if already downloaded
-        switch await PlatformOps.alreadyDownloaded2(globalStorageUri)() {
-        | Some(rawPath) =>
-          // Already downloaded, create connection directly from raw path
-          switch await makeWithRawPath(rawPath) {
-          | Ok(connection) =>
-            await Config.Connection.addAgdaPath(URI.parse(rawPath))
-            Ok(connection)
-          | Error(endpointError) =>
-            Error(
-              Error.Construction(
-                DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease),
-              ),
-            )
-          }
+        // Get the downloaded path, download if not already done
+        let downloadResult = switch await PlatformOps.alreadyDownloaded2(globalStorageUri)() {
+        | Some(path) => Ok(path)
         | None =>
-          // Download latest ALS
           switch await PlatformOps.downloadLatestALS2(memento, globalStorageUri)(platform) {
           | Error(error) => Error(Error.Construction(DownloadALS(attempts, error)))
-          | Ok(rawPath) =>
-            // Create connection directly from downloaded raw path
-            switch await makeWithRawPath(rawPath) {
-            | Ok(connection) =>
-              await Config.Connection.addAgdaPath(URI.parse(rawPath))
-              Ok(connection)
-            | Error(endpointError) =>
-              Error(
-                Error.Construction(
-                  DownloadALS(attempts, Connection__Download.Error.CannotFindCompatibleALSRelease),
-                ),
-              )
-            }
+          | Ok(path) => Ok(path)
           }
+        }
+
+        switch downloadResult {
+        | Ok(path) =>
+          switch await makeWithRawPath(path) {
+          | Ok(connection) =>
+            await Config.Connection.addAgdaPath2(getPath(connection))
+            await Memento.PickedConnection.set(memento, Some(getPath(connection)))
+            Ok(connection)
+          | Error(error) => Error(Error.Construction(Endpoint(path, error)))
+          }
+        | Error(error) => Error(error)
         }
       }
     }
@@ -434,11 +422,13 @@ module Module: Module = {
   ): result<t, Error.t> =>
     switch await fromPathsAndCommands2(platformDeps, memento, paths, commands) {
     | Ok(connection) =>
+      await Config.Connection.addAgdaPath2(getPath(connection))
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
     | Error(attempts) =>
       switch await fromDownloads2(platformDeps, memento, globalStorageUri, attempts) {
       | Ok(connection) =>
+        await Config.Connection.addAgdaPath2(getPath(connection))
         await Memento.PickedConnection.set(memento, Some(getPath(connection)))
         Ok(connection)
       | Error(error) => Error(error)
