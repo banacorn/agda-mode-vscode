@@ -20,7 +20,11 @@ describe("Platform dependent utilities", () => {
         let commandResult = await PlatformOps.findCommands(["nonexistent-command"])
         switch commandResult {
         | Ok(_) => Assert.fail("Should not find nonexistent command")
-        | Error(errors) => Assert.ok(Array.length(errors) > 0) // Should return array of errors
+        | Error(errors) =>
+          Assert.deepStrictEqual(
+            errors,
+            Dict.fromArray([("nonexistent-command", Connection__Command.Error.NotFound)]),
+          )
         }
       },
     )
@@ -42,8 +46,11 @@ describe("Platform dependent utilities", () => {
 
         let commandResult = await PlatformOps.findCommands(["agda"])
         switch commandResult {
-        | Error([Connection__Command.Error.NotFound(msg)]) =>
-          Assert.ok(String.includes(msg, "web environment"))
+        | Error(errors) =>
+          Assert.deepStrictEqual(
+            errors,
+            Dict.fromArray([("agda", Connection__Command.Error.NotFound)]),
+          )
         | _ => Assert.fail("Web platform should return specific NotFound error")
         }
 
@@ -82,7 +89,7 @@ describe("Platform dependent utilities", () => {
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let attempts = {
           Connection__Error.Construction.Attempts.endpoints: Dict.make(),
-          commands: [],
+          commands: Dict.make(),
         }
 
         // This should not crash and should return an error (since web platform doesn't support downloads)
@@ -108,10 +115,13 @@ describe("Platform dependent utilities", () => {
         // Create a custom mock platform for testing
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Windows))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
@@ -138,7 +148,11 @@ describe("Platform dependent utilities", () => {
 
         let commandResult = await PlatformOps.findCommands(["test"])
         switch commandResult {
-        | Error([Connection__Command.Error.NotFound("mock")]) => Assert.ok(true)
+        | Error(errors) =>
+          Assert.deepStrictEqual(
+            errors,
+            Dict.fromArray([("test", Connection__Command.Error.NotFound)]),
+          )
         | _ => Assert.fail("Mock platform should return NotFound error")
         }
       },

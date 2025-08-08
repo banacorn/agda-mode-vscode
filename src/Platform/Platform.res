@@ -10,7 +10,7 @@ module type PlatformOps = {
 
   // Command/executable searching
   let findCommands: array<string> => promise<
-    result<Connection__Endpoint.t, array<Connection__Command.Error.t>>,
+    result<Connection__Endpoint.t, Dict.t<Connection__Command.Error.t>>, 
   >
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
@@ -26,9 +26,7 @@ module type PlatformOps = {
   let downloadLatestALS2: (
     Memento.t,
     VSCode.Uri.t,
-  ) => Connection__Download__Platform.t => promise<
-    result<string, Connection__Download.Error.t>,
-  > // returns the path to the downloaded ALS executable on success
+  ) => Connection__Download__Platform.t => promise<result<string, Connection__Download.Error.t>> // returns the path to the downloaded ALS executable on success
 
   // Endpoint operations
   let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<

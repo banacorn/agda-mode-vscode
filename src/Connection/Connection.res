@@ -53,7 +53,7 @@ module type Module = {
   let findCommands: (
     Platform.t,
     array<string>,
-  ) => promise<result<Endpoint.t, array<Connection__Command.Error.t>>>
+  ) => promise<result<Endpoint.t, Dict.t<Connection__Command.Error.t>>>
 }
 
 module Module: Module = {
@@ -238,7 +238,7 @@ module Module: Module = {
         | Ok(connection) => Ok(connection)
         | Error(_endpointError) =>
           // Convert endpoint error to a command error for consistency
-          Error(Connection__Command.Error.NotFound(command))
+          Error(Connection__Command.Error.NotFound)
         }
       | Error(commandError) => Error(commandError)
       }
@@ -261,7 +261,7 @@ module Module: Module = {
         // Build final error with both path and command failures
         let attempts = {
           Error.Construction.Attempts.endpoints: pathErrors->Dict.fromArray,
-          commands: commandErrors->Array.map(((_, error)) => error),
+          commands: commandErrors->Dict.fromArray,
         }
         Error(attempts)
       }

@@ -164,16 +164,16 @@ describe("Connection", () => {
         if OS.onUnix {
           switch await Connection__Command.search("which") {
           | Ok(_output) => failwith("should not be a valid target")
-          | Error(Connection__Command.Error.NotFound(_)) => failwith("expected to find `which`")
+          | Error(Connection__Command.Error.NotFound) => failwith("expected to find `which`")
           | Error(SomethingWentWrong(_)) => failwith("expected to find `which`")
-          | Error(NotValidTarget(_, _, _)) => ()
+          | Error(NotValidTarget(_, _)) => ()
           }
         } else {
           switch await Connection__Command.search("where") {
           | Ok(_output) => failwith("should not be a valid target")
-          | Error(Connection__Command.Error.NotFound(_)) => failwith("expected to find `where`")
+          | Error(Connection__Command.Error.NotFound) => failwith("expected to find `where`")
           | Error(SomethingWentWrong(_)) => failwith("expected to find `where`")
-          | Error(NotValidTarget(_, _, _)) => ()
+          | Error(NotValidTarget(_, _)) => ()
           }
         }
       },
@@ -326,7 +326,7 @@ describe("Connection", () => {
   describe("`fromDownloads`", () => {
     let attempts = {
       Connection__Error.Construction.Attempts.endpoints: Dict.make(),
-      commands: [],
+      commands: Dict.make(),
     }
 
     let agdaMockEndpoint = ref(None)
@@ -380,10 +380,14 @@ describe("Connection", () => {
         // Create a mock platform that returns an unsupported platform error
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Error(platform))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
@@ -426,10 +430,13 @@ describe("Connection", () => {
         // Create a mock platform that simulates successful platform determination but No download policy
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
@@ -476,10 +483,13 @@ describe("Connection", () => {
         // Create a mock platform that asks user and gets Undecided response
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
           let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
           let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
@@ -531,10 +541,13 @@ describe("Connection", () => {
         // Create a mock platform that returns cached ALS
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => {
             checkedCache := true
             Promise.resolve(Some(target))
@@ -595,10 +608,13 @@ describe("Connection", () => {
         // Create a mock platform that downloads ALS
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => {
             checkedCache := true
             Promise.resolve(None)
@@ -658,10 +674,13 @@ describe("Connection", () => {
         // Create a mock platform that fails to download ALS
         module MockPlatform: Platform.PlatformOps = {
           let determinePlatform = () => Promise.resolve(Ok(platform))
-          let findCommands = _commands =>
-            Promise.resolve(Error([Connection__Command.Error.NotFound("mock")]))
+          let findCommands = async commands => Error(
+            commands
+            ->Array.map(command => (command, Connection__Command.Error.NotFound))
+            ->Dict.fromArray,
+          )
           let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound("mock")))
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _globalStorageUri => () => {
             checkedCache := true
             Promise.resolve(None)

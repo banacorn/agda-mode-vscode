@@ -8,14 +8,14 @@ module Web: Platform.PlatformOps = {
     Promise.resolve(Error(unsupportedRaw))
   }
 
-  let findCommands = _commands =>
-    Promise.resolve(
-      Error([Connection__Command.Error.NotFound("Platform not supported in web environment")]),
-    )
+  let findCommands = async commands => Error(
+    commands
+    ->Array.map(command => (command, Connection__Command.Error.NotFound))
+    ->Dict.fromArray,
+  )
+
   let findCommand = (_command, ~timeout as _timeout=1000) =>
-    Promise.resolve(
-      Error(Connection__Command.Error.NotFound("Platform not supported in web environment")),
-    )
+    Promise.resolve(Error(Connection__Command.Error.NotFound))
 
   let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 

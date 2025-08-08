@@ -451,8 +451,12 @@ describe("State__SwitchVersion2", () => {
           Promise.resolve(endpoints)
         }
         let findCommand = (_command, ~timeout as _timeout=1000) =>
-          Promise.resolve(Error(Connection__Command.Error.NotFound("test")))
-        let findCommands = _ => Promise.resolve(Error([Connection__Command.Error.NotFound("test")]))
+          Promise.resolve(Error(Connection__Command.Error.NotFound))
+        let findCommands = async commands => Error(
+          commands
+          ->Array.map(command => (command, Connection__Command.Error.NotFound))
+          ->Dict.fromArray,
+        )
       }
       module(MockPlatform)
     }
@@ -672,9 +676,12 @@ describe("State__SwitchVersion2", () => {
               Promise.resolve(endpoints)
             }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
-              Promise.resolve(Error(Connection__Command.Error.NotFound("test")))
-            let findCommands = _ =>
-              Promise.resolve(Error([Connection__Command.Error.NotFound("test")]))
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+            let findCommands = async commands => Error(
+              commands
+              ->Array.map(command => (command, Connection__Command.Error.NotFound))
+              ->Dict.fromArray,
+            )
           }
           module(MockPlatform)
         }

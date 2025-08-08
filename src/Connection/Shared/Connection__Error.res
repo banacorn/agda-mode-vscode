@@ -2,7 +2,7 @@ module Construction = {
   module Attempts = {
     type t = {
       endpoints: Dict.t<Connection__Endpoint.Error.t>, // errors encountered when trying to connect with a path
-      commands: array<Connection__Command.Error.t>, // errors encountered when trying to run a command
+      commands: Dict.t<Connection__Command.Error.t>, // errors encountered when trying to run a command
       // download: option<Connection__Download.Error.t>, // error encountered when trying to download the Agda Language Server
     }
 
@@ -17,14 +17,28 @@ module Construction = {
           "  " ++ path ++ ": " ++ Connection__Endpoint.Error.toString(error)
         )
         ->Array.join("\n") ++ "\n"
-      } ++ if attempts.commands->Array.length == 0 {
+      } ++ if attempts.commands->Dict.toArray->Array.length == 0 {
         ""
       } else {
         attempts.commands
-        ->Array.map(Connection__Command.Error.toString)
+        ->Dict.toArray
+        ->Array.map(((command, error)) =>
+          "  " ++ command ++ ": " ++ Connection__Command.Error.toString(error)
+        )
         ->Array.join("\n")
       }
     }
+
+    // Forms a semigroup
+    // let merge = (x, y) => {
+    //   endpoints: {
+    //     let dict = Dict.make()
+    //     x.endpoints->Dict.forEachWithKey((error, path) => Dict.set(dict, path, error))
+    //     y.endpoints->Dict.forEachWithKey((error, path) => Dict.set(dict, path, error))
+    //     dict
+    //   },
+    //   commands: x.commands ++ y.commands,
+    // }
   }
 
   type t =
