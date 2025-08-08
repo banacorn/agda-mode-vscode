@@ -232,7 +232,7 @@ let switchAgdaVersion = async (state: State.t) => {
   }
 
   // stop the old connection
-  let _ = await state.connection->Connection.destroy
+  let _ = await Connection.destroy(state.connection, state.channels.log)
 
   // start with the new connection
   switch await Connection.make(

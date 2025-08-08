@@ -509,7 +509,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
+            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
@@ -563,7 +563,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
+            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
@@ -632,7 +632,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
+            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
@@ -742,7 +742,7 @@ describe("State__SwitchVersion2", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
+            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }

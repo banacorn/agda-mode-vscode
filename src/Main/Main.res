@@ -218,7 +218,7 @@ let activateWithoutContext = (
     // log the event
     channels.log
     ->Chan.on(message => {
-      Js.log(State.Log.toString(message))
+      Js.log(Log.toString(message))
     })
     ->ignore
   }

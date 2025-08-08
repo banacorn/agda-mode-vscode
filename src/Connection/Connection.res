@@ -24,8 +24,9 @@ module type Module = {
     VSCode.Uri.t,
     array<string>,
     array<string>,
+    Chan.t<Log.t>,
   ) => promise<result<t, Error.t>>
-  let destroy: option<t> => promise<result<unit, Error.t>>
+  let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
   // components (now use platform dependencies)
   let fromPathsAndCommands: (
@@ -78,10 +79,18 @@ module Module: Module = {
     | Agda(Agda.t, string, string) // connection, path, version
     | ALS(ALS.t, string, string, string) // connection, path, ALS version, Agda version
 
-  let destroy = async connection =>
+  let destroy = async (connection, logChannel: Chan.t<Log.t>) =>
     switch connection {
     | None => Ok()
     | Some(connection) =>
+      // Log disconnection before destroying
+      switch connection {
+      | Agda(_, path, _) =>
+        logChannel->Chan.emit(Log.Connection(Disconnected(path)))
+      | ALS(_, path, _, _) =>
+        logChannel->Chan.emit(Log.Connection(Disconnected(path)))
+      }
+      
       switch connection {
       | Agda(conn, _, _) =>
         await Agda.destroy(conn)
@@ -435,21 +444,34 @@ module Module: Module = {
     globalStorageUri: VSCode.Uri.t,
     paths: array<string>,
     commands: array<string>,
-  ): result<t, Error.t> =>
+    logChannel: Chan.t<Log.t>,
+  ): result<t, Error.t> => {
+    let logConnection = connection => {
+      switch connection {
+      | Agda(_, path, version) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToAgda(path, version)))
+      | ALS(_, path, alsVersion, agdaVersion) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, alsVersion, agdaVersion)))
+      }
+    }
+
     switch await fromPathsAndCommands2(platformDeps, memento, paths, commands) {
     | Ok(connection) =>
+      logConnection(connection)
       await Config.Connection.addAgdaPath2(getPath(connection))
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
     | Error(constructionError) =>
       switch await fromDownloads2(platformDeps, memento, globalStorageUri, constructionError) {
       | Ok(connection) =>
+        logConnection(connection)
         await Config.Connection.addAgdaPath2(getPath(connection))
         await Memento.PickedConnection.set(memento, Some(getPath(connection)))
         Ok(connection)
       | Error(error) => Error(error)
       }
     }
+  }
 
   let sendRequest = async (connection, document, request, handler) => {
     // encode the Request to some string
@@ -466,7 +488,7 @@ module Module: Module = {
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(ALS(conn, path, alsVersion, agdaVersion)))
+        let _ = await destroy(Some(ALS(conn, path, alsVersion, agdaVersion)), Chan.make())
         Error(Error.ALS(error))
       | Ok() => Ok()
       }
@@ -475,7 +497,7 @@ module Module: Module = {
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(Agda(conn, path, version)))
+        let _ = await destroy(Some(Agda(conn, path, version)), Chan.make())
         Error(Error.Agda(error))
       | Ok() => Ok()
       }

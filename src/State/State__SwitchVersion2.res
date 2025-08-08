@@ -193,7 +193,7 @@ module Item = {
 
 module View = {
   type t = {
-    log: Chan.t<State.Log.t>,
+    log: Chan.t<Log.t>,
     quickPick: VSCode.QuickPick.t<VSCode.QuickPickItem.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable items: array<VSCode.QuickPickItem.t>,
@@ -372,7 +372,7 @@ let switchAgdaVersion = async (state: State.t) => {
   )
 
   // stop the old connection
-  let _ = await state.connection->Connection.destroy
+  let _ = await Connection.destroy(state.connection, state.channels.log)
 
   // start with the new connection
   // Get the selected path from memento and ensure it's included in the supplied paths
@@ -399,6 +399,7 @@ let switchAgdaVersion = async (state: State.t) => {
     state.globalStorageUri,
     pathsFromSystem,
     ["als", "agda"],
+    state.channels.log,
   ) {
   | Ok(conn) =>
     state.connection = Some(conn)
@@ -550,7 +551,7 @@ module Handler = {
           if selectedItem.label == Constants.openDownloadFolder {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
             state.channels.log->Chan.emit(
-              State.Log.SwitchVersionUI(
+              Log.SwitchVersionUI(
                 SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath),
               ),
             )
@@ -562,7 +563,7 @@ module Handler = {
               let alreadyDownloaded = downloaded
 
               state.channels.log->Chan.emit(
-                State.Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
+                Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
               )
 
               if alreadyDownloaded {
@@ -620,7 +621,7 @@ module Handler = {
                 switch manager.entries->Dict.get(selectedPath) {
                 | Some(entry) =>
                   state.channels.log->Chan.emit(
-                    State.Log.SwitchVersionUI(SelectedEndpoint(selectedPath, entry, true)),
+                    Log.SwitchVersionUI(SelectedEndpoint(selectedPath, entry, true)),
                   )
                 | None => ()
                 }
@@ -667,7 +668,7 @@ module Handler = {
         | _ => None
         }
       )
-      state.channels.log->Chan.emit(State.Log.SwitchVersionUI(UpdatedEndpoints(endpointItemDatas)))
+      state.channels.log->Chan.emit(Log.SwitchVersionUI(UpdatedEndpoints(endpointItemDatas)))
 
       let items = Item.fromItemDataArray(itemData, state.extensionUri)
       view->View.updateItems(items)
