@@ -246,7 +246,7 @@ module SwitchVersionManager = {
   }
 
   // Get current items as data
-  let getItemData = async (self: t, downloadInfo: option<(bool, string)>): array<ItemData.t> => {
+  let getItemData = async (self: t, state: State.t, downloadInfo: option<(bool, string)>): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
 
@@ -258,7 +258,18 @@ module SwitchVersionManager = {
       } else {
         Some(path)
       }
-    | None => None
+    | None => 
+      // Fresh install: try to infer active connection from current state
+      switch state.connection {
+      | Some(connection) => 
+        // Extract path from connection
+        let connectionPath = switch connection {
+        | Agda(_, path, _) => Some(path)
+        | ALS(_, path, _, _) => Some(path)
+        }
+        connectionPath
+      | None => None
+      }
     }
     let folderPath = VSCode.Uri.fsPath(self.globalStorageUri)
     ItemData.entriesToItemData(self.entries, pickedPath, downloadInfo, folderPath)
@@ -630,7 +641,7 @@ module Handler = {
 
     // Helper function to update UI with current state
     let updateUI = async (downloadInfo: option<(bool, string)>): unit => {
-      let itemData = await SwitchVersionManager.getItemData(manager, downloadInfo)
+      let itemData = await SwitchVersionManager.getItemData(manager, state, downloadInfo)
 
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>

@@ -513,7 +513,14 @@ describe("State__SwitchVersion2", () => {
             let entries = Dict.make()
             entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
 
-            // Create manager manually since we can't easily create a State.t in tests
+            // Create a minimal mock state for getItemData
+            let mockState = %raw(`{
+              connection: null,
+              memento: memento,
+              globalStorageUri: globalStorageUri
+            }`)
+
+            // Create manager with the state
             let manager: State__SwitchVersion2.SwitchVersionManager.t = {
               entries,
               memento,
@@ -521,7 +528,7 @@ describe("State__SwitchVersion2", () => {
             }
 
             let itemData =
-              await manager->State__SwitchVersion2.SwitchVersionManager.getItemData(None)
+              await manager->State__SwitchVersion2.SwitchVersionManager.getItemData(mockState, None)
 
             // Should have: "Installed" separator + agda item + "Misc" separator + open folder item
             Assert.deepStrictEqual(Array.length(itemData), 4)
@@ -847,6 +854,16 @@ describe("State__SwitchVersion2", () => {
         // SIMULATE: Fresh install - ensure no picked connection in memento
         await Memento.PickedConnection.set(state.memento, None)
         
+        // SIMULATE: Discovered endpoints (as if filesystem sync already found them)
+        let discoveredEndpoints = Dict.make()
+        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
+        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+        
+        // SIMULATE: Active connection (Command.Load established connection)
+        // Create a mock connection that matches one of the discovered endpoints
+        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
+        state.connection = Some(mockConnection)
+        
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
         
@@ -854,8 +871,8 @@ describe("State__SwitchVersion2", () => {
         let allEndpointsFromLogs = loggedEvents->Array.flat
         let anyEndpointSelected = allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
         
-        // VERIFY: Assert that the problem exists (no endpoint marked as selected)
-        Assert.ok(!anyEndpointSelected) // Expected: No endpoint marked as selected (exposing fresh install UX problem)
+        // VERIFY: Assert that the fix works (endpoint marked as selected)
+        Assert.ok(anyEndpointSelected) // Expected: Active connection endpoint should be marked as selected
       },
     )
 
