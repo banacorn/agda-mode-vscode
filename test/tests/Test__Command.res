@@ -2,7 +2,7 @@ open Mocha
 open Test__Util
 
 // These commands do not have keybindings
-let noKeybinding = [Command.OpenDebugBuffer, SwitchAgdaVersion2]
+let noKeybinding = [Command.OpenDebugBuffer]
 
 // These commands are not actual Agda commands, but are used for input method or other purposes
 let pseudoCommand = [
@@ -61,8 +61,7 @@ let shouldBeRegisteredAsCommand = (command: Command.t): bool => {
 }
 
 let shouldHaveKeybinding = (command: Command.t): bool => {
-  shouldBeRegisteredAsCommand(command) && 
-  !(noKeybinding->Array.some(noKb => noKb == command))
+  shouldBeRegisteredAsCommand(command) && !(noKeybinding->Array.some(noKb => noKb == command))
 }
 
 describe("Command Registration", () => {
@@ -71,12 +70,14 @@ describe("Command Registration", () => {
 
     Command.names
     ->Array.filter(((command, _)) => shouldBeRegisteredAsCommand(command))
-    ->Array.forEach(((_, commandName)) => {
-      let found = packageJson.commands->Array.some(name => name == commandName)
-      if !found {
-        Assert.fail(`Command "${commandName}" is not registered in package.json commands`)
-      }
-    })
+    ->Array.forEach(
+      ((_, commandName)) => {
+        let found = packageJson.commands->Array.some(name => name == commandName)
+        if !found {
+          Assert.fail(`Command "${commandName}" is not registered in package.json commands`)
+        }
+      },
+    )
   })
 
   Async.it("should have all valid commands with keybindings registered", async () => {
@@ -84,11 +85,13 @@ describe("Command Registration", () => {
 
     Command.names
     ->Array.filter(((command, _)) => shouldHaveKeybinding(command))
-    ->Array.forEach(((_, commandName)) => {
-      let found = packageJson.keybindings->Array.some(name => name == commandName)
-      if !found {
-        Assert.fail(`Command "${commandName}" is not registered in package.json keybindings`)
-      }
-    })
+    ->Array.forEach(
+      ((_, commandName)) => {
+        let found = packageJson.keybindings->Array.some(name => name == commandName)
+        if !found {
+          Assert.fail(`Command "${commandName}" is not registered in package.json keybindings`)
+        }
+      },
+    )
   })
 })

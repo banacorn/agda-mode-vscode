@@ -1,5 +1,5 @@
 open Mocha
-open State__SwitchVersion2.ItemData
+open State__SwitchVersion.ItemData
 
 module TestData = {
   // Mock endpoint entries for testing
@@ -23,7 +23,7 @@ module TestData = {
   let createMockExtensionUri = () => VSCode.Uri.file("/test/extension")
 }
 
-describe("State__SwitchVersion2", () => {
+describe("State__SwitchVersion", () => {
   describe("Core", () => {
     describe(
       "getEndpointDisplayInfo",
@@ -32,7 +32,7 @@ describe("State__SwitchVersion2", () => {
           "should format Agda endpoint with version",
           () => {
             let entry = TestData.agdaEntry
-            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
               "agda",
               entry,
             )
@@ -46,7 +46,7 @@ describe("State__SwitchVersion2", () => {
           "should format Agda endpoint without version",
           () => {
             let entry = TestData.agdaUnknownEntry
-            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
               "agda",
               entry,
             )
@@ -60,7 +60,7 @@ describe("State__SwitchVersion2", () => {
           "should format ALS endpoint with versions",
           () => {
             let entry = TestData.alsEntry
-            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
               "als",
               entry,
             )
@@ -74,7 +74,7 @@ describe("State__SwitchVersion2", () => {
           "should format error endpoint",
           () => {
             let entry = TestData.unknownEntry
-            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
               "broken-agda",
               entry,
             )
@@ -88,7 +88,7 @@ describe("State__SwitchVersion2", () => {
           "should format unknown endpoint without error",
           () => {
             let entry = TestData.createMockEntry(Unknown, ())
-            let (label, errorDescription) = State__SwitchVersion2.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
               "mystery",
               entry,
             )
@@ -107,11 +107,11 @@ describe("State__SwitchVersion2", () => {
           "should return true for Agda endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
               true,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Agda(None)),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(None)),
               true,
             )
           },
@@ -121,11 +121,11 @@ describe("State__SwitchVersion2", () => {
           "should return false for ALS endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
               false,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(ALS(None)),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(None)),
               false,
             )
           },
@@ -135,7 +135,7 @@ describe("State__SwitchVersion2", () => {
           "should return false for unknown endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Unknown),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Unknown),
               false,
             )
           },
@@ -154,8 +154,8 @@ describe("State__SwitchVersion2", () => {
           "should create quickpick item from endpoint data with correct properties",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "Agda v2.6.4")
             Assert.deepStrictEqual(item.description, Some(""))
@@ -167,8 +167,8 @@ describe("State__SwitchVersion2", () => {
           "should include icon for Agda endpoints",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is present for Agda
             switch item.iconPath {
@@ -182,8 +182,8 @@ describe("State__SwitchVersion2", () => {
           "should not include icon for ALS endpoints",
           () => {
             let entry = TestData.alsEntry
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/als", entry, false)
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is absent for ALS
             switch item.iconPath {
@@ -201,8 +201,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create separator with correct kind",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = Separator("Test Section")
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = Separator("Test Section")
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "Test Section")
             Assert.deepStrictEqual(item.kind, Some(VSCode.QuickPickItemKind.Separator))
@@ -217,8 +217,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create placeholder item",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = NoInstallations
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = NoInstallations
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "$(info) No installations found")
             Assert.deepStrictEqual(item.description, Some("Try installing Agda or ALS first"))
@@ -234,8 +234,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create open folder item",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = OpenFolder("/test/global/storage")
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = OpenFolder("/test/global/storage")
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "$(folder-opened)  Open download folder")
             Assert.deepStrictEqual(
@@ -254,8 +254,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create download item when not downloaded",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = DownloadAction(false, "ALS v1.0.0")
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(false, "ALS v1.0.0")
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
               item.label,
@@ -269,8 +269,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create download item when already downloaded",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = DownloadAction(true, "ALS v1.0.0")
-            let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(true, "ALS v1.0.0")
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
               item.label,
@@ -288,7 +288,7 @@ describe("State__SwitchVersion2", () => {
     it(
       "should create quickpick with correct initial state",
       () => {
-        let qp = State__SwitchVersion2.View.make(Chan.make())
+        let qp = State__SwitchVersion.View.make(Chan.make())
 
         Assert.deepStrictEqual(Array.length(qp.items), 0)
         Assert.deepStrictEqual(Array.length(qp.subscriptions), 0)
@@ -298,13 +298,13 @@ describe("State__SwitchVersion2", () => {
     it(
       "should update items correctly",
       () => {
-        let qp = State__SwitchVersion2.View.make(Chan.make())
-        let itemData: State__SwitchVersion2.ItemData.t = NoInstallations
+        let qp = State__SwitchVersion.View.make(Chan.make())
+        let itemData: State__SwitchVersion.ItemData.t = NoInstallations
         let items = [
-          State__SwitchVersion2.Item.fromItemData(itemData, TestData.createMockExtensionUri()),
+          State__SwitchVersion.Item.fromItemData(itemData, TestData.createMockExtensionUri()),
         ]
 
-        qp->State__SwitchVersion2.View.updateItems(items)
+        qp->State__SwitchVersion.View.updateItems(items)
 
         Assert.deepStrictEqual(Array.length(qp.items), 1)
         Assert.deepStrictEqual(
@@ -324,8 +324,8 @@ describe("State__SwitchVersion2", () => {
           () => {
             let entries = Dict.make()
             let itemData: array<
-              State__SwitchVersion2.ItemData.t,
-            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
               None,
@@ -355,8 +355,8 @@ describe("State__SwitchVersion2", () => {
             entries->Dict.set("/usr/bin/als", TestData.alsEntry)
 
             let itemData: array<
-              State__SwitchVersion2.ItemData.t,
-            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
               None,
@@ -389,8 +389,8 @@ describe("State__SwitchVersion2", () => {
             entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
 
             let itemData: array<
-              State__SwitchVersion2.ItemData.t,
-            > = State__SwitchVersion2.ItemData.entriesToItemData(
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
               Some((false, "ALS v1.0.0")),
@@ -496,7 +496,7 @@ describe("State__SwitchVersion2", () => {
         state.connection = Some(mockConnection)
 
         // INVOKE: onActivate to trigger the actual UI logic
-        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+        await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
 
         // ANALYZE: Check logged UpdateEndpoints events for selection marking
         let allEndpointsFromLogs = loggedEvents->Array.flat
@@ -553,7 +553,7 @@ describe("State__SwitchVersion2", () => {
         state.connection = Some(mockConnection)
 
         // INVOKE: onActivate to trigger the actual UI logic
-        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+        await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
 
         // ANALYZE: Check which endpoint is marked as selected
         let allEndpointsFromLogs = loggedEvents->Array.flat
@@ -622,7 +622,7 @@ describe("State__SwitchVersion2", () => {
         let makeMockPlatformWithDownload = (): Platform.t => Mock.Platform.makeWithAgda()
 
         // INVOKE: onActivate to trigger the actual UI logic with download available
-        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatformWithDownload())
+        await State__SwitchVersion.Handler.onActivate(state, makeMockPlatformWithDownload())
 
         // ANALYZE: Check logged UpdateEndpoints events
         let allEndpointsFromLogs = loggedEvents->Array.flat
@@ -705,7 +705,7 @@ describe("State__SwitchVersion2", () => {
         state.connection = Some(mockConnection)
 
         // INVOKE: onActivate to trigger the actual UI logic
-        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+        await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
 
         // ANALYZE: Check selection marking across all endpoints
         let allEndpointsFromLogs = loggedEvents->Array.flat
@@ -750,7 +750,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should format Agda version correctly",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatAgdaVersion("2.6.4")
+            let actual = State__SwitchVersion.VersionDisplay.formatAgdaVersion("2.6.4")
             Assert.strictEqual(actual, "Agda v2.6.4")
           },
         )
@@ -758,7 +758,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should handle version with patch numbers",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatAgdaVersion("2.6.4.1")
+            let actual = State__SwitchVersion.VersionDisplay.formatAgdaVersion("2.6.4.1")
             Assert.strictEqual(actual, "Agda v2.6.4.1")
           },
         )
@@ -766,7 +766,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should handle development versions",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatAgdaVersion("2.7.0-dev")
+            let actual = State__SwitchVersion.VersionDisplay.formatAgdaVersion("2.7.0-dev")
             Assert.strictEqual(actual, "Agda v2.7.0-dev")
           },
         )
@@ -779,7 +779,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should format ALS version correctly",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatALSVersion("1.2.3", "2.6.4")
+            let actual = State__SwitchVersion.VersionDisplay.formatALSVersion("1.2.3", "2.6.4")
             Assert.strictEqual(actual, "Agda v2.6.4 Language Server v1.2.3")
           },
         )
@@ -787,7 +787,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should handle different version formats",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatALSVersion("0.3.16", "2.6.4.1")
+            let actual = State__SwitchVersion.VersionDisplay.formatALSVersion("0.3.16", "2.6.4.1")
             Assert.strictEqual(actual, "Agda v2.6.4.1 Language Server v0.3.16")
           },
         )
@@ -800,7 +800,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should format switching message correctly",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatSwitchingMessage("Agda v2.6.4")
+            let actual = State__SwitchVersion.VersionDisplay.formatSwitchingMessage("Agda v2.6.4")
             Assert.strictEqual(actual, "Switching to Agda v2.6.4")
           },
         )
@@ -808,7 +808,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should work with ALS versions",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatSwitchingMessage(
+            let actual = State__SwitchVersion.VersionDisplay.formatSwitchingMessage(
               "Agda v2.6.4 Language Server v1.2.3",
             )
             Assert.strictEqual(actual, "Switching to Agda v2.6.4 Language Server v1.2.3")
@@ -823,7 +823,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should format switched message correctly",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatSwitchedMessage("Agda v2.6.4")
+            let actual = State__SwitchVersion.VersionDisplay.formatSwitchedMessage("Agda v2.6.4")
             Assert.strictEqual(actual, "Switched to Agda v2.6.4")
           },
         )
@@ -831,7 +831,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should work with ALS versions",
           () => {
-            let actual = State__SwitchVersion2.VersionDisplay.formatSwitchedMessage(
+            let actual = State__SwitchVersion.VersionDisplay.formatSwitchedMessage(
               "Agda v2.6.4 Language Server v1.2.3",
             )
             Assert.strictEqual(actual, "Switched to Agda v2.6.4 Language Server v1.2.3")
@@ -848,8 +848,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create separator item correctly",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = Separator("Installed")
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Separator("Installed")
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -870,8 +870,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create folder item correctly",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = OpenFolder("/test/global/storage")
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = OpenFolder("/test/global/storage")
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -895,11 +895,11 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create download item for not downloaded version",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = DownloadAction(
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
               false,
               "Agda v2.6.4 Language Server v1.2.3",
             )
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -921,11 +921,11 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create download item for already downloaded version",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = DownloadAction(
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
               true,
               "Agda v2.6.4 Language Server v1.2.3",
             )
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -952,8 +952,8 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create no installations item correctly",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = NoInstallations
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = NoInstallations
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -978,8 +978,8 @@ describe("State__SwitchVersion2", () => {
           "should create Agda item for non-selected version",
           () => {
             let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1004,8 +1004,8 @@ describe("State__SwitchVersion2", () => {
           "should create Agda item for selected version",
           () => {
             let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, true)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, true)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1025,8 +1025,8 @@ describe("State__SwitchVersion2", () => {
           "should create Agda item with unknown version",
           () => {
             let entry = TestData.createMockEntry(Agda(None), ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1047,8 +1047,8 @@ describe("State__SwitchVersion2", () => {
           "should create ALS item for non-selected version",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4"))), ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/als", entry, false)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1073,8 +1073,8 @@ describe("State__SwitchVersion2", () => {
           "should create ALS item for selected version",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4"))), ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/als", entry, true)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, true)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1090,8 +1090,8 @@ describe("State__SwitchVersion2", () => {
           "should create ALS item with unknown version",
           () => {
             let entry = TestData.createMockEntry(ALS(None), ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/als", entry, false)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1112,8 +1112,8 @@ describe("State__SwitchVersion2", () => {
           "should create error item correctly",
           () => {
             let entry = TestData.createMockEntry(Unknown, ~error="Permission denied", ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/broken/path", entry, false)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/broken/path", entry, false)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1133,8 +1133,8 @@ describe("State__SwitchVersion2", () => {
           "should create unknown item correctly",
           () => {
             let entry = TestData.createMockEntry(Unknown, ())
-            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/mystery/path", entry, false)
-            let actual = State__SwitchVersion2.Item.fromItemData(
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/mystery/path", entry, false)
+            let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
@@ -1155,11 +1155,11 @@ describe("State__SwitchVersion2", () => {
           "should return true for Agda endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
               true,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Agda(None)),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(None)),
               true,
             )
           },
@@ -1169,11 +1169,11 @@ describe("State__SwitchVersion2", () => {
           "should return false for ALS endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
               false,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(ALS(None)),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(None)),
               false,
             )
           },
@@ -1183,7 +1183,7 @@ describe("State__SwitchVersion2", () => {
           "should return false for unknown endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion2.ItemData.shouldEndpointHaveIcon(Unknown),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Unknown),
               false,
             )
           },
@@ -1202,7 +1202,7 @@ describe("State__SwitchVersion2", () => {
             // This tests the inline logic in Handler.onSelection
             // We verify the constants used for comparison
             Assert.strictEqual(
-              State__SwitchVersion2.Constants.openDownloadFolder,
+              State__SwitchVersion.Constants.openDownloadFolder,
               "$(folder-opened)  Open download folder",
             )
           },
@@ -1214,7 +1214,7 @@ describe("State__SwitchVersion2", () => {
             // This tests the inline logic in Handler.onSelection
             // We verify the constants used for comparison
             Assert.strictEqual(
-              State__SwitchVersion2.Constants.downloadLatestALS,
+              State__SwitchVersion.Constants.downloadLatestALS,
               "$(cloud-download)  Download the latest Agda Language Server",
             )
           },
@@ -1223,13 +1223,13 @@ describe("State__SwitchVersion2", () => {
         it(
           "should verify other UI constants",
           () => {
-            Assert.strictEqual(State__SwitchVersion2.Constants.agdaVersionPrefix, "Agda v")
+            Assert.strictEqual(State__SwitchVersion.Constants.agdaVersionPrefix, "Agda v")
             Assert.strictEqual(
-              State__SwitchVersion2.Constants.alsWithSquirrel,
+              State__SwitchVersion.Constants.alsWithSquirrel,
               "$(squirrel)  ALS v",
             )
             Assert.strictEqual(
-              State__SwitchVersion2.Constants.downloadedAndInstalled,
+              State__SwitchVersion.Constants.downloadedAndInstalled,
               "Downloaded and installed",
             )
           },

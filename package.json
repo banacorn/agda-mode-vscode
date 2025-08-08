@@ -634,11 +634,6 @@
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.switch-agda-version-2",
-				"title": "Switch to a different Agda version (v2)",
-				"category": "Agda"
-			},
-			{
 				"command": "agda-mode.escape",
 				"title": "Escape",
 				"category": "Agda"

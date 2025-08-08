@@ -100,7 +100,6 @@ type t =
   | ComputeNormalForm(ComputeMode.t)
   | WhyInScope
   | SwitchAgdaVersion
-  | SwitchAgdaVersion2
   | Escape
   | InputMethod(InputMethod.t)
   | LookupSymbol
@@ -180,7 +179,6 @@ let names: array<(t, string)> = [
   (ComputeNormalForm(UseShowInstance), "compute-normal-form[UseShowInstance]"),
   (WhyInScope, "why-in-scope"),
   (SwitchAgdaVersion, "switch-agda-version"),
-  (SwitchAgdaVersion2, "switch-agda-version-2"),
   (Escape, "escape"),
   (InputMethod(Activate), "input-symbol[Activate]"),
   (InputMethod(BrowseUp), "input-symbol[BrowseUp]"),
@@ -232,7 +230,6 @@ let toKeybinding = x =>
   | ComputeNormalForm(mode) => "compute-normal-form[" ++ ComputeMode.encode(mode) ++ "]"
   | WhyInScope => "why-in-scope"
   | SwitchAgdaVersion => "switch-agda-version"
-  | SwitchAgdaVersion2 => "switch-agda-version-2"
   | Escape => "escape"
   | InputMethod(action) =>
     switch action {
@@ -291,7 +288,6 @@ let toString = x =>
   | ComputeNormalForm(UseShowInstance) => "Compute normal form (UseShowInstance)"
   | WhyInScope => "Why in scope"
   | SwitchAgdaVersion => "Switch to a different Agda version"
-  | SwitchAgdaVersion2 => "Switch to a different Agda version (v2)"
   | EventFromView(event) => "Event from the view (" ++ View.EventFromView.toString(event) ++ ")"
   | Refresh => "Refresh "
   | Escape => "Escape"
