@@ -9,17 +9,33 @@ module Constants = {
 
 module ItemData = {
   // UI item types
-  type itemType =
-    | Endpoint(string, Memento.Endpoints.entry) // path, entry
+  type t =
+    | Endpoint(string, Memento.Endpoints.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string) // downloaded, versionString
     | OpenFolder(string) // folderPath
     | NoInstallations
     | Separator(string) // label
 
-  type t = {
-    itemType: itemType,
-    isSelected: bool,
-  }
+  let toString = item =>
+    switch item {
+    | Endpoint(path, entry, isSelected) =>
+      "Endpoint: " ++
+      path ++
+      ", " ++
+      Memento.Endpoints.endpointToString(entry.endpoint) ++ if isSelected {
+        ", selected"
+      } else {
+        ""
+      }
+    | DownloadAction(downloaded, versionString) =>
+      "DownloadAction: downloaded=" ++
+      string_of_bool(downloaded) ++
+      ", versionString=" ++
+      versionString
+    | OpenFolder(folderPath) => "OpenFolder: " ++ folderPath
+    | NoInstallations => "NoInstallations"
+    | Separator(label) => "Separator: " ++ label
+    }
 
   // UI display logic
   let shouldEndpointHaveIcon = (endpoint: Memento.Endpoints.endpoint): bool => {
@@ -65,22 +81,18 @@ module ItemData = {
     let endpointItems = switch pickedPath {
     | Some(picked) =>
       // Only do string comparison when there's a picked path
-      entriesArray->Array.map(((path, entry)) => {
-        {itemType: Endpoint(path, entry), isSelected: picked == path}
-      })
+      entriesArray->Array.map(((path, entry)) => Endpoint(path, entry, picked == path))
     | None =>
       // Avoid unnecessary comparisons when no path is picked
-      entriesArray->Array.map(((path, entry)) => {
-        {itemType: Endpoint(path, entry), isSelected: false}
-      })
+      entriesArray->Array.map(((path, entry)) => Endpoint(path, entry, false))
     }
 
     // Build sections efficiently without Array.flat
     // Add installed section
     let sectionsWithInstalled = if hasEndpoints {
-      Array.concat([{itemType: Separator("Installed"), isSelected: false}], endpointItems)
+      Array.concat([Separator("Installed")], endpointItems)
     } else {
-      [{itemType: NoInstallations, isSelected: false}]
+      [NoInstallations]
     }
 
     // Add download section if present
@@ -88,22 +100,13 @@ module ItemData = {
     | Some((downloaded, versionString)) =>
       Array.concat(
         sectionsWithInstalled,
-        [
-          {itemType: Separator("Download"), isSelected: false},
-          {itemType: DownloadAction(downloaded, versionString), isSelected: false},
-        ],
+        [Separator("Download"), DownloadAction(downloaded, versionString)],
       )
     | None => sectionsWithInstalled
     }
 
     // Add misc section
-    Array.concat(
-      sectionsWithDownload,
-      [
-        {itemType: Separator("Misc"), isSelected: false},
-        {itemType: OpenFolder(folderPath), isSelected: false},
-      ],
-    )
+    Array.concat(sectionsWithDownload, [Separator("Misc"), OpenFolder(folderPath)])
   }
 }
 
@@ -126,11 +129,11 @@ module Item = {
   let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
     // Convert item data to UI display information
     let (label, description, detail): (string, option<string>, option<string>) = {
-      switch itemData.itemType {
-      | Endpoint(path, entry) => {
+      switch itemData {
+      | Endpoint(path, entry, isSelected) => {
           let filename = NodeJs.Path.basename(path)
           let (label, errorDescription) = ItemData.getEndpointDisplayInfo(filename, entry)
-          let description = switch (itemData.isSelected, errorDescription) {
+          let description = switch (isSelected, errorDescription) {
           | (true, None) => "Selected"
           | (false, None) => ""
           | (_, Some(error)) => error
@@ -157,12 +160,12 @@ module Item = {
       }
     }
 
-    switch itemData.itemType {
+    switch itemData {
     | Separator(_) => {
         label,
         kind: VSCode.QuickPickItemKind.Separator,
       }
-    | Endpoint(_, entry) => {
+    | Endpoint(_, entry, _) => {
         let baseItem = createQuickPickItem(label, description, detail)
         if ItemData.shouldEndpointHaveIcon(entry.endpoint) {
           {
@@ -648,8 +651,8 @@ module Handler = {
 
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>
-        switch item.itemType {
-        | Endpoint(path, entry) => Some(path, entry.endpoint, entry.error, item.isSelected)
+        switch item {
+        | Endpoint(path, entry, isSelected) => Some(path, entry.endpoint, entry.error, isSelected)
         | _ => None
         }
       )

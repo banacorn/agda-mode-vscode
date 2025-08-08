@@ -40,15 +40,15 @@ module ViewCache = {
 module Log = {
   module SwitchVersion = {
     type t =
-      | Destroyed // when the SwitchVersion UI is destroyed
-      // | Selected(string) // when an item is selected, string is the path
+      | Destroyed // when the SwitchVersion UI has been destroyed
+      | Selected(string) // when an item has been selected
       | UpdatedEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
       | Others(string)
 
     let toString = event =>
       switch event {
       | Destroyed => "Destroyed"
-      // | Selected(path) => "Selected: " ++ path
+      | Selected(item) => "Selected: " ++ item
       | UpdatedEndpoints(entries) =>
         "UpdatedEndpoints: " ++
         entries

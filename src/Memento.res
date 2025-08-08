@@ -19,6 +19,7 @@ module Module: {
       | Agda(option<string>) // Agda version
       | ALS(option<(string, string)>) // ALS version & corresponding Agda version
       | Unknown
+    let endpointToString: endpoint => string
 
     type entry = {
       endpoint: endpoint,
@@ -101,6 +102,16 @@ module Module: {
       | Agda(option<string>) // Agda version
       | ALS(option<(string, string)>) // ALS version & corresponding Agda version
       | Unknown
+    let endpointToString = endpoint =>
+      switch endpoint {
+      | Agda(Some(version)) => "Agda v" ++ version
+      | Agda(None) => "Agda (version unknown)"
+      | ALS(Some((alsVersion, agdaVersion))) =>
+        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+      | ALS(None) => "Agda Language Server (version unknown)"
+      | Unknown => "Unknown"
+      }
+
     type entry = {
       endpoint: endpoint,
       timestamp: Date.t,
@@ -126,7 +137,7 @@ module Module: {
 
     let setVersion = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {endpoint: endpoint, timestamp: Date.make(), error: None}
+      let entry = {endpoint, timestamp: Date.make(), error: None}
       cache->Dict.set(filepath, entry)
       await memento->set(key, cache)
     }
@@ -145,32 +156,32 @@ module Module: {
     let syncWithPaths = async (memento: t, discoveredEndpoints: Dict.t<endpoint>): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
       let newCache = Dict.make()
-      
+
       // Add entries for all discovered paths
-      discoveredEndpoints->Dict.toArray->Array.forEach(((path, discoveredEndpoint)) => {
+      discoveredEndpoints
+      ->Dict.toArray
+      ->Array.forEach(((path, discoveredEndpoint)) => {
         switch cache->Dict.get(path) {
-        | Some(existingEntry) => 
+        | Some(existingEntry) =>
           // Update endpoint type if we have better inference, but preserve version info and errors
           let updatedEndpoint = switch (existingEntry.endpoint, discoveredEndpoint) {
-          | (Unknown, newType) when newType != Unknown => 
-            // Update from Unknown to a specific type
+          | (Unknown, newType) if newType != Unknown => // Update from Unknown to a specific type
             newType
-          | (existingType, _) => 
-            // Keep existing type (it has version info or is already specific)
+          | (existingType, _) => // Keep existing type (it has version info or is already specific)
             existingType
           }
           let updatedEntry = {...existingEntry, endpoint: updatedEndpoint, timestamp: Date.make()}
           newCache->Dict.set(path, updatedEntry)
-        | None => 
+        | None =>
           // Add new path with inferred endpoint type
           let entry = {endpoint: discoveredEndpoint, timestamp: Date.make(), error: None}
           newCache->Dict.set(path, entry)
         }
       })
-      
+
       // Remove entries for paths that no longer exist (cleanup)
       // This happens automatically since we only add current paths to newCache
-      
+
       await memento->set(key, newCache)
     }
   }

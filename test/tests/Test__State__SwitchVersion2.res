@@ -154,10 +154,7 @@ describe("State__SwitchVersion2", () => {
           "should create quickpick item from endpoint data with correct properties",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: Endpoint("/usr/bin/agda", entry),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "Agda v2.6.4")
@@ -170,10 +167,7 @@ describe("State__SwitchVersion2", () => {
           "should include icon for Agda endpoints",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: Endpoint("/usr/bin/agda", entry),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is present for Agda
@@ -188,10 +182,7 @@ describe("State__SwitchVersion2", () => {
           "should not include icon for ALS endpoints",
           () => {
             let entry = TestData.alsEntry
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: Endpoint("/usr/bin/als", entry),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = Endpoint("/usr/bin/als", entry, false)
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is absent for ALS
@@ -210,10 +201,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create separator with correct kind",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: Separator("Test Section"),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = Separator("Test Section")
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "Test Section")
@@ -229,10 +217,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create placeholder item",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: NoInstallations,
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = NoInstallations
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "$(info) No installations found")
@@ -249,10 +234,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create open folder item",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: OpenFolder("/test/global/storage"),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = OpenFolder("/test/global/storage")
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "$(folder-opened)  Open download folder")
@@ -272,10 +254,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create download item when not downloaded",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: DownloadAction(false, "ALS v1.0.0"),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = DownloadAction(false, "ALS v1.0.0")
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
@@ -290,10 +269,7 @@ describe("State__SwitchVersion2", () => {
         it(
           "should create download item when already downloaded",
           () => {
-            let itemData: State__SwitchVersion2.ItemData.t = {
-              itemType: DownloadAction(true, "ALS v1.0.0"),
-              isSelected: false,
-            }
+            let itemData: State__SwitchVersion2.ItemData.t = DownloadAction(true, "ALS v1.0.0")
             let item = State__SwitchVersion2.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
@@ -323,10 +299,7 @@ describe("State__SwitchVersion2", () => {
       "should update items correctly",
       () => {
         let qp = State__SwitchVersion2.View.make(Chan.make())
-        let itemData: State__SwitchVersion2.ItemData.t = {
-          itemType: NoInstallations,
-          isSelected: false,
-        }
+        let itemData: State__SwitchVersion2.ItemData.t = NoInstallations
         let items = [
           State__SwitchVersion2.Item.fromItemData(itemData, TestData.createMockExtensionUri()),
         ]
@@ -360,17 +333,14 @@ describe("State__SwitchVersion2", () => {
             )
 
             Assert.deepStrictEqual(Array.length(itemData), 3) // No installations + Misc separator + Open folder
-            Assert.deepStrictEqual(
-              itemData[0]->Option.map(item => item.itemType),
-              Some(NoInstallations),
-            )
+            Assert.deepStrictEqual(itemData[0], Some(NoInstallations))
 
-            switch itemData[1]->Option.map(item => item.itemType) {
+            switch itemData[1] {
             | Some(Separator("Misc")) => () // Expected
             | _ => Assert.fail("Expected Misc separator")
             }
 
-            switch itemData[2]->Option.map(item => item.itemType) {
+            switch itemData[2] {
             | Some(OpenFolder("/test/global/storage")) => () // Expected
             | _ => Assert.fail("Expected OpenFolder item")
             }
@@ -395,23 +365,22 @@ describe("State__SwitchVersion2", () => {
 
             Assert.deepStrictEqual(Array.length(itemData), 5) // Installed separator + 2 endpoints + Misc separator + Open folder
 
-            switch itemData[0]->Option.map(item => item.itemType) {
+            switch itemData[0] {
             | Some(Separator("Installed")) => () // Expected
             | _ => Assert.fail("Expected Installed separator")
             }
 
-            switch itemData[3]->Option.map(item => item.itemType) {
+            switch itemData[3] {
             | Some(Separator("Misc")) => () // Expected
             | _ => Assert.fail("Expected Misc separator")
             }
 
-            switch itemData[4]->Option.map(item => item.itemType) {
+            switch itemData[4] {
             | Some(OpenFolder("/test/global/storage")) => () // Expected
             | _ => Assert.fail("Expected OpenFolder item")
             }
           },
         )
-
 
         it(
           "should include download section when download info is provided",
@@ -432,7 +401,7 @@ describe("State__SwitchVersion2", () => {
 
             let downloadSeparator = itemData->Array.find(
               data =>
-                switch data.itemType {
+                switch data {
                 | Separator("Download") => true
                 | _ => false
                 },
@@ -440,7 +409,7 @@ describe("State__SwitchVersion2", () => {
 
             let downloadAction = itemData->Array.find(
               data =>
-                switch data.itemType {
+                switch data {
                 | DownloadAction(false, "ALS v1.0.0") => true
                 | _ => false
                 },
@@ -453,8 +422,6 @@ describe("State__SwitchVersion2", () => {
       },
     )
   })
-
-
 
   describe("Events", () => {
     // Simple mock platform for testing
@@ -471,7 +438,10 @@ describe("State__SwitchVersion2", () => {
         let getInstalledEndpointsAndPersistThem = _ => {
           // Mock the same endpoints for consistency
           let endpoints = Dict.make()
-          endpoints->Dict.set("/usr/bin/agda", Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")))
+          endpoints->Dict.set(
+            "/usr/bin/agda",
+            Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")),
+          )
           Promise.resolve(endpoints)
         }
         let getInstalledEndpointsAndPersistThem2 = _ => {
@@ -505,7 +475,6 @@ describe("State__SwitchVersion2", () => {
       State.make(makeMockPlatform(), channels, mockUri, mockUri, None, mockEditor, None)
     }
 
-
     Async.it(
       "should have an endpoint marked as selected onActivation",
       async () => {
@@ -529,41 +498,41 @@ describe("State__SwitchVersion2", () => {
          * This test simulates fresh install by ensuring Memento.PickedConnection = None,
          * then invokes onActivate and observes the logged UpdateEndpoints events.
          */
-        
         let state = createTestState()
         let loggedEvents = []
-        
+
         // Subscribe to log channel to capture UpdateEndpoints events
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
           },
         )
-        
+
         // SIMULATE: Fresh install - ensure no picked connection in memento
         await Memento.PickedConnection.set(state.memento, None)
-        
+
         // SIMULATE: Discovered endpoints (as if filesystem sync already found them)
         let discoveredEndpoints = Dict.make()
         discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-        
+
         // SIMULATE: Active connection (Command.Load established connection)
         // Create a mock connection that matches one of the discovered endpoints
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
         state.connection = Some(mockConnection)
-        
+
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
-        
+
         // ANALYZE: Check logged UpdateEndpoints events for selection marking
         let allEndpointsFromLogs = loggedEvents->Array.flat
-        let anyEndpointSelected = allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
-        
+        let anyEndpointSelected =
+          allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
+
         // VERIFY: Assert that the fix works (endpoint marked as selected)
         Assert.ok(anyEndpointSelected) // Expected: Active connection endpoint should be marked as selected
       },
@@ -583,54 +552,56 @@ describe("State__SwitchVersion2", () => {
          * 
          * This tests the precedence logic: explicit selection > active connection inference
          */
-        
         let state = createTestState()
         let loggedEvents = []
-        
+
         // Subscribe to log channel to capture UpdateEndpoints events
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
           },
         )
-        
+
         // SIMULATE: Multiple discovered endpoints
         let discoveredEndpoints = Dict.make()
         discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-        discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))
+        discoveredEndpoints->Dict.set(
+          "/opt/homebrew/bin/agda",
+          Memento.Endpoints.Agda(Some("2.6.3")),
+        )
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-        
+
         // SIMULATE: User explicitly selected one endpoint (stored in memento)
         await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
-        
+
         // SIMULATE: But different endpoint is currently active
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/opt/homebrew/bin/agda", _2: "2.6.3" }`)
         state.connection = Some(mockConnection)
-        
+
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
-        
+
         // ANALYZE: Check which endpoint is marked as selected
         let allEndpointsFromLogs = loggedEvents->Array.flat
-        
+
         // Find the selected endpoint
-        let selectedEndpoint = allEndpointsFromLogs->Array.find(((_, _, _, isSelected)) => isSelected)
-        
+        let selectedEndpoint =
+          allEndpointsFromLogs->Array.find(((_, _, _, isSelected)) => isSelected)
+
         // VERIFY: The explicitly selected endpoint (from memento) should be marked as selected
         // NOT the active connection endpoint
         switch selectedEndpoint {
-        | Some((path, _, _, _)) => 
-          Assert.deepStrictEqual(path, "/usr/bin/agda") // Memento selection should win
-        | None => 
-          Assert.fail("Expected one endpoint to be marked as selected")
+        | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/usr/bin/agda") // Memento selection should win
+        | None => Assert.fail("Expected one endpoint to be marked as selected")
         }
-        
+
         // VERIFY: Only one endpoint should be selected
-        let selectedCount = allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)->Array.length
+        let selectedCount =
+          allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)->Array.length
         Assert.deepStrictEqual(selectedCount, 1)
       },
     )
@@ -650,33 +621,32 @@ describe("State__SwitchVersion2", () => {
          * 
          * This tests the complete download integration through actual onActivate flow
          */
-        
         let state = createTestState()
         let loggedEvents = []
-        
+
         // Subscribe to log channel to capture UpdateEndpoints events
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) => 
+            | State.Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
               loggedEvents->Array.push(endpoints)
             | _ => ()
             }
           },
         )
-        
+
         // SIMULATE: Basic endpoint setup
         let discoveredEndpoints = Dict.make()
         discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-        
+
         // SIMULATE: No picked connection (fresh state)
         await Memento.PickedConnection.set(state.memento, None)
-        
+
         // SIMULATE: Active connection
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
         state.connection = Some(mockConnection)
-        
+
         // PHASE 1: Test initial state (download available but not downloaded)
         // Mock platform to return download available
         let makeMockPlatformWithDownload = (): Platform.t => {
@@ -687,11 +657,13 @@ describe("State__SwitchVersion2", () => {
             let alreadyDownloaded2 = _ => () => Promise.resolve(None)
             let downloadLatestALS = (_, _) => _ =>
               Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-            let downloadLatestALS2 = (_, _) => _ =>
-              Promise.resolve(Ok("/test/downloaded/als")) // Simulate successful download
+            let downloadLatestALS2 = (_, _) => _ => Promise.resolve(Ok("/test/downloaded/als")) // Simulate successful download
             let getInstalledEndpointsAndPersistThem = _ => {
               let endpoints = Dict.make()
-              endpoints->Dict.set("/usr/bin/agda", Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")))
+              endpoints->Dict.set(
+                "/usr/bin/agda",
+                Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")),
+              )
               Promise.resolve(endpoints)
             }
             let getInstalledEndpointsAndPersistThem2 = _ => {
@@ -701,38 +673,39 @@ describe("State__SwitchVersion2", () => {
             }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound("test")))
-            let findCommands = _ => Promise.resolve(Error([Connection__Command.Error.NotFound("test")]))
+            let findCommands = _ =>
+              Promise.resolve(Error([Connection__Command.Error.NotFound("test")]))
           }
           module(MockPlatform)
         }
-        
+
         // INVOKE: onActivate to trigger the actual UI logic with download available
         await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatformWithDownload())
-        
+
         // ANALYZE: Check logged UpdateEndpoints events
         let allEndpointsFromLogs = loggedEvents->Array.flat
-        
+
         // VERIFY: Endpoint selection still works correctly even with download items present
-        let selectedEndpoints = allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
+        let selectedEndpoints =
+          allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
         Assert.deepStrictEqual(Array.length(selectedEndpoints), 1) // One endpoint should be selected
-        
+
         // Find the selected endpoint
         switch selectedEndpoints[0] {
-        | Some((path, _, _, _)) => 
-          Assert.deepStrictEqual(path, "/usr/bin/agda") // Should be the active connection
-        | None => 
-          Assert.fail("Expected one endpoint to be selected")
+        | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/usr/bin/agda") // Should be the active connection
+        | None => Assert.fail("Expected one endpoint to be selected")
         }
-        
+
         // VERIFY: All endpoints are properly logged (this tests the download integration doesn't break endpoint logging)
         Assert.ok(Array.length(allEndpointsFromLogs) > 0) // Should have endpoints logged
-        
+
         // VERIFY: No errors in endpoint entries
-        let hasErrors = allEndpointsFromLogs->Array.some(((_, _, error, _)) => 
-          switch error {
-          | Some(_) => true
-          | None => false
-          }
+        let hasErrors = allEndpointsFromLogs->Array.some(
+          ((_, _, error, _)) =>
+            switch error {
+            | Some(_) => true
+            | None => false
+            },
         )
         Assert.ok(!hasErrors) // Should not have errors in normal download workflow
       },
