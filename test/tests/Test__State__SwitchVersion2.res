@@ -876,44 +876,70 @@ describe("State__SwitchVersion2", () => {
       },
     )
 
-    // it(
-    //   "should log Handler.onSelection events correctly",
-    //   () => {
-    //     let state = createTestState()
-    //     let loggedEvents = ref([])
-
-    //     // Subscribe to log channel to capture SwitchVersionUI events
-    //     let _ = state.channels.log->Chan.on(
-    //       logEvent => {
-    //         switch logEvent {
-    //         | State.Log.SwitchVersionUI(event) => loggedEvents := [event, ...loggedEvents.contents]
-    //         | _ => ()
-    //         }
-    //       },
-    //     )
-
-    //     // Test the Handler.onSelection function directly
-    //     let view = State__SwitchVersion2.View.make()
-    //     let manager = State__SwitchVersion2.SwitchVersionManager.make(state)
-    //     let updateUI = async (_downloadInfo: option<(bool, string)>): unit => ()
-    //     let mockSelectedItems = []
-
-    //     State__SwitchVersion2.Handler.onSelection(
-    //       state,
-    //       makeMockPlatform(),
-    //       manager,
-    //       updateUI,
-    //       view,
-    //       mockSelectedItems,
-    //     )
-
-    //     // Verify the logged events in correct order
-    //     let events = loggedEvents.contents->Array.toReversed
-    //     Assert.deepStrictEqual(
-    //       events,
-    //       ["Handler.onSelection called", "View.destroy completed"],
-    //     )
-    //   },
-    // )
+    Async.it_only(
+      "should prefer memento selection over active connection inference",
+      async () => {
+        /**
+         * TEST PURPOSE: Ensure explicit user selection takes precedence over connection inference
+         * 
+         * SCENARIO:
+         * 1. User has multiple endpoints discovered
+         * 2. User has explicitly selected one endpoint (stored in memento)
+         * 3. But a different endpoint is currently active (connection established)
+         * 4. UI should show the explicitly selected endpoint as "Selected", not the active one
+         * 
+         * This tests the precedence logic: explicit selection > active connection inference
+         */
+        
+        let state = createTestState()
+        let loggedEvents = []
+        
+        // Subscribe to log channel to capture UpdateEndpoints events
+        let _ = state.channels.log->Chan.on(
+          logEvent => {
+            switch logEvent {
+            | State.Log.SwitchVersionUI(UpdateEndpoints(endpoints)) => 
+              loggedEvents->Array.push(endpoints)
+            | _ => ()
+            }
+          },
+        )
+        
+        // SIMULATE: Multiple discovered endpoints
+        let discoveredEndpoints = Dict.make()
+        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
+        discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))
+        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+        
+        // SIMULATE: User explicitly selected one endpoint (stored in memento)
+        await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
+        
+        // SIMULATE: But different endpoint is currently active
+        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/opt/homebrew/bin/agda", _2: "2.6.3" }`)
+        state.connection = Some(mockConnection)
+        
+        // INVOKE: onActivate to trigger the actual UI logic
+        await State__SwitchVersion2.Handler.onActivate(state, makeMockPlatform())
+        
+        // ANALYZE: Check which endpoint is marked as selected
+        let allEndpointsFromLogs = loggedEvents->Array.flat
+        
+        // Find the selected endpoint
+        let selectedEndpoint = allEndpointsFromLogs->Array.find(((_, _, _, isSelected)) => isSelected)
+        
+        // VERIFY: The explicitly selected endpoint (from memento) should be marked as selected
+        // NOT the active connection endpoint
+        switch selectedEndpoint {
+        | Some((path, _, _, _)) => 
+          Assert.deepStrictEqual(path, "/usr/bin/agda") // Memento selection should win
+        | None => 
+          Assert.fail("Expected one endpoint to be marked as selected")
+        }
+        
+        // VERIFY: Only one endpoint should be selected
+        let selectedCount = allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)->Array.length
+        Assert.deepStrictEqual(selectedCount, 1)
+      },
+    )
   })
 })
