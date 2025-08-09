@@ -47,6 +47,11 @@ module Construction = {
     x
   }
 
+  let addCommandError = (x, command, error) => {
+    Dict.set(x.commands, command, error)
+    x
+  }
+
   let addDownloadError = (x, error) => {
     switch x.download {
     | Some(_) => x // If there's already a download error, keep it

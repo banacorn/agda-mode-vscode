@@ -20,6 +20,10 @@ module type Module = {
   ) => promise<result<t, Error.t>>
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
+  let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Construction.t>>
+
+  let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Construction.t>>
+
   let fromPathsAndCommands: (
     Platform.t,
     Memento.t,
@@ -163,6 +167,54 @@ module Module: Module = {
       }
     }
     await loop(items, [])
+  }
+
+  // Make a connection by trying all given paths in order
+  let fromPaths = async (platformDeps: Platform.t, paths: array<string>): result<
+    t,
+    Error.Construction.t,
+  > => {
+    module PlatformOps = unpack(platformDeps)
+
+    switch await tryUntilSuccess(makeWithRawPath, paths) {
+    | Ok(connection) => Ok(connection)
+    | Error(pathErrors) =>
+      // Build final error with path failures
+      let constructionError = {
+        Error.Construction.endpoints: pathErrors->Dict.fromArray,
+        commands: Dict.make(),
+        download: None,
+      }
+      Error(constructionError)
+    }
+  }
+
+  // Make a connection from commands, trying each command until one succeeds
+  let fromCommands = async (platformDeps: Platform.t, commands: array<string>): result<
+    t,
+    Error.Construction.t,
+  > => {
+    module PlatformOps = unpack(platformDeps)
+
+    let tryCommand = async (command): result<t, Error.Construction.t> => {
+      switch await PlatformOps.findCommand(command) {
+      | Ok(rawPath) =>
+        switch await makeWithRawPath(rawPath) {
+        | Ok(connection) => Ok(connection)
+        | Error(endpointError) =>
+          Error(
+            Error.Construction.make()->Error.Construction.addEndpointError(rawPath, endpointError),
+          )
+        }
+      | Error(commandError) =>
+        Error(Error.Construction.make()->Error.Construction.addCommandError(command, commandError))
+      }
+    }
+
+    switch await tryUntilSuccess(tryCommand, commands) {
+    | Ok(connection) => Ok(connection)
+    | Error(errors) => Error(errors->Array.map(snd)->Error.Construction.mergeMany)
+    }
   }
 
   // Make a connection using raw paths and commands, by trying in order:
