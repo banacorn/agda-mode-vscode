@@ -66,7 +66,7 @@ let download = async (memento, globalStorageUri, fetchSpec) => {
     // add the path of the downloaded file to the config
     let destUri = VSCode.Uri.joinPath(globalStorageUri, [fetchSpec.saveAsFileName, "als"])
     let destPath = VSCode.Uri.fsPath(destUri)
-    await Config.Connection.addAgdaPath2(destPath)
+    await Config.Connection.addAgdaPath(destPath)
     Ok(destPath)
   }
 }
@@ -89,7 +89,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
       let path = VSCode.Uri.fsPath(execPathUri)
-      await Config.Connection.addAgdaPath2(path)
+      await Config.Connection.addAgdaPath(path)
       Ok(path)
     }
   | Error(_) =>

@@ -39,7 +39,6 @@ module Connection = {
   // in testing mode, configs are read and written from here instead
   let agdaVersionInTestingMode = ref("agda")
   let agdaPathsInTestingMode = ref([])
-  let agdaPathsInTestingMode2 = ref([])
   let useAgdaLanguageServerInTestingMode = ref(false)
 
   // Agda version
@@ -72,7 +71,6 @@ module Connection = {
       Promise.resolve()
     } else {
       // use the original
-      let paths: array<string> = paths->Array.map(Connection__URI.getOriginalPath)
       Workspace.getConfiguration(
         Some("agdaMode"),
         None,
@@ -98,19 +96,6 @@ module Connection = {
     if inTestingMode.contents {
       agdaPathsInTestingMode.contents
     } else {
-      let paths =
-        Workspace.getConfiguration(Some("agdaMode"), None)
-        ->WorkspaceConfiguration.get("connection.paths")
-        ->Option.getOr(JSON.Null)
-        ->parseAgdaPaths
-
-      paths->Array.map(Connection__URI.parse)
-    }
-
-  let getAgdaPaths2 = () =>
-    if inTestingMode.contents {
-      agdaPathsInTestingMode2.contents
-    } else {
       Workspace.getConfiguration(Some("agdaMode"), None)
       ->WorkspaceConfiguration.get("connection.paths")
       ->Option.getOr(JSON.Null)
@@ -119,30 +104,8 @@ module Connection = {
 
   // new path is APPENDED to the end of the list
   // no-op if it's already in the list
-  let addAgdaPath = path => {
+  let addAgdaPath = (path: string) => {
     let paths = getAgdaPaths()
-    let alreadyExists =
-      paths->Array.reduce(false, (acc, p) => acc || Connection__URI.equal(p, path))
-
-    if alreadyExists {
-      Promise.resolve()
-    } else {
-      let newPaths = Array.concat(paths, [path])
-      if inTestingMode.contents {
-        agdaPathsInTestingMode := newPaths
-        Promise.resolve()
-      } else {
-        let newPathsAsStrings: array<string> = newPaths->Array.map(Connection__URI.getOriginalPath)
-        Workspace.getConfiguration(
-          Some("agdaMode"),
-          None,
-        )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPathsAsStrings, None)
-      }
-    }
-  }
-
-  let addAgdaPath2 = (path: string) => {
-    let paths = getAgdaPaths2()
     let alreadyExists = paths->Array.includes(path)
 
     if alreadyExists {
@@ -150,7 +113,7 @@ module Connection = {
     } else {
       let newPaths = Array.concat(paths, [path])
       if inTestingMode.contents {
-        agdaPathsInTestingMode2 := newPaths
+        agdaPathsInTestingMode := newPaths
         Promise.resolve()
       } else {
         Workspace.getConfiguration(

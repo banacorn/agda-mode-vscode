@@ -298,7 +298,7 @@ module Module: Module = {
         | Ok(path) =>
           switch await makeWithRawPath(path) {
           | Ok(connection) =>
-            await Config.Connection.addAgdaPath2(getPath(connection))
+            await Config.Connection.addAgdaPath(getPath(connection))
             await Memento.PickedConnection.set(memento, Some(getPath(connection)))
             Ok(connection)
           | Error(error) => Error(error)
@@ -339,21 +339,21 @@ module Module: Module = {
     switch await fromPaths(platformDeps, pathsWithSelectedConnection) {
     | Ok(connection) =>
       logConnection(connection)
-      await Config.Connection.addAgdaPath2(getPath(connection))
+      await Config.Connection.addAgdaPath(getPath(connection))
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
     | Error(fromPathsErrors) =>
       switch await fromCommands(platformDeps, commands) {
       | Ok(connection) =>
         logConnection(connection)
-        await Config.Connection.addAgdaPath2(getPath(connection))
+        await Config.Connection.addAgdaPath(getPath(connection))
         await Memento.PickedConnection.set(memento, Some(getPath(connection)))
         Ok(connection)
       | Error(fromCommandsErrors) =>
         switch await fromDownloads(platformDeps, memento, globalStorageUri) {
         | Ok(connection) =>
           logConnection(connection)
-          await Config.Connection.addAgdaPath2(getPath(connection))
+          await Config.Connection.addAgdaPath(getPath(connection))
           await Memento.PickedConnection.set(memento, Some(getPath(connection)))
           Ok(connection)
         | Error(fromDownloadsErrors) =>

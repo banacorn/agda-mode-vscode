@@ -53,7 +53,7 @@ module Desktop: Platform.PlatformOps = {
     }
 
     // Add paths from settings with inference
-    Config.Connection.getAgdaPaths2()->Array.forEach(path => {
+    Config.Connection.getAgdaPaths()->Array.forEach(path => {
       let filename = NodeJs.Path.basename(path)
       let endpoint = inferEndpointType(filename)
       endpoints->Dict.set(path, endpoint)

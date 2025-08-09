@@ -394,7 +394,7 @@ describe("Connection", () => {
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
 
         // Check that the filesystem path was added to config (not the URI path)
-        let paths = Config.Connection.getAgdaPaths2()
+        let paths = Config.Connection.getAgdaPaths()
         let expectedPath = switch mockEndpoint {
         | Connection.Endpoint.Agda(_, path) => path
         | Connection.Endpoint.ALS(_, path, _, _) => path
@@ -443,7 +443,7 @@ describe("Connection", () => {
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
 
         // Check that the filesystem path was added to config (not the URI path)
-        let paths = Config.Connection.getAgdaPaths2()
+        let paths = Config.Connection.getAgdaPaths()
         let expectedPath = switch mockEndpoint {
         | Connection.Endpoint.Agda(_, path) => path
         | Connection.Endpoint.ALS(_, path, _, _) => path

@@ -37,7 +37,7 @@ let sendRequest = async (
       state.platformDeps,
       state.memento,
       state.globalStorageUri,
-      Config.Connection.getAgdaPaths2(),
+      Config.Connection.getAgdaPaths(),
       ["als", "agda"],
       state.channels.log,
     ) {

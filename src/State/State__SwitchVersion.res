@@ -388,7 +388,7 @@ let switchAgdaVersion = async (state: State.t) => {
 
   // start with the new connection
   // Get the selected path from memento and ensure it's included in the supplied paths
-  let configPaths = Config.Connection.getAgdaPaths2()
+  let configPaths = Config.Connection.getAgdaPaths()
   let storedPathBeforeConnection = Memento.PickedConnection.get(state.memento)
 
   let pathsFromSystem = switch storedPathBeforeConnection {
@@ -641,7 +641,7 @@ module Handler = {
                 | FileURI(_, vsCodeUri) =>
                   let path = VSCode.Uri.fsPath(vsCodeUri)
                   await Memento.PickedConnection.set(state.memento, Some(path))
-                  await Config.Connection.addAgdaPath2(path)
+                  await Config.Connection.addAgdaPath(path)
                   await switchAgdaVersion(state)
                 | LspURI(_, _) => ()
                 }
