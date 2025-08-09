@@ -171,22 +171,25 @@ module Module: Module = {
     }
   }
 
-  // Combinator: try each item in array until one succeeds, or return all failures
-  let tryUntilSuccess = async (fn: 'a => promise<result<'b, 'e>>, items: array<'a>) => {
+  // Combinator: try each task in array until one succeeds, or return all failures
+  let tryUntilSuccess = async (xs: array<unit => promise<result<'b, 'e>>>): result<
+    'b,
+    array<'e>,
+  > => {
     let rec loop = async (remaining, errors) => {
       switch remaining[0] {
-      | Some(item) =>
-        switch await fn(item) {
+      | Some(task) =>
+        switch await task() {
         | Ok(success) => Ok(success)
         | Error(error) =>
           let newErrors = errors->Array.concat([error])
-          let nextItems = remaining->Array.sliceToEnd(~start=1)
-          await loop(nextItems, newErrors)
+          let nextTasks = remaining->Array.sliceToEnd(~start=1)
+          await loop(nextTasks, newErrors)
         }
       | None => Error(errors)
       }
     }
-    await loop(items, [])
+    await loop(xs, [])
   }
 
   // Make a connection by trying all given paths in order
@@ -196,7 +199,8 @@ module Module: Module = {
   > => {
     module PlatformOps = unpack(platformDeps)
 
-    switch await tryUntilSuccess(makeWithRawPath, paths) {
+    let tasks = paths->Array.map(path => () => makeWithRawPath(path))
+    switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
     | Error(pathErrors) => Error(Error.Construction.mergeMany(pathErrors))
     }
@@ -216,7 +220,8 @@ module Module: Module = {
       }
     }
 
-    switch await tryUntilSuccess(tryCommand, commands) {
+    let tasks = commands->Array.map(path => () => tryCommand(path))
+    switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
     | Error(errors) =>
       // merge all errors from `tryCommand`
@@ -309,38 +314,24 @@ module Module: Module = {
     | None => paths
     }
 
-    switch await fromPaths(platformDeps, pathsWithSelectedConnection) {
+    // Try each method in order
+    let tasks = [
+      () => fromPaths(platformDeps, pathsWithSelectedConnection),
+      () => fromCommands(platformDeps, commands),
+      () => fromDownloads(platformDeps, memento, globalStorageUri),
+    ]
+
+    switch await tryUntilSuccess(tasks) {
     | Ok(connection) =>
       logConnection(connection)
+      // Set the connection in the memento
       await Config.Connection.addAgdaPath(getPath(connection))
+      // Set the picked connection in the memento
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
-    | Error(fromPathsErrors) =>
-      switch await fromCommands(platformDeps, commands) {
-      | Ok(connection) =>
-        logConnection(connection)
-        await Config.Connection.addAgdaPath(getPath(connection))
-        await Memento.PickedConnection.set(memento, Some(getPath(connection)))
-        Ok(connection)
-      | Error(fromCommandsErrors) =>
-        switch await fromDownloads(platformDeps, memento, globalStorageUri) {
-        | Ok(connection) =>
-          logConnection(connection)
-          await Config.Connection.addAgdaPath(getPath(connection))
-          await Memento.PickedConnection.set(memento, Some(getPath(connection)))
-          Ok(connection)
-        | Error(fromDownloadsErrors) =>
-          Error(
-            Construction(
-              Error.Construction.mergeMany([
-                fromPathsErrors,
-                fromCommandsErrors,
-                fromDownloadsErrors,
-              ]),
-            ),
-          )
-        }
-      }
+    | Error(errors) =>
+      // Merge all errors from `fromPaths`, `fromCommands`, and `fromDownloads`
+      Error(Construction(Error.Construction.mergeMany(errors)))
     }
   }
 
