@@ -173,7 +173,7 @@ describe("Connection", () => {
     // Skip this test for now due to URI type complexity
     // The LspURI path is not commonly used in practice
     // Async.it(
-    //   "should return CannotHandleURLsATM error for LspURI",
+    //   "should return CannotHandleURLsAtTheMoment error for LspURI",
     //   async () => {
     //     // This would test the LspURI handling but requires complex setup
     //   },
@@ -321,10 +321,18 @@ describe("Connection", () => {
     Async.before(
       async () => {
         // Setup Agda mock
-        agdaMockPath := await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-makeWithRawPath-mock")
+        agdaMockPath :=
+          (await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-makeWithRawPath-mock"))
         // Setup ALS mock
-        alsMockPath := await Endpoint.ALS.mock(~alsVersion="1.3.1", ~agdaVersion="2.6.3", ~name="als-makeWithRawPath-mock")
-      }
+        alsMockPath :=
+          (
+            await Endpoint.ALS.mock(
+              ~alsVersion="1.3.1",
+              ~agdaVersion="2.6.3",
+              ~name="als-makeWithRawPath-mock",
+            )
+          )
+      },
     )
 
     Async.after(
@@ -336,7 +344,7 @@ describe("Connection", () => {
         if alsMockPath.contents != "" {
           await Endpoint.ALS.destroy(alsMockPath.contents)
         }
-      }
+      },
     )
 
     Async.it(
@@ -354,7 +362,7 @@ describe("Connection", () => {
           }
         | Error(_) => Assert.fail("Expected successful connection creation")
         }
-      }
+      },
     )
 
     // Skip ALS connection test due to LSP client complexity in test environment
@@ -365,7 +373,7 @@ describe("Connection", () => {
       async () => {
         // Test just the probing part which we know works
         let result = await Connection.probeFilepath(alsMockPath.contents)
-        
+
         switch result {
         | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
           Assert.deepStrictEqual(path, alsMockPath.contents)
@@ -375,7 +383,7 @@ describe("Connection", () => {
         | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe")
         }
-      }
+      },
     )
 
     Async.it(
@@ -386,10 +394,10 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for non-existent path")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Should have endpoint error for the non-existent path
-          switch constructionError.endpoints->Dict.get(nonExistentPath) {
-          | Some(error) => 
+          switch errors.endpoints->Dict.get(nonExistentPath) {
+          | Some(error) =>
             // Verify it's a CannotDetermineAgdaOrALS error wrapped in endpoint error
             switch error {
             | Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_) => ()
@@ -398,7 +406,7 @@ describe("Connection", () => {
           | None => Assert.fail("Expected endpoint error for non-existent path")
           }
         }
-      }
+      },
     )
 
     Async.it(
@@ -425,9 +433,9 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for unrecognized executable")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Should have endpoint error for the unrecognized executable
-          switch constructionError.endpoints->Dict.get(mockPath) {
+          switch errors.endpoints->Dict.get(mockPath) {
           | Some(error) =>
             switch error {
             | Connection__Endpoint__Error.NotAgdaOrALS(output) =>
@@ -444,18 +452,18 @@ describe("Connection", () => {
         } catch {
         | _ => ()
         }
-      }
+      },
     )
 
     // Skip full ALS connection test - test just the prebuilt data directory detection
     Async.it(
-      "should detect prebuilt data directory correctly in probing phase", 
+      "should detect prebuilt data directory correctly in probing phase",
       async () => {
         // This test covers the prebuilt data directory detection without full ALS connection
         // Create ALS executable with adjacent data directory
         let tempDir = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
-          "als-probe-data-test-" ++ string_of_int(int_of_float(Js.Date.now()))
+          "als-probe-data-test-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
         let binDir = NodeJs.Path.join([tempDir, "bin"])
         let dataDir = NodeJs.Path.join([binDir, "data"])
@@ -484,7 +492,7 @@ describe("Connection", () => {
         switch result {
         | Ok(path, Error(alsVersion, agdaVersion, Some(lspOptions))) =>
           Assert.deepStrictEqual(path, fileName)
-          Assert.deepStrictEqual(alsVersion, "1.3.1") 
+          Assert.deepStrictEqual(alsVersion, "1.3.1")
           Assert.deepStrictEqual(agdaVersion, "2.6.3")
           // Should have Agda_datadir environment variable detected
           switch lspOptions.env->Option.flatMap(Js.Dict.get(_, "Agda_datadir")) {
@@ -505,7 +513,7 @@ describe("Connection", () => {
         } catch {
         | _ => ()
         }
-      }
+      },
     )
 
     Async.it(
@@ -516,26 +524,24 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected construction error")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Verify error structure
-          Assert.deepStrictEqual(Array.length(constructionError.endpoints->Dict.toArray), 1)
-          Assert.deepStrictEqual(Array.length(constructionError.commands->Dict.toArray), 0)
-          Assert.deepStrictEqual(constructionError.download, None)
+          Assert.deepStrictEqual(Array.length(errors.endpoints->Dict.toArray), 1)
+          Assert.deepStrictEqual(Array.length(errors.commands->Dict.toArray), 0)
+          Assert.deepStrictEqual(errors.download, None)
 
           // Verify the specific endpoint error
-          switch constructionError.endpoints->Dict.get(invalidPath) {
+          switch errors.endpoints->Dict.get(invalidPath) {
           | Some(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_)) => ()
           | Some(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
           | None => Assert.fail("Expected endpoint error to be present")
           }
         }
-      }
+      },
     )
   })
 
   describe("`fromDownloads`", () => {
-    let constructionError = Connection__Error.Construction.make()
-
     let agdaMockEndpoint = ref(None)
 
     Async.before(
@@ -583,10 +589,7 @@ describe("Connection", () => {
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let actual = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
-        let expected = Connection.Error.Construction.merge(
-          constructionError,
-          Connection.Error.Construction.fromDownloadError(PlatformNotSupported(platform)),
-        )
+        let expected = Connection.Error.Establish.fromDownloadError(PlatformNotSupported(platform))
 
         Assert.deepStrictEqual(actual, Error(expected))
       },
@@ -606,7 +609,10 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
-        Assert.deepStrictEqual(result, Error(constructionError))
+        Assert.deepStrictEqual(
+          result,
+          Error(Connection.Error.Establish.fromDownloadError(OptedNotToDownload)),
+        )
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
@@ -630,7 +636,10 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
-        Assert.deepStrictEqual(result, Error(constructionError))
+        Assert.deepStrictEqual(
+          result,
+          Error(Connection.Error.Establish.fromDownloadError(OptedNotToDownload)),
+        )
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
@@ -745,10 +754,7 @@ describe("Connection", () => {
         Assert.deepStrictEqual(checkedCache.contents, true)
         Assert.deepStrictEqual(checkedDownload.contents, true)
 
-        let expected = Connection.Error.Construction.merge(
-          constructionError,
-          Connection.Error.Construction.fromDownloadError(CannotFindCompatibleALSRelease),
-        )
+        let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
 
         Assert.deepStrictEqual(result, Error(expected))
 
@@ -850,17 +856,17 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error with invalid paths")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Should have three endpoint errors
-          let endpointErrors = constructionError.endpoints->Dict.toArray
+          let endpointErrors = errors.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 3)
 
           // Should have no command errors
-          let commandErrors = constructionError.commands->Dict.toArray
+          let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
 
           // Should have no download error
-          Assert.deepStrictEqual(constructionError.download, None)
+          Assert.deepStrictEqual(errors.download, None)
         }
       },
     )
@@ -874,15 +880,15 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error with empty paths")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Should have no errors since no paths were tried
-          let endpointErrors = constructionError.endpoints->Dict.toArray
+          let endpointErrors = errors.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 0)
 
-          let commandErrors = constructionError.commands->Dict.toArray
+          let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
 
-          Assert.deepStrictEqual(constructionError.download, None)
+          Assert.deepStrictEqual(errors.download, None)
         }
       },
     )
@@ -946,13 +952,13 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error with invalid commands")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Should have no endpoint errors
-          let endpointErrors = constructionError.endpoints->Dict.toArray
+          let endpointErrors = errors.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 0)
 
           // Should have three command errors
-          let commandErrors = constructionError.commands->Dict.toArray
+          let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 3)
 
           // Verify all command names are present
@@ -964,7 +970,7 @@ describe("Connection", () => {
           )
 
           // Should have no download error
-          Assert.deepStrictEqual(constructionError.download, None)
+          Assert.deepStrictEqual(errors.download, None)
         }
       },
     )
@@ -978,15 +984,15 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error with empty commands")
-        | Error(constructionError) =>
+        | Error(errors) =>
           // Should have no errors since no commands were tried
-          let endpointErrors = constructionError.endpoints->Dict.toArray
+          let endpointErrors = errors.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 0)
 
-          let commandErrors = constructionError.commands->Dict.toArray
+          let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
 
-          Assert.deepStrictEqual(constructionError.download, None)
+          Assert.deepStrictEqual(errors.download, None)
         }
       },
     )
@@ -1484,8 +1490,8 @@ describe("Connection", () => {
         | Error(error) =>
           // Should get Construction error with PlatformNotSupported
           switch error {
-          | Connection.Error.Construction(constructionError) =>
-            switch constructionError.download {
+          | Connection.Error.Establish(errors) =>
+            switch errors.download {
             | Some(Connection__Download.Error.PlatformNotSupported(_)) => ()
             | _ => Assert.fail("Expected PlatformNotSupported download error")
             }
@@ -1540,7 +1546,7 @@ describe("Connection", () => {
         | Error(error) =>
           // Should get Construction error (empty since No policy blocks download)
           switch error {
-          | Connection.Error.Construction(_) => ()
+          | Connection.Error.Establish(_) => ()
           | _ => Assert.fail("Expected Construction error")
           }
 
@@ -1596,7 +1602,7 @@ describe("Connection", () => {
         | Error(error) =>
           // Should get Construction error
           switch error {
-          | Connection.Error.Construction(_) => ()
+          | Connection.Error.Establish(_) => ()
           | _ => Assert.fail("Expected Construction error")
           }
 
@@ -1826,8 +1832,8 @@ describe("Connection", () => {
 
           // Should get Construction error with download failure
           switch error {
-          | Connection.Error.Construction(constructionError) =>
-            switch constructionError.download {
+          | Connection.Error.Establish(errors) =>
+            switch errors.download {
             | Some(Connection__Download.Error.CannotFindCompatibleALSRelease) => ()
             | _ => Assert.fail("Expected CannotFindCompatibleALSRelease download error")
             }

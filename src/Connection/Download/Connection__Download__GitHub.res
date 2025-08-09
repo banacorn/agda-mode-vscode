@@ -4,27 +4,27 @@ module Download = Connection__Download__Util
 module Error = {
   type t =
     | ResponseDecodeError(string, Js.Json.t)
-    | NoMatchingRelease
+    // | NoMatchingRelease
     // download
     | AlreadyDownloading
     | CannotDownload(Download.Error.t)
     | CannotGetReleases(Download.Error.t)
     // caching
     | CannotReadReleasesCache(string)
-    | CannotCacheReleases(Js.Exn.t)
+    // | CannotCacheReleases(Js.Exn.t)
     // file system
     | CannotChmodFile(string)
     | CannotStatFile(string)
     | CannotReadFile(Js.Exn.t)
     | CannotDeleteFile(string)
     | CannotRenameFile(string)
-    // OS
-    | CannotDetermineOS(Js.Exn.t)
+    // // OS
+    // | CannotDetermineOS(Js.Exn.t)
 
   let toString = x =>
     switch x {
     | ResponseDecodeError(msg, _) => "Cannot decode release metadata JSON from GitHub:\n" ++ msg
-    | NoMatchingRelease => "Cannot find matching release from GitHub"
+    // | NoMatchingRelease => "Cannot find matching release from GitHub"
     // download
     | CannotDownload(error) =>
       "Cannot download file from GitHub:\n" ++ Download.Error.toString(error)
@@ -33,15 +33,15 @@ module Error = {
     | AlreadyDownloading => "Already downloading"
     // caching
     | CannotReadReleasesCache(string) => "Cannot read releases cache:\n" ++ string
-    | CannotCacheReleases(exn) => "Failed to cache releases:\n" ++ Util.JsError.toString(exn)
+    // | CannotCacheReleases(exn) => "Failed to cache releases:\n" ++ Util.JsError.toString(exn)
     // file system
     | CannotStatFile(path) => "Cannot stat file \"" ++ path ++ "\""
     | CannotChmodFile(path) => "Cannot chmod file \"" ++ path ++ "\""
     | CannotReadFile(exn) => "Cannot to read files:\n" ++ Util.JsError.toString(exn)
     | CannotDeleteFile(msg) => "Cannot to delete files:\n" ++ msg
     | CannotRenameFile(msg) => "Cannot to rename files:\n" ++ msg
-    // OS
-    | CannotDetermineOS(exn) => "Cannot determine OS:\n" ++ Util.JsError.toString(exn)
+    // // OS
+    // | CannotDetermineOS(exn) => "Cannot determine OS:\n" ++ Util.JsError.toString(exn)
     }
 }
 

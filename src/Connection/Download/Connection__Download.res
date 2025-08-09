@@ -5,6 +5,7 @@ external parseUrl: string => {"hostname": string, "pathname": string, "search": 
 
 module Error = {
   type t =
+    | OptedNotToDownload
     | PlatformNotSupported(Connection__Download__Platform.raw)
     | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
     | CannotDownloadALS(Connection__Download__GitHub.Error.t)
@@ -13,6 +14,7 @@ module Error = {
 
   let toString = x =>
     switch x {
+    | OptedNotToDownload => "Opted not to download the Agda Language Server"
     | PlatformNotSupported(platform) =>
       "The platform `" ++
       platform["os"] ++

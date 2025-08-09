@@ -1,8 +1,10 @@
-module Construction = {
+// Error occurred while trying to establish a connection
+module Establish = {
+  // Organized in a way such that we can report all failed attempts of establishing a connection at once
   type t = {
-    endpoints: Dict.t<Connection__Endpoint__Error.t>, // connection error index by path
-    commands: Dict.t<Connection__Command.Error.t>, // connection error index by command name
-    download: option<Connection__Download.Error.t>, // error encountered when trying to download the Agda Language Server
+    endpoints: Dict.t<Connection__Endpoint__Error.t>, // index by path
+    commands: Dict.t<Connection__Command.Error.t>, // index by command name
+    download: option<Connection__Download.Error.t>, // error encountered when trying to download the Agda Language Server, or when the user opted not to download
   }
 
   let toString = x => {
@@ -61,15 +63,6 @@ module Construction = {
   }
 
   // Should form a monoid
-  let make = () => {
-    {
-      endpoints: Dict.make(),
-      commands: Dict.make(),
-      download: None,
-    }
-  }
-
-  // Should form a monoid
   let merge = (x, y) => {
     endpoints: {
       let dict = Dict.make()
@@ -104,11 +97,11 @@ module Construction = {
 type t =
   | Agda(Connection__Endpoint__Agda__Error.t)
   | ALS(Connection__Endpoint__ALS__Error.t)
-  | Construction(Construction.t)
+  | Establish(Establish.t)
 
 let toString = x =>
   switch x {
   | Agda(e) => Connection__Endpoint__Agda__Error.toString(e)
   | ALS(e) => Connection__Endpoint__ALS__Error.toString(e)
-  | Construction(e) => ("Cannot Establish Connection", Construction.toString(e))
+  | Establish(e) => ("Cannot Establish Connection", Establish.toString(e))
   }

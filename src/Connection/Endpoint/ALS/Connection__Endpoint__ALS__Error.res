@@ -1,4 +1,3 @@
-// TODO: sort these errors out
 // Errors when sending Command to the server
 module CommandErr = {
   type t =

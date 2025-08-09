@@ -21,15 +21,11 @@ module type Module = {
   ) => promise<result<t, Error.t>>
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
-  let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Construction.t>>
+  let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
 
-  let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Construction.t>>
+  let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
 
-  let fromDownloads: (
-    Platform.t,
-    Memento.t,
-    VSCode.Uri.t,
-  ) => promise<result<t, Error.Construction.t>>
+  let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
   // messaging
   let sendRequest: (
@@ -44,7 +40,7 @@ module type Module = {
   let probeFilepath: string => promise<
     result<(string, result<agdaVersion, alsVersion>), Connection__Endpoint__Error.t>,
   >
-  let makeWithRawPath: string => promise<result<t, Error.Construction.t>>
+  let makeWithRawPath: string => promise<result<t, Error.Establish.t>>
 }
 
 module Module: Module = {
@@ -115,7 +111,7 @@ module Module: Module = {
   // see if it's a Agda executable or a language server
   let probeFilepath = async path =>
     switch URI.parse(path) {
-    | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsATM)
+    | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsAtTheMoment)
     | FileURI(_, vscodeUri) =>
       let path = VSCode.Uri.fsPath(vscodeUri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
@@ -142,7 +138,7 @@ module Module: Module = {
       }
     }
 
-  let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
+  let makeWithRawPath = async (rawpath: string): result<t, Error.Establish.t> => {
     switch await probeFilepath(rawpath) {
     | Ok(path, Ok(agdaVersion)) =>
       let connection = await Agda.make(rawpath, agdaVersion)
@@ -154,10 +150,10 @@ module Module: Module = {
         InitOptions.getFromConfig(),
       ) {
       | Error(error) =>
-        Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithALS(error)))
+        Error(Error.Establish.fromEndpointError(path, CannotMakeConnectionWithALS(error)))
       | Ok(conn) => Ok(ALS(conn, path, (alsVersion, agdaVersion, lspOptions)))
       }
-    | Error(error) => Error(Error.Construction.fromEndpointError(rawpath, error))
+    | Error(error) => Error(Error.Establish.fromEndpointError(rawpath, error))
     }
   }
 
@@ -185,28 +181,28 @@ module Module: Module = {
   // Make a connection by trying all given paths in order
   let fromPaths = async (platformDeps: Platform.t, paths: array<string>): result<
     t,
-    Error.Construction.t,
+    Error.Establish.t,
   > => {
     module PlatformOps = unpack(platformDeps)
 
     let tasks = paths->Array.map(path => () => makeWithRawPath(path))
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
-    | Error(pathErrors) => Error(Error.Construction.mergeMany(pathErrors))
+    | Error(pathErrors) => Error(Error.Establish.mergeMany(pathErrors))
     }
   }
 
   // Make a connection from commands, trying each command until one succeeds
   let fromCommands = async (platformDeps: Platform.t, commands: array<string>): result<
     t,
-    Error.Construction.t,
+    Error.Establish.t,
   > => {
     module PlatformOps = unpack(platformDeps)
 
-    let tryCommand = async (command): result<t, Error.Construction.t> => {
+    let tryCommand = async (command): result<t, Error.Establish.t> => {
       switch await PlatformOps.findCommand(command) {
       | Ok(rawPath) => await makeWithRawPath(rawPath)
-      | Error(commandError) => Error(Error.Construction.fromCommandError(command, commandError))
+      | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
       }
     }
 
@@ -215,7 +211,7 @@ module Module: Module = {
     | Ok(connection) => Ok(connection)
     | Error(errors) =>
       // merge all errors from `tryCommand`
-      Error(errors->Error.Construction.mergeMany)
+      Error(errors->Error.Establish.mergeMany)
     }
   }
 
@@ -229,11 +225,11 @@ module Module: Module = {
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
-  ): result<t, Error.Construction.t> => {
+  ): result<t, Error.Establish.t> => {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
-    | Error(platform) => Error(Error.Construction.fromDownloadError(PlatformNotSupported(platform)))
+    | Error(platform) => Error(Error.Establish.fromDownloadError(PlatformNotSupported(platform)))
     | Ok(platform) =>
       // Check download policy
       let policy = switch Config.Connection.DownloadPolicy.get() {
@@ -245,11 +241,11 @@ module Module: Module = {
       | Config.Connection.DownloadPolicy.Undecided =>
         // User cancelled, treat as No
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction.make())
+        Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | No =>
         // User opted not to download, set policy and return error
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction.make())
+        Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         // Get the downloaded path, download if not already done
@@ -257,7 +253,7 @@ module Module: Module = {
         | Some(path) => Ok(path)
         | None =>
           switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
-          | Error(error) => Error(Error.Construction.fromDownloadError(error))
+          | Error(error) => Error(Error.Establish.fromDownloadError(error))
           | Ok(path) => Ok(path)
           }
         }
@@ -321,7 +317,7 @@ module Module: Module = {
       Ok(connection)
     | Error(errors) =>
       // Merge all errors from `fromPaths`, `fromCommands`, and `fromDownloads`
-      Error(Construction(Error.Construction.mergeMany(errors)))
+      Error(Establish(Error.Establish.mergeMany(errors)))
     }
   }
 

@@ -379,7 +379,7 @@ module AgdaMode = {
   let commandExists = async command => {
     let platformDeps = Desktop.make()
     switch await Connection.fromCommands(platformDeps, [command]) {
-    | Error(errors) => raise(Failure(errors->Connection.Error.Construction.toString))
+    | Error(errors) => raise(Failure(errors->Connection.Error.Establish.toString))
     | Ok(_) => ()
     }
   }

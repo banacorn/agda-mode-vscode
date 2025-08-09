@@ -1,12 +1,12 @@
 type t =
   | NotAgdaOrALS(string) // the actual output received
   | CannotDetermineAgdaOrALS(Connection__Process__Exec.Error.t) // cannot determine if it's Agda or ALS
-  | CannotHandleURLsATM
+  | CannotHandleURLsAtTheMoment
   | CannotMakeConnectionWithALS(Connection__Endpoint__ALS__Error.t)
 
 let toString = x =>
   switch x {
-  | CannotHandleURLsATM => // "Cannot handle URLs at the moment",
+  | CannotHandleURLsAtTheMoment => // "Cannot handle URLs at the moment",
     "Cannot handle URLs at the moment, this will be supported again in the future"
 
   | NotAgdaOrALS(output) =>
