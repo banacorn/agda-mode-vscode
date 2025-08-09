@@ -48,6 +48,7 @@ module type Module = {
   let probeFilepath: string => promise<
     result<(string, result<agdaVersion, alsVersion>), Connection__Endpoint__Error.t>,
   >
+  let makeWithRawPath: string => promise<result<t, Error.Construction.t>>
 }
 
 module Module: Module = {

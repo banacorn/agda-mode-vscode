@@ -314,6 +314,225 @@ describe("Connection", () => {
     )
   })
 
+  describe("`makeWithRawPath`", () => {
+    let agdaMockPath = ref("")
+    let alsMockPath = ref("")
+
+    Async.before(
+      async () => {
+        // Setup Agda mock
+        agdaMockPath := await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-makeWithRawPath-mock")
+        // Setup ALS mock
+        alsMockPath := await Endpoint.ALS.mock(~alsVersion="1.3.1", ~agdaVersion="2.6.3", ~name="als-makeWithRawPath-mock")
+      }
+    )
+
+    Async.after(
+      async () => {
+        // Cleanup mocks
+        if agdaMockPath.contents != "" {
+          await Endpoint.Agda.destroy(agdaMockPath.contents)
+        }
+        if alsMockPath.contents != "" {
+          await Endpoint.ALS.destroy(alsMockPath.contents)
+        }
+      }
+    )
+
+    Async.it(
+      "should successfully create Agda connection from valid Agda path",
+      async () => {
+        let result = await Connection.makeWithRawPath(agdaMockPath.contents)
+
+        switch result {
+        | Ok(connection) =>
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath.contents)
+            Assert.deepStrictEqual(version, "2.6.3")
+          | ALS(_, _, _) => Assert.fail("Expected Agda connection, got ALS")
+          }
+        | Error(_) => Assert.fail("Expected successful connection creation")
+        }
+      }
+    )
+
+    // Skip ALS connection test due to LSP client complexity in test environment
+    // The ALS connection requires a working Language Server Protocol client
+    // which is complex to setup in test environment
+    Async.it(
+      "should handle ALS executable probing (without full connection)",
+      async () => {
+        // Test just the probing part which we know works
+        let result = await Connection.probeFilepath(alsMockPath.contents)
+        
+        switch result {
+        | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
+          Assert.deepStrictEqual(path, alsMockPath.contents)
+          Assert.deepStrictEqual(alsVersion, "1.3.1")
+          Assert.deepStrictEqual(agdaVersion, "2.6.3")
+          Assert.deepStrictEqual(lspOptions, None)
+        | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Error(_) => Assert.fail("Expected successful probe")
+        }
+      }
+    )
+
+    Async.it(
+      "should return Construction error for non-existent path",
+      async () => {
+        let nonExistentPath = "/path/that/does/not/exist/agda"
+        let result = await Connection.makeWithRawPath(nonExistentPath)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected error for non-existent path")
+        | Error(constructionError) =>
+          // Should have endpoint error for the non-existent path
+          switch constructionError.endpoints->Dict.get(nonExistentPath) {
+          | Some(error) => 
+            // Verify it's a CannotDetermineAgdaOrALS error wrapped in endpoint error
+            switch error {
+            | Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_) => ()
+            | _ => Assert.fail("Expected CannotDetermineAgdaOrALS error")
+            }
+          | None => Assert.fail("Expected endpoint error for non-existent path")
+          }
+        }
+      }
+    )
+
+    Async.it(
+      "should return Construction error for unrecognized executable",
+      async () => {
+        // Create mock executable that outputs unrecognized content
+        let mockOutput = "Unknown Program v1.0.0"
+        let mockPath = if OS.onUnix {
+          let fileName = "unrecognized-makeWithRawPath-mock"
+          let content = "#!/bin/sh\necho '" ++ mockOutput ++ "'\nexit 0"
+          let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
+          NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
+          await NodeJs.Fs.chmod(tempFile, ~mode=0o755)
+          tempFile
+        } else {
+          let fileName = "unrecognized-makeWithRawPath-mock.bat"
+          let content = "@echo " ++ mockOutput
+          let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
+          NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
+          tempFile
+        }
+
+        let result = await Connection.makeWithRawPath(mockPath)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected error for unrecognized executable")
+        | Error(constructionError) =>
+          // Should have endpoint error for the unrecognized executable
+          switch constructionError.endpoints->Dict.get(mockPath) {
+          | Some(error) =>
+            switch error {
+            | Connection__Endpoint__Error.NotAgdaOrALS(output) =>
+              Assert.deepStrictEqual(String.trim(output), mockOutput)
+            | _ => Assert.fail("Expected NotAgdaOrALS error")
+            }
+          | None => Assert.fail("Expected endpoint error for unrecognized executable")
+          }
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(mockPath)
+        } catch {
+        | _ => ()
+        }
+      }
+    )
+
+    // Skip full ALS connection test - test just the prebuilt data directory detection
+    Async.it(
+      "should detect prebuilt data directory correctly in probing phase", 
+      async () => {
+        // This test covers the prebuilt data directory detection without full ALS connection
+        // Create ALS executable with adjacent data directory
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "als-probe-data-test-" ++ string_of_int(int_of_float(Js.Date.now()))
+        ])
+        let binDir = NodeJs.Path.join([tempDir, "bin"])
+        let dataDir = NodeJs.Path.join([binDir, "data"])
+        let alsPath = NodeJs.Path.join([binDir, "als-with-data-probe-test"])
+
+        // Create directory structure
+        await NodeJs.Fs.mkdir(binDir, {recursive: true, mode: 0o777})
+        await NodeJs.Fs.mkdir(dataDir, {recursive: true, mode: 0o777})
+
+        // Create ALS mock with data directory
+        let alsOutput = "Agda v2.6.3 Language Server v1.3.1"
+        let (fileName, content) = if OS.onUnix {
+          (alsPath, "#!/bin/sh\necho '" ++ alsOutput ++ "'\nexit 0")
+        } else {
+          (alsPath ++ ".bat", "@echo " ++ alsOutput)
+        }
+
+        NodeJs.Fs.writeFileSync(fileName, NodeJs.Buffer.fromString(content))
+        if OS.onUnix {
+          await NodeJs.Fs.chmod(fileName, ~mode=0o755)
+        }
+
+        // Test just the probing which includes data directory detection
+        let result = await Connection.probeFilepath(fileName)
+
+        switch result {
+        | Ok(path, Error(alsVersion, agdaVersion, Some(lspOptions))) =>
+          Assert.deepStrictEqual(path, fileName)
+          Assert.deepStrictEqual(alsVersion, "1.3.1") 
+          Assert.deepStrictEqual(agdaVersion, "2.6.3")
+          // Should have Agda_datadir environment variable detected
+          switch lspOptions.env->Option.flatMap(Js.Dict.get(_, "Agda_datadir")) {
+          | Some(dataDirPath) => Assert.ok(String.includes(dataDirPath, "data"))
+          | None => Assert.fail("Expected Agda_datadir in LSP options")
+          }
+        | Ok(_, Error(_, _, None)) => Assert.fail("Expected LSP options with data directory")
+        | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Error(_) => Assert.fail("Expected successful probe with data directory")
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(fileName)
+          NodeJs.Fs.rmdirSync(dataDir)
+          NodeJs.Fs.rmdirSync(binDir)
+          NodeJs.Fs.rmdirSync(tempDir)
+        } catch {
+        | _ => ()
+        }
+      }
+    )
+
+    Async.it(
+      "should handle error construction correctly for endpoint errors",
+      async () => {
+        let invalidPath = "/definitely/does/not/exist/agda"
+        let result = await Connection.makeWithRawPath(invalidPath)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected construction error")
+        | Error(constructionError) =>
+          // Verify error structure
+          Assert.deepStrictEqual(Array.length(constructionError.endpoints->Dict.toArray), 1)
+          Assert.deepStrictEqual(Array.length(constructionError.commands->Dict.toArray), 0)
+          Assert.deepStrictEqual(constructionError.download, None)
+
+          // Verify the specific endpoint error
+          switch constructionError.endpoints->Dict.get(invalidPath) {
+          | Some(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_)) => ()
+          | Some(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
+          | None => Assert.fail("Expected endpoint error to be present")
+          }
+        }
+      }
+    )
+  })
+
   describe("`fromDownloads`", () => {
     let constructionError = Connection__Error.Construction.make()
 
