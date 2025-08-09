@@ -333,12 +333,11 @@ module SwitchVersionManager = {
       false
     } else {
       let probePromises = pathsToProbe->Array.map(async path => {
-        let uri = Connection__URI.parse(path)
-        switch await Connection.probeFilepath(uri) {
-        | Ok(Ok(agdaVersion)) =>
+        switch await Connection.probeFilepath(path) {
+        | Ok(_, Ok(agdaVersion)) =>
           await Memento.Endpoints.setVersion(self.memento, path, Agda(Some(agdaVersion)))
           Some(path)
-        | Ok(Error(alsVersion, agdaVersion, lspOptions)) =>
+        | Ok(_, Error(alsVersion, agdaVersion, lspOptions)) =>
           await Memento.Endpoints.setVersion(
             self.memento,
             path,

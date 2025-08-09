@@ -45,7 +45,7 @@ module type Module = {
 
   // utility
   let checkForPrebuiltDataDirectory: string => promise<option<string>>
-  let probeFilepath: Connection__URI.t => promise<
+  let probeFilepath: string => promise<
     result<(string, result<agdaVersion, alsVersion>), Connection__Endpoint__Error.t>,
   >
 }
@@ -120,8 +120,8 @@ module Module: Module = {
   }
 
   // see if it's a Agda executable or a language server
-  let probeFilepath = async uri =>
-    switch uri {
+  let probeFilepath = async path =>
+    switch URI.parse(path) {
     | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsATM)
     | FileURI(_, vscodeUri) =>
       let path = VSCode.Uri.fsPath(vscodeUri)
@@ -150,7 +150,7 @@ module Module: Module = {
     }
 
   let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
-    switch await probeFilepath(URI.parse(rawpath)) {
+    switch await probeFilepath(rawpath) {
     | Ok(path, Ok(agdaVersion)) =>
       switch await Agda.make(rawpath, agdaVersion) {
       | Error(error) =>
@@ -220,7 +220,7 @@ module Module: Module = {
       }
     }
 
-    let tasks = commands->Array.map(path => () => tryCommand(path))
+    let tasks = commands->Array.map(command => () => tryCommand(command))
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
     | Error(errors) =>
