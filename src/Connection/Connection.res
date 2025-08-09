@@ -44,6 +44,9 @@ module type Module = {
     Request.t,
     Response.t => promise<unit>,
   ) => promise<result<unit, Error.t>>
+
+  // utility
+  let checkForPrebuiltDataDirectory: string => promise<option<string>>
 }
 
 module Module: Module = {
@@ -136,7 +139,7 @@ module Module: Module = {
             Error(
               Error.Construction.fromEndpointError(
                 path,
-                Connection__Endpoint.Error.NotAgdaOrALS(output),
+                Connection__Endpoint__Error.NotAgdaOrALS(output),
               ),
             )
           }
@@ -387,6 +390,20 @@ module Module: Module = {
         Error(Error.Agda(error))
       | Ok() => Ok()
       }
+    }
+  }
+
+  // Helper function to check for prebuilt data directory
+  let checkForPrebuiltDataDirectory = async (executablePath: string) => {
+    // the executable needs to be accompanied by a `data` directory
+    // which can be specified by the environment variable "Agda_datadir"
+    // prebuilt executables on GitHub have this directory placed alongside the executable
+    let prebuildDataDirPath = NodeJs.Path.join([executablePath, "..", "data"])
+    let prebuildDataDirURI = VSCode.Uri.file(prebuildDataDirPath)
+
+    switch await FS.stat(prebuildDataDirURI) {
+    | Ok(_) => Some(NodeJs.Path.join([executablePath, "..", "data"]))
+    | Error(_) => None
     }
   }
 }

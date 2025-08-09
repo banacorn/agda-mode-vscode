@@ -1,6 +1,6 @@
 module Construction = {
   type t = {
-    endpoints: Dict.t<Connection__Endpoint.Error.t>, // connection error index by path
+    endpoints: Dict.t<Connection__Endpoint__Error.t>, // connection error index by path
     commands: Dict.t<Connection__Command.Error.t>, // connection error index by command name
     download: option<Connection__Download.Error.t>, // error encountered when trying to download the Agda Language Server
   }
@@ -13,7 +13,7 @@ module Construction = {
       x.endpoints
       ->Dict.toArray
       ->Array.map(((path, error)) =>
-        "  " ++ path ++ ": " ++ Connection__Endpoint.Error.toString(error)
+        "  " ++ path ++ ": " ++ Connection__Endpoint__Error.toString(error)
       )
       ->Array.join("\n") ++ "\n"
     }
