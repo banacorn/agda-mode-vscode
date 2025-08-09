@@ -309,7 +309,7 @@ module SwitchVersionManager = {
   let syncWithFilesystem = async (self: t, platformDeps: Platform.t): bool => {
     module PlatformOps = unpack(platformDeps)
 
-    let discoveredEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem2(
+    let discoveredEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
       self.globalStorageUri,
     )
 
@@ -504,7 +504,7 @@ module Download = {
       | Error(_) => None
       | Ok(fetchSpec) =>
         // Use corrected detection logic
-        let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem2(
+        let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
           state.globalStorageUri,
         )
         let installedPaths =

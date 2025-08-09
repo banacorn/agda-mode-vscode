@@ -9,9 +9,7 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-      Promise.resolve(Dict.fromArray([]))
-    let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+    let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
     let findCommands = async commands => Error(
@@ -30,11 +28,6 @@ module Platform = {
     let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getInstalledEndpointsAndPersistThem = _globalStorageUri => {
-      let endpoints = Dict.make()
-      endpoints->Dict.set("/usr/bin/agda", Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda")))
-      Promise.resolve(endpoints)
-    }
-    let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => {
       let endpoints = Dict.make()
       endpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
       Promise.resolve(endpoints)
@@ -63,9 +56,7 @@ module Platform = {
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -92,9 +83,8 @@ module Platform = {
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -118,9 +108,8 @@ module Platform = {
         Promise.resolve(
           Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString),
         )
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -142,9 +131,8 @@ module Platform = {
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -176,9 +164,8 @@ module Platform = {
           Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString),
         )
       }
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -205,9 +192,8 @@ module Platform = {
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -239,9 +225,8 @@ module Platform = {
         checkedDownloadFlag := true
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       }
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
@@ -271,9 +256,8 @@ module Platform = {
         checkedDownloadFlag := true
         Promise.resolve(Ok(downloadedPath))
       }
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
-        Promise.resolve(Dict.fromArray([]))
-      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri => Promise.resolve(Dict.make())
+
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let findCommands = async commands => Error(
