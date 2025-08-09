@@ -710,6 +710,233 @@ describe("Connection", () => {
     )
   })
 
+  describe("`fromPaths`", () => {
+    let agdaMockEndpoint = ref(None)
+
+    Async.before(
+      async () => {
+        try {
+          // setup the Agda mock
+          let path = await Test__Util.Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-paths")
+          agdaMockEndpoint := Some(path)
+        } catch {
+        | error => failwith("Failed to create Agda mock: " ++ Js.String.make(error))
+        }
+      },
+    )
+
+    Async.after(
+      async () => {
+        // cleanup the Agda mock
+        switch agdaMockEndpoint.contents {
+        | Some(path) =>
+          try {
+            NodeJs.Fs.unlinkSync(path)
+          } catch {
+          | _ => () // ignore cleanup errors
+          }
+        | None => ()
+        }
+      },
+    )
+
+    Async.it(
+      "should connect successfully with valid path",
+      async () => {
+        let mockPath = switch agdaMockEndpoint.contents {
+        | Some(path) => path
+        | None => failwith("Mock endpoint not available")
+        }
+        
+        let platformDeps = Desktop.make()
+        let paths = [mockPath]
+        let result = await Connection.fromPaths(platformDeps, paths)
+
+        switch result {
+        | Ok(connection) =>
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, mockPath)
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+        | Error(_) => Assert.fail("Expected successful connection")
+        }
+      },
+    )
+
+    Async.it(
+      "should try multiple paths and use first valid one",
+      async () => {
+        let mockPath = switch agdaMockEndpoint.contents {
+        | Some(path) => path
+        | None => failwith("Mock endpoint not available")
+        }
+        
+        let platformDeps = Desktop.make()
+        let paths = ["invalid/path/1", "invalid/path/2", mockPath, "invalid/path/3"]
+        let result = await Connection.fromPaths(platformDeps, paths)
+
+        switch result {
+        | Ok(connection) =>
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, mockPath)
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+        | Error(_) => Assert.fail("Expected successful connection to first valid path")
+        }
+      },
+    )
+
+    Async.it(
+      "should return Construction error when all paths are invalid",
+      async () => {
+        let platformDeps = Desktop.make()
+        let paths = ["invalid/path/1", "invalid/path/2", "invalid/path/3"]
+        let result = await Connection.fromPaths(platformDeps, paths)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected error with invalid paths")
+        | Error(constructionError) =>
+          // Should have three endpoint errors
+          let endpointErrors = constructionError.endpoints->Dict.toArray
+          Assert.deepStrictEqual(Array.length(endpointErrors), 3)
+          
+          // Should have no command errors
+          let commandErrors = constructionError.commands->Dict.toArray
+          Assert.deepStrictEqual(Array.length(commandErrors), 0)
+          
+          // Should have no download error
+          Assert.deepStrictEqual(constructionError.download, None)
+        }
+      },
+    )
+
+    Async.it(
+      "should return empty error when no paths provided",
+      async () => {
+        let platformDeps = Desktop.make()
+        let paths = []
+        let result = await Connection.fromPaths(platformDeps, paths)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected error with empty paths")
+        | Error(constructionError) =>
+          // Should have no errors since no paths were tried
+          let endpointErrors = constructionError.endpoints->Dict.toArray
+          Assert.deepStrictEqual(Array.length(endpointErrors), 0)
+          
+          let commandErrors = constructionError.commands->Dict.toArray
+          Assert.deepStrictEqual(Array.length(commandErrors), 0)
+          
+          Assert.deepStrictEqual(constructionError.download, None)
+        }
+      },
+    )
+  })
+
+  describe("`fromCommands`", () => {
+    Async.it(
+      "should connect successfully with valid command",
+      async () => {
+        let platformDeps = Desktop.make()
+        let commands = ["agda", "als"]
+        let result = await Connection.fromCommands(platformDeps, commands)
+
+        switch result {
+        | Ok(connection) =>
+          // Should connect to either Agda or ALS
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.ok(String.length(path) > 0)
+            Assert.ok(String.length(version) > 0)
+          | ALS(_, path, alsVersion, agdaVersion) =>
+            Assert.ok(String.length(path) > 0)
+            Assert.ok(String.length(alsVersion) > 0)
+            Assert.ok(String.length(agdaVersion) > 0)
+          }
+        | Error(_) => Assert.fail("Expected successful connection via command")
+        }
+      },
+    )
+
+    Async.it(
+      "should try multiple commands and use first valid one",
+      async () => {
+        let platformDeps = Desktop.make()
+        let commands = ["non-existent-cmd", "agda", "als"]
+        let result = await Connection.fromCommands(platformDeps, commands)
+
+        switch result {
+        | Ok(connection) =>
+          // Should connect to agda (first valid command)
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.ok(String.length(path) > 0)
+            Assert.ok(String.length(version) > 0)
+          | ALS(_, path, alsVersion, agdaVersion) =>
+            Assert.ok(String.length(path) > 0)
+            Assert.ok(String.length(alsVersion) > 0)
+            Assert.ok(String.length(agdaVersion) > 0)
+          }
+        | Error(_) => Assert.fail("Expected successful connection to valid command")
+        }
+      },
+    )
+
+    Async.it(
+      "should return Construction error when all commands are invalid",
+      async () => {
+        let platformDeps = Desktop.make()
+        let commands = ["non-existent-cmd-1", "non-existent-cmd-2", "non-existent-cmd-3"]
+        let result = await Connection.fromCommands(platformDeps, commands)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected error with invalid commands")
+        | Error(constructionError) =>
+          // Should have no endpoint errors
+          let endpointErrors = constructionError.endpoints->Dict.toArray
+          Assert.deepStrictEqual(Array.length(endpointErrors), 0)
+          
+          // Should have three command errors
+          let commandErrors = constructionError.commands->Dict.toArray
+          Assert.deepStrictEqual(Array.length(commandErrors), 3)
+          
+          // Verify all command names are present
+          let commandNames = commandErrors->Array.map(((name, _)) => name)->Array.toSorted(String.compare)
+          Assert.deepStrictEqual(commandNames, ["non-existent-cmd-1", "non-existent-cmd-2", "non-existent-cmd-3"])
+          
+          // Should have no download error
+          Assert.deepStrictEqual(constructionError.download, None)
+        }
+      },
+    )
+
+    Async.it(
+      "should return empty error when no commands provided",
+      async () => {
+        let platformDeps = Desktop.make()
+        let commands = []
+        let result = await Connection.fromCommands(platformDeps, commands)
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected error with empty commands")
+        | Error(constructionError) =>
+          // Should have no errors since no commands were tried
+          let endpointErrors = constructionError.endpoints->Dict.toArray
+          Assert.deepStrictEqual(Array.length(endpointErrors), 0)
+          
+          let commandErrors = constructionError.commands->Dict.toArray
+          Assert.deepStrictEqual(Array.length(commandErrors), 0)
+          
+          Assert.deepStrictEqual(constructionError.download, None)
+        }
+      },
+    )
+  })
+
   describe("make with logging", () => {
     Async.it(
       "should log ConnectedToAgda when Agda connection succeeds",
