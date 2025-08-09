@@ -20,19 +20,19 @@ module type Module = {
   ) => promise<result<t, Error.t>>
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
-  // components (now use platform dependencies)
   let fromPathsAndCommands: (
     Platform.t,
     Memento.t,
-    array<Connection__URI.t>,
     array<string>,
-  ) => promise<result<Endpoint.t, Error.Construction.t>>
+    array<string>,
+  ) => promise<result<t, Error.Construction.t>>
+
   let fromDownloads: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
     Error.Construction.t,
-  ) => promise<result<Endpoint.t, Error.t>>
+  ) => promise<result<t, Error.t>>
 
   // messaging
   let sendRequest: (
@@ -77,12 +77,10 @@ module Module: Module = {
     | Some(connection) =>
       // Log disconnection before destroying
       switch connection {
-      | Agda(_, path, _) =>
-        logChannel->Chan.emit(Log.Connection(Disconnected(path)))
-      | ALS(_, path, _, _) =>
-        logChannel->Chan.emit(Log.Connection(Disconnected(path)))
+      | Agda(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
+      | ALS(_, path, _, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
       }
-      
+
       switch connection {
       | Agda(conn, _, _) =>
         await Agda.destroy(conn)
@@ -149,33 +147,6 @@ module Module: Module = {
     await PlatformOps.findCommands(commands)
   }
 
-  // Try to connect to Agda or ALS, with paths and commands ('agda' and 'als'), in the following steps:
-  // 1. Go through the list of endpoints in the configuration, use the first one that works
-  // 2. Try the `agda` command, add it to the list of endpoints if it works, else proceed to 3.
-  // 3. Try the `als` command, add it to the list of endpoints if it works
-  let fromPathsAndCommands = async (
-    platformDeps: Platform.t,
-    memento: Memento.t,
-    paths: array<Connection__URI.t>,
-    commands: array<string>,
-  ): result<Endpoint.t, Error.Construction.t> => {
-    switch await Endpoint.getPicked(memento, paths) {
-    | Error(endpointErrors) =>
-      switch await findCommands(platformDeps, commands) {
-      | Error(commandErrors) =>
-        let constructionError = {
-          Error.Construction.endpoints: endpointErrors,
-          commands: commandErrors,
-          download: None,
-        }
-
-        Error(constructionError)
-
-      | Ok(endpoint) => Ok(endpoint)
-      }
-    | Ok(endpoint) => Ok(endpoint)
-    }
-  }
   // Combinator: try each item in array until one succeeds, or return all failures
   let tryUntilSuccess = async (fn: 'a => promise<result<'b, 'e>>, items: array<'a>) => {
     let rec loop = async (remaining, errors) => {
@@ -199,7 +170,7 @@ module Module: Module = {
   //  2. Each path from the paths array sequentially
   //  3. Each command from the commands array sequentially
   // Returns Ok(connection) on first success, or Error with all collected failures
-  let fromPathsAndCommands2 = async (
+  let fromPathsAndCommands = async (
     platformDeps: Platform.t,
     memento: Memento.t,
     paths: array<string>,
@@ -245,76 +216,13 @@ module Module: Module = {
     }
   }
 
-  // Try to download ALS, with the following steps:
-  // 1. See if the platform is supported:
-  //      No  : exit with the `PlatformNotSupported` error ❌
-  //      Yes : proceed to 2.
-  // 2. Check the download policy:
-  //      Undecided : ask the user if they want to download ALS or not, go back to 1.
-  //      No        : exit with the `NoDownloadALS` error ❌
-  //      Yes       : proceed to 3.
-  // 3. Check if the latest ALS is already downloaded:
-  //      Yes       : ✅
-  //      No        : proceed to 4.
-  // 4. Download the latest ALS:
-  //      Succeed   : add it to the list of endpoints ✅
-  //      Failed    : exit with the `DownloadALS` error ❌
-
-  let fromDownloads = async (
-    platformDeps: Platform.t,
-    memento: Memento.t,
-    globalStorageUri: VSCode.Uri.t,
-    constructionError: Error.Construction.t,
-  ): result<Endpoint.t, Error.t> => {
-    module PlatformOps = unpack(platformDeps)
-
-    switch await PlatformOps.determinePlatform() {
-    | Error(platform) =>
-      let errors =
-        constructionError->Error.Construction.addDownloadError(PlatformNotSupported(platform))
-      Error(Error.Construction(errors))
-    | Ok(platform) =>
-      // if the policy has not been set, ask the user
-      let policy = switch Config.Connection.DownloadPolicy.get() {
-      | Undecided => await PlatformOps.askUserAboutDownloadPolicy()
-      | policy => policy
-      }
-
-      switch policy {
-      | Config.Connection.DownloadPolicy.Undecided =>
-        // the user has clicked on "cancel" in the dialog, treat it as "No"
-        await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(constructionError))
-      | No =>
-        await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(constructionError))
-      | Yes =>
-        await Config.Connection.DownloadPolicy.set(Yes)
-        switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
-        | Some(endpoint) =>
-          await Config.Connection.addAgdaPath(Endpoint.toURI(endpoint))
-          Ok(endpoint)
-        | None =>
-          switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
-          | Error(error) =>
-            let errors = constructionError->Error.Construction.addDownloadError(error)
-            Error(Error.Construction(errors))
-          | Ok(endpoint) =>
-            await Config.Connection.addAgdaPath(Connection__Endpoint.toURI(endpoint))
-            Ok(endpoint)
-          }
-        }
-      }
-    }
-  }
-
   // Try to download ALS and create connection directly, with the following steps:
   // 1. Check platform support
   // 2. Check download policy
   // 3. Check if already downloaded or download latest ALS
   // 4. Create connection directly from downloaded raw path
   // Returns Ok(connection) on success, or Error with failure details
-  let fromDownloads2 = async (
+  let fromDownloads = async (
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
@@ -398,14 +306,14 @@ module Module: Module = {
       }
     }
 
-    switch await fromPathsAndCommands2(platformDeps, memento, paths, commands) {
+    switch await fromPathsAndCommands(platformDeps, memento, paths, commands) {
     | Ok(connection) =>
       logConnection(connection)
       await Config.Connection.addAgdaPath2(getPath(connection))
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
     | Error(constructionError) =>
-      switch await fromDownloads2(platformDeps, memento, globalStorageUri, constructionError) {
+      switch await fromDownloads(platformDeps, memento, globalStorageUri, constructionError) {
       | Ok(connection) =>
         logConnection(connection)
         await Config.Connection.addAgdaPath2(getPath(connection))

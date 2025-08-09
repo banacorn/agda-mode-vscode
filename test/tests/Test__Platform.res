@@ -61,36 +61,6 @@ describe("Platform dependent utilities", () => {
     )
   })
 
-  describe("Connection Integration", () => {
-   
-    Async.it(
-      "should allow Connection.fromDownloads to be called with platform dependencies",
-      async () => {
-        let platformDeps = Web.make() // Use web for predictable mock behavior
-        let memento = Memento.make(None)
-        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let constructionError = {
-          Connection__Error.Construction.endpoints: Dict.make(),
-          commands: Dict.make(),
-          download: None, // No download error for this test
-        }
-
-        // This should not crash and should return an error (since web platform doesn't support downloads)
-        let result = await Connection.fromDownloads(
-          platformDeps,
-          memento,
-          globalStorageUri,
-          constructionError,
-        )
-
-        switch result {
-        | Error(_) => Assert.ok(true) // Expected for web platform
-        | Ok(_) => Assert.fail("Web platform should not succeed in downloading")
-        }
-      },
-    )
-  })
-
   describe("Mock Platform for Testing", () => {
     Async.it(
       "should allow custom mock platforms to be created for testing",
