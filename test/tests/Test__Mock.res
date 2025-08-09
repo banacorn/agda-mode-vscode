@@ -42,7 +42,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      
     }
     module(MockPlatform)
   }
@@ -66,38 +65,33 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      
     }
     module(MockPlatform)
   }
 
   // Mock platform that simulates successful download
-  let makeWithSuccessfulDownload = (downloadedEndpoint: Connection.Endpoint.t): Platform.t => {
+  let makeWithSuccessfulDownload = (downloadedPath: string): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(
-          Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString),
-        )
+        Promise.resolve(Ok(downloadedPath))
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      
     }
     module(MockPlatform)
   }
 
   // Mock platform that simulates cached download available
-  let makeWithCachedDownload = (cachedEndpoint: Connection.Endpoint.t): Platform.t => {
+  let makeWithCachedDownload = (cachedPath: string): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-      let alreadyDownloaded = _globalStorageUri => () =>
-        Promise.resolve(Some(cachedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
+      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(Some(cachedPath))
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -105,7 +99,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      
     }
     module(MockPlatform)
   }

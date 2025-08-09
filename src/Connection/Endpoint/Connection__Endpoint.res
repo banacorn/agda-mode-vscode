@@ -61,20 +61,20 @@ module Module: {
   let probeFilepath: URI.t => promise<result<t, Error.t>>
 
   // from URI to Endpoint
-  let fromURI: URI.t => promise<result<t, Error.t>>
+  // let fromURI: URI.t => promise<result<t, Error.t>>
   // from Endpoint to URI
-  let toURI: t => URI.t
+  // let toURI: t => URI.t
 
   // from String to Endpoint
-  let fromRawPath: string => promise<result<t, Error.t>>
-  let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
+  // let fromRawPath: string => promise<result<t, Error.t>>
+  // let fromRawPaths: array<string> => promise<array<result<t, Error.t>>>
 
   // from VSCode.Uri.t to Endpoint
-  let fromVSCodeUri: VSCode.Uri.t => promise<result<t, Error.t>>
+  // let fromVSCodeUri: VSCode.Uri.t => promise<result<t, Error.t>>
 
   // configuration
-  let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, Dict.t<Error.t>>>
-  let setPicked: (Memento.t, option<t>) => promise<unit>
+  // let getPicked: (Memento.t, array<Connection__URI.t>) => promise<result<t, Dict.t<Error.t>>>
+  // let setPicked: (Memento.t, option<t>) => promise<unit>
 } = {
   type version = string
   type t =

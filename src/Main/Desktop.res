@@ -7,15 +7,7 @@ module Desktop: Platform.PlatformOps = {
 
   let findCommand = Connection__Command.search
 
-  let alreadyDownloaded = globalStorageUri => async () => {
-    switch await Connection__LatestALS.alreadyDownloaded(globalStorageUri)() {
-    | Some(endpoint) => Some(endpoint->Connection__Endpoint.toURI->Connection__URI.toString)
-    | None => None
-    }
-  }
-
-  // let downloadLatestALS = (memento, globalStorageUri) =>
-  //   Connection__LatestALS.download(memento, globalStorageUri)
+  let alreadyDownloaded = Connection__LatestALS.alreadyDownloaded
 
   let downloadLatestALS = (memento, globalStorageUri) => async platform => {
     switch await Connection__LatestALS.download(memento, globalStorageUri)(platform) {

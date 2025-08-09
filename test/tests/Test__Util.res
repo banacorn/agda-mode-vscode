@@ -637,7 +637,7 @@ module Endpoint = {
     }
 
     let destroy = async target => {
-      let path = target->Connection.Endpoint.toURI->Connection.URI.toString
+      let path = target
       try {
         NodeJs.Fs.unlinkSync(path)
       } catch {
@@ -706,7 +706,7 @@ module Endpoint = {
     }
 
     let destroy = async target => {
-      let path = target->Connection.Endpoint.toURI->Connection.URI.toString
+      let path = target
       try {
         NodeJs.Fs.unlinkSync(path)
       } catch {

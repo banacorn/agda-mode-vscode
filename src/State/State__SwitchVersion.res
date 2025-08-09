@@ -318,6 +318,7 @@ module SwitchVersionManager = {
   }
 
   // Version probing (Phase 3)
+  
   let probeVersions = async (self: t): bool => {
     let pathsToProbe =
       self.entries

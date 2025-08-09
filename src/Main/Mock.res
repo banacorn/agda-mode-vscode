@@ -70,7 +70,7 @@ module Platform = {
   }
 
   // Mock platform that simulates successful download
-  let makeWithSuccessfulDownload = (downloadedEndpoint: Connection.Endpoint.t): Platform.t => {
+  let makeWithSuccessfulDownload = (downloadedPath: string): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
@@ -78,9 +78,7 @@ module Platform = {
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(
-          Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString),
-        )
+        Promise.resolve(Ok(downloadedPath))
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -109,7 +107,7 @@ module Platform = {
 
   // Mock platform that simulates successful download with dual flag tracking
   let makeWithSuccessfulDownloadAndFlags = (
-    downloadedEndpoint: Connection.Endpoint.t,
+    downloadedPath: string,
     checkedCacheFlag: ref<bool>,
     checkedDownloadFlag: ref<bool>,
   ): Platform.t => {
@@ -123,9 +121,7 @@ module Platform = {
       }
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
         checkedDownloadFlag := true
-        Promise.resolve(
-          Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString),
-        )
+        Promise.resolve(Ok(downloadedPath))
       }
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
@@ -137,7 +133,7 @@ module Platform = {
 
   // Mock platform that simulates cached download available with flag tracking
   let makeWithCachedDownloadAndFlag = (
-    cachedEndpoint: Connection.Endpoint.t,
+    cachedPath: string,
     checkedFlag: ref<bool>,
   ): Platform.t => {
     module MockPlatform = {
@@ -145,7 +141,7 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => () => {
         checkedFlag := true
-        Promise.resolve(Some(cachedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
+        Promise.resolve(Some(cachedPath))
       }
 
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>

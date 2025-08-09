@@ -4,9 +4,7 @@ open Test__Util
 let getAgdaTarget = async () => {
   let platformDeps = Desktop.make()
   switch await Connection.fromCommands(platformDeps, ["agda"]) {
-  | Ok(Agda(_, path, version)) => Connection.Endpoint.Agda(version, path)
-  | Ok(ALS(_, path, alsVersion, agdaVersion)) => 
-    Connection.Endpoint.ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, []), None)
+  | Ok(connection) => connection
   | Error(_) => failwith("expected to find `agda`")
   }
 }
@@ -22,127 +20,7 @@ describe("Connection", () => {
       async () => {
         // setup the Agda mock
         agdaMockPath := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock"))
-
-        switch await Connection.Endpoint.fromRawPath(agdaMockPath.contents) {
-        | Ok(target) => agdaMockEndpoint := Some(target)
-        | Error(error) =>
-          let errorMessage = Connection__Endpoint.Error.toString(error)
-          failwith(
-            "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
-          )
-        }
-      },
-    )
-
-    Async.it(
-      "should return the previously picked connection",
-      async () => {
-        // access the Agda mock
-        let agdaMockEndpoint = switch agdaMockEndpoint.contents {
-        | Some(target) => target
-        | None => failwith("Unable to access the Agda mock target")
-        }
-
-        // setup the memento
-        let memento = Memento.make(None)
-        await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
-
-        let paths = [agdaMockPath.contents, "path/to/als"]->Array.map(Connection__URI.parse)
-
-        let actual = await Connection__Endpoint.getPicked(memento, paths)
-        let expected = Ok(agdaMockEndpoint)
-
-        Assert.deepStrictEqual(actual, expected)
-      },
-    )
-
-    Async.it(
-      "should return nothing when there's no previously picked connection",
-      async () => {
-        // setup the memento
-        let memento = Memento.make(None)
-        let paths = ["path/to/agda", "path/to/als"]->Array.map(Connection__URI.parse)
-
-        let expected = Error(
-          paths
-          ->Array.map(
-            uri =>
-              switch uri {
-              | FileURI(raw, vscodeUri) => (
-                  raw,
-                  Connection__Endpoint.Error.CannotDetermineAgdaOrALS(
-                    NotFound(vscodeUri->VSCode.Uri.fsPath),
-                  ),
-                )
-              | LspURI(_) => failwith("Expected FileURI variant")
-              },
-          )
-          ->Dict.fromArray,
-        )
-
-        let actual = await Connection__Endpoint.getPicked(memento, paths)
-
-        Assert.deepStrictEqual(actual, expected)
-      },
-    )
-
-    Async.it_skip(
-      "should return nothing when the previously picked connection is not in the supplied paths",
-      async () => {
-        // access the Agda mock
-        let agdaMockEndpoint = switch agdaMockEndpoint.contents {
-        | Some(target) => target
-        | None => failwith("Unable to access the Agda mock target")
-        }
-
-        // setup the memento
-        let memento = Memento.make(None)
-        await Connection.Endpoint.setPicked(memento, Some(agdaMockEndpoint))
-        let actual = Memento.PickedConnection.get(memento)
-        if OS.onUnix {
-          let expected = None
-          Assert.deepStrictEqual(actual, expected)
-        } else {
-          // let expected = Error([
-          //   Connection__Endpoint.Error.SomethingWentWrong(
-          //     Connection.URI.parse("path\\to\\agda"),
-          //     NotFound("path\\to\\agda"),
-          //   ),
-          //   Connection__Endpoint.Error.SomethingWentWrong(
-          //     Connection.URI.parse("path\\to\\als"),
-          //     NotFound("path\\to\\als"),
-          //   ),
-          // ])
-          switch actual {
-          | Some(_) => Assert.fail("expected an None, got Some")
-          | None => Assert.ok(true)
-          }
-        }
-      },
-    )
-
-    Async.it(
-      "should return the first usable connection target when the previously picked connection is invalid or not in the supplied paths",
-      async () => {
-        // access the Agda mock
-        let agdaMockEndpoint = switch agdaMockEndpoint.contents {
-        | Some(target) => target
-        | None => failwith("Unable to access the Agda mock target")
-        }
-
-        // setup the memento
-        let memento = Memento.make(None)
-        let paths =
-          [
-            "path/to/non-existent-agda",
-            agdaMockPath.contents,
-            "path/to/non-existent-als",
-          ]->Array.map(Connection__URI.parse)
-
-        let actual = await Connection__Endpoint.getPicked(memento, paths)
-        let expected = Ok(agdaMockEndpoint)
-
-        Assert.deepStrictEqual(actual, expected)
+        agdaMockEndpoint := Some(agdaMockPath.contents)
       },
     )
 
@@ -238,14 +116,7 @@ describe("Connection", () => {
           // setup the Agda mock
           let path = await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-2")
 
-          switch await Connection.Endpoint.fromRawPath(path) {
-          | Ok(target) => agdaMockEndpoint := Some(target)
-          | Error(error) =>
-            let errorMessage = Connection__Endpoint.Error.toString(error)
-            failwith(
-              "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
-            )
-          }
+          agdaMockEndpoint := Some(path)
         } catch {
         | Failure(msg) => failwith(msg) // Preserve detailed error from Test__Util.res
         | _ => failwith("Got error when trying to construct target from mock Agda: unknown error")
@@ -256,7 +127,7 @@ describe("Connection", () => {
     Async.after(
       async () => {
         await Config.Connection.setAgdaPaths([])
-        await Connection.Endpoint.setPicked(Memento.make(None), None)
+        await Memento.PickedConnection.set(Memento.make(None), None)
 
         // cleanup the Agda mock
         switch agdaMockEndpoint.contents {
@@ -377,10 +248,7 @@ describe("Connection", () => {
 
         // Check that the filesystem path was added to config (not the URI path)
         let paths = Config.Connection.getAgdaPaths()
-        let expectedPath = switch mockEndpoint {
-        | Connection.Endpoint.Agda(_, path) => path
-        | Connection.Endpoint.ALS(_, path, _, _) => path
-        }
+        let expectedPath = mockEndpoint
         Assert.ok(paths->Array.includes(expectedPath))
       },
     )
@@ -393,7 +261,7 @@ describe("Connection", () => {
         | Some(endpoint) => endpoint
         | None => failwith("Unable to access the Agda mock endpoint")
         }
-        let mockPath = Connection.Endpoint.toURI(mockEndpoint)->Connection.URI.toString
+        let mockPath = mockEndpoint
 
         await Config.Connection.DownloadPolicy.set(Undecided)
         let checkedCache = ref(false)
@@ -426,10 +294,7 @@ describe("Connection", () => {
 
         // Check that the filesystem path was added to config (not the URI path)
         let paths = Config.Connection.getAgdaPaths()
-        let expectedPath = switch mockEndpoint {
-        | Connection.Endpoint.Agda(_, path) => path
-        | Connection.Endpoint.ALS(_, path, _, _) => path
-        }
+        let expectedPath = mockEndpoint
         Assert.ok(paths->Array.includes(expectedPath))
       },
     )
@@ -474,14 +339,7 @@ describe("Connection", () => {
           // setup the Agda mock
           let path = await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-3")
 
-          switch await Connection.Endpoint.fromRawPath(path) {
-          | Ok(target) => agdaMockEndpoint := Some(target)
-          | Error(error) =>
-            let errorMessage = Connection__Endpoint.Error.toString(error)
-            failwith(
-              "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
-            )
-          }
+          agdaMockEndpoint := Some(path)
         } catch {
         | Failure(msg) => failwith(msg) // Preserve detailed error from Test__Util.res
         | _ => failwith("Got error when trying to construct target from mock Agda: unknown error")
@@ -492,7 +350,7 @@ describe("Connection", () => {
     Async.after(
       async () => {
         await Config.Connection.setAgdaPaths([])
-        await Connection.Endpoint.setPicked(Memento.make(None), None)
+        await Memento.PickedConnection.set(Memento.make(None), None)
 
         // cleanup the Agda mock
         switch agdaMockEndpoint.contents {
@@ -521,17 +379,12 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           switch (connection, expectedConnection) {
-          | (Agda(_, path, version), Connection.Endpoint.Agda(expectedVersion, expectedPath)) =>
+          | (Agda(_, path, version), Agda(_, expectedPath, expectedVersion)) =>
             Assert.deepStrictEqual(version, expectedVersion)
             Assert.deepStrictEqual(path, expectedPath)
           | (
               ALS(_, path, alsVersion, agdaVersion),
-              Connection.Endpoint.ALS(
-                expectedAlsVersion,
-                expectedAgdaVersion,
-                Connection__Transport.ViaPipe(expectedPath, _),
-                _,
-              ),
+              ALS(_, expectedPath, expectedAlsVersion, expectedAgdaVersion),
             ) =>
             Assert.deepStrictEqual(alsVersion, expectedAlsVersion)
             Assert.deepStrictEqual(agdaVersion, expectedAgdaVersion)
@@ -560,17 +413,12 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           switch (connection, expectedConnection) {
-          | (Agda(_, path, version), Connection.Endpoint.Agda(expectedVersion, expectedPath)) =>
+          | (Agda(_, path, version), Agda(_, expectedPath, expectedVersion)) =>
             Assert.deepStrictEqual(version, expectedVersion)
             Assert.deepStrictEqual(path, expectedPath)
           | (
               ALS(_, path, alsVersion, agdaVersion),
-              Connection.Endpoint.ALS(
-                expectedAlsVersion,
-                expectedAgdaVersion,
-                Connection__Transport.ViaPipe(expectedPath, _),
-                _,
-              ),
+              ALS(_, expectedPath, expectedAlsVersion, expectedAgdaVersion),
             ) =>
             Assert.deepStrictEqual(alsVersion, expectedAlsVersion)
             Assert.deepStrictEqual(agdaVersion, expectedAgdaVersion)
@@ -590,12 +438,8 @@ describe("Connection", () => {
         | Some(endpoint) => endpoint
         | None => failwith("Unable to access the Agda mock endpoint")
         }
-        let mockURI = Connection.Endpoint.toURI(mockEndpoint)
-        let mockPath = mockURI->Connection.URI.toString
-        let mockFsPath = switch mockURI {
-        | Connection.URI.FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
-        | _ => failwith("Expected FileURI for mock")
-        }
+        let mockPath = mockEndpoint
+        let mockFsPath = mockPath
 
         let memento = Memento.make(None)
         let paths = [mockPath, "some/other/paths"]
@@ -626,12 +470,8 @@ describe("Connection", () => {
         | Some(endpoint) => endpoint
         | None => failwith("Unable to access the Agda mock endpoint")
         }
-        let mockURI = Connection.Endpoint.toURI(mockEndpoint)
-        let mockPath = mockURI->Connection.URI.toString
-        let mockFsPath = switch mockURI {
-        | Connection.URI.FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
-        | _ => failwith("Expected FileURI for mock")
-        }
+        let mockPath = mockEndpoint
+        let mockFsPath = mockPath
 
         let memento = Memento.make(None)
         await Memento.PickedConnection.set(memento, Some(mockFsPath))
@@ -1572,10 +1412,7 @@ describe("Connection", () => {
           ~version="2.7.0.1",
           ~name="agda-mock-cached",
         )
-        let mockEndpoint = switch await Connection.Endpoint.fromRawPath(agdaMockPath) {
-        | Ok(target) => target
-        | Error(_) => failwith("Expected valid endpoint from mock")
-        }
+        let mockEndpoint = agdaMockPath
 
         await Config.Connection.DownloadPolicy.set(Undecided)
         let checkedCache = ref(false)
@@ -1656,10 +1493,7 @@ describe("Connection", () => {
           ~version="2.7.0.1",
           ~name="agda-mock-fresh-download",
         )
-        let mockEndpoint = switch await Connection.Endpoint.fromRawPath(agdaMockPath) {
-        | Ok(target) => target
-        | Error(_) => failwith("Expected valid endpoint from mock")
-        }
+        let mockEndpoint = agdaMockPath
 
         await Config.Connection.DownloadPolicy.set(Undecided)
         let checkedCache = ref(false)

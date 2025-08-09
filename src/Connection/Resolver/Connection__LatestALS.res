@@ -1,4 +1,7 @@
-let makeAgdaLanguageServerRepo = (memento, globalStorageUri): Connection__Download__GitHub.Repo.t => {
+let makeAgdaLanguageServerRepo = (
+  memento,
+  globalStorageUri,
+): Connection__Download__GitHub.Repo.t => {
   username: "agda",
   repository: "agda-language-server",
   userAgent: "agda/agda-mode-vscode",
@@ -84,11 +87,7 @@ let download = (memento, globalStorageUri) => async platform =>
 let alreadyDownloaded = globalStorageUri => async () => {
   let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
   switch await FS.stat(uri) {
-  | Ok(_) =>
-    switch await Connection__Endpoint.fromVSCodeUri(uri) {
-    | Ok(target) => Some(target)
-    | Error(_) => None
-    }
+  | Ok(_) => Some(uri->VSCode.Uri.fsPath)
   | Error(_) => None
   }
 }
