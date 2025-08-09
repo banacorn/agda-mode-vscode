@@ -1,5 +1,5 @@
 module Scheduler = Connection__Scheduler
-module Error = Connection__Endpoint__ALS__Error
+module Error = Connection__Error.CommWithALS
 module LSP = Connection__Protocol__LSP
 
 type version = string
@@ -21,7 +21,7 @@ module CommandReq = {
 module CommandRes = {
   type t =
     | ACK(version)
-    | Result(option<Connection__Endpoint__ALS__Error.CommandErr.t>)
+    | Result(option<Connection__Error.CommWithALS.CommandErr.t>)
 
   let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
 
@@ -32,7 +32,7 @@ module CommandRes = {
       | "CmdResACK" => Payload(string->map(version => ACK(version)))
       | "CmdRes" =>
         Payload(
-          option(Connection__Endpoint__ALS__Error.CommandErr.decode)->map(error => Result(error)),
+          option(Connection__Error.CommWithALS.CommandErr.decode)->map(error => Result(error)),
         )
       | tag => raise(DecodeError("[Connection.Target.ALS.CommandRes] Unknown constructor: " ++ tag))
       }

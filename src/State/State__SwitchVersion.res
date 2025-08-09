@@ -348,7 +348,7 @@ module SwitchVersionManager = {
           await Memento.Endpoints.setError(
             self.memento,
             path,
-            Connection__Endpoint__Error.toString(error),
+            Connection__Error.Probe.toString(error),
           )
           Some(path)
         }

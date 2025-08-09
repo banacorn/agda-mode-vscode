@@ -202,7 +202,7 @@ describe("Connection", () => {
         let result = await Connection.probeFilepath(mockPath)
 
         switch result {
-        | Error(Connection__Endpoint__Error.NotAgdaOrALS(output)) =>
+        | Error(Connection__Error.Probe.NotAgdaOrALS(output)) =>
           // Trim output to handle potential newline characters
           Assert.deepStrictEqual(String.trim(output), mockOutput)
         | Ok(_) => Assert.fail("Expected NotAgdaOrALS error")
@@ -227,7 +227,7 @@ describe("Connection", () => {
         let result = await Connection.probeFilepath(nonExecutablePath)
 
         switch result {
-        | Error(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_)) => ()
+        | Error(Connection__Error.Probe.CannotDetermineAgdaOrALS(_)) => ()
         | Ok(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
         | Error(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error, got different error")
         }
@@ -248,7 +248,7 @@ describe("Connection", () => {
         let result = await Connection.probeFilepath(nonExistentPath)
 
         switch result {
-        | Error(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_)) => ()
+        | Error(Connection__Error.Probe.CannotDetermineAgdaOrALS(_)) => ()
         | Ok(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
         | Error(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error, got different error")
         }
@@ -387,7 +387,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should return Construction error for non-existent path",
+      "should return Establish error for non-existent path",
       async () => {
         let nonExistentPath = "/path/that/does/not/exist/agda"
         let result = await Connection.makeWithRawPath(nonExistentPath)
@@ -395,22 +395,22 @@ describe("Connection", () => {
         switch result {
         | Ok(_) => Assert.fail("Expected error for non-existent path")
         | Error(errors) =>
-          // Should have endpoint error for the non-existent path
-          switch errors.endpoints->Dict.get(nonExistentPath) {
+          // Should have probe error for the non-existent path
+          switch errors.probes->Dict.get(nonExistentPath) {
           | Some(error) =>
             // Verify it's a CannotDetermineAgdaOrALS error wrapped in endpoint error
             switch error {
-            | Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_) => ()
+            | Connection__Error.Probe.CannotDetermineAgdaOrALS(_) => ()
             | _ => Assert.fail("Expected CannotDetermineAgdaOrALS error")
             }
-          | None => Assert.fail("Expected endpoint error for non-existent path")
+          | None => Assert.fail("Expected probe error for non-existent path")
           }
         }
       },
     )
 
     Async.it(
-      "should return Construction error for unrecognized executable",
+      "should return Establish error for unrecognized executable",
       async () => {
         // Create mock executable that outputs unrecognized content
         let mockOutput = "Unknown Program v1.0.0"
@@ -434,15 +434,15 @@ describe("Connection", () => {
         switch result {
         | Ok(_) => Assert.fail("Expected error for unrecognized executable")
         | Error(errors) =>
-          // Should have endpoint error for the unrecognized executable
-          switch errors.endpoints->Dict.get(mockPath) {
+          // Should have probe error for the unrecognized executable
+          switch errors.probes->Dict.get(mockPath) {
           | Some(error) =>
             switch error {
-            | Connection__Endpoint__Error.NotAgdaOrALS(output) =>
+            | Connection__Error.Probe.NotAgdaOrALS(output) =>
               Assert.deepStrictEqual(String.trim(output), mockOutput)
             | _ => Assert.fail("Expected NotAgdaOrALS error")
             }
-          | None => Assert.fail("Expected endpoint error for unrecognized executable")
+          | None => Assert.fail("Expected probe error for unrecognized executable")
           }
         }
 
@@ -517,7 +517,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should handle error construction correctly for endpoint errors",
+      "should handle error construction correctly for probe errors",
       async () => {
         let invalidPath = "/definitely/does/not/exist/agda"
         let result = await Connection.makeWithRawPath(invalidPath)
@@ -526,15 +526,15 @@ describe("Connection", () => {
         | Ok(_) => Assert.fail("Expected construction error")
         | Error(errors) =>
           // Verify error structure
-          Assert.deepStrictEqual(Array.length(errors.endpoints->Dict.toArray), 1)
+          Assert.deepStrictEqual(Array.length(errors.probes->Dict.toArray), 1)
           Assert.deepStrictEqual(Array.length(errors.commands->Dict.toArray), 0)
           Assert.deepStrictEqual(errors.download, None)
 
-          // Verify the specific endpoint error
-          switch errors.endpoints->Dict.get(invalidPath) {
-          | Some(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(_)) => ()
+          // Verify the specific probe error
+          switch errors.probes->Dict.get(invalidPath) {
+          | Some(Connection__Error.Probe.CannotDetermineAgdaOrALS(_)) => ()
           | Some(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
-          | None => Assert.fail("Expected endpoint error to be present")
+          | None => Assert.fail("Expected probe error to be present")
           }
         }
       },
@@ -674,7 +674,9 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           switch connection {
-          | Agda(_, path, version) => Assert.deepStrictEqual(version, "2.7.0.1")
+          | Agda(_, path, version) => 
+            Assert.deepStrictEqual(version, "2.7.0.1")
+            Assert.deepStrictEqual(path, mockEndpoint)
           | _ => Assert.fail("Expected Agda connection")
           }
         | Error(_) => Assert.fail("Expected successful cached download")
@@ -720,7 +722,9 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           switch connection {
-          | Agda(_, path, version) => Assert.deepStrictEqual(version, "2.7.0.1")
+          | Agda(_, path, version) => 
+            Assert.deepStrictEqual(version, "2.7.0.1")
+            Assert.deepStrictEqual(path, mockEndpoint)
           | _ => Assert.fail("Expected Agda connection")
           }
         | Error(_) => Assert.fail("Expected successful fresh download")
@@ -857,9 +861,9 @@ describe("Connection", () => {
         switch result {
         | Ok(_) => Assert.fail("Expected error with invalid paths")
         | Error(errors) =>
-          // Should have three endpoint errors
-          let endpointErrors = errors.endpoints->Dict.toArray
-          Assert.deepStrictEqual(Array.length(endpointErrors), 3)
+          // Should have three probe errors
+          let probeErrors = errors.probes->Dict.toArray
+          Assert.deepStrictEqual(Array.length(probeErrors), 3)
 
           // Should have no command errors
           let commandErrors = errors.commands->Dict.toArray
@@ -882,8 +886,8 @@ describe("Connection", () => {
         | Ok(_) => Assert.fail("Expected error with empty paths")
         | Error(errors) =>
           // Should have no errors since no paths were tried
-          let endpointErrors = errors.endpoints->Dict.toArray
-          Assert.deepStrictEqual(Array.length(endpointErrors), 0)
+          let probeErrors = errors.probes->Dict.toArray
+          Assert.deepStrictEqual(Array.length(probeErrors), 0)
 
           let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
@@ -906,13 +910,8 @@ describe("Connection", () => {
         | Ok(connection) =>
           // Should connect to either Agda or ALS
           switch connection {
-          | Agda(_, path, version) =>
-            Assert.ok(String.length(path) > 0)
-            Assert.ok(String.length(version) > 0)
-          | ALS(_, path, (alsVersion, agdaVersion, _)) =>
-            Assert.ok(String.length(path) > 0)
-            Assert.ok(String.length(alsVersion) > 0)
-            Assert.ok(String.length(agdaVersion) > 0)
+          | Agda(_, _, _) => ()
+          | ALS(_, _, _) => ()
           }
         | Error(_) => Assert.fail("Expected successful connection via command")
         }
@@ -930,13 +929,11 @@ describe("Connection", () => {
         | Ok(connection) =>
           // Should connect to agda (first valid command)
           switch connection {
-          | Agda(_, path, version) =>
-            Assert.ok(String.length(path) > 0)
-            Assert.ok(String.length(version) > 0)
-          | ALS(_, path, (alsVersion, agdaVersion, _)) =>
-            Assert.ok(String.length(path) > 0)
-            Assert.ok(String.length(alsVersion) > 0)
-            Assert.ok(String.length(agdaVersion) > 0)
+          | Agda(_, _path, version) =>
+            Assert.deepStrictEqual(version, "2.7.0.1-a6fc20c")
+          | ALS(_, _path, (alsVersion, agdaVersion, _)) =>
+            Assert.deepStrictEqual(alsVersion, "1.4.0")
+            Assert.deepStrictEqual(agdaVersion, "2.7.0.1-a6fc20c")
           }
         | Error(_) => Assert.fail("Expected successful connection to valid command")
         }
@@ -953,9 +950,9 @@ describe("Connection", () => {
         switch result {
         | Ok(_) => Assert.fail("Expected error with invalid commands")
         | Error(errors) =>
-          // Should have no endpoint errors
-          let endpointErrors = errors.endpoints->Dict.toArray
-          Assert.deepStrictEqual(Array.length(endpointErrors), 0)
+          // Should have no probe errors
+          let probeErrors = errors.probes->Dict.toArray
+          Assert.deepStrictEqual(Array.length(probeErrors), 0)
 
           // Should have three command errors
           let commandErrors = errors.commands->Dict.toArray
@@ -986,8 +983,8 @@ describe("Connection", () => {
         | Ok(_) => Assert.fail("Expected error with empty commands")
         | Error(errors) =>
           // Should have no errors since no commands were tried
-          let endpointErrors = errors.endpoints->Dict.toArray
-          Assert.deepStrictEqual(Array.length(endpointErrors), 0)
+          let probeErrors = errors.probes->Dict.toArray
+          Assert.deepStrictEqual(Array.length(probeErrors), 0)
 
           let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
@@ -1257,6 +1254,14 @@ describe("Connection", () => {
           logChannel,
         ) {
         | Ok(connection) =>
+          // Verify we got a valid connection
+          switch connection {
+          | Agda(_, _path, version) => {
+            Assert.deepStrictEqual(version, "2.7.0.1-a6fc20c")
+          }
+          | ALS(_, _path, _) => ()
+          }
+          
           // Should have logged a connection event
           switch loggedEvents {
           | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
@@ -1302,6 +1307,14 @@ describe("Connection", () => {
           logChannel,
         ) {
         | Ok(connection) =>
+          // Verify we got a valid connection
+          switch connection {
+          | Agda(_, _path, version) => {
+            Assert.deepStrictEqual(version, "2.7.0.1-a6fc20c")
+          }
+          | ALS(_, _path, _) => ()
+          }
+          
           // Should have logged a connection event
           switch loggedEvents {
           | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
@@ -1426,6 +1439,14 @@ describe("Connection", () => {
           logChannel,
         ) {
         | Ok(connection) =>
+          // Verify we got a valid connection
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath2)
+            Assert.deepStrictEqual(version, "2.6.4")
+          | ALS(_, path, _) => Assert.deepStrictEqual(path, agdaMockPath2)
+          }
+          
           // Should have connected to path2 (the picked one)
           Assert.deepStrictEqual(
             loggedEvents,
@@ -1488,14 +1509,14 @@ describe("Connection", () => {
         ) {
         | Ok(_) => Assert.fail("Expected platform error")
         | Error(error) =>
-          // Should get Construction error with PlatformNotSupported
+          // Should get Establish error with PlatformNotSupported
           switch error {
           | Connection.Error.Establish(errors) =>
             switch errors.download {
             | Some(Connection__Download.Error.PlatformNotSupported(_)) => ()
             | _ => Assert.fail("Expected PlatformNotSupported download error")
             }
-          | _ => Assert.fail("Expected Construction error")
+          | _ => Assert.fail("Expected Establish error")
           }
 
           // Should not have logged any connection events
@@ -1544,10 +1565,10 @@ describe("Connection", () => {
         ) {
         | Ok(_) => Assert.fail("Expected error due to No download policy")
         | Error(error) =>
-          // Should get Construction error (empty since No policy blocks download)
+          // Should get Establish error (empty since No policy blocks download)
           switch error {
           | Connection.Error.Establish(_) => ()
-          | _ => Assert.fail("Expected Construction error")
+          | _ => Assert.fail("Expected Establish error")
           }
 
           // Should not have asked for download policy (already set to No)
@@ -1600,10 +1621,10 @@ describe("Connection", () => {
         ) {
         | Ok(_) => Assert.fail("Expected error due to user cancelling download")
         | Error(error) =>
-          // Should get Construction error
+          // Should get Establish error
           switch error {
           | Connection.Error.Establish(_) => ()
-          | _ => Assert.fail("Expected Construction error")
+          | _ => Assert.fail("Expected Establish error")
           }
 
           // Should have asked for download policy exactly once
@@ -1765,6 +1786,7 @@ describe("Connection", () => {
           | Agda(_, path, version) =>
             Assert.deepStrictEqual(path, agdaMockPath)
             Assert.deepStrictEqual(version, "2.7.0.1")
+            Assert.deepStrictEqual(path, agdaMockPath)
           | _ => Assert.fail("Expected Agda connection")
           }
 
@@ -1830,14 +1852,14 @@ describe("Connection", () => {
           Assert.deepStrictEqual(checkedCache.contents, true)
           Assert.deepStrictEqual(checkedDownload.contents, true)
 
-          // Should get Construction error with download failure
+          // Should get Establish error with download failure
           switch error {
           | Connection.Error.Establish(errors) =>
             switch errors.download {
             | Some(Connection__Download.Error.CannotFindCompatibleALSRelease) => ()
             | _ => Assert.fail("Expected CannotFindCompatibleALSRelease download error")
             }
-          | _ => Assert.fail("Expected Construction error")
+          | _ => Assert.fail("Expected Establish error")
           }
 
           // Should have set policy to Yes

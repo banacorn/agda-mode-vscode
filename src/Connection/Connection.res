@@ -38,7 +38,7 @@ module type Module = {
   // utility
   let checkForPrebuiltDataDirectory: string => promise<option<string>>
   let probeFilepath: string => promise<
-    result<(string, result<agdaVersion, alsVersion>), Connection__Endpoint__Error.t>,
+    result<(string, result<agdaVersion, alsVersion>), Error.Probe.t>,
   >
   let makeWithRawPath: string => promise<result<t, Error.Establish.t>>
 }
@@ -82,7 +82,7 @@ module Module: Module = {
         Ok()
       | ALS(conn, _, _) =>
         switch await ALS.destroy(conn) {
-        | Error(error) => Error(Error.ALS(error))
+        | Error(error) => Error(Error.CommWithALS(error))
         | Ok(_) => Ok()
         }
       }
@@ -111,7 +111,7 @@ module Module: Module = {
   // see if it's a Agda executable or a language server
   let probeFilepath = async path =>
     switch URI.parse(path) {
-    | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsAtTheMoment)
+    | Connection__URI.LspURI(_) => Error(Error.Probe.CannotHandleURLsAtTheMoment)
     | FileURI(_, vscodeUri) =>
       let path = VSCode.Uri.fsPath(vscodeUri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
@@ -131,10 +131,10 @@ module Module: Module = {
             | None => None
             }
             Ok(path, Error(alsVersion, agdaVersion, lspOptions))
-          | _ => Error(Connection__Endpoint__Error.NotAgdaOrALS(output))
+          | _ => Error(Error.Probe.NotAgdaOrALS(output))
           }
         }
-      | Error(error) => Error(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(error))
+      | Error(error) => Error(Error.Probe.CannotDetermineAgdaOrALS(error))
       }
     }
 
@@ -150,10 +150,10 @@ module Module: Module = {
         InitOptions.getFromConfig(),
       ) {
       | Error(error) =>
-        Error(Error.Establish.fromEndpointError(path, CannotMakeConnectionWithALS(error)))
+        Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
       | Ok(conn) => Ok(ALS(conn, path, (alsVersion, agdaVersion, lspOptions)))
       }
-    | Error(error) => Error(Error.Establish.fromEndpointError(rawpath, error))
+    | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error))
     }
   }
 
@@ -340,7 +340,7 @@ module Module: Module = {
           Some(ALS(conn, path, (alsVersion, agdaVersion, lspOptions))),
           Chan.make(),
         )
-        Error(Error.ALS(error))
+        Error(Error.CommWithALS(error))
       | Ok() => Ok()
       }
 
@@ -349,7 +349,7 @@ module Module: Module = {
       | Error(error) =>
         // stop the connection on error
         let _ = await destroy(Some(Agda(conn, path, version)), Chan.make())
-        Error(Error.Agda(error))
+        Error(Error.CommWithAgda(error))
       | Ok() => Ok()
       }
     }

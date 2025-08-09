@@ -1,4 +1,4 @@
-module Error = Connection__Endpoint__Agda__Error
+module Error = Connection__Error.CommWithAgda
 module Scheduler = Connection__Scheduler
 module Process = Connection__Transport__Process
 
@@ -75,14 +75,14 @@ module Module: Module = {
         | Stdout(rawText) =>
           // sometimes Agda would return error messages from STDOUT
           if rawText->String.startsWith("Error:") {
-            self.chan->Chan.emit(Error(AgdaError(rawText)))
+            self.chan->Chan.emit(Error(ErrorFromAgda(rawText)))
           } else {
             // split the raw text into pieces and feed it to the parser
             rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser, ...))
           }
         | Stderr(error) =>
           // sometimes Agda would return error messages from STDOUT
-          self.chan->Chan.emit(Error(AgdaError(error)))
+          self.chan->Chan.emit(Error(ErrorFromAgda(error)))
         | Event(e) => self.chan->Chan.emit(Error(Process(e)))
         }
       )->Some
