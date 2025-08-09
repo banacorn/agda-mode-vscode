@@ -405,7 +405,7 @@ let switchAgdaVersion = async (state: State.t) => {
   | None => configPaths
   }
 
-  switch await Connection.make2(
+  switch await Connection.make(
     state.platformDeps,
     state.memento,
     state.globalStorageUri,

@@ -619,16 +619,272 @@ describe("Connection", () => {
     )
   })
 
-  describe("make2 with logging", () => {
+  describe("`fromDownloads2`", () => {
+    let constructionError = Connection__Error.Construction.make()
+
+    let agdaMockEndpoint = ref(None)
+
+    Async.before(
+      async () => {
+        try {
+          // setup the Agda mock
+          let path = await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-2")
+
+          switch await Connection.Endpoint.fromRawPath(path) {
+          | Ok(target) => agdaMockEndpoint := Some(target)
+          | Error(error) =>
+            let errorMessage = Connection__Endpoint.Error.toString(error)
+            failwith(
+              "Got error when trying to construct target from mock Agda path:\n" ++ errorMessage,
+            )
+          }
+        } catch {
+        | Failure(msg) => failwith(msg) // Preserve detailed error from Test__Util.res
+        | _ => failwith("Got error when trying to construct target from mock Agda: unknown error")
+        }
+      },
+    )
+
+    Async.after(
+      async () => {
+        await Config.Connection.setAgdaPaths([])
+        await Connection.Endpoint.setPicked(Memento.make(None), None)
+
+        // cleanup the Agda mock
+        switch agdaMockEndpoint.contents {
+        | Some(target) =>
+          await Endpoint.Agda.destroy(target)
+          agdaMockEndpoint := None
+        | None => ()
+        }
+      },
+    )
+
+    Async.it(
+      "should throw the `PlatformNotSupported` error when the platform is not supported",
+      async () => {
+        let platform = {
+          "os": "non-existent-os",
+          "dist": "non-existent-dist",
+          "codename": "non-existent-codename",
+          "release": "non-existent-release",
+        }
+
+        // Create a mock platform that returns an unsupported platform error
+        let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let actual = await Connection.fromDownloads2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          constructionError,
+        )
+
+        let expected =
+          constructionError->Connection.Error.Construction.addDownloadError(
+            PlatformNotSupported(platform),
+          )
+
+        Assert.deepStrictEqual(actual, Error(Construction(expected)))
+      },
+    )
+
+    Async.it(
+      "should throw the `NoDownloadALS` error when the initial download policy is `No`",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(No)
+        let getDownloadPolicyCount = ref(0)
+
+        // Create a mock platform that simulates successful platform determination but No download policy
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadPolicyCounter(
+          Config.Connection.DownloadPolicy.No,
+          getDownloadPolicyCount,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let result = await Connection.fromDownloads2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          constructionError,
+        )
+        Assert.deepStrictEqual(result, Error(Construction(constructionError)))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
+
+        // should not ask the user for download policy since it was already set to No
+        Assert.deepStrictEqual(getDownloadPolicyCount.contents, 0)
+      },
+    )
+
+    Async.it(
+      "should throw the `NoDownloadALS` error when the user clicked `cancel` on the download dialog",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicyCount = ref(0)
+
+        // Create a mock platform that asks user and gets Undecided response
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadPolicyCounter(
+          Config.Connection.DownloadPolicy.Undecided,
+          getDownloadPolicyCount,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let result = await Connection.fromDownloads2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          constructionError,
+        )
+        Assert.deepStrictEqual(result, Error(Construction(constructionError)))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
+
+        // should ask the user for download policy exactly once
+        Assert.deepStrictEqual(getDownloadPolicyCount.contents, 1)
+      },
+    )
+
+    Async.it(
+      "should check if the latest ALS is already downloaded when the download policy is `Yes`",
+      async () => {
+        // access the Agda mock (using it as ALS for this test)
+        let mockPath = switch agdaMockEndpoint.contents {
+        | Some(endpoint) => Connection.Endpoint.toURI(endpoint)->Connection.URI.toString
+        | None => failwith("Unable to access the Agda mock endpoint")
+        }
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+
+        // Create a mock platform that returns cached ALS as raw path
+        let mockPlatformDeps = Mock.Platform.makeWithCachedDownload2AndFlag(mockPath, checkedCache)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let result = await Connection.fromDownloads2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          constructionError,
+        )
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        
+        // Should return connection directly (not endpoint)
+        switch result {
+        | Ok(connection) => 
+          switch connection {
+          | Agda(_, path, version) => 
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+        | Error(_) => Assert.fail("Expected successful cached download")
+        }
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
+
+        let paths = Config.Connection.getAgdaPaths2()
+        Assert.ok(paths->Array.includes(mockPath))
+      },
+    )
+
+    Async.it(
+      "should proceed to download the latest ALS when the download policy is `Yes` and the cached latest ALS is not found",
+      async () => {
+        // access the Agda mock (using it as ALS for this test)
+        let mockPath = switch agdaMockEndpoint.contents {
+        | Some(endpoint) => Connection.Endpoint.toURI(endpoint)->Connection.URI.toString
+        | None => failwith("Unable to access the Agda mock endpoint")
+        }
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+        let checkedDownload = ref(false)
+
+        // Create a mock platform that downloads ALS and returns raw path
+        let mockPlatformDeps = Mock.Platform.makeWithSuccessfulDownload2AndFlags(
+          mockPath,
+          checkedCache,
+          checkedDownload,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let result = await Connection.fromDownloads2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          constructionError,
+        )
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        Assert.deepStrictEqual(checkedDownload.contents, true)
+        
+        // Should return connection directly (not endpoint)
+        switch result {
+        | Ok(connection) => 
+          switch connection {
+          | Agda(_, path, version) => 
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+        | Error(_) => Assert.fail("Expected successful fresh download")
+        }
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
+
+        let paths = Config.Connection.getAgdaPaths2()
+        Assert.ok(paths->Array.includes(mockPath))
+      },
+    )
+
+    Async.it(
+      "should throw the `DownloadALS` error when the download policy is `Yes` but the download fails",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+        let checkedDownload = ref(false)
+
+        // Create a mock platform that fails to download ALS
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadFailureAndFlags(
+          checkedCache,
+          checkedDownload,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let result = await Connection.fromDownloads2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          constructionError,
+        )
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        Assert.deepStrictEqual(checkedDownload.contents, true)
+
+        let expected =
+          constructionError->Connection.Error.Construction.addDownloadError(
+            CannotFindCompatibleALSRelease,
+          )
+
+        Assert.deepStrictEqual(result, Error(Construction(expected)))
+
+        let policy = Config.Connection.DownloadPolicy.get()
+        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
+      },
+    )
+  })
+
+  describe("make with logging", () => {
     Async.it(
       "should log ConnectedToAgda when Agda connection succeeds",
       async () => {
         /**
-         * TEST PURPOSE: Verify that Connection.make2 emits ConnectedToAgda events
+         * TEST PURPOSE: Verify that Connection.make emits ConnectedToAgda events
          * 
          * SCENARIO:
          * 1. Setup a mock Agda executable
-         * 2. Create Connection.make2 with log channel
+         * 2. Create Connection.make with log channel
          * 3. Verify ConnectedToAgda event is logged with correct path and version
          */
         let loggedEvents = []
@@ -644,7 +900,7 @@ describe("Connection", () => {
         // Setup mock Agda using Test__Util
         let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
           ~version="2.6.4",
-          ~name="agda-mock-for-make2",
+          ~name="agda-mock-for-make",
         )
 
         // Create minimal memento and platformDeps
@@ -652,8 +908,8 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make2 with the mock Agda path
-        switch await Connection.make2(
+        // INVOKE: Connection.make with the mock Agda path
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -692,7 +948,7 @@ describe("Connection", () => {
       "should log connection events when using real agda command",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 logging works with real connections
+         * TEST PURPOSE: Verify Connection.make logging works with real connections
          * 
          * SCENARIO:
          * 1. Try to connect using the real 'agda' command
@@ -716,8 +972,8 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make2 with real agda command
-        switch await Connection.make2(
+        // INVOKE: Connection.make with real agda command
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -756,7 +1012,7 @@ describe("Connection", () => {
          * SCENARIO: 
          * 1. Try to connect with invalid paths and commands
          * 2. Verify no ConnectedTo* events are logged
-         * 3. Verify Connection.make2 returns Error
+         * 3. Verify Connection.make returns Error
          */
         let loggedEvents = []
         let logChannel = Chan.make()
@@ -773,8 +1029,8 @@ describe("Connection", () => {
         let platformDeps = Mock.Platform.makeBasic()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make2 with invalid paths and commands
-        switch await Connection.make2(
+        // INVOKE: Connection.make with invalid paths and commands
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -819,8 +1075,8 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make2 with invalid paths - this should attempt download but fail
-        switch await Connection.make2(
+        // INVOKE: Connection.make with invalid paths - this should attempt download but fail
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -844,15 +1100,15 @@ describe("Connection", () => {
     )
   })
 
-  describe("make2 fromPathsAndCommands scenarios", () => {
+  describe("make fromPathsAndCommands scenarios", () => {
     Async.it(
       "should find commands when no paths are given",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 finds commands when no paths provided
+         * TEST PURPOSE: Verify Connection.make finds commands when no paths provided
          * 
          * SCENARIO:
-         * 1. Call Connection.make2 with empty paths array
+         * 1. Call Connection.make with empty paths array
          * 2. Provide valid commands ["agda", "als"]
          * 3. Should successfully connect and log the connection
          */
@@ -867,7 +1123,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -892,7 +1148,7 @@ describe("Connection", () => {
       "should find commands even if all paths given are wrong",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 falls back to commands when paths fail
+         * TEST PURPOSE: Verify Connection.make falls back to commands when paths fail
          * 
          * SCENARIO:
          * 1. Provide invalid paths
@@ -910,7 +1166,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -935,7 +1191,7 @@ describe("Connection", () => {
       "should prioritize valid paths over commands",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 uses paths before falling back to commands
+         * TEST PURPOSE: Verify Connection.make uses paths before falling back to commands
          * 
          * SCENARIO:
          * 1. Setup mock Agda at known path
@@ -959,7 +1215,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -998,12 +1254,12 @@ describe("Connection", () => {
       "should respect memento picked path priority",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 prioritizes memento picked path
+         * TEST PURPOSE: Verify Connection.make prioritizes memento picked path
          * 
          * SCENARIO:
          * 1. Setup two mock Agda executables
          * 2. Set one as picked in memento
-         * 3. Provide both paths to Connection.make2
+         * 3. Provide both paths to Connection.make
          * 4. Should connect to the picked one first
          */
         let loggedEvents = []
@@ -1030,7 +1286,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1059,12 +1315,12 @@ describe("Connection", () => {
     )
   })
 
-  describe("make2 fromDownloads scenarios", () => {
+  describe("make fromDownloads scenarios", () => {
     Async.it(
       "should handle platform not supported error with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 handles unsupported platform gracefully
+         * TEST PURPOSE: Verify Connection.make handles unsupported platform gracefully
          * 
          * SCENARIO:
          * 1. Use mock platform that returns unsupported platform error
@@ -1089,7 +1345,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1119,7 +1375,7 @@ describe("Connection", () => {
       "should handle download policy No with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 respects No download policy
+         * TEST PURPOSE: Verify Connection.make respects No download policy
          * 
          * SCENARIO:
          * 1. Set download policy to No
@@ -1143,7 +1399,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1168,18 +1424,16 @@ describe("Connection", () => {
       },
     )
 
-    Async.it_skip(
-      "should handle successful download with logging", 
+    Async.it(
+      "should handle download policy Undecided (user cancelled) with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make2 successfully downloads and logs connection
+         * TEST PURPOSE: Verify Connection.make handles user cancelling download dialog
          * 
          * SCENARIO:
-         * 1. Set download policy to Yes  
-         * 2. Mock successful download returning connection
-         * 3. Should create connection and log ConnectedToALS event
-         * 
-         * NOTE: Skipping due to complexity of ALS connection mocking in test environment
+         * 1. Set download policy to Undecided
+         * 2. Mock user clicking cancel (returning Undecided)
+         * 3. Should return error and set policy to No, with no connection events
          */
         let loggedEvents = []
         let logChannel = Chan.make()
@@ -1188,33 +1442,172 @@ describe("Connection", () => {
           loggedEvents->Array.push(logEvent)
         })
 
-        // Create mock ALS endpoint for successful download
-        let mockALSPath = await Test__Util.Endpoint.ALS.mock(
-          ~alsVersion="1.4.0",
-          ~agdaVersion="2.6.4",
-          ~name="als-mock-download",
-        )
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let getDownloadPolicyCount = ref(0)
 
-        await Config.Connection.DownloadPolicy.set(Yes)
+        // Create a mock platform that asks user and gets Undecided response (user cancelled)
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadPolicyCounter(
+          Config.Connection.DownloadPolicy.Undecided,
+          getDownloadPolicyCount,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        ) {
+        | Ok(_) => Assert.fail("Expected error due to user cancelling download")
+        | Error(error) =>
+          // Should get Construction error
+          switch error {
+          | Connection.Error.Construction(_) => ()
+          | _ => Assert.fail("Expected Construction error")
+          }
+          
+          // Should have asked for download policy exactly once
+          Assert.deepStrictEqual(getDownloadPolicyCount.contents, 1)
+          
+          // Should have set policy to No after user cancelled
+          let policy = Config.Connection.DownloadPolicy.get()
+          Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
+          
+          // Should not have logged connection events
+          Assert.deepStrictEqual(loggedEvents, [])
+        }
+      },
+    )
+
+    Async.it(
+      "should handle cached ALS download with logging", 
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make uses cached ALS and logs connection
+         * 
+         * SCENARIO:
+         * 1. Set download policy to Yes
+         * 2. Mock cached ALS available
+         * 3. Should use cached ALS and log connection event
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        // Setup mock ALS executable for cached download
+        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.7.0.1",
+          ~name="agda-mock-cached",
+        )
+        let mockEndpoint = switch await Connection.Endpoint.fromRawPath(agdaMockPath) {
+        | Ok(target) => target
+        | Error(_) => failwith("Expected valid endpoint from mock")
+        }
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+
+        // Create a mock platform that returns cached ALS
+        let mockPlatformDeps = Mock.Platform.makeWithCachedDownloadAndFlag(mockEndpoint, checkedCache)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"], // force download fallback
+          ["invalid-command"], // force download fallback
+          logChannel,
+        ) {
+        | Ok(connection) =>
+          // Should have checked cache
+          Assert.deepStrictEqual(checkedCache.contents, true)
+          
+          // Should have logged connection
+          switch loggedEvents {
+          | [Log.Connection(Log.Connection.ConnectedToAgda(_, version))] =>
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected exactly one ConnectedToAgda event")
+          }
+
+          // Connection should match logged event
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath)
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+
+          // Should have set policy to Yes
+          let policy = Config.Connection.DownloadPolicy.get()
+          Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
+
+        | Error(_) => Assert.fail("Expected successful cached download")
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(agdaMockPath)
+        } catch {
+        | _ => ()
+        }
+      },
+    )
+
+    Async.it(
+      "should handle fresh ALS download with logging",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make downloads fresh ALS and logs connection
+         * 
+         * SCENARIO:
+         * 1. Set download policy to Yes
+         * 2. Mock no cached ALS, successful fresh download
+         * 3. Should download ALS and log connection event
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        // Setup mock ALS for successful download
+        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.7.0.1", 
+          ~name="agda-mock-fresh-download",
+        )
+        let mockEndpoint = switch await Connection.Endpoint.fromRawPath(agdaMockPath) {
+        | Ok(target) => target
+        | Error(_) => failwith("Expected valid endpoint from mock")
+        }
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
         let checkedCache = ref(false)
         let checkedDownload = ref(false)
 
-        // Note: Mock platform will return the raw path directly from downloadLatestALS2
-
-        let mockPlatformDeps = Mock.Platform.makeWithSuccessfulDownload2AndFlags(
-          mockALSPath, // return the raw path for download
+        // Create a mock platform that downloads ALS
+        let mockPlatformDeps = Mock.Platform.makeWithSuccessfulDownloadAndFlags(
+          mockEndpoint,
           checkedCache,
           checkedDownload,
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        switch await Connection.make2(
+        switch await Connection.make(
           mockPlatformDeps,
           memento,
           globalStorageUri,
           ["/invalid/path"], // force download fallback
-          ["invalid-command"], // force download fallback  
+          ["invalid-command"], // force download fallback
           logChannel,
         ) {
         | Ok(connection) =>
@@ -1222,32 +1615,97 @@ describe("Connection", () => {
           Assert.deepStrictEqual(checkedCache.contents, true)
           Assert.deepStrictEqual(checkedDownload.contents, true)
           
-          // Should have logged ALS connection
+          // Should have logged connection
           switch loggedEvents {
-          | [Log.Connection(Log.Connection.ConnectedToALS(path, als, agda))] =>
-            Assert.deepStrictEqual(path, mockALSPath)
-            Assert.deepStrictEqual(als, "1.4.0")
-            Assert.deepStrictEqual(agda, "2.6.4")
-          | _ => Assert.fail("Expected exactly one ConnectedToALS event")
+          | [Log.Connection(Log.Connection.ConnectedToAgda(_, version))] =>
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected exactly one ConnectedToAgda event")
           }
 
           // Connection should match logged event
           switch connection {
-          | ALS(_, path, als, agda) =>
-            Assert.deepStrictEqual(path, mockALSPath)
-            Assert.deepStrictEqual(als, "1.4.0") 
-            Assert.deepStrictEqual(agda, "2.6.4")
-          | _ => Assert.fail("Expected ALS connection")
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath)
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
           }
 
-        | Error(_) => Assert.fail("Expected successful download and connection")
+          // Should have set policy to Yes
+          let policy = Config.Connection.DownloadPolicy.get()
+          Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
+
+        | Error(_) => Assert.fail("Expected successful fresh download")
         }
 
         // Cleanup
         try {
-          NodeJs.Fs.unlinkSync(mockALSPath)
+          NodeJs.Fs.unlinkSync(agdaMockPath)
         } catch {
         | _ => ()
+        }
+      },
+    )
+
+    Async.it(
+      "should handle download failure with logging",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make handles download failures gracefully
+         * 
+         * SCENARIO:
+         * 1. Set download policy to Yes
+         * 2. Mock download failure
+         * 3. Should return error and no connection events
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+        let checkedDownload = ref(false)
+
+        // Create a mock platform that fails to download ALS
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadFailureAndFlags(
+          checkedCache,
+          checkedDownload,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        ) {
+        | Ok(_) => Assert.fail("Expected download failure")
+        | Error(error) =>
+          // Should have checked cache and attempted download
+          Assert.deepStrictEqual(checkedCache.contents, true)
+          Assert.deepStrictEqual(checkedDownload.contents, true)
+
+          // Should get Construction error with download failure
+          switch error {
+          | Connection.Error.Construction(constructionError) =>
+            switch constructionError.download {
+            | Some(Connection__Download.Error.CannotFindCompatibleALSRelease) => ()
+            | _ => Assert.fail("Expected CannotFindCompatibleALSRelease download error")
+            }
+          | _ => Assert.fail("Expected Construction error")
+          }
+
+          // Should have set policy to Yes
+          let policy = Config.Connection.DownloadPolicy.get()
+          Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
+          
+          // Should not have logged connection events
+          Assert.deepStrictEqual(loggedEvents, [])
         }
       },
     )

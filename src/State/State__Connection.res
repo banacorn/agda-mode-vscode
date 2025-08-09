@@ -37,8 +37,9 @@ let sendRequest = async (
       state.platformDeps,
       state.memento,
       state.globalStorageUri,
-      Config.Connection.getAgdaPaths(),
+      Config.Connection.getAgdaPaths2(),
       ["als", "agda"],
+      state.channels.log,
     ) {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok(connection) =>

@@ -62,25 +62,7 @@ describe("Platform dependent utilities", () => {
   })
 
   describe("Connection Integration", () => {
-    Async.it(
-      "should allow Connection.make to be called with platform dependencies",
-      async () => {
-        let platformDeps = Web.make() // Use web for predictable mock behavior
-        let memento = Memento.make(None)
-        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let paths = []
-        let commands = ["agda"]
-
-        // This should not crash and should return an error (since web platform doesn't support real connections)
-        let result = await Connection.make(platformDeps, memento, globalStorageUri, paths, commands)
-
-        switch result {
-        | Error(_) => Assert.ok(true) // Expected for web platform
-        | Ok(_) => Assert.fail("Web platform should not succeed in making real connections")
-        }
-      },
-    )
-
+   
     Async.it(
       "should allow Connection.fromDownloads to be called with platform dependencies",
       async () => {

@@ -9,16 +9,8 @@ module type Module = {
     | Agda(Agda.t, string, string) // connection, path, version
     | ALS(ALS.t, string, string, string) // connection, path, ALS version, Agda version
 
-  // Platform dependencies type
   // lifecycle
   let make: (
-    Platform.t,
-    Memento.t,
-    VSCode.Uri.t,
-    array<Connection__URI.t>,
-    array<string>,
-  ) => promise<result<t, Error.t>>
-  let make2: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
@@ -107,32 +99,6 @@ module Module: Module = {
     switch connection {
     | Agda(_, path, _) => path
     | ALS(_, path, _, _) => path
-    }
-
-  let makeWithEndpoint = async (endpoint: Endpoint.t): result<t, Error.t> =>
-    switch endpoint {
-    | Agda(version, path) =>
-      switch await Agda.make(path, version) {
-      | Error(error) => Error(Error.Agda(error))
-      | Ok(conn) => Ok(Agda(conn, path, version))
-      }
-    | ALS(alsVersion, agdaVersion, method, lspOptions) =>
-      switch await ALS.make(method, lspOptions, InitOptions.getFromConfig()) {
-      | Error(error) => Error(ALS(error))
-      | Ok(conn) =>
-        switch method {
-        | Connection__Transport.ViaPipe(path, _) => Ok(ALS(conn, path, alsVersion, agdaVersion))
-        | Connection__Transport.ViaTCP(_, _) =>
-          Ok(
-            ALS(
-              conn,
-              Endpoint.toURI(endpoint)->Connection__Endpoint.URI.getOriginalPath,
-              alsVersion,
-              agdaVersion,
-            ),
-          )
-        }
-      }
     }
 
   let makeWithRawPath = async (rawpath: string): result<t, Connection__Endpoint.Error.t> => {
@@ -410,35 +376,12 @@ module Module: Module = {
     }
   }
 
-  // Try to make a connection to Agda or ALS, by trying:
-  //  1. `fromPathsAndCommands` to connect to Agda or ALS with paths and commands
-  //  2. `fromDownloads` to download the latest ALS
-  let make = async (
-    platformDeps: Platform.t,
-    memento: Memento.t,
-    globalStorageUri: VSCode.Uri.t,
-    paths: array<Connection__URI.t>,
-    commands: array<string>,
-  ) =>
-    switch await fromPathsAndCommands(platformDeps, memento, paths, commands) {
-    | Error(constructionError) =>
-      switch await fromDownloads(platformDeps, memento, globalStorageUri, constructionError) {
-      | Error(error) => Error(error)
-      | Ok(endpoint) =>
-        await Config.Connection.addAgdaPath(endpoint->Endpoint.toURI)
-        await makeWithEndpoint(endpoint)
-      }
-    | Ok(endpoint) =>
-      await Config.Connection.addAgdaPath(endpoint->Endpoint.toURI)
-      await makeWithEndpoint(endpoint)
-    }
-
   // Make a connection to Agda or ALS, by trying:
   //  1. The previously picked raw path if it exists in settings
   //  2. Each raw path from the settings sequentially
   //  3. Each command from the commands array sequentially
   //  4. Downloading the latest ALS
-  let make2 = async (
+  let make = async (
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
