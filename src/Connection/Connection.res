@@ -4,9 +4,15 @@ module ALS = Connection__Endpoint__ALS
 module URI = Connection__URI
 
 module type Module = {
+  type agdaVersion = string // Agda version
+  type alsVersion = (
+    string,
+    string,
+    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+  ) // (ALS version, Agda version, LSP options)
   type t =
-    | Agda(Agda.t, string, string) // connection, path, version
-    | ALS(ALS.t, string, string, string) // connection, path, ALS version, Agda version
+    | Agda(Agda.t, string, agdaVersion) // connection, path
+    | ALS(ALS.t, string, alsVersion) // connection, path
 
   // lifecycle
   let make: (
@@ -39,6 +45,9 @@ module type Module = {
 
   // utility
   let checkForPrebuiltDataDirectory: string => promise<option<string>>
+  let probeFilepath: Connection__URI.t => promise<
+    result<(string, result<agdaVersion, alsVersion>), Connection__Endpoint__Error.t>,
+  >
 }
 
 module Module: Module = {
@@ -58,10 +67,15 @@ module Module: Module = {
       }->encode
   }
 
-  // internal state singleton
+  type agdaVersion = string // Agda version
+  type alsVersion = (
+    string,
+    string,
+    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+  ) // (ALS version, Agda version, LSP options)
   type t =
-    | Agda(Agda.t, string, string) // connection, path, version
-    | ALS(ALS.t, string, string, string) // connection, path, ALS version, Agda version
+    | Agda(Agda.t, string, agdaVersion) // connection, path
+    | ALS(ALS.t, string, alsVersion) // connection, path
 
   let destroy = async (connection, logChannel: Chan.t<Log.t>) =>
     switch connection {
@@ -70,14 +84,14 @@ module Module: Module = {
       // Log disconnection before destroying
       switch connection {
       | Agda(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
-      | ALS(_, path, _, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
+      | ALS(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
       }
 
       switch connection {
       | Agda(conn, _, _) =>
         await Agda.destroy(conn)
         Ok()
-      | ALS(conn, _, _, _) =>
+      | ALS(conn, _, _) =>
         switch await ALS.destroy(conn) {
         | Error(error) => Error(Error.ALS(error))
         | Ok(_) => Ok()
@@ -88,7 +102,7 @@ module Module: Module = {
   let getPath = connection =>
     switch connection {
     | Agda(_, path, _) => path
-    | ALS(_, path, _, _) => path
+    | ALS(_, path, _) => path
     }
 
   // Helper function to check for prebuilt data directory
@@ -105,23 +119,18 @@ module Module: Module = {
     }
   }
 
-  let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
-    let uri = URI.parse(rawpath)
+  // see if it's a Agda executable or a language server
+  let probeFilepath = async uri =>
     switch uri {
-    | URI.LspURI(_) => Error(Error.Construction.fromEndpointError(rawpath, CannotHandleURLsATM))
-    | FileURI(_, uri) =>
-      let path = VSCode.Uri.fsPath(uri)
+    | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsATM)
+    | FileURI(_, vscodeUri) =>
+      let path = VSCode.Uri.fsPath(vscodeUri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
       switch result {
       | Ok(output) =>
         // try Agda
         switch String.match(output, %re("/Agda version (.*)/")) {
-        | Some([_, Some(version)]) =>
-          switch await Agda.make(path, version) {
-          | Error(error) =>
-            Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithAgda(error)))
-          | Ok(conn) => Ok(Agda(conn, path, version))
-          }
+        | Some([_, Some(version)]) => Ok(path, Ok(version))
         | _ =>
           // try ALS
           switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
@@ -132,27 +141,33 @@ module Module: Module = {
               Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
             | None => None
             }
-            switch await ALS.make(
-              Connection__Transport.ViaPipe(path, []),
-              lspOptions,
-              InitOptions.getFromConfig(),
-            ) {
-            | Error(error) =>
-              Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithALS(error)))
-            | Ok(conn) => Ok(ALS(conn, path, alsVersion, agdaVersion))
-            }
-          | _ =>
-            Error(
-              Error.Construction.fromEndpointError(
-                path,
-                Connection__Endpoint__Error.NotAgdaOrALS(output),
-              ),
-            )
+            Ok(path, Error(alsVersion, agdaVersion, lspOptions))
+          | _ => Error(Connection__Endpoint__Error.NotAgdaOrALS(output))
           }
         }
-      | Error(error) =>
-        Error(Error.Construction.fromEndpointError(path, CannotDetermineAgdaOrALS(error)))
+      | Error(error) => Error(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(error))
       }
+    }
+
+  let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
+    switch await probeFilepath(URI.parse(rawpath)) {
+    | Ok(path, Ok(agdaVersion)) =>
+      switch await Agda.make(rawpath, agdaVersion) {
+      | Error(error) =>
+        Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithAgda(error)))
+      | Ok(conn) => Ok(Agda(conn, path, agdaVersion))
+      }
+    | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
+      switch await ALS.make(
+        Connection__Transport.ViaPipe(rawpath, []),
+        lspOptions,
+        InitOptions.getFromConfig(),
+      ) {
+      | Error(error) =>
+        Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithALS(error)))
+      | Ok(conn) => Ok(ALS(conn, path, (alsVersion, agdaVersion, lspOptions)))
+      }
+    | Error(error) => Error(Error.Construction.fromEndpointError(rawpath, error))
     }
   }
 
@@ -284,7 +299,7 @@ module Module: Module = {
       switch connection {
       | Agda(_, path, version) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToAgda(path, version)))
-      | ALS(_, path, alsVersion, agdaVersion) =>
+      | ALS(_, path, (alsVersion, agdaVersion, _lspOptions)) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, alsVersion, agdaVersion)))
       }
     }
@@ -340,11 +355,14 @@ module Module: Module = {
     }
 
     switch connection {
-    | ALS(conn, path, alsVersion, agdaVersion) =>
+    | ALS(conn, path, (alsVersion, agdaVersion, lspOptions)) =>
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(ALS(conn, path, alsVersion, agdaVersion)), Chan.make())
+        let _ = await destroy(
+          Some(ALS(conn, path, (alsVersion, agdaVersion, lspOptions))),
+          Chan.make(),
+        )
         Error(Error.ALS(error))
       | Ok() => Ok()
       }

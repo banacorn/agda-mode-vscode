@@ -475,7 +475,7 @@ describe("Connection", () => {
           | Agda(_, path, version) =>
             Assert.ok(String.length(path) > 0)
             Assert.ok(String.length(version) > 0)
-          | ALS(_, path, alsVersion, agdaVersion) =>
+          | ALS(_, path, (alsVersion, agdaVersion, _)) =>
             Assert.ok(String.length(path) > 0)
             Assert.ok(String.length(alsVersion) > 0)
             Assert.ok(String.length(agdaVersion) > 0)
@@ -499,7 +499,7 @@ describe("Connection", () => {
           | Agda(_, path, version) =>
             Assert.ok(String.length(path) > 0)
             Assert.ok(String.length(version) > 0)
-          | ALS(_, path, alsVersion, agdaVersion) =>
+          | ALS(_, path, (alsVersion, agdaVersion, _)) =>
             Assert.ok(String.length(path) > 0)
             Assert.ok(String.length(alsVersion) > 0)
             Assert.ok(String.length(agdaVersion) > 0)
@@ -678,10 +678,10 @@ describe("Connection", () => {
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToAgda(path, version))],
             )
-          | ALS(_, path, als, agda) =>
+          | ALS(_, path, (alsVersion, agdaVersion, _)) =>
             Assert.deepStrictEqual(
               loggedEvents,
-              [Log.Connection(Log.Connection.ConnectedToALS(path, als, agda))],
+              [Log.Connection(Log.Connection.ConnectedToALS(path, alsVersion, agdaVersion))],
             )
           }
 

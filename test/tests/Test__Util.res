@@ -372,7 +372,7 @@ module AgdaMode = {
     switch await Connection.fromCommands(platformDeps, [command]) {
     | Error(_error) => false
     | Ok(Agda(_, _, actualVersion)) => Util.Version.gte(actualVersion, expectedVersion)
-    | Ok(ALS(_, _, _, actualVersion)) => Util.Version.gte(actualVersion, expectedVersion)
+    | Ok(ALS(_, _, (_, actualVersion, _))) => Util.Version.gte(actualVersion, expectedVersion)
     }
   }
 
