@@ -5,8 +5,7 @@
 module Desktop: Platform.PlatformOps = {
   let determinePlatform = Connection__Download__Platform.determine
 
-  let findCommands = Connection__Command.findCommands
-  let findCommand = Connection__Command.findCommand
+  let findCommand = Connection__Command.search
 
   let alreadyDownloaded = globalStorageUri => async () => {
     switch await Connection__LatestALS.alreadyDownloaded(globalStorageUri)() {
@@ -60,11 +59,11 @@ module Desktop: Platform.PlatformOps = {
     })
 
     // add `agda` and `als` from the PATH
-    switch await Connection__Command2.findCommands(["agda"]) {
+    switch await Connection__Command.search("agda") {
     | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.Agda(None))
     | Error(_) => ()
     }
-    switch await Connection__Command2.findCommands(["als"]) {
+    switch await Connection__Command.search("als") {
     | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.ALS(None))
     | Error(_) => ()
     }

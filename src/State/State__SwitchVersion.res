@@ -374,7 +374,7 @@ module SwitchVersionManager = {
 
 // Connection switching logic
 let switchAgdaVersion = async (state: State.t) => {
-  // Skip the initial Connection.Endpoint.getPickedRaw() call since it might clear our memento
+  // Skip the initial Connection.Endpoint.getPicked() call since it might clear our memento
   // Just show a generic "switching..." message
   await State__View.Panel.displayStatus(state, "")
   await State__View.Panel.display(
@@ -422,28 +422,21 @@ let switchAgdaVersion = async (state: State.t) => {
       await State__View.Panel.displayStatus(state, formattedVersion)
       await State__View.Panel.display(
         state,
-        AgdaModeVscode.View.Header.Success(
-          VersionDisplay.formatSwitchedMessage(formattedVersion),
-        ),
+        AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
         [],
       )
     | ALS(_, _, alsVersion, agdaVersion) =>
-      let formattedVersion = VersionDisplay.formatALSVersion(
-        alsVersion,
-        agdaVersion,
-      )
+      let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
       await State__View.Panel.displayStatus(state, formattedVersion)
       await State__View.Panel.display(
         state,
-        AgdaModeVscode.View.Header.Success(
-          VersionDisplay.formatSwitchedMessage(formattedVersion),
-        ),
+        AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
         [],
       )
     }
 
   // Use the same pathsFromSystem we used for Connection.make() to ensure consistency
-  // switch await Connection.Endpoint.getPickedRaw(state.memento, pathsFromSystem) {
+  // switch await Connection.Endpoint.getPicked(state.memento, pathsFromSystem) {
   // | None => ()
   // // | Some(Agda(version, _)) => {
   // //     let formattedVersion = VersionDisplay.formatAgdaVersion(version)
@@ -533,10 +526,7 @@ module Download = {
           ->Array.last
           ->Option.getOr(fetchSpec.release.name)
 
-        let versionString = VersionDisplay.formatALSVersion(
-          alsVersion,
-          agdaVersion,
-        )
+        let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
 
         Some((downloaded, versionString))
       }
@@ -591,10 +581,9 @@ module Handler = {
                     [],
                   )
                 | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS(
-                    state.memento,
-                    state.globalStorageUri,
-                  )(platform) {
+                  switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(
+                    platform,
+                  ) {
                   | Error(error) =>
                     let _ = await VSCode.Window.showErrorMessage(
                       AgdaModeVscode.Connection__Download.Error.toString(error),
@@ -664,7 +653,7 @@ module Handler = {
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
 
-    // No initialization needed since we removed getPickedRaw() -
+    // No initialization needed since we removed getPicked() -
     // just use whatever is stored in memento directly
 
     // Helper function to update UI with current state

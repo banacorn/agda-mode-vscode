@@ -9,9 +9,6 @@ module type PlatformOps = {
   >
 
   // Command/executable searching
-  let findCommands: array<string> => promise<
-    result<Connection__Endpoint.t, Dict.t<Connection__Command.Error.t>>, 
-  >
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations

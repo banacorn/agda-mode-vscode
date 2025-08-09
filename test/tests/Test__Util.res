@@ -369,31 +369,17 @@ module Golden = {
 module AgdaMode = {
   let versionGTE = async (command, expectedVersion) => {
     let platformDeps = Desktop.make()
-    switch await Connection.findCommands(platformDeps, [command]) {
+    switch await Connection.fromCommands(platformDeps, [command]) {
     | Error(_error) => false
-    | Ok(connection) =>
-      let actualVersion = switch connection {
-      | Agda(version, _) => version
-      | ALS(version, _, _, _) => version
-      }
-      Util.Version.gte(actualVersion, expectedVersion)
+    | Ok(Agda(_, _, actualVersion)) => Util.Version.gte(actualVersion, expectedVersion)
+    | Ok(ALS(_, _, _, actualVersion)) => Util.Version.gte(actualVersion, expectedVersion)
     }
   }
 
   let commandExists = async command => {
     let platformDeps = Desktop.make()
-    switch await Connection.findCommands(platformDeps, [command]) {
-    | Error(errors) =>
-      raise(
-        Failure(
-          errors
-          ->Dict.toArray
-          ->Array.map(((command, error)) =>
-            command ++ ": " ++ Connection__Command.Error.toString(error)
-          )
-          ->Array.join("\n"),
-        ),
-      )
+    switch await Connection.fromCommands(platformDeps, [command]) {
+    | Error(errors) => raise(Failure(errors->Connection.Error.Construction.toString))
     | Ok(_) => ()
     }
   }
@@ -713,8 +699,7 @@ module Endpoint = {
           errorMsg ++
           "\n" ++
           "  - Content length: " ++
-          string_of_int(String.length(content)) ++
-          " characters"
+          string_of_int(String.length(content)) ++ " characters"
         raise(Failure(detailedError))
       | _ => raise(Failure("Got error when trying to construct a mock for ALS: unknown error"))
       }

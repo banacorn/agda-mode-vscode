@@ -8,12 +8,6 @@ module Web: Platform.PlatformOps = {
     Promise.resolve(Error(unsupportedRaw))
   }
 
-  let findCommands = async commands => Error(
-    commands
-    ->Array.map(command => (command, Connection__Command.Error.NotFound))
-    ->Dict.fromArray,
-  )
-
   let findCommand = (_command, ~timeout as _timeout=1000) =>
     Promise.resolve(Error(Connection__Command.Error.NotFound))
 

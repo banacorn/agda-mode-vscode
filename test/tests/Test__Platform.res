@@ -15,17 +15,6 @@ describe("Platform dependent utilities", () => {
         | Ok(_) => Assert.ok(true) // Valid platform detected
         | Error(_) => Assert.ok(true) // Valid error structure (may fail in CI/test environment)
         }
-
-        // Test command finding - should return proper Result type
-        let commandResult = await PlatformOps.findCommands(["nonexistent-command"])
-        switch commandResult {
-        | Ok(_) => Assert.fail("Should not find nonexistent command")
-        | Error(errors) =>
-          Assert.deepStrictEqual(
-            errors,
-            Dict.fromArray([("nonexistent-command", Connection__Command.Error.NotFound)]),
-          )
-        }
       },
     )
 
@@ -42,16 +31,6 @@ describe("Platform dependent utilities", () => {
           Assert.deepStrictEqual(raw["os"], "web")
           Assert.deepStrictEqual(raw["dist"], "browser")
         | Ok(_) => Assert.fail("Web platform should return Error for determinePlatform")
-        }
-
-        let commandResult = await PlatformOps.findCommands(["agda"])
-        switch commandResult {
-        | Error(errors) =>
-          Assert.deepStrictEqual(
-            errors,
-            Dict.fromArray([("agda", Connection__Command.Error.NotFound)]),
-          )
-        | _ => Assert.fail("Web platform should return specific NotFound error")
         }
 
         // Test download policy - should return No for web
@@ -74,16 +53,6 @@ describe("Platform dependent utilities", () => {
         switch platformResult {
         | Ok(Connection__Download__Platform.MacOS_Arm) => Assert.ok(true)
         | _ => Assert.fail("Mock platform should return MacOS_Arm")
-        }
-
-        let commandResult = await PlatformOps.findCommands(["test"])
-        switch commandResult {
-        | Error(errors) =>
-          Assert.deepStrictEqual(
-            errors,
-            Dict.fromArray([("test", Connection__Command.Error.NotFound)]),
-          )
-        | _ => Assert.fail("Mock platform should return NotFound error")
         }
       },
     )

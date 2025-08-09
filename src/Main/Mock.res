@@ -12,11 +12,6 @@ module Platform = {
     let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
-    let findCommands = async commands => Error(
-      commands
-      ->Array.map(command => (command, Connection__Command.Error.NotFound))
-      ->Dict.fromArray,
-    )
   }
 
   // Mock platform that simulates successful Agda discovery
@@ -34,18 +29,6 @@ module Platform = {
     }
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
-    let findCommands = async commands => {
-      // Simulate finding agda command
-      if commands->Array.includes("agda") {
-        Ok(Connection.Endpoint.Agda("2.6.4", "/usr/bin/agda"))
-      } else {
-        Error(
-          commands
-          ->Array.map(command => (command, Connection__Command.Error.NotFound))
-          ->Dict.fromArray,
-        )
-      }
-    }
   }
 
   // Mock platform that allows download policy to be specified
@@ -59,11 +42,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -87,11 +65,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -112,11 +85,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -135,11 +103,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -168,11 +131,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -196,11 +154,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -229,11 +182,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }
@@ -260,11 +208,6 @@ module Platform = {
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let findCommands = async commands => Error(
-        commands
-        ->Array.map(command => (command, Connection__Command.Error.NotFound))
-        ->Dict.fromArray,
-      )
     }
     module(MockPlatform)
   }

@@ -3,8 +3,10 @@ open Test__Util
 
 let getAgdaTarget = async () => {
   let platformDeps = Desktop.make()
-  switch await Connection.findCommands(platformDeps, ["agda"]) {
-  | Ok(target) => target
+  switch await Connection.fromCommands(platformDeps, ["agda"]) {
+  | Ok(Agda(_, path, version)) => Connection.Endpoint.Agda(version, path)
+  | Ok(ALS(_, path, alsVersion, agdaVersion)) => 
+    Connection.Endpoint.ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, []), None)
   | Error(_) => failwith("expected to find `agda`")
   }
 }
@@ -158,26 +160,6 @@ describe("Connection", () => {
   })
 
   describe("Command searching", () => {
-    Async.it(
-      "should be able to find itself (`which` or `where`), although it's not a valid target",
-      async () => {
-        if OS.onUnix {
-          switch await Connection__Command.search("which") {
-          | Ok(_output) => failwith("should not be a valid target")
-          | Error(Connection__Command.Error.NotFound) => failwith("expected to find `which`")
-          | Error(SomethingWentWrong(_)) => failwith("expected to find `which`")
-          | Error(NotValidTarget(_, _)) => ()
-          }
-        } else {
-          switch await Connection__Command.search("where") {
-          | Ok(_output) => failwith("should not be a valid target")
-          | Error(Connection__Command.Error.NotFound) => failwith("expected to find `where`")
-          | Error(SomethingWentWrong(_)) => failwith("expected to find `where`")
-          | Error(NotValidTarget(_, _)) => ()
-          }
-        }
-      },
-    )
     Async.it(
       "should return an error when the command is not found",
       async () => {

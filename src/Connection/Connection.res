@@ -44,12 +44,6 @@ module type Module = {
     Request.t,
     Response.t => promise<unit>,
   ) => promise<result<unit, Error.t>>
-
-  // command (uses platform dependencies)
-  let findCommands: (
-    Platform.t,
-    array<string>,
-  ) => promise<result<Endpoint.t, Dict.t<Connection__Command.Error.t>>>
 }
 
 module Module: Module = {
@@ -151,12 +145,6 @@ module Module: Module = {
         Error(Error.Construction.fromEndpointError(path, CannotDetermineAgdaOrALS(error)))
       }
     }
-  }
-
-  // search through a list of commands until one is found
-  let findCommands = async (platformDeps: Platform.t, commands) => {
-    module PlatformOps = unpack(platformDeps)
-    await PlatformOps.findCommands(commands)
   }
 
   // Combinator: try each item in array until one succeeds, or return all failures
