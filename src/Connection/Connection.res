@@ -8,7 +8,7 @@ module type Module = {
   type alsVersion = (
     string,
     string,
-    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+    option<Connection__Protocol__LSP__Binding.executableOptions>,
   ) // (ALS version, Agda version, LSP options)
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path
@@ -72,7 +72,7 @@ module Module: Module = {
   type alsVersion = (
     string,
     string,
-    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+    option<Connection__Protocol__LSP__Binding.executableOptions>,
   ) // (ALS version, Agda version, LSP options)
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path
@@ -139,7 +139,7 @@ module Module: Module = {
             let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
             | Some(assetPath) =>
               let env = Dict.fromArray([("Agda_datadir", assetPath)])
-              Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
+              Some({Connection__Protocol__LSP__Binding.env: env})
             | None => None
             }
             Ok(path, Error(alsVersion, agdaVersion, lspOptions))

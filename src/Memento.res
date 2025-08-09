@@ -21,7 +21,7 @@ module Module: {
           option<(
             string,
             string,
-            option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+            option<Connection__Protocol__LSP__Binding.executableOptions>,
           )>,
         ) // ALS version & corresponding Agda version & LSP options
       | Unknown
@@ -110,7 +110,7 @@ module Module: {
           option<(
             string,
             string,
-            option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+            option<Connection__Protocol__LSP__Binding.executableOptions>,
           )>,
         ) // ALS version & corresponding Agda version & LSP options
       | Unknown

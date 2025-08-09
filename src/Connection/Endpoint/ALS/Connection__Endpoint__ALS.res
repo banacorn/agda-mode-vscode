@@ -1,6 +1,6 @@
 module Scheduler = Connection__Scheduler
 module Error = Connection__Endpoint__ALS__Error
-module LSP = Connection__Endpoint__Protocol__LSP
+module LSP = Connection__Protocol__LSP
 
 type version = string
 
@@ -210,7 +210,7 @@ module type Module = {
   // lifecycle
   let make: (
     Connection__Transport.t,
-    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+    option<Connection__Protocol__LSP__Binding.executableOptions>,
     JSON.t,
   ) => promise<result<t, Error.t>>
   let destroy: t => promise<result<unit, Error.t>>

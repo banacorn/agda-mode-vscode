@@ -1,4 +1,4 @@
-module Binding = Connection__Endpoint__Protocol__LSP__Binding
+module Binding = Connection__Protocol__LSP__Binding
 module IPC = Connection__Transport
 
 module type Module = {
@@ -8,7 +8,7 @@ module type Module = {
     string,
     string,
     IPC.t,
-    option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+    option<Binding.executableOptions>,
     Js.Json.t,
   ) => promise<result<t, Js.Exn.t>>
   let destroy: t => promise<result<unit, Js.Exn.t>>
