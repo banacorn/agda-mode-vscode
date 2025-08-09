@@ -320,34 +320,34 @@ module SwitchVersionManager = {
   // Version probing (Phase 3)
 
   // see if it's a Agda executable or a language server
-  // let probeFilepath = async uri =>
-  //   switch uri {
-  //   | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsATM)
-  //   | FileURI(_, vscodeUri) =>
-  //     let path = VSCode.Uri.fsPath(vscodeUri)
-  //     let result = await Connection__Process__Exec.run(path, ["--version"])
-  //     switch result {
-  //     | Ok(output) =>
-  //       // try Agda
-  //       switch String.match(output, %re("/Agda version (.*)/")) {
-  //       | Some([_, Some(version)]) => Ok(Memento.Endpoints.Agda(Some(version)))
-  //       | _ =>
-  //         // try ALS
-  //         switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
-  //         | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-  //           let lspOptions = switch await Connection__Endpoint.checkForPrebuiltDataDirectory(path) {
-  //           | Some(assetPath) =>
-  //             let env = Dict.fromArray([("Agda_datadir", assetPath)])
-  //             Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
-  //           | None => None
-  //           }
-  //           Ok(ALS(alsVersion, agdaVersion, Connection__Transport.ViaPipe(path, []), lspOptions))
-  //         | _ => Error(Connection__Endpoint__Error.NotAgdaOrALS(output))
-  //         }
-  //       }
-  //     | Error(error) => Error(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(error))
-  //     }
-  //   }
+  let probeFilepath = async uri =>
+    switch uri {
+    | Connection__URI.LspURI(_) => Error(Connection__Endpoint__Error.CannotHandleURLsATM)
+    | FileURI(_, vscodeUri) =>
+      let path = VSCode.Uri.fsPath(vscodeUri)
+      let result = await Connection__Process__Exec.run(path, ["--version"])
+      switch result {
+      | Ok(output) =>
+        // try Agda
+        switch String.match(output, %re("/Agda version (.*)/")) {
+        | Some([_, Some(version)]) => Ok(Memento.Endpoints.Agda(Some(version)))
+        | _ =>
+          // try ALS
+          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+            let lspOptions = switch await Connection.checkForPrebuiltDataDirectory(path) {
+            | Some(assetPath) =>
+              let env = Dict.fromArray([("Agda_datadir", assetPath)])
+              Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
+            | None => None
+            }
+            Ok(Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)))
+          | _ => Error(Connection__Endpoint__Error.NotAgdaOrALS(output))
+          }
+        }
+      | Error(error) => Error(Connection__Endpoint__Error.CannotDetermineAgdaOrALS(error))
+      }
+    }
 
   let probeVersions = async (self: t): bool => {
     let pathsToProbe =
@@ -365,20 +365,9 @@ module SwitchVersionManager = {
     } else {
       let probePromises = pathsToProbe->Array.map(async path => {
         let uri = Connection__URI.parse(path)
-        switch await Connection__Endpoint.probeFilepath(uri) {
-        | Ok(Connection__Endpoint.Agda(version, _)) =>
-          await Memento.Endpoints.setVersion(
-            self.memento,
-            path,
-            Memento.Endpoints.Agda(Some(version)),
-          )
-          Some(path)
-        | Ok(Connection__Endpoint.ALS(alsVersion, agdaVersion, _, lspOptions)) =>
-          await Memento.Endpoints.setVersion(
-            self.memento,
-            path,
-            Memento.Endpoints.ALS(Some((alsVersion, agdaVersion, lspOptions))),
-          )
+        switch await probeFilepath(uri) {
+        | Ok(endpoing) =>
+          await Memento.Endpoints.setVersion(self.memento, path, endpoing)
           Some(path)
         | Error(error) =>
           await Memento.Endpoints.setError(

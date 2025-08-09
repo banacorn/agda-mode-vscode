@@ -99,6 +99,20 @@ module Module: Module = {
     | ALS(_, path, _, _) => path
     }
 
+  // Helper function to check for prebuilt data directory
+  let checkForPrebuiltDataDirectory = async (executablePath: string) => {
+    // the executable needs to be accompanied by a `data` directory
+    // which can be specified by the environment variable "Agda_datadir"
+    // prebuilt executables on GitHub have this directory placed alongside the executable
+    let prebuildDataDirPath = NodeJs.Path.join([executablePath, "..", "data"])
+    let prebuildDataDirURI = VSCode.Uri.file(prebuildDataDirPath)
+
+    switch await FS.stat(prebuildDataDirURI) {
+    | Ok(_) => Some(NodeJs.Path.join([executablePath, "..", "data"]))
+    | Error(_) => None
+    }
+  }
+
   let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
     let uri = URI.parse(rawpath)
     switch uri {
@@ -120,7 +134,7 @@ module Module: Module = {
           // try ALS
           switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
           | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-            let lspOptions = switch await Connection__Endpoint.checkForPrebuiltDataDirectory(path) {
+            let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
             | Some(assetPath) =>
               let env = Dict.fromArray([("Agda_datadir", assetPath)])
               Some({Connection__Endpoint__Protocol__LSP__Binding.env: env})
@@ -390,20 +404,6 @@ module Module: Module = {
         Error(Error.Agda(error))
       | Ok() => Ok()
       }
-    }
-  }
-
-  // Helper function to check for prebuilt data directory
-  let checkForPrebuiltDataDirectory = async (executablePath: string) => {
-    // the executable needs to be accompanied by a `data` directory
-    // which can be specified by the environment variable "Agda_datadir"
-    // prebuilt executables on GitHub have this directory placed alongside the executable
-    let prebuildDataDirPath = NodeJs.Path.join([executablePath, "..", "data"])
-    let prebuildDataDirURI = VSCode.Uri.file(prebuildDataDirPath)
-
-    switch await FS.stat(prebuildDataDirURI) {
-    | Ok(_) => Some(NodeJs.Path.join([executablePath, "..", "data"]))
-    | Error(_) => None
     }
   }
 }

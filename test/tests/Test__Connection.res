@@ -66,7 +66,7 @@ describe("Connection", () => {
         await NodeJs.Fs.mkdir(dataDir, {recursive: true, mode: 0o777})
 
         // Test the function
-        let result = await Connection__Endpoint.checkForPrebuiltDataDirectory(execPath)
+        let result = await Connection.checkForPrebuiltDataDirectory(execPath)
 
         // Should return Some with asset path
         let expectedAssetPath = NodeJs.Path.join([execPath, "..", "data"])
@@ -93,7 +93,7 @@ describe("Connection", () => {
         await NodeJs.Fs.mkdir(NodeJs.Path.join([tempDir, "bin"]), {recursive: true, mode: 0o777})
 
         // Test the function
-        let result = await Connection__Endpoint.checkForPrebuiltDataDirectory(execPath)
+        let result = await Connection.checkForPrebuiltDataDirectory(execPath)
 
         // Should return None
         Assert.deepStrictEqual(result, None)
