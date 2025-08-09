@@ -37,7 +37,8 @@ module SwitchVersion = {
         switch endpoint {
         | Agda(Some(version)) => "Agda(" ++ version ++ ")"
         | Agda(None) => "Agda(None)"
-        | ALS(Some(alsVersion, agdaVersion)) => "ALS(" ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
+        | ALS(Some(alsVersion, agdaVersion, _)) =>
+          "ALS(" ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
         | ALS(None) => "ALS(None)"
         | Unknown => "Unknown"
         } ++

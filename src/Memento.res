@@ -17,7 +17,13 @@ module Module: {
     type filepath = string // raw file path
     type endpoint =
       | Agda(option<string>) // Agda version
-      | ALS(option<(string, string)>) // ALS version & corresponding Agda version
+      | ALS(
+          option<(
+            string,
+            string,
+            option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+          )>,
+        ) // ALS version & corresponding Agda version & LSP options
       | Unknown
     let endpointToString: endpoint => string
 
@@ -100,13 +106,19 @@ module Module: {
     // what kind of endpoint the file path leads to?
     type endpoint =
       | Agda(option<string>) // Agda version
-      | ALS(option<(string, string)>) // ALS version & corresponding Agda version
+      | ALS(
+          option<(
+            string,
+            string,
+            option<Connection__Endpoint__Protocol__LSP__Binding.executableOptions>,
+          )>,
+        ) // ALS version & corresponding Agda version & LSP options
       | Unknown
     let endpointToString = endpoint =>
       switch endpoint {
       | Agda(Some(version)) => "Agda v" ++ version
       | Agda(None) => "Agda (version unknown)"
-      | ALS(Some((alsVersion, agdaVersion))) =>
+      | ALS(Some((alsVersion, agdaVersion, _lspOptions))) =>
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
       | ALS(None) => "Agda Language Server (version unknown)"
       | Unknown => "Unknown"

@@ -52,7 +52,7 @@ module ItemData = {
     switch (entry.endpoint, entry.error) {
     | (Agda(Some(version)), _) => (Constants.agdaVersionPrefix ++ version, None)
     | (Agda(None), _) => ("Agda (version unknown)", None)
-    | (ALS(Some((alsVersion, agdaVersion))), _) => (
+    | (ALS(Some((alsVersion, agdaVersion, _))), _) => (
         Constants.alsWithSquirrel ++
         alsVersion ++
         ", " ++
@@ -373,11 +373,11 @@ module SwitchVersionManager = {
             Memento.Endpoints.Agda(Some(version)),
           )
           Some(path)
-        | Ok(Connection__Endpoint.ALS(alsVersion, agdaVersion, _, _)) =>
+        | Ok(Connection__Endpoint.ALS(alsVersion, agdaVersion, _, lspOptions)) =>
           await Memento.Endpoints.setVersion(
             self.memento,
             path,
-            Memento.Endpoints.ALS(Some((alsVersion, agdaVersion))),
+            Memento.Endpoints.ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
         | Error(error) =>

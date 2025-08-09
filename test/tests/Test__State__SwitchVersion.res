@@ -15,7 +15,7 @@ module TestData = {
 
   let agdaEntry = createMockEntry(Agda(Some("2.6.4")), ())
   let agdaUnknownEntry = createMockEntry(Agda(None), ())
-  let alsEntry = createMockEntry(ALS(Some(("4.0.0", "2.6.4"))), ())
+  let alsEntry = createMockEntry(ALS(Some(("4.0.0", "2.6.4", None))), ())
   let unknownEntry = createMockEntry(Unknown, ~error="Permission denied", ())
 
   // Simple mock functions for testing
@@ -121,7 +121,9 @@ describe("State__SwitchVersion", () => {
           "should return false for ALS endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(
+                ALS(Some(("4.0.0", "2.6.4", None))),
+              ),
               false,
             )
             Assert.deepStrictEqual(
@@ -693,7 +695,7 @@ describe("State__SwitchVersion", () => {
         discoveredEndpoints->Dict.set("/usr/local/bin/agda", Memento.Endpoints.Agda(Some("2.6.2")))
         discoveredEndpoints->Dict.set(
           "/usr/bin/als",
-          Memento.Endpoints.ALS(Some(("4.0.0", "2.6.4"))),
+          Memento.Endpoints.ALS(Some(("4.0.0", "2.6.4", None))),
         )
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
 
@@ -1046,7 +1048,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create ALS item for non-selected version",
           () => {
-            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4"))), ())
+            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
             let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -1072,7 +1074,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create ALS item for selected version",
           () => {
-            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4"))), ())
+            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
             let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, true)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -1169,7 +1171,9 @@ describe("State__SwitchVersion", () => {
           "should return false for ALS endpoints",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(Some(("4.0.0", "2.6.4")))),
+              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(
+                ALS(Some(("4.0.0", "2.6.4", None))),
+              ),
               false,
             )
             Assert.deepStrictEqual(
@@ -1224,10 +1228,7 @@ describe("State__SwitchVersion", () => {
           "should verify other UI constants",
           () => {
             Assert.strictEqual(State__SwitchVersion.Constants.agdaVersionPrefix, "Agda v")
-            Assert.strictEqual(
-              State__SwitchVersion.Constants.alsWithSquirrel,
-              "$(squirrel)  ALS v",
-            )
+            Assert.strictEqual(State__SwitchVersion.Constants.alsWithSquirrel, "$(squirrel)  ALS v")
             Assert.strictEqual(
               State__SwitchVersion.Constants.downloadedAndInstalled,
               "Downloaded and installed",
