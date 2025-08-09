@@ -5,11 +5,7 @@ module URI = Connection__URI
 
 module type Module = {
   type agdaVersion = string // Agda version
-  type alsVersion = (
-    string,
-    string,
-    option<Connection__Protocol__LSP__Binding.executableOptions>,
-  ) // (ALS version, Agda version, LSP options)
+  type alsVersion = (string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // (ALS version, Agda version, LSP options)
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path
     | ALS(ALS.t, string, alsVersion) // connection, path
@@ -69,11 +65,7 @@ module Module: Module = {
   }
 
   type agdaVersion = string // Agda version
-  type alsVersion = (
-    string,
-    string,
-    option<Connection__Protocol__LSP__Binding.executableOptions>,
-  ) // (ALS version, Agda version, LSP options)
+  type alsVersion = (string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // (ALS version, Agda version, LSP options)
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path
     | ALS(ALS.t, string, alsVersion) // connection, path
@@ -153,11 +145,8 @@ module Module: Module = {
   let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
     switch await probeFilepath(rawpath) {
     | Ok(path, Ok(agdaVersion)) =>
-      switch await Agda.make(rawpath, agdaVersion) {
-      | Error(error) =>
-        Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithAgda(error)))
-      | Ok(conn) => Ok(Agda(conn, path, agdaVersion))
-      }
+      let connection = await Agda.make(rawpath, agdaVersion)
+      Ok(Agda(connection, path, agdaVersion))
     | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
       switch await ALS.make(
         Connection__Transport.ViaPipe(rawpath, []),

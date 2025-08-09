@@ -2,7 +2,6 @@ type t =
   | NotAgdaOrALS(string) // the actual output received
   | CannotDetermineAgdaOrALS(Connection__Process__Exec.Error.t) // cannot determine if it's Agda or ALS
   | CannotHandleURLsATM
-  | CannotMakeConnectionWithAgda(Connection__Endpoint__Agda__Error.t)
   | CannotMakeConnectionWithALS(Connection__Endpoint__ALS__Error.t)
 
 let toString = x =>
@@ -20,8 +19,6 @@ let toString = x =>
     "doesn't seem to be an Agda executable or an Agda Language Server. Output received: " ++
     outputInfo
   | CannotDetermineAgdaOrALS(e) => Connection__Process__Exec.Error.toString(e)
-  | CannotMakeConnectionWithAgda(e) =>
-    "Cannot make connection with Agda: " ++ snd(Connection__Endpoint__Agda__Error.toString(e))
   | CannotMakeConnectionWithALS(e) =>
     "Cannot make connection with Agda Language Server: " ++
     snd(Connection__Endpoint__ALS__Error.toString(e))

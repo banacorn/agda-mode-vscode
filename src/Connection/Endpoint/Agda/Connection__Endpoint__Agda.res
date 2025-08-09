@@ -5,7 +5,7 @@ module Process = Connection__Transport__Process
 module type Module = {
   type t
   // lifecycle
-  let make: (string, string) => promise<result<t, Error.t>>
+  let make: (string, string) => promise<t>
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
@@ -98,7 +98,7 @@ module Module: Module = {
       encountedFirstPrompt: false,
     }
     wire(conn)
-    Ok(conn)
+    conn
   }
 
   let onResponse = async (conn, callback) => {
