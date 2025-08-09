@@ -274,6 +274,42 @@ module Platform = {
     module(MockPlatform)
   }
 
+  // Mock platform that simulates successful download2 with dual flag tracking  
+  let makeWithSuccessfulDownload2AndFlags = (downloadedPath: string, checkedCacheFlag: ref<bool>, checkedDownloadFlag: ref<bool>): Platform.t => {
+    module MockPlatform = {
+      let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+      let alreadyDownloaded = _globalStorageUri => () => {
+        checkedCacheFlag := true
+        Promise.resolve(None)
+      }
+      let alreadyDownloaded2 = _globalStorageUri => () => {
+        checkedCacheFlag := true
+        Promise.resolve(None)
+      }
+      let downloadLatestALS = (_memento, _globalStorageUri) => _platform => {
+        checkedDownloadFlag := true
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+      }
+      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform => {
+        checkedDownloadFlag := true
+        Promise.resolve(Ok(downloadedPath))
+      }
+      let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
+        Promise.resolve(Dict.fromArray([]))
+      let getInstalledEndpointsAndPersistThem2 = _globalStorageUri =>
+        Promise.resolve(Dict.make())
+      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let findCommands = async commands => Error(
+        commands
+        ->Array.map(command => (command, Connection__Command.Error.NotFound))
+        ->Dict.fromArray,
+      )
+    }
+    module(MockPlatform)
+  }
+
   // Create mock platform with Agda available
   let makeWithAgda = (): Platform.t => module(WithAgda)
 }

@@ -666,4 +666,74 @@ module Endpoint = {
       }
     }
   }
+
+  module ALS = {
+    // given ALS and Agda versions and the desired name of the executable, create a mock ALS executable and returns the path
+    let mock = async (~alsVersion, ~agdaVersion, ~name) => {
+      // creates a executable with nodejs in temp directory
+      let output = "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+      let (fileName, content) = if OS.onUnix {
+        (name, "#!/bin/sh\necho '" ++ output ++ "'\nexit 0")
+      } else {
+        (name ++ ".bat", "@echo " ++ output)
+      }
+
+      // Create file in temp directory to avoid permission issues
+      let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
+
+      // Use Node.js file writing for executable creation (tests only)
+      try {
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
+
+        // chmod +x for Unix systems
+        if OS.onUnix {
+          switch await NodeJs.Fs.chmod(tempFile, ~mode=0o755) {
+          | exception Js.Exn.Error(obj) =>
+            let errorMsg = Js.Exn.message(obj)->Option.getOr("unknown chmod error")
+            raise(Failure("Cannot chmod mock ALS executable at " ++ tempFile ++ ": " ++ errorMsg))
+          | _ => ()
+          }
+        }
+        tempFile
+      } catch {
+      | Js.Exn.Error(obj) =>
+        let errorMsg = Js.Exn.message(obj)->Option.getOr("unknown error")
+        let detailedError =
+          "Got error when trying to construct a mock for ALS:\n" ++
+          "  - Target file: " ++
+          tempFile ++
+          "\n" ++
+          "  - Platform: " ++
+          (OS.onUnix ? "Unix" : "Windows") ++
+          "\n" ++
+          "  - Temp directory: " ++
+          NodeJs.Os.tmpdir() ++
+          "\n" ++
+          "  - Error: " ++
+          errorMsg ++
+          "\n" ++
+          "  - Content length: " ++
+          string_of_int(String.length(content)) ++
+          " characters"
+        raise(Failure(detailedError))
+      | _ => raise(Failure("Got error when trying to construct a mock for ALS: unknown error"))
+      }
+    }
+
+    let destroy = async target => {
+      let path = target->Connection.Endpoint.toURI->Connection.URI.toString
+      try {
+        NodeJs.Fs.unlinkSync(path)
+      } catch {
+      | Js.Exn.Error(obj) =>
+        // Don't raise an error for cleanup failures, just log warning
+        Js.Console.warn(
+          "Warning: Cannot delete mock ALS executable: " ++
+          Js.Exn.message(obj)->Option.getOr("unknown error"),
+        )
+      | _ => // Ignore other cleanup failures to prevent test failures
+        ()
+      }
+    }
+  }
 }

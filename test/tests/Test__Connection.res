@@ -843,4 +843,413 @@ describe("Connection", () => {
       },
     )
   })
+
+  describe("make2 fromPathsAndCommands scenarios", () => {
+    Async.it(
+      "should find commands when no paths are given",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 finds commands when no paths provided
+         * 
+         * SCENARIO:
+         * 1. Call Connection.make2 with empty paths array
+         * 2. Provide valid commands ["agda", "als"]
+         * 3. Should successfully connect and log the connection
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        let memento = Memento.make(None)
+        let platformDeps = Desktop.make()
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          platformDeps,
+          memento,
+          globalStorageUri,
+          [], // no paths
+          ["agda", "als"], // try commands
+          logChannel,
+        ) {
+        | Ok(connection) =>
+          // Should have logged a connection event
+          switch loggedEvents {
+          | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, _, _))] => ()
+          | [] => Assert.fail("Expected connection event to be logged")
+          | _ => Assert.fail("Expected exactly one connection event")
+          }
+        | Error(_) => Assert.fail("Expected to find agda or als")
+        }
+      },
+    )
+
+    Async.it(
+      "should find commands even if all paths given are wrong",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 falls back to commands when paths fail
+         * 
+         * SCENARIO:
+         * 1. Provide invalid paths
+         * 2. Provide valid commands
+         * 3. Should ignore failed paths and use commands successfully
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        let memento = Memento.make(None)
+        let platformDeps = Desktop.make()
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          platformDeps,
+          memento,
+          globalStorageUri,
+          ["/some/invalid/path"], // invalid paths
+          ["agda", "als"], // valid commands
+          logChannel,
+        ) {
+        | Ok(connection) =>
+          // Should have logged a connection event
+          switch loggedEvents {
+          | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, _, _))] => ()
+          | [] => Assert.fail("Expected connection event to be logged")
+          | _ => Assert.fail("Expected exactly one connection event")
+          }
+        | Error(_) => Assert.fail("Expected to find agda or als via commands")
+        }
+      },
+    )
+
+    Async.it(
+      "should prioritize valid paths over commands",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 uses paths before falling back to commands
+         * 
+         * SCENARIO:
+         * 1. Setup mock Agda at known path
+         * 2. Provide that path plus invalid commands
+         * 3. Should use the path, not attempt commands
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        // Setup mock Agda
+        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.6.4",
+          ~name="agda-mock-for-path-priority",
+        )
+
+        let memento = Memento.make(None)
+        let platformDeps = Desktop.make()
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          platformDeps,
+          memento,
+          globalStorageUri,
+          [agdaMockPath], // valid path
+          ["invalid-command"], // invalid commands
+          logChannel,
+        ) {
+        | Ok(connection) =>
+          // Should have logged connection to the mock path
+          Assert.deepStrictEqual(
+            loggedEvents,
+            [Log.Connection(Log.Connection.ConnectedToAgda(agdaMockPath, "2.6.4"))],
+          )
+
+          // Connection should match the mock
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath)
+            Assert.deepStrictEqual(version, "2.6.4")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+
+        | Error(_) => Assert.fail("Expected connection to mock Agda path")
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(agdaMockPath)
+        } catch {
+        | _ => ()
+        }
+      },
+    )
+
+    Async.it(
+      "should respect memento picked path priority",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 prioritizes memento picked path
+         * 
+         * SCENARIO:
+         * 1. Setup two mock Agda executables
+         * 2. Set one as picked in memento
+         * 3. Provide both paths to Connection.make2
+         * 4. Should connect to the picked one first
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        // Setup two mock Agda executables
+        let agdaMockPath1 = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.6.3",
+          ~name="agda-mock-1",
+        )
+        let agdaMockPath2 = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.6.4",
+          ~name="agda-mock-2",
+        )
+
+        let memento = Memento.make(None)
+        // Set path2 as picked in memento
+        await Memento.PickedConnection.set(memento, Some(agdaMockPath2))
+
+        let platformDeps = Desktop.make()
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          platformDeps,
+          memento,
+          globalStorageUri,
+          [agdaMockPath1, agdaMockPath2], // both paths, but path2 is picked
+          [], // no commands
+          logChannel,
+        ) {
+        | Ok(connection) =>
+          // Should have connected to path2 (the picked one)
+          Assert.deepStrictEqual(
+            loggedEvents,
+            [Log.Connection(Log.Connection.ConnectedToAgda(agdaMockPath2, "2.6.4"))],
+          )
+
+        | Error(_) => Assert.fail("Expected connection to picked mock path")
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(agdaMockPath1)
+          NodeJs.Fs.unlinkSync(agdaMockPath2)
+        } catch {
+        | _ => ()
+        }
+      },
+    )
+  })
+
+  describe("make2 fromDownloads scenarios", () => {
+    Async.it(
+      "should handle platform not supported error with logging",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 handles unsupported platform gracefully
+         * 
+         * SCENARIO:
+         * 1. Use mock platform that returns unsupported platform error
+         * 2. Provide invalid paths/commands to force download fallback
+         * 3. Should get PlatformNotSupported error and no connection events
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        let platform = {
+          "os": "unsupported-os",
+          "dist": "unsupported-dist", 
+          "codename": "unsupported-codename",
+          "release": "unsupported-release",
+        }
+
+        let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"], // force fallback to downloads
+          ["invalid-command"], // force fallback to downloads
+          logChannel,
+        ) {
+        | Ok(_) => Assert.fail("Expected platform error")
+        | Error(error) =>
+          // Should get Construction error with PlatformNotSupported
+          switch error {
+          | Connection.Error.Construction(constructionError) =>
+            switch constructionError.download {
+            | Some(Connection__Download.Error.PlatformNotSupported(_)) => ()
+            | _ => Assert.fail("Expected PlatformNotSupported download error")
+            }
+          | _ => Assert.fail("Expected Construction error")
+          }
+          
+          // Should not have logged any connection events
+          Assert.deepStrictEqual(loggedEvents, [])
+        }
+      },
+    )
+
+    Async.it(
+      "should handle download policy No with logging",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 respects No download policy
+         * 
+         * SCENARIO:
+         * 1. Set download policy to No
+         * 2. Force fallback to downloads (invalid paths/commands)
+         * 3. Should return error without downloading and no connection events
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        await Config.Connection.DownloadPolicy.set(No)
+        let getDownloadPolicyCount = ref(0)
+
+        let mockPlatformDeps = Mock.Platform.makeWithDownloadPolicyCounter(
+          Config.Connection.DownloadPolicy.No,
+          getDownloadPolicyCount,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        ) {
+        | Ok(_) => Assert.fail("Expected error due to No download policy")
+        | Error(error) =>
+          // Should get Construction error (empty since No policy blocks download)
+          switch error {
+          | Connection.Error.Construction(_) => ()
+          | _ => Assert.fail("Expected Construction error")
+          }
+          
+          // Should not have asked for download policy (already set to No)
+          Assert.deepStrictEqual(getDownloadPolicyCount.contents, 0)
+          
+          // Should not have logged connection events
+          Assert.deepStrictEqual(loggedEvents, [])
+        }
+      },
+    )
+
+    Async.it_skip(
+      "should handle successful download with logging", 
+      async () => {
+        /**
+         * TEST PURPOSE: Verify Connection.make2 successfully downloads and logs connection
+         * 
+         * SCENARIO:
+         * 1. Set download policy to Yes  
+         * 2. Mock successful download returning connection
+         * 3. Should create connection and log ConnectedToALS event
+         * 
+         * NOTE: Skipping due to complexity of ALS connection mocking in test environment
+         */
+        let loggedEvents = []
+        let logChannel = Chan.make()
+
+        let _ = logChannel->Chan.on(logEvent => {
+          loggedEvents->Array.push(logEvent)
+        })
+
+        // Create mock ALS endpoint for successful download
+        let mockALSPath = await Test__Util.Endpoint.ALS.mock(
+          ~alsVersion="1.4.0",
+          ~agdaVersion="2.6.4",
+          ~name="als-mock-download",
+        )
+
+        await Config.Connection.DownloadPolicy.set(Yes)
+        let checkedCache = ref(false)
+        let checkedDownload = ref(false)
+
+        // Note: Mock platform will return the raw path directly from downloadLatestALS2
+
+        let mockPlatformDeps = Mock.Platform.makeWithSuccessfulDownload2AndFlags(
+          mockALSPath, // return the raw path for download
+          checkedCache,
+          checkedDownload,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        switch await Connection.make2(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"], // force download fallback
+          ["invalid-command"], // force download fallback  
+          logChannel,
+        ) {
+        | Ok(connection) =>
+          // Should have checked cache and performed download
+          Assert.deepStrictEqual(checkedCache.contents, true)
+          Assert.deepStrictEqual(checkedDownload.contents, true)
+          
+          // Should have logged ALS connection
+          switch loggedEvents {
+          | [Log.Connection(Log.Connection.ConnectedToALS(path, als, agda))] =>
+            Assert.deepStrictEqual(path, mockALSPath)
+            Assert.deepStrictEqual(als, "1.4.0")
+            Assert.deepStrictEqual(agda, "2.6.4")
+          | _ => Assert.fail("Expected exactly one ConnectedToALS event")
+          }
+
+          // Connection should match logged event
+          switch connection {
+          | ALS(_, path, als, agda) =>
+            Assert.deepStrictEqual(path, mockALSPath)
+            Assert.deepStrictEqual(als, "1.4.0") 
+            Assert.deepStrictEqual(agda, "2.6.4")
+          | _ => Assert.fail("Expected ALS connection")
+          }
+
+        | Error(_) => Assert.fail("Expected successful download and connection")
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(mockALSPath)
+        } catch {
+        | _ => ()
+        }
+      },
+    )
+  })
 })
