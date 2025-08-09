@@ -717,7 +717,10 @@ describe("Connection", () => {
       async () => {
         try {
           // setup the Agda mock
-          let path = await Test__Util.Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-paths")
+          let path = await Test__Util.Endpoint.Agda.mock(
+            ~version="2.7.0.1",
+            ~name="agda-mock-paths",
+          )
           agdaMockEndpoint := Some(path)
         } catch {
         | error => failwith("Failed to create Agda mock: " ++ Js.String.make(error))
@@ -747,7 +750,7 @@ describe("Connection", () => {
         | Some(path) => path
         | None => failwith("Mock endpoint not available")
         }
-        
+
         let platformDeps = Desktop.make()
         let paths = [mockPath]
         let result = await Connection.fromPaths(platformDeps, paths)
@@ -772,7 +775,7 @@ describe("Connection", () => {
         | Some(path) => path
         | None => failwith("Mock endpoint not available")
         }
-        
+
         let platformDeps = Desktop.make()
         let paths = ["invalid/path/1", "invalid/path/2", mockPath, "invalid/path/3"]
         let result = await Connection.fromPaths(platformDeps, paths)
@@ -803,11 +806,11 @@ describe("Connection", () => {
           // Should have three endpoint errors
           let endpointErrors = constructionError.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 3)
-          
+
           // Should have no command errors
           let commandErrors = constructionError.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
-          
+
           // Should have no download error
           Assert.deepStrictEqual(constructionError.download, None)
         }
@@ -827,10 +830,10 @@ describe("Connection", () => {
           // Should have no errors since no paths were tried
           let endpointErrors = constructionError.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 0)
-          
+
           let commandErrors = constructionError.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
-          
+
           Assert.deepStrictEqual(constructionError.download, None)
         }
       },
@@ -899,15 +902,19 @@ describe("Connection", () => {
           // Should have no endpoint errors
           let endpointErrors = constructionError.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 0)
-          
+
           // Should have three command errors
           let commandErrors = constructionError.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 3)
-          
+
           // Verify all command names are present
-          let commandNames = commandErrors->Array.map(((name, _)) => name)->Array.toSorted(String.compare)
-          Assert.deepStrictEqual(commandNames, ["non-existent-cmd-1", "non-existent-cmd-2", "non-existent-cmd-3"])
-          
+          let commandNames =
+            commandErrors->Array.map(((name, _)) => name)->Array.toSorted(String.compare)
+          Assert.deepStrictEqual(
+            commandNames,
+            ["non-existent-cmd-1", "non-existent-cmd-2", "non-existent-cmd-3"],
+          )
+
           // Should have no download error
           Assert.deepStrictEqual(constructionError.download, None)
         }
@@ -927,10 +934,10 @@ describe("Connection", () => {
           // Should have no errors since no commands were tried
           let endpointErrors = constructionError.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 0)
-          
+
           let commandErrors = constructionError.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
-          
+
           Assert.deepStrictEqual(constructionError.download, None)
         }
       },

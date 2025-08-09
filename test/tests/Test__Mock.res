@@ -6,10 +6,10 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
+    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
+    let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
       Promise.resolve(Dict.fromArray([]))
@@ -29,10 +29,10 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
+    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
+    let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getInstalledEndpointsAndPersistThem = _globalStorageUri => {
       let endpoints = Dict.make()
@@ -66,10 +66,9 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => policy
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-      let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
+      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+      
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
         Promise.resolve(Dict.fromArray([]))
@@ -95,10 +94,9 @@ module Platform = {
         policy
       }
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-      let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
+      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+      
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
         Promise.resolve(Dict.fromArray([]))
@@ -121,10 +119,9 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-      let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
+      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+      
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Ok(downloadedEndpoint))
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Ok(downloadedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
       let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
         Promise.resolve(Dict.fromArray([]))
@@ -147,10 +144,9 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(Some(cachedEndpoint))
-      let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(Some(cachedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
+      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(Some(cachedEndpoint->Connection__Endpoint.toURI->Connection__URI.toString))
+      
       let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getInstalledEndpointsAndPersistThem = _globalStorageUri =>
         Promise.resolve(Dict.fromArray([]))

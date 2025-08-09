@@ -19,12 +19,12 @@ module Web: Platform.PlatformOps = {
 
   let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
-  let alreadyDownloaded2 = _globalStorageUri => () => Promise.resolve(None)
+  let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
   let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-  let downloadLatestALS2 = (_memento, _globalStorageUri) => _platform =>
+  let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
   let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.fromArray([]))

@@ -8,7 +8,6 @@ module Error = {
     | PlatformNotSupported(Connection__Download__Platform.raw)
     | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
     | CannotDownloadALS(Connection__Download__GitHub.Error.t)
-    | CannotConnectToALS(Connection__Endpoint.Error.t)
     | CannotFindCompatibleALSRelease
     | CannotDownloadFromURL(Connection__Download__GitHub.Error.t)
 
@@ -24,7 +23,6 @@ module Error = {
       Connection__Download__GitHub.Error.toString(e)
 
     | CannotFindCompatibleALSRelease => "Cannot find compatible Agda Language Server release for download. Prebuilts are only available for download on Ubuntu, Windows, and macOS (arm64, x64).\nPlease build from source if you are on a different platform. \nSee https://github.com/agda/agda-language-server for more information."
-    | CannotConnectToALS(e) => Connection__Endpoint.Error.toString(e)
     | CannotDownloadALS(e) =>
       "Failed to download the Agda Language Server: " ++
       Connection__Download__GitHub.Error.toString(e)
@@ -66,19 +64,14 @@ let download = async (memento, globalStorageUri, fetchSpec) => {
   | Error(error) => Error(Error.CannotDownloadALS(error))
   | Ok(_isCached) =>
     // add the path of the downloaded file to the config
-    let globalStoragePath = VSCode.Uri.fsPath(globalStorageUri)
-    let destPath = Connection__URI.parse(
-      NodeJs.Path.join([globalStoragePath, fetchSpec.saveAsFileName, "als"]),
-    )
-    await Config.Connection.addAgdaPath(destPath)
-    switch await Connection__Endpoint.fromURI(destPath) {
-    | Error(e) => Error(Error.CannotConnectToALS(e))
-    | Ok(target) => Ok(target)
-    }
+    let destUri = VSCode.Uri.joinPath(globalStorageUri, [fetchSpec.saveAsFileName, "als"])
+    let destPath = VSCode.Uri.fsPath(destUri)
+    await Config.Connection.addAgdaPath2(destPath)
+    Ok(destPath)
   }
 }
 
-// Download directly from a URL without GitHub release metadata
+// Download directly from a URL without GitHub release metadata and return the path of the downloaded file
 let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
 
@@ -95,15 +88,12 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   let execPathUri = VSCode.Uri.joinPath(destDirUri, ["als"])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
-      let execPath = VSCode.Uri.fsPath(execPathUri)
-      let destPath = Connection__URI.parse(execPath)
-      await Config.Connection.addAgdaPath(destPath)
-      switch await Connection__Endpoint.fromURI(destPath) {
-      | Error(e) => Error(Error.CannotConnectToALS(e))
-      | Ok(target) => Ok(target)
-      }
+      let path = VSCode.Uri.fsPath(execPathUri)
+      await Config.Connection.addAgdaPath2(path)
+      Ok(path)
     }
-  | Error(_) => // Parse URL and create HTTP options
+  | Error(_) =>
+    // Parse URL and create HTTP options
     try {
       // Parse URL to extract host and path using Node.js url module
       let urlObj = parseUrl(url)
@@ -187,13 +177,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
           let _ = await FS.delete(zipFileUri)
 
           // Add the path of the downloaded file to the config
-          let execPath = VSCode.Uri.fsPath(execPathUri)
-          let destPath = Connection__URI.parse(execPath)
-          await Config.Connection.addAgdaPath(destPath)
-          switch await Connection__Endpoint.fromURI(destPath) {
-          | Error(e) => Error(Error.CannotConnectToALS(e))
-          | Ok(target) => Ok(target)
-          }
+          Ok(VSCode.Uri.fsPath(execPathUri))
         }
       }
     } catch {

@@ -591,7 +591,7 @@ module Handler = {
                     [],
                   )
                 | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS2(
+                  switch await PlatformOps.downloadLatestALS(
                     state.memento,
                     state.globalStorageUri,
                   )(platform) {

@@ -8,22 +8,19 @@ module Desktop: Platform.PlatformOps = {
   let findCommands = Connection__Command.findCommands
   let findCommand = Connection__Command.findCommand
 
-  let alreadyDownloaded = globalStorageUri =>
-    Connection__LatestALS.alreadyDownloaded(globalStorageUri)
-
-  let alreadyDownloaded2 = globalStorageUri => async () => {
+  let alreadyDownloaded = globalStorageUri => async () => {
     switch await Connection__LatestALS.alreadyDownloaded(globalStorageUri)() {
     | Some(endpoint) => Some(endpoint->Connection__Endpoint.toURI->Connection__URI.toString)
     | None => None
     }
   }
 
-  let downloadLatestALS = (memento, globalStorageUri) =>
-    Connection__LatestALS.download(memento, globalStorageUri)
-  
-  let downloadLatestALS2 = (memento, globalStorageUri) => async platform => {
+  // let downloadLatestALS = (memento, globalStorageUri) =>
+  //   Connection__LatestALS.download(memento, globalStorageUri)
+
+  let downloadLatestALS = (memento, globalStorageUri) => async platform => {
     switch await Connection__LatestALS.download(memento, globalStorageUri)(platform) {
-    | Ok(endpoint) => Ok(endpoint->Connection__Endpoint.toURI->Connection__URI.toString)
+    | Ok(endpoint) => Ok(endpoint)
     | Error(error) => Error(error)
     }
   }
@@ -114,11 +111,12 @@ module Desktop: Platform.PlatformOps = {
     let inferEndpointType = (filename: string) => {
       let baseName = filename->String.toLowerCase->NodeJs.Path.basename
       // Remove common executable extensions
-      let cleanName = baseName
+      let cleanName =
+        baseName
         ->String.replace(".exe", "")
         ->String.replace(".cmd", "")
         ->String.replace(".bat", "")
-      
+
       if cleanName == "agda" || cleanName->String.startsWith("agda-") {
         Memento.Endpoints.Agda(None)
       } else if cleanName == "als" || cleanName->String.startsWith("als-") {
