@@ -300,19 +300,14 @@ describe("Connection", () => {
         let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let actual = await Connection.fromDownloads(
-          mockPlatformDeps,
-          memento,
-          globalStorageUri,
+        let actual = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+
+        let expected = Connection.Error.Construction.merge(
           constructionError,
+          Connection.Error.Construction.fromDownloadError(PlatformNotSupported(platform)),
         )
 
-        let expected =
-          constructionError->Connection.Error.Construction.addDownloadError(
-            PlatformNotSupported(platform),
-          )
-
-        Assert.deepStrictEqual(actual, Error(Construction(expected)))
+        Assert.deepStrictEqual(actual, Error(expected))
       },
     )
 
@@ -329,13 +324,8 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          memento,
-          globalStorageUri,
-          constructionError,
-        )
-        Assert.deepStrictEqual(result, Error(Construction(constructionError)))
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+        Assert.deepStrictEqual(result, Error(constructionError))
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
@@ -358,13 +348,8 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          memento,
-          globalStorageUri,
-          constructionError,
-        )
-        Assert.deepStrictEqual(result, Error(Construction(constructionError)))
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+        Assert.deepStrictEqual(result, Error(constructionError))
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
@@ -392,12 +377,7 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          memento,
-          globalStorageUri,
-          constructionError,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(checkedCache.contents, true)
 
         // Should return connection directly (not endpoint)
@@ -445,12 +425,7 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          memento,
-          globalStorageUri,
-          constructionError,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(checkedCache.contents, true)
         Assert.deepStrictEqual(checkedDownload.contents, true)
 
@@ -491,21 +466,16 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          memento,
-          globalStorageUri,
-          constructionError,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(checkedCache.contents, true)
         Assert.deepStrictEqual(checkedDownload.contents, true)
 
-        let expected =
-          constructionError->Connection.Error.Construction.addDownloadError(
-            CannotFindCompatibleALSRelease,
-          )
+        let expected = Connection.Error.Construction.merge(
+          constructionError,
+          Connection.Error.Construction.fromDownloadError(CannotFindCompatibleALSRelease),
+        )
 
-        Assert.deepStrictEqual(result, Error(Construction(expected)))
+        Assert.deepStrictEqual(result, Error(expected))
 
         let policy = Config.Connection.DownloadPolicy.get()
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
@@ -721,7 +691,10 @@ describe("Connection", () => {
           let endpointErrors = constructionError.endpoints->Dict.toArray
           Assert.deepStrictEqual(Array.length(endpointErrors), 1)
           switch endpointErrors[0] {
-          | Some((path, _error)) => Assert.deepStrictEqual(path, "non/existent/path")
+          | Some((path, _error)) =>
+            // The path gets converted to absolute path by URI.parse relative to cwd
+            let expectedPath = NodeJs.Path.resolve(["non/existent/path"])
+            Assert.deepStrictEqual(path, expectedPath)
           | None => Assert.fail("Expected endpoint error")
           }
 

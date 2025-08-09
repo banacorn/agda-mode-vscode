@@ -42,25 +42,22 @@ module Construction = {
     endpointsStr ++ commandsStr ++ downloadStr
   }
 
-  let addEndpointError = (x, path, error) => {
-    Dict.set(x.endpoints, path, error)
-    x
+  let fromEndpointError = (path, error) => {
+    endpoints: Dict.fromArray([(path, error)]),
+    commands: Dict.make(),
+    download: None,
   }
 
-  let addCommandError = (x, command, error) => {
-    Dict.set(x.commands, command, error)
-    x
+  let fromCommandError = (command, error) => {
+    endpoints: Dict.make(),
+    commands: Dict.fromArray([(command, error)]),
+    download: None,
   }
 
-  let addDownloadError = (x, error) => {
-    switch x.download {
-    | Some(_) => x // If there's already a download error, keep it
-    | None => {
-        endpoints: x.endpoints,
-        commands: x.commands,
-        download: Some(error),
-      }
-    }
+  let fromDownloadError = error => {
+    endpoints: Dict.make(),
+    commands: Dict.make(),
+    download: Some(error),
   }
 
   // Should form a monoid

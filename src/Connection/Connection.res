@@ -35,8 +35,7 @@ module type Module = {
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
-    Error.Construction.t,
-  ) => promise<result<t, Error.t>>
+  ) => promise<result<t, Error.Construction.t>>
 
   // messaging
   let sendRequest: (
@@ -103,10 +102,10 @@ module Module: Module = {
     | ALS(_, path, _, _) => path
     }
 
-  let makeWithRawPath = async (rawpath: string): result<t, Connection__Endpoint.Error.t> => {
+  let makeWithRawPath = async (rawpath: string): result<t, Error.Construction.t> => {
     let uri = URI.parse(rawpath)
     switch uri {
-    | URI.LspURI(_) => Error(CannotHandleURLsATM)
+    | URI.LspURI(_) => Error(Error.Construction.fromEndpointError(rawpath, CannotHandleURLsATM))
     | FileURI(_, uri) =>
       let path = VSCode.Uri.fsPath(uri)
       let result = await Connection__Process__Exec.run(path, ["--version"])
@@ -116,7 +115,8 @@ module Module: Module = {
         switch String.match(output, %re("/Agda version (.*)/")) {
         | Some([_, Some(version)]) =>
           switch await Agda.make(path, version) {
-          | Error(error) => Error(CannotMakeConnectionWithAgda(error))
+          | Error(error) =>
+            Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithAgda(error)))
           | Ok(conn) => Ok(Agda(conn, path, version))
           }
         | _ =>
@@ -134,13 +134,21 @@ module Module: Module = {
               lspOptions,
               InitOptions.getFromConfig(),
             ) {
-            | Error(error) => Error(CannotMakeConnectionWithALS(error))
+            | Error(error) =>
+              Error(Error.Construction.fromEndpointError(path, CannotMakeConnectionWithALS(error)))
             | Ok(conn) => Ok(ALS(conn, path, alsVersion, agdaVersion))
             }
-          | _ => Error(Connection__Endpoint.Error.NotAgdaOrALS(output))
+          | _ =>
+            Error(
+              Error.Construction.fromEndpointError(
+                path,
+                Connection__Endpoint.Error.NotAgdaOrALS(output),
+              ),
+            )
           }
         }
-      | Error(error) => Error(CannotDetermineAgdaOrALS(error))
+      | Error(error) =>
+        Error(Error.Construction.fromEndpointError(path, CannotDetermineAgdaOrALS(error)))
       }
     }
   }
@@ -159,7 +167,7 @@ module Module: Module = {
         switch await fn(item) {
         | Ok(success) => Ok(success)
         | Error(error) =>
-          let newErrors = errors->Array.concat([(item, error)])
+          let newErrors = errors->Array.concat([error])
           let nextItems = remaining->Array.sliceToEnd(~start=1)
           await loop(nextItems, newErrors)
         }
@@ -178,14 +186,7 @@ module Module: Module = {
 
     switch await tryUntilSuccess(makeWithRawPath, paths) {
     | Ok(connection) => Ok(connection)
-    | Error(pathErrors) =>
-      // Build final error with path failures
-      let constructionError = {
-        Error.Construction.endpoints: pathErrors->Dict.fromArray,
-        commands: Dict.make(),
-        download: None,
-      }
-      Error(constructionError)
+    | Error(pathErrors) => Error(Error.Construction.mergeMany(pathErrors))
     }
   }
 
@@ -198,22 +199,16 @@ module Module: Module = {
 
     let tryCommand = async (command): result<t, Error.Construction.t> => {
       switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) =>
-        switch await makeWithRawPath(rawPath) {
-        | Ok(connection) => Ok(connection)
-        | Error(endpointError) =>
-          Error(
-            Error.Construction.make()->Error.Construction.addEndpointError(rawPath, endpointError),
-          )
-        }
-      | Error(commandError) =>
-        Error(Error.Construction.make()->Error.Construction.addCommandError(command, commandError))
+      | Ok(rawPath) => await makeWithRawPath(rawPath)
+      | Error(commandError) => Error(Error.Construction.fromCommandError(command, commandError))
       }
     }
 
     switch await tryUntilSuccess(tryCommand, commands) {
     | Ok(connection) => Ok(connection)
-    | Error(errors) => Error(errors->Array.map(snd)->Error.Construction.mergeMany)
+    | Error(errors) =>
+      // merge all errors from `tryCommand`
+      Error(errors->Error.Construction.mergeMany)
     }
   }
 
@@ -230,16 +225,10 @@ module Module: Module = {
   ): result<t, Error.Construction.t> => {
     module PlatformOps = unpack(platformDeps)
 
-    let tryCommand = async (command): result<t, Connection__Command.Error.t> => {
+    let tryCommand = async (command): result<t, Error.Construction.t> => {
       switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) =>
-        switch await makeWithRawPath(rawPath) {
-        | Ok(connection) => Ok(connection)
-        | Error(_endpointError) =>
-          // Convert endpoint error to a command error for consistency
-          Error(Connection__Command.Error.NotFound)
-        }
-      | Error(commandError) => Error(commandError)
+      | Ok(rawPath) => await makeWithRawPath(rawPath)
+      | Error(commandError) => Error(Error.Construction.fromCommandError(command, commandError))
       }
     }
 
@@ -257,13 +246,7 @@ module Module: Module = {
       switch await tryUntilSuccess(tryCommand, commands) {
       | Ok(connection) => Ok(connection)
       | Error(commandErrors) =>
-        // Build final error with both path and command failures
-        let constructionError = {
-          Error.Construction.endpoints: pathErrors->Dict.fromArray,
-          commands: commandErrors->Dict.fromArray,
-          download: None,
-        }
-        Error(constructionError)
+        Error(Error.Construction.mergeMany([...pathErrors, ...commandErrors]))
       }
     }
   }
@@ -278,15 +261,11 @@ module Module: Module = {
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
-    constructionError: Error.Construction.t,
-  ): result<t, Error.t> => {
+  ): result<t, Error.Construction.t> => {
     module PlatformOps = unpack(platformDeps)
 
     switch await PlatformOps.determinePlatform() {
-    | Error(platform) =>
-      let errors =
-        constructionError->Error.Construction.addDownloadError(PlatformNotSupported(platform))
-      Error(Error.Construction(errors))
+    | Error(platform) => Error(Error.Construction.fromDownloadError(PlatformNotSupported(platform)))
     | Ok(platform) =>
       // Check download policy
       let policy = switch Config.Connection.DownloadPolicy.get() {
@@ -298,11 +277,11 @@ module Module: Module = {
       | Config.Connection.DownloadPolicy.Undecided =>
         // User cancelled, treat as No
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(constructionError))
+        Error(Error.Construction.make())
       | No =>
         // User opted not to download, set policy and return error
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Construction(constructionError))
+        Error(Error.Construction.make())
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         // Get the downloaded path, download if not already done
@@ -310,8 +289,7 @@ module Module: Module = {
         | Some(path) => Ok(path)
         | None =>
           switch await PlatformOps.downloadLatestALS2(memento, globalStorageUri)(platform) {
-          | Error(error) =>
-            Error(Error.Construction(constructionError->Error.Construction.addDownloadError(error)))
+          | Error(error) => Error(Error.Construction.fromDownloadError(error))
           | Ok(path) => Ok(path)
           }
         }
@@ -323,12 +301,7 @@ module Module: Module = {
             await Config.Connection.addAgdaPath2(getPath(connection))
             await Memento.PickedConnection.set(memento, Some(getPath(connection)))
             Ok(connection)
-          | Error(error) =>
-            Error(
-              Error.Construction(
-                Error.Construction.make()->Error.Construction.addEndpointError(path, error),
-              ),
-            )
+          | Error(error) => Error(error)
           }
         | Error(error) => Error(error)
         }
@@ -358,20 +331,42 @@ module Module: Module = {
       }
     }
 
-    switch await fromPathsAndCommands(platformDeps, memento, paths, commands) {
+    let pathsWithSelectedConnection = switch Memento.PickedConnection.get(memento) {
+    | Some(pickedPath) => [pickedPath]->Array.concat(paths)
+    | None => paths
+    }
+
+    switch await fromPaths(platformDeps, pathsWithSelectedConnection) {
     | Ok(connection) =>
       logConnection(connection)
       await Config.Connection.addAgdaPath2(getPath(connection))
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
-    | Error(constructionError) =>
-      switch await fromDownloads(platformDeps, memento, globalStorageUri, constructionError) {
+    | Error(fromPathsErrors) =>
+      switch await fromCommands(platformDeps, commands) {
       | Ok(connection) =>
         logConnection(connection)
         await Config.Connection.addAgdaPath2(getPath(connection))
         await Memento.PickedConnection.set(memento, Some(getPath(connection)))
         Ok(connection)
-      | Error(error) => Error(error)
+      | Error(fromCommandsErrors) =>
+        switch await fromDownloads(platformDeps, memento, globalStorageUri) {
+        | Ok(connection) =>
+          logConnection(connection)
+          await Config.Connection.addAgdaPath2(getPath(connection))
+          await Memento.PickedConnection.set(memento, Some(getPath(connection)))
+          Ok(connection)
+        | Error(fromDownloadsErrors) =>
+          Error(
+            Construction(
+              Error.Construction.mergeMany([
+                fromPathsErrors,
+                fromCommandsErrors,
+                fromDownloadsErrors,
+              ]),
+            ),
+          )
+        }
       }
     }
   }
