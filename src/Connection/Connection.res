@@ -1,7 +1,6 @@
 module Error = Connection__Error
 module Agda = Connection__Endpoint__Agda
 module ALS = Connection__Endpoint__ALS
-module Endpoint = Connection__Endpoint
 module URI = Connection__URI
 
 module type Module = {
@@ -23,13 +22,6 @@ module type Module = {
   let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Construction.t>>
 
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Construction.t>>
-
-  let fromPathsAndCommands: (
-    Platform.t,
-    Memento.t,
-    array<string>,
-    array<string>,
-  ) => promise<result<t, Error.Construction.t>>
 
   let fromDownloads: (
     Platform.t,
@@ -214,45 +206,6 @@ module Module: Module = {
     | Error(errors) =>
       // merge all errors from `tryCommand`
       Error(errors->Error.Construction.mergeMany)
-    }
-  }
-
-  // Make a connection using raw paths and commands, by trying in order:
-  //  1. Previously picked path (if it exists in the supplied paths)
-  //  2. Each path from the paths array sequentially
-  //  3. Each command from the commands array sequentially
-  // Returns Ok(connection) on first success, or Error with all collected failures
-  let fromPathsAndCommands = async (
-    platformDeps: Platform.t,
-    memento: Memento.t,
-    paths: array<string>,
-    commands: array<string>,
-  ): result<t, Error.Construction.t> => {
-    module PlatformOps = unpack(platformDeps)
-
-    let tryCommand = async (command): result<t, Error.Construction.t> => {
-      switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) => await makeWithRawPath(rawPath)
-      | Error(commandError) => Error(Error.Construction.fromCommandError(command, commandError))
-      }
-    }
-
-    // Build the complete list of things to try in order
-    let allPaths = switch Memento.PickedConnection.get(memento) {
-    | Some(pickedPath) => [pickedPath]->Array.concat(paths)
-    | None => paths
-    }
-
-    // Step 1 & 2: Try picked path first, then all settings paths
-    switch await tryUntilSuccess(makeWithRawPath, allPaths) {
-    | Ok(connection) => Ok(connection)
-    | Error(pathErrors) =>
-      // Step 3: Try all commands
-      switch await tryUntilSuccess(tryCommand, commands) {
-      | Ok(connection) => Ok(connection)
-      | Error(commandErrors) =>
-        Error(Error.Construction.mergeMany([...pathErrors, ...commandErrors]))
-      }
     }
   }
 
