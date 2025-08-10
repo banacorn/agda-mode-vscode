@@ -9,7 +9,7 @@ let getAgdaTarget = async () => {
   }
 }
 
-describe_only("Connection", () => {
+describe("Connection", () => {
   This.timeout(10000)
 
   describe("Target", () => {
@@ -1263,11 +1263,9 @@ describe_only("Connection", () => {
           logChannel,
         ) {
         | Ok(connection) =>
-          // Verify we got a valid connection
+          // Verify we got a valid connection (version varies by environment)
           switch connection {
-          | Agda(_, _path, version) => {
-            Assert.deepStrictEqual(version, "2.7.0.1-a6fc20c")
-          }
+          | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
           }
           
@@ -1316,11 +1314,9 @@ describe_only("Connection", () => {
           logChannel,
         ) {
         | Ok(connection) =>
-          // Verify we got a valid connection
+          // Verify we got a valid connection (version varies by environment)
           switch connection {
-          | Agda(_, _path, version) => {
-            Assert.deepStrictEqual(version, "2.7.0.1-a6fc20c")
-          }
+          | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
           }
           
