@@ -17,7 +17,7 @@ let run = normalization => {
     let filteredResponses = responses->Array.filter(filteredResponse)
 
     let filepath = Path.asset(filename)
-    let expectedAllGoalsWarningsBody = `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Error —————————————————————————————————————————————————\nUnsolved constraints`
+    let expectedAllGoalsWarningsBody = `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Errors ————————————————————————————————————————————————\nUnsolved constraints\n`
 
     Assert.deepStrictEqual(
       filteredResponses,
