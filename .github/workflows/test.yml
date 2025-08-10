@@ -10,8 +10,7 @@ defaults:
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ ci ]
-    # branches: [ master, dev, web, ci, ci-* ]
+    branches: [ master, dev, web, ci, ci-* ]
   pull_request:
     branches: [ master, dev, ci, ci-* ]
 
@@ -22,8 +21,7 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        # os: [windows-latest, ubuntu-latest, macos-latest]
-        os: [windows-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         agda: ["Agda-2.6.3", "Agda-2.6.4", "Agda-2.7.0"]
       fail-fast: false
 
