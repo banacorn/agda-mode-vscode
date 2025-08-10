@@ -809,7 +809,7 @@ describe("Connection", () => {
         | None => failwith("Mock endpoint not available")
         }
 
-        let platformDeps = Desktop.make()
+        let platformDeps = Mock.Platform.makeBasic()
         let paths = [mockPath]
         let result = await Connection.fromPaths(platformDeps, paths)
 
@@ -834,7 +834,7 @@ describe("Connection", () => {
         | None => failwith("Mock endpoint not available")
         }
 
-        let platformDeps = Desktop.make()
+        let platformDeps = Mock.Platform.makeBasic()
         let paths = ["invalid/path/1", "invalid/path/2", mockPath, "invalid/path/3"]
         let result = await Connection.fromPaths(platformDeps, paths)
 
@@ -854,7 +854,7 @@ describe("Connection", () => {
     Async.it(
       "should return Construction error when all paths are invalid",
       async () => {
-        let platformDeps = Desktop.make()
+        let platformDeps = Mock.Platform.makeBasic()
         let paths = ["invalid/path/1", "invalid/path/2", "invalid/path/3"]
         let result = await Connection.fromPaths(platformDeps, paths)
 
@@ -878,7 +878,7 @@ describe("Connection", () => {
     Async.it(
       "should return empty error when no paths provided",
       async () => {
-        let platformDeps = Desktop.make()
+        let platformDeps = Mock.Platform.makeBasic()
         let paths = []
         let result = await Connection.fromPaths(platformDeps, paths)
 
