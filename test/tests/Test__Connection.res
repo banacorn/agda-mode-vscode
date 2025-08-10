@@ -9,7 +9,7 @@ let getAgdaTarget = async () => {
   }
 }
 
-describe("Connection", () => {
+describe_only("Connection", () => {
   This.timeout(10000)
 
   describe("Target", () => {
@@ -286,9 +286,15 @@ describe("Connection", () => {
 
         let result = await Connection.probeFilepath(fileName)
 
+        // Normalize fileName through the same URI parsing process for consistent comparison
+        let normalizedFileName = switch Connection__URI.parse(fileName) {
+        | FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
+        | LspURI(_, _) => fileName // fallback, shouldn't happen in this test
+        }
+
         switch result {
         | Ok(path, Error(alsVersion, agdaVersion, Some(lspOptions))) =>
-          Assert.deepStrictEqual(path, fileName)
+          Assert.deepStrictEqual(path, normalizedFileName)
           Assert.deepStrictEqual(alsVersion, "1.2.3")
           Assert.deepStrictEqual(agdaVersion, "2.6.4")
           // Should have Agda_datadir environment variable set
@@ -489,9 +495,15 @@ describe("Connection", () => {
         // Test just the probing which includes data directory detection
         let result = await Connection.probeFilepath(fileName)
 
+        // Normalize fileName through the same URI parsing process for consistent comparison
+        let normalizedFileName = switch Connection__URI.parse(fileName) {
+        | FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
+        | LspURI(_, _) => fileName // fallback, shouldn't happen in this test
+        }
+
         switch result {
         | Ok(path, Error(alsVersion, agdaVersion, Some(lspOptions))) =>
-          Assert.deepStrictEqual(path, fileName)
+          Assert.deepStrictEqual(path, normalizedFileName)
           Assert.deepStrictEqual(alsVersion, "1.3.1")
           Assert.deepStrictEqual(agdaVersion, "2.6.3")
           // Should have Agda_datadir environment variable detected

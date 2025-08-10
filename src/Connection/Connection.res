@@ -114,7 +114,7 @@ module Module: Module = {
     | Connection__URI.LspURI(_) => Error(Error.Probe.CannotHandleURLsAtTheMoment)
     | FileURI(_, vscodeUri) =>
       let path = VSCode.Uri.fsPath(vscodeUri)
-      let result = await Connection__Process__Exec.run(path, ["--version"])
+      let result = await Connection__Process__Exec.run(path, ["--version"], ~timeout=3000)
       switch result {
       | Ok(output) =>
         // try Agda

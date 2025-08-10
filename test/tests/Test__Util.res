@@ -578,7 +578,12 @@ module Endpoint = {
       }
 
       // Create file in temp directory to avoid permission issues
-      let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
+      let tempFile = switch Connection__URI.parse(
+        NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName]),
+      ) {
+      | FileURI(_, path) => VSCode.Uri.fsPath(path)
+      | LspURI(_, _) => raise(Failure("Cannot create mock Agda executable with LspURI"))
+      }
 
       // Use Node.js file writing for executable creation (tests only)
       try {
@@ -665,7 +670,12 @@ module Endpoint = {
       }
 
       // Create file in temp directory to avoid permission issues
-      let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
+      let tempFile = switch Connection__URI.parse(
+        NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName]),
+      ) {
+      | FileURI(_, path) => VSCode.Uri.fsPath(path)
+      | LspURI(_, _) => raise(Failure("Cannot create mock Agda executable with LspURI"))
+      }
 
       // Use Node.js file writing for executable creation (tests only)
       try {

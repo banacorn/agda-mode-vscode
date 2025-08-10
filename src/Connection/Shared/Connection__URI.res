@@ -72,13 +72,6 @@ let parse = raw => {
   }
 }
 
-// Returns the original raw input string of the Connection URI.
-let getOriginalPath = uri =>
-  switch uri {
-  | FileURI(raw, _) => raw
-  | LspURI(raw, _) => raw
-  }
-
 // // Extracts the VSCode.Uri from a FileURI variant, if possible.
 // // This is useful when you need to work with VSCode APIs that expect VSCode.Uri.t directly.
 // //
