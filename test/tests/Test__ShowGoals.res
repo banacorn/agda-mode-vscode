@@ -17,12 +17,23 @@ let run = normalization => {
     let filteredResponses = responses->Array.filter(filteredResponse)
 
     let filepath = Path.asset(filename)
-    let expectedAllGoalsWarningsBody = `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Errors ————————————————————————————————————————————————\nUnsolved constraints\n`
+    
+    switch ctx.state.agdaVersion {
+    | Some(version) =>
+      let expectedAllGoalsWarningsBody = if Util.Version.gte(version, "2.7.0") {
+        // Agda 2.7.0+ uses singular "Error" and no trailing newline
+        `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Error —————————————————————————————————————————————————\nUnsolved constraints`
+      } else {
+        // Agda < 2.7.0 uses plural "Errors" and has trailing newline
+        `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Errors ————————————————————————————————————————————————\nUnsolved constraints\n`
+      }
 
-    Assert.deepStrictEqual(
-      filteredResponses,
-      [DisplayInfo(AllGoalsWarnings("*All Goals, Errors*", expectedAllGoalsWarningsBody))],
-    )
+      Assert.deepStrictEqual(
+        filteredResponses,
+        [DisplayInfo(AllGoalsWarnings("*All Goals, Errors*", expectedAllGoalsWarningsBody))],
+      )
+    | None => Assert.fail("No Agda version found")
+    }
   })
 
   Async.it("should work", async () => {
