@@ -16,7 +16,7 @@ jobs:
         run: npm version && npm install
         
       - name: Build stuff
-        run: npm run prepublish
+        run: npm run dry-run-publish
         
       - name: Publish to Open VSX Registry
         uses: HaaLeo/publish-vscode-extension@v1
