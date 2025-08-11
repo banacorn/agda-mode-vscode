@@ -67,17 +67,27 @@ module Connection = {
     }
 }
 
+module Registry = {
+  type t =
+    | Lookup(string, bool) // filepath, found
+    | Add(string) // filepath
+    | Remove(string) // filepath
+
+  let toString = event =>
+    switch event {
+    | Lookup(filepath, found) => "lookup: " ++ filepath ++ " " ++ (found ? "found" : "not found")
+    | Add(filepath) => "add: " ++ filepath
+    | Remove(filepath) => "remove: " ++ filepath
+    }
+}
+
 type t =
   | CommandDispatched(Command.t)
   | CommandHandled(Command.t)
   | RequestSent(Request.t)
   | ResponseHandled(Response.t)
-  | RegistryLookup(string, bool) // filepath, found
-  | RegistryAdd(string) // filepath
-  | RegistryRemove(string) // filepath
-  | ParserFilepath(string, string) // input, output
+  | Registry(Registry.t)
   | TokensReset(string) // reason
-  | AgdaModeOperation(string, string) // operation, filepath
   | SwitchVersionUI(SwitchVersion.t) // SwitchVersion UI event
   | Connection(Connection.t) // Connection event
   | Others(string) // generic string
@@ -88,14 +98,9 @@ let toString = log =>
   | RequestSent(request) => "   <- " ++ Request.toString(request)
   | ResponseHandled(response) => "    > " ++ Response.toString(response)
   | CommandHandled(command) => " ===> " ++ Command.toString(command)
-  | RegistryLookup(filepath, found) =>
-    "Registry lookup: " ++ filepath ++ " " ++ (found ? "found" : "not found")
-  | RegistryAdd(filepath) => "Registry add: " ++ filepath
-  | RegistryRemove(filepath) => "Registry remove: " ++ filepath
-  | ParserFilepath(input, output) => "Parser.filepath: " ++ input ++ " -> " ++ output
+  | Registry(event) => "[ Registry         ] " ++ Registry.toString(event)
   | TokensReset(reason) => "Tokens reset: " ++ reason
-  | AgdaModeOperation(operation, filepath) => "AgdaMode." ++ operation ++ ": " ++ filepath
-  | SwitchVersionUI(event) => "SwitchVersionUI: " ++ SwitchVersion.toString(event)
-  | Connection(event) => "Connection: " ++ Connection.toString(event)
+  | SwitchVersionUI(event) => "[ SwitchVersion    ] " ++ SwitchVersion.toString(event)
+  | Connection(event) => "[ Connection       ] " ++ Connection.toString(event)
   | Others(str) => str
   }

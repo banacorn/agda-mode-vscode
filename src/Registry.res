@@ -57,7 +57,7 @@ module Module: {
     | Some(entry) =>
       switch entry.state {
       | Some(state) => entry.state = Some(state) // update the state
-      | None => 
+      | None =>
         let newEntry = Entry.make(Some(state))
         dict->Dict.set(fileName, newEntry)
       }

@@ -422,8 +422,6 @@ module AgdaMode = {
     let channels = activateExtension()
     let state = await load(channels, rawFilepath)
 
-    state.channels.log->Chan.emit(AgdaModeOperation("makeAndLoad", rawFilepath))
-
     // On Windows, ensure the registry entry uses the same path format as the context
     // The state may have been stored with a normalized path, so we need to update it
     if !OS.onUnix {
@@ -433,8 +431,6 @@ module AgdaMode = {
       // Also store with the raw path for the test context
       Registry.add(rawFilepath, state)
     }
-
-    state.channels.log->Chan.emit(AgdaModeOperation("makeAndLoad", rawFilepath))
 
     // On Windows, ensure the registry entry uses the same path format as the context
     // The state may have been stored with a normalized path, so we need to update it
@@ -453,11 +449,7 @@ module AgdaMode = {
     }
   }
 
-  let quit = async (self: t) => {
-    self.state.channels.log->Chan.emit(AgdaModeOperation("quit", self.filepath))
-    await Registry.removeAndDestroy(self.filepath)
-    self.state.channels.log->Chan.emit(AgdaModeOperation("quit completed", self.filepath))
-  }
+  let quit = async (self: t) => await Registry.removeAndDestroy(self.filepath)
 
   let case = async (self, ~cursor, ~payload) => {
     let editor = await File.open_(self.filepath)
