@@ -109,39 +109,46 @@ module Module: Module = {
   }
 
   // see if it's a Agda executable or a language server
-  let probeFilepath = async path =>
+  let probeFilepath = async path => {
     switch URI.parse(path) {
     | Connection__URI.LspURI(_) => Error(Error.Probe.CannotHandleURLsAtTheMoment)
     | FileURI(_, vscodeUri) =>
-      let path = VSCode.Uri.fsPath(vscodeUri)
-      let result = await Connection__Process__Exec.run(path, ["--version"], ~timeout=3000)
+      // IMPORTANT: Convert URI to platform-specific file system path
+      // VSCode.Uri.fsPath() handles cross-platform path conversion:
+      // - On Windows: "/d/path/file" -> "d:\path\file"
+      // - On Unix: "/path/file" -> "/path/file" (unchanged)
+      // Always use fsPath (not the original path) for all subsequent operations
+      // to ensure proper process spawning on Windows
+      let fsPath = VSCode.Uri.fsPath(vscodeUri)
+      let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
       switch result {
       | Ok(output) =>
         // try Agda
         switch String.match(output, %re("/Agda version (.*)/")) {
-        | Some([_, Some(version)]) => Ok(path, Ok(version))
+        | Some([_, Some(version)]) => Ok(fsPath, Ok(version))
         | _ =>
           // try ALS
           switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
           | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-            let lspOptions = switch await checkForPrebuiltDataDirectory(path) {
+            let lspOptions = switch await checkForPrebuiltDataDirectory(fsPath) {
             | Some(assetPath) =>
               let env = Dict.fromArray([("Agda_datadir", assetPath)])
               Some({Connection__Protocol__LSP__Binding.env: env})
             | None => None
             }
-            Ok(path, Error(alsVersion, agdaVersion, lspOptions))
+            Ok(fsPath, Error(alsVersion, agdaVersion, lspOptions))
           | _ => Error(Error.Probe.NotAgdaOrALS(output))
           }
         }
       | Error(error) => Error(Error.Probe.CannotDetermineAgdaOrALS(error))
       }
     }
+  }
 
   let makeWithRawPath = async (rawpath: string): result<t, Error.Establish.t> => {
     switch await probeFilepath(rawpath) {
     | Ok(path, Ok(agdaVersion)) =>
-      let connection = await Agda.make(rawpath, agdaVersion)
+      let connection = await Agda.make(path, agdaVersion)
       Ok(Agda(connection, path, agdaVersion))
     | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
       switch await ALS.make(

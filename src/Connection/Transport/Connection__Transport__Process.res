@@ -118,9 +118,7 @@ module Module: Module = {
 
     // emit `OnExit` when either `close` or `exit` was received
     Promise.race([promiseOnExit, promiseOnClose])
-    ->Promise.thenResolve(exitCode => {
-      chan->Chan.emit(Event(OnExit(exitCode)))
-    })
+    ->Promise.thenResolve(exitCode => chan->Chan.emit(Event(OnExit(exitCode))))
     ->ignore
 
     {chan, status: Created(process)}

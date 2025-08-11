@@ -74,23 +74,22 @@ let run = normalization => {
 describe("agda-mode.auto", () => {
   This.timeout(4000)
 
-  // testing for Auto somehow hangs on GitHub Actions Windows runners (but works fine on my desktop Windows :))
-  // cannot find out why, so skip the tests on Windows for now
-  if OS.onUnix {
-    describe("AsIs", () => {
-      run(AsIs)
-    })
+  // // testing for Auto somehow hangs on GitHub Actions Windows runners (but works fine on my desktop Windows :))
+  // // cannot find out why, so skip the tests on Windows for now
+  // if OS.onUnix {
+  describe("AsIs", () => {
+    run(AsIs)
+  })
 
-    describe("Simplified", () => {
-      run(Simplified)
-    })
+  describe("Simplified", () => {
+    run(Simplified)
+  })
 
-    describe("Normalised", () => {
-      run(Normalised)
-    })
+  describe("Normalised", () => {
+    run(Normalised)
+  })
 
-    describe("HeadNormal", () => {
-      run(HeadNormal)
-    })
-  }
+  describe("HeadNormal", () => {
+    run(HeadNormal)
+  })
 })
