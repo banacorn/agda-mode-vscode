@@ -6,15 +6,15 @@ module Module: {
     }
   }
 
-  let get: string => option<Entry.t>
+  let get: VSCode.TextDocument.t => option<Entry.t>
   let getAll: unit => array<Entry.t>
-  let add: (string, State.t) => unit
-  let remove: string => unit
-  let removeAndDestroy: string => promise<unit>
+  let add: (VSCode.TextDocument.t, State.t) => unit
+  let remove: VSCode.TextDocument.t => unit
+  let removeAndDestroy: VSCode.TextDocument.t => promise<unit>
   let removeAndDestroyAll: unit => promise<unit>
   let isEmpty: unit => bool
 
-  let requestSemanticTokens: string => promise<array<Highlighting__SemanticToken.t>>
+  let requestSemanticTokens: VSCode.TextDocument.t => promise<array<Highlighting__SemanticToken.t>>
 } = {
   module Entry = {
     type tokens = array<Highlighting__SemanticToken.t>
@@ -40,34 +40,34 @@ module Module: {
   // FileName-Entry Registry
   let dict: Dict.t<Entry.t> = Dict.make()
 
-  let get = fileName => dict->Dict.get(fileName)
+  let get = document => dict->Dict.get(document->VSCode.TextDocument.fileName)
   let getAll = () => dict->Dict.valuesToArray
 
   // Adds an instantiated State to the Registry
-  let add = (fileName, state: State.t) => {
-    switch get(fileName) {
+  let add = (document, state: State.t) => {
+    switch get(document) {
     | None =>
       // entry not found, create a new one
       let entry = Entry.make(Some(state))
-      dict->Dict.set(fileName, entry)
+      dict->Dict.set(document->VSCode.TextDocument.fileName, entry)
     | Some(entry) =>
       switch entry.state {
       | Some(state) => entry.state = Some(state) // update the state
       | None =>
         let newEntry = Entry.make(Some(state))
-        dict->Dict.set(fileName, newEntry)
+        dict->Dict.set(document->VSCode.TextDocument.fileName, newEntry)
       }
     }
   }
 
   // Removes the entry (but without triggering State.destroy() )
-  let remove = fileName => Dict.delete(dict, fileName)
+  let remove = document => Dict.delete(dict, document->VSCode.TextDocument.fileName)
 
-  let removeAndDestroy = async fileName => {
-    switch get(fileName) {
+  let removeAndDestroyPrim = async filepath => {
+    switch Dict.get(dict, filepath) {
     | None => ()
     | Some(entry) =>
-      remove(fileName)
+      Dict.delete(dict, filepath)
       switch entry.state {
       | None => ()
       | Some(state) =>
@@ -76,26 +76,28 @@ module Module: {
     }
   }
 
+  let removeAndDestroy = document => removeAndDestroyPrim(document->VSCode.TextDocument.fileName)
+
   let removeAndDestroyAll = async () => {
     let _ =
       await dict
       ->Dict.keysToArray
-      ->Array.map(pair => () => removeAndDestroy(pair))
+      ->Array.map(filepath => () => removeAndDestroyPrim(filepath))
       ->Util.Promise_.oneByOne
   }
 
   let isEmpty = () => Dict.keysToArray(dict)->Array.length == 0
 
   // Requesting Semantic Tokens
-  let requestSemanticTokens = async fileName => {
-    switch get(fileName) {
+  let requestSemanticTokens = async document => {
+    switch get(document) {
     | Some(entry) =>
       let tokens = await entry.semanticTokens->Resource.get
       tokens
     | None =>
       // entry not found, create a new one
       let entry = Entry.make(None)
-      dict->Dict.set(fileName, entry)
+      dict->Dict.set(document->VSCode.TextDocument.fileName, entry)
       let tokens = await entry.semanticTokens->Resource.get
       tokens
     }

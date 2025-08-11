@@ -1,10 +1,8 @@
 // Common logic extracted from Main.res for shared use between desktop and web entry points
 
 // if end with '.agda' or '.lagda'
-let isAgda = (fileName): bool => {
-  let fileName = fileName->Parser.filepath
-  RegExp.test(%re("/\.agda$|\.lagda/i"), fileName)
-}
+let isAgda = (document): bool =>
+  RegExp.test(%re("/\.agda$|\.lagda/i"), document->VSCode.TextDocument.fileName)
 
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
@@ -27,8 +25,7 @@ module Inputs: {
       VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
         VSCode.Window.activeTextEditor->Option.map(
           editor => {
-            let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-            if isAgda(fileName) {
+            if isAgda(editor->VSCode.TextEditor.document) {
               callback(command, editor)
             } else {
               Promise.resolve(None)
@@ -47,7 +44,6 @@ let initialize = (
   globalStorageUri,
   memento,
   editor,
-  fileName,
   semanticTokensRequest,
 ) => {
   let panel = Singleton.Panel.make(extensionUri)
@@ -91,8 +87,8 @@ let initialize = (
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
-      let fileName' =
-        editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName->Parser.filepath
+      let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+      let fileName' = editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName
       if fileName' == fileName {
         State__Command.dispatchCommand(state, Command.EventFromView(event))->ignore
       }
@@ -147,8 +143,7 @@ let registerDocumentSemanticTokensProvider = () => {
   let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
 
   let provideDocumentSemanticTokens = (document, _cancel) => {
-    let fileName = document->VSCode.TextDocument.fileName->Parser.filepath
-    Registry.requestSemanticTokens(fileName)
+    Registry.requestSemanticTokens(document)
     ->Promise.thenResolve(tokens => {
       open Editor.Provider.Mock
 
@@ -225,17 +220,17 @@ let activateWithoutContext = (
 
   // on open editor
   Inputs.onOpenEditor(editor => {
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let document = editor->VSCode.TextEditor.document
 
     // filter out ".agda.git" files
-    if isAgda(fileName) {
-      Registry.get(fileName)
+    if isAgda(document) {
+      Registry.get(document)
       ->Option.flatMap(entry => entry.state)
       ->Option.forEach(state => {
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
         state.editor = editor
-        state.document = editor->VSCode.TextEditor.document
+        state.document = document
         State__Command.dispatchCommand(state, Refresh)->ignore
       })
     }
@@ -265,22 +260,21 @@ let activateWithoutContext = (
 
   // on close editor
   Inputs.onCloseDocument(document => {
-    let fileName = VSCode.TextDocument.fileName(document)->Parser.filepath
-    if isAgda(fileName) {
-      Registry.removeAndDestroy(fileName)->ignore
+    if isAgda(document) {
+      Registry.removeAndDestroy(document)->ignore
       finalize(false)->ignore
     }
   })->subscribe
   // on triggering commands
   Inputs.onTriggerCommand(async (command, editor) => {
-    let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+    let document = editor->VSCode.TextEditor.document
     // destroy
     switch command {
     | Quit =>
-      await Registry.removeAndDestroy(fileName)
+      await Registry.removeAndDestroy(document)
       finalize(false)
     | Restart =>
-      await Registry.removeAndDestroy(fileName)
+      await Registry.removeAndDestroy(document)
       finalize(true)
     | _ => ()
     }
@@ -289,7 +283,7 @@ let activateWithoutContext = (
     | Load
     | Restart
     | InputMethod(Activate) =>
-      switch Registry.get(fileName) {
+      switch Registry.get(document) {
       | None =>
         let state = initialize(
           platformDeps,
@@ -298,10 +292,9 @@ let activateWithoutContext = (
           globalStorageUri,
           memento,
           editor,
-          fileName,
           None,
         )
-        Registry.add(fileName, state)
+        Registry.add(document, state)
       | Some(entry) =>
         switch entry.state {
         | None =>
@@ -313,10 +306,9 @@ let activateWithoutContext = (
             globalStorageUri,
             memento,
             editor,
-            fileName,
             Some(entry.semanticTokens),
           )
-          Registry.add(fileName, state)
+          Registry.add(document, state)
         | Some(_) => () // should not happen
         }
       }
@@ -324,7 +316,7 @@ let activateWithoutContext = (
     }
     // dispatch
 
-    switch Registry.get(fileName)->Option.flatMap(entry => entry.state) {
+    switch Registry.get(document)->Option.flatMap(entry => entry.state) {
     | None => None
     | Some(state) =>
       await State__Command.dispatchCommand(state, command)

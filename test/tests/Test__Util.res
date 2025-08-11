@@ -429,7 +429,7 @@ module AgdaMode = {
     }
   }
 
-  let quit = async (self: t) => await Registry.removeAndDestroy(self.filepath)
+  let quit = async (self: t) => await Registry.removeAndDestroy(self.state.document)
 
   let case = async (self, ~cursor, ~payload) => {
     let editor = await File.open_(self.filepath)
