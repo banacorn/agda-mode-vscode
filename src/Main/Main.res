@@ -229,7 +229,9 @@ let activateWithoutContext = (
 
     // filter out ".agda.git" files
     if isAgda(fileName) {
-      Registry.getState(fileName)->Option.forEach(state => {
+      Registry.get(fileName)
+      ->Option.flatMap(entry => entry.state)
+      ->Option.forEach(state => {
         // after switching tabs, the old editor would be "_disposed"
         // we need to replace it with this new one
         state.editor = editor
@@ -254,11 +256,9 @@ let activateWithoutContext = (
     if agdaModeFontSizeChanged || editorFontSizeChanged {
       let newFontSize = Config.Buffer.getFontSize()
       // find any existing State, so that we can update the font size in the view
-      switch Registry.getAllStates()[0] {
+      switch Registry.getAll()[0]->Option.flatMap(entry => entry.state) {
       | None => ()
-      | Some(state) =>
-        // panel->WebviewPanel.sendEvent(ConfigurationChange(fontSize))->ignore
-        state->State__View.Panel.setFontSize(newFontSize)->Promise.done
+      | Some(state) => state->State__View.Panel.setFontSize(newFontSize)->Promise.done
       }
     }
   })->subscribe
@@ -289,7 +289,7 @@ let activateWithoutContext = (
     | Load
     | Restart
     | InputMethod(Activate) =>
-      switch Registry.getEntry(fileName) {
+      switch Registry.get(fileName) {
       | None =>
         let state = initialize(
           platformDeps,
@@ -323,7 +323,8 @@ let activateWithoutContext = (
     | _ => ()
     }
     // dispatch
-    switch Registry.getState(fileName) {
+
+    switch Registry.get(fileName)->Option.flatMap(entry => entry.state) {
     | None => None
     | Some(state) =>
       await State__Command.dispatchCommand(state, command)

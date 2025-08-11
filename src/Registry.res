@@ -6,9 +6,8 @@ module Module: {
     }
   }
 
-  let getState: string => option<State.t>
-  let getEntry: string => option<Entry.t>
-  let getAllStates: unit => array<State.t>
+  let get: string => option<Entry.t>
+  let getAll: unit => array<Entry.t>
   let add: (string, State.t) => unit
   let remove: string => unit
   let removeAndDestroy: string => promise<unit>
@@ -41,15 +40,12 @@ module Module: {
   // FileName-Entry Registry
   let dict: Dict.t<Entry.t> = Dict.make()
 
-  let getEntry = fileName => dict->Dict.get(fileName)
-  let getState = fileName => getEntry(fileName)->Option.flatMap(x => x.state)
-
-  //  Get all existing States
-  let getAllStates = () => dict->Dict.valuesToArray->Array.filterMap(getEntry => getEntry.state)
+  let get = fileName => dict->Dict.get(fileName)
+  let getAll = () => dict->Dict.valuesToArray
 
   // Adds an instantiated State to the Registry
   let add = (fileName, state: State.t) => {
-    switch getEntry(fileName) {
+    switch get(fileName) {
     | None =>
       // entry not found, create a new one
       let entry = Entry.make(Some(state))
@@ -68,7 +64,7 @@ module Module: {
   let remove = fileName => Dict.delete(dict, fileName)
 
   let removeAndDestroy = async fileName => {
-    switch getEntry(fileName) {
+    switch get(fileName) {
     | None => ()
     | Some(entry) =>
       remove(fileName)
@@ -92,7 +88,7 @@ module Module: {
 
   // Requesting Semantic Tokens
   let requestSemanticTokens = async fileName => {
-    switch getEntry(fileName) {
+    switch get(fileName) {
     | Some(entry) =>
       let tokens = await entry.semanticTokens->Resource.get
       tokens
