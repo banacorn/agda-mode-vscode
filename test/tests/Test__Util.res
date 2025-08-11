@@ -422,26 +422,6 @@ module AgdaMode = {
     let channels = activateExtension()
     let state = await load(channels, rawFilepath)
 
-    // On Windows, ensure the registry entry uses the same path format as the context
-    // The state may have been stored with a normalized path, so we need to update it
-    if !OS.onUnix {
-      // Store the registry entry with the normalized path that Main.res expects
-      let normalizedPath = Parser.filepath(rawFilepath)
-      Registry.add(normalizedPath, state)
-      // Also store with the raw path for the test context
-      Registry.add(rawFilepath, state)
-    }
-
-    // On Windows, ensure the registry entry uses the same path format as the context
-    // The state may have been stored with a normalized path, so we need to update it
-    if !OS.onUnix {
-      // Store the registry entry with the normalized path that Main.res expects
-      let normalizedPath = Parser.filepath(rawFilepath)
-      Registry.add(normalizedPath, state)
-      // Also store with the raw path for the test context
-      Registry.add(rawFilepath, state)
-    }
-
     {
       filepath: rawFilepath,
       channels,
