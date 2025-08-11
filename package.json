@@ -20,7 +20,7 @@
 		"dev-web": "node run-web-extension.js",
 		"test": "node lib/js/test/RunTestFromCLI.bs.js",
 		"build": "npx rescript && npx lessc style/style.less dist/style.css && webpack --mode production && webpack --mode production --env target=web",
-		"prepublish": "npm run build && npm list --production --parseable --depth=99999 --loglevel=error"
+		"dry-run-publish": "npm run build && npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
 		"@vscode/test-electron": "^2.3.8",
