@@ -279,7 +279,7 @@ module OffsetConverter: OffsetConverter = {
       if charCode >= 0xD800 && (charCode <= 0xDBFF && notFinal) {
         // found the high surrogate, proceed to check the low surrogate
         let nextCharCode = text->String.charCodeAt(i.contents + 1)->int_of_float
-        if nextCharCode >= 0xDC00 && charCode <= 0xDFFF {
+        if nextCharCode >= 0xDC00 && nextCharCode <= 0xDFFF {
           // store the index of this surrogate pair
           surrogatePairs->Array.push(i.contents)
         }

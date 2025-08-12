@@ -606,7 +606,7 @@ describe("Goals", () => {
     )
   })
 
-  describe_only("Issue #250 - Unicode hole placement", () => {
+  describe("Issue #250 - Unicode hole placement", () => {
     let unicodeFilename = "UnicodeGoalPlacement.agda"
     let unicodeFileContent = ref("")
 

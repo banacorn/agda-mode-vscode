@@ -29,7 +29,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
     )
   })
 
-  describe("Agda.OffsetConverter.computeUTF16SurrogatePairIndices", () =>
+  describe("Agda.OffsetConverter.computeUTF16SurrogatePairIndices", () => {
     it(
       "should work",
       () => {
@@ -49,7 +49,7 @@ describe("Conversion between Agda Offsets and Editor Offsets", () => {
         Assert.deepStrictEqual(Agda.OffsetConverter.computeUTF16SurrogatePairIndices(issue7), [23])
       },
     )
-  )
+  })
 
   describe("Common.Indices.make", () =>
     it(
