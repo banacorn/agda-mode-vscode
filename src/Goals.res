@@ -308,10 +308,15 @@ module Module: Module = {
     let goals = serializeGoals(self)->Array.join("\n")
     let goalsWithoutIndices = serializeGoalsWithoutIndices(self)->Array.join(", ")
     let positions = serializePositions(self)->Array.join(", ")
-    
-    "Goals:\n" ++ goals ++ 
-    "\nGoals without indices: [" ++ goalsWithoutIndices ++ "]" ++
-    "\nPositions: [" ++ positions ++ "]" ++
+
+    "Goals:\n" ++
+    goals ++
+    "\nGoals without indices: [" ++
+    goalsWithoutIndices ++
+    "]" ++
+    "\nPositions: [" ++
+    positions ++
+    "]" ++
     "\nBusy: " ++ (self.isBusy->Option.isSome ? "true" : "false")
   }
 
@@ -922,11 +927,8 @@ module Module: Module = {
   }
 
   // Add goal positions without indices, e.g. from the Load or Refine command
-  let addGoalPositions = (self, positions) => {
-    positions->Array.forEach(((start, end)) => {
-      self.goalsWithoutIndices->Map.set(start, end)
-    })
-  }
+  let addGoalPositions = (self, positions) =>
+    positions->Array.forEach(((start, end)) => self.goalsWithoutIndices->Map.set(start, end))
 
   let getGoalPositionByIndex = (self, index) => {
     switch self.goals->Map.get(index) {

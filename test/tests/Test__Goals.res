@@ -606,61 +606,37 @@ describe("Goals", () => {
     )
   })
 
-  describe("Issue #250 - Unicode hole placement", () => {
-    let unicodeFilename = "UnicodeGoalPlacement.agda"
-    let unicodeFileContent = ref("")
+  describe("Unicode hole placement", () => {
+    let filename = "UnicodeGoalPlacement.agda"
+    let fileContent = ref("")
 
-    Async.before(
+    Async.beforeEach(
       async () => {
-        unicodeFileContent := (await File.read(Path.asset(unicodeFilename)))
+        fileContent := (await File.read(Path.asset(filename)))
       },
     )
     Async.afterEach(
       async () => {
-        await File.write(Path.asset(unicodeFilename), unicodeFileContent.contents)
-      },
-    )
-    Async.after(
-      async () => {
-        await File.write(Path.asset(unicodeFilename), unicodeFileContent.contents)
+        await File.write(Path.asset(filename), fileContent.contents)
       },
     )
 
     Async.it(
       "should correctly place holes when Unicode characters are properly handled",
       async () => {
-        let ctx = await AgdaMode.makeAndLoad(unicodeFilename)
+        let ctx = await AgdaMode.makeAndLoad(filename)
         let goalPositions = Goals.serializeGoals(ctx.state.goals)
 
-        // These are the INCORRECT positions produced by the current bug
-        // Due to faulty surrogate pair detection, positions drift rightward
-        // This test passes with the bug and will fail when the bug is fixed
-        let buggyPositions = [
-          "#0 [12:6-13)", // Line 12: 𝐱 = {!   !} - buggy position (2 cols too far right)
-          "#1 [16:10-17)", // Line 16: 𝐱𝐲𝐳 = {!   !} - buggy position (2 cols too far right)
-          "#2 [20:24-31)", // Line 20: 𝐍ormal-text-then-𝐱 = {!   !} - buggy position (2 cols too far right)
-          "#3 [24:12-19)", // Line 24: 𝐚 𝐱 𝐲 = {!   !} {!   !} - first goal (2 cols too far right)
-          "#4 [24:20-27)", // Line 24: second goal - buggy position (2 cols too far right)
-          "#5 [28:6-13)", // Line 28: 𝐛 = ? -> {!   !} - buggy position (2 cols too far right)
-          "#6 [32:11-18)", // Line 32: 𝐀𝔅ℂ𝐝 = {!   !} - buggy position (2 cols too far right)
+        let positions = [
+          "#0 [12:6-13)", // Line 12: 𝐱 = {!   !} - correct position accounting for 1 surrogate pair
+          "#1 [16:10-17)", // Line 16: 𝐱𝐲𝐳 = {!   !} - correct position accounting for 3 surrogate pairs
+          "#2 [20:24-31)", // Line 20: 𝐍ormal-text-then-𝐱 = {!   !} - correct position accounting for 2 surrogate pairs
+          "#3 [24:12-19)", // Line 24: 𝐚 𝐱 𝐲 = {!   !} {!   !} - first goal, accounting for 3 surrogate pairs
+          "#4 [24:20-27)", // Line 24: second goal position
+          "#5 [28:6-13)", // Line 28: 𝐛 = ? -> {!   !} - correct position accounting for 1 surrogate pair
+          "#6 [32:11-18)", // Line 32: 𝐀𝔅ℂ𝐝 = {!   !} - correct position accounting for 4 surrogate pairs
         ]
-
-        // These are the CORRECT positions that should occur when Unicode is handled properly
-        // This test will FAIL with the current bug but pass when the bug is fixed
-        let correctPositions = [
-          "#0 [12:4-11)", // Line 12: 𝐱 = {!   !} - correct position accounting for 1 surrogate pair
-          "#1 [16:8-15)", // Line 16: 𝐱𝐲𝐳 = {!   !} - correct position accounting for 3 surrogate pairs
-          "#2 [20:22-29)", // Line 20: 𝐍ormal-text-then-𝐱 = {!   !} - correct position accounting for 2 surrogate pairs
-          "#3 [24:10-17)", // Line 24: 𝐚 𝐱 𝐲 = {!   !} {!   !} - first goal, accounting for 3 surrogate pairs
-          "#4 [24:18-25)", // Line 24: second goal position
-          "#5 [28:4-11)", // Line 28: 𝐛 = ? -> {!   !} - correct position accounting for 1 surrogate pair
-          "#6 [32:9-16)", // Line 32: 𝐀𝔅ℂ𝐝 = {!   !} - correct position accounting for 4 surrogate pairs
-        ]
-
-        // This assertion will FAIL with the current bug, but pass when the bug is fixed
-        let isBuggy = goalPositions == buggyPositions
-        Assert.ok(!isBuggy)
-        Assert.deepStrictEqual(goalPositions, correctPositions)
+        Assert.deepStrictEqual(goalPositions, positions)
         await ctx->AgdaMode.quit
       },
     )
