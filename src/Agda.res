@@ -269,6 +269,11 @@ module OffsetConverter: OffsetConverter = {
     // length in code units (16 bits), not the actual code point length
     let lengthInCodeUnits = String.length(text)
 
+    Js.log("=== computeUTF16SurrogatePairIndices DEBUG START ===")
+    Js.log("Text to process:")
+    Js.log(text)
+    Js.log("Text length in code units: " ++ Int.toString(lengthInCodeUnits))
+
     // iterate through the text to find surrogate pairs
     let i = ref(0)
     while i.contents < lengthInCodeUnits {
@@ -279,9 +284,13 @@ module OffsetConverter: OffsetConverter = {
       if charCode >= 0xD800 && (charCode <= 0xDBFF && notFinal) {
         // found the high surrogate, proceed to check the low surrogate
         let nextCharCode = text->String.charCodeAt(i.contents + 1)->int_of_float
+        Js.log(`High surrogate found at index ${Int.toString(i.contents)}: charCode=${Int.toString(charCode)}, nextCharCode=${Int.toString(nextCharCode)}`)
         if nextCharCode >= 0xDC00 && nextCharCode <= 0xDFFF {
           // store the index of this surrogate pair
           surrogatePairs->Array.push(i.contents)
+          Js.log(`Valid surrogate pair found at index ${Int.toString(i.contents)}`)
+        } else {
+          Js.log(`Invalid low surrogate: nextCharCode=${Int.toString(nextCharCode)} (expected 0xDC00-0xDFFF)`)
         }
         // increment by 2 because we have checked the presumably low surrogate char
         i := i.contents + 2
@@ -290,6 +299,9 @@ module OffsetConverter: OffsetConverter = {
       }
     }
 
+    Js.log("Final surrogate pairs array:")
+    Js.log(surrogatePairs)
+    Js.log("=== computeUTF16SurrogatePairIndices DEBUG END ===")
     surrogatePairs
   }
 
@@ -319,14 +331,38 @@ module OffsetConverter: OffsetConverter = {
   }
 
   let make = text => {
-    utf16indices: Indices.make(computeUTF16SurrogatePairIndices(text)),
-    eolIndices: Indices.make(computeCRLFIndices(text)),
+    let surrogatePairIndices = computeUTF16SurrogatePairIndices(text)
+    let crlfIndices = computeCRLFIndices(text)
+    
+    Js.log("=== OffsetConverter.make DEBUG ===")
+    Js.log("Creating OffsetConverter for text:")
+    Js.log(text)
+    Js.log("Surrogate pair indices:")
+    Js.log(surrogatePairIndices)
+    Js.log("CRLF indices:")
+    Js.log(crlfIndices)
+    
+    let result = {
+      utf16indices: Indices.make(surrogatePairIndices),
+      eolIndices: Indices.make(crlfIndices),
+    }
+    
+    Js.log("Created OffsetConverter")
+    result
   }
 
   let convert = (self, offset) => {
+    Js.log(`=== OffsetConverter.convert DEBUG ===`)
+    Js.log(`Input offset: ${Int.toString(offset)}`)
+    
     // code point -> code unit
     let offset = Indices.convert(self.utf16indices, offset)
+    Js.log(`After UTF-16 conversion: ${Int.toString(offset)}`)
+    
     // LF -> CRLF
-    Indices.convert(self.eolIndices, offset)
+    let finalOffset = Indices.convert(self.eolIndices, offset)
+    Js.log(`After CRLF conversion: ${Int.toString(finalOffset)}`)
+    
+    finalOffset
   }
 }
