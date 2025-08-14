@@ -182,25 +182,18 @@ module Module: Module = {
     }
 
     let toString = goal => {
-      Js.log(`=== InternalGoal.toString DEBUG for goal #${Int.toString(goal.index)} ===`)
-      Js.log(`Raw offsets: start=${Int.toString(goal.start)}, end=${Int.toString(goal.end)}`)
-      
       switch VSCode.Window.activeTextEditor {
       | Some(editor) =>
         let document = VSCode.TextEditor.document(editor)
         let startPoint = VSCode.TextDocument.positionAt(document, goal.start)
         let endPoint = VSCode.TextDocument.positionAt(document, goal.end)
         
-        Js.log(`VSCode positionAt results:`)
-        Js.log(`  startPoint - line: ${Int.toString(VSCode.Position.line(startPoint))}, character: ${Int.toString(VSCode.Position.character(startPoint))}`)
-        Js.log(`  endPoint - line: ${Int.toString(VSCode.Position.line(endPoint))}, character: ${Int.toString(VSCode.Position.character(endPoint))}`)
-        
         let startLine = VSCode.Position.line(startPoint) + 1
         let startColumn = VSCode.Position.character(startPoint) + 1
         let endLine = VSCode.Position.line(endPoint) + 1
         let endColumn = VSCode.Position.character(endPoint) + 1
         
-        let result = if startLine == endLine {
+        if startLine == endLine {
           `#${string_of_int(goal.index)} [${string_of_int(startLine)}:${string_of_int(
               startColumn,
             )}-${string_of_int(endColumn)})`
@@ -209,15 +202,10 @@ module Module: Module = {
               startColumn,
             )}-${string_of_int(endLine)}:${string_of_int(endColumn)})`
         }
-        
-        Js.log(`Final position string: ${result}`)
-        result
       | None =>
-        let result = `#${string_of_int(goal.index)} offset [${string_of_int(goal.start)}-${string_of_int(
+        `#${string_of_int(goal.index)} offset [${string_of_int(goal.start)}-${string_of_int(
             goal.end,
           )})`
-        Js.log(`No active editor, using offsets: ${result}`)
-        result
       }
     }
 
@@ -300,23 +288,12 @@ module Module: Module = {
 
   let size = self => Map.size(self.goals)
 
-  let serializeGoals = self => {
-    Js.log("=== Goals.serializeGoals DEBUG START ===")
-    let goalArray = self.goals->Map.values->Iterator.toArray
-    Js.log(`Number of goals: ${Int.toString(Array.length(goalArray))}`)
-    
-    let sortedGoals = goalArray->Array.toSorted((x, y) => Int.compare(x.index, y.index))
-    Js.log("Goal details before serialization:")
-    Array.forEach(sortedGoals, goal => 
-      Js.log(`  Goal #${Int.toString(goal.index)}: offsets ${Int.toString(goal.start)}-${Int.toString(goal.end)}`)
-    )
-    
-    let result = sortedGoals->Array.map(InternalGoal.toString)
-    Js.log("Serialized goal positions:")
-    Array.forEach(result, pos => Js.log(`  ${pos}`))
-    Js.log("=== Goals.serializeGoals DEBUG END ===")
-    result
-  }
+  let serializeGoals = self =>
+    self.goals
+    ->Map.values
+    ->Iterator.toArray
+    ->Array.toSorted((x, y) => Int.compare(x.index, y.index))
+    ->Array.map(InternalGoal.toString)
 
   let serializeGoalsWithoutIndices = self =>
     self.goalsWithoutIndices
@@ -952,9 +929,12 @@ module Module: Module = {
     await scanAllGoals(self, editor, [])
   }
 
-  // Add goal positions without indices, e.g. from the Load or Refine command
-  let addGoalPositions = (self, positions) =>
-    positions->Array.forEach(((start, end)) => self.goalsWithoutIndices->Map.set(start, end))
+  // Add goal positions without indices, e.g. from the Load or Refine command  
+  let addGoalPositions = (self, positions) => {
+    positions->Array.forEach(((start, end)) => {
+      self.goalsWithoutIndices->Map.set(start, end)
+    })
+  }
 
   let getGoalPositionByIndex = (self, index) => {
     switch self.goals->Map.get(index) {

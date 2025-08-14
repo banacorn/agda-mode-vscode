@@ -209,7 +209,6 @@ module Indices: Indices = {
     | None =>
       // happens when we enter the last interval
       if index >= self.lastInterval {
-        // return index + how many pairs it have skipped
         index + self.cursor
       } else {
         // reset the cursor to the beginning of the intervals
@@ -218,11 +217,9 @@ module Indices: Indices = {
       }
     | Some((left, right)) =>
       if index < left {
-        // reset the cursor to the beginning of the intervals
         self.cursor = 0
         convert(self, index)
       } else if index > right {
-        // move the cursor a tad right
         self.cursor = self.cursor + 1
         convert(self, index)
       } else {
@@ -269,11 +266,6 @@ module OffsetConverter: OffsetConverter = {
     // length in code units (16 bits), not the actual code point length
     let lengthInCodeUnits = String.length(text)
 
-    Js.log("=== computeUTF16SurrogatePairIndices DEBUG START ===")
-    Js.log("Text to process:")
-    Js.log(text)
-    Js.log("Text length in code units: " ++ Int.toString(lengthInCodeUnits))
-
     // iterate through the text to find surrogate pairs
     let i = ref(0)
     while i.contents < lengthInCodeUnits {
@@ -284,13 +276,9 @@ module OffsetConverter: OffsetConverter = {
       if charCode >= 0xD800 && (charCode <= 0xDBFF && notFinal) {
         // found the high surrogate, proceed to check the low surrogate
         let nextCharCode = text->String.charCodeAt(i.contents + 1)->int_of_float
-        Js.log(`High surrogate found at index ${Int.toString(i.contents)}: charCode=${Int.toString(charCode)}, nextCharCode=${Int.toString(nextCharCode)}`)
         if nextCharCode >= 0xDC00 && nextCharCode <= 0xDFFF {
           // store the index of this surrogate pair
           surrogatePairs->Array.push(i.contents)
-          Js.log(`Valid surrogate pair found at index ${Int.toString(i.contents)}`)
-        } else {
-          Js.log(`Invalid low surrogate: nextCharCode=${Int.toString(nextCharCode)} (expected 0xDC00-0xDFFF)`)
         }
         // increment by 2 because we have checked the presumably low surrogate char
         i := i.contents + 2
@@ -299,9 +287,6 @@ module OffsetConverter: OffsetConverter = {
       }
     }
 
-    Js.log("Final surrogate pairs array:")
-    Js.log(surrogatePairs)
-    Js.log("=== computeUTF16SurrogatePairIndices DEBUG END ===")
     surrogatePairs
   }
 
@@ -323,46 +308,58 @@ module OffsetConverter: OffsetConverter = {
     matchAll(regexp, text)
   }
 
-  type t = {
-    // cached lookup table for fast code point => code unit offset conversion
-    utf16indices: Indices.t,
-    // cached lookup table for fast LF => CRLF => LF offset conversion
-    eolIndices: Indices.t,
-  }
+  // cached lookup table for
+  //  1. fast code point => code unit offset conversion
+  //  2. fast LF => CRLF => LF offset conversion
+  type t = Indices.t
 
   let make = text => {
     let surrogatePairIndices = computeUTF16SurrogatePairIndices(text)
     let crlfIndices = computeCRLFIndices(text)
-    
-    Js.log("=== OffsetConverter.make DEBUG ===")
-    Js.log("Creating OffsetConverter for text:")
-    Js.log(text)
-    Js.log("Surrogate pair indices:")
-    Js.log(surrogatePairIndices)
-    Js.log("CRLF indices:")
-    Js.log(crlfIndices)
-    
-    let result = {
-      utf16indices: Indices.make(surrogatePairIndices),
-      eolIndices: Indices.make(crlfIndices),
+
+    // combine surrogate pair indices and CRLF indices
+    // two pointer merge
+    let result: array<int> = []
+    let surrogateLength = Array.length(surrogatePairIndices)
+    let crlfLength = Array.length(crlfIndices)
+    let i = ref(0)
+    let j = ref(0)
+    let continue = ref(true)
+    while continue.contents && i.contents < surrogateLength && j.contents < crlfLength {
+      switch (surrogatePairIndices[i.contents], crlfIndices[j.contents]) {
+      | (Some(surrogateIndex), Some(crlfIndex)) =>
+        if surrogateIndex <= crlfIndex {
+          result->Array.push(surrogateIndex)
+          i := i.contents + 1
+        } else {
+          result->Array.push(crlfIndex)
+          j := j.contents + 1
+        }
+      | _ => continue := false
+      }
     }
-    
-    Js.log("Created OffsetConverter")
-    result
+
+    // Add remaining surrogate pair indices
+    while i.contents < surrogateLength {
+      switch surrogatePairIndices[i.contents] {
+      | Some(surrogateIndex) =>
+        result->Array.push(surrogateIndex)
+        i := i.contents + 1
+      | None => i := surrogateLength
+      }
+    }
+
+    // Add remaining CRLF indices
+    while j.contents < crlfLength {
+      switch crlfIndices[j.contents] {
+      | Some(crlfIndex) =>
+        result->Array.push(crlfIndex)
+        j := j.contents + 1
+      | None => j := crlfLength
+      }
+    }
+    Indices.make(result)
   }
 
-  let convert = (self, offset) => {
-    Js.log(`=== OffsetConverter.convert DEBUG ===`)
-    Js.log(`Input offset: ${Int.toString(offset)}`)
-    
-    // code point -> code unit
-    let offset = Indices.convert(self.utf16indices, offset)
-    Js.log(`After UTF-16 conversion: ${Int.toString(offset)}`)
-    
-    // LF -> CRLF
-    let finalOffset = Indices.convert(self.eolIndices, offset)
-    Js.log(`After CRLF conversion: ${Int.toString(finalOffset)}`)
-    
-    finalOffset
-  }
+  let convert = (self, offset) => Indices.convert(self, offset)
 }

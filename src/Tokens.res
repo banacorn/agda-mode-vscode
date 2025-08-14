@@ -202,9 +202,12 @@ module Module: Module = {
     let document = editor->VSCode.TextEditor.document
     let text = Editor.Text.getAll(document)
     let offsetConverter = Agda.OffsetConverter.make(text)
+    
     tokens->Array.forEach(token => {
       let start = Agda.OffsetConverter.convert(offsetConverter, token.start)
       let end = Agda.OffsetConverter.convert(offsetConverter, token.end)
+      
+      
       insertWithVSCodeOffsets(
         self,
         {

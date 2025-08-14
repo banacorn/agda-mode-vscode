@@ -150,6 +150,7 @@ let rec handle = async (
     | InteractionPoints(indices) =>
       let holePositions = await state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
       let positionsArray = Map.entries(holePositions)->Iterator.toArray
+
       state.goals->Goals.addGoalPositions(positionsArray)
       if state.isInRefineOrGiveOperation {
         await state.goals->Goals.resetGoalIndicesOnRefineOrGive(state.editor, indices)

@@ -23,7 +23,7 @@ data ℕ : Set where
 𝐚 : ℕ → ℕ → ℕ
 𝐚 𝐱 𝐲 = {!   !} {!   !}
 
--- Case 5: Question mark goals (should expand to {!   !})
+-- Case 5: Question mark goals (should expand to {!  {!   !{!   !{!   !}!})
 𝐛 : ℕ
 𝐛 = ?
 
