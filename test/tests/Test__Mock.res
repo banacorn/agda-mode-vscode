@@ -106,8 +106,53 @@ module Platform = {
   // Create basic mock platform that avoids dialogs
   let makeBasic = (): Platform.t => module(Basic)
 
+  // Mock platform that finds agda in PATH and replicates Desktop.res logic
+  module WithAgdaInPath = {
+    let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+    let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+    let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    
+    // Mock findCommand to return agda when searched (the key difference)
+    let findCommand = (command, ~timeout as _timeout=1000) => {
+      if command == "agda" {
+        Promise.resolve(Ok("/usr/bin/agda"))
+      } else {
+        Promise.resolve(Error(Connection__Command.Error.NotFound))
+      }
+    }
+    
+    // Replicate the EXACT logic from Desktop.res to expose the real bug
+    let getInstalledEndpointsAndPersistThem = async (_globalStorageUri: VSCode.Uri.t) => {
+      let endpoints = Dict.make()
+
+      // Add paths from user config (lines 47-51 in Desktop.res)
+      Config.Connection.getAgdaPaths()->Array.forEach(path => {
+        let filename = NodeJs.Path.basename(path)
+        let endpoint = if filename == "agda" || String.startsWith(filename, "agda-") {
+          Memento.Endpoints.Agda(None)
+        } else {
+          Memento.Endpoints.Unknown
+        }
+        endpoints->Dict.set(path, endpoint)
+      })
+
+      // THE BUG: Always search PATH regardless of user config (lines 54-57)
+      switch await findCommand("agda") {
+      | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.Agda(None))
+      | Error(_) => ()
+      }
+
+      endpoints
+    }
+  }
+
   // Create mock platform with Agda available
   let makeWithAgda = (): Platform.t => module(WithAgda)
+  
+  // Create mock platform with Agda in PATH (for testing the real bug)
+  let makeWithAgdaInPath = (): Platform.t => module(WithAgdaInPath)
 }
 
 module Channels = {

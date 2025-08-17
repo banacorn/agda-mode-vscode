@@ -19,6 +19,8 @@ module type Module = {
     array<string>,
     Chan.t<Log.t>,
   ) => promise<result<t, Error.t>>
+  let toString: t => string
+  let getPath: t => string
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
   let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
@@ -65,6 +67,12 @@ module Module: Module = {
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path
     | ALS(ALS.t, string, alsVersion) // connection, path
+
+  let toString = connection =>
+    switch connection {
+    | Agda(_, path, version) => `Agda(${path}, ${version})`
+    | ALS(_, path, (alsVersion, agdaVersion, _)) => `ALS(${path}, ${alsVersion}, ${agdaVersion})`
+    }
 
   let destroy = async (connection, logChannel: Chan.t<Log.t>) =>
     switch connection {
