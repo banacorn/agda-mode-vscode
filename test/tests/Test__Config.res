@@ -9,13 +9,13 @@ describe("Config", () => {
           "getAgdaPaths . setAgdaPaths = id",
           async () => {
             let expected = []
-            await Config.Connection.setAgdaPaths(expected)
+            await Config.Connection.setAgdaPaths(Chan.make(), expected)
             let actual = Config.Connection.getAgdaPaths()
 
             Assert.deepStrictEqual(actual, expected)
 
             let expected = ["some/path", "some/other/path"]
-            await Config.Connection.setAgdaPaths(expected)
+            await Config.Connection.setAgdaPaths(Chan.make(), expected)
             let actual = Config.Connection.getAgdaPaths()
 
             Assert.deepStrictEqual(actual, expected)
@@ -25,9 +25,9 @@ describe("Config", () => {
         Async.it(
           "`setAgdaPaths` should remove previous paths",
           async () => {
-            await Config.Connection.setAgdaPaths(["some/path"])
+            await Config.Connection.setAgdaPaths(Chan.make(), ["some/path"])
             let expected = ["some/other/path"]
-            await Config.Connection.setAgdaPaths(expected)
+            await Config.Connection.setAgdaPaths(Chan.make(), expected)
             let actual = Config.Connection.getAgdaPaths()
 
             Assert.deepStrictEqual(actual, expected)
@@ -38,8 +38,8 @@ describe("Config", () => {
           "`addAgdaPaths` should be idempotent",
           async () => {
             let expected = ["some/path"]
-            await Config.Connection.setAgdaPaths(expected)
-            await Config.Connection.setAgdaPaths(expected)
+            await Config.Connection.setAgdaPaths(Chan.make(), expected)
+            await Config.Connection.setAgdaPaths(Chan.make(), expected)
             let actual = Config.Connection.getAgdaPaths()
 
             Assert.deepStrictEqual(actual, expected)

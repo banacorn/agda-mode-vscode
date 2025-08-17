@@ -393,8 +393,6 @@ module AgdaMode = {
   let makeAndLoad = async filepath => {
     let rawFilepath =
       VSCode.Uri.joinPath(Path.extensionUri, ["test/tests/assets", filepath])->VSCode.Uri.fsPath
-    // set name for searching Agda
-    await Config.Connection.setAgdaVersion("agda")
     // make sure that "agda" exists in PATH
     await commandExists("agda")
     //

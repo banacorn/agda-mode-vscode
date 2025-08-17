@@ -81,6 +81,21 @@ module Registry = {
     }
 }
 
+module Config = {
+  type t = Changed(array<string>, array<string>) // before, after
+
+  let toString = event =>
+    switch event {
+    | Changed(before, after) =>
+      "Config changed:\n" ++
+      "Before: " ++
+      Array.join(before, ", ") ++
+      "\n" ++
+      "After: " ++
+      Array.join(after, ", ")
+    }
+}
+
 type t =
   | CommandDispatched(Command.t)
   | CommandHandled(Command.t)
@@ -90,6 +105,7 @@ type t =
   | TokensReset(string) // reason
   | SwitchVersionUI(SwitchVersion.t) // SwitchVersion UI event
   | Connection(Connection.t) // Connection event
+  | Config(Config.t) // Configuration event
   | Others(string) // generic string
 
 let toString = log =>
@@ -102,5 +118,30 @@ let toString = log =>
   | TokensReset(reason) => "Tokens reset: " ++ reason
   | SwitchVersionUI(event) => "[ SwitchVersion    ] " ++ SwitchVersion.toString(event)
   | Connection(event) => "[ Connection       ] " ++ Connection.toString(event)
+  | Config(event) => "[ Config           ] " ++ Config.toString(event)
   | Others(str) => str
   }
+
+let isConfig = log =>
+  switch log {
+  | Config(_) => true
+  | _ => false
+  }
+
+// collect logs from the log channel from the time of the call
+// returns a function that returns the collected logs and stops collecting
+let collect = (channel: Chan.t<t>): ((~filter: t => bool=?) => array<t>) => {
+  let logs = []
+
+  let handle = Chan.on(channel, log => {
+    logs->Array.push(log)
+  })
+
+  (~filter=?) => {
+    handle()
+    switch filter {
+    | Some(f) => logs->Array.filter(f)
+    | None => logs
+    }
+  }
+}

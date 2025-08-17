@@ -55,7 +55,7 @@ let getReleaseManifest = async (memento, globalStorageUri) => {
 }
 
 // Download the given FetchSpec and return the path of the downloaded file
-let download = async (memento, globalStorageUri, fetchSpec) => {
+let download = async (logChannel, memento, globalStorageUri, fetchSpec) => {
   let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
   switch await Connection__Download__GitHub.download(
     fetchSpec,
@@ -68,13 +68,13 @@ let download = async (memento, globalStorageUri, fetchSpec) => {
     // add the path of the downloaded file to the config
     let destUri = VSCode.Uri.joinPath(globalStorageUri, [fetchSpec.saveAsFileName, "als"])
     let destPath = VSCode.Uri.fsPath(destUri)
-    await Config.Connection.addAgdaPath(destPath)
+    await Config.Connection.addAgdaPath(logChannel, destPath)
     Ok(destPath)
   }
 }
 
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
-let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
+let downloadFromURL = async (logChannel, globalStorageUri, url, saveAsFileName, displayName) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
 
   // Create directory if it doesn't exist using URI operations
@@ -91,7 +91,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
       let path = VSCode.Uri.fsPath(execPathUri)
-      await Config.Connection.addAgdaPath(path)
+      await Config.Connection.addAgdaPath(logChannel, path)
       Ok(path)
     }
   | Error(_) =>

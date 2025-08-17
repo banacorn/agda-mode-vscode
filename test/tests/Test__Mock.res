@@ -6,7 +6,7 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+    let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
     let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -18,7 +18,7 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+    let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getInstalledEndpointsAndPersistThem = _globalStorageUri => {
       let endpoints = Dict.make()
@@ -36,7 +36,7 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => policy
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
@@ -59,7 +59,7 @@ module Platform = {
       }
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
@@ -76,7 +76,7 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Ok(downloadedPath))
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
@@ -93,7 +93,7 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(Some(cachedPath))
 
-      let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
       let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
@@ -111,7 +111,7 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let downloadLatestALS = (_memento, _globalStorageUri) => _platform =>
+    let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     
     // Mock findCommand to return agda when searched (the key difference)

@@ -27,7 +27,7 @@ module type Module = {
 
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
 
-  let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
+  let fromDownloads: (Platform.t, Chan.t<Log.t>, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
   // messaging
   let sendRequest: (
@@ -238,6 +238,7 @@ module Module: Module = {
   // Returns Ok(connection) on success, or Error with failure details
   let fromDownloads = async (
     platformDeps: Platform.t,
+    logChannel: Chan.t<Log.t>,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
   ): result<t, Error.Establish.t> => {
@@ -267,7 +268,7 @@ module Module: Module = {
         let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.downloadLatestALS(memento, globalStorageUri)(platform) {
+          switch await PlatformOps.downloadLatestALS(logChannel, memento, globalStorageUri)(platform) {
           | Error(error) => Error(Error.Establish.fromDownloadError(error))
           | Ok(path) => Ok(path)
           }
@@ -277,7 +278,7 @@ module Module: Module = {
         | Ok(path) =>
           switch await makeWithRawPath(path) {
           | Ok(connection) =>
-            await Config.Connection.addAgdaPath(getPath(connection))
+            await Config.Connection.addAgdaPath(logChannel, getPath(connection))
             await Memento.PickedConnection.set(memento, Some(getPath(connection)))
             Ok(connection)
           | Error(error) => Error(error)
@@ -319,14 +320,14 @@ module Module: Module = {
     let tasks = [
       () => fromPaths(platformDeps, pathsWithSelectedConnection),
       () => fromCommands(platformDeps, commands),
-      () => fromDownloads(platformDeps, memento, globalStorageUri),
+      () => fromDownloads(platformDeps, logChannel, memento, globalStorageUri),
     ]
 
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) =>
       logConnection(connection)
       // Set the connection in the memento
-      await Config.Connection.addAgdaPath(getPath(connection))
+      await Config.Connection.addAgdaPath(logChannel, getPath(connection))
       // Set the picked connection in the memento
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)

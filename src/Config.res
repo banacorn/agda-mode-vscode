@@ -64,19 +64,6 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
-  // overwrite all Agda paths
-  let setAgdaPaths = paths =>
-    if inTestingMode.contents {
-      agdaPathsInTestingMode := paths
-      Promise.resolve()
-    } else {
-      // use the original
-      Workspace.getConfiguration(
-        Some("agdaMode"),
-        None,
-      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", paths, None)
-    }
-
   // expects an array of JSON strings
   let parseAgdaPaths = (raw: JSON.t) => {
     let rawPaths: array<string> = switch raw {
@@ -104,7 +91,7 @@ module Connection = {
 
   // new path is APPENDED to the end of the list
   // no-op if it's already in the list
-  let addAgdaPath = (path: string) => {
+  let addAgdaPath = (logChannel: Chan.t<Log.t>, path: string) => {
     let paths = getAgdaPaths()
     let alreadyExists = paths->Array.includes(path)
 
@@ -112,6 +99,7 @@ module Connection = {
       Promise.resolve()
     } else {
       let newPaths = Array.concat(paths, [path])
+      logChannel->Chan.emit(Log.Config(Changed(paths, newPaths)))
       if inTestingMode.contents {
         agdaPathsInTestingMode := newPaths
         Promise.resolve()
@@ -121,6 +109,22 @@ module Connection = {
           None,
         )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", newPaths, None)
       }
+    }
+  }
+
+  // overwrite all Agda paths
+  let setAgdaPaths = (logChannel: Chan.t<Log.t>, paths) => {
+    if inTestingMode.contents {
+      logChannel->Chan.emit(Log.Config(Changed(agdaPathsInTestingMode.contents, paths)))
+      agdaPathsInTestingMode := paths
+      Promise.resolve()
+    } else {
+      // use the original
+      logChannel->Chan.emit(Log.Config(Changed(getAgdaPaths(), paths)))
+      Workspace.getConfiguration(
+        Some("agdaMode"),
+        None,
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", paths, None)
     }
   }
 

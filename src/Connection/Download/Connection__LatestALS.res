@@ -77,10 +77,10 @@ let getFetchSpec = async (memento, globalStorageUri, platform) =>
   }
 
 // download the latest ALS and return the path of the downloaded file
-let download = (memento, globalStorageUri) => async platform =>
+let download = (logChannel, memento, globalStorageUri) => async platform =>
   switch await getFetchSpec(memento, globalStorageUri, platform) {
   | Error(error) => Error(error)
-  | Ok(fetchSpec) => await Connection__Download.download(memento, globalStorageUri, fetchSpec)
+  | Ok(fetchSpec) => await Connection__Download.download(logChannel, memento, globalStorageUri, fetchSpec)
   }
 
 // check if the latest ALS is already downloaded

@@ -576,7 +576,7 @@ module Handler = {
                     [],
                   )
                 | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS(state.memento, state.globalStorageUri)(
+                  switch await PlatformOps.downloadLatestALS(state.channels.log, state.memento, state.globalStorageUri)(
                     platform,
                   ) {
                   | Error(error) =>
@@ -625,7 +625,7 @@ module Handler = {
                 | FileURI(_, vsCodeUri) =>
                   let path = VSCode.Uri.fsPath(vsCodeUri)
                   await Memento.PickedConnection.set(state.memento, Some(path))
-                  await Config.Connection.addAgdaPath(path)
+                  await Config.Connection.addAgdaPath(state.channels.log, path)
                   await switchAgdaVersion(state)
                 | LspURI(_, _) => ()
                 }
