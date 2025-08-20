@@ -319,7 +319,14 @@ module Module: Module = {
     }
 
     let pathsWithSelectedConnection = switch Memento.PickedConnection.get(memento) {
-    | Some(pickedPath) => [pickedPath]->Array.concat(paths)
+    | Some(pickedPath) => 
+      // Only prioritize picked path if it exists in user's configuration
+      if paths->Array.includes(pickedPath) {
+        [pickedPath]->Array.concat(paths->Array.filter(p => p !== pickedPath))
+      } else {
+        // If picked path is not in user config, use user config as-is
+        paths
+      }
     | None => paths
     }
 
@@ -333,8 +340,10 @@ module Module: Module = {
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) =>
       logConnection(connection)
-      // Set the connection in the memento
-      await Config.Connection.addAgdaPath(logChannel, getPath(connection))
+      // Only add path to config if user hasn't provided any paths
+      if Array.length(paths) == 0 {
+        await Config.Connection.addAgdaPath(logChannel, getPath(connection))
+      }
       // Set the picked connection in the memento
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
