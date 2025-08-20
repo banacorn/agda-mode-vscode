@@ -6,7 +6,7 @@ open Test__Util
 // ├── Memento path not in config → should ignore memento, use config as-is
 // └── Memento always updated → should set to working connection path (regardless of source)
 
-describe_only("Memento.PickedConnection", () => {
+describe("Memento.PickedConnection", () => {
   let userAgda = ref("")
   let systemAgda = ref("")
   let alternativeAgda = ref("")
