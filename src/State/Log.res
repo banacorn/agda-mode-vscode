@@ -128,6 +128,12 @@ let isConfig = log =>
   | _ => false
   }
 
+let isConnection = log =>
+  switch log {
+  | Connection(_) => true
+  | _ => false
+  }
+
 // collect logs from the log channel from the time of the call
 // returns a function that returns the collected logs and stops collecting
 let collect = (channel: Chan.t<t>): ((~filter: t => bool=?) => array<t>) => {
