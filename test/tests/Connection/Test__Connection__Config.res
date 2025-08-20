@@ -15,7 +15,7 @@ open Test__Util
 // └── UI-triggered additions
 //     └── Switch version UI selection → should add selected path to config
 
-describe_only("Config.Connection paths", () => {
+describe("Config.Connection paths", () => {
   let userAgda = ref("")
   let systemAgda = ref("")
   let brokenAgda = ref("/broken/agda")
