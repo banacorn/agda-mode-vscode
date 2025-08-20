@@ -65,10 +65,8 @@ let download = async (logChannel, memento, globalStorageUri, fetchSpec) => {
   ) {
   | Error(error) => Error(Error.CannotDownloadALS(error))
   | Ok(_isCached) =>
-    // add the path of the downloaded file to the config
     let destUri = VSCode.Uri.joinPath(globalStorageUri, [fetchSpec.saveAsFileName, "als"])
     let destPath = VSCode.Uri.fsPath(destUri)
-    await Config.Connection.addAgdaPath(logChannel, destPath)
     Ok(destPath)
   }
 }
@@ -91,7 +89,6 @@ let downloadFromURL = async (logChannel, globalStorageUri, url, saveAsFileName, 
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
       let path = VSCode.Uri.fsPath(execPathUri)
-      await Config.Connection.addAgdaPath(logChannel, path)
       Ok(path)
     }
   | Error(_) =>

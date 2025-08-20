@@ -295,12 +295,24 @@ module Module: Module = {
       }
     }
   }
-
-  // Make a connection to Agda or ALS, by trying:
-  //  1. The previously picked raw path if it exists in settings
-  //  2. Each raw path from the settings sequentially
+  
+  // Make a connection to Agda or ALS by trying:
+  //  1. The previously selected path (only if it exists in user config)
+  //  2. Each path from user config sequentially
   //  3. Each command from the commands array sequentially
   //  4. Downloading the latest ALS
+  //
+  // User config path modification policy:
+  //  * Existing paths are never removed or modified programmatically
+  //  * New paths are only added if:
+  //    - User actively chooses a path from the switch version UI, OR
+  //    - User has no config and system discovers a working path
+  //
+  // `Memento.PickedConnection` behavior:
+  //  * Only used for prioritizing existing paths from user config
+  //  * Ignored if it doesn't exist in user config
+  //  * Always set to the working connection path
+
   let make = async (
     platformDeps: Platform.t,
     memento: Memento.t,
@@ -319,7 +331,7 @@ module Module: Module = {
     }
 
     let pathsWithSelectedConnection = switch Memento.PickedConnection.get(memento) {
-    | Some(pickedPath) => 
+    | Some(pickedPath) =>
       // Only prioritize picked path if it exists in user's configuration
       if paths->Array.includes(pickedPath) {
         [pickedPath]->Array.concat(paths->Array.filter(p => p !== pickedPath))
@@ -340,6 +352,7 @@ module Module: Module = {
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) =>
       logConnection(connection)
+
       // Only add path to config if user hasn't provided any paths
       if Array.length(paths) == 0 {
         await Config.Connection.addAgdaPath(logChannel, getPath(connection))

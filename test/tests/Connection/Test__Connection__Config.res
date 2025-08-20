@@ -1,6 +1,21 @@
 open Mocha
 open Test__Util
 
+// TODO: write these tests:
+// Config.Connection paths
+// ├── Working config paths
+// │   ├── Single working path → should not modify config
+// │   ├── Multiple working paths → should not modify config
+// │   └── Mixed working/broken paths → should not modify config (working paths exist)
+// ├── Broken config paths
+// │   ├── All broken, auto discovery succeeds → should add discovered path to config
+// │   └── All broken, auto discovery fails → should fail without modifying config
+// ├── Empty config paths
+// │   ├── Auto discovery succeeds → should add discovered path to config
+// │   └── Auto discovery fails → should fail without modifying config
+// └── UI-triggered additions
+//     └── Switch version UI selection → should add selected path to config
+
 describe("Connection Config Path Management", () => {
   let userAgda = ref("")
   let systemAgda = ref("")
@@ -48,7 +63,7 @@ describe("Connection Config Path Management", () => {
     )
   }
 
-  describe_only("User Configuration", () => {
+  describe("User Configuration", () => {
     Async.it(
       "should respect user's configuration when no paths were previously selected",
       async () => {
@@ -144,6 +159,48 @@ describe("Connection Config Path Management", () => {
           let expectedPath = userAgda.contents
           Assert.deepStrictEqual(actualPath, expectedPath)
         | Error(_) => Assert.fail("Connection should succeed with user-configured paths")
+        }
+      },
+    )
+
+    Async.it(
+      "should add working fallback path when user config contains broken path",
+      async () => {
+        // Precondition
+        //    * User has set a broken path in configuration
+        //    * System falls back to PATH discovery and finds working path
+
+        let brokenPath = "/broken/agda"
+        let userConfig = [brokenPath]
+        await Config.Connection.setAgdaPaths(logChannel, userConfig)
+
+        let listener = Log.collect(logChannel)
+        let result = await makeConnection(None)
+        let logs = listener(~filter=Log.isConfig)
+
+        Js.log(`DEBUG: Connection result = ${switch result { | Ok(_) => "Ok" | Error(_) => "Error" }}`)
+        Js.log(`DEBUG: Config logs length = ${Array.length(logs)->Int.toString}`)
+        
+        switch result {
+        | Ok(connection) =>
+          let actualPath = connection->Connection.getPath
+          Js.log(`DEBUG: actualPath = ${actualPath}, systemAgda = ${systemAgda.contents}`)
+          
+          // If connection succeeded with system path, the working fallback path should be added to config
+          if actualPath == systemAgda.contents {
+            Assert.deepStrictEqual(logs, [Log.Config(Changed(userConfig, [brokenPath, systemAgda.contents]))])
+            let expectedConfig = [brokenPath, systemAgda.contents]
+            let actualConfig = Config.Connection.getAgdaPaths()
+            Assert.deepStrictEqual(actualConfig, expectedConfig)
+            Assert.deepStrictEqual(actualPath, systemAgda.contents)
+          } else {
+            // Connection succeeded with broken path - test setup issue
+            Js.log(`DEBUG: Connection succeeded with broken path instead of falling back`)
+            Assert.fail(`Expected connection to fail with broken path and fallback to system path, but it succeeded with ${actualPath}`)
+          }
+        | Error(error) => 
+          Js.log(`DEBUG: Connection failed completely - no fallback occurred`)
+          Assert.fail("Connection should succeed with fallback to system path")
         }
       },
     )
