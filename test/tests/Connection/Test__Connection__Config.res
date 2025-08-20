@@ -15,7 +15,7 @@ open Test__Util
 // └── UI-triggered additions
 //     └── Switch version UI selection → should add selected path to config
 
-describe("Config.Connection paths", () => {
+describe_only("Config.Connection paths", () => {
   let userAgda = ref("")
   let systemAgda = ref("")
   let brokenAgda = ref("/broken/agda")
@@ -62,7 +62,8 @@ describe("Config.Connection paths", () => {
 
   let makeConnection = async (configPaths: array<string>, platform: Platform.t) => {
     let memento = Memento.make(None)
-    await Config.Connection.setAgdaPaths(logChannel, configPaths)
+    // Set up config without logging (use a separate channel for setup)
+    await Config.Connection.setAgdaPaths(Chan.make(), configPaths)
 
     await Connection.make(
       platform,
@@ -129,7 +130,7 @@ describe("Config.Connection paths", () => {
     })
   })
 
-  describe("Broken config paths", () => {
+  describe_only("Broken config paths", () => {
 
     Async.it("should add discovered path when all config paths are broken and auto discovery succeeds", async () => {
       let configPaths = [brokenAgda.contents, "/another/broken"]

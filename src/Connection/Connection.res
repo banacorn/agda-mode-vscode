@@ -198,6 +198,19 @@ module Module: Module = {
     await loop(xs, [])
   }
 
+  // for tagging results of path discovery
+  type from = FromPaths | FromCommands | FromDownloads
+
+  let tagFrom = async (result: promise<result<t, Error.Establish.t>>, from: from): result<
+    (t, from),
+    Error.Establish.t,
+  > => {
+    switch await result {
+    | Ok(connection) => Ok((connection, from))
+    | Error(error) => Error(error)
+    }
+  }
+
   // Make a connection by trying all given paths in order
   let fromPaths = async (platformDeps: Platform.t, paths: array<string>): result<
     t,
@@ -284,10 +297,7 @@ module Module: Module = {
         switch downloadResult {
         | Ok(path) =>
           switch await makeWithRawPath(path) {
-          | Ok(connection) =>
-            await Config.Connection.addAgdaPath(logChannel, getPath(connection))
-            await Memento.PickedConnection.set(memento, Some(getPath(connection)))
-            Ok(connection)
+          | Ok(connection) => Ok(connection)
           | Error(error) => Error(error)
           }
         | Error(error) => Error(error)
@@ -295,7 +305,7 @@ module Module: Module = {
       }
     }
   }
-  
+
   // Make a connection to Agda or ALS by trying:
   //  1. The previously selected path (only if it exists in user config)
   //  2. Each path from user config sequentially
@@ -344,25 +354,26 @@ module Module: Module = {
 
     // Try each method in order
     let tasks = [
-      () => fromPaths(platformDeps, pathsWithSelectedConnection),
-      () => fromCommands(platformDeps, commands),
-      () => fromDownloads(platformDeps, logChannel, memento, globalStorageUri),
+      () => fromPaths(platformDeps, pathsWithSelectedConnection)->tagFrom(FromPaths),
+      () => fromCommands(platformDeps, commands)->tagFrom(FromCommands),
+      () =>
+        fromDownloads(platformDeps, logChannel, memento, globalStorageUri)->tagFrom(FromDownloads),
     ]
 
     switch await tryUntilSuccess(tasks) {
-    | Ok(connection) =>
+    | Ok(connection, from) =>
       logConnection(connection)
 
-      // Only add path to config if user hasn't provided any paths
-      if Array.length(paths) == 0 {
+      // Only add to config if connection succeeded from fallback methods (not from config paths)
+      switch from {
+      | FromPaths => () // Never modify config when using existing config paths
+      | FromCommands | FromDownloads =>
         await Config.Connection.addAgdaPath(logChannel, getPath(connection))
       }
-      // Set the picked connection in the memento
+
       await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
-    | Error(errors) =>
-      // Merge all errors from `fromPaths`, `fromCommands`, and `fromDownloads`
-      Error(Establish(Error.Establish.mergeMany(errors)))
+    | Error(errors) => Error(Establish(Error.Establish.mergeMany(errors)))
     }
   }
 
