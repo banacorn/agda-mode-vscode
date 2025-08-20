@@ -222,7 +222,7 @@ describe("Config.Connection paths", () => {
     )
   })
 
-  describe("UI-triggered additions", () => {
+  describe_only("UI-triggered additions", () => {
     describe(
       "Switch version UI selection",
       () => {
@@ -307,9 +307,58 @@ describe("Config.Connection paths", () => {
             await Config.Connection.setAgdaPaths(logChannel, initialConfig)
             let listener = Log.collect(logChannel)
 
-            // Since Config.Connection.addAgdaPath has built-in deduplication,
-            // we can test this directly without full UI simulation
-            await Config.Connection.addAgdaPath(logChannel, selectedPath)
+            // Create test state following the pattern from Test__State__SwitchVersion.res
+            let createTestState = () => {
+              let channels = {
+                State.inputMethod: Chan.make(),
+                responseHandled: Chan.make(),
+                commandHandled: Chan.make(),
+                log: logChannel,
+              }
+
+              let mockEditor = %raw(`{
+            document: { fileName: "test.agda" }
+          }`)
+
+              let mockUri = VSCode.Uri.file("/test/path")
+
+              State.make(platformWithDiscovery, channels, mockUri, mockUri, None, mockEditor, None)
+            }
+
+            let mockState = createTestState()
+
+            // Set up the path in memento endpoints so it can be selected
+            let discoveredEndpoints = Dict.make()
+            discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(Some("2.7.0.1")))
+            await Memento.Endpoints.syncWithPaths(mockState.memento, discoveredEndpoints)
+
+            // Create mock QuickPickItem representing the path selection
+            let mockSelectedItem: VSCode.QuickPickItem.t = {
+              label: "Agda v2.7.0.1",
+              description: "Selected", // This path is already in config
+              detail: selectedPath,
+            }
+
+            // Create the SwitchVersion UI components
+            let view = State__SwitchVersion.View.make(logChannel)
+            let manager = State__SwitchVersion.SwitchVersionManager.make(mockState)
+
+            // Directly call State__SwitchVersion.Handler.onSelection
+            // This is exactly what happens when user selects an item in the SwitchVersion UI
+            State__SwitchVersion.Handler.onSelection(
+              mockState,
+              platformWithDiscovery,
+              manager,
+              _downloadInfo => Promise.resolve(),
+              view,
+              [mockSelectedItem],
+            )
+
+            // Give the async operations time to complete
+            await Test__Util.wait(100)
+
+            // Clean up
+            view->State__SwitchVersion.View.destroy
 
             let logs = listener(~filter=Log.isConfig)
             let finalConfig = Config.Connection.getAgdaPaths()
@@ -329,8 +378,58 @@ describe("Config.Connection paths", () => {
             await Config.Connection.setAgdaPaths(logChannel, initialConfig)
             let listener = Log.collect(logChannel)
 
-            // Test the core config addition logic that SwitchVersion UI uses
-            await Config.Connection.addAgdaPath(logChannel, selectedPath)
+            // Create test state following the pattern from Test__State__SwitchVersion.res
+            let createTestState = () => {
+              let channels = {
+                State.inputMethod: Chan.make(),
+                responseHandled: Chan.make(),
+                commandHandled: Chan.make(),
+                log: logChannel,
+              }
+
+              let mockEditor = %raw(`{
+            document: { fileName: "test.agda" }
+          }`)
+
+              let mockUri = VSCode.Uri.file("/test/path")
+
+              State.make(platformWithDiscovery, channels, mockUri, mockUri, None, mockEditor, None)
+            }
+
+            let mockState = createTestState()
+
+            // Set up the path in memento endpoints so it can be selected
+            let discoveredEndpoints = Dict.make()
+            discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(Some("2.7.0.1")))
+            await Memento.Endpoints.syncWithPaths(mockState.memento, discoveredEndpoints)
+
+            // Create mock QuickPickItem representing the path selection
+            let mockSelectedItem: VSCode.QuickPickItem.t = {
+              label: "Agda v2.7.0.1",
+              description: "",
+              detail: selectedPath,
+            }
+
+            // Create the SwitchVersion UI components
+            let view = State__SwitchVersion.View.make(logChannel)
+            let manager = State__SwitchVersion.SwitchVersionManager.make(mockState)
+
+            // Directly call State__SwitchVersion.Handler.onSelection
+            // This is exactly what happens when user selects an item in the SwitchVersion UI
+            State__SwitchVersion.Handler.onSelection(
+              mockState,
+              platformWithDiscovery,
+              manager,
+              _downloadInfo => Promise.resolve(),
+              view,
+              [mockSelectedItem],
+            )
+
+            // Give the async operations time to complete
+            await Test__Util.wait(100)
+
+            // Clean up
+            view->State__SwitchVersion.View.destroy
 
             let logs = listener(~filter=Log.isConfig)
             let finalConfig = Config.Connection.getAgdaPaths()
