@@ -27,7 +27,12 @@ module type Module = {
 
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
 
-  let fromDownloads: (Platform.t, Chan.t<Log.t>, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
+  let fromDownloads: (
+    Platform.t,
+    Chan.t<Log.t>,
+    Memento.t,
+    VSCode.Uri.t,
+  ) => promise<result<t, Error.Establish.t>>
 
   // messaging
   let sendRequest: (
@@ -268,7 +273,9 @@ module Module: Module = {
         let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.downloadLatestALS(logChannel, memento, globalStorageUri)(platform) {
+          switch await PlatformOps.downloadLatestALS(logChannel, memento, globalStorageUri)(
+            platform,
+          ) {
           | Error(error) => Error(Error.Establish.fromDownloadError(error))
           | Ok(path) => Ok(path)
           }

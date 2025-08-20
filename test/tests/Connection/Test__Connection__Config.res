@@ -116,6 +116,39 @@ describe("Connection Config Path Management", () => {
     )
 
     Async.it(
+      "should update previously selected path when it doesn't exist in user config but user config works",
+      async () => {
+        // Precondition
+        //    * User has set `userAgda` in the configuration (and it works)
+        //    * User has previously selected `systemAgda` (not in config)
+
+        let userConfig = [userAgda.contents]
+        await Config.Connection.setAgdaPaths(logChannel, userConfig)
+
+        let listener = Log.collect(logChannel)
+        let result = await makeConnection(Some(systemAgda.contents))
+        let logs = listener(~filter=Log.isConfig)
+
+        // make sure that the config was NOT modified
+        Assert.deepStrictEqual(logs, [])
+
+        // user's configuration should remain unchanged
+        let expectedConfig = [userAgda.contents]
+        let actualConfig = Config.Connection.getAgdaPaths()
+        Assert.deepStrictEqual(actualConfig, expectedConfig)
+
+        switch result {
+        | Ok(connection) =>
+          // user's working path should be used instead of the previously selected non-config path
+          let actualPath = connection->Connection.getPath
+          let expectedPath = userAgda.contents
+          Assert.deepStrictEqual(actualPath, expectedPath)
+        | Error(_) => Assert.fail("Connection should succeed with user-configured paths")
+        }
+      },
+    )
+
+    Async.it(
       "should only add path when the users has not provided any paths",
       async () => {
         // Precondition
