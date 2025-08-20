@@ -130,7 +130,7 @@ describe_only("Config.Connection paths", () => {
     })
   })
 
-  describe_only("Broken config paths", () => {
+  describe("Broken config paths", () => {
 
     Async.it("should add discovered path when all config paths are broken and auto discovery succeeds", async () => {
       let configPaths = [brokenAgda.contents, "/another/broken"]
@@ -151,6 +151,9 @@ describe_only("Config.Connection paths", () => {
     })
 
     Async.it("should fail without modifying config when all config paths are broken and auto discovery fails", async () => {
+      // Set download policy to No to prevent dialog prompts in test environment
+      await Config.Connection.DownloadPolicy.set(No)
+      
       let configPaths = [brokenAgda.contents, "/another/broken"]
       let listener = Log.collect(logChannel)
       let result = await makeConnection(configPaths, platformNoDiscovery)
@@ -187,6 +190,9 @@ describe_only("Config.Connection paths", () => {
     })
 
     Async.it("should fail without modifying config when config is empty and auto discovery fails", async () => {
+      // Set download policy to No to prevent dialog prompts in test environment
+      await Config.Connection.DownloadPolicy.set(No)
+      
       let configPaths = []
       let listener = Log.collect(logChannel)
       let result = await makeConnection(configPaths, platformNoDiscovery)
