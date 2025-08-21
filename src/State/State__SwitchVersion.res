@@ -578,7 +578,8 @@ module Handler = {
             state.channels.log->Chan.emit(
               Log.SwitchVersionUI(SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath)),
             )
-            let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
+            module PlatformOps = unpack(platformDeps)
+            await PlatformOps.openFolder(globalStorageUriAsFile)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if selectedItem.label == Constants.downloadLatestALS {
             // Check if already downloaded using our corrected logic

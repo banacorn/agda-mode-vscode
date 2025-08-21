@@ -11,6 +11,7 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
+    let openFolder = _uri => Promise.resolve()
   }
 
   // Mock platform that simulates successful Agda discovery
@@ -23,6 +24,7 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
+    let openFolder = _uri => Promise.resolve()
   }
 
   // Mock platform that allows download policy to be specified
@@ -35,6 +37,7 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -57,6 +60,7 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -74,6 +78,7 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -91,6 +96,7 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -116,15 +122,13 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
 
   // Mock platform that simulates cached download available with flag tracking
-  let makeWithCachedDownloadAndFlag = (
-    cachedPath: string,
-    checkedFlag: ref<bool>,
-  ): Platform.t => {
+  let makeWithCachedDownloadAndFlag = (cachedPath: string, checkedFlag: ref<bool>): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
@@ -138,6 +142,7 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -165,6 +170,7 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -190,6 +196,7 @@ module Platform = {
 
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
+      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }

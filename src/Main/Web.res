@@ -17,6 +17,8 @@ module Web: Platform.PlatformOps = {
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.No)
+
+  let openFolder = _uri => Promise.resolve()
 }
 
 // Create platform dependencies for web environment

@@ -19,9 +19,11 @@ module type PlatformOps = {
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<result<string, Connection__Download.Error.t>> // returns the path to the downloaded ALS executable on success
 
-
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>
+
+  // File system UI
+  let openFolder: VSCode.Uri.t => promise<unit> // Opens a folder in the file explorer
 }
 // Type alias for platform dependencies to be used throughout the codebase
 type t = module(PlatformOps)

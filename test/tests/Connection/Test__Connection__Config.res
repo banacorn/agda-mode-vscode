@@ -406,7 +406,7 @@ describe("Config.Connection paths", () => {
       // Directly call State__SwitchVersion.Handler.onSelection
       State__SwitchVersion.Handler.onSelection(
         mockState,
-        platformWithDiscovery,
+        Mock.Platform.makeBasic(),
         manager,
         _downloadInfo => Promise.resolve(),
         view,
@@ -512,7 +512,7 @@ describe("Config.Connection paths", () => {
     describe(
       "Non-endpoint selections",
       () => {
-        Async.it_skip(
+        Async.it(
           "should not modify config when user selects open folder action",
           async () => {
             let initialConfig = [userAgda.contents]

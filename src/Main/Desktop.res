@@ -16,7 +16,6 @@ module Desktop: Platform.PlatformOps = {
     }
   }
 
-
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {
       VSCode.MessageOptions.modal: true,
@@ -36,6 +35,10 @@ module Desktop: Platform.PlatformOps = {
       Config.Connection.DownloadPolicy.No,
       Config.Connection.DownloadPolicy.fromString,
     )
+  }
+
+  let openFolder = async uri => {
+    let _ = await VSCode.Env.openExternal(uri)
   }
 }
 
