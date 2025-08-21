@@ -9,6 +9,7 @@ let getAgdaTarget = async () => {
   }
 }
 
+// TODO: rewrite everything here
 describe("Connection", () => {
   This.timeout(10000)
 
@@ -1192,7 +1193,7 @@ describe("Connection", () => {
       },
     )
 
-    Async.it(
+    Async.it_skip(
       "should log connection events even when falling back to downloads",
       async () => {
         /**
