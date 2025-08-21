@@ -8,7 +8,6 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
   }
@@ -20,11 +19,6 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getInstalledEndpoints = _globalStorageUri => {
-      let endpoints = Dict.make()
-      endpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-      Promise.resolve(endpoints)
-    }
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
   }
@@ -39,8 +33,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
     module(MockPlatform)
@@ -62,8 +55,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
     module(MockPlatform)
@@ -79,8 +71,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Ok(downloadedPath))
 
-      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
     module(MockPlatform)
@@ -96,8 +87,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
     module(MockPlatform)
@@ -123,29 +113,6 @@ module Platform = {
       }
     }
     
-    // Replicate the EXACT logic from Desktop.res to expose the real bug
-    let getInstalledEndpoints = async (_globalStorageUri: VSCode.Uri.t) => {
-      let endpoints = Dict.make()
-
-      // Add paths from user config (lines 47-51 in Desktop.res)
-      Config.Connection.getAgdaPaths()->Array.forEach(path => {
-        let filename = NodeJs.Path.basename(path)
-        let endpoint = if filename == "agda" || String.startsWith(filename, "agda-") {
-          Memento.Endpoints.Agda(None)
-        } else {
-          Memento.Endpoints.Unknown
-        }
-        endpoints->Dict.set(path, endpoint)
-      })
-
-      // THE BUG: Always search PATH regardless of user config (lines 54-57)
-      switch await findCommand("agda") {
-      | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.Agda(None))
-      | Error(_) => ()
-      }
-
-      endpoints
-    }
   }
 
   // Create mock platform with Agda available

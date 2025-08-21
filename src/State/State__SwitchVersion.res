@@ -305,11 +305,49 @@ module SwitchVersionManager = {
     changed
   }
 
+  // Helper function to infer endpoint type from filename
+  let inferEndpointType = (filename: string) => {
+    let baseName = filename->String.toLowerCase->NodeJs.Path.basename
+    // Remove common executable extensions
+    let cleanName =
+      baseName
+      ->String.replace(".exe", "")
+      ->String.replace(".cmd", "")
+      ->String.replace(".bat", "")
+
+    if cleanName == "agda" || cleanName->String.startsWith("agda-") {
+      Memento.Endpoints.Agda(None)
+    } else if cleanName == "als" || cleanName->String.startsWith("als-") {
+      Memento.Endpoints.ALS(None)
+    } else {
+      Memento.Endpoints.Unknown
+    }
+  }
+
   // Filesystem sync (Phase 2)
   let syncWithFilesystem = async (self: t, platformDeps: Platform.t): bool => {
     module PlatformOps = unpack(platformDeps)
 
-    let discoveredEndpoints = await PlatformOps.getInstalledEndpoints(self.globalStorageUri)
+    let endpoints = Dict.make()
+
+    // Add paths from user config
+    Config.Connection.getAgdaPaths()->Array.forEach(path => {
+      let filename = NodeJs.Path.basename(path)
+      let endpoint = inferEndpointType(filename)
+      endpoints->Dict.set(path, endpoint)
+    })
+
+    // Add agda and als from PATH
+    switch await PlatformOps.findCommand("agda") {
+    | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.Agda(None))
+    | Error(_) => ()
+    }
+    switch await PlatformOps.findCommand("als") {
+    | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.ALS(None))
+    | Error(_) => ()
+    }
+
+    let discoveredEndpoints = endpoints
 
     await Memento.Endpoints.syncWithPaths(self.memento, discoveredEndpoints)
     refreshFromMemento(self)

@@ -84,8 +84,6 @@ describe("Config.Connection paths", () => {
         let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform => {
           Promise.resolve(Ok(downloadedALS.contents))
         }
-
-        let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       }
     ): Platform.t
   )
