@@ -70,24 +70,6 @@ describe("Config.Connection paths", () => {
     ): Platform.t
   )
 
-  // Mock platform with download capability for testing download actions
-  let platformWithMockDownload = (
-    module(
-      {
-        include Desktop.Desktop
-        let findCommand = (_command, ~timeout as _timeout=1000) => {
-          Promise.resolve(Ok(systemAgda.contents))
-        }
-        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-        let alreadyDownloaded = _globalStorageUri => async () => None
-
-        let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform => {
-          Promise.resolve(Ok(downloadedALS.contents))
-        }
-      }
-    ): Platform.t
-  )
-
   // Helper function to create a connection with given config paths
   // also returns a Log listener to capture config changes
   let makeConnection = async (configPaths: array<string>, platform: Platform.t) => {
@@ -350,7 +332,11 @@ describe("Config.Connection paths", () => {
           detail: "ALS v0.2.10, Agda v2.7.0.1",
         }
 
-        await executeUITest(mockState, platformWithMockDownload, mockSelectedItem)
+        await executeUITest(
+          mockState,
+          Mock.Platform.makeWithSuccessfulDownload(downloadedALS.contents),
+          mockSelectedItem,
+        )
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()
         (logs, finalConfig)
@@ -408,7 +394,6 @@ describe("Config.Connection paths", () => {
       }
     }
 
-
     describe(
       "Switch version UI selection",
       () => {
@@ -418,7 +403,11 @@ describe("Config.Connection paths", () => {
             let initialConfig = [userAgda.contents]
             let selectedPath = alternativeAgda.contents // not in initial config
 
-            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(initialConfig, selectedPath, ~description="")
+            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(
+              initialConfig,
+              selectedPath,
+              ~description="",
+            )
 
             // Should add the selected path to config
             let expectedConfig = Array.concat(initialConfig, [selectedPath])
@@ -451,7 +440,11 @@ describe("Config.Connection paths", () => {
             let initialConfig = [userAgda.contents]
             let selectedPath = alternativeAgda.contents
 
-            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(initialConfig, selectedPath, ~description="")
+            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(
+              initialConfig,
+              selectedPath,
+              ~description="",
+            )
 
             // Should add the new path to existing config
             let expectedConfig = Array.concat(initialConfig, [selectedPath])
@@ -475,15 +468,15 @@ describe("Config.Connection paths", () => {
               ~isAlreadyDownloaded=false,
             )
 
-            // Download action should not modify config in test environment
-            // (real downloads would modify config, but test environment doesn't have download capability)
-            Assert.deepStrictEqual(logs, [])
-            Assert.deepStrictEqual(finalConfig, initialConfig)
+            // Should add the downloaded ALS path to config
+            let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
+            Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
+            Assert.deepStrictEqual(finalConfig, expectedConfig)
           },
         )
 
         Async.it(
-          "should show already downloaded message when user selects already downloaded ALS",
+          "should add already downloaded path to config when user selects already downloaded ALS",
           async () => {
             let initialConfig = [userAgda.contents]
 
@@ -492,10 +485,10 @@ describe("Config.Connection paths", () => {
               ~isAlreadyDownloaded=true,
             )
 
-            // Download action should not modify config in test environment
-            // (shows message but doesn't download or modify config)
-            Assert.deepStrictEqual(logs, [])
-            Assert.deepStrictEqual(finalConfig, initialConfig)
+            // Should add the already downloaded ALS path to config
+            let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
+            Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
+            Assert.deepStrictEqual(finalConfig, expectedConfig)
           },
         )
       },

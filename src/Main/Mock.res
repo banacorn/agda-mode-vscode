@@ -86,8 +86,47 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Ok(downloadedPath))
 
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+      let getFetchSpec = (_memento, _globalStorageUri, _platform) => {
+        // Create a mock fetch spec that will make Download.getAvailableDownload work
+        let mockAsset = {
+          Connection__Download__GitHub.Asset.url: "https://mock.url/download.zip",
+          id: 123456,
+          node_id: "mock_node_id",
+          name: "als-Agda-2.6.3-macOS-arm64.zip",
+          label: "",
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2023-01-01T00:00:00Z",
+          updated_at: "2023-01-01T00:00:00Z",
+          browser_download_url: "https://mock.url/download.zip",
+        }
+        let mockRelease = {
+          Connection__Download__GitHub.Release.url: "https://mock.url/release",
+          assets_url: "https://mock.url/assets",
+          upload_url: "https://mock.url/upload",
+          html_url: "https://mock.url/html",
+          id: 789012,
+          node_id: "mock_release_node_id",
+          tag_name: "v0.2.10",
+          target_commitish: "main",
+          name: "v0.2.10",
+          draft: false,
+          prerelease: false,
+          created_at: "2023-01-01T00:00:00Z",
+          published_at: "2023-01-01T00:00:00Z",
+          assets: [mockAsset],
+          tarball_url: "https://mock.url/tarball",
+          zipball_url: "https://mock.url/zipball",
+          body: Some("Mock release"),
+        }
+        let mockFetchSpec = {
+          Connection__Download__GitHub.FetchSpec.asset: mockAsset,
+          release: mockRelease,
+          saveAsFileName: "als-Agda-2.6.3-macOS-arm64",
+        }
+        Promise.resolve(Ok(mockFetchSpec))
+      }
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let openFolder = _uri => Promise.resolve()

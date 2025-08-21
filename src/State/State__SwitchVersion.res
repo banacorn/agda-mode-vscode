@@ -592,6 +592,24 @@ module Handler = {
               )
 
               if alreadyDownloaded {
+                // Add the already downloaded path to config
+                // We need to get the downloaded path - use the same logic as the download case
+                switch await Download.getAvailableDownload(state, platformDeps) {
+                | Some((_, _)) =>
+                  // Get the path from the fetchSpec
+                  module PlatformOps = unpack(platformDeps)
+                  switch await PlatformOps.determinePlatform() {
+                  | Ok(platform) =>
+                    switch await PlatformOps.getFetchSpec(state.memento, state.globalStorageUri, platform) {
+                    | Ok(fetchSpec) =>
+                      let downloadedPath = VSCode.Uri.joinPath(state.globalStorageUri, [fetchSpec.saveAsFileName, "als"])->VSCode.Uri.fsPath
+                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+                    | Error(_) => ()
+                    }
+                  | Error(_) => ()
+                  }
+                | None => ()
+                }
                 // Show "already downloaded" message
                 VSCode.Window.showInformationMessage(
                   versionString ++ " is already downloaded",
@@ -619,7 +637,9 @@ module Handler = {
                       [],
                     )->Promise.done
                     state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                  | Ok(_) =>
+                  | Ok(downloadedPath) =>
+                    // Add the downloaded path to config
+                    await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
                     // Refresh the UI to show new status
                     let newDownloadInfo = await Download.getAvailableDownload(state, platformDeps)
                     let _ = SwitchVersionManager.refreshFromMemento(manager)
