@@ -627,6 +627,7 @@ module Handler = {
                   await Memento.PickedConnection.set(state.memento, Some(path))
                   await Config.Connection.addAgdaPath(state.channels.log, path)
                   await switchAgdaVersion(state)
+                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 | LspURI(_, _) => ()
                 }
               }

@@ -7,6 +7,7 @@ module SwitchVersion = {
     | SelectedOpenFolder(string)
     | SelectedNoInstallations
     | UpdatedEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
+    | SelectionCompleted // when onSelection handler has completed all async operations
     | Others(string)
 
   let toString = event =>
@@ -28,6 +29,7 @@ module SwitchVersion = {
       versionString
     | SelectedOpenFolder(path) => "Selected Open Folder: " ++ path
     | SelectedNoInstallations => "Selected No Installations"
+    | SelectionCompleted => "Selection Completed"
     | UpdatedEndpoints(entries) =>
       "UpdatedEndpoints: " ++
       entries
@@ -150,4 +152,17 @@ let collect = (channel: Chan.t<t>): ((~filter: t => bool=?) => array<t>) => {
     | None => logs
     }
   }
+}
+
+// awaits for the log channel to receive a certain log that satisfies the predicate
+let on = async (channel: Chan.t<t>, predicate: t => bool): unit => {
+  let (promise, resolve, _) = Util.Promise_.pending()
+
+  let handle = Chan.on(channel, log => {
+    if predicate(log) {
+      resolve()
+    }
+  })
+  await promise
+  handle()
 }
