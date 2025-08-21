@@ -18,6 +18,11 @@ module type PlatformOps = {
     Memento.t,
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<result<string, Connection__Download.Error.t>> // returns the path to the downloaded ALS executable on success
+  let getFetchSpec: (
+    Memento.t,
+    VSCode.Uri.t,
+    Connection__Download__Platform.t,
+  ) => promise<result<Connection__Download__GitHub.FetchSpec.t, Connection__Download.Error.t>>
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>

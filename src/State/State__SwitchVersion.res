@@ -520,7 +520,7 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_) => None
     | Ok(platform) =>
-      switch await Connection__LatestALS.getFetchSpec(
+      switch await PlatformOps.getFetchSpec(
         state.memento,
         state.globalStorageUri,
         platform,

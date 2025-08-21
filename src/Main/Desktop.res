@@ -16,6 +16,8 @@ module Desktop: Platform.PlatformOps = {
     }
   }
 
+  let getFetchSpec = Connection__LatestALS.getFetchSpec
+
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {
       VSCode.MessageOptions.modal: true,
