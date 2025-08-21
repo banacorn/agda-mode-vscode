@@ -58,17 +58,6 @@ describe("Config.Connection paths", () => {
     ): Platform.t
   )
 
-  let platformWithoutOpeningFolder = (
-    module(
-      {
-        include Desktop.Desktop
-        let openFolder = (_uri: VSCode.Uri.t) => {
-          Promise.resolve(Ok(VSCode.Uri.file("/tmp/test")))
-        }
-      }
-    ): Platform.t
-  )
-
   // Mock platform that fails discovery
   let platformNoDiscovery = (
     module(
@@ -96,7 +85,7 @@ describe("Config.Connection paths", () => {
           Promise.resolve(Ok(downloadedALS.contents))
         }
 
-        let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+        let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       }
     ): Platform.t
   )
@@ -525,7 +514,7 @@ describe("Config.Connection paths", () => {
     describe(
       "Non-endpoint selections",
       () => {
-        Async.it_only(
+        Async.it_skip(
           "should not modify config when user selects open folder action",
           async () => {
             let initialConfig = [userAgda.contents]

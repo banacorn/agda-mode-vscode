@@ -309,9 +309,7 @@ module SwitchVersionManager = {
   let syncWithFilesystem = async (self: t, platformDeps: Platform.t): bool => {
     module PlatformOps = unpack(platformDeps)
 
-    let discoveredEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
-      self.globalStorageUri,
-    )
+    let discoveredEndpoints = await PlatformOps.getInstalledEndpoints(self.globalStorageUri)
 
     await Memento.Endpoints.syncWithPaths(self.memento, discoveredEndpoints)
     refreshFromMemento(self)
@@ -491,23 +489,15 @@ module Download = {
       ) {
       | Error(_) => None
       | Ok(fetchSpec) =>
-        // Use corrected detection logic
-        let installedEndpoints = await PlatformOps.getInstalledEndpointsAndPersistThem(
+        // Check if already downloaded
+        let filepath = VSCode.Uri.joinPath(
           state.globalStorageUri,
+          [fetchSpec.saveAsFileName, "als"],
         )
-        let installedPaths =
-          installedEndpoints
-          ->Dict.toArray
-          ->Array.map(((path, _endpoint)) => path)
-
-        let filename = NodeJs.Path.join([
-          VSCode.Uri.fsPath(state.globalStorageUri),
-          fetchSpec.saveAsFileName,
-          "als",
-        ])
-        // Convert filename to URI format to match installedPaths format
-        let filenameAsUri = VSCode.Uri.file(filename)->VSCode.Uri.toString
-        let downloaded = Array.includes(installedPaths, filenameAsUri)
+        let downloaded = switch await PlatformOps.alreadyDownloaded(filepath)() {
+        | Some(_) => true
+        | None => false
+        }
 
         // Format version string for display
         let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>

@@ -16,7 +16,7 @@ module Desktop: Platform.PlatformOps = {
     }
   }
 
-  let getInstalledEndpointsAndPersistThem = async (globalStorageUri: VSCode.Uri.t) => {
+  let getInstalledEndpoints = async (globalStorageUri: VSCode.Uri.t) => {
     // Get all paths of Agda or ALS from:
     //    * `agdaMode.connection.paths` in the settings
     //    * `agda` and `als` from the PATH

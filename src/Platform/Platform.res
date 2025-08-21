@@ -19,8 +19,11 @@ module type PlatformOps = {
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<result<string, Connection__Download.Error.t>> // returns the path to the downloaded ALS executable on success
 
-  // Endpoint operations
-  let getInstalledEndpointsAndPersistThem: VSCode.Uri.t => promise<
+  // Scans the filesystem for all available Agda and ALS executables from multiple sources:
+  //  1. User config paths: Paths from agdaMode.connection.paths setting
+  //  2. System PATH: agda and als commands found via PATH environment
+  //  3. Download folder: Previously downloaded ALS executables in the global storage directory
+  let getInstalledEndpoints: VSCode.Uri.t => promise<
     Dict.t<Memento.Endpoints.endpoint>,
   >
 

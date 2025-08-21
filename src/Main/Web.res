@@ -15,7 +15,7 @@ module Web: Platform.PlatformOps = {
 
   let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-  let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+  let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
 
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.No)
 }

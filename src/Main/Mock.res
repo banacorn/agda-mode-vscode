@@ -9,7 +9,7 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+    let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
   }
@@ -22,7 +22,7 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getInstalledEndpointsAndPersistThem = _globalStorageUri => {
+    let getInstalledEndpoints = _globalStorageUri => {
       let endpoints = Dict.make()
       endpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
       Promise.resolve(endpoints)
@@ -39,7 +39,7 @@ module Platform = {
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -62,7 +62,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -80,7 +80,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Ok(downloadedPath))
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -98,7 +98,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -124,7 +124,7 @@ module Platform = {
         Promise.resolve(Ok(downloadedPath))
       }
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -147,7 +147,7 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -175,7 +175,7 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       }
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -201,7 +201,7 @@ module Platform = {
         Promise.resolve(Ok(downloadedPath))
       }
 
-      let getInstalledEndpointsAndPersistThem = _globalStorageUri => Promise.resolve(Dict.make())
+      let getInstalledEndpoints = _globalStorageUri => Promise.resolve(Dict.make())
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
