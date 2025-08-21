@@ -551,6 +551,7 @@ module Handler = {
               Log.SwitchVersionUI(SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath)),
             )
             let _ = await VSCode.Env.openExternal(globalStorageUriAsFile)
+            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if selectedItem.label == Constants.downloadLatestALS {
             // Check if already downloaded using our corrected logic
             switch await Download.getAvailableDownload(state, platformDeps) {
@@ -563,36 +564,42 @@ module Handler = {
 
               if alreadyDownloaded {
                 // Show "already downloaded" message
-                let _ = await VSCode.Window.showInformationMessage(
+                VSCode.Window.showInformationMessage(
                   versionString ++ " is already downloaded",
                   [],
-                )
+                )->Promise.done
+                state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
               } else {
                 module PlatformOps = unpack(platformDeps)
                 switch await PlatformOps.determinePlatform() {
                 | Error(_) =>
-                  let _ = await VSCode.Window.showErrorMessage(
+                  VSCode.Window.showErrorMessage(
                     "Failed to determine the platform for downloading the Agda Language Server",
                     [],
-                  )
+                  )->Promise.done
+                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 | Ok(platform) =>
-                  switch await PlatformOps.downloadLatestALS(state.channels.log, state.memento, state.globalStorageUri)(
-                    platform,
-                  ) {
+                  switch await PlatformOps.downloadLatestALS(
+                    state.channels.log,
+                    state.memento,
+                    state.globalStorageUri,
+                  )(platform) {
                   | Error(error) =>
-                    let _ = await VSCode.Window.showErrorMessage(
+                    VSCode.Window.showErrorMessage(
                       AgdaModeVscode.Connection__Download.Error.toString(error),
                       [],
-                    )
+                    )->Promise.done
+                    state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                   | Ok(_) =>
                     // Refresh the UI to show new status
                     let newDownloadInfo = await Download.getAvailableDownload(state, platformDeps)
                     let _ = SwitchVersionManager.refreshFromMemento(manager)
                     await updateUI(newDownloadInfo)
-                    let _ = await VSCode.Window.showInformationMessage(
+                    VSCode.Window.showInformationMessage(
                       versionString ++ " successfully downloaded",
                       [],
-                    )
+                    )->Promise.done // although we give no options for users to select, the promise won't resolve until the message is dismissed, so we are not waiting for it
+                    state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                   }
                 }
               }
@@ -601,6 +608,7 @@ module Handler = {
                 "Download not available for this platform",
                 [],
               )
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
           } else {
             // Regular endpoint selection - check if selection changed
@@ -628,13 +636,17 @@ module Handler = {
                   await Config.Connection.addAgdaPath(state.channels.log, path)
                   await switchAgdaVersion(state)
                   state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                | LspURI(_, _) => ()
+                | LspURI(_, _) =>
+                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 }
+              } else {
+                // No change in selection - still emit completion
+                state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
               }
-            | None => ()
+            | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
           }
-        | None => ()
+        | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
         }
       }
     )()
