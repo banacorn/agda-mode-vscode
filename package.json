@@ -149,7 +149,7 @@
 				"aliases": [
 					"Literate Agda (reStructuredText)"
 				],
-				"configuration": "./language-configurations/lagda-rest.json",
+				"configuration": "./language-configurations/lagda-rst.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
