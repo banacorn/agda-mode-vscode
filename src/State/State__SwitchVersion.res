@@ -436,7 +436,7 @@ let switchAgdaVersion = async (state: State.t) => {
   | None => configPaths
   }
 
-  switch await Connection.make(
+  switch await Connection.makeWithFallback(
     state.platformDeps,
     state.memento,
     state.globalStorageUri,
@@ -466,7 +466,7 @@ let switchAgdaVersion = async (state: State.t) => {
       )
     }
 
-  // Use the same pathsFromSystem we used for Connection.make() to ensure consistency
+  // Use the same pathsFromSystem we used for Connection.makeWithFallback() to ensure consistency
   // switch await Connection.Endpoint.getPicked(state.memento, pathsFromSystem) {
   // | None => ()
   // // | Some(Agda(version, _)) => {
@@ -520,11 +520,7 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_) => None
     | Ok(platform) =>
-      switch await PlatformOps.getFetchSpec(
-        state.memento,
-        state.globalStorageUri,
-        platform,
-      ) {
+      switch await PlatformOps.getFetchSpec(state.memento, state.globalStorageUri, platform) {
       | Error(_) => None
       | Ok(fetchSpec) =>
         // Check if already downloaded
@@ -600,9 +596,17 @@ module Handler = {
                   module PlatformOps = unpack(platformDeps)
                   switch await PlatformOps.determinePlatform() {
                   | Ok(platform) =>
-                    switch await PlatformOps.getFetchSpec(state.memento, state.globalStorageUri, platform) {
+                    switch await PlatformOps.getFetchSpec(
+                      state.memento,
+                      state.globalStorageUri,
+                      platform,
+                    ) {
                     | Ok(fetchSpec) =>
-                      let downloadedPath = VSCode.Uri.joinPath(state.globalStorageUri, [fetchSpec.saveAsFileName, "als"])->VSCode.Uri.fsPath
+                      let downloadedPath =
+                        VSCode.Uri.joinPath(
+                          state.globalStorageUri,
+                          [fetchSpec.saveAsFileName, "als"],
+                        )->VSCode.Uri.fsPath
                       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
                     | Error(_) => ()
                     }
@@ -685,7 +689,10 @@ module Handler = {
                   await Config.Connection.addAgdaPath(state.channels.log, path)
                   await switchAgdaVersion(state)
                   state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                | LspURI(_, _) =>
+                | LspURI(raw, path) =>
+                  await Memento.PickedConnection.set(state.memento, Some(raw))
+                  await Config.Connection.addAgdaPath(state.channels.log, raw)
+                  await switchAgdaVersion(state)
                   state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 }
               } else {

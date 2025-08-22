@@ -33,7 +33,7 @@ let sendRequest = async (
 
   switch state.connection {
   | None =>
-    switch await Connection.make(
+    switch await Connection.makeWithFallback(
       state.platformDeps,
       state.memento,
       state.globalStorageUri,

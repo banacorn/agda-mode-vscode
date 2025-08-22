@@ -79,7 +79,7 @@ describe("Config.Connection paths", () => {
     // Start collecting logs only AFTER setting config paths, but BEFORE making the connection!
     let listener = Log.collect(logChannel)
 
-    let result = await Connection.make(
+    let result = await Connection.makeWithFallback(
       platform,
       memento,
       VSCode.Uri.file("/tmp/test"),

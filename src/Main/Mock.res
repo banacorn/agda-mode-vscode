@@ -41,8 +41,6 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let openFolder = _uri => Promise.resolve()

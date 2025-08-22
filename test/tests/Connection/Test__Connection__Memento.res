@@ -52,7 +52,7 @@ describe("Memento.PickedConnection", () => {
     // Set config paths
     await Config.Connection.setAgdaPaths(logChannel, configPaths)
 
-    await Connection.make(
+    await Connection.makeWithFallback(
       platform,
       memento,
       VSCode.Uri.file("/tmp/test"),
@@ -111,7 +111,7 @@ describe("Memento.PickedConnection", () => {
         let memento = Memento.make(None)
         await Config.Connection.setAgdaPaths(logChannel, [userAgda.contents])
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           platform,
           memento,
           VSCode.Uri.file("/tmp/test"),
@@ -137,7 +137,7 @@ describe("Memento.PickedConnection", () => {
         let memento = Memento.make(None)
         await Config.Connection.setAgdaPaths(logChannel, []) // empty config
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           platform,
           memento,
           VSCode.Uri.file("/tmp/test"),

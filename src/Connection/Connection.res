@@ -11,7 +11,7 @@ module type Module = {
     | ALS(ALS.t, string, alsVersion) // connection, path
 
   // lifecycle
-  let make: (
+  let makeWithFallback: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
@@ -323,7 +323,7 @@ module Module: Module = {
   //  * Ignored if it doesn't exist in user config
   //  * Always set to the working connection path
 
-  let make = async (
+  let makeWithFallback = async (
     platformDeps: Platform.t,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,

@@ -1030,11 +1030,11 @@ describe("Connection", () => {
       "should log ConnectedToAgda when Agda connection succeeds",
       async () => {
         /**
-         * TEST PURPOSE: Verify that Connection.make emits ConnectedToAgda events
+         * TEST PURPOSE: Verify that Connection.makeWithFallback emits ConnectedToAgda events
          * 
          * SCENARIO:
          * 1. Setup a mock Agda executable
-         * 2. Create Connection.make with log channel
+         * 2. Create Connection.makeWithFallback with log channel
          * 3. Verify ConnectedToAgda event is logged with correct path and version
          */
         let loggedEvents = []
@@ -1058,8 +1058,8 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make with the mock Agda path
-        switch await Connection.make(
+        // INVOKE: Connection.makeWithFallback with the mock Agda path
+        switch await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1098,7 +1098,7 @@ describe("Connection", () => {
       "should log connection events when using real agda command",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make logging works with real connections
+         * TEST PURPOSE: Verify Connection.makeWithFallback logging works with real connections
          * 
          * SCENARIO:
          * 1. Try to connect using the real 'agda' command
@@ -1115,8 +1115,8 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make with real agda command
-        let result = await Connection.make(
+        // INVOKE: Connection.makeWithFallback with real agda command
+        let result = await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1159,7 +1159,7 @@ describe("Connection", () => {
          * SCENARIO: 
          * 1. Try to connect with invalid paths and commands
          * 2. Verify no ConnectedTo* events are logged
-         * 3. Verify Connection.make returns Error
+         * 3. Verify Connection.makeWithFallback returns Error
          */
         let loggedEvents = []
         let logChannel = Chan.make()
@@ -1176,8 +1176,8 @@ describe("Connection", () => {
         let platformDeps = Mock.Platform.makeBasic()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make with invalid paths and commands
-        switch await Connection.make(
+        // INVOKE: Connection.makeWithFallback with invalid paths and commands
+        switch await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1222,8 +1222,8 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        // INVOKE: Connection.make with invalid paths - this should attempt download but fail
-        switch await Connection.make(
+        // INVOKE: Connection.makeWithFallback with invalid paths - this should attempt download but fail
+        switch await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1252,10 +1252,10 @@ describe("Connection", () => {
       "should find commands when no paths are given",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make finds commands when no paths provided
+         * TEST PURPOSE: Verify Connection.makeWithFallback finds commands when no paths provided
          * 
          * SCENARIO:
-         * 1. Call Connection.make with empty paths array
+         * 1. Call Connection.makeWithFallback with empty paths array
          * 2. Provide valid commands ["agda", "als"]
          * 3. Should successfully connect and log the connection
          */
@@ -1266,7 +1266,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1301,7 +1301,7 @@ describe("Connection", () => {
       "should find commands even if all paths given are wrong",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make falls back to commands when paths fail
+         * TEST PURPOSE: Verify Connection.makeWithFallback falls back to commands when paths fail
          * 
          * SCENARIO:
          * 1. Provide invalid paths
@@ -1315,7 +1315,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1349,7 +1349,7 @@ describe("Connection", () => {
       "should prioritize valid paths over commands",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make uses paths before falling back to commands
+         * TEST PURPOSE: Verify Connection.makeWithFallback uses paths before falling back to commands
          * 
          * SCENARIO:
          * 1. Setup mock Agda at known path
@@ -1369,7 +1369,7 @@ describe("Connection", () => {
         let platformDeps = Desktop.make()
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
@@ -1413,7 +1413,7 @@ describe("Connection", () => {
       "should handle platform not supported error with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make handles unsupported platform gracefully
+         * TEST PURPOSE: Verify Connection.makeWithFallback handles unsupported platform gracefully
          * 
          * SCENARIO:
          * 1. Use mock platform that returns unsupported platform error
@@ -1434,7 +1434,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1468,7 +1468,7 @@ describe("Connection", () => {
       "should handle download policy No with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make respects No download policy
+         * TEST PURPOSE: Verify Connection.makeWithFallback respects No download policy
          * 
          * SCENARIO:
          * 1. Set download policy to No
@@ -1488,7 +1488,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1521,7 +1521,7 @@ describe("Connection", () => {
       "should handle download policy Undecided (user cancelled) with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make handles user cancelling download dialog
+         * TEST PURPOSE: Verify Connection.makeWithFallback handles user cancelling download dialog
          * 
          * SCENARIO:
          * 1. Set download policy to Undecided
@@ -1542,7 +1542,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1578,7 +1578,7 @@ describe("Connection", () => {
       "should handle cached ALS download with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make uses cached ALS and logs connection
+         * TEST PURPOSE: Verify Connection.makeWithFallback uses cached ALS and logs connection
          * 
          * SCENARIO:
          * 1. Set download policy to Yes
@@ -1606,7 +1606,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1657,7 +1657,7 @@ describe("Connection", () => {
       "should handle fresh ALS download with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make downloads fresh ALS and logs connection
+         * TEST PURPOSE: Verify Connection.makeWithFallback downloads fresh ALS and logs connection
          * 
          * SCENARIO:
          * 1. Set download policy to Yes
@@ -1687,7 +1687,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           mockPlatformDeps,
           memento,
           globalStorageUri,
@@ -1740,7 +1740,7 @@ describe("Connection", () => {
       "should handle download failure with logging",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.make handles download failures gracefully
+         * TEST PURPOSE: Verify Connection.makeWithFallback handles download failures gracefully
          * 
          * SCENARIO:
          * 1. Set download policy to Yes
@@ -1762,7 +1762,7 @@ describe("Connection", () => {
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
-        let result = await Connection.make(
+        let result = await Connection.makeWithFallback(
           mockPlatformDeps,
           memento,
           globalStorageUri,
