@@ -48,6 +48,7 @@ module CommWithALS = {
   type t =
     // Errors from the LSP client
     | ConnectionError(Js.Exn.t)
+    | ConnectionTimeoutError(int) // timeout in ms
     // Errors when sending Command to the server
     | SendCommand(CommandErr.t)
     // Cannot initialize the connection
@@ -61,12 +62,24 @@ module CommWithALS = {
   let toString = error =>
     switch error {
     | ConnectionError(exn) =>
-      let isECONNREFUSED =
-        Js.Exn.message(exn)->Option.mapOr(false, String.startsWith("connect ECONNREFUSED", ...))
+      // let isECONNREFUSED =
+      //   Js.Exn.message(exn)->Option.mapOr(false, String.startsWith("connect ECONNREFUSED", ...))
 
-      isECONNREFUSED
-        ? ("Connection Error", "Please enter \":main -d\" in ghci")
-        : ("Client Internal Connection Error", Js.Exn.message(exn)->Option.getOr(""))
+      // isECONNREFUSED
+      //   ? ("Connection Error", "\nPlease enter \":main -d\" in ghci")
+      //   : ("Client Internal Connection Error", Js.Exn.message(exn)->Option.getOr(""))
+
+      let errorString = Util.JsError.toString(exn)
+
+      switch errorString {
+      | "" => ("Connection Error", "(empty error message)")
+      | msg => ("Connection Error", msg)
+      }
+
+    | ConnectionTimeoutError(timeout) => (
+        "Connection Timeout",
+        "Expected to connect within " ++ string_of_int(timeout) ++ "ms",
+      )
     | SendCommand(e) => ("Cannot Send Command", CommandErr.toString(e))
     | Initialize => ("Cannot Initialize Connection", "")
     | CannotDecodeCommandRes(msg, json) => (
@@ -185,7 +198,7 @@ module Establish = {
       dict
     },
     download: switch (x.download, y.download) {
-    | (Some(error), yDownload) => 
+    | (Some(error), yDownload) =>
       // Prefer x's error if both exist, but assert y's error is handled
       if Option.isSome(yDownload) {
         // Both have errors - we keep x's error but acknowledge y had one too

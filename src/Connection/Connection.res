@@ -133,7 +133,15 @@ module Module: Module = {
   // see if it's a Agda executable or a language server
   let probeFilepath = async path => {
     switch URI.parse(path) {
-    | Connection__URI.LspURI(_, nodejsUrl) => Ok(path, IsALSOfUnknownVersion(nodejsUrl))
+    | Connection__URI.LspURI(_, nodejsUrl) =>
+      // probe with TCP first
+      switch await Connection__Transport__TCP.probe(nodejsUrl) {
+      | Ok() => Ok(path, IsALSOfUnknownVersion(nodejsUrl))
+      | Error(Connection__Transport__TCP.Error.Timeout(timeout)) =>
+        Error(Error.Probe.CannotMakeConnectionWithALS(ConnectionTimeoutError(timeout)))
+      | Error(Connection__Transport__TCP.Error.OnError(exn)) =>
+        Error(Error.Probe.CannotMakeConnectionWithALS(ConnectionError(exn)))
+      }
     | FileURI(_, vscodeUri) =>
       // IMPORTANT: Convert URI to platform-specific file system path
       // VSCode.Uri.fsPath() handles cross-platform path conversion:

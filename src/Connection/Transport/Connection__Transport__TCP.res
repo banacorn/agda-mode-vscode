@@ -24,7 +24,9 @@ let probe = (url: NodeJs.Url.t, ~timeout=1000) => {
       Socket.destroy(socket, ~error=None)->ignore
       resolve(Ok())
     })
-    ->NodeJs.Net.Socket.onErrorOnce(exn => resolve(Error(Error.OnError(exn))))
+    ->NodeJs.Net.Socket.onErrorOnce(exn => {
+      resolve(Error(Error.OnError(exn)))
+    })
     ->NodeJs.Net.Socket.onTimeoutOnce(() => resolve(Error(Timeout(timeout))))
     ->ignore
   })

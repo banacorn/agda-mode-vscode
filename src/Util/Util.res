@@ -222,32 +222,79 @@ module Pretty = {
 
 module JsError = {
   let toString = (e: Js.Exn.t): string => {
-    // Try to extract meaningful error information
-    let message = Js.Exn.message(e)->Option.getOr("")
-    let name = %raw("e.name || 'Error'")
-    let stack = %raw("e.stack || ''")
-
-    if String.length(message) > 0 {
-      if String.length(stack) > 0 && stack != message {
-        name ++ ": " ++ message ++ "\n" ++ stack
-      } else {
-        name ++ ": " ++ message
-      }
-    } else {
-      // Fallback to toString if no message
-      let stringified = %raw("e.toString()")
-      if stringified == "[object Object]" {
-        // Try to JSON stringify as last resort
-        let jsonString = try {
-          %raw("JSON.stringify(e, null, 2)")
-        } catch {
-        | _ => "Unknown error (cannot stringify)"
+    // Use a more comprehensive JavaScript error extraction approach
+    %raw("
+      (function(error) {
+        // Handle null/undefined
+        if (!error) {
+          return 'Unknown error (null/undefined)';
         }
-        "Error: " ++ jsonString
-      } else {
-        stringified
-      }
-    }
+        
+        // If it's a proper Error object with stack, prefer stack trace
+        if (error.stack && typeof error.stack === 'string') {
+          return error.stack;
+        }
+        
+        // Build error string from name and message
+        let name = error.name || 'Error';
+        let message = error.message || '';
+        
+        if (message) {
+          return name + ': ' + message;
+        }
+        
+        // Try toString() method
+        if (typeof error.toString === 'function') {
+          try {
+            let stringified = error.toString();
+            if (stringified !== '[object Object]' && stringified !== 'Error') {
+              return stringified;
+            }
+          } catch (_) {
+            // toString() failed, continue to next approach
+          }
+        }
+        
+        // Handle primitive values that were converted to Error objects
+        if (typeof error.valueOf === 'function') {
+          try {
+            let value = error.valueOf();
+            if (value !== error) {
+              return String(value);
+            }
+          } catch (_) {
+            // valueOf() failed, continue
+          }
+        }
+        
+        // Try to extract meaningful properties for structured errors
+        if (typeof error === 'object') {
+          try {
+            // Common error properties to check
+            let parts = [];
+            if (error.code) parts.push('Code: ' + error.code);
+            if (error.errno) parts.push('Errno: ' + error.errno);
+            if (error.syscall) parts.push('Syscall: ' + error.syscall);
+            if (error.path) parts.push('Path: ' + error.path);
+            if (error.address) parts.push('Address: ' + error.address);
+            if (error.port) parts.push('Port: ' + error.port);
+            
+            if (parts.length > 0) {
+              return (name === 'Error' ? 'SystemError' : name) + ': ' + parts.join(', ');
+            }
+            
+            // Last resort: JSON stringify
+            return name + ': ' + JSON.stringify(error, null, 2);
+          } catch (_) {
+            // JSON.stringify failed
+            return name + ': [Object (cannot serialize)]';
+          }
+        }
+        
+        // Final fallback for primitive values
+        return name + ': ' + String(error);
+      })
+    ")(e)
   }
 }
 
