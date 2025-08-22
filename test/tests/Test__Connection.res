@@ -321,7 +321,7 @@ describe("Connection", () => {
     )
   })
 
-  describe("`makeWithRawPath`", () => {
+  describe("`make`", () => {
     let agdaMockPath = ref("")
     let alsMockPath = ref("")
 
@@ -329,14 +329,14 @@ describe("Connection", () => {
       async () => {
         // Setup Agda mock
         agdaMockPath :=
-          (await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-makeWithRawPath-mock"))
+          (await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-make-mock"))
         // Setup ALS mock
         alsMockPath :=
           (
             await Endpoint.ALS.mock(
               ~alsVersion="1.3.1",
               ~agdaVersion="2.6.3",
-              ~name="als-makeWithRawPath-mock",
+              ~name="als-make-mock",
             )
           )
       },
@@ -357,7 +357,7 @@ describe("Connection", () => {
     Async.it(
       "should successfully create Agda connection from valid Agda path",
       async () => {
-        let result = await Connection.makeWithRawPath(agdaMockPath.contents)
+        let result = await Connection.make(agdaMockPath.contents)
 
         switch result {
         | Ok(connection) =>
@@ -397,7 +397,7 @@ describe("Connection", () => {
       "should return Establish error for non-existent path",
       async () => {
         let nonExistentPath = "/path/that/does/not/exist/agda"
-        let result = await Connection.makeWithRawPath(nonExistentPath)
+        let result = await Connection.make(nonExistentPath)
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for non-existent path")
@@ -422,21 +422,21 @@ describe("Connection", () => {
         // Create mock executable that outputs unrecognized content
         let mockOutput = "Unknown Program v1.0.0"
         let mockPath = if OS.onUnix {
-          let fileName = "unrecognized-makeWithRawPath-mock"
+          let fileName = "unrecognized-make-mock"
           let content = "#!/bin/sh\necho '" ++ mockOutput ++ "'\nexit 0"
           let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
           NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
           await NodeJs.Fs.chmod(tempFile, ~mode=0o755)
           tempFile
         } else {
-          let fileName = "unrecognized-makeWithRawPath-mock.bat"
+          let fileName = "unrecognized-make-mock.bat"
           let content = "@echo " ++ mockOutput
           let tempFile = NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName])
           NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString(content))
           tempFile
         }
 
-        let result = await Connection.makeWithRawPath(mockPath)
+        let result = await Connection.make(mockPath)
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for unrecognized executable")
@@ -533,7 +533,7 @@ describe("Connection", () => {
       "should handle error construction correctly for probe errors",
       async () => {
         let invalidPath = "/definitely/does/not/exist/agda"
-        let result = await Connection.makeWithRawPath(invalidPath)
+        let result = await Connection.make(invalidPath)
 
         switch result {
         | Ok(_) => Assert.fail("Expected construction error")

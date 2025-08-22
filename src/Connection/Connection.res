@@ -11,6 +11,7 @@ module type Module = {
     | ALS(ALS.t, string, alsVersion) // connection, path
 
   // lifecycle
+  let make: string => promise<result<t, Error.Establish.t>>
   let makeWithFallback: (
     Platform.t,
     Memento.t,
@@ -47,7 +48,6 @@ module type Module = {
   let probeFilepath: string => promise<
     result<(string, result<agdaVersion, alsVersion>), Error.Probe.t>,
   >
-  let makeWithRawPath: string => promise<result<t, Error.Establish.t>>
 }
 
 module Module: Module = {
@@ -158,7 +158,7 @@ module Module: Module = {
     }
   }
 
-  let makeWithRawPath = async (rawpath: string): result<t, Error.Establish.t> => {
+  let make = async (rawpath: string): result<t, Error.Establish.t> => {
     switch await probeFilepath(rawpath) {
     | Ok(path, Ok(agdaVersion)) =>
       let connection = await Agda.make(path, agdaVersion)
@@ -218,7 +218,7 @@ module Module: Module = {
   > => {
     module PlatformOps = unpack(platformDeps)
 
-    let tasks = paths->Array.map(path => () => makeWithRawPath(path))
+    let tasks = paths->Array.map(path => () => make(path))
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
     | Error(pathErrors) => Error(Error.Establish.mergeMany(pathErrors))
@@ -234,7 +234,7 @@ module Module: Module = {
 
     let tryCommand = async (command): result<t, Error.Establish.t> => {
       switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) => await makeWithRawPath(rawPath)
+      | Ok(rawPath) => await make(rawPath)
       | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
       }
     }
@@ -296,7 +296,7 @@ module Module: Module = {
 
         switch downloadResult {
         | Ok(path) =>
-          switch await makeWithRawPath(path) {
+          switch await make(path) {
           | Ok(connection) => Ok(connection)
           | Error(error) => Error(error)
           }

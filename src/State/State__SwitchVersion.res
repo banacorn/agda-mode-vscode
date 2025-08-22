@@ -404,7 +404,13 @@ module SwitchVersionManager = {
 }
 
 // Connection switching logic
-let switchAgdaVersion = async (state: State.t) => {
+let switchAgdaVersion = async (state: State.t, uri) => {
+  // convert URI to string path
+  let path = switch uri {
+  | Connection__URI.FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
+  | LspURI(raw, _) => raw
+  }
+
   // Skip the initial Connection.Endpoint.getPicked() call since it might clear our memento
   // Just show a generic "switching..." message
   await State__View.Panel.displayStatus(state, "")
@@ -414,39 +420,16 @@ let switchAgdaVersion = async (state: State.t) => {
     [],
   )
 
-  // stop the old connection
-  let _ = await Connection.destroy(state.connection, state.channels.log)
-
-  // start with the new connection
-  // Get the selected path from memento and ensure it's included in the supplied paths
-  let configPaths = Config.Connection.getAgdaPaths()
-  let storedPathBeforeConnection = Memento.PickedConnection.get(state.memento)
-
-  let pathsFromSystem = switch storedPathBeforeConnection {
-  | Some(selectedPath) => {
-      // Convert path to URI and add to config paths if not already present
-      let pathExists = configPaths->Array.includes(selectedPath)
-      if pathExists {
-        configPaths
-      } else {
-        // Put the selected path FIRST so it gets priority in getPicked()
-        Array.concat([selectedPath], configPaths)
-      }
-    }
-  | None => configPaths
-  }
-
-  switch await Connection.makeWithFallback(
-    state.platformDeps,
-    state.memento,
-    state.globalStorageUri,
-    pathsFromSystem,
-    ["als", "agda"],
-    state.channels.log,
-  ) {
+  switch await Connection.make(path) {
   | Ok(conn) =>
-    state.connection = Some(conn)
+    // stop the old connection
+    let _ = await Connection.destroy(state.connection, state.channels.log)
 
+    // update state
+    state.connection = Some(conn)
+    await Memento.PickedConnection.set(state.memento, Some(path))
+    await Config.Connection.addAgdaPath(state.channels.log, path)
+    // display success message
     switch conn {
     | Agda(_, _, version) =>
       let formattedVersion = VersionDisplay.formatAgdaVersion(version)
@@ -465,39 +448,8 @@ let switchAgdaVersion = async (state: State.t) => {
         [],
       )
     }
-
-  // Use the same pathsFromSystem we used for Connection.makeWithFallback() to ensure consistency
-  // switch await Connection.Endpoint.getPicked(state.memento, pathsFromSystem) {
-  // | None => ()
-  // // | Some(Agda(version, _)) => {
-  // //     let formattedVersion = VersionDisplay.formatAgdaVersion(version)
-  // //     await State__View.Panel.displayStatus(state, formattedVersion)
-  // //     await State__View.Panel.display(
-  // //       state,
-  // //       AgdaModeVscode.View.Header.Success(
-  // //         VersionDisplay.formatSwitchedMessage(formattedVersion),
-  // //       ),
-  // //       [],
-  // //     )
-  // //   }
-  // // | Some(ALS(alsVersion, agdaVersion, _, _)) => {
-  // //     let formattedVersion = VersionDisplay.formatALSVersion(
-  // //       alsVersion,
-  // //       agdaVersion,
-  // //     )
-  // //     await State__View.Panel.displayStatus(state, formattedVersion)
-  // //     await State__View.Panel.display(
-  // //       state,
-  // //       AgdaModeVscode.View.Header.Success(
-  // //         VersionDisplay.formatSwitchedMessage(formattedVersion),
-  // //       ),
-  // //       [],
-  // //     )
-  // //   }
-  // }
-
   | Error(error) => {
-      let (errorHeader, errorBody) = Connection.Error.toString(error)
+      let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))
       let header = AgdaModeVscode.View.Header.Error(
         "Failed to switch to a different installation: " ++ errorHeader,
       )
@@ -682,19 +634,8 @@ module Handler = {
                 }
 
                 let uri = Connection.URI.parse(selectedPath)
-                switch uri {
-                | FileURI(_, vsCodeUri) =>
-                  let path = VSCode.Uri.fsPath(vsCodeUri)
-                  await Memento.PickedConnection.set(state.memento, Some(path))
-                  await Config.Connection.addAgdaPath(state.channels.log, path)
-                  await switchAgdaVersion(state)
-                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                | LspURI(raw, path) =>
-                  await Memento.PickedConnection.set(state.memento, Some(raw))
-                  await Config.Connection.addAgdaPath(state.channels.log, raw)
-                  await switchAgdaVersion(state)
-                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                }
+                await switchAgdaVersion(state, uri)
+                state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
               } else {
                 // No change in selection - still emit completion
                 state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))

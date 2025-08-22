@@ -33,7 +33,7 @@ describe("Config.Connection paths", () => {
         await Endpoint.ALS.mock(
           ~alsVersion="1.3.1",
           ~agdaVersion="2.6.3",
-          ~name="als-makeWithRawPath-mock",
+          ~name="als-make-mock",
         )
       )
   })
