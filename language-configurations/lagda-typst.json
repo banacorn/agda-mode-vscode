@@ -1,0 +1,77 @@
+// Sourced from https://github.com/CFiggers/typst-companion/blob/main/language-configuration.json
+{
+  "comments": {
+    "lineComment": "//",
+    "blockComment": ["/*", "*/"]
+  },
+  "brackets": [
+    ["[", "]"],
+    ["{", "}"],
+    ["(", ")"]
+  ],
+  //   "autoClosingPairs": [
+  //     {
+  //       "open": "[",
+  //       "close": "]"
+  //     },
+  //     {
+  //       "open": "{",
+  //       "close": "}"
+  //     },
+  //     {
+  //       "open": "(",
+  //       "close": ")"
+  //     },
+  //     {
+  //       "open": "\"",
+  //       "close": "\"",
+  //       "notIn": ["string"]
+  //     },
+  //     {
+  //       "open": "$",
+  //       "close": "$",
+  //       "notIn": ["string"]
+  //     }
+  //   ],
+  //   "autoCloseBefore": "$ \n\t",
+  "surroundingPairs": [
+    ["[", "]"],
+    ["{", "}"],
+    ["(", ")"],
+    ["\"", "\""],
+    ["*", "*"],
+    ["_", "_"],
+    ["`", "`"],
+    ["$", "$"]
+  ],
+
+  // Agda specific
+  "autoClosingPairs": [
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{!",
+      "close": "!}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{-#",
+      "close": "#-}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦃",
+      "close": "⦄",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦇",
+      "close": "⦈",
+      "notIn": ["comment", "string"]
+    }
+  ],
+  "wordPattern": "(?!\\\\)[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+"
+}

@@ -74,7 +74,7 @@
 				"aliases": [
 					"Agda"
 				],
-				"configuration": "./language-configuration.json",
+				"configuration": "./language-configurations/agda.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -88,6 +88,7 @@
 				"aliases": [
 					"Literate Agda (markdown)"
 				],
+				"configuration": "./language-configurations/lagda-markdown.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -110,6 +111,7 @@
 				"aliases": [
 					"Literate Agda (Typst)"
 				],
+				"configuration": "./language-configurations/lagda-typst.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -133,6 +135,7 @@
 				"aliases": [
 					"Literate Agda (TeX)"
 				],
+				"configuration": "./language-configurations/lagda-tex.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -159,6 +162,7 @@
 				"aliases": [
 					"Literate Agda (Org)"
 				],
+				"configuration": "./language-configurations/lagda-org.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -181,6 +185,7 @@
 				"aliases": [
 					"Literate Agda (forester)"
 				],
+				"configuration": "./language-configurations/lagda-forester.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"

@@ -1,0 +1,77 @@
+// Sourced from https://github.com/Trebor-Huang/vscode-forester/blob/main/resources/language/language-configuration.json
+{
+  "comments": {
+    "lineComment": "%"
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["#{", "}"],
+    ["##{", "}"]
+  ],
+  //   "autoClosingPairs": [
+  //     {
+  //       "open": "{",
+  //       "close": "}"
+  //     },
+  //     {
+  //       "open": "[",
+  //       "close": "]"
+  //     },
+  //     {
+  //       "open": "(",
+  //       "close": ")"
+  //     },
+  //     {
+  //       "open": "\\{",
+  //       "close": "\\}"
+  //     },
+  //     {
+  //       "open": "\\<",
+  //       "close": ">"
+  //     }
+  //   ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "folding": {
+    "markers": {
+      "start": "{",
+      "end": "}"
+    }
+  },
+  //   "wordPattern": "\\\\(@*[a-zA-Z]*)|[^\\s\\d`~!@#$%^&*()\\-=_+[\\]{}\\\\\\|;:'\"<>,./?\\u0500-\\uffff]+"
+
+  // Agda specific
+  "autoClosingPairs": [
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{!",
+      "close": "!}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{-#",
+      "close": "#-}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦃",
+      "close": "⦄",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦇",
+      "close": "⦈",
+      "notIn": ["comment", "string"]
+    }
+  ],
+  "wordPattern": "(?!\\\\)[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+"
+}

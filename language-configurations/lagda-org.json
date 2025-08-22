@@ -1,0 +1,60 @@
+// Sourced from https://github.com/vscode-org-mode/vscode-org-mode/blob/develop/org.configuration.json
+{
+  "comments": {
+    "lineComment": "#",
+    "blockComment": ["#+BEGIN_COMMENT\n", "\n#+END_COMMENT"]
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  //   "autoClosingPairs": [
+  //     ["{", "}"],
+  //     ["[", "]"],
+  //     ["(", ")"],
+  //     ["\"", "\""]
+  //   ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""],
+    ["'", "'"],
+    ["*", "*"],
+    ["/", "/"],
+    ["_", "_"],
+    ["=", "="],
+    ["~", "~"]
+  ],
+
+  // Agda specific
+  "autoClosingPairs": [
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{!",
+      "close": "!}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{-#",
+      "close": "#-}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦃",
+      "close": "⦄",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦇",
+      "close": "⦈",
+      "notIn": ["comment", "string"]
+    }
+  ],
+  "wordPattern": "(?!\\\\)[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+"
+}
