@@ -370,15 +370,18 @@ module SwitchVersionManager = {
     } else {
       let probePromises = pathsToProbe->Array.map(async path => {
         switch await Connection.probeFilepath(path) {
-        | Ok(_, Ok(agdaVersion)) =>
+        | Ok(_, IsAgda(agdaVersion)) =>
           await Memento.Endpoints.setVersion(self.memento, path, Agda(Some(agdaVersion)))
           Some(path)
-        | Ok(_, Error(alsVersion, agdaVersion, lspOptions)) =>
+        | Ok(_, IsALS(alsVersion, agdaVersion, lspOptions)) =>
           await Memento.Endpoints.setVersion(
             self.memento,
             path,
             ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
+          Some(path)
+        | Ok(_, IsALSWithUnknownAgdaVersion) =>
+          await Memento.Endpoints.setVersion(self.memento, path, ALS(None))
           Some(path)
         | Error(error) =>
           await Memento.Endpoints.setError(
@@ -439,8 +442,16 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
         [],
       )
-    | ALS(_, _, (alsVersion, agdaVersion, _)) =>
+    | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
       let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+      await State__View.Panel.displayStatus(state, formattedVersion)
+      await State__View.Panel.display(
+        state,
+        AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
+        [],
+      )
+    | ALS(_, _, None) =>
+      let formattedVersion = "Agda Language Server of unknown version"
       await State__View.Panel.displayStatus(state, formattedVersion)
       await State__View.Panel.display(
         state,

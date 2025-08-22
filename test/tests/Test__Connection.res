@@ -144,10 +144,10 @@ describe("Connection", () => {
         let result = await Connection.probeFilepath(agdaMockPath.contents)
 
         switch result {
-        | Ok(path, Ok(version)) =>
+        | Ok(path, IsAgda(version)) =>
           Assert.deepStrictEqual(path, agdaMockPath.contents)
           Assert.deepStrictEqual(version, "2.6.4.1")
-        | Ok(_, Error(_)) => Assert.fail("Expected Agda result, got ALS")
+        | Ok(_, _) => Assert.fail("Expected Agda result, got ALS")
         | Error(_) => Assert.fail("Expected successful probe of Agda mock")
         }
       },
@@ -159,13 +159,14 @@ describe("Connection", () => {
         let result = await Connection.probeFilepath(alsMockPath.contents)
 
         switch result {
-        | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
+        | Ok(path, IsALS(alsVersion, agdaVersion, lspOptions)) =>
           Assert.deepStrictEqual(path, alsMockPath.contents)
           Assert.deepStrictEqual(alsVersion, "1.2.3")
           Assert.deepStrictEqual(agdaVersion, "2.6.4")
           // lspOptions should be None for this mock (no prebuilt data directory)
           Assert.deepStrictEqual(lspOptions, None)
-        | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, _) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe of ALS mock")
         }
       },
@@ -294,7 +295,7 @@ describe("Connection", () => {
         }
 
         switch result {
-        | Ok(path, Error(alsVersion, agdaVersion, Some(lspOptions))) =>
+        | Ok(path, IsALS(alsVersion, agdaVersion, Some(lspOptions))) =>
           Assert.deepStrictEqual(path, normalizedFileName)
           Assert.deepStrictEqual(alsVersion, "1.2.3")
           Assert.deepStrictEqual(agdaVersion, "2.6.4")
@@ -303,8 +304,9 @@ describe("Connection", () => {
           | Some(dataDirPath) => Assert.ok(String.includes(dataDirPath, "data"))
           | None => Assert.fail("Expected Agda_datadir in LSP options")
           }
-        | Ok(_, Error(_, _, None)) => Assert.fail("Expected LSP options with data directory")
-        | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
+        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe of ALS with data directory")
         }
 
@@ -328,8 +330,7 @@ describe("Connection", () => {
     Async.before(
       async () => {
         // Setup Agda mock
-        agdaMockPath :=
-          (await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-make-mock"))
+        agdaMockPath := (await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-make-mock"))
         // Setup ALS mock
         alsMockPath :=
           (
@@ -382,12 +383,13 @@ describe("Connection", () => {
         let result = await Connection.probeFilepath(alsMockPath.contents)
 
         switch result {
-        | Ok(path, Error(alsVersion, agdaVersion, lspOptions)) =>
+        | Ok(path, IsALS(alsVersion, agdaVersion, lspOptions)) =>
           Assert.deepStrictEqual(path, alsMockPath.contents)
           Assert.deepStrictEqual(alsVersion, "1.3.1")
           Assert.deepStrictEqual(agdaVersion, "2.6.3")
           Assert.deepStrictEqual(lspOptions, None)
-        | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe")
         }
       },
@@ -503,7 +505,7 @@ describe("Connection", () => {
         }
 
         switch result {
-        | Ok(path, Error(alsVersion, agdaVersion, Some(lspOptions))) =>
+        | Ok(path, IsALS(alsVersion, agdaVersion, Some(lspOptions))) =>
           Assert.deepStrictEqual(path, normalizedFileName)
           Assert.deepStrictEqual(alsVersion, "1.3.1")
           Assert.deepStrictEqual(agdaVersion, "2.6.3")
@@ -512,8 +514,9 @@ describe("Connection", () => {
           | Some(dataDirPath) => Assert.ok(String.includes(dataDirPath, "data"))
           | None => Assert.fail("Expected Agda_datadir in LSP options")
           }
-        | Ok(_, Error(_, _, None)) => Assert.fail("Expected LSP options with data directory")
-        | Ok(_, Ok(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
+        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe with data directory")
         }
 
@@ -1136,10 +1139,15 @@ describe("Connection", () => {
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToAgda(path, version))],
             )
-          | ALS(_, path, (alsVersion, agdaVersion, _)) =>
+          | ALS(_, path, Some(alsVersion, agdaVersion, _)) =>
             Assert.deepStrictEqual(
               loggedEvents,
-              [Log.Connection(Log.Connection.ConnectedToALS(path, alsVersion, agdaVersion))],
+              [Log.Connection(Log.Connection.ConnectedToALS(path, Some(alsVersion, agdaVersion)))],
+            )
+          | ALS(_, path, None) =>
+            Assert.deepStrictEqual(
+              loggedEvents,
+              [Log.Connection(Log.Connection.ConnectedToALS(path, None))],
             )
           }
 
@@ -1235,7 +1243,8 @@ describe("Connection", () => {
           // If it succeeds, verify the exact connection event was logged
           switch loggedEvents {
           | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => () // Expected Agda connection event
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, _, _))] => () // Expected ALS connection event
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, Some(_, _)))] => () // Expected ALS connection event
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, None))] => () // Expected ALS connection event without Agda version
           | [] => Assert.fail("Expected connection event to be logged")
           | _ => Assert.fail("Expected exactly one connection event")
           }
@@ -1288,7 +1297,8 @@ describe("Connection", () => {
           // Should have logged a connection event
           switch loggedEvents {
           | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, _, _))] => ()
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, Some(_, _)))] => ()
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, None))] => ()
           | [] => Assert.fail("Expected connection event to be logged")
           | _ => Assert.fail("Expected exactly one connection event")
           }
@@ -1336,7 +1346,8 @@ describe("Connection", () => {
           // Should have logged a connection event
           switch loggedEvents {
           | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, _, _))] => ()
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, Some(_, _)))] => ()
+          | [Log.Connection(Log.Connection.ConnectedToALS(_, None))] => ()
           | [] => Assert.fail("Expected connection event to be logged")
           | _ => Assert.fail("Expected exactly one connection event")
           }

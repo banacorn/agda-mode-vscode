@@ -26,7 +26,8 @@ let sendRequest = async (
       // update versions
       switch connection {
       | Agda(_, _, version) => state.agdaVersion = Some(version)
-      | ALS(_, _, (_alsVersion, agdaVersion, _)) => state.agdaVersion = Some(agdaVersion)
+      | ALS(_, _, Some(_alsVersion, agdaVersion, _)) => state.agdaVersion = Some(agdaVersion)
+      | ALS(_, _, None) => state.agdaVersion = None
       }
     }
   }

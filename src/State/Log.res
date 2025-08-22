@@ -57,14 +57,15 @@ module SwitchVersion = {
 module Connection = {
   type t =
     | ConnectedToAgda(string, string) // path, version
-    | ConnectedToALS(string, string, string) // path, ALS version, Agda version
+    | ConnectedToALS(string, option<(string, string)>) // path, ALS version, Agda version
     | Disconnected(string) // path
 
   let toString = event =>
     switch event {
     | ConnectedToAgda(path, version) => `ConnectedToAgda: ${path} - Agda v${version}`
-    | ConnectedToALS(path, alsVersion, agdaVersion) =>
+    | ConnectedToALS(path, Some(alsVersion, agdaVersion)) =>
       `ConnectedToALS: ${path} - Agda v${agdaVersion} Language Server v${alsVersion}`
+    | ConnectedToALS(path, None) => `ConnectedToALS: ${path} -  Agda Language Server of unknown version`
     | Disconnected(path) => `Disconnected: ${path}`
     }
 }
