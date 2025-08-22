@@ -23,11 +23,25 @@ module type Module = {
   let getErrorChan: t => Chan.t<Js.Exn.t>
 }
 
-let fromJsPromise = async (promise: promise<'t>): result<'t, Js.Exn.t> =>
+let fromJsPromise = async (promise: promise<'t>): result<'t, Js.Exn.t> => {
   switch await promise {
   | result => Ok(result)
   | exception Js.Exn.Error(e) => Error(e)
+  | exception e =>
+    // Convert any exception to Js.Exn.t using standard JS pattern
+    // In JS: error instanceof Error ? error : new Error(String(error))
+    let jsError: Js.Exn.t = %raw("
+      (function(e) {
+        if (e instanceof Error) {
+          return e;
+        } else {
+          return new Error(String(e));
+        }
+      })
+    ")(e)
+    Error(jsError)
   }
+}
 
 module Module: Module = {
   open VSCode
