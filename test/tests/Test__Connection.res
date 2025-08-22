@@ -165,7 +165,7 @@ describe("Connection", () => {
           Assert.deepStrictEqual(agdaVersion, "2.6.4")
           // lspOptions should be None for this mock (no prebuilt data directory)
           Assert.deepStrictEqual(lspOptions, None)
-        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, _) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe of ALS mock")
         }
@@ -305,7 +305,7 @@ describe("Connection", () => {
           | None => Assert.fail("Expected Agda_datadir in LSP options")
           }
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
-        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe of ALS with data directory")
         }
@@ -388,7 +388,7 @@ describe("Connection", () => {
           Assert.deepStrictEqual(alsVersion, "1.3.1")
           Assert.deepStrictEqual(agdaVersion, "2.6.3")
           Assert.deepStrictEqual(lspOptions, None)
-        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe")
         }
@@ -515,7 +515,7 @@ describe("Connection", () => {
           | None => Assert.fail("Expected Agda_datadir in LSP options")
           }
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
-        | Ok(_, IsALSWithUnknownAgdaVersion) => Assert.fail("Expected ALS with known versions")
+        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe with data directory")
         }

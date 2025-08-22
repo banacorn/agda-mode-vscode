@@ -380,7 +380,7 @@ module SwitchVersionManager = {
             ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
-        | Ok(_, IsALSWithUnknownAgdaVersion) =>
+        | Ok(_, IsALSOfUnknownVersion(_)) =>
           await Memento.Endpoints.setVersion(self.memento, path, ALS(None))
           Some(path)
         | Error(error) =>

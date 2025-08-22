@@ -49,7 +49,7 @@ module type Module = {
   type probeResult =
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
-    | IsALSWithUnknownAgdaVersion
+    | IsALSOfUnknownVersion(NodeJs.Url.t) // for TCP connections
   let probeFilepath: string => promise<result<(string, probeResult), Error.Probe.t>>
 }
 
@@ -129,11 +129,11 @@ module Module: Module = {
   type probeResult =
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
-    | IsALSWithUnknownAgdaVersion
+    | IsALSOfUnknownVersion(NodeJs.Url.t) // for TCP connections
   // see if it's a Agda executable or a language server
   let probeFilepath = async path => {
     switch URI.parse(path) {
-    | Connection__URI.LspURI(_) => Error(Error.Probe.CannotHandleURLsAtTheMoment)
+    | Connection__URI.LspURI(_, nodejsUrl) => Ok(path, IsALSOfUnknownVersion(nodejsUrl))
     | FileURI(_, vscodeUri) =>
       // IMPORTANT: Convert URI to platform-specific file system path
       // VSCode.Uri.fsPath() handles cross-platform path conversion:
@@ -182,9 +182,9 @@ module Module: Module = {
         Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
       | Ok(conn) => Ok(ALS(conn, path, Some(alsVersion, agdaVersion, lspOptions)))
       }
-    | Ok(path, IsALSWithUnknownAgdaVersion) =>
+    | Ok(path, IsALSOfUnknownVersion(url)) =>
       switch await ALS.make(
-        Connection__Transport.ViaTCP(rawpath, NodeJs.Url.make(rawpath)),
+        Connection__Transport.ViaTCP(rawpath, url),
         None,
         InitOptions.getFromConfig(),
       ) {
