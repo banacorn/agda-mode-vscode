@@ -1154,6 +1154,16 @@
 				"command": "agda-mode.lookup-symbol",
 				"key": "ctrl+x ctrl+=",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !terminalFocus"
+			},
+			{
+				"command": "markdown.showPreview",
+				"key": "shift+cmd+v",
+				"when": "!notebookEditorFocused && editorLangId == 'lagda-markdown'"
+			},
+			{
+				"command": "markdown.showPreviewToSide",
+				"key": "cmd+k v",
+				"when": "!notebookEditorFocused && editorLangId == 'lagda-markdown'"
 			}
 		],
 		"configuration": {
