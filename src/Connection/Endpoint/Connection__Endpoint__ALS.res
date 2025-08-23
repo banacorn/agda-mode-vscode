@@ -43,7 +43,7 @@ module CommandRes = {
           field("contents", string)->map(agdaVersion => ACK(agdaVersion, None))
         }
       | "CmdRes" =>
-        field("contents", option(Connection__Error.CommWithALS.CommandErr.decode)->map(error => Result(error)))
+        field("contents", option(Connection__Error.CommWithALS.CommandErr.decode))->map(error => Result(error))
       | tag => 
         raise(DecodeError("[Connection.Target.ALS.CommandRes] Unknown constructor: " ++ tag))
       }
