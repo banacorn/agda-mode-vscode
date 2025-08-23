@@ -198,7 +198,11 @@ module Module: Module = {
       ) {
       | Error(error) =>
         Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
-      | Ok(conn) => Ok(ALS(conn, path, None))
+      | Ok(conn) =>
+        switch conn.alsVersion {
+        | None => Ok(ALS(conn, path, None)) // version unknown
+        | Some(alsVersion) => Ok(ALS(conn, path, Some(alsVersion, conn.agdaVersion, None))) // version known
+        }
       }
     | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error))
     }

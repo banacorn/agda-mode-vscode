@@ -20,21 +20,32 @@ module CommandReq = {
 
 module CommandRes = {
   type t =
-    | ACK(version)
+    | ACK(version, option<version>) // agda version, language server version (ALS v6 and later)
     | Result(option<Connection__Error.CommWithALS.CommandErr.t>)
 
   let fromJsError = (error: 'a): string => %raw("function (e) {return e.toString()}")(error)
 
   let decode = {
     open JsonCombinators.Json.Decode
-    Util.Decode.sum(x =>
-      switch x {
-      | "CmdResACK" => Payload(string->map(version => ACK(version)))
+    field("tag", string)->flatMap(tag =>
+      switch tag {
+      | "CmdResACK" =>
+        // ALS v5 and prior: agda version only
+        // ALS v6 and later: agda version + language server version
+        try {
+          field("contents", pair(string, int))->map(((agdaVersion, alsVersion)) => ACK(
+            agdaVersion,
+            Some(alsVersion->string_of_int),
+          ))
+        } catch {
+        | DecodeError(_) =>
+          // fallback for ALS <= v5
+          field("contents", string)->map(agdaVersion => ACK(agdaVersion, None))
+        }
       | "CmdRes" =>
-        Payload(
-          option(Connection__Error.CommWithALS.CommandErr.decode)->map(error => Result(error)),
-        )
-      | tag => raise(DecodeError("[Connection.Target.ALS.CommandRes] Unknown constructor: " ++ tag))
+        field("contents", option(Connection__Error.CommWithALS.CommandErr.decode)->map(error => Result(error)))
+      | tag => 
+        raise(DecodeError("[Connection.Target.ALS.CommandRes] Unknown constructor: " ++ tag))
       }
     )
   }
@@ -205,6 +216,7 @@ module type Module = {
   type t = {
     client: LSP.t,
     agdaVersion: version,
+    alsVersion: option<version>,
     method: Connection__Transport.t,
   }
   // lifecycle
@@ -224,6 +236,7 @@ module Module: Module = {
   type t = {
     client: LSP.t,
     agdaVersion: version,
+    alsVersion: option<version>,
     method: Connection__Transport.t,
   }
 
@@ -258,7 +271,7 @@ module Module: Module = {
       switch await sendRequestPrim(client, SYN) {
       | Error(error) => Error(error)
       | Ok(Result(_)) => Error(Error.Initialize)
-      | Ok(ACK(agdaVersion)) => Ok({client, agdaVersion, method})
+      | Ok(ACK(agdaVersion, alsVersion)) => Ok({client, agdaVersion, alsVersion, method})
       }
     }
   }
