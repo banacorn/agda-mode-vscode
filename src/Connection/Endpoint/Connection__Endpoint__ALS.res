@@ -32,16 +32,12 @@ module CommandRes = {
       | "CmdResACK" =>
         // ALS v5 and prior: agda version only
         // ALS v6 and later: agda version + language server version
-        try {
-          field("contents", pair(string, int))->map(((agdaVersion, alsVersion)) => ACK(
-            agdaVersion,
-            Some(alsVersion->string_of_int),
-          ))
-        } catch {
-        | DecodeError(_) =>
-          // fallback for ALS <= v5
-          field("contents", string)->map(agdaVersion => ACK(agdaVersion, None))
-        }
+        field("contents", 
+          oneOf([
+            pair(string, int)->map(((agdaVersion, alsVersion)) => ACK(agdaVersion, Some(alsVersion->string_of_int))),
+            string->map(agdaVersion => ACK(agdaVersion, None))
+          ])
+        )
       | "CmdRes" =>
         field("contents", option(Connection__Error.CommWithALS.CommandErr.decode))->map(error => Result(error))
       | tag => 
