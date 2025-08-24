@@ -256,7 +256,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create download item when not downloaded",
           () => {
-            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(false, "ALS v1.0.0")
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(false, "ALS v1.0.0", "latest")
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
@@ -271,7 +271,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create download item when already downloaded",
           () => {
-            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(true, "ALS v1.0.0")
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(true, "ALS v1.0.0", "latest")
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
@@ -330,7 +330,7 @@ describe("State__SwitchVersion", () => {
             > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
-              None,
+              [],
               "/test/global/storage",
             )
 
@@ -361,7 +361,7 @@ describe("State__SwitchVersion", () => {
             > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
-              None,
+              [],
               "/test/global/storage",
             )
 
@@ -395,7 +395,7 @@ describe("State__SwitchVersion", () => {
             > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
-              Some((false, "ALS v1.0.0")),
+              [(false, "ALS v1.0.0", "latest")],
               "/test/global/storage",
             )
 
@@ -412,7 +412,7 @@ describe("State__SwitchVersion", () => {
             let downloadAction = itemData->Array.find(
               data =>
                 switch data {
-                | DownloadAction(false, "ALS v1.0.0") => true
+                | DownloadAction(false, "ALS v1.0.0", "latest") => true
                 | _ => false
                 },
             )
@@ -900,6 +900,7 @@ describe("State__SwitchVersion", () => {
             let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
               false,
               "Agda v2.6.4 Language Server v1.2.3",
+              "latest",
             )
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -926,6 +927,7 @@ describe("State__SwitchVersion", () => {
             let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
               true,
               "Agda v2.6.4 Language Server v1.2.3",
+              "latest",
             )
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
