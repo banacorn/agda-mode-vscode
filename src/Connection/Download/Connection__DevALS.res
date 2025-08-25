@@ -32,14 +32,14 @@ let getFetchSpec = async (memento, globalStorageUri, platform) =>
   | Error(error) => Error(error)
   | Ok(releases) =>
     // target the specific "dev" release
-    let devRelease = releases->Array.find(release => release.name == "dev")
+    let devRelease = releases->Array.find(release => release.tag_name == "dev")
 
     switch devRelease {
     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
     | Some(devRelease) =>
       let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
         asset.name
-        ->String.replaceRegExp(%re("/als-Agda-/"), "")
+        ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
         ->String.replaceRegExp(%re("/-.*/"), "")
       // choose the assets of the corresponding platform
       let assets = await chooseAssetByPlatform(devRelease, platform)

@@ -551,7 +551,7 @@ module Download = {
         // Format version string for display
         let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
           asset.name
-          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
         let agdaVersion = getAgdaVersion(fetchSpec.asset)
         let alsVersion = fetchSpec.release.name
