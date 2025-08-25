@@ -28,12 +28,7 @@ module type Module = {
 
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
 
-  let fromDownloads: (
-    Platform.t,
-    Chan.t<Log.t>,
-    Memento.t,
-    VSCode.Uri.t,
-  ) => promise<result<t, Error.Establish.t>>
+  let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
   // messaging
   let sendRequest: (
@@ -287,7 +282,6 @@ module Module: Module = {
   // Returns Ok(connection) on success, or Error with failure details
   let fromDownloads = async (
     platformDeps: Platform.t,
-    logChannel: Chan.t<Log.t>,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
   ): result<t, Error.Establish.t> => {
@@ -317,11 +311,17 @@ module Module: Module = {
         let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri)() {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.downloadLatestALS(logChannel, memento, globalStorageUri)(
+          switch await PlatformOps.getDownloadDescriptorOfLatestALS(
+            memento,
+            globalStorageUri,
             platform,
           ) {
           | Error(error) => Error(Error.Establish.fromDownloadError(error))
-          | Ok(path) => Ok(path)
+          | Ok(downloadDescriptor) =>
+            switch await PlatformOps.download(globalStorageUri, downloadDescriptor) {
+            | Error(error) => Error(Error.Establish.fromDownloadError(error))
+            | Ok(path) => Ok(path)
+            }
           }
         }
 
@@ -388,8 +388,7 @@ module Module: Module = {
     let tasks = [
       () => fromPaths(platformDeps, pathsWithSelectedConnection)->tagFrom(FromPaths),
       () => fromCommands(platformDeps, commands)->tagFrom(FromCommands),
-      () =>
-        fromDownloads(platformDeps, logChannel, memento, globalStorageUri)->tagFrom(FromDownloads),
+      () => fromDownloads(platformDeps, memento, globalStorageUri)->tagFrom(FromDownloads),
     ]
 
     switch await tryUntilSuccess(tasks) {

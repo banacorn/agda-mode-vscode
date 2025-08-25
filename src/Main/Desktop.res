@@ -19,6 +19,8 @@ module Desktop: Platform.PlatformOps = {
   let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
   let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
 
+  let download = Connection__Download.download
+
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {
       VSCode.MessageOptions.modal: true,

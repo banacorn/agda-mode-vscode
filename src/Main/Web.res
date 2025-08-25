@@ -95,6 +95,9 @@ module Web: Platform.PlatformOps = {
     Connection__Download.Error.CannotFindCompatibleALSRelease,
   )
 
+  let download = (_memento, _globalStorageUri) =>
+    Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.No)
 
   let openFolder = _uri => Promise.resolve()

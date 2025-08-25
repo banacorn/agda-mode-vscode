@@ -603,12 +603,7 @@ describe("Connection", () => {
         let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let actual = await Connection.fromDownloads(
-          mockPlatformDeps,
-          Chan.make(),
-          memento,
-          globalStorageUri,
-        )
+        let actual = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
         let expected = Connection.Error.Establish.fromDownloadError(PlatformNotSupported(platform))
 
@@ -629,12 +624,7 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          Chan.make(),
-          memento,
-          globalStorageUri,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(
           result,
           Error(Connection.Error.Establish.fromDownloadError(OptedNotToDownload)),
@@ -661,12 +651,7 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          Chan.make(),
-          memento,
-          globalStorageUri,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(
           result,
           Error(Connection.Error.Establish.fromDownloadError(OptedNotToDownload)),
@@ -698,12 +683,7 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          Chan.make(),
-          memento,
-          globalStorageUri,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(checkedCache.contents, true)
 
         // Should return connection directly (not endpoint)
@@ -716,54 +696,6 @@ describe("Connection", () => {
           | _ => Assert.fail("Expected Agda connection")
           }
         | Error(_) => Assert.fail("Expected successful cached download")
-        }
-
-        let policy = Config.Connection.DownloadPolicy.get()
-        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
-      },
-    )
-
-    Async.it(
-      "should proceed to download the latest ALS when the download policy is `Yes` and the cached latest ALS is not found",
-      async () => {
-        // access the Agda mock (using it as ALS for this test)
-        let mockEndpoint = switch agdaMockEndpoint.contents {
-        | Some(endpoint) => endpoint
-        | None => failwith("Unable to access the Agda mock endpoint")
-        }
-        let mockPath = mockEndpoint
-
-        await Config.Connection.DownloadPolicy.set(Undecided)
-        let checkedCache = ref(false)
-        let checkedDownload = ref(false)
-
-        // Create a mock platform that downloads ALS and returns raw path
-        let mockPlatformDeps = Mock.Platform.makeWithSuccessfulDownload2AndFlags(
-          mockPath,
-          checkedCache,
-          checkedDownload,
-        )
-        let memento = Memento.make(None)
-        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          Chan.make(),
-          memento,
-          globalStorageUri,
-        )
-        Assert.deepStrictEqual(checkedCache.contents, true)
-        Assert.deepStrictEqual(checkedDownload.contents, true)
-
-        // Should return connection directly (not endpoint)
-        switch result {
-        | Ok(connection) =>
-          switch connection {
-          | Agda(_, path, version) =>
-            Assert.deepStrictEqual(version, "2.7.0.1")
-            Assert.deepStrictEqual(path, mockEndpoint)
-          | _ => Assert.fail("Expected Agda connection")
-          }
-        | Error(_) => Assert.fail("Expected successful fresh download")
         }
 
         let policy = Config.Connection.DownloadPolicy.get()
@@ -785,12 +717,7 @@ describe("Connection", () => {
         )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-        let result = await Connection.fromDownloads(
-          mockPlatformDeps,
-          Chan.make(),
-          memento,
-          globalStorageUri,
-        )
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(checkedCache.contents, true)
         Assert.deepStrictEqual(checkedDownload.contents, true)
 
