@@ -15,7 +15,7 @@ module Web: Platform.PlatformOps = {
   let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-  let getFetchSpec = async (_memento, _globalStorageUri, platform) => {
+  let getDownloadDescriptorOfLatestALS = async (_memento, _globalStorageUri, platform) => {
     let fetchReleases = async () => {
       try {
         let response = await Fetch.fetch(
@@ -92,7 +92,7 @@ module Web: Platform.PlatformOps = {
           assets
           ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
           ->Array.map(asset => {
-            Connection__Download__GitHub.FetchSpec.release: pinnedRelease,
+            Connection__Download__GitHub.DownloadDescriptor.release: pinnedRelease,
             asset,
             saveAsFileName: "latest-als",
           })

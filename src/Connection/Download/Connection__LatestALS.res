@@ -24,7 +24,7 @@ let chooseAssetByPlatform = async (
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
-let getFetchSpec = async (memento, globalStorageUri, platform) =>
+let getDownloadDescriptor = async (memento, globalStorageUri, platform) =>
   switch await getALSReleaseManifest(memento, globalStorageUri) {
   | Error(error) => Error(error)
   | Ok(releases) =>
@@ -60,7 +60,7 @@ let getFetchSpec = async (memento, globalStorageUri, platform) =>
         assets
         ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
         ->Array.map(asset => {
-          Connection__Download__GitHub.FetchSpec.release: pinnedRelease,
+          Connection__Download__GitHub.DownloadDescriptor.release: pinnedRelease,
           asset,
           saveAsFileName: "latest-als",
         })
@@ -75,7 +75,7 @@ let getFetchSpec = async (memento, globalStorageUri, platform) =>
 
 // download the latest ALS and return the path of the downloaded file
 let download = (memento, globalStorageUri) => async platform =>
-  switch await getFetchSpec(memento, globalStorageUri, platform) {
+  switch await getDownloadDescriptor(memento, globalStorageUri, platform) {
   | Error(error) => Error(error)
   | Ok(fetchSpec) => await Connection__Download.download(globalStorageUri, fetchSpec)
   }

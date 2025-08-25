@@ -307,7 +307,7 @@ describe("Connection DevALS", () => {
     )
   })
 
-  describe("getFetchSpec integration", () => {
+  describe("getDownloadDescriptor integration", () => {
     Async.it(
       "should fetch dev release spec from GitHub API",
       async () => {
@@ -315,7 +315,7 @@ describe("Connection DevALS", () => {
 
         // Try with Ubuntu platform since we know it should exist
         let platform = Connection__Download__Platform.Ubuntu
-        let result = await Connection__DevALS.getFetchSpec(globalStorageUri, platform)
+        let result = await Connection__DevALS.getDownloadDescriptor(globalStorageUri, platform)
 
         switch result {
         | Ok(fetchSpec) =>

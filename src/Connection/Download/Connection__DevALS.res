@@ -23,7 +23,7 @@ let chooseAssetByPlatform = async (
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
-let getFetchSpec = async (globalStorageUri, platform) => {
+let getDownloadDescriptor = async (globalStorageUri, platform) => {
   switch await getALSReleaseManifestWithoutCache(globalStorageUri) {
   | Error(error) => Error(error)
   | Ok(releases) =>
@@ -44,7 +44,7 @@ let getFetchSpec = async (globalStorageUri, platform) => {
         assets
         ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
         ->Array.map(asset => {
-          Connection__Download__GitHub.FetchSpec.release: devRelease,
+          Connection__Download__GitHub.DownloadDescriptor.release: devRelease,
           asset,
           saveAsFileName: "dev-als",
         })
@@ -60,7 +60,7 @@ let getFetchSpec = async (globalStorageUri, platform) => {
 
 // download the dev ALS and return the path of the downloaded file
 let download = globalStorageUri => async platform =>
-  switch await getFetchSpec(globalStorageUri, platform) {
+  switch await getDownloadDescriptor(globalStorageUri, platform) {
   | Error(error) => Error(error)
   | Ok(fetchSpec) => await Connection__Download.download(globalStorageUri, fetchSpec)
   }

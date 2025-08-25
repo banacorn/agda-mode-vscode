@@ -16,7 +16,7 @@ module Desktop: Platform.PlatformOps = {
     }
   }
 
-  let getFetchSpec = Connection__LatestALS.getFetchSpec
+  let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
 
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {

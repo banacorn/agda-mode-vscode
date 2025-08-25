@@ -243,7 +243,7 @@ module Release = {
 }
 
 // Describes which asset to download from the GitHub releases, and what the downloaded file should be named (so that we can cache it)
-module FetchSpec = {
+module DownloadDescriptor = {
   type t = {
     release: Release.t, // the release of the repo
     asset: Asset.t, // the asset of that release
@@ -286,7 +286,7 @@ module Repo = {
 
 module Callbacks = {
   type t = {
-    chooseFromReleases: array<Release.t> => option<FetchSpec.t>,
+    chooseFromReleases: array<Release.t> => option<DownloadDescriptor.t>,
     onDownload: Download.Event.t => unit,
     log: string => unit,
   }
@@ -359,7 +359,7 @@ module ReleaseManifest: {
 
 module Module: {
   let download: (
-    FetchSpec.t,
+    DownloadDescriptor.t,
     VSCode.Uri.t,
     Download.Event.t => unit,
   ) => promise<result<bool, Error.t>>
@@ -392,7 +392,7 @@ module Module: {
     }
   }
 
-  let downloadLanguageServer = async (repo: Repo.t, onDownload, fetchSpec: FetchSpec.t) => {
+  let downloadLanguageServer = async (repo: Repo.t, onDownload, fetchSpec: DownloadDescriptor.t) => {
     let url = NodeJs.Url.make(fetchSpec.asset.browser_download_url)
     let httpOptions = {
       "host": url.host,
@@ -439,7 +439,7 @@ module Module: {
     }
   }
 
-  let download = async (fetchSpec: FetchSpec.t, globalStorageUri, reportProgress) => {
+  let download = async (fetchSpec: DownloadDescriptor.t, globalStorageUri, reportProgress) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",

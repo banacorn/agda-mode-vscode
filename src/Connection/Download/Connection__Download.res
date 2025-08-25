@@ -51,7 +51,7 @@ let getReleaseManifest = async (memento, globalStorageUri) => {
   }
 }
 
-// Download the given FetchSpec and return the path of the downloaded file
+// Download the given DownloadDescriptor and return the path of the downloaded file
 let download = async (globalStorageUri, fetchSpec) => {
   let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
   switch await Connection__Download__GitHub.download(

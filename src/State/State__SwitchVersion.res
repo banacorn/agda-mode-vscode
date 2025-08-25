@@ -502,7 +502,7 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_) => None
     | Ok(platform) =>
-      switch await PlatformOps.getFetchSpec(state.memento, state.globalStorageUri, platform) {
+      switch await PlatformOps.getDownloadDescriptorOfLatestALS(state.memento, state.globalStorageUri, platform) {
       | Error(_) => None
       | Ok(fetchSpec) =>
         // Check if already downloaded
@@ -546,7 +546,7 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_error) => None
     | Ok(platform) =>
-      switch await Connection__DevALS.getFetchSpec(state.globalStorageUri, platform) {
+      switch await Connection__DevALS.getDownloadDescriptor(state.globalStorageUri, platform) {
       | Error(_error) => None
       | Ok(fetchSpec) =>
         // Check if already downloaded
@@ -638,9 +638,9 @@ module Handler = {
                 switch await PlatformOps.determinePlatform() {
                 | Ok(platform) =>
                   let fetchSpecResult = if downloadType == "dev" {
-                    await Connection__DevALS.getFetchSpec(state.globalStorageUri, platform)
+                    await Connection__DevALS.getDownloadDescriptor(state.globalStorageUri, platform)
                   } else {
-                    await PlatformOps.getFetchSpec(state.memento, state.globalStorageUri, platform)
+                    await PlatformOps.getDownloadDescriptorOfLatestALS(state.memento, state.globalStorageUri, platform)
                   }
                   switch fetchSpecResult {
                   | Ok(fetchSpec) =>
