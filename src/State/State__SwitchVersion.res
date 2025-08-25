@@ -687,11 +687,15 @@ module Handler = {
                   let downloadResult = if downloadType == "dev" {
                     await Connection__DevALS.download(state.globalStorageUri)(platform)
                   } else {
-                    await PlatformOps.downloadLatestALS(
-                      state.channels.log,
+                    switch await PlatformOps.getDownloadDescriptorOfLatestALS(
                       state.memento,
                       state.globalStorageUri,
-                    )(platform)
+                      platform,
+                    ) {
+                    | Error(error) => Error(error)
+                    | Ok(downloadDescriptor) =>
+                      await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
+                    }
                   }
 
                   switch downloadResult {

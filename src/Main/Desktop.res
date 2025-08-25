@@ -9,13 +9,6 @@ module Desktop: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__LatestALS.alreadyDownloaded
 
-  let downloadLatestALS = (_logChannel, memento, globalStorageUri) => async platform => {
-    switch await Connection__LatestALS.download(memento, globalStorageUri)(platform) {
-    | Ok(endpoint) => Ok(endpoint)
-    | Error(error) => Error(error)
-    }
-  }
-
   let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
   let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
 

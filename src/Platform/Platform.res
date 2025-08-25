@@ -13,11 +13,6 @@ module type PlatformOps = {
 
   // Download operations
   let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<string>> // returns the path to ALS if already downloaded
-  let downloadLatestALS: (
-    Chan.t<Log.t>,
-    Memento.t,
-    VSCode.Uri.t,
-  ) => Connection__Download__Platform.t => promise<result<string, Connection__Download.Error.t>> // returns the path to the downloaded ALS executable on success
 
   let getDownloadDescriptorOfDevALS: (
     VSCode.Uri.t,

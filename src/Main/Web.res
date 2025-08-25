@@ -12,9 +12,6 @@ module Web: Platform.PlatformOps = {
 
   let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
 
-  let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
-    Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
   // helper function for fetching release manifest without cache
   let getDownloadDescriptor = async (url, header) => {
     let fetchReleases = async () => {
