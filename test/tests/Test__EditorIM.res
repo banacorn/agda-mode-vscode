@@ -140,7 +140,7 @@ describe("Input Method (Editor)", () => {
 
   // initialize the setup before all tests
   Async.before(async () => {
-    let (editor, channels) = await activateExtensionAndOpenFile(Path.asset("InputMethod.agda"))
+    let (editor, channels) = await activateExtensionAndOpenFile(Path.asset("InputMethod.agda"), None)
     setup := Some({editor, channels})
   })
 

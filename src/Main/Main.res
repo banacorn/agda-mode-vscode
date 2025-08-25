@@ -334,14 +334,13 @@ let activateWithoutContext = (
 let activate = (platformDeps, context) => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionUri = VSCode.ExtensionContext.extensionUri(context)
-
   let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
   activateWithoutContext(
     platformDeps,
     subscriptions,
     extensionUri,
     globalStorageUri,
-    Some(VSCode.ExtensionContext.workspaceState(context)),
+    Memento.make(Some(VSCode.ExtensionContext.workspaceState(context))),
   )
 }
 

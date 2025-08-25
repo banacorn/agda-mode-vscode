@@ -283,6 +283,6 @@ module State = {
 
     let mockUri = VSCode.Uri.file("/test/path")
 
-    State.make(platformDeps, channels, mockUri, mockUri, None, mockEditor, None)
+    State.make(platformDeps, channels, mockUri, mockUri, Memento.make(None), mockEditor, None)
   }
 }

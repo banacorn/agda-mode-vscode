@@ -444,7 +444,7 @@ describe("State__SwitchVersion", () => {
 
       let mockUri = VSCode.Uri.file("/test/path")
 
-      State.make(makeMockPlatform(), channels, mockUri, mockUri, None, mockEditor, None)
+      State.make(makeMockPlatform(), channels, mockUri, mockUri, Memento.make(None), mockEditor, None)
     }
 
     Async.it(

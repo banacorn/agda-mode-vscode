@@ -159,7 +159,7 @@ module Path = {
 // to prevent an extension from being activated twice
 let activationSingleton = ref(None)
 
-let activateExtension = (): State.channels => {
+let activateExtension = async (endpoint): State.channels => {
   switch activationSingleton.contents {
   | None =>
     let platformDeps = Desktop.make()
@@ -167,12 +167,14 @@ let activateExtension = (): State.channels => {
     let disposables = []
     let extensionUri = Path.extensionUri
     let globalStorageUri = Path.globalStorageUri
+    let memento = Memento.make(None)
+    await memento->Memento.PickedConnection.set(endpoint)
     let channels = Main.activateWithoutContext(
       platformDeps,
       disposables,
       extensionUri,
       globalStorageUri,
-      None,
+      memento,
     )
     // store the singleton of activation
     activationSingleton := Some(channels)
@@ -181,8 +183,9 @@ let activateExtension = (): State.channels => {
   }
 }
 
-let activateExtensionAndOpenFile = async fileName => {
-  let channels = activateExtension()
+// filename to open, with optional path to endpoints
+let activateExtensionAndOpenFile = async (fileName, endpoint) => {
+  let channels = await activateExtension(endpoint)
   let editor = await File.open_(fileName)
   (editor, channels)
 }
@@ -377,11 +380,12 @@ module AgdaMode = {
     }
   }
 
+  // check if a command exists in PATH, return the path if it exists
   let commandExists = async command => {
     let platformDeps = Desktop.make()
     switch await Connection.fromCommands(platformDeps, [command]) {
     | Error(errors) => raise(Failure(errors->Connection.Error.Establish.toString))
-    | Ok(_) => ()
+    | Ok(connection) => Connection.getPath(connection)
     }
   }
 
@@ -395,7 +399,8 @@ module AgdaMode = {
     let rawFilepath =
       VSCode.Uri.joinPath(Path.extensionUri, ["test/tests/assets", filepath])->VSCode.Uri.fsPath
     // make sure that "agda" exists in PATH
-    await commandExists("agda")
+    let endpoint = await commandExists("agda")
+
     //
     let load = async (channels: State.channels, filepath) => {
       let (promise, resolve, _) = Util.Promise_.pending()
@@ -418,7 +423,7 @@ module AgdaMode = {
       }
     }
 
-    let channels = activateExtension()
+    let channels = await activateExtension(Some(endpoint))
     let state = await load(channels, rawFilepath)
 
     {

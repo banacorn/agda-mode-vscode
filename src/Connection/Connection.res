@@ -395,7 +395,6 @@ module Module: Module = {
     switch await tryUntilSuccess(tasks) {
     | Ok(connection, from) =>
       logConnection(connection)
-
       // Only add to config if connection succeeded from fallback methods (not from config paths)
       switch from {
       | FromPaths => () // Never modify config when using existing config paths

@@ -103,7 +103,7 @@ let make = (
   onRemoveFromRegistry: Chan.make(),
   globalStorageUri,
   extensionUri,
-  memento: Memento.make(memento),
+  memento,
   channels,
   isInRefineOrGiveOperation: false,
 }
