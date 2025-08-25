@@ -392,8 +392,8 @@ module Module: {
     }
   }
 
-  let downloadLanguageServer = async (repo: Repo.t, onDownload, fetchSpec: DownloadDescriptor.t) => {
-    let url = NodeJs.Url.make(fetchSpec.asset.browser_download_url)
+  let downloadLanguageServer = async (repo: Repo.t, onDownload, downloadDescriptor: DownloadDescriptor.t) => {
+    let url = NodeJs.Url.make(downloadDescriptor.asset.browser_download_url)
     let httpOptions = {
       "host": url.host,
       "path": url.pathname,
@@ -407,7 +407,7 @@ module Module: {
       repo.globalStorageUri,
       [inFlightDownloadFileName ++ ".zip"],
     )
-    let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
+    let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
 
     let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
@@ -439,7 +439,7 @@ module Module: {
     }
   }
 
-  let download = async (fetchSpec: DownloadDescriptor.t, globalStorageUri, reportProgress) => {
+  let download = async (downloadDescriptor: DownloadDescriptor.t, globalStorageUri, reportProgress) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",
@@ -452,12 +452,12 @@ module Module: {
     if ifIsDownloading {
       Error(Error.AlreadyDownloading)
     } else {
-      // don't download from GitHub if `fetchSpec.fileName` already exists
-      let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
+      // don't download from GitHub if `downloadDescriptor.fileName` already exists
+      let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
       switch await FS.stat(destUri) {
       | Ok(_) => Ok(true)
       | Error(_) =>
-        switch await downloadLanguageServer(repo, reportProgress, fetchSpec) {
+        switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor) {
         | Error(error) => Error(error)
         | Ok() =>
           // chmod the executable after download

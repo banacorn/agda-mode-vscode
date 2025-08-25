@@ -52,16 +52,16 @@ let getReleaseManifest = async (memento, globalStorageUri) => {
 }
 
 // Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, fetchSpec) => {
+let download = async (globalStorageUri, downloadDescriptor) => {
   let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
   switch await Connection__Download__GitHub.download(
-    fetchSpec,
+    downloadDescriptor,
     globalStorageUri,
     reportProgress,
   ) {
   | Error(error) => Error(Error.CannotDownloadALS(error))
   | Ok(_isCached) =>
-    let destUri = VSCode.Uri.joinPath(globalStorageUri, [fetchSpec.saveAsFileName, "als"])
+    let destUri = VSCode.Uri.joinPath(globalStorageUri, [downloadDescriptor.saveAsFileName, "als"])
     let destPath = VSCode.Uri.fsPath(destUri)
     Ok(destPath)
   }

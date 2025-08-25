@@ -9,6 +9,8 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -24,6 +26,8 @@ module Platform = {
     let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
     let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -38,6 +42,8 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => policy
       let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -63,7 +69,8 @@ module Platform = {
 
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -83,6 +90,9 @@ module Platform = {
 
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Ok(downloadedPath))
+
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) => {
         // Create a mock fetch spec that will make Download.getAvailableDownload work
@@ -143,6 +153,8 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -171,6 +183,8 @@ module Platform = {
         Promise.resolve(Ok(downloadedPath))
       }
 
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -193,6 +207,8 @@ module Platform = {
       let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -223,6 +239,8 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       }
 
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
@@ -251,6 +269,8 @@ module Platform = {
         Promise.resolve(Ok(downloadedPath))
       }
 
+      let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>

@@ -318,13 +318,13 @@ describe("Connection DevALS", () => {
         let result = await Connection__DevALS.getDownloadDescriptor(globalStorageUri, platform)
 
         switch result {
-        | Ok(fetchSpec) =>
+        | Ok(downloadDescriptor) =>
           // Verify we got the dev release
-          Assert.deepStrictEqual(fetchSpec.release.tag_name, "dev")
+          Assert.deepStrictEqual(downloadDescriptor.release.tag_name, "dev")
           // Verify the saveAsFileName is correct
-          Assert.deepStrictEqual(fetchSpec.saveAsFileName, "dev-als")
+          Assert.deepStrictEqual(downloadDescriptor.saveAsFileName, "dev-als")
           // Verify it's a dev asset
-          Assert.ok(fetchSpec.asset.name->String.includes("als-dev-Agda"))
+          Assert.ok(downloadDescriptor.asset.name->String.includes("als-dev-Agda"))
         | Error(error) =>
           Assert.fail(
             "Expected success but got error: " ++ Connection__Download.Error.toString(error),

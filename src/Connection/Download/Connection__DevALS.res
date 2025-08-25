@@ -52,7 +52,7 @@ let getDownloadDescriptor = async (globalStorageUri, platform) => {
 
       switch result {
       | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-      | Some(fetchSpec) => Ok(fetchSpec)
+      | Some(downloadDescriptor) => Ok(downloadDescriptor)
       }
     }
   }
@@ -62,7 +62,7 @@ let getDownloadDescriptor = async (globalStorageUri, platform) => {
 let download = globalStorageUri => async platform =>
   switch await getDownloadDescriptor(globalStorageUri, platform) {
   | Error(error) => Error(error)
-  | Ok(fetchSpec) => await Connection__Download.download(globalStorageUri, fetchSpec)
+  | Ok(downloadDescriptor) => await Connection__Download.download(globalStorageUri, downloadDescriptor)
   }
 
 // check if the dev ALS is already downloaded

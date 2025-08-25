@@ -68,7 +68,7 @@ let getDownloadDescriptor = async (memento, globalStorageUri, platform) =>
 
       switch result {
       | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-      | Some(fetchSpec) => Ok(fetchSpec)
+      | Some(downloadDescriptor) => Ok(downloadDescriptor)
       }
     }
   }
@@ -77,7 +77,7 @@ let getDownloadDescriptor = async (memento, globalStorageUri, platform) =>
 let download = (memento, globalStorageUri) => async platform =>
   switch await getDownloadDescriptor(memento, globalStorageUri, platform) {
   | Error(error) => Error(error)
-  | Ok(fetchSpec) => await Connection__Download.download(globalStorageUri, fetchSpec)
+  | Ok(downloadDescriptor) => await Connection__Download.download(globalStorageUri, downloadDescriptor)
   }
 
 // check if the latest ALS is already downloaded

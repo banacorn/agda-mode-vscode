@@ -502,13 +502,17 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_) => None
     | Ok(platform) =>
-      switch await PlatformOps.getDownloadDescriptorOfLatestALS(state.memento, state.globalStorageUri, platform) {
+      switch await PlatformOps.getDownloadDescriptorOfLatestALS(
+        state.memento,
+        state.globalStorageUri,
+        platform,
+      ) {
       | Error(_) => None
-      | Ok(fetchSpec) =>
+      | Ok(downloadDescriptor) =>
         // Check if already downloaded
         let filepath = VSCode.Uri.joinPath(
           state.globalStorageUri,
-          [fetchSpec.saveAsFileName, "als"],
+          [downloadDescriptor.saveAsFileName, "als"],
         )
         let downloaded = switch await PlatformOps.alreadyDownloaded(filepath)() {
         | Some(_) => true
@@ -520,12 +524,12 @@ module Download = {
           asset.name
           ->String.replaceRegExp(%re("/als-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-        let agdaVersion = getAgdaVersion(fetchSpec.asset)
+        let agdaVersion = getAgdaVersion(downloadDescriptor.asset)
         let alsVersion =
-          fetchSpec.release.name
+          downloadDescriptor.release.name
           ->String.split(".")
           ->Array.last
-          ->Option.getOr(fetchSpec.release.name)
+          ->Option.getOr(downloadDescriptor.release.name)
 
         let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
 
@@ -546,9 +550,9 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_error) => None
     | Ok(platform) =>
-      switch await Connection__DevALS.getDownloadDescriptor(state.globalStorageUri, platform) {
+      switch await PlatformOps.getDownloadDescriptorOfDevALS(state.globalStorageUri, platform) {
       | Error(_error) => None
-      | Ok(fetchSpec) =>
+      | Ok(downloadDescriptor) =>
         // Check if already downloaded
         let downloaded = switch await Connection__DevALS.alreadyDownloaded(
           state.globalStorageUri,
@@ -562,8 +566,8 @@ module Download = {
           asset.name
           ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-        let agdaVersion = getAgdaVersion(fetchSpec.asset)
-        let alsVersion = fetchSpec.release.name
+        let agdaVersion = getAgdaVersion(downloadDescriptor.asset)
+        let alsVersion = downloadDescriptor.release.name
 
         let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
         Some((downloaded, versionString, "dev"))
@@ -637,17 +641,24 @@ module Handler = {
                 module PlatformOps = unpack(platformDeps)
                 switch await PlatformOps.determinePlatform() {
                 | Ok(platform) =>
-                  let fetchSpecResult = if downloadType == "dev" {
-                    await Connection__DevALS.getDownloadDescriptor(state.globalStorageUri, platform)
+                  let downloadDescriptorResult = if downloadType == "dev" {
+                    await PlatformOps.getDownloadDescriptorOfDevALS(
+                      state.globalStorageUri,
+                      platform,
+                    )
                   } else {
-                    await PlatformOps.getDownloadDescriptorOfLatestALS(state.memento, state.globalStorageUri, platform)
+                    await PlatformOps.getDownloadDescriptorOfLatestALS(
+                      state.memento,
+                      state.globalStorageUri,
+                      platform,
+                    )
                   }
-                  switch fetchSpecResult {
-                  | Ok(fetchSpec) =>
+                  switch downloadDescriptorResult {
+                  | Ok(downloadDescriptor) =>
                     let downloadedPath =
                       VSCode.Uri.joinPath(
                         state.globalStorageUri,
-                        [fetchSpec.saveAsFileName, "als"],
+                        [downloadDescriptor.saveAsFileName, "als"],
                       )->VSCode.Uri.fsPath
                     await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
                   | Error(_) => ()

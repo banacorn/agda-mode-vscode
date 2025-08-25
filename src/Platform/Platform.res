@@ -18,6 +18,11 @@ module type PlatformOps = {
     Memento.t,
     VSCode.Uri.t,
   ) => Connection__Download__Platform.t => promise<result<string, Connection__Download.Error.t>> // returns the path to the downloaded ALS executable on success
+  
+  let getDownloadDescriptorOfDevALS: (
+    VSCode.Uri.t,
+    Connection__Download__Platform.t,
+  ) => promise<result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>>
   let getDownloadDescriptorOfLatestALS: (
     Memento.t,
     VSCode.Uri.t,

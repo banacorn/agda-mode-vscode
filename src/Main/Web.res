@@ -15,6 +15,8 @@ module Web: Platform.PlatformOps = {
   let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
+  let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+    Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
   let getDownloadDescriptorOfLatestALS = async (_memento, _globalStorageUri, platform) => {
     let fetchReleases = async () => {
       try {
@@ -100,7 +102,7 @@ module Web: Platform.PlatformOps = {
 
         switch result {
         | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Some(fetchSpec) => Ok(fetchSpec)
+        | Some(downloadDescriptor) => Ok(downloadDescriptor)
         }
       }
     }

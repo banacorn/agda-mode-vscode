@@ -16,6 +16,7 @@ module Desktop: Platform.PlatformOps = {
     }
   }
 
+  let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
   let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
 
   let askUserAboutDownloadPolicy = async () => {
