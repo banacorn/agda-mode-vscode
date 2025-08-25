@@ -551,8 +551,11 @@ module Download = {
     | Error(_error) => None
     | Ok(platform) =>
       switch await PlatformOps.getDownloadDescriptorOfDevALS(state.globalStorageUri, platform) {
-      | Error(_error) => None
+      | Error(_error) => 
+        Util.log("PlatformOps.getDownloadDescriptorOfDevALS error: ",_error)
+      None
       | Ok(downloadDescriptor) =>
+        Util.log("Dev ALS download descriptor: ", downloadDescriptor)
         // Check if already downloaded
         let downloaded = switch await Connection__DevALS.alreadyDownloaded(
           state.globalStorageUri,

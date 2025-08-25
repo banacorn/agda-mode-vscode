@@ -15,21 +15,18 @@ module Web: Platform.PlatformOps = {
   let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
-  let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
-    Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-  let getDownloadDescriptorOfLatestALS = async (_memento, _globalStorageUri, platform) => {
+  // helper function for fetching release manifest without cache
+  let getDownloadDescriptor = async (url, header) => {
     let fetchReleases = async () => {
       try {
         let response = await Fetch.fetch(
-          "https://api.github.com/repos/agda/agda-language-server/releases",
+          url,
           {
             method: #GET,
             mode: #cors,
             redirect: #follow,
             credentials: #omit, // important: no cookies/credentials
-            headers: Fetch.Headers.make(
-              Fetch.Headers.Init.object({"Accept": "application/vnd.github+json"}),
-            ), // optional but recommended
+            headers: Fetch.Headers.make(Fetch.Headers.Init.object(header)), // optional but recommended
           },
         )
         if Fetch.Response.ok(response) {
@@ -62,51 +59,41 @@ module Web: Platform.PlatformOps = {
       }
     }
 
-    let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
-      Connection__Download__GitHub.Asset.t,
-    > => {
-      let assetName = Connection__Download__Platform.toAssetName(platform)
-      release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
-    }
-
     switch await fetchReleases() {
     | Error(error) => Error(error)
     | Ok(releases) =>
-      // Filter for releases after 2024-12-18 like the desktop version
-      let laterReleases =
-        releases->Array.filter(release =>
-          Date.fromString(release.published_at) >= Date.fromString("2024-12-18")
+      // we want only the "dev" release
+      let pinnedRelease =
+        releases->Array.find(release =>
+          release.tag_name == "dev" || release.name == "Development Release (dev)"
         )
-
-      // Use the pinned release like desktop version
-      let pinnedRelease = laterReleases->Array.find(release => release.name == "v0.2.7.0.1.5")
 
       switch pinnedRelease {
       | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Some(pinnedRelease) =>
-        let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-          asset.name
-          ->String.replaceRegExp(%re("/als-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
-
-        let assets = chooseAssetByPlatform(pinnedRelease, platform)
-        let result =
-          assets
-          ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
-          ->Array.map(asset => {
-            Connection__Download__GitHub.DownloadDescriptor.release: pinnedRelease,
-            asset,
-            saveAsFileName: "latest-als",
-          })
-          ->Array.get(0)
-
+        // the WASM asset is named "als-dev-wasm" at the moment
+        let result = pinnedRelease.assets->Array.find(asset => asset.name == "als-dev-wasm")
         switch result {
         | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Some(downloadDescriptor) => Ok(downloadDescriptor)
+        | Some(asset) =>
+          Ok({
+            Connection__Download__GitHub.DownloadDescriptor.release: pinnedRelease,
+            asset,
+            saveAsFileName: "dev-als",
+          })
         }
       }
     }
   }
+
+  let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+    getDownloadDescriptor(
+      "https://api.github.com/repos/banacorn/agda-language-server/releases",
+      {"Accept": "application/vnd.github+json"},
+    )
+  let getDownloadDescriptorOfLatestALS = async (_, _, _) => Error(
+    Connection__Download.Error.CannotFindCompatibleALSRelease,
+  )
 
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.No)
 
