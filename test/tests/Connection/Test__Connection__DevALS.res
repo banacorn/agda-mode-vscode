@@ -2,30 +2,6 @@ open Mocha
 
 module GitHub = Connection__Download__GitHub
 
-let logReleases = %raw(`
-  function(releases) {
-    console.log("All releases:", JSON.stringify(releases, null, 2));
-  }
-`)
-
-let logAssets = %raw(`
-  function(assets) {
-    console.log("Dev release assets:", JSON.stringify(assets, null, 2));
-  }
-`)
-
-let logFetchSpec = %raw(`
-  function(fetchSpec) {
-    console.log("SUCCESS - fetchSpec:", JSON.stringify(fetchSpec, null, 2));
-  }
-`)
-
-let logError = %raw(`
-  function(error) {
-    console.log("ERROR:", JSON.stringify(error, null, 2));
-  }
-`)
-
 describe("Connection DevALS", () => {
   This.timeout(10000)
 
@@ -33,10 +9,9 @@ describe("Connection DevALS", () => {
     it(
       "should create repo config targeting banacorn/agda-language-server",
       () => {
-        let mockMemento = Memento.make(None)
         let mockGlobalStorageUri = VSCode.Uri.file("/mock/storage")
 
-        let repo = Connection__DevALS.makeAgdaLanguageServerRepo(mockMemento, mockGlobalStorageUri)
+        let repo = Connection__DevALS.makeAgdaLanguageServerRepo(mockGlobalStorageUri)
 
         Assert.deepStrictEqual(repo.username, "banacorn")
         Assert.deepStrictEqual(repo.repository, "agda-language-server")
@@ -297,11 +272,9 @@ describe("Connection DevALS", () => {
     Async.it(
       "should fetch ALS release manifest from GitHub API",
       async () => {
-        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-dev-als")
 
-        let releaseResult = await Connection__DevALS.getALSReleaseManifest(
-          memento,
+        let releaseResult = await Connection__DevALS.getALSReleaseManifestWithoutCache(
           globalStorageUri,
         )
 
@@ -309,8 +282,6 @@ describe("Connection DevALS", () => {
         | Error(e) =>
           Assert.fail("Failed to fetch releases: " ++ Connection__Download.Error.toString(e))
         | Ok(releases) =>
-          logReleases(releases)->ignore
-
           // Verify we got at least one release
           Assert.ok(Array.length(releases) > 0)
 
@@ -340,16 +311,14 @@ describe("Connection DevALS", () => {
     Async.it(
       "should fetch dev release spec from GitHub API",
       async () => {
-        let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-dev-als")
 
         // Try with Ubuntu platform since we know it should exist
         let platform = Connection__Download__Platform.Ubuntu
-        let result = await Connection__DevALS.getFetchSpec(memento, globalStorageUri, platform)
+        let result = await Connection__DevALS.getFetchSpec(globalStorageUri, platform)
 
         switch result {
         | Ok(fetchSpec) =>
-          logFetchSpec(fetchSpec)->ignore
           // Verify we got the dev release
           Assert.deepStrictEqual(fetchSpec.release.tag_name, "dev")
           // Verify the saveAsFileName is correct
@@ -357,7 +326,6 @@ describe("Connection DevALS", () => {
           // Verify it's a dev asset
           Assert.ok(fetchSpec.asset.name->String.includes("als-dev-Agda"))
         | Error(error) =>
-          logError(error)->ignore
           Assert.fail(
             "Expected success but got error: " ++ Connection__Download.Error.toString(error),
           )

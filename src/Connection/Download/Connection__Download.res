@@ -33,21 +33,18 @@ module Error = {
     }
 }
 
-let makeRepo: (Memento.t, VSCode.Uri.t) => Connection__Download__GitHub.Repo.t = (
-  memento,
-  globalStorageUri,
-) => {
+let makeRepo: VSCode.Uri.t => Connection__Download__GitHub.Repo.t = globalStorageUri => {
   username: "agda",
   repository: "agda-language-server",
   userAgent: "agda/agda-mode-vscode",
-  memento,
   globalStorageUri,
   cacheInvalidateExpirationSecs: 86400,
 }
 
 let getReleaseManifest = async (memento, globalStorageUri) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(
-    makeRepo(memento, globalStorageUri),
+    memento,
+    makeRepo(globalStorageUri),
   ) {
   | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
   | (Ok(manifest), _) => Ok(manifest)
@@ -55,11 +52,10 @@ let getReleaseManifest = async (memento, globalStorageUri) => {
 }
 
 // Download the given FetchSpec and return the path of the downloaded file
-let download = async (logChannel, memento, globalStorageUri, fetchSpec) => {
+let download = async (globalStorageUri, fetchSpec) => {
   let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
   switch await Connection__Download__GitHub.download(
     fetchSpec,
-    memento,
     globalStorageUri,
     reportProgress,
   ) {
@@ -72,7 +68,7 @@ let download = async (logChannel, memento, globalStorageUri, fetchSpec) => {
 }
 
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
-let downloadFromURL = async (logChannel, globalStorageUri, url, saveAsFileName, displayName) => {
+let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
 
   // Create directory if it doesn't exist using URI operations

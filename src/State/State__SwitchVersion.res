@@ -99,13 +99,13 @@ module ItemData = {
 
     // Add download section if present
     let sectionsWithDownload = if Array.length(downloadItems) > 0 {
-      let downloadSection = downloadItems->Array.map(((downloaded, versionString, downloadType)) => 
-        DownloadAction(downloaded, versionString, downloadType)
-      )
-      Array.concat(
-        sectionsWithInstalled,
-        Array.concat([Separator("Download")], downloadSection),
-      )
+      let downloadSection =
+        downloadItems->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
+          downloaded,
+          versionString,
+          downloadType,
+        ))
+      Array.concat(sectionsWithInstalled, Array.concat([Separator("Download")], downloadSection))
     } else {
       sectionsWithInstalled
     }
@@ -146,9 +146,10 @@ module Item = {
           (label, Some(description), Some(path))
         }
       | DownloadAction(downloaded, versionString, downloadType) => {
-          let label = downloadType == "dev" ? 
-            "$(cloud-download)  Download the dev Agda Language Server" : 
-            Constants.downloadLatestALS
+          let label =
+            downloadType == "dev"
+              ? "$(cloud-download)  Download the dev Agda Language Server"
+              : Constants.downloadLatestALS
           let description = downloaded ? Constants.downloadedAndInstalled : ""
           (label, Some(description), Some(versionString))
         }
@@ -271,9 +272,11 @@ module SwitchVersionManager = {
   }
 
   // Get current items as data
-  let getItemData = async (self: t, state: State.t, downloadItems: array<(bool, string, string)>): array<
-    ItemData.t,
-  > => {
+  let getItemData = async (
+    self: t,
+    state: State.t,
+    downloadItems: array<(bool, string, string)>,
+  ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
 
@@ -439,10 +442,10 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     state.connection = Some(conn)
     await Memento.PickedConnection.set(state.memento, Some(path))
     await Config.Connection.addAgdaPath(state.channels.log, path)
-    
+
     // update memento with discovered version information and display success message
     switch conn {
-    | Agda(_, _, version) => 
+    | Agda(_, _, version) =>
       await Memento.Endpoints.setVersion(state.memento, path, Memento.Endpoints.Agda(Some(version)))
       let formattedVersion = VersionDisplay.formatAgdaVersion(version)
       await State__View.Panel.displayStatus(state, formattedVersion)
@@ -452,7 +455,11 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         [],
       )
     | ALS(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
-      await Memento.Endpoints.setVersion(state.memento, path, Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)))
+      await Memento.Endpoints.setVersion(
+        state.memento,
+        path,
+        Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
+      )
       let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
       await State__View.Panel.displayStatus(state, formattedVersion)
       await State__View.Panel.display(
@@ -527,7 +534,7 @@ module Download = {
     }
   }
 
-  // Get available download info for dev ALS: (downloaded, versionString, downloadType)  
+  // Get available download info for dev ALS: (downloaded, versionString, downloadType)
   let getAvailableDevDownload = async (state: State.t, platformDeps: Platform.t): option<(
     bool,
     string,
@@ -537,13 +544,15 @@ module Download = {
 
     // Check if we can download dev ALS for this platform
     switch await PlatformOps.determinePlatform() {
-    | Error(_) => None
+    | Error(_error) => None
     | Ok(platform) =>
-      switch await Connection__DevALS.getFetchSpec(state.memento, state.globalStorageUri, platform) {
-      | Error(_) => None
+      switch await Connection__DevALS.getFetchSpec(state.globalStorageUri, platform) {
+      | Error(_error) => None
       | Ok(fetchSpec) =>
         // Check if already downloaded
-        let downloaded = switch await Connection__DevALS.alreadyDownloaded(state.globalStorageUri)() {
+        let downloaded = switch await Connection__DevALS.alreadyDownloaded(
+          state.globalStorageUri,
+        )() {
         | Some(_) => true
         | None => false
         }
@@ -557,7 +566,6 @@ module Download = {
         let alsVersion = fetchSpec.release.name
 
         let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
-
         Some((downloaded, versionString, "dev"))
       }
     }
@@ -571,9 +579,8 @@ module Download = {
   )> => {
     let latestPromise = getAvailableLatestDownload(state, platformDeps)
     let devPromise = getAvailableDevDownload(state, platformDeps)
-    
+
     let results = await Promise.all([latestPromise, devPromise])
-    
     results->Array.filterMap(x => x)
   }
 }
@@ -602,18 +609,21 @@ module Handler = {
             module PlatformOps = unpack(platformDeps)
             await PlatformOps.openFolder(globalStorageUriAsFile)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-          } else if selectedItem.label == Constants.downloadLatestALS || 
-                    selectedItem.label == "$(cloud-download)  Download the dev Agda Language Server" {
+          } else if (
+            selectedItem.label == Constants.downloadLatestALS ||
+              selectedItem.label == "$(cloud-download)  Download the dev Agda Language Server"
+          ) {
             // Determine if this is a dev or latest download
-            let isDevDownload = selectedItem.label == "$(cloud-download)  Download the dev Agda Language Server"
-            
+            let isDevDownload =
+              selectedItem.label == "$(cloud-download)  Download the dev Agda Language Server"
+
             // Get the appropriate download info
             let downloadInfoResult = if isDevDownload {
               await Download.getAvailableDevDownload(state, platformDeps)
             } else {
-              await Download.getAvailableLatestDownload(state, platformDeps)  
+              await Download.getAvailableLatestDownload(state, platformDeps)
             }
-            
+
             switch downloadInfoResult {
             | Some((downloaded, versionString, downloadType)) =>
               let alreadyDownloaded = downloaded
@@ -628,7 +638,7 @@ module Handler = {
                 switch await PlatformOps.determinePlatform() {
                 | Ok(platform) =>
                   let fetchSpecResult = if downloadType == "dev" {
-                    await Connection__DevALS.getFetchSpec(state.memento, state.globalStorageUri, platform)
+                    await Connection__DevALS.getFetchSpec(state.globalStorageUri, platform)
                   } else {
                     await PlatformOps.getFetchSpec(state.memento, state.globalStorageUri, platform)
                   }
@@ -661,7 +671,7 @@ module Handler = {
                   state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 | Ok(platform) =>
                   let downloadResult = if downloadType == "dev" {
-                    await Connection__DevALS.download(state.channels.log, state.memento, state.globalStorageUri)(platform)
+                    await Connection__DevALS.download(state.globalStorageUri)(platform)
                   } else {
                     await PlatformOps.downloadLatestALS(
                       state.channels.log,
@@ -669,7 +679,7 @@ module Handler = {
                       state.globalStorageUri,
                     )(platform)
                   }
-                  
+
                   switch downloadResult {
                   | Error(error) =>
                     VSCode.Window.showErrorMessage(
@@ -681,7 +691,10 @@ module Handler = {
                     // Add the downloaded path to config
                     await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
                     // Refresh the UI to show new status
-                    let newDownloadItems = await Download.getAllAvailableDownloads(state, platformDeps)
+                    let newDownloadItems = await Download.getAllAvailableDownloads(
+                      state,
+                      platformDeps,
+                    )
                     let _ = SwitchVersionManager.refreshFromMemento(manager)
                     await updateUI(newDownloadItems)
                     VSCode.Window.showInformationMessage(

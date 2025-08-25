@@ -18,8 +18,8 @@ module Error = {
     | CannotReadFile(Js.Exn.t)
     | CannotDeleteFile(string)
     | CannotRenameFile(string)
-    // // OS
-    // | CannotDetermineOS(Js.Exn.t)
+  // // OS
+  // | CannotDetermineOS(Js.Exn.t)
 
   let toString = x =>
     switch x {
@@ -265,7 +265,6 @@ module Repo = {
     repository: string,
     userAgent: string,
     // for caching
-    memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     cacheInvalidateExpirationSecs: int,
   }
@@ -295,10 +294,25 @@ module Callbacks = {
 
 module ReleaseManifest: {
   // fetch the release manifest from the cache or GitHub
-  let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
-  // fresh fetch from GitHub and cache it
-  let fetchFromGitHubAndCache: Repo.t => promise<result<array<Release.t>, Error.t>>
+  let fetch: (Memento.t, Repo.t) => promise<(result<array<Release.t>, Error.t>, bool)>
+  // fetch the latest release from GitHub, no caching involved
+  let fetchFromGitHub: Repo.t => promise<result<array<Release.t>, Error.t>>
 } = {
+  // fetch from GitHub, no caching involved, timeout after 10000ms
+  let fetchFromGitHub = async (repo: Repo.t) => {
+    let httpOptions = {
+      "host": "api.github.com",
+      "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
+      "headers": {
+        "User-Agent": repo.userAgent,
+      },
+    }
+    switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
+    | Error(e) => Error(Error.CannotGetReleases(e))
+    | Ok(json) => Release.decodeReleases(json)
+    }
+  }
+
   let fetchFromCache = async memento => {
     // read the file and decode as json
     switch Memento.ALSReleaseCache.getReleases(memento) {
@@ -316,46 +330,29 @@ module ReleaseManifest: {
     }
   }
 
-  let writeToCache = async (memento, releases) => {
-    let json = Release.encodeReleases(releases)->Js_json.stringify
-    await Memento.ALSReleaseCache.setTimestamp(memento, Date.make())
-    await Memento.ALSReleaseCache.setReleases(memento, json)
-  }
-
-  // fetch the latest release from GitHub and cache it
-  // timeouts after 10000ms
-  let fetchFromGitHubAndCache = async (repo: Repo.t) => {
-    let httpOptions = {
-      "host": "api.github.com",
-      "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
-      "headers": {
-        "User-Agent": repo.userAgent,
-      },
+  let writeToCache = async (memento, result) =>
+    switch result {
+    | Error(_) => ()
+    | Ok(releases) =>
+      let json = Release.encodeReleases(releases)->Js_json.stringify
+      await Memento.ALSReleaseCache.setTimestamp(memento, Date.make())
+      await Memento.ALSReleaseCache.setReleases(memento, json)
     }
-    switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
-    | Error(e) => Error(Error.CannotGetReleases(e))
-    | Ok(json) =>
-      switch Release.decodeReleases(json) {
-      | Error(e) => Error(e)
-      | Ok(releases) =>
-        await writeToCache(repo.memento, releases)
-        Ok(releases)
-      }
-    }
-  }
 
   // fetch from GitHub if the cache is too old
   // also returns a boolean indicating if the result is from cache
-  let fetch = async (repo: Repo.t) => {
-    let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(repo.memento) {
+  let fetch = async (memento: Memento.t, repo: Repo.t) => {
+    let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(memento) {
     | None => true
     | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
     }
 
     if cacheInvalidated {
-      (await fetchFromGitHubAndCache(repo), false)
+      let result = await fetchFromGitHub(repo)
+      await writeToCache(memento, result)
+      (result, false)
     } else {
-      (await fetchFromCache(repo.memento), true)
+      (await fetchFromCache(memento), true)
     }
   }
 }
@@ -363,7 +360,6 @@ module ReleaseManifest: {
 module Module: {
   let download: (
     FetchSpec.t,
-    Memento.t,
     VSCode.Uri.t,
     Download.Event.t => unit,
   ) => promise<result<bool, Error.t>>
@@ -443,12 +439,11 @@ module Module: {
     }
   }
 
-  let download = async (fetchSpec: FetchSpec.t, memento, globalStorageUri, reportProgress) => {
+  let download = async (fetchSpec: FetchSpec.t, globalStorageUri, reportProgress) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",
       userAgent: "agda/agda-mode-vscode",
-      memento,
       globalStorageUri,
       cacheInvalidateExpirationSecs: 86400,
     }

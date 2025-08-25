@@ -1,21 +1,17 @@
-let makeAgdaLanguageServerRepo = (
-  memento,
-  globalStorageUri,
-): Connection__Download__GitHub.Repo.t => {
+let makeAgdaLanguageServerRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
   username: "banacorn",
   repository: "agda-language-server",
   userAgent: "banacorn/agda-mode-vscode",
-  memento,
   globalStorageUri,
   cacheInvalidateExpirationSecs: 86400,
 }
 
-let getALSReleaseManifest = async (memento, globalStorageUri) => {
-  switch await Connection__Download__GitHub.ReleaseManifest.fetch(
-    makeAgdaLanguageServerRepo(memento, globalStorageUri),
+let getALSReleaseManifestWithoutCache = async globalStorageUri => {
+  switch await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHub(
+    makeAgdaLanguageServerRepo(globalStorageUri),
   ) {
-  | (Error(error), _) => Error(Connection__Download.Error.CannotFetchALSReleases(error))
-  | (Ok(manifest), _) => Ok(manifest)
+  | Error(error) => Error(Connection__Download.Error.CannotFetchALSReleases(error))
+  | Ok(manifest) => Ok(manifest)
   }
 }
 
@@ -27,8 +23,8 @@ let chooseAssetByPlatform = async (
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
-let getFetchSpec = async (memento, globalStorageUri, platform) =>
-  switch await getALSReleaseManifest(memento, globalStorageUri) {
+let getFetchSpec = async (globalStorageUri, platform) => {
+  switch await getALSReleaseManifestWithoutCache(globalStorageUri) {
   | Error(error) => Error(error)
   | Ok(releases) =>
     // target the specific "dev" release
@@ -60,12 +56,13 @@ let getFetchSpec = async (memento, globalStorageUri, platform) =>
       }
     }
   }
+}
 
 // download the dev ALS and return the path of the downloaded file
-let download = (logChannel, memento, globalStorageUri) => async platform =>
-  switch await getFetchSpec(memento, globalStorageUri, platform) {
+let download = globalStorageUri => async platform =>
+  switch await getFetchSpec(globalStorageUri, platform) {
   | Error(error) => Error(error)
-  | Ok(fetchSpec) => await Connection__Download.download(logChannel, memento, globalStorageUri, fetchSpec)
+  | Ok(fetchSpec) => await Connection__Download.download(globalStorageUri, fetchSpec)
   }
 
 // check if the dev ALS is already downloaded

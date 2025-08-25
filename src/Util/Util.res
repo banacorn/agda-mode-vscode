@@ -377,3 +377,9 @@ module Array = {
   // structural equality
   let includes = (xs: array<'a>, x: 'a) => Array.reduce(xs, false, (acc, y) => acc || x == y)
 }
+
+let log: (string, 'a) => unit = %raw(`
+  function(message, payload) {
+    console.log(message, payload);
+  }
+`)
