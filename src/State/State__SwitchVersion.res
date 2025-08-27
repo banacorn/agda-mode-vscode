@@ -5,6 +5,8 @@ module Constants = {
   let downloadLatestALS = "$(cloud-download)  Download the latest Agda Language Server"
   let openDownloadFolder = "$(folder-opened)  Open download folder"
   let downloadedAndInstalled = "Downloaded and installed"
+  let otherDownloads = "$(chevron-right)  Other Downloads"
+  let otherDownloadsDesc = "Browse other versions available for download"
 }
 
 module ItemData = {
@@ -12,6 +14,7 @@ module ItemData = {
   type t =
     | Endpoint(string, Memento.Endpoints.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, downloadType
+    | OtherVersionsSubmenu // submenu button for other versions downloads
     | OpenFolder(string) // folderPath
     | NoInstallations
     | Separator(string) // label
@@ -34,6 +37,7 @@ module ItemData = {
       versionString ++
       ", type=" ++
       downloadType
+    | OtherVersionsSubmenu => "OtherVersionsSubmenu"
     | OpenFolder(folderPath) => "OpenFolder: " ++ folderPath
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
@@ -99,13 +103,31 @@ module ItemData = {
 
     // Add download section if present
     let sectionsWithDownload = if Array.length(downloadItems) > 0 {
-      let downloadSection =
-        downloadItems->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
+      // Separate dev and non-dev downloads
+      let devDownloads = downloadItems->Array.filter(((_, _, downloadType)) => downloadType == "dev")
+      let otherDownloads = downloadItems->Array.filter(((_, _, downloadType)) => downloadType != "dev")
+      
+      // Create download section items
+      let downloadSectionItems = Array.concat(
+        // Add other download actions first (latest ALS)
+        otherDownloads->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
           downloaded,
           versionString,
           downloadType,
-        ))
-      Array.concat(sectionsWithInstalled, Array.concat([Separator("Download")], downloadSection))
+        )),
+        // Add OtherVersionsSubmenu after latest ALS if there are dev downloads
+        if Array.length(devDownloads) > 0 {
+          [OtherVersionsSubmenu]
+        } else {
+          []
+        }
+      )
+      
+      if Array.length(downloadSectionItems) > 0 {
+        Array.concat(sectionsWithInstalled, Array.concat([Separator("Download")], downloadSectionItems))
+      } else {
+        sectionsWithInstalled
+      }
     } else {
       sectionsWithInstalled
     }
@@ -152,6 +174,11 @@ module Item = {
               : Constants.downloadLatestALS
           let description = downloaded ? Constants.downloadedAndInstalled : ""
           (label, Some(description), Some(versionString))
+        }
+      | OtherVersionsSubmenu => {
+          let label = Constants.otherDownloads
+          let description = Constants.otherDownloadsDesc
+          (label, Some(description), None)
         }
       | OpenFolder(folderPath) => {
           let label = Constants.openDownloadFolder
@@ -600,6 +627,98 @@ module Download = {
 
 // Event handlers module for testability and debugging
 module Handler = {
+  // Submenu for other versions downloads
+  let showOtherVersionsSubmenu = async (state: State.t, platformDeps: Platform.t): unit => {
+    let submenuView = View.make(state.channels.log)
+    
+    // Get dev download options
+    let devDownloadInfo = await Download.getAvailableDevDownload(state, platformDeps)
+    
+    let submenuItems = switch devDownloadInfo {
+    | Some((downloaded, versionString, _)) => {
+        let downloadLabel = "$(cloud-download)  Download dev ALS"
+        let description = downloaded ? Constants.downloadedAndInstalled : ""
+        let downloadItem = Item.createQuickPickItem(downloadLabel, Some(description), Some(versionString))
+        
+        [downloadItem]
+      }
+    | None => {
+        let noDownloadItem = Item.createQuickPickItem("$(info)  No dev downloads available", Some("Dev downloads not supported on this platform"), None)
+        
+        [noDownloadItem]
+      }
+    }
+    
+    submenuView->View.setPlaceholder(Constants.otherDownloadsDesc)
+    submenuView->View.updateItems(submenuItems)
+    submenuView->View.show
+    
+    // Handle submenu selection
+    submenuView->View.onSelection(selectedItems => {
+      submenuView->View.destroy
+      let _ = (async () => {
+        switch selectedItems[0] {
+        | Some(selectedItem) =>
+          if String.startsWith(selectedItem.label, "$(cloud-download)") {
+            // Handle download action
+            switch devDownloadInfo {
+            | Some((downloaded, versionString, _)) =>
+              state.channels.log->Chan.emit(
+                Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
+              )
+              
+              if downloaded {
+                // Add already downloaded path to config
+                module PlatformOps = unpack(platformDeps)
+                switch await PlatformOps.determinePlatform() {
+                | Ok(platform) =>
+                  switch await PlatformOps.getDownloadDescriptorOfDevALS(state.globalStorageUri, platform) {
+                  | Ok(downloadDescriptor) =>
+                    let downloadedPath = VSCode.Uri.joinPath(
+                      state.globalStorageUri,
+                      [downloadDescriptor.saveAsFileName, "als"],
+                    )->VSCode.Uri.fsPath
+                    await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+                  | Error(_) => ()
+                  }
+                | Error(_) => ()
+                }
+                VSCode.Window.showInformationMessage(versionString ++ " is already downloaded", [])->Promise.done
+              } else {
+                // Perform download
+                module PlatformOps = unpack(platformDeps)
+                switch await PlatformOps.determinePlatform() {
+                | Error(_) =>
+                  VSCode.Window.showErrorMessage("Failed to determine the platform for downloading", [])->Promise.done
+                | Ok(platform) =>
+                  switch await Connection__DevALS.download(state.globalStorageUri)(platform) {
+                  | Error(error) =>
+                    VSCode.Window.showErrorMessage(
+                      AgdaModeVscode.Connection__Download.Error.toString(error),
+                      [],
+                    )->Promise.done
+                  | Ok(downloadedPath) =>
+                    await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+                    VSCode.Window.showInformationMessage(versionString ++ " successfully downloaded", [])->Promise.done
+                  }
+                }
+              }
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            | None =>
+              VSCode.Window.showErrorMessage("Download not available for this platform", [])->ignore
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            }
+          }
+        | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+        }
+      })()
+    })
+    
+    // Handle submenu hide/cancel
+    submenuView->View.onHide(() => {
+      submenuView->View.destroy
+    })
+  }
   let onSelection = (
     state: State.t,
     platformDeps: Platform.t,
@@ -613,8 +732,10 @@ module Handler = {
       async () => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
-          // Check if this is the open folder item
-          if selectedItem.label == Constants.openDownloadFolder {
+          // Check if this is the other versions submenu item
+          if selectedItem.label == Constants.otherDownloads {
+            await showOtherVersionsSubmenu(state, platformDeps)
+          } else if selectedItem.label == Constants.openDownloadFolder {
             let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
             state.channels.log->Chan.emit(
               Log.SwitchVersionUI(SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath)),
@@ -622,23 +743,12 @@ module Handler = {
             module PlatformOps = unpack(platformDeps)
             await PlatformOps.openFolder(globalStorageUriAsFile)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-          } else if (
-            selectedItem.label == Constants.downloadLatestALS ||
-              selectedItem.label == "$(cloud-download)  Download the dev Agda Language Server"
-          ) {
-            // Determine if this is a dev or latest download
-            let isDevDownload =
-              selectedItem.label == "$(cloud-download)  Download the dev Agda Language Server"
-
-            // Get the appropriate download info
-            let downloadInfoResult = if isDevDownload {
-              await Download.getAvailableDevDownload(state, platformDeps)
-            } else {
-              await Download.getAvailableLatestDownload(state, platformDeps)
-            }
+          } else if selectedItem.label == Constants.downloadLatestALS {
+            // Handle latest ALS download
+            let downloadInfoResult = await Download.getAvailableLatestDownload(state, platformDeps)
 
             switch downloadInfoResult {
-            | Some((downloaded, versionString, downloadType)) =>
+            | Some((downloaded, versionString, _)) =>
               let alreadyDownloaded = downloaded
 
               state.channels.log->Chan.emit(
@@ -650,18 +760,11 @@ module Handler = {
                 module PlatformOps = unpack(platformDeps)
                 switch await PlatformOps.determinePlatform() {
                 | Ok(platform) =>
-                  let downloadDescriptorResult = if downloadType == "dev" {
-                    await PlatformOps.getDownloadDescriptorOfDevALS(
-                      state.globalStorageUri,
-                      platform,
-                    )
-                  } else {
-                    await PlatformOps.getDownloadDescriptorOfLatestALS(
-                      state.memento,
-                      state.globalStorageUri,
-                      platform,
-                    )
-                  }
+                  let downloadDescriptorResult = await PlatformOps.getDownloadDescriptorOfLatestALS(
+                    state.memento,
+                    state.globalStorageUri,
+                    platform,
+                  )
                   switch downloadDescriptorResult {
                   | Ok(downloadDescriptor) =>
                     let downloadedPath =
@@ -690,18 +793,14 @@ module Handler = {
                   )->Promise.done
                   state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 | Ok(platform) =>
-                  let downloadResult = if downloadType == "dev" {
-                    await Connection__DevALS.download(state.globalStorageUri)(platform)
-                  } else {
-                    switch await PlatformOps.getDownloadDescriptorOfLatestALS(
-                      state.memento,
-                      state.globalStorageUri,
-                      platform,
-                    ) {
-                    | Error(error) => Error(error)
-                    | Ok(downloadDescriptor) =>
-                      await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
-                    }
+                  let downloadResult = switch await PlatformOps.getDownloadDescriptorOfLatestALS(
+                    state.memento,
+                    state.globalStorageUri,
+                    platform,
+                  ) {
+                  | Error(error) => Error(error)
+                  | Ok(downloadDescriptor) =>
+                    await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
                   }
 
                   switch downloadResult {
@@ -776,6 +875,7 @@ module Handler = {
   }
 
   let onActivate = async (state: State.t, platformDeps: Platform.t) => {
+    
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
 
