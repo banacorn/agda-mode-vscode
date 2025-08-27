@@ -634,18 +634,28 @@ module Handler = {
     // Get dev download options
     let devDownloadInfo = await Download.getAvailableDevDownload(state, platformDeps)
     
-    let submenuItems = switch devDownloadInfo {
-    | Some((downloaded, versionString, _)) => {
-        let downloadLabel = "$(cloud-download)  Download dev ALS"
-        let description = downloaded ? Constants.downloadedAndInstalled : ""
-        let downloadItem = Item.createQuickPickItem(downloadLabel, Some(description), Some(versionString))
-        
-        [downloadItem]
+    let submenuItems = {
+      let devItems = switch devDownloadInfo {
+      | Some((downloaded, versionString, _)) => {
+          let downloadLabel = "$(cloud-download)  Download dev ALS"
+          let description = downloaded ? Constants.downloadedAndInstalled : ""
+          let downloadItem = Item.createQuickPickItem(downloadLabel, Some(description), Some(versionString))
+          [downloadItem]
+        }
+      | None => []
       }
-    | None => {
-        let noDownloadItem = Item.createQuickPickItem("$(info)  No dev downloads available", Some("Dev downloads not supported on this platform"), None)
-        
+      
+      // Always add WASM build option (no-op)
+      let wasmItem = Item.createQuickPickItem("$(cloud-download)  Download WASM build", Some("Universal WebAssembly build"), Some("WASM dev"))
+      let wasmItems = [wasmItem]
+      
+      let allItems = Array.concat(devItems, wasmItems)
+      
+      if Array.length(allItems) == 0 {
+        let noDownloadItem = Item.createQuickPickItem("$(info)  No dev downloads available", Some("Dev downloads not available"), None)
         [noDownloadItem]
+      } else {
+        allItems
       }
     }
     
@@ -660,8 +670,14 @@ module Handler = {
         switch selectedItems[0] {
         | Some(selectedItem) =>
           if String.startsWith(selectedItem.label, "$(cloud-download)") {
-            // Handle download action
-            switch devDownloadInfo {
+            // Check if WASM build was selected
+            if String.includes(selectedItem.label, "WASM") {
+              // WASM download is a no-op for now
+              VSCode.Window.showInformationMessage("WASM download not yet implemented", [])->Promise.done
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            } else {
+              // Handle dev ALS download action
+              switch devDownloadInfo {
             | Some((downloaded, versionString, _)) =>
               state.channels.log->Chan.emit(
                 Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
@@ -707,6 +723,7 @@ module Handler = {
             | None =>
               VSCode.Window.showErrorMessage("Download not available for this platform", [])->ignore
               state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            }
             }
           }
         | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
