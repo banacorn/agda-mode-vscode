@@ -585,7 +585,13 @@ module Download = {
     string,
   )> => {
     let latestPromise = getAvailableLatestDownload(state, platformDeps)
-    let devPromise = getAvailableDevDownload(state, platformDeps)
+    
+    // Only include dev ALS when dev mode is enabled
+    let devPromise = if Config.DevMode.get() {
+      getAvailableDevDownload(state, platformDeps)
+    } else {
+      Promise.resolve(None)
+    }
 
     let results = await Promise.all([latestPromise, devPromise])
     results->Array.filterMap(x => x)
