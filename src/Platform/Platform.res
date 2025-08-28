@@ -20,6 +20,11 @@ module type PlatformOps = {
   ) => promise<
     result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
   >
+  let getDownloadDescriptorOfDevWASMALS: (
+    VSCode.Uri.t,
+  ) => promise<
+    result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
+  >
   let getDownloadDescriptorOfLatestALS: (
     Memento.t,
     VSCode.Uri.t,

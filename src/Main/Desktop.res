@@ -10,6 +10,7 @@ module Desktop: Platform.PlatformOps = {
   let alreadyDownloaded = Connection__LatestALS.alreadyDownloaded
 
   let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
+  let getDownloadDescriptorOfDevWASMALS = Connection__DevWASMALS.getDownloadDescriptor
   let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
 
   let download = Connection__Download.download

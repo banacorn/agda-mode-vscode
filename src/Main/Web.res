@@ -88,6 +88,11 @@ module Web: Platform.PlatformOps = {
       "https://api.github.com/repos/banacorn/agda-language-server/releases",
       {"Accept": "application/vnd.github+json"},
     )
+  let getDownloadDescriptorOfDevWASMALS = _globalStorageUri =>
+    getDownloadDescriptor(
+      "https://api.github.com/repos/banacorn/agda-language-server/releases",
+      {"Accept": "application/vnd.github+json"},
+    )
   let getDownloadDescriptorOfLatestALS = async (_, _, _) => Error(
     Connection__Download.Error.CannotFindCompatibleALSRelease,
   )
