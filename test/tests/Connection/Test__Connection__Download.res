@@ -382,4 +382,37 @@ describe("Download", () => {
       },
     )
   })
+
+  describe("Integration Tests", () => {
+    describe(
+      "`getReleaseManifestWithoutCache`",
+      () => {
+        Async.it(
+          "should fetch release from GitHub API",
+          async () => {
+            let globalStorageUri = VSCode.Uri.file("/tmp/test-dev-als")
+            let repo = Connection__DevALS.makeAgdaLanguageServerRepo(globalStorageUri)
+            let memento = Memento.make(None)
+            let releaseResult = await Connection__Download.getReleaseManifestFromGitHub(
+              memento,
+              repo,
+              ~useCache=false,
+            )
+
+            switch releaseResult {
+            | Error(e) =>
+              Assert.fail("Failed to fetch releases: " ++ Connection__Download.Error.toString(e))
+            | Ok(releases) =>
+              // Should find dev release
+              let devRelease = releases->Array.find(release => release.tag_name == "dev")
+              switch devRelease {
+              | None => Assert.fail("Release not found")
+              | Some(release) => Assert.deepStrictEqual(release.tag_name, "dev")
+              }
+            }
+          },
+        )
+      },
+    )
+  })
 })

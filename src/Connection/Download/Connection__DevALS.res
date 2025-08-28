@@ -6,15 +6,6 @@ let makeAgdaLanguageServerRepo = (globalStorageUri): Connection__Download__GitHu
   cacheInvalidateExpirationSecs: 86400,
 }
 
-let getALSReleaseManifestWithoutCache = async globalStorageUri => {
-  switch await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHub(
-    makeAgdaLanguageServerRepo(globalStorageUri),
-  ) {
-  | Error(error) => Error(Connection__Download.Error.CannotFetchALSReleases(error))
-  | Ok(manifest) => Ok(manifest)
-  }
-}
-
 let chooseAssetByPlatform = async (
   release: Connection__Download__GitHub.Release.t,
   platform,
@@ -23,15 +14,19 @@ let chooseAssetByPlatform = async (
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
-let getDownloadDescriptor = async (globalStorageUri, platform) => {
-  switch await getALSReleaseManifestWithoutCache(globalStorageUri) {
+let getDownloadDescriptor = async (memento, globalStorageUri, platform) => {
+  switch await Connection__Download.getReleaseManifestFromGitHub(
+    memento,
+    makeAgdaLanguageServerRepo(globalStorageUri),
+    ~useCache=false,
+  ) {
   | Error(error) => Error(error)
   | Ok(releases) =>
     // target the specific "dev" release
     let devRelease = releases->Array.find(release => release.tag_name == "dev")
 
     switch devRelease {
-    | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+    | None => Error(CannotFindCompatibleALSRelease)
     | Some(devRelease) =>
       let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
         asset.name
@@ -59,8 +54,9 @@ let getDownloadDescriptor = async (globalStorageUri, platform) => {
 }
 
 // download the dev ALS and return the path of the downloaded file
-let download = globalStorageUri => async platform =>
-  switch await getDownloadDescriptor(globalStorageUri, platform) {
+let download = (memento, globalStorageUri) => async platform =>
+  switch await getDownloadDescriptor(memento, globalStorageUri, platform) {
   | Error(error) => Error(error)
-  | Ok(downloadDescriptor) => await Connection__Download.download(globalStorageUri, downloadDescriptor)
+  | Ok(downloadDescriptor) =>
+    await Connection__Download.download(globalStorageUri, downloadDescriptor)
   }

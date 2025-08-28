@@ -294,12 +294,14 @@ module Callbacks = {
 
 module ReleaseManifest: {
   // fetch the release manifest from the cache or GitHub
-  let fetch: (Memento.t, Repo.t) => promise<(result<array<Release.t>, Error.t>, bool)>
-  // fetch the latest release from GitHub, no caching involved
-  let fetchFromGitHub: Repo.t => promise<result<array<Release.t>, Error.t>>
+  let fetch: (
+    Memento.t,
+    Repo.t,
+    ~useCache: bool=?,
+  ) => promise<(result<array<Release.t>, Error.t>, bool)>
 } = {
   // fetch from GitHub, no caching involved, timeout after 10000ms
-  let fetchFromGitHub = async (repo: Repo.t) => {
+  let fetchWithoutCache = async (repo: Repo.t) => {
     let httpOptions = {
       "host": "api.github.com",
       "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
@@ -341,20 +343,24 @@ module ReleaseManifest: {
 
   // fetch from GitHub if the cache is too old
   // also returns a boolean indicating if the result is from cache
-  let fetch = async (memento: Memento.t, repo: Repo.t) => {
-    let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(memento) {
-    | None => true
-    | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
-    }
+  let fetch = async (memento: Memento.t, repo: Repo.t, ~useCache=true) =>
+    if useCache {
+      let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(memento) {
+      | None => true
+      | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
+      }
 
-    if cacheInvalidated {
-      let result = await fetchFromGitHub(repo)
-      await writeToCache(memento, result)
-      (result, false)
+      if cacheInvalidated {
+        let result = await fetchWithoutCache(repo)
+        await writeToCache(memento, result)
+        (result, false)
+      } else {
+        (await fetchFromCache(memento), true)
+      }
     } else {
-      (await fetchFromCache(memento), true)
+      let result = await fetchWithoutCache(repo)
+      (result, false)
     }
-  }
 }
 
 module Module: {
@@ -392,7 +398,11 @@ module Module: {
     }
   }
 
-  let downloadLanguageServer = async (repo: Repo.t, onDownload, downloadDescriptor: DownloadDescriptor.t) => {
+  let downloadLanguageServer = async (
+    repo: Repo.t,
+    onDownload,
+    downloadDescriptor: DownloadDescriptor.t,
+  ) => {
     let url = NodeJs.Url.make(downloadDescriptor.asset.browser_download_url)
     let httpOptions = {
       "host": url.host,
@@ -439,7 +449,11 @@ module Module: {
     }
   }
 
-  let download = async (downloadDescriptor: DownloadDescriptor.t, globalStorageUri, reportProgress) => {
+  let download = async (
+    downloadDescriptor: DownloadDescriptor.t,
+    globalStorageUri,
+    reportProgress,
+  ) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",

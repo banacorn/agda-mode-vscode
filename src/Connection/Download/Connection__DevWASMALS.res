@@ -6,17 +6,13 @@ let makeAgdaLanguageServerRepo = (globalStorageUri): Connection__Download__GitHu
   cacheInvalidateExpirationSecs: 86400,
 }
 
-let getALSReleaseManifestWithoutCache = async globalStorageUri => {
-  switch await Connection__Download__GitHub.ReleaseManifest.fetchFromGitHub(
+let getDownloadDescriptor = async (memento, globalStorageUri) => {
+  switch await Connection__Download.getReleaseManifestFromGitHub(
+    memento,
     makeAgdaLanguageServerRepo(globalStorageUri),
-  ) {
-  | Error(error) => Error(Connection__Download.Error.CannotFetchALSReleases(error))
-  | Ok(manifest) => Ok(manifest)
-  }
-}
 
-let getDownloadDescriptor = async globalStorageUri => {
-  switch await getALSReleaseManifestWithoutCache(globalStorageUri) {
+    ~useCache=false,
+  ) {
   | Error(error) => Error(error)
   | Ok(releases) =>
     // target the specific "dev" release
@@ -27,10 +23,11 @@ let getDownloadDescriptor = async globalStorageUri => {
     | Some(devRelease) =>
       // find the WASM asset specifically
       let wasmAsset = devRelease.assets->Array.find(asset => asset.name == "als-dev-wasm")
-      
+
       switch wasmAsset {
       | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-      | Some(asset) => Ok({
+      | Some(asset) =>
+        Ok({
           Connection__Download__GitHub.DownloadDescriptor.release: devRelease,
           asset,
           saveAsFileName: "dev-wasm-als",
@@ -41,8 +38,9 @@ let getDownloadDescriptor = async globalStorageUri => {
 }
 
 // download the dev WASM ALS and return the path of the downloaded file
-let download = globalStorageUri => async () =>
-  switch await getDownloadDescriptor(globalStorageUri) {
+let download = (memento, globalStorageUri) => async () =>
+  switch await getDownloadDescriptor(memento, globalStorageUri) {
   | Error(error) => Error(error)
-  | Ok(downloadDescriptor) => await Connection__Download.download(globalStorageUri, downloadDescriptor)
+  | Ok(downloadDescriptor) =>
+    await Connection__Download.download(globalStorageUri, downloadDescriptor)
   }

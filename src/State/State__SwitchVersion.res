@@ -585,7 +585,11 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_error) => None
     | Ok(platform) =>
-      switch await PlatformOps.getDownloadDescriptorOfDevALS(state.globalStorageUri, platform) {
+      switch await PlatformOps.getDownloadDescriptorOfDevALS(
+        state.memento,
+        state.globalStorageUri,
+        platform,
+      ) {
       | Error(_error) =>
         Util.log("PlatformOps.getDownloadDescriptorOfDevALS error: ", _error)
         None
@@ -714,6 +718,7 @@ module Handler = {
                     switch await PlatformOps.determinePlatform() {
                     | Ok(platform) =>
                       switch await PlatformOps.getDownloadDescriptorOfDevALS(
+                        state.memento,
                         state.globalStorageUri,
                         platform,
                       ) {
@@ -742,7 +747,10 @@ module Handler = {
                         [],
                       )->Promise.done
                     | Ok(platform) =>
-                      switch await Connection__DevALS.download(state.globalStorageUri)(platform) {
+                      switch await Connection__DevALS.download(
+                        state.memento,
+                        state.globalStorageUri,
+                      )(platform) {
                       | Error(error) =>
                         VSCode.Window.showErrorMessage(
                           AgdaModeVscode.Connection__Download.Error.toString(error),

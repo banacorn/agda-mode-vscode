@@ -16,13 +16,23 @@ module type PlatformOps = {
   // check if the file is already downloaded at that location
   let alreadyDownloaded: (VSCode.Uri.t, array<string>) => promise<option<string>>
 
+  let getReleaseManifestFromGitHub: (
+    AgdaModeVscode.Memento.t,
+    Connection__Download__GitHub.Repo.t,
+    ~useCache: bool=?,
+  ) => promise<result<array<Connection__Download__GitHub.Release.t>, Connection__Download.Error.t>>
+
   let getDownloadDescriptorOfDevALS: (
+    Memento.t,
     VSCode.Uri.t,
     Connection__Download__Platform.t,
   ) => promise<
     result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
   >
-  let getDownloadDescriptorOfDevWASMALS: VSCode.Uri.t => promise<
+  let getDownloadDescriptorOfDevWASMALS: (
+    Memento.t,
+    VSCode.Uri.t,
+  ) => promise<
     result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
   >
   let getDownloadDescriptorOfLatestALS: (

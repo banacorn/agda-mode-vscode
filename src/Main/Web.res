@@ -83,12 +83,14 @@ module Web: Platform.PlatformOps = {
     }
   }
 
-  let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
+  let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
+    Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+  let getDownloadDescriptorOfDevALS = (_memento, _globalStorageUri, _platform) =>
     getDownloadDescriptor(
       "https://api.github.com/repos/banacorn/agda-language-server/releases",
       {"Accept": "application/vnd.github+json"},
     )
-  let getDownloadDescriptorOfDevWASMALS = _globalStorageUri =>
+  let getDownloadDescriptorOfDevWASMALS = (_memento, _globalStorageUri) =>
     getDownloadDescriptor(
       "https://api.github.com/repos/banacorn/agda-language-server/releases",
       {"Accept": "application/vnd.github+json"},

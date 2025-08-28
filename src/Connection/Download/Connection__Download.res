@@ -33,19 +33,9 @@ module Error = {
     }
 }
 
-let makeRepo: VSCode.Uri.t => Connection__Download__GitHub.Repo.t = globalStorageUri => {
-  username: "agda",
-  repository: "agda-language-server",
-  userAgent: "agda/agda-mode-vscode",
-  globalStorageUri,
-  cacheInvalidateExpirationSecs: 86400,
-}
-
-let getReleaseManifest = async (memento, globalStorageUri) => {
-  switch await Connection__Download__GitHub.ReleaseManifest.fetch(
-    memento,
-    makeRepo(globalStorageUri),
-  ) {
+// Get release manifest from cache if available, otherwise fetch from GitHub
+let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
+  switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
   | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
   | (Ok(manifest), _) => Ok(manifest)
   }

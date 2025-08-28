@@ -9,6 +9,7 @@ module Desktop: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
+  let getReleaseManifestFromGitHub = Connection__Download.getReleaseManifestFromGitHub
   let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
   let getDownloadDescriptorOfDevWASMALS = Connection__DevWASMALS.getDownloadDescriptor
   let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
