@@ -1,4 +1,4 @@
-let makeAgdaLanguageServerRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
+let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
   username: "agda",
   repository: "agda-language-server",
   userAgent: "agda/agda-mode-vscode",
@@ -6,19 +6,15 @@ let makeAgdaLanguageServerRepo = (globalStorageUri): Connection__Download__GitHu
   cacheInvalidateExpirationSecs: 86400,
 }
 
-let chooseAssetByPlatform = async (
-  release: Connection__Download__GitHub.Release.t,
-  platform,
-): array<Connection__Download__GitHub.Asset.t> => {
+let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
+  Connection__Download__GitHub.Asset.t,
+> => {
   let assetName = Connection__Download__Platform.toAssetName(platform)
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
 // Given a list of releases, choose the latest compatible release for the given platform
-let toDownloadDescriptor = async (
-  releases: array<Connection__Download__GitHub.Release.t>,
-  platform,
-) => {
+let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
   // only releases after 2024-12-18 are considered
   let laterReleases =
     releases->Array.filter(release =>
@@ -38,7 +34,7 @@ let toDownloadDescriptor = async (
       ->String.replaceRegExp(%re("/als-Agda-/"), "")
       ->String.replaceRegExp(%re("/-.*/"), "")
     // choose the assets of the corresponding platform
-    let assets = await chooseAssetByPlatform(pinnedRelease, platform)
+    let assets = chooseAssetByPlatform(pinnedRelease, platform)
     // choose the asset with the latest Agda version
     let result =
       assets
@@ -57,11 +53,12 @@ let toDownloadDescriptor = async (
   }
 }
 
-let getDownloadDescriptor = async (memento, globalStorageUri, platform) =>
+let getDownloadDescriptor = async (memento, globalStorageUri, platform) => {
   switch await Connection__Download.getReleaseManifestFromGitHub(
     memento,
-    makeAgdaLanguageServerRepo(globalStorageUri),
+    makeRepo(globalStorageUri),
   ) {
   | Error(error) => Error(error)
-  | Ok(releases) => await toDownloadDescriptor(releases, platform)
+  | Ok(releases) => toDownloadDescriptor(releases, platform)
   }
+}
