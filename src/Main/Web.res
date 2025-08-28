@@ -10,7 +10,7 @@ module Web: Platform.PlatformOps = {
   let findCommand = (_command, ~timeout as _timeout=1000) =>
     Promise.resolve(Error(Connection__Command.Error.NotFound))
 
-  let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+  let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
   // helper function for fetching release manifest without cache
   let getDownloadDescriptor = async (url, header) => {

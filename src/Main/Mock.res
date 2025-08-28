@@ -47,7 +47,7 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
-    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+    let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
     let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getDownloadDescriptorOfDevWASMALS = _globalStorageUri =>
@@ -66,7 +66,7 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
-    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+    let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
     let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let getDownloadDescriptorOfDevWASMALS = _globalStorageUri =>
@@ -85,7 +85,7 @@ module Platform = {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => policy
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
       let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let getDownloadDescriptorOfDevWASMALS = _globalStorageUri =>
@@ -112,7 +112,7 @@ module Platform = {
         counter := counter.contents + 1
         policy
       }
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
 
       let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -135,8 +135,7 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
 
       let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -198,8 +197,7 @@ module Platform = {
       let determinePlatform = () => Promise.resolve(Error(platform))
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
 
       let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -226,7 +224,7 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
-      let alreadyDownloaded = _globalStorageUri => () => {
+      let alreadyDownloaded = (_globalStorageUri, _) => {
         checkedCacheFlag := true
         Promise.resolve(None)
       }
@@ -254,11 +252,10 @@ module Platform = {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-      let alreadyDownloaded = _globalStorageUri => () => {
+      let alreadyDownloaded = (_globalStorageUri, _) => {
         checkedFlag := true
         Promise.resolve(Some(cachedPath))
       }
-
 
       let getDownloadDescriptorOfDevALS = (_globalStorageUri, _platform) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -287,7 +284,7 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
-      let alreadyDownloaded = _globalStorageUri => () => {
+      let alreadyDownloaded = (_globalStorageUri, _) => {
         checkedCacheFlag := true
         Promise.resolve(None)
       }

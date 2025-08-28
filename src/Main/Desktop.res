@@ -7,7 +7,7 @@ module Desktop: Platform.PlatformOps = {
 
   let findCommand = Connection__Command.search
 
-  let alreadyDownloaded = Connection__LatestALS.alreadyDownloaded
+  let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
   let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
   let getDownloadDescriptorOfDevWASMALS = Connection__DevWASMALS.getDownloadDescriptor

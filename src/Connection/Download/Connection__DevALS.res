@@ -64,12 +64,3 @@ let download = globalStorageUri => async platform =>
   | Error(error) => Error(error)
   | Ok(downloadDescriptor) => await Connection__Download.download(globalStorageUri, downloadDescriptor)
   }
-
-// check if the dev ALS is already downloaded
-let alreadyDownloaded = globalStorageUri => async () => {
-  let uri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
-  switch await FS.stat(uri) {
-  | Ok(_) => Some(uri->VSCode.Uri.fsPath)
-  | Error(_) => None
-  }
-}

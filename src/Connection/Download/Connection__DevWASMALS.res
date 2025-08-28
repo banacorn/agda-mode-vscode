@@ -46,12 +46,3 @@ let download = globalStorageUri => async () =>
   | Error(error) => Error(error)
   | Ok(downloadDescriptor) => await Connection__Download.download(globalStorageUri, downloadDescriptor)
   }
-
-// check if the dev WASM ALS is already downloaded
-let alreadyDownloaded = globalStorageUri => async () => {
-  let uri = VSCode.Uri.joinPath(globalStorageUri, ["dev-wasm-als", "als-dev-wasm"])
-  switch await FS.stat(uri) {
-  | Ok(_) => Some(uri->VSCode.Uri.fsPath)
-  | Error(_) => None
-  }
-}

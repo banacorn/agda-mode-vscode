@@ -12,7 +12,9 @@ module type PlatformOps = {
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
-  let alreadyDownloaded: VSCode.Uri.t => unit => promise<option<string>> // returns the path to ALS if already downloaded
+  // given a global storage URI, and an array of path segments,
+  // check if the file is already downloaded at that location
+  let alreadyDownloaded: (VSCode.Uri.t, array<string>) => promise<option<string>>
 
   let getDownloadDescriptorOfDevALS: (
     VSCode.Uri.t,
@@ -20,9 +22,7 @@ module type PlatformOps = {
   ) => promise<
     result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
   >
-  let getDownloadDescriptorOfDevWASMALS: (
-    VSCode.Uri.t,
-  ) => promise<
+  let getDownloadDescriptorOfDevWASMALS: VSCode.Uri.t => promise<
     result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
   >
   let getDownloadDescriptorOfLatestALS: (
