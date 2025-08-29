@@ -13,7 +13,7 @@ module Web: Platform.PlatformOps = {
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
   // helper function for fetching release manifest without cache
-  let getDownloadDescriptor = async (url, header) => {
+  let getDownloadDescriptorOld = async (url, header) => {
     let fetchReleases = async () => {
       try {
         let response = await Fetch.fetch(
@@ -83,15 +83,38 @@ module Web: Platform.PlatformOps = {
     }
   }
 
+  let getDownloadDescriptor = (target: Connection__Download.target, useCache) => async (
+    memento,
+    globalStorageUri,
+    platform,
+  ) => {
+    let repo = switch target {
+    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+    | DevALS => Connection__DevALS.makeAgdaLanguageServerRepo(globalStorageUri)
+    | DevWASMALS => Connection__DevWASMALS.makeAgdaLanguageServerRepo(globalStorageUri)
+    }
+
+    let toDownloadDescriptor = switch target {
+    | LatestALS => Connection__LatestALS.toDownloadDescriptor(_, platform)
+    | DevALS => Connection__DevALS.toDownloadDescriptor(_, platform)
+    | DevWASMALS => Connection__DevWASMALS.toDownloadDescriptor(_)
+    }
+
+    switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
+    | Error(error) => Error(error)
+    | Ok(releases) => toDownloadDescriptor(releases)
+    }
+  }
+
   let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
     Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
   let getDownloadDescriptorOfDevALS = (_memento, _globalStorageUri, _platform) =>
-    getDownloadDescriptor(
+    getDownloadDescriptorOld(
       "https://api.github.com/repos/banacorn/agda-language-server/releases",
       {"Accept": "application/vnd.github+json"},
     )
-  let getDownloadDescriptorOfDevWASMALS = (_memento, _globalStorageUri) =>
-    getDownloadDescriptor(
+  let getDownloadDescriptorOfDevWASMALS = (_memento, _globalStorageUri, _platform) =>
+    getDownloadDescriptorOld(
       "https://api.github.com/repos/banacorn/agda-language-server/releases",
       {"Accept": "application/vnd.github+json"},
     )

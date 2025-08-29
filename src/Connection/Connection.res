@@ -311,7 +311,7 @@ module Module: Module = {
         let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri, ["latest-als", "als"]) {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.getDownloadDescriptorOfLatestALS(
+          switch await PlatformOps.getDownloadDescriptor(LatestALS, true)(
             memento,
             globalStorageUri,
             platform,

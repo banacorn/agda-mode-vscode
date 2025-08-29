@@ -33,6 +33,11 @@ module Error = {
     }
 }
 
+type target =
+  | LatestALS
+  | DevALS
+  | DevWASMALS
+
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {

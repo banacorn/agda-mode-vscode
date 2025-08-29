@@ -534,7 +534,7 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_) => None
     | Ok(platform) =>
-      switch await PlatformOps.getDownloadDescriptorOfLatestALS(
+      switch await PlatformOps.getDownloadDescriptor(LatestALS, true)(
         state.memento,
         state.globalStorageUri,
         platform,
@@ -585,16 +585,13 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Error(_error) => None
     | Ok(platform) =>
-      switch await PlatformOps.getDownloadDescriptorOfDevALS(
+      switch await PlatformOps.getDownloadDescriptor(DevALS, false)(
         state.memento,
         state.globalStorageUri,
         platform,
       ) {
-      | Error(_error) =>
-        Util.log("PlatformOps.getDownloadDescriptorOfDevALS error: ", _error)
-        None
+      | Error(_error) => None
       | Ok(downloadDescriptor) =>
-        Util.log("Dev ALS download descriptor: ", downloadDescriptor)
         // Check if already downloaded
         let downloaded = switch await Connection__Download.alreadyDownloaded(
           state.globalStorageUri,
@@ -717,7 +714,7 @@ module Handler = {
                     module PlatformOps = unpack(platformDeps)
                     switch await PlatformOps.determinePlatform() {
                     | Ok(platform) =>
-                      switch await PlatformOps.getDownloadDescriptorOfDevALS(
+                      switch await PlatformOps.getDownloadDescriptor(DevALS, false)(
                         state.memento,
                         state.globalStorageUri,
                         platform,
@@ -827,11 +824,10 @@ module Handler = {
                 module PlatformOps = unpack(platformDeps)
                 switch await PlatformOps.determinePlatform() {
                 | Ok(platform) =>
-                  let downloadDescriptorResult = await PlatformOps.getDownloadDescriptorOfLatestALS(
-                    state.memento,
-                    state.globalStorageUri,
-                    platform,
-                  )
+                  let downloadDescriptorResult = await PlatformOps.getDownloadDescriptor(
+                    LatestALS,
+                    true,
+                  )(state.memento, state.globalStorageUri, platform)
                   switch downloadDescriptorResult {
                   | Ok(downloadDescriptor) =>
                     let downloadedPath =
@@ -860,11 +856,10 @@ module Handler = {
                   )->Promise.done
                   state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
                 | Ok(platform) =>
-                  let downloadResult = switch await PlatformOps.getDownloadDescriptorOfLatestALS(
-                    state.memento,
-                    state.globalStorageUri,
-                    platform,
-                  ) {
+                  let downloadResult = switch await PlatformOps.getDownloadDescriptor(
+                    LatestALS,
+                    true,
+                  )(state.memento, state.globalStorageUri, platform) {
                   | Error(error) => Error(error)
                   | Ok(downloadDescriptor) =>
                     await PlatformOps.download(state.globalStorageUri, downloadDescriptor)

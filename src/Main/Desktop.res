@@ -9,11 +9,28 @@ module Desktop: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
-  let getReleaseManifestFromGitHub = Connection__Download.getReleaseManifestFromGitHub
-  let getDownloadDescriptorOfDevALS = Connection__DevALS.getDownloadDescriptor
-  let getDownloadDescriptorOfDevWASMALS = Connection__DevWASMALS.getDownloadDescriptor
-  let getDownloadDescriptorOfLatestALS = Connection__LatestALS.getDownloadDescriptor
+  let getDownloadDescriptor = (target: Connection__Download.target, useCache) => async (
+    memento,
+    globalStorageUri,
+    platform,
+  ) => {
+    let repo = switch target {
+    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+    | DevALS => Connection__DevALS.makeAgdaLanguageServerRepo(globalStorageUri)
+    | DevWASMALS => Connection__DevWASMALS.makeAgdaLanguageServerRepo(globalStorageUri)
+    }
 
+    let toDownloadDescriptor = switch target {
+    | LatestALS => Connection__LatestALS.toDownloadDescriptor(_, platform)
+    | DevALS => Connection__DevALS.toDownloadDescriptor(_, platform)
+    | DevWASMALS => Connection__DevWASMALS.toDownloadDescriptor(_)
+    }
+
+    switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
+    | Error(error) => Error(error)
+    | Ok(releases) => toDownloadDescriptor(releases)
+    }
+  }
   let download = Connection__Download.download
 
   let askUserAboutDownloadPolicy = async () => {
