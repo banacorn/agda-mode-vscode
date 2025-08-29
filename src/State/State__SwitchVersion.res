@@ -744,10 +744,16 @@ module Handler = {
                         [],
                       )->Promise.done
                     | Ok(platform) =>
-                      switch await Connection__DevALS.download(
-                        state.memento,
-                        state.globalStorageUri,
-                      )(platform) {
+                      let downloadResult = switch await PlatformOps.getDownloadDescriptor(
+                        DevALS,
+                        false,
+                      )(state.memento, state.globalStorageUri, platform) {
+                      | Error(error) => Error(error)
+                      | Ok(downloadDescriptor) =>
+                        await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
+                      }
+
+                      switch downloadResult {
                       | Error(error) =>
                         VSCode.Window.showErrorMessage(
                           AgdaModeVscode.Connection__Download.Error.toString(error),

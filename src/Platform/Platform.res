@@ -12,10 +12,7 @@ module type PlatformOps = {
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
-  // given a global storage URI, and an array of path segments,
-  // check if the file is already downloaded at that location
   let alreadyDownloaded: (VSCode.Uri.t, Connection__Download.target) => promise<option<string>>
-
   let getDownloadDescriptor: (
     Connection__Download.target,
     bool,
