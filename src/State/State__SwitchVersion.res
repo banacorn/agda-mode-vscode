@@ -455,7 +455,6 @@ module SwitchVersionManager = {
 let getDownloadDescriptorWithPlatform = async (
   platformOps: Platform.t,
   target: Connection__Download.target,
-  useCache: bool,
   memento: Memento.t,
   globalStorageUri: VSCode.Uri.t,
 ) => {
@@ -463,7 +462,7 @@ let getDownloadDescriptorWithPlatform = async (
   switch await PlatformOps.determinePlatform() {
   | Error(_error) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
   | Ok(platform) =>
-    await PlatformOps.getDownloadDescriptor(target, useCache)(memento, globalStorageUri, platform)
+    await PlatformOps.getDownloadDescriptor(target, true)(memento, globalStorageUri, platform)
   }
 }
 
@@ -553,18 +552,16 @@ module Download = {
     switch await getDownloadDescriptorWithPlatform(
       platformDeps,
       LatestALS,
-      true,
       state.memento,
       state.globalStorageUri,
     ) {
     | Error(_) => None
     | Ok(downloadDescriptor) =>
       // Check if already downloaded
-      let filepath = VSCode.Uri.joinPath(
+      let downloaded = switch await PlatformOps.alreadyDownloaded(
         state.globalStorageUri,
-        [downloadDescriptor.saveAsFileName, "als"],
-      )
-      let downloaded = switch await PlatformOps.alreadyDownloaded(filepath, LatestALS) {
+        LatestALS,
+      ) {
       | Some(_) => true
       | None => false
       }
@@ -599,7 +596,6 @@ module Download = {
     switch await getDownloadDescriptorWithPlatform(
       platformDeps,
       DevALS,
-      false,
       state.memento,
       state.globalStorageUri,
     ) {
@@ -623,7 +619,7 @@ module Download = {
     }
   }
 
-  // Get available download info for dev WASM ALS: (downloaded, versionString, downloadType)  
+  // Get available download info for dev WASM ALS: (downloaded, versionString, downloadType)
   let getAvailableDevWASMDownload = async (state: State.t, platformDeps: Platform.t): option<(
     bool,
     string,
@@ -635,14 +631,16 @@ module Download = {
     switch await getDownloadDescriptorWithPlatform(
       platformDeps,
       DevWASMALS,
-      false,
       state.memento,
       state.globalStorageUri,
     ) {
     | Error(_error) => None
-    | Ok(downloadDescriptor) =>
+    | Ok(_) =>
       // Check if already downloaded
-      let downloaded = switch await PlatformOps.alreadyDownloaded(state.globalStorageUri, DevWASMALS) {
+      let downloaded = switch await PlatformOps.alreadyDownloaded(
+        state.globalStorageUri,
+        DevWASMALS,
+      ) {
       | Some(_) => true
       | None => false
       }
@@ -657,7 +655,7 @@ module Download = {
   // Create placeholder download items to prevent UI jitter
   let getPlaceholderDownloadItems = (): array<(bool, string, string)> => {
     let items = [(false, "Checking availability...", "latest")]
-    
+
     // Add dev placeholder if dev mode is enabled
     if Config.DevMode.get() {
       Array.concat(items, [(false, "Checking availability...", "dev")])
@@ -674,34 +672,23 @@ module Download = {
   )> => {
     let latestPromise = getAvailableLatestDownload(state, platformDeps)
 
-    // Only include dev ALS when dev mode is enabled
-    let devPromise = if Config.DevMode.get() {
-      getAvailableDevDownload(state, platformDeps)
-    } else {
-      Promise.resolve(None)
-    }
-
-    let [latestResult, devResult] = await Promise.all([latestPromise, devPromise])
-    
     // Always maintain fixed structure - replace placeholders with actual data or keep placeholders
-    let latestItem = switch latestResult {
+    let latestItem = switch await latestPromise {
     | Some(item) => item
     | None => (false, "Not available for this platform", "latest")
     }
-    
+
+    // Only include dev ALS when dev mode is enabled
     let devItem = if Config.DevMode.get() {
-      switch devResult {
-      | Some(item) => Some(item)
-      | None => Some((false, "Not available for this platform", "dev"))
+      switch await getAvailableDevDownload(state, platformDeps) {
+      | Some(item) => [item]
+      | None => [(false, "Not available for this platform", "dev")]
       }
     } else {
-      None
+      []
     }
-    
-    switch devItem {
-    | Some(dev) => [latestItem, dev]
-    | None => [latestItem]
-    }
+
+    [latestItem, ...devItem]
   }
 }
 
@@ -714,17 +701,11 @@ module Handler = {
     target: Connection__Download.target,
     downloaded: bool,
     versionString: string,
-    ~refreshUI: option<unit => promise<unit>> = None,
+    ~refreshUI: option<unit => promise<unit>>=None,
   ) => {
     state.channels.log->Chan.emit(
       Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
     )
-
-    // Determine useCache based on target
-    let useCache = switch target {
-    | LatestALS => true
-    | DevALS | DevWASMALS => false
-    }
 
     if downloaded {
       // Add already downloaded path to config
@@ -732,7 +713,6 @@ module Handler = {
       switch await getDownloadDescriptorWithPlatform(
         platformDeps,
         target,
-        useCache,
         state.memento,
         state.globalStorageUri,
       ) {
@@ -760,7 +740,6 @@ module Handler = {
       let downloadResult = switch await getDownloadDescriptorWithPlatform(
         platformDeps,
         target,
-        useCache,
         state.memento,
         state.globalStorageUri,
       ) {
@@ -777,13 +756,13 @@ module Handler = {
         )->Promise.done
       | Ok(downloadedPath) =>
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-        
+
         // Optional UI refresh after successful download
         switch refreshUI {
         | Some(refreshFn) => await refreshFn()
         | None => ()
         }
-        
+
         VSCode.Window.showInformationMessage(
           versionString ++ " successfully downloaded",
           [],
@@ -931,11 +910,16 @@ module Handler = {
                 LatestALS,
                 downloaded,
                 versionString,
-                ~refreshUI=Some(async () => {
-                  let newDownloadItems = await Download.getAllAvailableDownloads(state, platformDeps)
-                  let _ = SwitchVersionManager.refreshFromMemento(manager)
-                  await updateUI(newDownloadItems)
-                }),
+                ~refreshUI=Some(
+                  async () => {
+                    let newDownloadItems = await Download.getAllAvailableDownloads(
+                      state,
+                      platformDeps,
+                    )
+                    let _ = SwitchVersionManager.refreshFromMemento(manager)
+                    await updateUI(newDownloadItems)
+                  },
+                ),
               )
             | None =>
               let _ = await VSCode.Window.showErrorMessage(
