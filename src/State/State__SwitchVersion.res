@@ -285,6 +285,9 @@ module VersionDisplay = {
   let formatALSVersion = (alsVersion: string, agdaVersion: string): string =>
     "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
 
+  let formatDevALSVersion = (agdaVersion: string): string =>
+    "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+
   let formatSwitchingMessage = (version: string): string => "Switching to " ++ version
 
   let formatSwitchedMessage = (version: string): string => "Switched to " ++ version
@@ -614,10 +617,52 @@ module Download = {
         ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
         ->String.replaceRegExp(%re("/-.*/"), "")
       let agdaVersion = getAgdaVersion(downloadDescriptor.asset)
-      let alsVersion = downloadDescriptor.release.name
 
-      let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+      let versionString = VersionDisplay.formatDevALSVersion(agdaVersion)
       Some((downloaded, versionString, "dev"))
+    }
+  }
+
+  // Get available download info for dev WASM ALS: (downloaded, versionString, downloadType)  
+  let getAvailableDevWASMDownload = async (state: State.t, platformDeps: Platform.t): option<(
+    bool,
+    string,
+    string,
+  )> => {
+    module PlatformOps = unpack(platformDeps)
+
+    // Check if we can download dev WASM ALS for this platform
+    switch await getDownloadDescriptorWithPlatform(
+      platformDeps,
+      DevWASMALS,
+      false,
+      state.memento,
+      state.globalStorageUri,
+    ) {
+    | Error(_error) => None
+    | Ok(downloadDescriptor) =>
+      // Check if already downloaded
+      let downloaded = switch await PlatformOps.alreadyDownloaded(state.globalStorageUri, DevWASMALS) {
+      | Some(_) => true
+      | None => false
+      }
+
+      // Format version string for display
+      let versionString = "WASM Language Server (dev build)"
+
+      Some((downloaded, versionString, "wasm"))
+    }
+  }
+
+  // Create placeholder download items to prevent UI jitter
+  let getPlaceholderDownloadItems = (): array<(bool, string, string)> => {
+    let items = [(false, "Checking availability...", "latest")]
+    
+    // Add dev placeholder if dev mode is enabled
+    if Config.DevMode.get() {
+      Array.concat(items, [(false, "Checking availability...", "dev")])
+    } else {
+      items
     }
   }
 
@@ -636,8 +681,27 @@ module Download = {
       Promise.resolve(None)
     }
 
-    let results = await Promise.all([latestPromise, devPromise])
-    results->Array.filterMap(x => x)
+    let [latestResult, devResult] = await Promise.all([latestPromise, devPromise])
+    
+    // Always maintain fixed structure - replace placeholders with actual data or keep placeholders
+    let latestItem = switch latestResult {
+    | Some(item) => item
+    | None => (false, "Not available for this platform", "latest")
+    }
+    
+    let devItem = if Config.DevMode.get() {
+      switch devResult {
+      | Some(item) => Some(item)
+      | None => Some((false, "Not available for this platform", "dev"))
+      }
+    } else {
+      None
+    }
+    
+    switch devItem {
+    | Some(dev) => [latestItem, dev]
+    | None => [latestItem]
+    }
   }
 }
 
@@ -649,6 +713,7 @@ module Handler = {
 
     // Get dev download options
     let devDownloadInfo = await Download.getAvailableDevDownload(state, platformDeps)
+    let wasmDownloadInfo = await Download.getAvailableDevWASMDownload(state, platformDeps)
 
     let submenuItems = {
       let devItems = switch devDownloadInfo {
@@ -665,13 +730,20 @@ module Handler = {
       | None => []
       }
 
-      // Always add WASM build option (no-op)
-      let wasmItem = Item.createQuickPickItem(
-        "$(cloud-download)  Download WASM build",
-        Some("Universal WebAssembly build"),
-        Some("WASM dev"),
-      )
-      let wasmItems = [wasmItem]
+      // Add WASM build option with dynamic status
+      let wasmItems = switch wasmDownloadInfo {
+      | Some((downloaded, versionString, _)) => {
+          let downloadLabel = "$(cloud-download)  Download WASM build"
+          let description = downloaded ? Constants.downloadedAndInstalled : ""
+          let wasmItem = Item.createQuickPickItem(
+            downloadLabel,
+            Some(description),
+            Some(versionString),
+          )
+          [wasmItem]
+        }
+      | None => []
+      }
 
       let allItems = Array.concat(devItems, wasmItems)
 
@@ -960,8 +1032,8 @@ module Handler = {
     // Setup quickpick
     view->View.setPlaceholder("Switch Agda Version")
 
-    // PHASE 1: Show cached items immediately with visual marking
-    await updateUI([])
+    // PHASE 1: Show cached items immediately with placeholders to prevent jitter
+    await updateUI(Download.getPlaceholderDownloadItems())
     view->View.show
     state.channels.log->Chan.emit(SwitchVersionUI(Others("QuickPick shown")))
 
