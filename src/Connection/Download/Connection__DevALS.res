@@ -1,4 +1,4 @@
-let makeAgdaLanguageServerRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
+let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
   username: "banacorn",
   repository: "agda-language-server",
   userAgent: "banacorn/agda-mode-vscode",
@@ -43,22 +43,3 @@ let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release
     }
   }
 }
-
-let getDownloadDescriptor = async (memento, globalStorageUri, platform) => {
-  switch await Connection__Download.getReleaseManifestFromGitHub(
-    memento,
-    makeAgdaLanguageServerRepo(globalStorageUri),
-    ~useCache=false,
-  ) {
-  | Error(error) => Error(error)
-  | Ok(releases) => toDownloadDescriptor(releases, platform)
-  }
-}
-
-// download the dev ALS and return the path of the downloaded file
-let download = (memento, globalStorageUri) => async platform =>
-  switch await getDownloadDescriptor(memento, globalStorageUri, platform) {
-  | Error(error) => Error(error)
-  | Ok(downloadDescriptor) =>
-    await Connection__Download.download(globalStorageUri, downloadDescriptor)
-  }

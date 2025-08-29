@@ -16,8 +16,8 @@ module Desktop: Platform.PlatformOps = {
   ) => {
     let repo = switch target {
     | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
-    | DevALS => Connection__DevALS.makeAgdaLanguageServerRepo(globalStorageUri)
-    | DevWASMALS => Connection__DevWASMALS.makeAgdaLanguageServerRepo(globalStorageUri)
+    | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+    | DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
     }
 
     let toDownloadDescriptor = switch target {
