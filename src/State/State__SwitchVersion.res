@@ -707,6 +707,79 @@ module Download = {
 
 // Event handlers module for testability and debugging
 module Handler = {
+  // Helper function to handle dev download logic (DevALS and DevWASMALS)
+  let handleDevDownload = async (
+    state: State.t,
+    platformDeps: Platform.t,
+    target: Connection__Download.target,
+    downloaded: bool,
+    versionString: string,
+  ) => {
+    state.channels.log->Chan.emit(
+      Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
+    )
+
+    if downloaded {
+      // Add already downloaded path to config
+      module PlatformOps = unpack(platformDeps)
+      switch await getDownloadDescriptorWithPlatform(
+        platformDeps,
+        target,
+        false,
+        state.memento,
+        state.globalStorageUri,
+      ) {
+      | Ok(downloadDescriptor) =>
+        // Determine file extension based on target
+        let fileName = switch target {
+        | DevWASMALS => "als.wasm"
+        | DevALS => "als"
+        | LatestALS => "als" // shouldn't happen in this context
+        }
+        let downloadedPath =
+          VSCode.Uri.joinPath(
+            state.globalStorageUri,
+            [downloadDescriptor.saveAsFileName, fileName],
+          )->VSCode.Uri.fsPath
+        await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+      | Error(_) => ()
+      }
+      VSCode.Window.showInformationMessage(
+        versionString ++ " is already downloaded",
+        [],
+      )->Promise.done
+    } else {
+      // Perform download
+      module PlatformOps = unpack(platformDeps)
+      let downloadResult = switch await getDownloadDescriptorWithPlatform(
+        platformDeps,
+        target,
+        false,
+        state.memento,
+        state.globalStorageUri,
+      ) {
+      | Error(error) => Error(error)
+      | Ok(downloadDescriptor) =>
+        await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
+      }
+
+      switch downloadResult {
+      | Error(error) =>
+        VSCode.Window.showErrorMessage(
+          AgdaModeVscode.Connection__Download.Error.toString(error),
+          [],
+        )->Promise.done
+      | Ok(downloadedPath) =>
+        await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+        VSCode.Window.showInformationMessage(
+          versionString ++ " successfully downloaded",
+          [],
+        )->Promise.done
+      }
+    }
+    state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+  }
+
   // Submenu for other versions downloads
   let showOtherVersionsSubmenu = async (state: State.t, platformDeps: Platform.t): unit => {
     let submenuView = View.make(state.channels.log)
@@ -776,63 +849,7 @@ module Handler = {
                 // Handle dev WASM ALS download action
                 switch wasmDownloadInfo {
                 | Some((downloaded, versionString, _)) =>
-                  state.channels.log->Chan.emit(
-                    Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
-                  )
-
-                  if downloaded {
-                    // Add already downloaded path to config
-                    module PlatformOps = unpack(platformDeps)
-                    switch await getDownloadDescriptorWithPlatform(
-                      platformDeps,
-                      DevWASMALS,
-                      false,
-                      state.memento,
-                      state.globalStorageUri,
-                    ) {
-                    | Ok(downloadDescriptor) =>
-                      let downloadedPath =
-                        VSCode.Uri.joinPath(
-                          state.globalStorageUri,
-                          [downloadDescriptor.saveAsFileName, "als.wasm"],
-                        )->VSCode.Uri.fsPath
-                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-                    | Error(_) => ()
-                    }
-                    VSCode.Window.showInformationMessage(
-                      versionString ++ " is already downloaded",
-                      [],
-                    )->Promise.done
-                  } else {
-                    // Perform download
-                    module PlatformOps = unpack(platformDeps)
-                    let downloadResult = switch await getDownloadDescriptorWithPlatform(
-                      platformDeps,
-                      DevWASMALS,
-                      false,
-                      state.memento,
-                      state.globalStorageUri,
-                    ) {
-                    | Error(error) => Error(error)
-                    | Ok(downloadDescriptor) =>
-                      await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
-                    }
-
-                    switch downloadResult {
-                    | Error(error) =>
-                      VSCode.Window.showErrorMessage(
-                        AgdaModeVscode.Connection__Download.Error.toString(error),
-                        [],
-                      )->Promise.done
-                    | Ok(downloadedPath) =>
-                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-                      VSCode.Window.showInformationMessage(
-                        versionString ++ " successfully downloaded",
-                        [],
-                      )->Promise.done
-                    }
-                  }
-                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+                  await handleDevDownload(state, platformDeps, DevWASMALS, downloaded, versionString)
                 | None =>
                   VSCode.Window.showErrorMessage(
                     "Download not available for this platform",
@@ -844,63 +861,7 @@ module Handler = {
                 // Handle dev ALS download action
                 switch devDownloadInfo {
                 | Some((downloaded, versionString, _)) =>
-                  state.channels.log->Chan.emit(
-                    Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
-                  )
-
-                  if downloaded {
-                    // Add already downloaded path to config
-                    module PlatformOps = unpack(platformDeps)
-                    switch await getDownloadDescriptorWithPlatform(
-                      platformDeps,
-                      DevALS,
-                      false,
-                      state.memento,
-                      state.globalStorageUri,
-                    ) {
-                    | Ok(downloadDescriptor) =>
-                      let downloadedPath =
-                        VSCode.Uri.joinPath(
-                          state.globalStorageUri,
-                          [downloadDescriptor.saveAsFileName, "als"],
-                        )->VSCode.Uri.fsPath
-                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-                    | Error(_) => ()
-                    }
-                    VSCode.Window.showInformationMessage(
-                      versionString ++ " is already downloaded",
-                      [],
-                    )->Promise.done
-                  } else {
-                    // Perform download
-                    module PlatformOps = unpack(platformDeps)
-                    let downloadResult = switch await getDownloadDescriptorWithPlatform(
-                      platformDeps,
-                      DevALS,
-                      false,
-                      state.memento,
-                      state.globalStorageUri,
-                    ) {
-                    | Error(error) => Error(error)
-                    | Ok(downloadDescriptor) =>
-                      await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
-                    }
-
-                    switch downloadResult {
-                    | Error(error) =>
-                      VSCode.Window.showErrorMessage(
-                        AgdaModeVscode.Connection__Download.Error.toString(error),
-                        [],
-                      )->Promise.done
-                    | Ok(downloadedPath) =>
-                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-                      VSCode.Window.showInformationMessage(
-                        versionString ++ " successfully downloaded",
-                        [],
-                      )->Promise.done
-                    }
-                  }
-                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+                  await handleDevDownload(state, platformDeps, DevALS, downloaded, versionString)
                 | None =>
                   VSCode.Window.showErrorMessage(
                     "Download not available for this platform",
