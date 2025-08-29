@@ -56,7 +56,9 @@ let download = async (globalStorageUri, downloadDescriptor) => {
   ) {
   | Error(error) => Error(Error.CannotDownloadALS(error))
   | Ok(_isCached) =>
-    let destUri = VSCode.Uri.joinPath(globalStorageUri, [downloadDescriptor.saveAsFileName, "als"])
+    // For WASM, the extracted file should be als.wasm instead of als
+    let fileName = if downloadDescriptor.saveAsFileName == "dev-wasm-als" { "als.wasm" } else { "als" }
+    let destUri = VSCode.Uri.joinPath(globalStorageUri, [downloadDescriptor.saveAsFileName, fileName])
     let destPath = VSCode.Uri.fsPath(destUri)
     Ok(destPath)
   }
@@ -124,50 +126,58 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         }
         Error(Error.CannotDownloadFromURL(convertedError))
       | Ok() =>
-        // Validate that we got a ZIP file, not HTML by checking first 4 bytes
-        let readResult = await FS.readFile(tempFileUri)
-        let isPKHeader = switch readResult {
-        | Error(_) => false
-        | Ok(uint8Array) =>
-          // Check if file starts with ZIP signature (first 4 bytes should be PK\x03\x04)
-          // Check for ZIP signature: bytes 0x50, 0x4B, 0x03, 0x04 (which is "PK\x03\x04")
-          if TypedArray.length(uint8Array) >= 4 {
-            TypedArray.get(uint8Array, 0)->Option.getOr(0) == 80 &&
-            // 0x50
-            TypedArray.get(uint8Array, 1)->Option.getOr(0) == 75 &&
-            // 0x4B
-            TypedArray.get(uint8Array, 2)->Option.getOr(0) == 3 &&
-            // 0x03
-            TypedArray.get(uint8Array, 3)->Option.getOr(0) == 4 // 0x04
-          } else {
-            false
-          }
-        }
-        if !isPKHeader {
-          // Not a ZIP file signature
-          // Not a ZIP file - likely HTML error page
-          let _ = await FS.delete(tempFileUri)
-          let genericError = Obj.magic({
-            "message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link.",
-          })
-          Error(
-            Error.CannotDownloadFromURL(
-              Connection__Download__GitHub.Error.CannotReadFile(genericError),
-            ),
-          )
+        // For WASM, skip ZIP validation and extraction - it's a raw binary
+        if saveAsFileName == "dev-wasm-als" {
+          // WASM file - save directly as als.wasm
+          let wasmExecUri = VSCode.Uri.joinPath(destDirUri, ["als.wasm"])
+          let _ = await FS.rename(tempFileUri, wasmExecUri)
+          Ok(VSCode.Uri.fsPath(wasmExecUri))
         } else {
-          // Proceed with extraction
-          let zipFileUri = VSCode.Uri.joinPath(destDirUri, ["download.zip"])
-          let _ = await FS.rename(tempFileUri, zipFileUri)
+          // Regular ZIP file processing
+          let readResult = await FS.readFile(tempFileUri)
+          let isPKHeader = switch readResult {
+          | Error(_) => false
+          | Ok(uint8Array) =>
+            // Check if file starts with ZIP signature (first 4 bytes should be PK\x03\x04)
+            // Check for ZIP signature: bytes 0x50, 0x4B, 0x03, 0x04 (which is "PK\x03\x04")
+            if TypedArray.length(uint8Array) >= 4 {
+              TypedArray.get(uint8Array, 0)->Option.getOr(0) == 80 &&
+              // 0x50
+              TypedArray.get(uint8Array, 1)->Option.getOr(0) == 75 &&
+              // 0x4B
+              TypedArray.get(uint8Array, 2)->Option.getOr(0) == 3 &&
+              // 0x03
+              TypedArray.get(uint8Array, 3)->Option.getOr(0) == 4 // 0x04
+            } else {
+              false
+            }
+          }
+          if !isPKHeader {
+            // Not a ZIP file signature
+            // Not a ZIP file - likely HTML error page
+            let _ = await FS.delete(tempFileUri)
+            let genericError = Obj.magic({
+              "message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link.",
+            })
+            Error(
+              Error.CannotDownloadFromURL(
+                Connection__Download__GitHub.Error.CannotReadFile(genericError),
+              ),
+            )
+          } else {
+            // Proceed with extraction
+            let zipFileUri = VSCode.Uri.joinPath(destDirUri, ["download.zip"])
+            let _ = await FS.rename(tempFileUri, zipFileUri)
 
-          // Extract ZIP file
-          await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
+            // Extract ZIP file
+            await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
 
-          // Remove ZIP file after extraction
-          let _ = await FS.delete(zipFileUri)
+            // Remove ZIP file after extraction
+            let _ = await FS.delete(zipFileUri)
 
-          // Add the path of the downloaded file to the config
-          Ok(VSCode.Uri.fsPath(execPathUri))
+            // Add the path of the downloaded file to the config
+            Ok(VSCode.Uri.fsPath(execPathUri))
+          }
         }
       }
     } catch {
@@ -189,7 +199,7 @@ let alreadyDownloaded = async (globalStorageUri, target) => {
   let paths = switch target {
   | LatestALS => ["latest-als", "als"]
   | DevALS => ["dev-als", "als"]
-  | DevWASMALS => ["dev-als", "als.wasm"]
+  | DevWASMALS => ["dev-wasm-als", "als.wasm"]
   }
   let uri = VSCode.Uri.joinPath(globalStorageUri, paths)
   switch await FS.stat(uri) {

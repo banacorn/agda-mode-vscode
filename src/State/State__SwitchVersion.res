@@ -794,7 +794,7 @@ module Handler = {
                       let downloadedPath =
                         VSCode.Uri.joinPath(
                           state.globalStorageUri,
-                          [downloadDescriptor.saveAsFileName, "als"],
+                          [downloadDescriptor.saveAsFileName, "als.wasm"],
                         )->VSCode.Uri.fsPath
                       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
                     | Error(_) => ()

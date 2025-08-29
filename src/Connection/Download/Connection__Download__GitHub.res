@@ -422,16 +422,34 @@ module Module: {
     let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
-      // suffix with ".zip" after downloaded
-      switch await FS.rename(inFlightDownloadUri, inFlightDownloadZipUri) {
-      | Error(e) => Error(Error.CannotRenameFile(e))
-      | Ok() =>
-        // unzip the downloaded file
-        await Unzip.run(inFlightDownloadZipUri, destPath)
-        // remove the zip file
-        switch await FS.delete(inFlightDownloadZipUri) {
-        | Error(e) => Error(Error.CannotDeleteFile(e))
+      // For WASM files, skip unzip and save directly
+      if downloadDescriptor.saveAsFileName == "dev-wasm-als" {
+        // WASM - raw binary, no unzipping needed
+        // Create destination directory
+        switch await FS.createDirectory(destPath) {
+        | Error(_) => () // Directory might already exist
+        | Ok(_) => ()
+        }
+        
+        // Move file directly to final location as als.wasm
+        let wasmDestUri = VSCode.Uri.joinPath(destPath, ["als.wasm"])
+        switch await FS.rename(inFlightDownloadUri, wasmDestUri) {
+        | Error(e) => Error(Error.CannotRenameFile(e))
         | Ok() => Ok()
+        }
+      } else {
+        // Regular ZIP file processing
+        // suffix with ".zip" after downloaded
+        switch await FS.rename(inFlightDownloadUri, inFlightDownloadZipUri) {
+        | Error(e) => Error(Error.CannotRenameFile(e))
+        | Ok() =>
+          // unzip the downloaded file
+          await Unzip.run(inFlightDownloadZipUri, destPath)
+          // remove the zip file
+          switch await FS.delete(inFlightDownloadZipUri) {
+          | Error(e) => Error(Error.CannotDeleteFile(e))
+          | Ok() => Ok()
+          }
         }
       }
     }
