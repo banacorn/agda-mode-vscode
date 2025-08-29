@@ -548,7 +548,7 @@ module Download = {
         )
         let downloaded = switch await PlatformOps.alreadyDownloaded(
           filepath,
-          ["latest-als", "als"],
+          LatestALS,
         ) {
         | Some(_) => true
         | None => false
@@ -593,9 +593,9 @@ module Download = {
       | Error(_error) => None
       | Ok(downloadDescriptor) =>
         // Check if already downloaded
-        let downloaded = switch await Connection__Download.alreadyDownloaded(
+        let downloaded = switch await PlatformOps.alreadyDownloaded(
           state.globalStorageUri,
-          ["dev-als", "als"],
+          DevALS,
         ) {
         | Some(_) => true
         | None => false

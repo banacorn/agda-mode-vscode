@@ -15,10 +15,7 @@ describe("Download", () => {
         ])
 
         let globalStorageUri = VSCode.Uri.file(nonExistentDir)
-        let result = await Connection__Download.alreadyDownloaded(
-          globalStorageUri,
-          ["dev-als", "als"],
-        )
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
 
         Assert.deepStrictEqual(result, None)
       },
@@ -39,10 +36,7 @@ describe("Download", () => {
         NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
 
         let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(
-          globalStorageUri,
-          ["dev-als", "als"],
-        )
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
 
         Assert.deepStrictEqual(result, Some(alsExecutable))
 
@@ -66,10 +60,7 @@ describe("Download", () => {
         await NodeJs.Fs.mkdir(devAlsDir, {recursive: true, mode: 0o777})
 
         let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(
-          globalStorageUri,
-          ["dev-als", "als"],
-        )
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
 
         Assert.deepStrictEqual(result, None)
 
@@ -91,10 +82,7 @@ describe("Download", () => {
         await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
 
         let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(
-          globalStorageUri,
-          ["dev-als", "als"],
-        )
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
 
         Assert.deepStrictEqual(result, None)
 

@@ -14,7 +14,7 @@ module type PlatformOps = {
   // Download operations
   // given a global storage URI, and an array of path segments,
   // check if the file is already downloaded at that location
-  let alreadyDownloaded: (VSCode.Uri.t, array<string>) => promise<option<string>>
+  let alreadyDownloaded: (VSCode.Uri.t, Connection__Download.target) => promise<option<string>>
 
   let getDownloadDescriptor: (
     Connection__Download.target,

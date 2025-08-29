@@ -185,7 +185,12 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 }
 
 // Check if something is already downloaded
-let alreadyDownloaded = async (globalStorageUri, paths) => {
+let alreadyDownloaded = async (globalStorageUri, target) => {
+  let paths = switch target {
+  | LatestALS => ["latest-als", "als"]
+  | DevALS => ["dev-als", "als"]
+  | DevWASMALS => ["dev-als", "als.wasm"]
+  }
   let uri = VSCode.Uri.joinPath(globalStorageUri, paths)
   switch await FS.stat(uri) {
   | Ok(_) => Some(uri->VSCode.Uri.fsPath)
