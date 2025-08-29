@@ -773,12 +773,73 @@ module Handler = {
             if String.startsWith(selectedItem.label, "$(cloud-download)") {
               // Check if WASM build was selected
               if String.includes(selectedItem.label, "WASM") {
-                // WASM download is a no-op for now
-                VSCode.Window.showInformationMessage(
-                  "WASM download not yet implemented",
-                  [],
-                )->Promise.done
-                state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+                // Handle dev WASM ALS download action
+                switch wasmDownloadInfo {
+                | Some((downloaded, versionString, _)) =>
+                  state.channels.log->Chan.emit(
+                    Log.SwitchVersionUI(SelectedDownloadAction(downloaded, versionString)),
+                  )
+
+                  if downloaded {
+                    // Add already downloaded path to config
+                    module PlatformOps = unpack(platformDeps)
+                    switch await getDownloadDescriptorWithPlatform(
+                      platformDeps,
+                      DevWASMALS,
+                      false,
+                      state.memento,
+                      state.globalStorageUri,
+                    ) {
+                    | Ok(downloadDescriptor) =>
+                      let downloadedPath =
+                        VSCode.Uri.joinPath(
+                          state.globalStorageUri,
+                          [downloadDescriptor.saveAsFileName, "als"],
+                        )->VSCode.Uri.fsPath
+                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+                    | Error(_) => ()
+                    }
+                    VSCode.Window.showInformationMessage(
+                      versionString ++ " is already downloaded",
+                      [],
+                    )->Promise.done
+                  } else {
+                    // Perform download
+                    module PlatformOps = unpack(platformDeps)
+                    let downloadResult = switch await getDownloadDescriptorWithPlatform(
+                      platformDeps,
+                      DevWASMALS,
+                      false,
+                      state.memento,
+                      state.globalStorageUri,
+                    ) {
+                    | Error(error) => Error(error)
+                    | Ok(downloadDescriptor) =>
+                      await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
+                    }
+
+                    switch downloadResult {
+                    | Error(error) =>
+                      VSCode.Window.showErrorMessage(
+                        AgdaModeVscode.Connection__Download.Error.toString(error),
+                        [],
+                      )->Promise.done
+                    | Ok(downloadedPath) =>
+                      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+                      VSCode.Window.showInformationMessage(
+                        versionString ++ " successfully downloaded",
+                        [],
+                      )->Promise.done
+                    }
+                  }
+                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+                | None =>
+                  VSCode.Window.showErrorMessage(
+                    "Download not available for this platform",
+                    [],
+                  )->Promise.done
+                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+                }
               } else {
                 // Handle dev ALS download action
                 switch devDownloadInfo {
