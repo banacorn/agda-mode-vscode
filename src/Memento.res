@@ -37,6 +37,7 @@ module Module: {
     let setVersion: (t, filepath, endpoint) => promise<unit>
     let setError: (t, filepath, string) => promise<unit>
     let syncWithPaths: (t, Dict.t<endpoint>) => promise<unit>
+    let clear: t => promise<unit>
   }
 
   module ALSReleaseCache: {
@@ -45,11 +46,13 @@ module Module: {
     let getReleases: t => option<'releases>
     let setReleases: (t, 'releases) => promise<unit>
     let getCacheAgeInSecs: t => option<int>
+    let clear: t => promise<unit>
   }
 
   module PickedConnection: {
     let get: t => option<string>
     let set: (t, option<string>) => promise<unit>
+    let clear: t => promise<unit>
   }
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
@@ -196,6 +199,10 @@ module Module: {
 
       await memento->set(key, newCache)
     }
+    
+    let clear = async (memento: t): unit => {
+      await memento->set(key, Dict.make())
+    }
   }
 
   module ALSReleaseCache = {
@@ -228,6 +235,12 @@ module Module: {
         Some(int_of_float(ageInMs /. 1000.0))
       }
     }
+    
+    // clear the release cache by removing both timestamp and releases
+    let clear = async (memento: t): unit => {
+      await memento->set(timestampKey, None)
+      await memento->set(releasesKey, None)
+    }
   }
 
   module PickedConnection = {
@@ -239,6 +252,10 @@ module Module: {
 
     let set = async (memento: t, path: option<string>): unit => {
       await memento->set(key, path)
+    }
+    
+    let clear = async (memento: t): unit => {
+      await set(memento, None)
     }
   }
 }

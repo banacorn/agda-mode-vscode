@@ -3,7 +3,7 @@ let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
   repository: "agda-language-server",
   userAgent: "banacorn/agda-mode-vscode",
   globalStorageUri,
-  cacheInvalidateExpirationSecs: 86400,
+  cacheInvalidateExpirationSecs: 3600,
 }
 
 let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>) => {
