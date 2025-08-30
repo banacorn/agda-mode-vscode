@@ -17,6 +17,17 @@ module DownloadOrderAbstract = {
     }
 }
 
+module DownloadOrderConcrete = {
+  type t = FromGitHub(DownloadOrderAbstract.t, Connection__Download__GitHub.DownloadDescriptor.t)
+
+  let toString = order =>
+    switch order {
+    | FromGitHub(abstractOrder, descriptor) =>
+      DownloadOrderAbstract.toString(abstractOrder) ++
+      Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
+    }
+}
+
 module Error = {
   type t =
     | OptedNotToDownload
@@ -47,7 +58,6 @@ module Error = {
     }
 }
 
-
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
@@ -57,22 +67,31 @@ let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
 }
 
 // Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, downloadDescriptor) => {
-  let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-  switch await Connection__Download__GitHub.download(
-    downloadDescriptor,
-    globalStorageUri,
-    reportProgress,
-  ) {
-  | Error(error) => Error(Error.CannotDownloadALS(error))
-  | Ok(_isCached) =>
-    // For WASM, the extracted file should be als.wasm instead of als
-    let fileName = if downloadDescriptor.saveAsFileName == "dev-wasm-als" { "als.wasm" } else { "als" }
-    let destUri = VSCode.Uri.joinPath(globalStorageUri, [downloadDescriptor.saveAsFileName, fileName])
-    let destPath = VSCode.Uri.fsPath(destUri)
-    Ok(destPath)
+let download = async (globalStorageUri, order) =>
+  switch order {
+  | DownloadOrderConcrete.FromGitHub(_, downloadDescriptor) =>
+    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+    switch await Connection__Download__GitHub.download(
+      downloadDescriptor,
+      globalStorageUri,
+      reportProgress,
+    ) {
+    | Error(error) => Error(Error.CannotDownloadALS(error))
+    | Ok(_isCached) =>
+      // For WASM, the extracted file should be als.wasm instead of als
+      let fileName = if downloadDescriptor.saveAsFileName == "dev-wasm-als" {
+        "als.wasm"
+      } else {
+        "als"
+      }
+      let destUri = VSCode.Uri.joinPath(
+        globalStorageUri,
+        [downloadDescriptor.saveAsFileName, fileName],
+      )
+      let destPath = VSCode.Uri.fsPath(destUri)
+      Ok(destPath)
+    }
   }
-}
 
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
 let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
@@ -205,8 +224,8 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 }
 
 // Check if something is already downloaded
-let alreadyDownloaded = async (globalStorageUri, target) => {
-  let paths = switch target {
+let alreadyDownloaded = async (globalStorageUri, order) => {
+  let paths = switch order {
   | DownloadOrderAbstract.LatestALS => ["latest-als", "als"]
   | DownloadOrderAbstract.DevALS => ["dev-als", "als"]
   | DownloadOrderAbstract.DevWASMALS => ["dev-wasm-als", "als.wasm"]

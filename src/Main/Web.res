@@ -12,115 +12,28 @@ module Web: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
-  // helper function for fetching release manifest without cache
-  // let getDownloadDescriptorOld = async (url, header) => {
-  //   let fetchReleases = async () => {
-  //     try {
-  //       let response = await Fetch.fetch(
-  //         url,
-  //         {
-  //           method: #GET,
-  //           mode: #cors,
-  //           redirect: #follow,
-  //           credentials: #omit, // important: no cookies/credentials
-  //           headers: Fetch.Headers.make(Fetch.Headers.Init.object(header)), // optional but recommended
-  //         },
-  //       )
-  //       if Fetch.Response.ok(response) {
-  //         let json = await Fetch.Response.json(response)
-  //         switch json->Connection__Download__GitHub.Release.decodeReleases {
-  //         | Ok(releases) => Ok(releases)
-  //         | Error(decodeError) =>
-  //           Error(Connection__Download.Error.CannotFetchALSReleases(decodeError))
-  //         }
-  //       } else {
-  //         let serverError = Obj.magic({"message": "GitHub API request failed"})
-  //         Error(
-  //           Connection__Download.Error.CannotFetchALSReleases(
-  //             Connection__Download__GitHub.Error.CannotGetReleases(
-  //               Connection__Download__Util.Error.ServerResponseError(serverError),
-  //             ),
-  //           ),
-  //         )
-  //       }
-  //     } catch {
-  //     | _ =>
-  //       let networkError = Obj.magic({"message": "Network error"})
-  //       Error(
-  //         Connection__Download.Error.CannotFetchALSReleases(
-  //           Connection__Download__GitHub.Error.CannotGetReleases(
-  //             Connection__Download__Util.Error.ServerResponseError(networkError),
-  //           ),
-  //         ),
-  //       )
-  //     }
-  //   }
-
-  //   switch await fetchReleases() {
-  //   | Error(error) => Error(error)
-  //   | Ok(releases) =>
-  //     // we want only the "dev" release
-  //     let pinnedRelease =
-  //       releases->Array.find(release =>
-  //         release.tag_name == "dev" || release.name == "Development Release (dev)"
-  //       )
-
-  //     switch pinnedRelease {
-  //     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-  //     | Some(pinnedRelease) =>
-  //       // the WASM asset is named "als-dev-wasm" at the moment
-  //       let result = pinnedRelease.assets->Array.find(asset => asset.name == "als-dev-wasm")
-  //       switch result {
-  //       | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-  //       | Some(asset) =>
-  //         Ok({
-  //           Connection__Download__GitHub.DownloadDescriptor.release: pinnedRelease,
-  //           asset,
-  //           saveAsFileName: "dev-als",
-  //         })
-  //       }
-  //     }
-  //   }
-  // }
-
-  let getDownloadDescriptor = (target: Connection__Download.DownloadOrderAbstract.t, useCache) => async (
+  let resolveDownloadOrder = (order: Connection__Download.DownloadOrderAbstract.t, useCache) => async (
     memento,
     globalStorageUri,
     platform,
   ) => {
-    let repo = switch target {
-    | Connection__Download.DownloadOrderAbstract.LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
-    | Connection__Download.DownloadOrderAbstract.DevALS => Connection__DevALS.makeRepo(globalStorageUri)
-    | Connection__Download.DownloadOrderAbstract.DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
+    let repo = switch order {
+    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+    | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+    | DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
     }
 
-    let toDownloadDescriptor = switch target {
-    | Connection__Download.DownloadOrderAbstract.LatestALS => Connection__LatestALS.toDownloadDescriptor(_, platform)
-    | Connection__Download.DownloadOrderAbstract.DevALS => Connection__DevALS.toDownloadDescriptor(_, platform)
-    | Connection__Download.DownloadOrderAbstract.DevWASMALS => Connection__DevWASMALS.toDownloadDescriptor(_)
+    let toDownloadOrder = switch order {
+    | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
+    | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
+    | DevWASMALS => Connection__DevWASMALS.toDownloadOrder(_)
     }
 
     switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
     | Error(error) => Error(error)
-    | Ok(releases) => toDownloadDescriptor(releases)
+    | Ok(releases) => toDownloadOrder(releases)
     }
   }
-
-  // let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
-  //   Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-  // let getDownloadDescriptorOfDevALS = (_memento, _globalStorageUri, _platform) =>
-  //   getDownloadDescriptorOld(
-  //     "https://api.github.com/repos/banacorn/agda-language-server/releases",
-  //     {"Accept": "application/vnd.github+json"},
-  //   )
-  // let getDownloadDescriptorOfDevWASMALS = (_memento, _globalStorageUri, _platform) =>
-  //   getDownloadDescriptorOld(
-  //     "https://api.github.com/repos/banacorn/agda-language-server/releases",
-  //     {"Accept": "application/vnd.github+json"},
-  //   )
-  // let getDownloadDescriptorOfLatestALS = async (_, _, _) => Error(
-  //   Connection__Download.Error.CannotFindCompatibleALSRelease,
-  // )
 
   let download = Connection__Download.download
 

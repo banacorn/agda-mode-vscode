@@ -13,7 +13,7 @@ module type PlatformOps = {
 
   // Download operations
   let alreadyDownloaded: (VSCode.Uri.t, Connection__Download.DownloadOrderAbstract.t) => promise<option<string>>
-  let getDownloadDescriptor: (
+  let resolveDownloadOrder: (
     Connection__Download.DownloadOrderAbstract.t,
     bool,
   ) => (
@@ -21,11 +21,11 @@ module type PlatformOps = {
     VSCode.Uri.t,
     Connection__Download__Platform.t,
   ) => promise<
-    result<Connection__Download__GitHub.DownloadDescriptor.t, Connection__Download.Error.t>,
+    result<Connection__Download.DownloadOrderConcrete.t, Connection__Download.Error.t>,
   >
   let download: (
     VSCode.Uri.t,
-    Connection__Download__GitHub.DownloadDescriptor.t,
+    Connection__Download.DownloadOrderConcrete.t,
   ) => promise<result<string, Connection__Download.Error.t>>
 
   // User interaction

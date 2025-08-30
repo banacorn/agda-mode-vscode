@@ -42,7 +42,7 @@ module DownloadDescriptor = {
 
   let mockWith = (
     f: Connection__Download.DownloadOrderAbstract.t => result<
-      Connection__Download__GitHub.DownloadDescriptor.t,
+      Connection__Download.DownloadOrderConcrete.t,
       Connection__Download.Error.t,
     >,
   ) => (target, _) => async (_, _, _) => f(target)
@@ -55,16 +55,16 @@ module Platform = {
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
     let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-    let getDownloadDescriptor = DownloadDescriptor.mockWith(_ => Error(
+    let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
       Connection__Download.Error.CannotFindCompatibleALSRelease,
     ))
     let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getDownloadDescriptorOfDevALS = (_memento, _globalStorageUri, _platform) =>
+    let resolveDownloadOrderOfDevALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getDownloadDescriptorOfDevWASMALS = (_memento, _globalStorageUri, _) =>
+    let resolveDownloadOrderOfDevWASMALS = (_memento, _globalStorageUri, _) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
+    let resolveDownloadOrderOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let download = (_globalStorageUri, _downloadDescriptor) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -79,16 +79,16 @@ module Platform = {
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
     let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-    let getDownloadDescriptor = DownloadDescriptor.mockWith(_ => Error(
+    let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
       Connection__Download.Error.CannotFindCompatibleALSRelease,
     ))
     let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getDownloadDescriptorOfDevALS = (_memento, _globalStorageUri, _platform) =>
+    let resolveDownloadOrderOfDevALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getDownloadDescriptorOfDevWASMALS = (_memento, _globalStorageUri, _) =>
+    let resolveDownloadOrderOfDevWASMALS = (_memento, _globalStorageUri, _) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getDownloadDescriptorOfLatestALS = (_memento, _globalStorageUri, _platform) =>
+    let resolveDownloadOrderOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let download = (_globalStorageUri, _downloadDescriptor) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -103,7 +103,7 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => policy
       let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(_ => Error(
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
       let download = (_globalStorageUri, _downloadDescriptor) =>
@@ -127,7 +127,7 @@ module Platform = {
         policy
       }
       let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(_ => Error(
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
       let download = (_globalStorageUri, _downloadDescriptor) =>
@@ -146,11 +146,14 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
       let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(target =>
-        switch target {
-        | Connection__Download.DownloadOrderAbstract.LatestALS => Ok(DownloadDescriptor.mockLatestALS)
-        | Connection__Download.DownloadOrderAbstract.DevALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Connection__Download.DownloadOrderAbstract.DevWASMALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
+        switch order {
+        | Connection__Download.DownloadOrderAbstract.LatestALS =>
+          Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | Connection__Download.DownloadOrderAbstract.DevALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor) => Promise.resolve(Ok(downloadedPath))
@@ -168,7 +171,7 @@ module Platform = {
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
       let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(_ => Error(
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
       let download = (_globalStorageUri, _downloadDescriptor) =>
@@ -194,11 +197,14 @@ module Platform = {
         checkedCacheFlag := true
         Promise.resolve(None)
       }
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(target =>
-        switch target {
-        | Connection__Download.DownloadOrderAbstract.LatestALS => Ok(DownloadDescriptor.mockLatestALS)
-        | Connection__Download.DownloadOrderAbstract.DevALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Connection__Download.DownloadOrderAbstract.DevWASMALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
+        switch order {
+        | Connection__Download.DownloadOrderAbstract.LatestALS =>
+          Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | Connection__Download.DownloadOrderAbstract.DevALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor) => {
@@ -222,7 +228,7 @@ module Platform = {
         Promise.resolve(Some(cachedPath))
       }
 
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(_ => Error(
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
       let download = (_globalStorageUri, _downloadDescriptor) =>
@@ -250,9 +256,9 @@ module Platform = {
         checkedCacheFlag := true
         Promise.resolve(None)
       }
-      let getDownloadDescriptor = DownloadDescriptor.mockWith(target =>
-        switch target {
-        | LatestALS => Ok(DownloadDescriptor.mockLatestALS)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
+        switch order {
+        | LatestALS => Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
         | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )

@@ -9,26 +9,25 @@ module Desktop: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
-  let getDownloadDescriptor = (target: Connection__Download.DownloadOrderAbstract.t, useCache) => async (
-    memento,
-    globalStorageUri,
-    platform,
-  ) => {
-    let repo = switch target {
-    | Connection__Download.DownloadOrderAbstract.LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
-    | Connection__Download.DownloadOrderAbstract.DevALS => Connection__DevALS.makeRepo(globalStorageUri)
-    | Connection__Download.DownloadOrderAbstract.DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
+  let resolveDownloadOrder = (
+    order: Connection__Download.DownloadOrderAbstract.t,
+    useCache,
+  ) => async (memento, globalStorageUri, platform) => {
+    let repo = switch order {
+    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+    | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+    | DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
     }
 
-    let toDownloadDescriptor = switch target {
-    | Connection__Download.DownloadOrderAbstract.LatestALS => Connection__LatestALS.toDownloadDescriptor(_, platform)
-    | Connection__Download.DownloadOrderAbstract.DevALS => Connection__DevALS.toDownloadDescriptor(_, platform)
-    | Connection__Download.DownloadOrderAbstract.DevWASMALS => Connection__DevWASMALS.toDownloadDescriptor(_)
+    let toDownloadOrder = switch order {
+    | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
+    | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
+    | DevWASMALS => Connection__DevWASMALS.toDownloadOrder(_)
     }
 
     switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
     | Error(error) => Error(error)
-    | Ok(releases) => toDownloadDescriptor(releases)
+    | Ok(releases) => toDownloadOrder(releases)
     }
   }
   let download = Connection__Download.download

@@ -249,6 +249,17 @@ module DownloadDescriptor = {
     asset: Asset.t, // the asset of that release
     saveAsFileName: string, // file name of the downloaded asset
   }
+
+  let toString = desc =>
+    "{" ++
+    Js.Dict.fromArray([
+      ("release", Release.toString(desc.release)),
+      ("asset", Asset.toString(desc.asset)),
+      ("saveAsFileName", desc.saveAsFileName),
+    ])
+    ->Js.Dict.entries
+    ->Array.map(((k, v)) => k ++ ": " ++ v)
+    ->Array.join(", ") ++ "}"
 }
 
 // helper function for chmoding 744 the executable
@@ -430,7 +441,7 @@ module Module: {
         | Error(_) => () // Directory might already exist
         | Ok(_) => ()
         }
-        
+
         // Move file directly to final location as als.wasm
         let wasmDestUri = VSCode.Uri.joinPath(destPath, ["als.wasm"])
         switch await FS.rename(inFlightDownloadUri, wasmDestUri) {

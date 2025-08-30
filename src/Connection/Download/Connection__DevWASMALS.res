@@ -6,7 +6,7 @@ let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
   cacheInvalidateExpirationSecs: 86400,
 }
 
-let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release.t>) => {
+let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>) => {
   // target the specific "dev" release
   let devRelease = releases->Array.find(release => release.tag_name == "dev")
 
@@ -19,11 +19,16 @@ let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release
     switch wasmAsset {
     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
     | Some(asset) =>
-      Ok({
-        Connection__Download__GitHub.DownloadDescriptor.release: devRelease,
-        asset,
-        saveAsFileName: "dev-wasm-als",
-      })
+      Ok(
+        Connection__Download.DownloadOrderConcrete.FromGitHub(
+          DevWASMALS,
+          {
+            Connection__Download__GitHub.DownloadDescriptor.release: devRelease,
+            asset,
+            saveAsFileName: "dev-wasm-als",
+          },
+        ),
+      )
     }
   }
 }

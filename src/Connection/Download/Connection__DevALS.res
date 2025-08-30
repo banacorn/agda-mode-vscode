@@ -13,7 +13,7 @@ let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, pl
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
-let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
+let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
   // target the specific "dev" release
   let devRelease = releases->Array.find(release => release.tag_name == "dev")
 
@@ -39,7 +39,7 @@ let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release
 
     switch result {
     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-    | Some(downloadDescriptor) => Ok(downloadDescriptor)
+    | Some(downloadDescriptor) => Ok(Connection__Download.DownloadOrderConcrete.FromGitHub(DevALS, downloadDescriptor))
     }
   }
 }

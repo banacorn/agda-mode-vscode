@@ -308,10 +308,13 @@ module Module: Module = {
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         // Get the downloaded path, download if not already done
-        let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri, Connection__Download.DownloadOrderAbstract.LatestALS) {
+        let downloadResult = switch await PlatformOps.alreadyDownloaded(
+          globalStorageUri,
+          LatestALS,
+        ) {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.getDownloadDescriptor(Connection__Download.DownloadOrderAbstract.LatestALS, true)(
+          switch await PlatformOps.resolveDownloadOrder(LatestALS, true)(
             memento,
             globalStorageUri,
             platform,

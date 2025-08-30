@@ -14,7 +14,7 @@ let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, pl
 }
 
 // Given a list of releases, choose the latest compatible release for the given platform
-let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
+let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
   // only releases after 2024-12-18 are considered
   let laterReleases =
     releases->Array.filter(release =>
@@ -48,17 +48,8 @@ let toDownloadDescriptor = (releases: array<Connection__Download__GitHub.Release
 
     switch result {
     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-    | Some(downloadDescriptor) => Ok(downloadDescriptor)
+    | Some(downloadDescriptor) =>
+      Ok(Connection__Download.DownloadOrderConcrete.FromGitHub(LatestALS, downloadDescriptor))
     }
-  }
-}
-
-let getDownloadDescriptor = async (memento, globalStorageUri, platform) => {
-  switch await Connection__Download.getReleaseManifestFromGitHub(
-    memento,
-    makeRepo(globalStorageUri),
-  ) {
-  | Error(error) => Error(error)
-  | Ok(releases) => toDownloadDescriptor(releases, platform)
   }
 }

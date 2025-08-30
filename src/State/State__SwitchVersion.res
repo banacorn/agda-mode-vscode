@@ -451,8 +451,8 @@ module SwitchVersionManager = {
   }
 }
 
-// Helper function to combine `PlatformOps.determinePlatform` + `PlatformOps.getDownloadDescriptor`
-let getDownloadDescriptorWithPlatform = async (
+// Helper function to combine `PlatformOps.determinePlatform` + `PlatformOps.resolveDownloadOrder`
+let resolveDownloadOrderWithPlatform = async (
   platformOps: Platform.t,
   target: Connection__Download.DownloadOrderAbstract.t,
   memento: Memento.t,
@@ -462,7 +462,7 @@ let getDownloadDescriptorWithPlatform = async (
   switch await PlatformOps.determinePlatform() {
   | Error(_error) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
   | Ok(platform) =>
-    await PlatformOps.getDownloadDescriptor(target, true)(memento, globalStorageUri, platform)
+    await PlatformOps.resolveDownloadOrder(target, true)(memento, globalStorageUri, platform)
   }
 }
 
@@ -549,14 +549,14 @@ module Download = {
     module PlatformOps = unpack(platformDeps)
 
     // Check if we can download ALS for this platform
-    switch await getDownloadDescriptorWithPlatform(
+    switch await resolveDownloadOrderWithPlatform(
       platformDeps,
       LatestALS,
       state.memento,
       state.globalStorageUri,
     ) {
     | Error(_) => None
-    | Ok(downloadDescriptor) =>
+    | Ok(FromGitHub(_order, downloadDescriptor)) =>
       // Check if already downloaded
       let downloaded = switch await PlatformOps.alreadyDownloaded(
         state.globalStorageUri,
@@ -593,14 +593,14 @@ module Download = {
     module PlatformOps = unpack(platformDeps)
 
     // Check if we can download dev ALS for this platform
-    switch await getDownloadDescriptorWithPlatform(
+    switch await resolveDownloadOrderWithPlatform(
       platformDeps,
       DevALS,
       state.memento,
       state.globalStorageUri,
     ) {
     | Error(_error) => None
-    | Ok(downloadDescriptor) =>
+    | Ok(FromGitHub(_order, downloadDescriptor)) =>
       // Check if already downloaded
       let downloaded = switch await PlatformOps.alreadyDownloaded(state.globalStorageUri, DevALS) {
       | Some(_) => true
@@ -628,7 +628,7 @@ module Download = {
     module PlatformOps = unpack(platformDeps)
 
     // Check if we can download dev WASM ALS for this platform
-    switch await getDownloadDescriptorWithPlatform(
+    switch await resolveDownloadOrderWithPlatform(
       platformDeps,
       DevWASMALS,
       state.memento,
@@ -710,15 +710,15 @@ module Handler = {
     if downloaded {
       // Add already downloaded path to config
       module PlatformOps = unpack(platformDeps)
-      switch await getDownloadDescriptorWithPlatform(
+      switch await resolveDownloadOrderWithPlatform(
         platformDeps,
         target,
         state.memento,
         state.globalStorageUri,
       ) {
-      | Ok(downloadDescriptor) =>
-        // Determine file extension based on target
-        let fileName = switch target {
+      | Ok(FromGitHub(order, downloadDescriptor)) =>
+        // Determine file extension based on order
+        let fileName = switch order {
         | DevWASMALS => "als.wasm"
         | DevALS | LatestALS => "als"
         }
@@ -737,7 +737,7 @@ module Handler = {
     } else {
       // Perform download
       module PlatformOps = unpack(platformDeps)
-      let downloadResult = switch await getDownloadDescriptorWithPlatform(
+      let downloadResult = switch await resolveDownloadOrderWithPlatform(
         platformDeps,
         target,
         state.memento,
