@@ -566,19 +566,8 @@ module Download = {
       | None => false
       }
 
-      // Format version string for display
-      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-        asset.name
-        ->String.replaceRegExp(%re("/als-Agda-/"), "")
-        ->String.replaceRegExp(%re("/-.*/"), "")
-      let agdaVersion = getAgdaVersion(downloadDescriptor.asset)
-      let alsVersion =
-        downloadDescriptor.release.name
-        ->String.split(".")
-        ->Array.last
-        ->Option.getOr(downloadDescriptor.release.name)
-
-      let versionString = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
+      // Use centralized version string formatting
+      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(FromGitHub(_order, downloadDescriptor))
 
       Some((downloaded, versionString, "latest"))
     }
@@ -607,14 +596,8 @@ module Download = {
       | None => false
       }
 
-      // Format version string for display
-      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-        asset.name
-        ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-        ->String.replaceRegExp(%re("/-.*/"), "")
-      let agdaVersion = getAgdaVersion(downloadDescriptor.asset)
-
-      let versionString = VersionDisplay.formatDevALSVersion(agdaVersion)
+      // Use centralized version string formatting
+      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(FromGitHub(_order, downloadDescriptor))
       Some((downloaded, versionString, "dev"))
     }
   }
@@ -635,7 +618,7 @@ module Download = {
       state.globalStorageUri,
     ) {
     | Error(_error) => None
-    | Ok(_) =>
+    | Ok(concreteOrder) =>
       // Check if already downloaded
       let downloaded = switch await PlatformOps.alreadyDownloaded(
         state.globalStorageUri,
@@ -645,8 +628,8 @@ module Download = {
       | None => false
       }
 
-      // Format version string for display
-      let versionString = "WASM Language Server (dev build)"
+      // Use centralized version string formatting
+      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(concreteOrder)
 
       Some((downloaded, versionString, "wasm"))
     }

@@ -26,6 +26,41 @@ module DownloadOrderConcrete = {
       DownloadOrderAbstract.toString(abstractOrder) ++
       Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
     }
+
+  let toVersionString = order =>
+    switch order {
+    | FromGitHub(abstractOrder, descriptor) =>
+      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
+        switch abstractOrder {
+        | DownloadOrderAbstract.LatestALS =>
+          asset.name
+          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        | DownloadOrderAbstract.DevALS =>
+          asset.name
+          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        | DownloadOrderAbstract.DevWASMALS =>
+          // WASM assets don't contain version info in the name
+          "unknown"
+        }
+      
+      let agdaVersion = getAgdaVersion(descriptor.asset)
+      
+      switch abstractOrder {
+      | DownloadOrderAbstract.LatestALS =>
+        let alsVersion =
+          descriptor.release.name
+          ->String.split(".")
+          ->Array.last
+          ->Option.getOr(descriptor.release.name)
+        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+      | DownloadOrderAbstract.DevALS =>
+        "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+      | DownloadOrderAbstract.DevWASMALS =>
+        "WASM Language Server (dev build)"
+      }
+    }
 }
 
 module Error = {
