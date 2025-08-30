@@ -3,6 +3,20 @@
 external parseUrl: string => {"hostname": string, "pathname": string, "search": option<string>} =
   "parse"
 
+module DownloadOrderAbstract = {
+  type t =
+    | LatestALS
+    | DevALS
+    | DevWASMALS
+
+  let toString = order =>
+    switch order {
+    | LatestALS => "Latest Agda Language Server"
+    | DevALS => "Development Agda Language Server"
+    | DevWASMALS => "Development Agda Language Server (WASM)"
+    }
+}
+
 module Error = {
   type t =
     | OptedNotToDownload
@@ -33,10 +47,6 @@ module Error = {
     }
 }
 
-type target =
-  | LatestALS
-  | DevALS
-  | DevWASMALS
 
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
@@ -197,9 +207,9 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 // Check if something is already downloaded
 let alreadyDownloaded = async (globalStorageUri, target) => {
   let paths = switch target {
-  | LatestALS => ["latest-als", "als"]
-  | DevALS => ["dev-als", "als"]
-  | DevWASMALS => ["dev-wasm-als", "als.wasm"]
+  | DownloadOrderAbstract.LatestALS => ["latest-als", "als"]
+  | DownloadOrderAbstract.DevALS => ["dev-als", "als"]
+  | DownloadOrderAbstract.DevWASMALS => ["dev-wasm-als", "als.wasm"]
   }
   let uri = VSCode.Uri.joinPath(globalStorageUri, paths)
   switch await FS.stat(uri) {

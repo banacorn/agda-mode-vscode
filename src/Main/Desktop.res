@@ -9,21 +9,21 @@ module Desktop: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
-  let getDownloadDescriptor = (target: Connection__Download.target, useCache) => async (
+  let getDownloadDescriptor = (target: Connection__Download.DownloadOrderAbstract.t, useCache) => async (
     memento,
     globalStorageUri,
     platform,
   ) => {
     let repo = switch target {
-    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
-    | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
-    | DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
+    | Connection__Download.DownloadOrderAbstract.LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+    | Connection__Download.DownloadOrderAbstract.DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+    | Connection__Download.DownloadOrderAbstract.DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
     }
 
     let toDownloadDescriptor = switch target {
-    | LatestALS => Connection__LatestALS.toDownloadDescriptor(_, platform)
-    | DevALS => Connection__DevALS.toDownloadDescriptor(_, platform)
-    | DevWASMALS => Connection__DevWASMALS.toDownloadDescriptor(_)
+    | Connection__Download.DownloadOrderAbstract.LatestALS => Connection__LatestALS.toDownloadDescriptor(_, platform)
+    | Connection__Download.DownloadOrderAbstract.DevALS => Connection__DevALS.toDownloadDescriptor(_, platform)
+    | Connection__Download.DownloadOrderAbstract.DevWASMALS => Connection__DevWASMALS.toDownloadDescriptor(_)
     }
 
     switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {

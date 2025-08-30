@@ -41,7 +41,7 @@ module DownloadDescriptor = {
   }
 
   let mockWith = (
-    f: Connection__Download.target => result<
+    f: Connection__Download.DownloadOrderAbstract.t => result<
       Connection__Download__GitHub.DownloadDescriptor.t,
       Connection__Download.Error.t,
     >,
@@ -148,9 +148,9 @@ module Platform = {
       let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
       let getDownloadDescriptor = DownloadDescriptor.mockWith(target =>
         switch target {
-        | LatestALS => Ok(DownloadDescriptor.mockLatestALS)
-        | DevALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | DevWASMALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.LatestALS => Ok(DownloadDescriptor.mockLatestALS)
+        | Connection__Download.DownloadOrderAbstract.DevALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.DevWASMALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor) => Promise.resolve(Ok(downloadedPath))
@@ -196,9 +196,9 @@ module Platform = {
       }
       let getDownloadDescriptor = DownloadDescriptor.mockWith(target =>
         switch target {
-        | LatestALS => Ok(DownloadDescriptor.mockLatestALS)
-        | DevALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | DevWASMALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.LatestALS => Ok(DownloadDescriptor.mockLatestALS)
+        | Connection__Download.DownloadOrderAbstract.DevALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.DevWASMALS => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor) => {

@@ -12,9 +12,9 @@ module type PlatformOps = {
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
-  let alreadyDownloaded: (VSCode.Uri.t, Connection__Download.target) => promise<option<string>>
+  let alreadyDownloaded: (VSCode.Uri.t, Connection__Download.DownloadOrderAbstract.t) => promise<option<string>>
   let getDownloadDescriptor: (
-    Connection__Download.target,
+    Connection__Download.DownloadOrderAbstract.t,
     bool,
   ) => (
     Memento.t,

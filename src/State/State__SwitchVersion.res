@@ -454,7 +454,7 @@ module SwitchVersionManager = {
 // Helper function to combine `PlatformOps.determinePlatform` + `PlatformOps.getDownloadDescriptor`
 let getDownloadDescriptorWithPlatform = async (
   platformOps: Platform.t,
-  target: Connection__Download.target,
+  target: Connection__Download.DownloadOrderAbstract.t,
   memento: Memento.t,
   globalStorageUri: VSCode.Uri.t,
 ) => {
@@ -698,7 +698,7 @@ module Handler = {
   let handleDownload = async (
     state: State.t,
     platformDeps: Platform.t,
-    target: Connection__Download.target,
+    target: Connection__Download.DownloadOrderAbstract.t,
     downloaded: bool,
     versionString: string,
     ~refreshUI: option<unit => promise<unit>>=None,
