@@ -38,7 +38,7 @@ describe("Download", () => {
         let globalStorageUri = VSCode.Uri.file(tempDir)
         let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
 
-        Assert.deepStrictEqual(result, Some(alsExecutable))
+        Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
 
         // Cleanup
         NodeJs.Fs.unlinkSync(alsExecutable)
