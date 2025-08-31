@@ -334,7 +334,7 @@ describe("State__SwitchVersion", () => {
               "/test/global/storage",
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 3) // No installations + Misc separator + Open folder
+            Assert.deepStrictEqual(Array.length(itemData), 4) // No installations + Misc separator + Open folder + Clear cache
             Assert.deepStrictEqual(itemData[0], Some(NoInstallations))
 
             switch itemData[1] {
@@ -365,7 +365,7 @@ describe("State__SwitchVersion", () => {
               "/test/global/storage",
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 5) // Installed separator + 2 endpoints + Misc separator + Open folder
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 2 endpoints + Misc separator + Open folder + Clear cache
 
             switch itemData[0] {
             | Some(Separator("Installed")) => () // Expected
@@ -399,7 +399,7 @@ describe("State__SwitchVersion", () => {
               "/test/global/storage",
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Open folder
+            Assert.deepStrictEqual(Array.length(itemData), 7) // Installed separator + 1 item + Download separator + download item + Misc separator + Open folder + Clear cache
 
             let downloadSeparator = itemData->Array.find(
               data =>
