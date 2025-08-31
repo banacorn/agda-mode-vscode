@@ -1,15 +1,72 @@
 // Mock implementations for testing to avoid dialogs and external dependencies
 
+module DownloadDescriptor = {
+  // Create a mock download descriptor that will make Connection.fromDownloads work
+  let mockAsset = {
+    Connection__Download__GitHub.Asset.url: "https://mock.url/download.zip",
+    id: 123456,
+    node_id: "mock_node_id",
+    name: "als-Agda-2.6.3-Windows-x64.zip",
+    label: "",
+    content_type: "application/zip",
+    state: "uploaded",
+    size: 1000000,
+    created_at: "2023-01-01T00:00:00Z",
+    updated_at: "2023-01-01T00:00:00Z",
+    browser_download_url: "https://mock.url/download.zip",
+  }
+  let mockRelease = {
+    Connection__Download__GitHub.Release.url: "https://mock.url/release",
+    assets_url: "https://mock.url/assets",
+    upload_url: "https://mock.url/upload",
+    html_url: "https://mock.url/html",
+    id: 789012,
+    node_id: "mock_release_node_id",
+    tag_name: "v0.2.10",
+    target_commitish: "main",
+    name: "v0.2.10",
+    draft: false,
+    prerelease: false,
+    created_at: "2023-01-01T00:00:00Z",
+    published_at: "2023-01-01T00:00:00Z",
+    assets: [mockAsset],
+    tarball_url: "https://mock.url/tarball",
+    zipball_url: "https://mock.url/zipball",
+    body: Some("Mock release"),
+  }
+  let mockLatestALS = {
+    Connection__Download__GitHub.DownloadDescriptor.asset: mockAsset,
+    release: mockRelease,
+    saveAsFileName: "als-Agda-2.6.3-Windows-x64",
+  }
+
+  let mockWith = (
+    f: Connection__Download.DownloadOrderAbstract.t => result<
+      Connection__Download.DownloadOrderConcrete.t,
+      Connection__Download.Error.t,
+    >,
+  ) => (target, _) => async (_, _, _) => f(target)
+}
+
 module Platform = {
   // Basic mock platform that avoids all external interactions
   module Basic = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
-    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
+    let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+    let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
+      Connection__Download.Error.CannotFindCompatibleALSRelease,
+    ))
+    let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
+    let resolveDownloadOrderOfDevALS = (_memento, _globalStorageUri, _platform) =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    let resolveDownloadOrderOfDevWASMALS = (_memento, _globalStorageUri, _) =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    let resolveDownloadOrderOfLatestALS = (_memento, _globalStorageUri, _platform) =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    let download = (_globalStorageUri, _downloadDescriptor) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -21,10 +78,19 @@ module Platform = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
-    let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-    let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
+    let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+    let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
+      Connection__Download.Error.CannotFindCompatibleALSRelease,
+    ))
+    let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
+    let resolveDownloadOrderOfDevALS = (_memento, _globalStorageUri, _platform) =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    let resolveDownloadOrderOfDevWASMALS = (_memento, _globalStorageUri, _) =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    let resolveDownloadOrderOfLatestALS = (_memento, _globalStorageUri, _platform) =>
+      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    let download = (_globalStorageUri, _downloadDescriptor) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -36,10 +102,11 @@ module Platform = {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => policy
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
+        Connection__Download.Error.CannotFindCompatibleALSRelease,
+      ))
+      let download = (_globalStorageUri, _downloadDescriptor) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -59,12 +126,11 @@ module Platform = {
         counter := counter.contents + 1
         policy
       }
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
+        Connection__Download.Error.CannotFindCompatibleALSRelease,
+      ))
+      let download = (_globalStorageUri, _downloadDescriptor) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -79,52 +145,18 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Ok(downloadedPath))
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) => {
-        // Create a mock fetch spec that will make Download.getAvailableDownload work
-        let mockAsset = {
-          Connection__Download__GitHub.Asset.url: "https://mock.url/download.zip",
-          id: 123456,
-          node_id: "mock_node_id",
-          name: "als-Agda-2.6.3-macOS-arm64.zip",
-          label: "",
-          content_type: "application/zip",
-          state: "uploaded",
-          size: 1000000,
-          created_at: "2023-01-01T00:00:00Z",
-          updated_at: "2023-01-01T00:00:00Z",
-          browser_download_url: "https://mock.url/download.zip",
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
+        switch order {
+        | Connection__Download.DownloadOrderAbstract.LatestALS =>
+          Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | Connection__Download.DownloadOrderAbstract.DevALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
-        let mockRelease = {
-          Connection__Download__GitHub.Release.url: "https://mock.url/release",
-          assets_url: "https://mock.url/assets",
-          upload_url: "https://mock.url/upload",
-          html_url: "https://mock.url/html",
-          id: 789012,
-          node_id: "mock_release_node_id",
-          tag_name: "v0.2.10",
-          target_commitish: "main",
-          name: "v0.2.10",
-          draft: false,
-          prerelease: false,
-          created_at: "2023-01-01T00:00:00Z",
-          published_at: "2023-01-01T00:00:00Z",
-          assets: [mockAsset],
-          tarball_url: "https://mock.url/tarball",
-          zipball_url: "https://mock.url/zipball",
-          body: Some("Mock release"),
-        }
-        let mockFetchSpec = {
-          Connection__Download__GitHub.FetchSpec.asset: mockAsset,
-          release: mockRelease,
-          saveAsFileName: "als-Agda-2.6.3-macOS-arm64",
-        }
-        Promise.resolve(Ok(mockFetchSpec))
-      }
+      )
+      let download = (_globalStorageUri, _downloadDescriptor) => Promise.resolve(Ok(downloadedPath))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let openFolder = _uri => Promise.resolve()
@@ -138,12 +170,11 @@ module Platform = {
       let determinePlatform = () => Promise.resolve(Error(platform))
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
-      let alreadyDownloaded = _globalStorageUri => () => Promise.resolve(None)
-
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
+      let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
+        Connection__Download.Error.CannotFindCompatibleALSRelease,
+      ))
+      let download = (_globalStorageUri, _downloadDescriptor) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -162,17 +193,24 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
-      let alreadyDownloaded = _globalStorageUri => () => {
+      let alreadyDownloaded = (_globalStorageUri, _) => {
         checkedCacheFlag := true
         Promise.resolve(None)
       }
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform => {
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
+        switch order {
+        | Connection__Download.DownloadOrderAbstract.LatestALS =>
+          Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | Connection__Download.DownloadOrderAbstract.DevALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        }
+      )
+      let download = (_globalStorageUri, _downloadDescriptor) => {
         checkedDownloadFlag := true
         Promise.resolve(Ok(downloadedPath))
       }
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let openFolder = _uri => Promise.resolve()
@@ -185,15 +223,15 @@ module Platform = {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-      let alreadyDownloaded = _globalStorageUri => () => {
+      let alreadyDownloaded = (_globalStorageUri, _) => {
         checkedFlag := true
         Promise.resolve(Some(cachedPath))
       }
 
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(_ => Error(
+        Connection__Download.Error.CannotFindCompatibleALSRelease,
+      ))
+      let download = (_globalStorageUri, _downloadDescriptor) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -214,45 +252,20 @@ module Platform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
-      let alreadyDownloaded = _globalStorageUri => () => {
+      let alreadyDownloaded = (_globalStorageUri, _) => {
         checkedCacheFlag := true
         Promise.resolve(None)
       }
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform => {
+      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
+        switch order {
+        | LatestALS => Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        }
+      )
+      let download = (_globalStorageUri, _downloadDescriptor) => {
         checkedDownloadFlag := true
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       }
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
-        Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
-    }
-    module(MockPlatform)
-  }
-
-  // Mock platform that simulates successful download with dual flag tracking
-  let makeWithSuccessfulDownload2AndFlags = (
-    downloadedPath: string,
-    checkedCacheFlag: ref<bool>,
-    checkedDownloadFlag: ref<bool>,
-  ): Platform.t => {
-    module MockPlatform = {
-      let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-
-      let alreadyDownloaded = _globalStorageUri => () => {
-        checkedCacheFlag := true
-        Promise.resolve(None)
-      }
-      let downloadLatestALS = (_logChannel, _memento, _globalStorageUri) => _platform => {
-        checkedDownloadFlag := true
-        Promise.resolve(Ok(downloadedPath))
-      }
-
-      let getFetchSpec = (_memento, _globalStorageUri, _platform) =>
-        Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       let openFolder = _uri => Promise.resolve()
@@ -283,6 +296,6 @@ module State = {
 
     let mockUri = VSCode.Uri.file("/test/path")
 
-    State.make(platformDeps, channels, mockUri, mockUri, None, mockEditor, None)
+    State.make(platformDeps, channels, mockUri, mockUri, Memento.make(None), mockEditor, None)
   }
 }

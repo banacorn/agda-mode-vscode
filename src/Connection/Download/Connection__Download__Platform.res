@@ -3,7 +3,7 @@
 
 // Platforms with prebuilt executables for download
 type raw = {"os": string, "dist": string, "codename": string, "release": string}
-type t = Windows | Ubuntu | MacOS_Arm | MacOS_Intel
+type t = Windows | Ubuntu | MacOS_Arm | MacOS_Intel | Web
 
 // binding to the getos module
 @module
@@ -41,4 +41,5 @@ let toAssetName = platform =>
   | Ubuntu => "ubuntu"
   | MacOS_Arm => "macos-arm64"
   | MacOS_Intel => "macos-x64"
+  | Web => "web"
   }

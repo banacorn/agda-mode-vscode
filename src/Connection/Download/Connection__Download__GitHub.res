@@ -18,8 +18,8 @@ module Error = {
     | CannotReadFile(Js.Exn.t)
     | CannotDeleteFile(string)
     | CannotRenameFile(string)
-    // // OS
-    // | CannotDetermineOS(Js.Exn.t)
+  // // OS
+  // | CannotDetermineOS(Js.Exn.t)
 
   let toString = x =>
     switch x {
@@ -243,12 +243,23 @@ module Release = {
 }
 
 // Describes which asset to download from the GitHub releases, and what the downloaded file should be named (so that we can cache it)
-module FetchSpec = {
+module DownloadDescriptor = {
   type t = {
     release: Release.t, // the release of the repo
     asset: Asset.t, // the asset of that release
     saveAsFileName: string, // file name of the downloaded asset
   }
+
+  let toString = desc =>
+    "{" ++
+    Js.Dict.fromArray([
+      ("release", Release.toString(desc.release)),
+      ("asset", Asset.toString(desc.asset)),
+      ("saveAsFileName", desc.saveAsFileName),
+    ])
+    ->Js.Dict.entries
+    ->Array.map(((k, v)) => k ++ ": " ++ v)
+    ->Array.join(", ") ++ "}"
 }
 
 // helper function for chmoding 744 the executable
@@ -265,7 +276,6 @@ module Repo = {
     repository: string,
     userAgent: string,
     // for caching
-    memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     cacheInvalidateExpirationSecs: int,
   }
@@ -287,7 +297,7 @@ module Repo = {
 
 module Callbacks = {
   type t = {
-    chooseFromReleases: array<Release.t> => option<FetchSpec.t>,
+    chooseFromReleases: array<Release.t> => option<DownloadDescriptor.t>,
     onDownload: Download.Event.t => unit,
     log: string => unit,
   }
@@ -295,13 +305,30 @@ module Callbacks = {
 
 module ReleaseManifest: {
   // fetch the release manifest from the cache or GitHub
-  let fetch: Repo.t => promise<(result<array<Release.t>, Error.t>, bool)>
-  // fresh fetch from GitHub and cache it
-  let fetchFromGitHubAndCache: Repo.t => promise<result<array<Release.t>, Error.t>>
+  let fetch: (
+    Memento.t,
+    Repo.t,
+    ~useCache: bool=?,
+  ) => promise<(result<array<Release.t>, Error.t>, bool)>
 } = {
-  let fetchFromCache = async memento => {
+  // fetch from GitHub, no caching involved, timeout after 10000ms
+  let fetchWithoutCache = async (repo: Repo.t) => {
+    let httpOptions = {
+      "host": "api.github.com",
+      "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
+      "headers": {
+        "User-Agent": repo.userAgent,
+      },
+    }
+    switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
+    | Error(e) => Error(Error.CannotGetReleases(e))
+    | Ok(json) => Release.decodeReleases(json)
+    }
+  }
+
+  let fetchFromCache = async (memento, repo: Repo.t) => {
     // read the file and decode as json
-    switch Memento.ALSReleaseCache.getReleases(memento) {
+    switch Memento.ALSReleaseCache.getReleases(memento, repo.username, repo.repository) {
     | None => Ok([])
     | Some(string) =>
       // parse the json
@@ -316,54 +343,40 @@ module ReleaseManifest: {
     }
   }
 
-  let writeToCache = async (memento, releases) => {
-    let json = Release.encodeReleases(releases)->Js_json.stringify
-    await Memento.ALSReleaseCache.setTimestamp(memento, Date.make())
-    await Memento.ALSReleaseCache.setReleases(memento, json)
-  }
-
-  // fetch the latest release from GitHub and cache it
-  // timeouts after 10000ms
-  let fetchFromGitHubAndCache = async (repo: Repo.t) => {
-    let httpOptions = {
-      "host": "api.github.com",
-      "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
-      "headers": {
-        "User-Agent": repo.userAgent,
-      },
+  let writeToCache = async (memento, repo: Repo.t, result) =>
+    switch result {
+    | Error(_) => ()
+    | Ok(releases) =>
+      let json = Release.encodeReleases(releases)->Js_json.stringify
+      await Memento.ALSReleaseCache.setTimestamp(memento, repo.username, repo.repository, Date.make())
+      await Memento.ALSReleaseCache.setReleases(memento, repo.username, repo.repository, json)
     }
-    switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
-    | Error(e) => Error(Error.CannotGetReleases(e))
-    | Ok(json) =>
-      switch Release.decodeReleases(json) {
-      | Error(e) => Error(e)
-      | Ok(releases) =>
-        await writeToCache(repo.memento, releases)
-        Ok(releases)
-      }
-    }
-  }
 
   // fetch from GitHub if the cache is too old
   // also returns a boolean indicating if the result is from cache
-  let fetch = async (repo: Repo.t) => {
-    let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(repo.memento) {
-    | None => true
-    | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
-    }
+  let fetch = async (memento: Memento.t, repo: Repo.t, ~useCache=true) =>
+    if useCache {
+      let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(memento, repo.username, repo.repository) {
+      | None => true
+      | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
+      }
 
-    if cacheInvalidated {
-      (await fetchFromGitHubAndCache(repo), false)
+      if cacheInvalidated {
+        let result = await fetchWithoutCache(repo)
+        await writeToCache(memento, repo, result)
+        (result, false)
+      } else {
+        (await fetchFromCache(memento, repo), true)
+      }
     } else {
-      (await fetchFromCache(repo.memento), true)
+      let result = await fetchWithoutCache(repo)
+      (result, false)
     }
-  }
 }
 
 module Module: {
   let download: (
-    FetchSpec.t,
-    Memento.t,
+    DownloadDescriptor.t,
     VSCode.Uri.t,
     Download.Event.t => unit,
   ) => promise<result<bool, Error.t>>
@@ -396,8 +409,12 @@ module Module: {
     }
   }
 
-  let downloadLanguageServer = async (repo: Repo.t, onDownload, fetchSpec: FetchSpec.t) => {
-    let url = NodeJs.Url.make(fetchSpec.asset.browser_download_url)
+  let downloadLanguageServer = async (
+    repo: Repo.t,
+    onDownload,
+    downloadDescriptor: DownloadDescriptor.t,
+  ) => {
+    let url = NodeJs.Url.make(downloadDescriptor.asset.browser_download_url)
     let httpOptions = {
       "host": url.host,
       "path": url.pathname,
@@ -411,21 +428,39 @@ module Module: {
       repo.globalStorageUri,
       [inFlightDownloadFileName ++ ".zip"],
     )
-    let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
+    let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
 
     let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
-      // suffix with ".zip" after downloaded
-      switch await FS.rename(inFlightDownloadUri, inFlightDownloadZipUri) {
-      | Error(e) => Error(Error.CannotRenameFile(e))
-      | Ok() =>
-        // unzip the downloaded file
-        await Unzip.run(inFlightDownloadZipUri, destPath)
-        // remove the zip file
-        switch await FS.delete(inFlightDownloadZipUri) {
-        | Error(e) => Error(Error.CannotDeleteFile(e))
+      // For WASM files, skip unzip and save directly
+      if downloadDescriptor.saveAsFileName == "dev-wasm-als" {
+        // WASM - raw binary, no unzipping needed
+        // Create destination directory
+        switch await FS.createDirectory(destPath) {
+        | Error(_) => () // Directory might already exist
+        | Ok(_) => ()
+        }
+
+        // Move file directly to final location as als.wasm
+        let wasmDestUri = VSCode.Uri.joinPath(destPath, ["als.wasm"])
+        switch await FS.rename(inFlightDownloadUri, wasmDestUri) {
+        | Error(e) => Error(Error.CannotRenameFile(e))
         | Ok() => Ok()
+        }
+      } else {
+        // Regular ZIP file processing
+        // suffix with ".zip" after downloaded
+        switch await FS.rename(inFlightDownloadUri, inFlightDownloadZipUri) {
+        | Error(e) => Error(Error.CannotRenameFile(e))
+        | Ok() =>
+          // unzip the downloaded file
+          await Unzip.run(inFlightDownloadZipUri, destPath)
+          // remove the zip file
+          switch await FS.delete(inFlightDownloadZipUri) {
+          | Error(e) => Error(Error.CannotDeleteFile(e))
+          | Ok() => Ok()
+          }
         }
       }
     }
@@ -443,12 +478,15 @@ module Module: {
     }
   }
 
-  let download = async (fetchSpec: FetchSpec.t, memento, globalStorageUri, reportProgress) => {
+  let download = async (
+    downloadDescriptor: DownloadDescriptor.t,
+    globalStorageUri,
+    reportProgress,
+  ) => {
     let repo: Repo.t = {
       username: "agda",
       repository: "agda-language-server",
       userAgent: "agda/agda-mode-vscode",
-      memento,
       globalStorageUri,
       cacheInvalidateExpirationSecs: 86400,
     }
@@ -457,12 +495,12 @@ module Module: {
     if ifIsDownloading {
       Error(Error.AlreadyDownloading)
     } else {
-      // don't download from GitHub if `fetchSpec.fileName` already exists
-      let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [fetchSpec.saveAsFileName])
+      // don't download from GitHub if `downloadDescriptor.fileName` already exists
+      let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
       switch await FS.stat(destUri) {
       | Ok(_) => Ok(true)
       | Error(_) =>
-        switch await downloadLanguageServer(repo, reportProgress, fetchSpec) {
+        switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor) {
         | Error(error) => Error(error)
         | Ok() =>
           // chmod the executable after download

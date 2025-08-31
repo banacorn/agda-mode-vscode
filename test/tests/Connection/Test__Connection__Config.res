@@ -248,7 +248,7 @@ describe("Config.Connection paths", () => {
 
       let mockUri = VSCode.Uri.file("/test/path")
 
-      State.make(platformWithDiscovery, channels, mockUri, mockUri, None, mockEditor, None)
+      State.make(platformWithDiscovery, channels, mockUri, mockUri, Memento.make(None), mockEditor, None)
     }
 
     // UI Test Builders - Simplified and reusable UI simulation functions

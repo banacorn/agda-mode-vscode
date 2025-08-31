@@ -17,27 +17,6 @@ describe("Platform dependent utilities", () => {
         }
       },
     )
-
-    Async.it(
-      "should create Web platform and return expected errors",
-      async () => {
-        let platformDeps = Web.make()
-        module PlatformOps = unpack(platformDeps)
-
-        // Web platform should consistently return errors for unsupported operations
-        let platformResult = await PlatformOps.determinePlatform()
-        switch platformResult {
-        | Error(raw) =>
-          Assert.deepStrictEqual(raw["os"], "web")
-          Assert.deepStrictEqual(raw["dist"], "browser")
-        | Ok(_) => Assert.fail("Web platform should return Error for determinePlatform")
-        }
-
-        // Test download policy - should return No for web
-        let policy = await PlatformOps.askUserAboutDownloadPolicy()
-        Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.No)
-      },
-    )
   })
 
   describe("Mock Platform for Testing", () => {

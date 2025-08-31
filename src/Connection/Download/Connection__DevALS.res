@@ -1,9 +1,9 @@
 let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
-  username: "agda",
+  username: "banacorn",
   repository: "agda-language-server",
-  userAgent: "agda/agda-mode-vscode",
+  userAgent: "banacorn/agda-mode-vscode",
   globalStorageUri,
-  cacheInvalidateExpirationSecs: 86400,
+  cacheInvalidateExpirationSecs: 3600,
 }
 
 let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
@@ -13,43 +13,33 @@ let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, pl
   release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
 }
 
-// Given a list of releases, choose the latest compatible release for the given platform
 let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
-  // only releases after 2024-12-18 are considered
-  let laterReleases =
-    releases->Array.filter(release =>
-      Date.fromString(release.published_at) >= Date.fromString("2024-12-18")
-    )
-  // present only the latest release at the moment
+  // target the specific "dev" release
+  let devRelease = releases->Array.find(release => release.tag_name == "dev")
 
-  // NOTE: using only v0.2.7.0.1.5 for now, we'll remove this constraint later
-  let pinnedRelease = laterReleases->Array.find(release => release.name == "v0.2.7.0.1.5")
-
-  switch pinnedRelease {
+  switch devRelease {
   | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-  | Some(pinnedRelease) =>
-    // for v0.2.7.0.0 onward, the ALS version is represented by the last digit
+  | Some(devRelease) =>
     let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
       asset.name
-      ->String.replaceRegExp(%re("/als-Agda-/"), "")
+      ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
       ->String.replaceRegExp(%re("/-.*/"), "")
     // choose the assets of the corresponding platform
-    let assets = chooseAssetByPlatform(pinnedRelease, platform)
+    let assets = chooseAssetByPlatform(devRelease, platform)
     // choose the asset with the latest Agda version
     let result =
       assets
       ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
       ->Array.map(asset => {
-        Connection__Download__GitHub.DownloadDescriptor.release: pinnedRelease,
+        Connection__Download__GitHub.DownloadDescriptor.release: devRelease,
         asset,
-        saveAsFileName: "latest-als",
+        saveAsFileName: "dev-als",
       })
       ->Array.get(0)
 
     switch result {
     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-    | Some(downloadDescriptor) =>
-      Ok(Connection__Download.DownloadOrderConcrete.FromGitHub(LatestALS, downloadDescriptor))
+    | Some(downloadDescriptor) => Ok(Connection__Download.DownloadOrderConcrete.FromGitHub(DevALS, downloadDescriptor))
     }
   }
 }

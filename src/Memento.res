@@ -37,19 +37,22 @@ module Module: {
     let setVersion: (t, filepath, endpoint) => promise<unit>
     let setError: (t, filepath, string) => promise<unit>
     let syncWithPaths: (t, Dict.t<endpoint>) => promise<unit>
+    let clear: t => promise<unit>
   }
 
   module ALSReleaseCache: {
-    let getTimestamp: t => option<Date.t>
-    let setTimestamp: (t, Date.t) => promise<unit>
-    let getReleases: t => option<'releases>
-    let setReleases: (t, 'releases) => promise<unit>
-    let getCacheAgeInSecs: t => option<int>
+    let getTimestamp: (t, string, string) => option<Date.t>
+    let setTimestamp: (t, string, string, Date.t) => promise<unit>
+    let getReleases: (t, string, string) => option<'releases>
+    let setReleases: (t, string, string, 'releases) => promise<unit>
+    let getCacheAgeInSecs: (t, string, string) => option<int>
+    let clear: (t, string, string) => promise<unit>
   }
 
   module PickedConnection: {
     let get: t => option<string>
     let set: (t, option<string>) => promise<unit>
+    let clear: t => promise<unit>
   }
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
@@ -196,37 +199,53 @@ module Module: {
 
       await memento->set(key, newCache)
     }
+    
+    let clear = async (memento: t): unit => {
+      await memento->set(key, Dict.make())
+    }
   }
 
   module ALSReleaseCache = {
-    let timestampKey = "alsReleaseCacheTimestamp"
-    let releasesKey = "alsReleaseCache"
+    let makeTimestampKey = (username, repository) => "alsReleaseCacheTimestamp_" ++ username ++ "/" ++ repository
+    let makeReleasesKey = (username, repository) => "alsReleaseCache_" ++ username ++ "/" ++ repository
 
-    let getTimestamp = (memento: t): option<Date.t> => {
-      memento->get(timestampKey)->Option.map(Date.fromString)
+    let getTimestamp = (memento: t, username, repository): option<Date.t> => {
+      let key = makeTimestampKey(username, repository)
+      memento->get(key)->Option.map(Date.fromString)
     }
 
-    let setTimestamp = async (memento: t, timestamp: Date.t): unit => {
-      await memento->set(timestampKey, Date.toString(timestamp))
+    let setTimestamp = async (memento: t, username, repository, timestamp: Date.t): unit => {
+      let key = makeTimestampKey(username, repository)
+      await memento->set(key, Date.toString(timestamp))
     }
 
-    let getReleases = (memento: t): option<'releases> => {
-      memento->get(releasesKey)
+    let getReleases = (memento: t, username, repository): option<'releases> => {
+      let key = makeReleasesKey(username, repository)
+      memento->get(key)
     }
 
-    let setReleases = async (memento: t, releases: 'releases): unit => {
-      await memento->set(releasesKey, releases)
+    let setReleases = async (memento: t, username, repository, releases: 'releases): unit => {
+      let key = makeReleasesKey(username, repository)
+      await memento->set(key, releases)
     }
 
     // return the time difference in seconds since the cache was last fetched
-    let getCacheAgeInSecs = (memento: t): option<int> => {
-      switch getTimestamp(memento) {
+    let getCacheAgeInSecs = (memento: t, username, repository): option<int> => {
+      switch getTimestamp(memento, username, repository) {
       | None => None
       | Some(timestamp) =>
         let now = Date.make()
         let ageInMs = Date.getTime(now) -. Date.getTime(timestamp)
         Some(int_of_float(ageInMs /. 1000.0))
       }
+    }
+    
+    // clear the release cache by removing both timestamp and releases for specific repo
+    let clear = async (memento: t, username, repository): unit => {
+      let timestampKey = makeTimestampKey(username, repository)
+      let releasesKey = makeReleasesKey(username, repository)
+      await memento->set(timestampKey, None)
+      await memento->set(releasesKey, None)
     }
   }
 
@@ -239,6 +258,10 @@ module Module: {
 
     let set = async (memento: t, path: option<string>): unit => {
       await memento->set(key, path)
+    }
+    
+    let clear = async (memento: t): unit => {
+      await set(memento, None)
     }
   }
 }

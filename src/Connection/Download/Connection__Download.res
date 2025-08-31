@@ -3,6 +3,66 @@
 external parseUrl: string => {"hostname": string, "pathname": string, "search": option<string>} =
   "parse"
 
+module DownloadOrderAbstract = {
+  type t =
+    | LatestALS
+    | DevALS
+    | DevWASMALS
+
+  let toString = order =>
+    switch order {
+    | LatestALS => "Latest Agda Language Server"
+    | DevALS => "Development Agda Language Server"
+    | DevWASMALS => "Development Agda Language Server (WASM)"
+    }
+}
+
+module DownloadOrderConcrete = {
+  type t = FromGitHub(DownloadOrderAbstract.t, Connection__Download__GitHub.DownloadDescriptor.t)
+
+  let toString = order =>
+    switch order {
+    | FromGitHub(abstractOrder, descriptor) =>
+      DownloadOrderAbstract.toString(abstractOrder) ++
+      Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
+    }
+
+  let toVersionString = order =>
+    switch order {
+    | FromGitHub(abstractOrder, descriptor) =>
+      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
+        switch abstractOrder {
+        | DownloadOrderAbstract.LatestALS =>
+          asset.name
+          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        | DownloadOrderAbstract.DevALS =>
+          asset.name
+          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        | DownloadOrderAbstract.DevWASMALS =>
+          // WASM assets don't contain version info in the name
+          "unknown"
+        }
+      
+      let agdaVersion = getAgdaVersion(descriptor.asset)
+      
+      switch abstractOrder {
+      | DownloadOrderAbstract.LatestALS =>
+        let alsVersion =
+          descriptor.release.name
+          ->String.split(".")
+          ->Array.last
+          ->Option.getOr(descriptor.release.name)
+        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+      | DownloadOrderAbstract.DevALS =>
+        "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+      | DownloadOrderAbstract.DevWASMALS =>
+        "WASM Language Server (dev build)"
+      }
+    }
+}
+
 module Error = {
   type t =
     | OptedNotToDownload
@@ -33,46 +93,43 @@ module Error = {
     }
 }
 
-let makeRepo: (Memento.t, VSCode.Uri.t) => Connection__Download__GitHub.Repo.t = (
-  memento,
-  globalStorageUri,
-) => {
-  username: "agda",
-  repository: "agda-language-server",
-  userAgent: "agda/agda-mode-vscode",
-  memento,
-  globalStorageUri,
-  cacheInvalidateExpirationSecs: 86400,
-}
-
-let getReleaseManifest = async (memento, globalStorageUri) => {
-  switch await Connection__Download__GitHub.ReleaseManifest.fetch(
-    makeRepo(memento, globalStorageUri),
-  ) {
+// Get release manifest from cache if available, otherwise fetch from GitHub
+let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
+  switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
   | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
   | (Ok(manifest), _) => Ok(manifest)
   }
 }
 
-// Download the given FetchSpec and return the path of the downloaded file
-let download = async (logChannel, memento, globalStorageUri, fetchSpec) => {
-  let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-  switch await Connection__Download__GitHub.download(
-    fetchSpec,
-    memento,
-    globalStorageUri,
-    reportProgress,
-  ) {
-  | Error(error) => Error(Error.CannotDownloadALS(error))
-  | Ok(_isCached) =>
-    let destUri = VSCode.Uri.joinPath(globalStorageUri, [fetchSpec.saveAsFileName, "als"])
-    let destPath = VSCode.Uri.fsPath(destUri)
-    Ok(destPath)
+// Download the given DownloadDescriptor and return the path of the downloaded file
+let download = async (globalStorageUri, order) =>
+  switch order {
+  | DownloadOrderConcrete.FromGitHub(_, downloadDescriptor) =>
+    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+    switch await Connection__Download__GitHub.download(
+      downloadDescriptor,
+      globalStorageUri,
+      reportProgress,
+    ) {
+    | Error(error) => Error(Error.CannotDownloadALS(error))
+    | Ok(_isCached) =>
+      // For WASM, the extracted file should be als.wasm instead of als
+      let fileName = if downloadDescriptor.saveAsFileName == "dev-wasm-als" {
+        "als.wasm"
+      } else {
+        "als"
+      }
+      let destUri = VSCode.Uri.joinPath(
+        globalStorageUri,
+        [downloadDescriptor.saveAsFileName, fileName],
+      )
+      let destPath = VSCode.Uri.fsPath(destUri)
+      Ok(destPath)
+    }
   }
-}
 
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
-let downloadFromURL = async (logChannel, globalStorageUri, url, saveAsFileName, displayName) => {
+let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
 
   // Create directory if it doesn't exist using URI operations
@@ -133,50 +190,58 @@ let downloadFromURL = async (logChannel, globalStorageUri, url, saveAsFileName, 
         }
         Error(Error.CannotDownloadFromURL(convertedError))
       | Ok() =>
-        // Validate that we got a ZIP file, not HTML by checking first 4 bytes
-        let readResult = await FS.readFile(tempFileUri)
-        let isPKHeader = switch readResult {
-        | Error(_) => false
-        | Ok(uint8Array) =>
-          // Check if file starts with ZIP signature (first 4 bytes should be PK\x03\x04)
-          // Check for ZIP signature: bytes 0x50, 0x4B, 0x03, 0x04 (which is "PK\x03\x04")
-          if TypedArray.length(uint8Array) >= 4 {
-            TypedArray.get(uint8Array, 0)->Option.getOr(0) == 80 &&
-            // 0x50
-            TypedArray.get(uint8Array, 1)->Option.getOr(0) == 75 &&
-            // 0x4B
-            TypedArray.get(uint8Array, 2)->Option.getOr(0) == 3 &&
-            // 0x03
-            TypedArray.get(uint8Array, 3)->Option.getOr(0) == 4 // 0x04
-          } else {
-            false
-          }
-        }
-        if !isPKHeader {
-          // Not a ZIP file signature
-          // Not a ZIP file - likely HTML error page
-          let _ = await FS.delete(tempFileUri)
-          let genericError = Obj.magic({
-            "message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link.",
-          })
-          Error(
-            Error.CannotDownloadFromURL(
-              Connection__Download__GitHub.Error.CannotReadFile(genericError),
-            ),
-          )
+        // For WASM, skip ZIP validation and extraction - it's a raw binary
+        if saveAsFileName == "dev-wasm-als" {
+          // WASM file - save directly as als.wasm
+          let wasmExecUri = VSCode.Uri.joinPath(destDirUri, ["als.wasm"])
+          let _ = await FS.rename(tempFileUri, wasmExecUri)
+          Ok(VSCode.Uri.fsPath(wasmExecUri))
         } else {
-          // Proceed with extraction
-          let zipFileUri = VSCode.Uri.joinPath(destDirUri, ["download.zip"])
-          let _ = await FS.rename(tempFileUri, zipFileUri)
+          // Regular ZIP file processing
+          let readResult = await FS.readFile(tempFileUri)
+          let isPKHeader = switch readResult {
+          | Error(_) => false
+          | Ok(uint8Array) =>
+            // Check if file starts with ZIP signature (first 4 bytes should be PK\x03\x04)
+            // Check for ZIP signature: bytes 0x50, 0x4B, 0x03, 0x04 (which is "PK\x03\x04")
+            if TypedArray.length(uint8Array) >= 4 {
+              TypedArray.get(uint8Array, 0)->Option.getOr(0) == 80 &&
+              // 0x50
+              TypedArray.get(uint8Array, 1)->Option.getOr(0) == 75 &&
+              // 0x4B
+              TypedArray.get(uint8Array, 2)->Option.getOr(0) == 3 &&
+              // 0x03
+              TypedArray.get(uint8Array, 3)->Option.getOr(0) == 4 // 0x04
+            } else {
+              false
+            }
+          }
+          if !isPKHeader {
+            // Not a ZIP file signature
+            // Not a ZIP file - likely HTML error page
+            let _ = await FS.delete(tempFileUri)
+            let genericError = Obj.magic({
+              "message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link.",
+            })
+            Error(
+              Error.CannotDownloadFromURL(
+                Connection__Download__GitHub.Error.CannotReadFile(genericError),
+              ),
+            )
+          } else {
+            // Proceed with extraction
+            let zipFileUri = VSCode.Uri.joinPath(destDirUri, ["download.zip"])
+            let _ = await FS.rename(tempFileUri, zipFileUri)
 
-          // Extract ZIP file
-          await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
+            // Extract ZIP file
+            await Connection__Download__GitHub.Unzip.run(zipFileUri, destDirUri)
 
-          // Remove ZIP file after extraction
-          let _ = await FS.delete(zipFileUri)
+            // Remove ZIP file after extraction
+            let _ = await FS.delete(zipFileUri)
 
-          // Add the path of the downloaded file to the config
-          Ok(VSCode.Uri.fsPath(execPathUri))
+            // Add the path of the downloaded file to the config
+            Ok(VSCode.Uri.fsPath(execPathUri))
+          }
         }
       }
     } catch {
@@ -190,5 +255,19 @@ let downloadFromURL = async (logChannel, globalStorageUri, url, saveAsFileName, 
         ),
       )
     }
+  }
+}
+
+// Check if something is already downloaded
+let alreadyDownloaded = async (globalStorageUri, order) => {
+  let paths = switch order {
+  | DownloadOrderAbstract.LatestALS => ["latest-als", "als"]
+  | DownloadOrderAbstract.DevALS => ["dev-als", "als"]
+  | DownloadOrderAbstract.DevWASMALS => ["dev-wasm-als", "als.wasm"]
+  }
+  let uri = VSCode.Uri.joinPath(globalStorageUri, paths)
+  switch await FS.stat(uri) {
+  | Ok(_) => Some(uri->VSCode.Uri.fsPath)
+  | Error(_) => None
   }
 }

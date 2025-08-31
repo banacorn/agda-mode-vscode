@@ -7,16 +7,30 @@ module Desktop: Platform.PlatformOps = {
 
   let findCommand = Connection__Command.search
 
-  let alreadyDownloaded = Connection__LatestALS.alreadyDownloaded
+  let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
-  let downloadLatestALS = (logChannel, memento, globalStorageUri) => async platform => {
-    switch await Connection__LatestALS.download(logChannel, memento, globalStorageUri)(platform) {
-    | Ok(endpoint) => Ok(endpoint)
+  let resolveDownloadOrder = (
+    order: Connection__Download.DownloadOrderAbstract.t,
+    useCache,
+  ) => async (memento, globalStorageUri, platform) => {
+    let repo = switch order {
+    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+    | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+    | DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
+    }
+
+    let toDownloadOrder = switch order {
+    | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
+    | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
+    | DevWASMALS => Connection__DevWASMALS.toDownloadOrder(_)
+    }
+
+    switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
     | Error(error) => Error(error)
+    | Ok(releases) => toDownloadOrder(releases)
     }
   }
-
-  let getFetchSpec = Connection__LatestALS.getFetchSpec
+  let download = Connection__Download.download
 
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {
