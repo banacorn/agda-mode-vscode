@@ -325,6 +325,28 @@ let activateWithoutContext = (
   })->subscribeMany
   // registerDocumentSemanticTokensProvider
   registerDocumentSemanticTokensProvider()->subscribe
+  // provide hover text to tell how these symbols get type
+  let selector : VSCode.DocumentFilter.t = { language: Some("agda"), scheme: Some("file"), pattern: None }
+  VSCode.Languages.registerHoverProvider(
+    [ VSCode.StringOr.make(Others(selector)) ],
+    {
+      provideHover: (document, position, token) => {
+        let text = VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
+        let c = text->String.charAt(position->VSCode.Position.character)
+        switch c {
+        | "₁" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ₁ using \\_1")]))))
+        | "𝟘" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type 𝟘 using \\b0")]))))
+        | "≃" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ≃ using \\simeq")]))))
+        | "ℓ" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ℓ using \\ell")]))))
+        | "⊥" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ⊥ using \\bot")]))))
+        | "→" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type → using \\r")]))))
+        | "λ" => Some(Promise.make((resolve, reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type λ using \\lambda or \\Gl")]))))
+        | _ => None
+        }
+      }
+    }
+  )
+  ->subscribe
 
   // expose the channel for testing
   channels
