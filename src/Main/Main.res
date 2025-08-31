@@ -1,5 +1,9 @@
 // Common logic extracted from Main.res for shared use between desktop and web entry points
 
+// key - symbols mapping
+@module("./../../../../asset/query.js")
+external rawTable: Dict.t<array<string>> = "default"
+
 // if end with '.agda' or '.lagda'
 let isAgda = (document): bool =>
   RegExp.test(%re("/\.agda$|\.lagda/i"), document->VSCode.TextDocument.fileName)
@@ -175,6 +179,29 @@ let registerDocumentSemanticTokensProvider = () => {
   )
 }
 
+// provide hover text to tell how these symbols get type
+let registerInputMethodHintHoverProvider = () => {
+  let selector : VSCode.DocumentFilter.t = { language: Some("agda"), scheme: Some("file"), pattern: None }
+  VSCode.Languages.registerHoverProvider(
+    [ VSCode.StringOr.make(Others(selector)) ],
+    {
+      provideHover: (document, position, _token) => {
+        let text = VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
+        let c = text->String.charAt(position->VSCode.Position.character)
+        let found_input_methods : option<array<string>> = c->String.codePointAt(0)->Option.map(string_of_int)->Option.flatMap(Dict.get(rawTable, ...))
+        switch found_input_methods {
+        // If found some methods, then pretty print these input sequences
+        | Some(methods) =>
+          let methods_text = methods->Array.map(m => String.concatMany("`\\", [m, "`"]))->Array.join("or")
+          Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=String.concatMany("Type`", [c, "`using", methods_text]))]))))
+        // no input methods found, do nothing
+        | None => None
+        }
+      }
+    }
+  )
+}
+
 // TODO: rename `finalize`
 let finalize = isRestart => {
   // after the last Agda file has been closed
@@ -323,30 +350,10 @@ let activateWithoutContext = (
       Some(Ok(state))
     }
   })->subscribeMany
-  // registerDocumentSemanticTokensProvider
+
   registerDocumentSemanticTokensProvider()->subscribe
-  // provide hover text to tell how these symbols get type
-  let selector : VSCode.DocumentFilter.t = { language: Some("agda"), scheme: Some("file"), pattern: None }
-  VSCode.Languages.registerHoverProvider(
-    [ VSCode.StringOr.make(Others(selector)) ],
-    {
-      provideHover: (document, position, _token) => {
-        let text = VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
-        let c = text->String.charAt(position->VSCode.Position.character)
-        switch c {
-        | "₁" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ₁ using \\_1")]))))
-        | "𝟘" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type 𝟘 using \\b0")]))))
-        | "≃" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ≃ using \\simeq")]))))
-        | "ℓ" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ℓ using \\ell")]))))
-        | "⊥" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type ⊥ using \\bot")]))))
-        | "→" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type → using \\r")]))))
-        | "λ" => Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value="Type λ using \\lambda or \\Gl")]))))
-        | _ => None
-        }
-      }
-    }
-  )
-  ->subscribe
+  registerInputMethodHintHoverProvider()->subscribe
+
 
   // expose the channel for testing
   channels
