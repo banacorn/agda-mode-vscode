@@ -894,7 +894,9 @@ module Handler = {
             await PlatformOps.openFolder(globalStorageUriAsFile)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if selectedItem.label == Constants.clearCache {
-            await Memento.ALSReleaseCache.clear(state.memento)
+            // Clear cache for all repositories
+            await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
+            await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
             await Memento.PickedConnection.clear(state.memento)
             await Memento.Endpoints.clear(state.memento)
             let _ = await VSCode.Window.showInformationMessage("Cache cleared", [])

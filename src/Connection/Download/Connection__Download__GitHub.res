@@ -326,9 +326,9 @@ module ReleaseManifest: {
     }
   }
 
-  let fetchFromCache = async memento => {
+  let fetchFromCache = async (memento, repo: Repo.t) => {
     // read the file and decode as json
-    switch Memento.ALSReleaseCache.getReleases(memento) {
+    switch Memento.ALSReleaseCache.getReleases(memento, repo.username, repo.repository) {
     | None => Ok([])
     | Some(string) =>
       // parse the json
@@ -343,30 +343,30 @@ module ReleaseManifest: {
     }
   }
 
-  let writeToCache = async (memento, result) =>
+  let writeToCache = async (memento, repo: Repo.t, result) =>
     switch result {
     | Error(_) => ()
     | Ok(releases) =>
       let json = Release.encodeReleases(releases)->Js_json.stringify
-      await Memento.ALSReleaseCache.setTimestamp(memento, Date.make())
-      await Memento.ALSReleaseCache.setReleases(memento, json)
+      await Memento.ALSReleaseCache.setTimestamp(memento, repo.username, repo.repository, Date.make())
+      await Memento.ALSReleaseCache.setReleases(memento, repo.username, repo.repository, json)
     }
 
   // fetch from GitHub if the cache is too old
   // also returns a boolean indicating if the result is from cache
   let fetch = async (memento: Memento.t, repo: Repo.t, ~useCache=true) =>
     if useCache {
-      let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(memento) {
+      let cacheInvalidated = switch Memento.ALSReleaseCache.getCacheAgeInSecs(memento, repo.username, repo.repository) {
       | None => true
       | Some(cacheAge) => cacheAge > repo.cacheInvalidateExpirationSecs
       }
 
       if cacheInvalidated {
         let result = await fetchWithoutCache(repo)
-        await writeToCache(memento, result)
+        await writeToCache(memento, repo, result)
         (result, false)
       } else {
-        (await fetchFromCache(memento), true)
+        (await fetchFromCache(memento, repo), true)
       }
     } else {
       let result = await fetchWithoutCache(repo)
