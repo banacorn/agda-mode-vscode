@@ -74,7 +74,7 @@
 				"aliases": [
 					"Agda"
 				],
-				"configuration": "./language-configuration.json",
+				"configuration": "./language-configurations/agda.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -88,6 +88,7 @@
 				"aliases": [
 					"Literate Agda (markdown)"
 				],
+				"configuration": "./language-configurations/lagda-markdown.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -110,6 +111,7 @@
 				"aliases": [
 					"Literate Agda (Typst)"
 				],
+				"configuration": "./language-configurations/lagda-typst.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -133,6 +135,7 @@
 				"aliases": [
 					"Literate Agda (TeX)"
 				],
+				"configuration": "./language-configurations/lagda-tex.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -146,6 +149,7 @@
 				"aliases": [
 					"Literate Agda (reStructuredText)"
 				],
+				"configuration": "./language-configurations/lagda-rst.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -159,6 +163,7 @@
 				"aliases": [
 					"Literate Agda (Org)"
 				],
+				"configuration": "./language-configurations/lagda-org.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -181,6 +186,7 @@
 				"aliases": [
 					"Literate Agda (forester)"
 				],
+				"configuration": "./language-configurations/lagda-forester.json",
 				"icon": {
 					"dark": "./asset/dark.png",
 					"light": "./asset/light.png"
@@ -1148,6 +1154,16 @@
 				"command": "agda-mode.lookup-symbol",
 				"key": "ctrl+x ctrl+=",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !terminalFocus"
+			},
+			{
+				"command": "markdown.showPreview",
+				"key": "shift+cmd+v",
+				"when": "!notebookEditorFocused && editorLangId == 'lagda-markdown'"
+			},
+			{
+				"command": "markdown.showPreviewToSide",
+				"key": "cmd+k v",
+				"when": "!notebookEditorFocused && editorLangId == 'lagda-markdown'"
 			}
 		],
 		"configuration": {

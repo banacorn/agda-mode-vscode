@@ -1,0 +1,87 @@
+// Sourced from https://github.com/microsoft/vscode/blob/main/extensions/markdown-basics/language-configuration.json
+{
+  "comments": {
+    // symbols used for start and end a block comment. Remove this entry if your language does not support block comments
+    "blockComment": ["<!--", "-->"]
+  },
+  // symbols used as brackets
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "colorizedBracketPairs": [],
+  //   "autoClosingPairs": [
+  //     {
+  //       "open": "{",
+  //       "close": "}"
+  //     },
+  //     {
+  //       "open": "[",
+  //       "close": "]"
+  //     },
+  //     {
+  //       "open": "(",
+  //       "close": ")"
+  //     },
+  //     {
+  //       "open": "<",
+  //       "close": ">",
+  //       "notIn": ["string"]
+  //     }
+  //   ],
+  "surroundingPairs": [
+    ["(", ")"],
+    ["[", "]"],
+    ["`", "`"],
+    ["_", "_"],
+    ["*", "*"],
+    ["{", "}"],
+    ["'", "'"],
+    ["\"", "\""],
+    ["<", ">"],
+    ["~", "~"],
+    ["$", "$"]
+  ],
+  "folding": {
+    "offSide": true,
+    "markers": {
+      "start": "^\\s*<!--\\s*#?region\\b.*-->",
+      "end": "^\\s*<!--\\s*#?endregion\\b.*-->"
+    }
+  },
+  //   "wordPattern": {
+  //     "pattern": "(\\p{Alphabetic}|\\p{Number}|\\p{Nonspacing_Mark})(((\\p{Alphabetic}|\\p{Number}|\\p{Nonspacing_Mark})|[_])?(\\p{Alphabetic}|\\p{Number}|\\p{Nonspacing_Mark}))*",
+  //     "flags": "ug"
+  //   }
+
+  // Agda specific
+  "autoClosingPairs": [
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{!",
+      "close": "!}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "{-#",
+      "close": "#-}",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦃",
+      "close": "⦄",
+      "notIn": ["comment", "string"]
+    },
+    {
+      "open": "⦇",
+      "close": "⦈",
+      "notIn": ["comment", "string"]
+    }
+  ],
+  "wordPattern": "(?!\\\\)[^\\s\\n\\.\\;\\{\\}\\(\\)\\@\\\"]+"
+}
