@@ -181,9 +181,20 @@ let registerDocumentSemanticTokensProvider = () => {
 
 // provide hover text to tell how these symbols get type
 let registerInputMethodHintHoverProvider = () => {
-  let selector : VSCode.DocumentFilter.t = { language: Some("agda"), scheme: Some("file"), pattern: None }
   VSCode.Languages.registerHoverProvider(
-    [ VSCode.StringOr.make(Others(selector)) ],
+    [
+      VSCode.StringOr.make(String("agda")),
+      VSCode.StringOr.make(String("lagda-markdown")),
+      VSCode.StringOr.make(String("markdown")),
+      VSCode.StringOr.make(String("lagda-typst")),
+      VSCode.StringOr.make(String("typst")),
+      VSCode.StringOr.make(String("lagda-tex")),
+      VSCode.StringOr.make(String("lagda-rst")),
+      VSCode.StringOr.make(String("lagda-org")),
+      VSCode.StringOr.make(String("org")),
+      VSCode.StringOr.make(String("lagda-forester")),
+      VSCode.StringOr.make(String("forester")),
+    ],
     {
       provideHover: (document, position, _token) => {
         let text = VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
