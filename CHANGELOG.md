@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.6.7 - 2025-09-??
+
+### Added
+- #258: provide hover text about how to type a symbol #258 by [@dannypsnl](https://github.com/dannypsnl)
+
 ## v0.6.6 - 2025-08-31
 
 ### Added
@@ -12,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Infrastructure and UI for displaying and downloading the ALS development builds (including the WASM)
 
 ### Fixed
-- #108: agda-mode suppresses implicit markdown support from vscode  by [@fredrik-bakke](https://github.com/fredrik-bakke)
-- #247: Missing language configuration for literate files  by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #108: agda-mode suppresses implicit markdown support from vscode by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #247: Missing language configuration for literate files by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #257: Add built-in markdown preview keybindings for literate agda markdown files by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #256: Add language configurations for individual literate file types by [@fredrik-bakke](https://github.com/fredrik-bakke)
 
