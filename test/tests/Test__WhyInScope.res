@@ -23,17 +23,30 @@ describe("agda-mode.why-in-scope", () => {
 
     let filteredResponses = responses->Array.filter(filteredResponse)
     let dependencyFilepath = Path.asset("Lib.agda")
-    Assert.deepStrictEqual(
-      filteredResponses,
-      [
-        DisplayInfo(
-          WhyInScope(
-            "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at " ++
-            dependencyFilepath ++ ":4,3-7",
+    
+    switch ctx.state.agdaVersion {
+    | Some(version) =>
+      let positionFormat = if Util.Version.gte(version, "2.8.0") {
+        // Agda 2.8.0+ uses dot format for WhyInScope
+        ":4.3-7"
+      } else {
+        // Pre-2.8.0 uses comma format
+        ":4,3-7"
+      }
+      
+      Assert.deepStrictEqual(
+        filteredResponses,
+        [
+          DisplayInfo(
+            WhyInScope(
+              "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at " ++
+              dependencyFilepath ++ positionFormat,
+            ),
           ),
-        ),
-      ],
-    )
+        ],
+      )
+    | None => Assert.fail("No Agda version found")
+    }
   })
 
   Async.it("should be responded with correct responses (global)", async () => {
@@ -45,16 +58,29 @@ describe("agda-mode.why-in-scope", () => {
 
     let filteredResponses = responses->Array.filter(filteredResponse)
     let dependencyFilepath = Path.asset("Lib.agda")
-    Assert.deepStrictEqual(
-      filteredResponses,
-      [
-        DisplayInfo(
-          WhyInScope(
-            "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at " ++
-            dependencyFilepath ++ ":4,3-7",
+    
+    switch ctx.state.agdaVersion {
+    | Some(version) =>
+      let positionFormat = if Util.Version.gte(version, "2.8.0") {
+        // Agda 2.8.0+ uses dot format for WhyInScope
+        ":4.3-7"
+      } else {
+        // Pre-2.8.0 uses comma format
+        ":4,3-7"
+      }
+      
+      Assert.deepStrictEqual(
+        filteredResponses,
+        [
+          DisplayInfo(
+            WhyInScope(
+              "Lib.true is in scope as\n  * a constructor Lib.Bool.true brought into scope by\n    - its definition at " ++
+              dependencyFilepath ++ positionFormat,
+            ),
           ),
-        ),
-      ],
-    )
+        ],
+      )
+    | None => Assert.fail("No Agda version found")
+    }
   })
 })

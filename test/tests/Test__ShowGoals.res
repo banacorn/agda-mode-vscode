@@ -20,11 +20,14 @@ let run = normalization => {
     
     switch ctx.state.agdaVersion {
     | Some(version) =>
-      let expectedAllGoalsWarningsBody = if Util.Version.gte(version, "2.7.0") {
-        // Agda 2.7.0+ uses singular "Error" and no trailing newline
+      let expectedAllGoalsWarningsBody = if Util.Version.gte(version, "2.8.0") {
+        // Agda 2.8.0+ uses dot format for positions and includes error codes
+        `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11.19-31 ]\n_11 : _10  [ at ${filepath}:11.19-31 ]\n_14 : ℕ  [ at ${filepath}:11.19-31 ]\n\n———— Error —————————————————————————————————————————————————\nerror: [UnsolvedConstraints]\nUnsolved constraints`
+      } else if Util.Version.gte(version, "2.7.0") {
+        // Agda 2.7.0+ uses comma format and singular "Error" and no trailing newline
         `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Error —————————————————————————————————————————————————\nUnsolved constraints`
       } else {
-        // Agda < 2.7.0 uses plural "Errors" and has trailing newline
+        // Agda < 2.7.0 uses comma format and plural "Errors" and has trailing newline
         `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11,19-31 ]\n_11 : _10  [ at ${filepath}:11,19-31 ]\n_14 : ℕ  [ at ${filepath}:11,19-31 ]\n\n———— Errors ————————————————————————————————————————————————\nUnsolved constraints\n`
       }
 

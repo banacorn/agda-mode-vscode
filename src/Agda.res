@@ -118,7 +118,7 @@ module Output = {
         })
       , ...))
   let parse = raw => {
-    let locRe = %re("/\[ at (\S+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+)) \]$/")
+    let locRe = %re("/\[ at (\S+\:(?:\d+[,\.]\d+\-\d+[,\.]\d+|\d+[,\.]\d+\-\d+|\d+[,\.]\d+)) \]$/")
     let hasLocation = RegExp.test(locRe, raw)
     if hasLocation {
       parseOutputWithLocation(raw)

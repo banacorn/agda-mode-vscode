@@ -172,11 +172,11 @@ module Module = {
     //  tokens captured by the regex will be placed at odd indices
     //  and the rest will be placed at even indices
     // 3 kinds of tokens are captured as AgdaRange:
-    //  1. filepath:line,column-line,column
-    //  2. filepath:line,column-column
-    //  3. filepath:line,column
+    //  1. filepath:line,column-line,column OR filepath:line.column-line.column
+    //  2. filepath:line,column-column OR filepath:line.column-column
+    //  3. filepath:line,column OR filepath:line.column
     raw
-    ->String.splitByRegExp(%re("/([^\(\)\s]+\:(?:\d+\,\d+\-\d+\,\d+|\d+\,\d+\-\d+|\d+\,\d+))/"))
+    ->String.splitByRegExp(%re("/([^\(\)\s]+\:(?:\d+[,\.]\d+\-\d+[,\.]\d+|\d+[,\.]\d+\-\d+|\d+[,\.]\d+))/"))
     ->Array.filterMap(x => x)
     ->Array.mapWithIndex((token, i) =>
       switch mod(i, 2) {

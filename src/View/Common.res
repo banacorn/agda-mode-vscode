@@ -88,14 +88,14 @@ module AgdaRange = {
     | Range(option<string>, array<AgdaInterval.t>)
 
   let parse = %re(
-    // Regex updated to v10.1.4
-    // There are 3 types of range:
-    //  type 1: filepath:line,col-line,col
-    //  type 2: filepath:line,col-col
-    //  type 3: filepath:line,col
+    // Regex updated for Agda 2.8.0 compatibility
+    // There are 3 types of range, each supporting both comma and dot separators:
+    //  type 1: filepath:line,col-line,col OR filepath:line.col-line.col
+    //  type 2: filepath:line,col-col OR filepath:line.col-col
+    //  type 3: filepath:line,col OR filepath:line.col
 
-    /* filepath  | line,col-line,col       |    line,col-col   |   line,col | */
-    "/^(\S+)\:(?:(\d+)\,(\d+)\-(\d+)\,(\d+)|(\d+)\,(\d+)\-(\d+)|(\d+)\,(\d+))$/"
+    /* filepath  | line[,.]col-line[,.]col       |    line[,.]col-col   |   line[,.]col | */
+    "/^(\S+)\:(?:(\d+)[,\.](\d+)\-(\d+)[,\.](\d+)|(\d+)[,\.](\d+)\-(\d+)|(\d+)[,\.](\d+))$/"
   )->(Emacs__Parser.captures(captured => {
       open Option
       let flatten = xs => xs->flatMap(x => x)
