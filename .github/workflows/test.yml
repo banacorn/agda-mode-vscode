@@ -130,7 +130,7 @@ jobs:
       - name: ⏬ Install Agda
         if: ${{ steps.check-agda.outcome == 'failure'}}
         run: |
-          stack install --resolver=lts-24.1 ${{ matrix.agda }}
+          stack install --resolver=lts-24.1 --allow-different-user ${{ matrix.agda }}
           echo "STACK_LOCAL_BIN=$(stack path --local-bin)" >> "$GITHUB_ENV"
 
       - name: 📦 Move artefacts to ${{ env.DIST }}
