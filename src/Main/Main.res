@@ -1,5 +1,9 @@
 // Common logic extracted from Main.res for shared use between desktop and web entry points
 
+// key - symbols mapping
+@module("./../../../../asset/query.js")
+external rawTable: Dict.t<array<string>> = "default"
+
 // if end with '.agda' or '.lagda'
 let isAgda = (document): bool =>
   RegExp.test(%re("/\.agda$|\.lagda/i"), document->VSCode.TextDocument.fileName)
@@ -175,6 +179,72 @@ let registerDocumentSemanticTokensProvider = () => {
   )
 }
 
+// provide hover text to tell how these symbols get type
+let registerInputMethodHintHoverProvider = () => {
+  VSCode.Languages.registerHoverProvider(
+    [
+      VSCode.StringOr.make(String("agda")),
+      VSCode.StringOr.make(String("lagda-markdown")),
+      VSCode.StringOr.make(String("markdown")),
+      VSCode.StringOr.make(String("lagda-typst")),
+      VSCode.StringOr.make(String("typst")),
+      VSCode.StringOr.make(String("lagda-tex")),
+      VSCode.StringOr.make(String("lagda-rst")),
+      VSCode.StringOr.make(String("lagda-org")),
+      VSCode.StringOr.make(String("org")),
+      VSCode.StringOr.make(String("lagda-forester")),
+      VSCode.StringOr.make(String("forester")),
+    ],
+    {
+      provideHover: (document, position, _token) => {
+        let text =
+          VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
+        let char = text->String.charAt(position->VSCode.Position.character)
+        // don't answer for these characters
+        let ignoredChars = [" "]
+        let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
+          None
+        } else {
+          char
+          ->String.codePointAt(0)
+          ->Option.map(string_of_int)
+          ->Option.flatMap(Dict.get(rawTable, ...))
+        }
+        switch foundInputMethods {
+        // If found some methods, then pretty print these input sequences
+        | Some(methods) =>
+          // Sort methods by length (shortest first) for better UX
+          let sortedMethods =
+            methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
+          // Format with Oxford comma style
+          let methodsText = switch sortedMethods->Array.length {
+          | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
+          | 2 =>
+            "`\\" ++
+            sortedMethods[0]->Option.getUnsafe ++
+            "` or `\\" ++
+            sortedMethods[1]->Option.getUnsafe ++ "`"
+          | _ =>
+            let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
+            let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
+            otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
+            ", or `\\" ++
+            lastMethod ++ "`"
+          }
+          let hoverText = "Input sequence: " ++ methodsText
+          Some(
+            Promise.make((resolve, _reject) =>
+              resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
+            ),
+          )
+        // no input methods found, do nothing
+        | None => None
+        }
+      },
+    },
+  )
+}
+
 // TODO: rename `finalize`
 let finalize = isRestart => {
   // after the last Agda file has been closed
@@ -323,8 +393,9 @@ let activateWithoutContext = (
       Some(Ok(state))
     }
   })->subscribeMany
-  // registerDocumentSemanticTokensProvider
+
   registerDocumentSemanticTokensProvider()->subscribe
+  registerInputMethodHintHoverProvider()->subscribe
 
   // expose the channel for testing
   channels
