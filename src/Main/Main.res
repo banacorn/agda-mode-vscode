@@ -197,19 +197,51 @@ let registerInputMethodHintHoverProvider = () => {
     ],
     {
       provideHover: (document, position, _token) => {
-        let text = VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
-        let c = text->String.charAt(position->VSCode.Position.character)
-        let found_input_methods : option<array<string>> = c->String.codePointAt(0)->Option.map(string_of_int)->Option.flatMap(Dict.get(rawTable, ...))
-        switch found_input_methods {
+        let text =
+          VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
+        let char = text->String.charAt(position->VSCode.Position.character)
+        // don't answer for these characters
+        let ignoredChars = [" "]
+        let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
+          None
+        } else {
+          char
+          ->String.codePointAt(0)
+          ->Option.map(string_of_int)
+          ->Option.flatMap(Dict.get(rawTable, ...))
+        }
+        switch foundInputMethods {
         // If found some methods, then pretty print these input sequences
         | Some(methods) =>
-          let methods_text = methods->Array.map(m => String.concatMany("`\\", [m, "`"]))->Array.join("or")
-          Some(Promise.make((resolve, _reject) => resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=String.concatMany("Type`", [c, "`using", methods_text]))]))))
+          // Sort methods by length (shortest first) for better UX
+          let sortedMethods =
+            methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
+          // Format with Oxford comma style
+          let methodsText = switch sortedMethods->Array.length {
+          | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
+          | 2 =>
+            "`\\" ++
+            sortedMethods[0]->Option.getUnsafe ++
+            "` or `\\" ++
+            sortedMethods[1]->Option.getUnsafe ++ "`"
+          | _ =>
+            let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
+            let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
+            otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
+            ", or `\\" ++
+            lastMethod ++ "`"
+          }
+          let hoverText = "Input sequence: " ++ methodsText
+          Some(
+            Promise.make((resolve, _reject) =>
+              resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
+            ),
+          )
         // no input methods found, do nothing
         | None => None
         }
-      }
-    }
+      },
+    },
   )
 }
 
@@ -364,7 +396,6 @@ let activateWithoutContext = (
 
   registerDocumentSemanticTokensProvider()->subscribe
   registerInputMethodHintHoverProvider()->subscribe
-
 
   // expose the channel for testing
   channels
