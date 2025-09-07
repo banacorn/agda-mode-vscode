@@ -6,7 +6,7 @@ let make = (
   ~onEventFromView: Chan.t<View.EventFromView.t>,
 ) => {
   let (header, setHeader) = React.useState(() => View.Header.Plain("Loading ..."))
-  let (status, setStatus) = React.useState(() => "")
+  let (connectionStatus, setConnectionStatus) = React.useState(() => "")
   let (body, setBody) = React.useState(() => [])
   // save Header & Body up
   // so that we can restore them if the prompt is interrupted
@@ -97,7 +97,7 @@ let make = (
       saveHeaderAndBody(header, body)
       setHeader(_ => header)
       setBody(old => Array.concat(old, body)) // append instead of flush
-    | SetStatus(text) => setStatus(_ => text)
+    | SetConnectionStatus(text) => setConnectionStatus(_ => text)
     | ConfigurationChange(n) =>
       onSubmit(None)
       setFontSize(n)
@@ -117,7 +117,7 @@ let make = (
     <View.EventFromView.Provider value=onEventFromView>
       <section className="agda-mode native-key-bindings" tabIndex={-1}>
         <div className="agda-mode-header-container">
-          <Header header status />
+          <Header header connectionStatus />
           <Prompt
             inputMethodActivated={Option.isSome(inputMethodState)} prompt onUpdatePromptIM onSubmit
           />

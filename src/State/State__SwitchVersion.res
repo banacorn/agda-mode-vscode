@@ -286,21 +286,6 @@ module View = {
   }
 }
 
-module VersionDisplay = {
-  // Format version strings for display
-  let formatAgdaVersion = (version: string): string => "Agda v" ++ version
-
-  let formatALSVersion = (alsVersion: string, agdaVersion: string): string =>
-    "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-
-  let formatDevALSVersion = (agdaVersion: string): string =>
-    "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-
-  let formatSwitchingMessage = (version: string): string => "Switching to " ++ version
-
-  let formatSwitchedMessage = (version: string): string => "Switched to " ++ version
-}
-
 module SwitchVersionManager = {
   type t = {
     mutable entries: Dict.t<Memento.Endpoints.entry>,
@@ -484,7 +469,7 @@ let switchAgdaVersion = async (state: State.t, uri) => {
 
   // Skip the initial Connection.Endpoint.getPicked() call since it might clear our memento
   // Just show a generic "switching..." message
-  await State__View.Panel.displayStatus(state, "")
+  await State__View.Panel.displayConnectionStatus(state, None)
   await State__View.Panel.display(
     state,
     AgdaModeVscode.View.Header.Plain("Switching connection..."),
@@ -501,39 +486,24 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     await Memento.PickedConnection.set(state.memento, Some(path))
     await Config.Connection.addAgdaPath(state.channels.log, path)
 
+    // update diplayed connection status
+    await State__View.Panel.displayConnectionStatus(state, Some(conn))
+    await State__View.Panel.display(
+      state,
+      AgdaModeVscode.View.Header.Success("Switched to " ++ Connection.toString(conn)),
+      [],
+    )
     // update memento with discovered version information and display success message
     switch conn {
     | Agda(_, _, version) =>
       await Memento.Endpoints.setVersion(state.memento, path, Memento.Endpoints.Agda(Some(version)))
-      let formattedVersion = VersionDisplay.formatAgdaVersion(version)
-      await State__View.Panel.displayStatus(state, formattedVersion)
-      await State__View.Panel.display(
-        state,
-        AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
-        [],
-      )
     | ALS(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
       await Memento.Endpoints.setVersion(
         state.memento,
         path,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
-      let formattedVersion = VersionDisplay.formatALSVersion(alsVersion, agdaVersion)
-      await State__View.Panel.displayStatus(state, formattedVersion)
-      await State__View.Panel.display(
-        state,
-        AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
-        [],
-      )
-    | ALS(_, _, None) =>
-      // version still unknown, don't update memento
-      let formattedVersion = "Agda Language Server of unknown version"
-      await State__View.Panel.displayStatus(state, formattedVersion)
-      await State__View.Panel.display(
-        state,
-        AgdaModeVscode.View.Header.Success(VersionDisplay.formatSwitchedMessage(formattedVersion)),
-        [],
-      )
+    | ALS(_, _, None) => () // version still unknown, don't update memento
     }
   | Error(error) => {
       let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))

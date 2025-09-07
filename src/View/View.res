@@ -126,7 +126,7 @@ module EventToView = {
   type t =
     | Display(Header.t, Body.t)
     | Append(Header.t, Body.t) // append instead of flushing the old Body.t
-    | SetStatus(string)
+    | SetConnectionStatus(string)
     | PromptInterrupt
     | PromptIMUpdate(string)
     | InputMethod(InputMethod.t)
@@ -136,7 +136,7 @@ module EventToView = {
     switch x {
     | Display(header, _body) => "Display " ++ Header.toString(header)
     | Append(header, _body) => "Append " ++ Header.toString(header)
-    | SetStatus(status) => "SetStatus " ++ status
+    | SetConnectionStatus(status) => "SetConnectionStatus " ++ status
     | PromptInterrupt => "PromptInterrupt"
     | PromptIMUpdate(s) => "PromptIMUpdate " ++ s
     | InputMethod(_) => "InputMethod"
@@ -155,7 +155,7 @@ module EventToView = {
         Payload(
           tuple2(Header.decode, array(Item.decode))->map(((header, body)) => Append(header, body)),
         )
-      | "SetStatus" => Payload(string->map(text => SetStatus(text)))
+      | "SetConnectionStatus" => Payload(string->map(text => SetConnectionStatus(text)))
       | "PromptInterrupt" => TagOnly(PromptInterrupt)
       | "PromptIMUpdate" => Payload(string->map(text => PromptIMUpdate(text)))
       | "InputMethod" => Payload(InputMethod.decode->map(payload => InputMethod(payload)))
@@ -173,7 +173,7 @@ module EventToView = {
         Payload("Display", tuple2(Header.encode, array(Item.encode))((header, body)))
       | Append(header, body) =>
         Payload("Append", tuple2(Header.encode, array(Item.encode))((header, body)))
-      | SetStatus(text) => Payload("SetStatus", string(text))
+      | SetConnectionStatus(text) => Payload("SetConnectionStatus", string(text))
       | PromptInterrupt => TagOnly("PromptInterrupt")
       | PromptIMUpdate(text) => Payload("PromptIMUpdate", string(text))
       | InputMethod(payload) => Payload("InputMethod", InputMethod.encode(payload))

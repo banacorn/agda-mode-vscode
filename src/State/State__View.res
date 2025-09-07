@@ -7,8 +7,7 @@ module type Panel = {
   let displayInAppendMode: (State.t, View.Header.t, View.Body.t) => promise<unit>
   let displayOutOfGoalError: State.t => promise<unit>
   let displayConnectionError: (State.t, Connection__Error.t) => promise<unit>
-  let displayStatus: (State.t, string) => promise<unit>
-  let displayConnectionStatus: (State.t, Connection.t) => promise<unit>
+  let displayConnectionStatus: (State.t, option<Connection.t>) => promise<unit>
   // Input Method
   let updateIM: (State.t, View.EventToView.InputMethod.t) => promise<unit>
   let updatePromptIM: (State.t, string) => promise<unit>
@@ -46,14 +45,13 @@ module Panel: Panel = {
   }
 
   // display connection status
-  let displayStatus = (state, string) => sendEvent(state, SetStatus(string))
-  let displayConnectionStatus = (state, connection) =>
-    switch connection {
-    | Connection.Agda(_, _, version) => displayStatus(state, "Agda v" ++ version)
-    | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
-      displayStatus(state, "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion)
-    | ALS(_, _, None) => displayStatus(state, "Agda Language Server of unknown version")
+  let displayConnectionStatus = (state, connection) => {
+    let string = switch connection {
+    | Some(conn) => Connection.toString(conn)
+    | None => "No connection"
     }
+    sendEvent(state, SetConnectionStatus(string))
+  }
 
   // update the Input Method
   let updateIM = (state, event) => sendEvent(state, InputMethod(event))

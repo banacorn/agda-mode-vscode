@@ -73,10 +73,10 @@ module Module: Module = {
 
   let toString = connection =>
     switch connection {
-    | Agda(_, path, version) => `Agda(${path}, ${version})`
-    | ALS(_, path, Some(alsVersion, agdaVersion, _)) =>
-      `ALS(${path}, ${alsVersion}, ${agdaVersion})`
-    | ALS(_, path, None) => `ALS(${path}, unknown version)`
+    | Agda(_, _, version) => "Agda v" ++ version
+    | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
+      "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+    | ALS(_, _, None) => "Agda Language Server of unknown version"
     }
 
   let destroy = async (connection, logChannel: Chan.t<Log.t>) =>

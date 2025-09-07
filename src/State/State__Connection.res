@@ -21,8 +21,8 @@ let sendRequest = async (
     switch await Connection.sendRequest(connection, state.document, request, onResponse) {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok() =>
-      // display the connection status
-      await State__View.Panel.displayConnectionStatus(state, connection)
+      // display the connection state
+      await State__View.Panel.displayConnectionStatus(state, Some(connection))
       // update versions
       switch connection {
       | Agda(_, _, version) => state.agdaVersion = Some(version)
