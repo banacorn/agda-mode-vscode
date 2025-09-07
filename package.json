@@ -14,6 +14,9 @@
 	"main": "./dist/app.bundle.js",
 	"browser": "./dist/web.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
+	"extensionDependencies": [
+		"qbane.als-wasm-loader"
+	],
 	"scripts": {
 		"clean": "npx rescript clean",
 		"dev": "npx rescript build -w & npx less-watch-compiler style/ dist/ & webpack --mode development --watch",
