@@ -386,7 +386,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       } else {
         await State__View.Panel.interruptPrompt(state)
       }
-    | ConnectionStatusClicked => Js.log("Connection status clicked")
+    | ConnectionStatusClicked => await dispatchCommand(SwitchAgdaVersion)
     | JumpToTarget(link) =>
       Editor.focus(state.document)
       let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
