@@ -172,15 +172,6 @@ describe("Connection", () => {
       },
     )
 
-    // Skip this test for now due to URI type complexity
-    // The LspURI path is not commonly used in practice
-    // Async.it(
-    //   "should return CannotHandleURLsAtTheMoment error for LspURI",
-    //   async () => {
-    //     // This would test the LspURI handling but requires complex setup
-    //   },
-    // )
-
     Async.it(
       "should return NotAgdaOrALS error for unrecognized executable",
       async () => {
@@ -307,6 +298,7 @@ describe("Connection", () => {
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
         | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALSWASM) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe of ALS with data directory")
         }
 
@@ -367,6 +359,7 @@ describe("Connection", () => {
             Assert.deepStrictEqual(path, agdaMockPath.contents)
             Assert.deepStrictEqual(version, "2.6.3")
           | ALS(_, _, _) => Assert.fail("Expected Agda connection, got ALS")
+          | ALSWASM(_, _) => Assert.fail("Expected Agda connection, got ALSWASM")
           }
         | Error(_) => Assert.fail("Expected successful connection creation")
         }
@@ -390,6 +383,7 @@ describe("Connection", () => {
           Assert.deepStrictEqual(lspOptions, None)
         | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALSWASM) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe")
         }
       },
@@ -517,6 +511,7 @@ describe("Connection", () => {
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
         | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
+        | Ok(_, IsALSWASM) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe with data directory")
         }
 
@@ -875,6 +870,7 @@ describe("Connection", () => {
           switch connection {
           | Agda(_, _, _) => ()
           | ALS(_, _, _) => ()
+          | ALSWASM(_, _) => ()
           }
         | Error(_) => Assert.fail("Expected successful connection via command")
         }
@@ -894,6 +890,7 @@ describe("Connection", () => {
           switch connection {
           | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
+          | ALSWASM(_, _) => ()
           }
         | Error(_) => Assert.fail("Expected successful connection to valid command")
         }
@@ -1076,6 +1073,16 @@ describe("Connection", () => {
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToALS(path, None))],
             )
+          | ALSWASM(path, Some(alsVersion, agdaVersion, _)) =>
+            Assert.deepStrictEqual(
+              loggedEvents,
+              [Log.Connection(Log.Connection.ConnectedToALS(path, Some(alsVersion, agdaVersion)))],
+            )
+          | ALSWASM(path, None) =>
+            Assert.deepStrictEqual(
+              loggedEvents,
+              [Log.Connection(Log.Connection.ConnectedToALS(path, None))],
+            )
           }
 
         | Error(_) =>
@@ -1219,6 +1226,7 @@ describe("Connection", () => {
           switch connection {
           | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
+          | ALSWASM(_, _) => ()
           }
 
           // Should have logged a connection event
@@ -1268,6 +1276,7 @@ describe("Connection", () => {
           switch connection {
           | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
+          | ALSWASM(_, _) => ()
           }
 
           // Should have logged a connection event

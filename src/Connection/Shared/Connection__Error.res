@@ -98,14 +98,11 @@ module Probe = {
   type t =
     | NotAgdaOrALS(string) // the actual output received
     | CannotDetermineAgdaOrALS(Connection__Process__Exec.Error.t) // cannot determine if it's Agda or ALS
-    | CannotHandleURLsAtTheMoment
     | CannotMakeConnectionWithALS(CommWithALS.t)
+    | CannotMakeConnectionWithALSWASMYet
 
   let toString = x =>
     switch x {
-    | CannotHandleURLsAtTheMoment => // "Cannot handle URLs at the moment",
-      "Cannot handle URLs at the moment, this will be supported again in the future"
-
     | NotAgdaOrALS(output) =>
       // "Not Agda or Agda Language Server",
       let outputInfo = if output == "" {
@@ -118,6 +115,7 @@ module Probe = {
     | CannotDetermineAgdaOrALS(e) => Connection__Process__Exec.Error.toString(e)
     | CannotMakeConnectionWithALS(e) =>
       "Cannot make connection with Agda Language Server: " ++ snd(CommWithALS.toString(e))
+    | CannotMakeConnectionWithALSWASMYet => "WASM connections are not implemented yet"
     }
 }
 

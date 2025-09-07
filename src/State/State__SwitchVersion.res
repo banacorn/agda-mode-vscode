@@ -324,6 +324,7 @@ module SwitchVersionManager = {
         let connectionPath = switch connection {
         | Agda(_, path, _) => Some(path)
         | ALS(_, path, _) => Some(path)
+        | ALSWASM(path, _) => Some(path)
         }
         connectionPath
       | None => None
@@ -421,6 +422,9 @@ module SwitchVersionManager = {
         | Ok(_, IsALSOfUnknownVersion(_)) =>
           await Memento.Endpoints.setVersion(self.memento, path, ALS(None))
           Some(path)
+        | Ok(_, IsALSWASM) =>
+          await Memento.Endpoints.setVersion(self.memento, path, ALS(None)) // WASM version unknown
+          Some(path)
         | Error(error) =>
           await Memento.Endpoints.setError(
             self.memento,
@@ -504,6 +508,13 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
+    | ALSWASM(_, None) => () // WASM version unknown, don't update memento
+    | ALSWASM(_, Some(alsVersion, agdaVersion, lspOptions)) =>
+      await Memento.Endpoints.setVersion(
+        state.memento,
+        path,
+        Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
+      )
     }
   | Error(error) => {
       let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))

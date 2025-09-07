@@ -7,8 +7,9 @@ module type Module = {
   type agdaVersion = string // Agda version
   type alsVersion = (string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // (ALS version, Agda version, LSP options)
   type t =
-    | Agda(Agda.t, string, agdaVersion) // connection, path
-    | ALS(ALS.t, string, option<alsVersion>) // connection, path
+    | Agda(Agda.t, string, agdaVersion) // connection, path, version
+    | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
+    | ALSWASM(string, option<alsVersion>) // path, version
 
   // lifecycle
   let make: string => promise<result<t, Error.Establish.t>>
@@ -45,6 +46,7 @@ module type Module = {
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSOfUnknownVersion(NodeJs.Url.t) // for TCP connections
+    | IsALSWASM // ALS WASM file
   let probeFilepath: string => promise<result<(string, probeResult), Error.Probe.t>>
 }
 
@@ -68,8 +70,9 @@ module Module: Module = {
   type agdaVersion = string // Agda version
   type alsVersion = (string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // (ALS version, Agda version, LSP options)
   type t =
-    | Agda(Agda.t, string, agdaVersion) // connection, path
-    | ALS(ALS.t, string, option<alsVersion>) // connection, path
+    | Agda(Agda.t, string, agdaVersion) // connection, path, version
+    | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
+    | ALSWASM(string, option<alsVersion>) // path, version
 
   let toString = connection =>
     switch connection {
@@ -77,6 +80,9 @@ module Module: Module = {
     | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
       "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
     | ALS(_, _, None) => "Agda Language Server of unknown version"
+    | ALSWASM(_, Some(alsVersion, agdaVersion, _)) =>
+      "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " (WASM)"
+    | ALSWASM(_, None) => "Agda Language Server of unknown version (WASM)"
     }
 
   let destroy = async (connection, logChannel: Chan.t<Log.t>) =>
@@ -87,6 +93,7 @@ module Module: Module = {
       switch connection {
       | Agda(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
       | ALS(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
+      | ALSWASM(path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
       }
 
       switch connection {
@@ -98,6 +105,9 @@ module Module: Module = {
         | Error(error) => Error(Error.CommWithALS(error))
         | Ok(_) => Ok()
         }
+      | ALSWASM(_) =>
+        // TODO: implement WASM connection destruction
+        Ok()
       }
     }
 
@@ -105,6 +115,7 @@ module Module: Module = {
     switch connection {
     | Agda(_, path, _) => path
     | ALS(_, path, _) => path
+    | ALSWASM(path, _) => path
     }
 
   // Helper function to check for prebuilt data directory
@@ -125,6 +136,7 @@ module Module: Module = {
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSOfUnknownVersion(NodeJs.Url.t) // for TCP connections
+    | IsALSWASM // ALS WASM file
   // see if it's a Agda executable or a language server
   let probeFilepath = async path => {
     switch URI.parse(path) {
@@ -145,27 +157,33 @@ module Module: Module = {
       // Always use fsPath (not the original path) for all subsequent operations
       // to ensure proper process spawning on Windows
       let fsPath = VSCode.Uri.fsPath(vscodeUri)
-      let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
-      switch result {
-      | Ok(output) =>
-        // try Agda
-        switch String.match(output, %re("/Agda version (.*)/")) {
-        | Some([_, Some(version)]) => Ok(fsPath, IsAgda(version))
-        | _ =>
-          // try ALS
-          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
-          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-            let lspOptions = switch await checkForPrebuiltDataDirectory(fsPath) {
-            | Some(assetPath) =>
-              let env = Dict.fromArray([("Agda_datadir", assetPath)])
-              Some({Connection__Protocol__LSP__Binding.env: env})
-            | None => None
+
+      // Check if it's a WASM file first (assume all WASM files are ALS)
+      if String.endsWith(fsPath, ".wasm") {
+        Ok(fsPath, IsALSWASM)
+      } else {
+        let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
+        switch result {
+        | Ok(output) =>
+          // try Agda
+          switch String.match(output, %re("/Agda version (.*)/")) {
+          | Some([_, Some(version)]) => Ok(fsPath, IsAgda(version))
+          | _ =>
+            // try ALS
+            switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+            | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+              let lspOptions = switch await checkForPrebuiltDataDirectory(fsPath) {
+              | Some(assetPath) =>
+                let env = Dict.fromArray([("Agda_datadir", assetPath)])
+                Some({Connection__Protocol__LSP__Binding.env: env})
+              | None => None
+              }
+              Ok(fsPath, IsALS(alsVersion, agdaVersion, lspOptions))
+            | _ => Error(Error.Probe.NotAgdaOrALS(output))
             }
-            Ok(fsPath, IsALS(alsVersion, agdaVersion, lspOptions))
-          | _ => Error(Error.Probe.NotAgdaOrALS(output))
           }
+        | Error(error) => Error(Error.Probe.CannotDetermineAgdaOrALS(error))
         }
-      | Error(error) => Error(Error.Probe.CannotDetermineAgdaOrALS(error))
       }
     }
   }
@@ -199,6 +217,8 @@ module Module: Module = {
         | Some(alsVersion) => Ok(ALS(conn, path, Some(alsVersion, conn.agdaVersion, None))) // version known
         }
       }
+    | Ok(path, IsALSWASM) =>
+      Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet))
     | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error))
     }
   }
@@ -372,6 +392,9 @@ module Module: Module = {
       | ALS(_, path, Some(alsVersion, agdaVersion, _lspOptions)) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
       | ALS(_, path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
+      | ALSWASM(path, Some(alsVersion, agdaVersion, _)) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
+      | ALSWASM(path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
       }
     }
 
@@ -437,6 +460,13 @@ module Module: Module = {
         Error(Error.CommWithAgda(error))
       | Ok() => Ok()
       }
+    | ALSWASM(path, _version) =>
+      // WASM connections not implemented yet
+      Error(
+        Error.Establish(
+          Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
+        ),
+      )
     }
   }
 }
