@@ -124,7 +124,11 @@
 
     background: @header-background;
 
-    line-height: @header-height;
+    // flexbox layout for proper alignment
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
     font-size: var(--agdaMode-buffer-font-size);
     font-weight: bold;
 
@@ -143,8 +147,15 @@
     .agda-mode-header-connection-status {
         color: @foreground-subtle;
         font-size: 50%;
-        font-variant: small-caps;
-        float: right
+        // font-variant: small-caps;
+        
+        &.clickable {
+            cursor: pointer;
+            
+            &:hover {
+                color: @foreground-highlight;
+            }
+        }
     }
 }
 
