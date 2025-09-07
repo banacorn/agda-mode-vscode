@@ -117,7 +117,7 @@ let make = (
     <View.EventFromView.Provider value=onEventFromView>
       <section className="agda-mode native-key-bindings" tabIndex={-1}>
         <div className="agda-mode-header-container">
-          <Header header connectionStatus />
+          <Header header connectionStatus onConnectionStatusClick={() => onEventFromView->Chan.emit(ConnectionStatusClicked)} />
           <Prompt
             inputMethodActivated={Option.isSome(inputMethodState)} prompt onUpdatePromptIM onSubmit
           />

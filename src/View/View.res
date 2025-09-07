@@ -341,6 +341,7 @@ module EventFromView = {
     | InputMethod(InputMethod.t)
     | PromptIMUpdate(PromptIMUpdate.t)
     | JumpToTarget(Link.t)
+    | ConnectionStatusClicked
 
   let toString = x =>
     switch x {
@@ -349,6 +350,7 @@ module EventFromView = {
     | InputMethod(_) => "InputMethod"
     | PromptIMUpdate(_) => "PromptIMUpdate"
     | JumpToTarget(_) => "JumpToTarget"
+    | ConnectionStatusClicked => "ConnectionStatusClicked"
     }
 
   let chan: Chan.t<t> = Chan.make()
@@ -373,6 +375,7 @@ module EventFromView = {
       | "InputMethod" => Payload(InputMethod.decode->map(payload => InputMethod(payload)))
       | "PromptIMUpdate" => Payload(PromptIMUpdate.decode->map(payload => PromptIMUpdate(payload)))
       | "JumpToTarget" => Payload(Link.decode->map(link => JumpToTarget(link)))
+      | "ConnectionStatusClicked" => TagOnly(ConnectionStatusClicked)
       | tag => raise(DecodeError("[EventFromView] Unknown constructor: " ++ tag))
       }
     })
@@ -386,6 +389,7 @@ module EventFromView = {
       | InputMethod(action) => Payload("InputMethod", InputMethod.encode(action))
       | PromptIMUpdate(action) => Payload("PromptIMUpdate", PromptIMUpdate.encode(action))
       | JumpToTarget(link) => Payload("JumpToTarget", Link.encode(link))
+      | ConnectionStatusClicked => TagOnly("ConnectionStatusClicked")
       }
     , ...)
   }
