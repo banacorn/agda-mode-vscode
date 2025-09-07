@@ -298,7 +298,7 @@ describe("Connection", () => {
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
         | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
-        | Ok(_, IsALSWASM) => Assert.fail("Expected ALS result, got ALSWASM")
+        | Ok(_, IsALSWASM(_)) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe of ALS with data directory")
         }
 
@@ -383,7 +383,7 @@ describe("Connection", () => {
           Assert.deepStrictEqual(lspOptions, None)
         | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
-        | Ok(_, IsALSWASM) => Assert.fail("Expected ALS result, got ALSWASM")
+        | Ok(_, IsALSWASM(_)) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe")
         }
       },
@@ -511,7 +511,7 @@ describe("Connection", () => {
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
         | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
-        | Ok(_, IsALSWASM) => Assert.fail("Expected ALS result, got ALSWASM")
+        | Ok(_, IsALSWASM(_)) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe with data directory")
         }
 

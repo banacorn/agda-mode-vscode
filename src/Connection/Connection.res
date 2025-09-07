@@ -26,9 +26,7 @@ module type Module = {
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
   let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
-
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
-
   let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
   // messaging
@@ -46,7 +44,7 @@ module type Module = {
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSOfUnknownVersion(NodeJs.Url.t) // for TCP connections
-    | IsALSWASM // ALS WASM file
+    | IsALSWASM(VSCode.Uri.t) // ALS WASM file
   let probeFilepath: string => promise<result<(string, probeResult), Error.Probe.t>>
 }
 
@@ -136,7 +134,7 @@ module Module: Module = {
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSOfUnknownVersion(NodeJs.Url.t) // for TCP connections
-    | IsALSWASM // ALS WASM file
+    | IsALSWASM(VSCode.Uri.t) // ALS WASM file
   // see if it's a Agda executable or a language server
   let probeFilepath = async path => {
     switch URI.parse(path) {
@@ -160,7 +158,7 @@ module Module: Module = {
 
       // Check if it's a WASM file first (assume all WASM files are ALS)
       if String.endsWith(fsPath, ".wasm") {
-        Ok(fsPath, IsALSWASM)
+        Ok(fsPath, IsALSWASM(vscodeUri))
       } else {
         let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
         switch result {
@@ -217,8 +215,53 @@ module Module: Module = {
         | Some(alsVersion) => Ok(ALS(conn, path, Some(alsVersion, conn.agdaVersion, None))) // version known
         }
       }
-    | Ok(path, IsALSWASM) =>
-      Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet))
+    | Ok(path, IsALSWASM(uri)) =>
+      // Get the WASM loader extension
+      switch VSCode.Extensions.getExtension("qbane.als-wasm-loader") {
+      | None =>
+        Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet))
+      | Some(extension) =>
+        Util.log("URL", uri)
+        try {
+          // Ensure extension is activated
+          if !VSCode.Extension.isActive(extension) {
+            let _ = await VSCode.Extension.activate(extension)
+          }
+
+          // // Get the exports from the extension
+          // let exports: {
+          //   "AgdaLanguageServerFactory": 'a,
+          //   "WasmAPILoader": unit => 'wasm,
+          // } = VSCode.Extension.exports(extension)
+          // let agdaLanguageServerFactory = exports["AgdaLanguageServerFactory"]
+          // let loader = exports["WasmAPILoader"]()
+          // let wasmRaw = await FS.readFile(uri)
+
+          // Util.log("exports", exports)
+          // Util.log("agdaLanguageServerFactory", agdaLanguageServerFactory)
+          // let wasmAPILoader = exports["WasmAPILoader"]
+
+          // // Load WASM API
+          // let wasm = wasmAPILoader["load"]()
+
+          // // Read and compile WASM file
+          // let wasmUri = VSCode.Uri.file(path)
+          // let alsWasmRaw = await VSCode.Workspace.fs->VSCode.Workspace.FileSystem.readFile(wasmUri)
+          // let wasmModule = await WebAssembly.compile(alsWasmRaw)
+
+          // // Create factory
+          // let _factory = agdaLanguageServerFactory(wasm, wasmModule)
+
+          // For now, return a placeholder WASM connection
+          // TODO: Implement full WASM connection with proper version info
+          Ok(ALSWASM(path, None))
+        } catch {
+        | Exn.Error(_error) =>
+          Error(
+            Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
+          )
+        }
+      }
     | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error))
     }
   }
