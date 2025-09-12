@@ -221,24 +221,33 @@ module Module: Module = {
       | None =>
         Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet))
       | Some(extension) =>
-        Util.log("URL", uri)
         try {
           // Ensure extension is activated
           if !VSCode.Extension.isActive(extension) {
             let _ = await VSCode.Extension.activate(extension)
           }
 
-          // // Get the exports from the extension
-          // let exports: {
-          //   "AgdaLanguageServerFactory": 'a,
-          //   "WasmAPILoader": unit => 'wasm,
-          // } = VSCode.Extension.exports(extension)
-          // let agdaLanguageServerFactory = exports["AgdaLanguageServerFactory"]
-          // let loader = exports["WasmAPILoader"]()
-          // let wasmRaw = await FS.readFile(uri)
+          switch await FS.readFile(uri) {
+          | Error(error) =>
+            Util.log("WASM read error", error)
+            Error(
+              Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
+            )
+          | Ok(raw) =>
+            // Get the exports from the extension
+            let exports: {
+              "AgdaLanguageServerFactory": 'a,
+              "WasmAPILoader": unit => 'wasm,
+            } = VSCode.Extension.exports(extension)
+            let apiLoader = exports["WasmAPILoader"]
+            let compiled = WebAssembly.compile(raw)
+            Util.log("exports", exports)
+            Util.log("apiLoader", apiLoader)
+            Util.log("Compiled WASM", compiled)
+            Util.log("agdaLanguageServerFactory", exports["AgdaLanguageServerFactory"])
+            Ok(ALSWASM(path, None))
+          }
 
-          // Util.log("exports", exports)
-          // Util.log("agdaLanguageServerFactory", agdaLanguageServerFactory)
           // let wasmAPILoader = exports["WasmAPILoader"]
 
           // // Load WASM API
@@ -254,9 +263,10 @@ module Module: Module = {
 
           // For now, return a placeholder WASM connection
           // TODO: Implement full WASM connection with proper version info
-          Ok(ALSWASM(path, None))
         } catch {
         | Exn.Error(_error) =>
+          Util.log("Error!", _error)
+
           Error(
             Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
           )
