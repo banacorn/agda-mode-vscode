@@ -5,10 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.6.7 - 2025-09-??
+## v0.6.7 - 2025-09-12
 
 ### Added
 - #258: provide hover text about how to type a symbol #258 by [@dannypsnl](https://github.com/dannypsnl)
+- Agda 2.8.0 Support
+- Made connection status at the top right of the panel clickable and opens version switching UI when clicked 
+
+### Changed
+- GHC & Stack: Upgraded to GHC 9.10.2 and Stack lts-24.1 in CI
 
 ## v0.6.6 - 2025-08-31
 
