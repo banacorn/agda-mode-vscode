@@ -1,0 +1,9 @@
+resolver: lts-24.1
+compiler: ghc-9.10.2
+# Allow a newer minor version of GHC than the snapshot specifies
+compiler-check: newer-minor
+
+packages: []
+
+extra-deps:
+- Agda-2.7.0.1
