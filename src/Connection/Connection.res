@@ -49,6 +49,7 @@ module type Module = {
 }
 
 module Module: Module = {
+  
   module InitOptions = {
     type t = {commandLineOptions: array<string>}
 
@@ -223,10 +224,15 @@ module Module: Module = {
       | Some(extension) =>
         try {
           // Ensure extension is activated
+          Util.log("WASM: Starting extension activation", extension)
           if !VSCode.Extension.isActive(extension) {
             let _ = await VSCode.Extension.activate(extension)
+            Util.log("WASM: Extension activated", ())
+          } else {
+            Util.log("WASM: Extension already active", ())
           }
 
+          Util.log("WASM: Reading file", uri)
           switch await FS.readFile(uri) {
           | Error(error) =>
             Util.log("WASM read error", error)
@@ -235,18 +241,80 @@ module Module: Module = {
             )
           | Ok(raw) =>
             // Get the exports from the extension
-            let exports: {
-              "AgdaLanguageServerFactory": 'a,
-              "WasmAPILoader": unit => 'wasm,
-            } = VSCode.Extension.exports(extension)
-            let apiLoader = exports["WasmAPILoader"]
-            let compiled = WebAssembly.compile(raw)
-            Util.log("exports", exports)
-            Util.log("apiLoader", apiLoader)
-            Util.log("Compiled WASM", compiled)
-            Util.log("agdaLanguageServerFactory", exports["AgdaLanguageServerFactory"])
+            let exports = VSCode.Extension.exports(extension)
+            Util.log("WASM: Extension exports", exports)
+            
+            // Use ReScript to follow the README implementation
+            let setupWasm = async (exports, _raw) => {
+              Util.log("WASM: Starting ReScript setup", ())
+              Util.log("WASM: Exports keys", Js.Obj.keys(exports)->Array.join(", "))
+              
+              // Access exports directly
+              let agdaLanguageServerFactory = exports["AgdaLanguageServerFactory"]
+              let wasmAPILoader = exports["WasmAPILoader"]
+              let createUriConverters = exports["createUriConverters"]
+              
+              Util.log("WASM: AgdaLanguageServerFactory", agdaLanguageServerFactory)
+              Util.log("WASM: WasmAPILoader", wasmAPILoader)
+              Util.log("WASM: createUriConverters", createUriConverters)
+              
+              // Load WASM API and compile module
+              Util.log("WASM: Loading WASM API...", ())
+              let wasm = wasmAPILoader->WASMLoader.load
+              Util.log("WASM: API loaded", wasm)
+              
+              Util.log("WASM: Compiling WASM module...", ())
+              let mod = await WebAssembly.compile(_raw)
+              Util.log("WASM: Module compiled", mod)
+              
+              // Create language server factory
+              Util.log("WASM: Creating factory...", ())
+              let factory = WASMLoader.createFactory(agdaLanguageServerFactory, wasm, mod)
+              Util.log("WASM: Factory created", factory)
+              
+              Util.log("WASM: Creating memory file system...", ())
+              let memfsAgdaDataDir = await wasm->WASMLoader.createMemoryFileSystem
+              Util.log("WASM: Memory FS created", memfsAgdaDataDir)
+              
+              {"factory": factory, "wasm": wasm, "memfsAgdaDataDir": memfsAgdaDataDir}
+            }
+            
+            let result = setupWasm(exports, raw)
+            
+            Util.log("WASM: Awaiting setup...", ())
+            let wasmSetup = await result
+            Util.log("WASM setup complete", wasmSetup)
             Ok(ALSWASM(path, None))
           }
+
+          // // Ensure extension is activated
+          // if !VSCode.Extension.isActive(extension) {
+          //   let _ = await VSCode.Extension.activate(extension)
+          // }
+
+          // switch await FS.readFile(uri) {
+          // | Error(error) =>
+          //   Util.log("WASM read error", error)
+          //   Error(
+          //     Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
+          //   )
+          // | Ok(raw) =>
+          //   // Get the exports from the extension
+          //   let exports: {
+          //     "AgdaLanguageServerFactory": 'a,
+          //     "WasmAPILoader": unit => 'wasm,
+          //   } = VSCode.Extension.exports(extension)
+          //   let apiLoader = exports["WasmAPILoader"]
+          //   let compiled = WebAssembly.compile(raw)
+          //   Util.log("exports", exports)
+          //   Util.log("exports", Js.Obj.keys(exports)->Array.join(", "))
+          //   Util.log("exports.AgdaLanguageServerFactory", exports["AgdaLanguageServerFactory"])
+          //   Util.log("exports.WasmAPILoader", exports["WasmAPILoader"])
+          //   Util.log("apiLoader", apiLoader)
+          //   Util.log("Compiled WASM", compiled)
+          //   Util.log("agdaLanguageServerFactory", exports["AgdaLanguageServerFactory"])
+          //   Ok(ALSWASM(path, None))
+          // }
 
           // let wasmAPILoader = exports["WasmAPILoader"]
 
