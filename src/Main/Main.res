@@ -278,7 +278,7 @@ let activateWithoutContext = (
     log: Chan.make(),
   }
   // subscribe to the logging channel when in debug mode
-  let debug = false
+  let debug = true
   if debug {
     // log the event
     channels.log

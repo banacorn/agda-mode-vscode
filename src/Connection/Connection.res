@@ -454,12 +454,34 @@ module Module: Module = {
   }
 
   let sendRequest = async (connection, document, request, handler) => {
-    // encode the Request to some string
+    // encode the Request to some string (native paths)
     let encodeRequest = (document, version) => {
       let filepath = document->VSCode.TextDocument.fileName->Parser.filepath
       let libraryPath = Config.getLibraryPath()
       let highlightingMethod = Config.Highlighting.getHighlightingMethod()
       let backend = Config.getBackend()
+      Request.encode(document, version, filepath, backend, libraryPath, highlightingMethod, request)
+    }
+
+    // encode the Request for WASM: map VS Code URI to WASI /workspace path
+    let encodeRequestForWASM = (wasmLoader: WASMLoader.t, document, version) => {
+      let libraryPath = Config.getLibraryPath()
+      let highlightingMethod = Config.Highlighting.getHighlightingMethod()
+      let backend = Config.getBackend()
+
+      // Use the loader-provided URI converters to map code URIs to protocol URIs
+      let codeUri = document->VSCode.TextDocument.uri
+      let converters = wasmLoader.createUriConverters()
+      // code2Protocol returns a string like "file:///workspace/..."
+      let protoUri: string = %raw("function(conv, uri){ return conv.code2Protocol(uri); }")(
+        converters,
+        codeUri,
+      )
+      // Extract a POSIX path from the file URI (e.g. /workspace/..), fallback to the original if parsing fails
+      let filepath: string = %raw(
+        "function(u){ try { return new URL(u).pathname; } catch(e) { return u; } }"
+      )(protoUri)
+
       Request.encode(document, version, filepath, backend, libraryPath, highlightingMethod, request)
     }
 
@@ -488,10 +510,14 @@ module Module: Module = {
         InitOptions.getFromConfig(),
       ) {
       | Error(error) =>
-        Error(Error.Establish(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error))))
+        Error(
+          Error.Establish(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error))),
+        )
       | Ok(conn) =>
         // Use the same ALS.sendRequest pattern as regular ALS connections
-        switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
+        let payload = encodeRequestForWASM(wasmLoader, document, conn.agdaVersion)
+        Util.log("Sending request to WASM ALS: ", payload)
+        switch await ALS.sendRequest(conn, payload, handler) {
         | Error(error) =>
           // stop the connection on error
           let _ = await destroy(Some(ALSWASM(wasmLoader, path, version)), Chan.make())
