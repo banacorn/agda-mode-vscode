@@ -359,7 +359,7 @@ describe("Connection", () => {
             Assert.deepStrictEqual(path, agdaMockPath.contents)
             Assert.deepStrictEqual(version, "2.6.3")
           | ALS(_, _, _) => Assert.fail("Expected Agda connection, got ALS")
-          | ALSWASM(_, _) => Assert.fail("Expected Agda connection, got ALSWASM")
+          | ALSWASM(_, _, _) => Assert.fail("Expected Agda connection, got ALSWASM")
           }
         | Error(_) => Assert.fail("Expected successful connection creation")
         }
@@ -866,11 +866,11 @@ describe("Connection", () => {
 
         switch result {
         | Ok(connection) =>
-          // Should connect to either Agda or ALS
+          // TODO: Should connect to agda - version varies by environment
           switch connection {
           | Agda(_, _, _) => ()
           | ALS(_, _, _) => ()
-          | ALSWASM(_, _) => ()
+          | ALSWASM(_, _, _) => ()
           }
         | Error(_) => Assert.fail("Expected successful connection via command")
         }
@@ -886,11 +886,11 @@ describe("Connection", () => {
 
         switch result {
         | Ok(connection) =>
-          // Should connect to agda (first valid command) - version varies by environment
+          // TODO: Should connect to agda - version varies by environment
           switch connection {
           | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
-          | ALSWASM(_, _) => ()
+          | ALSWASM(_, _, _) => ()
           }
         | Error(_) => Assert.fail("Expected successful connection to valid command")
         }
@@ -1073,12 +1073,12 @@ describe("Connection", () => {
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToALS(path, None))],
             )
-          | ALSWASM(path, Some(alsVersion, agdaVersion, _)) =>
+          | ALSWASM(_, path, Some(alsVersion, agdaVersion, _)) =>
             Assert.deepStrictEqual(
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToALS(path, Some(alsVersion, agdaVersion)))],
             )
-          | ALSWASM(path, None) =>
+          | ALSWASM(_, path, None) =>
             Assert.deepStrictEqual(
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToALS(path, None))],
@@ -1222,11 +1222,11 @@ describe("Connection", () => {
 
         switch result {
         | Ok(connection) =>
-          // Verify we got a valid connection (version varies by environment)
+          // TODO: Verify we got a valid connection (version varies by environment)
           switch connection {
           | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
-          | ALSWASM(_, _) => ()
+          | ALSWASM(_, _, _) => ()
           }
 
           // Should have logged a connection event
@@ -1272,11 +1272,11 @@ describe("Connection", () => {
 
         switch result {
         | Ok(connection) =>
-          // Verify we got a valid connection (version varies by environment)
+          // TODO: Verify we got a valid connection (version varies by environment)
           switch connection {
           | Agda(_, _path, _version) => ()
           | ALS(_, _path, _) => ()
-          | ALSWASM(_, _) => ()
+          | ALSWASM(_, _, _) => ()
           }
 
           // Should have logged a connection event

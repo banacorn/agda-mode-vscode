@@ -9,7 +9,7 @@ module type Module = {
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path, version
     | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
-    | ALSWASM(string, option<alsVersion>) // path, version
+    | ALSWASM(WASMLoader.t, string, option<alsVersion>) // path, version
 
   // lifecycle
   let make: string => promise<result<t, Error.Establish.t>>
@@ -70,7 +70,7 @@ module Module: Module = {
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path, version
     | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
-    | ALSWASM(string, option<alsVersion>) // path, version
+    | ALSWASM(WASMLoader.t, string, option<alsVersion>) // WASM loader, path, version
 
   let toString = connection =>
     switch connection {
@@ -78,9 +78,16 @@ module Module: Module = {
     | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
       "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
     | ALS(_, _, None) => "Agda Language Server of unknown version"
-    | ALSWASM(_, Some(alsVersion, agdaVersion, _)) =>
+    | ALSWASM(_, _, Some(alsVersion, agdaVersion, _)) =>
       "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " (WASM)"
-    | ALSWASM(_, None) => "Agda Language Server of unknown version (WASM)"
+    | ALSWASM(_, _, None) => "Agda Language Server of unknown version (WASM)"
+    }
+
+  let getPath = connection =>
+    switch connection {
+    | Agda(_, path, _) => path
+    | ALS(_, path, _) => path
+    | ALSWASM(_, path, _) => path
     }
 
   let destroy = async (connection, logChannel: Chan.t<Log.t>) =>
@@ -88,11 +95,7 @@ module Module: Module = {
     | None => Ok()
     | Some(connection) =>
       // Log disconnection before destroying
-      switch connection {
-      | Agda(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
-      | ALS(_, path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
-      | ALSWASM(path, _) => logChannel->Chan.emit(Log.Connection(Disconnected(path)))
-      }
+      logChannel->Chan.emit(Log.Connection(Disconnected(getPath(connection))))
 
       switch connection {
       | Agda(conn, _, _) =>
@@ -107,13 +110,6 @@ module Module: Module = {
         // TODO: implement WASM connection destruction
         Ok()
       }
-    }
-
-  let getPath = connection =>
-    switch connection {
-    | Agda(_, path, _) => path
-    | ALS(_, path, _) => path
-    | ALSWASM(path, _) => path
     }
 
   // Helper function to check for prebuilt data directory
@@ -233,8 +229,8 @@ module Module: Module = {
               Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
             )
           | Ok(raw) =>
-            let wasmSetup = await WASMLoader.make(extension, raw)
-            Ok(ALSWASM(path, None))
+            let wasmLoader = await WASMLoader.make(extension, raw)
+            Ok(ALSWASM(wasmLoader, path, None))
           }
         } catch {
         | Exn.Error(error) =>
@@ -416,9 +412,9 @@ module Module: Module = {
       | ALS(_, path, Some(alsVersion, agdaVersion, _lspOptions)) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
       | ALS(_, path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
-      | ALSWASM(path, Some(alsVersion, agdaVersion, _)) =>
+      | ALSWASM(_, path, Some(alsVersion, agdaVersion, _)) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
-      | ALSWASM(path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
+      | ALSWASM(_, path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
       }
     }
 
@@ -484,7 +480,7 @@ module Module: Module = {
         Error(Error.CommWithAgda(error))
       | Ok() => Ok()
       }
-    | ALSWASM(path, _version) =>
+    | ALSWASM(wasmLoader, path, _version) =>
       // WASM connections not implemented yet
       Error(
         Error.Establish(

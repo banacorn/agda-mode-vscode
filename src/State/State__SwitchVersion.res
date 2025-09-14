@@ -319,14 +319,7 @@ module SwitchVersionManager = {
     | None =>
       // Fresh install: try to infer active connection from current state
       switch state.connection {
-      | Some(connection) =>
-        // Extract path from connection
-        let connectionPath = switch connection {
-        | Agda(_, path, _) => Some(path)
-        | ALS(_, path, _) => Some(path)
-        | ALSWASM(path, _) => Some(path)
-        }
-        connectionPath
+      | Some(connection) => Some(Connection.getPath(connection))
       | None => None
       }
     }
@@ -508,8 +501,8 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
-    | ALSWASM(_, None) => () // WASM version unknown, don't update memento
-    | ALSWASM(_, Some(alsVersion, agdaVersion, lspOptions)) =>
+    | ALSWASM(_, _, None) => () // WASM version unknown, don't update memento
+    | ALSWASM(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
       await Memento.Endpoints.setVersion(
         state.memento,
         path,
