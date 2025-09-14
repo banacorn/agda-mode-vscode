@@ -480,13 +480,49 @@ module Module: Module = {
         Error(Error.CommWithAgda(error))
       | Ok() => Ok()
       }
-    | ALSWASM(wasmLoader, path, _version) =>
-      // WASM connections not implemented yet
-      Error(
-        Error.Establish(
-          Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
-        ),
-      )
+    | ALSWASM(wasmLoader, path, version) =>
+      // Create LanguageClient following README exactly
+      let clientResult = %raw(`
+        async function(wasmSetup, document, request, handler) {
+          const { LanguageClient } = require('vscode-languageclient/node');
+          
+          // Server options following README pattern
+          const serverOptions = () => wasmSetup.factory.createServer(wasmSetup.memfsAgdaDataDir, {
+            // TODO: process options
+          });
+          
+          // Client options following README pattern
+          const clientOptions = {
+            uriConverters: wasmSetup.createUriConverters(),
+          };
+          
+          // Create client following README pattern
+          const client = new LanguageClient('als', 'Agda Language Server', serverOptions, clientOptions);
+
+          console.log("client", client)
+          
+          try {
+            // Register features as in README
+            client.registerProposedFeatures();
+            
+            // Register request handler as in README
+            client.onRequest('agda', (res, opts) => {
+              // TODO: add callback handling logic
+              console.log("RESPONSE", res)
+              handler(res);
+            });
+            // await client.start();
+            await client.sendRequest('agda', "{}");
+            
+          } catch (error) {
+            console.log("WASM LSP client error:", error);
+          }
+        }
+      `)(wasmLoader, document, "test request", handler)
+      
+      let result = await clientResult
+      Util.log("WASM result:", result)
+      Ok()
     }
   }
 }

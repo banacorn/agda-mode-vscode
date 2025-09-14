@@ -258,7 +258,7 @@ module Module: Module = {
   }
 
   // start the ALS client
-  let make = async (method, lspOptions, options) => {
+  let make = async (method: Connection__Transport.t, lspOptions, options) => {
     switch await LSP.make("agda", "Agda Language Server", method, lspOptions, options) {
     | Error(error) => Error(Error.ConnectionError(error))
     | exception Exn.Error(error) => Error(Error.ConnectionError(error))

@@ -144,13 +144,6 @@ module ServerOptions = {
       )})
     }")
 
-  let makeWithWASM: WASMLoader.t => t = %raw("function(wasmSetup) {
-      return function() {
-        return wasmSetup.factory.createServer(wasmSetup.memfsAgdaDataDir, {
-          // Server configuration options can go here
-        });
-      };
-    }")
 }
 
 // module WebviewEditorInset = {
