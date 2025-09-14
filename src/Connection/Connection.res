@@ -481,48 +481,24 @@ module Module: Module = {
       | Ok() => Ok()
       }
     | ALSWASM(wasmLoader, path, version) =>
-      // Create LanguageClient following README exactly
-      let clientResult = %raw(`
-        async function(wasmSetup, document, request, handler) {
-          const { LanguageClient } = require('vscode-languageclient/node');
-          
-          // Server options following README pattern
-          const serverOptions = () => wasmSetup.factory.createServer(wasmSetup.memfsAgdaDataDir, {
-            // TODO: process options
-          });
-          
-          // Client options following README pattern
-          const clientOptions = {
-            uriConverters: wasmSetup.createUriConverters(),
-          };
-          
-          // Create client following README pattern
-          const client = new LanguageClient('als', 'Agda Language Server', serverOptions, clientOptions);
-
-          console.log("client", client)
-          
-          try {
-            // Register features as in README
-            client.registerProposedFeatures();
-            
-            // Register request handler as in README
-            client.onRequest('agda', (res, opts) => {
-              // TODO: add callback handling logic
-              console.log("RESPONSE", res)
-              handler(res);
-            });
-            // await client.start();
-            await client.sendRequest('agda', "{}");
-            
-          } catch (error) {
-            console.log("WASM LSP client error:", error);
-          }
+      // Use existing ALS infrastructure with WASM transport
+      switch await ALS.make(
+        Connection__Transport.ViaWASM(wasmLoader),
+        None, // no LSP options needed for WASM
+        InitOptions.getFromConfig(),
+      ) {
+      | Error(error) =>
+        Error(Error.Establish(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error))))
+      | Ok(conn) =>
+        // Use the same ALS.sendRequest pattern as regular ALS connections
+        switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
+        | Error(error) =>
+          // stop the connection on error
+          let _ = await destroy(Some(ALSWASM(wasmLoader, path, version)), Chan.make())
+          Error(Error.CommWithALS(error))
+        | Ok() => Ok()
         }
-      `)(wasmLoader, document, "test request", handler)
-      
-      let result = await clientResult
-      Util.log("WASM result:", result)
-      Ok()
+      }
     }
   }
 }

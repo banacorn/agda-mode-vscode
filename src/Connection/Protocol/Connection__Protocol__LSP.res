@@ -95,6 +95,7 @@ module Module: Module = {
     let serverOptions = switch method {
     | IPC.ViaTCP(_, url) => Binding.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
     | ViaPipe(path, args) => Binding.ServerOptions.makeWithCommand(path, args, serverInitOptions)
+    | ViaWASM(wasmSetup) => Binding.ServerOptions.makeWithWASM(wasmSetup)
     }
 
     let clientOptions = {
