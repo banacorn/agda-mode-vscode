@@ -30,9 +30,14 @@ let createFactory = %raw(`function(constructor, wasm, mod) { return new construc
 // Additional bindings for language server functionality
 @send external createServer: (agdaLanguageServerFactory, memoryFileSystem, serverOptions) => agdaLanguageServer = "createServer"
 
-// LSP communication methods on the server instance
-@send external sendRequest: (agdaLanguageServer, 'request) => promise<'response> = "sendRequest"
-@send external onNotification: (agdaLanguageServer, string, 'notification => unit) => unit = "onNotification"
+// // LSP communication methods on the server instance
+// @send external sendRequest: (agdaLanguageServer, Js.Json.t) => promise<Js.Json.t> = "sendRequest"
+// @send external sendNotification: (agdaLanguageServer, Js.Json.t) => promise<unit> = "sendNotification"
+// @send external onRequest: (agdaLanguageServer, string, Js.Json.t => promise<result<Js.Json.t, Js.Exn.t>>) => unit = "onRequest"
+// @send external onNotification: (agdaLanguageServer, string, Js.Json.t => unit) => unit = "onNotification"
+// @send external onError: (agdaLanguageServer, Js.Exn.t => unit) => unit = "onError"
+// @send external start: agdaLanguageServer => promise<unit> = "start"
+// @send external stop: agdaLanguageServer => promise<unit> = "stop"
 
 let make = async (extension, raw) => {
   // Get the exports from the extension
