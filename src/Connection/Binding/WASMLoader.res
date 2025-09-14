@@ -34,7 +34,7 @@ let createFactory = %raw(`function(constructor, wasm, mod) { return new construc
 // Additional bindings for language server functionality
 @send external createServer: (agdaLanguageServerFactory, memoryFileSystem, serverOptions) => agdaLanguageServer = "createServer"
 
-let make = async (extension, raw) => {
+let make = async (extension, raw: Uint8Array.t) => {
   // Get the exports from the extension
   let exports = VSCode.Extension.exports(extension)
 
@@ -48,7 +48,7 @@ let make = async (extension, raw) => {
   let mod = await WebAssembly.compile(raw)
 
   // Create language server factory
-  let factory = %raw("function(constructor, wasm, mod) { return new constructor(wasm, mod); }")(agdaLanguageServerFactory, wasm, mod)
+  let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
   let memfsAgdaDataDir = await wasm->createMemoryFileSystem
 
   {factory: factory, wasm: wasm, memfsAgdaDataDir: memfsAgdaDataDir, createUriConverters: createUriConverters}

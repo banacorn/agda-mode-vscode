@@ -98,39 +98,49 @@ module Module: Module = {
     | ViaWASM(wasmSetup) => Binding.ServerOptions.makeWithWASM(wasmSetup)
     }
 
-    let clientOptions = {
-      // Register the server for plain text documents
-      let documentSelector: DocumentSelector.t = [
-        StringOr.make(
-          Others({
-            open DocumentFilter
-            {
-              scheme: Some("file"),
-              pattern: None,
-              language: Some(id),
-            }
-          }),
-        ),
-      ]
+    // Build shared parts, then select clientOptions maker depending on transport
+    // Register the server for plain text documents
+    let documentSelector: DocumentSelector.t = [
+      StringOr.make(
+        Others({
+          open DocumentFilter
+          {
+            scheme: Some("file"),
+            pattern: None,
+            language: Some(id),
+          }
+        }),
+      ),
+    ]
 
-      // Notify the server about file changes to '.clientrc files contained in the workspace
-      let synchronize: FileSystemWatcher.t = Workspace.createFileSystemWatcher(
-        %raw("'**/.clientrc'"),
-        ~ignoreCreateEvents=false,
-        ~ignoreChangeEvents=false,
-        ~ignoreDeleteEvents=false,
+    // Notify the server about file changes to '.clientrc files contained in the workspace
+    let synchronize: FileSystemWatcher.t = Workspace.createFileSystemWatcher(
+      %raw("'**/.clientrc'"),
+      ~ignoreCreateEvents=false,
+      ~ignoreChangeEvents=false,
+      ~ignoreDeleteEvents=false,
+    )
+
+    let errorHandler: Binding.ErrorHandler.t = Binding.ErrorHandler.make(
+      ~error=(exn, _msg, _count) => {
+        errorChan->Chan.emit(exn)
+        Shutdown
+      },
+      ~closed=() => {
+        DoNotRestart
+      },
+    )
+
+    let clientOptions = switch method {
+    | ViaWASM(wasmSetup) =>
+      Binding.LanguageClientOptions.makeWithUriConverters(
+        documentSelector,
+        synchronize,
+        errorHandler,
+        clientInitOptions,
+        wasmSetup.createUriConverters(),
       )
-
-      let errorHandler: Binding.ErrorHandler.t = Binding.ErrorHandler.make(
-        ~error=(exn, _msg, _count) => {
-          errorChan->Chan.emit(exn)
-          Shutdown
-        },
-        ~closed=() => {
-          DoNotRestart
-        },
-      )
-
+    | _ =>
       Binding.LanguageClientOptions.make(
         documentSelector,
         synchronize,

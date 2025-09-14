@@ -110,6 +110,23 @@ module LanguageClientOptions = {
         initializationOptions: initializationOptions
       }
     }")
+
+  // Variant that includes uriConverters (needed for WASM/worker setups)
+  let makeWithUriConverters: (
+    DocumentSelector.t,
+    FileSystemWatcher.t,
+    ErrorHandler.t,
+    Js.Json.t,
+    'uriConverters,
+  ) => t = %raw("function (documentSelector, synchronize, errorHandler, initializationOptions, uriConverters) {
+      return {
+        documentSelector: documentSelector,
+        synchronize: synchronize,
+        errorHandler: errorHandler,
+        initializationOptions: initializationOptions,
+        uriConverters: uriConverters
+      }
+    }")
 }
 
 type executableOptions = {
