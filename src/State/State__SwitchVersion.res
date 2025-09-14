@@ -501,8 +501,8 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
-    | ALSWASM(_, _, None) => () // WASM version unknown, don't update memento
-    | ALSWASM(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
+    | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
+    | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, lspOptions)) =>
       await Memento.Endpoints.setVersion(
         state.memento,
         path,

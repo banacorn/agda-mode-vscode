@@ -9,7 +9,7 @@ module type Module = {
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path, version
     | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
-    | ALSWASM(WASMLoader.t, string, option<alsVersion>) // path, version
+    | ALSWASM(ALS.t, WASMLoader.t, string, option<alsVersion>) // path, version
 
   // lifecycle
   let make: string => promise<result<t, Error.Establish.t>>
@@ -70,7 +70,7 @@ module Module: Module = {
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path, version
     | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
-    | ALSWASM(WASMLoader.t, string, option<alsVersion>) // WASM loader, path, version
+    | ALSWASM(ALS.t, WASMLoader.t, string, option<alsVersion>) // connection, WASM loader, path, version
 
   let toString = connection =>
     switch connection {
@@ -78,16 +78,16 @@ module Module: Module = {
     | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
       "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
     | ALS(_, _, None) => "Agda Language Server of unknown version"
-    | ALSWASM(_, _, Some(alsVersion, agdaVersion, _)) =>
+    | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, _)) =>
       "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " (WASM)"
-    | ALSWASM(_, _, None) => "Agda Language Server of unknown version (WASM)"
+    | ALSWASM(_, _, _, None) => "Agda Language Server of unknown version (WASM)"
     }
 
   let getPath = connection =>
     switch connection {
     | Agda(_, path, _) => path
     | ALS(_, path, _) => path
-    | ALSWASM(_, path, _) => path
+    | ALSWASM(_, _, path, _) => path
     }
 
   let destroy = async (connection, logChannel: Chan.t<Log.t>) =>
@@ -230,7 +230,22 @@ module Module: Module = {
             )
           | Ok(raw) =>
             let wasmLoader = await WASMLoader.make(extension, raw)
-            Ok(ALSWASM(wasmLoader, path, None))
+
+            // Use existing ALS infrastructure with WASM transport
+            switch await ALS.make(
+              Connection__Transport.ViaWASM(wasmLoader),
+              None, // no LSP options needed for WASM
+              InitOptions.getFromConfig(),
+            ) {
+            | Error(error) =>
+              Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
+            | Ok(conn) =>
+              let version = switch conn.alsVersion {
+              | None => None
+              | Some(version) => Some(conn.agdaVersion, version, None)
+              }
+              Ok(ALSWASM(conn, wasmLoader, path, version))
+            }
           }
         } catch {
         | Exn.Error(error) =>
@@ -412,9 +427,10 @@ module Module: Module = {
       | ALS(_, path, Some(alsVersion, agdaVersion, _lspOptions)) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
       | ALS(_, path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
-      | ALSWASM(_, path, Some(alsVersion, agdaVersion, _)) =>
+      | ALSWASM(_, _, path, Some(alsVersion, agdaVersion, _)) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
-      | ALSWASM(_, path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
+      | ALSWASM(_, _, path, None) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
       }
     }
 
@@ -490,7 +506,7 @@ module Module: Module = {
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(ALS(conn, path, versionInfo)), Chan.make())
+        let _ = await destroy(Some(connection), Chan.make())
         Error(Error.CommWithALS(error))
       | Ok() => Ok()
       }
@@ -498,32 +514,20 @@ module Module: Module = {
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
-        let _ = await destroy(Some(Agda(conn, path, version)), Chan.make())
+        let _ = await destroy(Some(connection), Chan.make())
         Error(Error.CommWithAgda(error))
       | Ok() => Ok()
       }
-    | ALSWASM(wasmLoader, path, version) =>
-      // Use existing ALS infrastructure with WASM transport
-      switch await ALS.make(
-        Connection__Transport.ViaWASM(wasmLoader),
-        None, // no LSP options needed for WASM
-        InitOptions.getFromConfig(),
-      ) {
+    | ALSWASM(conn, wasmLoader, path, version) =>
+      // Use the same ALS.sendRequest pattern as regular ALS connections
+      let payload = encodeRequestForWASM(wasmLoader, document, conn.agdaVersion)
+      Util.log("Sending encoded request to WASM ALS: ", payload)
+      switch await ALS.sendRequest(conn, payload, handler) {
       | Error(error) =>
-        Error(
-          Error.Establish(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error))),
-        )
-      | Ok(conn) =>
-        // Use the same ALS.sendRequest pattern as regular ALS connections
-        let payload = encodeRequestForWASM(wasmLoader, document, conn.agdaVersion)
-        Util.log("Sending request to WASM ALS: ", payload)
-        switch await ALS.sendRequest(conn, payload, handler) {
-        | Error(error) =>
-          // stop the connection on error
-          let _ = await destroy(Some(ALSWASM(wasmLoader, path, version)), Chan.make())
-          Error(Error.CommWithALS(error))
-        | Ok() => Ok()
-        }
+        // stop the connection on error
+        let _ = await destroy(Some(connection), Chan.make())
+        Error(Error.CommWithALS(error))
+      | Ok() => Ok()
       }
     }
   }
