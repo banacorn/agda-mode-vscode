@@ -231,20 +231,41 @@ module Module: Module = {
           | Ok(raw) =>
             let wasmLoader = await WASMLoader.make(extension, raw)
 
-            // Use existing ALS infrastructure with WASM transport
-            switch await ALS.make(
-              Connection__Transport.ViaWASM(wasmLoader),
-              None, // no LSP options needed for WASM
-              InitOptions.getFromConfig(),
+            // Prepare the Agda data directory in the memory filesystem
+            let dataPath = "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/dev-wasm-als/agda-data.zip"
+            switch await WASMLoader.prepareAgdaDataDir(
+              extension,
+              wasmLoader.memfsAgdaDataDir,
+              dataPath,
             ) {
-            | Error(error) =>
-              Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
-            | Ok(conn) =>
-              let version = switch conn.alsVersion {
-              | None => None
-              | Some(version) => Some(conn.agdaVersion, version, None)
+            | Error(errorMsg) =>
+              Error(
+                Error.Establish.fromProbeError(
+                  path,
+                  Error.Probe.CannotMakeConnectionWithALSWASMYet,
+                ),
+              )
+            | Ok() =>
+              // Use existing ALS infrastructure with WASM transport
+              // Set Agda_datadir to /opt/agda where the data is mounted in WASM
+              let lspOptions = {
+                let env = Dict.fromArray([("Agda_datadir", "/opt/agda")])
+                Some({Connection__Protocol__LSP__Binding.env: env})
               }
-              Ok(ALSWASM(conn, wasmLoader, path, version))
+              switch await ALS.make(
+                Connection__Transport.ViaWASM(wasmLoader),
+                lspOptions,
+                InitOptions.getFromConfig(),
+              ) {
+              | Error(error) =>
+                Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
+              | Ok(conn) =>
+                let version = switch conn.alsVersion {
+                | None => None
+                | Some(version) => Some(conn.agdaVersion, version, None)
+                }
+                Ok(ALSWASM(conn, wasmLoader, path, version))
+              }
             }
           }
         } catch {

@@ -3,7 +3,7 @@
 // Core WASM types
 type wasmAPILoader
 type wasmAPI
-type memoryFileSystem 
+type memoryFileSystem
 type wasmModule
 type agdaLanguageServerFactory
 type agdaLanguageServer
@@ -26,13 +26,43 @@ type serverOptions = {
 
 // External bindings for WASM loader operations
 @send external load: wasmAPILoader => wasmAPI = "load"
-@send external createMemoryFileSystem: wasmAPI => promise<memoryFileSystem> = "createMemoryFileSystem"
+@send
+external createMemoryFileSystem: wasmAPI => promise<memoryFileSystem> = "createMemoryFileSystem"
+
+// Binding for prepareMemfsFromAgdaDataZip function
+external prepareMemfsFromAgdaDataZip: (
+  Uint8Array.t,
+  memoryFileSystem,
+) => promise<memoryFileSystem> = "prepareMemfsFromAgdaDataZip"
 
 // Factory creation helper
 let createFactory = %raw(`function(constructor, wasm, mod) { return new constructor(wasm, mod); }`)
 
 // Additional bindings for language server functionality
-@send external createServer: (agdaLanguageServerFactory, memoryFileSystem, serverOptions) => agdaLanguageServer = "createServer"
+@send
+external createServer: (
+  agdaLanguageServerFactory,
+  memoryFileSystem,
+  serverOptions,
+) => agdaLanguageServer = "createServer"
+
+// Agda data directory in memory filesystem for Agda-2.7.0.1
+let prepareAgdaDataDir = async (extension, memfs: memoryFileSystem, dataPath: string) => {
+  let agdaDataZipPath = VSCode.Uri.file(dataPath)
+
+  switch await FS.readFile(agdaDataZipPath) {
+  | Error(_) => Error("Failed to read agda-data.zip from " ++ dataPath)
+  | Ok(zipData) =>
+    try {
+      // Get the function from extension exports
+      let exports = VSCode.Extension.exports(extension)
+      let _ = await exports["prepareMemfsFromAgdaDataZip"](zipData, memfs)
+      Ok()
+    } catch {
+    | Exn.Error(_) => Error("Failed to prepare memory filesystem from agda-data.zip")
+    }
+  }
+}
 
 let make = async (extension, raw: Uint8Array.t) => {
   // Get the exports from the extension
@@ -51,5 +81,5 @@ let make = async (extension, raw: Uint8Array.t) => {
   let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
   let memfsAgdaDataDir = await wasm->createMemoryFileSystem
 
-  {factory: factory, wasm: wasm, memfsAgdaDataDir: memfsAgdaDataDir, createUriConverters: createUriConverters}
+  {factory, wasm, memfsAgdaDataDir, createUriConverters}
 }
