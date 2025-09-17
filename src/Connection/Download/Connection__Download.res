@@ -143,10 +143,10 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   | Error(_) =>
     // Parse URL and create HTTP options
     try {
-      // Parse URL to extract host and path using Node.js url module
-      let urlObj = NodeJs.Url.make(url)
-      let host = urlObj.host
-      let path = urlObj.pathname ++ urlObj.search
+      // Parse URL using global WHATWG URL to support both Node and web
+      let urlObj = URL.make(url)
+      let host = urlObj->URL.host
+      let path = urlObj->URL.pathname ++ urlObj->URL.search
 
       let tempFileUri = VSCode.Uri.joinPath(destDirUri, ["download.tmp"])
 

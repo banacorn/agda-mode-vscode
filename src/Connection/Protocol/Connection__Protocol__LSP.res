@@ -93,7 +93,16 @@ module Module: Module = {
     let errorChan = Chan.make()
 
     let serverOptions = switch method {
-    | IPC.ViaTCP(_, url) => Binding.ServerOptions.makeWithStreamInfo(url.port, url.hostname)
+    | IPC.ViaTCP(_, url) =>
+      Binding.ServerOptions.makeWithStreamInfo(
+        {
+          switch Belt.Int.fromString(url->URL.port) {
+          | Some(p) => p
+          | None => 0
+          }
+        },
+        url->URL.hostname,
+      )
     | ViaPipe(path, args) => Binding.ServerOptions.makeWithCommand(path, args, serverInitOptions)
     | ViaWASM(wasmSetup) => Binding.ServerOptions.makeWithWASM(wasmSetup)
     }

@@ -414,10 +414,11 @@ module Module: {
     onDownload,
     downloadDescriptor: DownloadDescriptor.t,
   ) => {
-    let url = NodeJs.Url.make(downloadDescriptor.asset.browser_download_url)
+    let url = URL.make(downloadDescriptor.asset.browser_download_url)
+    // let url = NodeJs.Url.make(downloadDescriptor.asset.browser_download_url)
     let httpOptions = {
-      "host": url.host,
-      "path": url.pathname,
+      "host": url->URL.host,
+      "path": url->URL.pathname,
       "headers": {
         "User-Agent": repo.userAgent,
       },

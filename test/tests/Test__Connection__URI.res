@@ -12,7 +12,7 @@ describe("Connection__URI", () => {
       () => {
         let uri = URI.parse("lsp://localhost:8080")
         switch uri {
-        | LspURI(_, url) => Assert.deepStrictEqual(url.protocol, "lsp:")
+        | LspURI(_, url) => Assert.deepStrictEqual(url->URL.protocol, "lsp:")
         | FileURI(_) => Assert.fail("Expected LspURI variant")
         }
       },
@@ -304,10 +304,10 @@ describe("Connection__URI", () => {
     )
 
     it(
-      "should convert payload of LspURI with `NodeJs.Url.toString`",
+      "should convert payload of LspURI with `URL.toString`",
       () => {
-        let url = NodeJs.Url.make("lsp://localhost:8080")
-        let expected = url.toString()
+        let url = URL.make("lsp://localhost:8080")
+        let expected = url->URL.toString
         let actual = URI.toString(URI.LspURI("lsp://localhost:8080", url))
         Assert.deepStrictEqual(actual, expected)
       },
@@ -376,8 +376,8 @@ describe("Connection__URI", () => {
     it(
       "should return true for equal LSP URIs",
       () => {
-        let url1 = NodeJs.Url.make("lsp://localhost:8080")
-        let url2 = NodeJs.Url.make("lsp://localhost:8080")
+        let url1 = URL.make("lsp://localhost:8080")
+        let url2 = URL.make("lsp://localhost:8080")
         let uri1 = URI.LspURI("lsp://localhost:8080", url1)
         let uri2 = URI.LspURI("lsp://localhost:8080", url2)
         Assert.ok(URI.equal(uri1, uri2))
@@ -387,8 +387,8 @@ describe("Connection__URI", () => {
     it(
       "should return false for different LSP URIs",
       () => {
-        let url1 = NodeJs.Url.make("lsp://localhost:8080")
-        let url2 = NodeJs.Url.make("lsp://localhost:9090")
+        let url1 = URL.make("lsp://localhost:8080")
+        let url2 = URL.make("lsp://localhost:9090")
         let uri1 = URI.LspURI("lsp://localhost:8080", url1)
         let uri2 = URI.LspURI("lsp://localhost:9090", url2)
         Assert.ok(!URI.equal(uri1, uri2))
@@ -404,7 +404,7 @@ describe("Connection__URI", () => {
           "C:\\usr\\bin\\agda"
         }
         let uri1 = URI.FileURI(testPath, VSCode.Uri.file(testPath))
-        let url = NodeJs.Url.make("lsp://localhost:8080")
+        let url = URL.make("lsp://localhost:8080")
         let uri2 = URI.LspURI("lsp://localhost:8080", url)
         Assert.ok(!URI.equal(uri1, uri2))
       },

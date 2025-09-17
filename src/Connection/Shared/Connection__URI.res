@@ -4,9 +4,9 @@
 
 // Union type representing different URI schemes supported by the Connection module.
 // - FileURI: Local file paths wrapped in VSCode.Uri.t
-// - LspURI: Language Server Protocol URLs wrapped in NodeJs.Url.t
+// - LspURI: Language Server Protocol URLs wrapped in URL.t
 type raw = string
-type t = FileURI(raw, VSCode.Uri.t) | LspURI(raw, NodeJs.Url.t)
+type t = FileURI(raw, VSCode.Uri.t) | LspURI(raw, URL.t)
 
 // Parses a raw string into a Connection URI, handling various path formats and URL schemes.
 //
@@ -28,15 +28,15 @@ type t = FileURI(raw, VSCode.Uri.t) | LspURI(raw, NodeJs.Url.t)
 // parse("file:///absolute/path") // -> FileURI with extracted file path
 // parse("lsp://localhost:8080") // -> LspURI
 let parse = raw => {
-  let result = try Some(NodeJs.Url.make(raw)) catch {
+  let result = try Some(URL.make(raw)) catch {
   | _ => None
   }
   // Handle URLs with specific protocols
   let result = switch result {
   | Some(url) =>
-    if url.protocol == "lsp:" {
+    if url->URL.protocol == "lsp:" {
       Some(url)
-    } else if url.protocol == "file:" {
+    } else if url->URL.protocol == "file:" {
       // Convert file:// URL back to file path
       None // This will fall through to file path handling
     } else {
@@ -107,7 +107,7 @@ let parse = raw => {
 let toString = uri =>
   switch uri {
   | FileURI(_, vscodeUri) => VSCode.Uri.toString(vscodeUri)
-  | LspURI(_, nodeJsUrl) => nodeJsUrl.toString()
+  | LspURI(_, url) => url->URL.toString
   }
 
 // Checks if two Connection URIs are equal by comparing their string representations.
@@ -130,6 +130,6 @@ let toString = uri =>
 let equal = (x, y) =>
   switch (x, y) {
   | (FileURI(_, x), FileURI(_, y)) => VSCode.Uri.toString(x) == VSCode.Uri.toString(y)
-  | (LspURI(_, x), LspURI(_, y)) => x.toString() == y.toString()
+  | (LspURI(_, x), LspURI(_, y)) => x->URL.toString == y->URL.toString
   | _ => false
   }
