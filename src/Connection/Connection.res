@@ -231,13 +231,8 @@ module Module: Module = {
           | Ok(raw) =>
             let wasmLoader = await WASMLoader.make(extension, raw)
 
-            // Prepare the Agda data directory in the memory filesystem
-            let dataPath = "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/dev-wasm-als/agda-data.zip"
-            switch await WASMLoader.prepareAgdaDataDir(
-              extension,
-              wasmLoader.memfsAgdaDataDir,
-              dataPath,
-            ) {
+            // Prepare the Agda data directory in the memory filesystem (provisional for Agda-2.7.0)
+            switch await WASMLoader.prepareAgdaDataDir(extension, wasmLoader.memfsAgdaDataDir) {
             | Error(errorMsg) =>
               Error(
                 Error.Establish.fromProbeError(
@@ -245,16 +240,12 @@ module Module: Module = {
                   Error.Probe.CannotMakeConnectionWithALSWASMYet,
                 ),
               )
-            | Ok() =>
-              // Use existing ALS infrastructure with WASM transport
-              // Set Agda_datadir to /opt/agda where the data is mounted in WASM
-              let lspOptions = {
-                let env = Dict.fromArray([("Agda_datadir", "/opt/agda")])
-                Some({Connection__Protocol__LSP__Binding.env: env})
-              }
+            | Ok(env) =>
               switch await ALS.make(
                 Connection__Transport.ViaWASM(wasmLoader),
-                lspOptions,
+                Some({
+                  Connection__Protocol__LSP__Binding.env: env,
+                }),
                 InitOptions.getFromConfig(),
               ) {
               | Error(error) =>

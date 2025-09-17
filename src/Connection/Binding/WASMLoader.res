@@ -35,6 +35,12 @@ external prepareMemfsFromAgdaDataZip: (
   memoryFileSystem,
 ) => promise<memoryFileSystem> = "prepareMemfsFromAgdaDataZip"
 
+// Binding for arrayBuffer method
+@send external arrayBuffer: Fetch.Response.t => promise<ArrayBuffer.t> = "arrayBuffer"
+
+// Binding for creating Uint8Array from ArrayBuffer
+@new external makeUint8ArrayFromArrayBuffer: ArrayBuffer.t => Uint8Array.t = "Uint8Array"
+
 // Factory creation helper
 let createFactory = %raw(`function(constructor, wasm, mod) { return new constructor(wasm, mod); }`)
 
@@ -46,21 +52,39 @@ external createServer: (
   serverOptions,
 ) => agdaLanguageServer = "createServer"
 
-// Agda data directory in memory filesystem for Agda-2.7.0.1
-let prepareAgdaDataDir = async (extension, memfs: memoryFileSystem, dataPath: string) => {
-  let agdaDataZipPath = VSCode.Uri.file(dataPath)
+// Agda data directory in memory filesystem for Agda-2.7.0 (provisional - will be removed)
+let prepareAgdaDataDir = async (extension, memfs: memoryFileSystem) => {
+  // Hardcoded GitHub release URL - all download logic contained here for easy removal
+  let agdaDataUrl = "https://github.com/andy0130tw/vscode-als-wasm-loader/releases/download/v0.2.1/agda-data.zip"
 
-  switch await FS.readFile(agdaDataZipPath) {
-  | Error(_) => Error("Failed to read agda-data.zip from " ++ dataPath)
-  | Ok(zipData) =>
-    try {
-      // Get the function from extension exports
+  try {
+    // Fetch the zip from GitHub
+    let response = await Fetch.fetch(
+      agdaDataUrl,
+      {
+        method: #GET,
+        headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
+      },
+    )
+    if !Fetch.Response.ok(response) {
+      Error(
+        "Failed to fetch agda-data.zip from GitHub: HTTP " ++
+        string_of_int(Fetch.Response.status(response)),
+      )
+    } else {
+      // Convert response to Uint8Array
+      let arrayBufferData = await arrayBuffer(response)
+      let zipData = makeUint8ArrayFromArrayBuffer(arrayBufferData)
+
+      // Get the function from extension exports and populate memory filesystem
       let exports = VSCode.Extension.exports(extension)
       let _ = await exports["prepareMemfsFromAgdaDataZip"](zipData, memfs)
-      Ok()
-    } catch {
-    | Exn.Error(_) => Error("Failed to prepare memory filesystem from agda-data.zip")
+
+      // Return a dictionary of "env", set Agda_datadir to /opt/agda where the data is mounted in WASM
+      Ok(Dict.fromArray([("Agda_datadir", "/opt/agda")]))
     }
+  } catch {
+  | Exn.Error(_) => Error("Failed to download or prepare agda-data.zip")
   }
 }
 
