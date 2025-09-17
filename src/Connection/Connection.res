@@ -533,7 +533,6 @@ module Module: Module = {
     | ALSWASM(conn, wasmLoader, path, version) =>
       // Use the same ALS.sendRequest pattern as regular ALS connections
       let payload = encodeRequestForWASM(wasmLoader, document, conn.agdaVersion)
-      Util.log("Sending encoded request to WASM ALS: ", payload)
       switch await ALS.sendRequest(conn, payload, handler) {
       | Error(error) =>
         // stop the connection on error

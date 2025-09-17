@@ -155,7 +155,10 @@ module Module: {
 
   let asJson = async httpOptions => {
     let url = optionsToUrl(httpOptions)
-    let fetchOptions = {"headers": httpOptions["headers"]}
+    // Detect environment: Node.js has 'process' global, browsers have 'window'
+    let fetchOptions: {..} = %raw(`typeof process !== 'undefined' && process.versions && process.versions.node`) 
+      ? {"headers": httpOptions["headers"]} // Desktop (Node.js) - keep User-Agent
+      : %raw(`{}`) // Web (browser) - no custom headers to avoid CORS preflight
     switch await fetchWithRedirects(url, fetchOptions) {
     | Ok(response) =>
       switch await gatherDataFromResponse(response) {
@@ -173,7 +176,10 @@ module Module: {
 
   let asFile = async (httpOptions, destUri, onDownload) => {
     let url = optionsToUrl(httpOptions)
-    let fetchOptions = {"headers": httpOptions["headers"]}
+    // Detect environment: Node.js has 'process' global, browsers have 'window'
+    let fetchOptions: {..} = %raw(`typeof process !== 'undefined' && process.versions && process.versions.node`) 
+      ? {"headers": httpOptions["headers"]} // Desktop (Node.js) - keep User-Agent
+      : %raw(`{}`) // Web (browser) - no custom headers to avoid CORS preflight
     switch await fetchWithRedirects(url, fetchOptions) {
     | Ok(response) =>
       onDownload(Event.Start)

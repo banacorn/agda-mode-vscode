@@ -40,13 +40,12 @@ module DownloadOrderConcrete = {
           asset.name
           ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-        | DownloadOrderAbstract.DevWASMALS =>
-          // WASM assets don't contain version info in the name
+        | DownloadOrderAbstract.DevWASMALS => // WASM assets don't contain version info in the name
           "unknown"
         }
-      
+
       let agdaVersion = getAgdaVersion(descriptor.asset)
-      
+
       switch abstractOrder {
       | DownloadOrderAbstract.LatestALS =>
         let alsVersion =
@@ -55,10 +54,8 @@ module DownloadOrderConcrete = {
           ->Array.last
           ->Option.getOr(descriptor.release.name)
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-      | DownloadOrderAbstract.DevALS =>
-        "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-      | DownloadOrderAbstract.DevWASMALS =>
-        "WASM Language Server (dev build)"
+      | DownloadOrderAbstract.DevALS => "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+      | DownloadOrderAbstract.DevWASMALS => "WASM Language Server (dev build)"
       }
     }
 }
