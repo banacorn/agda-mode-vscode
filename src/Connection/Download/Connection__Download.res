@@ -1,8 +1,3 @@
-// External binding for URL parsing
-@module("url")
-external parseUrl: string => {"hostname": string, "pathname": string, "search": option<string>} =
-  "parse"
-
 module DownloadOrderAbstract = {
   type t =
     | LatestALS
@@ -149,9 +144,9 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
     // Parse URL and create HTTP options
     try {
       // Parse URL to extract host and path using Node.js url module
-      let urlObj = parseUrl(url)
-      let host = urlObj["hostname"]
-      let path = urlObj["pathname"] ++ urlObj["search"]->Option.getOr("")
+      let urlObj = NodeJs.Url.make(url)
+      let host = urlObj.host
+      let path = urlObj.pathname ++ urlObj.search
 
       let tempFileUri = VSCode.Uri.joinPath(destDirUri, ["download.tmp"])
 
