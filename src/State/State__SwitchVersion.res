@@ -473,7 +473,7 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     [],
   )
 
-  switch await Connection.make(path) {
+  switch await Connection.make(path, Connection.Error.Establish.FromConfig) {
   | Ok(conn) =>
     // stop the old connection
     let _ = await Connection.destroy(state.connection, state.channels.log)

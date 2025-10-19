@@ -121,6 +121,11 @@ module Probe = {
 
 // Error occurred while trying to establish a connection
 module Establish = {
+  type pathSource =
+    | FromConfig // From user's VS Code settings
+    | FromDownload(Connection__Download.DownloadOrderAbstract.t) // From download
+    | FromCommandLookup(string) // From command lookup (e.g., `which agda`)
+
   type downloadStatus =
     | NotAttempted // Download was not attempted (user opted not to, or wasn't needed)
     | Succeeded // Download succeeded but connection failed afterwards
@@ -128,10 +133,21 @@ module Establish = {
 
   // Organized in a way such that we can report all failed attempts of establishing a connection at once
   type t = {
-    probes: Dict.t<Probe.t>, // index by path
+    probes: Dict.t<(Probe.t, pathSource)>, // index by path, with source
     commands: Dict.t<Connection__Command.Error.t>, // index by command name
     download: downloadStatus,
   }
+
+  let pathSourceToString = source =>
+    switch source {
+    | FromConfig => "from config"
+    | FromDownload(Connection__Download.DownloadOrderAbstract.LatestALS) =>
+      "from LatestALS download"
+    | FromDownload(Connection__Download.DownloadOrderAbstract.DevALS) => "from DevALS download"
+    | FromDownload(Connection__Download.DownloadOrderAbstract.DevWASMALS) =>
+      "from DevWASMALS download"
+    | FromCommandLookup(command) => "from `which " ++ command ++ "`"
+    }
 
   let toString = x => {
     let probesStr = if x.probes->Dict.toArray->Array.length == 0 {
@@ -140,7 +156,9 @@ module Establish = {
       "Tried to connect with these paths but all failed:\n" ++
       x.probes
       ->Dict.toArray
-      ->Array.map(((path, error)) => "  " ++ path ++ ": " ++ Probe.toString(error))
+      ->Array.map(((path, (error, source))) =>
+        "  " ++ path ++ " (" ++ pathSourceToString(source) ++ "): " ++ Probe.toString(error)
+      )
       ->Array.join("\n") ++ "\n"
     }
 
@@ -169,8 +187,8 @@ module Establish = {
     probesStr ++ commandsStr ++ downloadStr
   }
 
-  let fromProbeError = (path, error) => {
-    probes: Dict.fromArray([(path, error)]),
+  let fromProbeError = (path, error, source) => {
+    probes: Dict.fromArray([(path, (error, source))]),
     commands: Dict.make(),
     download: NotAttempted,
   }
@@ -191,8 +209,12 @@ module Establish = {
   let merge = (x, y) => {
     probes: {
       let dict = Dict.make()
-      x.probes->Dict.forEachWithKey((error, path) => Dict.set(dict, path, error))
-      y.probes->Dict.forEachWithKey((error, path) => Dict.set(dict, path, error))
+      x.probes->Dict.forEachWithKey((errorAndSource, path) =>
+        Dict.set(dict, path, errorAndSource)
+      )
+      y.probes->Dict.forEachWithKey((errorAndSource, path) =>
+        Dict.set(dict, path, errorAndSource)
+      )
       dict
     },
     commands: {

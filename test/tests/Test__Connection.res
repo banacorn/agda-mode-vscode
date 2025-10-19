@@ -350,7 +350,10 @@ describe("Connection", () => {
     Async.it(
       "should successfully create Agda connection from valid Agda path",
       async () => {
-        let result = await Connection.make(agdaMockPath.contents)
+        let result = await Connection.make(
+          agdaMockPath.contents,
+          Connection.Error.Establish.FromConfig,
+        )
 
         switch result {
         | Ok(connection) =>
@@ -393,14 +396,17 @@ describe("Connection", () => {
       "should return Establish error for non-existent path",
       async () => {
         let nonExistentPath = "/path/that/does/not/exist/agda"
-        let result = await Connection.make(nonExistentPath)
+        let result = await Connection.make(
+          nonExistentPath,
+          Connection.Error.Establish.FromConfig,
+        )
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for non-existent path")
         | Error(errors) =>
           // Should have probe error for the non-existent path
           switch errors.probes->Dict.get(nonExistentPath) {
-          | Some(error) =>
+          | Some((error, _source)) =>
             // Verify it's a CannotDetermineAgdaOrALS error wrapped in endpoint error
             switch error {
             | Connection__Error.Probe.CannotDetermineAgdaOrALS(_) => ()
@@ -432,14 +438,14 @@ describe("Connection", () => {
           tempFile
         }
 
-        let result = await Connection.make(mockPath)
+        let result = await Connection.make(mockPath, Connection.Error.Establish.FromConfig)
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for unrecognized executable")
         | Error(errors) =>
           // Should have probe error for the unrecognized executable
           switch errors.probes->Dict.get(mockPath) {
-          | Some(error) =>
+          | Some((error, _source)) =>
             switch error {
             | Connection__Error.Probe.NotAgdaOrALS(output) =>
               Assert.deepStrictEqual(String.trim(output), mockOutput)
@@ -531,7 +537,7 @@ describe("Connection", () => {
       "should handle error construction correctly for probe errors",
       async () => {
         let invalidPath = "/definitely/does/not/exist/agda"
-        let result = await Connection.make(invalidPath)
+        let result = await Connection.make(invalidPath, Connection.Error.Establish.FromConfig)
 
         switch result {
         | Ok(_) => Assert.fail("Expected construction error")
@@ -546,7 +552,7 @@ describe("Connection", () => {
 
           // Verify the specific probe error
           switch errors.probes->Dict.get(invalidPath) {
-          | Some(Connection__Error.Probe.CannotDetermineAgdaOrALS(_)) => ()
+          | Some((Connection__Error.Probe.CannotDetermineAgdaOrALS(_), _source)) => ()
           | Some(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
           | None => Assert.fail("Expected probe error to be present")
           }
@@ -771,7 +777,7 @@ describe("Connection", () => {
         }
 
         let platformDeps = Mock.Platform.makeBasic()
-        let paths = [mockPath]
+        let paths = [(mockPath, Connection.Error.Establish.FromConfig)]
         let result = await Connection.fromPaths(platformDeps, paths)
 
         switch result {
@@ -796,7 +802,12 @@ describe("Connection", () => {
         }
 
         let platformDeps = Mock.Platform.makeBasic()
-        let paths = ["invalid/path/1", "invalid/path/2", mockPath, "invalid/path/3"]
+        let paths = [
+          ("invalid/path/1", Connection.Error.Establish.FromConfig),
+          ("invalid/path/2", Connection.Error.Establish.FromConfig),
+          (mockPath, Connection.Error.Establish.FromConfig),
+          ("invalid/path/3", Connection.Error.Establish.FromConfig),
+        ]
         let result = await Connection.fromPaths(platformDeps, paths)
 
         switch result {
@@ -816,7 +827,11 @@ describe("Connection", () => {
       "should return Construction error when all paths are invalid",
       async () => {
         let platformDeps = Mock.Platform.makeBasic()
-        let paths = ["invalid/path/1", "invalid/path/2", "invalid/path/3"]
+        let paths = [
+          ("invalid/path/1", Connection.Error.Establish.FromConfig),
+          ("invalid/path/2", Connection.Error.Establish.FromConfig),
+          ("invalid/path/3", Connection.Error.Establish.FromConfig),
+        ]
         let result = await Connection.fromPaths(platformDeps, paths)
 
         switch result {

@@ -12,7 +12,7 @@ module type Module = {
     | ALSWASM(ALS.t, WASMLoader.t, string, option<alsVersion>) // path, version
 
   // lifecycle
-  let make: string => promise<result<t, Error.Establish.t>>
+  let make: (string, Error.Establish.pathSource) => promise<result<t, Error.Establish.t>>
   let makeWithFallback: (
     Platform.t,
     Memento.t,
@@ -25,7 +25,9 @@ module type Module = {
   let getPath: t => string
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
-  let fromPaths: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
+  let fromPaths: (Platform.t, array<(string, Error.Establish.pathSource)>) => promise<
+    result<t, Error.Establish.t>,
+  >
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
   let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
@@ -182,7 +184,10 @@ module Module: Module = {
     }
   }
 
-  let make = async (rawpath: string): result<t, Error.Establish.t> => {
+  let make = async (rawpath: string, source: Error.Establish.pathSource): result<
+    t,
+    Error.Establish.t,
+  > => {
     switch await probeFilepath(rawpath) {
     | Ok(path, IsAgda(agdaVersion)) =>
       let connection = await Agda.make(path, agdaVersion)
@@ -194,7 +199,7 @@ module Module: Module = {
         InitOptions.getFromConfig(),
       ) {
       | Error(error) =>
-        Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
+        Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source))
       | Ok(conn) => Ok(ALS(conn, path, Some(alsVersion, agdaVersion, lspOptions)))
       }
     | Ok(path, IsALSOfUnknownVersion(url)) =>
@@ -204,7 +209,7 @@ module Module: Module = {
         InitOptions.getFromConfig(),
       ) {
       | Error(error) =>
-        Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
+        Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source))
       | Ok(conn) =>
         switch conn.alsVersion {
         | None => Ok(ALS(conn, path, None)) // version unknown
@@ -215,7 +220,15 @@ module Module: Module = {
       // Get the WASM loader extension
       switch VSCode.Extensions.getExtension("qbane.als-wasm-loader") {
       | None =>
-        Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet("Extension 'qbane.als-wasm-loader' not found")))
+        Error(
+          Error.Establish.fromProbeError(
+            path,
+            Error.Probe.CannotMakeConnectionWithALSWASMYet(
+              "Extension 'qbane.als-wasm-loader' not found",
+            ),
+            source,
+          ),
+        )
       | Some(extension) =>
         try {
           // Ensure extension is activated
@@ -226,7 +239,11 @@ module Module: Module = {
           switch await FS.readFile(uri) {
           | Error(error) =>
             Error(
-              Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet("Failed to read WASM file: " ++ error)),
+              Error.Establish.fromProbeError(
+                path,
+                Error.Probe.CannotMakeConnectionWithALSWASMYet("Failed to read WASM file: " ++ error),
+                source,
+              ),
             )
           | Ok(raw) =>
             let wasmLoader = await WASMLoader.make(extension, raw)
@@ -237,7 +254,10 @@ module Module: Module = {
               Error(
                 Error.Establish.fromProbeError(
                   path,
-                  Error.Probe.CannotMakeConnectionWithALSWASMYet("Failed to prepare Agda data directory: " ++ errorMsg),
+                  Error.Probe.CannotMakeConnectionWithALSWASMYet(
+                    "Failed to prepare Agda data directory: " ++ errorMsg,
+                  ),
+                  source,
                 ),
               )
             | Ok(env) =>
@@ -249,7 +269,9 @@ module Module: Module = {
                 InitOptions.getFromConfig(),
               ) {
               | Error(error) =>
-                Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error)))
+                Error(
+                  Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source),
+                )
               | Ok(conn) =>
                 let version = switch conn.alsVersion {
                 | None => None
@@ -263,11 +285,15 @@ module Module: Module = {
         | Exn.Error(error) =>
           let errorMessage = Js.Exn.message(error)->Option.getOr("Unknown error")
           Error(
-            Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet("Unexpected error: " ++ errorMessage)),
+            Error.Establish.fromProbeError(
+              path,
+              Error.Probe.CannotMakeConnectionWithALSWASMYet("Unexpected error: " ++ errorMessage),
+              source,
+            ),
           )
         }
       }
-    | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error))
+    | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error, source))
     }
   }
 
@@ -306,13 +332,13 @@ module Module: Module = {
   }
 
   // Make a connection by trying all given paths in order
-  let fromPaths = async (platformDeps: Platform.t, paths: array<string>): result<
-    t,
-    Error.Establish.t,
-  > => {
+  let fromPaths = async (
+    platformDeps: Platform.t,
+    paths: array<(string, Error.Establish.pathSource)>,
+  ): result<t, Error.Establish.t> => {
     module PlatformOps = unpack(platformDeps)
 
-    let tasks = paths->Array.map(path => () => make(path))
+    let tasks = paths->Array.map(((path, source)) => () => make(path, source))
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
     | Error(pathErrors) => Error(Error.Establish.mergeMany(pathErrors))
@@ -328,7 +354,7 @@ module Module: Module = {
 
     let tryCommand = async (command): result<t, Error.Establish.t> => {
       switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) => await make(rawPath)
+      | Ok(rawPath) => await make(rawPath, FromCommandLookup(command))
       | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
       }
     }
@@ -410,7 +436,7 @@ module Module: Module = {
 
         switch downloadResult {
         | Ok(path) =>
-          switch await make(path) {
+          switch await make(path, FromDownload(downloadOrder)) {
           | Ok(connection) => Ok(connection)
           | Error(error) =>
             // Download succeeded, but connection failed
@@ -478,9 +504,15 @@ module Module: Module = {
     | None => paths
     }
 
+    // Tag all paths with FromConfig source
+    let pathsWithSource = pathsWithSelectedConnection->Array.map(path => (
+      path,
+      Error.Establish.FromConfig,
+    ))
+
     // Try each method in order
     let tasks = [
-      () => fromPaths(platformDeps, pathsWithSelectedConnection)->tagFrom(FromPaths),
+      () => fromPaths(platformDeps, pathsWithSource)->tagFrom(FromPaths),
       () => fromCommands(platformDeps, commands)->tagFrom(FromCommands),
       () => fromDownloads(platformDeps, memento, globalStorageUri)->tagFrom(FromDownloads),
     ]
