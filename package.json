@@ -1213,7 +1213,7 @@
 						"Do nothing and don't ask again"
 					],
 					"scope": "machine-overridable",
-					"description": "Download policy when Agda or Agda Language Server is missing"
+					"description": "Download policy when Agda or Agda Language Server is missing (on desktop platforms only)"
 				},
 				"agdaMode.view.panelMountPosition": {
 					"type": "string",

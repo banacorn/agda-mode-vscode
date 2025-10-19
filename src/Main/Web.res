@@ -37,7 +37,8 @@ module Web: Platform.PlatformOps = {
 
   let download = Connection__Download.download
 
-  let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.No)
+  // Always download, because there are no alternatives in web environment
+  let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
 
   let openFolder = _uri => Promise.resolve()
 }

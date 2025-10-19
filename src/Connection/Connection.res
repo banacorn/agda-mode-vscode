@@ -358,10 +358,16 @@ module Module: Module = {
     switch await PlatformOps.determinePlatform() {
     | Error(platform) => Error(Error.Establish.fromDownloadError(PlatformNotSupported(platform)))
     | Ok(platform) =>
-      // Check download policy
-      let policy = switch Config.Connection.DownloadPolicy.get() {
-      | Undecided => await PlatformOps.askUserAboutDownloadPolicy()
-      | policy => policy
+      // On web, always download (no alternatives exist)
+      // On desktop, respect user's config
+      let policy = switch platform {
+      | Connection__Download__Platform.Web =>
+          Config.Connection.DownloadPolicy.Yes
+      | _ =>
+          switch Config.Connection.DownloadPolicy.get() {
+          | Undecided => await PlatformOps.askUserAboutDownloadPolicy()
+          | policy => policy
+          }
       }
 
       switch policy {
