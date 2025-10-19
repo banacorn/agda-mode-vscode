@@ -406,6 +406,18 @@ let activate = (platformDeps, context) => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionUri = VSCode.ExtensionContext.extensionUri(context)
   let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
+
+  // Workaround for vscode-test-web providing malformed path `/User/` instead of `/Users/`
+  let globalStorageUri = {
+    let uriString = VSCode.Uri.toString(globalStorageUri)
+    if String.includes(uriString, "/User/globalStorage/") {
+      let correctedUriString = String.replaceAll(uriString, "/User/globalStorage/", "/Users/globalStorage/")
+      VSCode.Uri.parse(correctedUriString)
+    } else {
+      globalStorageUri
+    }
+  }
+
   activateWithoutContext(
     platformDeps,
     subscriptions,

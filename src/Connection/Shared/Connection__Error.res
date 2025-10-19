@@ -180,7 +180,7 @@ module Establish = {
     | NotAttempted => "Opted not to download prebuilt Agda Language Server"
     | Succeeded => "" // Download succeeded, errors are already reported in probes/commands
     | Failed(error) =>
-      "Tried to download the Agda Language Server but failed:\n" ++
+      "Tried to download the Agda Language Server but failed:\n  " ++
       Connection__Download.Error.toString(error)
     }
     // Concatenate all parts
