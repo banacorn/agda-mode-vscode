@@ -215,7 +215,7 @@ module Module: Module = {
       // Get the WASM loader extension
       switch VSCode.Extensions.getExtension("qbane.als-wasm-loader") {
       | None =>
-        Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet))
+        Error(Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet("Extension 'qbane.als-wasm-loader' not found")))
       | Some(extension) =>
         try {
           // Ensure extension is activated
@@ -226,7 +226,7 @@ module Module: Module = {
           switch await FS.readFile(uri) {
           | Error(error) =>
             Error(
-              Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
+              Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet("Failed to read WASM file: " ++ error)),
             )
           | Ok(raw) =>
             let wasmLoader = await WASMLoader.make(extension, raw)
@@ -237,7 +237,7 @@ module Module: Module = {
               Error(
                 Error.Establish.fromProbeError(
                   path,
-                  Error.Probe.CannotMakeConnectionWithALSWASMYet,
+                  Error.Probe.CannotMakeConnectionWithALSWASMYet("Failed to prepare Agda data directory: " ++ errorMsg),
                 ),
               )
             | Ok(env) =>
@@ -261,8 +261,9 @@ module Module: Module = {
           }
         } catch {
         | Exn.Error(error) =>
+          let errorMessage = Js.Exn.message(error)->Option.getOr("Unknown error")
           Error(
-            Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet),
+            Error.Establish.fromProbeError(path, Error.Probe.CannotMakeConnectionWithALSWASMYet("Unexpected error: " ++ errorMessage)),
           )
         }
       }
