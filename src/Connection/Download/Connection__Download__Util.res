@@ -97,7 +97,7 @@ module Module: {
     result<Js.Json.t, Error.t>,
   >
   let asFile: (
-    {"headers": {"User-Agent": string}, "host": string, "path": string},
+    {"headers": {..}, "host": string, "path": string},
     VSCode.Uri.t,
     Event.t => unit,
   ) => promise<result<unit, Error.t>>
@@ -177,9 +177,13 @@ module Module: {
   let asFile = async (httpOptions, destUri, onDownload) => {
     let url = optionsToUrl(httpOptions)
     // Detect environment: Node.js has 'process' global, browsers have 'window'
-    let fetchOptions: {..} = %raw(`typeof process !== 'undefined' && process.versions && process.versions.node`) 
-      ? {"headers": httpOptions["headers"]} // Desktop (Node.js) - keep User-Agent
-      : %raw(`{}`) // Web (browser) - no custom headers to avoid CORS preflight
+    // On web, Accept header is CORS-safe but User-Agent triggers preflight
+    let headers = %raw(`
+      (typeof process !== 'undefined' && process.versions && process.versions.node)
+        ? httpOptions.headers
+        : {"Accept": httpOptions.headers["Accept"]}
+    `)
+    let fetchOptions = {"headers": headers}
     switch await fetchWithRedirects(url, fetchOptions) {
     | Ok(response) =>
       onDownload(Event.Start)

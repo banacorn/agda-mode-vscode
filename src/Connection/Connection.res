@@ -420,16 +420,30 @@ module Module: Module = {
         ) {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.resolveDownloadOrder(downloadOrder, true)(
-            memento,
-            globalStorageUri,
-            platform,
-          ) {
-          | Error(error) => Error(Error.Establish.fromDownloadError(error))
-          | Ok(downloadDescriptor) =>
-            switch await PlatformOps.download(globalStorageUri, downloadDescriptor) {
+          // For DevWASMALS, use unpkg.com directly to avoid GitHub CORS issues
+          switch downloadOrder {
+          | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
+            switch await Connection__Download.downloadFromURL(
+              globalStorageUri,
+              "https://unpkg.com/agda-wasm@0.0.1/als/2.8.0/als.wasm",
+              "dev-wasm-als",
+              "Agda Language Server (WASM)",
+            ) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok(path)
+            }
+          | _ =>
+            switch await PlatformOps.resolveDownloadOrder(downloadOrder, true)(
+              memento,
+              globalStorageUri,
+              platform,
+            ) {
+            | Error(error) => Error(Error.Establish.fromDownloadError(error))
+            | Ok(downloadDescriptor) =>
+              switch await PlatformOps.download(globalStorageUri, downloadDescriptor) {
+              | Error(error) => Error(Error.Establish.fromDownloadError(error))
+              | Ok(path) => Ok(path)
+              }
             }
           }
         }

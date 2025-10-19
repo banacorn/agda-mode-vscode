@@ -1,5 +1,5 @@
 let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
-  username: "banacorn",
+  username: "agda",
   repository: "agda-language-server",
   userAgent: "banacorn/agda-mode-vscode",
   globalStorageUri,

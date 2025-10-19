@@ -414,13 +414,15 @@ module Module: {
     onDownload,
     downloadDescriptor: DownloadDescriptor.t,
   ) => {
-    let url = URL.make(downloadDescriptor.asset.browser_download_url)
-    // let url = NodeJs.Url.make(downloadDescriptor.asset.browser_download_url)
+    // Use GitHub API URL with Accept: application/octet-stream to avoid CORS issues
+    // on web when browser_download_url redirects to release-assets.githubusercontent.com
+    let url = URL.make(downloadDescriptor.asset.url)
     let httpOptions = {
       "host": url->URL.host,
       "path": url->URL.pathname,
       "headers": {
         "User-Agent": repo.userAgent,
+        "Accept": "application/octet-stream",
       },
     }
 

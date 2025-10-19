@@ -156,6 +156,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         "path": path,
         "headers": {
           "User-Agent": "agda/agda-mode-vscode",
+          "Accept": "*/*",
         },
       }
 
