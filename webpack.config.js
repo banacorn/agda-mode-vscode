@@ -68,7 +68,7 @@ module.exports = (env, argv) => {
                     // Desktop-only packages
                     'unzipper': false,
                     'getos': false,
-                    'untildify': false,
+                    'untildify': path.resolve(__dirname, 'untildify-shim.js'),
                 },
                 fallback: {
                     // Provide browser-compatible alternatives
