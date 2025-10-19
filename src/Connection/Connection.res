@@ -381,14 +381,20 @@ module Module: Module = {
         Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
+        // Choose download order based on platform
+        // Web uses WASM, desktop uses native binaries
+        let downloadOrder = switch platform {
+        | Connection__Download__Platform.Web => Connection__Download.DownloadOrderAbstract.DevWASMALS
+        | _ => Connection__Download.DownloadOrderAbstract.LatestALS
+        }
         // Get the downloaded path, download if not already done
         let downloadResult = switch await PlatformOps.alreadyDownloaded(
           globalStorageUri,
-          LatestALS,
+          downloadOrder,
         ) {
         | Some(path) => Ok(path)
         | None =>
-          switch await PlatformOps.resolveDownloadOrder(LatestALS, true)(
+          switch await PlatformOps.resolveDownloadOrder(downloadOrder, true)(
             memento,
             globalStorageUri,
             platform,
