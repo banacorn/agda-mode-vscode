@@ -412,7 +412,14 @@ module Module: Module = {
         | Ok(path) =>
           switch await make(path) {
           | Ok(connection) => Ok(connection)
-          | Error(error) => Error(error)
+          | Error(error) =>
+            // Download succeeded, but connection failed
+            // Return error with all probe failures (download succeeded so download: None)
+            Error({
+              probes: error.probes,
+              commands: error.commands,
+              download: None,
+            })
           }
         | Error(error) => Error(error)
         }

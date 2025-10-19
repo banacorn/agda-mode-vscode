@@ -154,7 +154,16 @@ module Establish = {
     }
 
     let downloadStr = switch x.download {
-    | None => "Opted not to download prebuilt Agda Language Server"
+    | None =>
+      // Only show "Opted not to download" if there were no other attempts
+      // If there are probe/command errors, download succeeded (or wasn't the issue)
+      let hasOtherAttempts =
+        x.probes->Dict.toArray->Array.length > 0 || x.commands->Dict.toArray->Array.length > 0
+      if hasOtherAttempts {
+        ""
+      } else {
+        "Opted not to download prebuilt Agda Language Server"
+      }
     | Some(error) =>
       "Tried to download the Agda Language Server but failed:\n" ++
       Connection__Download.Error.toString(error)
