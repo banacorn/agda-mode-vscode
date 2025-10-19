@@ -539,7 +539,10 @@ describe("Connection", () => {
           // Verify error structure
           Assert.deepStrictEqual(Array.length(errors.probes->Dict.toArray), 1)
           Assert.deepStrictEqual(Array.length(errors.commands->Dict.toArray), 0)
-          Assert.deepStrictEqual(errors.download, None)
+          Assert.deepStrictEqual(
+            errors.download,
+            Connection__Error.Establish.NotAttempted,
+          )
 
           // Verify the specific probe error
           switch errors.probes->Dict.get(invalidPath) {
@@ -828,7 +831,10 @@ describe("Connection", () => {
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
 
           // Should have no download error
-          Assert.deepStrictEqual(errors.download, None)
+          Assert.deepStrictEqual(
+            errors.download,
+            Connection__Error.Establish.NotAttempted,
+          )
         }
       },
     )
@@ -850,7 +856,10 @@ describe("Connection", () => {
           let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
 
-          Assert.deepStrictEqual(errors.download, None)
+          Assert.deepStrictEqual(
+            errors.download,
+            Connection__Error.Establish.NotAttempted,
+          )
         }
       },
     )
@@ -924,7 +933,10 @@ describe("Connection", () => {
           )
 
           // Should have no download error
-          Assert.deepStrictEqual(errors.download, None)
+          Assert.deepStrictEqual(
+            errors.download,
+            Connection__Error.Establish.NotAttempted,
+          )
         }
       },
     )
@@ -946,7 +958,10 @@ describe("Connection", () => {
           let commandErrors = errors.commands->Dict.toArray
           Assert.deepStrictEqual(Array.length(commandErrors), 0)
 
-          Assert.deepStrictEqual(errors.download, None)
+          Assert.deepStrictEqual(
+            errors.download,
+            Connection__Error.Establish.NotAttempted,
+          )
         }
       },
     )
@@ -1399,7 +1414,7 @@ describe("Connection", () => {
           switch error {
           | Connection.Error.Establish(errors) =>
             switch errors.download {
-            | Some(Connection__Download.Error.PlatformNotSupported(_)) => ()
+            | Failed(Connection__Download.Error.PlatformNotSupported(_)) => ()
             | _ => Assert.fail("Expected PlatformNotSupported download error")
             }
           | _ => Assert.fail("Expected Establish error")
@@ -1731,7 +1746,7 @@ describe("Connection", () => {
           switch error {
           | Connection.Error.Establish(errors) =>
             switch errors.download {
-            | Some(Connection__Download.Error.CannotFindCompatibleALSRelease) => ()
+            | Failed(Connection__Download.Error.CannotFindCompatibleALSRelease) => ()
             | _ => Assert.fail("Expected CannotFindCompatibleALSRelease download error")
             }
           | _ => Assert.fail("Expected Establish error")

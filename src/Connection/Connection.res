@@ -414,11 +414,11 @@ module Module: Module = {
           | Ok(connection) => Ok(connection)
           | Error(error) =>
             // Download succeeded, but connection failed
-            // Return error with all probe failures (download succeeded so download: None)
+            // Return error with all probe failures
             Error({
               probes: error.probes,
               commands: error.commands,
-              download: None,
+              download: Succeeded,
             })
           }
         | Error(error) => Error(error)

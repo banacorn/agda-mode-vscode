@@ -121,11 +121,16 @@ module Probe = {
 
 // Error occurred while trying to establish a connection
 module Establish = {
+  type downloadStatus =
+    | NotAttempted // Download was not attempted (user opted not to, or wasn't needed)
+    | Succeeded // Download succeeded but connection failed afterwards
+    | Failed(Connection__Download.Error.t) // Download attempt failed
+
   // Organized in a way such that we can report all failed attempts of establishing a connection at once
   type t = {
     probes: Dict.t<Probe.t>, // index by path
     commands: Dict.t<Connection__Command.Error.t>, // index by command name
-    download: option<Connection__Download.Error.t>, // error encountered when trying to download the Agda Language Server, or when the user opted not to download
+    download: downloadStatus,
   }
 
   let toString = x => {
@@ -147,24 +152,16 @@ module Establish = {
       ->Array.map(((command, error)) =>
         "Tried to connect with `" ++
         command ++
-        "` but failed:\n. " ++
+        "` but failed:\n  " ++
         Connection__Command.Error.toString(error)
       )
       ->Array.join("\n") ++ "\n"
     }
 
     let downloadStr = switch x.download {
-    | None =>
-      // Only show "Opted not to download" if there were no other attempts
-      // If there are probe/command errors, download succeeded (or wasn't the issue)
-      let hasOtherAttempts =
-        x.probes->Dict.toArray->Array.length > 0 || x.commands->Dict.toArray->Array.length > 0
-      if hasOtherAttempts {
-        ""
-      } else {
-        "Opted not to download prebuilt Agda Language Server"
-      }
-    | Some(error) =>
+    | NotAttempted => "Opted not to download prebuilt Agda Language Server"
+    | Succeeded => "" // Download succeeded, errors are already reported in probes/commands
+    | Failed(error) =>
       "Tried to download the Agda Language Server but failed:\n" ++
       Connection__Download.Error.toString(error)
     }
@@ -175,19 +172,19 @@ module Establish = {
   let fromProbeError = (path, error) => {
     probes: Dict.fromArray([(path, error)]),
     commands: Dict.make(),
-    download: None,
+    download: NotAttempted,
   }
 
   let fromCommandError = (command, error) => {
     probes: Dict.make(),
     commands: Dict.fromArray([(command, error)]),
-    download: None,
+    download: NotAttempted,
   }
 
   let fromDownloadError = error => {
     probes: Dict.make(),
     commands: Dict.make(),
-    download: Some(error),
+    download: Failed(error),
   }
 
   // Should form a monoid
@@ -205,15 +202,10 @@ module Establish = {
       dict
     },
     download: switch (x.download, y.download) {
-    | (Some(error), yDownload) =>
-      // Prefer x's error if both exist, but assert y's error is handled
-      if Option.isSome(yDownload) {
-        // Both have errors - we keep x's error but acknowledge y had one too
-        assert(Option.isSome(yDownload))
-      }
-      Some(error)
-    | (None, Some(error)) => Some(error)
-    | (None, None) => None
+    | (Failed(error), _) => Failed(error) // x failed, use x's error
+    | (_, Failed(error)) => Failed(error) // y failed, use y's error
+    | (Succeeded, _) | (_, Succeeded) => Succeeded // Either succeeded
+    | (NotAttempted, NotAttempted) => NotAttempted
     },
   }
 
@@ -222,7 +214,7 @@ module Establish = {
       {
         probes: Dict.make(),
         commands: Dict.make(),
-        download: None,
+        download: NotAttempted,
       },
       (acc, x) => merge(acc, x),
     )
