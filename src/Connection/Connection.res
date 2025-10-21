@@ -250,37 +250,23 @@ module Module: Module = {
           | Ok(raw) =>
             let wasmLoader = await WASMLoader.make(extension, raw)
 
-            // Prepare the Agda data directory in the memory filesystem (provisional for Agda-2.7.0)
-            switch await WASMLoader.prepareAgdaDataDir(extension, wasmLoader.memfsAgdaDataDir) {
-            | Error(errorMsg) =>
+            // No Agda data directory preparation needed for WASM 2.8.0+
+            // (data is already bundled in the WASM binary)
+            switch await ALS.make(
+              Connection__Transport.ViaWASM(wasmLoader),
+              None,
+              InitOptions.getFromConfig(),
+            ) {
+            | Error(error) =>
               Error(
-                Error.Establish.fromProbeError(
-                  path,
-                  Error.Probe.CannotMakeConnectionWithALSWASMYet(
-                    "Failed to prepare Agda data directory: " ++ errorMsg,
-                  ),
-                  source,
-                ),
+                Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source),
               )
-            | Ok(env) =>
-              switch await ALS.make(
-                Connection__Transport.ViaWASM(wasmLoader),
-                Some({
-                  Connection__Protocol__LSP__Binding.env: env,
-                }),
-                InitOptions.getFromConfig(),
-              ) {
-              | Error(error) =>
-                Error(
-                  Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source),
-                )
-              | Ok(conn) =>
-                let version = switch conn.alsVersion {
-                | None => None
-                | Some(version) => Some(conn.agdaVersion, version, None)
-                }
-                Ok(ALSWASM(conn, wasmLoader, path, version))
+            | Ok(conn) =>
+              let version = switch conn.alsVersion {
+              | None => None
+              | Some(version) => Some(conn.agdaVersion, version, None)
               }
+              Ok(ALSWASM(conn, wasmLoader, path, version))
             }
           }
         } catch {
