@@ -145,7 +145,7 @@ module Module: Module = {
       | Error(Connection__Transport__TCP.Error.OnError(exn)) =>
         Error(Error.Probe.CannotMakeConnectionWithALS(ConnectionError(exn)))
       }
-    | FileURI(_, vscodeUri) =>
+    | FileURI(raw, vscodeUri) =>
       // IMPORTANT: Convert URI to platform-specific file system path
       // VSCode.Uri.fsPath() handles cross-platform path conversion:
       // - On Windows: "/d/path/file" -> "d:\path\file"
@@ -156,7 +156,9 @@ module Module: Module = {
 
       // Check if it's a WASM file first (assume all WASM files are ALS)
       if String.endsWith(fsPath, ".wasm") {
-        Ok(fsPath, IsALSWASM(vscodeUri))
+        // For WASM files, return the original raw path with scheme preserved
+        // (e.g., vscode-userdata:/Users/...) instead of fsPath which loses the scheme
+        Ok(raw, IsALSWASM(vscodeUri))
       } else {
         let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
         switch result {

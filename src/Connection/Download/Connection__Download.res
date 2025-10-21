@@ -188,7 +188,8 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
           // WASM file - save directly as als.wasm
           let wasmExecUri = VSCode.Uri.joinPath(destDirUri, ["als.wasm"])
           let _ = await FS.rename(tempFileUri, wasmExecUri)
-          Ok(VSCode.Uri.fsPath(wasmExecUri))
+          // Return URI string with scheme preserved (e.g., vscode-userdata:/Users/...)
+          Ok(VSCode.Uri.toString(wasmExecUri))
         } else {
           // Regular ZIP file processing
           let readResult = await FS.readFile(tempFileUri)
@@ -260,7 +261,13 @@ let alreadyDownloaded = async (globalStorageUri, order) => {
   }
   let uri = VSCode.Uri.joinPath(globalStorageUri, paths)
   switch await FS.stat(uri) {
-  | Ok(_) => Some(uri->VSCode.Uri.fsPath)
+  | Ok(_) =>
+    // For WASM, return URI string with scheme preserved for web compatibility
+    // For non-WASM, use fsPath for backwards compatibility with desktop
+    switch order {
+    | DownloadOrderAbstract.DevWASMALS => Some(VSCode.Uri.toString(uri))
+    | _ => Some(uri->VSCode.Uri.fsPath)
+    }
   | Error(_) => None
   }
 }

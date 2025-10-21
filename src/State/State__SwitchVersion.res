@@ -691,11 +691,16 @@ module Handler = {
         | DevWASMALS => "als.wasm"
         | DevALS | LatestALS => "als"
         }
-        let downloadedPath =
-          VSCode.Uri.joinPath(
-            state.globalStorageUri,
-            [downloadDescriptor.saveAsFileName, fileName],
-          )->VSCode.Uri.fsPath
+        let downloadedUri = VSCode.Uri.joinPath(
+          state.globalStorageUri,
+          [downloadDescriptor.saveAsFileName, fileName],
+        )
+        // For WASM, preserve URI scheme (e.g., vscode-userdata://) for web compatibility
+        // For non-WASM, use fsPath for backwards compatibility with desktop
+        let downloadedPath = switch order {
+        | DevWASMALS => VSCode.Uri.toString(downloadedUri)
+        | DevALS | LatestALS => VSCode.Uri.fsPath(downloadedUri)
+        }
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
       | Error(_) => ()
       }

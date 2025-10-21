@@ -39,14 +39,32 @@ let parse = raw => {
     } else if url->URL.protocol == "file:" {
       // Convert file:// URL back to file path
       None // This will fall through to file path handling
+    } else if String.startsWith(url->URL.protocol, "vscode") {
+      // Handle VS Code URI schemes (vscode-userdata:, vscode-vfs:, etc.)
+      // Parse using VSCode.Uri.parse to preserve the scheme
+      Some(url)
     } else {
       None
     }
   | None => None
   }
-  // Handle LSP URLs or fall back to file path processing
+  // Handle LSP URLs, VS Code URIs, or fall back to file path processing
   switch result {
-  | Some(url) => LspURI(raw, url)
+  | Some(url) if url->URL.protocol == "lsp:" => LspURI(raw, url)
+  | Some(url) if String.startsWith(url->URL.protocol, "vscode") =>
+    // VS Code URI - parse and preserve the scheme
+    FileURI(raw, VSCode.Uri.parse(raw))
+  | Some(_) =>
+    // Unexpected protocol - fall through to file path handling
+    let path = untildify(raw)
+    let path = NodeJs.Path.normalize(path)
+    let path = if OS.onUnix {
+      path
+    } else {
+      path->String.replaceRegExp(%re("/^\\([a-zA-Z])\\/"), "$1\:\\")
+    }
+    let absolutePath = NodeJs.Path.resolve([path])
+    FileURI(raw, VSCode.Uri.file(absolutePath))
   | None =>
     // Extract file path from file:// URLs
     let filePath = if String.startsWith(raw, "file://") {
