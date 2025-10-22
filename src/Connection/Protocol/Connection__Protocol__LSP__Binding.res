@@ -161,13 +161,26 @@ module ServerOptions = {
       )})
     }")
 
-  let makeWithWASM: WASMLoader.t => t = %raw("function(wasmSetup) {
-      return function() {
-        return wasmSetup.factory.createServer(wasmSetup.memfsAgdaDataDir, {
-          // Server configuration options can go here
+  let makeWithWASM: WASMLoader.t => t =
+    %raw(`
+      (wasmSetup) => {
+        const createTransport = () =>
+          wasmSetup.factory.createServer(
+            wasmSetup.memfsAgdaDataDir,
+            {},
+            { runSetupFirst: true },
+          );
+
+        Object.defineProperty(createTransport, "__agdaModeWasm", {
+          value: true,
+          enumerable: false,
+          configurable: false,
+          writable: false,
         });
-      };
-    }")
+
+        return createTransport;
+      }
+    `)
 
 }
 
@@ -205,9 +218,147 @@ module Disposable = {
 }
 module LanguageClient = {
   type t
-  // constructor
-  @module("vscode-languageclient") @new
-  external make: (string, string, ServerOptions.t, LanguageClientOptions.t) => t = "LanguageClient"
+  // constructor helper
+  @module("vscode-languageclient")
+  external languageClientConstructor: 'a = "LanguageClient"
+
+  let makeShim = %raw(`
+    (LanguageClientCtor, id, name, serverOptions, clientOptions) => {
+      let ctor = LanguageClientCtor;
+      if (ctor && typeof ctor !== "function" && ctor.default && typeof ctor.default === "function") {
+        ctor = ctor.default;
+      }
+      if (typeof ctor !== "function") {
+        throw new Error("agda-mode: unable to locate vscode-languageclient constructor");
+      }
+
+      const createStreamBackedWorker = (factory) => {
+        const messageListeners = new Set();
+        const errorListeners = new Set();
+        let onmessageHandler = null;
+        let settledTransport = null;
+        let disposables = [];
+
+        const emitMessage = (data) => {
+          const event = { data };
+          if (typeof onmessageHandler === "function") {
+            onmessageHandler(event);
+          }
+          messageListeners.forEach((listener) => listener(event));
+        };
+
+        const emitError = (error) => {
+          const event = { type: "error", error };
+          errorListeners.forEach((listener) => listener(event));
+        };
+
+        const ensureTransport = Promise.resolve()
+          .then(() => (typeof factory === "function" ? factory() : factory))
+          .then((transport) => {
+            if (!transport || typeof transport !== "object") {
+              throw new Error("agda-mode: invalid WASM transport");
+            }
+            const reader = transport.reader;
+            const writer = transport.writer;
+            if (!reader || typeof reader.listen !== "function") {
+              throw new Error("agda-mode: WASM transport missing reader");
+            }
+            if (!writer || typeof writer.write !== "function") {
+              throw new Error("agda-mode: WASM transport missing writer");
+            }
+            settledTransport = transport;
+            const listenerDisposable = reader.listen((data) => emitMessage(data));
+            if (listenerDisposable && typeof listenerDisposable.dispose === "function") {
+              disposables.push(listenerDisposable);
+            }
+            if (typeof reader.onError === "function") {
+              const errorDisposable = reader.onError((arg) => emitError(Array.isArray(arg) ? arg[0] : arg));
+              if (errorDisposable && typeof errorDisposable.dispose === "function") {
+                disposables.push(errorDisposable);
+              }
+            }
+            if (typeof reader.onClose === "function") {
+              const closeDisposable = reader.onClose(() => emitError(new Error("Language server stream closed")));
+              if (closeDisposable && typeof closeDisposable.dispose === "function") {
+                disposables.push(closeDisposable);
+              }
+            }
+            return transport;
+          });
+
+        ensureTransport.catch((error) => emitError(error));
+
+        const worker = {};
+        Object.defineProperty(worker, "onmessage", {
+          get() {
+            return onmessageHandler;
+          },
+          set(handler) {
+            onmessageHandler = typeof handler === "function" ? handler : null;
+          },
+          enumerable: true,
+          configurable: true,
+        });
+
+        worker.addEventListener = (type, listener) => {
+          if (type === "message") {
+            messageListeners.add(listener);
+          } else if (type === "error") {
+            errorListeners.add(listener);
+          }
+        };
+
+        worker.removeEventListener = (type, listener) => {
+          if (type === "message") {
+            messageListeners.delete(listener);
+          } else if (type === "error") {
+            errorListeners.delete(listener);
+          }
+        };
+
+        worker.postMessage = (message) => {
+          ensureTransport
+            .then((transport) => {
+              transport.writer.write(message).catch(emitError);
+            })
+            .catch(() => {});
+        };
+
+        worker.terminate = () => {
+          disposables.forEach((disposable) => {
+            try {
+              if (disposable && typeof disposable.dispose === "function") {
+                disposable.dispose();
+              }
+            } catch (_) {}
+          });
+          disposables = [];
+          if (settledTransport && settledTransport.writer && typeof settledTransport.writer.end === "function") {
+            try {
+              settledTransport.writer.end();
+            } catch (_) {}
+          }
+          settledTransport = null;
+        };
+
+        return worker;
+      };
+
+      const ctorArity = typeof ctor.length === "number" ? ctor.length : 0;
+      if (ctorArity === 4) {
+        if (typeof serverOptions !== "function" || !serverOptions.__agdaModeWasm) {
+          throw new Error("agda-mode: browser LanguageClient requires WASM transport");
+        }
+        const worker = createStreamBackedWorker(serverOptions);
+        return new ctor(id, name, clientOptions, worker);
+      }
+
+      return new ctor(id, name, serverOptions, clientOptions);
+    }
+  `)
+
+  let make = (id, name, serverOptions, clientOptions) =>
+    makeShim(languageClientConstructor, id, name, serverOptions, clientOptions)
   // methods
   @send external start: t => promise<unit> = "start"
 
