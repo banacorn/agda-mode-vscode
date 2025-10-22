@@ -252,6 +252,27 @@ module Module: Module = {
 
             // No Agda data directory preparation needed for WASM 2.8.0+
             // (data is already bundled in the WASM binary)
+            let sabAvailable = %raw("typeof SharedArrayBuffer !== 'undefined'")
+            let coi = %raw("typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : false")
+            if !sabAvailable || !coi {
+              let reason =
+                if !sabAvailable {
+                  "SharedArrayBuffer is not available in this browser environment."
+                } else {
+                  "The page is not crossOriginIsolated, which is required to enable SharedArrayBuffer."
+                }
+              Error(
+                Error.Establish.fromProbeError(
+                  path,
+                  Error.Probe.CannotMakeConnectionWithALSWASMYet(
+                    reason
+                    ++
+                    " Please serve the web extension with Cross-Origin Opener Policy (COOP) and Cross-Origin Embedder Policy (COEP) headers.",
+                  ),
+                  source,
+                ),
+              )
+            } else {
             switch await ALS.make(
               Connection__Transport.ViaWASM(wasmLoader),
               None,
@@ -267,6 +288,7 @@ module Module: Module = {
               | Some(version) => Some(conn.agdaVersion, version, None)
               }
               Ok(ALSWASM(conn, wasmLoader, path, version))
+            }
             }
           }
         } catch {
