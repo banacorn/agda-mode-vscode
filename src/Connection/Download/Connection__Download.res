@@ -133,12 +133,20 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   | Ok(_) => () // Directory already exists
   }
 
+  let execFileName =
+    switch saveAsFileName {
+    | "dev-wasm-als" => "als.wasm"
+    | _ => "als"
+    }
+
   // Check if already downloaded
-  let execPathUri = VSCode.Uri.joinPath(destDirUri, ["als"])
+  let execPathUri = VSCode.Uri.joinPath(destDirUri, [execFileName])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
-      let path = VSCode.Uri.fsPath(execPathUri)
-      Ok(path)
+      switch saveAsFileName {
+      | "dev-wasm-als" => Ok(VSCode.Uri.toString(execPathUri))
+      | _ => Ok(VSCode.Uri.fsPath(execPathUri))
+      }
     }
   | Error(_) =>
     // Parse URL and create HTTP options
@@ -186,10 +194,9 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         // For WASM, skip ZIP validation and extraction - it's a raw binary
         if saveAsFileName == "dev-wasm-als" {
           // WASM file - save directly as als.wasm
-          let wasmExecUri = VSCode.Uri.joinPath(destDirUri, ["als.wasm"])
-          let _ = await FS.rename(tempFileUri, wasmExecUri)
+          let _ = await FS.rename(tempFileUri, execPathUri)
           // Return URI string with scheme preserved (e.g., vscode-userdata:/Users/...)
-          Ok(VSCode.Uri.toString(wasmExecUri))
+          Ok(VSCode.Uri.toString(execPathUri))
         } else {
           // Regular ZIP file processing
           let readResult = await FS.readFile(tempFileUri)
