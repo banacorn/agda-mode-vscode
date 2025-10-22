@@ -158,6 +158,8 @@ module Module: Module = {
       )
     }
 
+    clientOptions->Binding.LanguageClientOptions.setConfigurationMiddleware
+
     // Create the language client
     let languageClient = Binding.LanguageClient.make(id, name, serverOptions, clientOptions)
 
