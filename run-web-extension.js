@@ -51,11 +51,14 @@ buildProcess.on('close', (code) => {
         console.log("3. Starting VS Code Web...");
         
         // Start VS Code web using the official test-web tool
-        const webProcess = spawn('vscode-test-web', [
+        const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+        const webProcess = spawn(npxCmd, [
+            'vscode-test-web',
             '--extensionDevelopmentPath=.',
             '--quality=stable',
             '--port=3000',
             '--browser=none',
+            '--coi',
             folderPath
         ], {
             stdio: 'inherit'
@@ -88,6 +91,10 @@ buildProcess.on('close', (code) => {
         
         webProcess.on('error', (err) => {
             console.error('❌ VS Code Web failed to start:', err);
+            watchProcess.kill();
+            lessProcess.kill();
+            webpackProcess.kill();
+            process.exit(1);
         });
         
     } else {
