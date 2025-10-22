@@ -41,8 +41,8 @@ module ErrorHandler: {
     let error = (a, b, c) => error(a, b, c)->ErrorAction.toEnum
     let closed = () => closed()->CloseAction.toEnum
     {
-      error: error,
-      closed: closed,
+      error,
+      closed,
     }
   }
 
@@ -130,10 +130,10 @@ module LanguageClientOptions = {
 }
 
 type executableOptions = {
-    cwd?: string,
-    env?: Js.Dict.t<string>,
-    detached?: bool,
-    shell?: bool
+  cwd?: string,
+  env?: Js.Dict.t<string>,
+  detached?: bool,
+  shell?: bool,
 }
 
 // Options to control the language client
@@ -161,14 +161,13 @@ module ServerOptions = {
       )})
     }")
 
-  let makeWithWASM: WASMLoader.t => t =
-    %raw(`
+  let makeWithWASM: WASMLoader.t => t = %raw(`
       (wasmSetup) => {
         const createTransport = () =>
           wasmSetup.factory.createServer(
             wasmSetup.memfsAgdaDataDir,
             {},
-            { runSetupFirst: true },
+            { runSetupFirst: false },
           );
 
         Object.defineProperty(createTransport, "__agdaModeWasm", {
@@ -181,7 +180,6 @@ module ServerOptions = {
         return createTransport;
       }
     `)
-
 }
 
 // module WebviewEditorInset = {
@@ -222,17 +220,7 @@ module LanguageClient = {
   @module("vscode-languageclient")
   external languageClientConstructor: 'a = "LanguageClient"
 
-  let makeShim = %raw(`
-    (LanguageClientCtor, id, name, serverOptions, clientOptions) => {
-      let ctor = LanguageClientCtor;
-      if (ctor && typeof ctor !== "function" && ctor.default && typeof ctor.default === "function") {
-        ctor = ctor.default;
-      }
-      if (typeof ctor !== "function") {
-        throw new Error("agda-mode: unable to locate vscode-languageclient constructor");
-      }
-
-      const createStreamBackedWorker = (factory) => {
+  let createStreamBackedWorker = %raw(`(factory) => {
         const messageListeners = new Set();
         const errorListeners = new Set();
         let onmessageHandler = null;
@@ -240,6 +228,7 @@ module LanguageClient = {
         let disposables = [];
 
         const emitMessage = (data) => {
+          console.log('[agda-mode] worker emitMessage', JSON.stringify(data, null, 2));
           const event = { data };
           if (typeof onmessageHandler === "function") {
             onmessageHandler(event);
@@ -248,6 +237,7 @@ module LanguageClient = {
         };
 
         const emitError = (error) => {
+          console.error('[agda-mode] worker emitError', error instanceof Error ? error.stack : JSON.stringify(error, null, 2));
           const event = { type: "error", error };
           errorListeners.forEach((listener) => listener(event));
         };
@@ -255,6 +245,7 @@ module LanguageClient = {
         const ensureTransport = Promise.resolve()
           .then(() => (typeof factory === "function" ? factory() : factory))
           .then((transport) => {
+            console.log('[agda-mode] worker transport ready', JSON.stringify(transport, null, 2));
             if (!transport || typeof transport !== "object") {
               throw new Error("agda-mode: invalid WASM transport");
             }
@@ -267,7 +258,10 @@ module LanguageClient = {
               throw new Error("agda-mode: WASM transport missing writer");
             }
             settledTransport = transport;
-            const listenerDisposable = reader.listen((data) => emitMessage(data));
+            const listenerDisposable = reader.listen((data) => {
+              console.log('[agda-mode] reader received data', JSON.stringify(data, null, 2));
+              emitMessage(data);
+            });
             if (listenerDisposable && typeof listenerDisposable.dispose === "function") {
               disposables.push(listenerDisposable);
             }
@@ -286,9 +280,13 @@ module LanguageClient = {
             return transport;
           });
 
-        ensureTransport.catch((error) => emitError(error));
+        ensureTransport.catch((error) => {
+          emitError(error);
+          throw error;
+        });
 
         const worker = {};
+        console.log('[agda-mode] worker created');
         Object.defineProperty(worker, "onmessage", {
           get() {
             return onmessageHandler;
@@ -317,14 +315,17 @@ module LanguageClient = {
         };
 
         worker.postMessage = (message) => {
+          console.log('[agda-mode] worker postMessage', JSON.stringify(message, null, 2));
           ensureTransport
             .then((transport) => {
+              console.log('[agda-mode] worker writing to transport');
               transport.writer.write(message).catch(emitError);
             })
             .catch(() => {});
         };
 
         worker.terminate = () => {
+          console.log('[agda-mode] worker terminate');
           disposables.forEach((disposable) => {
             try {
               if (disposable && typeof disposable.dispose === "function") {
@@ -342,7 +343,21 @@ module LanguageClient = {
         };
 
         return worker;
-      };
+      }
+  `)
+
+  let makeShim = (_languageClientCtor, _createStreamBackedWorker) =>
+    %raw(`
+    (id, name, serverOptions, clientOptions) => {
+
+      let ctor = _languageClientCtor;
+      let createStreamBackedWorker = _createStreamBackedWorker;
+      if (ctor && typeof ctor !== "function" && ctor.default && typeof ctor.default === "function") {
+        ctor = ctor.default;
+      }
+      if (typeof ctor !== "function") {
+        throw new Error("agda-mode: unable to locate vscode-languageclient constructor");
+      }
 
       const ctorArity = typeof ctor.length === "number" ? ctor.length : 0;
       if (ctorArity === 4) {
@@ -357,8 +372,11 @@ module LanguageClient = {
     }
   `)
 
-  let make = (id, name, serverOptions, clientOptions) =>
-    makeShim(languageClientConstructor, id, name, serverOptions, clientOptions)
+  let make: (string, string, ServerOptions.t, LanguageClientOptions.t) => t = makeShim(
+    languageClientConstructor,
+    createStreamBackedWorker,
+  )
+
   // methods
   @send external start: t => promise<unit> = "start"
 
