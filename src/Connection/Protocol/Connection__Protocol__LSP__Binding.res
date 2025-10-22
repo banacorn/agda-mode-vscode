@@ -201,12 +201,39 @@ module ServerOptions = {
 
   let makeWithWASM: WASMLoader.t => t = %raw(`
       (wasmSetup) => {
-        const createTransport = () =>
-          wasmSetup.factory.createServer(
-            wasmSetup.memfsAgdaDataDir,
-            {},
-            { runSetupFirst: false },
-          );
+      const createTransport = () => {
+        const attemptWithSetup = () => wasmSetup.factory.createServer(
+          wasmSetup.memfsAgdaDataDir,
+          {},
+          {
+            runSetupFirst: true,
+            setupCallback(exitCode, stderr) {
+              if (exitCode === 0) {
+                console.log('[agda-mode] ALS WASM setup completed successfully.');
+              } else {
+                console.warn('[agda-mode] ALS WASM setup exited with code ' + exitCode + ': ' + stderr);
+              }
+            },
+          },
+        );
+
+        const attemptWithoutSetup = () => wasmSetup.factory.createServer(
+          wasmSetup.memfsAgdaDataDir,
+          {},
+          { runSetupFirst: false },
+        );
+
+        return Promise.resolve()
+          .then(attemptWithSetup)
+          .catch((error) => {
+            const message = error && (error.message || String(error));
+            if (typeof message === 'string' && message.includes('--setup')) {
+              console.warn('[agda-mode] ALS WASM binary does not support --setup; retrying without setup.');
+              return attemptWithoutSetup();
+            }
+            throw error;
+          });
+      };
 
         Object.defineProperty(createTransport, "__agdaModeWasm", {
           value: true,

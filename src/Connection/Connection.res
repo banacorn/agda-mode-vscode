@@ -435,7 +435,7 @@ module Module: Module = {
           | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
             switch await Connection__Download.downloadFromURL(
               globalStorageUri,
-              "https://unpkg.com/agda-wasm@0.0.1/als/2.8.0/als.wasm",
+              "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
               "dev-wasm-als",
               "Agda Language Server (WASM)",
             ) {
