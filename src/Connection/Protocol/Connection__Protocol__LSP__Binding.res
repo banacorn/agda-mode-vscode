@@ -208,9 +208,7 @@ module ServerOptions = {
           {
             runSetupFirst: true,
             setupCallback(exitCode, stderr) {
-              if (exitCode === 0) {
-                console.log('[agda-mode] ALS WASM setup completed successfully.');
-              } else {
+              if (exitCode !== 0) {
                 console.warn('[agda-mode] ALS WASM setup exited with code ' + exitCode + ': ' + stderr);
               }
             },
@@ -228,7 +226,6 @@ module ServerOptions = {
           .catch((error) => {
             const message = error && (error.message || String(error));
             if (typeof message === 'string' && message.includes('--setup')) {
-              console.warn('[agda-mode] ALS WASM binary does not support --setup; retrying without setup.');
               return attemptWithoutSetup();
             }
             throw error;
@@ -293,7 +290,6 @@ module LanguageClient = {
         let disposables = [];
 
         const emitMessage = (data) => {
-          console.log('[agda-mode] worker emitMessage', JSON.stringify(data, null, 2));
           const event = { data };
           if (typeof onmessageHandler === "function") {
             onmessageHandler(event);
@@ -310,7 +306,6 @@ module LanguageClient = {
         const ensureTransport = Promise.resolve()
           .then(() => (typeof factory === "function" ? factory() : factory))
           .then((transport) => {
-            console.log('[agda-mode] worker transport ready', JSON.stringify(transport, null, 2));
             if (!transport || typeof transport !== "object") {
               throw new Error("agda-mode: invalid WASM transport");
             }
@@ -324,7 +319,6 @@ module LanguageClient = {
             }
             settledTransport = transport;
             const listenerDisposable = reader.listen((data) => {
-              console.log('[agda-mode] reader received data', JSON.stringify(data, null, 2));
               emitMessage(data);
             });
             if (listenerDisposable && typeof listenerDisposable.dispose === "function") {
@@ -351,7 +345,6 @@ module LanguageClient = {
         });
 
         const worker = {};
-        console.log('[agda-mode] worker created');
         Object.defineProperty(worker, "onmessage", {
           get() {
             return onmessageHandler;
@@ -380,17 +373,14 @@ module LanguageClient = {
         };
 
         worker.postMessage = (message) => {
-          console.log('[agda-mode] worker postMessage', JSON.stringify(message, null, 2));
           ensureTransport
             .then((transport) => {
-              console.log('[agda-mode] worker writing to transport');
               transport.writer.write(message).catch(emitError);
             })
             .catch(() => {});
         };
 
         worker.terminate = () => {
-          console.log('[agda-mode] worker terminate');
           disposables.forEach((disposable) => {
             try {
               if (disposable && typeof disposable.dispose === "function") {

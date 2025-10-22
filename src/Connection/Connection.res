@@ -586,6 +586,22 @@ module Module: Module = {
         "function(u){ try { return new URL(u).pathname; } catch(e) { return u; } }"
       )(protoUri)
 
+      // Ensure WASM-visible files live under /workspace. For URIs that map to
+      // "/workspace<something>" we insert the missing slash so WASI resolves it.
+      let filepath = {
+        let prefix = "/workspace"
+        if filepath->String.startsWith(prefix) {
+          let rest = filepath->String.sliceToEnd(~start=String.length(prefix))
+          if rest == "" || filepath->String.startsWith(prefix ++ "/") {
+            filepath
+          } else {
+            prefix ++ "/" ++ rest
+          }
+        } else {
+          filepath
+        }
+      }
+
       Request.encode(document, version, filepath, backend, libraryPath, highlightingMethod, request)
     }
 
