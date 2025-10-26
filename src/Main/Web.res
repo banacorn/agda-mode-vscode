@@ -12,11 +12,10 @@ module Web: Platform.PlatformOps = {
 
   let alreadyDownloaded = Connection__Download.alreadyDownloaded
 
-  let resolveDownloadOrder = (order: Connection__Download.DownloadOrderAbstract.t, useCache) => async (
-    memento,
-    globalStorageUri,
-    platform,
-  ) => {
+  let resolveDownloadOrder = (
+    order: Connection__Download.DownloadOrderAbstract.t,
+    useCache,
+  ) => async (memento, globalStorageUri, platform) => {
     let repo = switch order {
     | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
     | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
@@ -39,8 +38,6 @@ module Web: Platform.PlatformOps = {
 
   // Always download, because there are no alternatives in web environment
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-
-  let openFolder = _uri => Promise.resolve()
 }
 
 // Create platform dependencies for web environment

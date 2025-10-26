@@ -3,7 +3,6 @@ module Constants = {
   let agdaVersionPrefix = "Agda v"
   let alsWithSquirrel = "$(squirrel)  ALS v"
   let downloadLatestALS = "$(cloud-download)  Download the latest Agda Language Server"
-  let openDownloadFolder = "$(folder-opened)  Open download folder"
   let deleteDownloads = "$(trash)  Delete downloads"
   let downloadedAndInstalled = "Downloaded and installed"
   let otherDownloads = "$(chevron-right)  Other Downloads"
@@ -16,7 +15,6 @@ module ItemData = {
     | Endpoint(string, Memento.Endpoints.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, downloadType
     | OtherVersionsSubmenu // submenu button for other versions downloads
-    | OpenFolder(string) // folderPath
     | DeleteDownloads // delete downloads and clear cache
     | NoInstallations
     | Separator(string) // label
@@ -40,7 +38,6 @@ module ItemData = {
       ", type=" ++
       downloadType
     | OtherVersionsSubmenu => "OtherVersionsSubmenu"
-    | OpenFolder(folderPath) => "OpenFolder: " ++ folderPath
     | DeleteDownloads => "DeleteDownloads"
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
@@ -80,7 +77,6 @@ module ItemData = {
     entries: Dict.t<Memento.Endpoints.entry>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, downloadType)
-    folderPath: string,
   ): array<t> => {
     // Pre-convert to array once for better performance
     let entriesArray = entries->Dict.toArray
@@ -141,7 +137,7 @@ module ItemData = {
     }
 
     // Add misc section
-    Array.concat(sectionsWithDownload, [Separator("Misc"), OpenFolder(folderPath), DeleteDownloads])
+    Array.concat(sectionsWithDownload, [Separator("Misc"), DeleteDownloads])
   }
 }
 
@@ -187,11 +183,6 @@ module Item = {
           let label = Constants.otherDownloads
           let description = Constants.otherDownloadsDesc
           (label, Some(description), None)
-        }
-      | OpenFolder(folderPath) => {
-          let label = Constants.openDownloadFolder
-          let description = "Where the language servers are downloaded to"
-          (label, Some(description), Some(folderPath))
         }
       | DeleteDownloads => {
           let label = Constants.deleteDownloads
@@ -323,8 +314,7 @@ module SwitchVersionManager = {
       | None => None
       }
     }
-    let folderPath = VSCode.Uri.fsPath(self.globalStorageUri)
-    ItemData.entriesToItemData(self.entries, pickedPath, downloadItems, folderPath)
+    ItemData.entriesToItemData(self.entries, pickedPath, downloadItems)
   }
 
   // Update entries and return if changed
@@ -864,14 +854,6 @@ module Handler = {
           // Check if this is the other versions submenu item
           if selectedItem.label == Constants.otherDownloads {
             await showOtherVersionsSubmenu(state, platformDeps)
-          } else if selectedItem.label == Constants.openDownloadFolder {
-            let globalStorageUriAsFile = state.globalStorageUri->VSCode.Uri.fsPath->VSCode.Uri.file
-            state.channels.log->Chan.emit(
-              Log.SwitchVersionUI(SelectedOpenFolder(state.globalStorageUri->VSCode.Uri.fsPath)),
-            )
-            module PlatformOps = unpack(platformDeps)
-            await PlatformOps.openFolder(globalStorageUriAsFile)
-            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if selectedItem.label == Constants.deleteDownloads {
             // Delete download directories recursively
             let deleteDir = async dirName => {

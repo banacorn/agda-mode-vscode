@@ -52,10 +52,6 @@ module Desktop: Platform.PlatformOps = {
       Config.Connection.DownloadPolicy.fromString,
     )
   }
-
-  let openFolder = async uri => {
-    let _ = await VSCode.Env.openExternal(uri)
-  }
 }
 
 // Create platform dependencies for desktop environment

@@ -342,23 +342,6 @@ describe("Config.Connection paths", () => {
         (logs, finalConfig)
       }
 
-      // Simplified open folder action simulation
-      let simulateOpenFolderAction = async (initialConfig: array<string>) => {
-        let (listener, mockState) = await setupUITest(initialConfig)
-
-        // Create mock QuickPickItem representing open folder action
-        let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: "$(folder-opened)  Open download folder",
-          description: "Where the language servers are downloaded to",
-          detail: "/tmp/test",
-        }
-
-        await executeUITest(mockState, Mock.Platform.makeBasic(), mockSelectedItem)
-        let logs = listener(~filter=Log.isConfig)
-        let finalConfig = Config.Connection.getAgdaPaths()
-        (logs, finalConfig)
-      }
-
       // Simulate empty selection (user cancels)
       let simulateEmptySelection = async (initialConfig: array<string>) => {
         let (listener, mockState) = await setupUITest(initialConfig)
@@ -497,19 +480,6 @@ describe("Config.Connection paths", () => {
     describe(
       "Non-endpoint selections",
       () => {
-        Async.it(
-          "should not modify config when user selects open folder action",
-          async () => {
-            let initialConfig = [userAgda.contents]
-
-            let (logs, finalConfig) = await UITestBuilders.simulateOpenFolderAction(initialConfig)
-
-            // Open folder action doesn't modify config - it just opens a folder
-            Assert.deepStrictEqual(logs, [])
-            Assert.deepStrictEqual(finalConfig, initialConfig)
-          },
-        )
-
         Async.it(
           "should handle empty selection correctly",
           async () => {

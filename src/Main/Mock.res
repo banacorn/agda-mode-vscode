@@ -70,7 +70,6 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
-    let openFolder = _uri => Promise.resolve()
   }
 
   // Mock platform that simulates successful Agda discovery
@@ -94,7 +93,6 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
-    let openFolder = _uri => Promise.resolve()
   }
 
   // Mock platform that allows download policy to be specified
@@ -110,7 +108,6 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -134,7 +131,6 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -159,7 +155,6 @@ module Platform = {
       let download = (_globalStorageUri, _downloadDescriptor) => Promise.resolve(Ok(downloadedPath))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -178,7 +173,6 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -213,7 +207,6 @@ module Platform = {
       }
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -235,7 +228,6 @@ module Platform = {
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }
@@ -268,7 +260,6 @@ module Platform = {
       }
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
-      let openFolder = _uri => Promise.resolve()
     }
     module(MockPlatform)
   }

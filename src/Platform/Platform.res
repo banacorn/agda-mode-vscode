@@ -12,7 +12,10 @@ module type PlatformOps = {
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
-  let alreadyDownloaded: (VSCode.Uri.t, Connection__Download.DownloadOrderAbstract.t) => promise<option<string>>
+  let alreadyDownloaded: (
+    VSCode.Uri.t,
+    Connection__Download.DownloadOrderAbstract.t,
+  ) => promise<option<string>>
   let resolveDownloadOrder: (
     Connection__Download.DownloadOrderAbstract.t,
     bool,
@@ -20,9 +23,7 @@ module type PlatformOps = {
     Memento.t,
     VSCode.Uri.t,
     Connection__Download__Platform.t,
-  ) => promise<
-    result<Connection__Download.DownloadOrderConcrete.t, Connection__Download.Error.t>,
-  >
+  ) => promise<result<Connection__Download.DownloadOrderConcrete.t, Connection__Download.Error.t>>
   let download: (
     VSCode.Uri.t,
     Connection__Download.DownloadOrderConcrete.t,
@@ -30,9 +31,6 @@ module type PlatformOps = {
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>
-
-  // File system UI
-  let openFolder: VSCode.Uri.t => promise<unit> // Opens a folder in the file explorer
 }
 // Type alias for platform dependencies to be used throughout the codebase
 type t = module(PlatformOps)

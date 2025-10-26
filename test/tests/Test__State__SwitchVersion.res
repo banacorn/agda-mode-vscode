@@ -231,26 +231,6 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "open folder item",
-      () => {
-        it(
-          "should create open folder item",
-          () => {
-            let itemData: State__SwitchVersion.ItemData.t = OpenFolder("/test/global/storage")
-            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
-
-            Assert.deepStrictEqual(item.label, "$(folder-opened)  Open download folder")
-            Assert.deepStrictEqual(
-              item.description,
-              Some("Where the language servers are downloaded to"),
-            )
-            Assert.deepStrictEqual(item.detail, Some("/test/global/storage"))
-          },
-        )
-      },
-    )
-
-    describe(
       "download items",
       () => {
         it(
@@ -331,10 +311,9 @@ describe("State__SwitchVersion", () => {
               entries,
               None,
               [],
-              "/test/global/storage",
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 4) // No installations + Misc separator + Open folder + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 3) // No installations + Misc separator + Delete downloads
             Assert.deepStrictEqual(itemData[0], Some(NoInstallations))
 
             switch itemData[1] {
@@ -343,8 +322,8 @@ describe("State__SwitchVersion", () => {
             }
 
             switch itemData[2] {
-            | Some(OpenFolder("/test/global/storage")) => () // Expected
-            | _ => Assert.fail("Expected OpenFolder item")
+            | Some(DeleteDownloads) => () // Expected
+            | _ => Assert.fail("Expected DeleteDownloads item")
             }
           },
         )
@@ -362,10 +341,9 @@ describe("State__SwitchVersion", () => {
               entries,
               None,
               [],
-              "/test/global/storage",
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 2 endpoints + Misc separator + Open folder + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 5) // Installed separator + 2 endpoints + Misc separator + Delete downloads
 
             switch itemData[0] {
             | Some(Separator("Installed")) => () // Expected
@@ -378,8 +356,8 @@ describe("State__SwitchVersion", () => {
             }
 
             switch itemData[4] {
-            | Some(OpenFolder("/test/global/storage")) => () // Expected
-            | _ => Assert.fail("Expected OpenFolder item")
+            | Some(DeleteDownloads) => () // Expected
+            | _ => Assert.fail("Expected DeleteDownloads item")
             }
           },
         )
@@ -396,10 +374,9 @@ describe("State__SwitchVersion", () => {
               entries,
               None,
               [(false, "ALS v1.0.0", "latest")],
-              "/test/global/storage",
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 7) // Installed separator + 1 item + Download separator + download item + Misc separator + Open folder + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Delete downloads
 
             let downloadSeparator = itemData->Array.find(
               data =>
@@ -765,31 +742,6 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "fromItemData - OpenFolder",
-      () => {
-        it(
-          "should create folder item correctly",
-          () => {
-            let itemData: State__SwitchVersion.ItemData.t = OpenFolder("/test/global/storage")
-            let actual = State__SwitchVersion.Item.fromItemData(
-              itemData,
-              VSCode.Uri.file("/extension/path"),
-            )
-            Assert.strictEqual(actual.label, "$(folder-opened)  Open download folder")
-            switch actual.description {
-            | Some(desc) => Assert.strictEqual(desc, "Where the language servers are downloaded to")
-            | None => Assert.fail("Expected description to be set")
-            }
-            switch actual.detail {
-            | Some(detail) => Assert.strictEqual(detail, "/test/global/storage")
-            | None => Assert.fail("Expected detail to be set")
-            }
-          },
-        )
-      },
-    )
-
-    describe(
       "fromItemData - DownloadAction",
       () => {
         it(
@@ -1100,18 +1052,6 @@ describe("State__SwitchVersion", () => {
     describe(
       "Selection Parsing (inline logic)",
       () => {
-        it(
-          "should identify open folder action by label",
-          () => {
-            // This tests the inline logic in Handler.onSelection
-            // We verify the constants used for comparison
-            Assert.strictEqual(
-              State__SwitchVersion.Constants.openDownloadFolder,
-              "$(folder-opened)  Open download folder",
-            )
-          },
-        )
-
         it(
           "should identify download ALS action by label",
           () => {
