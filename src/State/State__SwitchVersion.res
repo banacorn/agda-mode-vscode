@@ -5,8 +5,6 @@ module Constants = {
   let downloadLatestALS = "$(cloud-download)  Download the latest Agda Language Server"
   let deleteDownloads = "$(trash)  Delete downloads"
   let downloadedAndInstalled = "Downloaded and installed"
-  let otherDownloads = "$(chevron-right)  Other Downloads"
-  let otherDownloadsDesc = "Browse other versions available for download"
 }
 
 module ItemData = {
@@ -14,7 +12,6 @@ module ItemData = {
   type t =
     | Endpoint(string, Memento.Endpoints.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, downloadType
-    | OtherVersionsSubmenu // submenu button for other versions downloads
     | DeleteDownloads // delete downloads and clear cache
     | NoInstallations
     | Separator(string) // label
@@ -37,7 +34,6 @@ module ItemData = {
       versionString ++
       ", type=" ++
       downloadType
-    | OtherVersionsSubmenu => "OtherVersionsSubmenu"
     | DeleteDownloads => "DeleteDownloads"
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
@@ -100,29 +96,19 @@ module ItemData = {
       [NoInstallations]
     }
 
-    // Add download section if present
+    // Add download section if present (only non-dev downloads)
     let sectionsWithDownload = if Array.length(downloadItems) > 0 {
-      // Separate dev and non-dev downloads
-      let devDownloads =
-        downloadItems->Array.filter(((_, _, downloadType)) => downloadType == "dev")
-      let otherDownloads =
+      // Filter to only non-dev downloads (hide dev downloads)
+      let nonDevDownloads =
         downloadItems->Array.filter(((_, _, downloadType)) => downloadType != "dev")
 
-      // Create download section items
-      let downloadSectionItems = Array.concat(
-        // Add other download actions first (latest ALS)
-        otherDownloads->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
+      // Create download section items from non-dev downloads
+      let downloadSectionItems =
+        nonDevDownloads->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
           downloaded,
           versionString,
           downloadType,
-        )),
-        // Add OtherVersionsSubmenu after latest ALS if there are dev downloads
-        if Array.length(devDownloads) > 0 {
-          [OtherVersionsSubmenu]
-        } else {
-          []
-        },
-      )
+        ))
 
       if Array.length(downloadSectionItems) > 0 {
         Array.concat(
@@ -178,11 +164,6 @@ module Item = {
               : Constants.downloadLatestALS
           let description = downloaded ? Constants.downloadedAndInstalled : ""
           (label, Some(description), Some(versionString))
-        }
-      | OtherVersionsSubmenu => {
-          let label = Constants.otherDownloads
-          let description = Constants.otherDownloadsDesc
-          (label, Some(description), None)
         }
       | DeleteDownloads => {
           let label = Constants.deleteDownloads
@@ -736,108 +717,6 @@ module Handler = {
     state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
   }
 
-  // Submenu for other versions downloads
-  let showOtherVersionsSubmenu = async (state: State.t, platformDeps: Platform.t): unit => {
-    let submenuView = View.make(state.channels.log)
-
-    // Get dev download options
-    let devDownloadInfo = await Download.getAvailableDevDownload(state, platformDeps)
-    let wasmDownloadInfo = await Download.getAvailableDevWASMDownload(state, platformDeps)
-
-    let submenuItems = {
-      let devItems = switch devDownloadInfo {
-      | Some((downloaded, versionString, _)) => {
-          let downloadLabel = "$(cloud-download)  Download dev ALS"
-          let description = downloaded ? Constants.downloadedAndInstalled : ""
-          let downloadItem = Item.createQuickPickItem(
-            downloadLabel,
-            Some(description),
-            Some(versionString),
-          )
-          [downloadItem]
-        }
-      | None => []
-      }
-
-      // Add WASM build option with dynamic status
-      let wasmItems = switch wasmDownloadInfo {
-      | Some((downloaded, versionString, _)) => {
-          let downloadLabel = "$(cloud-download)  Download WASM build"
-          let description = downloaded ? Constants.downloadedAndInstalled : ""
-          let wasmItem = Item.createQuickPickItem(
-            downloadLabel,
-            Some(description),
-            Some(versionString),
-          )
-          [wasmItem]
-        }
-      | None => []
-      }
-
-      let allItems = Array.concat(devItems, wasmItems)
-
-      if Array.length(allItems) == 0 {
-        let noDownloadItem = Item.createQuickPickItem(
-          "$(info)  No dev downloads available",
-          Some("Dev downloads not available"),
-          None,
-        )
-        [noDownloadItem]
-      } else {
-        allItems
-      }
-    }
-
-    submenuView->View.setPlaceholder(Constants.otherDownloadsDesc)
-    submenuView->View.updateItems(submenuItems)
-    submenuView->View.show
-
-    // Handle submenu selection
-    submenuView->View.onSelection(selectedItems => {
-      submenuView->View.destroy
-      let _ = (
-        async () => {
-          switch selectedItems[0] {
-          | Some(selectedItem) =>
-            if String.startsWith(selectedItem.label, "$(cloud-download)") {
-              // Check if WASM build was selected
-              if String.includes(selectedItem.label, "WASM") {
-                // Handle dev WASM ALS download action
-                switch wasmDownloadInfo {
-                | Some((downloaded, versionString, _)) =>
-                  await handleDownload(state, platformDeps, DevWASMALS, downloaded, versionString)
-                | None =>
-                  VSCode.Window.showErrorMessage(
-                    "Download not available for this platform",
-                    [],
-                  )->Promise.done
-                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                }
-              } else {
-                // Handle dev ALS download action
-                switch devDownloadInfo {
-                | Some((downloaded, versionString, _)) =>
-                  await handleDownload(state, platformDeps, DevALS, downloaded, versionString)
-                | None =>
-                  VSCode.Window.showErrorMessage(
-                    "Download not available for this platform",
-                    [],
-                  )->ignore
-                  state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-                }
-              }
-            }
-          | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-          }
-        }
-      )()
-    })
-
-    // Handle submenu hide/cancel
-    submenuView->View.onHide(() => {
-      submenuView->View.destroy
-    })
-  }
   let onSelection = (
     state: State.t,
     platformDeps: Platform.t,
@@ -851,10 +730,7 @@ module Handler = {
       async () => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
-          // Check if this is the other versions submenu item
-          if selectedItem.label == Constants.otherDownloads {
-            await showOtherVersionsSubmenu(state, platformDeps)
-          } else if selectedItem.label == Constants.deleteDownloads {
+          if selectedItem.label == Constants.deleteDownloads {
             // Delete download directories recursively
             let deleteDir = async dirName => {
               let uri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
