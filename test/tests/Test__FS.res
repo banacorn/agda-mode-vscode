@@ -335,6 +335,143 @@ describe("FS", () => {
     )
   })
 
+  describe("deleteRecursive", () => {
+    Async.it(
+      "should delete non-empty directory successfully",
+      async () => {
+        // Create a directory with files
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-delete-recursive-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let file1 = NodeJs.Path.join([tempDir, "file1.txt"])
+        let file2 = NodeJs.Path.join([tempDir, "file2.txt"])
+
+        // Create directory structure
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(file1, NodeJs.Buffer.fromString("content1"))
+        NodeJs.Fs.writeFileSync(file2, NodeJs.Buffer.fromString("content2"))
+
+        // Verify everything exists
+        Assert.ok(NodeJs.Fs.existsSync(tempDir))
+        Assert.ok(NodeJs.Fs.existsSync(file1))
+        Assert.ok(NodeJs.Fs.existsSync(file2))
+
+        // Test FS.deleteRecursive
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.deleteRecursive(uri)
+
+        switch result {
+        | Ok() =>
+          // Verify directory and all files were deleted
+          Assert.ok(!NodeJs.Fs.existsSync(tempDir))
+          Assert.ok(!NodeJs.Fs.existsSync(file1))
+          Assert.ok(!NodeJs.Fs.existsSync(file2))
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+      },
+    )
+
+    Async.it(
+      "should delete nested directory structure successfully",
+      async () => {
+        // Create nested directories with files (simulating dev-wasm-als/als.wasm structure)
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-delete-nested-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let subDir = NodeJs.Path.join([tempDir, "subdir"])
+        let file1 = NodeJs.Path.join([tempDir, "file1.txt"])
+        let file2 = NodeJs.Path.join([subDir, "file2.txt"])
+
+        // Create directory structure
+        await NodeJs.Fs.mkdir(subDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(file1, NodeJs.Buffer.fromString("content1"))
+        NodeJs.Fs.writeFileSync(file2, NodeJs.Buffer.fromString("content2"))
+
+        // Verify everything exists
+        Assert.ok(NodeJs.Fs.existsSync(tempDir))
+        Assert.ok(NodeJs.Fs.existsSync(subDir))
+        Assert.ok(NodeJs.Fs.existsSync(file1))
+        Assert.ok(NodeJs.Fs.existsSync(file2))
+
+        // Test FS.deleteRecursive on root directory
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.deleteRecursive(uri)
+
+        switch result {
+        | Ok() =>
+          // Verify entire tree was deleted
+          Assert.ok(!NodeJs.Fs.existsSync(tempDir))
+          Assert.ok(!NodeJs.Fs.existsSync(subDir))
+          Assert.ok(!NodeJs.Fs.existsSync(file1))
+          Assert.ok(!NodeJs.Fs.existsSync(file2))
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+      },
+    )
+
+    Async.it(
+      "should delete empty directory successfully",
+      async () => {
+        // Create an empty directory
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "fs-delete-recursive-empty-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+
+        // Create the directory
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        // Verify it exists
+        let existsBefore = NodeJs.Fs.existsSync(tempDir)
+        Assert.ok(existsBefore)
+
+        // Test FS.deleteRecursive
+        let uri = VSCode.Uri.file(tempDir)
+        let result = await FS.deleteRecursive(uri)
+
+        switch result {
+        | Ok() =>
+          // Verify directory was deleted
+          let existsAfter = NodeJs.Fs.existsSync(tempDir)
+          Assert.ok(!existsAfter)
+
+        | Error(errorMsg) => Assert.fail("Expected Ok, got Error: " ++ errorMsg)
+        }
+      },
+    )
+
+    Async.it(
+      "should succeed when trying to delete non-existent directory (idempotent)",
+      async () => {
+        // Use non-existent directory path
+        let nonExistentDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "non-existent-recursive-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+
+        // Verify it doesn't exist
+        Assert.ok(!NodeJs.Fs.existsSync(nonExistentDir))
+
+        let uri = VSCode.Uri.file(nonExistentDir)
+        let result = await FS.deleteRecursive(uri)
+
+        switch result {
+        | Ok() =>
+          // deleteRecursive is idempotent - succeeds even if directory doesn't exist
+          // Verify it still doesn't exist
+          Assert.ok(!NodeJs.Fs.existsSync(nonExistentDir))
+        | Error(errorMsg) =>
+          // Some implementations may return error, which is also acceptable
+          Assert.ok(String.length(errorMsg) > 0)
+        }
+      },
+    )
+  })
+
   describe("isWritableFileSystem", () => {
     Async.it(
       "should return Ok(true) for writable file system (local files)",

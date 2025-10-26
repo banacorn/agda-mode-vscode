@@ -31,6 +31,16 @@ let delete = async (uri: VSCode.Uri.t): result<unit, string> => {
   }
 }
 
+let deleteRecursive = async (uri: VSCode.Uri.t): result<unit, string> => {
+  try {
+    await VSCode.Workspace.fs->VSCode.FileSystem.delete(uri, ~options={"recursive": true, "useTrash": false})
+    Ok()
+  } catch {
+  | Js.Exn.Error(obj) => Error(Js.Exn.message(obj)->Option.getOr("Unknown file system error"))
+  | _ => Error("Unknown file system error")
+  }
+}
+
 let isWritableFileSystem = (uri: VSCode.Uri.t): result<bool, string> => {
   try {
     let isWritable =

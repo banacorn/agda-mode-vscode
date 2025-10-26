@@ -4,7 +4,7 @@ module Constants = {
   let alsWithSquirrel = "$(squirrel)  ALS v"
   let downloadLatestALS = "$(cloud-download)  Download the latest Agda Language Server"
   let openDownloadFolder = "$(folder-opened)  Open download folder"
-  let clearCache = "$(trash)  Clear cache"
+  let deleteDownloads = "$(trash)  Delete downloads"
   let downloadedAndInstalled = "Downloaded and installed"
   let otherDownloads = "$(chevron-right)  Other Downloads"
   let otherDownloadsDesc = "Browse other versions available for download"
@@ -17,7 +17,7 @@ module ItemData = {
     | DownloadAction(bool, string, string) // downloaded, versionString, downloadType
     | OtherVersionsSubmenu // submenu button for other versions downloads
     | OpenFolder(string) // folderPath
-    | ClearCache // clear release cache
+    | DeleteDownloads // delete downloads and clear cache
     | NoInstallations
     | Separator(string) // label
 
@@ -41,7 +41,7 @@ module ItemData = {
       downloadType
     | OtherVersionsSubmenu => "OtherVersionsSubmenu"
     | OpenFolder(folderPath) => "OpenFolder: " ++ folderPath
-    | ClearCache => "ClearCache"
+    | DeleteDownloads => "DeleteDownloads"
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
     }
@@ -141,7 +141,7 @@ module ItemData = {
     }
 
     // Add misc section
-    Array.concat(sectionsWithDownload, [Separator("Misc"), OpenFolder(folderPath), ClearCache])
+    Array.concat(sectionsWithDownload, [Separator("Misc"), OpenFolder(folderPath), DeleteDownloads])
   }
 }
 
@@ -193,9 +193,9 @@ module Item = {
           let description = "Where the language servers are downloaded to"
           (label, Some(description), Some(folderPath))
         }
-      | ClearCache => {
-          let label = Constants.clearCache
-          let description = "Clear all cached data"
+      | DeleteDownloads => {
+          let label = Constants.deleteDownloads
+          let description = "Delete all downloaded files and clear cached release metadata"
           (label, Some(description), None)
         }
       | NoInstallations => {
@@ -872,13 +872,21 @@ module Handler = {
             module PlatformOps = unpack(platformDeps)
             await PlatformOps.openFolder(globalStorageUriAsFile)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-          } else if selectedItem.label == Constants.clearCache {
+          } else if selectedItem.label == Constants.deleteDownloads {
+            // Delete download directories recursively
+            let deleteDir = async dirName => {
+              let uri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
+              let _ = await FS.deleteRecursive(uri)
+            }
+            await deleteDir("dev-wasm-als")
+            await deleteDir("dev-als")
+            await deleteDir("latest-als")
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
             await Memento.PickedConnection.clear(state.memento)
             await Memento.Endpoints.clear(state.memento)
-            let _ = await VSCode.Window.showInformationMessage("Cache cleared", [])
+            let _ = await VSCode.Window.showInformationMessage("All downloads and cache deleted", [])
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if selectedItem.label == Constants.downloadLatestALS {
             // Handle latest ALS download
