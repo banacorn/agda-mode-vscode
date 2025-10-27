@@ -7,7 +7,25 @@ module Desktop: Platform.PlatformOps = {
 
   let findCommand = Connection__Command.search
 
-  let alreadyDownloaded = Connection__Download.alreadyDownloaded
+  let alreadyDownloaded = async (globalStorageUri, order) => {
+    switch order {
+    | Connection__Download.DownloadOrderAbstract.LatestALS => {
+        let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
+        switch await FS.stat(uri) {
+        | Ok(_) => Some(uri->VSCode.Uri.fsPath)
+        | Error(_) => None
+        }
+      }
+    | Connection__Download.DownloadOrderAbstract.DevALS => {
+        // Desktop: Only check for native binary (als or als.exe), not WASM
+        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
+        switch await FS.stat(alsUri) {
+        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
+        | Error(_) => None
+        }
+      }
+    }
+  }
 
   let resolveDownloadOrder = (
     order: Connection__Download.DownloadOrderAbstract.t,
@@ -16,13 +34,11 @@ module Desktop: Platform.PlatformOps = {
     let repo = switch order {
     | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
     | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
-    | DevWASMALS => Connection__DevWASMALS.makeRepo(globalStorageUri)
     }
 
     let toDownloadOrder = switch order {
     | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
     | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
-    | DevWASMALS => Connection__DevWASMALS.toDownloadOrder(_)
     }
 
     switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {

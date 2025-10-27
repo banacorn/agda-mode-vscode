@@ -376,7 +376,7 @@ describe("FS", () => {
     Async.it(
       "should delete nested directory structure successfully",
       async () => {
-        // Create nested directories with files (simulating dev-wasm-als/als.wasm structure)
+        // Create nested directories with files (simulating dev-als/als.wasm structure)
         let tempDir = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
           "fs-delete-nested-" ++ string_of_int(int_of_float(Js.Date.now())),

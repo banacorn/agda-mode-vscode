@@ -418,9 +418,10 @@ module Module: Module = {
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         // Choose download order based on platform
-        // Web uses WASM, desktop uses native binaries
+        // For web platform, use DevALS with WASM from UNPKG
+        // For desktop platforms, use LatestALS
         let downloadOrder = switch platform {
-        | Connection__Download__Platform.Web => Connection__Download.DownloadOrderAbstract.DevWASMALS
+        | Connection__Download__Platform.Web => Connection__Download.DownloadOrderAbstract.DevALS
         | _ => Connection__Download.DownloadOrderAbstract.LatestALS
         }
         // Get the downloaded path, download if not already done
@@ -430,13 +431,13 @@ module Module: Module = {
         ) {
         | Some(path) => Ok(path)
         | None =>
-          // For DevWASMALS, use unpkg.com directly to avoid GitHub CORS issues
-          switch downloadOrder {
-          | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
+          // For Web platform with DevALS, use unpkg.com directly to avoid GitHub CORS issues
+          switch (platform, downloadOrder) {
+          | (Connection__Download__Platform.Web, Connection__Download.DownloadOrderAbstract.DevALS) =>
             switch await Connection__Download.downloadFromURL(
               globalStorageUri,
               "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
-              "dev-wasm-als",
+              "dev-als",
               "Agda Language Server (WASM)",
             ) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))

@@ -2,13 +2,11 @@ module DownloadOrderAbstract = {
   type t =
     | LatestALS
     | DevALS
-    | DevWASMALS
 
   let toString = order =>
     switch order {
     | LatestALS => "Latest Agda Language Server"
     | DevALS => "Development Agda Language Server"
-    | DevWASMALS => "Development Agda Language Server (WASM)"
     }
 }
 
@@ -35,8 +33,6 @@ module DownloadOrderConcrete = {
           asset.name
           ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-        | DownloadOrderAbstract.DevWASMALS => // WASM assets don't contain version info in the name
-          "unknown"
         }
 
       let agdaVersion = getAgdaVersion(descriptor.asset)
@@ -50,7 +46,6 @@ module DownloadOrderConcrete = {
           ->Option.getOr(descriptor.release.name)
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
       | DownloadOrderAbstract.DevALS => "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-      | DownloadOrderAbstract.DevWASMALS => "WASM Language Server (dev build)"
       }
     }
 }
@@ -105,8 +100,8 @@ let download = async (globalStorageUri, order) =>
     ) {
     | Error(error) => Error(Error.CannotDownloadALS(error))
     | Ok(_isCached) =>
-      // For WASM, the extracted file should be als.wasm instead of als
-      let fileName = if downloadDescriptor.saveAsFileName == "dev-wasm-als" {
+      // For WASM assets (detected by filename), use als.wasm, otherwise als
+      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
         "als.wasm"
       } else {
         "als"
@@ -133,19 +128,19 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   | Ok(_) => () // Directory already exists
   }
 
-  let execFileName =
-    switch saveAsFileName {
-    | "dev-wasm-als" => "als.wasm"
-    | _ => "als"
-    }
+  // Determine if this is a WASM file by checking the URL
+  let isWasm = url->String.endsWith(".wasm")
+  let execFileName = if isWasm { "als.wasm" } else { "als" }
 
   // Check if already downloaded
   let execPathUri = VSCode.Uri.joinPath(destDirUri, [execFileName])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
-      switch saveAsFileName {
-      | "dev-wasm-als" => Ok(VSCode.Uri.toString(execPathUri))
-      | _ => Ok(VSCode.Uri.fsPath(execPathUri))
+      // For WASM, return URI string with scheme preserved; for native, use fsPath
+      if isWasm {
+        Ok(VSCode.Uri.toString(execPathUri))
+      } else {
+        Ok(VSCode.Uri.fsPath(execPathUri))
       }
     }
   | Error(_) =>
@@ -192,7 +187,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         Error(Error.CannotDownloadFromURL(convertedError))
       | Ok() =>
         // For WASM, skip ZIP validation and extraction - it's a raw binary
-        if saveAsFileName == "dev-wasm-als" {
+        if isWasm {
           // WASM file - save directly as als.wasm
           let _ = await FS.rename(tempFileUri, execPathUri)
           // Return URI string with scheme preserved (e.g., vscode-userdata:/Users/...)
@@ -260,21 +255,31 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 }
 
 // Check if something is already downloaded
+// NOTE: This is a general-purpose fallback implementation used by tests.
+// Platform-specific implementations (Desktop, Web) should override this
+// to avoid platform mismatches (e.g., web finding native binaries).
 let alreadyDownloaded = async (globalStorageUri, order) => {
-  let paths = switch order {
-  | DownloadOrderAbstract.LatestALS => ["latest-als", "als"]
-  | DownloadOrderAbstract.DevALS => ["dev-als", "als"]
-  | DownloadOrderAbstract.DevWASMALS => ["dev-wasm-als", "als.wasm"]
-  }
-  let uri = VSCode.Uri.joinPath(globalStorageUri, paths)
-  switch await FS.stat(uri) {
-  | Ok(_) =>
-    // For WASM, return URI string with scheme preserved for web compatibility
-    // For non-WASM, use fsPath for backwards compatibility with desktop
-    switch order {
-    | DownloadOrderAbstract.DevWASMALS => Some(VSCode.Uri.toString(uri))
-    | _ => Some(uri->VSCode.Uri.fsPath)
+  switch order {
+  | DownloadOrderAbstract.LatestALS => {
+      let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
+      switch await FS.stat(uri) {
+      | Ok(_) => Some(uri->VSCode.Uri.fsPath)
+      | Error(_) => None
+      }
     }
-  | Error(_) => None
+  | DownloadOrderAbstract.DevALS => {
+      // Check for WASM first (for web platform)
+      let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als.wasm"])
+      switch await FS.stat(wasmUri) {
+      | Ok(_) => Some(VSCode.Uri.toString(wasmUri)) // Use URI string for WASM
+      | Error(_) =>
+        // Check for native binary (als or als.exe)
+        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
+        switch await FS.stat(alsUri) {
+        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
+        | Error(_) => None
+        }
+      }
+    }
   }
 }

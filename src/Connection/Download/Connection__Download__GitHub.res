@@ -436,8 +436,8 @@ module Module: {
     let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
-      // For WASM files, skip unzip and save directly
-      if downloadDescriptor.saveAsFileName == "dev-wasm-als" {
+      // For WASM files (detected by asset name), skip unzip and save directly
+      if downloadDescriptor.asset.name->String.includes("wasm") {
         // WASM - raw binary, no unzipping needed
         // Create destination directory
         switch await FS.createDirectory(destPath) {

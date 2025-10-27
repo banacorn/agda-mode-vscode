@@ -3,6 +3,7 @@ module Constants = {
   let agdaVersionPrefix = "Agda v"
   let alsWithSquirrel = "$(squirrel)  ALS v"
   let downloadLatestALS = "$(cloud-download)  Download the latest Agda Language Server"
+  let downloadDevALS = "$(cloud-download)  Download the dev Agda Language Server"
   let deleteDownloads = "$(trash)  Delete downloads"
   let downloadedAndInstalled = "Downloaded and installed"
 }
@@ -96,28 +97,20 @@ module ItemData = {
       [NoInstallations]
     }
 
-    // Add download section if present (only non-dev downloads)
+    // Add download section if present
     let sectionsWithDownload = if Array.length(downloadItems) > 0 {
-      // Filter to only non-dev downloads (hide dev downloads)
-      let nonDevDownloads =
-        downloadItems->Array.filter(((_, _, downloadType)) => downloadType != "dev")
-
-      // Create download section items from non-dev downloads
+      // Create download section items from all downloads
       let downloadSectionItems =
-        nonDevDownloads->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
+        downloadItems->Array.map(((downloaded, versionString, downloadType)) => DownloadAction(
           downloaded,
           versionString,
           downloadType,
         ))
 
-      if Array.length(downloadSectionItems) > 0 {
-        Array.concat(
-          sectionsWithInstalled,
-          Array.concat([Separator("Download")], downloadSectionItems),
-        )
-      } else {
-        sectionsWithInstalled
-      }
+      Array.concat(
+        sectionsWithInstalled,
+        Array.concat([Separator("Download")], downloadSectionItems),
+      )
     } else {
       sectionsWithInstalled
     }
@@ -158,10 +151,7 @@ module Item = {
           (label, Some(description), Some(path))
         }
       | DownloadAction(downloaded, versionString, downloadType) => {
-          let label =
-            downloadType == "dev"
-              ? "$(cloud-download)  Download the dev Agda Language Server"
-              : Constants.downloadLatestALS
+          let label = downloadType == "dev" ? Constants.downloadDevALS : Constants.downloadLatestALS
           let description = downloaded ? Constants.downloadedAndInstalled : ""
           (label, Some(description), Some(versionString))
         }
@@ -559,38 +549,6 @@ module Download = {
     }
   }
 
-  // Get available download info for dev WASM ALS: (downloaded, versionString, downloadType)
-  let getAvailableDevWASMDownload = async (state: State.t, platformDeps: Platform.t): option<(
-    bool,
-    string,
-    string,
-  )> => {
-    module PlatformOps = unpack(platformDeps)
-
-    // Check if we can download dev WASM ALS for this platform
-    switch await resolveDownloadOrderWithPlatform(
-      platformDeps,
-      DevWASMALS,
-      state.memento,
-      state.globalStorageUri,
-    ) {
-    | Error(_error) => None
-    | Ok(concreteOrder) =>
-      // Check if already downloaded
-      let downloaded = switch await PlatformOps.alreadyDownloaded(
-        state.globalStorageUri,
-        DevWASMALS,
-      ) {
-      | Some(_) => true
-      | None => false
-      }
-
-      // Use centralized version string formatting
-      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(concreteOrder)
-
-      Some((downloaded, versionString, "wasm"))
-    }
-  }
 
   // Create placeholder download items to prevent UI jitter
   let getPlaceholderDownloadItems = (): array<(bool, string, string)> => {
@@ -650,27 +608,37 @@ module Handler = {
     if downloaded {
       // Add already downloaded path to config
       module PlatformOps = unpack(platformDeps)
+
+      // Determine platform to choose correct file extension
+      let platformResult = await PlatformOps.determinePlatform()
+
       switch await resolveDownloadOrderWithPlatform(
         platformDeps,
         target,
         state.memento,
         state.globalStorageUri,
       ) {
-      | Ok(FromGitHub(order, downloadDescriptor)) =>
-        // Determine file extension based on order
-        let fileName = switch order {
-        | DevWASMALS => "als.wasm"
-        | DevALS | LatestALS => "als"
+      | Ok(FromGitHub(_order, downloadDescriptor)) =>
+        // Determine if this is WASM based on platform and order
+        // For DevALS on Web platform, we download WASM from UNPKG, so use als.wasm
+        // For everything else, use als (native binary)
+        let isWasm = switch (target, platformResult) {
+        | (DevALS, Ok(Connection__Download__Platform.Web)) => true
+        | _ => false
         }
+
+        // Determine file extension based on whether it's WASM
+        let fileName = if isWasm { "als.wasm" } else { "als" }
         let downloadedUri = VSCode.Uri.joinPath(
           state.globalStorageUri,
           [downloadDescriptor.saveAsFileName, fileName],
         )
         // For WASM, preserve URI scheme (e.g., vscode-userdata://) for web compatibility
         // For non-WASM, use fsPath for backwards compatibility with desktop
-        let downloadedPath = switch order {
-        | DevWASMALS => VSCode.Uri.toString(downloadedUri)
-        | DevALS | LatestALS => VSCode.Uri.fsPath(downloadedUri)
+        let downloadedPath = if isWasm {
+          VSCode.Uri.toString(downloadedUri)
+        } else {
+          VSCode.Uri.fsPath(downloadedUri)
         }
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
       | Error(_) => ()
@@ -682,15 +650,36 @@ module Handler = {
     } else {
       // Perform download
       module PlatformOps = unpack(platformDeps)
-      let downloadResult = switch await resolveDownloadOrderWithPlatform(
-        platformDeps,
-        target,
-        state.memento,
-        state.globalStorageUri,
-      ) {
-      | Error(error) => Error(error)
-      | Ok(downloadDescriptor) =>
-        await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
+
+      // Determine platform to choose download method
+      let platformResult = await PlatformOps.determinePlatform()
+
+      // For Web + DevALS, use UNPKG to avoid CORS issues
+      // Otherwise use normal GitHub download flow
+      let downloadResult = switch (target, platformResult) {
+      | (DevALS, Ok(Connection__Download__Platform.Web)) =>
+        // Use UNPKG directly for web WASM
+        switch await Connection__Download.downloadFromURL(
+          state.globalStorageUri,
+          "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
+          "dev-als",
+          "Agda Language Server (WASM)",
+        ) {
+        | Error(error) => Error(error)
+        | Ok(path) => Ok(path)
+        }
+      | _ =>
+        // Normal GitHub download flow for all other cases
+        switch await resolveDownloadOrderWithPlatform(
+          platformDeps,
+          target,
+          state.memento,
+          state.globalStorageUri,
+        ) {
+        | Error(error) => Error(error)
+        | Ok(downloadDescriptor) =>
+          await PlatformOps.download(state.globalStorageUri, downloadDescriptor)
+        }
       }
 
       switch downloadResult {
@@ -756,6 +745,36 @@ module Handler = {
                 state,
                 platformDeps,
                 LatestALS,
+                downloaded,
+                versionString,
+                ~refreshUI=Some(
+                  async () => {
+                    let newDownloadItems = await Download.getAllAvailableDownloads(
+                      state,
+                      platformDeps,
+                    )
+                    let _ = SwitchVersionManager.refreshFromMemento(manager)
+                    await updateUI(newDownloadItems)
+                  },
+                ),
+              )
+            | None =>
+              let _ = await VSCode.Window.showErrorMessage(
+                "Download not available for this platform",
+                [],
+              )
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            }
+          } else if selectedItem.label == Constants.downloadDevALS {
+            // Handle dev ALS download
+            let downloadInfoResult = await Download.getAvailableDevDownload(state, platformDeps)
+
+            switch downloadInfoResult {
+            | Some((downloaded, versionString, _)) =>
+              await handleDownload(
+                state,
+                platformDeps,
+                DevALS,
                 downloaded,
                 versionString,
                 ~refreshUI=Some(

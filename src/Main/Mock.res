@@ -62,8 +62,6 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let resolveDownloadOrderOfDevALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let resolveDownloadOrderOfDevWASMALS = (_memento, _globalStorageUri, _) =>
-      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let resolveDownloadOrderOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let download = (_globalStorageUri, _downloadDescriptor) =>
@@ -84,8 +82,6 @@ module Platform = {
     let getReleaseManifestFromGitHub = (_memento, _repo, ~useCache as _=true) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let resolveDownloadOrderOfDevALS = (_memento, _globalStorageUri, _platform) =>
-      Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let resolveDownloadOrderOfDevWASMALS = (_memento, _globalStorageUri, _) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let resolveDownloadOrderOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -148,8 +144,6 @@ module Platform = {
           Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
         | Connection__Download.DownloadOrderAbstract.DevALS =>
           Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor) => Promise.resolve(Ok(downloadedPath))
@@ -196,8 +190,6 @@ module Platform = {
         | Connection__Download.DownloadOrderAbstract.LatestALS =>
           Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
         | Connection__Download.DownloadOrderAbstract.DevALS =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Connection__Download.DownloadOrderAbstract.DevWASMALS =>
           Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
