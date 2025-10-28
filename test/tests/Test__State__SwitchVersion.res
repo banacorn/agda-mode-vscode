@@ -144,6 +144,103 @@ describe("State__SwitchVersion", () => {
         )
       },
     )
+
+    describe(
+      "inferEndpointType",
+      () => {
+        it(
+          "should recognize als.wasm as ALS endpoint",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als.wasm"),
+              Memento.Endpoints.ALS(None),
+            )
+          },
+        )
+
+        it(
+          "should recognize als as ALS endpoint",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als"),
+              Memento.Endpoints.ALS(None),
+            )
+          },
+        )
+
+        it(
+          "should recognize als.exe as ALS endpoint",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als.exe"),
+              Memento.Endpoints.ALS(None),
+            )
+          },
+        )
+
+        it(
+          "should recognize agda as Agda endpoint",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("agda"),
+              Memento.Endpoints.Agda(None),
+            )
+          },
+        )
+
+        it(
+          "should recognize agda-2.6.4 as Agda endpoint",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("agda-2.6.4"),
+              Memento.Endpoints.Agda(None),
+            )
+          },
+        )
+
+        it(
+          "should recognize unknown executables",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("unknown"),
+              Memento.Endpoints.Unknown,
+            )
+          },
+        )
+
+        it(
+          "should extract basename from full paths",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType(
+                "/path/to/dev-als/als.wasm",
+              ),
+              Memento.Endpoints.ALS(None),
+            )
+          },
+        )
+
+        it(
+          "should handle uppercase extensions",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("ALS.WASM"),
+              Memento.Endpoints.ALS(None),
+            )
+          },
+        )
+
+        it(
+          "should recognize als- prefixed executables",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als-server"),
+              Memento.Endpoints.ALS(None),
+            )
+          },
+        )
+      },
+    )
   })
 
   describe("QuickPick", () => {

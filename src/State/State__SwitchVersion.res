@@ -307,6 +307,7 @@ module SwitchVersionManager = {
       ->String.replace(".exe", "")
       ->String.replace(".cmd", "")
       ->String.replace(".bat", "")
+      ->String.replace(".wasm", "")
 
     if cleanName == "agda" || cleanName->String.startsWith("agda-") {
       Memento.Endpoints.Agda(None)
