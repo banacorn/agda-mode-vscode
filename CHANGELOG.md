@@ -5,10 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.6.7 - 2025-09-??
+
+## v0.6.8 - 2025-11-??
+
+### Added
+- WebAssembly ALS support - Full WASM language server support for VS Code for the Web
+
+### Changed
+- Version switching UI:
+    - Renamed "Clear cache" → "Delete Downloads"
+    - Removed "Open Download Folder" option
+    - Hidden "Other downloads" submenu
+- Improved error messages - Shows source of connection paths for easier debugging
+
+### Fixed
+- #252: Coloring of clickable items in panel
+- Web platform issues:
+    - CORS errors when downloading from GitHub (now uses UNPKG CDN)
+    - Browser file path handling
+    - SharedArrayBuffer availability check
+
+
+
+## v0.6.7 - 2025-09-12
 
 ### Added
 - #258: provide hover text about how to type a symbol #258 by [@dannypsnl](https://github.com/dannypsnl)
+- Clickable connection status: the connection status in the panel is now clickable and opens the version switching UI for quick access
+
+### Changed
+
+- CI improvements:
+    - Added Agda 2.8.0 support and removed Agda 2.6.3 from CI
+    - Upgraded GHC to 9.10.2 and Stack to lts-24.1
+
+### Fixed
+
+- Agda 2.8.0 compatibility - Handle different output format from Agda 2.8.0
 
 ## v0.6.6 - 2025-08-31
 
@@ -16,14 +49,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow users to clear the cache in the version switching UI
 - Infrastructure and UI for displaying and downloading the ALS development builds (including the WASM)
 
+### Changed
+- Allow connection to ALS v6 with version number decoding from handshake
+
 ### Fixed
 - #108: agda-mode suppresses implicit markdown support from vscode by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #247: Missing language configuration for literate files by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #257: Add built-in markdown preview keybindings for literate agda markdown files by [@fredrik-bakke](https://github.com/fredrik-bakke)
 - #256: Add language configurations for individual literate file types by [@fredrik-bakke](https://github.com/fredrik-bakke)
-
-### Changed
-- Allow connection to ALS v6 with version number decoding from handshake
 
 ## v0.6.5 - 2025-08-22
 
