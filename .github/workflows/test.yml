@@ -23,6 +23,16 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
         agda: ["Agda-2.6.4", "Agda-2.7.0", "Agda-2.8.0"]
+        include:
+          - agda: "Agda-2.6.4"
+            agda-version: "Agda-2.6.4.3"
+            stack-config: ".github/stack/stack-Agda-2.6.4.3.yaml"
+          - agda: "Agda-2.7.0"
+            agda-version: "Agda-2.7.0.1"
+            stack-config: ".github/stack/stack-Agda-2.7.0.1.yaml"
+          - agda: "Agda-2.8.0"
+            agda-version: "Agda-2.8.0"
+            stack-config: ".github/stack/stack-Agda-2.8.0.yaml"
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -82,9 +92,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.DIST  }}
-          key: ${{ env.DIST  }}
+          key: ${{ env.DIST  }}-${{ matrix.stack-config }}
           restore-keys: |
-              ${{ env.DIST  }}
+              ${{ env.DIST  }}-${{ matrix.stack-config }}
         
       - name: 💾 Restore VSCode from .vscode-test
         id:   vscode
@@ -130,8 +140,8 @@ jobs:
       - name: ⏬ Install Agda
         if: ${{ steps.check-agda.outcome == 'failure'}}
         run: |
-          stack install --resolver=lts-24.1 --allow-different-user ${{ matrix.agda }}
-          echo "STACK_LOCAL_BIN=$(stack path --local-bin)" >> "$GITHUB_ENV"
+          stack install --stack-yaml=${{ matrix.stack-config }} --allow-different-user ${{ matrix.agda-version }}
+          echo "STACK_LOCAL_BIN=$(stack path --stack-yaml=${{ matrix.stack-config }} --local-bin)" >> "$GITHUB_ENV"
 
       - name: 📦 Move artefacts to ${{ env.DIST }}
         if: ${{ steps.check-agda.outcome == 'failure'}}

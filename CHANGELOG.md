@@ -25,8 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Browser file path handling
     - SharedArrayBuffer availability check
 
-
-
 ## v0.6.7 - 2025-09-12
 
 ### Added
@@ -42,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Agda 2.8.0 compatibility - Handle different output format from Agda 2.8.0
+- Made connection status at the top right of the panel clickable and opens version switching UI when clicked 
+
+### Changed
+- GHC & Stack: Upgraded to GHC 9.10.2 and Stack lts-24.1 in CI
 
 ## v0.6.6 - 2025-08-31
 
