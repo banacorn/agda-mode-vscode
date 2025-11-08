@@ -88,6 +88,46 @@ let prepareAgdaDataDir = async (extension, memfs: memoryFileSystem) => {
   }
 }
 
+// Download standard library for web/WASM
+let downloadStdlib = async () => {
+  // URL to agda-stdlib 2.3 from the proxy repo
+  let stdlibUrl = "https://raw.githubusercontent.com/banacorn/agda-library-proxy/master/agda-stdlib-2.3.zip"
+
+  Util.log("[WASMLoader] Starting stdlib download from", stdlibUrl)
+
+  try {
+    // Fetch the stdlib archive
+    let response = await Fetch.fetch(
+      stdlibUrl,
+      {
+        method: #GET,
+        headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
+      },
+    )
+
+    if !Fetch.Response.ok(response) {
+      let errorMsg = "Failed to fetch stdlib: HTTP " ++ string_of_int(Fetch.Response.status(response))
+      Util.log("[WASMLoader] Download failed", errorMsg)
+      Error(errorMsg)
+    } else {
+      Util.log("[WASMLoader] Download successful, converting to Uint8Array", ())
+
+      // Convert response to Uint8Array
+      let arrayBufferData = await arrayBuffer(response)
+      let zipData = makeUint8ArrayFromArrayBuffer(arrayBufferData)
+
+      Util.log("[WASMLoader] Stdlib data ready, size (bytes)", Core__TypedArray.length(zipData))
+      Ok(zipData)
+    }
+  } catch {
+  | Exn.Error(err) => {
+      let errorMsg = "Exception while downloading stdlib: " ++ Exn.message(err)->Option.getOr("unknown error")
+      Util.log("[WASMLoader] Download exception", errorMsg)
+      Error(errorMsg)
+    }
+  }
+}
+
 let make = async (extension, raw: Uint8Array.t) => {
   // Get the exports from the extension
   let exports = VSCode.Extension.exports(extension)
@@ -104,6 +144,13 @@ let make = async (extension, raw: Uint8Array.t) => {
   // Create language server factory
   let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
   let memfsAgdaDataDir = await wasm->createMemoryFileSystem
+
+  // TEST: Download stdlib (temporary test code)
+  Util.log("[WASMLoader] Testing stdlib download...", ())
+  let _ = switch await downloadStdlib() {
+  | Ok(data) => Util.log("[WASMLoader] SUCCESS: Downloaded stdlib", Core__TypedArray.length(data))
+  | Error(err) => Util.log("[WASMLoader] ERROR: Failed to download stdlib", err)
+  }
 
   {factory, wasm, memfsAgdaDataDir, createUriConverters}
 }
