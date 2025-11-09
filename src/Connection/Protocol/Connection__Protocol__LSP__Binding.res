@@ -206,6 +206,7 @@ module ServerOptions = {
           wasmSetup.memfsAgdaDataDir,
           {},
           {
+            presetupCallback: wasmSetup.presetupCallback,
             runSetupFirst: true,
             setupCallback(exitCode, stderr) {
               if (exitCode !== 0) {
@@ -218,7 +219,10 @@ module ServerOptions = {
         const attemptWithoutSetup = () => wasmSetup.factory.createServer(
           wasmSetup.memfsAgdaDataDir,
           {},
-          { runSetupFirst: false },
+          {
+            presetupCallback: wasmSetup.presetupCallback,
+            runSetupFirst: false
+          },
         );
 
         return Promise.resolve()

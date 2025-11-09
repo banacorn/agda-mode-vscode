@@ -4,12 +4,15 @@
 type wasmAPILoader
 type wasmAPI
 type memoryFileSystem
-type wasmModule
 type agdaLanguageServerFactory
-type agdaLanguageServer
-
-// URI converters type (opaque)
 type uriConverters
+
+// Type for presetupCallback
+type presetupCallbackArgs = {
+  memfsTempDir: memoryFileSystem,
+  memfsHome: memoryFileSystem,
+}
+type presetupCallback = presetupCallbackArgs => promise<unit>
 
 // Setup result type
 type t = {
@@ -17,140 +20,104 @@ type t = {
   wasm: wasmAPI,
   memfsAgdaDataDir: memoryFileSystem,
   createUriConverters: unit => uriConverters,
+  presetupCallback: presetupCallback,
 }
 
-// Server options (based on README pattern)
-type serverOptions = {
-  // Configuration options for the server
-}
-
-// External bindings for WASM loader operations
+// External bindings
 @send external load: wasmAPILoader => wasmAPI = "load"
-@send
-external createMemoryFileSystem: wasmAPI => promise<memoryFileSystem> = "createMemoryFileSystem"
+@send external createMemoryFileSystem: wasmAPI => promise<memoryFileSystem> = "createMemoryFileSystem"
+@send external bytes: Fetch.Response.t => promise<Uint8Array.t> = "bytes"
+@send external createDirectory: (memoryFileSystem, string) => unit = "createDirectory"
 
-// Binding for prepareMemfsFromAgdaDataZip function
-external prepareMemfsFromAgdaDataZip: (
-  Uint8Array.t,
-  memoryFileSystem,
-) => promise<memoryFileSystem> = "prepareMemfsFromAgdaDataZip"
+let createFile: (memoryFileSystem, string, 'a) => unit = %raw(`
+  function(memfs, path, options) {
+    memfs.createFile(path, options);
+  }
+`)
 
-// Binding for arrayBuffer method
-@send external arrayBuffer: Fetch.Response.t => promise<ArrayBuffer.t> = "arrayBuffer"
-
-// Binding for creating Uint8Array from ArrayBuffer
-@new external makeUint8ArrayFromArrayBuffer: ArrayBuffer.t => Uint8Array.t = "Uint8Array"
-
-// Factory creation helper
 let createFactory = %raw(`function(constructor, wasm, mod) { return new constructor(wasm, mod); }`)
 
-// Additional bindings for language server functionality
-@send
-external createServer: (
-  agdaLanguageServerFactory,
-  memoryFileSystem,
-  serverOptions,
-) => agdaLanguageServer = "createServer"
+// Extract ZIP to memfs using createDirectory and createFile API
+// Note: Can't use extension's memfsUnzip due to JSZip bug (file._data.uncompressedSize is undefined)
+let extractZipToMemfs = %raw(`
+  async function(memfs, zipData, createDirectory, createFile) {
+    const JSZip = require("jszip");
+    const zip = await JSZip.loadAsync(zipData);
 
-// Agda data directory in memory filesystem for Agda-2.7.0 (provisional - will be removed)
-let prepareAgdaDataDir = async (extension, memfs: memoryFileSystem) => {
-  // Hardcoded GitHub release URL - all download logic contained here for easy removal
-  let agdaDataUrl = "https://github.com/andy0130tw/vscode-als-wasm-loader/releases/download/v0.2.1/agda-data.zip"
-
-  try {
-    // Fetch the zip from GitHub
-    let response = await Fetch.fetch(
-      agdaDataUrl,
-      {
-        method: #GET,
-        headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
-      },
-    )
-    if !Fetch.Response.ok(response) {
-      Error(
-        "Failed to fetch agda-data.zip from GitHub: HTTP " ++
-        string_of_int(Fetch.Response.status(response)),
-      )
-    } else {
-      // Convert response to Uint8Array
-      let arrayBufferData = await arrayBuffer(response)
-      let zipData = makeUint8ArrayFromArrayBuffer(arrayBufferData)
-
-      // Get the function from extension exports and populate memory filesystem
-      let exports = VSCode.Extension.exports(extension)
-      let _ = await exports["prepareMemfsFromAgdaDataZip"](zipData, memfs)
-
-      // Return a dictionary of "env", set Agda_datadir to /opt/agda where the data is mounted in WASM
-      Ok(Dict.fromArray([("Agda_datadir", "/opt/agda")]))
+    for (const [relativePath, file] of Object.entries(zip.files)) {
+      if (file.dir) {
+        try {
+          createDirectory(memfs, relativePath.slice(0, -1));
+        } catch (e) {
+          // Directory might already exist
+        }
+      } else {
+        const content = await file.async('uint8array');
+        createFile(memfs, relativePath, {
+          size: BigInt(content.length),
+          reader: () => Promise.resolve(content)
+        });
+      }
     }
-  } catch {
-  | Exn.Error(_) => Error("Failed to download or prepare agda-data.zip")
   }
-}
+`)
 
-// Download standard library for web/WASM
+// Download Agda standard library for web/WASM
 let downloadStdlib = async () => {
-  // URL to agda-stdlib 2.3 from the proxy repo
-  let stdlibUrl = "https://raw.githubusercontent.com/banacorn/agda-library-proxy/master/agda-stdlib-2.3.zip"
-
-  Util.log("[WASMLoader] Starting stdlib download from", stdlibUrl)
-
   try {
-    // Fetch the stdlib archive
     let response = await Fetch.fetch(
-      stdlibUrl,
+      "https://raw.githubusercontent.com/banacorn/agda-library-proxy/master/agda-stdlib-2.3.zip",
       {
         method: #GET,
         headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
       },
     )
-
-    if !Fetch.Response.ok(response) {
-      let errorMsg = "Failed to fetch stdlib: HTTP " ++ string_of_int(Fetch.Response.status(response))
-      Util.log("[WASMLoader] Download failed", errorMsg)
-      Error(errorMsg)
-    } else {
-      Util.log("[WASMLoader] Download successful, converting to Uint8Array", ())
-
-      // Convert response to Uint8Array
-      let arrayBufferData = await arrayBuffer(response)
-      let zipData = makeUint8ArrayFromArrayBuffer(arrayBufferData)
-
-      Util.log("[WASMLoader] Stdlib data ready, size (bytes)", Core__TypedArray.length(zipData))
-      Ok(zipData)
-    }
+    Fetch.Response.ok(response) ? Ok(await bytes(response)) : Error()
   } catch {
-  | Exn.Error(err) => {
-      let errorMsg = "Exception while downloading stdlib: " ++ Exn.message(err)->Option.getOr("unknown error")
-      Util.log("[WASMLoader] Download exception", errorMsg)
-      Error(errorMsg)
-    }
+  | Exn.Error(_) => Error()
   }
 }
 
 let make = async (extension, raw: Uint8Array.t) => {
-  // Get the exports from the extension
   let exports = VSCode.Extension.exports(extension)
-
-  // Access exports directly
   let agdaLanguageServerFactory: agdaLanguageServerFactory = exports["AgdaLanguageServerFactory"]
   let wasmAPILoader: wasmAPILoader = exports["WasmAPILoader"]
   let createUriConverters = exports["createUriConverters"]
 
-  // Load WASM API and compile module
   let wasm = wasmAPILoader->load
   let mod = await WebAssembly.compile(raw)
-
-  // Create language server factory
   let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
   let memfsAgdaDataDir = await wasm->createMemoryFileSystem
 
-  // TEST: Download stdlib (temporary test code)
-  Util.log("[WASMLoader] Testing stdlib download...", ())
-  let _ = switch await downloadStdlib() {
-  | Ok(data) => Util.log("[WASMLoader] SUCCESS: Downloaded stdlib", Core__TypedArray.length(data))
-  | Error(err) => Util.log("[WASMLoader] ERROR: Failed to download stdlib", err)
+  // Populate memfsAgdaDataDir with standard library
+  switch await downloadStdlib() {
+  | Ok(zipData) =>
+      try {
+        await extractZipToMemfs(memfsAgdaDataDir, zipData, createDirectory, createFile)
+      } catch {
+      | Exn.Error(_) => ()
+      }
+  | Error() => ()
   }
 
-  {factory, wasm, memfsAgdaDataDir, createUriConverters}
+  // Setup libraries file in memfsHome pointing to stdlib
+  let presetupCallback = async ({memfsTempDir: _, memfsHome}) => {
+    try {
+      createDirectory(memfsHome, ".config")
+      createDirectory(memfsHome, ".config/agda")
+      let _ = %raw(`
+        function(memfsHome, createFile) {
+          const content = new TextEncoder().encode('/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n');
+          createFile(memfsHome, '.config/agda/libraries', {
+            size: BigInt(content.length),
+            reader: () => Promise.resolve(content)
+          });
+        }
+      `)(memfsHome, createFile)
+    } catch {
+    | Exn.Error(_) => ()
+    }
+  }
+
+  {factory, wasm, memfsAgdaDataDir, createUriConverters, presetupCallback}
 }
