@@ -37,31 +37,6 @@ let createFile: (memoryFileSystem, string, 'a) => unit = %raw(`
 
 let createFactory = %raw(`function(constructor, wasm, mod) { return new constructor(wasm, mod); }`)
 
-// Extract ZIP to memfs using createDirectory and createFile API
-// Note: Can't use extension's memfsUnzip due to JSZip bug (file._data.uncompressedSize is undefined)
-let extractZipToMemfs = %raw(`
-  async function(memfs, zipData, createDirectory, createFile) {
-    const JSZip = require("jszip");
-    const zip = await JSZip.loadAsync(zipData);
-
-    for (const [relativePath, file] of Object.entries(zip.files)) {
-      if (file.dir) {
-        try {
-          createDirectory(memfs, relativePath.slice(0, -1));
-        } catch (e) {
-          // Directory might already exist
-        }
-      } else {
-        const content = await file.async('uint8array');
-        createFile(memfs, relativePath, {
-          size: BigInt(content.length),
-          reader: () => Promise.resolve(content)
-        });
-      }
-    }
-  }
-`)
-
 // Download Agda standard library for web/WASM
 let downloadStdlib = async () => {
   try {
@@ -83,17 +58,19 @@ let make = async (extension, raw: Uint8Array.t) => {
   let agdaLanguageServerFactory: agdaLanguageServerFactory = exports["AgdaLanguageServerFactory"]
   let wasmAPILoader: wasmAPILoader = exports["WasmAPILoader"]
   let createUriConverters = exports["createUriConverters"]
+  let memfsUnzip: (memoryFileSystem, Uint8Array.t) => promise<memoryFileSystem> = exports["memfsUnzip"]
 
   let wasm = wasmAPILoader->load
   let mod = await WebAssembly.compile(raw)
   let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
   let memfsAgdaDataDir = await wasm->createMemoryFileSystem
 
-  // Populate memfsAgdaDataDir with standard library
+  // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
   switch await downloadStdlib() {
   | Ok(zipData) =>
       try {
-        await extractZipToMemfs(memfsAgdaDataDir, zipData, createDirectory, createFile)
+        let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
+        ()
       } catch {
       | Exn.Error(_) => ()
       }
