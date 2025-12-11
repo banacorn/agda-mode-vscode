@@ -252,9 +252,10 @@ module Module: Module = {
 
             // No Agda data directory preparation needed for WASM 2.8.0+
             // (data is already bundled in the WASM binary)
+            let isDesktop = %raw("Vscode.env.uiKind === Vscode.UIKind.Desktop")
             let sabAvailable = %raw("typeof SharedArrayBuffer !== 'undefined'")
             let coi = %raw("typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : false")
-            if !sabAvailable || !coi {
+            if !isDesktop && (!sabAvailable || !coi) {
               let reason =
                 if !sabAvailable {
                   "SharedArrayBuffer is not available in this browser environment."
