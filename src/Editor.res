@@ -220,6 +220,20 @@ module Provider = {
   }
 
   module Mock = {
+    // https://code.visualstudio.com/api/references/vscode-api#Event
+    module Event = {
+      type t<'a>
+    }
+
+    // https://code.visualstudio.com/api/references/vscode-api#EventEmitter
+    module EventEmitter = {
+      type t<'a>
+      @module("vscode") @new external make: unit => t<'a> = "EventEmitter"
+      @get external event: t<'a> => Event.t<'a> = "event"
+      @send external fire: (t<'a>, 'a) => unit = "fire"
+      @send external dispose: t<'a> => unit = "dispose"
+    }
+
     // https://code.visualstudio.com/api/references/vscode-api#SemanticsTokens
     module SemanticsTokens = {
       type t
@@ -294,8 +308,6 @@ module Provider = {
 
     // https://code.visualstudio.com/api/references/vscode-api#DocumentSemanticTokensProvider
     module DocumentSemanticTokensProvider = {
-      // missing: onDidChangeSemanticTokens
-
       type provideDocumentSemanticTokens = (
         TextDocument.t,
         CancellationToken.t,
@@ -314,15 +326,18 @@ module Provider = {
       >
 
       type t = {
+        onDidChangeSemanticTokens: option<Event.t<unit>>,
         provideDocumentSemanticTokens: option<provideDocumentSemanticTokens>,
         provideDocumentSemanticTokensEdits: option<provideDocumentSemanticTokensEdits>,
       }
 
       let make = (
+        ~onDidChangeSemanticTokens: option<Event.t<unit>>=?,
         ~provideDocumentSemanticTokens: option<provideDocumentSemanticTokens>=?,
         ~provideDocumentSemanticTokensEdits: option<provideDocumentSemanticTokensEdits>=?,
         (),
       ) => {
+        onDidChangeSemanticTokens,
         provideDocumentSemanticTokens,
         provideDocumentSemanticTokensEdits,
       }
@@ -340,9 +355,11 @@ module Provider = {
 
   let registerDocumentSemanticTokensProvider = (
     ~provideDocumentSemanticTokens: Mock.DocumentSemanticTokensProvider.provideDocumentSemanticTokens,
+    ~onDidChangeSemanticTokens: option<Mock.Event.t<unit>>=?,
     (tokenTypes, tokenModifiers),
   ) => {
     let documentSemanticTokensProvider = Mock.DocumentSemanticTokensProvider.make(
+      ~onDidChangeSemanticTokens?,
       ~provideDocumentSemanticTokens,
       // =(textDocument, _cancel) => {
       //   let builder = Mock.SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
