@@ -7,6 +7,21 @@ describe("Tokens", () => {
   This.timeout(10000)
   describe("Token generation", () => {
     Async.it(
+      "should emit `onUpdate` event when highlighting is generated",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
+        let (promise, resolve, _) = Util.Promise_.pending()
+
+        let _disposable = ctx.state.tokens->Tokens.onUpdate->Chan.on(resolve)
+
+        ctx.state.tokens->Tokens.generateHighlighting(ctx.state.editor)
+
+        await promise
+        Assert.ok(true)
+      },
+    )
+
+    Async.it(
       "should produce 28 tokens",
       async () => {
         let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")

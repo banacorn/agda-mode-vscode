@@ -49,6 +49,7 @@ let initialize = (
   memento,
   editor,
   semanticTokensRequest,
+  semanticTokensEventEmitter,
 ) => {
   let panel = Singleton.Panel.make(extensionUri)
   // if the panel is destroyed, destroy all every State in the Registry
@@ -79,6 +80,13 @@ let initialize = (
   ////////////////////////////////////////////////////////////////
 
   let subscribe = disposable => state.subscriptions->Array.push(disposable)->ignore
+
+  // trigger semantic tokens update when highlighting is generated
+  semanticTokensEventEmitter->Option.forEach(emitter => {
+    state.tokens->Tokens.onUpdate->Chan.on(() => {
+      emitter->Editor.Provider.Mock.EventEmitter.fire()
+    })->VSCode.Disposable.make->subscribe
+  })
 
   let getCurrentEditor = () =>
     switch VSCode.Window.activeTextEditor {
@@ -141,7 +149,7 @@ let initialize = (
   state
 }
 
-let registerDocumentSemanticTokensProvider = () => {
+let registerDocumentSemanticTokensProvider = onDidChangeSemanticTokens => {
   // these two arrays are called "legends"
   let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
   let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
@@ -175,6 +183,7 @@ let registerDocumentSemanticTokensProvider = () => {
 
   Editor.Provider.registerDocumentSemanticTokensProvider(
     ~provideDocumentSemanticTokens,
+    ~onDidChangeSemanticTokens?,
     (tokenTypes, tokenModifiers),
   )
 }
@@ -268,6 +277,11 @@ let activateWithoutContext = (
 ) => {
   let subscribe = x => subscriptions->Array.push(x)->ignore
   let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
+
+  // Semantic Tokens Event
+  let semanticTokensEventEmitter = Editor.Provider.Mock.EventEmitter.make()
+  subscribe(VSCode.Disposable.make(() => semanticTokensEventEmitter->Editor.Provider.Mock.EventEmitter.dispose))
+  let onDidChangeSemanticTokens = semanticTokensEventEmitter->Editor.Provider.Mock.EventEmitter.event
 
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
@@ -363,6 +377,7 @@ let activateWithoutContext = (
           memento,
           editor,
           None,
+          Some(semanticTokensEventEmitter),
         )
         Registry.add(document, state)
       | Some(entry) =>
@@ -377,6 +392,7 @@ let activateWithoutContext = (
             memento,
             editor,
             Some(entry.semanticTokens),
+            Some(semanticTokensEventEmitter),
           )
           Registry.add(document, state)
         | Some(_) => () // should not happen
@@ -394,7 +410,7 @@ let activateWithoutContext = (
     }
   })->subscribeMany
 
-  registerDocumentSemanticTokensProvider()->subscribe
+  registerDocumentSemanticTokensProvider(Some(onDidChangeSemanticTokens))->subscribe
   registerInputMethodHintHoverProvider()->subscribe
 
   // expose the channel for testing
