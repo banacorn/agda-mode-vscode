@@ -26,7 +26,7 @@
 		"@vscode/test-electron": "^2.3.8",
 		"@vscode/test-web": "^0.0.71",
 		"buffer": "^6.0.3",
-		"copy-webpack-plugin": "^6.0.3",
+		"copy-webpack-plugin": "^13.0.1",
 		"crypto-browserify": "^3.12.1",
 		"glob": "^7.1.6",
 		"less": "^4.1.1",
