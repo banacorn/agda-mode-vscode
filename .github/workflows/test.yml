@@ -194,6 +194,8 @@ jobs:
 
       - name: 🚗 Run tests
         run: |
+          mkdir -p lib/js/.vscode
+          cp test/user-data/settings.json lib/js/.vscode
           if [[ ${{ runner.os }} == "Linux" ]]; then
             xvfb-run -a npm test 2>&1 | tee test-output.log
           else

@@ -2,6 +2,7 @@
 type options = {
   extensionDevelopmentPath: string,
   extensionTestsPath: string,
+  launchArgs: array<string>,
 }
 
 @module("@vscode/test-electron")
@@ -26,4 +27,5 @@ Js.log(
 runTests({
   extensionDevelopmentPath,
   extensionTestsPath,
+  launchArgs: [extensionDevelopmentPath],
 })->Promise.done
