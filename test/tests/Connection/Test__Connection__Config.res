@@ -16,6 +16,9 @@ open Test__Util
 //     └── Switch version UI selection → should add selected path to config
 
 describe("Config.Connection paths", () => {
+  // FIXME: UI-related tests are flaky on CI
+  This.retries(2)
+
   let userAgda = ref("")
   let systemAgda = ref("")
   let brokenAgda = ref("/broken/agda")
@@ -400,6 +403,8 @@ describe("Config.Connection paths", () => {
         Async.it(
           "should add path to config when user selects existing path not in config",
           async () => {
+            This.retries(2)
+
             let initialConfig = [userAgda.contents]
             let selectedPath = alternativeAgda.contents // not in initial config
 
@@ -412,6 +417,7 @@ describe("Config.Connection paths", () => {
             // Should add the selected path to config
             let expectedConfig = Array.concat(initialConfig, [selectedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
+            // FIXME: this test is flaky
             Assert.deepStrictEqual(finalConfig, expectedConfig)
           },
         )

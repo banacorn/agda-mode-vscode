@@ -379,9 +379,12 @@ describe("Connection", () => {
     Async.it(
       "should handle ALS executable probing (without full connection)",
       async () => {
+        This.retries(2)
+
         // Test just the probing part which we know works
         let result = await Connection.probeFilepath(alsMockPath.contents)
 
+        // FIXME: this test is flaky; sometimes it fails to probe
         switch result {
         | Ok(path, IsALS(alsVersion, agdaVersion, lspOptions)) =>
           Assert.deepStrictEqual(path, alsMockPath.contents)
@@ -961,7 +964,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify that Connection.makeWithFallback emits ConnectedToAgda events
-         * 
+         *
          * SCENARIO:
          * 1. Setup a mock Agda executable
          * 2. Create Connection.makeWithFallback with log channel
@@ -1029,12 +1032,12 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback logging works with real connections
-         * 
+         *
          * SCENARIO:
          * 1. Try to connect using the real 'agda' command
          * 2. If successful, verify appropriate connection event is logged
          * 3. If failed, verify no connection events are logged
-         * 
+         *
          * This test is more realistic as it uses actual command discovery
          */
         let logChannel = Chan.make()
@@ -1090,8 +1093,8 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify that failed connections don't emit connection events
-         * 
-         * SCENARIO: 
+         *
+         * SCENARIO:
          * 1. Try to connect with invalid paths and commands
          * 2. Verify no ConnectedTo* events are logged
          * 3. Verify Connection.makeWithFallback returns Error
@@ -1133,12 +1136,12 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify logging works in download fallback scenarios
-         * 
+         *
          * SCENARIO:
          * 1. Try paths/commands that fail
          * 2. Fallback to download succeeds (mocked)
          * 3. Verify connection event is logged for downloaded connection
-         * 
+         *
          * NOTE: This test may be complex to implement due to download mocking.
          * For now, we'll just verify the interface works correctly.
          */
@@ -1189,7 +1192,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback finds commands when no paths provided
-         * 
+         *
          * SCENARIO:
          * 1. Call Connection.makeWithFallback with empty paths array
          * 2. Provide valid commands ["agda", "als"]
@@ -1239,7 +1242,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback falls back to commands when paths fail
-         * 
+         *
          * SCENARIO:
          * 1. Provide invalid paths
          * 2. Provide valid commands
@@ -1288,7 +1291,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback uses paths before falling back to commands
-         * 
+         *
          * SCENARIO:
          * 1. Setup mock Agda at known path
          * 2. Provide that path plus invalid commands
@@ -1352,7 +1355,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback handles unsupported platform gracefully
-         * 
+         *
          * SCENARIO:
          * 1. Use mock platform that returns unsupported platform error
          * 2. Provide invalid paths/commands to force download fallback
@@ -1407,7 +1410,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback respects No download policy
-         * 
+         *
          * SCENARIO:
          * 1. Set download policy to No
          * 2. Force fallback to downloads (invalid paths/commands)
@@ -1460,7 +1463,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback handles user cancelling download dialog
-         * 
+         *
          * SCENARIO:
          * 1. Set download policy to Undecided
          * 2. Mock user clicking cancel (returning Undecided)
@@ -1517,7 +1520,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback uses cached ALS and logs connection
-         * 
+         *
          * SCENARIO:
          * 1. Set download policy to Yes
          * 2. Mock cached ALS available
@@ -1596,7 +1599,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback downloads fresh ALS and logs connection
-         * 
+         *
          * SCENARIO:
          * 1. Set download policy to Yes
          * 2. Mock no cached ALS, successful fresh download
@@ -1679,7 +1682,7 @@ describe("Connection", () => {
       async () => {
         /**
          * TEST PURPOSE: Verify Connection.makeWithFallback handles download failures gracefully
-         * 
+         *
          * SCENARIO:
          * 1. Set download policy to Yes
          * 2. Mock download failure

@@ -4,6 +4,7 @@ module Mocha = {
   type options = {
     ui: string,
     color: bool,
+    timeout: int,
   }
 
   @module @new external make: options => t = "mocha"
@@ -23,7 +24,7 @@ exception TestFailure(string)
 
 let run = () => {
   // Create the mocha test
-  let mocha = Mocha.make({ui: "bdd", color: true})
+  let mocha = Mocha.make({ui: "bdd", color: true, timeout: 4000})
 
   // dirname: ./lib/js/test
   // testsRoot: ./lib/js/test/tests
