@@ -153,6 +153,29 @@ describe("Config.Connection paths", () => {
     )
   })
 
+  describe("Bare command in config paths (#277)", () => {
+    Async.it(
+      "should resolve bare command 'agda' in connection.paths via PATH lookup",
+      async () => {
+        // When a user sets connection.paths to ["agda"], fromPaths should
+        // resolve it via PATH lookup instead of treating it as a relative path.
+        // Currently URI.parse("agda") turns it into a bogus absolute path
+        // like "/current/dir/agda" which doesn't exist.
+        let result = await Connection.fromPaths(
+          platformWithDiscovery,
+          [("agda", Connection__Error.Establish.FromConfig)],
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, systemAgda.contents)
+        | Error(_) =>
+          Assert.fail("fromPaths should succeed with bare command 'agda'")
+        }
+      },
+    )
+  })
+
   describe("Broken config paths", () => {
     Async.it(
       "should not add discovered path when all config paths are broken and auto discovery succeeds",
