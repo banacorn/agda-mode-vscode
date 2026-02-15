@@ -3,11 +3,13 @@
 module Error = {
   type t =
     | NotFound
+    | InternalError
     | SomethingWentWrong(Connection__Process__Exec.Error.t)
 
   let toString = error =>
     switch error {
     | NotFound => "Command not found"
+    | InternalError => "Internal error"
     | SomethingWentWrong(e) => Connection__Process__Exec.Error.toString(e)
     }
 }
@@ -26,11 +28,28 @@ let searchWith = async (command, name, ~timeout=1000) => {
 }
 
 let search = async (name, ~timeout=1000) => {
+  // sometimes GitHub Actions runner exits with code 0 but does not write to stdout;
+  // this function retries a few times
+  let flakyWhich = () => {
+    let rec retry = async (n: int) =>
+      switch await searchWith("which", name, ~timeout) {
+      | Ok("") => {
+        if n > 0 {
+          await retry(n - 1)
+        } else {
+          Error(Error.InternalError)
+        }
+      }
+      | result => result
+    }
+    retry(3)
+  }
+
   if OS.onUnix {
-    await searchWith("which", name, ~timeout)
+    await flakyWhich()
   } else {
     // try `which` first, then `where.exe`
-    switch await searchWith("which", name, ~timeout) {
+    switch await flakyWhich() {
     | Ok(stdout) => Ok(stdout)
     | Error(_) => await searchWith("where.exe", name, ~timeout)
     }

@@ -7,7 +7,7 @@ module DownloadDescriptor = {
     id: 123456,
     node_id: "mock_node_id",
     name: "als-Agda-2.6.3-Windows-x64.zip",
-    label: "",
+    label: Some(""),
     content_type: "application/zip",
     state: "uploaded",
     size: 1000000,

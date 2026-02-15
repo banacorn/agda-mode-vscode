@@ -65,6 +65,8 @@ module.exports = (env, argv) => {
                     'node:http': false,
                     'util': false,
                     'node:util': false,
+                    'crypto': false,
+                    'node:crypto': false,
                     // Desktop-only packages
                     'unzipper': false,
                     'getos': false,
@@ -79,7 +81,6 @@ module.exports = (env, argv) => {
                     'buffer': require.resolve('buffer'),
                     'process': require.resolve('process/browser'),
                     'stream': require.resolve('stream-browserify'),
-                    'crypto': require.resolve('crypto-browserify'),
                 }
             } : {},
             plugins: isWeb ? [

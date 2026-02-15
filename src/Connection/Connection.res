@@ -547,8 +547,8 @@ module Module: Module = {
       logConnection(connection)
       // Only add to config if connection succeeded from fallback methods (not from config paths)
       switch from {
-      | FromPaths => () // Never modify config when using existing config paths
-      | FromCommands | FromDownloads =>
+      | FromPaths | FromCommands => () // Never modify config when using existing config paths
+      | FromDownloads =>
         await Config.Connection.addAgdaPath(logChannel, getPath(connection))
       }
 

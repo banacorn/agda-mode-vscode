@@ -23,6 +23,7 @@ module type Module = {
 
   // Remove everything
   let reset: t => unit
+  let destroyUpdateChannel: t => unit
 
   // definition provider for go-to-definition
   let goToDefinition: (
@@ -40,6 +41,8 @@ module type Module = {
   let applyDecorations: (t, VSCode.TextEditor.t) => unit
 
   let toOriginalOffset: (t, int) => option<int>
+
+  let onUpdate: t => Chan.t<unit>
 
   let getVSCodeTokens: t => Resource.t<array<Highlighting__SemanticToken.t>>
   let getHolePositionsFromLoad: t => Resource.t<Map.t<int, int>>
@@ -118,6 +121,7 @@ module Module: Module = {
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
     mutable holePositions: Resource.t<Map.t<int, int>>,
+    onUpdate: Chan.t<unit>,
   }
 
   let toString = self => {
@@ -153,6 +157,7 @@ module Module: Module = {
     decorations: Map.make(),
     holes: Map.make(),
     holePositions: Resource.make(),
+    onUpdate: Chan.make(),
   }
 
   let insertWithVSCodeOffsets = (self, token: Token.t<vscodeOffset>) => {
@@ -253,6 +258,8 @@ module Module: Module = {
       self.vscodeTokens->Resource.set([])
     }
   }
+
+  let destroyUpdateChannel = self => self.onUpdate->Chan.destroy
 
   let toTokenArray = self => self.agdaTokens->AVLTree.toArray->Array.map(snd)
   let toDecorations = self => self.decorations
@@ -448,6 +455,8 @@ module Module: Module = {
     applyDecorations(self, editor)
     // set the holes positions
     self.holePositions->Resource.set(holePositions)
+
+    self.onUpdate->Chan.emit()
   }
 
   // Update the deltas and generate new tokens
@@ -481,6 +490,8 @@ module Module: Module = {
         },
       None,
     )
+
+  let onUpdate = self => self.onUpdate
 
   let getVSCodeTokens = self => self.vscodeTokens
   let getHolePositionsFromLoad = self => self.holePositions

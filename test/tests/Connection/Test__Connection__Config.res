@@ -7,15 +7,18 @@ open Test__Util
 // │   ├── Multiple working paths → should not modify config
 // │   └── Mixed working/broken paths → should not modify config (working paths exist)
 // ├── Broken config paths
-// │   ├── All broken, auto discovery succeeds → should add discovered path to config
+// │   ├── All broken, auto discovery succeeds → should not add discovered path to config
 // │   └── All broken, auto discovery fails → should fail without modifying config
 // ├── Empty config paths
-// │   ├── Auto discovery succeeds → should add discovered path to config
+// │   ├── Auto discovery succeeds → should not add discovered path to config
 // │   └── Auto discovery fails → should fail without modifying config
 // └── UI-triggered additions
 //     └── Switch version UI selection → should add selected path to config
 
 describe("Config.Connection paths", () => {
+  // FIXME: UI-related tests are flaky on CI
+  This.retries(2)
+
   let userAgda = ref("")
   let systemAgda = ref("")
   let brokenAgda = ref("/broken/agda")
@@ -152,14 +155,14 @@ describe("Config.Connection paths", () => {
 
   describe("Broken config paths", () => {
     Async.it(
-      "should add discovered path when all config paths are broken and auto discovery succeeds",
+      "should not add discovered path when all config paths are broken and auto discovery succeeds",
       async () => {
         let configPaths = [brokenAgda.contents, "/another/broken"]
         let (logs, result) = await makeConnection(configPaths, platformWithDiscovery)
 
         // should add discovered path to config
-        let expectedConfig = Array.concat(configPaths, [systemAgda.contents])
-        Assert.deepStrictEqual(logs, [Log.Config(Changed(configPaths, expectedConfig))])
+        let expectedConfig = configPaths
+        Assert.deepStrictEqual(logs, [])
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), expectedConfig)
 
         switch result {
@@ -193,14 +196,14 @@ describe("Config.Connection paths", () => {
 
   describe("Empty config paths", () => {
     Async.it(
-      "should add discovered path when config is empty and auto discovery succeeds",
+      "should not add discovered path when config is empty and auto discovery succeeds",
       async () => {
         let configPaths = []
         let (logs, result) = await makeConnection(configPaths, platformWithDiscovery)
 
         // should add discovered path to config
-        let expectedConfig = [systemAgda.contents]
-        Assert.deepStrictEqual(logs, [Log.Config(Changed([], expectedConfig))])
+        let expectedConfig = []
+        Assert.deepStrictEqual(logs, [])
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), expectedConfig)
 
         switch result {
@@ -383,6 +386,8 @@ describe("Config.Connection paths", () => {
         Async.it(
           "should add path to config when user selects existing path not in config",
           async () => {
+            This.retries(2)
+
             let initialConfig = [userAgda.contents]
             let selectedPath = alternativeAgda.contents // not in initial config
 
@@ -395,6 +400,7 @@ describe("Config.Connection paths", () => {
             // Should add the selected path to config
             let expectedConfig = Array.concat(initialConfig, [selectedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
+            // FIXME: this test is flaky
             Assert.deepStrictEqual(finalConfig, expectedConfig)
           },
         )

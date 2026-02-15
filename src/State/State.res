@@ -125,6 +125,7 @@ let destroy = async (state, alsoRemoveFromRegistry) => {
   state.channels.log->Chan.emit(Others("State.destroy: Disposed subscriptions"))
   state.channels.log->Chan.emit(TokensReset("State.destroy"))
   state.tokens->Tokens.reset
+  state.tokens->Tokens.destroyUpdateChannel
   state.channels.log->Chan.emit(Others("State.destroy: Tokens reset completed"))
   let result = await Connection.destroy(state.connection, state.channels.log)
   state.channels.log->Chan.emit(Others("State.destroy: Connection destroyed, destruction complete"))

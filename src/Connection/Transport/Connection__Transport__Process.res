@@ -87,25 +87,10 @@ module Module: Module = {
       ->ignore
     )
 
-    // on `close` from `stdin` or `process`
-    let promiseOnClose = Promise.make((resolve, _) => {
-      process
-      ->NodeJs.ChildProcess.stdin
-      ->Option.forEach(stream =>
-        stream
-        ->NodeJs.Stream.Writable.onClose(() => resolve(0))
-        ->ignore
-      )
-
-      process
-      ->NodeJs.ChildProcess.onClose(code => resolve(code))
-      ->ignore
-    })
-
-    // on errors and anomalies
+    // on program exits AFTER streams are closed
     let promiseOnExit = Promise.make((resolve, _) => {
       process
-      ->NodeJs.ChildProcess.onExit(code => resolve(code))
+      ->NodeJs.ChildProcess.onClose(code => resolve(code))
       ->ignore
     })
 
@@ -116,8 +101,7 @@ module Module: Module = {
     )
     ->ignore
 
-    // emit `OnExit` when either `close` or `exit` was received
-    Promise.race([promiseOnExit, promiseOnClose])
+    promiseOnExit
     ->Promise.thenResolve(exitCode => chan->Chan.emit(Event(OnExit(exitCode))))
     ->ignore
 

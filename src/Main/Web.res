@@ -48,7 +48,7 @@ module Web: Platform.PlatformOps = {
           id: 0,
           node_id: "mock-web-dev-als",
           name: "als-dev-Agda-2.8.0-wasm",
-          label: "WASM Language Server",
+          label: Some("WASM Language Server"),
           content_type: "application/wasm",
           state: "uploaded",
           size: 0,

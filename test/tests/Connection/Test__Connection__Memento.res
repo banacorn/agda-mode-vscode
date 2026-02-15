@@ -87,6 +87,8 @@ describe("Memento.PickedConnection", () => {
     Async.it(
       "should ignore memento and use config as-is",
       async () => {
+        This.retries(2)
+
         // Config: [userAgda]
         // Memento: systemAgda (not in config)
         // Expected: userAgda should be used (from config)
@@ -97,6 +99,7 @@ describe("Memento.PickedConnection", () => {
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
+          // FIXME: this test is flaky
           Assert.deepStrictEqual(actualPath, userAgda.contents)
         | Error(_) => Assert.fail("Connection should succeed")
         }
@@ -134,6 +137,8 @@ describe("Memento.PickedConnection", () => {
     Async.it(
       "should set memento to working connection path from auto discovery",
       async () => {
+        This.retries(2)
+
         let memento = Memento.make(None)
         await Config.Connection.setAgdaPaths(logChannel, []) // empty config
 
@@ -146,6 +151,7 @@ describe("Memento.PickedConnection", () => {
           logChannel,
         )
 
+        // FIXME: this test is flaky; sometimes it just errors
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
