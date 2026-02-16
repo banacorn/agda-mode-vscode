@@ -25,9 +25,14 @@ module type Module = {
   let getPath: t => string
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
+  let isCommand: string => bool
   let fromPaths: (Platform.t, array<(string, Error.Establish.pathSource)>) => promise<
     result<t, Error.Establish.t>,
   >
+  let fromPathsOrCommands: (
+    Platform.t,
+    array<(string, Error.Establish.pathSource)>,
+  ) => promise<result<t, Error.Establish.t>>
   let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
   let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
@@ -342,13 +347,33 @@ module Module: Module = {
     }
   }
 
+  // Decide whether a raw config entry is a command or a filesystem path/URI.
+  let isCommand = raw => {
+    let command = raw->String.trim
+    if command == "" {
+      false
+    } else {
+      let hasWhitespace = switch String.match(command, %re("/\\s/")) {
+      | Some(_) => true
+      | None => false
+      }
+      let hasScheme = switch String.match(command, %re("/^[a-zA-Z][a-zA-Z0-9+.-]*:/")) {
+      | Some(_) => true
+      | None => false
+      }
+      let hasSeparator = String.includes(command, "/") || String.includes(command, "\\")
+      let startsLikePath = String.startsWith(command, ".") || String.startsWith(command, "~")
+      let isAbsolute = NodeJs.Path.isAbsolute(command)
+
+      !(hasWhitespace || hasScheme || hasSeparator || startsLikePath || isAbsolute)
+    }
+  }
+
   // Make a connection by trying all given paths in order
   let fromPaths = async (
     platformDeps: Platform.t,
     paths: array<(string, Error.Establish.pathSource)>,
   ): result<t, Error.Establish.t> => {
-    module PlatformOps = unpack(platformDeps)
-
     let tasks = paths->Array.map(((path, source)) => () => make(path, source))
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)
@@ -376,6 +401,25 @@ module Module: Module = {
     | Error(errors) =>
       // merge all errors from `tryCommand`
       Error(errors->Error.Establish.mergeMany)
+    }
+  }
+
+  // Make a connection by interpreting each entry as a command or a path.
+  let fromPathsOrCommands = async (
+    platformDeps: Platform.t,
+    entries: array<(string, Error.Establish.pathSource)>,
+  ): result<t, Error.Establish.t> => {
+    let tasks = entries->Array.map(((raw, source)) => () =>
+      if isCommand(raw) {
+        fromCommands(platformDeps, [raw])
+      } else {
+        fromPaths(platformDeps, [(raw, source)])
+      }
+    )
+
+    switch await tryUntilSuccess(tasks) {
+    | Ok(connection) => Ok(connection)
+    | Error(errors) => Error(Error.Establish.mergeMany(errors))
     }
   }
 
@@ -538,7 +582,7 @@ module Module: Module = {
 
     // Try each method in order
     let tasks = [
-      () => fromPaths(platformDeps, pathsWithSource)->tagFrom(FromPaths),
+      () => fromPathsOrCommands(platformDeps, pathsWithSource)->tagFrom(FromPaths),
       () => fromCommands(platformDeps, commands)->tagFrom(FromCommands),
       () => fromDownloads(platformDeps, memento, globalStorageUri)->tagFrom(FromDownloads),
     ]
