@@ -26,14 +26,10 @@ module type Module = {
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
   let isCommand: string => bool
-  let fromPaths: (Platform.t, array<(string, Error.Establish.pathSource)>) => promise<
-    result<t, Error.Establish.t>,
-  >
   let fromPathsOrCommands: (
     Platform.t,
     array<(string, Error.Establish.pathSource)>,
   ) => promise<result<t, Error.Establish.t>>
-  let fromCommands: (Platform.t, array<string>) => promise<result<t, Error.Establish.t>>
   let fromDownloads: (Platform.t, Memento.t, VSCode.Uri.t) => promise<result<t, Error.Establish.t>>
 
   // messaging
@@ -369,51 +365,26 @@ module Module: Module = {
     }
   }
 
-  // Make a connection by trying all given paths in order
-  let fromPaths = async (
+  // Make a connection by interpreting each entry as a command or a path.
+  let fromPathsOrCommands = async (
     platformDeps: Platform.t,
-    paths: array<(string, Error.Establish.pathSource)>,
+    entries: array<(string, Error.Establish.pathSource)>,
   ): result<t, Error.Establish.t> => {
-    let tasks = paths->Array.map(((path, source)) => () => make(path, source))
-    switch await tryUntilSuccess(tasks) {
-    | Ok(connection) => Ok(connection)
-    | Error(pathErrors) => Error(Error.Establish.mergeMany(pathErrors))
-    }
-  }
-
-  // Make a connection from commands, trying each command until one succeeds
-  let fromCommands = async (platformDeps: Platform.t, commands: array<string>): result<
-    t,
-    Error.Establish.t,
-  > => {
     module PlatformOps = unpack(platformDeps)
 
-    let tryCommand = async (command): result<t, Error.Establish.t> => {
+    let fromPath = async (path, source) => await make(path, source)
+    let fromCommand = async (command): result<t, Error.Establish.t> => {
       switch await PlatformOps.findCommand(command) {
       | Ok(rawPath) => await make(rawPath, FromCommandLookup(command))
       | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
       }
     }
 
-    let tasks = commands->Array.map(command => () => tryCommand(command))
-    switch await tryUntilSuccess(tasks) {
-    | Ok(connection) => Ok(connection)
-    | Error(errors) =>
-      // merge all errors from `tryCommand`
-      Error(errors->Error.Establish.mergeMany)
-    }
-  }
-
-  // Make a connection by interpreting each entry as a command or a path.
-  let fromPathsOrCommands = async (
-    platformDeps: Platform.t,
-    entries: array<(string, Error.Establish.pathSource)>,
-  ): result<t, Error.Establish.t> => {
     let tasks = entries->Array.map(((raw, source)) => () =>
       if isCommand(raw) {
-        fromCommands(platformDeps, [raw])
+        fromCommand(raw)
       } else {
-        fromPaths(platformDeps, [(raw, source)])
+        fromPath(raw, source)
       }
     )
 
@@ -580,10 +551,15 @@ module Module: Module = {
       Error.Establish.FromConfig,
     ))
 
+    let commandsWithSource = commands->Array.map(command => (
+      command,
+      Error.Establish.FromConfig,
+    ))
+
     // Try each method in order
     let tasks = [
       () => fromPathsOrCommands(platformDeps, pathsWithSource)->tagFrom(FromPaths),
-      () => fromCommands(platformDeps, commands)->tagFrom(FromCommands),
+      () => fromPathsOrCommands(platformDeps, commandsWithSource)->tagFrom(FromCommands),
       () => fromDownloads(platformDeps, memento, globalStorageUri)->tagFrom(FromDownloads),
     ]
 

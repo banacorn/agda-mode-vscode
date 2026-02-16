@@ -372,7 +372,10 @@ module Golden = {
 module AgdaMode = {
   let versionGTE = async (command, expectedVersion) => {
     let platformDeps = Desktop.make()
-    switch await Connection.fromCommands(platformDeps, [command]) {
+    switch await Connection.fromPathsOrCommands(
+      platformDeps,
+      [(command, Connection.Error.Establish.FromConfig)],
+    ) {
     | Error(_error) => false
     | Ok(Agda(_, _, actualVersion)) => Util.Version.gte(actualVersion, expectedVersion)
     | Ok(ALS(_, _, Some(_, actualVersion, _))) => Util.Version.gte(actualVersion, expectedVersion)
@@ -385,7 +388,10 @@ module AgdaMode = {
   // check if a command exists in PATH, return the path if it exists
   let commandExists = async command => {
     let platformDeps = Desktop.make()
-    switch await Connection.fromCommands(platformDeps, [command]) {
+    switch await Connection.fromPathsOrCommands(
+      platformDeps,
+      [(command, Connection.Error.Establish.FromConfig)],
+    ) {
     | Error(errors) => raise(Failure(errors->Connection.Error.Establish.toString))
     | Ok(connection) => Connection.getPath(connection)
     }
