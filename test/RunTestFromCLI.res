@@ -11,7 +11,7 @@ let testSuiteAdapterFileName = "TestSuiteAdapter.bs.js"
 
 // The folder containing the Extension Manifest package.json
 // Passed to `--extensionDevelopmentPath`
-let extensionDevelopmentPath = NodeJs.Path.resolve([NodeJs.Global.dirname, "../"])
+let extensionDevelopmentPath = NodeJs.Path.resolve([NodeJs.Global.dirname, "../../../"])
 
 // The path to the extension test script
 // Passed to --extensionTestsPath
