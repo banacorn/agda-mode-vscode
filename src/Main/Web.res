@@ -29,8 +29,8 @@ module Web: Platform.PlatformOps = {
 
   let resolveDownloadOrder = (
     order: Connection__Download.DownloadOrderAbstract.t,
-    useCache,
-  ) => async (memento, globalStorageUri, platform) => {
+    _useCache,
+  ) => async (_memento, _globalStorageUri, _platform) => {
     switch order {
     | LatestALS => {
         // Web doesn't support LatestALS (native binaries)

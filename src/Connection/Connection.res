@@ -613,7 +613,7 @@ module Module: Module = {
     }
 
     switch connection {
-    | ALS(conn, path, versionInfo) =>
+    | ALS(conn, _path, _versionInfo) =>
       switch await ALS.sendRequest(conn, encodeRequest(document, conn.agdaVersion), handler) {
       | Error(error) =>
         // stop the connection on error
@@ -621,7 +621,7 @@ module Module: Module = {
         Error(Error.CommWithALS(error))
       | Ok() => Ok()
       }
-    | Agda(conn, path, version) =>
+    | Agda(conn, _path, version) =>
       switch await Agda.sendRequest(conn, encodeRequest(document, version), handler) {
       | Error(error) =>
         // stop the connection on error
@@ -629,7 +629,7 @@ module Module: Module = {
         Error(Error.CommWithAgda(error))
       | Ok() => Ok()
       }
-    | ALSWASM(conn, wasmLoader, path, version) =>
+    | ALSWASM(conn, wasmLoader, _path, _version) =>
       // Use the same ALS.sendRequest pattern as regular ALS connections
       let payload = encodeRequestForWASM(wasmLoader, document, conn.agdaVersion)
       switch await ALS.sendRequest(conn, payload, handler) {
