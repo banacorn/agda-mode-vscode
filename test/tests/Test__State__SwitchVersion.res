@@ -516,9 +516,18 @@ describe("State__SwitchVersion", () => {
         document: { fileName: "test.agda" }
       }`)
 
-      let mockUri = VSCode.Uri.file("/test/path")
+      let mockStorageUri = VSCode.Uri.file(NodeJs.Os.tmpdir())
+      let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
-      State.make(makeMockPlatform(), channels, mockUri, mockUri, Memento.make(None), mockEditor, None)
+      State.make(
+        makeMockPlatform(),
+        channels,
+        mockStorageUri,
+        mockExtensionUri,
+        Memento.make(None),
+        mockEditor,
+        None,
+      )
     }
 
     Async.it(
