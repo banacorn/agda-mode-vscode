@@ -1,4 +1,4 @@
-// module for searching executables in PATH with tools like `which` or `where.exe`
+// module for searching executables in PATH with tools like `command -v` or `where.exe`
 
 module Error = {
   type t =
@@ -14,9 +14,10 @@ module Error = {
     }
 }
 
-// Instead of returning the underlying error, we return `None` as a special case when `which` or `where.exe` is working correctly but the executable is not found.
-let searchWith = async (command, name, ~timeout=1000) => {
-  switch await Connection__Process__Exec.run(command, [name], ~timeout) {
+// Instead of returning the underlying error, we return `None` as a special case when
+// command lookup is working correctly but the executable is not found.
+let searchWith = async (command, args, ~timeout=1000) => {
+  switch await Connection__Process__Exec.run(command, args, ~timeout, ~shell=false) {
   | Ok(stdout) =>
     let path = String.trim(stdout) // trim the string to remove the trailing newline
     Ok(path)
@@ -30,9 +31,9 @@ let searchWith = async (command, name, ~timeout=1000) => {
 let search = async (name, ~timeout=1000) => {
   // sometimes GitHub Actions runner exits with code 0 but does not write to stdout;
   // this function retries a few times
-  let flakyWhich = () => {
+  let flakyLookup = () => {
     let rec retry = async (n: int) =>
-      switch await searchWith("which", name, ~timeout) {
+      switch await searchWith("sh", ["-c", "command -v -- \"$1\"", "--", name], ~timeout) {
       | Ok("") => {
         if n > 0 {
           await retry(n - 1)
@@ -45,13 +46,24 @@ let search = async (name, ~timeout=1000) => {
     retry(3)
   }
 
-  if OS.onUnix {
-    await flakyWhich()
-  } else {
-    // try `which` first, then `where.exe`
-    switch await flakyWhich() {
-    | Ok(stdout) => Ok(stdout)
-    | Error(_) => await searchWith("where.exe", name, ~timeout)
+  let filterPath = result =>
+    switch result {
+    | Ok(path) =>
+      let trimmed = path->String.trim
+      let hasSeparator = String.includes(trimmed, "/") || String.includes(trimmed, "\\")
+      let isAbsolute = NodeJs.Path.isAbsolute(trimmed)
+      if trimmed != "" && (isAbsolute || hasSeparator) {
+        Ok(trimmed)
+      } else {
+        Error(Error.NotFound)
+      }
+    | Error(error) => Error(error)
     }
+
+  if OS.onUnix {
+    filterPath(await flakyLookup())
+  } else {
+    // use `where.exe` directly on Windows
+    filterPath(await searchWith("where.exe", [name], ~timeout))
   }
 }

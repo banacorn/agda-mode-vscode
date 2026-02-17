@@ -124,7 +124,7 @@ module Establish = {
   type pathSource =
     | FromConfig // From user's VS Code settings
     | FromDownload(Connection__Download.DownloadOrderAbstract.t) // From download
-    | FromCommandLookup(string) // From command lookup (e.g., `which agda`)
+    | FromCommandLookup(string) // From command lookup (e.g., `command -v agda`)
 
   type downloadStatus =
     | NotAttempted // Download was not attempted (user opted not to, or wasn't needed)
@@ -144,7 +144,7 @@ module Establish = {
     | FromDownload(Connection__Download.DownloadOrderAbstract.LatestALS) =>
       "from LatestALS download"
     | FromDownload(Connection__Download.DownloadOrderAbstract.DevALS) => "from DevALS download"
-    | FromCommandLookup(command) => "from `which " ++ command ++ "`"
+    | FromCommandLookup(command) => "from PATH lookup (" ++ command ++ ")"
     }
 
   let toString = x => {

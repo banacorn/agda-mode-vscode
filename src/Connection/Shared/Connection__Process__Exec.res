@@ -26,8 +26,8 @@ module Error = {
     }
 }
 
-let run = async (path, args, ~timeout=10000): result<'a, Error.t> => {
-  let process = Process.make(path, args)
+let run = async (path, args, ~timeout=10000, ~shell=true): result<'a, Error.t> => {
+  let process = Process.make(~shell, path, args)
   let (promise, resolve, _) = Util.Promise_.pending()
 
   // the path must not be empty
