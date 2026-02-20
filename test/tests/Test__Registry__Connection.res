@@ -14,7 +14,9 @@ let makeDummyConnection = (): Connection.t => {
     _0: {
       chan: { removeAllListeners: () => {} },
       process: { status: "Destroyed" },
-      encountedFirstPrompt: false
+      encountedFirstPrompt: false,
+      version: "2.6.4",
+      path: "mock-path"
     },
     _1: "mock-path",
     _2: "2.6.4"

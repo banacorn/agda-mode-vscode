@@ -21,6 +21,21 @@ module TestData = {
   // Simple mock functions for testing
   let createMockMemento = () => Memento.make(None)
   let createMockExtensionUri = () => VSCode.Uri.file("/test/extension")
+
+  let makeMockConnection = (path, version): Connection.t => {
+    %raw(`{
+      TAG: "Agda",
+      _0: {
+        chan: { removeAllListeners: () => {} },
+        process: { status: "Destroyed" },
+        encountedFirstPrompt: false,
+        version: version,
+        path: path
+      },
+      _1: path,
+      _2: version
+    }`)
+  }
 }
 
 describe("State__SwitchVersion", () => {
@@ -578,7 +593,7 @@ describe("State__SwitchVersion", () => {
 
         // SIMULATE: Active connection (Command.Load established connection)
         // Create a mock connection that matches one of the discovered endpoints
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
         Registry__Connection.status :=
           Active({
             connection: mockConnection,
@@ -641,7 +656,7 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
 
         // SIMULATE: But different endpoint is currently active
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/opt/homebrew/bin/agda", _2: "2.6.3" }`)
+        let mockConnection = TestData.makeMockConnection("/opt/homebrew/bin/agda", "2.6.3")
         Registry__Connection.status :=
           Active({
             connection: mockConnection,
@@ -712,7 +727,7 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, None)
 
         // SIMULATE: Active connection
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
         Registry__Connection.status :=
           Active({
             connection: mockConnection,
@@ -805,7 +820,7 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, Some("/opt/homebrew/bin/agda"))
 
         // SIMULATE: But different endpoint is currently active (should be overridden by memento)
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
         Registry__Connection.status :=
           Active({
             connection: mockConnection,
