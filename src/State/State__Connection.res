@@ -18,7 +18,11 @@ let sendRequest = async (
     // only resolve the promise after:
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
-    switch await Connection.sendRequest(connection, state.document, request, onResponse) {
+    let result = await Registry__Connection.execute(state.id, connection =>
+      Connection.sendRequest(connection, state.document, request, onResponse)
+    )
+
+    switch result {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
     | Ok() =>
       // display the connection state
@@ -34,23 +38,19 @@ let sendRequest = async (
     }
   }
 
-  switch state.connection {
-  | None =>
-    switch await Connection.makeWithFallback(
+  let make = () =>
+    Connection.makeWithFallback(
       state.platformDeps,
       state.memento,
       state.globalStorageUri,
       Config.Connection.getAgdaPaths(),
       ["als", "agda"],
       state.channels.log,
-    ) {
-    | Error(error) => await State__View.Panel.displayConnectionError(state, error)
-    | Ok(connection) =>
-      state.connection = Some(connection)
-      await sendRequestAndHandleResponses(connection, state, request, handleResponse)
-    }
-  | Some(connection) =>
-    await sendRequestAndHandleResponses(connection, state, request, handleResponse)
+    )
+
+  switch await Registry__Connection.acquire(state.id, make) {
+  | Error(error) => await State__View.Panel.displayConnectionError(state, error)
+  | Ok(connection) => await sendRequestAndHandleResponses(connection, state, request, handleResponse)
   }
 }
 

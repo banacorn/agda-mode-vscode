@@ -279,10 +279,10 @@ module SwitchVersionManager = {
         Some(path)
       }
     | None =>
-      // Fresh install: try to infer active connection from current state
-      switch state.connection {
-      | Some(connection) => Some(Connection.getPath(connection))
-      | None => None
+      // Fresh install: try to infer active connection from current registry state
+      switch Registry__Connection.status.contents {
+      | Active(resource) => Some(Connection.getPath(resource.connection))
+      | _ => None
       }
     }
     ItemData.entriesToItemData(self.entries, pickedPath, downloadItems)
@@ -435,17 +435,15 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     [],
   )
 
+  // stop the old global connection
+  await Registry__Connection.shutdown()
+
   switch await Connection.make(path, Connection.Error.Establish.FromConfig) {
   | Ok(conn) =>
-    // stop the old connection
-    let _ = await Connection.destroy(state.connection, state.channels.log)
-
-    // update state
-    state.connection = Some(conn)
     await Memento.PickedConnection.set(state.memento, Some(path))
     await Config.Connection.addAgdaPath(state.channels.log, path)
 
-    // update diplayed connection status
+    // update displayed connection status
     await State__View.Panel.displayConnectionStatus(state, Some(conn))
     await State__View.Panel.display(
       state,
@@ -471,6 +469,9 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     }
+    // Final cleanup: destroy the temporary connection used for version probing/switching
+    // The next command will re-acquire via Registry
+    let _ = await Connection.destroy(Some(conn), state.channels.log)
   | Error(error) => {
       let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))
       let header = AgdaModeVscode.View.Header.Error(

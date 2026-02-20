@@ -520,6 +520,7 @@ describe("State__SwitchVersion", () => {
       let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
       State.make(
+        "test-id",
         makeMockPlatform(),
         channels,
         mockStorageUri,
@@ -578,7 +579,13 @@ describe("State__SwitchVersion", () => {
         // SIMULATE: Active connection (Command.Load established connection)
         // Create a mock connection that matches one of the discovered endpoints
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
-        state.connection = Some(mockConnection)
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
@@ -635,7 +642,13 @@ describe("State__SwitchVersion", () => {
 
         // SIMULATE: But different endpoint is currently active
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/opt/homebrew/bin/agda", _2: "2.6.3" }`)
-        state.connection = Some(mockConnection)
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
@@ -700,7 +713,13 @@ describe("State__SwitchVersion", () => {
 
         // SIMULATE: Active connection
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
-        state.connection = Some(mockConnection)
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // PHASE 1: Test initial state (download available but not downloaded)
         // Mock platform to return download available
@@ -787,7 +806,13 @@ describe("State__SwitchVersion", () => {
 
         // SIMULATE: But different endpoint is currently active (should be overridden by memento)
         let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
-        state.connection = Some(mockConnection)
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())

@@ -281,6 +281,7 @@ module State = {
     let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
     State.make(
+      "mock-id",
       platformDeps,
       channels,
       mockStorageUri,

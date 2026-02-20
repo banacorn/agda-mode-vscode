@@ -117,26 +117,33 @@ module Module: Module = {
     switch self.status {
     | Created(process) =>
       // set the status to "Destroying"
-      // let (promise, resolve) = Promise.pending()
       let promise = Promise.make((resolve, _) => {
-        // listen to the `exit` event
-        let _ = self.chan->Chan.on(x =>
-          switch x {
-          | Event(OnExit(_)) =>
-            self.chan->Chan.destroy
-            self.status = Destroyed
-            resolve()
+        // Destroy the channel immediately to prevent further events
+        self.chan->Chan.destroy
+        self.status = Destroyed
+
+        // Forcefully kill the process tree immediately
+        if OS.onUnix {
+          NodeJs.ChildProcess.kill(process, "SIGKILL")
+        } else {
+          // Windows tree kill
+          let pid = NodeJs.ChildProcess.pid(process)
+          try {
+            let _ = %raw(`require('child_process').execSync`)(
+              "taskkill /F /T /PID " ++ string_of_int(pid),
+            )
+          } catch {
           | _ => ()
           }
-        )
-
-        // trigger `exit`
-        NodeJs.ChildProcess.kill(process, "SIGTERM")
+        }
+        
+        // Resolve immediately without waiting for OnExit
+        resolve()
       })
       self.status = Destroying(promise)
       promise
     | Destroying(promise) => promise
-    | Destroyed => Promise.make((resolve, _) => resolve())
+    | Destroyed => Promise.resolve()
     }
 
   let send = (self, request): bool => {
