@@ -10,13 +10,13 @@ module Web: Platform.PlatformOps = {
   let findCommand = (_command, ~timeout as _timeout=1000) =>
     Promise.resolve(Error(Connection__Command.Error.NotFound))
 
-  let alreadyDownloaded = async (globalStorageUri, order) => {
-    switch order {
-    | Connection__Download.DownloadOrderAbstract.LatestALS => {
+  let alreadyDownloaded = async (globalStorageUri, channel) => {
+    switch channel {
+    | Connection__Download.Channel.LatestALS => {
         // Web doesn't support LatestALS (native binaries)
         None
       }
-    | Connection__Download.DownloadOrderAbstract.DevALS => {
+    | Connection__Download.Channel.DevALS => {
         // Web: Only check for WASM, ignore native binaries
         let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als.wasm"])
         switch await FS.stat(wasmUri) {
@@ -24,7 +24,7 @@ module Web: Platform.PlatformOps = {
         | Error(_) => None
         }
       }
-    | Connection__Download.DownloadOrderAbstract.Hardcoded => {
+    | Connection__Download.Channel.Hardcoded => {
         // Web: Check for WASM at hardcoded-als path
         let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
         switch await FS.stat(wasmUri) {
@@ -35,11 +35,11 @@ module Web: Platform.PlatformOps = {
     }
   }
 
-  let resolveDownloadOrder = (
-    order: Connection__Download.DownloadOrderAbstract.t,
+  let resolveDownloadChannel = (
+    channel: Connection__Download.Channel.t,
     _useCache,
   ) => async (_memento, _globalStorageUri, _platform) => {
-    switch order {
+    switch channel {
     | LatestALS => {
         // Web doesn't support LatestALS (native binaries)
         Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
@@ -47,7 +47,7 @@ module Web: Platform.PlatformOps = {
     | Hardcoded => {
         // Web: Use WASM URL directly
         Ok(
-          Connection__Download.DownloadOrderConcrete.FromURL(
+          Connection__Download.Source.FromURL(
             Hardcoded,
             Connection__Hardcoded.wasmUrl,
             "hardcoded-als",
@@ -95,7 +95,7 @@ module Web: Platform.PlatformOps = {
         }
 
         Ok(
-          Connection__Download.DownloadOrderConcrete.FromGitHub(
+          Connection__Download.Source.FromGitHub(
             DevALS,
             {
               Connection__Download__GitHub.DownloadDescriptor.release: mockRelease,

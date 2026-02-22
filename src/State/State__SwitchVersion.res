@@ -403,10 +403,10 @@ module SwitchVersionManager = {
   }
 }
 
-// Helper function to combine `PlatformOps.determinePlatform` + `PlatformOps.resolveDownloadOrder`
-let resolveDownloadOrderWithPlatform = async (
+// Helper function to combine `PlatformOps.determinePlatform` + `PlatformOps.resolveDownloadChannel`
+let resolveDownloadChannelWithPlatform = async (
   platformOps: Platform.t,
-  target: Connection__Download.DownloadOrderAbstract.t,
+  target: Connection__Download.Channel.t,
   memento: Memento.t,
   globalStorageUri: VSCode.Uri.t,
 ) => {
@@ -414,7 +414,7 @@ let resolveDownloadOrderWithPlatform = async (
   switch await PlatformOps.determinePlatform() {
   | Error(_error) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
   | Ok(platform) =>
-    await PlatformOps.resolveDownloadOrder(target, true)(memento, globalStorageUri, platform)
+    await PlatformOps.resolveDownloadChannel(target, true)(memento, globalStorageUri, platform)
   }
 }
 
@@ -493,7 +493,7 @@ module Download = {
     module PlatformOps = unpack(platformDeps)
 
     // Check if we can download ALS for this platform
-    switch await resolveDownloadOrderWithPlatform(
+    switch await resolveDownloadChannelWithPlatform(
       platformDeps,
       LatestALS,
       state.memento,
@@ -511,7 +511,7 @@ module Download = {
       }
 
       // Use centralized version string formatting
-      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(concreteOrder)
+      let versionString = Connection__Download.Source.toVersionString(concreteOrder)
 
       Some((downloaded, versionString, "latest"))
     }
@@ -526,7 +526,7 @@ module Download = {
     module PlatformOps = unpack(platformDeps)
 
     // Check if we can download dev ALS for this platform
-    switch await resolveDownloadOrderWithPlatform(
+    switch await resolveDownloadChannelWithPlatform(
       platformDeps,
       DevALS,
       state.memento,
@@ -541,7 +541,7 @@ module Download = {
       }
 
       // Use centralized version string formatting
-      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(concreteOrder)
+      let versionString = Connection__Download.Source.toVersionString(concreteOrder)
       Some((downloaded, versionString, "dev"))
     }
   }
@@ -593,7 +593,7 @@ module Handler = {
   let handleDownload = async (
     state: State.t,
     platformDeps: Platform.t,
-    target: Connection__Download.DownloadOrderAbstract.t,
+    target: Connection__Download.Channel.t,
     downloaded: bool,
     versionString: string,
     ~refreshUI: option<unit => promise<unit>>=None,
@@ -609,14 +609,14 @@ module Handler = {
       // Determine platform to choose correct file extension
       let platformResult = await PlatformOps.determinePlatform()
 
-      switch await resolveDownloadOrderWithPlatform(
+      switch await resolveDownloadChannelWithPlatform(
         platformDeps,
         target,
         state.memento,
         state.globalStorageUri,
       ) {
-      | Ok(FromGitHub(_order, downloadDescriptor)) =>
-        // Determine if this is WASM based on platform and order
+      | Ok(FromGitHub(_channel, downloadDescriptor)) =>
+        // Determine if this is WASM based on platform and channel
         // For DevALS on Web platform, we download WASM from UNPKG, so use als.wasm
         // For everything else, use als (native binary)
         let isWasm = switch (target, platformResult) {
@@ -681,7 +681,7 @@ module Handler = {
         }
       | _ =>
         // Normal GitHub download flow for all other cases
-        switch await resolveDownloadOrderWithPlatform(
+        switch await resolveDownloadChannelWithPlatform(
           platformDeps,
           target,
           state.memento,

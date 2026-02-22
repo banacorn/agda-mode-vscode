@@ -420,23 +420,23 @@ module Module: Module = {
         Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
-        // Choose download order based on platform
+        // Choose download channel based on platform
         // For web platform, use DevALS with WASM from UNPKG
         // For desktop platforms, use LatestALS
-        let downloadOrder = switch platform {
-        | Connection__Download__Platform.Web => Connection__Download.DownloadOrderAbstract.DevALS
-        | _ => Connection__Download.DownloadOrderAbstract.LatestALS
+        let channel = switch platform {
+        | Connection__Download__Platform.Web => Connection__Download.Channel.DevALS
+        | _ => Connection__Download.Channel.LatestALS
         }
         // Get the downloaded path, download if not already done
         let downloadResult = switch await PlatformOps.alreadyDownloaded(
           globalStorageUri,
-          downloadOrder,
+          channel,
         ) {
         | Some(path) => Ok(path)
         | None =>
           // For Web platform with DevALS, use unpkg.com directly to avoid GitHub CORS issues
-          switch (platform, downloadOrder) {
-          | (Connection__Download__Platform.Web, Connection__Download.DownloadOrderAbstract.DevALS) =>
+          switch (platform, channel) {
+          | (Connection__Download__Platform.Web, Connection__Download.Channel.DevALS) =>
             switch await Connection__Download.downloadFromURL(
               globalStorageUri,
               "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
@@ -447,7 +447,7 @@ module Module: Module = {
             | Ok(path) => Ok(path)
             }
           | _ =>
-            switch await PlatformOps.resolveDownloadOrder(downloadOrder, true)(
+            switch await PlatformOps.resolveDownloadChannel(channel, true)(
               memento,
               globalStorageUri,
               platform,
@@ -464,7 +464,7 @@ module Module: Module = {
 
         switch downloadResult {
         | Ok(path) =>
-          switch await make(path, FromDownload(downloadOrder)) {
+          switch await make(path, FromDownload(channel)) {
           | Ok(connection) => Ok(connection)
           | Error(error) =>
             // Download succeeded, but connection failed

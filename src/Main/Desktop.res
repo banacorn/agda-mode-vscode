@@ -7,16 +7,16 @@ module Desktop: Platform.PlatformOps = {
 
   let findCommand = Connection__Command.search
 
-  let alreadyDownloaded = async (globalStorageUri, order) => {
-    switch order {
-    | Connection__Download.DownloadOrderAbstract.LatestALS => {
+  let alreadyDownloaded = async (globalStorageUri, channel) => {
+    switch channel {
+    | Connection__Download.Channel.LatestALS => {
         let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
         switch await FS.stat(uri) {
         | Ok(_) => Some(uri->VSCode.Uri.fsPath)
         | Error(_) => None
         }
       }
-    | Connection__Download.DownloadOrderAbstract.DevALS => {
+    | Connection__Download.Channel.DevALS => {
         // Desktop: Only check for native binary (als or als.exe), not WASM
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
         switch await FS.stat(alsUri) {
@@ -24,7 +24,7 @@ module Desktop: Platform.PlatformOps = {
         | Error(_) => None
         }
       }
-    | Connection__Download.DownloadOrderAbstract.Hardcoded => {
+    | Connection__Download.Channel.Hardcoded => {
         // Desktop: Only check for native binary
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
         switch await FS.stat(alsUri) {
@@ -35,26 +35,26 @@ module Desktop: Platform.PlatformOps = {
     }
   }
 
-  let resolveDownloadOrder = (
-    order: Connection__Download.DownloadOrderAbstract.t,
+  let resolveDownloadChannel = (
+    channel: Connection__Download.Channel.t,
     useCache,
   ) => async (memento, globalStorageUri, platform) => {
-    switch order {
+    switch channel {
     | Hardcoded =>
       switch Connection__Hardcoded.nativeUrlForPlatform(platform) {
       | Some(url) =>
-        Ok(Connection__Download.DownloadOrderConcrete.FromURL(Hardcoded, url, "hardcoded-als"))
+        Ok(Connection__Download.Source.FromURL(Hardcoded, url, "hardcoded-als"))
       | None =>
         Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       }
     | LatestALS | DevALS =>
-      let repo = switch order {
+      let repo = switch channel {
       | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
       | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
       | Hardcoded => Connection__LatestALS.makeRepo(globalStorageUri) // unreachable
       }
 
-      let toDownloadOrder = switch order {
+      let toDownloadOrder = switch channel {
       | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
       | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
       | Hardcoded => Connection__LatestALS.toDownloadOrder(_, platform) // unreachable

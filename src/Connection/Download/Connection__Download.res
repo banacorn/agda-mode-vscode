@@ -1,45 +1,45 @@
-module DownloadOrderAbstract = {
+module Channel = {
   type t =
     | LatestALS
     | DevALS
     | Hardcoded
 
-  let toString = order =>
-    switch order {
+  let toString = channel =>
+    switch channel {
     | LatestALS => "Latest Agda Language Server"
     | DevALS => "Development Agda Language Server"
     | Hardcoded => "Hardcoded Agda Language Server"
     }
 }
 
-module DownloadOrderConcrete = {
+module Source = {
   type t =
-    | FromGitHub(DownloadOrderAbstract.t, Connection__Download__GitHub.DownloadDescriptor.t)
-    | FromURL(DownloadOrderAbstract.t, string, string) // (order, url, saveAsFileName)
+    | FromGitHub(Channel.t, Connection__Download__GitHub.DownloadDescriptor.t)
+    | FromURL(Channel.t, string, string) // (channel, url, saveAsFileName)
 
-  let toString = order =>
-    switch order {
-    | FromGitHub(abstractOrder, descriptor) =>
-      DownloadOrderAbstract.toString(abstractOrder) ++
+  let toString = channel =>
+    switch channel {
+    | FromGitHub(abstractChannel, descriptor) =>
+      Channel.toString(abstractChannel) ++
       Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
-    | FromURL(abstractOrder, url, _) =>
-      DownloadOrderAbstract.toString(abstractOrder) ++ " from " ++ url
+    | FromURL(abstractChannel, url, _) =>
+      Channel.toString(abstractChannel) ++ " from " ++ url
     }
 
-  let toVersionString = order =>
-    switch order {
-    | FromGitHub(abstractOrder, descriptor) =>
+  let toVersionString = channel =>
+    switch channel {
+    | FromGitHub(abstractChannel, descriptor) =>
       let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-        switch abstractOrder {
-        | DownloadOrderAbstract.LatestALS =>
+        switch abstractChannel {
+        | Channel.LatestALS =>
           asset.name
           ->String.replaceRegExp(%re("/als-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-        | DownloadOrderAbstract.DevALS =>
+        | Channel.DevALS =>
           asset.name
           ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
-        | DownloadOrderAbstract.Hardcoded =>
+        | Channel.Hardcoded =>
           asset.name
           ->String.replaceRegExp(%re("/als-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
@@ -47,17 +47,17 @@ module DownloadOrderConcrete = {
 
       let agdaVersion = getAgdaVersion(descriptor.asset)
 
-      switch abstractOrder {
-      | DownloadOrderAbstract.LatestALS =>
+      switch abstractChannel {
+      | Channel.LatestALS =>
         let alsVersion =
           descriptor.release.name
           ->String.split(".")
           ->Array.last
           ->Option.getOr(descriptor.release.name)
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-      | DownloadOrderAbstract.DevALS =>
+      | Channel.DevALS =>
         "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-      | DownloadOrderAbstract.Hardcoded =>
+      | Channel.Hardcoded =>
         let alsVersion =
           descriptor.release.name
           ->String.split(".")
@@ -65,16 +65,16 @@ module DownloadOrderConcrete = {
           ->Option.getOr(descriptor.release.name)
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
       }
-    | FromURL(abstractOrder, url, _) =>
-      switch abstractOrder {
-      | DownloadOrderAbstract.Hardcoded =>
+    | FromURL(abstractChannel, url, _) =>
+      switch abstractChannel {
+      | Channel.Hardcoded =>
         if url->String.endsWith(".wasm") {
           "Agda v" ++ Connection__Hardcoded.wasmAgdaVersion ++ " Language Server (WASM)"
         } else {
           "Agda v" ++ Connection__Hardcoded.agdaVersion ++ " Language Server v" ++ Connection__Hardcoded.alsVersion
         }
       | _ =>
-        DownloadOrderAbstract.toString(abstractOrder)
+        Channel.toString(abstractChannel)
       }
     }
 }
@@ -257,9 +257,9 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 }
 
 // Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, order) =>
-  switch order {
-  | DownloadOrderConcrete.FromGitHub(_, downloadDescriptor) =>
+let download = async (globalStorageUri, channel) =>
+  switch channel {
+  | Source.FromGitHub(_, downloadDescriptor) =>
     let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
     switch await Connection__Download__GitHub.download(
       downloadDescriptor,
@@ -281,7 +281,7 @@ let download = async (globalStorageUri, order) =>
       let destPath = VSCode.Uri.fsPath(destUri)
       Ok(destPath)
     }
-  | DownloadOrderConcrete.FromURL(_, url, saveAsFileName) =>
+  | Source.FromURL(_, url, saveAsFileName) =>
     await downloadFromURL(
       globalStorageUri,
       url,
@@ -294,16 +294,16 @@ let download = async (globalStorageUri, order) =>
 // NOTE: This is a general-purpose fallback implementation used by tests.
 // Platform-specific implementations (Desktop, Web) should override this
 // to avoid platform mismatches (e.g., web finding native binaries).
-let alreadyDownloaded = async (globalStorageUri, order) => {
-  switch order {
-  | DownloadOrderAbstract.LatestALS => {
+let alreadyDownloaded = async (globalStorageUri, channel) => {
+  switch channel {
+  | Channel.LatestALS => {
       let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
       switch await FS.stat(uri) {
       | Ok(_) => Some(uri->VSCode.Uri.fsPath)
       | Error(_) => None
       }
     }
-  | DownloadOrderAbstract.DevALS => {
+  | Channel.DevALS => {
       // Check for WASM first (for web platform)
       let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als.wasm"])
       switch await FS.stat(wasmUri) {
@@ -317,7 +317,7 @@ let alreadyDownloaded = async (globalStorageUri, order) => {
         }
       }
     }
-  | DownloadOrderAbstract.Hardcoded => {
+  | Channel.Hardcoded => {
       // Check for native binary first
       let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
       switch await FS.stat(alsUri) {
