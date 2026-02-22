@@ -739,6 +739,98 @@ describe("Connection", () => {
         Assert.deepStrictEqual(policy, Config.Connection.DownloadPolicy.Yes)
       },
     )
+
+    Async.it(
+      "should fall back to DevALS (WASM) when LatestALS download fails on desktop",
+      async () => {
+        /**
+         * TEST PURPOSE: Verify that on desktop, when LatestALS fails, fromDownloads
+         * falls back to DevALS (WASM) as the ultimate fallback.
+         *
+         * SCENARIO:
+         * 1. All config paths are invalid → fromPathsOrCommands fails
+         * 2. All commands fail → findCommand returns NotFound
+         * 3. Native ALS download fails → LatestALS resolveDownloadOrder returns Error
+         * 4. EXPECTED: makeWithFallback should attempt DevALS as fallback and succeed
+         * 5. ACTUAL (current): makeWithFallback returns error because fromDownloads
+         *    only tries LatestALS on desktop
+         */
+
+        // Setup mock ALS executable for the DevALS download to return
+        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.8.0",
+          ~name="agda-mock-wasm-fallback",
+        )
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+        let checkedDownload = ref(false)
+
+        // Create a mock platform where:
+        // - determinePlatform → Ok(MacOS_Arm) (desktop)
+        // - findCommand → Error(NotFound) (no commands in PATH)
+        // - alreadyDownloaded → None (nothing cached)
+        // - resolveDownloadOrder(LatestALS) → Error (native download fails)
+        // - resolveDownloadOrder(DevALS) → Ok (WASM download available)
+        // - download → Ok(agdaMockPath)
+        // - askUserAboutDownloadPolicy → Yes
+        let mockPlatformDeps = Mock.Platform.makeWithLatestALSFailureAndDevALSSuccess(
+          agdaMockPath,
+          checkedCache,
+          checkedDownload,
+        )
+
+        let logChannel = Chan.make()
+        let listener = Log.collect(logChannel)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        let result = await Connection.makeWithFallback(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"],      // invalid paths to force download fallback
+          ["invalid-command"],     // invalid commands to force download fallback
+          logChannel,
+        )
+
+        let loggedEvents = listener(~filter=Log.isConnection)
+
+        switch result {
+        | Ok(connection) =>
+          // Should have checked cache
+          Assert.deepStrictEqual(checkedCache.contents, true)
+          // Should have downloaded via DevALS fallback
+          Assert.deepStrictEqual(checkedDownload.contents, true)
+
+          // Should have logged connection event
+          Assert.deepStrictEqual(
+            loggedEvents,
+            [Log.Connection(Log.Connection.ConnectedToAgda(agdaMockPath, "2.8.0"))],
+          )
+
+          // Connection should be from the mock
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath)
+            Assert.deepStrictEqual(version, "2.8.0")
+          | _ => Assert.fail("Expected Agda connection from DevALS fallback")
+          }
+
+        | Error(_) =>
+          Assert.fail(
+            "Expected DevALS fallback to succeed, but fromDownloads only tries LatestALS on desktop (WASM fallback not implemented yet)",
+          )
+        }
+
+        // Cleanup
+        try {
+          NodeJs.Fs.unlinkSync(agdaMockPath)
+        } catch {
+        | _ => ()
+        }
+      },
+    )
   })
 
   describe("`fromPathsOrCommands`", () => {
