@@ -2,22 +2,28 @@ module DownloadOrderAbstract = {
   type t =
     | LatestALS
     | DevALS
+    | Hardcoded
 
   let toString = order =>
     switch order {
     | LatestALS => "Latest Agda Language Server"
     | DevALS => "Development Agda Language Server"
+    | Hardcoded => "Hardcoded Agda Language Server"
     }
 }
 
 module DownloadOrderConcrete = {
-  type t = FromGitHub(DownloadOrderAbstract.t, Connection__Download__GitHub.DownloadDescriptor.t)
+  type t =
+    | FromGitHub(DownloadOrderAbstract.t, Connection__Download__GitHub.DownloadDescriptor.t)
+    | FromURL(DownloadOrderAbstract.t, string, string) // (order, url, saveAsFileName)
 
   let toString = order =>
     switch order {
     | FromGitHub(abstractOrder, descriptor) =>
       DownloadOrderAbstract.toString(abstractOrder) ++
       Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
+    | FromURL(abstractOrder, url, _) =>
+      DownloadOrderAbstract.toString(abstractOrder) ++ " from " ++ url
     }
 
   let toVersionString = order =>
@@ -33,6 +39,10 @@ module DownloadOrderConcrete = {
           asset.name
           ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
+        | DownloadOrderAbstract.Hardcoded =>
+          asset.name
+          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
         }
 
       let agdaVersion = getAgdaVersion(descriptor.asset)
@@ -45,7 +55,26 @@ module DownloadOrderConcrete = {
           ->Array.last
           ->Option.getOr(descriptor.release.name)
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-      | DownloadOrderAbstract.DevALS => "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+      | DownloadOrderAbstract.DevALS =>
+        "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+      | DownloadOrderAbstract.Hardcoded =>
+        let alsVersion =
+          descriptor.release.name
+          ->String.split(".")
+          ->Array.last
+          ->Option.getOr(descriptor.release.name)
+        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+      }
+    | FromURL(abstractOrder, url, _) =>
+      switch abstractOrder {
+      | DownloadOrderAbstract.Hardcoded =>
+        if url->String.endsWith(".wasm") {
+          "Agda v" ++ Connection__Hardcoded.wasmAgdaVersion ++ " Language Server (WASM)"
+        } else {
+          "Agda v" ++ Connection__Hardcoded.agdaVersion ++ " Language Server v" ++ Connection__Hardcoded.alsVersion
+        }
+      | _ =>
+        DownloadOrderAbstract.toString(abstractOrder)
       }
     }
 }
@@ -87,33 +116,6 @@ let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   | (Ok(manifest), _) => Ok(manifest)
   }
 }
-
-// Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, order) =>
-  switch order {
-  | DownloadOrderConcrete.FromGitHub(_, downloadDescriptor) =>
-    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-    switch await Connection__Download__GitHub.download(
-      downloadDescriptor,
-      globalStorageUri,
-      reportProgress,
-    ) {
-    | Error(error) => Error(Error.CannotDownloadALS(error))
-    | Ok(_isCached) =>
-      // For WASM assets (detected by filename), use als.wasm, otherwise als
-      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
-        "als.wasm"
-      } else {
-        "als"
-      }
-      let destUri = VSCode.Uri.joinPath(
-        globalStorageUri,
-        [downloadDescriptor.saveAsFileName, fileName],
-      )
-      let destPath = VSCode.Uri.fsPath(destUri)
-      Ok(destPath)
-    }
-  }
 
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
 let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
@@ -254,6 +256,40 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   }
 }
 
+// Download the given DownloadDescriptor and return the path of the downloaded file
+let download = async (globalStorageUri, order) =>
+  switch order {
+  | DownloadOrderConcrete.FromGitHub(_, downloadDescriptor) =>
+    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+    switch await Connection__Download__GitHub.download(
+      downloadDescriptor,
+      globalStorageUri,
+      reportProgress,
+    ) {
+    | Error(error) => Error(Error.CannotDownloadALS(error))
+    | Ok(_isCached) =>
+      // For WASM assets (detected by filename), use als.wasm, otherwise als
+      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
+        "als.wasm"
+      } else {
+        "als"
+      }
+      let destUri = VSCode.Uri.joinPath(
+        globalStorageUri,
+        [downloadDescriptor.saveAsFileName, fileName],
+      )
+      let destPath = VSCode.Uri.fsPath(destUri)
+      Ok(destPath)
+    }
+  | DownloadOrderConcrete.FromURL(_, url, saveAsFileName) =>
+    await downloadFromURL(
+      globalStorageUri,
+      url,
+      saveAsFileName,
+      "Agda Language Server",
+    )
+  }
+
 // Check if something is already downloaded
 // NOTE: This is a general-purpose fallback implementation used by tests.
 // Platform-specific implementations (Desktop, Web) should override this
@@ -277,6 +313,20 @@ let alreadyDownloaded = async (globalStorageUri, order) => {
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
         switch await FS.stat(alsUri) {
         | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
+        | Error(_) => None
+        }
+      }
+    }
+  | DownloadOrderAbstract.Hardcoded => {
+      // Check for native binary first
+      let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
+      switch await FS.stat(alsUri) {
+      | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
+      | Error(_) =>
+        // Check for WASM
+        let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
+        switch await FS.stat(wasmUri) {
+        | Ok(_) => Some(VSCode.Uri.toString(wasmUri))
         | Error(_) => None
         }
       }

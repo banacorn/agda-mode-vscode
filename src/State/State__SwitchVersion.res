@@ -500,7 +500,7 @@ module Download = {
       state.globalStorageUri,
     ) {
     | Error(_) => None
-    | Ok(FromGitHub(_order, downloadDescriptor)) =>
+    | Ok(concreteOrder) =>
       // Check if already downloaded
       let downloaded = switch await PlatformOps.alreadyDownloaded(
         state.globalStorageUri,
@@ -511,9 +511,7 @@ module Download = {
       }
 
       // Use centralized version string formatting
-      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(
-        FromGitHub(_order, downloadDescriptor),
-      )
+      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(concreteOrder)
 
       Some((downloaded, versionString, "latest"))
     }
@@ -535,7 +533,7 @@ module Download = {
       state.globalStorageUri,
     ) {
     | Error(_error) => None
-    | Ok(FromGitHub(_order, downloadDescriptor)) =>
+    | Ok(concreteOrder) =>
       // Check if already downloaded
       let downloaded = switch await PlatformOps.alreadyDownloaded(state.globalStorageUri, DevALS) {
       | Some(_) => true
@@ -543,9 +541,7 @@ module Download = {
       }
 
       // Use centralized version string formatting
-      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(
-        FromGitHub(_order, downloadDescriptor),
-      )
+      let versionString = Connection__Download.DownloadOrderConcrete.toVersionString(concreteOrder)
       Some((downloaded, versionString, "dev"))
     }
   }
@@ -636,6 +632,20 @@ module Handler = {
         )
         // For WASM, preserve URI scheme (e.g., vscode-userdata://) for web compatibility
         // For non-WASM, use fsPath for backwards compatibility with desktop
+        let downloadedPath = if isWasm {
+          VSCode.Uri.toString(downloadedUri)
+        } else {
+          VSCode.Uri.fsPath(downloadedUri)
+        }
+        await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+      | Ok(FromURL(_, url, saveAsFileName)) =>
+        // Determine file extension based on URL
+        let isWasm = url->String.endsWith(".wasm")
+        let fileName = if isWasm { "als.wasm" } else { "als" }
+        let downloadedUri = VSCode.Uri.joinPath(
+          state.globalStorageUri,
+          [saveAsFileName, fileName],
+        )
         let downloadedPath = if isWasm {
           VSCode.Uri.toString(downloadedUri)
         } else {

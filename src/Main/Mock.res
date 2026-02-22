@@ -142,6 +142,8 @@ module Platform = {
         switch order {
         | Connection__Download.DownloadOrderAbstract.LatestALS =>
           Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | Connection__Download.DownloadOrderAbstract.Hardcoded =>
+          Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
         | Connection__Download.DownloadOrderAbstract.DevALS =>
           Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
@@ -189,6 +191,8 @@ module Platform = {
         switch order {
         | Connection__Download.DownloadOrderAbstract.LatestALS =>
           Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
+        | Connection__Download.DownloadOrderAbstract.Hardcoded =>
+          Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
         | Connection__Download.DownloadOrderAbstract.DevALS =>
           Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
@@ -249,38 +253,6 @@ module Platform = {
       let download = (_globalStorageUri, _downloadDescriptor) => {
         checkedDownloadFlag := true
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-      }
-      let findCommand = (_command, ~timeout as _timeout=1000) =>
-        Promise.resolve(Error(Connection__Command.Error.NotFound))
-    }
-    module(MockPlatform)
-  }
-
-  // Mock platform where LatestALS download fails but DevALS would succeed (for WASM fallback test)
-  let makeWithLatestALSFailureAndDevALSSuccess = (
-    downloadedPath: string,
-    checkedCacheFlag: ref<bool>,
-    checkedDownloadFlag: ref<bool>,
-  ): Platform.t => {
-    module MockPlatform = {
-      let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-
-      let alreadyDownloaded = (_globalStorageUri, _) => {
-        checkedCacheFlag := true
-        Promise.resolve(None)
-      }
-      let resolveDownloadOrder = DownloadDescriptor.mockWith(order =>
-        switch order {
-        | Connection__Download.DownloadOrderAbstract.LatestALS =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Connection__Download.DownloadOrderAbstract.DevALS =>
-          Ok(FromGitHub(order, DownloadDescriptor.mockLatestALS))
-        }
-      )
-      let download = (_globalStorageUri, _downloadDescriptor) => {
-        checkedDownloadFlag := true
-        Promise.resolve(Ok(downloadedPath))
       }
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))

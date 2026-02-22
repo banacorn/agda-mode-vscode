@@ -24,6 +24,14 @@ module Web: Platform.PlatformOps = {
         | Error(_) => None
         }
       }
+    | Connection__Download.DownloadOrderAbstract.Hardcoded => {
+        // Web: Check for WASM at hardcoded-als path
+        let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
+        switch await FS.stat(wasmUri) {
+        | Ok(_) => Some(VSCode.Uri.toString(wasmUri))
+        | Error(_) => None
+        }
+      }
     }
   }
 
@@ -35,6 +43,16 @@ module Web: Platform.PlatformOps = {
     | LatestALS => {
         // Web doesn't support LatestALS (native binaries)
         Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+      }
+    | Hardcoded => {
+        // Web: Use WASM URL directly
+        Ok(
+          Connection__Download.DownloadOrderConcrete.FromURL(
+            Hardcoded,
+            Connection__Hardcoded.wasmUrl,
+            "hardcoded-als",
+          ),
+        )
       }
     | DevALS => {
         // For DevALS on web, we download from UNPKG directly (not GitHub)

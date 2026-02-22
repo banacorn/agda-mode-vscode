@@ -24,6 +24,14 @@ module Desktop: Platform.PlatformOps = {
         | Error(_) => None
         }
       }
+    | Connection__Download.DownloadOrderAbstract.Hardcoded => {
+        // Desktop: Only check for native binary
+        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
+        switch await FS.stat(alsUri) {
+        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
+        | Error(_) => None
+        }
+      }
     }
   }
 
@@ -31,19 +39,31 @@ module Desktop: Platform.PlatformOps = {
     order: Connection__Download.DownloadOrderAbstract.t,
     useCache,
   ) => async (memento, globalStorageUri, platform) => {
-    let repo = switch order {
-    | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
-    | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
-    }
+    switch order {
+    | Hardcoded =>
+      switch Connection__Hardcoded.nativeUrlForPlatform(platform) {
+      | Some(url) =>
+        Ok(Connection__Download.DownloadOrderConcrete.FromURL(Hardcoded, url, "hardcoded-als"))
+      | None =>
+        Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+      }
+    | LatestALS | DevALS =>
+      let repo = switch order {
+      | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
+      | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+      | Hardcoded => Connection__LatestALS.makeRepo(globalStorageUri) // unreachable
+      }
 
-    let toDownloadOrder = switch order {
-    | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
-    | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
-    }
+      let toDownloadOrder = switch order {
+      | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
+      | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
+      | Hardcoded => Connection__LatestALS.toDownloadOrder(_, platform) // unreachable
+      }
 
-    switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
-    | Error(error) => Error(error)
-    | Ok(releases) => toDownloadOrder(releases)
+      switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {
+      | Error(error) => Error(error)
+      | Ok(releases) => toDownloadOrder(releases)
+      }
     }
   }
   let download = Connection__Download.download
