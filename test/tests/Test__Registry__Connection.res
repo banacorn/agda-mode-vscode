@@ -23,6 +23,23 @@ let makeDummyConnection = (): Connection.t => {
   }`)
 }
 
+let makeDestroyThrowingConnection = (): Connection.t => {
+  %raw(`{
+    TAG: "Agda",
+    _0: {
+      // chan: null causes Chan.destroy to throw (calls null.removeAllListeners())
+      // which exercises the terminate path where Connection.destroy throws
+      chan: null,
+      process: { status: "Destroyed" },
+      encountedFirstPrompt: false,
+      version: "2.6.4",
+      path: "mock-path-broken-destroy"
+    },
+    _1: "mock-path-broken-destroy",
+    _2: "2.6.4"
+  }`)
+}
+
 describe("Registry__Connection", () => {
   Async.it("Singleton: acquire returns the same connection for different owners", async () => {
     await setup()
@@ -191,6 +208,77 @@ describe("Registry__Connection", () => {
       // so this is safe for test isolation.
       Registry__Connection.status := Empty
       Assert.fail("Shutdown hangs when Connecting is wedged")
+    | _ =>
+      Registry__Connection.status := Empty
+      Assert.fail("Unexpected race result")
+    }
+  })
+
+  Async.it("acquire should not block after destroy throws during terminate", async () => {
+    await setup()
+    let brokenConnection = makeDestroyThrowingConnection()
+    let dummyConnection = makeDummyConnection()
+
+    let _ = await Registry__Connection.acquire("owner1", async () => Ok(brokenConnection))
+
+    // Last release triggers terminate, which currently wedges in Closing when destroy throws
+    let _ = switch await Registry__Connection.release("owner1") {
+    | exception _ => ()
+    | _ => ()
+    }
+
+    let secondResult = ref(None)
+    let completion =
+      Registry__Connection.acquire("owner2", async () => Ok(dummyConnection))
+      ->Promise.thenResolve(result => {
+        secondResult := Some(result)
+        "done"
+      })
+    let timeout = Util.Promise_.setTimeout(250)->Promise.thenResolve(_ => "timeout")
+    let winner = await Promise.race([completion, timeout])
+
+    switch winner {
+    | "done" =>
+      Registry__Connection.status := Empty
+      Assert.deepStrictEqual(secondResult.contents, Some(Ok(dummyConnection)))
+    | "timeout" =>
+      // Manually reset to Empty: the timed-out acquire coroutine is leaked
+      // (stuck on a never-resolving promise) but it will not mutate state or unblock,
+      // so this is safe for test isolation.
+      Registry__Connection.status := Empty
+      Assert.fail("Acquire blocks after destroy throws during terminate")
+    | _ =>
+      Registry__Connection.status := Empty
+      Assert.fail("Unexpected race result")
+    }
+  })
+
+  Async.it("shutdown should not block after destroy throws during terminate", async () => {
+    await setup()
+    let brokenConnection = makeDestroyThrowingConnection()
+
+    let _ = await Registry__Connection.acquire("owner1", async () => Ok(brokenConnection))
+
+    // Last release triggers terminate, which currently wedges in Closing when destroy throws
+    let _ = switch await Registry__Connection.release("owner1") {
+    | exception _ => ()
+    | _ => ()
+    }
+
+    let completion = Registry__Connection.shutdown()->Promise.thenResolve(_ => "done")
+    let timeout = Util.Promise_.setTimeout(250)->Promise.thenResolve(_ => "timeout")
+    let winner = await Promise.race([completion, timeout])
+
+    switch winner {
+    | "done" =>
+      Registry__Connection.status := Empty
+      Assert.ok(true)
+    | "timeout" =>
+      // Manually reset to Empty: the timed-out shutdown coroutine is leaked
+      // (stuck on a never-resolving promise) but it will not mutate state or unblock,
+      // so this is safe for test isolation.
+      Registry__Connection.status := Empty
+      Assert.fail("Shutdown blocks after destroy throws during terminate")
     | _ =>
       Registry__Connection.status := Empty
       Assert.fail("Unexpected race result")
