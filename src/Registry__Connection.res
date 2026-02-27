@@ -16,6 +16,49 @@ module Connecting = {
   }
 }
 
+module ExecutionContext = {
+  type storage
+
+  let storage: Js.Nullable.t<storage> = %raw(`(() => {
+    if (typeof require !== "function") {
+      return null;
+    }
+    try {
+      const { AsyncLocalStorage } = require("node:async_hooks");
+      return new AsyncLocalStorage();
+    } catch (_) {
+      return null;
+    }
+  })()`)
+
+  @send
+  external runWithOwner: (
+    storage,
+    ownerId,
+    unit => promise<result<'a, Connection.Error.t>>,
+  ) => promise<result<'a, Connection.Error.t>> = "run"
+
+  @send external currentOwnerNullable: storage => Js.Nullable.t<ownerId> = "getStore"
+
+  let withOwner = (id, task) =>
+    switch Js.Nullable.toOption(storage) {
+    | Some(storage) => storage->runWithOwner(id, task)
+    | None => task()
+    }
+
+  let isOwnerActive = id =>
+    switch Js.Nullable.toOption(storage) {
+    | Some(storage) => storage->currentOwnerNullable->Js.Nullable.toOption == Some(id)
+    | None => false
+    }
+
+  let hasAsyncOwnerContext = () =>
+    switch Js.Nullable.toOption(storage) {
+    | Some(_) => true
+    | None => false
+    }
+}
+
 type status =
   | Empty
   | Connecting(Connecting.t)
@@ -215,7 +258,7 @@ let execute: (
       switch status.contents {
       | Active(activeResource) if activeResource === resource =>
         resource.currentOwnerId = Some(id)
-        switch await task(resource.connection) {
+        switch await ExecutionContext.withOwner(id, () => task(resource.connection)) {
         | result =>
           cleanup()
           result
@@ -235,7 +278,13 @@ let execute: (
 
   switch status.contents {
   | Active(resource) =>
-    if resource.currentOwnerId == Some(id) {
+    let canBypassQueue = if ExecutionContext.hasAsyncOwnerContext() {
+      resource.currentOwnerId == Some(id) && ExecutionContext.isOwnerActive(id)
+    } else {
+      // Fallback for environments without async context propagation support.
+      resource.currentOwnerId == Some(id)
+    }
+    if canBypassQueue {
       await task(resource.connection)
     } else {
       await runSerialized(resource)
