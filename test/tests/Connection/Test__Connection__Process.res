@@ -50,6 +50,75 @@ describe("Process Interface", () => {
     )
   })
 
+  Async.it(
+    "destroy should wait for process close before resolving",
+    async () => {
+      // Patch child_process.spawn with a fake process that emits `close` after a delay.
+      let restoreSpawn: unit => unit = %raw(`(() => {
+        const cp = require("node:child_process");
+        const originalSpawn = cp.spawn;
+        globalThis.__agdaModeProcessCloseFired = false;
+
+        cp.spawn = function () {
+          const handlers = {};
+          const mkStream = () => ({
+            on: function (_event, _cb) {
+              return this;
+            },
+          });
+
+          return {
+            stdout: mkStream(),
+            stderr: mkStream(),
+            stdin: {
+              write: function () {
+                return true;
+              },
+            },
+            pid: 424242,
+            on: function (event, cb) {
+              handlers[event] = cb;
+              return this;
+            },
+            kill: function (_signal) {
+              setTimeout(() => {
+                globalThis.__agdaModeProcessCloseFired = true;
+                if (handlers["close"]) {
+                  handlers["close"](137);
+                }
+              }, 50);
+              return true;
+            },
+          };
+        };
+
+        return () => {
+          cp.spawn = originalSpawn;
+          delete globalThis.__agdaModeProcessCloseFired;
+        };
+      })()`)
+
+      let closeFiredWhenDestroyResolved = ref(false)
+      let error = ref(None)
+
+      let _ = switch await (async () => {
+        let process = Process.make(~shell=false, "fake-process", [])
+        let _ = await process->Process.destroy
+        closeFiredWhenDestroyResolved := %raw(`globalThis.__agdaModeProcessCloseFired === true`)
+      })() {
+      | _ => ()
+      | exception exn =>
+        error := Some(exn)
+        ()
+      }
+
+      restoreSpawn()
+      error.contents->Option.forEach(exn => raise(exn))
+
+      Assert.deepStrictEqual(closeFiredWhenDestroyResolved.contents, true)
+    },
+  )
+
   //   describe("Use `node` as the testing subject", () => {
   //     Async.it(
   //       "should behave normally",
