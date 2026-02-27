@@ -139,6 +139,14 @@ module Module: Module = {
           } catch {
           | _ => ()
           }
+
+          // Ensure this process object also observes termination, even if taskkill
+          // does not trigger a local close event path (e.g. mocked processes in tests).
+          try {
+            NodeJs.ChildProcess.kill(process, "SIGKILL")
+          } catch {
+          | _ => ()
+          }
         }
 
         // Resolve only after process exit/close is confirmed, then stabilize at Destroyed.
