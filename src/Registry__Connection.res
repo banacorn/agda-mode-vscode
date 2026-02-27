@@ -205,16 +205,27 @@ let execute: (
       resolve()
     }
 
+    let staleConnectionError = () => {
+      let err = Connection.Error.Establish(Connection.Error.Establish.mergeMany([]))
+      Error(err)
+    }
+
     switch await previousTaskDone {
     | _ =>
-      resource.currentOwnerId = Some(id)
-      switch await task(resource.connection) {
-      | result =>
+      switch status.contents {
+      | Active(activeResource) if activeResource === resource =>
+        resource.currentOwnerId = Some(id)
+        switch await task(resource.connection) {
+        | result =>
+          cleanup()
+          result
+        | exception exn =>
+          cleanup()
+          raise(exn)
+        }
+      | _ =>
         cleanup()
-        result
-      | exception exn =>
-        cleanup()
-        raise(exn)
+        staleConnectionError()
       }
     | exception exn =>
       cleanup()
