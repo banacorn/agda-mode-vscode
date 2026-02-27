@@ -57,12 +57,19 @@ let terminate = async (resource: Resource.t) => {
   | _ =>
     let (connectionDestroyed, resolve, _) = Util.Promise_.pending()
     status := Closing(connectionDestroyed)
+    let destroyError = ref(None)
     // Util.log("Registry__Connection: Terminating connection", ())
-    let _ = await Connection.destroy(Some(resource.connection), Chan.make())
+    let _ = switch await Connection.destroy(Some(resource.connection), Chan.make()) {
+    | _ => ()
+    | exception exn =>
+      destroyError := Some(exn)
+      ()
+    }
     status := Empty
     // Reset makeCount for testing isolation
     makeCount := 0
     resolve()
+    destroyError.contents->Option.forEach(exn => raise(exn))
   }
 }
 
