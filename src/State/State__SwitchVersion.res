@@ -435,11 +435,11 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     [],
   )
 
-  // stop the old global connection
-  await Registry__Connection.shutdown()
-
   switch await Connection.make(path, Connection.Error.Establish.FromConfig) {
   | Ok(conn) =>
+    // Tear down the existing shared connection only after the target is proven connectable.
+    await Registry__Connection.shutdown()
+
     await Memento.PickedConnection.set(state.memento, Some(path))
     await Config.Connection.addAgdaPath(state.channels.log, path)
 
