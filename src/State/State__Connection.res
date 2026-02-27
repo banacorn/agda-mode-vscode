@@ -10,7 +10,7 @@ let sendRequest = async (
     handler: Response.t => promise<unit>,
   ) => {
     let onResponse = async response => {
-      await handler(response)
+      let _ = await Registry__Connection.withOwnerContext(state.id, () => handler(response))
       state.channels.log->Chan.emit(ResponseHandled(response))
     }
 

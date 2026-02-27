@@ -35,8 +35,8 @@ module ExecutionContext = {
   external runWithOwner: (
     storage,
     ownerId,
-    unit => promise<result<'a, Connection.Error.t>>,
-  ) => promise<result<'a, Connection.Error.t>> = "run"
+    unit => promise<'a>,
+  ) => promise<'a> = "run"
 
   @send external currentOwnerNullable: storage => Js.Nullable.t<ownerId> = "getStore"
 
@@ -294,3 +294,7 @@ let execute: (
     Error(err)
   }
 }
+
+// Keep owner context available across callbacks that may run outside the original
+// async chain (e.g. event-emitter response handlers).
+let withOwnerContext = (id, task) => ExecutionContext.withOwner(id, task)
