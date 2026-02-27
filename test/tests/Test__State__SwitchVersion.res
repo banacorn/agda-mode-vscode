@@ -547,6 +547,52 @@ describe("State__SwitchVersion", () => {
     }
 
     Async.it(
+      "should keep existing shared connection when switch target cannot be established",
+      async () => {
+        // Keep this test isolated from prior registry state.
+        Registry__Connection.status := Empty
+
+        let state = createTestState()
+        let existingPath = "/usr/bin/agda"
+        let existingConnection = TestData.makeMockConnection(existingPath, "2.6.4")
+
+        Registry__Connection.status :=
+          Active({
+            connection: existingConnection,
+            users: Belt.Set.String.fromArray(["owner-before-switch"]),
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
+
+        let missingUri =
+          Connection__URI.parse("/__agda_mode_vscode_nonexistent__/binary_should_not_exist_280")
+
+        let completion =
+          State__SwitchVersion.switchAgdaVersion(state, missingUri)->Promise.thenResolve(_ => "done")
+        let timeout = Util.Promise_.setTimeout(1000)->Promise.thenResolve(_ => "timeout")
+        let winner = await Promise.race([completion, timeout])
+
+        switch winner {
+        | "done" =>
+          switch Registry__Connection.status.contents {
+          | Active(resource) =>
+            Assert.deepStrictEqual(Connection.getPath(resource.connection), existingPath)
+          | _ =>
+            Assert.fail(
+              "Expected existing shared connection to remain active when switch target fails to establish",
+            )
+          }
+        | "timeout" =>
+          Registry__Connection.status := Empty
+          Assert.fail("switchAgdaVersion hung while switching to an invalid target")
+        | _ => Assert.fail("Unexpected race result")
+        }
+
+        Registry__Connection.status := Empty
+      },
+    )
+
+    Async.it(
       "should have an endpoint marked as selected onActivation",
       async () => {
         /**
