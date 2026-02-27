@@ -9,9 +9,16 @@ module Resource = {
   }
 }
 
+module Connecting = {
+  type t = {
+    connectionEstablished: promise<result<Connection.t, Connection.Error.t>>,
+    mutable releasedUsers: Belt.Set.String.t,
+  }
+}
+
 type status =
   | Empty
-  | Connecting(promise<result<Connection.t, Connection.Error.t>>)
+  | Connecting(Connecting.t)
   | Active(Resource.t)
   | Closing(promise<unit>)
 
@@ -84,7 +91,8 @@ let rec acquire: (
 ) => promise<result<Connection.t, Connection.Error.t>> = async (id, make) => {
   let connect = async () => {
     let (connectionEstablished, resolve, _) = Util.Promise_.pending()
-    status := Connecting(connectionEstablished)
+    let connecting: Connecting.t = {connectionEstablished, releasedUsers: Belt.Set.String.empty}
+    status := Connecting(connecting)
     // Util.log("Registry__Connection: " ++ id ++ " is initiating connection", ())
 
     let result = switch await make() {
@@ -97,9 +105,14 @@ let rec acquire: (
     | Ok(connection) =>
       // Increment only when a connection was actually established
       makeCount := makeCount.contents + 1
+      let users = if connecting.releasedUsers->Belt.Set.String.has(id) {
+        Belt.Set.String.empty
+      } else {
+        Belt.Set.String.fromArray([id])
+      }
       let resource: Resource.t = {
         connection: connection,
-        users: Belt.Set.String.fromArray([id]),
+        users,
         currentOwnerId: None,
         queue: Promise.resolve(),
       }
@@ -110,14 +123,16 @@ let rec acquire: (
     result
   }
 
-  let wait = async connectionEstablished => {
-    let result = await connectionEstablished
+  let wait = async (connecting: Connecting.t) => {
+    let result = await connecting.connectionEstablished
     switch result {
     | Ok(_connection) =>
       // Once connected, the state should be Active
       switch status.contents {
       | Active(resource) =>
-        resource.users = resource.users->Belt.Set.String.add(id)
+        if !(connecting.releasedUsers->Belt.Set.String.has(id)) {
+          resource.users = resource.users->Belt.Set.String.add(id)
+        }
         result
       | _ => await acquire(id, make)
       }
@@ -132,7 +147,10 @@ let rec acquire: (
 
   switch status.contents {
   | Empty => await connect()
-  | Connecting(connectionEstablished) => await wait(connectionEstablished)
+  | Connecting(connecting) =>
+    // Owner is acquiring again, so clear any stale pre-connect release marker.
+    connecting.releasedUsers = connecting.releasedUsers->Belt.Set.String.remove(id)
+    await wait(connecting)
   | Active(resource) => await join(resource)
   | Closing(connectionDestroyed) =>
     await connectionDestroyed
@@ -144,6 +162,8 @@ let rec acquire: (
 // If the owner was the last one, the connection is moved to Closing then Empty.
 let release: ownerId => promise<unit> = async id => {
   switch status.contents {
+  | Connecting(connecting) =>
+    connecting.releasedUsers = connecting.releasedUsers->Belt.Set.String.add(id)
   | Active(resource) =>
     resource.users = resource.users->Belt.Set.String.remove(id)
     if resource.users->Belt.Set.String.isEmpty {
@@ -157,8 +177,8 @@ let release: ownerId => promise<unit> = async id => {
 let rec shutdown: unit => promise<unit> = async () => {
   switch status.contents {
   | Active(resource) => await terminate(resource)
-  | Connecting(connectionEstablished) =>
-    let _ = await connectionEstablished
+  | Connecting(connecting) =>
+    let _ = await connecting.connectionEstablished
     await shutdown()
   | Closing(connectionDestroyed) => await connectionDestroyed
   | Empty => ()
