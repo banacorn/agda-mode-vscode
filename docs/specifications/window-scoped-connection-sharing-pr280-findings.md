@@ -19,7 +19,7 @@ Use two checkboxes per finding:
 | F5 | Medium | `runSerialized` can run with stale/destroying connection after queue wait | `test/tests/Test__Registry__Connection.res` | [x] | [x] |
 | F6 | Medium | switch-version tears down old connection before new is proven | `test/tests/Test__State__SwitchVersion.res` | [x] | [x] |
 | F7 | Medium | process destroy resolves before exit confirmation | `test/tests/Connection/Test__Connection__Process.res` | [x] | [x] |
-| F8 | Low | process destroy state machine never stabilizes at `Destroyed` | `test/tests/Connection/Test__Connection__Process.res` | [ ] | [ ] |
+| F8 | Low | process destroy state machine never stabilizes at `Destroyed` | `test/tests/Connection/Test__Connection__Process.res` | [x] | [ ] |
 | F9 | Medium | same-owner fast-path allows concurrent (not only nested) execution | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
 
 ## Findings Detail

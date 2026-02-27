@@ -2,6 +2,12 @@ open Mocha
 
 module Process = Connection__Transport__Process
 
+module StatusIntrospection = {
+  type t
+  @get external status: Process.t => t = "status"
+  @get external tag: t => option<string> = "TAG"
+}
+
 describe("Process Interface", () => {
   describe("Use `echo` as the testing subject", () => {
     // TODO: fix this test case on Windows
@@ -116,6 +122,76 @@ describe("Process Interface", () => {
       error.contents->Option.forEach(exn => raise(exn))
 
       Assert.deepStrictEqual(closeFiredWhenDestroyResolved.contents, true)
+    },
+  )
+
+  Async.it(
+    "destroy should not remain in destroying state after destroy resolves",
+    async () => {
+      // Reuse the same deterministic fake process setup to control close timing.
+      let restoreSpawn: unit => unit = %raw(`(() => {
+        const cp = require("node:child_process");
+        const originalSpawn = cp.spawn;
+
+        cp.spawn = function () {
+          const handlers = {};
+          const mkStream = () => ({
+            on: function (_event, _cb) {
+              return this;
+            },
+          });
+
+          return {
+            stdout: mkStream(),
+            stderr: mkStream(),
+            stdin: {
+              write: function () {
+                return true;
+              },
+            },
+            pid: 434343,
+            on: function (event, cb) {
+              handlers[event] = cb;
+              return this;
+            },
+            kill: function (_signal) {
+              setTimeout(() => {
+                if (handlers["close"]) {
+                  handlers["close"](137);
+                }
+              }, 10);
+              return true;
+            },
+          };
+        };
+
+        return () => {
+          cp.spawn = originalSpawn;
+        };
+      })()`)
+
+      let finalTag = ref(None)
+      let error = ref(None)
+
+      let _ = switch await (async () => {
+        let process = Process.make(~shell=false, "fake-process", [])
+        let _ = await process->Process.destroy
+        finalTag := process->StatusIntrospection.status->StatusIntrospection.tag
+      })() {
+      | _ => ()
+      | exception exn =>
+        error := Some(exn)
+        ()
+      }
+
+      restoreSpawn()
+      error.contents->Option.forEach(exn => raise(exn))
+
+      switch finalTag.contents {
+      | Some("Destroying") =>
+        Assert.fail("Expected a stable post-destroy state, but status remained Destroying")
+      | _ => Assert.ok(true)
+      }
     },
   )
 
