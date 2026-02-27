@@ -285,6 +285,30 @@ describe("Registry__Connection", () => {
     }
   })
 
+  Async.it("release during connecting should not leave a phantom user", async () => {
+    await setup()
+    let dummyConnection = makeDummyConnection()
+    let (connectionResult, resolveConnection, _) = Util.Promise_.pending()
+
+    let acquireOwner1 = Registry__Connection.acquire("owner1", () => connectionResult)
+    // Wait one tick so owner1 is definitely in the Connecting path.
+    await Util.Promise_.setTimeout(0)
+
+    // owner1 closes before the connection finishes
+    await Registry__Connection.release("owner1")
+
+    resolveConnection(Ok(dummyConnection))
+    let _ = await acquireOwner1
+
+    // owner2 can join and leave; if owner1 was properly released, registry should end empty
+    let _ = await Registry__Connection.acquire("owner2", async () => Ok(dummyConnection))
+    await Registry__Connection.release("owner2")
+
+    let view = Registry__Connection.inspect()
+    Assert.deepStrictEqual(view.status, "Empty")
+    Assert.deepStrictEqual(view.userCount, 0)
+  })
+
   Async.it("Reference Counting: connection is destroyed only when all users release it", async () => {
     await setup()
     let dummyConnection = makeDummyConnection()

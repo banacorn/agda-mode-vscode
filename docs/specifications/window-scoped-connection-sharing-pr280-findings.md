@@ -15,7 +15,7 @@ Use two checkboxes per finding:
 | F1 | High | `execute` deadlock on task throw/reject | `test/tests/Test__Registry__Connection.res` | [x] | [x] |
 | F2 | High | `acquire` deadlock if `make()` throws/rejects (and `shutdown` hang impact) | `test/tests/Test__Registry__Connection.res` | [x] | [x] |
 | F3 | High | `terminate` deadlock if `Connection.destroy` throws/rejects | `test/tests/Test__Registry__Connection.res` | [x] | [x] |
-| F4 | High | `release` ignores `Connecting` and leaks phantom users | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
+| F4 | High | `release` ignores `Connecting` and leaks phantom users | `test/tests/Test__Registry__Connection.res` | [x] | [ ] |
 | F5 | Medium | `runSerialized` can run with stale/destroying connection after queue wait | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
 | F6 | Medium | switch-version tears down old connection before new is proven | `test/tests/Test__State__SwitchVersion.res` | [ ] | [ ] |
 | F7 | Medium | process destroy resolves before exit confirmation | `test/tests/Connection/Test__Connection__Process.res` | [ ] | [ ] |
