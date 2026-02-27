@@ -141,8 +141,13 @@ module Module: Module = {
           }
         }
 
-        // Resolve only after process exit/close is confirmed.
-        promiseOnExit->Promise.thenResolve(_ => resolve())->ignore
+        // Resolve only after process exit/close is confirmed, then stabilize at Destroyed.
+        promiseOnExit
+        ->Promise.thenResolve(_ => {
+          self.status = Destroyed
+          resolve()
+        })
+        ->ignore
       })
       self.status = Destroying(promise)
       promise
