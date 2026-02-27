@@ -21,6 +21,21 @@ module TestData = {
   // Simple mock functions for testing
   let createMockMemento = () => Memento.make(None)
   let createMockExtensionUri = () => VSCode.Uri.file("/test/extension")
+
+  let makeMockConnection = (_path, _version): Connection.t => {
+    %raw(`{
+      TAG: "Agda",
+      _0: {
+        chan: { removeAllListeners: () => {} },
+        process: { status: "Destroyed" },
+        encountedFirstPrompt: false,
+        version: _version,
+        path: _path
+      },
+      _1: _path,
+      _2: _version
+    }`)
+  }
 }
 
 describe("State__SwitchVersion", () => {
@@ -520,6 +535,7 @@ describe("State__SwitchVersion", () => {
       let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
       State.make(
+        "test-id",
         makeMockPlatform(),
         channels,
         mockStorageUri,
@@ -529,6 +545,52 @@ describe("State__SwitchVersion", () => {
         None,
       )
     }
+
+    Async.it(
+      "should keep existing shared connection when switch target cannot be established",
+      async () => {
+        // Keep this test isolated from prior registry state.
+        Registry__Connection.status := Empty
+
+        let state = createTestState()
+        let existingPath = "/usr/bin/agda"
+        let existingConnection = TestData.makeMockConnection(existingPath, "2.6.4")
+
+        Registry__Connection.status :=
+          Active({
+            connection: existingConnection,
+            users: Belt.Set.String.fromArray(["owner-before-switch"]),
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
+
+        let missingUri =
+          Connection__URI.parse("/__agda_mode_vscode_nonexistent__/binary_should_not_exist_280")
+
+        let completion =
+          State__SwitchVersion.switchAgdaVersion(state, missingUri)->Promise.thenResolve(_ => "done")
+        let timeout = Util.Promise_.setTimeout(1000)->Promise.thenResolve(_ => "timeout")
+        let winner = await Promise.race([completion, timeout])
+
+        switch winner {
+        | "done" =>
+          switch Registry__Connection.status.contents {
+          | Active(resource) =>
+            Assert.deepStrictEqual(Connection.getPath(resource.connection), existingPath)
+          | _ =>
+            Assert.fail(
+              "Expected existing shared connection to remain active when switch target fails to establish",
+            )
+          }
+        | "timeout" =>
+          Registry__Connection.status := Empty
+          Assert.fail("switchAgdaVersion hung while switching to an invalid target")
+        | _ => Assert.fail("Unexpected race result")
+        }
+
+        Registry__Connection.status := Empty
+      },
+    )
 
     Async.it(
       "should have an endpoint marked as selected onActivation",
@@ -577,8 +639,14 @@ describe("State__SwitchVersion", () => {
 
         // SIMULATE: Active connection (Command.Load established connection)
         // Create a mock connection that matches one of the discovered endpoints
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
-        state.connection = Some(mockConnection)
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
@@ -634,8 +702,14 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
 
         // SIMULATE: But different endpoint is currently active
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/opt/homebrew/bin/agda", _2: "2.6.3" }`)
-        state.connection = Some(mockConnection)
+        let mockConnection = TestData.makeMockConnection("/opt/homebrew/bin/agda", "2.6.3")
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
@@ -699,8 +773,14 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, None)
 
         // SIMULATE: Active connection
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
-        state.connection = Some(mockConnection)
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // PHASE 1: Test initial state (download available but not downloaded)
         // Mock platform to return download available
@@ -786,8 +866,14 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, Some("/opt/homebrew/bin/agda"))
 
         // SIMULATE: But different endpoint is currently active (should be overridden by memento)
-        let mockConnection = %raw(`{ TAG: "Agda", _0: null, _1: "/usr/bin/agda", _2: "2.6.4" }`)
-        state.connection = Some(mockConnection)
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
 
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())

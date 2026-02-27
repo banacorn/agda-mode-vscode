@@ -264,7 +264,6 @@ module SwitchVersionManager = {
   // Get current items as data
   let getItemData = async (
     self: t,
-    state: State.t,
     downloadItems: array<(bool, string, string)>,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
@@ -279,10 +278,10 @@ module SwitchVersionManager = {
         Some(path)
       }
     | None =>
-      // Fresh install: try to infer active connection from current state
-      switch state.connection {
-      | Some(connection) => Some(Connection.getPath(connection))
-      | None => None
+      // Fresh install: try to infer active connection from current registry state
+      switch Registry__Connection.status.contents {
+      | Active(resource) => Some(Connection.getPath(resource.connection))
+      | _ => None
       }
     }
     ItemData.entriesToItemData(self.entries, pickedPath, downloadItems)
@@ -437,15 +436,13 @@ let switchAgdaVersion = async (state: State.t, uri) => {
 
   switch await Connection.make(path, Connection.Error.Establish.FromConfig) {
   | Ok(conn) =>
-    // stop the old connection
-    let _ = await Connection.destroy(state.connection, state.channels.log)
+    // Tear down the existing shared connection only after the target is proven connectable.
+    await Registry__Connection.shutdown()
 
-    // update state
-    state.connection = Some(conn)
     await Memento.PickedConnection.set(state.memento, Some(path))
     await Config.Connection.addAgdaPath(state.channels.log, path)
 
-    // update diplayed connection status
+    // update displayed connection status
     await State__View.Panel.displayConnectionStatus(state, Some(conn))
     await State__View.Panel.display(
       state,
@@ -471,6 +468,9 @@ let switchAgdaVersion = async (state: State.t, uri) => {
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     }
+    // Final cleanup: destroy the temporary connection used for version probing/switching
+    // The next command will re-acquire via Registry
+    let _ = await Connection.destroy(Some(conn), state.channels.log)
   | Error(error) => {
       let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))
       let header = AgdaModeVscode.View.Header.Error(
@@ -844,7 +844,7 @@ module Handler = {
 
     // Helper function to update UI with current state
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
-      let itemData = await SwitchVersionManager.getItemData(manager, state, downloadItems)
+      let itemData = await SwitchVersionManager.getItemData(manager, downloadItems)
 
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>

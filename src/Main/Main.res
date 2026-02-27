@@ -58,7 +58,9 @@ let initialize = (
   ->Promise.done
 
   // not in the Registry, instantiate a State
+  let id = VSCode.TextEditor.document(editor)->VSCode.TextDocument.fileName
   let state = State.make(
+    id,
     platformDeps,
     channels,
     globalStorageUri,
@@ -358,6 +360,7 @@ let activateWithoutContext = (
       await Registry.removeAndDestroy(document)
       finalize(false)
     | Restart =>
+      await Registry__Connection.shutdown()
       await Registry.removeAndDestroy(document)
       finalize(true)
     | _ => ()
