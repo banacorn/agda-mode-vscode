@@ -46,9 +46,14 @@ module Module: Module = {
     | Stderr(string)
     | Event(Event.t)
 
+  type created = {
+    process: NodeJs.ChildProcess.t,
+    promiseOnExit: promise<int>,
+  }
+
   // internal status
   type status =
-    | Created(NodeJs.ChildProcess.t)
+    | Created(created)
     | Destroying(promise<unit>)
     | Destroyed
 
@@ -110,17 +115,16 @@ module Module: Module = {
     ->Promise.thenResolve(exitCode => chan->Chan.emit(Event(OnExit(exitCode))))
     ->ignore
 
-    {chan, status: Created(process)}
+    {chan, status: Created({process, promiseOnExit})}
   }
 
   let destroy = self =>
     switch self.status {
-    | Created(process) =>
+    | Created({process, promiseOnExit}) =>
       // set the status to "Destroying"
       let promise = Promise.make((resolve, _) => {
         // Destroy the channel immediately to prevent further events
         self.chan->Chan.destroy
-        self.status = Destroyed
 
         // Forcefully kill the process tree immediately
         if OS.onUnix {
@@ -136,9 +140,9 @@ module Module: Module = {
           | _ => ()
           }
         }
-        
-        // Resolve immediately without waiting for OnExit
-        resolve()
+
+        // Resolve only after process exit/close is confirmed.
+        promiseOnExit->Promise.thenResolve(_ => resolve())->ignore
       })
       self.status = Destroying(promise)
       promise
@@ -148,7 +152,7 @@ module Module: Module = {
 
   let send = (self, request): bool => {
     switch self.status {
-    | Created(process) =>
+    | Created({process}) =>
       let payload = NodeJs.Buffer.fromString(request ++ NodeJs.Os.eol)
       process
       ->NodeJs.ChildProcess.stdin
