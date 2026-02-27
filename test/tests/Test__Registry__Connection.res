@@ -117,6 +117,45 @@ describe("Registry__Connection", () => {
     Assert.deepStrictEqual(executionOrder, ["outer-start", "inner", "outer-end"])
   })
 
+  Async.it("same-owner concurrent execute calls should be serialized", async () => {
+    await setup()
+    let dummyConnection = makeDummyConnection()
+    let make = async () => Ok(dummyConnection)
+    let _ = await Registry__Connection.acquire("owner1", make)
+
+    let executionOrder = []
+    let (firstTaskCanFinish, resolveFirstTask, _) = Util.Promise_.pending()
+
+    let first =
+      Registry__Connection.execute("owner1", async _ => {
+        executionOrder->Array.push("task1-start")
+        let _ = await firstTaskCanFinish
+        executionOrder->Array.push("task1-end")
+        Ok()
+      })
+
+    // Give the first execute call a tick to become active before queueing the second one.
+    await Util.Promise_.setTimeout(0)
+
+    let secondStarted = ref(false)
+    let second =
+      Registry__Connection.execute("owner1", async _ => {
+        secondStarted := true
+        executionOrder->Array.push("task2-start")
+        Ok()
+      })
+
+    // If serialization is correct, second task cannot start until first task is released.
+    await Util.Promise_.setTimeout(0)
+    Assert.deepStrictEqual(secondStarted.contents, false)
+
+    resolveFirstTask()
+    let _ = await first
+    let _ = await second
+
+    Assert.deepStrictEqual(executionOrder, ["task1-start", "task1-end", "task2-start"])
+  })
+
   Async.it("execute should recover queue after a task throws", async () => {
     await setup()
     let dummyConnection = makeDummyConnection()
