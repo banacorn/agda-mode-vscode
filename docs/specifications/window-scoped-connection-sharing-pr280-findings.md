@@ -12,7 +12,7 @@ Use two checkboxes per finding:
 
 | ID | Severity | Finding | Test File | Regression Test Added | Regression Test Fixed |
 | --- | --- | --- | --- | --- | --- |
-| F1 | High | `execute` deadlock on task throw/reject | `test/tests/Test__Registry__Connection.res` | [x] | [ ] |
+| F1 | High | `execute` deadlock on task throw/reject | `test/tests/Test__Registry__Connection.res` | [x] | [x] |
 | F2 | High | `acquire` deadlock if `make()` throws/rejects (and `shutdown` hang impact) | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
 | F3 | High | `terminate` deadlock if `Connection.destroy` throws/rejects | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
 | F4 | High | `release` ignores `Connecting` and leaks phantom users | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |

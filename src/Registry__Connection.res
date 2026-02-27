@@ -169,12 +169,26 @@ let execute: (
     let (currentTaskDone, resolve, _) = Util.Promise_.pending()
     resource.queue = currentTaskDone
 
-    await previousTaskDone
-    resource.currentOwnerId = Some(id)
-    let result = await task(resource.connection)
-    resource.currentOwnerId = None
-    resolve()
-    result
+    let cleanup = () => {
+      resource.currentOwnerId = None
+      resolve()
+    }
+
+    switch await previousTaskDone {
+    | _ =>
+      resource.currentOwnerId = Some(id)
+      switch await task(resource.connection) {
+      | result =>
+        cleanup()
+        result
+      | exception exn =>
+        cleanup()
+        raise(exn)
+      }
+    | exception exn =>
+      cleanup()
+      raise(exn)
+    }
   }
 
   switch status.contents {
