@@ -6,19 +6,21 @@ Related spec: `docs/specifications/window-scoped-connection-sharing.md`
 
 ## Regression Test Tracking
 
-Mark a finding as checked only when a regression test exists that fails on current `pr-280` and passes after the fix.
+Use two checkboxes per finding:
+- `Regression Test Added`: a test exists that exposes the bug on current `pr-280`.
+- `Regression Test Fixed`: after implementing the fix, that same test passes.
 
-| ID | Severity | Finding | Test File | Regression Test Added |
-| --- | --- | --- | --- | --- |
-| F1 | High | `execute` deadlock on task throw/reject | `test/tests/Test__Registry__Connection.res` | [ ] |
-| F2 | High | `acquire` deadlock if `make()` throws/rejects (and `shutdown` hang impact) | `test/tests/Test__Registry__Connection.res` | [ ] |
-| F3 | High | `terminate` deadlock if `Connection.destroy` throws/rejects | `test/tests/Test__Registry__Connection.res` | [ ] |
-| F4 | High | `release` ignores `Connecting` and leaks phantom users | `test/tests/Test__Registry__Connection.res` | [ ] |
-| F5 | Medium | `runSerialized` can run with stale/destroying connection after queue wait | `test/tests/Test__Registry__Connection.res` | [ ] |
-| F6 | Medium | switch-version tears down old connection before new is proven | `test/tests/Test__State__SwitchVersion.res` | [ ] |
-| F7 | Medium | process destroy resolves before exit confirmation | `test/tests/Connection/Test__Connection__Process.res` | [ ] |
-| F8 | Low | process destroy state machine never stabilizes at `Destroyed` | `test/tests/Connection/Test__Connection__Process.res` | [ ] |
-| F9 | Medium | same-owner fast-path allows concurrent (not only nested) execution | `test/tests/Test__Registry__Connection.res` | [ ] |
+| ID | Severity | Finding | Test File | Regression Test Added | Regression Test Fixed |
+| --- | --- | --- | --- | --- | --- |
+| F1 | High | `execute` deadlock on task throw/reject | `test/tests/Test__Registry__Connection.res` | [x] | [ ] |
+| F2 | High | `acquire` deadlock if `make()` throws/rejects (and `shutdown` hang impact) | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
+| F3 | High | `terminate` deadlock if `Connection.destroy` throws/rejects | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
+| F4 | High | `release` ignores `Connecting` and leaks phantom users | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
+| F5 | Medium | `runSerialized` can run with stale/destroying connection after queue wait | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
+| F6 | Medium | switch-version tears down old connection before new is proven | `test/tests/Test__State__SwitchVersion.res` | [ ] | [ ] |
+| F7 | Medium | process destroy resolves before exit confirmation | `test/tests/Connection/Test__Connection__Process.res` | [ ] | [ ] |
+| F8 | Low | process destroy state machine never stabilizes at `Destroyed` | `test/tests/Connection/Test__Connection__Process.res` | [ ] | [ ] |
+| F9 | Medium | same-owner fast-path allows concurrent (not only nested) execution | `test/tests/Test__Registry__Connection.res` | [ ] | [ ] |
 
 ## Findings Detail
 
@@ -32,12 +34,13 @@ Mark a finding as checked only when a regression test exists that fails on curre
 - File: `src/Registry__Connection.res:78-99`
 - Issue: status transitions to `Connecting` before `await make()`. If `make()` rejects/throws instead of returning `Error(...)`, the pending promise is never resolved and status is never reset.
 - Impact: future `acquire` calls can wait forever. `shutdown()` can also hang forever on the `Connecting` branch (`await connectionEstablished`), which can block restart/switch flows.
+- Additional observability impact: `makeCount` is incremented before `await make()`, so a thrown `make()` can inflate `inspect().makeCount` without any successful connection establishment.
 - Suggested fix: guard `make()` with `try/catch/finally`, always resolving the pending promise and restoring state on failure.
 
 ### F3 (High): `terminate` can deadlock if `Connection.destroy` throws/rejects
 - File: `src/Registry__Connection.res:54-66`
 - Issue: status is set to `Closing(connectionDestroyed)` before `await Connection.destroy(...)`. If destroy throws/rejects, status reset and `resolve()` are skipped.
-- Impact: registry can be stuck in `Closing` forever; future `acquire`/`release`/`shutdown` calls can block.
+- Impact: registry can be stuck in `Closing` forever; future `acquire`/`release`/`shutdown` calls can block. In particular, `acquire`'s `Closing` branch (`await connectionDestroyed`) can deadlock permanently.
 - Suggested fix: guard teardown with `try/catch/finally` and always resolve/reset `Closing` state.
 
 ### F4 (High): `release` ignores `Connecting`, causing phantom users
