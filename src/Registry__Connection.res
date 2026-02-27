@@ -79,13 +79,17 @@ let rec acquire: (
     let (connectionEstablished, resolve, _) = Util.Promise_.pending()
     status := Connecting(connectionEstablished)
     // Util.log("Registry__Connection: " ++ id ++ " is initiating connection", ())
-    
-    // Increment the process creation counter
-    makeCount := makeCount.contents + 1
-    
-    let result = await make()
+
+    let result = switch await make() {
+    | result => result
+    | exception _ =>
+      Error(Connection.Error.Establish(Connection.Error.Establish.mergeMany([])))
+    }
+
     switch result {
     | Ok(connection) =>
+      // Increment only when a connection was actually established
+      makeCount := makeCount.contents + 1
       let resource: Resource.t = {
         connection: connection,
         users: Belt.Set.String.fromArray([id]),
