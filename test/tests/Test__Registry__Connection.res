@@ -309,6 +309,46 @@ describe("Registry__Connection", () => {
     Assert.deepStrictEqual(view.userCount, 0)
   })
 
+  Async.it("queued execute should not run after registry leaves active state", async () => {
+    await setup()
+    let dummyConnection = makeDummyConnection()
+    let _ = await Registry__Connection.acquire("owner1", async () => Ok(dummyConnection))
+
+    let (firstTaskCanFinish, resolveFirstTask, _) = Util.Promise_.pending()
+
+    let first =
+      Registry__Connection.execute("owner1", async _ => {
+        let _ = await firstTaskCanFinish
+        Ok("first-done")
+      })
+
+    // Allow the first task to acquire execution ownership before queueing the second.
+    await Util.Promise_.setTimeout(0)
+
+    let secondTaskRan = ref(false)
+    let second =
+      Registry__Connection.execute("owner2", async _ => {
+        secondTaskRan := true
+        Ok("second-ran")
+      })
+
+    // Allow the second task to enter the serialized queue and block on previousTaskDone.
+    await Util.Promise_.setTimeout(0)
+
+    // Simulate teardown while queued work is waiting its turn.
+    Registry__Connection.status := Empty
+
+    resolveFirstTask()
+    let _ = await first
+    let secondResult = await second
+
+    Assert.deepStrictEqual(secondTaskRan.contents, false)
+    switch secondResult {
+    | Error(_) => Assert.ok(true)
+    | Ok(_) => Assert.fail("Queued task ran even though registry was no longer active")
+    }
+  })
+
   Async.it("Reference Counting: connection is destroyed only when all users release it", async () => {
     await setup()
     let dummyConnection = makeDummyConnection()
