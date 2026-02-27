@@ -264,7 +264,6 @@ module SwitchVersionManager = {
   // Get current items as data
   let getItemData = async (
     self: t,
-    state: State.t,
     downloadItems: array<(bool, string, string)>,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
@@ -845,7 +844,7 @@ module Handler = {
 
     // Helper function to update UI with current state
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
-      let itemData = await SwitchVersionManager.getItemData(manager, state, downloadItems)
+      let itemData = await SwitchVersionManager.getItemData(manager, downloadItems)
 
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>

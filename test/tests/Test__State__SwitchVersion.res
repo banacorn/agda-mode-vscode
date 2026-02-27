@@ -22,18 +22,18 @@ module TestData = {
   let createMockMemento = () => Memento.make(None)
   let createMockExtensionUri = () => VSCode.Uri.file("/test/extension")
 
-  let makeMockConnection = (path, version): Connection.t => {
+  let makeMockConnection = (_path, _version): Connection.t => {
     %raw(`{
       TAG: "Agda",
       _0: {
         chan: { removeAllListeners: () => {} },
         process: { status: "Destroyed" },
         encountedFirstPrompt: false,
-        version: version,
-        path: path
+        version: _version,
+        path: _path
       },
-      _1: path,
-      _2: version
+      _1: _path,
+      _2: _version
     }`)
   }
 }
