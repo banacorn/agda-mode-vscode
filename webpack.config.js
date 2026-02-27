@@ -65,6 +65,8 @@ module.exports = (env, argv) => {
                     'node:http': false,
                     'util': false,
                     'node:util': false,
+                    'async_hooks': false,
+                    'node:async_hooks': false,
                     'crypto': false,
                     'node:crypto': false,
                     // Desktop-only packages
@@ -109,6 +111,7 @@ module.exports = (env, argv) => {
                             case 'https':
                             case 'http':
                             case 'util':
+                            case 'async_hooks':
                                 resource.request = path.resolve(__dirname, 'empty-module.js');
                                 break;
                         }
