@@ -91,10 +91,6 @@ If you are having trouble typing the backslash "\\", you can change it by:
 
 Cancel `agdaMode.inputMethod.enable` in the settings to disable the input method.
 
-## Syntax Highlighting
-
-Cancel `agdaMode.highlighting.getHighlightWithThemeColors` in the settings if you want to fallback to the old way of highlighting stuff with fixed colors.
-
 ## Debug Buffer
 
 Execute `Agda: Open Debug Buffer` in the *Command Palette* to open it.
