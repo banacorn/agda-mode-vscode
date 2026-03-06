@@ -425,7 +425,7 @@ module Module: Module = {
         // For desktop platforms, use LatestALS
         let channel = switch platform {
         | Connection__Download__Platform.Web => Connection__Download.Channel.DevALS
-        | _ => Connection__Download.Channel.LatestALS
+        | _ => Connection__Download.Channel.Hardcoded
         }
         // Get the downloaded path, download if not already done
         let downloadResult = switch await PlatformOps.alreadyDownloaded(
