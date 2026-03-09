@@ -2026,6 +2026,49 @@ describe("Connection", () => {
     )
 
     Async.it(
+      "should skip agda command probe in step 2 when PickedConnection is bare agda",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(No)
+        let agdaCount = ref(0)
+        let alsCount = ref(0)
+        let platform = (
+          module(
+            {
+              include Desktop.Desktop
+              let findCommand = (command, ~timeout as _timeout=1000) => {
+                switch command {
+                | "agda" => agdaCount := agdaCount.contents + 1
+                | "als" => alsCount := alsCount.contents + 1
+                | _ => ()
+                }
+                Promise.resolve(Error(Connection__Command.Error.NotFound))
+              }
+            }
+          ): Platform.t
+        )
+        let memento = Memento.make(None)
+        await Memento.PickedConnection.set(memento, Some("agda"))
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          [],
+          ["agda", "als"],
+          Chan.make(),
+        )
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected failure with all commands unresolved")
+        | Error(_) =>
+          // Step 0 probes picked "agda" once; step 2 should skip "agda" and only probe "als".
+          Assert.deepStrictEqual(agdaCount.contents, 1)
+          Assert.deepStrictEqual(alsCount.contents, 1)
+        }
+      },
+    )
+
+    Async.it(
       "should not persist resolved absolute command paths back into connection.paths",
       async () => {
         let logChannel = Chan.make()

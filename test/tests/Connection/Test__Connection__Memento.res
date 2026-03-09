@@ -3,7 +3,7 @@ open Test__Util
 
 // Memento.PickedConnection
 // ├── Memento path exists in config → should prioritize over other config paths
-// ├── Memento path not in config → should ignore memento, use config as-is
+// ├── Memento path not in config → should still be prioritized (step 0)
 // └── Memento update behavior
 
 describe("Memento.PickedConnection", () => {
@@ -85,13 +85,13 @@ describe("Memento.PickedConnection", () => {
 
   describe("Memento path not in config", () => {
     Async.it(
-      "should ignore memento and use config as-is",
+      "should prioritize memento path even when it is not in config",
       async () => {
         This.retries(2)
 
         // Config: [userAgda]
         // Memento: systemAgda (not in config)
-        // Expected: userAgda should be used (from config)
+        // Expected: systemAgda should be used (step 0 picked path)
 
         let configPaths = [userAgda.contents]
         let result = await makeConnection(Some(systemAgda.contents), configPaths)
@@ -99,8 +99,7 @@ describe("Memento.PickedConnection", () => {
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
-          // FIXME: this test is flaky
-          Assert.deepStrictEqual(actualPath, userAgda.contents)
+          Assert.deepStrictEqual(actualPath, systemAgda.contents)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
@@ -109,7 +108,7 @@ describe("Memento.PickedConnection", () => {
 
   describe("Memento update behavior", () => {
     Async.it(
-      "should set memento to working connection path from config",
+      "should not set memento to working connection path from config",
       async () => {
         let memento = Memento.make(None)
         await Config.Connection.setAgdaPaths(logChannel, [userAgda.contents])
@@ -128,7 +127,7 @@ describe("Memento.PickedConnection", () => {
           let actualPath = connection->Connection.getPath
           let mementoPath = Memento.PickedConnection.get(memento)
           Assert.deepStrictEqual(actualPath, userAgda.contents)
-          Assert.deepStrictEqual(mementoPath, Some(userAgda.contents))
+          Assert.deepStrictEqual(mementoPath, None)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
