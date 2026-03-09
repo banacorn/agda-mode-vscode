@@ -111,40 +111,40 @@ The Switch Version UI has three jobs:
 
 ## Testing to Add/Fix
 
-This section lists prioritized, high-value test work to align current tests with the normative rules in this spec and to reduce flakiness.
+This section tracks the current status of test alignment with this spec.
 
-### Priority 0: Fix Current Red Tests
+### Completed
 
-- `test/tests/Test__Connection.res`
-  - Fix the two currently failing cases:
-    - `fromDownloads` / `should throw the \`DownloadALS\` error when the download policy is \`Yes\` but the download fails`
-    - `make fromDownloads scenarios` / `should handle download failure with logging`
-  - Current mock setup (`Mock.Platform.makeWithDownloadFailureAndFlags`) only resolves `LatestALS`, while runtime currently uses `Hardcoded`; failure can occur during channel resolution before `download` is called, so `checkedDownload` may remain `false`.
-  - Assert contract-level behavior: download failure is surfaced as `Establish` download failure, policy transition remains correct, and no false connection logging occurs.
+- Download-failure tests are fixed and passing in `test/tests/Test__Connection.res`:
+  - `fromDownloads` / `should throw the \`DownloadALS\` error when the download policy is \`Yes\` but the download fails`
+  - `make fromDownloads scenarios` / `should handle download failure with logging`
+- Spec-aligned UI/memento tests were updated:
+  - `test/tests/Connection/Test__Connection__Config.res`
+  - `test/tests/Connection/Test__Connection__Memento.res`
+- Contract coverage was added in `test/tests/Test__Connection.res`:
+  - `"should try PickedConnection first even when it is not in connection.paths"`
+  - `"should continue to later steps when PickedConnection fails"`
+  - `"should not re-probe PickedConnection in the paths step"`
+  - `"should skip agda/als command probes when already present in connection.paths"`
+  - `"should not persist resolved absolute command paths back into connection.paths"`
+  - `"should update both connection.paths and PickedConnection after successful download"`
+  - Current result: 3 pass (`not re-probe`, `not persist`, `download updates both`), 3 red (listed below) pending implementation changes.
 
-### Priority 1: Align Existing Tests With Spec Decisions
-
-- `test/tests/Connection/Test__Connection__Memento.res`
-  - Remove or invert the test `"should set memento to working connection path from auto discovery"`.
-  - It currently expects `PickedConnection` to be updated after command lookup success; spec now forbids command-lookup updates to `PickedConnection`.
-  - Keep/expand sticky behavior checks: failed picked path does not clear `PickedConnection`; explicit UI/download actions do update it.
+### Currently Red (Expected Until Implementation Catches Up)
 
 - `test/tests/Connection/Test__Connection__Config.res`
-  - Rewrite the `"Switch version UI selection"` tests (currently expecting `addAgdaPath` / `connection.paths` append on endpoint selection).
-  - Spec requires endpoint selection to update `PickedConnection` only, without modifying `connection.paths`.
-  - Keep download-path append assertions, and add assertions that download also updates `PickedConnection`.
+  - `"should update PickedConnection without modifying config when user selects existing path not in config"`
+  - `"should update PickedConnection when user selects different path"`
+  - `"should add downloaded path to config when user downloads new ALS"`
+  - `"should add already downloaded path to config when user selects already downloaded ALS"`
+- `test/tests/Connection/Test__Connection__Memento.res`
+  - `"should not set memento to working connection path from auto discovery"`
+- `test/tests/Test__Connection.res`
+  - `"should try PickedConnection first even when it is not in connection.paths"`
+  - `"should continue to later steps when PickedConnection fails"`
+  - `"should skip agda/als command probes when already present in connection.paths"`
 
-### Priority 2: Add Missing Contract Coverage
-
-- `test/tests/Test__Connection.res` (add to existing file)
-  - `"should try PickedConnection first even when it is not in connection.paths"`: step-0 priority is unconditional.
-  - `"should continue to later steps when PickedConnection fails"`: failing picked entry does not abort chain.
-  - `"should not re-probe PickedConnection in the paths step"`: step 1 excludes exact duplicate of picked entry.
-  - `"should skip agda/als command probes when already present in connection.paths or PickedConnection"`: step-2 skip rules.
-  - `"should not persist resolved absolute command paths back into connection.paths"`: guard #272.
-  - `"should update both connection.paths and PickedConnection after successful download"`: download state update contract.
-
-### Priority 3: Stability and Maintainability
+### Remaining Test Work
 
 - Verified current flake controls in the repo (as of this review):
   - `This.retries(2)` appears in connection-related tests, including `test/tests/Test__Connection.res`, `test/tests/Connection/Test__Connection__Memento.res`, and `test/tests/Connection/Test__Connection__Config.res`.

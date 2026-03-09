@@ -1798,4 +1798,298 @@ describe("Connection", () => {
       },
     )
   })
+
+  describe("Connection contract coverage", () => {
+    let configAgda = ref("")
+    let pickedAgda = ref("")
+    let downloadedAgda = ref("")
+
+    Async.before(async () => {
+      configAgda := (await Test__Util.Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-spec-config"))
+      pickedAgda := (await Test__Util.Endpoint.Agda.mock(~version="2.7.0.2", ~name="agda-spec-picked"))
+      downloadedAgda :=
+        (
+          await Test__Util.Endpoint.Agda.mock(
+            ~version="2.7.0.3",
+            ~name="agda-spec-downloaded",
+          )
+        )
+    })
+
+    Async.after(async () => {
+      try {
+        await Test__Util.Endpoint.Agda.destroy(configAgda.contents)
+      } catch {
+      | _ => ()
+      }
+      try {
+        await Test__Util.Endpoint.Agda.destroy(pickedAgda.contents)
+      } catch {
+      | _ => ()
+      }
+      try {
+        await Test__Util.Endpoint.Agda.destroy(downloadedAgda.contents)
+      } catch {
+      | _ => ()
+      }
+    })
+
+    let makePickedFailureExecutable = async (~name: string) => {
+      let stamp = string_of_int(int_of_float(Js.Date.now()))
+      let base = name ++ "-" ++ stamp
+      let tmp = NodeJs.Os.tmpdir()
+      let markerPath = NodeJs.Path.join([tmp, base ++ ".marker"])
+      let executablePath = NodeJs.Path.join([tmp, base ++ (if OS.onUnix { "" } else { ".bat" })])
+
+      let content = if OS.onUnix {
+        "#!/bin/sh\n"
+        ++ "echo picked >> \"" ++ markerPath ++ "\"\n"
+        ++ "echo not-agda\n"
+        ++ "exit 0\n"
+      } else {
+        "@echo off\r\n"
+        ++ "echo picked>>\"" ++ markerPath ++ "\"\r\n"
+        ++ "echo not-agda\r\n"
+      }
+
+      NodeJs.Fs.writeFileSync(executablePath, NodeJs.Buffer.fromString(content))
+      if OS.onUnix {
+        let _ = await NodeJs.Fs.chmod(executablePath, ~mode=0o755)
+      }
+
+      (executablePath, markerPath)
+    }
+
+    let makeFirstFailThenSuccessExecutable = async (~name: string) => {
+      let stamp = string_of_int(int_of_float(Js.Date.now()))
+      let base = name ++ "-" ++ stamp
+      let tmp = NodeJs.Os.tmpdir()
+      let flagPath = NodeJs.Path.join([tmp, base ++ ".flag"])
+      let executablePath = NodeJs.Path.join([tmp, base ++ (if OS.onUnix { "" } else { ".bat" })])
+
+      let content = if OS.onUnix {
+        "#!/bin/sh\n"
+        ++ "if [ -f \"" ++ flagPath ++ "\" ]; then\n"
+        ++ "  echo \"Agda version 9.9.9\"\n"
+        ++ "else\n"
+        ++ "  echo seen > \"" ++ flagPath ++ "\"\n"
+        ++ "  echo not-agda\n"
+        ++ "fi\n"
+        ++ "exit 0\n"
+      } else {
+        "@echo off\r\n"
+        ++ "if exist \"" ++ flagPath ++ "\" (\r\n"
+        ++ "  @echo Agda version 9.9.9\r\n"
+        ++ ") else (\r\n"
+        ++ "  @echo seen>\"" ++ flagPath ++ "\"\r\n"
+        ++ "  @echo not-agda\r\n"
+        ++ ")\r\n"
+      }
+
+      NodeJs.Fs.writeFileSync(executablePath, NodeJs.Buffer.fromString(content))
+      if OS.onUnix {
+        let _ = await NodeJs.Fs.chmod(executablePath, ~mode=0o755)
+      }
+
+      (executablePath, flagPath)
+    }
+
+    let cleanupIfExists = path => {
+      if NodeJs.Fs.existsSync(path) {
+        try {
+          NodeJs.Fs.unlinkSync(path)
+        } catch {
+        | _ => ()
+        }
+      }
+    }
+
+    Async.it(
+      "should try PickedConnection first even when it is not in connection.paths",
+      async () => {
+        let memento = Memento.make(None)
+        await Memento.PickedConnection.set(memento, Some(pickedAgda.contents))
+
+        let result = await Connection.makeWithFallback(
+          Mock.Platform.makeBasic(),
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          [configAgda.contents],
+          [],
+          Chan.make(),
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, pickedAgda.contents)
+        | Error(_) => Assert.fail("Expected connection to succeed via picked connection")
+        }
+      },
+    )
+
+    Async.it(
+      "should continue to later steps when PickedConnection fails",
+      async () => {
+        let (pickedPath, markerPath) = await makePickedFailureExecutable(~name="agda-picked-fail")
+        let memento = Memento.make(None)
+        await Memento.PickedConnection.set(memento, Some(pickedPath))
+
+        let result = await Connection.makeWithFallback(
+          Mock.Platform.makeBasic(),
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          [configAgda.contents],
+          [],
+          Chan.make(),
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, configAgda.contents)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(markerPath), true)
+        | Error(_) => Assert.fail("Expected fallback to later chain steps after picked failure")
+        }
+
+        cleanupIfExists(pickedPath)
+        cleanupIfExists(markerPath)
+      },
+    )
+
+    Async.it(
+      "should not re-probe PickedConnection in the paths step",
+      async () => {
+        let (pickedPath, flagPath) = await makeFirstFailThenSuccessExecutable(
+          ~name="agda-picked-duplicate",
+        )
+        let memento = Memento.make(None)
+        await Memento.PickedConnection.set(memento, Some(pickedPath))
+
+        let result = await Connection.makeWithFallback(
+          Mock.Platform.makeBasic(),
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          [pickedPath, configAgda.contents, pickedPath],
+          [],
+          Chan.make(),
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, configAgda.contents)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(flagPath), true)
+        | Error(_) => Assert.fail("Expected connection to succeed via non-duplicate path probing")
+        }
+
+        cleanupIfExists(pickedPath)
+        cleanupIfExists(flagPath)
+      },
+    )
+
+    Async.it(
+      "should skip agda/als command probes when already present in connection.paths",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(No)
+        let agdaCount = ref(0)
+        let alsCount = ref(0)
+        let platform = (
+          module(
+            {
+              include Desktop.Desktop
+              let findCommand = (command, ~timeout as _timeout=1000) => {
+                switch command {
+                | "agda" => agdaCount := agdaCount.contents + 1
+                | "als" => alsCount := alsCount.contents + 1
+                | _ => ()
+                }
+                Promise.resolve(Error(Connection__Command.Error.NotFound))
+              }
+            }
+          ): Platform.t
+        )
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/test-storage"),
+          ["agda", "als"],
+          ["agda", "als"],
+          Chan.make(),
+        )
+
+        switch result {
+        | Ok(_) => Assert.fail("Expected failure with all commands unresolved")
+        | Error(_) =>
+          Assert.deepStrictEqual(agdaCount.contents, 1)
+          Assert.deepStrictEqual(alsCount.contents, 1)
+        }
+      },
+    )
+
+    Async.it(
+      "should not persist resolved absolute command paths back into connection.paths",
+      async () => {
+        let logChannel = Chan.make()
+        await Config.Connection.setAgdaPaths(logChannel, ["agda"])
+        let platform = (
+          module(
+            {
+              include Desktop.Desktop
+              let findCommand = (command, ~timeout as _timeout=1000) =>
+                switch command {
+                | "agda" => Promise.resolve(Ok(configAgda.contents))
+                | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+                }
+            }
+          ): Platform.t
+        )
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/test-storage"),
+          ["agda"],
+          [],
+          logChannel,
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, configAgda.contents)
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["agda"])
+        | Error(_) => Assert.fail("Expected command-resolved connection")
+        }
+      },
+    )
+
+    Async.it(
+      "should update both connection.paths and PickedConnection after successful download",
+      async () => {
+        let logChannel = Chan.make()
+        await Config.Connection.setAgdaPaths(logChannel, [])
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let memento = Memento.make(None)
+        let platform = Mock.Platform.makeWithSuccessfulDownload(downloadedAgda.contents)
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, downloadedAgda.contents)
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [downloadedAgda.contents])
+          Assert.deepStrictEqual(
+            Memento.PickedConnection.get(memento),
+            Some(downloadedAgda.contents),
+          )
+        | Error(_) => Assert.fail("Expected fallback download to succeed")
+        }
+      },
+    )
+  })
 })
