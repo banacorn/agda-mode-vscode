@@ -79,7 +79,7 @@ Command-discovered paths (step 2) are **never** added to `connection.paths`. If 
 
 1. **Command lookup (step 2)** — when `agda` or `als` is found in PATH and used to connect, `PickedConnection` is set to the bare command name (e.g. `"agda"`), not the resolved absolute path.
 2. **Chain auto-download** — when the chain downloads ALS as a fallback (steps 3–4), it sets both `connection.paths` and `PickedConnection`.
-3. **UI download** — when the user triggers a download from the Switch Version UI, same result.
+3. **UI channel selection** — when the user selects a channel in the Switch Version UI (section 2, visible only when multiple channels are available), the download runs and produces the same result.
 4. **UI endpoint selection** — when the user selects an entry (from `connection.paths` or PATH-discovered), only `PickedConnection` is updated. The path is never added to `connection.paths` here.
 
 ## Switch Version UI
@@ -88,11 +88,13 @@ The UI is a VSCode QuickPick. It has three sections, always in this order:
 
 ### 1. Endpoints
 
-Lists all available connection endpoints in a single merged list:
-- Entries from `connection.paths` first (user's saved list, in stored order)
-- PATH-discovered commands (`agda`, `als`) appended — **only when actually found in PATH**
+Lists all available connection endpoints in a single merged list, in this fixed order:
+- Entries from `connection.paths`, in the order stored in config
+- PATH-discovered `agda` (if found in PATH), then `als` (if found in PATH)
 
-The entry whose path/command exactly matches `PickedConnection` is marked with a checkmark. If `PickedConnection` is `None`, nothing is marked.
+Entries that failed version probing are shown with an error icon (`$(error)`) and the probe error as description. Entries of unknown type are shown with `$(question)`.
+
+The entry whose path/command exactly matches `PickedConnection` is marked with a checkmark. When `PickedConnection` is `None`, the currently active connection's path is used for marking instead (fresh-install inference). If neither is set, nothing is marked.
 
 If no endpoints exist (empty `connection.paths` and no PATH commands found), a "No installations" item is shown instead.
 
@@ -116,9 +118,7 @@ There is no separate "Download" section. Downloads happen automatically via the 
 
 ## Implementation Issues
 
-- Step-2 `PickedConnection` update is not yet aligned:
-  - Spec now requires setting `PickedConnection` to the bare command name on step-2 success.
-  - Existing behavior/tests still assume step-2 does not update `PickedConnection`.
+- None currently.
 
 ## Testing to Add/Fix
 
@@ -144,15 +144,12 @@ This section tracks the current status of test alignment with this spec.
 - Download failure contracts in `test/tests/Test__Connection.res` are fixed and passing.
 - Switch Version UI selection/download config semantics in `test/tests/Connection/Test__Connection__Config.res` are fixed and passing.
 - Bare-command endpoint selection (`"agda"` / `"als"`) now preserves raw selection in `PickedConnection` and is guarded by tests in `test/tests/Connection/Test__Connection__Config.res`.
+- Step-2 command-lookup success now sets `PickedConnection` to the bare command name (`"agda"` / `"als"`), guarded in `test/tests/Connection/Test__Connection__Memento.res`.
 - Hardcoded download fallback now has explicit coverage for both failure modes:
   - native download failure → WASM retry
   - native channel resolution failure → direct WASM retry
 
 ### Remaining Test Work
-
-- Align tests with new step-2 `PickedConnection` rule:
-  - Add/adjust tests so command-lookup success sets `PickedConnection` to bare command (`"agda"`/`"als"`), not resolved absolute path.
-  - Replace prior "non-auto-update on command discovery" expectations.
 
 - Existing flake controls still present:
   - `This.retries(2)` appears in connection-related test files.

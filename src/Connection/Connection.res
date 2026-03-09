@@ -381,6 +381,30 @@ module Module: Module = {
     }
   }
 
+  // Try commands in order and return the successful command together with the connection.
+  let fromCommandsWithWinner = async (
+    platformDeps: Platform.t,
+    commands: array<string>,
+  ): result<(t, string), Error.Establish.t> => {
+    module PlatformOps = unpack(platformDeps)
+
+    let tasks = commands->Array.map(command => async () =>
+      switch await PlatformOps.findCommand(command) {
+      | Ok(rawPath) =>
+        switch await make(rawPath, FromCommandLookup(command)) {
+        | Ok(connection) => Ok((connection, command))
+        | Error(error) => Error(error)
+        }
+      | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
+      }
+    )
+
+    switch await tryUntilSuccess(tasks) {
+    | Ok(success) => Ok(success)
+    | Error(errors) => Error(Error.Establish.mergeMany(errors))
+    }
+  }
+
   // Try to download ALS and create connection directly, with the following steps:
   // 1. Check platform support
   // 2. Check download policy
@@ -518,7 +542,7 @@ module Module: Module = {
   //
   // `Memento.PickedConnection` behavior:
   //  * Always tried first when set
-  //  * Not auto-updated by path/command discovery
+  //  * Updated to bare command name on step-2 command success
   //  * Updated when the connection comes from download
 
   let makeWithFallback = async (
@@ -580,11 +604,6 @@ module Module: Module = {
         true
       }
     )
-    let commandsWithSource = filteredCommands->Array.map(command => (
-      command,
-      Error.Establish.FromCommandLookup(command),
-    ))
-
     // Try step 0 -> step 1 -> step 2, then downloads.
     switch await fromPathsOrCommands(platformDeps, pickedEntries) {
     | Ok(connection) =>
@@ -596,8 +615,9 @@ module Module: Module = {
         logConnection(connection)
         Ok(connection)
       | Error(step1Error) =>
-        switch await fromPathsOrCommands(platformDeps, commandsWithSource) {
-        | Ok(connection) =>
+        switch await fromCommandsWithWinner(platformDeps, filteredCommands) {
+        | Ok((connection, command)) =>
+          await Memento.PickedConnection.set(memento, Some(command))
           logConnection(connection)
           Ok(connection)
         | Error(step2Error) =>
