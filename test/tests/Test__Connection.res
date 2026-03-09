@@ -741,6 +741,43 @@ describe("Connection", () => {
       },
     )
 
+    Async.it(
+      "should resolve Web downloads via Hardcoded channel",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(Undecided)
+
+        let resolvedChannel = ref(None)
+        let checkedDownload = ref(false)
+
+        module MockWebPlatform = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let resolveDownloadChannel = (channel, _useCache) => {
+            resolvedChannel := Some(channel)
+            async (_memento, _globalStorageUri, _platform) =>
+              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          }
+          let download = (_globalStorageUri, _downloadDescriptor) => {
+            checkedDownload := true
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          }
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+
+        let mockPlatformDeps: Platform.t = module(MockWebPlatform)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+
+        let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
+        Assert.deepStrictEqual(result, Error(expected))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.Hardcoded))
+        Assert.deepStrictEqual(checkedDownload.contents, false)
+      },
+    )
+
   })
 
   describe("`fromPathsOrCommands`", () => {

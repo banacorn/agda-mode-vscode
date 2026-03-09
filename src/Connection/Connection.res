@@ -420,13 +420,9 @@ module Module: Module = {
         Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
-        // Choose download channel based on platform
-        // For web platform, use DevALS with WASM from UNPKG
-        // For desktop platforms, use LatestALS
-        let channel = switch platform {
-        | Connection__Download__Platform.Web => Connection__Download.Channel.DevALS
-        | _ => Connection__Download.Channel.Hardcoded
-        }
+        // Use the hardcoded channel on all platforms.
+        // On web, this resolves to the hardcoded WASM URL.
+        let channel = Connection__Download.Channel.Hardcoded
         // Get the downloaded path, download if not already done
         let downloadResult = switch await PlatformOps.alreadyDownloaded(
           globalStorageUri,
@@ -434,30 +430,16 @@ module Module: Module = {
         ) {
         | Some(path) => Ok(path)
         | None =>
-          // For Web platform with DevALS, use unpkg.com directly to avoid GitHub CORS issues
-          switch (platform, channel) {
-          | (Connection__Download__Platform.Web, Connection__Download.Channel.DevALS) =>
-            switch await Connection__Download.downloadFromURL(
-              globalStorageUri,
-              "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
-              "dev-als",
-              "Agda Language Server (WASM)",
-            ) {
+          switch await PlatformOps.resolveDownloadChannel(channel, true)(
+            memento,
+            globalStorageUri,
+            platform,
+          ) {
+          | Error(error) => Error(Error.Establish.fromDownloadError(error))
+          | Ok(downloadDescriptor) =>
+            switch await PlatformOps.download(globalStorageUri, downloadDescriptor) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok(path)
-            }
-          | _ =>
-            switch await PlatformOps.resolveDownloadChannel(channel, true)(
-              memento,
-              globalStorageUri,
-              platform,
-            ) {
-            | Error(error) => Error(Error.Establish.fromDownloadError(error))
-            | Ok(downloadDescriptor) =>
-              switch await PlatformOps.download(globalStorageUri, downloadDescriptor) {
-              | Error(error) => Error(Error.Establish.fromDownloadError(error))
-              | Ok(path) => Ok(path)
-              }
             }
           }
         }
