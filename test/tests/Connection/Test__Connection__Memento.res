@@ -4,7 +4,7 @@ open Test__Util
 // Memento.PickedConnection
 // ├── Memento path exists in config → should prioritize over other config paths
 // ├── Memento path not in config → should ignore memento, use config as-is
-// └── Memento always updated → should set to working connection path (regardless of source)
+// └── Memento update behavior
 
 describe("Memento.PickedConnection", () => {
   let userAgda = ref("")
@@ -107,7 +107,7 @@ describe("Memento.PickedConnection", () => {
     )
   })
 
-  describe("Memento always updated", () => {
+  describe("Memento update behavior", () => {
     Async.it(
       "should set memento to working connection path from config",
       async () => {
@@ -135,7 +135,7 @@ describe("Memento.PickedConnection", () => {
     )
 
     Async.it(
-      "should set memento to working connection path from auto discovery",
+      "should not set memento to working connection path from auto discovery",
       async () => {
         This.retries(2)
 
@@ -157,7 +157,7 @@ describe("Memento.PickedConnection", () => {
           let actualPath = connection->Connection.getPath
           let mementoPath = Memento.PickedConnection.get(memento)
           Assert.deepStrictEqual(actualPath, systemAgda.contents)
-          Assert.deepStrictEqual(mementoPath, Some(systemAgda.contents))
+          Assert.deepStrictEqual(mementoPath, None)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
