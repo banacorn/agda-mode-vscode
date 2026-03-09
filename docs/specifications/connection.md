@@ -132,18 +132,16 @@ There is no separate "Download" section. Downloads happen automatically via the 
 
 ## Implementation Issues
 
-- `Delete Downloads` does not currently remove downloaded entries from `connection.paths`, but the `Actions` table specifies that it should.
 - `Delete Downloads` does not currently delete the `hardcoded-als` download directory, so it does not yet clear downloaded ALS from every channel.
 - The current UI still renders a `Download` section with explicit download actions (`Download latest/dev ALS`) rather than a channel-selection section as specified.
 
 ## Testing to Add/Fix
 
-This section tracks the current status of test alignment with this spec.
+This section lists test coverage expectations and remaining gaps for this spec.
 
-### Current Status (2026-03-09)
+### Contract Coverage
 
-- Full suite is green: `npm test` reports **591 passing, 8 pending, 0 failing**.
-- Connection contract coverage in `test/tests/Test__Connection.res` is green:
+- Connection contract coverage in `test/tests/Test__Connection.res` should include:
   - `"should try PickedConnection first even when it is not in connection.paths"`
   - `"should continue to later steps when PickedConnection fails"`
   - `"should not re-probe PickedConnection in the paths step"`
@@ -154,16 +152,6 @@ This section tracks the current status of test alignment with this spec.
   - `"should retry Hardcoded download with WASM source when native download fails"`
   - `"should retry Hardcoded download with WASM source when Hardcoded channel resolution fails"`
   - `"should fall back to WASM when Hardcoded native download fails"`
-
-### Completed
-
-- Download failure contracts in `test/tests/Test__Connection.res` are fixed and passing.
-- Switch Version UI selection/download config semantics in `test/tests/Connection/Test__Connection__Config.res` are fixed and passing.
-- Bare-command endpoint selection (`"agda"` / `"als"`) now preserves raw selection in `PickedConnection` and is guarded by tests in `test/tests/Connection/Test__Connection__Config.res`.
-- Step-2 command-lookup success now sets `PickedConnection` to the bare command name (`"agda"` / `"als"`), guarded in `test/tests/Connection/Test__Connection__Memento.res`.
-- Hardcoded download fallback now has explicit coverage for both failure modes:
-  - native download failure → WASM retry
-  - native channel resolution failure → direct WASM retry
 
 ### Remaining Test Work
 

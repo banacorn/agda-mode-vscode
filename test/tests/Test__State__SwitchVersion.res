@@ -527,7 +527,10 @@ describe("State__SwitchVersion", () => {
     }
 
     // Create a test state with proper channels
-    let createTestStateWithPlatform = (platform: Platform.t) => {
+    let createTestStateWithPlatformAndStorage = (
+      platform: Platform.t,
+      storageUri: VSCode.Uri.t,
+    ) => {
       let channels = {
         State.inputMethod: Chan.make(),
         responseHandled: Chan.make(),
@@ -539,19 +542,20 @@ describe("State__SwitchVersion", () => {
         document: { fileName: "test.agda" }
       }`)
 
-      let mockStorageUri = VSCode.Uri.file(NodeJs.Os.tmpdir())
       let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
       State.make(
         platform,
         channels,
-        mockStorageUri,
+        storageUri,
         mockExtensionUri,
         Memento.make(None),
         mockEditor,
         None,
       )
     }
+    let createTestStateWithPlatform = (platform: Platform.t) =>
+      createTestStateWithPlatformAndStorage(platform, VSCode.Uri.file(NodeJs.Os.tmpdir()))
     let createTestState = () => createTestStateWithPlatform(makeMockPlatform())
 
     Async.it(
@@ -732,6 +736,59 @@ describe("State__SwitchVersion", () => {
 
         await runSelectionAndAssert("agda")
         await runSelectionAndAssert("als")
+      },
+    )
+
+    Async.it(
+      "should remove download-managed paths from connection.paths on Delete Downloads",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let keepBareCommand = "agda"
+        let downloadedLatest =
+          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let downloadedDevWasm =
+          VSCode.Uri.joinPath(storageUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString
+        let downloadedHardcoded =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [keepPath, downloadedLatest, downloadedDevWasm, downloadedHardcoded, keepBareCommand],
+        )
+        await Memento.PickedConnection.set(state.memento, Some(downloadedLatest))
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: State__SwitchVersion.Constants.deleteDownloads,
+          description: "",
+          detail: "",
+        }
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand])
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
       },
     )
 

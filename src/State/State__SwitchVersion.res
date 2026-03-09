@@ -589,6 +589,32 @@ module Download = {
 
 // Event handlers module for testability and debugging
 module Handler = {
+  let downloadDirectoryNames = ["hardcoded-als", "latest-als", "dev-als", "dev-wasm-als"]
+
+  let isPathUnderDownloadDirectory = (globalStorageUri: VSCode.Uri.t, path: string): bool =>
+    downloadDirectoryNames->Array.some(dirName => {
+      let dirUri = VSCode.Uri.joinPath(globalStorageUri, [dirName])
+      let dirFsPath = VSCode.Uri.fsPath(dirUri)
+      let dirUriPath = VSCode.Uri.toString(dirUri)
+
+      let inFsPath =
+        path == dirFsPath || String.startsWith(path, dirFsPath ++ NodeJs.Path.sep)
+      let inUriPath =
+        path == dirUriPath || String.startsWith(path, dirUriPath ++ "/")
+
+      inFsPath || inUriPath
+    })
+
+  let removeDownloadedPathsFromConfig = async (state: State.t): unit => {
+    let previousPaths = Config.Connection.getAgdaPaths()
+    let keptPaths = previousPaths->Array.filter(path =>
+      !isPathUnderDownloadDirectory(state.globalStorageUri, path)
+    )
+    if Array.length(keptPaths) != Array.length(previousPaths) {
+      await Config.Connection.setAgdaPaths(state.channels.log, keptPaths)
+    }
+  }
+
   // Unified function to handle all download logic (DevALS, DevWASMALS, and LatestALS)
   let handleDownload = async (
     state: State.t,
@@ -742,6 +768,7 @@ module Handler = {
             await deleteDir("dev-wasm-als")
             await deleteDir("dev-als")
             await deleteDir("latest-als")
+            await removeDownloadedPathsFromConfig(state)
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
