@@ -134,10 +134,8 @@ describe("Memento.PickedConnection", () => {
     )
 
     Async.it(
-      "should not set memento to working connection path from auto discovery",
+      "should set memento to bare command name when auto discovery succeeds",
       async () => {
-        This.retries(2)
-
         let memento = Memento.make(None)
         await Config.Connection.setAgdaPaths(logChannel, []) // empty config
 
@@ -146,17 +144,16 @@ describe("Memento.PickedConnection", () => {
           memento,
           VSCode.Uri.file("/tmp/test"),
           [],
-          ["whatever"], // will trigger auto discovery via findCommand
+          ["agda"], // will trigger auto discovery via findCommand
           logChannel,
         )
 
-        // FIXME: this test is flaky; sometimes it just errors
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
           let mementoPath = Memento.PickedConnection.get(memento)
           Assert.deepStrictEqual(actualPath, systemAgda.contents)
-          Assert.deepStrictEqual(mementoPath, None)
+          Assert.deepStrictEqual(mementoPath, Some("agda"))
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
