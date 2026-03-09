@@ -99,7 +99,7 @@ This section tracks the current status of test alignment with this spec.
 
 ### Current Status (2026-03-09)
 
-- Full suite is green: `npm test` reports **585 passing, 8 pending, 0 failing**.
+- Full suite is green: `npm test` reports **586 passing, 8 pending, 0 failing**.
 - Connection contract coverage in `test/tests/Test__Connection.res` is green:
   - `"should try PickedConnection first even when it is not in connection.paths"`
   - `"should continue to later steps when PickedConnection fails"`

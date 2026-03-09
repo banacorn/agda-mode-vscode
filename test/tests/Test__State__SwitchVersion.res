@@ -500,11 +500,34 @@ describe("State__SwitchVersion", () => {
   })
 
   describe("Events", () => {
+    let mockAgda = ref("")
+
+    Async.before(async () => {
+      mockAgda := await Test__Util.Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-sv-raw-key")
+    })
+
+    Async.after(async () => {
+      await Test__Util.Endpoint.Agda.destroy(mockAgda.contents)
+    })
+
     // Simple mock platform for testing
     let makeMockPlatform = (): Platform.t => Mock.Platform.makeWithAgda()
+    let makeMockPlatformWithBareCommands = (): Platform.t => {
+      module MockPlatform = {
+        include Desktop.Desktop
+        let findCommand = (command, ~timeout as _timeout=1000) =>
+          switch command {
+          | "agda" => Promise.resolve(Ok(mockAgda.contents))
+          // Reuse the stable Agda mock path to keep this test focused on keying behavior.
+          | "als" => Promise.resolve(Ok(mockAgda.contents))
+          | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+      }
+      module(MockPlatform)
+    }
 
     // Create a test state with proper channels
-    let createTestState = () => {
+    let createTestStateWithPlatform = (platform: Platform.t) => {
       let channels = {
         State.inputMethod: Chan.make(),
         responseHandled: Chan.make(),
@@ -520,7 +543,7 @@ describe("State__SwitchVersion", () => {
       let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
       State.make(
-        makeMockPlatform(),
+        platform,
         channels,
         mockStorageUri,
         mockExtensionUri,
@@ -529,6 +552,7 @@ describe("State__SwitchVersion", () => {
         None,
       )
     }
+    let createTestState = () => createTestStateWithPlatform(makeMockPlatform())
 
     Async.it(
       "should have an endpoint marked as selected onActivation",
@@ -658,6 +682,56 @@ describe("State__SwitchVersion", () => {
         let selectedCount =
           allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)->Array.length
         Assert.deepStrictEqual(selectedCount, 1)
+      },
+    )
+
+    Async.it(
+      "should keep endpoint version keys as raw bare commands after endpoint selection",
+      async () => {
+        let platform = makeMockPlatformWithBareCommands()
+        let runSelectionAndAssert = async (selectedPath: string) => {
+          let state = createTestStateWithPlatform(platform)
+
+          let view = State__SwitchVersion.View.make(state.channels.log)
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+          let onOperationComplete = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(SelectionCompleted) => true
+              | _ => false
+              },
+          )
+
+          let discoveredEndpoints = Dict.make()
+          discoveredEndpoints->Dict.set("agda", Memento.Endpoints.Agda(None))
+          discoveredEndpoints->Dict.set("als", Memento.Endpoints.ALS(None))
+          await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+
+          let selectedItem: VSCode.QuickPickItem.t = {
+            label: "mock",
+            description: "",
+            detail: selectedPath,
+          }
+
+          State__SwitchVersion.Handler.onSelection(
+            state,
+            platform,
+            manager,
+            _downloadInfo => Promise.resolve(),
+            view,
+            [selectedItem],
+          )
+          await onOperationComplete
+          view->State__SwitchVersion.View.destroy
+
+          Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(selectedPath))
+          Assert.ok(Memento.Endpoints.get(state.memento, selectedPath)->Option.isSome)
+          Assert.ok(Memento.Endpoints.get(state.memento, mockAgda.contents)->Option.isNone)
+        }
+
+        await runSelectionAndAssert("agda")
+        await runSelectionAndAssert("als")
       },
     )
 
