@@ -783,40 +783,20 @@ describe("Connection", () => {
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
 
-        let nativeUrl = "https://example.test/hardcoded-native.zip"
-        let attemptedUrls = ref([])
-        let resolveCount = ref(0)
         let downloadedMock = switch agdaMockEndpoint.contents {
         | Some(path) => path
         | None => failwith("Unable to access Agda mock endpoint")
         }
+        let checkedCache = ref(false)
+        let checkedNativeDownload = ref(false)
+        let checkedWasmDownload = ref(false)
 
-        module MockDesktopPlatform = {
-          let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
-          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
-          let resolveDownloadChannel = (_channel, _useCache) => async (_memento, _globalStorageUri, _platform) => {
-            resolveCount := resolveCount.contents + 1
-            Ok(Connection__Download.Source.FromURL(Hardcoded, nativeUrl, "hardcoded-als"))
-          }
-          let download = (_globalStorageUri, source) =>
-            switch source {
-            | Connection__Download.Source.FromURL(Hardcoded, url, _saveAs) =>
-              attemptedUrls := [...attemptedUrls.contents, url]
-              if url == nativeUrl {
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-              } else if url == Connection__Hardcoded.wasmUrl {
-                Promise.resolve(Ok(downloadedMock))
-              } else {
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-              }
-            | _ => Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-            }
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-        }
-
-        let mockPlatformDeps: Platform.t = module(MockDesktopPlatform)
+        let mockPlatformDeps = Mock.Platform.makeWithHardcodedNativeFailureAndWASMSuccess(
+          downloadedMock,
+          checkedCache,
+          checkedNativeDownload,
+          checkedWasmDownload,
+        )
         let memento = Memento.make(None)
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
@@ -832,11 +812,9 @@ describe("Connection", () => {
           )
         }
 
-        Assert.deepStrictEqual(resolveCount.contents, 1)
-        Assert.deepStrictEqual(
-          attemptedUrls.contents,
-          [nativeUrl, Connection__Hardcoded.wasmUrl],
-        )
+        Assert.deepStrictEqual(checkedCache.contents, true)
+        Assert.deepStrictEqual(checkedNativeDownload.contents, true)
+        Assert.deepStrictEqual(checkedWasmDownload.contents, true)
       },
     )
 
@@ -1893,6 +1871,76 @@ describe("Connection", () => {
 
           // Should not have logged connection events
           Assert.deepStrictEqual(loggedEvents, [])
+        }
+      },
+    )
+
+    Async.it(
+      "should fall back to WASM when Hardcoded native download fails",
+      async () => {
+        let logChannel = Chan.make()
+        let listener = Log.collect(logChannel)
+
+        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+          ~version="2.7.0.1",
+          ~name="agda-mock-hardcoded-wasm-fallback",
+        )
+
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let checkedCache = ref(false)
+        let checkedNativeDownload = ref(false)
+        let checkedWasmDownload = ref(false)
+
+        let mockPlatformDeps = Mock.Platform.makeWithHardcodedNativeFailureAndWASMSuccess(
+          agdaMockPath,
+          checkedCache,
+          checkedNativeDownload,
+          checkedWasmDownload,
+        )
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        let result = await Connection.makeWithFallback(
+          mockPlatformDeps,
+          memento,
+          globalStorageUri,
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        )
+
+        let loggedEvents = listener(~filter=Log.isConnection)
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(checkedCache.contents, true)
+          Assert.deepStrictEqual(checkedNativeDownload.contents, true)
+          Assert.deepStrictEqual(checkedWasmDownload.contents, true)
+
+          switch loggedEvents {
+          | [Log.Connection(Log.Connection.ConnectedToAgda(path, version))] =>
+            Assert.deepStrictEqual(path, agdaMockPath)
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected exactly one ConnectedToAgda event")
+          }
+
+          switch connection {
+          | Agda(_, path, version) =>
+            Assert.deepStrictEqual(path, agdaMockPath)
+            Assert.deepStrictEqual(version, "2.7.0.1")
+          | _ => Assert.fail("Expected Agda connection")
+          }
+        | Error(error) =>
+          let (_title, detail) = Connection.Error.toString(error)
+          Assert.fail(
+            "Expected WASM fallback success but got: " ++ detail,
+          )
+        }
+
+        try {
+          NodeJs.Fs.unlinkSync(agdaMockPath)
+        } catch {
+        | _ => ()
         }
       },
     )

@@ -260,6 +260,58 @@ module Platform = {
     module(MockPlatform)
   }
 
+  // Mock platform that fails hardcoded native download and succeeds on hardcoded WASM fallback
+  let makeWithHardcodedNativeFailureAndWASMSuccess = (
+    downloadedPath: string,
+    checkedCacheFlag: ref<bool>,
+    checkedNativeDownloadFlag: ref<bool>,
+    checkedWasmDownloadFlag: ref<bool>,
+  ): Platform.t => {
+    let nativeUrl = switch Connection__Hardcoded.nativeUrlForPlatform(Ubuntu) {
+    | Some(url) => url
+    | None => failwith("Expected hardcoded native URL for Ubuntu")
+    }
+
+    module MockPlatform = {
+      let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+      let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+
+      let alreadyDownloaded = (_globalStorageUri, _) => {
+        checkedCacheFlag := true
+        Promise.resolve(None)
+      }
+      let resolveDownloadChannel = DownloadDescriptor.mockWith(channel =>
+        switch channel {
+        | Hardcoded =>
+          Ok(
+            Connection__Download.Source.FromURL(
+              Connection__Download.Channel.Hardcoded,
+              nativeUrl,
+              "hardcoded-als",
+            ),
+          )
+        | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        }
+      )
+      let download = (_globalStorageUri, source) =>
+        switch source {
+        | Connection__Download.Source.FromURL(Connection__Download.Channel.Hardcoded, url, _)
+          if url == nativeUrl =>
+          checkedNativeDownloadFlag := true
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        | Connection__Download.Source.FromURL(Connection__Download.Channel.Hardcoded, url, _)
+          if url == Connection__Hardcoded.wasmUrl =>
+          checkedWasmDownloadFlag := true
+          Promise.resolve(Ok(downloadedPath))
+        | _ =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        }
+      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        Promise.resolve(Error(Connection__Command.Error.NotFound))
+    }
+    module(MockPlatform)
+  }
+
   // Create mock platform with Agda available
   let makeWithAgda = (): Platform.t => module(WithAgda)
 }
