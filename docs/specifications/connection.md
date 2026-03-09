@@ -91,64 +91,43 @@ The Switch Version UI has three jobs:
 
 ## Implementation Issues
 
-- **[High] `PickedConnection` guard in chain** — `Connection.res:526` only prioritizes `PickedConnection` if the path is in `connection.paths`. Must be removed so `PickedConnection` is respected unconditionally (step 0).
+- **[Medium] Bare-command UI selection is not preserved as raw command** — `State__SwitchVersion.res` endpoint selection parses the selected string with `Connection.URI.parse` and then `switchAgdaVersion` stores `VSCode.Uri.fsPath` for `FileURI`. Selecting `"agda"` can therefore be normalized to an absolute filesystem path instead of preserving the explicit bare command string. This weakens the #272 guarantee and can make PATH-rebinding behavior environment-dependent.
 
-- **[High] `PickedConnection` is auto-updated on normal connection success** — `Connection.res:550` sets `PickedConnection` to `getPath(connection)` for any successful connection (including step 2 automatic command lookup). Spec forbids automatic command-lookup updates and only allows explicit UI actions or download actions to change `PickedConnection`.
-
-- **[High] UI endpoint selection adds to `connection.paths`** — `State__SwitchVersion.res:446` calls `addAgdaPath` when the user selects an endpoint. Spec says selection only updates `PickedConnection`.
-
-- **[Medium] UI download does not set `PickedConnection`** — `State__SwitchVersion.res` lines 640, 654, 703 call `addAgdaPath` but never set `PickedConnection`. Spec requires both.
-
-- **[Medium] Command step does not apply skip filters** — `Connection.res:544` always appends `agda`/`als` command probes with no filtering. Spec says skip them when `"agda"`/`"als"` is present in `connection.paths` or equals `PickedConnection`.
-
-- **[Medium] Bare-command UI selection is not preserved as selected** — `State__SwitchVersion.res:827` parses selected strings through `Connection.URI.parse`, and `switchAgdaVersion` stores `VSCode.Uri.fsPath` for file URIs (`State__SwitchVersion.res:425`, `:445`). This normalizes command-like selections to absolute paths instead of preserving the user-selected bare command where applicable.
-
-- **[Medium] Tests enforce old endpoint-selection behavior** — `Test__Connection__Config.res:447` and `:487` expect the selected path to be appended to `connection.paths`, conflicting with the spec.
-
-- **[Medium] Tests enforce old auto-update behavior for `PickedConnection`** — `Test__Connection__Memento.res:137` expects auto discovery (command lookup) to update `PickedConnection`, conflicting with the spec's "no automatic command-lookup update" rule.
-
-- **[Low] Only `Hardcoded` channel is available** — `LatestALS` and `DevALS` are broken and not yet reintroduced. Channel selection UI is hidden until more than one channel is available.
+All previously listed chain-ordering, command-skip, config-writeback, and download state-update mismatches are now implemented and passing tests.
 
 ## Testing to Add/Fix
 
 This section tracks the current status of test alignment with this spec.
 
-### Completed
+### Current Status (2026-03-09)
 
-- Download-failure tests are fixed and passing in `test/tests/Test__Connection.res`:
-  - `fromDownloads` / `should throw the \`DownloadALS\` error when the download policy is \`Yes\` but the download fails`
-  - `make fromDownloads scenarios` / `should handle download failure with logging`
-- Spec-aligned UI/memento tests were updated:
-  - `test/tests/Connection/Test__Connection__Config.res`
-  - `test/tests/Connection/Test__Connection__Memento.res`
-- Contract coverage was added in `test/tests/Test__Connection.res`:
+- Full suite is green: `npm test` reports **583 passing, 8 pending, 0 failing**.
+- Connection contract coverage in `test/tests/Test__Connection.res` is green:
   - `"should try PickedConnection first even when it is not in connection.paths"`
   - `"should continue to later steps when PickedConnection fails"`
   - `"should not re-probe PickedConnection in the paths step"`
   - `"should skip agda/als command probes when already present in connection.paths"`
+  - `"should skip agda command probe in step 2 when PickedConnection is bare agda"`
   - `"should not persist resolved absolute command paths back into connection.paths"`
   - `"should update both connection.paths and PickedConnection after successful download"`
-  - Current result: 3 pass (`not re-probe`, `not persist`, `download updates both`), 3 red (listed below) pending implementation changes.
 
-### Currently Red (Expected Until Implementation Catches Up)
+### Completed
 
-- `test/tests/Connection/Test__Connection__Config.res`
-  - `"should update PickedConnection without modifying config when user selects existing path not in config"`
-  - `"should update PickedConnection when user selects different path"`
-  - `"should add downloaded path to config when user downloads new ALS"`
-  - `"should add already downloaded path to config when user selects already downloaded ALS"`
-- `test/tests/Connection/Test__Connection__Memento.res`
-  - `"should not set memento to working connection path from auto discovery"`
-- `test/tests/Test__Connection.res`
-  - `"should try PickedConnection first even when it is not in connection.paths"`
-  - `"should continue to later steps when PickedConnection fails"`
-  - `"should skip agda/als command probes when already present in connection.paths"`
+- Download failure contracts in `test/tests/Test__Connection.res` are fixed and passing.
+- Switch Version UI selection/download config semantics in `test/tests/Connection/Test__Connection__Config.res` are fixed and passing.
+- Memento non-auto-update behavior in `test/tests/Connection/Test__Connection__Memento.res` is fixed and passing.
 
 ### Remaining Test Work
 
-- Verified current flake controls in the repo (as of this review):
-  - `This.retries(2)` appears in connection-related tests, including `test/tests/Test__Connection.res`, `test/tests/Connection/Test__Connection__Memento.res`, and `test/tests/Connection/Test__Connection__Config.res`.
-  - `it_skip` / `describe_skip` appears in `test/tests/Test__Connection.res`, `test/tests/Connection/Test__Connection__Process.res`, and `test/tests/Connection/Test__Connection__Download.res`.
+- Add regression coverage for the remaining bare-command selection issue:
+  - In `test/tests/Connection/Test__Connection__Config.res`, add a case where a UI endpoint selection chooses `"agda"` and assert:
+    - `PickedConnection == Some("agda")`
+    - `connection.paths` is unchanged
+  - Add a symmetric `"als"` case if both command labels are exposed by the UI.
+
+- Existing flake controls still present:
+  - `This.retries(2)` appears in connection-related test files.
+  - `it_skip` / `describe_skip` appears in selected integration/external tests.
 
 - Reduce nondeterminism in connection tests:
   - Prefer deterministic mock platforms over `Desktop.make()` for contract tests.

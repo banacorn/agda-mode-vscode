@@ -637,6 +637,7 @@ module Handler = {
           VSCode.Uri.fsPath(downloadedUri)
         }
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
       | Ok(FromURL(_, url, saveAsFileName)) =>
         // Determine file extension based on URL
         let isWasm = url->String.endsWith(".wasm")
@@ -651,6 +652,7 @@ module Handler = {
           VSCode.Uri.fsPath(downloadedUri)
         }
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
       | Error(_) => ()
       }
       VSCode.Window.showInformationMessage(
@@ -700,6 +702,7 @@ module Handler = {
         )->Promise.done
       | Ok(downloadedPath) =>
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
 
         // Optional UI refresh after successful download
         switch refreshUI {
