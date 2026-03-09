@@ -482,10 +482,10 @@ module Module: Module = {
   }
 
   // Make a connection to Agda or ALS by trying:
-  //  1. The previously selected path (only if it exists in user config)
-  //  2. Each path from user config sequentially
-  //  3. Each command from the commands array sequentially
-  //  4. Downloading the latest ALS
+  //  0. The previously selected path (if any)
+  //  1. Each remaining path from user config sequentially
+  //  2. Each command from the commands array sequentially
+  //  3. Downloading the latest ALS
   //
   // User config path modification policy:
   //  * Existing paths are never removed or modified programmatically
@@ -494,9 +494,9 @@ module Module: Module = {
   //    - User has no config and system discovers a working path
   //
   // `Memento.PickedConnection` behavior:
-  //  * Only used for prioritizing existing paths from user config
-  //  * Ignored if it doesn't exist in user config
-  //  * Always set to the working connection path
+  //  * Always tried first when set
+  //  * Not auto-updated by path/command discovery
+  //  * Updated when the connection comes from download
 
   let makeWithFallback = async (
     platformDeps: Platform.t,
@@ -520,36 +520,65 @@ module Module: Module = {
       }
     }
 
-    let pathsWithSelectedConnection = switch Memento.PickedConnection.get(memento) {
-    | Some(pickedPath) =>
-      // Only prioritize picked path if it exists in user's configuration
-      if paths->Array.includes(pickedPath) {
-        [pickedPath]->Array.concat(paths->Array.filter(p => p !== pickedPath))
-      } else {
-        // If picked path is not in user config, use user config as-is
-        paths
-      }
-    | None => paths
+    let pickedConnection = Memento.PickedConnection.get(memento)
+
+    // Step 0: picked connection, if present.
+    let pickedEntries = switch pickedConnection {
+    | Some(path) => [(path, Error.Establish.FromConfig)]
+    | None => []
     }
 
-    // Tag paths with FromConfig source, commands with FromCommandLookup
-    let pathsWithSource = pathsWithSelectedConnection->Array.map(path => (
-      path,
-      Error.Establish.FromConfig,
-    ))
-    let commandsWithSource = commands->Array.map(command => (
+    // Step 1: remaining config entries (exclude exact duplicate of picked).
+    let remainingPaths = switch pickedConnection {
+    | Some(pickedPath) => paths->Array.filter(path => path !== pickedPath)
+    | None => paths
+    }
+    let pathsWithSource = remainingPaths->Array.map(path => (path, Error.Establish.FromConfig))
+
+    // Step 2: command probes, with skip rules for bare "agda"/"als".
+    let shouldSkipAgdaCommand =
+      remainingPaths->Array.includes("agda") ||
+      switch pickedConnection {
+      | Some("agda") => true
+      | _ => false
+      }
+    let shouldSkipAlsCommand =
+      remainingPaths->Array.includes("als") ||
+      switch pickedConnection {
+      | Some("als") => true
+      | _ => false
+      }
+    let filteredCommands = commands->Array.filter(command =>
+      if command == "agda" {
+        !shouldSkipAgdaCommand
+      } else if command == "als" {
+        !shouldSkipAlsCommand
+      } else {
+        true
+      }
+    )
+    let commandsWithSource = filteredCommands->Array.map(command => (
       command,
       Error.Establish.FromCommandLookup(command),
     ))
-    let allEntries = Array.concat(pathsWithSource, commandsWithSource)
 
-    // Try paths and commands first, then downloads
-    switch await fromPathsOrCommands(platformDeps, allEntries) {
+    // Try step 0 -> step 1 -> step 2, then downloads.
+    switch await fromPathsOrCommands(platformDeps, pickedEntries) {
     | Ok(connection) =>
       logConnection(connection)
-      await Memento.PickedConnection.set(memento, Some(getPath(connection)))
       Ok(connection)
-    | Error(pathErrors) =>
+    | Error(step0Error) =>
+      switch await fromPathsOrCommands(platformDeps, pathsWithSource) {
+      | Ok(connection) =>
+        logConnection(connection)
+        Ok(connection)
+      | Error(step1Error) =>
+        switch await fromPathsOrCommands(platformDeps, commandsWithSource) {
+        | Ok(connection) =>
+          logConnection(connection)
+          Ok(connection)
+        | Error(step2Error) =>
+          let pathErrors = Error.Establish.mergeMany([step0Error, step1Error, step2Error])
       switch await fromDownloads(platformDeps, memento, globalStorageUri) {
       | Ok(connection) =>
         logConnection(connection)
@@ -558,6 +587,8 @@ module Module: Module = {
         Ok(connection)
       | Error(downloadError) =>
         Error(Establish(Error.Establish.mergeMany([pathErrors, downloadError])))
+      }
+        }
       }
     }
   }
