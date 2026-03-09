@@ -443,7 +443,6 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     // update state
     state.connection = Some(conn)
     await Memento.PickedConnection.set(state.memento, Some(path))
-    await Config.Connection.addAgdaPath(state.channels.log, path)
 
     // update diplayed connection status
     await State__View.Panel.displayConnectionStatus(state, Some(conn))
