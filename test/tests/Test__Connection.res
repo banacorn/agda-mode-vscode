@@ -756,7 +756,13 @@ describe("Connection", () => {
           let resolveDownloadChannel = (channel, _useCache) => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
-              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              Ok(
+                Connection__Download.Source.FromURL(
+                  Hardcoded,
+                  Connection__Hardcoded.wasmUrl,
+                  "hardcoded-als",
+                ),
+              )
           }
           let download = (_globalStorageUri, _downloadDescriptor) => {
             checkedDownload := true
@@ -774,7 +780,7 @@ describe("Connection", () => {
         let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
         Assert.deepStrictEqual(result, Error(expected))
         Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.Hardcoded))
-        Assert.deepStrictEqual(checkedDownload.contents, false)
+        Assert.deepStrictEqual(checkedDownload.contents, true)
       },
     )
 
@@ -814,6 +820,60 @@ describe("Connection", () => {
 
         Assert.deepStrictEqual(checkedCache.contents, true)
         Assert.deepStrictEqual(checkedNativeDownload.contents, true)
+        Assert.deepStrictEqual(checkedWasmDownload.contents, true)
+      },
+    )
+
+    Async.it(
+      "should retry Hardcoded download with WASM source when Hardcoded channel resolution fails",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(Undecided)
+
+        let downloadedMock = switch agdaMockEndpoint.contents {
+        | Some(path) => path
+        | None => failwith("Unable to access Agda mock endpoint")
+        }
+        let checkedResolve = ref(false)
+        let checkedWasmDownload = ref(false)
+
+        module MockDesktopResolveFailurePlatform = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let resolveDownloadChannel = (_channel, _useCache) =>
+            async (_memento, _globalStorageUri, _platform) => {
+              checkedResolve := true
+              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            }
+          let download = (_globalStorageUri, source) =>
+            switch source {
+            | Connection__Download.Source.FromURL(Hardcoded, url, _)
+              if url == Connection__Hardcoded.wasmUrl =>
+              checkedWasmDownload := true
+              Promise.resolve(Ok(downloadedMock))
+            | _ => Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            }
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+
+        let mockPlatformDeps: Platform.t = module(MockDesktopResolveFailurePlatform)
+        let memento = Memento.make(None)
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+        let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+
+        switch result {
+        | Ok(Agda(_, path, _version)) =>
+          Assert.deepStrictEqual(path, downloadedMock)
+        | Ok(_) => Assert.fail("Expected Agda connection")
+        | Error(error) =>
+          Assert.fail(
+            "Expected fallback download success but got: " ++ Connection.Error.Establish.toString(error),
+          )
+        }
+
+        Assert.deepStrictEqual(checkedResolve.contents, true)
         Assert.deepStrictEqual(checkedWasmDownload.contents, true)
       },
     )

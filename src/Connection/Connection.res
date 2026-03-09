@@ -423,6 +423,18 @@ module Module: Module = {
         // Use the hardcoded channel on all platforms.
         // On web, this resolves to the hardcoded WASM URL.
         let channel = Connection__Download.Channel.Hardcoded
+        let tryHardcodedWasmFallback = async () =>
+          switch await PlatformOps.download(
+            globalStorageUri,
+            Connection__Download.Source.FromURL(
+              Connection__Download.Channel.Hardcoded,
+              Connection__Hardcoded.wasmUrl,
+              "hardcoded-als",
+            ),
+          ) {
+          | Ok(path) => Ok(path)
+          | Error(error) => Error(error)
+          }
         let tryDownloadSource = async source =>
           switch await PlatformOps.download(globalStorageUri, source) {
           | Ok(path) => Ok(path)
@@ -438,15 +450,7 @@ module Module: Module = {
               if url->String.endsWith(".wasm") {
                 Error(error)
               } else {
-                let wasmFallbackSource = Connection__Download.Source.FromURL(
-                  Connection__Download.Channel.Hardcoded,
-                  Connection__Hardcoded.wasmUrl,
-                  "hardcoded-als",
-                )
-                switch await PlatformOps.download(globalStorageUri, wasmFallbackSource) {
-                | Ok(path) => Ok(path)
-                | Error(wasmError) => Error(wasmError)
-                }
+                await tryHardcodedWasmFallback()
               }
             | _ => Error(error)
             }
@@ -463,7 +467,16 @@ module Module: Module = {
             globalStorageUri,
             platform,
           ) {
-          | Error(error) => Error(Error.Establish.fromDownloadError(error))
+          | Error(error) =>
+            switch channel {
+            | Connection__Download.Channel.Hardcoded =>
+              switch await tryHardcodedWasmFallback() {
+              | Ok(path) => Ok(path)
+              | Error(wasmError) =>
+                Error(Error.Establish.fromDownloadError(wasmError))
+              }
+            | _ => Error(Error.Establish.fromDownloadError(error))
+            }
           | Ok(downloadDescriptor) =>
             switch await tryDownloadSource(downloadDescriptor) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))

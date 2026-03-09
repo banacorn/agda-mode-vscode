@@ -44,7 +44,7 @@ The chain is tried in order, stopping at the first success. Failure at any step 
 1. **Paths** — remaining entries in `agdaMode.connection.paths` (excluding any entry that exactly matches `PickedConnection`)
 2. **Commands** — `agda`, `als` looked up from PATH (skipped individually if the exact string `"agda"` or `"als"` appears in `connection.paths` or equals `PickedConnection`)
 3. **Download native** — download native binary via the active channel
-4. **Download WASM** — fallback if native download fails
+4. **Download WASM** — fallback if native download fails **or** native channel resolution fails
 
 ## Channels
 
@@ -99,7 +99,7 @@ This section tracks the current status of test alignment with this spec.
 
 ### Current Status (2026-03-09)
 
-- Full suite is green: `npm test` reports **586 passing, 8 pending, 0 failing**.
+- Full suite is green: `npm test` reports **591 passing, 8 pending, 0 failing**.
 - Connection contract coverage in `test/tests/Test__Connection.res` is green:
   - `"should try PickedConnection first even when it is not in connection.paths"`
   - `"should continue to later steps when PickedConnection fails"`
@@ -108,6 +108,9 @@ This section tracks the current status of test alignment with this spec.
   - `"should skip agda command probe in step 2 when PickedConnection is bare agda"`
   - `"should not persist resolved absolute command paths back into connection.paths"`
   - `"should update both connection.paths and PickedConnection after successful download"`
+  - `"should retry Hardcoded download with WASM source when native download fails"`
+  - `"should retry Hardcoded download with WASM source when Hardcoded channel resolution fails"`
+  - `"should fall back to WASM when Hardcoded native download fails"`
 
 ### Completed
 
@@ -115,6 +118,9 @@ This section tracks the current status of test alignment with this spec.
 - Switch Version UI selection/download config semantics in `test/tests/Connection/Test__Connection__Config.res` are fixed and passing.
 - Memento non-auto-update behavior in `test/tests/Connection/Test__Connection__Memento.res` is fixed and passing.
 - Bare-command endpoint selection (`"agda"` / `"als"`) now preserves raw selection in `PickedConnection` and is guarded by tests in `test/tests/Connection/Test__Connection__Config.res`.
+- Hardcoded download fallback now has explicit coverage for both failure modes:
+  - native download failure → WASM retry
+  - native channel resolution failure → direct WASM retry
 
 ### Remaining Test Work
 
