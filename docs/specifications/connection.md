@@ -124,7 +124,7 @@ When LatestALS/DevALS are restored, this section lists all available channels: `
 |--------------------|--------------------|-------------------------------|---------------------------------------|---------------------------------------|
 | Select endpoint    | —                  | set to selected path/command  | unchanged                             | initiates connection attempt          |
 | Select channel     | ≥ 2 channels       | set to downloaded path        | downloaded path appended (deduped)    | download triggered; UI refreshes      |
-| Delete Downloads   | —                  | cleared (`None`)              | downloaded paths removed              | `Memento.Endpoints` cleared; download dirs deleted |
+| Delete Downloads   | —                  | cleared (`None`)              | downloaded paths removed              | `Memento.Endpoints` cleared; download dirs deleted (including `hardcoded-als`) |
 
 ### Download section (absent)
 
@@ -132,7 +132,6 @@ There is no separate "Download" section. Downloads happen automatically via the 
 
 ## Implementation Issues
 
-- `Delete Downloads` does not currently delete the `hardcoded-als` download directory, so it does not yet clear downloaded ALS from every channel.
 - The current UI still renders a `Download` section with explicit download actions (`Download latest/dev ALS`) rather than a channel-selection section as specified.
 
 ## Testing to Add/Fix
@@ -152,6 +151,8 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should retry Hardcoded download with WASM source when native download fails"`
   - `"should retry Hardcoded download with WASM source when Hardcoded channel resolution fails"`
   - `"should fall back to WASM when Hardcoded native download fails"`
+- Switch Version cleanup coverage should include:
+  - `"should remove download-managed paths from connection.paths on Delete Downloads"` in `test/tests/Test__State__SwitchVersion.res`
 
 ### Remaining Test Work
 

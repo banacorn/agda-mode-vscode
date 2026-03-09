@@ -748,6 +748,8 @@ describe("State__SwitchVersion", () => {
         ])
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
 
         let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
         let view = State__SwitchVersion.View.make(state.channels.log)
@@ -786,6 +788,7 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand])
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), None)
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(hardcodedDirUri)), false)
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy

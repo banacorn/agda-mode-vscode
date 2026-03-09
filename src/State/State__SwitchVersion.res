@@ -768,6 +768,7 @@ module Handler = {
             await deleteDir("dev-wasm-als")
             await deleteDir("dev-als")
             await deleteDir("latest-als")
+            await deleteDir("hardcoded-als")
             await removeDownloadedPathsFromConfig(state)
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
