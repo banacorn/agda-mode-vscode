@@ -17,6 +17,33 @@ describe("Platform dependent utilities", () => {
         }
       },
     )
+
+    Async.it(
+      "desktop alreadyDownloaded should fall back to hardcoded WASM when native binary is missing",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "desktop-hardcoded-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let hardcodedDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        let wasmFile = NodeJs.Path.join([hardcodedDir, "als.wasm"])
+
+        await NodeJs.Fs.mkdir(hardcodedDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
+
+        let platformDeps = Desktop.make()
+        module PlatformOps = unpack(platformDeps)
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let result = await PlatformOps.alreadyDownloaded(globalStorageUri, Hardcoded)
+        let expected = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
+        Assert.deepStrictEqual(result, Some(VSCode.Uri.toString(expected)))
+
+        NodeJs.Fs.unlinkSync(wasmFile)
+        NodeJs.Fs.rmdirSync(hardcodedDir)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
   })
 
   describe("Mock Platform for Testing", () => {

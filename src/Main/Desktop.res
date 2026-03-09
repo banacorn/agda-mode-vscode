@@ -25,11 +25,16 @@ module Desktop: Platform.PlatformOps = {
         }
       }
     | Connection__Download.Channel.Hardcoded => {
-        // Desktop: Only check for native binary
+        // Desktop: Prefer native, then fall back to WASM cache.
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
         switch await FS.stat(alsUri) {
         | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
-        | Error(_) => None
+        | Error(_) =>
+          let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
+          switch await FS.stat(wasmUri) {
+          | Ok(_) => Some(VSCode.Uri.toString(wasmUri))
+          | Error(_) => None
+          }
         }
       }
     }

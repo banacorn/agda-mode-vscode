@@ -423,6 +423,34 @@ module Module: Module = {
         // Use the hardcoded channel on all platforms.
         // On web, this resolves to the hardcoded WASM URL.
         let channel = Connection__Download.Channel.Hardcoded
+        let tryDownloadSource = async source =>
+          switch await PlatformOps.download(globalStorageUri, source) {
+          | Ok(path) => Ok(path)
+          | Error(error) =>
+            // For hardcoded native downloads, retry once with WASM.
+            // This gives desktop a graceful fallback when native artifacts fail.
+            switch source {
+            | Connection__Download.Source.FromURL(
+                Connection__Download.Channel.Hardcoded,
+                url,
+                _,
+              ) =>
+              if url->String.endsWith(".wasm") {
+                Error(error)
+              } else {
+                let wasmFallbackSource = Connection__Download.Source.FromURL(
+                  Connection__Download.Channel.Hardcoded,
+                  Connection__Hardcoded.wasmUrl,
+                  "hardcoded-als",
+                )
+                switch await PlatformOps.download(globalStorageUri, wasmFallbackSource) {
+                | Ok(path) => Ok(path)
+                | Error(wasmError) => Error(wasmError)
+                }
+              }
+            | _ => Error(error)
+            }
+          }
         // Get the downloaded path, download if not already done
         let downloadResult = switch await PlatformOps.alreadyDownloaded(
           globalStorageUri,
@@ -437,7 +465,7 @@ module Module: Module = {
           ) {
           | Error(error) => Error(Error.Establish.fromDownloadError(error))
           | Ok(downloadDescriptor) =>
-            switch await PlatformOps.download(globalStorageUri, downloadDescriptor) {
+            switch await tryDownloadSource(downloadDescriptor) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok(path)
             }
