@@ -91,9 +91,7 @@ The Switch Version UI has three jobs:
 
 ## Implementation Issues
 
-- **[Medium] Bare-command UI selection is not preserved as raw command** — `State__SwitchVersion.res` endpoint selection parses the selected string with `Connection.URI.parse` and then `switchAgdaVersion` stores `VSCode.Uri.fsPath` for `FileURI`. Selecting `"agda"` can therefore be normalized to an absolute filesystem path instead of preserving the explicit bare command string. This weakens the #272 guarantee and can make PATH-rebinding behavior environment-dependent.
-
-All previously listed chain-ordering, command-skip, config-writeback, and download state-update mismatches are now implemented and passing tests.
+No known implementation mismatches against this spec at this time.
 
 ## Testing to Add/Fix
 
@@ -101,7 +99,7 @@ This section tracks the current status of test alignment with this spec.
 
 ### Current Status (2026-03-09)
 
-- Full suite is green: `npm test` reports **583 passing, 8 pending, 0 failing**.
+- Full suite is green: `npm test` reports **585 passing, 8 pending, 0 failing**.
 - Connection contract coverage in `test/tests/Test__Connection.res` is green:
   - `"should try PickedConnection first even when it is not in connection.paths"`
   - `"should continue to later steps when PickedConnection fails"`
@@ -116,14 +114,9 @@ This section tracks the current status of test alignment with this spec.
 - Download failure contracts in `test/tests/Test__Connection.res` are fixed and passing.
 - Switch Version UI selection/download config semantics in `test/tests/Connection/Test__Connection__Config.res` are fixed and passing.
 - Memento non-auto-update behavior in `test/tests/Connection/Test__Connection__Memento.res` is fixed and passing.
+- Bare-command endpoint selection (`"agda"` / `"als"`) now preserves raw selection in `PickedConnection` and is guarded by tests in `test/tests/Connection/Test__Connection__Config.res`.
 
 ### Remaining Test Work
-
-- Add regression coverage for the remaining bare-command selection issue:
-  - In `test/tests/Connection/Test__Connection__Config.res`, add a case where a UI endpoint selection chooses `"agda"` and assert:
-    - `PickedConnection == Some("agda")`
-    - `connection.paths` is unchanged
-  - Add a symmetric `"als"` case if both command labels are exposed by the UI.
 
 - Existing flake controls still present:
   - `This.retries(2)` appears in connection-related test files.

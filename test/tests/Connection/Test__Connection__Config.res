@@ -507,6 +507,42 @@ describe("Config.Connection paths", () => {
             Assert.deepStrictEqual(pickedConnection, Some(selectedPath))
           },
         )
+
+        Async.it(
+          "should preserve bare agda command in PickedConnection without modifying config",
+          async () => {
+            let initialConfig = ["agda"]
+            let selectedPath = "agda"
+
+            let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
+              initialConfig,
+              selectedPath,
+              ~description="Selected",
+            )
+
+            Assert.deepStrictEqual(logs, [])
+            Assert.deepStrictEqual(finalConfig, initialConfig)
+            Assert.deepStrictEqual(pickedConnection, Some("agda"))
+          },
+        )
+
+        Async.it(
+          "should preserve bare als command in PickedConnection without modifying config",
+          async () => {
+            let initialConfig = ["als"]
+            let selectedPath = "als"
+
+            let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
+              initialConfig,
+              selectedPath,
+              ~description="Selected",
+            )
+
+            Assert.deepStrictEqual(logs, [])
+            Assert.deepStrictEqual(finalConfig, initialConfig)
+            Assert.deepStrictEqual(pickedConnection, Some("als"))
+          },
+        )
       },
     )
 

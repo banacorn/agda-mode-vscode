@@ -419,13 +419,7 @@ let resolveDownloadChannelWithPlatform = async (
 }
 
 // Connection switching logic
-let switchAgdaVersion = async (state: State.t, uri) => {
-  // convert URI to string path
-  let path = switch uri {
-  | Connection__URI.FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
-  | LspURI(raw, _) => raw
-  }
-
+let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
   // Skip the initial Connection.Endpoint.getPicked() call since it might clear our memento
   // Just show a generic "switching..." message
   await State__View.Panel.displayConnectionStatus(state, None)
@@ -435,14 +429,17 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     [],
   )
 
-  switch await Connection.make(path, Connection.Error.Establish.FromConfig) {
+  switch await Connection.fromPathsOrCommands(
+    state.platformDeps,
+    [(selectedPath, Connection.Error.Establish.FromConfig)],
+  ) {
   | Ok(conn) =>
     // stop the old connection
     let _ = await Connection.destroy(state.connection, state.channels.log)
 
     // update state
     state.connection = Some(conn)
-    await Memento.PickedConnection.set(state.memento, Some(path))
+    await Memento.PickedConnection.set(state.memento, Some(selectedPath))
 
     // update diplayed connection status
     await State__View.Panel.displayConnectionStatus(state, Some(conn))
@@ -454,11 +451,15 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     // update memento with discovered version information and display success message
     switch conn {
     | Agda(_, _, version) =>
-      await Memento.Endpoints.setVersion(state.memento, path, Memento.Endpoints.Agda(Some(version)))
+      await Memento.Endpoints.setVersion(
+        state.memento,
+        selectedPath,
+        Memento.Endpoints.Agda(Some(version)),
+      )
     | ALS(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
       await Memento.Endpoints.setVersion(
         state.memento,
-        path,
+        selectedPath,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
@@ -466,7 +467,7 @@ let switchAgdaVersion = async (state: State.t, uri) => {
     | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, lspOptions)) =>
       await Memento.Endpoints.setVersion(
         state.memento,
-        path,
+        selectedPath,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     }
@@ -826,8 +827,7 @@ module Handler = {
                 | None => ()
                 }
 
-                let uri = Connection.URI.parse(selectedPath)
-                await switchAgdaVersion(state, uri)
+                await switchAgdaVersion(state, selectedPath)
                 state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
               } else {
                 // No change in selection - still emit completion
