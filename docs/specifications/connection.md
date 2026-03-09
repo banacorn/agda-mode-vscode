@@ -94,7 +94,13 @@ Lists all available connection endpoints in a single merged list, in this fixed 
 
 Entries that failed version probing are shown with an error icon (`$(error)`) and the probe error as description. Entries of unknown type are shown with `$(question)`.
 
-The entry whose path/command exactly matches `PickedConnection` is marked with a checkmark. When `PickedConnection` is `None`, the currently active connection's path is used for marking instead (fresh-install inference). If neither is set, nothing is marked.
+Selection marking is determined by the following rules, in priority order:
+
+| `PickedConnection`  | `state.connection`  | Marked entry                          |
+|---------------------|---------------------|---------------------------------------|
+| `Some(path)`        | any                 | entry whose path/command equals `path`|
+| `None`              | `Some(conn)`        | entry matching `Connection.getPath(conn)` (fresh-install inference) |
+| `None`              | `None`              | (nothing marked)                      |
 
 If no endpoints exist (empty `connection.paths` and no PATH commands found), a "No installations" item is shown instead.
 
@@ -112,13 +118,23 @@ When LatestALS/DevALS are restored, this section lists all available channels: `
 
 - **Delete Downloads** — clears ALL downloaded ALS from global storage (every channel).
 
+### Actions
+
+| Action             | Guard              | Effect on `PickedConnection`  | Effect on `connection.paths`          | Other effects                         |
+|--------------------|--------------------|-------------------------------|---------------------------------------|---------------------------------------|
+| Select endpoint    | —                  | set to selected path/command  | unchanged                             | initiates connection attempt          |
+| Select channel     | ≥ 2 channels       | set to downloaded path        | downloaded path appended (deduped)    | download triggered; UI refreshes      |
+| Delete Downloads   | —                  | cleared (`None`)              | downloaded paths removed              | `Memento.Endpoints` cleared; download dirs deleted |
+
 ### Download section (absent)
 
 There is no separate "Download" section. Downloads happen automatically via the chain (steps 3–4), or via channel selection (above) when multiple channels are available.
 
 ## Implementation Issues
 
-- None currently.
+- `Delete Downloads` does not currently remove downloaded entries from `connection.paths`, but the `Actions` table specifies that it should.
+- `Delete Downloads` does not currently delete the `hardcoded-als` download directory, so it does not yet clear downloaded ALS from every channel.
+- The current UI still renders a `Download` section with explicit download actions (`Download latest/dev ALS`) rather than a channel-selection section as specified.
 
 ## Testing to Add/Fix
 
