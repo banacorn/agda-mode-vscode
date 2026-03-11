@@ -49,6 +49,10 @@ describe("Config.Connection paths", () => {
     await Endpoint.ALS.destroy(downloadedALS.contents)
   })
 
+  beforeEach(() => {
+    Registry__Connection.status := Empty
+  })
+
   // Mock platform that returns the system Agda path when `findCommand` is called
   let platformWithDiscovery = (
     module(
@@ -304,6 +308,7 @@ describe("Config.Connection paths", () => {
       let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
 
       State.make(
+        "test-id",
         platformWithDiscovery,
         channels,
         mockStorageUri,

@@ -47,11 +47,12 @@ type channels = {
 }
 
 type t = {
+  // unique ID for identifying this state instance in the connection registry
+  id: string,
   // platform dependencies for dependency injection
   platformDeps: Platform.t,
-  // connection
-  mutable connection: option<Connection.t>,
-  mutable agdaVersion: option<string>, // Agda version is set when connection is established
+  // Agda version is set when connection is established
+  mutable agdaVersion: option<string>,
   // editor and document
   mutable editor: VSCode.TextEditor.t,
   mutable document: VSCode.TextDocument.t,
@@ -78,6 +79,7 @@ type t = {
 }
 
 let make = (
+  id,
   platformDeps,
   channels,
   globalStorageUri,
@@ -86,8 +88,8 @@ let make = (
   editor,
   semanticTokens: option<Resource.t<array<Highlighting__SemanticToken.t>>>,
 ) => {
+  id,
   platformDeps,
-  connection: None,
   agdaVersion: None,
   editor,
   document: VSCode.TextEditor.document(editor),
@@ -127,9 +129,9 @@ let destroy = async (state, alsoRemoveFromRegistry) => {
   state.tokens->Tokens.reset
   state.tokens->Tokens.destroyUpdateChannel
   state.channels.log->Chan.emit(Others("State.destroy: Tokens reset completed"))
-  let result = await Connection.destroy(state.connection, state.channels.log)
-  state.channels.log->Chan.emit(Others("State.destroy: Connection destroyed, destruction complete"))
-  result
+  await Registry__Connection.release(state.id)
+  state.channels.log->Chan.emit(Others("State.destroy: Connection released, destruction complete"))
+  Ok()
 }
 
 // control the scope of command key-binding

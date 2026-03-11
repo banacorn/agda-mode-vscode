@@ -46,9 +46,14 @@ module Module: Module = {
     | Stderr(string)
     | Event(Event.t)
 
+  type created = {
+    process: NodeJs.ChildProcess.t,
+    promiseOnExit: promise<int>,
+  }
+
   // internal status
   type status =
-    | Created(NodeJs.ChildProcess.t)
+    | Created(created)
     | Destroying(promise<unit>)
     | Destroyed
 
@@ -110,38 +115,57 @@ module Module: Module = {
     ->Promise.thenResolve(exitCode => chan->Chan.emit(Event(OnExit(exitCode))))
     ->ignore
 
-    {chan, status: Created(process)}
+    {chan, status: Created({process, promiseOnExit})}
   }
 
   let destroy = self =>
     switch self.status {
-    | Created(process) =>
+    | Created({process, promiseOnExit}) =>
       // set the status to "Destroying"
-      // let (promise, resolve) = Promise.pending()
       let promise = Promise.make((resolve, _) => {
-        // listen to the `exit` event
-        let _ = self.chan->Chan.on(x =>
-          switch x {
-          | Event(OnExit(_)) =>
-            self.chan->Chan.destroy
-            self.status = Destroyed
-            resolve()
+        // Destroy the channel immediately to prevent further events
+        self.chan->Chan.destroy
+
+        // Forcefully kill the process tree immediately
+        if OS.onUnix {
+          NodeJs.ChildProcess.kill(process, "SIGKILL")
+        } else {
+          // Windows tree kill
+          let pid = NodeJs.ChildProcess.pid(process)
+          try {
+            let _ = %raw(`require('child_process').execSync`)(
+              "taskkill /F /T /PID " ++ string_of_int(pid),
+            )
+          } catch {
           | _ => ()
           }
-        )
 
-        // trigger `exit`
-        NodeJs.ChildProcess.kill(process, "SIGTERM")
+          // Ensure this process object also observes termination, even if taskkill
+          // does not trigger a local close event path (e.g. mocked processes in tests).
+          try {
+            NodeJs.ChildProcess.kill(process, "SIGKILL")
+          } catch {
+          | _ => ()
+          }
+        }
+
+        // Resolve only after process exit/close is confirmed, then stabilize at Destroyed.
+        promiseOnExit
+        ->Promise.thenResolve(_ => {
+          self.status = Destroyed
+          resolve()
+        })
+        ->ignore
       })
       self.status = Destroying(promise)
       promise
     | Destroying(promise) => promise
-    | Destroyed => Promise.make((resolve, _) => resolve())
+    | Destroyed => Promise.resolve()
     }
 
   let send = (self, request): bool => {
     switch self.status {
-    | Created(process) =>
+    | Created({process}) =>
       let payload = NodeJs.Buffer.fromString(request ++ NodeJs.Os.eol)
       process
       ->NodeJs.ChildProcess.stdin
