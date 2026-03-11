@@ -202,10 +202,10 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Guarded by passing test: `"should not treat checking-availability placeholder as endpoint selection"` (`Test__State__SwitchVersion`).
    Remaining coverage gap: no test yet asserts deferred download execution for a placeholder-originated click.
 
-8. **[Coverage: CONTRADICTORY] Download section header does not show active channel.**
+8. **[Coverage: PARTIAL] Download section header does not show active channel.**
    Spec says the active channel is visible in the Download section header.
    Implementation uses a fixed `"Download"` separator without channel state.
-   Current tests look for `Separator("Download")`.
+   Guarded by failing test: `"should include active channel in download section header"` (`Test__State__SwitchVersion`).
 
 9. **[Coverage: CONTRADICTORY] Implementation shows `NoInstallations` item when there are no endpoints.**
    Spec says the Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found.
@@ -241,6 +241,7 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should keep main quickpick open when selecting channel-switch button"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should hide native download variant when its managed path is already in connection.paths"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should not treat checking-availability placeholder as endpoint selection"` in `test/tests/Test__State__SwitchVersion.res`
+  - `"should include active channel in download section header"` in `test/tests/Test__State__SwitchVersion.res`
 
 ### Remaining Test Work
 

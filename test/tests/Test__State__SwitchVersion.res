@@ -510,6 +510,32 @@ describe("State__SwitchVersion", () => {
             Assert.ok(downloadAction->Option.isSome)
           },
         )
+
+        it(
+          "should include active channel in download section header",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [(false, "ALS v1.0.0", "native")],
+            )
+
+            let channelAwareDownloadSeparator = itemData->Array.find(
+              data =>
+                switch data {
+                | Separator("⬇ Download  (channel: Hardcoded)") => true
+                | _ => false
+                },
+            )
+
+            Assert.ok(channelAwareDownloadSeparator->Option.isSome)
+          },
+        )
       },
     )
   })
