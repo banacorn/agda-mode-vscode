@@ -166,7 +166,7 @@ There is no standalone "Download" command. Downloads are triggered by selecting 
 
 Coverage tags: `PARTIAL` / `CONTRADICTORY` / `NONE`
 
-1. **[Coverage: NONE] Web platform shows native download variant.**
+1. **[Coverage: PARTIAL] Web platform shows native download variant.**
    Spec says Web shows WASM only. Implementation has no platform-aware filtering in the item list — platform is only checked later inside the download handler. Web users would see a native ALS entry that should be hidden.
 
 2. **[Coverage: PARTIAL] Step-2 command success overwrites existing `PickedConnection`.**
@@ -231,6 +231,7 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should fall back to WASM when Hardcoded native download fails"`
 - Switch Version cleanup coverage should include:
   - `"should remove download-managed paths from connection.paths on Delete Downloads"` in `test/tests/Test__State__SwitchVersion.res`
+  - `"should not show native download option on web platform"` in `test/tests/Test__State__SwitchVersion.res`
 
 ### Remaining Test Work
 

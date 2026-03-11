@@ -559,6 +559,62 @@ describe("State__SwitchVersion", () => {
     let createTestState = () => createTestStateWithPlatform(makeMockPlatform())
 
     Async.it(
+      "should not show native download option on web platform",
+      async () => {
+        module MockWebPlatform = {
+          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
+
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+
+          let resolveDownloadChannel = (channel, _useCache) =>
+            async (_memento, _globalStorageUri, _platform) =>
+              switch channel {
+              | Connection__Download.Channel.LatestALS =>
+                Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              | Connection__Download.Channel.DevALS =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.DevALS,
+                    "https://example.invalid/dev-als.wasm",
+                    "dev-als",
+                  ),
+                )
+              | Connection__Download.Channel.Hardcoded =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.Hardcoded,
+                    "https://example.invalid/hardcoded-als.wasm",
+                    "hardcoded-als",
+                  ),
+                )
+              }
+
+          let download = (_globalStorageUri, _downloadDescriptor) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+
+          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let webPlatform: Platform.t = module(MockWebPlatform)
+        let state = createTestStateWithPlatform(webPlatform)
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          webPlatform,
+        )
+
+        let hasNativeLatest =
+          downloadItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
+            downloadType == "latest"
+          )
+
+        Assert.deepStrictEqual(hasNativeLatest, false)
+      },
+    )
+
+    Async.it(
       "should have an endpoint marked as selected onActivation",
       async () => {
         /**
