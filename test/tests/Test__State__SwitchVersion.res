@@ -798,6 +798,49 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should not treat unknown quickpick item labels as endpoint selection",
+      async () => {
+        let state = createTestState()
+        let selectedPath = mockAgda.contents
+        let discoveredEndpoints = Dict.make()
+        discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(None))
+        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let sawSelectedEndpoint = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(SelectedEndpoint(_, _, _)) => sawSelectedEndpoint := true
+          | _ => ()
+          }
+        )
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: "__unexpected_item__",
+          description: "",
+          detail: selectedPath,
+        }
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(sawSelectedEndpoint.contents, false)
+      },
+    )
+
+    Async.it(
       "should keep main quickpick open when selecting channel-switch button",
       async () => {
         let state = createTestState()

@@ -208,6 +208,7 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
 
 10. **[Coverage: NONE] Selection handler treats unknown items as endpoints.**
    Any item that doesn't match `deleteDownloads`, `downloadNativeALS`, or `downloadWasmALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
+   Guarded by failing test: `"should not treat unknown quickpick item labels as endpoint selection"` (`Test__State__SwitchVersion`).
 
 11. **[Coverage: NONE] Path format contract (fsPath vs URI) unspecified.**
    The implementation's `isPathUnderDownloadDirectory()` handles both filesystem path and URI string formats. The spec does not define which format paths in `connection.paths` are expected to be in.
