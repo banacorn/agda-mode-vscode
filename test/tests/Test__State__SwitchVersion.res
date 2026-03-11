@@ -600,16 +600,24 @@ describe("State__SwitchVersion", () => {
 
         let webPlatform: Platform.t = module(MockWebPlatform)
         let state = createTestStateWithPlatform(webPlatform)
+        let placeholderItems = await State__SwitchVersion.Download.getPlaceholderDownloadItems(
+          webPlatform,
+        )
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
           state,
           webPlatform,
         )
 
+        let placeholderHasNativeLatest =
+          placeholderItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
+            downloadType == "latest"
+          )
         let hasNativeLatest =
           downloadItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
             downloadType == "latest"
           )
 
+        Assert.deepStrictEqual(placeholderHasNativeLatest, false)
         Assert.deepStrictEqual(hasNativeLatest, false)
       },
     )

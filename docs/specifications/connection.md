@@ -165,9 +165,7 @@ There is no standalone "Download" command. Downloads are triggered by selecting 
 ## Implementation Issues
 
 Coverage tags: `PARTIAL` / `CONTRADICTORY` / `NONE`
-
-1. **[Coverage: PARTIAL] Web platform shows native download variant.**
-   Spec says Web shows WASM only. Implementation has no platform-aware filtering in the item list — platform is only checked later inside the download handler. Web users would see a native ALS entry that should be hidden.
+Stable IDs: numbering is an identifier and is not renumbered after removals.
 
 2. **[Coverage: PARTIAL] Step-2 command success overwrites existing `PickedConnection`.**
    Spec says step 2 sets `PickedConnection` only when it is currently `None`.

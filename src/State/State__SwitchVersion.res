@@ -547,15 +547,28 @@ module Download = {
   }
 
 
-  // Create placeholder download items to prevent UI jitter
-  let getPlaceholderDownloadItems = (): array<(bool, string, string)> => {
-    let items = [(false, "Checking availability...", "latest")]
+  // Create placeholder download items to prevent UI jitter.
+  // Web must not expose native/latest placeholder entries.
+  let getPlaceholderDownloadItems = async (
+    platformDeps: Platform.t,
+  ): array<(bool, string, string)> => {
+    module PlatformOps = unpack(platformDeps)
+    switch await PlatformOps.determinePlatform() {
+    | Ok(Connection__Download__Platform.Web) =>
+      if Config.DevMode.get() {
+        [(false, "Checking availability...", "dev")]
+      } else {
+        []
+      }
+    | _ =>
+      let items = [(false, "Checking availability...", "latest")]
 
-    // Add dev placeholder if dev mode is enabled
-    if Config.DevMode.get() {
-      Array.concat(items, [(false, "Checking availability...", "dev")])
-    } else {
-      items
+      // Add dev placeholder if dev mode is enabled
+      if Config.DevMode.get() {
+        Array.concat(items, [(false, "Checking availability...", "dev")])
+      } else {
+        items
+      }
     }
   }
 
@@ -565,12 +578,16 @@ module Download = {
     string,
     string,
   )> => {
-    let latestPromise = getAvailableLatestDownload(state, platformDeps)
+    module PlatformOps = unpack(platformDeps)
 
-    // Always maintain fixed structure - replace placeholders with actual data or keep placeholders
-    let latestItem = switch await latestPromise {
-    | Some(item) => item
-    | None => (false, "Not available for this platform", "latest")
+    // Web should not present native/latest download actions.
+    let latestItems = switch await PlatformOps.determinePlatform() {
+    | Ok(Connection__Download__Platform.Web) => []
+    | _ =>
+      switch await getAvailableLatestDownload(state, platformDeps) {
+      | Some(item) => [item]
+      | None => [(false, "Not available for this platform", "latest")]
+      }
     }
 
     // Only include dev ALS when dev mode is enabled
@@ -583,7 +600,7 @@ module Download = {
       []
     }
 
-    [latestItem, ...devItem]
+    [...latestItems, ...devItem]
   }
 }
 
@@ -903,7 +920,7 @@ module Handler = {
     view->View.setPlaceholder("Switch Agda Version")
 
     // PHASE 1: Show cached items immediately with placeholders to prevent jitter
-    await updateUI(Download.getPlaceholderDownloadItems())
+    await updateUI(await Download.getPlaceholderDownloadItems(platformDeps))
     view->View.show
     state.channels.log->Chan.emit(SwitchVersionUI(Others("QuickPick shown")))
 
