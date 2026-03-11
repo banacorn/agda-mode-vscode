@@ -542,7 +542,7 @@ module Module: Module = {
   //
   // `Memento.PickedConnection` behavior:
   //  * Always tried first when set
-  //  * Updated to bare command name on step-2 command success
+  //  * Updated to bare command name on step-2 command success only when currently unset
   //  * Updated when the connection comes from download
 
   let makeWithFallback = async (
@@ -617,7 +617,10 @@ module Module: Module = {
       | Error(step1Error) =>
         switch await fromCommandsWithWinner(platformDeps, filteredCommands) {
         | Ok((connection, command)) =>
-          await Memento.PickedConnection.set(memento, Some(command))
+          switch Memento.PickedConnection.get(memento) {
+          | None => await Memento.PickedConnection.set(memento, Some(command))
+          | Some(_) => ()
+          }
           logConnection(connection)
           Ok(connection)
         | Error(step2Error) =>
