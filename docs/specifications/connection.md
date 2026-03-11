@@ -9,7 +9,7 @@ This spec defines the normative behavior of the connection system, covering:
 
 This spec does not cover:
 - Download protocols or network implementation details
-- Platform-specific behavior (desktop vs web)
+- Platform detection internals (how desktop vs web is determined)
 - Internal storage formats (e.g. memento key layout)
 - Version probing internals
 
@@ -25,36 +25,37 @@ This spec does not cover:
 **`connection.paths` updates**
 - Command-discovered paths (step 2) MUST NOT be added to `connection.paths`.
 - When a download completes (chain or UI-triggered), the downloaded path MUST be appended to `connection.paths`, deduplicated.
+- Endpoint selection in the Switch Version UI MUST NOT add the selected path to `connection.paths`.
 
 **`PickedConnection` updates**
-- `PickedConnection` MAY be an absolute path or a bare command name, matching whatever the user selected.
+- `PickedConnection` MAY be an absolute path or a bare command name.
 - `PickedConnection` MUST only be changed by:
-  - step 2 success — set to the bare command name (e.g. `"agda"`), not the resolved path
+  - step 2 success — set to the bare command name (e.g. `"agda"`), only if currently `None`
   - a download completing — set to the downloaded path
   - explicit endpoint selection in the Switch Version UI — set to the selected path/command
+  - Delete Downloads action — cleared to `None`, but only if currently pointing to a downloaded path
 - `PickedConnection` MUST NOT be auto-cleared or demoted on failure.
-- Endpoint selection in the Switch Version UI MUST NOT add the selected path to `connection.paths`.
 
 **Switch Version UI**
 - The channel selection UI MUST be hidden when fewer than two channels are available.
 
 ## The Connection Chain
 
-The chain is tried in order, stopping at the first success. Failure at any step is non-fatal — the chain continues to the next step.
+Step names and order only. Formal stop/continue behavior and skip rules are defined in **Normative Rules**.
 
-0. **Picked** — `PickedConnection` if set, regardless of whether it appears in `connection.paths`
-1. **Paths** — remaining entries in `agdaMode.connection.paths` (excluding any entry that exactly matches `PickedConnection`)
-2. **Commands** — `agda`, `als` looked up from PATH (skipped individually if the exact string `"agda"` or `"als"` appears in `connection.paths` or equals `PickedConnection`)
+0. **Picked** — `PickedConnection`
+1. **Paths** — entries from `agdaMode.connection.paths` (after step-1 exclusion rule)
+2. **Commands** — PATH `agda`, `als` (after step-2 skip rules)
 3. **Download native** — download native binary via the active channel
-4. **Download WASM** — fallback if native download fails **or** native channel resolution fails
+4. **Download WASM** — fallback from step 3 when native fails
 
 ## Channels
 
 A channel determines which version of ALS to download. The format fallback (native → WASM) is orthogonal to channel selection: regardless of which channel is active, native is always tried before WASM.
 
-- `Hardcoded` — temporary pinned known-good version *(current)*
-- `LatestALS` — latest release from GitHub *(planned)*
-- `DevALS` — dev release *(planned)*
+- `Hardcoded` — pinned known-good version
+- `LatestALS` — latest release from GitHub
+- `DevALS` — dev release
 
 
 ## `connection.paths`
@@ -63,9 +64,9 @@ A channel determines which version of ALS to download. The format fallback (nati
 
 The list is probed in **reverse order** — the last entry is tried first. This is intentional and documented in the config schema (`package.json`: "from the LAST to the first").
 
-When the chain downloads an ALS binary (steps 3–4), the downloaded path is appended to `connection.paths` (deduplicated). Since `getAgdaPaths()` reverses the list before probing, the last entry is tried first — so an appended download naturally has the highest priority even without `PickedConnection` (see `package.json` config schema).
+By rule, successful downloads append (deduplicated) to `connection.paths`. Since `getAgdaPaths()` reverses before probing, appended downloads naturally have highest priority even without `PickedConnection` (see `package.json` config schema).
 
-Command-discovered paths (step 2) are **never** added to `connection.paths`. If a user puts `agda` in the list, they intend for it to resolve from PATH on every run. Adding the resolved absolute path back to the list would override that intent (see PR #272).
+By rule, command-discovered paths (step 2) are never added to `connection.paths`. This preserves bare-command intent (`agda` should re-resolve from PATH each run; see PR #272).
 
 ## `PickedConnection`
 
@@ -73,26 +74,45 @@ Command-discovered paths (step 2) are **never** added to `connection.paths`. If 
 
 **Lifecycle rules:**
 - `PickedConnection` is sticky and must not be auto-cleared or demoted on connection failure.
-- `PickedConnection` changes only via step 2 command success, an explicit user action (Switch Version UI), or a download action.
+- Normative update rules are defined in **Normative Rules**.
 
-`PickedConnection` is set in four ways:
+`PickedConnection` is changed in these ways:
 
-1. **Command lookup (step 2)** — when `agda` or `als` is found in PATH and used to connect, `PickedConnection` is set to the bare command name (e.g. `"agda"`), not the resolved absolute path.
-2. **Chain auto-download** — when the chain downloads ALS as a fallback (steps 3–4), it sets both `connection.paths` and `PickedConnection`.
-3. **UI channel selection** — when the user selects a channel in the Switch Version UI (section 2, visible only when multiple channels are available), the download runs and produces the same result.
-4. **UI endpoint selection** — when the user selects an entry (from `connection.paths` or PATH-discovered), only `PickedConnection` is updated. The path is never added to `connection.paths` here.
+**Set:**
+1. **Command lookup (step 2)** — when `agda` or `als` is found in PATH and used to connect, `PickedConnection` is set to the bare command name (e.g. `"agda"`), not the resolved absolute path. This only happens when `PickedConnection` is currently `None`; an existing pick is never overwritten by step 2.
+2. **Chain auto-download** — when the chain downloads ALS as a fallback (steps 3–4), `PickedConnection` is set to the downloaded path.
+3. **UI download variant selection** — when the user selects a download variant in the Switch Version UI (section 2), successful download sets `PickedConnection` to the downloaded path.
+4. **UI endpoint selection** — when the user selects an entry (from `connection.paths` or PATH-discovered), `PickedConnection` is set to that selected path/command.
+
+**Cleared:**
+5. **Delete Downloads** — clears `PickedConnection` to `None`, but only if it currently points to a downloaded path. Non-download picks (system installs, bare commands) are left unchanged.
 
 ## Switch Version UI
 
-The UI is a VSCode QuickPick. It has three sections, always in this order:
+The UI is a VSCode QuickPick with up to three sections ("Installed", "Download", "Misc"), always in this order, separated by VSCode QuickPick separators. The Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found. When two or more channels are available, a standalone `"📡 Select other channels"` button is inserted between the Download section and the Misc section (it is not a section separator — just a button item).
 
-### 1. Endpoints
+### 1. Installed
 
 Lists all available connection endpoints in a single merged list, in this fixed order:
-- Entries from `connection.paths`, in the order stored in config
+- Entries from `connection.paths`, in reverse config order (highest priority first)
 - PATH-discovered `agda` (if found in PATH), then `als` (if found in PATH)
 
-Entries that failed version probing are shown with an error icon (`$(error)`) and the probe error as description. Entries of unknown type are shown with `$(question)`.
+Each endpoint item renders as (strings are normative; angle-bracket tokens like `<v>` are placeholders for runtime values):
+
+| Endpoint type         | Label                          | Description                        | Detail | Icon              |
+|-----------------------|--------------------------------|------------------------------------|--------|-------------------|
+| `Agda(Some(v))`       | `"Agda <v>"`                   | `"Selected"` if marked, else `""`  | path   | dark/light `.png` |
+| `Agda(None)`          | `"Agda (version unknown)"`     | `"Selected"` if marked, else `""`  | path   | dark/light `.png` |
+| `ALS(Some(v, a, _))`  | `"ALS 🐿 <v>, Agda <a>"`       | `"Selected"` if marked, else `""`  | path   | —                 |
+| `ALS(None)`           | `"ALS 🐿 (version unknown)"`   | `"Selected"` if marked, else `""`  | path   | —                 |
+| `Unknown` + error     | `"$(error) <filename>"`        | `"Error: <error>"`                 | path   | —                 |
+| `Unknown` (no error)  | `"$(question) <filename>"`     | `"Unknown executable"`             | path   | —                 |
+
+`NoInstallations` renders as:
+
+| Label                              | Description                          | Detail                           |
+|------------------------------------|--------------------------------------|----------------------------------|
+| `"$(info) No installations found"` | `"Try installing Agda or ALS first"` | `"No executable paths detected"` |
 
 Selection marking is determined by the following rules, in priority order:
 
@@ -102,37 +122,95 @@ Selection marking is determined by the following rules, in priority order:
 | `None`              | `Some(conn)`        | entry matching `Connection.getPath(conn)` (fresh-install inference) |
 | `None`              | `None`              | (nothing marked)                      |
 
-If no endpoints exist (empty `connection.paths` and no PATH commands found), a "No installations" item is shown instead.
+If no endpoints exist (empty `connection.paths` and no PATH commands found), the entire Installed section is hidden — no separator and no placeholder item.
 
-**Selecting an endpoint** sets `PickedConnection` to the selected path/command. `connection.paths` is never modified by endpoint selection.
+Endpoint selection behavior follows **Normative Rules**.
 
-### 2. Channel (hidden when fewer than 2 channels are available)
+### 2. Download
 
-Currently hidden — only `Hardcoded` exists, so the section does not appear.
+Lists the download variants for the currently selected channel:
 
-When LatestALS/DevALS are restored, this section lists all available channels: `Hardcoded`, `LatestALS`, `DevALS` (DevALS only when DevMode is enabled). The active channel is marked.
+| Platform | Entries shown                     |
+|----------|-----------------------------------|
+| Desktop  | Native ALS entry + WASM ALS entry |
+| Web      | WASM ALS entry only               |
 
-**Selecting a channel** immediately triggers a download for that channel. On success, the downloaded path is appended to `connection.paths` and `PickedConnection` is set to it.
+Each entry shows the version string as detail. A variant is **hidden** from the Download section if and only if its expected download path (under the extension's known download directory) is already present in `connection.paths`. Such a path appears instead in the Installed section, preventing duplication. User-provided paths (manual installs, custom builds) are never in the download directory, so they never suppress a Download entry. Selecting an entry triggers an immediate download for that variant; state updates follow **Normative Rules**.
 
-### 3. Misc
+**Placeholder loading phase:** While channel metadata is being fetched asynchronously, the Download section shows a single disabled-looking item labelled `"Checking availability..."` in place of the real variants. Once metadata is ready, this placeholder is replaced with the actual variant entries. The Installed section is unaffected by this phase. Selection is allowed throughout — if the user picks a Download item while loading, the action proceeds normally once the item resolves.
 
-- **Delete Downloads** — clears ALL downloaded ALS from global storage (every channel).
+### 3. Channels (hidden when fewer than 2 channels are available)
+
+A single standalone button item labelled `"📡 Select other channels"`, placed between the Download section and the Misc section. It is not a section with a header — just a button in the item list. The currently active channel is visible in the Download section header (e.g. `"⬇ Download  (channel: Hardcoded)"`), so the button label does not repeat it.
+
+Selecting the button opens a **sub-QuickPick** listing all available channels (`Hardcoded`, `LatestALS`, `DevALS` — DevALS only when DevMode is enabled). After the user picks a channel, the main QuickPick stays open and the Download section refreshes to show that channel's variants.
+
+### 4. Misc
+
+- **Delete Downloads** (`"$(trash)  Delete downloads"`) — clears ALL downloaded ALS from global storage (every channel).
 
 ### Actions
 
-| Action             | Guard              | Effect on `PickedConnection`  | Effect on `connection.paths`          | Other effects                         |
-|--------------------|--------------------|-------------------------------|---------------------------------------|---------------------------------------|
-| Select endpoint    | —                  | set to selected path/command  | unchanged                             | initiates connection attempt          |
-| Select channel     | ≥ 2 channels       | set to downloaded path        | downloaded path appended (deduped)    | download triggered; UI refreshes      |
-| Delete Downloads   | —                  | cleared (`None`)              | downloaded paths removed              | `Memento.Endpoints` cleared; download dirs deleted (including `hardcoded-als`) |
+| Action                  | Guard                | Effect on `PickedConnection`  | Effect on `connection.paths`       | Other effects                                      |
+|-------------------------|----------------------|-------------------------------|------------------------------------|----------------------------------------------------|
+| Select endpoint         | —                    | set to selected path/command  | unchanged                          | initiates connection attempt                       |
+| Select download variant | variant shown for current platform (see Download section table) | set to downloaded path        | downloaded path appended (deduped) | download triggered; UI refreshes                   |
+| Select channel          | ≥ 2 channels         | unchanged                     | unchanged                          | Download section refreshes with new channel variants|
+| Delete Downloads        | —                    | cleared (`None`) if pointing to a downloaded path, else unchanged | downloaded paths removed           | `Memento.Endpoints` cleared; download dirs deleted |
 
-### Download section (absent)
+### Download section (absent as a top-level command)
 
-There is no separate "Download" section. Downloads happen automatically via the chain (steps 3–4), or via channel selection (above) when multiple channels are available.
+There is no standalone "Download" command. Downloads are triggered by selecting a download variant in the Switch Version UI (section 2 above) or automatically via the connection chain (steps 3–4).
 
 ## Implementation Issues
 
-- The current UI still renders a `Download` section with explicit download actions (`Download latest/dev ALS`) rather than a channel-selection section as specified.
+Coverage tags: `PARTIAL` / `CONTRADICTORY` / `NONE`
+
+1. **[Coverage: NONE] Web platform shows native download variant.**
+   Spec says Web shows WASM only. Implementation has no platform-aware filtering in the item list — platform is only checked later inside the download handler. Web users would see a native ALS entry that should be hidden.
+
+2. **[Coverage: PARTIAL] Step-2 command success overwrites existing `PickedConnection`.**
+   Spec says step 2 sets `PickedConnection` only when it is currently `None`.
+   Implementation currently sets it unconditionally on step-2 success.
+   Covered for the `None` case (`Test__Connection__Memento`), but no test guards the "must not overwrite existing pick" case.
+
+3. **[Coverage: PARTIAL] Delete Downloads unconditionally clears `PickedConnection`.**
+   Spec says `PickedConnection` should only be cleared if it points to a downloaded path.
+   Implementation calls `Memento.PickedConnection.clear` unconditionally (`State__SwitchVersion.res:776`).
+   Covered for downloaded picks (`Test__State__SwitchVersion`), but no test guards "non-download picks remain unchanged."
+
+4. **[Coverage: CONTRADICTORY] Download section shows per-channel items, not per-variant items.**
+   Spec says the Download section lists native + WASM variants for the currently selected channel.
+   Implementation shows one download item per channel (`LatestALS`, `DevALS`), not per variant.
+   Current item-data tests assert existing `DownloadAction(..., "latest"/"dev")` behavior.
+
+5. **[Coverage: NONE] Channels section not implemented as sub-QuickPick.**
+   Spec says section 3 shows a single button that opens a sub-QuickPick to select a channel, leaving the main QuickPick open.
+   Implementation does not have this sub-QuickPick flow.
+
+6. **[Coverage: NONE] Download variants are not suppressed when already present in `connection.paths`.**
+   Spec says a download variant is hidden iff its expected download path is already in `connection.paths`.
+   Implementation always renders available download items and does not apply this `connection.paths`-based suppression.
+
+7. **[Coverage: NONE] Selecting a placeholder item during loading is not handled correctly.**
+   Spec says selection is allowed throughout the placeholder phase, and the action proceeds normally once metadata resolves.
+   Implementation does not handle placeholder item selection — the handler tries to match the placeholder label against known constants and falls through to endpoint selection logic.
+
+8. **[Coverage: CONTRADICTORY] Download section header does not show active channel.**
+   Spec says the active channel is visible in the Download section header.
+   Implementation uses a fixed `"Download"` separator without channel state.
+   Current tests look for `Separator("Download")`.
+
+9. **[Coverage: CONTRADICTORY] Implementation shows `NoInstallations` item when there are no endpoints.**
+   Spec says the Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found.
+   Implementation emits a `NoInstallations` item instead.
+   Current tests assert `NoInstallations` first, which will need updating.
+
+10. **[Coverage: NONE] Selection handler treats unknown items as endpoints.**
+   Any item that doesn't match `deleteDownloads`, `downloadLatestALS`, or `downloadDevALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
+
+11. **[Coverage: NONE] Path format contract (fsPath vs URI) unspecified.**
+   The implementation's `isPathUnderDownloadDirectory()` handles both filesystem path and URI string formats. The spec does not define which format paths in `connection.paths` are expected to be in.
 
 ## Testing to Add/Fix
 
@@ -182,3 +260,58 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - WASM path detection (`hardcoded-als/als.wasm`)
   - native-over-WASM preference when both exist
 - Keep these tests as baseline coverage for native/WASM discovery semantics while adding higher-level chain/fallback contract tests.
+
+## Future Work: Testable State Transitions
+
+Currently `Handler.onSelection` mixes three concerns — deciding the new state, persisting it, and triggering side effects — making state transition logic untestable without mocking VSCode APIs.
+
+### Proposed Refactor
+
+Separate state decision from execution by introducing:
+
+**1. An action type**
+```rescript
+type action =
+  | SelectEndpoint(string)
+  | SelectDownload(downloadVariant)
+  | SelectChannel(channel)
+  | DeleteDownloads
+```
+
+**2. A pure transition function**
+```rescript
+type stateUpdate = {
+  pickedConnection: option<string>,
+  pathsToAdd: array<string>,
+  pathsToRemove: array<string>,
+  activeChannel: channel,
+}
+
+let transition: (state, action) => stateUpdate
+```
+
+`transition` is pure — no I/O, no memento, no VSCode calls. It returns a description of what should change.
+
+**3. A thin executor**
+```rescript
+let applyUpdate: (stateUpdate, context) => promise<unit>
+```
+
+Applies the update to memento, config, triggers downloads, etc. Intentionally left as integration-level only.
+
+### Testing
+
+Tests call `transition` directly and assert exact equality on the returned `stateUpdate`:
+
+```rescript
+Assert.deepStrictEqual(
+  transition(initialState, SelectDownload(Native)),
+  { pickedConnection: Some(downloadedPath), pathsToAdd: [downloadedPath], ... }
+)
+```
+
+No mocking, no async, no VSCode required. The async render phases (filesystem sync, version probing) are irrelevant here — `transition` operates on already-resolved state at the point of user selection.
+
+### Scope
+
+The refactor surface is small: extract decision logic out of `Handler.onSelection` into `transition`, leave I/O wiring in place calling `applyUpdate`. The pure render pipeline (`ItemData.entriesToItemData` etc.) is already separately testable and does not need to change.
