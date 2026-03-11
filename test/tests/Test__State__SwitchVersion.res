@@ -683,6 +683,41 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should keep main quickpick open when selecting channel-switch button",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let sawDestroyed = ref(false)
+        let sawSelectionCompleted = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | Log.SwitchVersionUI(SelectionCompleted) => sawSelectionCompleted := true
+          | _ => ()
+          }
+        )
+
+        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "📡 Select other channels" })`)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
+        Assert.deepStrictEqual(sawSelectionCompleted.contents, false)
+      },
+    )
+
+    Async.it(
       "should keep existing shared connection when switch target cannot be established",
       async () => {
         // Keep this test isolated from prior registry state.
