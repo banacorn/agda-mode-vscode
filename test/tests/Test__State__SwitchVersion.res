@@ -1088,8 +1088,20 @@ describe("State__SwitchVersion", () => {
           discoveredEndpoints->Dict.set("als", Memento.Endpoints.ALS(None))
           await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
 
+          let selectedItemLabel = switch Memento.Endpoints.get(state.memento, selectedPath) {
+          | Some(entry) =>
+            let (label, _description) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+              NodeJs.Path.basename(selectedPath),
+              entry,
+            )
+            label
+          | None =>
+            Assert.fail("Expected discovered endpoint to exist in memento")
+            ""
+          }
+
           let selectedItem: VSCode.QuickPickItem.t = {
-            label: "mock",
+            label: selectedItemLabel,
             description: "",
             detail: selectedPath,
           }

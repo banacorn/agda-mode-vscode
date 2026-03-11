@@ -206,9 +206,10 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Implementation now matches this behavior.
    Guarded by passing test: `"should hide Installed section when no endpoints are found"` (`Test__State__SwitchVersion`).
 
-10. **[Coverage: NONE] Selection handler treats unknown items as endpoints.**
-   Any item that doesn't match `deleteDownloads`, `downloadNativeALS`, or `downloadWasmALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
-   Guarded by failing test: `"should not treat unknown quickpick item labels as endpoint selection"` (`Test__State__SwitchVersion`).
+10. **[Coverage: PARTIAL] Historical ID — unknown QuickPick items are ignored (not treated as endpoint selections).**
+   Endpoint selection now requires a known endpoint path and matching expected endpoint label from memento endpoint entries.
+   Unknown items no longer fall through to endpoint switching.
+   Guarded by passing test: `"should not treat unknown quickpick item labels as endpoint selection"` (`Test__State__SwitchVersion`).
 
 11. **[Coverage: NONE] Path format contract (fsPath vs URI) unspecified.**
    The implementation's `isPathUnderDownloadDirectory()` handles both filesystem path and URI string formats. The spec does not define which format paths in `connection.paths` are expected to be in.
@@ -237,6 +238,7 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should keep main quickpick open when selecting channel-switch button"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should hide native download variant when its managed path is already in connection.paths"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should not treat checking-availability placeholder as endpoint selection"` in `test/tests/Test__State__SwitchVersion.res`
+  - `"should not treat unknown quickpick item labels as endpoint selection"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should include active channel in download section header"` in `test/tests/Test__State__SwitchVersion.res`
 
 ### Remaining Test Work

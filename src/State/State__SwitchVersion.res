@@ -734,6 +734,29 @@ module Handler = {
     }
   }
 
+  let isKnownEndpointSelection = (
+    manager: SwitchVersionManager.t,
+    selectedItem: VSCode.QuickPickItem.t,
+  ): option<string> =>
+    switch selectedItem.detail {
+    | Some(selectedPath) =>
+      switch Memento.Endpoints.get(manager.memento, selectedPath) {
+      | Some(entry) =>
+        let filename = NodeJs.Path.basename(selectedPath)
+        let (expectedLabel, _expectedErrorDescription) = ItemData.getEndpointDisplayInfo(
+          filename,
+          entry,
+        )
+        if selectedItem.label == expectedLabel {
+          Some(selectedPath)
+        } else {
+          None
+        }
+      | None => None
+      }
+    | None => None
+    }
+
   // Unified function to handle hardcoded variant downloads (native / WASM)
   let handleDownload = async (
     state: State.t,
@@ -897,10 +920,10 @@ module Handler = {
               state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
           } else {
-            view->View.destroy
-            // Regular endpoint selection - check if selection changed
-            switch selectedItem.detail {
+            switch isKnownEndpointSelection(manager, selectedItem) {
             | Some(selectedPath) =>
+              view->View.destroy
+              // Regular endpoint selection - check if selection changed
               let changed = switch Memento.PickedConnection.get(manager.memento) {
               | Some(path) => selectedPath !== path
               | None => true // If no previous selection, treat as changed
@@ -921,7 +944,9 @@ module Handler = {
                 // No change in selection - still emit completion
                 state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
               }
-            | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            | None =>
+              // Unknown item - ignore without falling through to endpoint switching.
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
           }
         | None =>
