@@ -190,9 +190,10 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Spec says section 3 shows a single button that opens a sub-QuickPick to select a channel, leaving the main QuickPick open.
    Implementation does not have this sub-QuickPick flow.
 
-6. **[Coverage: NONE] Download variants are not suppressed when already present in `connection.paths`.**
+6. **[Coverage: PARTIAL] Download variants are not suppressed when already present in `connection.paths`.**
    Spec says a download variant is hidden iff its expected download path is already in `connection.paths`.
    Implementation always renders available download items and does not apply this `connection.paths`-based suppression.
+   Guarded by failing test: `"should hide native download variant when its managed path is already in connection.paths"` (`Test__State__SwitchVersion`).
 
 7. **[Coverage: NONE] Selecting a placeholder item during loading is not handled correctly.**
    Spec says selection is allowed throughout the placeholder phase, and the action proceeds normally once metadata resolves.
@@ -235,6 +236,7 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should remove download-managed paths from connection.paths on Delete Downloads"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should not show native download option on web platform"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should keep main quickpick open when selecting channel-switch button"` in `test/tests/Test__State__SwitchVersion.res`
+  - `"should hide native download variant when its managed path is already in connection.paths"` in `test/tests/Test__State__SwitchVersion.res`
 
 ### Remaining Test Work
 
