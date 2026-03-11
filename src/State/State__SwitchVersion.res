@@ -802,7 +802,9 @@ module Handler = {
       async () => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
-          if selectedItem.label == Constants.selectOtherChannels {
+          if selectedItem.label == Constants.checkingAvailability {
+            ()
+          } else if selectedItem.label == Constants.selectOtherChannels {
             let channelLabels = availableChannels.contents->Array.map(Download.channelToLabel)
             switch await VSCode.Window.showQuickPick(
               Promise.resolve(channelLabels),

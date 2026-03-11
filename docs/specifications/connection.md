@@ -196,10 +196,11 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Guarded by passing test: `"should hide native download variant when its managed path is already in connection.paths"` (`Test__State__SwitchVersion`).
    Remaining coverage gap: no dedicated WASM suppression assertion yet.
 
-7. **[Coverage: PARTIAL] Selecting a placeholder item during loading is not handled correctly.**
+7. **[Coverage: PARTIAL] Historical ID — placeholder label no longer falls through to endpoint selection.**
    Spec says selection is allowed throughout the placeholder phase, and the action proceeds normally once metadata resolves.
-   Implementation does not handle placeholder item selection — the handler tries to match the placeholder label against known constants and falls through to endpoint selection logic.
-   Guarded by failing test: `"should not treat checking-availability placeholder as endpoint selection"` (`Test__State__SwitchVersion`).
+   Implementation now handles `"Checking availability..."` explicitly and avoids endpoint fallback.
+   Guarded by passing test: `"should not treat checking-availability placeholder as endpoint selection"` (`Test__State__SwitchVersion`).
+   Remaining coverage gap: no test yet asserts deferred download execution for a placeholder-originated click.
 
 8. **[Coverage: CONTRADICTORY] Download section header does not show active channel.**
    Spec says the active channel is visible in the Download section header.
