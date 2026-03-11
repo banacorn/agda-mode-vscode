@@ -158,5 +158,33 @@ describe("Memento.PickedConnection", () => {
         }
       },
     )
+
+    Async.it(
+      "should not overwrite existing picked connection when auto discovery succeeds",
+      async () => {
+        let previousPick = "/nonexistent/picked-agda-path"
+        let memento = Memento.make(None)
+        await memento->Memento.PickedConnection.set(Some(previousPick))
+        await Config.Connection.setAgdaPaths(logChannel, []) // empty config
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          VSCode.Uri.file("/tmp/test"),
+          [],
+          ["agda"], // triggers auto discovery via findCommand
+          logChannel,
+        )
+
+        switch result {
+        | Ok(connection) =>
+          let actualPath = connection->Connection.getPath
+          let mementoPath = Memento.PickedConnection.get(memento)
+          Assert.deepStrictEqual(actualPath, systemAgda.contents)
+          Assert.deepStrictEqual(mementoPath, Some(previousPick))
+        | Error(_) => Assert.fail("Connection should succeed")
+        }
+      },
+    )
   })
 })
