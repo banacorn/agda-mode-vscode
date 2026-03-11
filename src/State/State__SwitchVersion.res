@@ -101,7 +101,7 @@ module ItemData = {
     let sectionsWithInstalled = if hasEndpoints {
       Array.concat([Separator("Installed")], endpointItems)
     } else {
-      [NoInstallations]
+      []
     }
 
     // Add download section if present

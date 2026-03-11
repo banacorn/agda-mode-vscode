@@ -108,12 +108,6 @@ Each endpoint item renders as (strings are normative; angle-bracket tokens like 
 | `Unknown` + error     | `"$(error) <filename>"`        | `"Error: <error>"`                 | path   | —                 |
 | `Unknown` (no error)  | `"$(question) <filename>"`     | `"Unknown executable"`             | path   | —                 |
 
-`NoInstallations` renders as:
-
-| Label                              | Description                          | Detail                           |
-|------------------------------------|--------------------------------------|----------------------------------|
-| `"$(info) No installations found"` | `"Try installing Agda or ALS first"` | `"No executable paths detected"` |
-
 Selection marking is determined by the following rules, in priority order:
 
 | `PickedConnection`  | `state.connection`  | Marked entry                          |
@@ -207,11 +201,10 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Implementation uses a fixed `"Download"` separator without channel state.
    Guarded by failing test: `"should include active channel in download section header"` (`Test__State__SwitchVersion`).
 
-9. **[Coverage: CONTRADICTORY] Implementation shows `NoInstallations` item when there are no endpoints.**
-   Spec says the Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found.
-   Implementation emits a `NoInstallations` item instead.
-   Existing tests still assert `NoInstallations`, and a new failing guard test now asserts spec behavior:
-   `"should hide Installed section when no endpoints are found"` (`Test__State__SwitchVersion`).
+9. **[Coverage: PARTIAL] Historical ID — Installed section is hidden when no endpoints are found.**
+   Spec requires no Installed separator and no placeholder when endpoint list is empty.
+   Implementation now matches this behavior.
+   Guarded by passing test: `"should hide Installed section when no endpoints are found"` (`Test__State__SwitchVersion`).
 
 10. **[Coverage: NONE] Selection handler treats unknown items as endpoints.**
    Any item that doesn't match `deleteDownloads`, `downloadNativeALS`, or `downloadWasmALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
@@ -237,6 +230,7 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should retry Hardcoded download with WASM source when Hardcoded channel resolution fails"`
   - `"should fall back to WASM when Hardcoded native download fails"`
 - Switch Version cleanup coverage should include:
+  - `"should hide Installed section when no endpoints are found"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should remove download-managed paths from connection.paths on Delete Downloads"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should not show native download option on web platform"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should keep main quickpick open when selecting channel-switch button"` in `test/tests/Test__State__SwitchVersion.res`

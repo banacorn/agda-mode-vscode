@@ -414,33 +414,6 @@ describe("State__SwitchVersion", () => {
       "entriesToItemData",
       () => {
         it(
-          "should return no installations item when no entries",
-          () => {
-            let entries = Dict.make()
-            let itemData: array<
-              State__SwitchVersion.ItemData.t,
-            > = State__SwitchVersion.ItemData.entriesToItemData(
-              entries,
-              None,
-              [],
-            )
-
-            Assert.deepStrictEqual(Array.length(itemData), 3) // No installations + Misc separator + Delete downloads
-            Assert.deepStrictEqual(itemData[0], Some(NoInstallations))
-
-            switch itemData[1] {
-            | Some(Separator("Misc")) => () // Expected
-            | _ => Assert.fail("Expected Misc separator")
-            }
-
-            switch itemData[2] {
-            | Some(DeleteDownloads) => () // Expected
-            | _ => Assert.fail("Expected DeleteDownloads item")
-            }
-          },
-        )
-
-        it(
           "should hide Installed section when no endpoints are found",
           () => {
             let entries = Dict.make()
