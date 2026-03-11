@@ -441,6 +441,50 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
+          "should hide Installed section when no endpoints are found",
+          () => {
+            let entries = Dict.make()
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [],
+            )
+
+            let installedSeparator = itemData->Array.find(
+              data =>
+                switch data {
+                | Separator("Installed") => true
+                | _ => false
+                },
+            )
+
+            let noInstallationsPlaceholder = itemData->Array.find(
+              data =>
+                switch data {
+                | NoInstallations => true
+                | _ => false
+                },
+            )
+
+            Assert.ok(installedSeparator->Option.isNone)
+            Assert.ok(noInstallationsPlaceholder->Option.isNone)
+            Assert.deepStrictEqual(Array.length(itemData), 2) // Misc separator + Delete downloads
+
+            switch itemData[0] {
+            | Some(Separator("Misc")) => () // Expected
+            | _ => Assert.fail("Expected Misc separator")
+            }
+
+            switch itemData[1] {
+            | Some(DeleteDownloads) => () // Expected
+            | _ => Assert.fail("Expected DeleteDownloads item")
+            }
+          },
+        )
+
+        it(
           "should create items with separator when entries exist",
           () => {
             let entries = Dict.make()

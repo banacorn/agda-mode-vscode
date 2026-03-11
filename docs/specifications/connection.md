@@ -210,7 +210,8 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
 9. **[Coverage: CONTRADICTORY] Implementation shows `NoInstallations` item when there are no endpoints.**
    Spec says the Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found.
    Implementation emits a `NoInstallations` item instead.
-   Current tests assert `NoInstallations` first, which will need updating.
+   Existing tests still assert `NoInstallations`, and a new failing guard test now asserts spec behavior:
+   `"should hide Installed section when no endpoints are found"` (`Test__State__SwitchVersion`).
 
 10. **[Coverage: NONE] Selection handler treats unknown items as endpoints.**
    Any item that doesn't match `deleteDownloads`, `downloadNativeALS`, or `downloadWasmALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
