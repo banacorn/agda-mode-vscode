@@ -545,6 +545,41 @@ module Download = {
     }
   }
 
+  let pathAliases = (path: string): array<string> => {
+    if String.startsWith(path, "file://") {
+      let uri = VSCode.Uri.parse(path)
+      [path, VSCode.Uri.fsPath(uri)]
+    } else if NodeJs.Path.isAbsolute(path) {
+      [path, VSCode.Uri.file(path)->VSCode.Uri.toString]
+    } else {
+      [path]
+    }
+  }
+
+  let configContainsExpectedPath = (configPaths: array<string>, expectedPath: string): bool => {
+    let expectedAliases = pathAliases(expectedPath)
+    configPaths->Array.some(configPath => {
+      let configAliases = pathAliases(configPath)
+      configAliases->Array.some(configAlias =>
+        expectedAliases->Array.some(expectedAlias => expectedAlias == configAlias)
+      )
+    })
+  }
+
+  let suppressManagedVariants = (
+    globalStorageUri: VSCode.Uri.t,
+    configPaths: array<string>,
+    downloadItems: array<(bool, string, string)>,
+  ): array<(bool, string, string)> =>
+    downloadItems->Array.filter(((_, _, variantTag)) =>
+      switch variantFromTag(variantTag) {
+      | None => true
+      | Some(variant) =>
+        let expectedPath = expectedPathForVariant(globalStorageUri, variant)
+        !configContainsExpectedPath(configPaths, expectedPath)
+      }
+    )
+
   let sourceForVariant = (
     platform: Connection__Download__Platform.t,
     variant: variant,
@@ -644,7 +679,7 @@ module Download = {
   )> => {
     module PlatformOps = unpack(platformDeps)
 
-    switch await PlatformOps.determinePlatform() {
+    let allItems = switch await PlatformOps.determinePlatform() {
     | Error(_) => [unavailableItem(Native), unavailableItem(WASM)]
     | Ok(Connection__Download__Platform.Web) =>
       let wasmSource = sourceForVariant(Connection__Download__Platform.Web, WASM)
@@ -663,6 +698,8 @@ module Download = {
       }
       [nativeItem, wasmItem]
     }
+
+    suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems)
   }
 }
 
