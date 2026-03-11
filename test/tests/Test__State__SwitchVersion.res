@@ -933,6 +933,51 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should keep non-download PickedConnection on Delete Downloads",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-keep-picked-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let downloadedLatest =
+          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, downloadedLatest])
+        await Memento.PickedConnection.set(state.memento, Some(keepPath))
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: State__SwitchVersion.Constants.deleteDownloads,
+          description: "",
+          detail: "",
+        }
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(keepPath))
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
       "should handle download workflow correctly",
       async () => {
         /**
