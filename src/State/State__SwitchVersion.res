@@ -710,18 +710,37 @@ module Download = {
 module Handler = {
   let downloadDirectoryNames = ["hardcoded-als", "latest-als", "dev-als", "dev-wasm-als"]
 
+  let isUnderPrefix = (path: string, prefix: string, separator: string): bool =>
+    path == prefix || String.startsWith(path, prefix ++ separator)
+
   let isPathUnderDownloadDirectory = (globalStorageUri: VSCode.Uri.t, path: string): bool =>
     downloadDirectoryNames->Array.some(dirName => {
       let dirUri = VSCode.Uri.joinPath(globalStorageUri, [dirName])
       let dirFsPath = VSCode.Uri.fsPath(dirUri)
       let dirUriPath = VSCode.Uri.toString(dirUri)
+      let dirUnescapedUriPath = "file://" ++ dirFsPath
 
-      let inFsPath =
-        path == dirFsPath || String.startsWith(path, dirFsPath ++ NodeJs.Path.sep)
-      let inUriPath =
-        path == dirUriPath || String.startsWith(path, dirUriPath ++ "/")
+      let pathCandidates = if String.startsWith(path, "file://") {
+        try {
+          let parsedFsPath = VSCode.Uri.parse(path)->VSCode.Uri.fsPath
+          if parsedFsPath == path {
+            [path]
+          } else {
+            [path, parsedFsPath]
+          }
+        } catch {
+        | _ => [path]
+        }
+      } else {
+        [path]
+      }
 
-      inFsPath || inUriPath
+      pathCandidates->Array.some(candidate =>
+        isUnderPrefix(candidate, dirFsPath, NodeJs.Path.sep) ||
+        isUnderPrefix(candidate, dirFsPath, "/") ||
+        isUnderPrefix(candidate, dirUriPath, "/") ||
+        isUnderPrefix(candidate, dirUnescapedUriPath, "/")
+      )
     })
 
   let removeDownloadedPathsFromConfig = async (state: State.t): unit => {

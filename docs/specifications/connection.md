@@ -184,13 +184,13 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Spec says section 3 shows a single button that opens a sub-QuickPick to select a channel, leaving the main QuickPick open.
    Implementation does not have this sub-QuickPick flow.
 
-6. **[Coverage: PARTIAL] Historical ID — managed download variants are suppressed when already present in `connection.paths`.**
+6. **[Coverage: PARTIAL] managed download variants are suppressed when already present in `connection.paths`.**
    Spec says a download variant is hidden iff its expected download path is already in `connection.paths`.
    Implementation now filters managed variants before rendering the Download section.
    Guarded by passing test: `"should hide native download variant when its managed path is already in connection.paths"` (`Test__State__SwitchVersion`).
    Remaining coverage gap: no dedicated WASM suppression assertion yet.
 
-7. **[Coverage: PARTIAL] Historical ID — placeholder label no longer falls through to endpoint selection.**
+7. **[Coverage: PARTIAL] placeholder label no longer falls through to endpoint selection.**
    Spec says selection is allowed throughout the placeholder phase, and the action proceeds normally once metadata resolves.
    Implementation now handles `"Checking availability..."` explicitly and avoids endpoint fallback.
    Guarded by passing test: `"should not treat checking-availability placeholder as endpoint selection"` (`Test__State__SwitchVersion`).
@@ -201,19 +201,19 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Implementation uses a fixed `"Download"` separator without channel state.
    Guarded by failing test: `"should include active channel in download section header"` (`Test__State__SwitchVersion`).
 
-9. **[Coverage: PARTIAL] Historical ID — Installed section is hidden when no endpoints are found.**
+9. **[Coverage: PARTIAL] Installed section is hidden when no endpoints are found.**
    Spec requires no Installed separator and no placeholder when endpoint list is empty.
    Implementation now matches this behavior.
    Guarded by passing test: `"should hide Installed section when no endpoints are found"` (`Test__State__SwitchVersion`).
 
-10. **[Coverage: PARTIAL] Historical ID — unknown QuickPick items are ignored (not treated as endpoint selections).**
+10. **[Coverage: PARTIAL] unknown QuickPick items are ignored (not treated as endpoint selections).**
    Endpoint selection now requires a known endpoint path and matching expected endpoint label from memento endpoint entries.
    Unknown items no longer fall through to endpoint switching.
    Guarded by passing test: `"should not treat unknown quickpick item labels as endpoint selection"` (`Test__State__SwitchVersion`).
 
-11. **[Coverage: NONE] Path format contract (fsPath vs URI) unspecified.**
-   The implementation's `isPathUnderDownloadDirectory()` handles both filesystem path and URI string formats. The spec does not define which format paths in `connection.paths` are expected to be in.
-   Guarded by failing test: `"should remove download-managed paths even when file URI contains unescaped spaces"` (`Test__State__SwitchVersion`).
+11. **[Coverage: PARTIAL] Delete Downloads path matching now handles URI/fsPath variants.**
+   Implementation now removes download-managed entries when `connection.paths` stores filesystem paths, encoded `file://` URIs, or unescaped `file://` URIs (including paths with spaces).
+   Guarded by passing test: `"should remove download-managed paths even when file URI contains unescaped spaces"` (`Test__State__SwitchVersion`).
 
 ## Testing to Add/Fix
 
