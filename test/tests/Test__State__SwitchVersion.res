@@ -714,6 +714,47 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should not treat checking-availability placeholder as endpoint selection",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let sawSelectionCompleted = ref(false)
+        let sawSelectedDownloadAction = ref(false)
+
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(SelectionCompleted) => sawSelectionCompleted := true
+          | Log.SwitchVersionUI(SelectedDownloadAction(_, _)) =>
+            sawSelectedDownloadAction := true
+          | _ => ()
+          }
+        )
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: State__SwitchVersion.Constants.checkingAvailability,
+        }
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(sawSelectedDownloadAction.contents, false)
+        Assert.deepStrictEqual(sawSelectionCompleted.contents, false)
+      },
+    )
+
+    Async.it(
       "should keep main quickpick open when selecting channel-switch button",
       async () => {
         let state = createTestState()
