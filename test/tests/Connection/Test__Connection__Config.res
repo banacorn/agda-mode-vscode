@@ -396,7 +396,7 @@ describe("Config.Connection paths", () => {
 
         // Create mock QuickPickItem representing download action
         let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: "$(cloud-download)  Download the latest Agda Language Server",
+          label: State__SwitchVersion.Constants.downloadNativeALS,
           description: isAlreadyDownloaded ? "Downloaded and installed" : "",
           detail: "ALS v0.2.10, Agda v2.7.0.1",
         }

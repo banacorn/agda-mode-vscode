@@ -167,21 +167,6 @@ There is no standalone "Download" command. Downloads are triggered by selecting 
 Coverage tags: `PARTIAL` / `CONTRADICTORY` / `NONE`
 Stable IDs: numbering is an identifier and is not renumbered after removals.
 
-2. **[Coverage: PARTIAL] Step-2 command success overwrites existing `PickedConnection`.**
-   Spec says step 2 sets `PickedConnection` only when it is currently `None`.
-   Implementation currently sets it unconditionally on step-2 success.
-   Covered for the `None` case (`Test__Connection__Memento`), but no test guards the "must not overwrite existing pick" case.
-
-3. **[Coverage: PARTIAL] Delete Downloads unconditionally clears `PickedConnection`.**
-   Spec says `PickedConnection` should only be cleared if it points to a downloaded path.
-   Implementation calls `Memento.PickedConnection.clear` unconditionally (`State__SwitchVersion.res:776`).
-   Covered for downloaded picks (`Test__State__SwitchVersion`), but no test guards "non-download picks remain unchanged."
-
-4. **[Coverage: CONTRADICTORY] Download section shows per-channel items, not per-variant items.**
-   Spec says the Download section lists native + WASM variants for the currently selected channel.
-   Implementation shows one download item per channel (`LatestALS`, `DevALS`), not per variant.
-   Current item-data tests assert existing `DownloadAction(..., "latest"/"dev")` behavior.
-
 5. **[Coverage: NONE] Channels section not implemented as sub-QuickPick.**
    Spec says section 3 shows a single button that opens a sub-QuickPick to select a channel, leaving the main QuickPick open.
    Implementation does not have this sub-QuickPick flow.
@@ -205,7 +190,7 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Current tests assert `NoInstallations` first, which will need updating.
 
 10. **[Coverage: NONE] Selection handler treats unknown items as endpoints.**
-   Any item that doesn't match `deleteDownloads`, `downloadLatestALS`, or `downloadDevALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
+   Any item that doesn't match `deleteDownloads`, `downloadNativeALS`, or `downloadWasmALS` falls through to endpoint selection logic. A separator or unexpected item would be incorrectly processed. Low risk in practice since VSCode prevents selecting separators.
 
 11. **[Coverage: NONE] Path format contract (fsPath vs URI) unspecified.**
    The implementation's `isPathUnderDownloadDirectory()` handles both filesystem path and URI string formats. The spec does not define which format paths in `connection.paths` are expected to be in.

@@ -348,12 +348,12 @@ describe("State__SwitchVersion", () => {
         it(
           "should create download item when not downloaded",
           () => {
-            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(false, "ALS v1.0.0", "latest")
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(false, "ALS v1.0.0", "native")
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
               item.label,
-              "$(cloud-download)  Download the latest Agda Language Server",
+              "$(cloud-download)  Download Agda Language Server (native)",
             )
             Assert.deepStrictEqual(item.description, Some(""))
             Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
@@ -363,12 +363,12 @@ describe("State__SwitchVersion", () => {
         it(
           "should create download item when already downloaded",
           () => {
-            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(true, "ALS v1.0.0", "latest")
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(true, "ALS v1.0.0", "native")
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(
               item.label,
-              "$(cloud-download)  Download the latest Agda Language Server",
+              "$(cloud-download)  Download Agda Language Server (native)",
             )
             Assert.deepStrictEqual(item.description, Some("Downloaded and installed"))
             Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
@@ -485,7 +485,7 @@ describe("State__SwitchVersion", () => {
             > = State__SwitchVersion.ItemData.entriesToItemData(
               entries,
               None,
-              [(false, "ALS v1.0.0", "latest")],
+              [(false, "ALS v1.0.0", "native")],
             )
 
             Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Delete downloads
@@ -501,7 +501,7 @@ describe("State__SwitchVersion", () => {
             let downloadAction = itemData->Array.find(
               data =>
                 switch data {
-                | DownloadAction(false, "ALS v1.0.0", "latest") => true
+                | DownloadAction(false, "ALS v1.0.0", "native") => true
                 | _ => false
                 },
             )
@@ -626,11 +626,11 @@ describe("State__SwitchVersion", () => {
 
         let placeholderHasNativeLatest =
           placeholderItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
-            downloadType == "latest"
+            downloadType == "native"
           )
         let hasNativeLatest =
           downloadItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
-            downloadType == "latest"
+            downloadType == "native"
           )
 
         Assert.deepStrictEqual(placeholderHasNativeLatest, false)
@@ -1228,7 +1228,7 @@ describe("State__SwitchVersion", () => {
             let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
               false,
               "Agda v2.6.4 Language Server v1.2.3",
-              "latest",
+              "native",
             )
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -1236,7 +1236,7 @@ describe("State__SwitchVersion", () => {
             )
             Assert.strictEqual(
               actual.label,
-              "$(cloud-download)  Download the latest Agda Language Server",
+              "$(cloud-download)  Download Agda Language Server (native)",
             )
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "")
@@ -1255,7 +1255,7 @@ describe("State__SwitchVersion", () => {
             let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
               true,
               "Agda v2.6.4 Language Server v1.2.3",
-              "latest",
+              "native",
             )
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -1263,7 +1263,7 @@ describe("State__SwitchVersion", () => {
             )
             Assert.strictEqual(
               actual.label,
-              "$(cloud-download)  Download the latest Agda Language Server",
+              "$(cloud-download)  Download Agda Language Server (native)",
             )
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "Downloaded and installed")
@@ -1536,8 +1536,8 @@ describe("State__SwitchVersion", () => {
             // This tests the inline logic in Handler.onSelection
             // We verify the constants used for comparison
             Assert.strictEqual(
-              State__SwitchVersion.Constants.downloadLatestALS,
-              "$(cloud-download)  Download the latest Agda Language Server",
+              State__SwitchVersion.Constants.downloadNativeALS,
+              "$(cloud-download)  Download Agda Language Server (native)",
             )
           },
         )
