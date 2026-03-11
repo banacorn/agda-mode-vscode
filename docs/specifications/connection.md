@@ -213,6 +213,7 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
 
 11. **[Coverage: NONE] Path format contract (fsPath vs URI) unspecified.**
    The implementation's `isPathUnderDownloadDirectory()` handles both filesystem path and URI string formats. The spec does not define which format paths in `connection.paths` are expected to be in.
+   Guarded by failing test: `"should remove download-managed paths even when file URI contains unescaped spaces"` (`Test__State__SwitchVersion`).
 
 ## Testing to Add/Fix
 

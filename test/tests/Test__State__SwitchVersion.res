@@ -1188,6 +1188,58 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should remove download-managed paths even when file URI contains unescaped spaces",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda switch uri space " ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let encodedWasmUri =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.toString
+        let unescapedWasmUri =
+          "file://" ++ VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        // Sanity guard: this test only makes sense when URI encoding differs.
+        Assert.notDeepStrictEqual(unescapedWasmUri, encodedWasmUri)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, unescapedWasmUri])
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: State__SwitchVersion.Constants.deleteDownloads,
+          description: "",
+          detail: "",
+        }
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
       "should keep non-download PickedConnection on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
