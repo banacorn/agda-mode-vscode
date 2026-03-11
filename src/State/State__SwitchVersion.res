@@ -4,6 +4,7 @@ module Constants = {
   let alsWithSquirrel = "$(squirrel)  ALS v"
   let downloadNativeALS = "$(cloud-download)  Download Agda Language Server (native)"
   let downloadWasmALS = "$(cloud-download)  Download Agda Language Server (WASM)"
+  let selectOtherChannels = "📡 Select other channels"
   let downloadUnavailable = "Not available for this platform"
   let checkingAvailability = "Checking availability..."
   let deleteDownloads = "$(trash)  Delete downloads"
@@ -15,6 +16,7 @@ module ItemData = {
   type t =
     | Endpoint(string, Memento.Endpoints.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, variant ("native" | "wasm")
+    | SelectOtherChannels
     | DeleteDownloads // delete downloads and clear cache
     | NoInstallations
     | Separator(string) // label
@@ -37,6 +39,7 @@ module ItemData = {
       versionString ++
       ", type=" ++
       downloadType
+    | SelectOtherChannels => "SelectOtherChannels"
     | DeleteDownloads => "DeleteDownloads"
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
@@ -76,6 +79,7 @@ module ItemData = {
     entries: Dict.t<Memento.Endpoints.entry>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
+    ~showChannelSelector: bool=false,
   ): array<t> => {
     // Pre-convert to array once for better performance
     let entriesArray = entries->Dict.toArray
@@ -117,8 +121,14 @@ module ItemData = {
       sectionsWithInstalled
     }
 
+    let sectionsWithChannels = if showChannelSelector {
+      Array.concat(sectionsWithDownload, [SelectOtherChannels])
+    } else {
+      sectionsWithDownload
+    }
+
     // Add misc section
-    Array.concat(sectionsWithDownload, [Separator("Misc"), DeleteDownloads])
+    Array.concat(sectionsWithChannels, [Separator("Misc"), DeleteDownloads])
   }
 }
 
@@ -161,6 +171,7 @@ module Item = {
           let description = downloaded ? Constants.downloadedAndInstalled : ""
           (label, Some(description), Some(versionString))
         }
+      | SelectOtherChannels => (Constants.selectOtherChannels, None, None)
       | DeleteDownloads => {
           let label = Constants.deleteDownloads
           let description = "Delete all downloaded files and clear cached release metadata"
@@ -271,6 +282,7 @@ module SwitchVersionManager = {
   let getItemData = async (
     self: t,
     downloadItems: array<(bool, string, string)>,
+    ~showChannelSelector: bool=false,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
@@ -290,7 +302,12 @@ module SwitchVersionManager = {
       | _ => None
       }
     }
-    ItemData.entriesToItemData(self.entries, pickedPath, downloadItems)
+    ItemData.entriesToItemData(
+      self.entries,
+      pickedPath,
+      downloadItems,
+      ~showChannelSelector,
+    )
   }
 
   // Update entries and return if changed
@@ -568,6 +585,41 @@ module Download = {
   let unavailableItem = (variant: variant): (bool, string, string) =>
     (false, Constants.downloadUnavailable, variantToTag(variant))
 
+  let channelToLabel = (channel: Connection__Download.Channel.t): string =>
+    switch channel {
+    | Hardcoded => "Hardcoded"
+    | LatestALS => "LatestALS"
+    | DevALS => "DevALS"
+    }
+
+  let channelFromLabel = (label: string): option<Connection__Download.Channel.t> =>
+    switch label {
+    | "Hardcoded" => Some(Hardcoded)
+    | "LatestALS" => Some(LatestALS)
+    | "DevALS" => Some(DevALS)
+    | _ => None
+    }
+
+  let getAvailableChannels = async (
+    platformDeps: Platform.t,
+  ): array<Connection__Download.Channel.t> => {
+    module PlatformOps = unpack(platformDeps)
+    switch await PlatformOps.determinePlatform() {
+    | Ok(Connection__Download__Platform.Web) =>
+      if Config.DevMode.get() {
+        [Hardcoded, DevALS]
+      } else {
+        [Hardcoded]
+      }
+    | _ =>
+      if Config.DevMode.get() {
+        [Hardcoded, LatestALS, DevALS]
+      } else {
+        [Hardcoded, LatestALS]
+      }
+    }
+  }
+
   // Create placeholder download items to prevent UI jitter.
   let getPlaceholderDownloadItems = async (
     platformDeps: Platform.t,
@@ -703,16 +755,43 @@ module Handler = {
     state: State.t,
     platformDeps: Platform.t,
     manager: SwitchVersionManager.t,
+    availableChannels: ref<array<Connection__Download.Channel.t>>,
+    selectedChannel: ref<Connection__Download.Channel.t>,
     updateUI,
     view: View.t,
     selectedItems: array<VSCode.QuickPickItem.t>,
   ) => {
-    view->View.destroy
     let _ = (
       async () => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
-          if selectedItem.label == Constants.deleteDownloads {
+          if selectedItem.label == Constants.selectOtherChannels {
+            let channelLabels = availableChannels.contents->Array.map(Download.channelToLabel)
+            switch await VSCode.Window.showQuickPick(
+              Promise.resolve(channelLabels),
+              {
+                placeHolder: "Select download channel",
+                canPickMany: false,
+              },
+              None,
+            ) {
+            | Some(selection) =>
+              switch selection[0] {
+              | Some(label) =>
+                switch Download.channelFromLabel(label) {
+                | Some(channel) =>
+                  selectedChannel := channel
+                  let newDownloadItems = await Download.getAllAvailableDownloads(state, platformDeps)
+                  let _ = SwitchVersionManager.refreshFromMemento(manager)
+                  await updateUI(newDownloadItems)
+                | None => ()
+                }
+              | None => ()
+              }
+            | None => ()
+            }
+          } else if selectedItem.label == Constants.deleteDownloads {
+            view->View.destroy
             // Delete download directories recursively
             let deleteDir = async dirName => {
               let uri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
@@ -737,6 +816,7 @@ module Handler = {
           } else if
             selectedItem.label == Constants.downloadNativeALS ||
               selectedItem.label == Constants.downloadWasmALS {
+            view->View.destroy
             let selectedVariant = if selectedItem.label == Constants.downloadNativeALS {
               Download.Native
             } else {
@@ -775,6 +855,7 @@ module Handler = {
               state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
           } else {
+            view->View.destroy
             // Regular endpoint selection - check if selection changed
             switch selectedItem.detail {
             | Some(selectedPath) =>
@@ -801,7 +882,9 @@ module Handler = {
             | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
           }
-        | None => state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+        | None =>
+          view->View.destroy
+          state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
         }
       }
     )()
@@ -815,13 +898,19 @@ module Handler = {
   let onActivate = async (state: State.t, platformDeps: Platform.t) => {
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
+    let availableChannels = ref([Connection__Download.Channel.Hardcoded])
+    let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
 
     // No initialization needed since we removed getPicked() -
     // just use whatever is stored in memento directly
 
     // Helper function to update UI with current state
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
-      let itemData = await SwitchVersionManager.getItemData(manager, downloadItems)
+      let itemData = await SwitchVersionManager.getItemData(
+        manager,
+        downloadItems,
+        ~showChannelSelector=Array.length(availableChannels.contents) >= 2,
+      )
 
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>
@@ -839,6 +928,8 @@ module Handler = {
     // Setup quickpick
     view->View.setPlaceholder("Switch Agda Version")
 
+    availableChannels := await Download.getAvailableChannels(platformDeps)
+
     // PHASE 1: Show cached items immediately with placeholders to prevent jitter
     await updateUI(await Download.getPlaceholderDownloadItems(platformDeps))
     view->View.show
@@ -849,7 +940,16 @@ module Handler = {
 
     // Setup event handlers
     view->View.onSelection(selectedItems =>
-      onSelection(state, platformDeps, manager, updateUI, view, selectedItems)
+      onSelection(
+        state,
+        platformDeps,
+        manager,
+        availableChannels,
+        selectedChannel,
+        updateUI,
+        view,
+        selectedItems,
+      )
     )
     view->View.onHide(() => onHide(view))
 

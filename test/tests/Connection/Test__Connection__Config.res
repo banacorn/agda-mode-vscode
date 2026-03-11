@@ -349,6 +349,8 @@ describe("Config.Connection paths", () => {
           mockState,
           platform,
           manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
           _downloadInfo => Promise.resolve(),
           view,
           [mockSelectedItem],
@@ -433,6 +435,8 @@ describe("Config.Connection paths", () => {
           mockState,
           platformWithDiscovery,
           manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
           _downloadInfo => Promise.resolve(),
           view,
           [], // Empty selection
