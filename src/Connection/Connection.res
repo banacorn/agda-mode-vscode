@@ -433,6 +433,8 @@ module Module: Module = {
           }
       }
 
+      Util.log("[ debug ] fromDownloads: policy = " ++ Config.Connection.DownloadPolicy.toString(policy), "")
+
       switch policy {
       | Config.Connection.DownloadPolicy.Undecided =>
         // User cancelled, treat as No
@@ -484,8 +486,11 @@ module Module: Module = {
           globalStorageUri,
           channel,
         ) {
-        | Some(path) => Ok(path)
+        | Some(path) =>
+          Util.log("[ debug ] fromDownloads: alreadyDownloaded = Some", path)
+          Ok(path)
         | None =>
+          Util.log("[ debug ] fromDownloads: alreadyDownloaded = None", "")
           switch await PlatformOps.resolveDownloadChannel(channel, true)(
             memento,
             globalStorageUri,

@@ -138,6 +138,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   let execPathUri = VSCode.Uri.joinPath(destDirUri, [execFileName])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
+      Util.log("[ debug ] downloadFromURL: already cached, returning without chmod", VSCode.Uri.fsPath(execPathUri))
       // For WASM, return URI string with scheme preserved; for native, use fsPath
       if isWasm {
         Ok(VSCode.Uri.toString(execPathUri))
@@ -146,6 +147,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
       }
     }
   | Error(_) =>
+    Util.log("[ debug ] downloadFromURL: not cached, downloading from", url)
     // Parse URL and create HTTP options
     try {
       // Parse URL using global WHATWG URL to support both Node and web
@@ -236,6 +238,11 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 
             // Remove ZIP file after extraction
             let _ = await FS.delete(zipFileUri)
+
+            // chmod the executable after extraction (Unix only)
+            if OS.onUnix {
+              let _ = await Connection__Download__GitHub.chmodExecutable(VSCode.Uri.fsPath(execPathUri))
+            }
 
             // Add the path of the downloaded file to the config
             Ok(VSCode.Uri.fsPath(execPathUri))

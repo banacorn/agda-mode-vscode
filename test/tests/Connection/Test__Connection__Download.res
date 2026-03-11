@@ -471,6 +471,31 @@ describe("Download", () => {
     )
   })
 
+  describe("chmodExecutable", () => {
+    Async.it(
+      "should set the executable bit on a file",
+      async () => {
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "chmod-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("mock binary"))
+        await NodeJs.Fs.chmod(tempFile, ~mode=0o644)
+
+        let statsBefore = NodeJs.Fs.lstatSync(#String(tempFile))
+        Assert.deepStrictEqual(land(statsBefore.mode, 0o111), 0)
+
+        let result = await GitHub.chmodExecutable(tempFile)
+        Assert.deepStrictEqual(result, Ok())
+
+        let statsAfter = NodeJs.Fs.lstatSync(#String(tempFile))
+        Assert.ok(land(statsAfter.mode, 0o111) != 0)
+
+        NodeJs.Fs.unlinkSync(tempFile)
+      },
+    )
+  })
+
   describe("Integration Tests", () => {
     // will get HTTP 403 on GitHub CI macOS runners :(
     describe_skip(

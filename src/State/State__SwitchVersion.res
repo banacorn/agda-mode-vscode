@@ -459,6 +459,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     [(selectedPath, Connection.Error.Establish.FromConfig)],
   ) {
   | Ok(conn) =>
+    Util.log("[ debug ] switchAgdaVersion: connection succeeded", Connection.toString(conn))
     // Tear down the existing shared connection only after the target is proven connectable.
     await Registry__Connection.shutdown()
 
@@ -500,6 +501,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     let _ = await Connection.destroy(Some(conn), state.channels.log)
   | Error(error) => {
       let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))
+      Util.log("[ debug ] switchAgdaVersion: connection failed", errorHeader ++ " | " ++ errorBody)
       let header = AgdaModeVscode.View.Header.Error(
         "Failed to switch to a different installation: " ++ errorHeader,
       )
@@ -847,6 +849,7 @@ module Handler = {
       async () => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
+          Util.log("[ debug ] user selected item: " ++ selectedItem.label, "")
           if selectedItem.label == Constants.checkingAvailability {
             ()
           } else if selectedItem.label == Constants.selectOtherChannels {
@@ -875,6 +878,7 @@ module Handler = {
             | None => ()
             }
           } else if selectedItem.label == Constants.deleteDownloads {
+            Util.log("[ debug ] user clicked: Delete Downloads", "")
             view->View.destroy
             // Delete download directories recursively
             let deleteDir = async dirName => {
@@ -900,6 +904,7 @@ module Handler = {
           } else if
             selectedItem.label == Constants.downloadNativeALS ||
               selectedItem.label == Constants.downloadWasmALS {
+            Util.log("[ debug ] user clicked: download button = " ++ selectedItem.label, "")
             view->View.destroy
             let selectedVariant = if selectedItem.label == Constants.downloadNativeALS {
               Download.Native
@@ -941,6 +946,7 @@ module Handler = {
           } else {
             switch isKnownEndpointSelection(manager, selectedItem) {
             | Some(selectedPath) =>
+              Util.log("[ debug ] user selected endpoint: " ++ selectedPath, "")
               view->View.destroy
               // Regular endpoint selection - check if selection changed
               let changed = switch Memento.PickedConnection.get(manager.memento) {
@@ -977,6 +983,7 @@ module Handler = {
   }
 
   let onHide = (view: View.t) => {
+    Util.log("[ debug ] QuickPick hidden/cancelled by user", "")
     // QuickPick was hidden/cancelled by user - clean up
     view->View.destroy
   }

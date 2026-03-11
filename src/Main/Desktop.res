@@ -12,28 +12,47 @@ module Desktop: Platform.PlatformOps = {
     | Connection__Download.Channel.LatestALS => {
         let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
         switch await FS.stat(uri) {
-        | Ok(_) => Some(uri->VSCode.Uri.fsPath)
-        | Error(_) => None
+        | Ok(_) =>
+          Util.log("[ debug ] alreadyDownloaded LatestALS: found", uri->VSCode.Uri.fsPath)
+          Some(uri->VSCode.Uri.fsPath)
+        | Error(_) =>
+          Util.log("[ debug ] alreadyDownloaded LatestALS: not found", uri->VSCode.Uri.fsPath)
+          None
         }
       }
     | Connection__Download.Channel.DevALS => {
         // Desktop: Only check for native binary (als or als.exe), not WASM
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
         switch await FS.stat(alsUri) {
-        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
-        | Error(_) => None
+        | Ok(_) =>
+          Util.log("[ debug ] alreadyDownloaded DevALS: found", alsUri->VSCode.Uri.fsPath)
+          Some(alsUri->VSCode.Uri.fsPath)
+        | Error(_) =>
+          Util.log("[ debug ] alreadyDownloaded DevALS: not found", alsUri->VSCode.Uri.fsPath)
+          None
         }
       }
     | Connection__Download.Channel.Hardcoded => {
         // Desktop: Prefer native, then fall back to WASM cache.
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
         switch await FS.stat(alsUri) {
-        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
+        | Ok(_) =>
+          let alsPath = alsUri->VSCode.Uri.fsPath
+          Util.log("[ debug ] alreadyDownloaded Hardcoded: native found", alsPath)
+          if OS.onUnix {
+            let _ = await NodeJs.Fs.chmod(alsPath, ~mode=0o744)
+          }
+          Some(alsPath)
         | Error(_) =>
+          Util.log("[ debug ] alreadyDownloaded Hardcoded: native not found", alsUri->VSCode.Uri.fsPath)
           let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
           switch await FS.stat(wasmUri) {
-          | Ok(_) => Some(VSCode.Uri.toString(wasmUri))
-          | Error(_) => None
+          | Ok(_) =>
+            Util.log("[ debug ] alreadyDownloaded Hardcoded: wasm found", wasmUri->VSCode.Uri.toString)
+            Some(VSCode.Uri.toString(wasmUri))
+          | Error(_) =>
+            Util.log("[ debug ] alreadyDownloaded Hardcoded: nothing found", "")
+            None
           }
         }
       }
