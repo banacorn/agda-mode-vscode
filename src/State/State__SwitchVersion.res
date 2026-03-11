@@ -791,7 +791,11 @@ module Handler = {
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
-            await Memento.PickedConnection.clear(state.memento)
+            switch Memento.PickedConnection.get(state.memento) {
+            | Some(path) if isPathUnderDownloadDirectory(state.globalStorageUri, path) =>
+              await Memento.PickedConnection.clear(state.memento)
+            | _ => ()
+            }
             await Memento.Endpoints.clear(state.memento)
             let _ = await VSCode.Window.showInformationMessage("All downloads and cache deleted", [])
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
