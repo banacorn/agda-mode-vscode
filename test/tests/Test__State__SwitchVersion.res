@@ -493,7 +493,7 @@ describe("State__SwitchVersion", () => {
             let downloadSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("Download") => true
+                | Separator("Download (channel: Hardcoded)") => true
                 | _ => false
                 },
             )
@@ -528,7 +528,7 @@ describe("State__SwitchVersion", () => {
             let channelAwareDownloadSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("⬇ Download  (channel: Hardcoded)") => true
+                | Separator("Download (channel: Hardcoded)") => true
                 | _ => false
                 },
             )

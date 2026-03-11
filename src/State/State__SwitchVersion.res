@@ -79,6 +79,7 @@ module ItemData = {
     entries: Dict.t<Memento.Endpoints.entry>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
+    ~downloadHeader: string="Download (channel: Hardcoded)",
     ~showChannelSelector: bool=false,
   ): array<t> => {
     // Pre-convert to array once for better performance
@@ -115,7 +116,7 @@ module ItemData = {
 
       Array.concat(
         sectionsWithInstalled,
-        Array.concat([Separator("Download")], downloadSectionItems),
+        Array.concat([Separator(downloadHeader)], downloadSectionItems),
       )
     } else {
       sectionsWithInstalled
@@ -282,6 +283,7 @@ module SwitchVersionManager = {
   let getItemData = async (
     self: t,
     downloadItems: array<(bool, string, string)>,
+    ~downloadHeader: string="Download (channel: Hardcoded)",
     ~showChannelSelector: bool=false,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
@@ -306,6 +308,7 @@ module SwitchVersionManager = {
       self.entries,
       pickedPath,
       downloadItems,
+      ~downloadHeader,
       ~showChannelSelector,
     )
   }
@@ -945,9 +948,12 @@ module Handler = {
 
     // Helper function to update UI with current state
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
+      let downloadHeader =
+        "Download (channel: " ++ Download.channelToLabel(selectedChannel.contents) ++ ")"
       let itemData = await SwitchVersionManager.getItemData(
         manager,
         downloadItems,
+        ~downloadHeader,
         ~showChannelSelector=Array.length(availableChannels.contents) >= 2,
       )
 

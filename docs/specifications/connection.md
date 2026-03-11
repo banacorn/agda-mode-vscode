@@ -141,7 +141,7 @@ Each entry shows the version string as detail. A variant is **hidden** from the 
 
 ### 3. Channels (hidden when fewer than 2 channels are available)
 
-A single standalone button item labelled `"📡 Select other channels"`, placed between the Download section and the Misc section. It is not a section with a header — just a button in the item list. The currently active channel is visible in the Download section header (e.g. `"⬇ Download  (channel: Hardcoded)"`), so the button label does not repeat it.
+A single standalone button item labelled `"📡 Select other channels"`, placed between the Download section and the Misc section. It is not a section with a header — just a button in the item list. The currently active channel is visible in the Download section header (e.g. `"Download (channel: Hardcoded)"`), so the button label does not repeat it.
 
 Selecting the button opens a **sub-QuickPick** listing all available channels (`Hardcoded`, `LatestALS`, `DevALS` — DevALS only when DevMode is enabled). After the user picks a channel, the main QuickPick stays open and the Download section refreshes to show that channel's variants.
 
