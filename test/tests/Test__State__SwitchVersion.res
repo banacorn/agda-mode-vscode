@@ -639,6 +639,50 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should expose download variants instead of channel-tagged latest/dev items",
+      async () => {
+        module MockDesktopHardcodedOnly = {
+          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+
+          let resolveDownloadChannel = (channel, _useCache) =>
+            async (_memento, _globalStorageUri, _platform) =>
+              switch channel {
+              | Connection__Download.Channel.Hardcoded =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.Hardcoded,
+                    "https://example.invalid/hardcoded-native",
+                    "hardcoded-als",
+                  ),
+                )
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+
+          let download = (_globalStorageUri, _downloadDescriptor) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+
+          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let platform: Platform.t = module(MockDesktopHardcodedOnly)
+        let state = createTestStateWithPlatform(platform)
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+
+        let hasChannelTaggedItems =
+          downloadItems->Array.some(((_, _, downloadType)) =>
+            downloadType == "latest" || downloadType == "dev"
+          )
+
+        Assert.deepStrictEqual(hasChannelTaggedItems, false)
+      },
+    )
+
+    Async.it(
       "should keep existing shared connection when switch target cannot be established",
       async () => {
         // Keep this test isolated from prior registry state.
