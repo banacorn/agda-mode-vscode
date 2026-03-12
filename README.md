@@ -38,7 +38,7 @@ Commands working with terms or types (marked with the 🎚 emoji below) can be p
 | quit and restart                        | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-r</kbd> |
 | toggle display of hidden arguments      | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-h</kbd> |
 | toggle display of irrelevant arguments  | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-i</kbd> |
-| show constraints                        | <kbd>C-c</kbd> <kbd>C-=</kbd> |
+| show constraints 🎚[^1]                  | <kbd>C-c</kbd> <kbd>C-=</kbd> |
 | solve constraints 🎚                     | <kbd>C-c</kbd> <kbd>C-s</kbd> |
 | show all goals 🎚                        | <kbd>C-c</kbd> <kbd>C-?</kbd> |
 | move to next goal (forward)             | <kbd>C-c</kbd> <kbd>C-f</kbd> |
@@ -49,6 +49,8 @@ Commands working with terms or types (marked with the 🎚 emoji below) can be p
 | compute normal form 🎚                  | <kbd>C-c</kbd> <kbd>C-n</kbd> |
 | switch to a different installation of Agda or ALS | <kbd>C-x</kbd> <kbd>C-s</kbd> |
 | Unicode symbol input sequences lookup   | <kbd>C-x</kbd> <kbd>C-=</kbd> |
+
+[^1]: Normalisation prefixes only have an effect on Agda 2.9.0 and higher for this command.
 
 ### Commands in context of a goal
 
