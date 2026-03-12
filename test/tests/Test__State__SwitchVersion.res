@@ -1485,6 +1485,8 @@ describe("State__SwitchVersion", () => {
             ~refreshUI=None,
           )
 
+          let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
+
           let pickedAfter = Memento.PickedConnection.get(state.memento)
           Assert.deepStrictEqual(pickedAfter, initialPicked)
 
@@ -1583,6 +1585,8 @@ describe("State__SwitchVersion", () => {
           )
 
           await Test__Util.wait(250)
+
+          let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
           Assert.deepStrictEqual(
             Memento.PickedConnection.get(state.memento),

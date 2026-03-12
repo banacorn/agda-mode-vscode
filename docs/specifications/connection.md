@@ -26,6 +26,8 @@ This spec does not cover:
 - Command-discovered paths (step 2) MUST NOT be added to `connection.paths`.
 - When a download completes (chain or UI-triggered), the downloaded path MUST be appended to `connection.paths`, deduplicated.
 - Endpoint selection in the Switch Version UI MUST NOT add the selected path to `connection.paths`.
+- Stale user-path entries in `connection.paths` are allowed to remain in settings; implementations MUST treat failed path entries as errors during probing rather than silently rewriting user config.
+- Installed list rendering SHOULD de-duplicate paths that refer to the same executable target (including alias forms like `file://` versus filesystem paths), especially for managed download targets.
 
 **`PickedConnection` updates**
 - `PickedConnection` MAY be an absolute path or a bare command name.
@@ -70,6 +72,8 @@ The list is probed in **reverse order** — the last entry is tried first. This 
 By rule, successful downloads append (deduplicated) to `connection.paths`. Since `getAgdaPaths()` reverses before probing, appended downloads naturally have highest priority even without `PickedConnection` (see `package.json` config schema).
 
 By rule, command-discovered paths (step 2) are never added to `connection.paths`. This preserves bare-command intent (`agda` should re-resolve from PATH each run; see PR #272).
+
+By rule, stale path-like entries are not auto-pruned from settings; they remain user-managed and are surfaced as failed probe entries in the Installed list.
 
 ## `PickedConnection`
 

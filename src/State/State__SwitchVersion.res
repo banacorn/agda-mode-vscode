@@ -800,7 +800,6 @@ module Handler = {
     if downloaded {
       let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant)
       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-      await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
       VSCode.Window.showInformationMessage(
         versionString ++ " is already downloaded",
         [],
@@ -824,7 +823,6 @@ module Handler = {
         )->Promise.done
       | Ok(downloadedPath) =>
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
 
         // Optional UI refresh after successful download
         switch refreshUI {

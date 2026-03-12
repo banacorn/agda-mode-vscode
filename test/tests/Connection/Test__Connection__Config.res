@@ -572,7 +572,8 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
+            // Download action should not change selected connection
+            Assert.deepStrictEqual(pickedConnection, None)
           },
         )
 
@@ -590,7 +591,8 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
+            // Download action should not change selected connection
+            Assert.deepStrictEqual(pickedConnection, None)
           },
         )
       },
