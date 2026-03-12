@@ -4,7 +4,7 @@ module Constants = {
   let alsWithSquirrel = "$(squirrel)  ALS v"
   let downloadNativeALS = "$(cloud-download)  Download Agda Language Server (native)"
   let downloadWasmALS = "$(cloud-download)  Download Agda Language Server (WASM)"
-  let selectOtherChannels = "📡 Select other channels"
+  let selectOtherChannels = "$(tag)  Select other channels"
   let downloadUnavailable = "Not available for this platform"
   let checkingAvailability = "Checking availability..."
   let deleteDownloads = "$(trash)  Delete downloads"
@@ -585,10 +585,9 @@ module Download = {
       }
     )
 
-  let sourceForVariant = (
-    platform: Connection__Download__Platform.t,
-    variant: variant,
-  ): option<Connection__Download.Source.t> =>
+  let sourceForVariant = (platform: Connection__Download__Platform.t, variant: variant): option<
+    Connection__Download.Source.t,
+  > =>
     switch variant {
     | Native =>
       switch Connection__Hardcoded.nativeUrlForPlatform(platform) {
@@ -622,8 +621,11 @@ module Download = {
     (downloaded, Connection__Download.Source.toVersionString(source), variantToTag(variant))
   }
 
-  let unavailableItem = (variant: variant): (bool, string, string) =>
-    (false, Constants.downloadUnavailable, variantToTag(variant))
+  let unavailableItem = (variant: variant): (bool, string, string) => (
+    false,
+    Constants.downloadUnavailable,
+    variantToTag(variant),
+  )
 
   let channelToLabel = (channel: Connection__Download.Channel.t): string =>
     switch channel {
@@ -640,36 +642,39 @@ module Download = {
     | _ => None
     }
 
-  let getAvailableChannels = async (
-    platformDeps: Platform.t,
-  ): array<Connection__Download.Channel.t> => {
-    module PlatformOps = unpack(platformDeps)
-    switch await PlatformOps.determinePlatform() {
-    | Ok(Connection__Download__Platform.Web) =>
-      if Config.DevMode.get() {
-        [Hardcoded, DevALS]
-      } else {
-        [Hardcoded]
-      }
-    | _ =>
-      if Config.DevMode.get() {
-        [Hardcoded, LatestALS, DevALS]
-      } else {
-        [Hardcoded, LatestALS]
-      }
-    }
+  let getAvailableChannels = async (_platformDeps: Platform.t): array<
+    Connection__Download.Channel.t,
+  > => {
+    [Hardcoded]
+    // module PlatformOps = unpack(platformDeps)
+    // switch await PlatformOps.determinePlatform() {
+    // | Ok(Connection__Download__Platform.Web) =>
+    //   if Config.DevMode.get() {
+    //     [Hardcoded, DevALS]
+    //   } else {
+    //     [Hardcoded]
+    //   }
+    // | _ =>
+    //   if Config.DevMode.get() {
+    //     [Hardcoded, LatestALS, DevALS]
+    //   } else {
+    //     [Hardcoded, LatestALS]
+    //   }
+    // }
   }
 
   // Create placeholder download items to prevent UI jitter.
-  let getPlaceholderDownloadItems = async (
-    platformDeps: Platform.t,
-  ): array<(bool, string, string)> => {
+  let getPlaceholderDownloadItems = async (platformDeps: Platform.t): array<(
+    bool,
+    string,
+    string,
+  )> => {
     module PlatformOps = unpack(platformDeps)
     switch await PlatformOps.determinePlatform() {
-    | Ok(Connection__Download__Platform.Web) =>
-      [(false, Constants.checkingAvailability, variantToTag(WASM))]
-    | _ =>
-      [
+    | Ok(Connection__Download__Platform.Web) => [
+        (false, Constants.checkingAvailability, variantToTag(WASM)),
+      ]
+    | _ => [
         (false, Constants.checkingAvailability, variantToTag(Native)),
         (false, Constants.checkingAvailability, variantToTag(WASM)),
       ]
@@ -747,9 +752,10 @@ module Handler = {
 
   let removeDownloadedPathsFromConfig = async (state: State.t): unit => {
     let previousPaths = Config.Connection.getAgdaPaths()
-    let keptPaths = previousPaths->Array.filter(path =>
-      !isPathUnderDownloadDirectory(state.globalStorageUri, path)
-    )
+    let keptPaths =
+      previousPaths->Array.filter(path =>
+        !isPathUnderDownloadDirectory(state.globalStorageUri, path)
+      )
     if Array.length(keptPaths) != Array.length(previousPaths) {
       await Config.Connection.setAgdaPaths(state.channels.log, keptPaths)
     }
@@ -868,7 +874,10 @@ module Handler = {
                 switch Download.channelFromLabel(label) {
                 | Some(channel) =>
                   selectedChannel := channel
-                  let newDownloadItems = await Download.getAllAvailableDownloads(state, platformDeps)
+                  let newDownloadItems = await Download.getAllAvailableDownloads(
+                    state,
+                    platformDeps,
+                  )
                   let _ = SwitchVersionManager.refreshFromMemento(manager)
                   await updateUI(newDownloadItems)
                 | None => ()
@@ -899,11 +908,15 @@ module Handler = {
             | _ => ()
             }
             await Memento.Endpoints.clear(state.memento)
-            let _ = await VSCode.Window.showInformationMessage("All downloads and cache deleted", [])
+            let _ = await VSCode.Window.showInformationMessage(
+              "All downloads and cache deleted",
+              [],
+            )
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-          } else if
+          } else if (
             selectedItem.label == Constants.downloadNativeALS ||
-              selectedItem.label == Constants.downloadWasmALS {
+              selectedItem.label == Constants.downloadWasmALS
+          ) {
             Util.log("[ debug ] user clicked: download button = " ++ selectedItem.label, "")
             view->View.destroy
             let selectedVariant = if selectedItem.label == Constants.downloadNativeALS {
@@ -913,9 +926,10 @@ module Handler = {
             }
 
             let downloadItems = await Download.getAllAvailableDownloads(state, platformDeps)
-            let selectedDownload = downloadItems->Array.find(((_, _, variantTag)) =>
-              variantTag == Download.variantToTag(selectedVariant)
-            )
+            let selectedDownload =
+              downloadItems->Array.find(((_, _, variantTag)) =>
+                variantTag == Download.variantToTag(selectedVariant)
+              )
 
             switch selectedDownload {
             | Some((downloaded, versionString, _)) =>
@@ -1024,7 +1038,7 @@ module Handler = {
     // Setup quickpick
     view->View.setPlaceholder("Switch Agda Version")
 
-    availableChannels := await Download.getAvailableChannels(platformDeps)
+    availableChannels := (await Download.getAvailableChannels(platformDeps))
 
     // PHASE 1: Show cached items immediately with placeholders to prevent jitter
     await updateUI(await Download.getPlaceholderDownloadItems(platformDeps))

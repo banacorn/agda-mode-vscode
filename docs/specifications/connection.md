@@ -38,6 +38,7 @@ This spec does not cover:
 
 **Switch Version UI**
 - The channel selection UI MUST be hidden when fewer than two channels are available.
+- Current runtime is Hardcoded-only, so channel selection is hidden.
 
 ## The Connection Chain
 
@@ -46,16 +47,18 @@ Step names and order only. Formal stop/continue behavior and skip rules are defi
 0. **Picked** — `PickedConnection`
 1. **Paths** — entries from `agdaMode.connection.paths` (after step-1 exclusion rule)
 2. **Commands** — PATH `agda`, `als` (after step-2 skip rules)
-3. **Download native** — download native binary via the active channel
+3. **Download native** — download native binary via the active channel (currently `Hardcoded`)
 4. **Download WASM** — fallback from step 3 when native fails
 
 ## Channels
 
 A channel determines which version of ALS to download. The format fallback (native → WASM) is orthogonal to channel selection: regardless of which channel is active, native is always tried before WASM.
 
+Current runtime channel: `Hardcoded` only.
+
 - `Hardcoded` — pinned known-good version
-- `LatestALS` — latest release from GitHub
-- `DevALS` — dev release
+- `LatestALS` — latest release from GitHub _(planned future)_
+- `DevALS` — dev release _(planned future)_
 
 
 ## `connection.paths`
@@ -89,7 +92,7 @@ By rule, command-discovered paths (step 2) are never added to `connection.paths`
 
 ## Switch Version UI
 
-The UI is a VSCode QuickPick with up to three sections ("Installed", "Download", "Misc"), always in this order, separated by VSCode QuickPick separators. The Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found. When two or more channels are available, a standalone `"📡 Select other channels"` button is inserted between the Download section and the Misc section (it is not a section separator — just a button item).
+The UI is a VSCode QuickPick with up to three sections ("Installed", "Download", "Misc"), always in this order, separated by VSCode QuickPick separators. The Installed section is hidden entirely (no separator, no placeholder) when no endpoints are found. When two or more channels are available, a standalone `"$(tag)  Select other channels"` button is inserted between the Download section and the Misc section (it is not a section separator — just a button item). In current Hardcoded-only mode this button is hidden.
 
 ### 1. Installed
 
@@ -133,11 +136,11 @@ Each entry shows the version string as detail. A variant is **hidden** from the 
 
 **Placeholder loading phase:** While channel metadata is being fetched asynchronously, the Download section shows a single disabled-looking item labelled `"Checking availability..."` in place of the real variants. Once metadata is ready, this placeholder is replaced with the actual variant entries. The Installed section is unaffected by this phase. Selection is allowed throughout — if the user picks a Download item while loading, the action proceeds normally once the item resolves.
 
-### 3. Channels (hidden when fewer than 2 channels are available)
+### 3. Channels (future; hidden when fewer than 2 channels are available)
 
-A single standalone button item labelled `"📡 Select other channels"`, placed between the Download section and the Misc section. It is not a section with a header — just a button in the item list. The currently active channel is visible in the Download section header (e.g. `"Download (channel: Hardcoded)"`), so the button label does not repeat it.
+A single standalone button item labelled `"$(tag)  Select other channels"`, placed between the Download section and the Misc section. It is not a section with a header — just a button in the item list. The currently active channel is visible in the Download section header (e.g. `"Download (channel: Hardcoded)"`), so the button label does not repeat it.
 
-Selecting the button opens a **sub-QuickPick** listing all available channels (`Hardcoded`, `LatestALS`, `DevALS` — DevALS only when DevMode is enabled). After the user picks a channel, the main QuickPick stays open and the Download section refreshes to show that channel's variants.
+Selecting the button opens a **sub-QuickPick** listing all available channels. This behavior is dormant while only `Hardcoded` is available; `LatestALS` and `DevALS` are planned future channels.
 
 ### 4. Misc
 
@@ -149,7 +152,7 @@ Selecting the button opens a **sub-QuickPick** listing all available channels (`
 |-------------------------|----------------------|-------------------------------|------------------------------------|----------------------------------------------------|
 | Select endpoint         | —                    | set to selected path/command  | unchanged                          | initiates connection attempt                       |
 | Select download variant | variant shown for current platform (see Download section table) | set to downloaded path        | downloaded path appended (deduped) | download triggered; UI refreshes                   |
-| Select channel          | ≥ 2 channels         | unchanged                     | unchanged                          | Download section refreshes with new channel variants|
+| Select channel          | ≥ 2 channels (future) | unchanged                    | unchanged                          | Download section refreshes with new channel variants|
 | Delete Downloads        | —                    | cleared (`None`) if pointing to a downloaded path, else unchanged | downloaded paths removed           | `Memento.Endpoints` cleared; download dirs deleted |
 
 ### Download section (absent as a top-level command)
@@ -161,28 +164,24 @@ There is no standalone "Download" command. Downloads are triggered by selecting 
 Coverage tags: `PARTIAL` / `CONTRADICTORY` / `NONE`
 Stable IDs: numbering is an identifier and is not renumbered after removals.
 
-1. **[Coverage: PARTIAL] Step-2 command success overwrites existing `PickedConnection`.**
-   Spec says step 2 sets `PickedConnection` only when it is currently `None`.
-   Implementation currently sets it unconditionally on step-2 success.
-   Covered for the `None` case (`Test__Connection__Memento`), but no test guards the "must not overwrite existing pick" case.
+1. **[Coverage: PARTIAL] step-2 `PickedConnection` overwrite behavior is now aligned.**
+   Step-2 success now sets `PickedConnection` only when current value is `None`.
+   Guarded by tests for both `None` and pre-existing pick cases (`Test__Connection__Memento`).
 
-2. **[Coverage: PARTIAL] Delete Downloads unconditionally clears `PickedConnection`.**
-   Spec says `PickedConnection` should only be cleared if it points to a downloaded path.
-   Implementation calls `Memento.PickedConnection.clear` unconditionally (`State__SwitchVersion.res:776`).
-   Covered for downloaded picks (`Test__State__SwitchVersion`), but no test guards "non-download picks remain unchanged."
+2. **[Coverage: PARTIAL] Delete Downloads `PickedConnection` clearing is now conditional.**
+   `PickedConnection` is cleared only when it points to a managed download path.
+   Guarded by tests for both downloaded and non-download picks (`Test__State__SwitchVersion`).
 
-3. **[Coverage: CONTRADICTORY] Download section shows per-channel items, not per-variant items.**
-   Spec says the Download section lists native + WASM variants for the currently selected channel.
-   Implementation shows one download item per channel (`LatestALS`, `DevALS`), not per variant.
-   Current item-data tests assert existing `DownloadAction(..., "latest"/"dev")` behavior.
+3. **[Coverage: PARTIAL] multi-channel behavior deferred while Hardcoded-only mode is active.**
+   Download section behavior is variant-based (`native` / `wasm`) under the current `Hardcoded` channel.
+   `LatestALS` and `DevALS` are planned future channels.
 
-4. **[Coverage: NONE] Channels section not implemented as sub-QuickPick.**
-   Spec says section 3 shows a single button that opens a sub-QuickPick to select a channel, leaving the main QuickPick open.
-   Implementation does not have this sub-QuickPick flow.
+4. **[Coverage: PARTIAL] channel sub-QuickPick is future-scoped under Hardcoded-only runtime.**
+   Channel selector is hidden because fewer than two channels are available.
+   Sub-QuickPick behavior remains specified for future channel rollout.
 
-5. **[Coverage: NONE] Channels section not implemented as sub-QuickPick.**
-   Spec says section 3 shows a single button that opens a sub-QuickPick to select a channel, leaving the main QuickPick open.
-   Implementation does not have this sub-QuickPick flow.
+5. **[Coverage: PARTIAL] duplicate of #4 retained for stable numbering.**
+   Channel-selection UI is intentionally hidden while runtime remains Hardcoded-only.
 
 6. **[Coverage: PARTIAL] managed download variants are suppressed when already present in `connection.paths`.**
    Spec says a download variant is hidden iff its expected download path is already in `connection.paths`.
@@ -196,10 +195,9 @@ Stable IDs: numbering is an identifier and is not renumbered after removals.
    Guarded by passing test: `"should not treat checking-availability placeholder as endpoint selection"` (`Test__State__SwitchVersion`).
    Remaining coverage gap: no test yet asserts deferred download execution for a placeholder-originated click.
 
-8. **[Coverage: PARTIAL] Download section header does not show active channel.**
-   Spec says the active channel is visible in the Download section header.
-   Implementation uses a fixed `"Download"` separator without channel state.
-   Guarded by failing test: `"should include active channel in download section header"` (`Test__State__SwitchVersion`).
+8. **[Coverage: PARTIAL] active channel header is now implemented.**
+   Download section header includes active channel state (e.g. `"Download (channel: Hardcoded)"`).
+   Guarded by passing test: `"should include active channel in download section header"` (`Test__State__SwitchVersion`).
 
 9. **[Coverage: PARTIAL] Installed section is hidden when no endpoints are found.**
    Spec requires no Installed separator and no placeholder when endpoint list is empty.
@@ -229,10 +227,13 @@ This section lists test coverage expectations and remaining gaps for this spec.
   - `"should skip agda command probe in step 2 when PickedConnection is bare agda"`
   - `"should not persist resolved absolute command paths back into connection.paths"`
   - `"should update both connection.paths and PickedConnection after successful download"`
+  - `"should resolve Desktop downloads via Hardcoded channel"`
   - `"should retry Hardcoded download with WASM source when native download fails"`
   - `"should retry Hardcoded download with WASM source when Hardcoded channel resolution fails"`
   - `"should fall back to WASM when Hardcoded native download fails"`
 - Switch Version cleanup coverage should include:
+  - `"should expose Hardcoded as the only available download channel"` in `test/tests/Test__State__SwitchVersion.res`
+  - `"should not render channel switch item when only Hardcoded channel is available"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should hide Installed section when no endpoints are found"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should remove download-managed paths from connection.paths on Delete Downloads"` in `test/tests/Test__State__SwitchVersion.res`
   - `"should not show native download option on web platform"` in `test/tests/Test__State__SwitchVersion.res`

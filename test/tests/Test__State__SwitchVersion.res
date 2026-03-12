@@ -682,6 +682,68 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should expose Hardcoded as the only available download channel",
+      async () => {
+        let desktopChannels = await State__SwitchVersion.Download.getAvailableChannels(
+          makeMockPlatform(),
+        )
+        Assert.deepStrictEqual(desktopChannels, [Connection__Download.Channel.Hardcoded])
+
+        module MockWebPlatform = {
+          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
+
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+
+          let resolveDownloadChannel = (_channel, _useCache) =>
+            async (_memento, _globalStorageUri, _platform) =>
+              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+
+          let download = (_globalStorageUri, _downloadDescriptor) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+
+          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let webChannels = await State__SwitchVersion.Download.getAvailableChannels(
+          module(MockWebPlatform),
+        )
+        Assert.deepStrictEqual(webChannels, [Connection__Download.Channel.Hardcoded])
+      },
+    )
+
+    Async.it(
+      "should not render channel switch item when only Hardcoded channel is available",
+      async () => {
+        let availableChannels = await State__SwitchVersion.Download.getAvailableChannels(
+          makeMockPlatform(),
+        )
+        let shouldShowChannelSelector = Array.length(availableChannels) >= 2
+        Assert.deepStrictEqual(shouldShowChannelSelector, false)
+
+        let itemData: array<State__SwitchVersion.ItemData.t> =
+          State__SwitchVersion.ItemData.entriesToItemData(
+            Dict.make(),
+            None,
+            [(false, "ALS v1.0.0", "native")],
+            ~showChannelSelector=shouldShowChannelSelector,
+          )
+
+        let hasSelectOtherChannels =
+          itemData->Array.some(item =>
+            switch item {
+            | SelectOtherChannels => true
+            | _ => false
+            }
+          )
+
+        Assert.deepStrictEqual(hasSelectOtherChannels, false)
+      },
+    )
+
+    Async.it(
       "should expose download variants instead of channel-tagged latest/dev items",
       async () => {
         module MockDesktopHardcodedOnly = {
@@ -857,7 +919,7 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "📡 Select other channels" })`)
+        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
 
         State__SwitchVersion.Handler.onSelection(
           state,
