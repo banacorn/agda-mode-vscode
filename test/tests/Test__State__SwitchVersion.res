@@ -1432,6 +1432,189 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should not overwrite existing picked connection when downloading via handler",
+      async () => {
+        let testCases = [
+          (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, false),
+          (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, true),
+          (Some("/usr/bin/agda"), State__SwitchVersion.Download.WASM, false),
+          (Some("/usr/bin/agda"), State__SwitchVersion.Download.WASM, true),
+          (None, State__SwitchVersion.Download.Native, false),
+          (None, State__SwitchVersion.Download.Native, true),
+          (None, State__SwitchVersion.Download.WASM, false),
+          (None, State__SwitchVersion.Download.WASM, true),
+        ]
+
+        let runCase = async (
+          initialPicked: option<string>,
+          variant: State__SwitchVersion.Download.variant,
+          downloaded: bool,
+        ) => {
+          let state = createTestState()
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+          let discoveredEndpoints = Dict.make()
+          discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
+          discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))
+          await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+
+          await Memento.PickedConnection.set(state.memento, initialPicked)
+
+          let activePath = "/opt/homebrew/bin/agda"
+          let activeConnection = TestData.makeMockConnection(activePath, "2.6.3")
+          Registry__Connection.status :=
+            Active({
+              connection: activeConnection,
+              users: Belt.Set.String.empty,
+              currentOwnerId: None,
+              queue: Promise.resolve(),
+            })
+
+          let expectedDownloadPath =
+            State__SwitchVersion.Download.expectedPathForVariant(state.globalStorageUri, variant)
+          let platform =
+            Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath)
+          let versionString = "ALS v" ++ (downloaded ? "downloaded" : "to-download")
+
+          await State__SwitchVersion.Handler.handleDownload(
+            state,
+            platform,
+            variant,
+            downloaded,
+            versionString,
+            ~refreshUI=None,
+          )
+
+          let pickedAfter = Memento.PickedConnection.get(state.memento)
+          Assert.deepStrictEqual(pickedAfter, initialPicked)
+
+          let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+            manager,
+            await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform),
+          )
+
+          let selectedEndpoints =
+            itemData
+            ->Array.filterMap(item =>
+              switch item {
+              | Endpoint(path, _, true) => Some(path)
+              | _ => None
+              }
+            )
+          let expectedSelected =
+            switch initialPicked {
+            | Some(path) => [path]
+            | None => [activePath]
+            }
+
+          Assert.deepStrictEqual(selectedEndpoints, expectedSelected)
+          let hasDownloadedPath = Config.Connection.getAgdaPaths()->Array.some(path => path == expectedDownloadPath)
+          Assert.deepStrictEqual(hasDownloadedPath, true)
+
+          Registry__Connection.status := Empty
+        }
+
+        let _ = await Promise.all(testCases->Array.map(((initialPicked, variant, downloaded)) =>
+          runCase(initialPicked, variant, downloaded),
+        ))
+      },
+    )
+
+    Async.it(
+      "should not switch selected endpoint when user clicks download action",
+      async () => {
+        let cases = [
+          State__SwitchVersion.Constants.downloadNativeALS,
+          State__SwitchVersion.Constants.downloadWasmALS,
+        ]
+
+        let runCase = async (label: string) => {
+          let state = createTestState()
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+          let view = State__SwitchVersion.View.make(state.channels.log)
+
+          let selectedVariant =
+            label == State__SwitchVersion.Constants.downloadWasmALS
+              ? State__SwitchVersion.Download.WASM
+              : State__SwitchVersion.Download.Native
+
+          let expectedDownloadPath =
+            State__SwitchVersion.Download.expectedPathForVariant(state.globalStorageUri, selectedVariant)
+
+          let discoveredEndpoints = Dict.make()
+          discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
+          discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))
+          await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+
+          let previouslyPicked = Some("/usr/bin/agda")
+          await Memento.PickedConnection.set(state.memento, previouslyPicked)
+          let activePath = "/opt/homebrew/bin/agda"
+          Registry__Connection.status :=
+            Active({
+              connection: TestData.makeMockConnection(activePath, "2.6.3"),
+              users: Belt.Set.String.empty,
+              currentOwnerId: None,
+              queue: Promise.resolve(),
+            })
+
+          let selectedItem: VSCode.QuickPickItem.t = {
+            label,
+            description: "",
+            detail: "",
+          }
+
+          let sawSelectedEndpoint = ref(false)
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(SelectedEndpoint(_, _, _)) => sawSelectedEndpoint := true
+            | _ => ()
+            },
+          )
+
+          State__SwitchVersion.Handler.onSelection(
+            state,
+            Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
+            manager,
+            ref([Connection__Download.Channel.Hardcoded]),
+            ref(Connection__Download.Channel.Hardcoded),
+            _downloadItems => Promise.resolve(),
+            view,
+            [selectedItem],
+          )
+
+          await Test__Util.wait(250)
+
+          Assert.deepStrictEqual(
+            Memento.PickedConnection.get(state.memento),
+            previouslyPicked,
+          )
+
+          let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+            manager,
+            await State__SwitchVersion.Download.getAllAvailableDownloads(
+              state,
+              Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
+            ),
+          )
+          let selectedEndpoints =
+            itemData
+            ->Array.filterMap(item =>
+              switch item {
+              | Endpoint(path, _, true) => Some(path)
+              | _ => None
+              }
+            )
+          Assert.deepStrictEqual(selectedEndpoints, ["/usr/bin/agda"])
+          Assert.deepStrictEqual(sawSelectedEndpoint.contents, false)
+        view->State__SwitchVersion.View.destroy
+          Registry__Connection.status := Empty
+        }
+
+        let _ = await Promise.all(cases->Array.map(runCase))
+      },
+    )
+
+    Async.it(
       "should mark only one endpoint when multiple exist",
       async () => {
         /**
