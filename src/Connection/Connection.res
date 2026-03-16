@@ -227,7 +227,7 @@ module Module: Module = {
           Error.Establish.fromProbeError(
             path,
             Error.Probe.CannotMakeConnectionWithALSWASMYet(
-              "Extension 'qbane.als-wasm-loader' not found",
+              "Extension 'qbane.als-wasm-loader' not found. Either it is not installed or is disabled.",
             ),
             source,
           ),
