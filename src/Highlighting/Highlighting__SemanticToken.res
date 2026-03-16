@@ -3,16 +3,17 @@
 module TokenType = {
   type t =
     | Namespace
-    | Type
     | Class
     | Enum
     | Interface
     | Struct
     | TypeParameter
+    | Type
     | Parameter
     | Variable
     | Property
     | EnumMember
+    | Decorator
     | Event
     | Function
     | Member
@@ -28,16 +29,17 @@ module TokenType = {
   let toString = x =>
     switch x {
     | Namespace => "namespace"
-    | Type => "type"
     | Class => "class"
     | Enum => "enum"
     | Interface => "interface"
     | Struct => "struct"
     | TypeParameter => "typeParameter"
+    | Type => "type"
     | Parameter => "parameter"
     | Variable => "variable"
     | Property => "property"
     | EnumMember => "enumMember"
+    | Decorator => "decorator"
     | Event => "event"
     | Function => "function"
     | Member => "member"
@@ -53,16 +55,17 @@ module TokenType = {
 
   let enumurate = [
     "namespace",
-    "type",
     "class",
     "enum",
     "interface",
     "struct",
     "typeParameter",
+    "type",
     "parameter",
     "variable",
     "property",
     "enumMember",
+    "decorator",
     "event",
     "function",
     "member",
@@ -82,6 +85,7 @@ module TokenType = {
 module TokenModifier = {
   type t =
     | Declaration
+    | Definition
     | Readonly
     | Static
     | Deprecated
@@ -94,6 +98,7 @@ module TokenModifier = {
   let toString = x =>
     switch x {
     | Declaration => "declaration"
+    | Definition => "definition"
     | Readonly => "readonly"
     | Static => "static"
     | Deprecated => "deprecated"
@@ -106,6 +111,7 @@ module TokenModifier = {
 
   let enumurate = [
     "declaration",
+    "definition",
     "readonly",
     "static",
     "deprecated",
