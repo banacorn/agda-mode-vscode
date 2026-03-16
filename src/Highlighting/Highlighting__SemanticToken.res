@@ -16,7 +16,7 @@ module TokenType = {
     | Decorator
     | Event
     | Function
-    | Member
+    | Method
     | Macro
     | Label
     | Comment
@@ -42,7 +42,7 @@ module TokenType = {
     | Decorator => "decorator"
     | Event => "event"
     | Function => "function"
-    | Member => "member"
+    | Method => "method"
     | Macro => "macro"
     | Label => "label"
     | Comment => "comment"
@@ -68,7 +68,7 @@ module TokenType = {
     "decorator",
     "event",
     "function",
-    "member",
+    "method",
     "macro",
     "label",
     "comment",
@@ -94,6 +94,12 @@ module TokenModifier = {
     | Modification
     | Documentation
     | DefaultLibrary
+    // non-standard modifiers for styling purpose; see Highlighting__AgdaAspect.res
+    // -- for tagging Aspects and NameKinds
+    | Agda
+    // -- for disambiguation
+    | Primitive
+    | CoInductive
 
   let toString = x =>
     switch x {
@@ -107,6 +113,9 @@ module TokenModifier = {
     | Modification => "modification"
     | Documentation => "documentation"
     | DefaultLibrary => "defaultLibrary"
+    | Agda => "agda"
+    | Primitive => "primitive"
+    | CoInductive => "coInductive"
     }
 
   let enumurate = [
@@ -120,6 +129,9 @@ module TokenModifier = {
     "modification",
     "documentation",
     "defaultLibrary",
+    "primitive",
+    "coInductive",
+    "agda",
   ]
 }
 
