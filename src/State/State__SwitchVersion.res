@@ -839,6 +839,24 @@ module Handler = {
     state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
   }
 
+  let handleChannelSwitch = async (
+    state: State.t,
+    platformDeps: Platform.t,
+    manager: SwitchVersionManager.t,
+    selectedChannel: ref<Connection__Download.Channel.t>,
+    channel: Connection__Download.Channel.t,
+    updateUI,
+  ) => {
+    selectedChannel := channel
+    await Memento.SelectedChannel.set(state.memento, Download.channelToLabel(channel))
+    let newDownloadItems = await Download.getAllAvailableDownloads(
+      state,
+      platformDeps,
+    )
+    let _ = SwitchVersionManager.refreshFromMemento(manager)
+    await updateUI(newDownloadItems)
+  }
+
   let onSelection = (
     state: State.t,
     platformDeps: Platform.t,
@@ -871,13 +889,9 @@ module Handler = {
               | Some(label) =>
                 switch Download.channelFromLabel(label) {
                 | Some(channel) =>
-                  selectedChannel := channel
-                  let newDownloadItems = await Download.getAllAvailableDownloads(
-                    state,
-                    platformDeps,
+                  await handleChannelSwitch(
+                    state, platformDeps, manager, selectedChannel, channel, updateUI,
                   )
-                  let _ = SwitchVersionManager.refreshFromMemento(manager)
-                  await updateUI(newDownloadItems)
                 | None => ()
                 }
               | None => ()
@@ -1004,10 +1018,15 @@ module Handler = {
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
     let availableChannels = ref([Connection__Download.Channel.Hardcoded])
-    let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
-
-    // No initialization needed since we removed getPicked() -
-    // just use whatever is stored in memento directly
+    let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+    | Some(label) =>
+      switch Download.channelFromLabel(label) {
+      | Some(channel) => channel
+      | None => Connection__Download.Channel.Hardcoded
+      }
+    | None => Connection__Download.Channel.Hardcoded
+    }
+    let selectedChannel = ref(restoredChannel)
 
     // Helper function to update UI with current state
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {

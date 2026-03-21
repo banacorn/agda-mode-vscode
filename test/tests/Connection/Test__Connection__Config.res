@@ -130,8 +130,8 @@ describe("Config.Connection paths", () => {
 
         switch result {
         | Ok(connection) =>
-          // should use first working path
-          Assert.deepStrictEqual(connection->Connection.getPath, userAgda.contents)
+          // should use last working path (reverse order per spec)
+          Assert.deepStrictEqual(connection->Connection.getPath, alternativeAgda.contents)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
@@ -286,6 +286,86 @@ describe("Config.Connection paths", () => {
         | Ok(_) => Assert.fail("Connection should fail when config is empty and no discovery")
         | Error(_) => () // expected to fail
         }
+      },
+    )
+  })
+
+  describe("Default value (spec L17)", () => {
+    Async.it(
+      "connection.paths default value should be [\"agda\", \"als\"] in package.json",
+      async () => {
+        let packageJsonPath = NodeJs.Path.join([
+          NodeJs.Process.cwd(NodeJs.Process.process),
+          "package.json",
+        ])
+        let content = NodeJs.Fs.readFileSync(packageJsonPath)->NodeJs.Buffer.toString
+        let json = JSON.parseExn(content)
+
+        // Navigate to contributes.configuration.properties["agdaMode.connection.paths"].default
+        let default = switch json {
+        | Object(root) =>
+          root
+          ->Dict.get("contributes")
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(contributes) => contributes->Dict.get("configuration")
+            | _ => None
+            }
+          )
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(config) => config->Dict.get("properties")
+            | _ => None
+            }
+          )
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(properties) => properties->Dict.get("agdaMode.connection.paths")
+            | _ => None
+            }
+          )
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(pathConfig) => pathConfig->Dict.get("default")
+            | _ => None
+            }
+          )
+        | _ => None
+        }
+
+        Assert.deepStrictEqual(default, Some(JSON.Array([JSON.String("agda"), JSON.String("als")])))
+      },
+    )
+  })
+
+  describe("Duplicate candidates (spec L15)", () => {
+    Async.it(
+      "addAgdaPath should not add duplicate path",
+      async () => {
+        let initialPaths = ["/usr/bin/agda", "/opt/homebrew/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, initialPaths)
+
+        // Try to add a path that already exists
+        await Config.Connection.addAgdaPath(logChannel, "/usr/bin/agda")
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
+        )
+      },
+    )
+
+    Async.it(
+      "setAgdaPaths should deduplicate paths (spec L15)",
+      async () => {
+        let pathsWithDuplicates = ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, pathsWithDuplicates)
+
+        // spec L15: connection.paths MUST be an ordered list of unique Candidates
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
+        )
       },
     )
   })
@@ -572,8 +652,8 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            // Download action should not change selected connection
-            Assert.deepStrictEqual(pickedConnection, None)
+            // Manual UI download should set PreferredCandidate (spec L54)
+            Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
           },
         )
 
@@ -591,8 +671,8 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            // Download action should not change selected connection
-            Assert.deepStrictEqual(pickedConnection, None)
+            // Manual UI download should set PreferredCandidate (spec L54)
+            Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
           },
         )
       },

@@ -54,6 +54,12 @@ module Module: {
     let set: (t, option<string>) => promise<unit>
     let clear: t => promise<unit>
   }
+
+  module SelectedChannel: {
+    let get: t => option<string>
+    let set: (t, string) => promise<unit>
+    let clear: t => promise<unit>
+  }
 } = {
   type t = Memento(VSCode.Memento.t) | Mock(Dict.t<Any.t>)
 
@@ -262,6 +268,24 @@ module Module: {
     
     let clear = async (memento: t): unit => {
       await set(memento, None)
+    }
+  }
+
+  module SelectedChannel = {
+    let key = "selectedChannel"
+    let mementoSet = set
+    let mementoGet = get
+
+    let get = (memento: t): option<string> => {
+      memento->mementoGet(key)
+    }
+
+    let set = async (memento: t, channel: string): unit => {
+      await memento->mementoSet(key, Some(channel))
+    }
+
+    let clear = async (memento: t): unit => {
+      await memento->mementoSet(key, None)
     }
   }
 }

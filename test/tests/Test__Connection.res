@@ -921,6 +921,154 @@ describe("Connection", () => {
       },
     )
 
+    describe("Download order (spec L21-23)", () => {
+      Async.it(
+        "Desktop download order should be [native, WASM]",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Undecided)
+
+          let downloadedMock = switch agdaMockEndpoint.contents {
+          | Some(path) => path
+          | None => failwith("Unable to access Agda mock endpoint")
+          }
+
+          // Track the order of download attempts
+          let downloadAttempts: ref<array<string>> = ref([])
+
+          let nativeUrl = switch Connection__Hardcoded.nativeUrlForPlatform(Ubuntu) {
+          | Some(url) => url
+          | None => failwith("Expected hardcoded native URL for Ubuntu")
+          }
+
+          module MockDesktopOrderPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+            let resolveDownloadChannel = (_channel, _useCache) =>
+              async (_memento, _globalStorageUri, _platform) =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.Hardcoded,
+                    nativeUrl,
+                    "hardcoded-als",
+                  ),
+                )
+            let download = (_globalStorageUri, source) =>
+              switch source {
+              | Connection__Download.Source.FromURL(_, url, _) if url == nativeUrl =>
+                downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
+                // Native fails, triggering WASM fallback
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              | Connection__Download.Source.FromURL(_, url, _)
+                if url == Connection__Hardcoded.wasmUrl =>
+                downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
+                Promise.resolve(Ok(downloadedMock))
+              | _ =>
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              }
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+
+          let mockPlatformDeps: Platform.t = module(MockDesktopOrderPlatform)
+          let memento = Memento.make(None)
+          let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+          let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+
+          // Desktop should try native first, then WASM
+          Assert.deepStrictEqual(downloadAttempts.contents, ["native", "wasm"])
+          // WASM fallback succeeds, so we should get a connection
+          switch result {
+          | Ok(Agda(_, path, _)) => Assert.deepStrictEqual(path, downloadedMock)
+          | Ok(_) => Assert.fail("Expected Agda connection")
+          | Error(e) =>
+            Assert.fail(
+              "Expected success after WASM fallback but got: " ++
+              Connection.Error.Establish.toString(e),
+            )
+          }
+        },
+      )
+
+      Async.it(
+        "Web download order should be [WASM] only",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Undecided)
+
+          // Track download attempts and resolved channels
+          let downloadAttempts: ref<array<string>> = ref([])
+          let resolvedChannels: ref<array<Connection__Download.Channel.t>> = ref([])
+
+          let nativeUrl = "https://example.invalid/native-should-not-be-used"
+
+          module MockWebOrderPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+            let resolveDownloadChannel = (channel, _useCache) =>
+              async (_memento, _globalStorageUri, _platform) => {
+                resolvedChannels :=
+                  Array.concat(resolvedChannels.contents, [channel])
+                // Return different URLs per channel to detect wrong channel selection
+                switch channel {
+                | Connection__Download.Channel.Hardcoded =>
+                  Ok(
+                    Connection__Download.Source.FromURL(
+                      Connection__Download.Channel.Hardcoded,
+                      Connection__Hardcoded.wasmUrl,
+                      "hardcoded-als",
+                    ),
+                  )
+                | _ =>
+                  // Non-Hardcoded channels return a native URL
+                  Ok(
+                    Connection__Download.Source.FromURL(
+                      channel,
+                      nativeUrl,
+                      "other-als",
+                    ),
+                  )
+                }
+              }
+            let download = (_globalStorageUri, source) =>
+              switch source {
+              | Connection__Download.Source.FromURL(_, url, _)
+                if url == Connection__Hardcoded.wasmUrl =>
+                downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              | Connection__Download.Source.FromURL(_, _, _) =>
+                downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              | _ =>
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              }
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+
+          let mockPlatformDeps: Platform.t = module(MockWebOrderPlatform)
+          let memento = Memento.make(None)
+          let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+
+          let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+
+          // Web should only try WASM, never native
+          Assert.deepStrictEqual(downloadAttempts.contents, ["wasm"])
+          // Should have resolved only the Hardcoded channel
+          Assert.deepStrictEqual(
+            resolvedChannels.contents,
+            [Connection__Download.Channel.Hardcoded],
+          )
+          // All downloads failed, so result should be an error
+          switch result {
+          | Ok(_) => Assert.fail("Expected failure when all downloads fail")
+          | Error(_) => ()
+          }
+        },
+      )
+    })
+
   })
 
   describe("`fromPathsOrCommands`", () => {
@@ -2355,7 +2503,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should update both connection.paths and PickedConnection after successful download",
+      "should update connection.paths but not PickedConnection after automatic fallback download",
       async () => {
         let logChannel = Chan.make()
         await Config.Connection.setAgdaPaths(logChannel, [])
@@ -2378,7 +2526,72 @@ describe("Connection", () => {
           Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [downloadedAgda.contents])
           Assert.deepStrictEqual(
             Memento.PickedConnection.get(memento),
-            Some(downloadedAgda.contents),
+            None,
+          )
+        | Error(_) => Assert.fail("Expected fallback download to succeed")
+        }
+      },
+    )
+
+    Async.it(
+      "should not overwrite existing PickedConnection after automatic fallback download",
+      async () => {
+        let logChannel = Chan.make()
+        let existingPicked = "/usr/local/bin/agda"
+        await Config.Connection.setAgdaPaths(logChannel, [])
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let memento = Memento.make(None)
+        await Memento.PickedConnection.set(memento, Some(existingPicked))
+        let platform = Mock.Platform.makeWithSuccessfulDownload(downloadedAgda.contents)
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, downloadedAgda.contents)
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [downloadedAgda.contents])
+          Assert.deepStrictEqual(
+            Memento.PickedConnection.get(memento),
+            Some(existingPicked),
+          )
+        | Error(_) => Assert.fail("Expected fallback download to succeed")
+        }
+      },
+    )
+
+    Async.it(
+      "should prepend downloaded path to connection.paths on automatic fallback (spec L26)",
+      async () => {
+        let logChannel = Chan.make()
+        let existingPaths = ["/broken/path1", "/broken/path2"]
+        await Config.Connection.setAgdaPaths(logChannel, existingPaths)
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let memento = Memento.make(None)
+        let platform = Mock.Platform.makeWithSuccessfulDownload(downloadedAgda.contents)
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          VSCode.Uri.file("/tmp/test-storage"),
+          existingPaths,
+          ["invalid-command"],
+          logChannel,
+        )
+
+        switch result {
+        | Ok(connection) =>
+          Assert.deepStrictEqual(connection->Connection.getPath, downloadedAgda.contents)
+          // Automatic fallback download MUST prepend (lowest priority) per spec L26
+          Assert.deepStrictEqual(
+            Config.Connection.getAgdaPaths(),
+            [downloadedAgda.contents, "/broken/path1", "/broken/path2"],
           )
         | Error(_) => Assert.fail("Expected fallback download to succeed")
         }

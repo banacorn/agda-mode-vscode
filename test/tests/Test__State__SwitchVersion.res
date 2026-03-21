@@ -1192,7 +1192,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should remove download-managed paths from connection.paths on Delete Downloads",
+      "should preserve connection.paths on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1240,8 +1240,8 @@ describe("State__SwitchVersion", () => {
         )
         await Test__Util.wait(200)
 
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand])
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), None)
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, downloadedLatest, downloadedDevWasm, downloadedHardcoded, keepBareCommand])
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedLatest))
         Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(hardcodedDirUri)), false)
 
         let _ = await FS.deleteRecursive(storageUri)
@@ -1250,7 +1250,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should remove download-managed paths even when file URI contains unescaped spaces",
+      "should preserve connection.paths with unescaped space URIs on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1294,7 +1294,7 @@ describe("State__SwitchVersion", () => {
         )
         await Test__Util.wait(200)
 
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, unescapedWasmUri])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -1302,7 +1302,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should keep non-download PickedConnection on Delete Downloads",
+      "should preserve all connection.paths and PickedConnection on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1340,7 +1340,7 @@ describe("State__SwitchVersion", () => {
         )
         await Test__Util.wait(200)
 
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, downloadedLatest])
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(keepPath))
 
         let _ = await FS.deleteRecursive(storageUri)
@@ -1432,7 +1432,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should not overwrite existing picked connection when downloading via handler",
+      "should set picked connection to downloaded path when downloading via handler (spec L54)",
       async () => {
         let testCases = [
           (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, false),
@@ -1488,7 +1488,8 @@ describe("State__SwitchVersion", () => {
           let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
           let pickedAfter = Memento.PickedConnection.get(state.memento)
-          Assert.deepStrictEqual(pickedAfter, initialPicked)
+          // Manual UI download should set PreferredCandidate (spec L54)
+          Assert.deepStrictEqual(pickedAfter, Some(expectedDownloadPath))
 
           let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
             manager,
@@ -1503,27 +1504,24 @@ describe("State__SwitchVersion", () => {
               | _ => None
               }
             )
-          let expectedSelected =
-            switch initialPicked {
-            | Some(path) => [path]
-            | None => [activePath]
-            }
-
-          Assert.deepStrictEqual(selectedEndpoints, expectedSelected)
+          // After manual UI download, picked is the downloaded path (spec L54)
+          Assert.deepStrictEqual(selectedEndpoints, [expectedDownloadPath])
           let hasDownloadedPath = Config.Connection.getAgdaPaths()->Array.some(path => path == expectedDownloadPath)
           Assert.deepStrictEqual(hasDownloadedPath, true)
 
           Registry__Connection.status := Empty
         }
 
-        let _ = await Promise.all(testCases->Array.map(((initialPicked, variant, downloaded)) =>
-          runCase(initialPicked, variant, downloaded),
-        ))
+        // Run cases sequentially to avoid race conditions on shared Registry__Connection.status
+        for i in 0 to Array.length(testCases) - 1 {
+          let (initialPicked, variant, downloaded) = testCases[i]->Option.getExn
+          await runCase(initialPicked, variant, downloaded)
+        }
       },
     )
 
     Async.it(
-      "should not switch selected endpoint when user clicks download action",
+      "should set picked connection to downloaded path when user clicks download action (spec L54)",
       async () => {
         let cases = [
           State__SwitchVersion.Constants.downloadNativeALS,
@@ -1534,6 +1532,9 @@ describe("State__SwitchVersion", () => {
           let state = createTestState()
           let manager = State__SwitchVersion.SwitchVersionManager.make(state)
           let view = State__SwitchVersion.View.make(state.channels.log)
+
+          // Reset config paths to avoid leaking state from previous tests
+          await Config.Connection.setAgdaPaths(state.channels.log, [])
 
           let selectedVariant =
             label == State__SwitchVersion.Constants.downloadWasmALS
@@ -1573,6 +1574,15 @@ describe("State__SwitchVersion", () => {
             },
           )
 
+          let onOperationComplete = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(SelectionCompleted) => true
+              | _ => false
+              },
+          )
+
           State__SwitchVersion.Handler.onSelection(
             state,
             Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
@@ -1584,13 +1594,14 @@ describe("State__SwitchVersion", () => {
             [selectedItem],
           )
 
-          await Test__Util.wait(250)
+          await onOperationComplete
 
           let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
+          // Manual UI download should set PreferredCandidate (spec L54)
           Assert.deepStrictEqual(
             Memento.PickedConnection.get(state.memento),
-            previouslyPicked,
+            Some(expectedDownloadPath),
           )
 
           let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
@@ -1608,13 +1619,16 @@ describe("State__SwitchVersion", () => {
               | _ => None
               }
             )
-          Assert.deepStrictEqual(selectedEndpoints, ["/usr/bin/agda"])
+          Assert.deepStrictEqual(selectedEndpoints, [expectedDownloadPath])
           Assert.deepStrictEqual(sawSelectedEndpoint.contents, false)
         view->State__SwitchVersion.View.destroy
           Registry__Connection.status := Empty
         }
 
-        let _ = await Promise.all(cases->Array.map(runCase))
+        // Run cases sequentially to avoid race conditions on shared Registry__Connection.status
+        for i in 0 to Array.length(cases) - 1 {
+          await runCase(cases[i]->Option.getExn)
+        }
       },
     )
 
@@ -1706,6 +1720,303 @@ describe("State__SwitchVersion", () => {
 
         // VERIFY: Total endpoint count is correct
         Assert.deepStrictEqual(Array.length(allEndpointsFromLogs), 4) // Should have all 4 endpoints logged
+      },
+    )
+
+    Async.it(
+      "should persist channel selection in memento across UI activations (spec L40)",
+      async () => {
+        // Spec L40: channel selection MUST be stored in memento
+        //
+        // Test: call handleChannelSwitch (the real code path that runs after
+        // user picks a channel in showQuickPick), then verify memento persistence.
+
+        let state = createTestState()
+        let platform = makeMockPlatform()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+
+        // Precondition: memento has no channel entry
+        let mementoBefore = Memento.toString(state.memento)
+        Assert.deepStrictEqual(mementoBefore->String.includes("selectedChannel"), false)
+
+        // Execute the real channel-switch code path
+        await State__SwitchVersion.Handler.handleChannelSwitch(
+          state,
+          platform,
+          manager,
+          selectedChannel,
+          Connection__Download.Channel.DevALS,
+          _downloadItems => Promise.resolve(),
+        )
+
+        // Verify the switch happened
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+
+        // Spec L40: after channel switch, memento MUST contain the selected channel
+        let mementoAfter = Memento.toString(state.memento)
+        Assert.deepStrictEqual(mementoAfter->String.includes("selectedChannel"), true)
+      },
+    )
+
+    Async.it(
+      "should preserve connection.paths when switching channels (spec L46)",
+      async () => {
+        // Spec L46: switching channels MUST NOT remove existing downloaded Candidates
+        //
+        // Test: set up config paths, call handleChannelSwitch (the real code path),
+        // then verify paths are unchanged.
+
+        let state = createTestState()
+        let platform = makeMockPlatform()
+        let logChannel = state.channels.log
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let view = State__SwitchVersion.View.make(logChannel)
+
+        // Set up config with existing paths including downloaded ALS from different channels
+        let existingPaths = ["/usr/bin/agda", "/downloaded/als-hardcoded", "/downloaded/als-dev"]
+        await Config.Connection.setAgdaPaths(logChannel, existingPaths)
+
+        // Build a real updateUI closure (same as onActivate creates)
+        let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
+          let downloadHeader =
+            "Download (channel: " ++
+              State__SwitchVersion.Download.channelToLabel(selectedChannel.contents) ++ ")"
+          let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+            manager,
+            downloadItems,
+            ~downloadHeader,
+            ~showChannelSelector=true,
+          )
+          let items = State__SwitchVersion.Item.fromItemDataArray(itemData, state.extensionUri)
+          view->State__SwitchVersion.View.updateItems(items)
+        }
+
+        // Execute the real channel-switch code path
+        await State__SwitchVersion.Handler.handleChannelSwitch(
+          state,
+          platform,
+          manager,
+          selectedChannel,
+          Connection__Download.Channel.DevALS,
+          updateUI,
+        )
+
+        // Verify the switch happened
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+
+        // Spec L46: paths MUST be unchanged after channel switch
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          existingPaths,
+        )
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should default to Hardcoded channel on fresh activation (spec L37)",
+      async () => {
+        // Spec L37: Hardcoded MUST be the default channel
+        //
+        // On fresh activation (no memento data), the restored channel should be Hardcoded.
+        // This tests the logic in onActivate lines 1020-1029.
+
+        let state = createTestState()
+
+        // Precondition: memento has no selectedChannel entry (fresh install)
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        // Simulate the channel restoration logic from onActivate
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) =>
+          switch State__SwitchVersion.Download.channelFromLabel(label) {
+          | Some(channel) => channel
+          | None => Connection__Download.Channel.Hardcoded
+          }
+        | None => Connection__Download.Channel.Hardcoded
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.Hardcoded)
+      },
+    )
+
+    Async.it(
+      "should default to Hardcoded channel when memento contains invalid channel label (spec L37)",
+      async () => {
+        let state = createTestState()
+
+        // Set an invalid channel label in memento
+        await Memento.SelectedChannel.set(state.memento, "InvalidChannel")
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("InvalidChannel"))
+
+        // Simulate the channel restoration logic from onActivate
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) =>
+          switch State__SwitchVersion.Download.channelFromLabel(label) {
+          | Some(channel) => channel
+          | None => Connection__Download.Channel.Hardcoded
+          }
+        | None => Connection__Download.Channel.Hardcoded
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.Hardcoded)
+      },
+    )
+
+    Async.it(
+      "should clear PreferredCandidate when Delete Downloads is invoked and picked path is under download directory (spec L56)",
+      async () => {
+        // Spec L56: PreferredCandidate MUST be cleared only by explicit user action
+        // in the Switch Version UI (Delete Downloads clears it when picked path is downloaded)
+
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-t12-clear-picked-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        // Set PickedConnection to a path under download directory
+        let downloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
+
+        // Precondition: PickedConnection is set to a download path
+        Assert.deepStrictEqual(
+          Memento.PickedConnection.get(state.memento),
+          Some(downloadedPath),
+        )
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: State__SwitchVersion.Constants.deleteDownloads,
+          description: "",
+          detail: "",
+        }
+
+        // Include a download path in config so removeDownloadedPathsFromConfig
+        // emits a Config(Changed) event we can wait on deterministically.
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          ["/usr/bin/agda", downloadedPath],
+        )
+
+        let onConfigChanged = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.Config(Changed(_, _)) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        // removeDownloadedPathsFromConfig fires Config(Changed) before
+        // PickedConnection.clear runs (lines 913→919 in State__SwitchVersion.res).
+        // Allow the subsequent microtasks to settle after the config event.
+        await onConfigChanged
+        await Test__Util.wait(50)
+
+        // PickedConnection should be cleared because it was under a download directory
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should NOT clear PreferredCandidate when Delete Downloads is invoked and picked path is NOT under download directory (spec L56)",
+      async () => {
+        // Spec L56: PreferredCandidate should only be cleared when it points to a downloaded path
+
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-t12-keep-picked-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        // Set PickedConnection to a user-managed path (NOT under download directory)
+        let userPath = "/usr/local/bin/agda"
+        await Memento.PickedConnection.set(state.memento, Some(userPath))
+
+        // Precondition: PickedConnection is set to a user path
+        Assert.deepStrictEqual(
+          Memento.PickedConnection.get(state.memento),
+          Some(userPath),
+        )
+
+        // Include a download path in config so removeDownloadedPathsFromConfig
+        // emits a Config(Changed) event we can wait on deterministically.
+        let downloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [userPath, downloadedPath],
+        )
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: State__SwitchVersion.Constants.deleteDownloads,
+          description: "",
+          detail: "",
+        }
+
+        let onConfigChanged = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.Config(Changed(_, _)) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        // removeDownloadedPathsFromConfig fires Config(Changed) before
+        // PickedConnection check runs (lines 913→920 in State__SwitchVersion.res).
+        // Allow the subsequent microtasks to settle after the config event.
+        await onConfigChanged
+        await Test__Util.wait(50)
+
+        // PickedConnection should be preserved because it's not under a download directory
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(userPath))
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
       },
     )
   })

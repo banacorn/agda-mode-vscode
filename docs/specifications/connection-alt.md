@@ -77,17 +77,21 @@ Decide for each item: fix the spec, fix the tests, or fix the implementation.
 
 ### Spec-vs-Test Contradictions
 
-- [ ] **T1** Delete Downloads — spec L62 says MUST NOT modify `connection.paths`/`PreferredCandidate`, but tests assert it removes download-managed paths and clears `PickedConnection` when pointing to a download path (`Test__State__SwitchVersion.res:1195,1244,1305`)
-- [ ] **T2** Resolution order — spec L69 says "reverse order", but tests and implementation use forward order (`Test__Connection__Config.res:124-134`, no `reverse` call in `Connection*.res`)
-- [ ] **T3** Automatic fallback setting PreferredCandidate — spec L52-54 says only explicit user action, but automatic fallback via `makeWithFallback` sets `PickedConnection` (`Test__Connection.res:2357-2386`)
-- [ ] **T4** Manual UI download setting PreferredCandidate — spec L54 lists it as a trigger, but test asserts `pickedConnection = None` after manual download (`Test__Connection__Config.res:576`)
+- [x] **T1** Delete Downloads — spec L62 says MUST NOT modify `connection.paths`/`PreferredCandidate`, but tests assert it removes download-managed paths and clears `PickedConnection` when pointing to a download path (`Test__State__SwitchVersion.res:1195,1244,1305`) — **tests fixed**, implementation still pending (see I1)
+- [x] **T2** Resolution order — spec L69 says "reverse order", but tests and implementation use forward order (`Test__Connection__Config.res:124-134`, no `reverse` call in `Connection*.res`) — **tests fixed**, implementation still pending (see I2)
+- [x] **T3** Automatic fallback setting PreferredCandidate — spec L52-54 says only explicit user action, but automatic fallback via `makeWithFallback` sets `PickedConnection` (`Test__Connection.res:2357-2386`) — **tests fixed**, implementation still pending (see I3)
+- [x] **T4** Manual UI download setting PreferredCandidate — spec L54 lists it as a trigger, but test asserts `pickedConnection = None` after manual download (`Test__Connection__Config.res:576`)
 
 ### Missing Test Coverage
 
-- [ ] **T5** Add test: automatic fallback download prepends to `connection.paths` (spec L26, no test verifies position)
-- [ ] **T6** Add test: `connection.paths` rejects or deduplicates duplicate Candidates (spec L15)
-- [ ] **T7** Add test: channel selection persists in memento (spec L40)
-- [ ] **T8** Add test: switching channels preserves existing downloaded Candidates (spec L46)
+- [x] **T5** Add test: automatic fallback download prepends to `connection.paths` (spec L26, no test verifies position)
+- [x] **T6** Add test: `connection.paths` rejects or deduplicates duplicate Candidates (spec L15)
+- [x] **T7** Add test: channel selection persists in memento (spec L40)
+- [x] **T8** Add test: switching channels preserves existing downloaded Candidates (spec L46)
+- [ ] **T9** Add test: default value of `connection.paths` is `["agda", "als"]` (spec L17)
+- [ ] **T10** Add test: download order is [native, WASM] on Desktop and [WASM] on Web (spec L21-23)
+- [ ] **T11** Add test: Hardcoded is the default channel on fresh activation (spec L37)
+- [ ] **T12** Add test: PreferredCandidate can be explicitly cleared by user action in Switch Version UI (spec L56)
 
 ### Spec-vs-Implementation Contradictions
 
