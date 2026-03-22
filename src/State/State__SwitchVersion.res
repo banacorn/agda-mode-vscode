@@ -920,11 +920,11 @@ module Handler = {
             | _ => ()
             }
             await Memento.Endpoints.clear(state.memento)
-            let _ = await VSCode.Window.showInformationMessage(
+            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            VSCode.Window.showInformationMessage(
               "All downloads and cache deleted",
               [],
-            )
-            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            )->Promise.done
           } else if (
             selectedItem.label == Constants.downloadNativeALS ||
               selectedItem.label == Constants.downloadWasmALS

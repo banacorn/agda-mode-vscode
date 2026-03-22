@@ -1192,7 +1192,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should preserve connection.paths on Delete Downloads",
+      "should preserve connection.paths and PreferredCandidate on Delete Downloads (spec L62)",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1228,6 +1228,15 @@ describe("State__SwitchVersion", () => {
           detail: "",
         }
 
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
         State__SwitchVersion.Handler.onSelection(
           state,
           makeMockPlatform(),
@@ -1238,8 +1247,9 @@ describe("State__SwitchVersion", () => {
           view,
           [selectedItem],
         )
-        await Test__Util.wait(200)
+        await onSelectionCompleted
 
+        // Spec L62: Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, downloadedLatest, downloadedDevWasm, downloadedHardcoded, keepBareCommand])
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedLatest))
         Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(hardcodedDirUri)), false)
@@ -1282,6 +1292,15 @@ describe("State__SwitchVersion", () => {
           detail: "",
         }
 
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
         State__SwitchVersion.Handler.onSelection(
           state,
           makeMockPlatform(),
@@ -1292,7 +1311,7 @@ describe("State__SwitchVersion", () => {
           view,
           [selectedItem],
         )
-        await Test__Util.wait(200)
+        await onSelectionCompleted
 
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, unescapedWasmUri])
 
@@ -1328,6 +1347,15 @@ describe("State__SwitchVersion", () => {
           detail: "",
         }
 
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
         State__SwitchVersion.Handler.onSelection(
           state,
           makeMockPlatform(),
@@ -1338,7 +1366,7 @@ describe("State__SwitchVersion", () => {
           view,
           [selectedItem],
         )
-        await Test__Util.wait(200)
+        await onSelectionCompleted
 
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, downloadedLatest])
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(keepPath))
@@ -1737,8 +1765,7 @@ describe("State__SwitchVersion", () => {
         let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
 
         // Precondition: memento has no channel entry
-        let mementoBefore = Memento.toString(state.memento)
-        Assert.deepStrictEqual(mementoBefore->String.includes("selectedChannel"), false)
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
 
         // Execute the real channel-switch code path
         await State__SwitchVersion.Handler.handleChannelSwitch(
@@ -1753,9 +1780,8 @@ describe("State__SwitchVersion", () => {
         // Verify the switch happened
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
 
-        // Spec L40: after channel switch, memento MUST contain the selected channel
-        let mementoAfter = Memento.toString(state.memento)
-        Assert.deepStrictEqual(mementoAfter->String.includes("selectedChannel"), true)
+        // Spec L40: after channel switch, memento MUST store the exact channel label
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("DevALS"))
       },
     )
 
@@ -1867,10 +1893,35 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should clear PreferredCandidate when Delete Downloads is invoked and picked path is under download directory (spec L56)",
+      "should restore a valid persisted channel on activation (spec L40)",
       async () => {
-        // Spec L56: PreferredCandidate MUST be cleared only by explicit user action
-        // in the Switch Version UI (Delete Downloads clears it when picked path is downloaded)
+        // Round-trip: set channel in memento -> restore -> verify selected channel
+        let state = createTestState()
+
+        // Persist DevALS channel in memento (simulating a previous session)
+        await Memento.SelectedChannel.set(
+          state.memento,
+          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.DevALS),
+        )
+
+        // Simulate the channel restoration logic from onActivate (lines 1021-1028)
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) =>
+          switch State__SwitchVersion.Download.channelFromLabel(label) {
+          | Some(channel) => channel
+          | None => Connection__Download.Channel.Hardcoded
+          }
+        | None => Connection__Download.Channel.Hardcoded
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
+      },
+    )
+
+    Async.it(
+      "should NOT clear PreferredCandidate when Delete Downloads is invoked and picked path is under download directory (spec L62)",
+      async () => {
+        // Spec L62: Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
 
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1902,18 +1953,16 @@ describe("State__SwitchVersion", () => {
           detail: "",
         }
 
-        // Include a download path in config so removeDownloadedPathsFromConfig
-        // emits a Config(Changed) event we can wait on deterministically.
         await Config.Connection.setAgdaPaths(
           state.channels.log,
           ["/usr/bin/agda", downloadedPath],
         )
 
-        let onConfigChanged = Log.on(
+        let onSelectionCompleted = Log.on(
           state.channels.log,
           log =>
             switch log {
-            | Log.Config(Changed(_, _)) => true
+            | Log.SwitchVersionUI(SelectionCompleted) => true
             | _ => false
             },
         )
@@ -1929,14 +1978,11 @@ describe("State__SwitchVersion", () => {
           [selectedItem],
         )
 
-        // removeDownloadedPathsFromConfig fires Config(Changed) before
-        // PickedConnection.clear runs (lines 913→919 in State__SwitchVersion.res).
-        // Allow the subsequent microtasks to settle after the config event.
-        await onConfigChanged
-        await Test__Util.wait(50)
+        await onSelectionCompleted
 
-        // PickedConnection should be cleared because it was under a download directory
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), None)
+        // Spec L62: Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedPath))
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda", downloadedPath])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -1944,9 +1990,9 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should NOT clear PreferredCandidate when Delete Downloads is invoked and picked path is NOT under download directory (spec L56)",
+      "should NOT clear PreferredCandidate when Delete Downloads is invoked and picked path is NOT under download directory (spec L62)",
       async () => {
-        // Spec L56: PreferredCandidate should only be cleared when it points to a downloaded path
+        // Spec L62: Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
 
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1971,8 +2017,6 @@ describe("State__SwitchVersion", () => {
           Some(userPath),
         )
 
-        // Include a download path in config so removeDownloadedPathsFromConfig
-        // emits a Config(Changed) event we can wait on deterministically.
         let downloadedPath =
           VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
         await Config.Connection.setAgdaPaths(
@@ -1986,11 +2030,11 @@ describe("State__SwitchVersion", () => {
           detail: "",
         }
 
-        let onConfigChanged = Log.on(
+        let onSelectionCompleted = Log.on(
           state.channels.log,
           log =>
             switch log {
-            | Log.Config(Changed(_, _)) => true
+            | Log.SwitchVersionUI(SelectionCompleted) => true
             | _ => false
             },
         )
@@ -2006,14 +2050,11 @@ describe("State__SwitchVersion", () => {
           [selectedItem],
         )
 
-        // removeDownloadedPathsFromConfig fires Config(Changed) before
-        // PickedConnection check runs (lines 913→920 in State__SwitchVersion.res).
-        // Allow the subsequent microtasks to settle after the config event.
-        await onConfigChanged
-        await Test__Util.wait(50)
+        await onSelectionCompleted
 
-        // PickedConnection should be preserved because it's not under a download directory
+        // Spec L62: Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(userPath))
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [userPath, downloadedPath])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy

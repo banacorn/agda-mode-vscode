@@ -74,6 +74,25 @@ describe("Config", () => {
             )
           },
         )
+
+        it(
+          "`parseAgdaPaths` should deduplicate paths (spec L15)",
+          () => {
+            Assert.deepStrictEqual(
+              Config.Connection.parseAgdaPaths(
+                JSON.Array([
+                  JSON.String("/usr/bin/agda"),
+                  JSON.String("/usr/local/bin/als"),
+                  JSON.String("/usr/bin/agda"),
+                ]),
+              ),
+              [
+                "/usr/local/bin/als",
+                "/usr/bin/agda",
+              ],
+            )
+          },
+        )
       },
     )
   })
