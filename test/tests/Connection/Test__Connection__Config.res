@@ -368,6 +368,46 @@ describe("Config.Connection paths", () => {
         )
       },
     )
+
+    Async.it(
+      "setAgdaPaths then getAgdaPaths should round-trip without reordering (production path)",
+      async () => {
+        // Temporarily disable testing mode to exercise the real config persistence path
+        // (getAgdaPaths calls parseAgdaPaths which reverses; setAgdaPaths writes directly)
+        Config.inTestingMode := false
+
+        let paths = ["/first", "/second", "/third"]
+        await Config.Connection.setAgdaPaths(logChannel, paths)
+        let retrieved = Config.Connection.getAgdaPaths()
+
+        // Restore testing mode before assertions (in case assertion throws)
+        Config.inTestingMode := true
+
+        // Round-trip: set → get MUST return the same order
+        Assert.deepStrictEqual(retrieved, paths)
+      },
+    )
+
+    Async.it(
+      "addAgdaPath should preserve existing order (production path)",
+      async () => {
+        // Temporarily disable testing mode to exercise the real config persistence path
+        Config.inTestingMode := false
+
+        let initialPaths = ["/usr/bin/agda", "/opt/homebrew/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, initialPaths)
+
+        // Add a new path via the real addAgdaPath
+        await Config.Connection.addAgdaPath(logChannel, "/new/path/als")
+        let retrieved = Config.Connection.getAgdaPaths()
+
+        // Restore testing mode before assertions
+        Config.inTestingMode := true
+
+        // Existing paths MUST be in their original order, with new path appended
+        Assert.deepStrictEqual(retrieved, ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/new/path/als"])
+      },
+    )
   })
 
   describe("UI-triggered additions", () => {

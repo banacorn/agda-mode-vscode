@@ -1047,6 +1047,7 @@ module Handler = {
         }
       )
       state.channels.log->Chan.emit(Log.SwitchVersionUI(UpdatedEndpoints(endpointItemDatas)))
+      state.channels.log->Chan.emit(Log.SwitchVersionUI(Others(downloadHeader)))
 
       let items = Item.fromItemDataArray(itemData, state.extensionUri)
       view->View.updateItems(items)
