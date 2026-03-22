@@ -76,7 +76,7 @@ describe("Config", () => {
         )
 
         it(
-          "`parseAgdaPaths` should deduplicate paths (spec L15)",
+          "`parseAgdaPaths` should deduplicate paths",
           () => {
             Assert.deepStrictEqual(
               Config.Connection.parseAgdaPaths(

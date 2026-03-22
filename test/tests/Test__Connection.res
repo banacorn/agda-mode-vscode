@@ -921,7 +921,7 @@ describe("Connection", () => {
       },
     )
 
-    describe("Download order (spec L21-23)", () => {
+    describe("Download order", () => {
       Async.it(
         "Desktop download order should be [native, WASM]",
         async () => {
@@ -2567,7 +2567,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should prepend downloaded path to connection.paths on automatic fallback (spec L26)",
+      "should prepend downloaded path to connection.paths on automatic fallback",
       async () => {
         let logChannel = Chan.make()
         let existingPaths = ["/broken/path1", "/broken/path2"]
@@ -2588,7 +2588,7 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           Assert.deepStrictEqual(connection->Connection.getPath, downloadedAgda.contents)
-          // Automatic fallback download MUST prepend (lowest priority) per spec L26
+          // Automatic fallback download MUST prepend (lowest priority)
           Assert.deepStrictEqual(
             Config.Connection.getAgdaPaths(),
             [downloadedAgda.contents, "/broken/path1", "/broken/path2"],

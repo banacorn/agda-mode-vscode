@@ -290,7 +290,7 @@ describe("Config.Connection paths", () => {
     )
   })
 
-  describe("Default value (spec L17)", () => {
+  describe("Default value", () => {
     Async.it(
       "connection.paths default value should be [\"agda\", \"als\"] in package.json",
       async () => {
@@ -338,7 +338,7 @@ describe("Config.Connection paths", () => {
     )
   })
 
-  describe("Duplicate candidates (spec L15)", () => {
+  describe("Duplicate candidates", () => {
     Async.it(
       "addAgdaPath should not add duplicate path",
       async () => {
@@ -356,12 +356,12 @@ describe("Config.Connection paths", () => {
     )
 
     Async.it(
-      "setAgdaPaths should deduplicate paths (spec L15)",
+      "setAgdaPaths should deduplicate paths",
       async () => {
         let pathsWithDuplicates = ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/bin/agda"]
         await Config.Connection.setAgdaPaths(logChannel, pathsWithDuplicates)
 
-        // spec L15: connection.paths MUST be an ordered list of unique Candidates
+        // connection.paths MUST be an ordered list of unique Candidates
         Assert.deepStrictEqual(
           Config.Connection.getAgdaPaths(),
           ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
@@ -652,7 +652,7 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            // Manual UI download should set PreferredCandidate (spec L54)
+            // Manual UI download should set PreferredCandidate
             Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
           },
         )
@@ -671,7 +671,7 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            // Manual UI download should set PreferredCandidate (spec L54)
+            // Manual UI download should set PreferredCandidate
             Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
           },
         )
