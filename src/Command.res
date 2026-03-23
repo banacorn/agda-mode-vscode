@@ -77,7 +77,7 @@ type t =
   | Compile
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
-  | ShowConstraints
+  | ShowConstraints(Normalization.t)
   | SolveConstraints(Normalization.t) // agda2-maybe-normalised-toplevel-asis-noprompt
   | ShowGoals(Normalization.t) // agda2-maybe-normalised-toplevel-asis-noprompt
   | NextGoal
@@ -113,7 +113,10 @@ let names: array<(t, string)> = [
   (Compile, "compile"),
   (ToggleDisplayOfImplicitArguments, "toggle-display-of-implicit-arguments"),
   (ToggleDisplayOfIrrelevantArguments, "toggle-display-of-irrelevant-arguments"),
-  (ShowConstraints, "show-constraints"),
+  (ShowConstraints(AsIs), "show-constraints[AsIs]"),
+  (ShowConstraints(Simplified), "show-constraints[Simplified]"),
+  (ShowConstraints(Normalised), "show-constraints[Normalised]"),
+  (ShowConstraints(HeadNormal), "show-constraints[HeadNormal]"),
   (SolveConstraints(AsIs), "solve-constraints[AsIs]"),
   (SolveConstraints(Simplified), "solve-constraints[Simplified]"),
   (SolveConstraints(Normalised), "solve-constraints[Normalised]"),
@@ -201,7 +204,7 @@ let toKeybinding = x =>
   | Compile => "compile"
   | ToggleDisplayOfImplicitArguments => "toggle-display-of-implicit-arguments"
   | ToggleDisplayOfIrrelevantArguments => "toggle-display-of-irrelevant-arguments"
-  | ShowConstraints => "show-constraints"
+  | ShowConstraints(normalization) => "show-constraints[" ++ Normalization.encode(normalization) ++ "]"
   | SolveConstraints(normalization) =>
     "solve-constraints[" ++ Normalization.encode(normalization) ++ "]"
   | ShowGoals(normalization) => "show-goals[" ++ Normalization.encode(normalization) ++ "]"
@@ -259,7 +262,7 @@ let toString = x =>
   | Compile => "Compile"
   | ToggleDisplayOfImplicitArguments => "Toggle display of hidden arguments"
   | ToggleDisplayOfIrrelevantArguments => "Toggle display of irrelevant arguments"
-  | ShowConstraints => "Show constraints"
+  | ShowConstraints(normalization) => "Show constraints" ++ Normalization.toString(normalization)
   | SolveConstraints(normalization) => "Solve constraints " ++ Normalization.toString(normalization)
   | ShowGoals(normalization) => "Show goals" ++ Normalization.toString(normalization)
   | NextGoal => "Next goal"
