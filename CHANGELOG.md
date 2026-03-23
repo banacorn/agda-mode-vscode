@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #277: `connection.paths` should support bare commands like `agda` by [@ncfavier](https://github.com/ncfavier)
 
 ### Fixed
-- #287: README: remove stale reference to agdaMode.highlighting.getHighlightWithThemeColors
+- #287: README: remove stale reference to `agdaMode.highlighting.getHighlightWithThemeColors`
+- #289: Fix WASM loader, notably the process to setup stdlib
 - #290: Fix URI-to-path encoding in WASM LSP connection
 
 ## v0.6.8 - 2026-02-08
