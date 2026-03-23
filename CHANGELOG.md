@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.8.0 - 2026-03-23
 ### Added
-- #280: Fix #244: Implement window-scoped singleton connection sharing
+- #280: Fix #244: Implement window-scoped singleton connection sharing by [@vic0103520](https://github.com/vic0103520)
 - #288: Support normalisation levels for `show-constraints` for Agda nightly (to be added in Agda v2.9.0) by [@ncfavier](https://github.com/ncfavier)
 
 ### Changed
@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #277: `connection.paths` should support bare commands like `agda` by [@ncfavier](https://github.com/ncfavier)
 
 ### Fixed
-- #287: README: remove stale reference to `agdaMode.highlighting.getHighlightWithThemeColors`
+- #287: README: remove stale reference to `agdaMode.highlighting.getHighlightWithThemeColors` by [@andreasabel](https://github.com/andreasabel)
 - #289: Fix WASM loader, notably the process to setup stdlib
 - #290: Fix URI-to-path encoding in WASM LSP connection
 
