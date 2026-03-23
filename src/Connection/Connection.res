@@ -580,12 +580,15 @@ module Module: Module = {
     | None => []
     }
 
-    // Step 1: remaining config entries (exclude exact duplicate of picked).
+    // Step 1: remaining config entries in reverse order (last entry = highest priority).
     let remainingPaths = switch pickedConnection {
     | Some(pickedPath) => paths->Array.filter(path => path !== pickedPath)
     | None => paths
     }
-    let pathsWithSource = remainingPaths->Array.map(path => (path, Error.Establish.FromConfig))
+    let pathsWithSource =
+      remainingPaths
+      ->Array.toReversed
+      ->Array.map(path => (path, Error.Establish.FromConfig))
 
     // Step 2: command probes, with skip rules for bare "agda"/"als".
     let shouldSkipAgdaCommand =

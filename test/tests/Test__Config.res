@@ -62,8 +62,8 @@ describe("Config", () => {
                 ]),
               ),
               [
-                "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
                 "/Users/banacorn/.local/bin/agda",
+                "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
               ],
             )
             Assert.deepStrictEqual(
@@ -87,8 +87,8 @@ describe("Config", () => {
                 ]),
               ),
               [
-                "/usr/local/bin/als",
                 "/usr/bin/agda",
+                "/usr/local/bin/als",
               ],
             )
           },

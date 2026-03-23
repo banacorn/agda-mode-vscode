@@ -64,6 +64,19 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
+  // Deduplicate an array while preserving order (first occurrence wins)
+  let deduplicate = (paths: array<string>): array<string> => {
+    let seen = Dict.make()
+    paths->Array.filter(path => {
+      if seen->Dict.get(path)->Option.isSome {
+        false
+      } else {
+        seen->Dict.set(path, true)
+        true
+      }
+    })
+  }
+
   // expects an array of JSON strings
   let parseAgdaPaths = (raw: JSON.t) => {
     let rawPaths: array<string> = switch raw {
@@ -76,7 +89,7 @@ module Connection = {
       )
     | _ => []
     }
-    rawPaths->Array.toReversed
+    rawPaths->deduplicate
   }
 
   let getAgdaPaths = () =>
@@ -114,17 +127,17 @@ module Connection = {
 
   // overwrite all Agda paths
   let setAgdaPaths = (logChannel: Chan.t<Log.t>, paths) => {
+    let dedupedPaths = paths->deduplicate
     if inTestingMode.contents {
-      logChannel->Chan.emit(Log.Config(Changed(agdaPathsInTestingMode.contents, paths)))
-      agdaPathsInTestingMode := paths
+      logChannel->Chan.emit(Log.Config(Changed(agdaPathsInTestingMode.contents, dedupedPaths)))
+      agdaPathsInTestingMode := dedupedPaths
       Promise.resolve()
     } else {
-      // use the original
-      logChannel->Chan.emit(Log.Config(Changed(getAgdaPaths(), paths)))
+      logChannel->Chan.emit(Log.Config(Changed(getAgdaPaths(), dedupedPaths)))
       Workspace.getConfiguration(
         Some("agdaMode"),
         None,
-      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", paths, None)
+      )->WorkspaceConfiguration.updateGlobalSettings("connection.paths", dedupedPaths, None)
     }
   }
 

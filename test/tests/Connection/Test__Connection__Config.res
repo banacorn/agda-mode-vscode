@@ -373,7 +373,7 @@ describe("Config.Connection paths", () => {
       "setAgdaPaths then getAgdaPaths should round-trip without reordering (production path)",
       async () => {
         // Temporarily disable testing mode to exercise the real config persistence path
-        // (getAgdaPaths calls parseAgdaPaths which reverses; setAgdaPaths writes directly)
+        // (exercises the real config read/write cycle through VSCode settings)
         Config.inTestingMode := false
 
         let paths = ["/first", "/second", "/third"]

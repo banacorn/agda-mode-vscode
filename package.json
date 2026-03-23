@@ -1182,7 +1182,7 @@
 					"items": {
 						"type": "string"
 					},
-					"default": [],
+					"default": ["agda", "als"],
 					"scope": "machine-overridable",
 					"description": "A list of file paths or URLs pointing to Agda binaries or Agda Language Servers. Items in this list will be tried for connection from the LAST to the first (because it's easier to append new items at the end). Use the '^X ^S' command to manage these items. When empty, items are inferred by searching for 'agda' or 'als' commands."
 				},
