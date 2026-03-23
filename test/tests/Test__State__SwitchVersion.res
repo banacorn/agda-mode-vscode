@@ -553,6 +553,43 @@ describe("State__SwitchVersion", () => {
             Assert.ok(channelAwareDownloadSeparator->Option.isSome)
           },
         )
+
+        it(
+          "should show ClearPreferred only when pickedPath is Some",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            let hasClearPreferred = items =>
+              items->Array.some(
+                data =>
+                  switch data {
+                  | State__SwitchVersion.ItemData.ClearPreferred => true
+                  | _ => false
+                  },
+              )
+
+            // When pickedPath is None, ClearPreferred MUST NOT appear
+            let withoutPicked: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [],
+            )
+            Assert.deepStrictEqual(hasClearPreferred(withoutPicked), false)
+
+            // When pickedPath is Some, ClearPreferred MUST appear
+            let withPicked: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              Some("/usr/bin/agda"),
+              [],
+            )
+            Assert.deepStrictEqual(hasClearPreferred(withPicked), true)
+          },
+        )
       },
     )
   })
@@ -2663,9 +2700,7 @@ describe("State__SwitchVersion", () => {
             },
         )
 
-        // Synthesize a "clear preferred" action and route through real Handler.onSelection
-        // Since no such action exists in the handler, this falls through as "unknown item"
-        // and does NOT clear PickedConnection
+        // Route a "clear preferred" action through real Handler.onSelection
         let selectedItem: VSCode.QuickPickItem.t = {
           label: "$(close)  Clear preferred version",
           description: "",

@@ -8,6 +8,7 @@ module Constants = {
   let downloadUnavailable = "Not available for this platform"
   let checkingAvailability = "Checking availability..."
   let deleteDownloads = "$(trash)  Delete downloads"
+  let clearPreferred = "$(close)  Clear preferred version"
   let downloadedAndInstalled = "Downloaded and installed"
 }
 
@@ -18,6 +19,7 @@ module ItemData = {
     | DownloadAction(bool, string, string) // downloaded, versionString, variant ("native" | "wasm")
     | SelectOtherChannels
     | DeleteDownloads // delete downloads and clear cache
+    | ClearPreferred // clear preferred version
     | NoInstallations
     | Separator(string) // label
 
@@ -41,6 +43,7 @@ module ItemData = {
       downloadType
     | SelectOtherChannels => "SelectOtherChannels"
     | DeleteDownloads => "DeleteDownloads"
+    | ClearPreferred => "ClearPreferred"
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
     }
@@ -129,7 +132,11 @@ module ItemData = {
     }
 
     // Add misc section
-    Array.concat(sectionsWithChannels, [Separator("Misc"), DeleteDownloads])
+    let miscItems = switch pickedPath {
+    | Some(_) => [Separator("Misc"), ClearPreferred, DeleteDownloads]
+    | None => [Separator("Misc"), DeleteDownloads]
+    }
+    Array.concat(sectionsWithChannels, miscItems)
   }
 }
 
@@ -176,6 +183,11 @@ module Item = {
       | DeleteDownloads => {
           let label = Constants.deleteDownloads
           let description = "Delete all downloaded files and clear cached release metadata"
+          (label, Some(description), None)
+        }
+      | ClearPreferred => {
+          let label = Constants.clearPreferred
+          let description = "Reset to automatic version resolution"
           (label, Some(description), None)
         }
       | NoInstallations => {
@@ -750,17 +762,6 @@ module Handler = {
       )
     })
 
-  let removeDownloadedPathsFromConfig = async (state: State.t): unit => {
-    let previousPaths = Config.Connection.getAgdaPaths()
-    let keptPaths =
-      previousPaths->Array.filter(path =>
-        !isPathUnderDownloadDirectory(state.globalStorageUri, path)
-      )
-    if Array.length(keptPaths) != Array.length(previousPaths) {
-      await Config.Connection.setAgdaPaths(state.channels.log, keptPaths)
-    }
-  }
-
   let isKnownEndpointSelection = (
     manager: SwitchVersionManager.t,
     selectedItem: VSCode.QuickPickItem.t,
@@ -910,21 +911,20 @@ module Handler = {
             await deleteDir("dev-als")
             await deleteDir("latest-als")
             await deleteDir("hardcoded-als")
-            await removeDownloadedPathsFromConfig(state)
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
-            switch Memento.PickedConnection.get(state.memento) {
-            | Some(path) if isPathUnderDownloadDirectory(state.globalStorageUri, path) =>
-              await Memento.PickedConnection.clear(state.memento)
-            | _ => ()
-            }
             await Memento.Endpoints.clear(state.memento)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             VSCode.Window.showInformationMessage(
               "All downloads and cache deleted",
               [],
             )->Promise.done
+          } else if selectedItem.label == Constants.clearPreferred {
+            Util.log("[ debug ] user clicked: Clear preferred version", "")
+            view->View.destroy
+            await Memento.PickedConnection.clear(state.memento)
+            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if (
             selectedItem.label == Constants.downloadNativeALS ||
               selectedItem.label == Constants.downloadWasmALS
