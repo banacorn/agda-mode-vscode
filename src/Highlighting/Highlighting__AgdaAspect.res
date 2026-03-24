@@ -188,6 +188,6 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   | Argument => typeOnly(Parameter)
   | Macro => typeOnly(Macro)
   // when the second field of Aspect.Name is True
-  | Operator => typeOnly(Operator)
+  | Operator => ((Some(Operator), []), None)
   }
 }
