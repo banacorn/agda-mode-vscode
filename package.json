@@ -64,6 +64,20 @@
 		"vscode-languageclient": "^8.0.0"
 	},
 	"contributes": {
+		"semanticTokenModifiers": [
+			{
+				"id": "agda",
+				"description": "To tag Agda Aspects and NameKinds for styling"
+			},
+			{
+				"id": "primitive",
+				"description": "To indicate that a data type or name is primitive"
+			},
+			{
+				"id": "coInductive",
+				"description": "To distinguish between inductive and coinductive constructors"
+			}
+		],
 		"languages": [
 			{
 				"id": "agda",

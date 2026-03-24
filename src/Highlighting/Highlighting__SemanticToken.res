@@ -3,19 +3,20 @@
 module TokenType = {
   type t =
     | Namespace
-    | Type
     | Class
     | Enum
     | Interface
     | Struct
     | TypeParameter
+    | Type
     | Parameter
     | Variable
     | Property
     | EnumMember
+    | Decorator
     | Event
     | Function
-    | Member
+    | Method
     | Macro
     | Label
     | Comment
@@ -28,19 +29,20 @@ module TokenType = {
   let toString = x =>
     switch x {
     | Namespace => "namespace"
-    | Type => "type"
     | Class => "class"
     | Enum => "enum"
     | Interface => "interface"
     | Struct => "struct"
     | TypeParameter => "typeParameter"
+    | Type => "type"
     | Parameter => "parameter"
     | Variable => "variable"
     | Property => "property"
     | EnumMember => "enumMember"
+    | Decorator => "decorator"
     | Event => "event"
     | Function => "function"
-    | Member => "member"
+    | Method => "method"
     | Macro => "macro"
     | Label => "label"
     | Comment => "comment"
@@ -53,19 +55,20 @@ module TokenType = {
 
   let enumurate = [
     "namespace",
-    "type",
     "class",
     "enum",
     "interface",
     "struct",
     "typeParameter",
+    "type",
     "parameter",
     "variable",
     "property",
     "enumMember",
+    "decorator",
     "event",
     "function",
-    "member",
+    "method",
     "macro",
     "label",
     "comment",
@@ -82,6 +85,7 @@ module TokenType = {
 module TokenModifier = {
   type t =
     | Declaration
+    | Definition
     | Readonly
     | Static
     | Deprecated
@@ -90,10 +94,17 @@ module TokenModifier = {
     | Modification
     | Documentation
     | DefaultLibrary
+    // non-standard modifiers for styling purpose; see Highlighting__AgdaAspect.res
+    // -- for tagging Aspects and NameKinds
+    | Agda
+    // -- for disambiguation
+    | Primitive
+    | CoInductive
 
   let toString = x =>
     switch x {
     | Declaration => "declaration"
+    | Definition => "definition"
     | Readonly => "readonly"
     | Static => "static"
     | Deprecated => "deprecated"
@@ -102,10 +113,14 @@ module TokenModifier = {
     | Modification => "modification"
     | Documentation => "documentation"
     | DefaultLibrary => "defaultLibrary"
+    | Agda => "agda"
+    | Primitive => "primitive"
+    | CoInductive => "coInductive"
     }
 
   let enumurate = [
     "declaration",
+    "definition",
     "readonly",
     "static",
     "deprecated",
@@ -114,6 +129,9 @@ module TokenModifier = {
     "modification",
     "documentation",
     "defaultLibrary",
+    "primitive",
+    "coInductive",
+    "agda",
   ]
 }
 
