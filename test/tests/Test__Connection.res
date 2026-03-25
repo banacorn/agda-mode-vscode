@@ -2523,7 +2523,10 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           Assert.deepStrictEqual(connection->Connection.getPath, downloadedAgda.contents)
-          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [downloadedAgda.contents])
+          Assert.deepStrictEqual(
+            Config.Connection.getAgdaPaths(),
+            [downloadedAgda.contents, "/invalid/path"],
+          )
           Assert.deepStrictEqual(
             Memento.PickedConnection.get(memento),
             None,
@@ -2556,7 +2559,10 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           Assert.deepStrictEqual(connection->Connection.getPath, downloadedAgda.contents)
-          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [downloadedAgda.contents])
+          Assert.deepStrictEqual(
+            Config.Connection.getAgdaPaths(),
+            [downloadedAgda.contents, "/invalid/path"],
+          )
           Assert.deepStrictEqual(
             Memento.PickedConnection.get(memento),
             Some(existingPicked),

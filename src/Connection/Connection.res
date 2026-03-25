@@ -535,20 +535,12 @@ module Module: Module = {
 
   // Make a connection to Agda or ALS by trying:
   //  0. The previously selected path (if any)
-  //  1. Each remaining path from user config sequentially
+  //  1. Each remaining path from user config in reverse order (last entry = highest priority)
   //  2. Each command from the commands array sequentially
   //  3. Downloading the latest ALS
   //
-  // User config path modification policy:
-  //  * Existing paths are never removed or modified programmatically
-  //  * New paths are only added if:
-  //    - User actively chooses a path from the switch version UI, OR
-  //    - User has no config and system discovers a working path
-  //
-  // `Memento.PickedConnection` behavior:
-  //  * Always tried first when set
-  //  * Updated to bare command name on step-2 command success only when currently unset
-  //  * Updated when the connection comes from download
+  // Config modification: download fallback prepends the downloaded path (lowest priority).
+  // PickedConnection is never modified here — only explicit user actions may set it.
 
   let makeWithFallback = async (
     platformDeps: Platform.t,
@@ -624,11 +616,7 @@ module Module: Module = {
         Ok(connection)
       | Error(step1Error) =>
         switch await fromCommandsWithWinner(platformDeps, filteredCommands) {
-        | Ok((connection, command)) =>
-          switch Memento.PickedConnection.get(memento) {
-          | None => await Memento.PickedConnection.set(memento, Some(command))
-          | Some(_) => ()
-          }
+        | Ok((connection, _command)) =>
           logConnection(connection)
           Ok(connection)
         | Error(step2Error) =>
@@ -636,8 +624,14 @@ module Module: Module = {
       switch await fromDownloads(platformDeps, memento, globalStorageUri) {
       | Ok(connection) =>
         logConnection(connection)
-        await Config.Connection.addAgdaPath(logChannel, getPath(connection))
-        await Memento.PickedConnection.set(memento, Some(getPath(connection)))
+        // Automatic fallback: prepend (lowest priority), do NOT set PickedConnection
+        let downloadedPath = getPath(connection)
+        if !(paths->Array.includes(downloadedPath)) {
+          await Config.Connection.setAgdaPaths(
+            logChannel,
+            Array.concat([downloadedPath], paths),
+          )
+        }
         Ok(connection)
       | Error(downloadError) =>
         Error(Establish(Error.Establish.mergeMany([pathErrors, downloadError])))
