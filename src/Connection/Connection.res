@@ -206,7 +206,7 @@ module Module: Module = {
           Error.Establish.fromProbeError(
             path,
             Error.Probe.CannotMakeConnectionWithALSWASMYet(
-              "Extension 'qbane.als-wasm-loader' not found",
+              "Extension 'qbane.als-wasm-loader' not found. Either it is not installed or is disabled.",
             ),
             source,
           ),
@@ -642,9 +642,11 @@ module Module: Module = {
         codeUri,
       )
       // Extract a POSIX path from the file URI (e.g. /workspace/..), fallback to the original if parsing fails
-      let filepath: string = %raw(
-        "function(u){ try { return new URL(u).pathname; } catch(e) { return u; } }"
-      )(protoUri)
+      let filepath: string = try {
+        VSCode.Uri.parse(protoUri)->VSCode.Uri.path
+      } catch {
+      | Exn.Error(_) => protoUri
+      }
 
       let workspaceFolders = VSCode.Workspace.workspaceFolders->Option.getOr([])
 

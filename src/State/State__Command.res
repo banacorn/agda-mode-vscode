@@ -40,7 +40,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Compile => await sendAgdaRequest(Compile)
   | ToggleDisplayOfImplicitArguments => await sendAgdaRequest(ToggleDisplayOfImplicitArguments)
   | ToggleDisplayOfIrrelevantArguments => await sendAgdaRequest(ToggleDisplayOfIrrelevantArguments)
-  | ShowConstraints => await sendAgdaRequest(ShowConstraints)
+  | ShowConstraints(normalization) => await sendAgdaRequest(ShowConstraints(normalization))
   | SolveConstraints(normalization) =>
     switch state.goals->Goals.getGoalAtCursor(state.editor) {
     | None => await sendAgdaRequest(SolveConstraintsGlobal(normalization))

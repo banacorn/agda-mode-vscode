@@ -4,7 +4,7 @@
 	"description": "agda-mode on vscode",
 	"icon": "asset/logo.png",
 	"publisher": "banacorn",
-	"version": "0.6.8",
+	"version": "0.8.0",
 	"engines": {
 		"vscode": "^1.94.0"
 	},
@@ -14,9 +14,6 @@
 	"main": "./dist/app.bundle.js",
 	"browser": "./dist/web.bundle.js",
 	"repository": "https://github.com/banacorn/agda-mode-vscode",
-	"extensionDependencies": [
-		"qbane.als-wasm-loader"
-	],
 	"scripts": {
 		"clean": "npx rescript clean",
 		"dev": "npx rescript build -w & npx less-watch-compiler style/ dist/ & webpack --mode development --watch",
@@ -67,6 +64,20 @@
 		"vscode-languageclient": "^8.0.0"
 	},
 	"contributes": {
+		"semanticTokenModifiers": [
+			{
+				"id": "agda",
+				"description": "To tag Agda Aspects and NameKinds for styling"
+			},
+			{
+				"id": "primitive",
+				"description": "To indicate that a data type or name is primitive"
+			},
+			{
+				"id": "coInductive",
+				"description": "To distinguish between inductive and coinductive constructors"
+			}
+		],
 		"languages": [
 			{
 				"id": "agda",
@@ -327,8 +338,23 @@
 				"category": "Agda"
 			},
 			{
-				"command": "agda-mode.show-constraints",
-				"title": "Show constraints",
+				"command": "agda-mode.show-constraints[AsIs]",
+				"title": "Show constraints (returned as is)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.show-constraints[Simplified]",
+				"title": "Show constraints (simplified)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.show-constraints[Normalised]",
+				"title": "Show constraints (normalised)",
+				"category": "Agda"
+			},
+			{
+				"command": "agda-mode.show-constraints[HeadNormal]",
+				"title": "Show constraints (head normalised)",
 				"category": "Agda"
 			},
 			{
@@ -715,9 +741,27 @@
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
-				"command": "agda-mode.show-constraints",
+				"command": "agda-mode.show-constraints[AsIs]",
 				"key": "ctrl+c ctrl+=",
 				"mac": "ctrl+c ctrl+=",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-constraints[Simplified]",
+				"key": "ctrl+u ctrl+c ctrl+=",
+				"mac": "ctrl+u ctrl+c ctrl+=",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-constraints[Normalised]",
+				"key": "ctrl+u ctrl+u ctrl+c ctrl+=",
+				"mac": "ctrl+u ctrl+u ctrl+c ctrl+=",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
+			},
+			{
+				"command": "agda-mode.show-constraints[HeadNormal]",
+				"key": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+=",
+				"mac": "ctrl+u ctrl+u ctrl+u ctrl+c ctrl+=",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{

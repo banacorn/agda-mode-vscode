@@ -130,150 +130,6 @@ let parse = x =>
   | _others => Operator
   }
 
-let toDecoration = (x: t): option<Highlighting__Decoration.t> =>
-  switch x {
-  | Hole => None
-  | Comment =>
-    Some({
-      light: Foreground("#B0B0B0"),
-      dark: Foreground("#505050"),
-    })
-  | Keyword =>
-    Some({
-      light: Foreground("#CD6600"),
-      dark: Foreground("#FF9932"),
-    })
-  | String =>
-    Some({
-      light: Foreground("#B22222"),
-      dark: Foreground("#DD4D4D"),
-    })
-  | Number =>
-    Some({
-      light: Foreground("#800080"),
-      dark: Foreground("#9010E0"),
-    })
-  | Symbol =>
-    Some({
-      light: Foreground("#404040"),
-      dark: Foreground("#BFBFBF"),
-    })
-  | PrimitiveType =>
-    Some({
-      light: Foreground("#0000CD"),
-      dark: Foreground("#8080FF"),
-    })
-  | Pragma => None
-  | Background => None
-  | Markup => None
-  | Error =>
-    Some({
-      light: Foreground("#FF0000"),
-      dark: Foreground("#FF0000"),
-    })
-  | DottedPattern => None
-  | UnsolvedMeta =>
-    Some({
-      light: Background("#FFFF00"),
-      dark: Background("#806B00"),
-    })
-  | UnsolvedConstraint =>
-    Some({
-      light: Background("#FFFF00"),
-      dark: Background("#806B00"),
-    })
-  | TerminationProblem =>
-    Some({
-      light: Background("#FFA07A"),
-      dark: Background("#802400"),
-    })
-  | PositivityProblem =>
-    Some({
-      light: Background("#CD853F"),
-      dark: Background("#803F00"),
-    })
-  | Deadcode =>
-    Some({
-      light: Background("#A9A9A9"),
-      dark: Background("#808080"),
-    })
-  | CoverageProblem =>
-    Some({
-      light: Background("#F5DEB3"),
-      dark: Background("#805300"),
-    })
-  | IncompletePattern =>
-    Some({
-      light: Background("#800080"),
-      dark: Background("#800080"),
-    })
-  | TypeChecks => None
-  | CatchallClause =>
-    Some({
-      light: Background("#F5F5F5"),
-      dark: Background("#404040"),
-    })
-  | ConfluenceProblem =>
-    Some({
-      light: Background("#FFC0CB"),
-      dark: Background("#800080"),
-    })
-  | Bound => None
-  | Generalizable => None
-  | ConstructorInductive =>
-    Some({
-      light: Foreground("#008B00"),
-      dark: Foreground("#29CC29"),
-    })
-  | ConstructorCoInductive =>
-    Some({
-      light: Foreground("#996600"),
-      dark: Foreground("#FFEA75"),
-    })
-  | Datatype =>
-    Some({
-      light: Foreground("#0000CD"),
-      dark: Foreground("#8080FF"),
-    })
-  | Field =>
-    Some({
-      light: Foreground("#EE1289"),
-      dark: Foreground("#F570B7"),
-    })
-  | Function =>
-    Some({
-      light: Foreground("#0000CD"),
-      dark: Foreground("#8080FF"),
-    })
-  | Module =>
-    Some({
-      light: Foreground("#800080"),
-      dark: Foreground("#CD80FF"),
-    })
-  | Postulate =>
-    Some({
-      light: Foreground("#0000CD"),
-      dark: Foreground("#8080FF"),
-    })
-  | Primitive =>
-    Some({
-      light: Foreground("#0000CD"),
-      dark: Foreground("#8080FF"),
-    })
-  | Record =>
-    Some({
-      light: Foreground("#0000CD"),
-      dark: Foreground("#8080FF"),
-    })
-  | Argument => None
-  | Macro =>
-    Some({
-      light: Foreground("#458B74"),
-      dark: Foreground("#73BAA2"),
-    })
-  | Operator => None
-  }
-
 let toTokenTypeAndModifiersAndDecoration: t => (
   (
     option<Highlighting__SemanticToken.TokenType.t>,
@@ -282,7 +138,10 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   option<Highlighting__Decoration.t>, // background decoration colors of light/dark themes
 ) = x => {
   // helper constructor
-  let typeOnly = (t: Highlighting__SemanticToken.TokenType.t) => ((Some(t), []), None)
+  let typeOnly = (t: Highlighting__SemanticToken.TokenType.t) =>
+    ((Some(t), [Highlighting__SemanticToken.TokenModifier.Agda]), None)
+  let typeWithModifier = (t: Highlighting__SemanticToken.TokenType.t, m: Highlighting__SemanticToken.TokenModifier.t) =>
+    ((Some(t), [m, Agda]), None)
   let nothing = ((None, []), None)
   let backgroundOnly = (light, dark) => (
     (None, []),
@@ -297,12 +156,12 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   | String => typeOnly(String)
   | Number => typeOnly(Number)
   | Symbol => nothing // we choose not to color Symbols for aesthetic reasons
-  | PrimitiveType => typeOnly(Type)
+  | PrimitiveType => typeWithModifier(Type, Primitive)
   | Pragma => nothing
   | Background => nothing
   | Markup => nothing
   // the OtherAspect part
-  | Error => ((None, [Deprecated]), None)
+  | Error => ((None, [Agda]), None)
   | DottedPattern => nothing
   | UnsolvedMeta => backgroundOnly("#FFFF00", "#806B00")
   | UnsolvedConstraint => backgroundOnly("#FFA07A", "#802400")
@@ -318,17 +177,17 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   | Bound => typeOnly(Variable)
   | Generalizable => typeOnly(Variable)
   | ConstructorInductive => typeOnly(EnumMember)
-  | ConstructorCoInductive => typeOnly(EnumMember)
+  | ConstructorCoInductive => typeWithModifier(EnumMember, CoInductive)
   | Datatype => typeOnly(Type)
-  | Field => typeOnly(Member)
+  | Field => typeOnly(Property)
   | Function => typeOnly(Function)
   | Module => typeOnly(Namespace)
-  | Postulate => typeOnly(Function)
-  | Primitive => typeOnly(String)
+  | Postulate => typeWithModifier(Function, Abstract)
+  | Primitive => typeWithModifier(String, Primitive)
   | Record => typeOnly(Struct)
   | Argument => typeOnly(Parameter)
   | Macro => typeOnly(Macro)
   // when the second field of Aspect.Name is True
-  | Operator => typeOnly(Operator)
+  | Operator => ((Some(Operator), []), None)
   }
 }

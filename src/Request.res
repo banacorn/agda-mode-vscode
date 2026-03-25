@@ -3,7 +3,7 @@ type t =
   | Compile
   | ToggleDisplayOfImplicitArguments
   | ToggleDisplayOfIrrelevantArguments
-  | ShowConstraints
+  | ShowConstraints(Command.Normalization.t)
   | SolveConstraints(Command.Normalization.t, Goal.t)
   | SolveConstraintsGlobal(Command.Normalization.t)
   | ShowGoals(Command.Normalization.t)
@@ -34,7 +34,7 @@ let toString = x =>
   | Compile => "Compile"
   | ToggleDisplayOfImplicitArguments => "ToggleDisplayOfImplicitArguments"
   | ToggleDisplayOfIrrelevantArguments => "ToggleDisplayOfIrrelevantArguments"
-  | ShowConstraints => "ShowConstraints"
+  | ShowConstraints(_) => "ShowConstraints"
   | SolveConstraints(_, _) => "SolveConstraints"
   | SolveConstraintsGlobal(_) => "SolveConstraintsGlobal"
   | ShowGoals(_) => "ShowGoals"
@@ -117,7 +117,13 @@ let encode = (
 
   | ToggleDisplayOfIrrelevantArguments => `${commonPart(NonInteractive)}( ToggleIrrelevantArgs )`
 
-  | ShowConstraints => `${commonPart(NonInteractive)}( Cmd_constraints )`
+  | ShowConstraints(normalization) =>
+    if Util.Version.gte(version, "2.9.0") {
+      let normalization = Command.Normalization.encode(normalization)
+      `${commonPart(NonInteractive)}( Cmd_constraints ${normalization} )`
+    } else {
+      `${commonPart(NonInteractive)}( Cmd_constraints )`
+    }
 
   | SolveConstraints(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
