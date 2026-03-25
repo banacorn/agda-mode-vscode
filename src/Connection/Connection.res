@@ -46,7 +46,6 @@ module type Module = {
   type probeResult =
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
-    | IsALSOfUnknownVersion(URL.t) // for TCP connections
     | IsALSWASM(VSCode.Uri.t) // ALS WASM file
   let probeFilepath: string => promise<result<(string, probeResult), Error.Probe.t>>
 }
@@ -132,35 +131,29 @@ module Module: Module = {
   type probeResult =
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
-    | IsALSOfUnknownVersion(URL.t) // for TCP connections
     | IsALSWASM(VSCode.Uri.t) // ALS WASM file
   // see if it's a Agda executable or a language server
   let probeFilepath = async path => {
     switch URI.parse(path) {
-    | Connection__URI.LspURI(_, url) =>
-      // probe with TCP first
-      switch await Connection__Transport__TCP.probe(url) {
-      | Ok() => Ok(path, IsALSOfUnknownVersion(url))
-      | Error(Connection__Transport__TCP.Error.Timeout(timeout)) =>
-        Error(Error.Probe.CannotMakeConnectionWithALS(ConnectionTimeoutError(timeout)))
-      | Error(Connection__Transport__TCP.Error.OnError(exn)) =>
-        Error(Error.Probe.CannotMakeConnectionWithALS(ConnectionError(exn)))
-      }
     | FileURI(raw, vscodeUri) =>
-      // IMPORTANT: Convert URI to platform-specific file system path
-      // VSCode.Uri.fsPath() handles cross-platform path conversion:
-      // - On Windows: "/d/path/file" -> "d:\path\file"
-      // - On Unix: "/path/file" -> "/path/file" (unchanged)
-      // Always use fsPath (not the original path) for all subsequent operations
-      // to ensure proper process spawning on Windows
-      let fsPath = VSCode.Uri.fsPath(vscodeUri)
-
       // Check if it's a WASM file first (assume all WASM files are ALS)
-      if String.endsWith(fsPath, ".wasm") {
-        // For WASM files, return the original raw path with scheme preserved
-        // (e.g., vscode-userdata:/Users/...) instead of fsPath which loses the scheme
-        Ok(raw, IsALSWASM(vscodeUri))
+      // Use raw string for .wasm check since fsPath may mangle non-file:// schemes (e.g. vscode-userdata:)
+      if String.endsWith(raw, ".wasm") {
+        // For file:// scheme (desktop), use fsPath as the path key
+        // For other schemes (web), use the raw URI string to preserve the scheme
+        let pathKey = if VSCode.Uri.scheme(vscodeUri) == "file" {
+          VSCode.Uri.fsPath(vscodeUri)
+        } else {
+          raw
+        }
+        Ok(pathKey, IsALSWASM(vscodeUri))
       } else {
+        // IMPORTANT: Convert URI to platform-specific file system path
+        // VSCode.Uri.fsPath() handles cross-platform path conversion:
+        // - On Windows: "/d/path/file" -> "d:\path\file"
+        // - On Unix: "/path/file" -> "/path/file" (unchanged)
+        // Always use fsPath (not the original path) for process spawning on Windows
+        let fsPath = VSCode.Uri.fsPath(vscodeUri)
         let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
         switch result {
         | Ok(output) =>
@@ -204,20 +197,6 @@ module Module: Module = {
       | Error(error) =>
         Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source))
       | Ok(conn) => Ok(ALS(conn, path, Some(alsVersion, agdaVersion, lspOptions)))
-      }
-    | Ok(path, IsALSOfUnknownVersion(url)) =>
-      switch await ALS.make(
-        Connection__Transport.ViaTCP(rawpath, url),
-        None,
-        InitOptions.getFromConfig(),
-      ) {
-      | Error(error) =>
-        Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source))
-      | Ok(conn) =>
-        switch conn.alsVersion {
-        | None => Ok(ALS(conn, path, None)) // version unknown
-        | Some(alsVersion) => Ok(ALS(conn, path, Some(alsVersion, conn.agdaVersion, None))) // version known
-        }
       }
     | Ok(path, IsALSWASM(uri)) =>
       // Get the WASM loader extension
@@ -518,14 +497,25 @@ module Module: Module = {
         | Ok(path) =>
           switch await make(path, FromDownload(channel)) {
           | Ok(connection) => Ok(connection)
-          | Error(error) =>
-            // Download succeeded, but connection failed
-            // Return error with all probe failures
-            Error({
-              probes: error.probes,
-              commands: error.commands,
-              download: Succeeded,
-            })
+          | Error(nativeError) =>
+            // Native path failed to connect — try WASM fallback on desktop
+            if !(path->String.endsWith(".wasm")) {
+              switch await tryHardcodedWasmFallback() {
+              | Ok(wasmPath) =>
+                switch await make(wasmPath, FromDownload(channel)) {
+                | Ok(connection) => Ok(connection)
+                | Error(wasmError) =>
+                  Error(Error.Establish.merge(
+                    {...nativeError, download: Succeeded},
+                    {...wasmError, download: Succeeded},
+                  ))
+                }
+              | Error(_) =>
+                Error({...nativeError, download: Succeeded})
+              }
+            } else {
+              Error({...nativeError, download: Succeeded})
+            }
           }
         | Error(error) => Error(error)
         }

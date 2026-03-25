@@ -419,9 +419,6 @@ module SwitchVersionManager = {
             ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
-        | Ok(_, IsALSOfUnknownVersion(_)) =>
-          await Memento.Endpoints.setVersion(self.memento, path, ALS(None))
-          Some(path)
         | Ok(_, IsALSWASM(_)) =>
           await Memento.Endpoints.setVersion(self.memento, path, ALS(None)) // WASM version unknown
           Some(path)

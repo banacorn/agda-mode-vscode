@@ -566,7 +566,6 @@ module Endpoint = {
         NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName]),
       ) {
       | FileURI(_, path) => VSCode.Uri.fsPath(path)
-      | LspURI(_, _) => raise(Failure("Cannot create mock Agda executable with LspURI"))
       }
 
       // Use Node.js file writing for executable creation (tests only)
@@ -658,7 +657,6 @@ module Endpoint = {
         NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName]),
       ) {
       | FileURI(_, path) => VSCode.Uri.fsPath(path)
-      | LspURI(_, _) => raise(Failure("Cannot create mock Agda executable with LspURI"))
       }
 
       // Use Node.js file writing for executable creation (tests only)

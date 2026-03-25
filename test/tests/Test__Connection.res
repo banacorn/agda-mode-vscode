@@ -168,7 +168,6 @@ describe("Connection", () => {
           Assert.deepStrictEqual(agdaVersion, "2.6.4")
           // lspOptions should be None for this mock (no prebuilt data directory)
           Assert.deepStrictEqual(lspOptions, None)
-        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, _) => Assert.fail("Expected ALS result, got Agda")
         | Error(_) => Assert.fail("Expected successful probe of ALS mock")
         }
@@ -285,7 +284,6 @@ describe("Connection", () => {
         // Normalize fileName through the same URI parsing process for consistent comparison
         let normalizedFileName = switch Connection__URI.parse(fileName) {
         | FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
-        | LspURI(_, _) => fileName // fallback, shouldn't happen in this test
         }
 
         switch result {
@@ -299,7 +297,6 @@ describe("Connection", () => {
           | None => Assert.fail("Expected Agda_datadir in LSP options")
           }
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
-        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Ok(_, IsALSWASM(_)) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe of ALS with data directory")
@@ -390,7 +387,6 @@ describe("Connection", () => {
           Assert.deepStrictEqual(alsVersion, "1.3.1")
           Assert.deepStrictEqual(agdaVersion, "2.6.3")
           Assert.deepStrictEqual(lspOptions, None)
-        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Ok(_, IsALSWASM(_)) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe")
@@ -507,7 +503,6 @@ describe("Connection", () => {
         // Normalize fileName through the same URI parsing process for consistent comparison
         let normalizedFileName = switch Connection__URI.parse(fileName) {
         | FileURI(_, vsCodeUri) => VSCode.Uri.fsPath(vsCodeUri)
-        | LspURI(_, _) => fileName // fallback, shouldn't happen in this test
         }
 
         switch result {
@@ -521,7 +516,6 @@ describe("Connection", () => {
           | None => Assert.fail("Expected Agda_datadir in LSP options")
           }
         | Ok(_, IsALS(_, _, None)) => Assert.fail("Expected LSP options with data directory")
-        | Ok(_, IsALSOfUnknownVersion(_)) => Assert.fail("Expected ALS with known versions")
         | Ok(_, IsAgda(_)) => Assert.fail("Expected ALS result, got Agda")
         | Ok(_, IsALSWASM(_)) => Assert.fail("Expected ALS result, got ALSWASM")
         | Error(_) => Assert.fail("Expected successful probe with data directory")
@@ -2886,37 +2880,35 @@ describe("Connection", () => {
       },
     )
 
-    // I18: Candidate type mismatch — spec allows only Filepath, bare command, and file:// URI
-    // but implementation also supports lsp:// and vscode-* URIs
+    // lsp:// and other non-vscode schemes are rejected (treated as file paths)
     it(
-      "should only accept Filepath, bare command, and file:// URI as valid candidates",
+      "should reject lsp:// URI and treat as filepath",
       () => {
-        // lsp:// URI should NOT be accepted as a valid candidate
         let lspResult = Connection__URI.parse("lsp://localhost:8080")
         switch lspResult {
-        | Connection__URI.LspURI(_, _) =>
-          // Spec says only Filepath, bare command, and file:// URI are valid candidates
-          // lsp:// should be rejected, but impl accepts it
-          Assert.fail("lsp:// URI should not be accepted as a valid candidate per spec")
         | Connection__URI.FileURI(_, _) => Assert.ok(true)
         }
       },
     )
 
     it(
-      "should not accept vscode-* URI schemes as valid candidates",
+      "should preserve vscode-userdata: URI scheme for web storage paths",
       () => {
-        // vscode-userdata: URI should NOT be accepted as a valid candidate
-        let vscodeResult = Connection__URI.parse("vscode-userdata:/some/path")
-        switch vscodeResult {
+        let result = Connection__URI.parse("vscode-userdata:/some/path")
+        switch result {
         | Connection__URI.FileURI(_, uri) =>
-          // Spec says only file:// URIs are valid; vscode-* should be rejected
-          // but impl wraps them as FileURI via VSCode.Uri.parse, preserving the vscode scheme
-          let scheme = VSCode.Uri.scheme(uri)
-          // The scheme should be "file" for valid candidates, not "vscode-userdata"
-          Assert.deepStrictEqual(scheme, "file")
-        | Connection__URI.LspURI(_, _) =>
-          Assert.fail("vscode-* URI should not be parsed as LspURI")
+          Assert.deepStrictEqual(VSCode.Uri.scheme(uri), "vscode-userdata")
+        }
+      },
+    )
+
+    it(
+      "should preserve vscode-vfs: URI scheme for remote FS providers",
+      () => {
+        let result = Connection__URI.parse("vscode-vfs://github/user/repo/path")
+        switch result {
+        | Connection__URI.FileURI(_, uri) =>
+          Assert.deepStrictEqual(VSCode.Uri.scheme(uri), "vscode-vfs")
         }
       },
     )

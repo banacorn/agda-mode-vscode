@@ -109,6 +109,14 @@ module Error = {
     }
 }
 
+// On desktop (file:// scheme), return fsPath; on web (vscode-userdata: etc.), return URI string
+let uriToPath = (uri: VSCode.Uri.t): string =>
+  if VSCode.Uri.scheme(uri) == "file" {
+    VSCode.Uri.fsPath(uri)
+  } else {
+    VSCode.Uri.toString(uri)
+  }
+
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
@@ -138,13 +146,8 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   let execPathUri = VSCode.Uri.joinPath(destDirUri, [execFileName])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
-      Util.log("[ debug ] downloadFromURL: already cached, returning without chmod", VSCode.Uri.fsPath(execPathUri))
-      // For WASM, return URI string with scheme preserved; for native, use fsPath
-      if isWasm {
-        Ok(VSCode.Uri.toString(execPathUri))
-      } else {
-        Ok(VSCode.Uri.fsPath(execPathUri))
-      }
+      Util.log("[ debug ] downloadFromURL: already cached, returning without chmod", uriToPath(execPathUri))
+      Ok(uriToPath(execPathUri))
     }
   | Error(_) =>
     Util.log("[ debug ] downloadFromURL: not cached, downloading from", url)
@@ -194,8 +197,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         if isWasm {
           // WASM file - save directly as als.wasm
           let _ = await FS.rename(tempFileUri, execPathUri)
-          // Return URI string with scheme preserved (e.g., vscode-userdata:/Users/...)
-          Ok(VSCode.Uri.toString(execPathUri))
+          Ok(uriToPath(execPathUri))
         } else {
           // Regular ZIP file processing
           let readResult = await FS.readFile(tempFileUri)
@@ -285,8 +287,7 @@ let download = async (globalStorageUri, channel) =>
         globalStorageUri,
         [downloadDescriptor.saveAsFileName, fileName],
       )
-      let destPath = VSCode.Uri.fsPath(destUri)
-      Ok(destPath)
+      Ok(uriToPath(destUri))
     }
   | Source.FromURL(_, url, saveAsFileName) =>
     await downloadFromURL(

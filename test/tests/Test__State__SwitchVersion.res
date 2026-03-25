@@ -2341,7 +2341,7 @@ describe("State__SwitchVersion", () => {
 
         // Get available channel labels
         let availableChannels = await State__SwitchVersion.Download.getAvailableChannels(platform)
-        let availableLabels = availableChannels->Array.map(
+        let _availableLabels = availableChannels->Array.map(
           State__SwitchVersion.Download.channelToLabel,
         )
 
