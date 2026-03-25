@@ -1698,6 +1698,92 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should clear error without dropping version metadata when re-downloading",
+      async () => {
+        let state = createTestState()
+        let path = "/usr/local/bin/als"
+
+        // Set up an endpoint with known version AND an error
+        await Memento.Endpoints.setVersion(
+          state.memento,
+          path,
+          Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None))),
+        )
+        await Memento.Endpoints.setError(state.memento, path, "connection timed out")
+
+        // Verify precondition: entry has both version and error
+        let before = Memento.Endpoints.get(state.memento, path)
+        Assert.deepStrictEqual(
+          before->Option.map(e => e.error),
+          Some(Some("connection timed out")),
+        )
+        Assert.deepStrictEqual(
+          before->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None)))),
+        )
+
+        // ensureEndpointRegistered should clear error but preserve version
+        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, path)
+
+        let after = Memento.Endpoints.get(state.memento, path)
+        // Error MUST be cleared
+        Assert.deepStrictEqual(
+          after->Option.map(e => e.error),
+          Some(None),
+        )
+        // Version metadata MUST be preserved
+        Assert.deepStrictEqual(
+          after->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None)))),
+        )
+      },
+    )
+
+    Async.it(
+      "should mark at most one endpoint selected when URI and fsPath aliases coexist",
+      async () => {
+        let state = createTestState()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let fsPath = "/tmp/hardcoded-als/als.wasm"
+        let uriPath = "file:///tmp/hardcoded-als/als.wasm"
+
+        // Register both URI and fsPath as separate endpoint entries
+        await Memento.Endpoints.setVersion(
+          state.memento,
+          fsPath,
+          Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None))),
+        )
+        await Memento.Endpoints.setVersion(
+          state.memento,
+          uriPath,
+          Memento.Endpoints.ALS(None),
+        )
+
+        // Set PickedConnection to the URI form
+        await Memento.PickedConnection.set(state.memento, Some(uriPath))
+
+        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
+
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          [],
+        )
+
+        let selectedEndpoints =
+          itemData->Array.filterMap(item =>
+            switch item {
+            | Endpoint(_, _, true) => Some(true)
+            | _ => None
+            }
+          )
+
+        // Exactly one endpoint MUST be marked selected, not both
+        Assert.deepStrictEqual(selectedEndpoints, [true])
+      },
+    )
+
+    Async.it(
       "should mark only one endpoint when multiple exist",
       async () => {
         /**

@@ -89,13 +89,27 @@ module ItemData = {
     let entriesArray = entries->Dict.toArray
     let hasEndpoints = Array.length(entriesArray) > 0
 
-    // Build endpoint items with optimized selection check
+    // Normalize file:// URIs to fsPath for comparison
+    let toFsPath = (s: string): string =>
+      if String.startsWith(s, "file://") {
+        VSCode.Uri.parse(s)->VSCode.Uri.fsPath
+      } else {
+        s
+      }
+
+    // Build endpoint items with selection check (URI-aware, at most one selected)
     let endpointItems = switch pickedPath {
     | Some(picked) =>
-      // Only do string comparison when there's a picked path
-      entriesArray->Array.map(((path, entry)) => Endpoint(path, entry, picked == path))
+      let normalizedPicked = toFsPath(picked)
+      let matched = ref(false)
+      entriesArray->Array.map(((path, entry)) => {
+        let isSelected = !matched.contents && normalizedPicked == toFsPath(path)
+        if isSelected {
+          matched := true
+        }
+        Endpoint(path, entry, isSelected)
+      })
     | None =>
-      // Avoid unnecessary comparisons when no path is picked
       entriesArray->Array.map(((path, entry)) => Endpoint(path, entry, false))
     }
 
@@ -302,13 +316,7 @@ module SwitchVersionManager = {
     let storedPath = Memento.PickedConnection.get(self.memento)
 
     let pickedPath = switch storedPath {
-    | Some(path) =>
-      // Convert URI format to filesystem path for comparison
-      if String.startsWith(path, "file://") {
-        Some(VSCode.Uri.parse(path)->VSCode.Uri.fsPath)
-      } else {
-        Some(path)
-      }
+    | Some(path) => Some(path)
     | None =>
       // Fresh install: try to infer active connection from current registry state
       switch Registry__Connection.status.contents {
@@ -786,6 +794,21 @@ module Handler = {
     }
 
   // Unified function to handle hardcoded variant downloads (native / WASM)
+  // Register endpoint only if missing or unknown (preserve known version metadata)
+  let ensureEndpointRegistered = async (state: State.t, path: string) =>
+    switch Memento.Endpoints.get(state.memento, path) {
+    | None =>
+      let endpointType = SwitchVersionManager.inferEndpointType(path)
+      await Memento.Endpoints.setVersion(state.memento, path, endpointType)
+    | Some({endpoint: Unknown}) =>
+      let endpointType = SwitchVersionManager.inferEndpointType(path)
+      await Memento.Endpoints.setVersion(state.memento, path, endpointType)
+    | Some({endpoint, error: Some(_)}) =>
+      // Clear error but preserve existing endpoint type
+      await Memento.Endpoints.setVersion(state.memento, path, endpoint)
+    | Some(_) => ()
+    }
+
   let handleDownload = async (
     state: State.t,
     platformDeps: Platform.t,
@@ -801,6 +824,8 @@ module Handler = {
     if downloaded {
       let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant)
       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+      await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
+      await ensureEndpointRegistered(state, downloadedPath)
       VSCode.Window.showInformationMessage(
         versionString ++ " is already downloaded",
         [],
@@ -824,6 +849,8 @@ module Handler = {
         )->Promise.done
       | Ok(downloadedPath) =>
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
+        await ensureEndpointRegistered(state, downloadedPath)
 
         // Optional UI refresh after successful download
         switch refreshUI {
