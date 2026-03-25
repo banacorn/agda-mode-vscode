@@ -719,12 +719,12 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should expose Hardcoded as the only available download channel",
+      "should expose Hardcoded and DevALS channels on Desktop, only Hardcoded on Web",
       async () => {
         let desktopChannels = await State__SwitchVersion.Download.getAvailableChannels(
           makeMockPlatform(),
         )
-        Assert.deepStrictEqual(desktopChannels, [Connection__Download.Channel.Hardcoded])
+        Assert.deepStrictEqual(desktopChannels, [Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS])
 
         module MockWebPlatform = {
           let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
@@ -752,13 +752,13 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should not render channel switch item when only Hardcoded channel is available",
+      "should render channel switch item when multiple channels are available on Desktop",
       async () => {
         let availableChannels = await State__SwitchVersion.Download.getAvailableChannels(
           makeMockPlatform(),
         )
         let shouldShowChannelSelector = Array.length(availableChannels) >= 2
-        Assert.deepStrictEqual(shouldShowChannelSelector, false)
+        Assert.deepStrictEqual(shouldShowChannelSelector, true)
 
         let itemData: array<State__SwitchVersion.ItemData.t> =
           State__SwitchVersion.ItemData.entriesToItemData(
@@ -776,7 +776,7 @@ describe("State__SwitchVersion", () => {
             }
           )
 
-        Assert.deepStrictEqual(hasSelectOtherChannels, false)
+        Assert.deepStrictEqual(hasSelectOtherChannels, true)
       },
     )
 
@@ -2209,6 +2209,7 @@ describe("State__SwitchVersion", () => {
         let wasmSource = State__SwitchVersion.Download.sourceForVariant(
           Connection__Download__Platform.MacOS_Arm,
           State__SwitchVersion.Download.WASM,
+          ~channel=selectedChannel.contents,
         )
 
         let sourceChannel = switch wasmSource {
@@ -2288,13 +2289,14 @@ describe("State__SwitchVersion", () => {
           _downloadItems => Promise.resolve(),
         )
 
-        // Trigger manual download via handleDownload
+        // Trigger manual download via handleDownload with selected channel
         await State__SwitchVersion.Handler.handleDownload(
           state,
           platform,
           State__SwitchVersion.Download.WASM,
           false,
           "ALS vTest",
+          ~channel=Connection__Download.Channel.DevALS,
         )
 
         // The download descriptor MUST use the selected channel (DevALS), not Hardcoded
@@ -2305,11 +2307,11 @@ describe("State__SwitchVersion", () => {
     Async.it(
       "should clamp restored channel to available channels when activating UI",
       async () => {
-        // Set memento to DevALS (simulating a previous session that had DevALS selected)
+        // Set memento to LatestALS (not available on Desktop, which only has Hardcoded + DevALS)
         let state = createTestState()
         await Memento.SelectedChannel.set(
           state.memento,
-          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.DevALS),
+          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.LatestALS),
         )
 
         // Capture download headers logged by onActivate's updateUI
@@ -2346,9 +2348,9 @@ describe("State__SwitchVersion", () => {
         )
 
         // The download header emitted by onActivate MUST reference an available channel
+        // LatestALS is not available, so it MUST be clamped to Hardcoded
         Assert.ok(Array.length(loggedHeaders) > 0)
         let header = loggedHeaders[0]->Option.getExn
-        // When only Hardcoded is available, the header MUST be exactly "Download (channel: Hardcoded)"
         Assert.deepStrictEqual(header, "Download (channel: Hardcoded)")
       },
     )
@@ -2854,17 +2856,13 @@ describe("State__SwitchVersion", () => {
         )
         Assert.deepStrictEqual(devALSResult, None)
 
-        // But State__SwitchVersion.Download.isDownloaded has no channel parameter —
-        // it always checks "hardcoded-als", so it cannot distinguish channels.
-        // When the selected channel is DevALS, isDownloaded still reports true
-        // because it finds "hardcoded-als/als" — a false positive.
-        // For channel coexistence, isDownloaded MUST be channel-parameterized.
-        // This assertion would pass if isDownloaded were channel-aware and checked "dev-als":
+        // isDownloaded with DevALS channel checks "dev-als" directory, not "hardcoded-als"
         let isDownloadedForDevALS = await State__SwitchVersion.Download.isDownloaded(
           globalStorageUri,
           State__SwitchVersion.Download.Native,
+          ~channel=Connection__Download.Channel.DevALS,
         )
-        // Should be false when checking for DevALS context, but returns true (false positive)
+        // DevALS native is NOT downloaded (no "dev-als/als" exists)
         Assert.deepStrictEqual(isDownloadedForDevALS, false)
 
         let _ = await FS.deleteRecursive(globalStorageUri)

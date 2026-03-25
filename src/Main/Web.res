@@ -55,55 +55,10 @@ module Web: Platform.PlatformOps = {
         )
       }
     | DevALS => {
-        // For DevALS on web, we download from UNPKG directly (not GitHub)
-        // Return a mock descriptor so the UI shows the download option
-        // The actual download uses the UNPKG path in Connection.res and State__SwitchVersion.res
-
-        // Create mock release and asset for UI display
-        // Use a name that matches the pattern expected by toVersionString: als-dev-Agda-<version>-...
-        let mockAsset: Connection__Download__GitHub.Asset.t = {
-          url: "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
-          id: 0,
-          node_id: "mock-web-dev-als",
-          name: "als-dev-Agda-2.8.0-wasm",
-          label: Some("WASM Language Server"),
-          content_type: "application/wasm",
-          state: "uploaded",
-          size: 0,
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z",
-          browser_download_url: "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
-        }
-        let mockRelease: Connection__Download__GitHub.Release.t = {
-          url: "https://api.github.com/repos/agda/agda-language-server/releases/mock",
-          assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/mock/assets",
-          upload_url: "https://uploads.github.com/repos/agda/agda-language-server/releases/mock/assets",
-          html_url: "https://github.com/agda/agda-language-server/releases/tag/dev",
-          id: 0,
-          node_id: "mock-web-dev-release",
-          tag_name: "dev",
-          target_commitish: "master",
-          name: "dev",
-          draft: false,
-          prerelease: true,
-          created_at: "2024-01-01T00:00:00Z",
-          published_at: "2024-01-01T00:00:00Z",
-          assets: [mockAsset],
-          tarball_url: "https://api.github.com/repos/agda/agda-language-server/tarball/dev",
-          zipball_url: "https://api.github.com/repos/agda/agda-language-server/zipball/dev",
-          body: Some("Mock release for web WASM download from UNPKG"),
-        }
-
-        Ok(
-          Connection__Download.Source.FromGitHub(
-            DevALS,
-            {
-              Connection__Download__GitHub.DownloadDescriptor.release: mockRelease,
-              asset: mockAsset,
-              saveAsFileName: "dev-als",
-            },
-          ),
-        )
+        // Web only supports Hardcoded channel; DevALS is not available.
+        // Runtime clamps Web to Hardcoded, so this branch is unreachable,
+        // but we return an error defensively.
+        Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       }
     }
   }

@@ -779,6 +779,46 @@ describe("Connection", () => {
     )
 
     Async.it(
+      "should clamp stale DevALS memento to Hardcoded on Web",
+      async () => {
+        await Config.Connection.DownloadPolicy.set(Undecided)
+
+        let resolvedChannel = ref(None)
+
+        module MockWebPlatform = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let resolveDownloadChannel = (channel, _useCache) => {
+            resolvedChannel := Some(channel)
+            async (_memento, _globalStorageUri, _platform) =>
+              Ok(
+                Connection__Download.Source.FromURL(
+                  Hardcoded,
+                  Connection__Hardcoded.wasmUrl,
+                  "hardcoded-als",
+                ),
+              )
+          }
+          let download = (_globalStorageUri, _downloadDescriptor) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+
+        let mockPlatformDeps: Platform.t = module(MockWebPlatform)
+        let memento = Memento.make(None)
+        // Simulate stale memento with DevALS selected
+        await Memento.SelectedChannel.set(memento, "DevALS")
+        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+        let _result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
+
+        // Web must clamp to Hardcoded regardless of memento
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.Hardcoded))
+      },
+    )
+
+    Async.it(
       "should resolve Desktop downloads via Hardcoded channel",
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
@@ -1563,118 +1603,17 @@ describe("Connection", () => {
     )
   })
 
-  describe("make fromPathsAndCommands scenarios", () => {
+  describe("make fromPaths scenarios", () => {
     Async.it(
-      "should find commands when no paths are given",
+      "should prioritize valid paths over download fallback",
       async () => {
         /**
-         * TEST PURPOSE: Verify Connection.makeWithFallback finds commands when no paths provided
-         *
-         * SCENARIO:
-         * 1. Call Connection.makeWithFallback with empty paths array
-         * 2. Provide valid commands ["agda", "als"]
-         * 3. Should successfully connect and log the connection
-         */
-        let logChannel = Chan.make()
-        let listener = Log.collect(logChannel)
-
-        let memento = Memento.make(None)
-        let platformDeps = Desktop.make()
-        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-
-        let result = await Connection.makeWithFallback(
-          platformDeps,
-          memento,
-          globalStorageUri,
-          [], // no paths
-          ["agda", "als"], // try commands
-          logChannel,
-        )
-
-        let loggedEvents = listener(~filter=Log.isConnection)
-
-        switch result {
-        | Ok(connection) =>
-          // TODO: Verify we got a valid connection (version varies by environment)
-          switch connection {
-          | Agda(_, _path, _version) => ()
-          | ALS(_, _path, _) => ()
-          | ALSWASM(_, _, _, _) => ()
-          }
-
-          // Should have logged a connection event
-          switch loggedEvents {
-          | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, Some(_, _)))] => ()
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, None))] => ()
-          | [] => Assert.fail("Expected connection event to be logged")
-          | _ => Assert.fail("Expected exactly one connection event")
-          }
-        | Error(_) => Assert.fail("Expected to find agda or als")
-        }
-      },
-    )
-
-    Async.it(
-      "should find commands even if all paths given are wrong",
-      async () => {
-        /**
-         * TEST PURPOSE: Verify Connection.makeWithFallback falls back to commands when paths fail
-         *
-         * SCENARIO:
-         * 1. Provide invalid paths
-         * 2. Provide valid commands
-         * 3. Should ignore failed paths and use commands successfully
-         */
-        let logChannel = Chan.make()
-        let listener = Log.collect(logChannel)
-
-        let memento = Memento.make(None)
-        let platformDeps = Desktop.make()
-        let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
-
-        let result = await Connection.makeWithFallback(
-          platformDeps,
-          memento,
-          globalStorageUri,
-          ["/some/invalid/path"], // invalid paths
-          ["agda", "als"], // valid commands
-          logChannel,
-        )
-        let loggedEvents = listener(~filter=Log.isConnection)
-
-        switch result {
-        | Ok(connection) =>
-          // TODO: Verify we got a valid connection (version varies by environment)
-          switch connection {
-          | Agda(_, _path, _version) => ()
-          | ALS(_, _path, _) => ()
-          | ALSWASM(_, _, _, _) => ()
-          }
-
-          // Should have logged a connection event
-          switch loggedEvents {
-          | [Log.Connection(Log.Connection.ConnectedToAgda(_, _))] => ()
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, Some(_, _)))] => ()
-          | [Log.Connection(Log.Connection.ConnectedToALS(_, None))] => ()
-          | [] => Assert.fail("Expected connection event to be logged")
-          | _ => Assert.fail("Expected exactly one connection event")
-          }
-        | Error(_) => Assert.fail("Expected to find agda or als via commands")
-        }
-      },
-    )
-
-    Async.it(
-      "should prioritize valid paths over commands",
-      async () => {
-        /**
-         * TEST PURPOSE: Verify Connection.makeWithFallback uses paths before falling back to commands
+         * TEST PURPOSE: Verify Connection.makeWithFallback uses paths before falling back to download
          *
          * SCENARIO:
          * 1. Setup mock Agda at known path
-         * 2. Provide that path plus invalid commands
-         * 3. Should use the path, not attempt commands
+         * 2. Provide that path
+         * 3. Should use the path, not attempt download fallback
          */
         let logChannel = Chan.make()
         let listener = Log.collect(logChannel)
@@ -2378,7 +2317,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should skip agda/als command probes when already present in connection.paths",
+      "should resolve bare command names in connection.paths via findCommand",
       async () => {
         await Config.Connection.DownloadPolicy.set(No)
         let agdaCount = ref(0)
@@ -2411,49 +2350,6 @@ describe("Connection", () => {
         switch result {
         | Ok(_) => Assert.fail("Expected failure with all commands unresolved")
         | Error(_) =>
-          Assert.deepStrictEqual(agdaCount.contents, 1)
-          Assert.deepStrictEqual(alsCount.contents, 1)
-        }
-      },
-    )
-
-    Async.it(
-      "should skip agda command probe in step 2 when PickedConnection is bare agda",
-      async () => {
-        await Config.Connection.DownloadPolicy.set(No)
-        let agdaCount = ref(0)
-        let alsCount = ref(0)
-        let platform = (
-          module(
-            {
-              include Desktop.Desktop
-              let findCommand = (command, ~timeout as _timeout=1000) => {
-                switch command {
-                | "agda" => agdaCount := agdaCount.contents + 1
-                | "als" => alsCount := alsCount.contents + 1
-                | _ => ()
-                }
-                Promise.resolve(Error(Connection__Command.Error.NotFound))
-              }
-            }
-          ): Platform.t
-        )
-        let memento = Memento.make(None)
-        await Memento.PickedConnection.set(memento, Some("agda"))
-
-        let result = await Connection.makeWithFallback(
-          platform,
-          memento,
-          VSCode.Uri.file("/tmp/test-storage"),
-          [],
-          ["agda", "als"],
-          Chan.make(),
-        )
-
-        switch result {
-        | Ok(_) => Assert.fail("Expected failure with all commands unresolved")
-        | Error(_) =>
-          // Step 0 probes picked "agda" once; step 2 should skip "agda" and only probe "als".
           Assert.deepStrictEqual(agdaCount.contents, 1)
           Assert.deepStrictEqual(alsCount.contents, 1)
         }
@@ -2659,84 +2555,6 @@ describe("Connection", () => {
           // Automatic fallback MUST use selected channel from memento (DevALS), not Hardcoded
           Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download.Channel.DevALS))
         | Error(_) => Assert.fail("Expected download fallback to succeed")
-        }
-      },
-    )
-
-    Async.it(
-      "should NOT set PreferredCandidate when connection succeeds via command discovery",
-      async () => {
-        let logChannel = Chan.make()
-        await Config.Connection.setAgdaPaths(logChannel, ["/nonexistent/path"])
-        let memento = Memento.make(None)
-        // PickedConnection is None — command discovery should NOT set it
-        let platform: Platform.t = {
-          module MockPlatform = {
-            include Desktop.Desktop
-            let findCommand = (command, ~timeout as _timeout=1000) =>
-              switch command {
-              | "agda" => Promise.resolve(Ok(configAgda.contents))
-              | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
-              }
-          }
-          module(MockPlatform)
-        }
-
-        let result = await Connection.makeWithFallback(
-          platform,
-          memento,
-          VSCode.Uri.file("/tmp/test-storage"),
-          ["/nonexistent/path"],
-          ["agda"],
-          logChannel,
-        )
-
-        switch result {
-        | Ok(connection) =>
-          Assert.deepStrictEqual(connection->Connection.getPath, configAgda.contents)
-          // PreferredCandidate MUST only be set by explicit user action
-          Assert.deepStrictEqual(Memento.PickedConnection.get(memento), None)
-        | Error(_) => Assert.fail("Expected command-resolved connection")
-        }
-      },
-    )
-
-    Async.it(
-      "should NOT overwrite existing PreferredCandidate when connection succeeds via command discovery",
-      async () => {
-        let logChannel = Chan.make()
-        await Config.Connection.setAgdaPaths(logChannel, ["/nonexistent/path"])
-        let memento = Memento.make(None)
-        let existingPicked = "/usr/local/bin/agda"
-        await Memento.PickedConnection.set(memento, Some(existingPicked))
-
-        let platform: Platform.t = {
-          module MockPlatform = {
-            include Desktop.Desktop
-            let findCommand = (command, ~timeout as _timeout=1000) =>
-              switch command {
-              | "agda" => Promise.resolve(Ok(configAgda.contents))
-              | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
-              }
-          }
-          module(MockPlatform)
-        }
-
-        let result = await Connection.makeWithFallback(
-          platform,
-          memento,
-          VSCode.Uri.file("/tmp/test-storage"),
-          ["/nonexistent/path"],
-          ["agda"],
-          logChannel,
-        )
-
-        switch result {
-        | Ok(connection) =>
-          Assert.deepStrictEqual(connection->Connection.getPath, configAgda.contents)
-          // PreferredCandidate MUST NOT be overwritten by command discovery
-          Assert.deepStrictEqual(Memento.PickedConnection.get(memento), Some(existingPicked))
-        | Error(_) => Assert.fail("Expected command-resolved connection")
         }
       },
     )

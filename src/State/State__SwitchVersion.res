@@ -559,8 +559,19 @@ module Download = {
     | WASM => "als.wasm"
     }
 
-  let expectedPathForVariant = (globalStorageUri: VSCode.Uri.t, variant: variant): string => {
-    let uri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", variantFileName(variant)])
+  let channelToDirName = (channel: Connection__Download.Channel.t): string =>
+    switch channel {
+    | Hardcoded => "hardcoded-als"
+    | LatestALS => "latest-als"
+    | DevALS => "dev-als"
+    }
+
+  let expectedPathForVariant = (
+    globalStorageUri: VSCode.Uri.t,
+    variant: variant,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
+  ): string => {
+    let uri = VSCode.Uri.joinPath(globalStorageUri, [channelToDirName(channel), variantFileName(variant)])
     switch variant {
     | Native => VSCode.Uri.fsPath(uri)
     | WASM => VSCode.Uri.toString(uri)
@@ -592,37 +603,47 @@ module Download = {
     globalStorageUri: VSCode.Uri.t,
     configPaths: array<string>,
     downloadItems: array<(bool, string, string)>,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
   ): array<(bool, string, string)> =>
     downloadItems->Array.filter(((_, _, variantTag)) =>
       switch variantFromTag(variantTag) {
       | None => true
       | Some(variant) =>
-        let expectedPath = expectedPathForVariant(globalStorageUri, variant)
+        let expectedPath = expectedPathForVariant(globalStorageUri, variant, ~channel)
         !configContainsExpectedPath(configPaths, expectedPath)
       }
     )
 
-  let sourceForVariant = (platform: Connection__Download__Platform.t, variant: variant): option<
-    Connection__Download.Source.t,
-  > =>
-    switch variant {
-    | Native =>
+  let sourceForVariant = (
+    platform: Connection__Download__Platform.t,
+    variant: variant,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
+  ): option<Connection__Download.Source.t> => {
+    let dirName = channelToDirName(channel)
+    switch (channel, variant) {
+    // Hardcoded channel: use hardcoded URLs for both native and WASM
+    | (Hardcoded, Native) =>
       switch Connection__Hardcoded.nativeUrlForPlatform(platform) {
-      | Some(url) => Some(Connection__Download.Source.FromURL(Hardcoded, url, "hardcoded-als"))
+      | Some(url) => Some(Connection__Download.Source.FromURL(Hardcoded, url, dirName))
       | None => None
       }
-    | WASM =>
-      Some(
-        Connection__Download.Source.FromURL(
-          Hardcoded,
-          Connection__Hardcoded.wasmUrl,
-          "hardcoded-als",
-        ),
-      )
+    | (Hardcoded, WASM) =>
+      Some(Connection__Download.Source.FromURL(Hardcoded, Connection__Hardcoded.wasmUrl, dirName))
+    // Non-Hardcoded channels: native artifacts come from GitHub (resolved via resolveDownloadChannel),
+    // not hardcoded URLs — return None so the UI shows "unavailable" for native
+    | (_, Native) => None
+    // WASM binary is universal across channels
+    | (_, WASM) =>
+      Some(Connection__Download.Source.FromURL(channel, Connection__Hardcoded.wasmUrl, dirName))
     }
+  }
 
-  let isDownloaded = async (globalStorageUri: VSCode.Uri.t, variant: variant): bool => {
-    let uri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", variantFileName(variant)])
+  let isDownloaded = async (
+    globalStorageUri: VSCode.Uri.t,
+    variant: variant,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
+  ): bool => {
+    let uri = VSCode.Uri.joinPath(globalStorageUri, [channelToDirName(channel), variantFileName(variant)])
     switch await FS.stat(uri) {
     | Ok(_) => true
     | Error(_) => false
@@ -633,8 +654,9 @@ module Download = {
     state: State.t,
     variant: variant,
     source: Connection__Download.Source.t,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
   ): (bool, string, string) => {
-    let downloaded = await isDownloaded(state.globalStorageUri, variant)
+    let downloaded = await isDownloaded(state.globalStorageUri, variant, ~channel)
     (downloaded, Connection__Download.Source.toVersionString(source), variantToTag(variant))
   }
 
@@ -659,25 +681,14 @@ module Download = {
     | _ => None
     }
 
-  let getAvailableChannels = async (_platformDeps: Platform.t): array<
+  let getAvailableChannels = async (platformDeps: Platform.t): array<
     Connection__Download.Channel.t,
   > => {
-    [Hardcoded]
-    // module PlatformOps = unpack(platformDeps)
-    // switch await PlatformOps.determinePlatform() {
-    // | Ok(Connection__Download__Platform.Web) =>
-    //   if Config.DevMode.get() {
-    //     [Hardcoded, DevALS]
-    //   } else {
-    //     [Hardcoded]
-    //   }
-    // | _ =>
-    //   if Config.DevMode.get() {
-    //     [Hardcoded, LatestALS, DevALS]
-    //   } else {
-    //     [Hardcoded, LatestALS]
-    //   }
-    // }
+    module PlatformOps = unpack(platformDeps)
+    switch await PlatformOps.determinePlatform() {
+    | Ok(Connection__Download__Platform.Web) => [Hardcoded]
+    | _ => [Hardcoded, DevALS]
+    }
   }
 
   // Create placeholder download items to prevent UI jitter.
@@ -699,34 +710,34 @@ module Download = {
   }
 
   // Get all available downloads
-  let getAllAvailableDownloads = async (state: State.t, platformDeps: Platform.t): array<(
-    bool,
-    string,
-    string,
-  )> => {
+  let getAllAvailableDownloads = async (
+    state: State.t,
+    platformDeps: Platform.t,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
+  ): array<(bool, string, string)> => {
     module PlatformOps = unpack(platformDeps)
 
     let allItems = switch await PlatformOps.determinePlatform() {
     | Error(_) => [unavailableItem(Native), unavailableItem(WASM)]
     | Ok(Connection__Download__Platform.Web) =>
-      let wasmSource = sourceForVariant(Connection__Download__Platform.Web, WASM)
+      let wasmSource = sourceForVariant(Connection__Download__Platform.Web, WASM, ~channel)
       switch wasmSource {
-      | Some(source) => [await makeDownloadItem(state, WASM, source)]
+      | Some(source) => [await makeDownloadItem(state, WASM, source, ~channel)]
       | None => [unavailableItem(WASM)]
       }
     | Ok(platform) =>
-      let nativeItem = switch sourceForVariant(platform, Native) {
-      | Some(source) => await makeDownloadItem(state, Native, source)
+      let nativeItem = switch sourceForVariant(platform, Native, ~channel) {
+      | Some(source) => await makeDownloadItem(state, Native, source, ~channel)
       | None => unavailableItem(Native)
       }
-      let wasmItem = switch sourceForVariant(platform, WASM) {
-      | Some(source) => await makeDownloadItem(state, WASM, source)
+      let wasmItem = switch sourceForVariant(platform, WASM, ~channel) {
+      | Some(source) => await makeDownloadItem(state, WASM, source, ~channel)
       | None => unavailableItem(WASM)
       }
       [nativeItem, wasmItem]
     }
 
-    suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems)
+    suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems, ~channel)
   }
 }
 
@@ -812,6 +823,7 @@ module Handler = {
     variant: Download.variant,
     downloaded: bool,
     versionString: string,
+    ~channel: Connection__Download.Channel.t=Hardcoded,
     ~refreshUI: option<unit => promise<unit>>=None,
   ) => {
     state.channels.log->Chan.emit(
@@ -819,7 +831,7 @@ module Handler = {
     )
 
     if downloaded {
-      let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant)
+      let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant, ~channel)
       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
       await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
       await ensureEndpointRegistered(state, downloadedPath)
@@ -832,7 +844,7 @@ module Handler = {
       let downloadResult = switch await PlatformOps.determinePlatform() {
       | Error(_) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Ok(platform) =>
-        switch Download.sourceForVariant(platform, variant) {
+        switch Download.sourceForVariant(platform, variant, ~channel) {
         | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         | Some(source) => await PlatformOps.download(state.globalStorageUri, source)
         }
@@ -877,6 +889,7 @@ module Handler = {
     let newDownloadItems = await Download.getAllAvailableDownloads(
       state,
       platformDeps,
+      ~channel,
     )
     let _ = SwitchVersionManager.refreshFromMemento(manager)
     await updateUI(newDownloadItems)
@@ -961,7 +974,8 @@ module Handler = {
               Download.WASM
             }
 
-            let downloadItems = await Download.getAllAvailableDownloads(state, platformDeps)
+            let currentChannel = selectedChannel.contents
+            let downloadItems = await Download.getAllAvailableDownloads(state, platformDeps, ~channel=currentChannel)
             let selectedDownload =
               downloadItems->Array.find(((_, _, variantTag)) =>
                 variantTag == Download.variantToTag(selectedVariant)
@@ -975,11 +989,13 @@ module Handler = {
                 selectedVariant,
                 downloaded,
                 versionString,
+                ~channel=currentChannel,
                 ~refreshUI=Some(
                   async () => {
                     let newDownloadItems = await Download.getAllAvailableDownloads(
                       state,
                       platformDeps,
+                      ~channel=currentChannel,
                     )
                     let _ = SwitchVersionManager.refreshFromMemento(manager)
                     await updateUI(newDownloadItems)
@@ -1082,13 +1098,18 @@ module Handler = {
 
     availableChannels := (await Download.getAvailableChannels(platformDeps))
 
+    // Clamp restored channel to available channels
+    if !(availableChannels.contents->Array.includes(selectedChannel.contents)) {
+      selectedChannel := Connection__Download.Channel.Hardcoded
+    }
+
     // PHASE 1: Show cached items immediately with placeholders to prevent jitter
     await updateUI(await Download.getPlaceholderDownloadItems(platformDeps))
     view->View.show
     state.channels.log->Chan.emit(SwitchVersionUI(Others("QuickPick shown")))
 
     // Get download info asynchronously in background
-    let downloadItemsPromise = Download.getAllAvailableDownloads(state, platformDeps)
+    let downloadItemsPromise = Download.getAllAvailableDownloads(state, platformDeps, ~channel=selectedChannel.contents)
 
     // Setup event handlers
     view->View.onSelection(selectedItems =>

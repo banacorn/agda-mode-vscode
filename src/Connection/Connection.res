@@ -425,16 +425,30 @@ module Module: Module = {
         Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
-        // Use the hardcoded channel on all platforms.
-        // On web, this resolves to the hardcoded WASM URL.
-        let channel = Connection__Download.Channel.Hardcoded
-        let tryHardcodedWasmFallback = async () =>
+        // Use the selected channel from memento, defaulting to Hardcoded.
+        // Web only supports Hardcoded; desktop supports Hardcoded and DevALS.
+        // Stale memento values are clamped to Hardcoded.
+        let channel = switch platform {
+        | Connection__Download__Platform.Web => Connection__Download.Channel.Hardcoded
+        | _ =>
+          switch Memento.SelectedChannel.get(memento) {
+          | Some("DevALS") => Connection__Download.Channel.DevALS
+          | _ => Connection__Download.Channel.Hardcoded
+          }
+        }
+        // WASM fallback uses the selected channel's directory to keep artifacts separate
+        let channelDirName = switch channel {
+        | Connection__Download.Channel.Hardcoded => "hardcoded-als"
+        | Connection__Download.Channel.DevALS => "dev-als"
+        | Connection__Download.Channel.LatestALS => "latest-als"
+        }
+        let tryWasmFallback = async () =>
           switch await PlatformOps.download(
             globalStorageUri,
             Connection__Download.Source.FromURL(
-              Connection__Download.Channel.Hardcoded,
+              channel,
               Connection__Hardcoded.wasmUrl,
-              "hardcoded-als",
+              channelDirName,
             ),
           ) {
           | Ok(path) => Ok(path)
@@ -444,20 +458,21 @@ module Module: Module = {
           switch await PlatformOps.download(globalStorageUri, source) {
           | Ok(path) => Ok(path)
           | Error(error) =>
-            // For hardcoded native downloads, retry once with WASM.
+            // For native downloads on any channel, retry once with WASM.
             // This gives desktop a graceful fallback when native artifacts fail.
             switch source {
-            | Connection__Download.Source.FromURL(
-                Connection__Download.Channel.Hardcoded,
-                url,
-                _,
-              ) =>
+            | Connection__Download.Source.FromURL(_, url, _) =>
               if url->String.endsWith(".wasm") {
                 Error(error)
               } else {
-                await tryHardcodedWasmFallback()
+                await tryWasmFallback()
               }
-            | _ => Error(error)
+            | Connection__Download.Source.FromGitHub(_, descriptor) =>
+              if descriptor.asset.name->String.includes("wasm") {
+                Error(error)
+              } else {
+                await tryWasmFallback()
+              }
             }
           }
         // Get the downloaded path, download if not already done
@@ -475,15 +490,14 @@ module Module: Module = {
             globalStorageUri,
             platform,
           ) {
-          | Error(error) =>
-            switch channel {
-            | Connection__Download.Channel.Hardcoded =>
-              switch await tryHardcodedWasmFallback() {
-              | Ok(path) => Ok(path)
-              | Error(wasmError) =>
-                Error(Error.Establish.fromDownloadError(wasmError))
-              }
-            | _ => Error(Error.Establish.fromDownloadError(error))
+          | Error(resolveError) =>
+            switch await tryWasmFallback() {
+            | Ok(path) => Ok(path)
+            | Error(_wasmError) =>
+              // Report the original resolve error as root cause;
+              // download field only holds one error so the WASM fallback
+              // error is dropped (it is secondary to the resolve failure).
+              Error(Error.Establish.fromDownloadError(resolveError))
             }
           | Ok(downloadDescriptor) =>
             switch await tryDownloadSource(downloadDescriptor) {
@@ -500,7 +514,7 @@ module Module: Module = {
           | Error(nativeError) =>
             // Native path failed to connect — try WASM fallback on desktop
             if !(path->String.endsWith(".wasm")) {
-              switch await tryHardcodedWasmFallback() {
+              switch await tryWasmFallback() {
               | Ok(wasmPath) =>
                 switch await make(wasmPath, FromDownload(channel)) {
                 | Ok(connection) => Ok(connection)
@@ -526,8 +540,7 @@ module Module: Module = {
   // Make a connection to Agda or ALS by trying:
   //  0. The previously selected path (if any)
   //  1. Each remaining path from user config in reverse order (last entry = highest priority)
-  //  2. Each command from the commands array sequentially
-  //  3. Downloading the latest ALS
+  //  2. Download fallback
   //
   // Config modification: download fallback prepends the downloaded path (lowest priority).
   // PickedConnection is never modified here — only explicit user actions may set it.
@@ -537,7 +550,7 @@ module Module: Module = {
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     paths: array<string>,
-    commands: array<string>,
+    _commands: array<string>,
     logChannel: Chan.t<Log.t>,
   ): result<t, Error.t> => {
     let logConnection = connection => {
@@ -572,29 +585,8 @@ module Module: Module = {
       ->Array.toReversed
       ->Array.map(path => (path, Error.Establish.FromConfig))
 
-    // Step 2: command probes, with skip rules for bare "agda"/"als".
-    let shouldSkipAgdaCommand =
-      remainingPaths->Array.includes("agda") ||
-      switch pickedConnection {
-      | Some("agda") => true
-      | _ => false
-      }
-    let shouldSkipAlsCommand =
-      remainingPaths->Array.includes("als") ||
-      switch pickedConnection {
-      | Some("als") => true
-      | _ => false
-      }
-    let filteredCommands = commands->Array.filter(command =>
-      if command == "agda" {
-        !shouldSkipAgdaCommand
-      } else if command == "als" {
-        !shouldSkipAlsCommand
-      } else {
-        true
-      }
-    )
-    // Try step 0 -> step 1 -> step 2, then downloads.
+    // Try step 0 (picked) -> step 1 (config paths) -> download fallback.
+    // Command probes are not part of the resolution chain.
     switch await fromPathsOrCommands(platformDeps, pickedEntries) {
     | Ok(connection) =>
       logConnection(connection)
@@ -605,12 +597,7 @@ module Module: Module = {
         logConnection(connection)
         Ok(connection)
       | Error(step1Error) =>
-        switch await fromCommandsWithWinner(platformDeps, filteredCommands) {
-        | Ok((connection, _command)) =>
-          logConnection(connection)
-          Ok(connection)
-        | Error(step2Error) =>
-          let pathErrors = Error.Establish.mergeMany([step0Error, step1Error, step2Error])
+        let pathErrors = Error.Establish.mergeMany([step0Error, step1Error])
       switch await fromDownloads(platformDeps, memento, globalStorageUri) {
       | Ok(connection) =>
         logConnection(connection)
@@ -626,7 +613,6 @@ module Module: Module = {
       | Error(downloadError) =>
         Error(Establish(Error.Establish.mergeMany([pathErrors, downloadError])))
       }
-        }
       }
     }
   }
