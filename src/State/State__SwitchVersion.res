@@ -8,7 +8,6 @@ module Constants = {
   let downloadUnavailable = "Not available for this platform"
   let checkingAvailability = "Checking availability..."
   let deleteDownloads = "$(trash)  Delete downloads"
-  let clearPreferred = "$(close)  Clear preferred version"
   let downloadedAndInstalled = "Downloaded and installed"
 }
 
@@ -19,7 +18,6 @@ module ItemData = {
     | DownloadAction(bool, string, string) // downloaded, versionString, variant ("native" | "wasm")
     | SelectOtherChannels
     | DeleteDownloads // delete downloads and clear cache
-    | ClearPreferred // clear preferred version
     | NoInstallations
     | Separator(string) // label
 
@@ -43,7 +41,6 @@ module ItemData = {
       downloadType
     | SelectOtherChannels => "SelectOtherChannels"
     | DeleteDownloads => "DeleteDownloads"
-    | ClearPreferred => "ClearPreferred"
     | NoInstallations => "NoInstallations"
     | Separator(label) => "Separator: " ++ label
     }
@@ -146,10 +143,7 @@ module ItemData = {
     }
 
     // Add misc section
-    let miscItems = switch pickedPath {
-    | Some(_) => [Separator("Misc"), ClearPreferred, DeleteDownloads]
-    | None => [Separator("Misc"), DeleteDownloads]
-    }
+    let miscItems = [Separator("Misc"), DeleteDownloads]
     Array.concat(sectionsWithChannels, miscItems)
   }
 }
@@ -197,11 +191,6 @@ module Item = {
       | DeleteDownloads => {
           let label = Constants.deleteDownloads
           let description = "Delete all downloaded files and clear cached release metadata"
-          (label, Some(description), None)
-        }
-      | ClearPreferred => {
-          let label = Constants.clearPreferred
-          let description = "Reset to automatic version resolution"
           (label, Some(description), None)
         }
       | NoInstallations => {
@@ -957,11 +946,6 @@ module Handler = {
               "All downloads and cache deleted",
               [],
             )->Promise.done
-          } else if selectedItem.label == Constants.clearPreferred {
-            Util.log("[ debug ] user clicked: Clear preferred version", "")
-            view->View.destroy
-            await Memento.PickedConnection.clear(state.memento)
-            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           } else if (
             selectedItem.label == Constants.downloadNativeALS ||
               selectedItem.label == Constants.downloadWasmALS

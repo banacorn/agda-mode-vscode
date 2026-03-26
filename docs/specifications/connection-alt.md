@@ -49,11 +49,14 @@ Switching channels **MUST NOT** remove existing downloaded Candidates.
 
 `PreferredCandidate` **MUST** be stored outside of `connection.paths`.
 
-`PreferredCandidate` **MUST** only be set by explicit user action:
+`PreferredCandidate` state transitions:
+- `None → Some` — allowed only by explicit user action
+- `Some → Some` — allowed only by explicit user action
+- `Some → None` — **forbidden**
+
+Explicit user actions that set `PreferredCandidate`:
 - user endpoint selection in Switch Version UI
 - successful manual UI-triggered download
-
-`PreferredCandidate` **MUST** be cleared only by explicit user action in the Switch Version UI.
 
 ## Delete Downloads
 
@@ -91,7 +94,7 @@ Decide for each item: fix the spec, fix the tests, or fix the implementation.
 - [ ] **T9** Add test: default value of `connection.paths` is `["agda", "als"]` (spec L17)
 - [ ] **T10** Add test: download order is [native, WASM] on Desktop and [WASM] on Web (spec L21-23)
 - [ ] **T11** Add test: Hardcoded is the default channel on fresh activation (spec L37)
-- [ ] **T12** Add test: PreferredCandidate can be explicitly cleared by user action in Switch Version UI (spec L56)
+- [x] **T12** ~~Add test: PreferredCandidate can be explicitly cleared by user action in Switch Version UI~~ — removed from spec; PreferredCandidate is never cleared, only overwritten
 
 ### Spec-vs-Implementation Contradictions
 
@@ -113,6 +116,6 @@ Decide for each item: fix the spec, fix the tests, or fix the implementation.
 - [x] **I16** Hardcoded-only runtime does not clamp restored channel — runtime channel availability is `[Hardcoded]` (`State__SwitchVersion.res:648`), but restored `selectedChannel` may remain DevALS/LatestALS from memento (`State__SwitchVersion.res:1021`), and UI header uses that value (`State__SwitchVersion.res:1033`) — test aligned with spec: onActivate download header must reference an available channel only (Test__State__SwitchVersion.res:2183)
 - [x] **I17** Desktop native→WASM order does not cover native probe/connect failure path — WASM fallback is only in download/resolve failure branches (`Connection.res:467`, `Connection.res:499`); if native path is found (`alreadyDownloaded`) but `make(path, ...)` fails, code returns error without trying WASM (`Connection.res:485`, `Connection.res:519`) — test aligned with spec: WASM must be tried when cached native fails to connect (Test__Connection.res:2822)
 - [x] **I18** Candidate type mismatch (spec narrower than implementation) — spec allows only Filepath, bare command, and `file://` URI (connection-alt.md:8), but implementation also supports `lsp://` and `vscode-*` URIs (`Connection__URI.res:37`, `Connection__URI.res:42`, `Connection.res:140`) — tests aligned with spec: lsp:// must be rejected (Test__Connection.res:2886), vscode-* must be rejected (Test__Connection.res:2901)
-- [x] **I19** PreferredCandidate explicit clear action is not actually exposed — spec says it must be clearable by explicit Switch Version UI action (connection-alt.md:56), but UI has no dedicated "clear preferred" action; clear only happens as a side effect of Delete Downloads (`State__SwitchVersion.res:901`, `State__SwitchVersion.res:917`) — test aligned with spec: synthesized clear-action routed through Handler.onSelection must clear PickedConnection without deleting downloads or modifying connection.paths (Test__State__SwitchVersion.res:2614)
+- [x] **I19** ~~PreferredCandidate explicit clear action~~ — removed from spec; PreferredCandidate is never cleared, only overwritten by explicit user action. Implementation and tests for the clear button should be removed.
 - [x] **I20** Channel coexistence semantics are not modeled in download paths — spec allows downloads from different channels to coexist (connection-alt.md:45), but download path helpers are hardcoded to `hardcoded-als` and not channel-parameterized (`State__SwitchVersion.res:545`, `State__SwitchVersion.res:608`, `State__SwitchVersion.res:594`) — tests aligned with spec: isDownloaded false-positive for DevALS when only Hardcoded on disk (Test__State__SwitchVersion.res:2707), handleChannelSwitch Hardcoded→DevALS must change download item flags but both return identical [true,false] proving channel switch has no effect (Test__State__SwitchVersion.res:2754)
 - [x] **I21** WASM path representation is inconsistent by download source — `FromURL` WASM returns URI string (`Connection__Download.res:143`, `Connection__Download.res:198`), but `FromGitHub` returns fsPath even for WASM (`Connection__Download.res:279`, `Connection__Download.res:288`); this conflicts with consistent candidate identity/normalization and can leak alias duplicates — test aligned with spec: real download(FromGitHub) cached branch returns fsPath, real downloadFromURL cached branch returns URI string for same WASM file — must be equal (Test__Connection.res:2921)
