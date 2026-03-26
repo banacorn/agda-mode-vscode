@@ -99,7 +99,10 @@ let rec handle = async (
     switch response {
     | HighlightingInfoDirect(_keep, annotations) =>
       if !state.isInRefineOrGiveOperation {
-        state.tokens->Tokens.insertTokens(state.editor, annotations)
+        switch state.pendingLoad {
+        | Some(text) => state.tokens->Tokens.insertTokensWithText(text, annotations)
+        | None => state.tokens->Tokens.insertTokens(state.editor, annotations)
+        }
       }
     | HighlightingInfoIndirect(filepath) =>
       if !state.isInRefineOrGiveOperation {
@@ -312,7 +315,11 @@ let rec handle = async (
       await State__View.DebugBuffer.displayInAppendMode([(verbosity, message)])
     | CompleteHighlightingAndMakePromptReappear =>
       // apply decoration before handling Last Responses
-      await Tokens.readTempFiles(state.tokens, state.editor)
+      switch state.pendingLoad {
+      | Some(text) => await Tokens.readTempFiles(state.tokens, state.editor, ~requestText=text)
+      | None => await Tokens.readTempFiles(state.tokens, state.editor)
+      }
+      state.pendingLoad = None
       // generate highlighting
       state.tokens->Tokens.generateHighlighting(state.editor)
     | _ => ()

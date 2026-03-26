@@ -76,6 +76,8 @@ type t = {
   // Skip HighlightingInfo during refine & give operations because Agda sends faulty token positions
   // that conflict with the extension's correctly calculated positions.
   mutable isInRefineOrGiveOperation: bool,
+  // the text when the request is emitted
+  mutable pendingLoad: option<string>,
 }
 
 let make = (
@@ -108,6 +110,7 @@ let make = (
   memento,
   channels,
   isInRefineOrGiveOperation: false,
+  pendingLoad: None,
 }
 
 // construction/destruction
