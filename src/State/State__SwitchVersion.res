@@ -240,6 +240,7 @@ module View = {
     quickPick: VSCode.QuickPick.t<VSCode.QuickPickItem.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable items: array<VSCode.QuickPickItem.t>,
+    mutable suppressHide: bool,
   }
 
   let make = (log): t => {
@@ -247,6 +248,7 @@ module View = {
     quickPick: VSCode.Window.createQuickPick(),
     subscriptions: [],
     items: [],
+    suppressHide: false,
   }
 
   let setPlaceholder = (self: t, placeholder: string): unit => {
@@ -903,32 +905,46 @@ module Handler = {
             ()
           } else if selectedItem.label == Constants.selectOtherChannels {
             let channelLabels = availableChannels.contents->Array.map(Download.channelToLabel)
-            switch await VSCode.Window.showQuickPick(
-              Promise.resolve(channelLabels),
-              {
-                placeHolder: "Select download channel",
-                canPickMany: false,
-              },
-              None,
-            ) {
-            | Some(selection) =>
-              // showQuickPick with canPickMany:false returns a single string at runtime,
-              // not an array, despite the rescript-vscode binding type.
-              // Handle both shapes so this survives an upstream binding fix.
-              let label: option<string> = if Js.Array2.isArray(selection) {
-                selection[0]
-              } else {
-                Some(Obj.magic(selection))
+            view.suppressHide = true
+            try {
+              let channelResult = await VSCode.Window.showQuickPick(
+                Promise.resolve(channelLabels),
+                {
+                  placeHolder: "Select download channel",
+                  canPickMany: false,
+                },
+                None,
+              )
+              view.suppressHide = false
+              switch channelResult {
+              | Some(selection) =>
+                // showQuickPick with canPickMany:false returns a single string at runtime,
+                // not an array, despite the rescript-vscode binding type.
+                // Handle both shapes so this survives an upstream binding fix.
+                let label: option<string> = if Js.Array2.isArray(selection) {
+                  selection[0]
+                } else {
+                  Some(Obj.magic(selection))
+                }
+                switch label->Option.flatMap(Download.channelFromLabel) {
+                | Some(channel) =>
+                  await handleChannelSwitch(
+                    state, platformDeps, manager, selectedChannel, channel, updateUI,
+                  )
+                  view->View.show
+                | None => view->View.show
+                }
+              | None => view->View.show
               }
-              switch label->Option.flatMap(Download.channelFromLabel) {
-              | Some(channel) =>
-                await handleChannelSwitch(
-                  state, platformDeps, manager, selectedChannel, channel, updateUI,
-                )
-                view->View.show
-              | None => ()
+            } catch {
+            | exn =>
+              view.suppressHide = false
+              let msg = switch exn {
+              | Exn.Error(jsExn) => Exn.message(jsExn)->Option.getOr("unknown error")
+              | _ => "unknown error"
               }
-            | None => ()
+              Util.log("[ debug ] channel picker failed", msg)
+              view->View.show
             }
           } else if selectedItem.label == Constants.deleteDownloads {
             Util.log("[ debug ] user clicked: Delete Downloads", "")
@@ -1044,9 +1060,13 @@ module Handler = {
   }
 
   let onHide = (view: View.t) => {
-    Util.log("[ debug ] QuickPick hidden/cancelled by user", "")
-    // QuickPick was hidden/cancelled by user - clean up
-    view->View.destroy
+    if view.suppressHide {
+      ()
+    } else {
+      Util.log("[ debug ] QuickPick hidden/cancelled by user", "")
+      // QuickPick was hidden/cancelled by user - clean up
+      view->View.destroy
+    }
   }
 
   let onActivate = async (state: State.t, platformDeps: Platform.t) => {

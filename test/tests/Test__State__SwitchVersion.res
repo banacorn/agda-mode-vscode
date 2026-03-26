@@ -1058,6 +1058,11 @@ describe("State__SwitchVersion", () => {
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
 
+        // Register onHide handler (same as onActivate does)
+        view->State__SwitchVersion.View.onHide(() =>
+          State__SwitchVersion.Handler.onHide(view)
+        )
+
         // Track show() calls on the underlying quickPick
         let showCallCount = ref(0)
         let patchShow: (State__SwitchVersion.View.t, ref<int>) => unit = %raw(`function(view, counter) {
@@ -1066,10 +1071,23 @@ describe("State__SwitchVersion", () => {
         }`)
         patchShow(view, showCallCount)
 
-        // Mock showQuickPick to return "DevALS" as a plain string
+        let sawDestroyed = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | _ => ()
+          }
+        )
+
+        // Mock showQuickPick to simulate VS Code hiding the main QuickPick
+        // when a secondary picker opens, then returning "DevALS"
         let mockShowQuickPick: unit => unit = %raw(`function() {
           globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
-          require("vscode").window.showQuickPick = () => Promise.resolve("DevALS");
+          require("vscode").window.showQuickPick = () => {
+            // Simulate VS Code hiding the main QuickPick when secondary picker opens
+            view.quickPick.hide();
+            return Promise.resolve("DevALS");
+          };
         }`)
         let restoreShowQuickPick: unit => unit = %raw(`function() {
           require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
@@ -1093,10 +1111,87 @@ describe("State__SwitchVersion", () => {
         await Test__Util.wait(200)
         restoreShowQuickPick()
 
+        // View MUST NOT be destroyed during channel selection
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
         // After channel selection completes, the main QuickPick MUST be re-shown
         Assert.deepStrictEqual(showCallCount.contents, 1)
 
         view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should handle secondary showQuickPick rejection cleanly",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+
+        // Register onHide handler (same as onActivate does)
+        view->State__SwitchVersion.View.onHide(() =>
+          State__SwitchVersion.Handler.onHide(view)
+        )
+
+        // Track show() calls on the underlying quickPick
+        let showCallCount = ref(0)
+        let patchShow: (State__SwitchVersion.View.t, ref<int>) => unit = %raw(`function(view, counter) {
+          var orig = view.quickPick.show.bind(view.quickPick);
+          view.quickPick.show = function() { counter.contents++; return orig(); };
+        }`)
+        patchShow(view, showCallCount)
+
+        let sawDestroyed = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | _ => ()
+          }
+        )
+
+        // Mock showQuickPick to simulate VS Code hiding the main QuickPick,
+        // then rejecting (e.g. the picker is disposed or errors)
+        let mockShowQuickPick: unit => unit = %raw(`function() {
+          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
+          require("vscode").window.showQuickPick = () => {
+            view.quickPick.hide();
+            return Promise.reject(new Error("picker disposed"));
+          };
+        }`)
+        let restoreShowQuickPick: unit => unit = %raw(`function() {
+          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
+          delete globalThis.__savedShowQuickPick;
+        }`)
+        mockShowQuickPick()
+
+        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          selectedChannel,
+          async _downloadItems => (),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+        restoreShowQuickPick()
+
+        // The hide during showQuickPick should have been suppressed
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
+        // After rejection, the main QuickPick MUST be re-shown
+        Assert.deepStrictEqual(showCallCount.contents, 1)
+
+        // suppressHide must be reset so future hides work normally.
+        // Re-show and then hide to trigger onDidHide and verify it destroys the view.
+        view.quickPick->VSCode.QuickPick.show
+        view.quickPick->VSCode.QuickPick.hide
+
+        await Test__Util.wait(50)
+        Assert.deepStrictEqual(sawDestroyed.contents, true)
       },
     )
 
