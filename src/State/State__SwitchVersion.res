@@ -912,15 +912,19 @@ module Handler = {
               None,
             ) {
             | Some(selection) =>
-              switch selection[0] {
-              | Some(label) =>
-                switch Download.channelFromLabel(label) {
-                | Some(channel) =>
-                  await handleChannelSwitch(
-                    state, platformDeps, manager, selectedChannel, channel, updateUI,
-                  )
-                | None => ()
-                }
+              // showQuickPick with canPickMany:false returns a single string at runtime,
+              // not an array, despite the rescript-vscode binding type.
+              // Handle both shapes so this survives an upstream binding fix.
+              let label: option<string> = if Js.Array2.isArray(selection) {
+                selection[0]
+              } else {
+                Some(Obj.magic(selection))
+              }
+              switch label->Option.flatMap(Download.channelFromLabel) {
+              | Some(channel) =>
+                await handleChannelSwitch(
+                  state, platformDeps, manager, selectedChannel, channel, updateUI,
+                )
               | None => ()
               }
             | None => ()
