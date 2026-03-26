@@ -941,6 +941,116 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should switch channel to DevALS via onSelection when showQuickPick returns a label",
+      async () => {
+        // Bug: showQuickPick with canPickMany:false returns a single string,
+        // but the binding types it as array<string>. The code does selection[0]
+        // which on a string returns just the first character (e.g. "DevALS"[0] = "D"),
+        // so channelFromLabel("D") returns None and the switch silently fails.
+
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+
+        // Mock showQuickPick to return a single string "DevALS" (as real VS Code does
+        // when canPickMany is false), saving the original for restore.
+        let mockShowQuickPick: unit => unit = %raw(`function() {
+          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
+          require("vscode").window.showQuickPick = () => Promise.resolve("DevALS");
+        }`)
+        let restoreShowQuickPick: unit => unit = %raw(`function() {
+          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
+          delete globalThis.__savedShowQuickPick;
+        }`)
+        mockShowQuickPick()
+
+        let downloadHeaderCapture = ref("")
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Others(header)) => downloadHeaderCapture := header
+          | _ => ()
+          }
+        )
+
+        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          selectedChannel,
+          async _downloadItems => {
+            let downloadHeader =
+              "Download (channel: " ++
+                State__SwitchVersion.Download.channelToLabel(selectedChannel.contents) ++ ")"
+            state.channels.log->Chan.emit(Log.SwitchVersionUI(Others(downloadHeader)))
+          },
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+        restoreShowQuickPick()
+
+        // The channel should have switched to DevALS
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        Assert.deepStrictEqual(downloadHeaderCapture.contents, "Download (channel: DevALS)")
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should persist channel selection in memento via onSelection when showQuickPick returns a label",
+      async () => {
+        // Same root cause: showQuickPick returns a string, not an array.
+        // Verify that memento is updated after channel switch via onSelection path.
+
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+
+        // Precondition: no channel in memento
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        // Mock showQuickPick to return "DevALS" as a plain string
+        let mockShowQuickPick: unit => unit = %raw(`function() {
+          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
+          require("vscode").window.showQuickPick = () => Promise.resolve("DevALS");
+        }`)
+        let restoreShowQuickPick: unit => unit = %raw(`function() {
+          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
+          delete globalThis.__savedShowQuickPick;
+        }`)
+        mockShowQuickPick()
+
+        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          selectedChannel,
+          async _downloadItems => (),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+        restoreShowQuickPick()
+
+        // Memento should have the selected channel
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("DevALS"))
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
       "should keep existing shared connection when switch target cannot be established",
       async () => {
         // Keep this test isolated from prior registry state.
