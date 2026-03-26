@@ -925,6 +925,7 @@ module Handler = {
                 await handleChannelSwitch(
                   state, platformDeps, manager, selectedChannel, channel, updateUI,
                 )
+                view->View.show
               | None => ()
               }
             | None => ()
