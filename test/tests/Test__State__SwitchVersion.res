@@ -554,6 +554,46 @@ describe("State__SwitchVersion", () => {
           },
         )
 
+        it(
+          "should include download section header when all downloads are installed and channel selector is shown",
+          () => {
+            let entries = Dict.make()
+            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+
+            // All downloads installed → suppressManagedVariants returns empty array
+            // but channel selector is still shown
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [],
+              ~downloadHeader="Download (channel: Hardcoded)",
+              ~showChannelSelector=true,
+            )
+
+            let hasDownloadSeparator = itemData->Array.some(
+              data =>
+                switch data {
+                | Separator("Download (channel: Hardcoded)") => true
+                | _ => false
+                },
+            )
+
+            let hasChannelSelector = itemData->Array.some(
+              data =>
+                switch data {
+                | SelectOtherChannels => true
+                | _ => false
+                },
+            )
+
+            // Both channel selector and download section header must be present
+            Assert.deepStrictEqual(hasChannelSelector, true)
+            Assert.deepStrictEqual(hasDownloadSeparator, true)
+          },
+        )
+
       },
     )
   })

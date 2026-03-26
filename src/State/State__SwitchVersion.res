@@ -118,8 +118,9 @@ module ItemData = {
       []
     }
 
-    // Add download section if present
-    let sectionsWithDownload = if Array.length(downloadItems) > 0 {
+    // Add download section if present, or if channel selector will be shown
+    // (so the selector button isn't orphaned without a section header)
+    let sectionsWithDownload = if Array.length(downloadItems) > 0 || showChannelSelector {
       // Create download section items from all downloads
       let downloadSectionItems =
         downloadItems->Array.map(((downloaded, versionString, variant)) => DownloadAction(
