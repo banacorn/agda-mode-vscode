@@ -40,7 +40,7 @@ Hardcoded **MUST** be the default channel.
 Channel selection **MUST** be made via UI picker and **MUST** be stored in memento.
 
 The selected channel **MUST** apply to both automatic fallback downloads and manual UI-triggered downloads.
-After channel selection, UI **SHOULD** show platform-appropriate download options.
+After channel selection, UI **MUST** reopen and show platform-appropriate download options for the selected channel.
 
 Downloads from different channels **MAY** coexist in `connection.paths`.
 Switching channels **MUST NOT** remove existing downloaded Candidates.

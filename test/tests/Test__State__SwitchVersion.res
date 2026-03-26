@@ -1051,6 +1051,56 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should re-show main QuickPick after channel selection completes",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+
+        // Track show() calls on the underlying quickPick
+        let showCallCount = ref(0)
+        let patchShow: (State__SwitchVersion.View.t, ref<int>) => unit = %raw(`function(view, counter) {
+          var orig = view.quickPick.show.bind(view.quickPick);
+          view.quickPick.show = function() { counter.contents++; return orig(); };
+        }`)
+        patchShow(view, showCallCount)
+
+        // Mock showQuickPick to return "DevALS" as a plain string
+        let mockShowQuickPick: unit => unit = %raw(`function() {
+          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
+          require("vscode").window.showQuickPick = () => Promise.resolve("DevALS");
+        }`)
+        let restoreShowQuickPick: unit => unit = %raw(`function() {
+          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
+          delete globalThis.__savedShowQuickPick;
+        }`)
+        mockShowQuickPick()
+
+        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          selectedChannel,
+          async _downloadItems => (),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+        restoreShowQuickPick()
+
+        // After channel selection completes, the main QuickPick MUST be re-shown
+        Assert.deepStrictEqual(showCallCount.contents, 1)
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
       "should keep existing shared connection when switch target cannot be established",
       async () => {
         // Keep this test isolated from prior registry state.
