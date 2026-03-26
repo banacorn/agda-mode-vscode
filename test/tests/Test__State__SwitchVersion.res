@@ -1193,7 +1193,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should preserve connection.paths and PreferredCandidate on Delete Downloads",
+      "should remove download paths from connection.paths and preserve PreferredCandidate on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1250,8 +1250,8 @@ describe("State__SwitchVersion", () => {
         )
         await onSelectionCompleted
 
-        // Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, downloadedLatest, downloadedDevWasm, downloadedHardcoded, keepBareCommand])
+        // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand])
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedLatest))
         Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(hardcodedDirUri)), false)
 
@@ -1261,7 +1261,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should preserve connection.paths with unescaped space URIs on Delete Downloads",
+      "should remove download paths with unescaped space URIs from connection.paths on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1314,7 +1314,7 @@ describe("State__SwitchVersion", () => {
         )
         await onSelectionCompleted
 
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, unescapedWasmUri])
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -1322,7 +1322,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should preserve all connection.paths and PickedConnection on Delete Downloads",
+      "should remove download paths from connection.paths and preserve PickedConnection on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1369,7 +1369,7 @@ describe("State__SwitchVersion", () => {
         )
         await onSelectionCompleted
 
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, downloadedLatest])
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(keepPath))
 
         let _ = await FS.deleteRecursive(storageUri)
@@ -2008,7 +2008,7 @@ describe("State__SwitchVersion", () => {
     Async.it(
       "should NOT clear PreferredCandidate when Delete Downloads is invoked and picked path is under download directory",
       async () => {
-        // Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
+        // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
 
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -2067,9 +2067,9 @@ describe("State__SwitchVersion", () => {
 
         await onSelectionCompleted
 
-        // Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
+        // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedPath))
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda", downloadedPath])
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda"])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -2079,7 +2079,7 @@ describe("State__SwitchVersion", () => {
     Async.it(
       "should NOT clear PreferredCandidate when Delete Downloads is invoked and picked path is NOT under download directory",
       async () => {
-        // Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
+        // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
 
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -2139,9 +2139,9 @@ describe("State__SwitchVersion", () => {
 
         await onSelectionCompleted
 
-        // Delete Downloads MUST NOT modify connection.paths or PreferredCandidate
+        // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(userPath))
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [userPath, downloadedPath])
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [userPath])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy

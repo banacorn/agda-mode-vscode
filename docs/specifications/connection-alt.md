@@ -62,7 +62,9 @@ Explicit user actions that set `PreferredCandidate`:
 
 "Delete Downloads" **MUST** remove all downloaded ALS binaries from disk, regardless of how the download was triggered (automatic fallback or manual UI-triggered).
 
-"Delete Downloads" **MUST NOT** modify `connection.paths` or `PreferredCandidate`.
+"Delete Downloads" **MUST** remove download-managed paths from `connection.paths`.
+
+"Delete Downloads" **MUST NOT** modify `PreferredCandidate`.
 
 ## Resolution
 
@@ -80,7 +82,7 @@ Decide for each item: fix the spec, fix the tests, or fix the implementation.
 
 ### Spec-vs-Test Contradictions
 
-- [x] **T1** Delete Downloads — spec L62 says MUST NOT modify `connection.paths`/`PreferredCandidate`, but tests assert it removes download-managed paths and clears `PickedConnection` when pointing to a download path (`Test__State__SwitchVersion.res:1195,1244,1305`) — **tests fixed**, implementation still pending (see I1)
+- [x] **T1** Delete Downloads — spec says MUST remove download-managed paths from `connection.paths`, MUST NOT modify `PreferredCandidate` — tests and implementation aligned
 - [x] **T2** Resolution order — spec L69 says "reverse order", but tests and implementation use forward order (`Test__Connection__Config.res:124-134`, no `reverse` call in `Connection*.res`) — **tests fixed**, implementation still pending (see I2)
 - [x] **T3** Automatic fallback setting PreferredCandidate — spec L52-54 says only explicit user action, but automatic fallback via `makeWithFallback` sets `PickedConnection` (`Test__Connection.res:2357-2386`) — **tests fixed**, implementation still pending (see I3)
 - [x] **T4** Manual UI download setting PreferredCandidate — spec L54 lists it as a trigger, but test asserts `pickedConnection = None` after manual download (`Test__Connection__Config.res:576`)
@@ -98,7 +100,7 @@ Decide for each item: fix the spec, fix the tests, or fix the implementation.
 
 ### Spec-vs-Implementation Contradictions
 
-- [x] **I1** Delete Downloads — spec L62 says MUST NOT modify, but implementation removes download-managed paths from config (`State__SwitchVersion.res:753-762` `removeDownloadedPathsFromConfig`) and clears `PickedConnection` when pointing to a download path (`State__SwitchVersion.res:903-906`) — tests aligned with spec L62: preserve paths+picked (Test__State__SwitchVersion.res:1195), preserve picked when under download dir (Test__State__SwitchVersion.res:1881), preserve picked when not under download dir (Test__State__SwitchVersion.res:1958)
+- [x] **I1** Delete Downloads — spec says MUST remove download-managed paths from `connection.paths`, MUST NOT modify `PreferredCandidate` — implementation and tests aligned
 - [x] **I2** Resolution order — spec L69 says "reverse order", but `Config.res:79` `parseAgdaPaths` already reverses with `Array.toReversed`, then `Connection.res:583-588` iterates forward. Net effect: last entry in user config = highest priority. The "reverse" happens at parse time, not resolution time. — guarded by T2 tests (reverse order priority: Test__Connection__Config.res:121) and parse-time reverse test (Test__Config.res:55)
 - [x] **I3** Automatic fallback sets PreferredCandidate — spec L52-54 says only explicit user action, but `Connection.res:637` calls `Memento.PickedConnection.set` after automatic fallback download — tests aligned with spec: no picked after fallback (Test__Connection.res:2506), existing picked preserved (Test__Connection.res:2537)
 - [x] **I4** Manual UI download does NOT set PreferredCandidate — spec L54 lists it as a trigger, but `State__SwitchVersion.res:800-838` (`handleDownload`) only calls `addAgdaPath`, never sets `PickedConnection` — tests aligned with spec: picked set after new download (Test__Connection__Config.res:642), after already-downloaded (Test__Connection__Config.res:660), via handler (Test__State__SwitchVersion.res:1463), via onSelection (Test__State__SwitchVersion.res:1552)
