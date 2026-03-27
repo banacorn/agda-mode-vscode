@@ -2,7 +2,7 @@ open Mocha
 open State__SwitchVersion.ItemData
 
 module TestData = {
-  // Mock endpoint entries for testing
+  // Mock candidate entries for testing
   let createMockEntry = (
     kind: Memento.ResolvedMetadata.kind,
     ~error: option<string>=?,
@@ -41,13 +41,13 @@ module TestData = {
 describe("State__SwitchVersion", () => {
   describe("Core", () => {
     describe(
-      "getEndpointDisplayInfo",
+      "getCandidateDisplayInfo",
       () => {
         it(
-          "should format Agda endpoint with version",
+          "should format Agda candidate with version",
           () => {
             let entry = TestData.agdaEntry
-            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getCandidateDisplayInfo(
               "agda",
               entry,
             )
@@ -58,10 +58,10 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
-          "should format Agda endpoint without version",
+          "should format Agda candidate without version",
           () => {
             let entry = TestData.agdaUnknownEntry
-            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getCandidateDisplayInfo(
               "agda",
               entry,
             )
@@ -72,10 +72,10 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
-          "should format ALS endpoint with versions",
+          "should format ALS candidate with versions",
           () => {
             let entry = TestData.alsEntry
-            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getCandidateDisplayInfo(
               "als",
               entry,
             )
@@ -86,10 +86,10 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
-          "should format error endpoint",
+          "should format error candidate",
           () => {
             let entry = TestData.unknownEntry
-            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getCandidateDisplayInfo(
               "broken-agda",
               entry,
             )
@@ -100,10 +100,10 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
-          "should format unknown endpoint without error",
+          "should format unknown candidate without error",
           () => {
             let entry = TestData.createMockEntry(Unknown, ())
-            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getCandidateDisplayInfo(
               "mystery",
               entry,
             )
@@ -117,7 +117,7 @@ describe("State__SwitchVersion", () => {
           "should derive display filename from resource URI",
           () => {
             let entry = TestData.createMockEntry(Unknown, ())
-            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getCandidateDisplayInfo(
               "vscode-userdata:/global/als.wasm",
               entry,
             )
@@ -130,43 +130,43 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "shouldEndpointHaveIcon",
+      "shouldCandidateHaveIcon",
       () => {
         it(
-          "should return true for Agda endpoints",
+          "should return true for Agda candidates",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Agda(Some("2.6.4"))),
               true,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(None)),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Agda(None)),
               true,
             )
           },
         )
 
         it(
-          "should return false for ALS endpoints",
+          "should return false for ALS candidates",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(
                 ALS(Some(("4.0.0", "2.6.4", None))),
               ),
               false,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(None)),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(ALS(None)),
               false,
             )
           },
         )
 
         it(
-          "should return false for unknown endpoints",
+          "should return false for unknown candidates",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Unknown),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Unknown),
               false,
             )
           },
@@ -175,53 +175,53 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "inferEndpointType",
+      "inferCandidateKind",
       () => {
         it(
-          "should recognize als.wasm as ALS endpoint",
+          "should recognize als.wasm as ALS candidate",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als.wasm"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als.wasm"),
               Memento.ResolvedMetadata.ALS(None),
             )
           },
         )
 
         it(
-          "should recognize als as ALS endpoint",
+          "should recognize als as ALS candidate",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als"),
               Memento.ResolvedMetadata.ALS(None),
             )
           },
         )
 
         it(
-          "should recognize als.exe as ALS endpoint",
+          "should recognize als.exe as ALS candidate",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als.exe"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als.exe"),
               Memento.ResolvedMetadata.ALS(None),
             )
           },
         )
 
         it(
-          "should recognize agda as Agda endpoint",
+          "should recognize agda as Agda candidate",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("agda"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("agda"),
               Memento.ResolvedMetadata.Agda(None),
             )
           },
         )
 
         it(
-          "should recognize agda-2.6.4 as Agda endpoint",
+          "should recognize agda-2.6.4 as Agda candidate",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("agda-2.6.4"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("agda-2.6.4"),
               Memento.ResolvedMetadata.Agda(None),
             )
           },
@@ -231,7 +231,7 @@ describe("State__SwitchVersion", () => {
           "should recognize unknown executables",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("unknown"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("unknown"),
               Memento.ResolvedMetadata.Unknown,
             )
           },
@@ -241,7 +241,7 @@ describe("State__SwitchVersion", () => {
           "should extract basename from full paths",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
                 "/path/to/dev-als/als.wasm",
               ),
               Memento.ResolvedMetadata.ALS(None),
@@ -253,7 +253,7 @@ describe("State__SwitchVersion", () => {
           "should handle uppercase extensions",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("ALS.WASM"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("ALS.WASM"),
               Memento.ResolvedMetadata.ALS(None),
             )
           },
@@ -263,7 +263,7 @@ describe("State__SwitchVersion", () => {
           "should recognize als- prefixed executables",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.SwitchVersionManager.inferEndpointType("als-server"),
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als-server"),
               Memento.ResolvedMetadata.ALS(None),
             )
           },
@@ -279,10 +279,10 @@ describe("State__SwitchVersion", () => {
       "fromItemData",
       () => {
         it(
-          "should create quickpick item from endpoint data with correct properties",
+          "should create quickpick item from candidate data with correct properties",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "Agda 2.6.4")
@@ -292,31 +292,31 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
-          "should include icon for Agda endpoints",
+          "should include icon for Agda candidates",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is present for Agda
             switch item.iconPath {
             | Some(_) => () // Expected
-            | None => Assert.fail("Expected iconPath for Agda endpoint")
+            | None => Assert.fail("Expected iconPath for Agda candidate")
             }
           },
         )
 
         it(
-          "should not include icon for ALS endpoints",
+          "should not include icon for ALS candidates",
           () => {
             let entry = TestData.alsEntry
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, false)
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is absent for ALS
             switch item.iconPath {
             | None => () // Expected
-            | Some(_) => Assert.fail("Did not expect iconPath for ALS endpoint")
+            | Some(_) => Assert.fail("Did not expect iconPath for ALS candidate")
             }
           },
         )
@@ -428,7 +428,7 @@ describe("State__SwitchVersion", () => {
       "entriesToItemData",
       () => {
         it(
-          "should hide Candidates section when no endpoints are found",
+          "should hide Candidates section when no candidates are found",
           () => {
             let entries = []
             let itemData: array<
@@ -492,7 +492,7 @@ describe("State__SwitchVersion", () => {
               [],
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 6) // Candidates separator + 2 endpoints + Download separator + Select other channel + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Candidates separator + 2 candidates + Download separator + Select other channel + Delete downloads
 
             switch itemData[0] {
             | Some(Separator("Candidates")) => () // Expected
@@ -643,7 +643,7 @@ describe("State__SwitchVersion", () => {
             let structure = itemData->Array.map(item =>
               switch item {
               | Separator(label) => "sep:" ++ label
-              | Endpoint(_, _, _) => "candidate"
+              | Candidate(_, _, _) => "candidate"
               | DownloadAction(_, _, _) => "download"
               | SelectOtherChannels => "select-other-channel"
               | DeleteDownloads => "delete-downloads"
@@ -682,7 +682,7 @@ describe("State__SwitchVersion", () => {
             let structure = itemData->Array.map(item =>
               switch item {
               | Separator(label) => "sep:" ++ label
-              | Endpoint(_, _, _) => "candidate"
+              | Candidate(_, _, _) => "candidate"
               | DownloadAction(_, _, _) => "download"
               | SelectOtherChannels => "select-other-channel"
               | DeleteDownloads => "delete-downloads"
@@ -717,7 +717,7 @@ describe("State__SwitchVersion", () => {
             let structure = itemData->Array.map(item =>
               switch item {
               | Separator(label) => "sep:" ++ label
-              | Endpoint(_, _, _) => "candidate"
+              | Candidate(_, _, _) => "candidate"
               | DownloadAction(_, _, _) => "download"
               | SelectOtherChannels => "select-other-channel"
               | DeleteDownloads => "delete-downloads"
@@ -744,11 +744,11 @@ describe("State__SwitchVersion", () => {
     let mockAgda = ref("")
 
     Async.before(async () => {
-      mockAgda := await Test__Util.Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-sv-raw-key")
+      mockAgda := await Test__Util.Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-sv-raw-key")
     })
 
     Async.after(async () => {
-      await Test__Util.Endpoint.Agda.destroy(mockAgda.contents)
+      await Test__Util.Candidate.Agda.destroy(mockAgda.contents)
     })
 
     // Simple mock platform for testing
@@ -1048,7 +1048,7 @@ describe("State__SwitchVersion", () => {
         let candidateRows =
           itemData->Array.filterMap(item =>
             switch item {
-            | Endpoint(path, _, _) => Some(path)
+            | Candidate(path, _, _) => Some(path)
             | _ => None
             }
           )
@@ -1088,7 +1088,7 @@ describe("State__SwitchVersion", () => {
         let candidateRows =
           itemData->Array.filterMap(item =>
             switch item {
-            | Endpoint(path, _, _) => Some(path)
+            | Candidate(path, _, _) => Some(path)
             | _ => None
             }
           )
@@ -1130,7 +1130,7 @@ describe("State__SwitchVersion", () => {
         let candidateEntry =
           itemData->Array.findMap(item =>
             switch item {
-            | Endpoint("agda", entry, _) => Some(entry)
+            | Candidate("agda", entry, _) => Some(entry)
             | _ => None
             }
           )
@@ -1167,7 +1167,7 @@ describe("State__SwitchVersion", () => {
         let candidateEntry =
           itemData->Array.findMap(item =>
             switch item {
-            | Endpoint(path, entry, _) when path == resourcePath => Some(entry)
+            | Candidate(path, entry, _) when path == resourcePath => Some(entry)
             | _ => None
             }
           )
@@ -1213,7 +1213,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should not treat checking-availability placeholder as endpoint selection",
+      "should not treat checking-availability placeholder as candidate selection",
       async () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
@@ -1255,16 +1255,16 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should not treat non-endpoint picker items as endpoint selection",
+      "should not treat non-candidate picker items as candidate selection",
       async () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-        let sawSelectedEndpoint = ref(false)
+        let sawSelectedCandidate = ref(false)
         let _ = state.channels.log->Chan.on(logEvent =>
           switch logEvent {
-          | Log.SwitchVersionUI(SelectedEndpoint(_, _, _)) => sawSelectedEndpoint := true
+          | Log.SwitchVersionUI(SelectedCandidate(_, _, _)) => sawSelectedCandidate := true
           | _ => ()
           }
         )
@@ -1284,7 +1284,7 @@ describe("State__SwitchVersion", () => {
 
         await Test__Util.wait(200)
 
-        Assert.deepStrictEqual(sawSelectedEndpoint.contents, false)
+        Assert.deepStrictEqual(sawSelectedCandidate.contents, false)
       },
     )
 
@@ -1626,22 +1626,22 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should have an endpoint marked as selected onActivation",
+      "should have an candidate marked as selected onActivation",
       async () => {
         /**
-         * TEST PURPOSE: Expose fresh install UX problem where no endpoint appears "Selected"
+         * TEST PURPOSE: Expose fresh install UX problem where no candidate appears "Selected"
          * 
          * PROBLEM DESCRIPTION:
          * On fresh installs or after clearing extension data, users experience confusing UI behavior:
          * 1. User runs Command.Load → Agda connection establishes successfully (auto-detected)
-         * 2. User opens switch version UI → Sees multiple endpoints but NONE marked as "Selected"
+         * 2. User opens switch version UI → Sees multiple candidates but NONE marked as "Selected"
          * 3. User is confused: "Which connection am I currently using?"
          * 4. Only after manually switching connection does one show as "Selected"
          * 
          * ROOT CAUSE:
          * - Command.Load establishes connection without setting Memento.PickedConnection
          * - Memento.PickedConnection.get() returns None on fresh installs
-         * - UI selection logic requires explicit memento entry to mark endpoint as "Selected"
+         * - UI selection logic requires explicit memento entry to mark candidate as "Selected"
          * - No mechanism exists to infer selection from active connection state
          * 
          * REPRODUCTION:
@@ -1656,8 +1656,8 @@ describe("State__SwitchVersion", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
-              loggedEvents->Array.push(endpoints)
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
             | _ => ()
             }
           },
@@ -1668,7 +1668,7 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
         // SIMULATE: Active connection (Command.Load established connection)
-        // Create a mock connection that matches one of the discovered endpoints
+        // Create a mock connection that matches one of the discovered candidates
         let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
         Registry__Connection.status :=
           Active({
@@ -1687,8 +1687,8 @@ describe("State__SwitchVersion", () => {
           allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
-        // VERIFY: Assert that the fix works (endpoint marked as selected)
-        Assert.ok(anyEndpointSelected) // Expected: Active connection endpoint should be marked as selected
+        // VERIFY: Assert that the fix works (candidate marked as selected)
+        Assert.ok(anyEndpointSelected) // Expected: Active connection candidate should be marked as selected
       },
     )
 
@@ -1699,10 +1699,10 @@ describe("State__SwitchVersion", () => {
          * TEST PURPOSE: Ensure explicit user selection takes precedence over connection inference
          * 
          * SCENARIO:
-         * 1. User has multiple endpoints discovered
-         * 2. User has explicitly selected one endpoint (stored in memento)
-         * 3. But a different endpoint is currently active (connection established)
-         * 4. UI should show the explicitly selected endpoint as "Selected", not the active one
+         * 1. User has multiple candidates discovered
+         * 2. User has explicitly selected one candidate (stored in memento)
+         * 3. But a different candidate is currently active (connection established)
+         * 4. UI should show the explicitly selected candidate as "Selected", not the active one
          * 
          * This tests the precedence logic: explicit selection > active connection inference
          */
@@ -1714,8 +1714,8 @@ describe("State__SwitchVersion", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
-              loggedEvents->Array.push(endpoints)
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
             | _ => ()
             }
           },
@@ -1726,10 +1726,10 @@ describe("State__SwitchVersion", () => {
           ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
         )
 
-        // SIMULATE: User explicitly selected one endpoint (stored in memento)
+        // SIMULATE: User explicitly selected one candidate (stored in memento)
         await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
 
-        // SIMULATE: But different endpoint is currently active
+        // SIMULATE: But different candidate is currently active
         let mockConnection = TestData.makeMockConnection("/opt/homebrew/bin/agda", "2.6.3")
         Registry__Connection.status :=
           Active({
@@ -1742,22 +1742,22 @@ describe("State__SwitchVersion", () => {
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
 
-        // ANALYZE: Check which endpoint is marked as selected
+        // ANALYZE: Check which candidate is marked as selected
         let allEndpointsFromLogs = loggedEvents->Array.flat
 
-        // Find the selected endpoint
+        // Find the selected candidate
         let selectedEndpoint =
           allEndpointsFromLogs->Array.find(((_, _, _, isSelected)) => isSelected)
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
-        // VERIFY: The explicitly selected endpoint (from memento) should be marked as selected
-        // NOT the active connection endpoint
+        // VERIFY: The explicitly selected candidate (from memento) should be marked as selected
+        // NOT the active connection candidate
         switch selectedEndpoint {
         | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/usr/bin/agda") // Memento selection should win
-        | None => Assert.fail("Expected one endpoint to be marked as selected")
+        | None => Assert.fail("Expected one candidate to be marked as selected")
         }
 
-        // VERIFY: Only one endpoint should be selected
+        // VERIFY: Only one candidate should be selected
         let selectedCount =
           allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)->Array.length
         Assert.deepStrictEqual(selectedCount, 1)
@@ -1765,7 +1765,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should preserve raw bare commands in PickedConnection after endpoint selection",
+      "should preserve raw bare commands in PickedConnection after candidate selection",
       async () => {
         let platform = makeMockPlatformWithBareCommands()
         let runSelectionAndAssert = async (selectedPath: string) => {
@@ -1784,7 +1784,7 @@ describe("State__SwitchVersion", () => {
 
           let selectedItem = makePickerItem(
             state,
-            Endpoint(
+            Candidate(
               selectedPath,
               {
                 kind: selectedPath == "agda"
@@ -1881,7 +1881,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should treat alias-equivalent endpoint selection as unchanged",
+      "should treat alias-equivalent candidate selection as unchanged",
       async () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
@@ -1891,11 +1891,11 @@ describe("State__SwitchVersion", () => {
 
         await Memento.PickedConnection.set(state.memento, Some(uriPath))
 
-        let sawSelectedEndpoint = ref(false)
+        let sawSelectedCandidate = ref(false)
         let sawSelectionCompleted = ref(false)
         let _ = state.channels.log->Chan.on(log =>
           switch log {
-          | Log.SwitchVersionUI(SelectedEndpoint(_, _, _)) => sawSelectedEndpoint := true
+          | Log.SwitchVersionUI(SelectedCandidate(_, _, _)) => sawSelectedCandidate := true
           | Log.SwitchVersionUI(SelectionCompleted) => sawSelectionCompleted := true
           | _ => ()
           }
@@ -1903,7 +1903,7 @@ describe("State__SwitchVersion", () => {
 
         let selectedItem = makePickerItem(
           state,
-          Endpoint(
+          Candidate(
             fsPath,
             {kind: Memento.ResolvedMetadata.ALS(None), timestamp: Date.make(), error: None},
             false,
@@ -1924,14 +1924,14 @@ describe("State__SwitchVersion", () => {
         await Test__Util.wait(50)
         view->State__SwitchVersion.View.destroy
 
-        Assert.deepStrictEqual(sawSelectedEndpoint.contents, false)
+        Assert.deepStrictEqual(sawSelectedCandidate.contents, false)
         Assert.deepStrictEqual(sawSelectionCompleted.contents, true)
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(uriPath))
       },
     )
 
     Async.it(
-      "should use the selected endpoint candidate from the typed picker item payload",
+      "should use the selected candidate candidate from the typed picker item payload",
       async () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
@@ -1950,7 +1950,7 @@ describe("State__SwitchVersion", () => {
 
         let selectedItem = makePickerItem(
           state,
-          Endpoint(
+          Candidate(
             fsPath,
             {
               kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
@@ -2175,8 +2175,8 @@ describe("State__SwitchVersion", () => {
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
-              loggedEvents->Array.push(endpoints)
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
             | _ => ()
             }
           },
@@ -2207,22 +2207,22 @@ describe("State__SwitchVersion", () => {
         // ANALYZE: Check logged UpdateEndpoints events
         let allEndpointsFromLogs = loggedEvents->Array.flat
 
-        // VERIFY: Endpoint selection still works correctly even with download items present
+        // VERIFY: Candidate selection still works correctly even with download items present
         let selectedEndpoints =
           allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
-        Assert.deepStrictEqual(Array.length(selectedEndpoints), 1) // One endpoint should be selected
+        Assert.deepStrictEqual(Array.length(selectedEndpoints), 1) // One candidate should be selected
 
-        // Find the selected endpoint
+        // Find the selected candidate
         switch selectedEndpoints[0] {
         | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/usr/bin/agda") // Should be the active connection
-        | None => Assert.fail("Expected one endpoint to be selected")
+        | None => Assert.fail("Expected one candidate to be selected")
         }
 
-        // VERIFY: All endpoints are properly logged (this tests the download integration doesn't break endpoint logging)
-        Assert.ok(Array.length(allEndpointsFromLogs) > 0) // Should have endpoints logged
+        // VERIFY: All candidates are properly logged (this tests the download integration doesn't break candidate logging)
+        Assert.ok(Array.length(allEndpointsFromLogs) > 0) // Should have candidates logged
 
-        // VERIFY: No errors in endpoint entries
+        // VERIFY: No errors in candidate entries
         let hasErrors = allEndpointsFromLogs->Array.some(
           ((_, _, error, _)) =>
             switch error {
@@ -2296,7 +2296,7 @@ describe("State__SwitchVersion", () => {
             itemData
             ->Array.filterMap(item =>
               switch item {
-              | Endpoint(path, _, true) => Some(path)
+              | Candidate(path, _, true) => Some(path)
               | _ => None
               }
             )
@@ -2360,10 +2360,10 @@ describe("State__SwitchVersion", () => {
             ),
           )
 
-          let sawSelectedEndpoint = ref(false)
+          let sawSelectedCandidate = ref(false)
           let _ = state.channels.log->Chan.on(logEvent =>
             switch logEvent {
-            | Log.SwitchVersionUI(SelectedEndpoint(_, _, _)) => sawSelectedEndpoint := true
+            | Log.SwitchVersionUI(SelectedCandidate(_, _, _)) => sawSelectedCandidate := true
             | _ => ()
             },
           )
@@ -2407,12 +2407,12 @@ describe("State__SwitchVersion", () => {
             itemData
             ->Array.filterMap(item =>
               switch item {
-              | Endpoint(path, _, true) => Some(path)
+              | Candidate(path, _, true) => Some(path)
               | _ => None
               }
             )
           Assert.deepStrictEqual(selectedEndpoints, [expectedDownloadPath])
-          Assert.deepStrictEqual(sawSelectedEndpoint.contents, false)
+          Assert.deepStrictEqual(sawSelectedCandidate.contents, false)
         view->State__SwitchVersion.View.destroy
           Registry__Connection.status := Empty
         }
@@ -2425,7 +2425,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should mark at most one endpoint selected when URI and fsPath aliases coexist",
+      "should mark at most one candidate selected when URI and fsPath aliases coexist",
       async () => {
         let state = createTestState()
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
@@ -2446,43 +2446,43 @@ describe("State__SwitchVersion", () => {
         let selectedEndpoints =
           itemData->Array.filterMap(item =>
             switch item {
-            | Endpoint(_, _, true) => Some(true)
+            | Candidate(_, _, true) => Some(true)
             | _ => None
             }
           )
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
-        // Exactly one endpoint MUST be marked selected, not both
+        // Exactly one candidate MUST be marked selected, not both
         Assert.deepStrictEqual(selectedEndpoints, [true])
       },
     )
 
     Async.it(
-      "should mark only one endpoint when multiple exist",
+      "should mark only one candidate when multiple exist",
       async () => {
         /**
-         * TEST PURPOSE: Ensure only one endpoint is marked as selected when multiple endpoints exist
+         * TEST PURPOSE: Ensure only one candidate is marked as selected when multiple candidates exist
          * 
          * SCENARIO:
-         * Multiple endpoints are discovered (different Agda versions, different paths)
-         * Only the correctly matched endpoint should be marked as "Selected"
-         * All other endpoints should remain unselected
+         * Multiple candidates are discovered (different Agda versions, different paths)
+         * Only the correctly matched candidate should be marked as "Selected"
+         * All other candidates should remain unselected
          * 
          * This tests:
-         * - Path matching logic works correctly across multiple endpoints
-         * - No logic errors cause multiple endpoints to be selected
+         * - Path matching logic works correctly across multiple candidates
+         * - No logic errors cause multiple candidates to be selected
          * - Selection marking is precise and doesn't have false positives
          */
         let state = createTestState()
         let loggedEvents = []
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        // Subscribe to log channel to capture UpdatedEndpoints events
+        // Subscribe to log channel to capture UpdatedCandidates events
         let _ = state.channels.log->Chan.on(
           logEvent => {
             switch logEvent {
-            | Log.SwitchVersionUI(UpdatedEndpoints(endpoints)) =>
-              loggedEvents->Array.push(endpoints)
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
             | _ => ()
             }
           },
@@ -2493,10 +2493,10 @@ describe("State__SwitchVersion", () => {
           ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/local/bin/agda", "/usr/bin/als"],
         )
 
-        // SIMULATE: User has explicitly selected one specific endpoint
+        // SIMULATE: User has explicitly selected one specific candidate
         await Memento.PickedConnection.set(state.memento, Some("/opt/homebrew/bin/agda"))
 
-        // SIMULATE: But different endpoint is currently active (should be overridden by memento)
+        // SIMULATE: But different candidate is currently active (should be overridden by memento)
         let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
         Registry__Connection.status :=
           Active({
@@ -2509,35 +2509,35 @@ describe("State__SwitchVersion", () => {
         // INVOKE: onActivate to trigger the actual UI logic
         await State__SwitchVersion.Handler.onActivate(state, makeMockPlatform())
 
-        // ANALYZE: Check selection marking across all endpoints
+        // ANALYZE: Check selection marking across all candidates
         let allEndpointsFromLogs = loggedEvents->Array.flat
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
-        // VERIFY: Exactly one endpoint should be selected
+        // VERIFY: Exactly one candidate should be selected
         let selectedEndpoints =
           allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
         Assert.deepStrictEqual(Array.length(selectedEndpoints), 1)
 
-        // VERIFY: The correct endpoint (from memento) is selected
+        // VERIFY: The correct candidate (from memento) is selected
         switch selectedEndpoints[0] {
         | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/opt/homebrew/bin/agda") // Should be the memento selection
-        | None => Assert.fail("Expected exactly one endpoint to be selected")
+        | None => Assert.fail("Expected exactly one candidate to be selected")
         }
 
-        // VERIFY: All other endpoints are not selected
+        // VERIFY: All other candidates are not selected
         let unselectedEndpoints =
           allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => !isSelected)
-        Assert.deepStrictEqual(Array.length(unselectedEndpoints), 3) // Should be 3 unselected endpoints
+        Assert.deepStrictEqual(Array.length(unselectedEndpoints), 3) // Should be 3 unselected candidates
 
-        // VERIFY: The unselected endpoints are the expected ones
+        // VERIFY: The unselected candidates are the expected ones
         let unselectedPaths =
           unselectedEndpoints->Array.map(((path, _, _, _)) => path)->Array.toSorted(String.compare)
         let expectedUnselectedPaths =
           ["/usr/bin/agda", "/usr/bin/als", "/usr/local/bin/agda"]->Array.toSorted(String.compare)
         Assert.deepStrictEqual(unselectedPaths, expectedUnselectedPaths)
 
-        // VERIFY: Total endpoint count is correct
-        Assert.deepStrictEqual(Array.length(allEndpointsFromLogs), 4) // Should have all 4 endpoints logged
+        // VERIFY: Total candidate count is correct
+        Assert.deepStrictEqual(Array.length(allEndpointsFromLogs), 4) // Should have all 4 candidates logged
       },
     )
 
@@ -3136,13 +3136,13 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "fromItemData - Endpoint (Agda)",
+      "fromItemData - Candidate (Agda)",
       () => {
         it(
           "should create Agda item for non-selected version",
           () => {
             let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3159,7 +3159,7 @@ describe("State__SwitchVersion", () => {
             // iconPath is a complex object, just check it exists for Agda
             switch actual.iconPath {
             | Some(_) => Assert.ok(true)
-            | None => Assert.fail("Expected iconPath to be set for Agda endpoint")
+            | None => Assert.fail("Expected iconPath to be set for Agda candidate")
             }
           },
         )
@@ -3168,7 +3168,7 @@ describe("State__SwitchVersion", () => {
           "should create Agda item for selected version",
           () => {
             let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, true)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, true)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3189,7 +3189,7 @@ describe("State__SwitchVersion", () => {
           "should create Agda item with unknown version",
           () => {
             let entry = TestData.createMockEntry(Agda(None), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3205,13 +3205,13 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "fromItemData - Endpoint (ALS)",
+      "fromItemData - Candidate (ALS)",
       () => {
         it(
           "should create ALS item for non-selected version",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3228,7 +3228,7 @@ describe("State__SwitchVersion", () => {
             // ALS should not have iconPath
             switch actual.iconPath {
             | None => Assert.ok(true)
-            | Some(_) => Assert.fail("Did not expect iconPath for ALS endpoint")
+            | Some(_) => Assert.fail("Did not expect iconPath for ALS candidate")
             }
           },
         )
@@ -3237,7 +3237,7 @@ describe("State__SwitchVersion", () => {
           "should create ALS item for selected version",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, true)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, true)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3254,7 +3254,7 @@ describe("State__SwitchVersion", () => {
           "should show URI detail as the URI string for resource candidates",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint(
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
               "vscode-userdata:/global/als.wasm",
               entry,
               false,
@@ -3274,7 +3274,7 @@ describe("State__SwitchVersion", () => {
           "should create ALS item with unknown version",
           () => {
             let entry = TestData.createMockEntry(ALS(None), ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/als", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3290,13 +3290,13 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "fromItemData - Endpoint (Error)",
+      "fromItemData - Candidate (Error)",
       () => {
         it(
           "should create error item correctly",
           () => {
             let entry = TestData.createMockEntry(Unknown, ~error="Permission denied", ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/broken/path", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/broken/path", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3317,7 +3317,7 @@ describe("State__SwitchVersion", () => {
           "should create unknown item correctly",
           () => {
             let entry = TestData.createMockEntry(Unknown, ())
-            let itemData: State__SwitchVersion.ItemData.t = Endpoint("/mystery/path", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/mystery/path", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3333,43 +3333,43 @@ describe("State__SwitchVersion", () => {
     )
 
     describe(
-      "shouldEndpointHaveIcon",
+      "shouldCandidateHaveIcon",
       () => {
         it(
-          "should return true for Agda endpoints",
+          "should return true for Agda candidates",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(Some("2.6.4"))),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Agda(Some("2.6.4"))),
               true,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Agda(None)),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Agda(None)),
               true,
             )
           },
         )
 
         it(
-          "should return false for ALS endpoints",
+          "should return false for ALS candidates",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(
                 ALS(Some(("4.0.0", "2.6.4", None))),
               ),
               false,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(ALS(None)),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(ALS(None)),
               false,
             )
           },
         )
 
         it(
-          "should return false for unknown endpoints",
+          "should return false for unknown candidates",
           () => {
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldEndpointHaveIcon(Unknown),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Unknown),
               false,
             )
           },

@@ -23,7 +23,7 @@ describe("Connection", () => {
     Async.before(
       async () => {
         // setup the Agda mock
-        agdaMockPath := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock"))
+        agdaMockPath := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock"))
         agdaMockEndpoint := Some(agdaMockPath.contents)
       },
     )
@@ -33,7 +33,7 @@ describe("Connection", () => {
         // cleanup the Agda mock
         switch agdaMockEndpoint.contents {
         | Some(target) =>
-          await Endpoint.Agda.destroy(target)
+          await Candidate.Agda.destroy(target)
           agdaMockEndpoint := None
         | None => ()
         }
@@ -116,11 +116,11 @@ describe("Connection", () => {
     Async.before(
       async () => {
         // Setup Agda mock
-        agdaMockPath := (await Endpoint.Agda.mock(~version="2.6.4.1", ~name="agda-probe-mock"))
+        agdaMockPath := (await Candidate.Agda.mock(~version="2.6.4.1", ~name="agda-probe-mock"))
         // Setup ALS mock
         alsMockPath :=
           (
-            await Endpoint.ALS.mock(
+            await Candidate.ALS.mock(
               ~alsVersion="1.2.3",
               ~agdaVersion="2.6.4",
               ~name="als-probe-mock",
@@ -133,10 +133,10 @@ describe("Connection", () => {
       async () => {
         // Cleanup mocks
         if agdaMockPath.contents != "" {
-          await Endpoint.Agda.destroy(agdaMockPath.contents)
+          await Candidate.Agda.destroy(agdaMockPath.contents)
         }
         if alsMockPath.contents != "" {
-          await Endpoint.ALS.destroy(alsMockPath.contents)
+          await Candidate.ALS.destroy(alsMockPath.contents)
         }
       },
     )
@@ -322,11 +322,11 @@ describe("Connection", () => {
     Async.before(
       async () => {
         // Setup Agda mock
-        agdaMockPath := (await Endpoint.Agda.mock(~version="2.6.3", ~name="agda-make-mock"))
+        agdaMockPath := (await Candidate.Agda.mock(~version="2.6.3", ~name="agda-make-mock"))
         // Setup ALS mock
         alsMockPath :=
           (
-            await Endpoint.ALS.mock(
+            await Candidate.ALS.mock(
               ~alsVersion="1.3.1",
               ~agdaVersion="2.6.3",
               ~name="als-make-mock",
@@ -339,10 +339,10 @@ describe("Connection", () => {
       async () => {
         // Cleanup mocks
         if agdaMockPath.contents != "" {
-          await Endpoint.Agda.destroy(agdaMockPath.contents)
+          await Candidate.Agda.destroy(agdaMockPath.contents)
         }
         if alsMockPath.contents != "" {
-          await Endpoint.ALS.destroy(alsMockPath.contents)
+          await Candidate.ALS.destroy(alsMockPath.contents)
         }
       },
     )
@@ -409,7 +409,7 @@ describe("Connection", () => {
           // Should have probe error for the non-existent path
           switch errors.probes->Dict.get(nonExistentPath) {
           | Some((error, _source)) =>
-            // Verify it's a CannotDetermineAgdaOrALS error wrapped in endpoint error
+            // Verify it's a CannotDetermineAgdaOrALS error wrapped in candidate error
             switch error {
             | Connection__Error.Probe.CannotDetermineAgdaOrALS(_) => ()
             | _ => Assert.fail("Expected CannotDetermineAgdaOrALS error")
@@ -568,7 +568,7 @@ describe("Connection", () => {
       async () => {
         try {
           // setup the Agda mock
-          let path = await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-2")
+          let path = await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-2")
 
           agdaMockEndpoint := Some(path)
         } catch {
@@ -586,7 +586,7 @@ describe("Connection", () => {
         // cleanup the Agda mock
         switch agdaMockEndpoint.contents {
         | Some(target) =>
-          await Endpoint.Agda.destroy(target)
+          await Candidate.Agda.destroy(target)
           agdaMockEndpoint := None
         | None => ()
         }
@@ -674,13 +674,13 @@ describe("Connection", () => {
       async () => {
         // access the Agda mock (using it as ALS for this test)
         let mockEndpoint = switch agdaMockEndpoint.contents {
-        | Some(endpoint) => endpoint
-        | None => failwith("Unable to access the Agda mock endpoint")
+        | Some(candidate) => candidate
+        | None => failwith("Unable to access the Agda mock candidate")
         }
         await Config.Connection.DownloadPolicy.set(Undecided)
         let checkedCache = ref(false)
 
-        // Create a mock platform that returns cached ALS as endpoint
+        // Create a mock platform that returns cached ALS as candidate
         let mockPlatformDeps = Mock.Platform.makeWithCachedDownloadAndFlag(
           mockEndpoint,
           checkedCache,
@@ -690,7 +690,7 @@ describe("Connection", () => {
         let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
         Assert.deepStrictEqual(checkedCache.contents, true)
 
-        // Should return connection directly (not endpoint)
+        // Should return connection directly (not candidate)
         switch result {
         | Ok(connection) =>
           switch connection {
@@ -868,7 +868,7 @@ describe("Connection", () => {
 
         let downloadedMock = switch agdaMockEndpoint.contents {
         | Some(path) => path
-        | None => failwith("Unable to access Agda mock endpoint")
+        | None => failwith("Unable to access Agda mock candidate")
         }
         let checkedCache = ref(false)
         let checkedNativeDownload = ref(false)
@@ -908,7 +908,7 @@ describe("Connection", () => {
 
         let downloadedMock = switch agdaMockEndpoint.contents {
         | Some(path) => path
-        | None => failwith("Unable to access Agda mock endpoint")
+        | None => failwith("Unable to access Agda mock candidate")
         }
         let checkedResolve = ref(false)
         let checkedWasmDownload = ref(false)
@@ -963,7 +963,7 @@ describe("Connection", () => {
 
           let downloadedMock = switch agdaMockEndpoint.contents {
           | Some(path) => path
-          | None => failwith("Unable to access Agda mock endpoint")
+          | None => failwith("Unable to access Agda mock candidate")
           }
 
           // Track the order of download attempts
@@ -1113,7 +1113,7 @@ describe("Connection", () => {
         async () => {
           try {
             // setup the Agda mock
-            let path = await Test__Util.Endpoint.Agda.mock(
+            let path = await Test__Util.Candidate.Agda.mock(
               ~version="2.7.0.1",
               ~name="agda-mock-paths-or-commands",
             )
@@ -1144,7 +1144,7 @@ describe("Connection", () => {
         async () => {
           let mockPath = switch agdaMockEndpoint.contents {
           | Some(path) => path
-          | None => failwith("Mock endpoint not available")
+          | None => failwith("Mock candidate not available")
           }
 
           let platformDeps = Mock.Platform.makeBasic()
@@ -1169,7 +1169,7 @@ describe("Connection", () => {
         async () => {
           let mockPath = switch agdaMockEndpoint.contents {
           | Some(path) => path
-          | None => failwith("Mock endpoint not available")
+          | None => failwith("Mock candidate not available")
           }
 
           let platformDeps = Mock.Platform.makeBasic()
@@ -1448,7 +1448,7 @@ describe("Connection", () => {
         )
 
         // Setup mock Agda using Test__Util
-        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+        let agdaMockPath = await Test__Util.Candidate.Agda.mock(
           ~version="2.6.4",
           ~name="agda-mock-for-make",
         )
@@ -1679,7 +1679,7 @@ describe("Connection", () => {
         let listener = Log.collect(logChannel)
 
         // Setup mock Agda
-        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+        let agdaMockPath = await Test__Util.Candidate.Agda.mock(
           ~version="2.6.4",
           ~name="agda-mock-for-path-priority",
         )
@@ -1908,7 +1908,7 @@ describe("Connection", () => {
         let listener = Log.collect(logChannel)
 
         // Setup mock ALS executable for cached download
-        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+        let agdaMockPath = await Test__Util.Candidate.Agda.mock(
           ~version="2.7.0.1",
           ~name="agda-mock-cached",
         )
@@ -1987,7 +1987,7 @@ describe("Connection", () => {
         let listener = Log.collect(logChannel)
 
         // Setup mock ALS for successful download
-        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+        let agdaMockPath = await Test__Util.Candidate.Agda.mock(
           ~version="2.7.0.1",
           ~name="agda-mock-fresh-download",
         )
@@ -2125,7 +2125,7 @@ describe("Connection", () => {
         let logChannel = Chan.make()
         let listener = Log.collect(logChannel)
 
-        let agdaMockPath = await Test__Util.Endpoint.Agda.mock(
+        let agdaMockPath = await Test__Util.Candidate.Agda.mock(
           ~version="2.7.0.1",
           ~name="agda-mock-hardcoded-wasm-fallback",
         )
@@ -2196,11 +2196,11 @@ describe("Connection", () => {
     let downloadedAgda = ref("")
 
     Async.before(async () => {
-      configAgda := (await Test__Util.Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-spec-config"))
-      pickedAgda := (await Test__Util.Endpoint.Agda.mock(~version="2.7.0.2", ~name="agda-spec-picked"))
+      configAgda := (await Test__Util.Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-spec-config"))
+      pickedAgda := (await Test__Util.Candidate.Agda.mock(~version="2.7.0.2", ~name="agda-spec-picked"))
       downloadedAgda :=
         (
-          await Test__Util.Endpoint.Agda.mock(
+          await Test__Util.Candidate.Agda.mock(
             ~version="2.7.0.3",
             ~name="agda-spec-downloaded",
           )
@@ -2209,17 +2209,17 @@ describe("Connection", () => {
 
     Async.after(async () => {
       try {
-        await Test__Util.Endpoint.Agda.destroy(configAgda.contents)
+        await Test__Util.Candidate.Agda.destroy(configAgda.contents)
       } catch {
       | _ => ()
       }
       try {
-        await Test__Util.Endpoint.Agda.destroy(pickedAgda.contents)
+        await Test__Util.Candidate.Agda.destroy(pickedAgda.contents)
       } catch {
       | _ => ()
       }
       try {
-        await Test__Util.Endpoint.Agda.destroy(downloadedAgda.contents)
+        await Test__Util.Candidate.Agda.destroy(downloadedAgda.contents)
       } catch {
       | _ => ()
       }

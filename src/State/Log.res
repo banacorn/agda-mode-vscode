@@ -2,19 +2,19 @@
 module SwitchVersion = {
   type t =
     | Destroyed // when the SwitchVersion UI has been destroyed
-    | SelectedEndpoint(string, Memento.ResolvedMetadata.entry, bool)
+    | SelectedCandidate(string, Memento.ResolvedMetadata.entry, bool)
     | SelectedDownloadAction(bool, string) // downloaded, versionString
     | SelectedOpenFolder(string)
     | SelectedNoInstallations
-    | UpdatedEndpoints(array<(string, Memento.ResolvedMetadata.kind, option<string>, bool)>) // array of (path, kind, optional error, isSelected)
+    | UpdatedCandidates(array<(string, Memento.ResolvedMetadata.kind, option<string>, bool)>) // array of (path, kind, optional error, isSelected)
     | SelectionCompleted // when onSelection handler has completed all async operations
     | Others(string)
 
   let toString = event =>
     switch event {
     | Destroyed => "Destroyed"
-    | SelectedEndpoint(path, entry, isSelected) =>
-      "Endpoint: " ++
+    | SelectedCandidate(path, entry, isSelected) =>
+      "Candidate: " ++
       path ++
       ", " ++
       Memento.ResolvedMetadata.kindToString(entry.kind) ++ if isSelected {
@@ -30,8 +30,8 @@ module SwitchVersion = {
     | SelectedOpenFolder(path) => "Selected Open Folder: " ++ path
     | SelectedNoInstallations => "Selected No Installations"
     | SelectionCompleted => "Selection Completed"
-    | UpdatedEndpoints(entries) =>
-      "UpdatedEndpoints: " ++
+    | UpdatedCandidates(entries) =>
+      "UpdatedCandidates: " ++
       entries
       ->Array.map(((path, kind, error, isSelected)) =>
         path ++

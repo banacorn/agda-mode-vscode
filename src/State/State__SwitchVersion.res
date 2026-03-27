@@ -17,7 +17,7 @@ module Constants = {
 module ItemData = {
   // UI item types
   type t =
-    | Endpoint(string, ResolvedMetadata.entry, bool) // path, entry, is selected
+    | Candidate(string, ResolvedMetadata.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, variant ("native" | "wasm")
     | SelectOtherChannels
     | DeleteDownloads // delete downloads and clear cache
@@ -26,8 +26,8 @@ module ItemData = {
 
   let toString = item =>
     switch item {
-    | Endpoint(path, entry, isSelected) =>
-      "Endpoint: " ++
+    | Candidate(path, entry, isSelected) =>
+      "Candidate: " ++
       path ++
       ", " ++
       ResolvedMetadata.kindToString(entry.kind) ++ if isSelected {
@@ -49,14 +49,14 @@ module ItemData = {
     }
 
   // UI display logic
-  let shouldEndpointHaveIcon = (kind: ResolvedMetadata.kind): bool => {
+  let shouldCandidateHaveIcon = (kind: ResolvedMetadata.kind): bool => {
     switch kind {
     | Agda(_) => true
     | _ => false
     }
   }
 
-  let getEndpointDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (
+  let getCandidateDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (
     string,
     option<string>,
   ) => {
@@ -87,10 +87,10 @@ module ItemData = {
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
     ~downloadHeader: string="Download (channel: Hardcoded)",
   ): array<t> => {
-    let hasEndpoints = Array.length(entries) > 0
+    let hasCandidates = Array.length(entries) > 0
 
-    // Build endpoint items with selection check (candidate-aware, at most one selected)
-    let endpointItems = switch pickedPath {
+    // Build candidate items with selection check (candidate-aware, at most one selected)
+    let candidateItems = switch pickedPath {
     | Some(picked) =>
       let pickedCandidate = Candidate.make(picked)
       let matched = ref(false)
@@ -100,14 +100,14 @@ module ItemData = {
         if isSelected {
           matched := true
         }
-        Endpoint(path, entry, isSelected)
+        Candidate(path, entry, isSelected)
       })
     | None =>
-      entries->Array.map(((path, entry)) => Endpoint(path, entry, false))
+      entries->Array.map(((path, entry)) => Candidate(path, entry, false))
     }
 
-    let candidateSection = if hasEndpoints {
-      Array.concat([Separator("Candidates")], endpointItems)
+    let candidateSection = if hasCandidates {
+      Array.concat([Separator("Candidates")], candidateItems)
     } else {
       []
     }
@@ -161,8 +161,8 @@ module Item = {
     // Convert item data to UI display information
     let (label, description, detail): (string, option<string>, option<string>) = {
       switch itemData {
-      | Endpoint(path, entry, isSelected) => {
-          let (label, errorDescription) = ItemData.getEndpointDisplayInfo(path, entry)
+      | Candidate(path, entry, isSelected) => {
+          let (label, errorDescription) = ItemData.getCandidateDisplayInfo(path, entry)
           let description = switch (isSelected, errorDescription) {
           | (true, None) => "selected"
           | (false, None) => ""
@@ -201,9 +201,9 @@ module Item = {
         kind: VSCode.QuickPickItemKind.Separator,
         data: itemData,
       }
-    | Endpoint(_, entry, _) => {
+    | Candidate(_, entry, _) => {
         let baseItem = createQuickPickItem(label, description, detail, itemData)
-        if ItemData.shouldEndpointHaveIcon(entry.kind) {
+        if ItemData.shouldCandidateHaveIcon(entry.kind) {
           {
             ...baseItem,
             iconPath: VSCode.IconPath.fromDarkAndLight({
@@ -283,8 +283,8 @@ module SwitchVersionManager = {
     globalStorageUri: VSCode.Uri.t,
   }
 
-  // Helper function to infer endpoint type from filename
-  let inferEndpointType = (raw: string) => {
+  // Helper function to infer candidate type from filename
+  let inferCandidateKind = (raw: string) => {
     let baseName = switch Candidate.make(raw) {
     | Candidate.Command(command) => command->String.toLowerCase
     | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename->String.toLowerCase
@@ -352,7 +352,7 @@ module SwitchVersionManager = {
           let entry = switch resolvedMetadata {
           | Some(entry) => entry
           | None => {
-              kind: inferEndpointType(path),
+              kind: inferCandidateKind(path),
               timestamp: Date.make(),
               error: None,
             }
@@ -440,7 +440,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     },
   })
 
-  // Skip the initial Connection.Endpoint.getPicked() call since it might clear our memento
+  // Skip the initial Connection.Candidate.getPicked() call since it might clear our memento
   // Just show a generic "switching..." message
   await State__View.Panel.displayConnectionStatus(state, None)
   await State__View.Panel.display(
@@ -898,17 +898,17 @@ module Handler = {
                 },
               ),
             )
-          | Endpoint(selectedPath, entry, _) =>
+          | Candidate(selectedPath, entry, _) =>
             Util.log("[ debug ] user selected kind: " ++ selectedPath, "")
             view->View.destroy
-            // Regular endpoint selection - check if selection changed
+            // Regular candidate selection - check if selection changed
             let changed = switch Memento.PickedConnection.get(manager.memento) {
             | Some(path) => !Candidate.equal(Candidate.make(selectedPath), Candidate.make(path))
             | None => true // If no previous selection, treat as changed
             }
             if changed {
               state.channels.log->Chan.emit(
-                Log.SwitchVersionUI(SelectedEndpoint(selectedPath, entry, true)),
+                Log.SwitchVersionUI(SelectedCandidate(selectedPath, entry, true)),
               )
               await switchAgdaVersion(state, selectedPath)
               state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
@@ -963,13 +963,13 @@ module Handler = {
       )
 
       // Log selection marking for testing observability
-      let endpointItemDatas = itemData->Array.filterMap(item =>
+      let candidateItemDatas = itemData->Array.filterMap(item =>
         switch item {
-        | Endpoint(path, entry, isSelected) => Some(path, entry.kind, entry.error, isSelected)
+        | Candidate(path, entry, isSelected) => Some(path, entry.kind, entry.error, isSelected)
         | _ => None
         }
       )
-      state.channels.log->Chan.emit(Log.SwitchVersionUI(UpdatedEndpoints(endpointItemDatas)))
+      state.channels.log->Chan.emit(Log.SwitchVersionUI(UpdatedCandidates(candidateItemDatas)))
       state.channels.log->Chan.emit(Log.SwitchVersionUI(Others(downloadHeader)))
 
       let items = Item.fromItemDataArray(itemData, state.extensionUri)

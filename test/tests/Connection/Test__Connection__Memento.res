@@ -14,16 +14,16 @@ describe("Memento.PickedConnection", () => {
 
   // setup the Agda mocks
   Async.before(async () => {
-    userAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
-    systemAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
-    alternativeAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
+    userAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
+    systemAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
+    alternativeAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
   })
 
   // cleanup the Agda mocks
   Async.after(async () => {
-    await Endpoint.Agda.destroy(userAgda.contents)
-    await Endpoint.Agda.destroy(systemAgda.contents)
-    await Endpoint.Agda.destroy(alternativeAgda.contents)
+    await Candidate.Agda.destroy(userAgda.contents)
+    await Candidate.Agda.destroy(systemAgda.contents)
+    await Candidate.Agda.destroy(alternativeAgda.contents)
   })
 
   // Mock platform for command discovery

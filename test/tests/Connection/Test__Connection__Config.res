@@ -26,12 +26,12 @@ describe("Config.Connection paths", () => {
 
   // setup the Agda mocks
   Async.before(async () => {
-    userAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
-    systemAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
-    alternativeAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
+    userAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
+    systemAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
+    alternativeAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
     downloadedALS :=
       (
-        await Endpoint.ALS.mock(
+        await Candidate.ALS.mock(
           ~alsVersion="1.3.1",
           ~agdaVersion="2.6.3",
           ~name="als-make-mock",
@@ -41,10 +41,10 @@ describe("Config.Connection paths", () => {
 
   // cleanup the Agda mocks
   Async.after(async () => {
-    await Endpoint.Agda.destroy(userAgda.contents)
-    await Endpoint.Agda.destroy(systemAgda.contents)
-    await Endpoint.Agda.destroy(alternativeAgda.contents)
-    await Endpoint.ALS.destroy(downloadedALS.contents)
+    await Candidate.Agda.destroy(userAgda.contents)
+    await Candidate.Agda.destroy(systemAgda.contents)
+    await Candidate.Agda.destroy(alternativeAgda.contents)
+    await Candidate.ALS.destroy(downloadedALS.contents)
   })
 
   beforeEach(() => {
@@ -472,7 +472,7 @@ describe("Config.Connection paths", () => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
         let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
-          State__SwitchVersion.ItemData.Endpoint(
+          State__SwitchVersion.ItemData.Candidate(
             selectedPath,
             {
               kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
@@ -706,7 +706,7 @@ describe("Config.Connection paths", () => {
     )
 
     describe(
-      "Non-endpoint selections",
+      "Non-candidate selections",
       () => {
         Async.it(
           "should handle empty selection correctly",
