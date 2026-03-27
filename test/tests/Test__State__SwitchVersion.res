@@ -428,7 +428,7 @@ describe("State__SwitchVersion", () => {
       "entriesToItemData",
       () => {
         it(
-          "should hide Installed section when no endpoints are found",
+          "should hide Candidates section when no endpoints are found",
           () => {
             let entries = []
             let itemData: array<
@@ -439,10 +439,10 @@ describe("State__SwitchVersion", () => {
               [],
             )
 
-            let installedSeparator = itemData->Array.find(
+            let candidatesSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("Installed") => true
+                | Separator("Candidates") => true
                 | _ => false
                 },
             )
@@ -455,13 +455,13 @@ describe("State__SwitchVersion", () => {
                 },
             )
 
-            Assert.ok(installedSeparator->Option.isNone)
+            Assert.ok(candidatesSeparator->Option.isNone)
             Assert.ok(noInstallationsPlaceholder->Option.isNone)
-            Assert.deepStrictEqual(Array.length(itemData), 2) // Misc separator + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 2) // Download separator + Delete downloads
 
             switch itemData[0] {
-            | Some(Separator("Misc")) => () // Expected
-            | _ => Assert.fail("Expected Misc separator")
+            | Some(Separator("Download (channel: Hardcoded)")) => () // Expected
+            | _ => Assert.fail("Expected Download separator")
             }
 
             switch itemData[1] {
@@ -487,16 +487,16 @@ describe("State__SwitchVersion", () => {
               [],
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 5) // Installed separator + 2 endpoints + Misc separator + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 5) // Candidates separator + 2 endpoints + Download separator + Delete downloads
 
             switch itemData[0] {
-            | Some(Separator("Installed")) => () // Expected
-            | _ => Assert.fail("Expected Installed separator")
+            | Some(Separator("Candidates")) => () // Expected
+            | _ => Assert.fail("Expected Candidates separator")
             }
 
             switch itemData[3] {
-            | Some(Separator("Misc")) => () // Expected
-            | _ => Assert.fail("Expected Misc separator")
+            | Some(Separator("Download (channel: Hardcoded)")) => () // Expected
+            | _ => Assert.fail("Expected Download separator")
             }
 
             switch itemData[4] {
@@ -519,7 +519,7 @@ describe("State__SwitchVersion", () => {
               [(false, "ALS v1.0.0", "native")],
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 6) // Installed separator + 1 item + Download separator + download item + Misc separator + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 5) // Candidates separator + 1 item + Download separator + download item + Delete downloads
 
             let downloadSeparator = itemData->Array.find(
               data =>
@@ -600,9 +600,18 @@ describe("State__SwitchVersion", () => {
                 },
             )
 
+            let hasDeleteDownloads = itemData->Array.some(
+              data =>
+                switch data {
+                | DeleteDownloads => true
+                | _ => false
+                },
+            )
+
             // Both channel selector and download section header must be present
             Assert.deepStrictEqual(hasChannelSelector, true)
             Assert.deepStrictEqual(hasDownloadSeparator, true)
+            Assert.deepStrictEqual(hasDeleteDownloads, true)
           },
         )
 
@@ -3190,12 +3199,12 @@ describe("State__SwitchVersion", () => {
         it(
           "should create separator item correctly",
           () => {
-            let itemData: State__SwitchVersion.ItemData.t = Separator("Installed")
+            let itemData: State__SwitchVersion.ItemData.t = Separator("Candidates")
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "Installed")
+            Assert.strictEqual(actual.label, "Candidates")
             // Check if kind is set to Separator
             switch actual.kind {
             | Some(kind) => Assert.deepStrictEqual(kind, VSCode.QuickPickItemKind.Separator)

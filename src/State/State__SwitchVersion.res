@@ -107,42 +107,32 @@ module ItemData = {
       entries->Array.map(((path, entry)) => Endpoint(path, entry, false))
     }
 
-    // Build sections efficiently without Array.flat
-    // Add installed section
-    let sectionsWithInstalled = if hasEndpoints {
-      Array.concat([Separator("Installed")], endpointItems)
+    let candidateSection = if hasEndpoints {
+      Array.concat([Separator("Candidates")], endpointItems)
     } else {
       []
     }
 
-    // Add download section if present, or if channel selector will be shown
-    // (so the selector button isn't orphaned without a section header)
-    let sectionsWithDownload = if Array.length(downloadItems) > 0 || showChannelSelector {
-      // Create download section items from all downloads
-      let downloadSectionItems =
-        downloadItems->Array.map(((downloaded, versionString, variant)) => DownloadAction(
-          downloaded,
-          versionString,
-          variant,
-        ))
+    let downloadSectionItems =
+      downloadItems->Array.map(((downloaded, versionString, variant)) => DownloadAction(
+        downloaded,
+        versionString,
+        variant,
+      ))
 
+    let channelItems = if showChannelSelector {
+      [SelectOtherChannels]
+    } else {
+      []
+    }
+
+    let downloadSection =
       Array.concat(
-        sectionsWithInstalled,
-        Array.concat([Separator(downloadHeader)], downloadSectionItems),
+        [Separator(downloadHeader)],
+        Array.concat(downloadSectionItems, Array.concat(channelItems, [DeleteDownloads])),
       )
-    } else {
-      sectionsWithInstalled
-    }
 
-    let sectionsWithChannels = if showChannelSelector {
-      Array.concat(sectionsWithDownload, [SelectOtherChannels])
-    } else {
-      sectionsWithDownload
-    }
-
-    // Add misc section
-    let miscItems = [Separator("Misc"), DeleteDownloads]
-    Array.concat(sectionsWithChannels, miscItems)
+    Array.concat(candidateSection, downloadSection)
   }
 }
 
