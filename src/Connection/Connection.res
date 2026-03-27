@@ -134,6 +134,13 @@ module Module: Module = {
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSWASM(VSCode.Uri.t) // ALS WASM file
 
+  let resolvedFromRawResource = raw => {
+    let resource = switch URI.parse(raw) {
+    | FileURI(_, resource) => resource
+    }
+    {original: Candidate.Resource(resource), resource}
+  }
+
   let probeResolved = async (resolved: Candidate.Resolved.t) => {
     let {resource} = resolved
     let resourceString = resource->VSCode.Uri.toString
@@ -181,12 +188,7 @@ module Module: Module = {
   }
 
   // see if it's a Agda executable or a language server
-  let probeFilepath = async path => {
-    switch URI.parse(path) {
-    | FileURI(_, resource) =>
-      await probeResolved({original: Candidate.Resource(resource), resource})
-    }
-  }
+  let probeFilepath = async path => await probeResolved(resolvedFromRawResource(path))
 
   let makeResolved = async (
     resolved: Candidate.Resolved.t,
@@ -303,12 +305,7 @@ module Module: Module = {
   let make = async (rawpath: string, source: Error.Establish.pathSource): result<
     t,
     Error.Establish.t,
-  > => {
-    switch URI.parse(rawpath) {
-    | FileURI(_, resource) =>
-      await makeResolved({original: Candidate.Resource(resource), resource}, source, ~pathForErrors=rawpath)
-    }
-  }
+  > => await makeResolved(resolvedFromRawResource(rawpath), source, ~pathForErrors=rawpath)
 
   // Combinator: try each task in array until one succeeds, or return all failures
   let tryUntilSuccess = async (xs: array<unit => promise<result<'b, 'e>>>): result<
@@ -350,18 +347,18 @@ module Module: Module = {
     candidate: Candidate.t,
     source: Error.Establish.pathSource,
   ): result<t, Error.Establish.t> => {
-    switch candidate {
-    | Candidate.Command(command) =>
-      switch await Candidate.resolve(platformDeps, candidate) {
-      | Ok(resolved) => await tryResolved(resolved, FromCommandLookup(command))
-      | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
+    switch await Candidate.resolve(platformDeps, candidate) {
+    | Ok(resolved) =>
+      let resolvedSource = switch resolved.original {
+      | Candidate.Command(command) => FromCommandLookup(command)
+      | Candidate.Resource(_) => source
       }
-    | Candidate.Resource(_) =>
-      switch await Candidate.resolve(platformDeps, candidate) {
-      | Ok(resolved) => await tryResolved(resolved, source)
-      | Error(_commandError) =>
-        // Resources do not require command lookup; this branch should be unreachable.
-        await make(Candidate.toString(candidate), source)
+      await tryResolved(resolved, resolvedSource)
+    | Error(commandError) =>
+      switch candidate {
+      | Candidate.Command(command) => Error(Error.Establish.fromCommandError(command, commandError))
+      | Candidate.Resource(_) =>
+        raise(Failure("Connection__Candidate.resolve returned Error for Resource candidate"))
       }
     }
   }
