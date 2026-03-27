@@ -92,6 +92,106 @@ describe("Download", () => {
     )
   })
 
+  describe("alreadyDownloaded with Hardcoded", () => {
+    Async.it(
+      "should return Some(path) when native binary exists at hardcoded-als/als",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "hardcoded-als-native-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let hardcodedAlsDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        let alsExecutable = NodeJs.Path.join([hardcodedAlsDir, "als"])
+
+        // Create directory structure and als executable
+        await NodeJs.Fs.mkdir(hardcodedAlsDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
+
+        Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(alsExecutable)
+        NodeJs.Fs.rmdirSync(hardcodedAlsDir)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return Some(uri) when WASM exists at hardcoded-als/als.wasm",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "hardcoded-als-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let hardcodedAlsDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        let wasmFile = NodeJs.Path.join([hardcodedAlsDir, "als.wasm"])
+
+        // Create directory structure and als.wasm file
+        await NodeJs.Fs.mkdir(hardcodedAlsDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
+
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
+
+        let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
+        Assert.deepStrictEqual(result, Some(VSCode.Uri.toString(wasmUri)))
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(wasmFile)
+        NodeJs.Fs.rmdirSync(hardcodedAlsDir)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+
+    Async.it(
+      "should return None when nothing exists at hardcoded-als",
+      async () => {
+        let nonExistentDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "hardcoded-als-test-nonexistent-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+
+        let globalStorageUri = VSCode.Uri.file(nonExistentDir)
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
+
+        Assert.deepStrictEqual(result, None)
+      },
+    )
+
+    Async.it(
+      "should prefer native binary over WASM when both exist",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "hardcoded-als-both-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let hardcodedAlsDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        let alsExecutable = NodeJs.Path.join([hardcodedAlsDir, "als"])
+        let wasmFile = NodeJs.Path.join([hardcodedAlsDir, "als.wasm"])
+
+        // Create both native and WASM files
+        await NodeJs.Fs.mkdir(hardcodedAlsDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
+
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
+
+        // Should prefer native binary
+        Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+
+        // Cleanup
+        NodeJs.Fs.unlinkSync(alsExecutable)
+        NodeJs.Fs.unlinkSync(wasmFile)
+        NodeJs.Fs.rmdirSync(hardcodedAlsDir)
+        NodeJs.Fs.rmdirSync(tempDir)
+      },
+    )
+  })
+
   describe("isDownloading", () => {
     Async.it(
       "should return false and create directory when global storage directory doesn't exist",
@@ -367,6 +467,31 @@ describe("Download", () => {
         // Cleanup
         NodeJs.Fs.unlinkSync(testFile)
         NodeJs.Fs.rmdirSync(nonExistentDir)
+      },
+    )
+  })
+
+  describe("chmodExecutable", () => {
+    Async.it(
+      "should set the executable bit on a file",
+      async () => {
+        let tempFile = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "chmod-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("mock binary"))
+        await NodeJs.Fs.chmod(tempFile, ~mode=0o644)
+
+        let statsBefore = NodeJs.Fs.lstatSync(#String(tempFile))
+        Assert.deepStrictEqual(land(statsBefore.mode, 0o111), 0)
+
+        let result = await GitHub.chmodExecutable(tempFile)
+        Assert.deepStrictEqual(result, Ok())
+
+        let statsAfter = NodeJs.Fs.lstatSync(#String(tempFile))
+        Assert.ok(land(statsAfter.mode, 0o111) != 0)
+
+        NodeJs.Fs.unlinkSync(tempFile)
       },
     )
   })

@@ -263,11 +263,17 @@ module DownloadDescriptor = {
 }
 
 // helper function for chmoding 744 the executable
-let chmodExecutable = async path =>
+let chmodExecutable = async path => {
+  Util.log("[ debug ] chmodExecutable: chmod 744 on", path)
   switch await NodeJs.Fs.chmod(path, ~mode=0o744) {
-  | _ => Ok()
-  | exception Exn.Error(_) => Error(Error.CannotChmodFile(path))
+  | _ =>
+    Util.log("[ debug ] chmodExecutable: chmod succeeded", path)
+    Ok()
+  | exception Exn.Error(e) =>
+    Util.log("[ debug ] chmodExecutable: chmod failed", e)
+    Error(Error.CannotChmodFile(path))
   }
+}
 
 module Repo = {
   type t = {

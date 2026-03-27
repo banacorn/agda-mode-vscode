@@ -159,7 +159,7 @@ module Path = {
 // to prevent an extension from being activated twice
 let activationSingleton = ref(None)
 
-let activateExtension = async (endpoint): State.channels => {
+let activateExtension = async (candidate): State.channels => {
   switch activationSingleton.contents {
   | None =>
     let platformDeps = Desktop.make()
@@ -168,7 +168,7 @@ let activateExtension = async (endpoint): State.channels => {
     let extensionUri = Path.extensionUri
     let globalStorageUri = Path.globalStorageUri
     let memento = Memento.make(None)
-    await memento->Memento.PickedConnection.set(endpoint)
+    await memento->Memento.PickedConnection.set(candidate)
     let channels = Main.activateWithoutContext(
       platformDeps,
       disposables,
@@ -183,9 +183,9 @@ let activateExtension = async (endpoint): State.channels => {
   }
 }
 
-// filename to open, with optional path to endpoints
-let activateExtensionAndOpenFile = async (fileName, endpoint) => {
-  let channels = await activateExtension(endpoint)
+// filename to open, with optional path to candidates
+let activateExtensionAndOpenFile = async (fileName, candidate) => {
+  let channels = await activateExtension(candidate)
   let editor = await File.open_(fileName)
   (editor, channels)
 }
@@ -407,7 +407,7 @@ module AgdaMode = {
     let rawFilepath =
       VSCode.Uri.joinPath(Path.extensionUri, ["test/tests/assets", filepath])->VSCode.Uri.fsPath
     // make sure that "agda" exists in PATH
-    let endpoint = await commandExists("agda")
+    let candidate = await commandExists("agda")
 
     //
     let load = async (channels: State.channels, filepath) => {
@@ -431,7 +431,7 @@ module AgdaMode = {
       }
     }
 
-    let channels = await activateExtension(Some(endpoint))
+    let channels = await activateExtension(Some(candidate))
     let state = await load(channels, rawFilepath)
 
     {
@@ -550,7 +550,7 @@ let filteredResponse = response =>
   }
 
 // for mocking an Agda or Language Server executable with version and path
-module Endpoint = {
+module Candidate = {
   module Agda = {
     // given a version and the desired name of the executable, create a mock Agda executable and returns the path
     let mock = async (~version, ~name) => {
@@ -566,7 +566,6 @@ module Endpoint = {
         NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName]),
       ) {
       | FileURI(_, path) => VSCode.Uri.fsPath(path)
-      | LspURI(_, _) => raise(Failure("Cannot create mock Agda executable with LspURI"))
       }
 
       // Use Node.js file writing for executable creation (tests only)
@@ -658,7 +657,6 @@ module Endpoint = {
         NodeJs.Path.join([NodeJs.Os.tmpdir(), fileName]),
       ) {
       | FileURI(_, path) => VSCode.Uri.fsPath(path)
-      | LspURI(_, _) => raise(Failure("Cannot create mock Agda executable with LspURI"))
       }
 
       // Use Node.js file writing for executable creation (tests only)

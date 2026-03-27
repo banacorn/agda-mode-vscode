@@ -39,7 +39,7 @@ let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, 
 
     switch result {
     | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-    | Some(downloadDescriptor) => Ok(Connection__Download.DownloadOrderConcrete.FromGitHub(DevALS, downloadDescriptor))
+    | Some(downloadDescriptor) => Ok(Connection__Download.Source.FromGitHub(DevALS, downloadDescriptor))
     }
   }
 }

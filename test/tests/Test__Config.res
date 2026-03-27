@@ -62,8 +62,8 @@ describe("Config", () => {
                 ]),
               ),
               [
-                "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
                 "/Users/banacorn/.local/bin/agda",
+                "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/latest-als/als",
               ],
             )
             Assert.deepStrictEqual(
@@ -71,6 +71,45 @@ describe("Config", () => {
                 JSON.Object(Dict.fromArray([("enabled", JSON.Boolean(true))])),
               ),
               [],
+            )
+          },
+        )
+
+        it(
+          "`parseAgdaPaths` should deduplicate paths",
+          () => {
+            Assert.deepStrictEqual(
+              Config.Connection.parseAgdaPaths(
+                JSON.Array([
+                  JSON.String("/usr/bin/agda"),
+                  JSON.String("/usr/local/bin/als"),
+                  JSON.String("/usr/bin/agda"),
+                ]),
+              ),
+              [
+                "/usr/bin/agda",
+                "/usr/local/bin/als",
+              ],
+            )
+          },
+        )
+
+        it(
+          "`parseAgdaPaths` should deduplicate semantically equal candidates while preserving first raw spelling",
+          () => {
+            Assert.deepStrictEqual(
+              Config.Connection.parseAgdaPaths(
+                JSON.Array([
+                  JSON.String("/usr/bin/agda"),
+                  JSON.String("file:///usr/bin/agda"),
+                  JSON.String("agda"),
+                  JSON.String("agda"),
+                ]),
+              ),
+              [
+                "/usr/bin/agda",
+                "agda",
+              ],
             )
           },
         )

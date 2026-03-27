@@ -159,7 +159,7 @@ describe("Connection__Download__Util", () => {
 
   describe("asFile (integration)", () => {
     Async.it("should successfully download and save small file", async () => {
-      // Use a very small test endpoint
+      // Use a very small test candidate
       let smallHttpOptions = {
         "headers": {"User-Agent": "agda-mode-vscode-test"},
         "host": "httpbin.org",
