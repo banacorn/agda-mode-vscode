@@ -13,40 +13,26 @@ module Module: {
   // for debugging
   let toString: t => string
 
-  module Endpoints: {
-    type filepath = string // raw file path
+  module ResolvedMetadata: {
     type endpoint =
-      | Agda(option<string>) // Agda version
+      | Agda(option<string>)
       | ALS(
           option<(
             string,
             string,
             option<Connection__Protocol__LSP__Binding.executableOptions>,
           )>,
-        ) // ALS version & corresponding Agda version & LSP options
+        )
       | Unknown
     let endpointToString: endpoint => string
-
     type entry = {
       endpoint: endpoint,
       timestamp: Date.t,
       error: option<string>,
     }
     let entries: t => Dict.t<entry>
-    let get: (t, filepath) => option<entry>
-    let lookupCandidate: (t, filepath) => option<(filepath, entry)>
-    let setVersion: (t, filepath, endpoint) => promise<unit>
-    let setError: (t, filepath, string) => promise<unit>
-    let setVersionForCandidate: (t, filepath, endpoint) => promise<unit>
-    let setErrorForCandidate: (t, filepath, string) => promise<unit>
-    let syncWithPaths: (t, Dict.t<endpoint>) => promise<unit>
-    let clear: t => promise<unit>
-  }
-
-  module ResolvedMetadata: {
-    let entries: t => Dict.t<Endpoints.entry>
-    let get: (t, Connection__Candidate.Resolved.t) => option<Endpoints.entry>
-    let setVersion: (t, Connection__Candidate.Resolved.t, Endpoints.endpoint) => promise<unit>
+    let get: (t, Connection__Candidate.Resolved.t) => option<entry>
+    let setVersion: (t, Connection__Candidate.Resolved.t, endpoint) => promise<unit>
     let setError: (t, Connection__Candidate.Resolved.t, string) => promise<unit>
     let clear: t => promise<unit>
   }
@@ -121,12 +107,9 @@ module Module: {
       "Mock: {\n" ++ Array.join(entries, "\n") ++ "}"
     }
 
-  module Endpoints = {
-    module Candidate = Connection__Candidate
+  module ResolvedMetadata = {
+    module Resolved = Connection__Candidate.Resolved
 
-    type candidateKey = string // raw candidate string provided by the user or discovered at runtime
-    type filepath = candidateKey
-    // what kind of endpoint the candidate leads to?
     type endpoint =
       | Agda(option<string>) // Agda version
       | ALS(
@@ -153,7 +136,7 @@ module Module: {
       error: option<string>,
     }
 
-    let key = "endpointVersion"
+    let key = "resolvedMetadata"
 
     let entries = (memento: t): Dict.t<entry> =>
       switch memento {
@@ -165,174 +148,30 @@ module Module: {
         }
       }
 
-    let get = (memento: t, candidateKey: candidateKey): option<entry> => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      cache->Dict.get(candidateKey)
-    }
-
-    let lookupCandidateInCache = (
-      cache: Dict.t<entry>,
-      candidateKey: candidateKey,
-    ): option<(candidateKey, entry)> => {
-      switch cache->Dict.get(candidateKey) {
-      | Some(entry) => Some((candidateKey, entry))
-      | None =>
-        let candidate = Candidate.make(candidateKey)
-        cache
-        ->Dict.toArray
-        ->Array.findMap(((existingKey, entry)) =>
-          if Candidate.equal(Candidate.make(existingKey), candidate) {
-            Some((existingKey, entry))
-          } else {
-            None
-          }
-        )
-      }
-    }
-
-    let lookupCandidate = (
-      memento: t,
-      candidateKey: candidateKey,
-    ): option<(candidateKey, entry)> => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      lookupCandidateInCache(cache, candidateKey)
-    }
-
-    let setVersion = async (memento: t, candidateKey: candidateKey, endpoint: endpoint): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      let entry = {endpoint, timestamp: Date.make(), error: None}
-      cache->Dict.set(candidateKey, entry)
-      await memento->set(key, cache)
-    }
-
-    let setError = async (memento: t, candidateKey: candidateKey, error: string): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      let existingEndpoint = switch cache->Dict.get(candidateKey) {
-      | Some(existingEntry) => existingEntry.endpoint
-      | None => Unknown
-      }
-      let entry = {endpoint: existingEndpoint, timestamp: Date.make(), error: Some(error)}
-      cache->Dict.set(candidateKey, entry)
-      await memento->set(key, cache)
-    }
-
-    let updateCandidate = async (
-      memento: t,
-      candidateKey: candidateKey,
-      makeEntry: option<entry> => entry,
-    ): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      let (keyToUpdate, existingEntry) = switch lookupCandidateInCache(cache, candidateKey) {
-      | Some((existingKey, existingEntry)) => (existingKey, Some(existingEntry))
-      | None => (candidateKey, None)
-      }
-      let entry = makeEntry(existingEntry)
-      cache->Dict.set(keyToUpdate, entry)
-      await memento->set(key, cache)
-    }
-
-    let setVersionForCandidate = async (
-      memento: t,
-      candidateKey: candidateKey,
-      endpoint: endpoint,
-    ): unit => {
-      await updateCandidate(memento, candidateKey, _existingEntry => {
-        endpoint,
-        timestamp: Date.make(),
-        error: None,
-      })
-    }
-
-    let setErrorForCandidate = async (
-      memento: t,
-      candidateKey: candidateKey,
-      error: string,
-    ): unit => {
-      await updateCandidate(memento, candidateKey, existingEntry => {
-        let endpoint = switch existingEntry {
-        | Some(existingEntry) => existingEntry.endpoint
-        | None => Unknown
-        }
-        {endpoint, timestamp: Date.make(), error: Some(error)}
-      })
-    }
-
-    let syncWithPaths = async (memento: t, discoveredEndpoints: Dict.t<endpoint>): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      let newCache = Dict.make()
-
-      // Add entries for all discovered paths
-      discoveredEndpoints
-      ->Dict.toArray
-      ->Array.forEach(((path, discoveredEndpoint)) => {
-        switch cache->Dict.get(path) {
-        | Some(existingEntry) =>
-          // Update endpoint type if we have better inference, but preserve version info and errors
-          let updatedEndpoint = switch (existingEntry.endpoint, discoveredEndpoint) {
-          | (Unknown, newType) if newType != Unknown => // Update from Unknown to a specific type
-            newType
-          | (existingType, _) => // Keep existing type (it has version info or is already specific)
-            existingType
-          }
-          let updatedEntry = {...existingEntry, endpoint: updatedEndpoint, timestamp: Date.make()}
-          newCache->Dict.set(path, updatedEntry)
-        | None =>
-          // Add new path with inferred endpoint type
-          let entry = {endpoint: discoveredEndpoint, timestamp: Date.make(), error: None}
-          newCache->Dict.set(path, entry)
-        }
-      })
-
-      // Remove entries for paths that no longer exist (cleanup)
-      // This happens automatically since we only add current paths to newCache
-
-      await memento->set(key, newCache)
-    }
-    
-    let clear = async (memento: t): unit => {
-      await memento->set(key, Dict.make())
-    }
-  }
-
-  module ResolvedMetadata = {
-    module Resolved = Connection__Candidate.Resolved
-
-    let key = "resolvedMetadata"
-
-    let entries = (memento: t): Dict.t<Endpoints.entry> =>
-      switch memento {
-      | Memento(memento) => VSCode.Memento.getWithDefault(memento, key, Dict.make())
-      | Mock(dict) =>
-        switch Dict.get(dict, key) {
-        | Some(value) => value->Obj.magic
-        | None => Dict.make()
-        }
-      }
-
-    let get = (memento: t, resolved: Resolved.t): option<Endpoints.entry> => {
-      let cache: Dict.t<Endpoints.entry> = memento->getWithDefault(key, Dict.make())
+    let get = (memento: t, resolved: Resolved.t): option<entry> => {
+      let cache: Dict.t<entry> = memento->getWithDefault(key, Dict.make())
       cache->Dict.get(Resolved.toString(resolved))
     }
 
     let setVersion = async (
       memento: t,
       resolved: Resolved.t,
-      endpoint: Endpoints.endpoint,
+      endpoint: endpoint,
     ): unit => {
-      let cache: Dict.t<Endpoints.entry> = memento->getWithDefault(key, Dict.make())
-      let entry: Endpoints.entry = {endpoint, timestamp: Date.make(), error: None}
+      let cache: Dict.t<entry> = memento->getWithDefault(key, Dict.make())
+      let entry: entry = {endpoint, timestamp: Date.make(), error: None}
       cache->Dict.set(Resolved.toString(resolved), entry)
       await memento->set(key, cache)
     }
 
     let setError = async (memento: t, resolved: Resolved.t, error: string): unit => {
-      let cache: Dict.t<Endpoints.entry> = memento->getWithDefault(key, Dict.make())
+      let cache: Dict.t<entry> = memento->getWithDefault(key, Dict.make())
       let resolvedKey = Resolved.toString(resolved)
       let existingEndpoint = switch cache->Dict.get(resolvedKey) {
       | Some(existingEntry) => existingEntry.endpoint
-      | None => Endpoints.Unknown
+      | None => Unknown
       }
-      let entry: Endpoints.entry = {
+      let entry: entry = {
         endpoint: existingEndpoint,
         timestamp: Date.make(),
         error: Some(error),

@@ -471,16 +471,11 @@ describe("Config.Connection paths", () => {
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
-        // Set up the path in memento endpoints so it can be selected
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(Some("2.7.0.1")))
-        await Memento.Endpoints.syncWithPaths(mockState.memento, discoveredEndpoints)
-
         let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
           State__SwitchVersion.ItemData.Endpoint(
             selectedPath,
             {
-              endpoint: Memento.Endpoints.Agda(Some("2.7.0.1")),
+              endpoint: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
               timestamp: Date.make(),
               error: None,
             },

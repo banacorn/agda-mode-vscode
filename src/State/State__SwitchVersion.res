@@ -1,4 +1,5 @@
 module Candidate = Connection__Candidate
+module ResolvedMetadata = Memento.ResolvedMetadata
 
 // Constants for reused UI strings
 module Constants = {
@@ -16,7 +17,7 @@ module Constants = {
 module ItemData = {
   // UI item types
   type t =
-    | Endpoint(string, Memento.Endpoints.entry, bool) // path, entry, is selected
+    | Endpoint(string, ResolvedMetadata.entry, bool) // path, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, variant ("native" | "wasm")
     | SelectOtherChannels
     | DeleteDownloads // delete downloads and clear cache
@@ -29,7 +30,7 @@ module ItemData = {
       "Endpoint: " ++
       path ++
       ", " ++
-      Memento.Endpoints.endpointToString(entry.endpoint) ++ if isSelected {
+      ResolvedMetadata.endpointToString(entry.endpoint) ++ if isSelected {
         ", selected"
       } else {
         ""
@@ -48,14 +49,14 @@ module ItemData = {
     }
 
   // UI display logic
-  let shouldEndpointHaveIcon = (endpoint: Memento.Endpoints.endpoint): bool => {
+  let shouldEndpointHaveIcon = (endpoint: ResolvedMetadata.endpoint): bool => {
     switch endpoint {
     | Agda(_) => true
     | _ => false
     }
   }
 
-  let getEndpointDisplayInfo = (raw: string, entry: Memento.Endpoints.entry): (
+  let getEndpointDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (
     string,
     option<string>,
   ) => {
@@ -81,7 +82,7 @@ module ItemData = {
 
   // Convert entries to item data
   let entriesToItemData = (
-    entries: array<(string, Memento.Endpoints.entry)>,
+    entries: array<(string, ResolvedMetadata.entry)>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
     ~downloadHeader: string="Download (channel: Hardcoded)",
@@ -297,11 +298,11 @@ module SwitchVersionManager = {
       ->String.replace(".wasm", "")
 
     if cleanName == "agda" || cleanName->String.startsWith("agda-") {
-      Memento.Endpoints.Agda(None)
+      ResolvedMetadata.Agda(None)
     } else if cleanName == "als" || cleanName->String.startsWith("als-") {
-      Memento.Endpoints.ALS(None)
+      ResolvedMetadata.ALS(None)
     } else {
-      Memento.Endpoints.Unknown
+      ResolvedMetadata.Unknown
     }
   }
 
@@ -474,14 +475,14 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
       await Memento.ResolvedMetadata.setVersion(
         state.memento,
         resolved,
-        Memento.Endpoints.Agda(Some(version)),
+        ResolvedMetadata.Agda(Some(version)),
       )
     | ALS(_, path, Some(alsVersion, agdaVersion, lspOptions)) =>
       let resolved = resolvedFromConnectionPath(path)
       await Memento.ResolvedMetadata.setVersion(
         state.memento,
         resolved,
-        Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
+        ResolvedMetadata.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
     | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
@@ -490,7 +491,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
       await Memento.ResolvedMetadata.setVersion(
         state.memento,
         resolved,
-        Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
+        ResolvedMetadata.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     }
     // Final cleanup: destroy the temporary connection used for version probing/switching
