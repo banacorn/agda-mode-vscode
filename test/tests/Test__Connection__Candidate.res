@@ -11,6 +11,13 @@ describe("Connection__Candidate", () => {
       }
     })
 
+    it("should trim surrounding whitespace before constructing Command", () => {
+      switch Candidate.make("  agda  ") {
+      | Command("agda") => ()
+      | _ => Assert.fail("Expected Command(\"agda\") after trimming")
+      }
+    })
+
     it("should construct absolute file paths as Resource", () => {
       let expected = NodeJs.Path.resolve(["/usr/bin/agda"])->VSCode.Uri.file
       switch Candidate.make("/usr/bin/agda") {
@@ -26,11 +33,57 @@ describe("Connection__Candidate", () => {
       | _ => Assert.fail("Expected Resource(vscode-userdata:/global/als.wasm)")
       }
     })
+
+    it("should classify strings containing whitespace as Resource", () => {
+      switch Candidate.make("agda custom build") {
+      | Resource(_) => ()
+      | _ => Assert.fail("Expected Resource for whitespace-containing candidate")
+      }
+    })
+
+    it("should classify relative path-like strings as Resource", () => {
+      switch Candidate.make("./bin/agda") {
+      | Resource(_) => ()
+      | _ => Assert.fail("Expected Resource for relative path candidate")
+      }
+    })
+
+    it("should treat lsp:// input as Resource via filepath parsing", () => {
+      switch Candidate.make("lsp://agda-language-server") {
+      | Resource(_) => ()
+      | _ => Assert.fail("Expected Resource for lsp:// input")
+      }
+    })
   })
 
   describe("toString", () => {
     it("should render Command as the bare command name", () => {
       Assert.deepStrictEqual(Candidate.toString(Command("agda")), "agda")
+    })
+
+    it("should render Resource as canonical URI string", () => {
+      let uri = VSCode.Uri.file("/usr/bin/agda")
+      Assert.deepStrictEqual(Candidate.toString(Resource(uri)), uri->VSCode.Uri.toString)
+    })
+  })
+
+  describe("make -> toString -> make", () => {
+    let assertStable = raw => {
+      let candidate = Candidate.make(raw)
+      let roundTripped = candidate->Candidate.toString->Candidate.make
+      Assert.deepStrictEqual(Candidate.equal(candidate, roundTripped), true)
+    }
+
+    it("should be stable for Command candidates", () => {
+      assertStable("agda")
+    })
+
+    it("should be stable for file Resource candidates", () => {
+      assertStable("/usr/bin/agda")
+    })
+
+    it("should be stable for vscode-userdata Resource candidates", () => {
+      assertStable("vscode-userdata:/global/als.wasm")
     })
   })
 
@@ -108,6 +161,31 @@ describe("Connection__Candidate", () => {
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected->VSCode.Uri.toString)
         Assert.deepStrictEqual(original->VSCode.Uri.toString, expected->VSCode.Uri.toString)
       | _ => Assert.fail("Expected Resource candidate to resolve without lookup")
+      }
+    })
+
+    Async.it("should not consult findCommand when resolving Resource", async () => {
+      let findCommandCalls = ref(0)
+
+      module MockPlatform = {
+        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+        let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
+          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        let download = (_globalStorageUri, _downloadDescriptor) =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let findCommand = (_command, ~timeout as _timeout=1000) => {
+          findCommandCalls := findCommandCalls.contents + 1
+          Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+      }
+
+      let platformDeps: Platform.t = module(MockPlatform)
+      let candidate = Candidate.make("file:///usr/bin/agda")
+      switch await Candidate.resolve(platformDeps, candidate) {
+      | Ok(_) => Assert.deepStrictEqual(findCommandCalls.contents, 0)
+      | Error(_) => Assert.fail("Expected Resource resolution to bypass findCommand")
       }
     })
   })
