@@ -69,14 +69,23 @@ module ItemData = {
     switch (entry.kind, entry.error) {
     | (Agda(Some(version)), _) => (Constants.agdaVersionPrefix ++ version, None)
     | (Agda(None), _) => ("Agda (version unknown)", None)
-    | (ALS(Some((alsVersion, agdaVersion, _))), _) => (
+    | (ALS(Native, Some((alsVersion, agdaVersion, _))), _) => (
         Constants.alsWithSquirrel ++
         agdaVersion ++
         " Language Server v" ++
         alsVersion,
         None,
       )
-    | (ALS(None), _) => ("$(squirrel)  Agda Language Server (version unknown)", None)
+    | (ALS(WASM, Some((alsVersion, agdaVersion, _))), _) => (
+        Constants.alsWithSquirrel ++
+        agdaVersion ++
+        " Language Server v" ++
+        alsVersion ++
+        " WASM",
+        None,
+      )
+    | (ALS(Native, None), _) => ("$(squirrel)  Agda Language Server (version unknown)", None)
+    | (ALS(WASM, None), _) => ("$(squirrel)  Agda Language Server (version unknown) WASM", None)
     | (Unknown, Some(error)) => ("$(error) " ++ filename, Some("Error: " ++ error))
     | (Unknown, None) => ("$(question) " ++ filename, Some("Unknown executable"))
     }
@@ -292,6 +301,7 @@ module SwitchVersionManager = {
     | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename->String.toLowerCase
     }
     // Remove common executable extensions
+    let isWasm = baseName->String.endsWith(".wasm")
     let cleanName =
       baseName
       ->String.replace(".exe", "")
@@ -302,7 +312,7 @@ module SwitchVersionManager = {
     if cleanName == "agda" || cleanName->String.startsWith("agda-") {
       ResolvedMetadata.Agda(None)
     } else if cleanName == "als" || cleanName->String.startsWith("als-") {
-      ResolvedMetadata.ALS(None)
+      ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
     } else {
       ResolvedMetadata.Unknown
     }
@@ -413,11 +423,11 @@ module SwitchVersionManager = {
           await Memento.ResolvedMetadata.setKind(
             self.memento,
             resolved,
-            ALS(Some((alsVersion, agdaVersion, lspOptions))),
+            ALS(Native, Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
         | Ok((resolved, IsALSWASM(_))) =>
-          await Memento.ResolvedMetadata.setKind(self.memento, resolved, ALS(None))
+          await Memento.ResolvedMetadata.setKind(self.memento, resolved, ALS(WASM, None))
           Some(path)
         | Error(error) =>
           let (_, errorBody) = Connection__Error.toString(Establish(error))
@@ -488,7 +498,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
       await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
-        ResolvedMetadata.ALS(Some(alsVersion, agdaVersion, lspOptions)),
+        ResolvedMetadata.ALS(Native, Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
     | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
@@ -497,7 +507,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
       await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
-        ResolvedMetadata.ALS(Some(alsVersion, agdaVersion, lspOptions)),
+        ResolvedMetadata.ALS(WASM, Some(alsVersion, agdaVersion, lspOptions)),
       )
     }
     // Final cleanup: destroy the temporary connection used for version probing/switching

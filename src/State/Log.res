@@ -39,9 +39,12 @@ module SwitchVersion = {
         switch kind {
         | Agda(Some(version)) => "Agda(" ++ version ++ ")"
         | Agda(None) => "Agda(None)"
-        | ALS(Some(alsVersion, agdaVersion, _)) =>
-          "ALS(" ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
-        | ALS(None) => "ALS(None)"
+        | ALS(Native, Some((alsVersion, agdaVersion, _))) =>
+          "ALS(Native, " ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
+        | ALS(WASM, Some((alsVersion, agdaVersion, _))) =>
+          "ALS(WASM, " ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
+        | ALS(Native, None) => "ALS(Native, None)"
+        | ALS(WASM, None) => "ALS(WASM, None)"
         | Unknown => "Unknown"
         } ++
         switch error {

@@ -15,7 +15,7 @@ module TestData = {
 
   let agdaEntry = createMockEntry(Agda(Some("2.6.4")), ())
   let agdaUnknownEntry = createMockEntry(Agda(None), ())
-  let alsEntry = createMockEntry(ALS(Some(("4.0.0", "2.6.4", None))), ())
+  let alsEntry = createMockEntry(ALS(Native, Some(("4.0.0", "2.6.4", None))), ())
   let unknownEntry = createMockEntry(Unknown, ~error="Permission denied", ())
 
   // Simple mock functions for testing
@@ -151,12 +151,12 @@ describe("State__SwitchVersion", () => {
           () => {
             Assert.deepStrictEqual(
               State__SwitchVersion.ItemData.shouldCandidateHaveIcon(
-                ALS(Some(("4.0.0", "2.6.4", None))),
+                ALS(Native, Some(("4.0.0", "2.6.4", None))),
               ),
               false,
             )
             Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(ALS(None)),
+              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(ALS(Native, None)),
               false,
             )
           },
@@ -182,7 +182,7 @@ describe("State__SwitchVersion", () => {
           () => {
             Assert.deepStrictEqual(
               State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als.wasm"),
-              Memento.ResolvedMetadata.ALS(None),
+              Memento.ResolvedMetadata.ALS(WASM, None),
             )
           },
         )
@@ -192,7 +192,7 @@ describe("State__SwitchVersion", () => {
           () => {
             Assert.deepStrictEqual(
               State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als"),
-              Memento.ResolvedMetadata.ALS(None),
+              Memento.ResolvedMetadata.ALS(Native, None),
             )
           },
         )
@@ -202,7 +202,7 @@ describe("State__SwitchVersion", () => {
           () => {
             Assert.deepStrictEqual(
               State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als.exe"),
-              Memento.ResolvedMetadata.ALS(None),
+              Memento.ResolvedMetadata.ALS(Native, None),
             )
           },
         )
@@ -244,7 +244,7 @@ describe("State__SwitchVersion", () => {
               State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
                 "/path/to/dev-als/als.wasm",
               ),
-              Memento.ResolvedMetadata.ALS(None),
+              Memento.ResolvedMetadata.ALS(WASM, None),
             )
           },
         )
@@ -254,7 +254,7 @@ describe("State__SwitchVersion", () => {
           () => {
             Assert.deepStrictEqual(
               State__SwitchVersion.SwitchVersionManager.inferCandidateKind("ALS.WASM"),
-              Memento.ResolvedMetadata.ALS(None),
+              Memento.ResolvedMetadata.ALS(WASM, None),
             )
           },
         )
@@ -264,7 +264,7 @@ describe("State__SwitchVersion", () => {
           () => {
             Assert.deepStrictEqual(
               State__SwitchVersion.SwitchVersionManager.inferCandidateKind("als-server"),
-              Memento.ResolvedMetadata.ALS(None),
+              Memento.ResolvedMetadata.ALS(Native, None),
             )
           },
         )
@@ -1176,7 +1176,7 @@ describe("State__SwitchVersion", () => {
         await Memento.ResolvedMetadata.setKind(
           state.memento,
           resolved,
-          Memento.ResolvedMetadata.ALS(Some(("1.2.3", "2.6.4", None))),
+          Memento.ResolvedMetadata.ALS(Native, Some(("1.2.3", "2.6.4", None))),
         )
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
         let candidateEntry =
@@ -1191,7 +1191,7 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(
           candidateEntry->Option.map(((detail, entry)) => (detail, entry.kind)),
-          Some((resourcePath, Memento.ResolvedMetadata.ALS(Some(("1.2.3", "2.6.4", None))))),
+          Some((resourcePath, Memento.ResolvedMetadata.ALS(Native, Some(("1.2.3", "2.6.4", None))))),
         )
       },
     )
@@ -1805,7 +1805,7 @@ describe("State__SwitchVersion", () => {
               {
                 kind: selectedPath == "agda"
                   ? Memento.ResolvedMetadata.Agda(None)
-                  : Memento.ResolvedMetadata.ALS(None),
+                  : Memento.ResolvedMetadata.ALS(Native, None),
                 timestamp: Date.make(),
                 error: None,
               },
@@ -1922,7 +1922,7 @@ describe("State__SwitchVersion", () => {
           Candidate(
             fsPath,
             fsPath,
-            {kind: Memento.ResolvedMetadata.ALS(None), timestamp: Date.make(), error: None},
+            {kind: Memento.ResolvedMetadata.ALS(Native, None), timestamp: Date.make(), error: None},
             false,
           ),
         )
@@ -3249,7 +3249,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create ALS item for non-selected version",
           () => {
-            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
+            let entry = TestData.createMockEntry(ALS(Native, Some(("1.2.3", "2.6.4", None))), ())
             let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", "/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -3275,7 +3275,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create ALS item for selected version",
           () => {
-            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
+            let entry = TestData.createMockEntry(ALS(Native, Some(("1.2.3", "2.6.4", None))), ())
             let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", "/usr/bin/als", entry, true)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -3292,7 +3292,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should show URI detail as the URI string for resource candidates",
           () => {
-            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
+            let entry = TestData.createMockEntry(ALS(Native, Some(("1.2.3", "2.6.4", None))), ())
             let itemData: State__SwitchVersion.ItemData.t = Candidate(
               "vscode-userdata:/global/als.wasm",
               "vscode-userdata:/global/als.wasm",
@@ -3313,7 +3313,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should create ALS item with unknown version",
           () => {
-            let entry = TestData.createMockEntry(ALS(None), ())
+            let entry = TestData.createMockEntry(ALS(Native, None), ())
             let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", "/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
@@ -3324,6 +3324,45 @@ describe("State__SwitchVersion", () => {
             | Some(desc) => Assert.strictEqual(desc, "")
             | None => Assert.fail("Expected description to be set")
             }
+          },
+        )
+
+        it(
+          "should create WASM ALS item with version in label",
+          () => {
+            let entry = TestData.createMockEntry(ALS(WASM, Some(("1.2.3", "2.6.4", None))), ())
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "vscode-userdata:/global/als.wasm",
+              "vscode-userdata:/global/als.wasm",
+              entry,
+              false,
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            Assert.strictEqual(
+              actual.label,
+              "$(squirrel)  Agda 2.6.4 Language Server v1.2.3 WASM",
+            )
+          },
+        )
+
+        it(
+          "should create WASM ALS item with unknown version label",
+          () => {
+            let entry = TestData.createMockEntry(ALS(WASM, None), ())
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "vscode-userdata:/global/als.wasm",
+              "vscode-userdata:/global/als.wasm",
+              entry,
+              false,
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            Assert.strictEqual(actual.label, "$(squirrel)  Agda Language Server (version unknown) WASM")
           },
         )
       },

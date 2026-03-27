@@ -14,9 +14,13 @@ module Module: {
   let toString: t => string
 
   module ResolvedMetadata: {
+    type runtime =
+      | Native
+      | WASM
     type kind =
       | Agda(option<string>)
       | ALS(
+          runtime,
           option<(
             string,
             string,
@@ -100,9 +104,14 @@ module Module: {
   module ResolvedMetadata = {
     module Resolved = Connection__Candidate.Resolved
 
+    type runtime =
+      | Native
+      | WASM
+
     type kind =
       | Agda(option<string>) // Agda version
       | ALS(
+          runtime,
           option<(
             string,
             string,
@@ -114,9 +123,12 @@ module Module: {
       switch kind {
       | Agda(Some(version)) => "Agda v" ++ version
       | Agda(None) => "Agda (version unknown)"
-      | ALS(Some((alsVersion, agdaVersion, _lspOptions))) =>
+      | ALS(Native, Some((alsVersion, agdaVersion, _lspOptions))) =>
         "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-      | ALS(None) => "Agda Language Server (version unknown)"
+      | ALS(WASM, Some((alsVersion, agdaVersion, _lspOptions))) =>
+        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM"
+      | ALS(Native, None) => "Agda Language Server (version unknown)"
+      | ALS(WASM, None) => "Agda Language Server (version unknown) WASM"
       | Unknown => "Unknown"
       }
 
