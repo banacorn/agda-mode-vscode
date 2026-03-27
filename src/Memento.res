@@ -127,7 +127,6 @@ module Module: {
     }
 
     let key = "resolvedCandidateMetadata"
-    let legacyKey = "resolvedMetadata"
 
     let readEntries = (memento: t, key: string): Dict.t<entry> =>
       switch memento {
@@ -141,18 +140,10 @@ module Module: {
 
     let writeEntries = async (memento: t, cache: Dict.t<entry>): unit => {
       await memento->set(key, cache)
-      await memento->set(legacyKey, Dict.make())
     }
 
     let entries = (memento: t): Dict.t<entry> =>
-      {
-        let current = readEntries(memento, key)
-        if current->Dict.toArray->Array.length > 0 {
-          current
-        } else {
-          readEntries(memento, legacyKey)
-        }
-      }
+      readEntries(memento, key)
 
     let get = (memento: t, resolved: Resolved.t): option<entry> => {
       let cache = entries(memento)
