@@ -419,30 +419,6 @@ module Module: Module = {
     }
   }
 
-  // Try commands in order and return the successful command together with the connection.
-  let fromCommandsWithWinner = async (
-    platformDeps: Platform.t,
-    commands: array<string>,
-  ): result<(t, string), Error.Establish.t> => {
-    module PlatformOps = unpack(platformDeps)
-
-    let tasks = commands->Array.map(command => async () =>
-      switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) =>
-        switch await make(rawPath, FromCommandLookup(command)) {
-        | Ok(connection) => Ok((connection, command))
-        | Error(error) => Error(error)
-        }
-      | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
-      }
-    )
-
-    switch await tryUntilSuccess(tasks) {
-    | Ok(success) => Ok(success)
-    | Error(errors) => Error(Error.Establish.mergeMany(errors))
-    }
-  }
-
   // Try to download ALS and create connection directly, with the following steps:
   // 1. Check platform support
   // 2. Check download policy

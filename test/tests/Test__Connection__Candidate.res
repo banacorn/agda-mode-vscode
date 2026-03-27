@@ -172,21 +172,13 @@ describe("Connection__Candidate", () => {
 
   describe("resolve", () => {
     Async.it("should resolve Command through Platform.findCommand", async () => {
-      module MockPlatform = {
-        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-        let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        let download = (_globalStorageUri, _downloadDescriptor) =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let findCommand = (command, ~timeout as _timeout=1000) =>
-          switch command {
-          | "agda" => Promise.resolve(Ok("/resolved/bin/agda"))
-          | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
-          }
-      }
-      switch await Candidate.resolve(MockPlatform.findCommand, Candidate.make("agda")) {
+      let findCommand = (command, ~timeout as _timeout=1000) =>
+        switch command {
+        | "agda" => Promise.resolve(Ok("/resolved/bin/agda"))
+        | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+
+      switch await Candidate.resolve(findCommand, Candidate.make("agda")) {
       | Ok({original: Command("agda"), resource}) =>
         let expected = VSCode.Uri.file("/resolved/bin/agda")->VSCode.Uri.toString
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected)
@@ -196,19 +188,11 @@ describe("Connection__Candidate", () => {
     })
 
     Async.it("should leave Resource unchanged when resolving", async () => {
-      module MockPlatform = {
-        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-        let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        let download = (_globalStorageUri, _downloadDescriptor) =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let findCommand = (_command, ~timeout as _timeout=1000) =>
-          Promise.resolve(Error(Connection__Command.Error.NotFound))
-      }
+      let findCommand = (_command, ~timeout as _timeout=1000) =>
+        Promise.resolve(Error(Connection__Command.Error.NotFound))
+
       let candidate = Candidate.make("file:///usr/bin/agda")
-      switch (candidate, await Candidate.resolve(MockPlatform.findCommand, candidate)) {
+      switch (candidate, await Candidate.resolve(findCommand, candidate)) {
       | (Resource(expected), Ok({original: Resource(original), resource})) =>
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected->VSCode.Uri.toString)
         Assert.deepStrictEqual(original->VSCode.Uri.toString, expected->VSCode.Uri.toString)
@@ -219,21 +203,13 @@ describe("Connection__Candidate", () => {
     Async.it("should not consult findCommand when resolving Resource", async () => {
       let findCommandCalls = ref(0)
 
-      module MockPlatform = {
-        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-        let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        let download = (_globalStorageUri, _downloadDescriptor) =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let findCommand = (_command, ~timeout as _timeout=1000) => {
-          findCommandCalls := findCommandCalls.contents + 1
-          Promise.resolve(Error(Connection__Command.Error.NotFound))
-        }
+      let findCommand = (_command, ~timeout as _timeout=1000) => {
+        findCommandCalls := findCommandCalls.contents + 1
+        Promise.resolve(Error(Connection__Command.Error.NotFound))
       }
+
       let candidate = Candidate.make("file:///usr/bin/agda")
-      switch await Candidate.resolve(MockPlatform.findCommand, candidate) {
+      switch await Candidate.resolve(findCommand, candidate) {
       | Ok(_) => Assert.deepStrictEqual(findCommandCalls.contents, 0)
       | Error(_) => Assert.fail("Expected Resource resolution to bypass findCommand")
       }
