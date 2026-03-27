@@ -67,6 +67,31 @@ describe("Connection__Candidate", () => {
     })
   })
 
+  describe("Resolved.toString", () => {
+    it("should include command provenance for resolved commands", () => {
+      let resolved: Candidate.Resolved.t = {
+        original: Candidate.Command("agda"),
+        resource: VSCode.Uri.file("/resolved/bin/agda"),
+      }
+      Assert.deepStrictEqual(
+        Candidate.Resolved.toString(resolved),
+        "agda => " ++ (VSCode.Uri.file("/resolved/bin/agda")->VSCode.Uri.toString),
+      )
+    })
+
+    it("should include original resource provenance for resolved resources", () => {
+      let uri = VSCode.Uri.parse("vscode-userdata:/global/als.wasm")
+      let resolved: Candidate.Resolved.t = {
+        original: Candidate.Resource(uri),
+        resource: uri,
+      }
+      Assert.deepStrictEqual(
+        Candidate.Resolved.toString(resolved),
+        uri->VSCode.Uri.toString ++ " => " ++ uri->VSCode.Uri.toString,
+      )
+    })
+  })
+
   describe("make -> toString -> make", () => {
     let assertStable = raw => {
       let candidate = Candidate.make(raw)

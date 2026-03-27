@@ -49,6 +49,10 @@ module type Module = {
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSWASM(VSCode.Uri.t) // ALS WASM file
   let probeFilepath: string => promise<result<(string, probeResult), Error.Probe.t>>
+  let probeCandidate: (
+    Platform.t,
+    Candidate.t,
+  ) => promise<result<(Candidate.Resolved.t, probeResult), Error.Establish.t>>
 }
 
 module Module: Module = {
@@ -189,6 +193,32 @@ module Module: Module = {
 
   // see if it's a Agda executable or a language server
   let probeFilepath = async path => await probeResolved(resolvedFromRawResource(path))
+
+  let probeCandidate = async (
+    platformDeps: Platform.t,
+    candidate: Candidate.t,
+  ): result<(Candidate.Resolved.t, probeResult), Error.Establish.t> => {
+    switch await Candidate.resolve(platformDeps, candidate) {
+    | Ok(resolved) =>
+      let source = switch resolved.original {
+      | Candidate.Command(command) => FromCommandLookup(command)
+      | Candidate.Resource(_) => FromConfig
+      }
+      switch await probeResolved(resolved) {
+      | Ok(_, probeResult) => Ok((resolved, probeResult))
+      | Error(error) =>
+        Error(
+          Error.Establish.fromProbeError(Candidate.Resolved.toString(resolved), error, source),
+        )
+      }
+    | Error(commandError) =>
+      switch candidate {
+      | Candidate.Command(command) => Error(Error.Establish.fromCommandError(command, commandError))
+      | Candidate.Resource(_) =>
+        raise(Failure("Connection__Candidate.resolve returned Error for Resource candidate"))
+      }
+    }
+  }
 
   let makeResolved = async (
     resolved: Candidate.Resolved.t,

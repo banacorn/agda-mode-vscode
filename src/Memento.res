@@ -40,6 +40,14 @@ module Module: {
     let clear: t => promise<unit>
   }
 
+  module ResolvedMetadata: {
+    let entries: t => Dict.t<Endpoints.entry>
+    let get: (t, Connection__Candidate.Resolved.t) => option<Endpoints.entry>
+    let setVersion: (t, Connection__Candidate.Resolved.t, Endpoints.endpoint) => promise<unit>
+    let setError: (t, Connection__Candidate.Resolved.t, string) => promise<unit>
+    let clear: t => promise<unit>
+  }
+
   module ALSReleaseCache: {
     let getTimestamp: (t, string, string) => option<Date.t>
     let setTimestamp: (t, string, string, Date.t) => promise<unit>
@@ -277,6 +285,58 @@ module Module: {
       await memento->set(key, newCache)
     }
     
+    let clear = async (memento: t): unit => {
+      await memento->set(key, Dict.make())
+    }
+  }
+
+  module ResolvedMetadata = {
+    module Resolved = Connection__Candidate.Resolved
+
+    let key = "resolvedMetadata"
+
+    let entries = (memento: t): Dict.t<Endpoints.entry> =>
+      switch memento {
+      | Memento(memento) => VSCode.Memento.getWithDefault(memento, key, Dict.make())
+      | Mock(dict) =>
+        switch Dict.get(dict, key) {
+        | Some(value) => value->Obj.magic
+        | None => Dict.make()
+        }
+      }
+
+    let get = (memento: t, resolved: Resolved.t): option<Endpoints.entry> => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      cache->Dict.get(Resolved.toString(resolved))
+    }
+
+    let setVersion = async (
+      memento: t,
+      resolved: Resolved.t,
+      endpoint: Endpoints.endpoint,
+    ): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let entry: Endpoints.entry = {endpoint, timestamp: Date.make(), error: None}
+      cache->Dict.set(Resolved.toString(resolved), entry)
+      await memento->set(key, cache)
+    }
+
+    let setError = async (memento: t, resolved: Resolved.t, error: string): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let resolvedKey = Resolved.toString(resolved)
+      let existingEndpoint = switch cache->Dict.get(resolvedKey) {
+      | Some(existingEntry) => existingEntry.endpoint
+      | None => Endpoints.Unknown
+      }
+      let entry: Endpoints.entry = {
+        endpoint: existingEndpoint,
+        timestamp: Date.make(),
+        error: Some(error),
+      }
+      cache->Dict.set(resolvedKey, entry)
+      await memento->set(key, cache)
+    }
+
     let clear = async (memento: t): unit => {
       await memento->set(key, Dict.make())
     }

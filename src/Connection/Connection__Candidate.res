@@ -1,13 +1,21 @@
+type t =
+  | Command(string)
+  | Resource(VSCode.Uri.t)
+
 module Resolved = {
   type t = {
     original: Candidate.t,
     resource: VSCode.Uri.t,
   }
-}
 
-type t =
-  | Command(string)
-  | Resource(VSCode.Uri.t)
+  let toString = ({original, resource}) =>
+    (
+      switch original {
+      | Command(command) => command
+      | Resource(uri) => uri->VSCode.Uri.toString
+      }
+    ) ++ " => " ++ resource->VSCode.Uri.toString
+}
 
 let isCommand = raw => {
   let command = raw->String.trim

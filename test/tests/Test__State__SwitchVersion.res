@@ -1579,6 +1579,69 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should write probe metadata under resolved identity for bare command candidates",
+      async () => {
+        let platform = makeMockPlatformWithBareCommands()
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        await Memento.Endpoints.setVersion(state.memento, "agda", Memento.Endpoints.Agda(None))
+        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
+
+        let changed = await State__SwitchVersion.SwitchVersionManager.probeVersions(
+          manager,
+          platform,
+        )
+
+        let resolved = switch await Connection__Candidate.resolve(
+          platform,
+          Connection__Candidate.make("agda"),
+        ) {
+        | Ok(resolved) => resolved
+        | Error(_) => Assert.fail("Expected bare command candidate to resolve")
+        }
+
+        Assert.deepStrictEqual(changed, true)
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.endpoint),
+          Some(Memento.Endpoints.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(
+          Memento.Endpoints.get(state.memento, "agda")->Option.map(entry => entry.endpoint),
+          Some(Memento.Endpoints.Agda(None)),
+        )
+      },
+    )
+
+    Async.it(
+      "should write switch metadata under resolved identity for bare command selection",
+      async () => {
+        Registry__Connection.status := Empty
+
+        let platform = makeMockPlatformWithBareCommands()
+        let state = createTestStateWithPlatform(platform)
+
+        await State__SwitchVersion.switchAgdaVersion(state, "agda")
+
+        let resolved = switch await Connection__Candidate.resolve(
+          platform,
+          Connection__Candidate.make("agda"),
+        ) {
+        | Ok(resolved) => resolved
+        | Error(_) => Assert.fail("Expected bare command selection to resolve")
+        }
+
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some("agda"))
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.endpoint),
+          Some(Memento.Endpoints.Agda(Some("2.7.0.1"))),
+        )
+
+        Registry__Connection.status := Empty
+      },
+    )
+
+    Async.it(
       "should treat alias-equivalent endpoint selection as unchanged",
       async () => {
         let state = createTestState()

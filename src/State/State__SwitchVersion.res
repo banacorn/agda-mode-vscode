@@ -385,7 +385,7 @@ module SwitchVersionManager = {
   }
 
   // Version probing (Phase 3)
-  let probeVersions = async (self: t): bool => {
+  let probeVersions = async (self: t, platformDeps: Platform.t): bool => {
     let pathsToProbe =
       self.entries
       ->Dict.toArray
@@ -400,26 +400,32 @@ module SwitchVersionManager = {
       false
     } else {
       let probePromises = pathsToProbe->Array.map(async path => {
-        switch await Connection.probeFilepath(path) {
-        | Ok(_, IsAgda(agdaVersion)) =>
-          await Memento.Endpoints.setVersionForCandidate(self.memento, path, Agda(Some(agdaVersion)))
-          Some(path)
-        | Ok(_, IsALS(alsVersion, agdaVersion, lspOptions)) =>
-          await Memento.Endpoints.setVersionForCandidate(
+        let candidate = Candidate.make(path)
+        switch await Connection.probeCandidate(platformDeps, candidate) {
+        | Ok((resolved, IsAgda(agdaVersion))) =>
+          await Memento.ResolvedMetadata.setVersion(
             self.memento,
-            path,
+            resolved,
+            Agda(Some(agdaVersion)),
+          )
+          Some(path)
+        | Ok((resolved, IsALS(alsVersion, agdaVersion, lspOptions))) =>
+          await Memento.ResolvedMetadata.setVersion(
+            self.memento,
+            resolved,
             ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
-        | Ok(_, IsALSWASM(_)) =>
-          await Memento.Endpoints.setVersionForCandidate(self.memento, path, ALS(None)) // WASM version unknown
+        | Ok((resolved, IsALSWASM(_))) =>
+          await Memento.ResolvedMetadata.setVersion(self.memento, resolved, ALS(None))
           Some(path)
         | Error(error) =>
-          await Memento.Endpoints.setErrorForCandidate(
-            self.memento,
-            path,
-            Connection__Error.Probe.toString(error),
-          )
+          let (_, errorBody) = Connection__Error.toString(Establish(error))
+          switch await Candidate.resolve(platformDeps, candidate) {
+          | Ok(resolved) =>
+            await Memento.ResolvedMetadata.setError(self.memento, resolved, errorBody)
+          | Error(_) => ()
+          }
           Some(path)
         }
       })
@@ -454,6 +460,13 @@ let resolveDownloadChannelWithPlatform = async (
 
 // Connection switching logic
 let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
+  let resolvedFromConnectionPath = (path: string): Connection__Candidate.Resolved.t => ({
+    original: Candidate.make(selectedPath),
+    resource: switch Connection__URI.parse(path) {
+    | FileURI(_, uri) => uri
+    },
+  })
+
   // Skip the initial Connection.Endpoint.getPicked() call since it might clear our memento
   // Just show a generic "switching..." message
   await State__View.Panel.displayConnectionStatus(state, None)
@@ -484,24 +497,27 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     )
     // update memento with discovered version information and display success message
     switch conn {
-    | Agda(_, _, version) =>
-      await Memento.Endpoints.setVersionForCandidate(
+    | Agda(_, path, version) =>
+      let resolved = resolvedFromConnectionPath(path)
+      await Memento.ResolvedMetadata.setVersion(
         state.memento,
-        selectedPath,
+        resolved,
         Memento.Endpoints.Agda(Some(version)),
       )
-    | ALS(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
-      await Memento.Endpoints.setVersionForCandidate(
+    | ALS(_, path, Some(alsVersion, agdaVersion, lspOptions)) =>
+      let resolved = resolvedFromConnectionPath(path)
+      await Memento.ResolvedMetadata.setVersion(
         state.memento,
-        selectedPath,
+        resolved,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     | ALS(_, _, None) => () // version still unknown, don't update memento
     | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
-    | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, lspOptions)) =>
-      await Memento.Endpoints.setVersionForCandidate(
+    | ALSWASM(_, _, path, Some(alsVersion, agdaVersion, lspOptions)) =>
+      let resolved = resolvedFromConnectionPath(path)
+      await Memento.ResolvedMetadata.setVersion(
         state.memento,
-        selectedPath,
+        resolved,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
       )
     }
@@ -920,6 +936,7 @@ module Handler = {
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
             await Memento.Endpoints.clear(state.memento)
+            await Memento.ResolvedMetadata.clear(state.memento)
             // Remove download-managed paths from connection.paths
             let currentPaths = Config.Connection.getAgdaPaths()
             let filteredPaths = currentPaths->Array.filter(
@@ -1112,7 +1129,7 @@ module Handler = {
         }
 
         // PHASE 3: Probe version information
-        let phase3Changed = await SwitchVersionManager.probeVersions(manager)
+        let phase3Changed = await SwitchVersionManager.probeVersions(manager, platformDeps)
         if phase3Changed {
           await updateUI(downloadItems)
         }
