@@ -855,14 +855,26 @@ module Handler = {
           | DeleteDownloads =>
             Util.log("[ debug ] user clicked: Delete Downloads", "")
             view->View.destroy
-            // Delete download directories recursively
-            let downloadDirectories =
-              downloadDirectoryNames->Array.map(dirName =>
-                VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
-              )
+            let cleanedDirectories = ref([])
+            let failedDirectoryNames = ref([])
             let deleteDir = async dirName => {
               let uri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
-              let _ = await FS.deleteRecursive(uri)
+              switch await FS.deleteRecursive(uri) {
+              | Ok() =>
+                cleanedDirectories := Array.concat(cleanedDirectories.contents, [uri])
+              | Error(error) =>
+                switch await FS.stat(uri) {
+                | Ok(_) =>
+                  Util.log(
+                    "[ debug ] failed to delete download directory",
+                    dirName ++ ": " ++ error,
+                  )
+                  failedDirectoryNames := Array.concat(failedDirectoryNames.contents, [dirName])
+                | Error(_) =>
+                  // Missing directories are already clean from the perspective of Delete Downloads.
+                  cleanedDirectories := Array.concat(cleanedDirectories.contents, [uri])
+                }
+              }
             }
             await deleteDir("dev-wasm-als")
             await deleteDir("dev-als")
@@ -871,22 +883,31 @@ module Handler = {
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
-            await Memento.ResolvedMetadata.clearUnderDirectories(state.memento, downloadDirectories)
+            await Memento.ResolvedMetadata.clearUnderDirectories(
+              state.memento,
+              cleanedDirectories.contents,
+            )
             // Remove download-managed paths from connection.paths
             let currentPaths = Config.Connection.getAgdaPaths()
             let filteredPaths = currentPaths->Array.filter(
               candidate =>
-                !(downloadDirectoryNames->Array.some(dirName => {
-                    let dirUri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
+                !(cleanedDirectories.contents->Array.some(dirUri =>
                     Candidate.isUnderDirectory(Candidate.make(candidate), dirUri)
-                  })),
+                  )),
             )
             await Config.Connection.setAgdaPaths(state.channels.log, filteredPaths)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-            VSCode.Window.showInformationMessage(
-              "All downloads and cache deleted",
-              [],
-            )->Promise.done
+            if failedDirectoryNames.contents->Array.length == 0 {
+              VSCode.Window.showInformationMessage(
+                "All downloads and cache deleted",
+                [],
+              )->Promise.done
+            } else {
+              VSCode.Window.showWarningMessage(
+                "Some downloads could not be deleted: " ++ failedDirectoryNames.contents->Array.join(", "),
+                [],
+              )->Promise.done
+            }
           | DownloadAction(downloaded, versionString, variantTag) =>
             Util.log("[ debug ] user clicked: download button = " ++ selectedItem.label, "")
             view->View.destroy

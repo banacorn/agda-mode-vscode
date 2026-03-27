@@ -4,6 +4,104 @@ open Test__Util
 describe("Connection Downloads", () => {
   This.timeout(10000)
 
+  let makeMockPlatform = (): Platform.t => Mock.Platform.makeWithAgda()
+
+  let createTestStateWithStorage = (storageUri: VSCode.Uri.t) => {
+    let channels = {
+      State.inputMethod: Chan.make(),
+      responseHandled: Chan.make(),
+      commandHandled: Chan.make(),
+      log: Chan.make(),
+    }
+
+    let mockEditor = %raw(`{
+      document: { fileName: "test.agda" }
+    }`)
+
+    let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
+
+    State.make(
+      "test-id",
+      makeMockPlatform(),
+      channels,
+      storageUri,
+      mockExtensionUri,
+      Memento.make(None),
+      mockEditor,
+      None,
+    )
+  }
+
+  let makeDeleteDownloadsItem = (state: State.t) =>
+    State__SwitchVersion.Item.fromItemData(
+      State__SwitchVersion.ItemData.DeleteDownloads,
+      state.extensionUri,
+    )
+
+  let createStorageUri = async prefix => {
+    let storagePath = NodeJs.Path.join([
+      NodeJs.Os.tmpdir(),
+      prefix ++ "-" ++ string_of_int(int_of_float(Js.Date.now())),
+    ])
+    await NodeJs.Fs.mkdir(storagePath, {recursive: true, mode: 0o777})
+    VSCode.Uri.file(storagePath)
+  }
+
+  let createDirectoryWithFile = async (
+    rootPath: string,
+    relativeSegments: array<string>,
+    fileName: string,
+  ) => {
+    let directoryPath = NodeJs.Path.join([rootPath, ...relativeSegments])
+    await NodeJs.Fs.mkdir(directoryPath, {recursive: true, mode: 0o777})
+    let filePath = NodeJs.Path.join([directoryPath, fileName])
+    NodeJs.Fs.writeFileSync(filePath, NodeJs.Buffer.fromString("content"))
+    (directoryPath, filePath)
+  }
+
+  let invokeDeleteDownloads = async (state: State.t) => {
+    let view = State__SwitchVersion.View.make(state.channels.log)
+    let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+    let selectedItem = makeDeleteDownloadsItem(state)
+
+    let onSelectionCompleted = Log.on(
+      state.channels.log,
+      log =>
+        switch log {
+        | Log.SwitchVersionUI(SelectionCompleted) => true
+        | _ => false
+        },
+    )
+
+    State__SwitchVersion.Handler.onSelection(
+      state,
+      makeMockPlatform(),
+      manager,
+      ref([Connection__Download.Channel.Hardcoded]),
+      ref(Connection__Download.Channel.Hardcoded),
+      _downloadInfo => Promise.resolve(),
+      view,
+      [selectedItem],
+    )
+
+    await onSelectionCompleted
+    view->State__SwitchVersion.View.destroy
+  }
+
+  let withDeleteFailureFor: string => unit => unit = %raw(`function(failedFsPath) {
+    const fsModule = require("../../src/FS.bs.js");
+    const originalDeleteRecursive = fsModule.deleteRecursive;
+    fsModule.deleteRecursive = function(uri) {
+      if (uri && uri.fsPath === failedFsPath) {
+        return Promise.resolve({ TAG: 1, _0: "mock delete failure" });
+      }
+      return originalDeleteRecursive(uri);
+    };
+    return function() {
+      fsModule.deleteRecursive = originalDeleteRecursive;
+    };
+  }`)
+
   describe("`fromDownloads`", () => {
     let agdaMockEndpoint = ref(None)
 
@@ -895,5 +993,98 @@ describe("Connection Downloads", () => {
         }
       },
     )
+  })
+
+  describe("delete downloads", () => {
+    describe("file system", () => {
+      let managedDirectorySpecs = [
+        ("dev-wasm-als", "als.wasm"),
+        ("dev-als", "als"),
+        ("latest-als", "als"),
+        ("hardcoded-als", "als"),
+      ]
+
+      Async.it(
+        "should remove all managed download directories from globalStorageUri",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-downloads-fs-all")
+          let storagePath = storageUri->VSCode.Uri.fsPath
+
+          let managedArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(storagePath, [dirName], fileName)
+            )
+          let managedArtifacts = await Promise.all(managedArtifacts)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          managedArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should preserve unrelated sibling files and directories under globalStorageUri",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-downloads-fs-preserve")
+          let storagePath = storageUri->VSCode.Uri.fsPath
+
+          let _ = await createDirectoryWithFile(storagePath, ["hardcoded-als"], "als")
+          let (keptDirectoryPath, keptNestedFilePath) = await createDirectoryWithFile(
+            storagePath,
+            ["keep-me"],
+            "notes.txt",
+          )
+          let keptRootFilePath = NodeJs.Path.join([storagePath, "keep-root.txt"])
+          NodeJs.Fs.writeFileSync(keptRootFilePath, NodeJs.Buffer.fromString("keep"))
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(keptDirectoryPath), true)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(keptNestedFilePath), true)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(keptRootFilePath), true)
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should continue deleting other managed directories when one managed directory fails to delete",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-downloads-fs-partial")
+          let storagePath = storageUri->VSCode.Uri.fsPath
+
+          let managedArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(storagePath, [dirName], fileName)
+            )
+          let managedArtifacts = await Promise.all(managedArtifacts)
+          let failedDirectoryPath = NodeJs.Path.join([storagePath, "latest-als"])
+          let restoreDelete = withDeleteFailureFor(failedDirectoryPath)
+
+          let keptSiblingFilePath = NodeJs.Path.join([storagePath, "keep-root.txt"])
+          NodeJs.Fs.writeFileSync(keptSiblingFilePath, NodeJs.Buffer.fromString("keep"))
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+          restoreDelete()
+
+          managedArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            let shouldRemain = directoryPath == failedDirectoryPath
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), shouldRemain)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), shouldRemain)
+          })
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(keptSiblingFilePath), true)
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+    })
   })
 })
