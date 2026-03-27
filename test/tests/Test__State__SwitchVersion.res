@@ -606,6 +606,121 @@ describe("State__SwitchVersion", () => {
           },
         )
 
+        it(
+          "should structure sections as Candidates then Download when candidates and downloads are present",
+          () => {
+            let entries = [
+              ("/usr/bin/agda", TestData.agdaEntry),
+              ("/usr/bin/als", TestData.alsEntry),
+            ]
+
+            let itemData: array<State__SwitchVersion.ItemData.t> =
+              State__SwitchVersion.ItemData.entriesToItemData(
+                entries,
+                None,
+                [(false, "ALS v1.0.0", "native")],
+                ~downloadHeader="Download",
+                ~showChannelSelector=true,
+              )
+
+            let structure = itemData->Array.map(item =>
+              switch item {
+              | Separator(label) => "sep:" ++ label
+              | Endpoint(_, _, _) => "candidate"
+              | DownloadAction(_, _, _) => "download"
+              | SelectOtherChannels => "select-other-channel"
+              | DeleteDownloads => "delete-downloads"
+              | NoInstallations => "no-installations"
+              }
+            )
+
+            Assert.deepStrictEqual(
+              structure,
+              [
+                "sep:Candidates",
+                "candidate",
+                "candidate",
+                "sep:Download",
+                "download",
+                "select-other-channel",
+                "delete-downloads",
+              ],
+            )
+          },
+        )
+
+        it(
+          "should keep Select other channel and Delete Downloads inside Download when there are no download rows",
+          () => {
+            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
+
+            let itemData: array<State__SwitchVersion.ItemData.t> =
+              State__SwitchVersion.ItemData.entriesToItemData(
+                entries,
+                None,
+                [],
+                ~downloadHeader="Download",
+                ~showChannelSelector=true,
+              )
+
+            let structure = itemData->Array.map(item =>
+              switch item {
+              | Separator(label) => "sep:" ++ label
+              | Endpoint(_, _, _) => "candidate"
+              | DownloadAction(_, _, _) => "download"
+              | SelectOtherChannels => "select-other-channel"
+              | DeleteDownloads => "delete-downloads"
+              | NoInstallations => "no-installations"
+              }
+            )
+
+            Assert.deepStrictEqual(
+              structure,
+              [
+                "sep:Candidates",
+                "candidate",
+                "sep:Download",
+                "select-other-channel",
+                "delete-downloads",
+              ],
+            )
+          },
+        )
+
+        it(
+          "should show Download section only when connection.paths is empty",
+          () => {
+            let itemData: array<State__SwitchVersion.ItemData.t> =
+              State__SwitchVersion.ItemData.entriesToItemData(
+                [],
+                None,
+                [],
+                ~downloadHeader="Download",
+                ~showChannelSelector=true,
+              )
+
+            let structure = itemData->Array.map(item =>
+              switch item {
+              | Separator(label) => "sep:" ++ label
+              | Endpoint(_, _, _) => "candidate"
+              | DownloadAction(_, _, _) => "download"
+              | SelectOtherChannels => "select-other-channel"
+              | DeleteDownloads => "delete-downloads"
+              | NoInstallations => "no-installations"
+              }
+            )
+
+            Assert.deepStrictEqual(
+              structure,
+              [
+                "sep:Download",
+                "select-other-channel",
+                "delete-downloads",
+              ],
+            )
+          },
+        )
+
       },
     )
   })
