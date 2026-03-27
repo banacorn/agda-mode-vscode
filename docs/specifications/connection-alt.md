@@ -80,9 +80,11 @@ Candidates **MUST** be shown in reverse `connection.paths` order (highest priori
 Each Candidate item **MUST** be displayed as:
 - **label**: the version string of the executable; if the version is unknown, a fallback label **MUST** be shown
   - Agda → `"Agda 2.8.0"`
-  - ALS → `"Agda 2.8.0 Language Server v6"`
+  - ALS → `"Agda 2.8.0 Language Server v6"` or `"$(squirrel)  Agda 2.8.0 Language Server v6"`
   - WASM Agda → `"Agda 2.8.0 WASM"`
-  - WASM ALS → `"Agda 2.8.0 Language Server v6 WASM"`
+  - WASM ALS → `"Agda 2.8.0 Language Server v6 WASM"` or `"$(squirrel)  Agda 2.8.0 Language Server v6 WASM"`
+  - Agda rows **MAY** show the existing Agda bird icon in addition to the label text
+  - ALS rows **MAY** use the existing `$(squirrel)` codicon prefix
 - **description**: `"selected"` if the Candidate is currently in use, empty otherwise
 - **detail**: depends on Candidate type:
   - Filepath → the filepath

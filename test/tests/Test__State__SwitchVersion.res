@@ -52,7 +52,7 @@ describe("State__SwitchVersion", () => {
               entry,
             )
 
-            Assert.deepStrictEqual(label, "Agda v2.6.4")
+            Assert.deepStrictEqual(label, "Agda 2.6.4")
             Assert.deepStrictEqual(errorDescription, None)
           },
         )
@@ -80,7 +80,7 @@ describe("State__SwitchVersion", () => {
               entry,
             )
 
-            Assert.deepStrictEqual(label, "$(squirrel)  ALS v4.0.0, Agda v2.6.4")
+            Assert.deepStrictEqual(label, "Agda 2.6.4 Language Server v4.0.0")
             Assert.deepStrictEqual(errorDescription, None)
           },
         )
@@ -3332,7 +3332,7 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "Agda v2.6.4")
+            Assert.strictEqual(actual.label, "Agda 2.6.4")
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "")
             | None => Assert.fail("Expected description to be set")
@@ -3358,9 +3358,9 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "Agda v2.6.4")
+            Assert.strictEqual(actual.label, "Agda 2.6.4")
             switch actual.description {
-            | Some(desc) => Assert.strictEqual(desc, "Selected")
+            | Some(desc) => Assert.strictEqual(desc, "selected")
             | None => Assert.fail("Expected description to be set")
             }
             switch actual.detail {
@@ -3401,7 +3401,7 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "$(squirrel)  ALS v1.2.3, Agda v2.6.4")
+            Assert.strictEqual(actual.label, "Agda 2.6.4 Language Server v1.2.3")
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "")
             | None => Assert.fail("Expected description to be set")
@@ -3427,10 +3427,30 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "$(squirrel)  ALS v1.2.3, Agda v2.6.4")
+            Assert.strictEqual(actual.label, "Agda 2.6.4 Language Server v1.2.3")
             switch actual.description {
-            | Some(desc) => Assert.strictEqual(desc, "Selected")
+            | Some(desc) => Assert.strictEqual(desc, "selected")
             | None => Assert.fail("Expected description to be set")
+            }
+          },
+        )
+
+        it(
+          "should show URI detail as the URI string for resource candidates",
+          () => {
+            let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
+            let itemData: State__SwitchVersion.ItemData.t = Endpoint(
+              "vscode-userdata:/global/als.wasm",
+              entry,
+              false,
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            switch actual.detail {
+            | Some(detail) => Assert.strictEqual(detail, "vscode-userdata:/global/als.wasm")
+            | None => Assert.fail("Expected detail to be set")
             }
           },
         )
