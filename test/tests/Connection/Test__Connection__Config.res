@@ -479,7 +479,7 @@ describe("Config.Connection paths", () => {
 
         // Create mock QuickPickItem representing the path selection
         let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: "Agda v2.7.0.1",
+          label: "Agda 2.7.0.1",
           description,
           detail: selectedPath,
         }

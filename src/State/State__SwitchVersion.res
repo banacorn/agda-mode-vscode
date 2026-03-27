@@ -305,6 +305,7 @@ module SwitchVersionManager = {
     self: t,
     downloadItems: array<(bool, string, string)>,
     ~downloadHeader: string="Download (channel: Hardcoded)",
+    ~platformDeps: option<Platform.t>=None,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
@@ -320,19 +321,34 @@ module SwitchVersionManager = {
     }
 
     let candidateEntries =
-      Config.Connection.getAgdaPaths()
-      ->Array.toReversed
-      ->Array.map(path => {
-        let entry = switch Memento.Endpoints.lookupCandidate(self.memento, path) {
-        | Some((_storedKey, entry)) => entry
-        | None => {
-            endpoint: inferEndpointType(path),
-            timestamp: Date.make(),
-            error: None,
+      await Promise.all(
+        Config.Connection.getAgdaPaths()
+        ->Array.toReversed
+        ->Array.map(async path => {
+          let candidate = Candidate.make(path)
+          let resolvedMetadata = switch (candidate, platformDeps) {
+          | (Candidate.Resource(uri), _) =>
+            let resolved: Candidate.Resolved.t = {original: candidate, resource: uri}
+            Memento.ResolvedMetadata.get(self.memento, resolved)
+          | (Candidate.Command(_), Some(platformDeps)) =>
+            module PlatformOps = unpack(platformDeps)
+            switch await Candidate.resolve(PlatformOps.findCommand, candidate) {
+            | Ok(resolved) => Memento.ResolvedMetadata.get(self.memento, resolved)
+            | Error(_) => None
+            }
+          | (Candidate.Command(_), None) => None
           }
-        }
-        (path, entry)
-      })
+          let entry = switch resolvedMetadata {
+          | Some(entry) => entry
+          | None => {
+              endpoint: inferEndpointType(path),
+              timestamp: Date.make(),
+              error: None,
+            }
+          }
+          (path, entry)
+        }),
+      )
 
     ItemData.entriesToItemData(
       candidateEntries,
@@ -1063,6 +1079,7 @@ module Handler = {
         manager,
         downloadItems,
         ~downloadHeader,
+        ~platformDeps=Some(platformDeps),
       )
 
       // Log selection marking for testing observability

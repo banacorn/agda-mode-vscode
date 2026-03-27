@@ -80,7 +80,7 @@ describe("State__SwitchVersion", () => {
               entry,
             )
 
-            Assert.deepStrictEqual(label, "Agda 2.6.4 Language Server v4.0.0")
+            Assert.deepStrictEqual(label, "$(squirrel)  Agda 2.6.4 Language Server v4.0.0")
             Assert.deepStrictEqual(errorDescription, None)
           },
         )
@@ -1040,7 +1040,11 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, configuredCandidates)
 
         let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          [],
+          ~platformDeps=Some(platform),
+        )
         let candidateRows =
           itemData->Array.filterMap(item =>
             switch item {
@@ -1077,7 +1081,11 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, [])
 
         let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          [],
+          ~platformDeps=Some(platform),
+        )
         let candidateRows =
           itemData->Array.filterMap(item =>
             switch item {
@@ -1089,6 +1097,92 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         Assert.deepStrictEqual(candidateRows, [])
+      },
+    )
+
+    Async.it(
+      "should use resolved metadata for bare command candidate rows",
+      async () => {
+        let platform = makeMockPlatformWithBareCommands()
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["agda"])
+
+        module PlatformOps = unpack(platform)
+        let resolved = switch await Connection__Candidate.resolve(
+          PlatformOps.findCommand,
+          Connection__Candidate.make("agda"),
+        ) {
+        | Ok(resolved) => resolved
+        | Error(_) => raise(Failure("Expected bare command candidate to resolve"))
+        }
+        await Memento.ResolvedMetadata.setVersion(
+          state.memento,
+          resolved,
+          Memento.Endpoints.Agda(Some("2.7.0.1")),
+        )
+        await Memento.Endpoints.setVersion(state.memento, "agda", Memento.Endpoints.Agda(None))
+
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          [],
+          ~platformDeps=Some(platform),
+        )
+        let candidateEntry =
+          itemData->Array.findMap(item =>
+            switch item {
+            | Endpoint("agda", entry, _) => Some(entry)
+            | _ => None
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+        Assert.deepStrictEqual(
+          candidateEntry->Option.map(entry => entry.endpoint),
+          Some(Memento.Endpoints.Agda(Some("2.7.0.1"))),
+        )
+      },
+    )
+
+    Async.it(
+      "should use resolved metadata for resource candidate rows",
+      async () => {
+        let state = createTestState()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+        let resourcePath = "vscode-userdata:/global/als.wasm"
+        let candidate = Connection__Candidate.make(resourcePath)
+        let resolved: Connection__Candidate.Resolved.t = switch candidate {
+        | Resource(uri) => {original: candidate, resource: uri}
+        | _ => raise(Failure("Expected resource candidate"))
+        }
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [resourcePath])
+        await Memento.ResolvedMetadata.setVersion(
+          state.memento,
+          resolved,
+          Memento.Endpoints.ALS(Some(("1.2.3", "2.6.4", None))),
+        )
+        await Memento.Endpoints.setVersion(state.memento, resourcePath, Memento.Endpoints.ALS(None))
+
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+        let candidateEntry =
+          itemData->Array.findMap(item =>
+            switch item {
+            | Endpoint(path, entry, _) when path == resourcePath => Some(entry)
+            | _ => None
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+        Assert.deepStrictEqual(
+          candidateEntry->Option.map(entry => entry.endpoint),
+          Some(Memento.Endpoints.ALS(Some(("1.2.3", "2.6.4", None)))),
+        )
       },
     )
 
@@ -3401,7 +3495,7 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "Agda 2.6.4 Language Server v1.2.3")
+            Assert.strictEqual(actual.label, "$(squirrel)  Agda 2.6.4 Language Server v1.2.3")
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "")
             | None => Assert.fail("Expected description to be set")
@@ -3427,7 +3521,7 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "Agda 2.6.4 Language Server v1.2.3")
+            Assert.strictEqual(actual.label, "$(squirrel)  Agda 2.6.4 Language Server v1.2.3")
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "selected")
             | None => Assert.fail("Expected description to be set")
