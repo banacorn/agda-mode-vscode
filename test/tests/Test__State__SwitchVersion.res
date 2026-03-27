@@ -285,7 +285,7 @@ describe("State__SwitchVersion", () => {
             let itemData: State__SwitchVersion.ItemData.t = Endpoint("/usr/bin/agda", entry, false)
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
-            Assert.deepStrictEqual(item.label, "Agda v2.6.4")
+            Assert.deepStrictEqual(item.label, "Agda 2.6.4")
             Assert.deepStrictEqual(item.description, Some(""))
             Assert.deepStrictEqual(item.detail, Some("/usr/bin/agda"))
           },
@@ -3464,7 +3464,7 @@ describe("State__SwitchVersion", () => {
               itemData,
               VSCode.Uri.file("/extension/path"),
             )
-            Assert.strictEqual(actual.label, "$(squirrel)  ALS v(version unknown)")
+            Assert.strictEqual(actual.label, "$(squirrel)  Agda Language Server (version unknown)")
             switch actual.description {
             | Some(desc) => Assert.strictEqual(desc, "")
             | None => Assert.fail("Expected description to be set")
@@ -3582,8 +3582,8 @@ describe("State__SwitchVersion", () => {
         it(
           "should verify other UI constants",
           () => {
-            Assert.strictEqual(State__SwitchVersion.Constants.agdaVersionPrefix, "Agda v")
-            Assert.strictEqual(State__SwitchVersion.Constants.alsWithSquirrel, "$(squirrel)  ALS v")
+            Assert.strictEqual(State__SwitchVersion.Constants.agdaVersionPrefix, "Agda ")
+            Assert.strictEqual(State__SwitchVersion.Constants.alsWithSquirrel, "$(squirrel)  Agda ")
             Assert.strictEqual(
               State__SwitchVersion.Constants.downloadedAndInstalled,
               "Downloaded and installed",

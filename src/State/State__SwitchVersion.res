@@ -2,8 +2,8 @@ module Candidate = Connection__Candidate
 
 // Constants for reused UI strings
 module Constants = {
-  let agdaVersionPrefix = "Agda v"
-  let alsWithSquirrel = "$(squirrel)  ALS v"
+  let agdaVersionPrefix = "Agda "
+  let alsWithSquirrel = "$(squirrel)  Agda "
   let downloadNativeALS = "$(cloud-download)  Download Agda Language Server (native)"
   let downloadWasmALS = "$(cloud-download)  Download Agda Language Server (WASM)"
   let selectOtherChannels = "$(tag)  Select other channels"
@@ -68,13 +68,12 @@ module ItemData = {
     | (Agda(None), _) => ("Agda (version unknown)", None)
     | (ALS(Some((alsVersion, agdaVersion, _))), _) => (
         Constants.alsWithSquirrel ++
-        alsVersion ++
-        ", " ++
-        Constants.agdaVersionPrefix ++
-        agdaVersion,
+        agdaVersion ++
+        " Language Server v" ++
+        alsVersion,
         None,
       )
-    | (ALS(None), _) => (Constants.alsWithSquirrel ++ "(version unknown)", None)
+    | (ALS(None), _) => ("$(squirrel)  Agda Language Server (version unknown)", None)
     | (Unknown, Some(error)) => ("$(error) " ++ filename, Some("Error: " ++ error))
     | (Unknown, None) => ("$(question) " ++ filename, Some("Unknown executable"))
     }
@@ -154,7 +153,7 @@ module Item = {
       | Endpoint(path, entry, isSelected) => {
           let (label, errorDescription) = ItemData.getEndpointDisplayInfo(path, entry)
           let description = switch (isSelected, errorDescription) {
-          | (true, None) => "Selected"
+          | (true, None) => "selected"
           | (false, None) => ""
           | (_, Some(error)) => error
           }
