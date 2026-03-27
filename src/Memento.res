@@ -38,6 +38,7 @@ module Module: {
     let get: (t, Connection__Candidate.Resolved.t) => option<entry>
     let setKind: (t, Connection__Candidate.Resolved.t, kind) => promise<unit>
     let setError: (t, Connection__Candidate.Resolved.t, string) => promise<unit>
+    let clearUnderDirectories: (t, array<VSCode.Uri.t>) => promise<unit>
     let clear: t => promise<unit>
   }
 
@@ -187,6 +188,45 @@ module Module: {
       }
       cache->Dict.set(resolvedKey, entry)
       await writeEntries(memento, cache)
+    }
+
+    let resourceUriFromKey = (resolvedKey: string): option<VSCode.Uri.t> =>
+      switch Js.String2.lastIndexOf(resolvedKey, " => ") {
+      | -1 => None
+      | index =>
+        let resourceKey = String.sliceToEnd(~start=index + 4, resolvedKey)
+        Some(VSCode.Uri.parse(resourceKey))
+      }
+
+    let clearUnderDirectories = async (memento: t, directories: array<VSCode.Uri.t>): unit => {
+      let nextCache =
+        entries(memento)
+        ->Dict.toArray
+        ->Array.reduce(
+          Dict.make(),
+          (cache, (resolvedKey, entry)) => {
+            let shouldRemove =
+              switch resourceUriFromKey(resolvedKey) {
+              | Some(resource) =>
+                directories->Array.some(directory => {
+                  Connection__Candidate.isUnderDirectory(
+                    Connection__Candidate.Resource(resource),
+                    directory,
+                  )
+                })
+              | None => false
+              }
+
+            if shouldRemove {
+              cache
+            } else {
+              cache->Dict.set(resolvedKey, entry)
+              cache
+            }
+          },
+        )
+
+      await writeEntries(memento, nextCache)
     }
 
     let clear = async (memento: t): unit => {

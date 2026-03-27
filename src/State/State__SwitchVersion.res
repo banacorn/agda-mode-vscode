@@ -856,6 +856,10 @@ module Handler = {
             Util.log("[ debug ] user clicked: Delete Downloads", "")
             view->View.destroy
             // Delete download directories recursively
+            let downloadDirectories =
+              downloadDirectoryNames->Array.map(dirName =>
+                VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
+              )
             let deleteDir = async dirName => {
               let uri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
               let _ = await FS.deleteRecursive(uri)
@@ -867,7 +871,7 @@ module Handler = {
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
-            await Memento.ResolvedMetadata.clear(state.memento)
+            await Memento.ResolvedMetadata.clearUnderDirectories(state.memento, downloadDirectories)
             // Remove download-managed paths from connection.paths
             let currentPaths = Config.Connection.getAgdaPaths()
             let filteredPaths = currentPaths->Array.filter(

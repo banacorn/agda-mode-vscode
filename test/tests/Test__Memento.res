@@ -135,6 +135,38 @@ describe("Memento", () => {
       Assert.deepStrictEqual(Memento.ResolvedMetadata.get(memento, resolvedA), None)
       Assert.deepStrictEqual(Memento.ResolvedMetadata.get(memento, resolvedB), None)
     })
+
+    Async.it("should clear only entries under the given directories", async () => {
+      let memento = Memento.make(None)
+      let managedDir = VSCode.Uri.file("/tmp/hardcoded-als")
+      let managedResolved = makeResolved(
+        "/tmp/hardcoded-als/als",
+        VSCode.Uri.file("/tmp/hardcoded-als/als"),
+      )
+      let keptResolved = makeResolved(
+        "/usr/local/bin/agda",
+        VSCode.Uri.file("/usr/local/bin/agda"),
+      )
+
+      await Memento.ResolvedMetadata.setKind(
+        memento,
+        managedResolved,
+        Memento.ResolvedMetadata.ALS(Native, None),
+      )
+      await Memento.ResolvedMetadata.setKind(
+        memento,
+        keptResolved,
+        Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+      )
+
+      await Memento.ResolvedMetadata.clearUnderDirectories(memento, [managedDir])
+
+      Assert.deepStrictEqual(Memento.ResolvedMetadata.get(memento, managedResolved), None)
+      Assert.deepStrictEqual(
+        Memento.ResolvedMetadata.get(memento, keptResolved)->Option.map(entry => entry.kind),
+        Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+      )
+    })
   })
 
   describe("ALSReleaseCache", () => {
