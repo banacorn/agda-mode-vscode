@@ -82,22 +82,20 @@ module ItemData = {
 
   // Convert entries to item data
   let entriesToItemData = (
-    entries: Dict.t<Memento.Endpoints.entry>,
+    entries: array<(string, Memento.Endpoints.entry)>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
     ~downloadHeader: string="Download (channel: Hardcoded)",
     ~showChannelSelector: bool=false,
   ): array<t> => {
-    // Pre-convert to array once for better performance
-    let entriesArray = entries->Dict.toArray
-    let hasEndpoints = Array.length(entriesArray) > 0
+    let hasEndpoints = Array.length(entries) > 0
 
     // Build endpoint items with selection check (candidate-aware, at most one selected)
     let endpointItems = switch pickedPath {
     | Some(picked) =>
       let pickedCandidate = Candidate.make(picked)
       let matched = ref(false)
-      entriesArray->Array.map(((path, entry)) => {
+      entries->Array.map(((path, entry)) => {
         let isSelected =
           !matched.contents && Candidate.equal(pickedCandidate, Candidate.make(path))
         if isSelected {
@@ -106,7 +104,7 @@ module ItemData = {
         Endpoint(path, entry, isSelected)
       })
     | None =>
-      entriesArray->Array.map(((path, entry)) => Endpoint(path, entry, false))
+      entries->Array.map(((path, entry)) => Endpoint(path, entry, false))
     }
 
     // Build sections efficiently without Array.flat
@@ -289,6 +287,29 @@ module SwitchVersionManager = {
     globalStorageUri: VSCode.Uri.t,
   }
 
+  // Helper function to infer endpoint type from filename
+  let inferEndpointType = (raw: string) => {
+    let baseName = switch Candidate.make(raw) {
+    | Candidate.Command(command) => command->String.toLowerCase
+    | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename->String.toLowerCase
+    }
+    // Remove common executable extensions
+    let cleanName =
+      baseName
+      ->String.replace(".exe", "")
+      ->String.replace(".cmd", "")
+      ->String.replace(".bat", "")
+      ->String.replace(".wasm", "")
+
+    if cleanName == "agda" || cleanName->String.startsWith("agda-") {
+      Memento.Endpoints.Agda(None)
+    } else if cleanName == "als" || cleanName->String.startsWith("als-") {
+      Memento.Endpoints.ALS(None)
+    } else {
+      Memento.Endpoints.Unknown
+    }
+  }
+
   let make = (state: State.t): t => {
     entries: Memento.Endpoints.entries(state.memento),
     memento: state.memento,
@@ -314,8 +335,24 @@ module SwitchVersionManager = {
       | _ => None
       }
     }
+
+    let candidateEntries =
+      Config.Connection.getAgdaPaths()
+      ->Array.toReversed
+      ->Array.map(path => {
+        let entry = switch Memento.Endpoints.lookupCandidate(self.memento, path) {
+        | Some((_storedKey, entry)) => entry
+        | None => {
+            endpoint: inferEndpointType(path),
+            timestamp: Date.make(),
+            error: None,
+          }
+        }
+        (path, entry)
+      })
+
     ItemData.entriesToItemData(
-      self.entries,
+      candidateEntries,
       pickedPath,
       downloadItems,
       ~downloadHeader,
@@ -331,29 +368,6 @@ module SwitchVersionManager = {
       self.entries = newEntries
     }
     changed
-  }
-
-  // Helper function to infer endpoint type from filename
-  let inferEndpointType = (raw: string) => {
-    let baseName = switch Candidate.make(raw) {
-    | Candidate.Command(command) => command->String.toLowerCase
-    | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename->String.toLowerCase
-    }
-    // Remove common executable extensions
-    let cleanName =
-      baseName
-      ->String.replace(".exe", "")
-      ->String.replace(".cmd", "")
-      ->String.replace(".bat", "")
-      ->String.replace(".wasm", "")
-
-    if cleanName == "agda" || cleanName->String.startsWith("agda-") {
-      Memento.Endpoints.Agda(None)
-    } else if cleanName == "als" || cleanName->String.startsWith("als-") {
-      Memento.Endpoints.ALS(None)
-    } else {
-      Memento.Endpoints.Unknown
-    }
   }
 
   // Filesystem sync (Phase 2)

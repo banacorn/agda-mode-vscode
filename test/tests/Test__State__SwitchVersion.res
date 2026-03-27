@@ -430,7 +430,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should hide Installed section when no endpoints are found",
           () => {
-            let entries = Dict.make()
+            let entries = []
             let itemData: array<
               State__SwitchVersion.ItemData.t,
             > = State__SwitchVersion.ItemData.entriesToItemData(
@@ -474,9 +474,10 @@ describe("State__SwitchVersion", () => {
         it(
           "should create items with separator when entries exist",
           () => {
-            let entries = Dict.make()
-            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
-            entries->Dict.set("/usr/bin/als", TestData.alsEntry)
+            let entries = [
+              ("/usr/bin/agda", TestData.agdaEntry),
+              ("/usr/bin/als", TestData.alsEntry),
+            ]
 
             let itemData: array<
               State__SwitchVersion.ItemData.t,
@@ -508,8 +509,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should include download section when download info is provided",
           () => {
-            let entries = Dict.make()
-            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
 
             let itemData: array<
               State__SwitchVersion.ItemData.t,
@@ -545,8 +545,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should include active channel in download section header",
           () => {
-            let entries = Dict.make()
-            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
 
             let itemData: array<
               State__SwitchVersion.ItemData.t,
@@ -571,8 +570,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should include download section header when all downloads are installed and channel selector is shown",
           () => {
-            let entries = Dict.make()
-            entries->Dict.set("/usr/bin/agda", TestData.agdaEntry)
+            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
 
             // All downloads installed → suppressManagedVariants returns empty array
             // but channel selector is still shown
@@ -780,7 +778,7 @@ describe("State__SwitchVersion", () => {
 
         let itemData: array<State__SwitchVersion.ItemData.t> =
           State__SwitchVersion.ItemData.entriesToItemData(
-            Dict.make(),
+            [],
             None,
             [(false, "ALS v1.0.0", "native")],
             ~showChannelSelector=shouldShowChannelSelector,
