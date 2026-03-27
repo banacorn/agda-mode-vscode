@@ -860,6 +860,51 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "syncWithFilesystem should register bare command config entry as Agda endpoint using the raw key",
+      async () => {
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["agda"])
+
+        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
+
+        let entry = manager.entries->Dict.get("agda")
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+        Assert.deepStrictEqual(
+          entry->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.Agda(None)),
+        )
+      },
+    )
+
+    Async.it(
+      "syncWithFilesystem should register vscode-userdata resource config entry as ALS endpoint using the raw key",
+      async () => {
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+        let path = "vscode-userdata:/global/als.wasm"
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [path])
+
+        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
+
+        let entry = manager.entries->Dict.get(path)
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+        Assert.deepStrictEqual(
+          entry->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.ALS(None)),
+        )
+      },
+    )
+
+    Async.it(
       "should hide native download variant when its managed path is present as file:// URI in connection.paths",
       async () => {
         let platform = makeMockPlatform()
@@ -2026,6 +2071,38 @@ describe("State__SwitchVersion", () => {
         Assert.deepStrictEqual(
           after->Option.map(e => e.endpoint),
           Some(Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None)))),
+        )
+      },
+    )
+
+    Async.it(
+      "should register bare command endpoint as Agda without rewriting its key",
+      async () => {
+        let state = createTestState()
+        let path = "agda"
+
+        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, path)
+
+        let entry = Memento.Endpoints.get(state.memento, path)
+        Assert.deepStrictEqual(
+          entry->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.Agda(None)),
+        )
+      },
+    )
+
+    Async.it(
+      "should register vscode-userdata wasm resource as ALS without rewriting its key",
+      async () => {
+        let state = createTestState()
+        let path = "vscode-userdata:/global/als.wasm"
+
+        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, path)
+
+        let entry = Memento.Endpoints.get(state.memento, path)
+        Assert.deepStrictEqual(
+          entry->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.ALS(None)),
         )
       },
     )

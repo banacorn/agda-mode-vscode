@@ -331,8 +331,11 @@ module SwitchVersionManager = {
   }
 
   // Helper function to infer endpoint type from filename
-  let inferEndpointType = (filename: string) => {
-    let baseName = filename->String.toLowerCase->NodeJs.Path.basename
+  let inferEndpointType = (raw: string) => {
+    let baseName = switch Candidate.make(raw) {
+    | Candidate.Command(command) => command->String.toLowerCase
+    | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename->String.toLowerCase
+    }
     // Remove common executable extensions
     let cleanName =
       baseName
@@ -358,8 +361,7 @@ module SwitchVersionManager = {
 
     // Add paths from user config
     Config.Connection.getAgdaPaths()->Array.forEach(path => {
-      let filename = NodeJs.Path.basename(path)
-      let endpoint = inferEndpointType(filename)
+      let endpoint = inferEndpointType(path)
       endpoints->Dict.set(path, endpoint)
     })
 
