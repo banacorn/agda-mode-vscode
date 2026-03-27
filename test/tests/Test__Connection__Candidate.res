@@ -186,9 +186,7 @@ describe("Connection__Candidate", () => {
           | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
       }
-
-      let platformDeps: Platform.t = module(MockPlatform)
-      switch await Candidate.resolve(platformDeps, Candidate.make("agda")) {
+      switch await Candidate.resolve(MockPlatform.findCommand, Candidate.make("agda")) {
       | Ok({original: Command("agda"), resource}) =>
         let expected = VSCode.Uri.file("/resolved/bin/agda")->VSCode.Uri.toString
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected)
@@ -209,10 +207,8 @@ describe("Connection__Candidate", () => {
         let findCommand = (_command, ~timeout as _timeout=1000) =>
           Promise.resolve(Error(Connection__Command.Error.NotFound))
       }
-
-      let platformDeps: Platform.t = module(MockPlatform)
       let candidate = Candidate.make("file:///usr/bin/agda")
-      switch (candidate, await Candidate.resolve(platformDeps, candidate)) {
+      switch (candidate, await Candidate.resolve(MockPlatform.findCommand, candidate)) {
       | (Resource(expected), Ok({original: Resource(original), resource})) =>
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected->VSCode.Uri.toString)
         Assert.deepStrictEqual(original->VSCode.Uri.toString, expected->VSCode.Uri.toString)
@@ -236,10 +232,8 @@ describe("Connection__Candidate", () => {
           Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
       }
-
-      let platformDeps: Platform.t = module(MockPlatform)
       let candidate = Candidate.make("file:///usr/bin/agda")
-      switch await Candidate.resolve(platformDeps, candidate) {
+      switch await Candidate.resolve(MockPlatform.findCommand, candidate) {
       | Ok(_) => Assert.deepStrictEqual(findCommandCalls.contents, 0)
       | Error(_) => Assert.fail("Expected Resource resolution to bypass findCommand")
       }

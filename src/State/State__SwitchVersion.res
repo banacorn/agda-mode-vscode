@@ -399,6 +399,7 @@ module SwitchVersionManager = {
     if Array.length(pathsToProbe) == 0 {
       false
     } else {
+      module PlatformOps = unpack(platformDeps)
       let probePromises = pathsToProbe->Array.map(async path => {
         let candidate = Candidate.make(path)
         switch await Connection.probeCandidate(platformDeps, candidate) {
@@ -421,7 +422,7 @@ module SwitchVersionManager = {
           Some(path)
         | Error(error) =>
           let (_, errorBody) = Connection__Error.toString(Establish(error))
-          switch await Candidate.resolve(platformDeps, candidate) {
+          switch await Candidate.resolve(PlatformOps.findCommand, candidate) {
           | Ok(resolved) =>
             await Memento.ResolvedMetadata.setError(self.memento, resolved, errorBody)
           | Error(_) => ()

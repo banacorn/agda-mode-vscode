@@ -69,7 +69,7 @@ Explicit user actions that set `PreferredCandidate`:
 ## Picker UI
 
 The Picker UI **MUST** show the following sections:
-- **Candidates** — shows all Candidates in `connection.paths`, with `PreferredCandidate` (if set) visually distinguished
+- **Candidates** — shows one row for each Candidate in `connection.paths`. The row identity comes from the Candidate itself; label/detail/status **MAY** incorporate metadata from the most recent successful resolution/probe of that Candidate. `PreferredCandidate` (if set) **MUST** be visually distinguished
 - **Download** — shows platform-appropriate download options for the selected channel, along with "Select other channel" and "Delete Downloads" options
   - A download option **MUST NOT** be shown if its Candidate is already in `connection.paths`
   - "Select other channel" **MUST** always be shown

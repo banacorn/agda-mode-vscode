@@ -142,7 +142,8 @@ module Module: Module = {
     let resource = switch URI.parse(raw) {
     | FileURI(_, resource) => resource
     }
-    {original: Candidate.Resource(resource), resource}
+    let resolved: Candidate.Resolved.t = {original: Candidate.Resource(resource), resource}
+    resolved
   }
 
   let probeResolved = async (resolved: Candidate.Resolved.t) => {
@@ -198,11 +199,12 @@ module Module: Module = {
     platformDeps: Platform.t,
     candidate: Candidate.t,
   ): result<(Candidate.Resolved.t, probeResult), Error.Establish.t> => {
-    switch await Candidate.resolve(platformDeps, candidate) {
+    module PlatformOps = unpack(platformDeps)
+    switch await Candidate.resolve(PlatformOps.findCommand, candidate) {
     | Ok(resolved) =>
       let source = switch resolved.original {
-      | Candidate.Command(command) => FromCommandLookup(command)
-      | Candidate.Resource(_) => FromConfig
+      | Candidate.Command(command) => Error.Establish.FromCommandLookup(command)
+      | Candidate.Resource(_) => Error.Establish.FromConfig
       }
       switch await probeResolved(resolved) {
       | Ok(_, probeResult) => Ok((resolved, probeResult))
@@ -377,10 +379,11 @@ module Module: Module = {
     candidate: Candidate.t,
     source: Error.Establish.pathSource,
   ): result<t, Error.Establish.t> => {
-    switch await Candidate.resolve(platformDeps, candidate) {
+    module PlatformOps = unpack(platformDeps)
+    switch await Candidate.resolve(PlatformOps.findCommand, candidate) {
     | Ok(resolved) =>
       let resolvedSource = switch resolved.original {
-      | Candidate.Command(command) => FromCommandLookup(command)
+      | Candidate.Command(command) => Error.Establish.FromCommandLookup(command)
       | Candidate.Resource(_) => source
       }
       await tryResolved(resolved, resolvedSource)

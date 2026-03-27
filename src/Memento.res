@@ -34,8 +34,11 @@ module Module: {
     }
     let entries: t => Dict.t<entry>
     let get: (t, filepath) => option<entry>
+    let lookupCandidate: (t, filepath) => option<(filepath, entry)>
     let setVersion: (t, filepath, endpoint) => promise<unit>
     let setError: (t, filepath, string) => promise<unit>
+    let setVersionForCandidate: (t, filepath, endpoint) => promise<unit>
+    let setErrorForCandidate: (t, filepath, string) => promise<unit>
     let syncWithPaths: (t, Dict.t<endpoint>) => promise<unit>
     let clear: t => promise<unit>
   }
@@ -122,6 +125,7 @@ module Module: {
     module Candidate = Connection__Candidate
 
     type candidateKey = string // raw candidate string provided by the user or discovered at runtime
+    type filepath = candidateKey
     // what kind of endpoint the candidate leads to?
     type endpoint =
       | Agda(option<string>) // Agda version
@@ -306,7 +310,7 @@ module Module: {
       }
 
     let get = (memento: t, resolved: Resolved.t): option<Endpoints.entry> => {
-      let cache = memento->getWithDefault(key, Dict.make())
+      let cache: Dict.t<Endpoints.entry> = memento->getWithDefault(key, Dict.make())
       cache->Dict.get(Resolved.toString(resolved))
     }
 
@@ -315,14 +319,14 @@ module Module: {
       resolved: Resolved.t,
       endpoint: Endpoints.endpoint,
     ): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
+      let cache: Dict.t<Endpoints.entry> = memento->getWithDefault(key, Dict.make())
       let entry: Endpoints.entry = {endpoint, timestamp: Date.make(), error: None}
       cache->Dict.set(Resolved.toString(resolved), entry)
       await memento->set(key, cache)
     }
 
     let setError = async (memento: t, resolved: Resolved.t, error: string): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
+      let cache: Dict.t<Endpoints.entry> = memento->getWithDefault(key, Dict.make())
       let resolvedKey = Resolved.toString(resolved)
       let existingEndpoint = switch cache->Dict.get(resolvedKey) {
       | Some(existingEntry) => existingEntry.endpoint

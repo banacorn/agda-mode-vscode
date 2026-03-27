@@ -1,10 +1,12 @@
-type t =
+type candidate =
   | Command(string)
   | Resource(VSCode.Uri.t)
 
+type t = candidate
+
 module Resolved = {
   type t = {
-    original: Candidate.t,
+    original: candidate,
     resource: VSCode.Uri.t,
   }
 
@@ -97,20 +99,23 @@ let isUnderDirectory = (candidate: t, directory: VSCode.Uri.t): bool =>
     }
   }
 
-let resolve = async (platformDeps: Platform.t, candidate: t): result<
-  Resolved.t,
-  Connection__Command.Error.t,
-> => {
-  module PlatformOps = unpack(platformDeps)
+let resolve: (
+  (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>,
+  t,
+) => promise<result<Resolved.t, Connection__Command.Error.t>> = async (findCommand, candidate) => {
   switch candidate {
   | Command(command) =>
-    switch await PlatformOps.findCommand(command) {
+    switch await findCommand(command) {
     | Ok(path) =>
       switch Connection__URI.parse(path) {
-      | FileURI(_, uri) => Ok({original: candidate, resource: uri})
+      | FileURI(_, uri) =>
+        let resolved: Resolved.t = {original: candidate, resource: uri}
+        Ok(resolved)
       }
     | Error(error) => Error(error)
     }
-  | Resource(uri) => Ok({original: candidate, resource: uri})
+  | Resource(uri) =>
+    let resolved: Resolved.t = {original: candidate, resource: uri}
+    Ok(resolved)
   }
 }

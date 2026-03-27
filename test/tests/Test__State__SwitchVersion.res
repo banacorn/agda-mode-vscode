@@ -874,6 +874,81 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "candidate rows should equal reversed connection.paths after filesystem sync",
+      async () => {
+        module MockPlatform = {
+          include Mock.Platform.Basic
+
+          let findCommand = (command, ~timeout as _timeout=1000) =>
+            switch command {
+            | "agda" => Promise.resolve(Ok("/opt/discovered/agda"))
+            | "als" => Promise.resolve(Ok("/opt/discovered/als"))
+            | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+        }
+
+        let platform: Platform.t = module(MockPlatform)
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+        let configuredCandidates = ["/custom/agda", "vscode-userdata:/global/als.wasm"]
+
+        await Config.Connection.setAgdaPaths(state.channels.log, configuredCandidates)
+
+        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+        let candidateRows =
+          itemData->Array.filterMap(item =>
+            switch item {
+            | Endpoint(path, _, _) => Some(path)
+            | _ => None
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+        Assert.deepStrictEqual(candidateRows, configuredCandidates->Array.toReversed)
+      },
+    )
+
+    Async.it(
+      "candidate rows should be empty when connection.paths is empty",
+      async () => {
+        module MockPlatform = {
+          include Mock.Platform.Basic
+
+          let findCommand = (command, ~timeout as _timeout=1000) =>
+            switch command {
+            | "agda" => Promise.resolve(Ok("/opt/discovered/agda"))
+            | "als" => Promise.resolve(Ok("/opt/discovered/als"))
+            | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+        }
+
+        let platform: Platform.t = module(MockPlatform)
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [])
+
+        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+        let candidateRows =
+          itemData->Array.filterMap(item =>
+            switch item {
+            | Endpoint(path, _, _) => Some(path)
+            | _ => None
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+        Assert.deepStrictEqual(candidateRows, [])
+      },
+    )
+
+    Async.it(
       "syncWithFilesystem should register bare command config entry as Agda endpoint using the raw key",
       async () => {
         let platform = makeMockPlatform()
@@ -1593,12 +1668,13 @@ describe("State__SwitchVersion", () => {
           platform,
         )
 
+        module PlatformOps = unpack(platform)
         let resolved = switch await Connection__Candidate.resolve(
-          platform,
+          PlatformOps.findCommand,
           Connection__Candidate.make("agda"),
         ) {
         | Ok(resolved) => resolved
-        | Error(_) => Assert.fail("Expected bare command candidate to resolve")
+        | Error(_) => raise(Failure("Expected bare command candidate to resolve"))
         }
 
         Assert.deepStrictEqual(changed, true)
@@ -1623,12 +1699,13 @@ describe("State__SwitchVersion", () => {
 
         await State__SwitchVersion.switchAgdaVersion(state, "agda")
 
+        module PlatformOps = unpack(platform)
         let resolved = switch await Connection__Candidate.resolve(
-          platform,
+          PlatformOps.findCommand,
           Connection__Candidate.make("agda"),
         ) {
         | Ok(resolved) => resolved
-        | Error(_) => Assert.fail("Expected bare command selection to resolve")
+        | Error(_) => raise(Failure("Expected bare command selection to resolve"))
         }
 
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some("agda"))
