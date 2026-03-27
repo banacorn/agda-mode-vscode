@@ -278,7 +278,6 @@ module View = {
 
 module SwitchVersionManager = {
   type t = {
-    mutable entries: Dict.t<Memento.Endpoints.entry>,
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
   }
@@ -307,7 +306,6 @@ module SwitchVersionManager = {
   }
 
   let make = (state: State.t): t => {
-    entries: Memento.Endpoints.entries(state.memento),
     memento: state.memento,
     globalStorageUri: state.globalStorageUri,
   }
@@ -370,55 +368,9 @@ module SwitchVersionManager = {
     )
   }
 
-  // Update entries and return if changed
-  let refreshFromMemento = (self: t): bool => {
-    let newEntries = Memento.Endpoints.entries(self.memento)
-    let changed = newEntries !== self.entries
-    if changed {
-      self.entries = newEntries
-    }
-    changed
-  }
-
-  // Filesystem sync (Phase 2)
-  let syncWithFilesystem = async (self: t, platformDeps: Platform.t): bool => {
-    module PlatformOps = unpack(platformDeps)
-
-    let endpoints = Dict.make()
-
-    // Add paths from user config
-    Config.Connection.getAgdaPaths()->Array.forEach(path => {
-      let endpoint = inferEndpointType(path)
-      endpoints->Dict.set(path, endpoint)
-    })
-
-    // Add agda and als from PATH
-    switch await PlatformOps.findCommand("agda") {
-    | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.Agda(None))
-    | Error(_) => ()
-    }
-    switch await PlatformOps.findCommand("als") {
-    | Ok(path) => endpoints->Dict.set(path, Memento.Endpoints.ALS(None))
-    | Error(_) => ()
-    }
-
-    let discoveredEndpoints = endpoints
-
-    await Memento.Endpoints.syncWithPaths(self.memento, discoveredEndpoints)
-    refreshFromMemento(self)
-  }
-
   // Version probing (Phase 3)
   let probeVersions = async (self: t, platformDeps: Platform.t): bool => {
-    let pathsToProbe =
-      self.entries
-      ->Dict.toArray
-      ->Array.filterMap(((path, entry)) => {
-        switch entry.endpoint {
-        | Agda(None) | ALS(None) => Some(path)
-        | _ => None
-        }
-      })
+    let pathsToProbe = Config.Connection.getAgdaPaths()
 
     if Array.length(pathsToProbe) == 0 {
       false
@@ -458,12 +410,7 @@ module SwitchVersionManager = {
       let updateResults = await Promise.all(probePromises)
       let updatedPaths = updateResults->Array.filterMap(x => x)
 
-      if Array.length(updatedPaths) > 0 {
-        let _ = refreshFromMemento(self)
-        true
-      } else {
-        false
-      }
+      Array.length(updatedPaths) > 0
     }
   }
 }
@@ -770,22 +717,6 @@ module Handler = {
       Candidate.isUnderDirectory(Candidate.make(candidate), dirUri)
     })
 
-  // Unified function to handle hardcoded variant downloads (native / WASM)
-  // Register endpoint only if missing or unknown (preserve known version metadata)
-  let ensureEndpointRegistered = async (state: State.t, path: string) =>
-    switch Memento.Endpoints.lookupCandidate(state.memento, path) {
-    | None =>
-      let endpointType = SwitchVersionManager.inferEndpointType(path)
-      await Memento.Endpoints.setVersionForCandidate(state.memento, path, endpointType)
-    | Some((_existingPath, {endpoint: Unknown})) =>
-      let endpointType = SwitchVersionManager.inferEndpointType(path)
-      await Memento.Endpoints.setVersionForCandidate(state.memento, path, endpointType)
-    | Some((_existingPath, {endpoint, error: Some(_)})) =>
-      // Clear error but preserve existing endpoint type
-      await Memento.Endpoints.setVersionForCandidate(state.memento, path, endpoint)
-    | Some(_) => ()
-    }
-
   let handleDownload = async (
     state: State.t,
     platformDeps: Platform.t,
@@ -803,7 +734,6 @@ module Handler = {
       let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant, ~channel)
       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
       await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
-      await ensureEndpointRegistered(state, downloadedPath)
       VSCode.Window.showInformationMessage(
         versionString ++ " is already downloaded",
         [],
@@ -828,7 +758,6 @@ module Handler = {
       | Ok(downloadedPath) =>
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
         await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
-        await ensureEndpointRegistered(state, downloadedPath)
 
         // Optional UI refresh after successful download
         switch refreshUI {
@@ -848,7 +777,7 @@ module Handler = {
   let handleChannelSwitch = async (
     state: State.t,
     platformDeps: Platform.t,
-    manager: SwitchVersionManager.t,
+    _manager: SwitchVersionManager.t,
     selectedChannel: ref<Connection__Download.Channel.t>,
     channel: Connection__Download.Channel.t,
     updateUI,
@@ -860,7 +789,6 @@ module Handler = {
       platformDeps,
       ~channel,
     )
-    let _ = SwitchVersionManager.refreshFromMemento(manager)
     await updateUI(newDownloadItems)
   }
 
@@ -932,7 +860,6 @@ module Handler = {
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
-            await Memento.Endpoints.clear(state.memento)
             await Memento.ResolvedMetadata.clear(state.memento)
             // Remove download-managed paths from connection.paths
             let currentPaths = Config.Connection.getAgdaPaths()
@@ -966,7 +893,6 @@ module Handler = {
                     platformDeps,
                     ~channel=currentChannel,
                   )
-                  let _ = SwitchVersionManager.refreshFromMemento(manager)
                   await updateUI(newDownloadItems)
                 },
               ),
@@ -1088,20 +1014,14 @@ module Handler = {
         // Get download info
         let downloadItems = await downloadItemsPromise
 
-        // PHASE 2: Sync with filesystem (discover new paths)
-        let phase2Changed = await SwitchVersionManager.syncWithFilesystem(manager, platformDeps)
-        if phase2Changed {
-          await updateUI(downloadItems)
-        }
-
-        // PHASE 3: Probe version information
+        // Probe version information in the background.
         let phase3Changed = await SwitchVersionManager.probeVersions(manager, platformDeps)
         if phase3Changed {
           await updateUI(downloadItems)
         }
 
         // Update UI with download item even if no other changes
-        if !phase2Changed && !phase3Changed {
+        if !phase3Changed {
           await updateUI(downloadItems)
         }
       } catch {

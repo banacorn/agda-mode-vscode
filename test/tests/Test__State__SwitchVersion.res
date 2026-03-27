@@ -1002,7 +1002,6 @@ describe("State__SwitchVersion", () => {
         )
         await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
 
-        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
@@ -1020,7 +1019,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "candidate rows should equal reversed connection.paths after filesystem sync",
+      "candidate rows should equal reversed connection.paths",
       async () => {
         module MockPlatform = {
           include Mock.Platform.Basic
@@ -1041,7 +1040,6 @@ describe("State__SwitchVersion", () => {
 
         await Config.Connection.setAgdaPaths(state.channels.log, configuredCandidates)
 
-        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
           manager,
           [],
@@ -1082,7 +1080,6 @@ describe("State__SwitchVersion", () => {
 
         await Config.Connection.setAgdaPaths(state.channels.log, [])
 
-        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
           manager,
           [],
@@ -1125,8 +1122,6 @@ describe("State__SwitchVersion", () => {
           resolved,
           Memento.Endpoints.Agda(Some("2.7.0.1")),
         )
-        await Memento.Endpoints.setVersion(state.memento, "agda", Memento.Endpoints.Agda(None))
-
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
           manager,
           [],
@@ -1168,8 +1163,6 @@ describe("State__SwitchVersion", () => {
           resolved,
           Memento.Endpoints.ALS(Some(("1.2.3", "2.6.4", None))),
         )
-        await Memento.Endpoints.setVersion(state.memento, resourcePath, Memento.Endpoints.ALS(None))
-
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
         let candidateEntry =
           itemData->Array.findMap(item =>
@@ -1189,51 +1182,6 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "syncWithFilesystem should register bare command config entry as Agda endpoint using the raw key",
-      async () => {
-        let platform = makeMockPlatform()
-        let state = createTestStateWithPlatform(platform)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let previousPaths = Config.Connection.getAgdaPaths()
-
-        await Config.Connection.setAgdaPaths(state.channels.log, ["agda"])
-
-        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
-
-        let entry = manager.entries->Dict.get("agda")
-        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
-
-        Assert.deepStrictEqual(
-          entry->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.Agda(None)),
-        )
-      },
-    )
-
-    Async.it(
-      "syncWithFilesystem should register vscode-userdata resource config entry as ALS endpoint using the raw key",
-      async () => {
-        let platform = makeMockPlatform()
-        let state = createTestStateWithPlatform(platform)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let previousPaths = Config.Connection.getAgdaPaths()
-        let path = "vscode-userdata:/global/als.wasm"
-
-        await Config.Connection.setAgdaPaths(state.channels.log, [path])
-
-        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
-
-        let entry = manager.entries->Dict.get(path)
-        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
-
-        Assert.deepStrictEqual(
-          entry->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.ALS(None)),
-        )
-      },
-    )
-
-    Async.it(
       "should hide native download variant when its managed path is present as file:// URI in connection.paths",
       async () => {
         let platform = makeMockPlatform()
@@ -1248,7 +1196,6 @@ describe("State__SwitchVersion", () => {
         let nativeManagedUri = VSCode.Uri.file(nativeManagedPath)->VSCode.Uri.toString
         await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedUri])
 
-        let _ = await State__SwitchVersion.SwitchVersionManager.syncWithFilesystem(manager, platform)
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
@@ -1720,11 +1667,6 @@ describe("State__SwitchVersion", () => {
         await Memento.PickedConnection.set(state.memento, None)
         await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
-        // SIMULATE: Discovered endpoints (as if filesystem sync already found them)
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-
         // SIMULATE: Active connection (Command.Load established connection)
         // Create a mock connection that matches one of the discovered endpoints
         let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
@@ -1779,14 +1721,6 @@ describe("State__SwitchVersion", () => {
           },
         )
 
-        // SIMULATE: Multiple discovered endpoints
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-        discoveredEndpoints->Dict.set(
-          "/opt/homebrew/bin/agda",
-          Memento.Endpoints.Agda(Some("2.6.3")),
-        )
-        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
         await Config.Connection.setAgdaPaths(
           state.channels.log,
           ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
@@ -1848,16 +1782,17 @@ describe("State__SwitchVersion", () => {
               },
           )
 
-          let discoveredEndpoints = Dict.make()
-          discoveredEndpoints->Dict.set("agda", Memento.Endpoints.Agda(None))
-          discoveredEndpoints->Dict.set("als", Memento.Endpoints.ALS(None))
-          await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-
           let selectedItem = makePickerItem(
             state,
             Endpoint(
               selectedPath,
-              Memento.Endpoints.get(state.memento, selectedPath)->Option.getExn,
+              {
+                endpoint: selectedPath == "agda"
+                  ? Memento.Endpoints.Agda(None)
+                  : Memento.Endpoints.ALS(None),
+                timestamp: Date.make(),
+                error: None,
+              },
               false,
             ),
           )
@@ -1891,9 +1826,6 @@ describe("State__SwitchVersion", () => {
         let platform = makeMockPlatformWithBareCommands()
         let state = createTestStateWithPlatform(platform)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-
-        await Memento.Endpoints.setVersion(state.memento, "agda", Memento.Endpoints.Agda(None))
-        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
         let changed = await State__SwitchVersion.SwitchVersionManager.probeVersions(
           manager,
@@ -1959,18 +1891,6 @@ describe("State__SwitchVersion", () => {
         let fsPath = "/tmp/hardcoded-als/als.wasm"
         let uriPath = "file:///tmp/hardcoded-als/als.wasm"
 
-        await Memento.Endpoints.setVersion(
-          state.memento,
-          fsPath,
-          Memento.Endpoints.ALS(None),
-        )
-        await Memento.Endpoints.setVersion(
-          state.memento,
-          uriPath,
-          Memento.Endpoints.ALS(None),
-        )
-        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
-
         await Memento.PickedConnection.set(state.memento, Some(uriPath))
 
         let sawSelectedEndpoint = ref(false)
@@ -1987,7 +1907,7 @@ describe("State__SwitchVersion", () => {
           state,
           Endpoint(
             fsPath,
-            Memento.Endpoints.get(state.memento, fsPath)->Option.getExn,
+            {endpoint: Memento.Endpoints.ALS(None), timestamp: Date.make(), error: None},
             false,
           ),
         )
@@ -2019,14 +1939,6 @@ describe("State__SwitchVersion", () => {
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let fsPath = mockAgda.contents
-        let uriPath = VSCode.Uri.file(fsPath)->VSCode.Uri.toString
-
-        await Memento.Endpoints.setVersion(
-          state.memento,
-          uriPath,
-          Memento.Endpoints.Agda(Some("2.7.0.1")),
-        )
-        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
         await Memento.PickedConnection.set(state.memento, None)
 
         let onSelectionCompleted = Log.on(
@@ -2042,7 +1954,11 @@ describe("State__SwitchVersion", () => {
           state,
           Endpoint(
             fsPath,
-            Memento.Endpoints.get(state.memento, uriPath)->Option.getExn,
+            {
+              endpoint: Memento.Endpoints.Agda(Some("2.7.0.1")),
+              timestamp: Date.make(),
+              error: None,
+            },
             false,
           ),
         )
@@ -2062,7 +1978,6 @@ describe("State__SwitchVersion", () => {
         view->State__SwitchVersion.View.destroy
 
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(fsPath))
-        Assert.ok(Memento.Endpoints.get(state.memento, uriPath)->Option.isSome)
       },
     )
 
@@ -2269,10 +2184,6 @@ describe("State__SwitchVersion", () => {
           },
         )
 
-        // SIMULATE: Basic endpoint setup
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
         await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
         // SIMULATE: No picked connection (fresh state)
@@ -2347,11 +2258,6 @@ describe("State__SwitchVersion", () => {
           let state = createTestState()
           let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-          let discoveredEndpoints = Dict.make()
-          discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-          discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))
-          await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-
           await Memento.PickedConnection.set(state.memento, initialPicked)
 
           let activePath = "/opt/homebrew/bin/agda"
@@ -2378,8 +2284,6 @@ describe("State__SwitchVersion", () => {
             versionString,
             ~refreshUI=None,
           )
-
-          let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
           let pickedAfter = Memento.PickedConnection.get(state.memento)
           // Manual UI download should set PreferredCandidate
@@ -2438,11 +2342,6 @@ describe("State__SwitchVersion", () => {
           let expectedDownloadPath =
             State__SwitchVersion.Download.expectedPathForVariant(state.globalStorageUri, selectedVariant)
 
-          let discoveredEndpoints = Dict.make()
-          discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-          discoveredEndpoints->Dict.set("/opt/homebrew/bin/agda", Memento.Endpoints.Agda(Some("2.6.3")))
-          await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-
           let previouslyPicked = Some("/usr/bin/agda")
           await Memento.PickedConnection.set(state.memento, previouslyPicked)
           let activePath = "/opt/homebrew/bin/agda"
@@ -2493,8 +2392,6 @@ describe("State__SwitchVersion", () => {
 
           await onOperationComplete
 
-          let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
-
           // Manual UI download should set PreferredCandidate
           Assert.deepStrictEqual(
             Memento.PickedConnection.get(state.memento),
@@ -2530,103 +2427,6 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should clear error without dropping version metadata when re-downloading",
-      async () => {
-        let state = createTestState()
-        let path = "/usr/local/bin/als"
-
-        // Set up an endpoint with known version AND an error
-        await Memento.Endpoints.setVersion(
-          state.memento,
-          path,
-          Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None))),
-        )
-        await Memento.Endpoints.setError(state.memento, path, "connection timed out")
-
-        // Verify precondition: entry has both version and error
-        let before = Memento.Endpoints.get(state.memento, path)
-        Assert.deepStrictEqual(
-          before->Option.map(e => e.error),
-          Some(Some("connection timed out")),
-        )
-        Assert.deepStrictEqual(
-          before->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None)))),
-        )
-
-        // ensureEndpointRegistered should clear error but preserve version
-        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, path)
-
-        let after = Memento.Endpoints.get(state.memento, path)
-        // Error MUST be cleared
-        Assert.deepStrictEqual(
-          after->Option.map(e => e.error),
-          Some(None),
-        )
-        // Version metadata MUST be preserved
-        Assert.deepStrictEqual(
-          after->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.ALS(Some(("0.2.10", "2.7.0.1", None)))),
-        )
-      },
-    )
-
-    Async.it(
-      "should register bare command endpoint as Agda without rewriting its key",
-      async () => {
-        let state = createTestState()
-        let path = "agda"
-
-        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, path)
-
-        let entry = Memento.Endpoints.get(state.memento, path)
-        Assert.deepStrictEqual(
-          entry->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.Agda(None)),
-        )
-      },
-    )
-
-    Async.it(
-      "should register vscode-userdata wasm resource as ALS without rewriting its key",
-      async () => {
-        let state = createTestState()
-        let path = "vscode-userdata:/global/als.wasm"
-
-        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, path)
-
-        let entry = Memento.Endpoints.get(state.memento, path)
-        Assert.deepStrictEqual(
-          entry->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.ALS(None)),
-        )
-      },
-    )
-
-    Async.it(
-      "should reuse existing alias-equivalent endpoint key when registering",
-      async () => {
-        let state = createTestState()
-        let fsPath = mockAgda.contents
-        let uriPath = VSCode.Uri.file(fsPath)->VSCode.Uri.toString
-
-        await Memento.Endpoints.setVersion(
-          state.memento,
-          uriPath,
-          Memento.Endpoints.Unknown,
-        )
-
-        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, fsPath)
-
-        Assert.deepStrictEqual(
-          Memento.Endpoints.get(state.memento, uriPath)->Option.map(e => e.endpoint),
-          Some(Memento.Endpoints.Agda(None)),
-        )
-        Assert.deepStrictEqual(Memento.Endpoints.get(state.memento, fsPath), None)
-      },
-    )
-
-    Async.it(
       "should mark at most one endpoint selected when URI and fsPath aliases coexist",
       async () => {
         let state = createTestState()
@@ -2651,8 +2451,6 @@ describe("State__SwitchVersion", () => {
         // Set PickedConnection to the URI form
         await Memento.PickedConnection.set(state.memento, Some(uriPath))
         await Config.Connection.setAgdaPaths(state.channels.log, [fsPath])
-
-        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
           manager,
@@ -2704,19 +2502,6 @@ describe("State__SwitchVersion", () => {
           },
         )
 
-        // SIMULATE: Multiple discovered endpoints at different paths
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
-        discoveredEndpoints->Dict.set(
-          "/opt/homebrew/bin/agda",
-          Memento.Endpoints.Agda(Some("2.6.3")),
-        )
-        discoveredEndpoints->Dict.set("/usr/local/bin/agda", Memento.Endpoints.Agda(Some("2.6.2")))
-        discoveredEndpoints->Dict.set(
-          "/usr/bin/als",
-          Memento.Endpoints.ALS(Some(("4.0.0", "2.6.4", None))),
-        )
-        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
         await Config.Connection.setAgdaPaths(
           state.channels.log,
           ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/local/bin/agda", "/usr/bin/als"],
