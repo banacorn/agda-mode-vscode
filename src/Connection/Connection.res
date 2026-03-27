@@ -2,6 +2,7 @@ module Error = Connection__Error
 module Agda = Connection__Endpoint__Agda
 module ALS = Connection__Endpoint__ALS
 module URI = Connection__URI
+module Candidate = Connection__Candidate
 
 module type Module = {
   type agdaVersion = string // Agda version
@@ -310,24 +311,38 @@ module Module: Module = {
   }
 
   // Decide whether a raw config entry is a command or a filesystem path/URI.
-  let isCommand = raw => {
-    let command = raw->String.trim
-    if command == "" {
-      false
-    } else {
-      let hasWhitespace = switch String.match(command, %re("/\\s/")) {
-      | Some(_) => true
-      | None => false
-      }
-      let hasScheme = switch String.match(command, %re("/^[a-zA-Z][a-zA-Z0-9+.-]*:/")) {
-      | Some(_) => true
-      | None => false
-      }
-      let hasSeparator = String.includes(command, "/") || String.includes(command, "\\")
-      let startsLikePath = String.startsWith(command, ".") || String.startsWith(command, "~")
-      let isAbsolute = NodeJs.Path.isAbsolute(command)
+  let isCommand = raw =>
+    switch Candidate.make(raw) {
+    | Candidate.Command(_) => true
+    | Candidate.Resource(_) => false
+    }
 
-      !(hasWhitespace || hasScheme || hasSeparator || startsLikePath || isAbsolute)
+  let tryResolved = async (
+    resolved: Candidate.Resolved.t,
+    source: Error.Establish.pathSource,
+  ): result<t, Error.Establish.t> => {
+    let {resource} = resolved
+    await make(resource->VSCode.Uri.toString, source)
+  }
+
+  let tryCandidate = async (
+    platformDeps: Platform.t,
+    candidate: Candidate.t,
+    source: Error.Establish.pathSource,
+  ): result<t, Error.Establish.t> => {
+    switch candidate {
+    | Candidate.Command(command) =>
+      switch await Candidate.resolve(platformDeps, candidate) {
+      | Ok(resolved) => await tryResolved(resolved, FromCommandLookup(command))
+      | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
+      }
+    | Candidate.Resource(_) =>
+      switch await Candidate.resolve(platformDeps, candidate) {
+      | Ok(resolved) => await tryResolved(resolved, source)
+      | Error(_commandError) =>
+        // Resources do not require command lookup; this branch should be unreachable.
+        await make(Candidate.toString(candidate), source)
+      }
     }
   }
 
@@ -336,23 +351,10 @@ module Module: Module = {
     platformDeps: Platform.t,
     entries: array<(string, Error.Establish.pathSource)>,
   ): result<t, Error.Establish.t> => {
-    module PlatformOps = unpack(platformDeps)
-
-    let fromPath = async (path, source) => await make(path, source)
-    let fromCommand = async (command): result<t, Error.Establish.t> => {
-      switch await PlatformOps.findCommand(command) {
-      | Ok(rawPath) => await make(rawPath, FromCommandLookup(command))
-      | Error(commandError) => Error(Error.Establish.fromCommandError(command, commandError))
-      }
-    }
-
-    let tasks = entries->Array.map(((raw, source)) => () =>
-      if isCommand(raw) {
-        fromCommand(raw)
-      } else {
-        fromPath(raw, source)
-      }
-    )
+    let tasks = entries->Array.map(((raw, source)) => {
+      let candidate = Candidate.make(raw)
+      () => tryCandidate(platformDeps, candidate, source)
+    })
 
     switch await tryUntilSuccess(tasks) {
     | Ok(connection) => Ok(connection)

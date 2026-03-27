@@ -1226,6 +1226,28 @@ describe("Connection", () => {
       )
 
       Async.it(
+        "should preserve FromConfig as probe source for resource candidates",
+        async () => {
+          let platformDeps = Mock.Platform.makeBasic()
+          let path = "/definitely/not/a/real/agda"
+          let result = await Connection.fromPathsOrCommands(
+            platformDeps,
+            [(path, Connection.Error.Establish.FromConfig)],
+          )
+
+          switch result {
+          | Ok(_) => Assert.fail("Expected error with invalid resource candidate")
+          | Error(errors) =>
+            switch errors.probes->Dict.get(path) {
+            | Some((_, source)) =>
+              Assert.deepStrictEqual(source, Connection.Error.Establish.FromConfig)
+            | None => Assert.fail("Expected probe error entry for invalid resource candidate")
+            }
+          }
+        },
+      )
+
+      Async.it(
         "should return empty error when no paths provided",
         async () => {
           let platformDeps = Mock.Platform.makeBasic()
@@ -1334,6 +1356,44 @@ describe("Connection", () => {
               errors.download,
               Connection__Error.Establish.NotAttempted,
             )
+          }
+        },
+      )
+
+      Async.it(
+        "should rewrite command candidate source to FromCommandLookup when resolved command fails to connect",
+        async () => {
+          module MockPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
+              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            let download = (_globalStorageUri, _downloadDescriptor) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let findCommand = (command, ~timeout as _timeout=1000) =>
+              switch command {
+              | "agda" => Promise.resolve(Ok("/definitely/not/a/real/agda"))
+              | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+              }
+          }
+          let platformDeps: Platform.t = module(MockPlatform)
+          let result = await Connection.fromPathsOrCommands(
+            platformDeps,
+            [("agda", Connection.Error.Establish.FromConfig)],
+          )
+
+          switch result {
+          | Ok(_) => Assert.fail("Expected error when resolved agda path cannot be probed")
+          | Error(errors) =>
+            switch errors.probes->Dict.get("/definitely/not/a/real/agda") {
+            | Some((_, source)) =>
+              Assert.deepStrictEqual(
+                source,
+                Connection.Error.Establish.FromCommandLookup("agda"),
+              )
+            | None => Assert.fail("Expected probe error for resolved agda path")
+            }
           }
         },
       )
