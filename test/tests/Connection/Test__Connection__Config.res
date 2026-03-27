@@ -316,6 +316,18 @@ describe("Config.Connection paths", () => {
     )
 
     Async.it(
+      "addAgdaPath should not add semantically duplicate candidate",
+      async () => {
+        let initialPaths = ["/usr/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, initialPaths)
+
+        await Config.Connection.addAgdaPath(logChannel, "file:///usr/bin/agda")
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda"])
+      },
+    )
+
+    Async.it(
       "setAgdaPaths should deduplicate paths",
       async () => {
         let pathsWithDuplicates = ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/bin/agda"]
@@ -326,6 +338,16 @@ describe("Config.Connection paths", () => {
           Config.Connection.getAgdaPaths(),
           ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
         )
+      },
+    )
+
+    Async.it(
+      "setAgdaPaths should deduplicate semantically equal candidates while preserving first raw spelling",
+      async () => {
+        let pathsWithDuplicates = ["/usr/bin/agda", "file:///usr/bin/agda", "agda", "agda"]
+        await Config.Connection.setAgdaPaths(logChannel, pathsWithDuplicates)
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda", "agda"])
       },
     )
 

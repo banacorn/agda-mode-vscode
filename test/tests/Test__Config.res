@@ -93,6 +93,26 @@ describe("Config", () => {
             )
           },
         )
+
+        it(
+          "`parseAgdaPaths` should deduplicate semantically equal candidates while preserving first raw spelling",
+          () => {
+            Assert.deepStrictEqual(
+              Config.Connection.parseAgdaPaths(
+                JSON.Array([
+                  JSON.String("/usr/bin/agda"),
+                  JSON.String("file:///usr/bin/agda"),
+                  JSON.String("agda"),
+                  JSON.String("agda"),
+                ]),
+              ),
+              [
+                "/usr/bin/agda",
+                "agda",
+              ],
+            )
+          },
+        )
       },
     )
   })

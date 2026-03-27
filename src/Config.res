@@ -36,6 +36,8 @@ module DevMode = {
 }
 
 module Connection = {
+  module Candidate = Connection__Candidate
+
   // in testing mode, configs are read and written from here instead
   let agdaVersionInTestingMode = ref("agda")
   let agdaPathsInTestingMode = ref([])
@@ -64,15 +66,18 @@ module Connection = {
       ->Option.getOr("agda")
     }
 
-  // Deduplicate an array while preserving order (first occurrence wins)
-  let deduplicate = (paths: array<string>): array<string> => {
-    let seen = Dict.make()
+  // Deduplicate semantically equal candidates while preserving the first raw spelling.
+  let deduplicatePaths = (paths: array<string>): array<string> => {
+    let uniqueCandidates = paths->Array.map(Candidate.make)->Candidate.deduplicate
+    let remaining = ref(uniqueCandidates)
+
     paths->Array.filter(path => {
-      if seen->Dict.get(path)->Option.isSome {
-        false
-      } else {
-        seen->Dict.set(path, true)
+      let current = Candidate.make(path)
+      switch remaining.contents[0] {
+      | Some(next) if Candidate.equal(current, next) =>
+        remaining := remaining.contents->Array.sliceToEnd(~start=1)
         true
+      | _ => false
       }
     })
   }
@@ -89,7 +94,7 @@ module Connection = {
       )
     | _ => []
     }
-    rawPaths->deduplicate
+    rawPaths->deduplicatePaths
   }
 
   let getAgdaPaths = () =>
@@ -106,7 +111,8 @@ module Connection = {
   // no-op if it's already in the list
   let addAgdaPath = (logChannel: Chan.t<Log.t>, path: string) => {
     let paths = getAgdaPaths()
-    let alreadyExists = paths->Array.includes(path)
+    let candidate = Candidate.make(path)
+    let alreadyExists = paths->Array.some(existing => Candidate.equal(Candidate.make(existing), candidate))
 
     if alreadyExists {
       Promise.resolve()
@@ -127,7 +133,7 @@ module Connection = {
 
   // overwrite all Agda paths
   let setAgdaPaths = (logChannel: Chan.t<Log.t>, paths) => {
-    let dedupedPaths = paths->deduplicate
+    let dedupedPaths = paths->deduplicatePaths
     if inTestingMode.contents {
       logChannel->Chan.emit(Log.Config(Changed(agdaPathsInTestingMode.contents, dedupedPaths)))
       agdaPathsInTestingMode := dedupedPaths
