@@ -6,7 +6,7 @@ module SwitchVersion = {
     | SelectedDownloadAction(bool, string) // downloaded, versionString
     | SelectedOpenFolder(string)
     | SelectedNoInstallations
-    | UpdatedEndpoints(array<(string, Memento.ResolvedMetadata.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
+    | UpdatedEndpoints(array<(string, Memento.ResolvedMetadata.kind, option<string>, bool)>) // array of (path, kind, optional error, isSelected)
     | SelectionCompleted // when onSelection handler has completed all async operations
     | Others(string)
 
@@ -17,7 +17,7 @@ module SwitchVersion = {
       "Endpoint: " ++
       path ++
       ", " ++
-      Memento.ResolvedMetadata.endpointToString(entry.endpoint) ++ if isSelected {
+      Memento.ResolvedMetadata.kindToString(entry.kind) ++ if isSelected {
         ", selected"
       } else {
         ""
@@ -33,10 +33,10 @@ module SwitchVersion = {
     | UpdatedEndpoints(entries) =>
       "UpdatedEndpoints: " ++
       entries
-      ->Array.map(((path, endpoint, error, isSelected)) =>
+      ->Array.map(((path, kind, error, isSelected)) =>
         path ++
         ": " ++
-        switch endpoint {
+        switch kind {
         | Agda(Some(version)) => "Agda(" ++ version ++ ")"
         | Agda(None) => "Agda(None)"
         | ALS(Some(alsVersion, agdaVersion, _)) =>

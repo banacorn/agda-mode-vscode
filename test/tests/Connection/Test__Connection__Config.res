@@ -475,7 +475,7 @@ describe("Config.Connection paths", () => {
           State__SwitchVersion.ItemData.Endpoint(
             selectedPath,
             {
-              endpoint: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+              kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
               timestamp: Date.make(),
               error: None,
             },

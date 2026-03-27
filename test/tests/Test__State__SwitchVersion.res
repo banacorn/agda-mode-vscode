@@ -4,11 +4,11 @@ open State__SwitchVersion.ItemData
 module TestData = {
   // Mock endpoint entries for testing
   let createMockEntry = (
-    endpoint: Memento.ResolvedMetadata.endpoint,
+    kind: Memento.ResolvedMetadata.kind,
     ~error: option<string>=?,
     (),
   ): Memento.ResolvedMetadata.entry => {
-    endpoint,
+    kind,
     timestamp: Date.make(),
     error,
   }
@@ -1117,7 +1117,7 @@ describe("State__SwitchVersion", () => {
         | Ok(resolved) => resolved
         | Error(_) => raise(Failure("Expected bare command candidate to resolve"))
         }
-        await Memento.ResolvedMetadata.setVersion(
+        await Memento.ResolvedMetadata.setKind(
           state.memento,
           resolved,
           Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
@@ -1138,7 +1138,7 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         Assert.deepStrictEqual(
-          candidateEntry->Option.map(entry => entry.endpoint),
+          candidateEntry->Option.map(entry => entry.kind),
           Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
         )
       },
@@ -1158,7 +1158,7 @@ describe("State__SwitchVersion", () => {
         }
 
         await Config.Connection.setAgdaPaths(state.channels.log, [resourcePath])
-        await Memento.ResolvedMetadata.setVersion(
+        await Memento.ResolvedMetadata.setKind(
           state.memento,
           resolved,
           Memento.ResolvedMetadata.ALS(Some(("1.2.3", "2.6.4", None))),
@@ -1175,7 +1175,7 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         Assert.deepStrictEqual(
-          candidateEntry->Option.map(entry => entry.endpoint),
+          candidateEntry->Option.map(entry => entry.kind),
           Some(Memento.ResolvedMetadata.ALS(Some(("1.2.3", "2.6.4", None)))),
         )
       },
@@ -1787,7 +1787,7 @@ describe("State__SwitchVersion", () => {
             Endpoint(
               selectedPath,
               {
-                endpoint: selectedPath == "agda"
+                kind: selectedPath == "agda"
                   ? Memento.ResolvedMetadata.Agda(None)
                   : Memento.ResolvedMetadata.ALS(None),
                 timestamp: Date.make(),
@@ -1844,7 +1844,7 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(changed, true)
         Assert.deepStrictEqual(
-          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.endpoint),
+          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.kind),
           Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
         )
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -1872,7 +1872,7 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some("agda"))
         Assert.deepStrictEqual(
-          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.endpoint),
+          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.kind),
           Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
         )
 
@@ -1905,7 +1905,7 @@ describe("State__SwitchVersion", () => {
           state,
           Endpoint(
             fsPath,
-            {endpoint: Memento.ResolvedMetadata.ALS(None), timestamp: Date.make(), error: None},
+            {kind: Memento.ResolvedMetadata.ALS(None), timestamp: Date.make(), error: None},
             false,
           ),
         )
@@ -1953,7 +1953,7 @@ describe("State__SwitchVersion", () => {
           Endpoint(
             fsPath,
             {
-              endpoint: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+              kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
               timestamp: Date.make(),
               error: None,
             },

@@ -14,7 +14,7 @@ module Module: {
   let toString: t => string
 
   module ResolvedMetadata: {
-    type endpoint =
+    type kind =
       | Agda(option<string>)
       | ALS(
           option<(
@@ -24,15 +24,15 @@ module Module: {
           )>,
         )
       | Unknown
-    let endpointToString: endpoint => string
+    let kindToString: kind => string
     type entry = {
-      endpoint: endpoint,
+      kind: kind,
       timestamp: Date.t,
       error: option<string>,
     }
     let entries: t => Dict.t<entry>
     let get: (t, Connection__Candidate.Resolved.t) => option<entry>
-    let setVersion: (t, Connection__Candidate.Resolved.t, endpoint) => promise<unit>
+    let setKind: (t, Connection__Candidate.Resolved.t, kind) => promise<unit>
     let setError: (t, Connection__Candidate.Resolved.t, string) => promise<unit>
     let clear: t => promise<unit>
   }
@@ -71,16 +71,6 @@ module Module: {
     | Memento(context) => VSCode.Memento.get(context, key)
     | Mock(dict) => Obj.magic(dict->Dict.get(key))
     }
-  let getWithDefault = (context, key, defaultValue) =>
-    switch context {
-    | Memento(context) => VSCode.Memento.getWithDefault(context, key, defaultValue)
-    | Mock(dict) =>
-      switch dict->Dict.get(key) {
-      | Some(value) => Obj.magic(value)
-      | None => defaultValue
-      }
-    }
-
   let set = (context, key, value) =>
     switch context {
     | Memento(context) => VSCode.Memento.update(context, key, value)
@@ -110,7 +100,7 @@ module Module: {
   module ResolvedMetadata = {
     module Resolved = Connection__Candidate.Resolved
 
-    type endpoint =
+    type kind =
       | Agda(option<string>) // Agda version
       | ALS(
           option<(
@@ -120,8 +110,8 @@ module Module: {
           )>,
         ) // ALS version & corresponding Agda version & LSP options
       | Unknown
-    let endpointToString = endpoint =>
-      switch endpoint {
+    let kindToString = kind =>
+      switch kind {
       | Agda(Some(version)) => "Agda v" ++ version
       | Agda(None) => "Agda (version unknown)"
       | ALS(Some((alsVersion, agdaVersion, _lspOptions))) =>
@@ -131,14 +121,15 @@ module Module: {
       }
 
     type entry = {
-      endpoint: endpoint,
+      kind: kind,
       timestamp: Date.t,
       error: option<string>,
     }
 
-    let key = "resolvedMetadata"
+    let key = "resolvedCandidateMetadata"
+    let legacyKey = "resolvedMetadata"
 
-    let entries = (memento: t): Dict.t<entry> =>
+    let readEntries = (memento: t, key: string): Dict.t<entry> =>
       switch memento {
       | Memento(memento) => VSCode.Memento.getWithDefault(memento, key, Dict.make())
       | Mock(dict) =>
@@ -148,40 +139,55 @@ module Module: {
         }
       }
 
+    let writeEntries = async (memento: t, cache: Dict.t<entry>): unit => {
+      await memento->set(key, cache)
+      await memento->set(legacyKey, Dict.make())
+    }
+
+    let entries = (memento: t): Dict.t<entry> =>
+      {
+        let current = readEntries(memento, key)
+        if current->Dict.toArray->Array.length > 0 {
+          current
+        } else {
+          readEntries(memento, legacyKey)
+        }
+      }
+
     let get = (memento: t, resolved: Resolved.t): option<entry> => {
-      let cache: Dict.t<entry> = memento->getWithDefault(key, Dict.make())
+      let cache = entries(memento)
       cache->Dict.get(Resolved.toString(resolved))
     }
 
-    let setVersion = async (
+    let setKind = async (
       memento: t,
       resolved: Resolved.t,
-      endpoint: endpoint,
+      kind: kind,
     ): unit => {
-      let cache: Dict.t<entry> = memento->getWithDefault(key, Dict.make())
-      let entry: entry = {endpoint, timestamp: Date.make(), error: None}
+      let cache = entries(memento)
+      let entry: entry = {kind, timestamp: Date.make(), error: None}
       cache->Dict.set(Resolved.toString(resolved), entry)
-      await memento->set(key, cache)
+      await writeEntries(memento, cache)
     }
 
     let setError = async (memento: t, resolved: Resolved.t, error: string): unit => {
-      let cache: Dict.t<entry> = memento->getWithDefault(key, Dict.make())
+      let cache = entries(memento)
       let resolvedKey = Resolved.toString(resolved)
-      let existingEndpoint = switch cache->Dict.get(resolvedKey) {
-      | Some(existingEntry) => existingEntry.endpoint
+      let existingKind = switch cache->Dict.get(resolvedKey) {
+      | Some(existingEntry) => existingEntry.kind
       | None => Unknown
       }
       let entry: entry = {
-        endpoint: existingEndpoint,
+        kind: existingKind,
         timestamp: Date.make(),
         error: Some(error),
       }
       cache->Dict.set(resolvedKey, entry)
-      await memento->set(key, cache)
+      await writeEntries(memento, cache)
     }
 
     let clear = async (memento: t): unit => {
-      await memento->set(key, Dict.make())
+      await writeEntries(memento, Dict.make())
     }
   }
 

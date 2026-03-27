@@ -30,7 +30,7 @@ module ItemData = {
       "Endpoint: " ++
       path ++
       ", " ++
-      ResolvedMetadata.endpointToString(entry.endpoint) ++ if isSelected {
+      ResolvedMetadata.kindToString(entry.kind) ++ if isSelected {
         ", selected"
       } else {
         ""
@@ -49,8 +49,8 @@ module ItemData = {
     }
 
   // UI display logic
-  let shouldEndpointHaveIcon = (endpoint: ResolvedMetadata.endpoint): bool => {
-    switch endpoint {
+  let shouldEndpointHaveIcon = (kind: ResolvedMetadata.kind): bool => {
+    switch kind {
     | Agda(_) => true
     | _ => false
     }
@@ -64,7 +64,7 @@ module ItemData = {
     | Candidate.Command(command) => command
     | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename
     }
-    switch (entry.endpoint, entry.error) {
+    switch (entry.kind, entry.error) {
     | (Agda(Some(version)), _) => (Constants.agdaVersionPrefix ++ version, None)
     | (Agda(None), _) => ("Agda (version unknown)", None)
     | (ALS(Some((alsVersion, agdaVersion, _))), _) => (
@@ -203,7 +203,7 @@ module Item = {
       }
     | Endpoint(_, entry, _) => {
         let baseItem = createQuickPickItem(label, description, detail, itemData)
-        if ItemData.shouldEndpointHaveIcon(entry.endpoint) {
+        if ItemData.shouldEndpointHaveIcon(entry.kind) {
           {
             ...baseItem,
             iconPath: VSCode.IconPath.fromDarkAndLight({
@@ -352,7 +352,7 @@ module SwitchVersionManager = {
           let entry = switch resolvedMetadata {
           | Some(entry) => entry
           | None => {
-              endpoint: inferEndpointType(path),
+              kind: inferEndpointType(path),
               timestamp: Date.make(),
               error: None,
             }
@@ -381,21 +381,21 @@ module SwitchVersionManager = {
         let candidate = Candidate.make(path)
         switch await Connection.probeCandidate(platformDeps, candidate) {
         | Ok((resolved, IsAgda(agdaVersion))) =>
-          await Memento.ResolvedMetadata.setVersion(
+          await Memento.ResolvedMetadata.setKind(
             self.memento,
             resolved,
             Agda(Some(agdaVersion)),
           )
           Some(path)
         | Ok((resolved, IsALS(alsVersion, agdaVersion, lspOptions))) =>
-          await Memento.ResolvedMetadata.setVersion(
+          await Memento.ResolvedMetadata.setKind(
             self.memento,
             resolved,
             ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
         | Ok((resolved, IsALSWASM(_))) =>
-          await Memento.ResolvedMetadata.setVersion(self.memento, resolved, ALS(None))
+          await Memento.ResolvedMetadata.setKind(self.memento, resolved, ALS(None))
           Some(path)
         | Error(error) =>
           let (_, errorBody) = Connection__Error.toString(Establish(error))
@@ -472,14 +472,14 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     switch conn {
     | Agda(_, path, version) =>
       let resolved = resolvedFromConnectionPath(path)
-      await Memento.ResolvedMetadata.setVersion(
+      await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
         ResolvedMetadata.Agda(Some(version)),
       )
     | ALS(_, path, Some(alsVersion, agdaVersion, lspOptions)) =>
       let resolved = resolvedFromConnectionPath(path)
-      await Memento.ResolvedMetadata.setVersion(
+      await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
         ResolvedMetadata.ALS(Some(alsVersion, agdaVersion, lspOptions)),
@@ -488,7 +488,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
     | ALSWASM(_, _, path, Some(alsVersion, agdaVersion, lspOptions)) =>
       let resolved = resolvedFromConnectionPath(path)
-      await Memento.ResolvedMetadata.setVersion(
+      await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
         ResolvedMetadata.ALS(Some(alsVersion, agdaVersion, lspOptions)),
@@ -899,7 +899,7 @@ module Handler = {
               ),
             )
           | Endpoint(selectedPath, entry, _) =>
-            Util.log("[ debug ] user selected endpoint: " ++ selectedPath, "")
+            Util.log("[ debug ] user selected kind: " ++ selectedPath, "")
             view->View.destroy
             // Regular endpoint selection - check if selection changed
             let changed = switch Memento.PickedConnection.get(manager.memento) {
@@ -965,7 +965,7 @@ module Handler = {
       // Log selection marking for testing observability
       let endpointItemDatas = itemData->Array.filterMap(item =>
         switch item {
-        | Endpoint(path, entry, isSelected) => Some(path, entry.endpoint, entry.error, isSelected)
+        | Endpoint(path, entry, isSelected) => Some(path, entry.kind, entry.error, isSelected)
         | _ => None
         }
       )
