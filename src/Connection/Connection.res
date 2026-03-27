@@ -26,7 +26,6 @@ module type Module = {
   let getPath: t => string
   let destroy: (option<t>, Chan.t<Log.t>) => promise<result<unit, Error.t>>
 
-  let isCommand: string => bool
   let fromPathsOrCommands: (
     Platform.t,
     array<(string, Error.Establish.pathSource)>,
@@ -367,20 +366,6 @@ module Module: Module = {
     await loop(xs, [])
   }
 
-  // Decide whether a raw config entry is a command or a filesystem path/URI.
-  let isCommand = raw =>
-    switch Candidate.make(raw) {
-    | Candidate.Command(_) => true
-    | Candidate.Resource(_) => false
-    }
-
-  let tryResolved = async (
-    resolved: Candidate.Resolved.t,
-    source: Error.Establish.pathSource,
-  ): result<t, Error.Establish.t> => {
-    await makeResolved(resolved, source)
-  }
-
   let tryCandidate = async (
     platformDeps: Platform.t,
     candidate: Candidate.t,
@@ -393,7 +378,7 @@ module Module: Module = {
       | Candidate.Command(command) => Error.Establish.FromCommandLookup(command)
       | Candidate.Resource(_) => source
       }
-      await tryResolved(resolved, resolvedSource)
+      await makeResolved(resolved, resolvedSource)
     | Error(commandError) =>
       switch candidate {
       | Candidate.Command(command) => Error(Error.Establish.fromCommandError(command, commandError))

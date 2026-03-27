@@ -416,21 +416,6 @@ module SwitchVersionManager = {
   }
 }
 
-// Helper function to combine `PlatformOps.determinePlatform` + `PlatformOps.resolveDownloadChannel`
-let resolveDownloadChannelWithPlatform = async (
-  platformOps: Platform.t,
-  target: Connection__Download.Channel.t,
-  memento: Memento.t,
-  globalStorageUri: VSCode.Uri.t,
-) => {
-  module PlatformOps = unpack(platformOps)
-  switch await PlatformOps.determinePlatform() {
-  | Error(_error) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-  | Ok(platform) =>
-    await PlatformOps.resolveDownloadChannel(target, true)(memento, globalStorageUri, platform)
-  }
-}
-
 // Connection switching logic
 let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
   let resolvedFromConnectionPath = (path: string): Connection__Candidate.Resolved.t => ({
@@ -440,8 +425,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     },
   })
 
-  // Skip the initial Connection.Candidate.getPicked() call since it might clear our memento
-  // Just show a generic "switching..." message
+  // Show a generic "switching..." status before probing the selected candidate.
   await State__View.Panel.displayConnectionStatus(state, None)
   await State__View.Panel.display(
     state,
@@ -559,13 +543,6 @@ module Download = {
     }
   }
 
-  let configContainsExpectedPath = (configPaths: array<string>, expectedPath: string): bool => {
-    let expectedCandidate = Candidate.make(expectedPath)
-    configPaths->Array.some(configPath =>
-      Candidate.equal(Candidate.make(configPath), expectedCandidate)
-    )
-  }
-
   let suppressManagedVariants = (
     globalStorageUri: VSCode.Uri.t,
     configPaths: array<string>,
@@ -577,7 +554,10 @@ module Download = {
       | None => true
       | Some(variant) =>
         let expectedPath = expectedPathForVariant(globalStorageUri, variant, ~channel)
-        !configContainsExpectedPath(configPaths, expectedPath)
+        let expectedCandidate = Candidate.make(expectedPath)
+        !(configPaths->Array.some(configPath =>
+            Candidate.equal(Candidate.make(configPath), expectedCandidate)
+          ))
       }
     )
 
@@ -711,12 +691,6 @@ module Download = {
 // Event handlers module for testability and debugging
 module Handler = {
   let downloadDirectoryNames = ["hardcoded-als", "latest-als", "dev-als", "dev-wasm-als"]
-
-  let isCandidateUnderDownloadDirectory = (globalStorageUri: VSCode.Uri.t, candidate: string): bool =>
-    downloadDirectoryNames->Array.some(dirName => {
-      let dirUri = VSCode.Uri.joinPath(globalStorageUri, [dirName])
-      Candidate.isUnderDirectory(Candidate.make(candidate), dirUri)
-    })
 
   let handleDownload = async (
     state: State.t,
@@ -865,7 +839,11 @@ module Handler = {
             // Remove download-managed paths from connection.paths
             let currentPaths = Config.Connection.getAgdaPaths()
             let filteredPaths = currentPaths->Array.filter(
-              candidate => !isCandidateUnderDownloadDirectory(state.globalStorageUri, candidate),
+              candidate =>
+                !(downloadDirectoryNames->Array.some(dirName => {
+                    let dirUri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
+                    Candidate.isUnderDirectory(Candidate.make(candidate), dirUri)
+                  })),
             )
             await Config.Connection.setAgdaPaths(state.channels.log, filteredPaths)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))

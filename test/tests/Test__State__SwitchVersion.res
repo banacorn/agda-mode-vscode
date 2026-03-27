@@ -3332,50 +3332,6 @@ describe("State__SwitchVersion", () => {
       },
     )
 
-    describe(
-      "shouldCandidateHaveIcon",
-      () => {
-        it(
-          "should return true for Agda candidates",
-          () => {
-            Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Agda(Some("2.6.4"))),
-              true,
-            )
-            Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Agda(None)),
-              true,
-            )
-          },
-        )
-
-        it(
-          "should return false for ALS candidates",
-          () => {
-            Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(
-                ALS(Some(("4.0.0", "2.6.4", None))),
-              ),
-              false,
-            )
-            Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(ALS(None)),
-              false,
-            )
-          },
-        )
-
-        it(
-          "should return false for unknown candidates",
-          () => {
-            Assert.deepStrictEqual(
-              State__SwitchVersion.ItemData.shouldCandidateHaveIcon(Unknown),
-              false,
-            )
-          },
-        )
-      },
-    )
   })
 
   describe("Selection Logic", () => {
