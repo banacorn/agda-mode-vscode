@@ -282,7 +282,12 @@ describe("State__SwitchVersion", () => {
           "should create quickpick item from candidate data with correct properties",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "/usr/bin/agda",
+              "/usr/bin/agda",
+              entry,
+              false,
+            )
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             Assert.deepStrictEqual(item.label, "Agda 2.6.4")
@@ -295,7 +300,12 @@ describe("State__SwitchVersion", () => {
           "should include icon for Agda candidates",
           () => {
             let entry = TestData.agdaEntry
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "/usr/bin/agda",
+              "/usr/bin/agda",
+              entry,
+              false,
+            )
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is present for Agda
@@ -310,7 +320,12 @@ describe("State__SwitchVersion", () => {
           "should not include icon for ALS candidates",
           () => {
             let entry = TestData.alsEntry
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "/usr/bin/als",
+              "/usr/bin/als",
+              entry,
+              false,
+            )
             let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
 
             // Check that iconPath is absent for ALS
@@ -480,8 +495,8 @@ describe("State__SwitchVersion", () => {
           "should create items with separator when entries exist",
           () => {
             let entries = [
-              ("/usr/bin/agda", TestData.agdaEntry),
-              ("/usr/bin/als", TestData.alsEntry),
+              ("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry),
+              ("/usr/bin/als", "/usr/bin/als", TestData.alsEntry),
             ]
 
             let itemData: array<
@@ -519,7 +534,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should include download section when download info is provided",
           () => {
-            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
 
             let itemData: array<
               State__SwitchVersion.ItemData.t,
@@ -555,7 +570,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should include active channel in download section header",
           () => {
-            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
 
             let itemData: array<
               State__SwitchVersion.ItemData.t,
@@ -580,7 +595,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should include download section header when all downloads are installed and channel selector is shown",
           () => {
-            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
 
             // All downloads installed → suppressManagedVariants returns empty array
             // but channel selector is still shown
@@ -628,8 +643,8 @@ describe("State__SwitchVersion", () => {
           "should structure sections as Candidates then Download when candidates and downloads are present",
           () => {
             let entries = [
-              ("/usr/bin/agda", TestData.agdaEntry),
-              ("/usr/bin/als", TestData.alsEntry),
+              ("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry),
+              ("/usr/bin/als", "/usr/bin/als", TestData.alsEntry),
             ]
 
             let itemData: array<State__SwitchVersion.ItemData.t> =
@@ -643,7 +658,7 @@ describe("State__SwitchVersion", () => {
             let structure = itemData->Array.map(item =>
               switch item {
               | Separator(label) => "sep:" ++ label
-              | Candidate(_, _, _) => "candidate"
+              | Candidate(_, _, _, _) => "candidate"
               | DownloadAction(_, _, _) => "download"
               | SelectOtherChannels => "select-other-channel"
               | DeleteDownloads => "delete-downloads"
@@ -669,7 +684,7 @@ describe("State__SwitchVersion", () => {
         it(
           "should keep Select other channel and Delete Downloads inside Download when there are no download rows",
           () => {
-            let entries = [("/usr/bin/agda", TestData.agdaEntry)]
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
 
             let itemData: array<State__SwitchVersion.ItemData.t> =
               State__SwitchVersion.ItemData.entriesToItemData(
@@ -682,7 +697,7 @@ describe("State__SwitchVersion", () => {
             let structure = itemData->Array.map(item =>
               switch item {
               | Separator(label) => "sep:" ++ label
-              | Candidate(_, _, _) => "candidate"
+              | Candidate(_, _, _, _) => "candidate"
               | DownloadAction(_, _, _) => "download"
               | SelectOtherChannels => "select-other-channel"
               | DeleteDownloads => "delete-downloads"
@@ -717,7 +732,7 @@ describe("State__SwitchVersion", () => {
             let structure = itemData->Array.map(item =>
               switch item {
               | Separator(label) => "sep:" ++ label
-              | Candidate(_, _, _) => "candidate"
+              | Candidate(_, _, _, _) => "candidate"
               | DownloadAction(_, _, _) => "download"
               | SelectOtherChannels => "select-other-channel"
               | DeleteDownloads => "delete-downloads"
@@ -1048,7 +1063,7 @@ describe("State__SwitchVersion", () => {
         let candidateRows =
           itemData->Array.filterMap(item =>
             switch item {
-            | Candidate(path, _, _) => Some(path)
+            | Candidate(path, _, _, _) => Some(path)
             | _ => None
             }
           )
@@ -1088,7 +1103,7 @@ describe("State__SwitchVersion", () => {
         let candidateRows =
           itemData->Array.filterMap(item =>
             switch item {
-            | Candidate(path, _, _) => Some(path)
+            | Candidate(path, _, _, _) => Some(path)
             | _ => None
             }
           )
@@ -1130,7 +1145,7 @@ describe("State__SwitchVersion", () => {
         let candidateEntry =
           itemData->Array.findMap(item =>
             switch item {
-            | Candidate("agda", entry, _) => Some(entry)
+            | Candidate("agda", detail, entry, _) => Some((detail, entry))
             | _ => None
             }
           )
@@ -1138,8 +1153,8 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         Assert.deepStrictEqual(
-          candidateEntry->Option.map(entry => entry.kind),
-          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+          candidateEntry->Option.map(((detail, entry)) => (detail, entry.kind)),
+          Some(("agda (" ++ mockAgda.contents ++ ")", Memento.ResolvedMetadata.Agda(Some("2.7.0.1")))),
         )
       },
     )
@@ -1167,7 +1182,7 @@ describe("State__SwitchVersion", () => {
         let candidateEntry =
           itemData->Array.findMap(item =>
             switch item {
-            | Candidate(path, entry, _) when path == resourcePath => Some(entry)
+            | Candidate(path, detail, entry, _) when path == resourcePath => Some((detail, entry))
             | _ => None
             }
           )
@@ -1175,8 +1190,8 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         Assert.deepStrictEqual(
-          candidateEntry->Option.map(entry => entry.kind),
-          Some(Memento.ResolvedMetadata.ALS(Some(("1.2.3", "2.6.4", None)))),
+          candidateEntry->Option.map(((detail, entry)) => (detail, entry.kind)),
+          Some((resourcePath, Memento.ResolvedMetadata.ALS(Some(("1.2.3", "2.6.4", None))))),
         )
       },
     )
@@ -1786,6 +1801,7 @@ describe("State__SwitchVersion", () => {
             state,
             Candidate(
               selectedPath,
+              selectedPath,
               {
                 kind: selectedPath == "agda"
                   ? Memento.ResolvedMetadata.Agda(None)
@@ -1905,6 +1921,7 @@ describe("State__SwitchVersion", () => {
           state,
           Candidate(
             fsPath,
+            fsPath,
             {kind: Memento.ResolvedMetadata.ALS(None), timestamp: Date.make(), error: None},
             false,
           ),
@@ -1951,6 +1968,7 @@ describe("State__SwitchVersion", () => {
         let selectedItem = makePickerItem(
           state,
           Candidate(
+            fsPath,
             fsPath,
             {
               kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
@@ -2296,7 +2314,7 @@ describe("State__SwitchVersion", () => {
             itemData
             ->Array.filterMap(item =>
               switch item {
-              | Candidate(path, _, true) => Some(path)
+              | Candidate(path, _, _, true) => Some(path)
               | _ => None
               }
             )
@@ -2407,7 +2425,7 @@ describe("State__SwitchVersion", () => {
             itemData
             ->Array.filterMap(item =>
               switch item {
-              | Candidate(path, _, true) => Some(path)
+              | Candidate(path, _, _, true) => Some(path)
               | _ => None
               }
             )
@@ -2446,7 +2464,7 @@ describe("State__SwitchVersion", () => {
         let selectedEndpoints =
           itemData->Array.filterMap(item =>
             switch item {
-            | Candidate(_, _, true) => Some(true)
+            | Candidate(_, _, _, true) => Some(true)
             | _ => None
             }
           )
@@ -3142,7 +3160,7 @@ describe("State__SwitchVersion", () => {
           "should create Agda item for non-selected version",
           () => {
             let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", "/usr/bin/agda", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3168,7 +3186,7 @@ describe("State__SwitchVersion", () => {
           "should create Agda item for selected version",
           () => {
             let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, true)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", "/usr/bin/agda", entry, true)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3186,10 +3204,31 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
+          "should show command detail with resolved filepath for command candidates",
+          () => {
+            let entry = TestData.createMockEntry(Agda(Some("2.6.4")), ())
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "agda",
+              "agda (/usr/bin/agda)",
+              entry,
+              false,
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            switch actual.detail {
+            | Some(detail) => Assert.strictEqual(detail, "agda (/usr/bin/agda)")
+            | None => Assert.fail("Expected detail to be set")
+            }
+          },
+        )
+
+        it(
           "should create Agda item with unknown version",
           () => {
             let entry = TestData.createMockEntry(Agda(None), ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/agda", "/usr/bin/agda", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3211,7 +3250,7 @@ describe("State__SwitchVersion", () => {
           "should create ALS item for non-selected version",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", "/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3237,7 +3276,7 @@ describe("State__SwitchVersion", () => {
           "should create ALS item for selected version",
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, true)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", "/usr/bin/als", entry, true)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3255,6 +3294,7 @@ describe("State__SwitchVersion", () => {
           () => {
             let entry = TestData.createMockEntry(ALS(Some(("1.2.3", "2.6.4", None))), ())
             let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "vscode-userdata:/global/als.wasm",
               "vscode-userdata:/global/als.wasm",
               entry,
               false,
@@ -3274,7 +3314,7 @@ describe("State__SwitchVersion", () => {
           "should create ALS item with unknown version",
           () => {
             let entry = TestData.createMockEntry(ALS(None), ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/usr/bin/als", "/usr/bin/als", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3296,7 +3336,7 @@ describe("State__SwitchVersion", () => {
           "should create error item correctly",
           () => {
             let entry = TestData.createMockEntry(Unknown, ~error="Permission denied", ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/broken/path", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/broken/path", "/broken/path", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),
@@ -3317,7 +3357,7 @@ describe("State__SwitchVersion", () => {
           "should create unknown item correctly",
           () => {
             let entry = TestData.createMockEntry(Unknown, ())
-            let itemData: State__SwitchVersion.ItemData.t = Candidate("/mystery/path", entry, false)
+            let itemData: State__SwitchVersion.ItemData.t = Candidate("/mystery/path", "/mystery/path", entry, false)
             let actual = State__SwitchVersion.Item.fromItemData(
               itemData,
               VSCode.Uri.file("/extension/path"),

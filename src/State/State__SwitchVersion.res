@@ -17,7 +17,7 @@ module Constants = {
 module ItemData = {
   // UI item types
   type t =
-    | Candidate(string, ResolvedMetadata.entry, bool) // path, entry, is selected
+    | Candidate(string, string, ResolvedMetadata.entry, bool) // raw candidate, detail, entry, is selected
     | DownloadAction(bool, string, string) // downloaded, versionString, variant ("native" | "wasm")
     | SelectOtherChannels
     | DeleteDownloads // delete downloads and clear cache
@@ -26,9 +26,11 @@ module ItemData = {
 
   let toString = item =>
     switch item {
-    | Candidate(path, entry, isSelected) =>
+    | Candidate(path, detail, entry, isSelected) =>
       "Candidate: " ++
       path ++
+      " -> " ++
+      detail ++
       ", " ++
       ResolvedMetadata.kindToString(entry.kind) ++ if isSelected {
         ", selected"
@@ -82,7 +84,7 @@ module ItemData = {
 
   // Convert entries to item data
   let entriesToItemData = (
-    entries: array<(string, ResolvedMetadata.entry)>,
+    entries: array<(string, string, ResolvedMetadata.entry)>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
     ~downloadHeader: string="Download (channel: Hardcoded)",
@@ -94,16 +96,16 @@ module ItemData = {
     | Some(picked) =>
       let pickedCandidate = Candidate.make(picked)
       let matched = ref(false)
-      entries->Array.map(((path, entry)) => {
+      entries->Array.map(((path, detail, entry)) => {
         let isSelected =
           !matched.contents && Candidate.equal(pickedCandidate, Candidate.make(path))
         if isSelected {
           matched := true
         }
-        Candidate(path, entry, isSelected)
+        Candidate(path, detail, entry, isSelected)
       })
     | None =>
-      entries->Array.map(((path, entry)) => Candidate(path, entry, false))
+      entries->Array.map(((path, detail, entry)) => Candidate(path, detail, entry, false))
     }
 
     let candidateSection = if hasCandidates {
@@ -161,14 +163,14 @@ module Item = {
     // Convert item data to UI display information
     let (label, description, detail): (string, option<string>, option<string>) = {
       switch itemData {
-      | Candidate(path, entry, isSelected) => {
+      | Candidate(path, detail, entry, isSelected) => {
           let (label, errorDescription) = ItemData.getCandidateDisplayInfo(path, entry)
           let description = switch (isSelected, errorDescription) {
           | (true, None) => "selected"
           | (false, None) => ""
           | (_, Some(error)) => error
           }
-          (label, Some(description), Some(path))
+          (label, Some(description), Some(detail))
         }
       | DownloadAction(downloaded, versionString, variant) => {
           let label = switch variant {
@@ -201,7 +203,7 @@ module Item = {
         kind: VSCode.QuickPickItemKind.Separator,
         data: itemData,
       }
-    | Candidate(_, entry, _) => {
+    | Candidate(_, _, entry, _) => {
         let baseItem = createQuickPickItem(label, description, detail, itemData)
         if ItemData.shouldCandidateHaveIcon(entry.kind) {
           {
@@ -331,12 +333,32 @@ module SwitchVersionManager = {
       }
     }
 
+    let detailForCandidate = async (path: string, candidate: Candidate.t): string =>
+      switch (candidate, platformDeps) {
+      | (Candidate.Command(command), Some(platformDeps)) =>
+        module PlatformOps = unpack(platformDeps)
+        switch await Candidate.resolve(PlatformOps.findCommand, candidate) {
+        | Ok(resolved) =>
+          let resolvedPath =
+            if VSCode.Uri.scheme(resolved.resource) == "file" {
+              VSCode.Uri.fsPath(resolved.resource)
+            } else {
+              VSCode.Uri.toString(resolved.resource)
+            }
+          command ++ " (" ++ resolvedPath ++ ")"
+        | Error(_) => command
+        }
+      | (Candidate.Command(command), None) => command
+      | (Candidate.Resource(_), _) => path
+      }
+
     let candidateEntries =
       await Promise.all(
         Config.Connection.getAgdaPaths()
         ->Array.toReversed
         ->Array.map(async path => {
           let candidate = Candidate.make(path)
+          let detail = await detailForCandidate(path, candidate)
           let resolvedMetadata = switch (candidate, platformDeps) {
           | (Candidate.Resource(uri), _) =>
             let resolved: Candidate.Resolved.t = {original: candidate, resource: uri}
@@ -357,7 +379,7 @@ module SwitchVersionManager = {
               error: None,
             }
           }
-          (path, entry)
+          (path, detail, entry)
         }),
       )
 
@@ -876,7 +898,7 @@ module Handler = {
                 },
               ),
             )
-          | Candidate(selectedPath, entry, _) =>
+          | Candidate(selectedPath, _detail, entry, _) =>
             Util.log("[ debug ] user selected kind: " ++ selectedPath, "")
             view->View.destroy
             // Regular candidate selection - check if selection changed
@@ -943,7 +965,7 @@ module Handler = {
       // Log selection marking for testing observability
       let candidateItemDatas = itemData->Array.filterMap(item =>
         switch item {
-        | Candidate(path, entry, isSelected) => Some(path, entry.kind, entry.error, isSelected)
+        | Candidate(path, _, entry, isSelected) => Some(path, entry.kind, entry.error, isSelected)
         | _ => None
         }
       )

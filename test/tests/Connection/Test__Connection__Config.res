@@ -474,6 +474,7 @@ describe("Config.Connection paths", () => {
         let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
           State__SwitchVersion.ItemData.Candidate(
             selectedPath,
+            selectedPath,
             {
               kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
               timestamp: Date.make(),
