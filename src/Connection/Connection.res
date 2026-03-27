@@ -133,65 +133,76 @@ module Module: Module = {
     | IsAgda(string) // Agda version
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSWASM(VSCode.Uri.t) // ALS WASM file
-  // see if it's a Agda executable or a language server
-  let probeFilepath = async path => {
-    switch URI.parse(path) {
-    | FileURI(raw, vscodeUri) =>
-      // Check if it's a WASM file first (assume all WASM files are ALS)
-      // Use raw string for .wasm check since fsPath may mangle non-file:// schemes (e.g. vscode-userdata:)
-      if String.endsWith(raw, ".wasm") {
-        // For file:// scheme (desktop), use fsPath as the path key
-        // For other schemes (web), use the raw URI string to preserve the scheme
-        let pathKey = if VSCode.Uri.scheme(vscodeUri) == "file" {
-          VSCode.Uri.fsPath(vscodeUri)
-        } else {
-          raw
-        }
-        Ok(pathKey, IsALSWASM(vscodeUri))
+
+  let probeResolved = async (resolved: Candidate.Resolved.t) => {
+    let {resource} = resolved
+    let resourceString = resource->VSCode.Uri.toString
+    // Check if it's a WASM file first (assume all WASM files are ALS)
+    // Use URI string for .wasm check since fsPath may mangle non-file schemes (e.g. vscode-userdata:)
+    if String.endsWith(resourceString, ".wasm") {
+      // For file:// scheme (desktop), use fsPath as the path key
+      // For other schemes (web), use the URI string to preserve the scheme
+      let pathKey = if VSCode.Uri.scheme(resource) == "file" {
+        VSCode.Uri.fsPath(resource)
       } else {
-        // IMPORTANT: Convert URI to platform-specific file system path
-        // VSCode.Uri.fsPath() handles cross-platform path conversion:
-        // - On Windows: "/d/path/file" -> "d:\path\file"
-        // - On Unix: "/path/file" -> "/path/file" (unchanged)
-        // Always use fsPath (not the original path) for process spawning on Windows
-        let fsPath = VSCode.Uri.fsPath(vscodeUri)
-        let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
-        switch result {
-        | Ok(output) =>
-          // try Agda
-          switch String.match(output, %re("/Agda version (.*)/")) {
-          | Some([_, Some(version)]) => Ok(fsPath, IsAgda(version))
-          | _ =>
-            // try ALS
-            switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
-            | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
-              let lspOptions = switch await checkForPrebuiltDataDirectory(fsPath) {
-              | Some(assetPath) =>
-                let env = Dict.fromArray([("Agda_datadir", assetPath)])
-                Some({Connection__Protocol__LSP__Binding.env: env})
-              | None => None
-              }
-              Ok(fsPath, IsALS(alsVersion, agdaVersion, lspOptions))
-            | _ => Error(Error.Probe.NotAgdaOrALS(output))
+        resourceString
+      }
+      Ok(pathKey, IsALSWASM(resource))
+    } else {
+      // IMPORTANT: Convert URI to platform-specific file system path
+      // VSCode.Uri.fsPath() handles cross-platform path conversion:
+      // - On Windows: "/d/path/file" -> "d:\path\file"
+      // - On Unix: "/path/file" -> "/path/file" (unchanged)
+      // Always use fsPath (not the original path) for process spawning on Windows
+      let fsPath = VSCode.Uri.fsPath(resource)
+      let result = await Connection__Process__Exec.run(fsPath, ["--version"], ~timeout=3000)
+      switch result {
+      | Ok(output) =>
+        // try Agda
+        switch String.match(output, %re("/Agda version (.*)/")) {
+        | Some([_, Some(version)]) => Ok(fsPath, IsAgda(version))
+        | _ =>
+          // try ALS
+          switch String.match(output, %re("/Agda v(.*) Language Server v(.*)/")) {
+          | Some([_, Some(agdaVersion), Some(alsVersion)]) =>
+            let lspOptions = switch await checkForPrebuiltDataDirectory(fsPath) {
+            | Some(assetPath) =>
+              let env = Dict.fromArray([("Agda_datadir", assetPath)])
+              Some({Connection__Protocol__LSP__Binding.env: env})
+            | None => None
             }
+            Ok(fsPath, IsALS(alsVersion, agdaVersion, lspOptions))
+          | _ => Error(Error.Probe.NotAgdaOrALS(output))
           }
-        | Error(error) => Error(Error.Probe.CannotDetermineAgdaOrALS(error))
         }
+      | Error(error) => Error(Error.Probe.CannotDetermineAgdaOrALS(error))
       }
     }
   }
 
-  let make = async (rawpath: string, source: Error.Establish.pathSource): result<
+  // see if it's a Agda executable or a language server
+  let probeFilepath = async path => {
+    switch URI.parse(path) {
+    | FileURI(_, resource) =>
+      await probeResolved({original: Candidate.Resource(resource), resource})
+    }
+  }
+
+  let makeResolved = async (
+    resolved: Candidate.Resolved.t,
+    source: Error.Establish.pathSource,
+    ~pathForErrors: string=resolved.resource->VSCode.Uri.toString,
+  ): result<
     t,
     Error.Establish.t,
   > => {
-    switch await probeFilepath(rawpath) {
+    switch await probeResolved(resolved) {
     | Ok(path, IsAgda(agdaVersion)) =>
       let connection = await Agda.make(path, agdaVersion)
       Ok(Agda(connection, path, agdaVersion))
     | Ok(path, IsALS(alsVersion, agdaVersion, lspOptions)) =>
       switch await ALS.make(
-        Connection__Transport.ViaPipe(rawpath, []),
+        Connection__Transport.ViaPipe(path, []),
         lspOptions,
         InitOptions.getFromConfig(),
       ) {
@@ -285,7 +296,17 @@ module Module: Module = {
           )
         }
       }
-    | Error(error) => Error(Error.Establish.fromProbeError(rawpath, error, source))
+    | Error(error) => Error(Error.Establish.fromProbeError(pathForErrors, error, source))
+    }
+  }
+
+  let make = async (rawpath: string, source: Error.Establish.pathSource): result<
+    t,
+    Error.Establish.t,
+  > => {
+    switch URI.parse(rawpath) {
+    | FileURI(_, resource) =>
+      await makeResolved({original: Candidate.Resource(resource), resource}, source, ~pathForErrors=rawpath)
     }
   }
 
@@ -321,8 +342,7 @@ module Module: Module = {
     resolved: Candidate.Resolved.t,
     source: Error.Establish.pathSource,
   ): result<t, Error.Establish.t> => {
-    let {resource} = resolved
-    await make(resource->VSCode.Uri.toString, source)
+    await makeResolved(resolved, source)
   }
 
   let tryCandidate = async (
