@@ -1650,6 +1650,69 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should resolve alias-equivalent endpoint selection to the stored endpoint key",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let fsPath = mockAgda.contents
+        let uriPath = VSCode.Uri.file(fsPath)->VSCode.Uri.toString
+
+        await Memento.Endpoints.setVersion(
+          state.memento,
+          uriPath,
+          Memento.Endpoints.Agda(Some("2.7.0.1")),
+        )
+        let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
+        await Memento.PickedConnection.set(state.memento, None)
+
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        let selectedItemLabel = switch Memento.Endpoints.get(state.memento, uriPath) {
+        | Some(entry) =>
+          let (label, _description) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+            uriPath,
+            entry,
+          )
+          label
+        | None =>
+          Assert.fail("Expected uriPath endpoint to exist in memento")
+          ""
+        }
+
+        let selectedItem: VSCode.QuickPickItem.t = {
+          label: selectedItemLabel,
+          description: "",
+          detail: fsPath,
+        }
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await onSelectionCompleted
+        view->State__SwitchVersion.View.destroy
+
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(uriPath))
+        Assert.ok(Memento.Endpoints.get(state.memento, uriPath)->Option.isSome)
+      },
+    )
+
+    Async.it(
       "should remove download paths from connection.paths and preserve PreferredCandidate on Delete Downloads",
       async () => {
         let storagePath = NodeJs.Path.join([

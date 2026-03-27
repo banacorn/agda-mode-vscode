@@ -735,18 +735,27 @@ module Handler = {
   ): option<string> =>
     switch selectedItem.detail {
     | Some(selectedPath) =>
-      switch Memento.Endpoints.get(manager.memento, selectedPath) {
-      | Some(entry) =>
+      let matchesItemLabel = ((path, entry): (string, Memento.Endpoints.entry)) => {
         let (expectedLabel, _expectedErrorDescription) = ItemData.getEndpointDisplayInfo(
-          selectedPath,
+          path,
           entry,
         )
-        if selectedItem.label == expectedLabel {
-          Some(selectedPath)
-        } else {
-          None
-        }
-      | None => None
+        selectedItem.label == expectedLabel
+      }
+
+      switch Memento.Endpoints.get(manager.memento, selectedPath) {
+      | Some(entry) when matchesItemLabel((selectedPath, entry)) => Some(selectedPath)
+      | _ =>
+        let selectedCandidate = Candidate.make(selectedPath)
+        manager.entries
+        ->Dict.toArray
+        ->Array.findMap(((path, entry)) =>
+          if Candidate.equal(Candidate.make(path), selectedCandidate) && matchesItemLabel((path, entry)) {
+            Some(path)
+          } else {
+            None
+          }
+        )
       }
     | None => None
     }
