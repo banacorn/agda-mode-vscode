@@ -2171,6 +2171,317 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should preserve non-download ResolvedMetadata and remove download-managed ResolvedMetadata on Delete Downloads",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let downloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, downloadedPath])
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(keepPath),
+          resource: VSCode.Uri.file(keepPath),
+        }
+        let downloadedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(downloadedPath),
+          resource: VSCode.Uri.file(downloadedPath),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          downloadedResolved,
+          Memento.ResolvedMetadata.ALS(Native, Some(("1.2.3", "2.7.0.1", None))),
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, downloadedResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should preserve non-download ResolvedMetadata errors and remove download-managed ResolvedMetadata errors on Delete Downloads",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-metadata-errors-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let downloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, downloadedPath])
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(keepPath),
+          resource: VSCode.Uri.file(keepPath),
+        }
+        let downloadedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(downloadedPath),
+          resource: VSCode.Uri.file(downloadedPath),
+        }
+
+        await Memento.ResolvedMetadata.setError(state.memento, keepResolved, "keep me")
+        await Memento.ResolvedMetadata.setError(state.memento, downloadedResolved, "delete me")
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.error),
+          Some(Some("keep me")),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, downloadedResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should remove ResolvedMetadata entries under all managed download directories and preserve unrelated resources on Delete Downloads",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-managed-dirs-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepFilePath = "/usr/local/bin/agda"
+        let keepUri = VSCode.Uri.parse("vscode-userdata:/global/user-managed/als.wasm")
+
+        let hardcodedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"]),
+        }
+        let latestResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["latest-als", "als"]),
+        }
+        let devNativeResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["dev-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["dev-als", "als"]),
+        }
+        let devWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["dev-wasm-als", "als.wasm"]),
+        }
+        let keepFileResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(keepFilePath),
+          resource: VSCode.Uri.file(keepFilePath),
+        }
+        let keepUriResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(keepUri->VSCode.Uri.toString),
+          resource: keepUri,
+        }
+
+        await Memento.ResolvedMetadata.setKind(state.memento, hardcodedResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, latestResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, devNativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, devWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, keepFileResolved, Memento.ResolvedMetadata.Agda(Some("2.7.0.1")))
+        await Memento.ResolvedMetadata.setKind(state.memento, keepUriResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, hardcodedResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, latestResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, devNativeResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, devWasmResolved), None)
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepFileResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepUriResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.ALS(WASM, None)),
+        )
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should clear managed ALSReleaseCache repos and preserve unrelated repo cache on Delete Downloads",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-release-cache-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let now = Date.make()
+        await Memento.ALSReleaseCache.setTimestamp(state.memento, "agda", "agda-language-server", now)
+        await Memento.ALSReleaseCache.setReleases(state.memento, "agda", "agda-language-server", "agda-cache")
+        await Memento.ALSReleaseCache.setTimestamp(state.memento, "banacorn", "agda-language-server", now)
+        await Memento.ALSReleaseCache.setReleases(state.memento, "banacorn", "agda-language-server", "banacorn-cache")
+        await Memento.ALSReleaseCache.setTimestamp(state.memento, "other", "repo", now)
+        await Memento.ALSReleaseCache.setReleases(state.memento, "other", "repo", "other-cache")
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        let agdaReleases: option<string> = Memento.ALSReleaseCache.getReleases(
+          state.memento,
+          "agda",
+          "agda-language-server",
+        )
+        let banacornReleases: option<string> = Memento.ALSReleaseCache.getReleases(
+          state.memento,
+          "banacorn",
+          "agda-language-server",
+        )
+        let otherReleases: option<string> = Memento.ALSReleaseCache.getReleases(
+          state.memento,
+          "other",
+          "repo",
+        )
+
+        Assert.deepStrictEqual(Memento.ALSReleaseCache.getTimestamp(state.memento, "agda", "agda-language-server"), None)
+        Assert.deepStrictEqual(agdaReleases, None)
+        Assert.deepStrictEqual(Memento.ALSReleaseCache.getTimestamp(state.memento, "banacorn", "agda-language-server"), None)
+        Assert.deepStrictEqual(banacornReleases, None)
+        Assert.deepStrictEqual(Memento.ALSReleaseCache.getTimestamp(state.memento, "other", "repo")->Option.isSome, true)
+        Assert.deepStrictEqual(otherReleases, Some("other-cache"))
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
       "should handle download workflow correctly",
       async () => {
         /**
