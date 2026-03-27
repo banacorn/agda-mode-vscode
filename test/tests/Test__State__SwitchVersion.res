@@ -457,7 +457,7 @@ describe("State__SwitchVersion", () => {
 
             Assert.ok(candidatesSeparator->Option.isNone)
             Assert.ok(noInstallationsPlaceholder->Option.isNone)
-            Assert.deepStrictEqual(Array.length(itemData), 2) // Download separator + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 3) // Download separator + Select other channel + Delete downloads
 
             switch itemData[0] {
             | Some(Separator("Download (channel: Hardcoded)")) => () // Expected
@@ -465,6 +465,11 @@ describe("State__SwitchVersion", () => {
             }
 
             switch itemData[1] {
+            | Some(SelectOtherChannels) => () // Expected
+            | _ => Assert.fail("Expected SelectOtherChannels item")
+            }
+
+            switch itemData[2] {
             | Some(DeleteDownloads) => () // Expected
             | _ => Assert.fail("Expected DeleteDownloads item")
             }
@@ -487,7 +492,7 @@ describe("State__SwitchVersion", () => {
               [],
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 5) // Candidates separator + 2 endpoints + Download separator + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Candidates separator + 2 endpoints + Download separator + Select other channel + Delete downloads
 
             switch itemData[0] {
             | Some(Separator("Candidates")) => () // Expected
@@ -500,6 +505,11 @@ describe("State__SwitchVersion", () => {
             }
 
             switch itemData[4] {
+            | Some(SelectOtherChannels) => () // Expected
+            | _ => Assert.fail("Expected SelectOtherChannels item")
+            }
+
+            switch itemData[5] {
             | Some(DeleteDownloads) => () // Expected
             | _ => Assert.fail("Expected DeleteDownloads item")
             }
@@ -519,7 +529,7 @@ describe("State__SwitchVersion", () => {
               [(false, "ALS v1.0.0", "native")],
             )
 
-            Assert.deepStrictEqual(Array.length(itemData), 5) // Candidates separator + 1 item + Download separator + download item + Delete downloads
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Candidates separator + 1 item + Download separator + download item + Select other channel + Delete downloads
 
             let downloadSeparator = itemData->Array.find(
               data =>
@@ -581,7 +591,6 @@ describe("State__SwitchVersion", () => {
               None,
               [],
               ~downloadHeader="Download (channel: Hardcoded)",
-              ~showChannelSelector=true,
             )
 
             let hasDownloadSeparator = itemData->Array.some(
@@ -629,7 +638,6 @@ describe("State__SwitchVersion", () => {
                 None,
                 [(false, "ALS v1.0.0", "native")],
                 ~downloadHeader="Download",
-                ~showChannelSelector=true,
               )
 
             let structure = itemData->Array.map(item =>
@@ -669,7 +677,6 @@ describe("State__SwitchVersion", () => {
                 None,
                 [],
                 ~downloadHeader="Download",
-                ~showChannelSelector=true,
               )
 
             let structure = itemData->Array.map(item =>
@@ -705,7 +712,6 @@ describe("State__SwitchVersion", () => {
                 None,
                 [],
                 ~downloadHeader="Download",
-                ~showChannelSelector=true,
               )
 
             let structure = itemData->Array.map(item =>
@@ -892,20 +898,36 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should render channel switch item when multiple channels are available on Desktop",
+      "should render channel switch item even when only Hardcoded is available on Web",
       async () => {
+        module MockWebPlatform = {
+          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
+
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+
+          let resolveDownloadChannel = (_channel, _useCache) =>
+            async (_memento, _globalStorageUri, _platform) =>
+              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+
+          let download = (_globalStorageUri, _downloadDescriptor) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+
+          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
         let availableChannels = await State__SwitchVersion.Download.getAvailableChannels(
-          makeMockPlatform(),
+          module(MockWebPlatform),
         )
-        let shouldShowChannelSelector = Array.length(availableChannels) >= 2
-        Assert.deepStrictEqual(shouldShowChannelSelector, true)
+        Assert.deepStrictEqual(availableChannels, [Connection__Download.Channel.Hardcoded])
 
         let itemData: array<State__SwitchVersion.ItemData.t> =
           State__SwitchVersion.ItemData.entriesToItemData(
             [],
             None,
             [(false, "ALS v1.0.0", "native")],
-            ~showChannelSelector=shouldShowChannelSelector,
           )
 
         let hasSelectOtherChannels =
@@ -2758,7 +2780,6 @@ describe("State__SwitchVersion", () => {
             manager,
             downloadItems,
             ~downloadHeader,
-            ~showChannelSelector=true,
           )
           let items = State__SwitchVersion.Item.fromItemDataArray(itemData, state.extensionUri)
           view->State__SwitchVersion.View.updateItems(items)

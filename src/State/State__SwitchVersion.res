@@ -86,7 +86,6 @@ module ItemData = {
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
     ~downloadHeader: string="Download (channel: Hardcoded)",
-    ~showChannelSelector: bool=false,
   ): array<t> => {
     let hasEndpoints = Array.length(entries) > 0
 
@@ -120,11 +119,7 @@ module ItemData = {
         variant,
       ))
 
-    let channelItems = if showChannelSelector {
-      [SelectOtherChannels]
-    } else {
-      []
-    }
+    let channelItems = [SelectOtherChannels]
 
     let downloadSection =
       Array.concat(
@@ -311,7 +306,6 @@ module SwitchVersionManager = {
     self: t,
     downloadItems: array<(bool, string, string)>,
     ~downloadHeader: string="Download (channel: Hardcoded)",
-    ~showChannelSelector: bool=false,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
     let storedPath = Memento.PickedConnection.get(self.memento)
@@ -346,7 +340,6 @@ module SwitchVersionManager = {
       pickedPath,
       downloadItems,
       ~downloadHeader,
-      ~showChannelSelector,
     )
   }
 
@@ -1071,7 +1064,6 @@ module Handler = {
         manager,
         downloadItems,
         ~downloadHeader,
-        ~showChannelSelector=Array.length(availableChannels.contents) >= 2,
       )
 
       // Log selection marking for testing observability
