@@ -2256,6 +2256,29 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should reuse existing alias-equivalent endpoint key when registering",
+      async () => {
+        let state = createTestState()
+        let fsPath = mockAgda.contents
+        let uriPath = VSCode.Uri.file(fsPath)->VSCode.Uri.toString
+
+        await Memento.Endpoints.setVersion(
+          state.memento,
+          uriPath,
+          Memento.Endpoints.Unknown,
+        )
+
+        await State__SwitchVersion.Handler.ensureEndpointRegistered(state, fsPath)
+
+        Assert.deepStrictEqual(
+          Memento.Endpoints.get(state.memento, uriPath)->Option.map(e => e.endpoint),
+          Some(Memento.Endpoints.Agda(None)),
+        )
+        Assert.deepStrictEqual(Memento.Endpoints.get(state.memento, fsPath), None)
+      },
+    )
+
+    Async.it(
       "should mark at most one endpoint selected when URI and fsPath aliases coexist",
       async () => {
         let state = createTestState()

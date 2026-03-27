@@ -402,20 +402,20 @@ module SwitchVersionManager = {
       let probePromises = pathsToProbe->Array.map(async path => {
         switch await Connection.probeFilepath(path) {
         | Ok(_, IsAgda(agdaVersion)) =>
-          await Memento.Endpoints.setVersion(self.memento, path, Agda(Some(agdaVersion)))
+          await Memento.Endpoints.setVersionMatching(self.memento, path, Agda(Some(agdaVersion)))
           Some(path)
         | Ok(_, IsALS(alsVersion, agdaVersion, lspOptions)) =>
-          await Memento.Endpoints.setVersion(
+          await Memento.Endpoints.setVersionMatching(
             self.memento,
             path,
             ALS(Some((alsVersion, agdaVersion, lspOptions))),
           )
           Some(path)
         | Ok(_, IsALSWASM(_)) =>
-          await Memento.Endpoints.setVersion(self.memento, path, ALS(None)) // WASM version unknown
+          await Memento.Endpoints.setVersionMatching(self.memento, path, ALS(None)) // WASM version unknown
           Some(path)
         | Error(error) =>
-          await Memento.Endpoints.setError(
+          await Memento.Endpoints.setErrorMatching(
             self.memento,
             path,
             Connection__Error.Probe.toString(error),
@@ -485,13 +485,13 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     // update memento with discovered version information and display success message
     switch conn {
     | Agda(_, _, version) =>
-      await Memento.Endpoints.setVersion(
+      await Memento.Endpoints.setVersionMatching(
         state.memento,
         selectedPath,
         Memento.Endpoints.Agda(Some(version)),
       )
     | ALS(_, _, Some(alsVersion, agdaVersion, lspOptions)) =>
-      await Memento.Endpoints.setVersion(
+      await Memento.Endpoints.setVersionMatching(
         state.memento,
         selectedPath,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
@@ -499,7 +499,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     | ALS(_, _, None) => () // version still unknown, don't update memento
     | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
     | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, lspOptions)) =>
-      await Memento.Endpoints.setVersion(
+      await Memento.Endpoints.setVersionMatching(
         state.memento,
         selectedPath,
         Memento.Endpoints.ALS(Some(alsVersion, agdaVersion, lspOptions)),
@@ -743,19 +743,9 @@ module Handler = {
         selectedItem.label == expectedLabel
       }
 
-      switch Memento.Endpoints.get(manager.memento, selectedPath) {
-      | Some(entry) when matchesItemLabel((selectedPath, entry)) => Some(selectedPath)
-      | _ =>
-        let selectedCandidate = Candidate.make(selectedPath)
-        manager.entries
-        ->Dict.toArray
-        ->Array.findMap(((path, entry)) =>
-          if Candidate.equal(Candidate.make(path), selectedCandidate) && matchesItemLabel((path, entry)) {
-            Some(path)
-          } else {
-            None
-          }
-        )
+      switch Memento.Endpoints.findMatching(manager.memento, selectedPath) {
+      | Some((path, entry)) when matchesItemLabel((path, entry)) => Some(path)
+      | _ => None
       }
     | None => None
     }
@@ -763,16 +753,16 @@ module Handler = {
   // Unified function to handle hardcoded variant downloads (native / WASM)
   // Register endpoint only if missing or unknown (preserve known version metadata)
   let ensureEndpointRegistered = async (state: State.t, path: string) =>
-    switch Memento.Endpoints.get(state.memento, path) {
+    switch Memento.Endpoints.findMatching(state.memento, path) {
     | None =>
       let endpointType = SwitchVersionManager.inferEndpointType(path)
-      await Memento.Endpoints.setVersion(state.memento, path, endpointType)
-    | Some({endpoint: Unknown}) =>
+      await Memento.Endpoints.setVersionMatching(state.memento, path, endpointType)
+    | Some((_existingPath, {endpoint: Unknown})) =>
       let endpointType = SwitchVersionManager.inferEndpointType(path)
-      await Memento.Endpoints.setVersion(state.memento, path, endpointType)
-    | Some({endpoint, error: Some(_)}) =>
+      await Memento.Endpoints.setVersionMatching(state.memento, path, endpointType)
+    | Some((_existingPath, {endpoint, error: Some(_)})) =>
       // Clear error but preserve existing endpoint type
-      await Memento.Endpoints.setVersion(state.memento, path, endpoint)
+      await Memento.Endpoints.setVersionMatching(state.memento, path, endpoint)
     | Some(_) => ()
     }
 

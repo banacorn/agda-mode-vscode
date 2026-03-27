@@ -111,6 +111,8 @@ module Module: {
     }
 
   module Endpoints = {
+    module Candidate = Connection__Candidate
+
     type filepath = string // raw file path provided by the user or found in the system
     // what kind of endpoint the file path leads to?
     type endpoint =
@@ -156,10 +158,43 @@ module Module: {
       cache->Dict.get(filepath)
     }
 
+    let findMatchingInCache = (cache: Dict.t<entry>, filepath: filepath): option<(filepath, entry)> => {
+      switch cache->Dict.get(filepath) {
+      | Some(entry) => Some((filepath, entry))
+      | None =>
+        let candidate = Candidate.make(filepath)
+        cache
+        ->Dict.toArray
+        ->Array.findMap(((existingPath, entry)) =>
+          if Candidate.equal(Candidate.make(existingPath), candidate) {
+            Some((existingPath, entry))
+          } else {
+            None
+          }
+        )
+      }
+    }
+
+    let findMatching = (memento: t, filepath: filepath): option<(filepath, entry)> => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      findMatchingInCache(cache, filepath)
+    }
+
     let setVersion = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
       let entry = {endpoint, timestamp: Date.make(), error: None}
       cache->Dict.set(filepath, entry)
+      await memento->set(key, cache)
+    }
+
+    let setVersionMatching = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let keyToUpdate = switch findMatchingInCache(cache, filepath) {
+      | Some((existingPath, _)) => existingPath
+      | None => filepath
+      }
+      let entry = {endpoint, timestamp: Date.make(), error: None}
+      cache->Dict.set(keyToUpdate, entry)
       await memento->set(key, cache)
     }
 
@@ -171,6 +206,17 @@ module Module: {
       }
       let entry = {endpoint: existingEndpoint, timestamp: Date.make(), error: Some(error)}
       cache->Dict.set(filepath, entry)
+      await memento->set(key, cache)
+    }
+
+    let setErrorMatching = async (memento: t, filepath: filepath, error: string): unit => {
+      let cache = memento->getWithDefault(key, Dict.make())
+      let (keyToUpdate, existingEndpoint) = switch findMatchingInCache(cache, filepath) {
+      | Some((existingPath, existingEntry)) => (existingPath, existingEntry.endpoint)
+      | None => (filepath, Unknown)
+      }
+      let entry = {endpoint: existingEndpoint, timestamp: Date.make(), error: Some(error)}
+      cache->Dict.set(keyToUpdate, entry)
       await memento->set(key, cache)
     }
 
